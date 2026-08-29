@@ -1,0 +1,34 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+
+# Node
+node_modules/
+.next/
+out/
+
+# CDK / AWS
+infra/cdk.out/
+*.js.map
+
+# Local secrets and data
+.env
+.env.*
+!.env.example
+/workspace-data/
+computer/profile/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

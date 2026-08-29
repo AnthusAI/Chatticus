@@ -1,0 +1,123 @@
+# Product
+
+Chatticus is a roster of named AI teammates. You give a teammate a job. It
+works in real tools. It only interrupts you for approval or a human-only
+step.
+
+The surface is [chattic.us](https://chattic.us).
+
+## Bots
+
+A bot is a persistent, named teammate:
+
+- It has a name, a role, and durable memory.
+- It keeps conversation, preferences, and summaries of prior work.
+- Context compounds. It is not a fresh environment on every task.
+- Several bots can run in parallel and hand work to each other.
+
+Bots can message each other and pass ownership so the human is not the
+router between tools.
+
+## One computer per user
+
+Every bot on a user account uses the **same** computer:
+
+- Browser cookies and signed-in sessions are shared.
+- Files under `/workspace` are visible to every bot on that user.
+- Command-line credentials on that computer are shared.
+- One bot can continue from files another bot saved.
+
+The computer is isolated to the **user**, not to an individual bot. A login
+or file placed on the computer is available to all of that user's bots. Do
+not treat separate bots as a security boundary.
+
+Each bot gets its own **screen** on that computer. Screens are separate work
+surfaces, not separate security boundaries. One bot can run one computer-use
+task on its screen at a time.
+
+Ask bots to keep durable project files in `/workspace` with clear project
+folders. Treat temporary directories, manually installed packages, and
+uncommitted application state as replaceable.
+
+## Tools versus the browser
+
+Prefer a connector or MCP server when one exists. Structured tools are more
+reliable than clicking through a website.
+
+Use the computer's browser for services without a connector, or for visual
+workflows a connector does not expose.
+
+A site may still block automation, require a new login, present a CAPTCHA,
+or require human confirmation. The bot should hand those steps to the human
+rather than bypassing them.
+
+Installed connectors are account-wide. Their availability is not isolated to
+one bot.
+
+## Skills and routines
+
+A **skill** is a reusable set of instructions for how to do a task: when to
+use it, required inputs and access, the sequence of work, how to validate
+the result, what to return, and what requires approval.
+
+A **routine** tells one bot when to run a workflow: on a schedule, or after
+an event (for example a Slack message or a GitHub notification). Background
+routines can run while the laptop is closed.
+
+Start with a one-time task. Make it reliable. Save the method as a skill.
+Only then automate it.
+
+Teach-by-demonstration records visible computer interaction and turns it into
+a draft skill. The draft still needs decision rules, failure handling, and
+approval boundaries that may not be obvious from one example. Do not expose
+secrets during a demonstration.
+
+A useful routine states the owning bot, the schedule and time zone, the
+input source, the expected result, the approval boundary, and what happens
+when a source is missing. Include a no-data and stale-data policy. Make
+retries idempotent where possible.
+
+## Approvals and takeover
+
+An approval controls a **proposed** action. It does not reverse work already
+completed.
+
+Keep behind approval:
+
+- sending messages or invitations
+- publishing content
+- purchases and financial transfers
+- deleting or overwriting data
+- changing permissions
+- production changes
+- accepting legal terms
+
+Auto-review rules can require approval, always allow, or never allow matching
+actions. If both a require-approval rule and an always-allow rule match,
+require-approval wins. Write narrow rules. Broad rules such as "allow
+everything in the browser" are not acceptable.
+
+For passwords, passkeys, two-factor codes, CAPTCHAs, payments, and identity
+checks, the bot hands over the computer. The human completes only the blocked
+step and returns control. Do not paste passwords or one-time codes into
+chat. A supported connector may present a masked secret request that is not
+added to the transcript and is not shown to the model.
+
+## Local device versus the Chatticus computer
+
+The Chatticus computer is the Linux workplace on a worker. The Mac or
+Windows machine in front of the human is a different machine.
+
+A bot runs commands on the local device only when that capability is
+enabled and the human's local-device policy allows it. Default is ask every
+time. Use never-allowed unless a bot has a specific reason to touch local
+files.
+
+## First handoff
+
+A good first task involves several tools and a clear result: pull a list,
+skip people already in a sequence, research the top accounts, draft messages
+in the user's voice, and leave drafts to approve by morning.
+
+The human reviews, corrects, and can turn the process into a skill or a
+routine.
