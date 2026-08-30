@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-d60d3394-7c0f-4acf-ab60-f4993f276415",
+  "title": "Make the README make sense to a new reader",
+  "description": "Rewrite README for first-time readers. Drop insider debate phrasing such as 'v1 still scales to zero'. Keep mermaid current vs goal diagrams and accurate facts.",
+  "type": "chore",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T20:19:52.328714Z",
+  "updated_at": "2026-08-30T20:19:52.328714Z",
+  "closed_at": null,
+  "custom": {}
+}
