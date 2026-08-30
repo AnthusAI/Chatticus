@@ -1,9 +1,9 @@
 Feature: Realtime API for chattic.us
   As the chattic.us web app
   I want a realtime API on the control plane
-  So that response tokens stream over an open socket
+  So that response tokens reach the browser as they are produced
   Without storing a message row per token
-  And without a managed GraphQL subscription bus
+  And without holding a socket that outlives the turn
 
   Scenario: A committed message is pushed on the realtime API
     Given an empty control plane

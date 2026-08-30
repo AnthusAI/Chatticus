@@ -1,82 +1,280 @@
-# Design challenges (open)
+# Design challenges
 
-Read this before adding a control-plane HTTP API, a message database,
-or a streaming path for chattic.us.
+Read this before adding a control-plane API, a message store, or a
+streaming path for chattic.us.
 
-Several of these look decided in `docs/MESSAGING.md`, Gherkin, or the
-in-memory kernel. They are **not**. That material is a sketch so we can
-talk. Do not add CDK, Postgres schemas, or a WebSocket service as if
-the answers below were picked.
+Challenges 1 and 2 are **decided**. Challenge 3 has a working model with
+open sub-questions. Challenge 4 is **open**.
 
-The computer image already scales to zero when idle. The **cloud API**
-is a different problem. It must be cheap when nobody is talking, and it
-must still stream tokens while somebody is.
+The reasoning is kept with each decision. A decision whose premise is not
+written down cannot be re-checked when the premise changes, and every
+premise here is one AWS price change or one product requirement away from
+moving.
+
+## How to record a rejection
+
+Every rejected option below says which kind of rejection it is:
+
+- **Shape.** The service cannot do the job, or can only do it through an
+  extra hop. Stable. Does not change when prices change.
+- **Cost.** The service can do the job and the arithmetic says no. Valid
+  only under stated assumptions. Write the assumption next to it.
+
+The first version of this document mixed the two. Three rejections that
+read as absolutes ("Lambda is for seconds-long work", "polling is too
+wasteful for tokens", "AppSync bills per update") were arithmetic
+conditioned on assumptions we then changed. Keep them separate so a
+future reader can tell what is settled from what is merely priced.
+
+Approximate prices appear below as orders of magnitude, current as of
+2026. Re-verify any number that is carrying an argument before it becomes
+a build decision.
 
 ## 1. Cloud API: scale to zero and stream
 
-**Need.** chattic.us (and later phones) call a cloud API. When a bot is
-generating, the client must receive tokens as they appear. When nobody
-is using Chatticus, we should not pay for an idle vCPU.
+**Decided.** No persistent sockets anywhere. The whole control plane
+bills per request and costs nothing when nobody is working.
 
-**Tension.** An open socket wants a process that stays up for the life
-of a tab or a turn. Scale-to-zero wants that process gone. Those two
-goals fight.
+### The shape
 
-**What is already rejected (cost or lifetime, not capability).**
+```
+browser  --POST /channels/{id}/messages-->  front door (per-request)
+                                              writes message, enqueues turn,
+                                              returns turn_id
 
-- AppSync (GraphQL realtime or Events) as the token pipe. It can hold
-  WebSockets. It bills per update. A model turn is hundreds or thousands
-  of tokens.
-- Lambda as the holder of the socket. Lambda is for seconds-long work.
-- API Gateway WebSocket plus Lambda. Same meter and lifetime problem.
-- A queue per token (SNS/SQS). Turns are queued. Tokens are not.
+browser  --GET /turns/{id}/stream (SSE)-->  streaming function
+                                              polls chunk buffer, writes frames
 
-**What is not rejected, and not chosen.**
+worker   --pull job (SQS)-->  runs model loop
+         --POST chunks-->     front door  -->  chunk buffer (TTL)
+```
 
-- One small always-on control-plane process (REST + socket).
-- Scale to zero between turns; wake on `POST` (Lambda or similar); hold
-  a process only while a turn is streaming.
-- SSE instead of WebSocket (read-only stream; approvals would need
-  another path).
-- Scale the **computer** to zero (already the Fargate default) while
-  the API is a separate, smaller object.
-- Local `docker-compose` as the API while developing, AWS later.
+| Piece | Choice | Idle cost |
+| --- | --- | --- |
+| HTTP front door | Per-request HTTP (API Gateway HTTP API, or a Lambda function URL behind CloudFront) | zero |
+| Live token stream | Server-sent events held by a streaming function, scoped to one turn | zero |
+| Rendezvous between worker and browser | DynamoDB items keyed by turn and sequence, with a TTL | near zero |
+| Turn jobs | SQS | zero |
+| Lifecycle events, routine wake-ups | EventBridge | zero |
+| Transcript | DynamoDB (see challenge 2) | near zero |
 
-**Do not.** Implement a control-plane service in CDK until this is
-picked with the humans who own the account. Placement, TLS, and how
-chattic.us reaches the API are part of the same conversation.
+**Never put a load balancer in front of this.** An Application Load
+Balancer has an hourly floor of roughly 16 to 18 dollars a month, which
+is more than the always-on container this design exists to avoid. The
+front door must be a service that bills per request and has no hourly
+charge. This is the single easiest way to accidentally build something
+more expensive than the thing it replaced.
 
-A sketch of events and reconnect lives in `docs/MESSAGING.md`. Treat
-it as a vocabulary (`turn.token`, `after=seq`), not as infra.
+### Why this works: the stream is scoped to a turn, not a tab
+
+This is the hinge, and it is what makes serverless viable at all.
+
+A socket that lives as long as a chat tab needs a process that lives as
+long as a chat tab. That fights scale-to-zero and cannot be reconciled.
+A stream that lives as long as **one turn** is a seconds-to-minutes
+request, which is exactly the shape a per-request runtime serves well.
+
+Consequences we accept:
+
+- A tab holding no active turn holds no connection. It learns about work
+  finished by a routine through device push, or a cheap "anything after
+  seq?" poll every 20 to 30 seconds. That was always the job of push;
+  see the notify path in [Messaging](MESSAGING.md).
+- A streaming function has a maximum duration (15 minutes on Lambda). A
+  turn can exceed it. The client reconnects with `after=seq` and a fresh
+  invocation resumes from the cursor.
+
+That second point is load-bearing rather than a fallback: because the
+stream **must** be resumable, the buffer behind it must be a readable
+store with per-reader cursors. That requirement is what decides the
+rendezvous below.
+
+### Why server-sent events instead of a WebSocket
+
+A WebSocket was previously chosen so approvals could travel back up the
+same connection. Approvals are rare and human-initiated; an ordinary
+`POST` serves them. Server-sent events are simpler through CloudFront,
+avoid an upgrade-time authentication path, and reconnect natively with a
+cursor, which is the `after=seq` replay we need anyway.
+
+Dropping the WebSocket also removes the **worker's** outbound socket.
+The worker POSTs coalesced chunks to the same front door. Two persistent
+connections deleted, not one.
+
+### Coalescing
+
+The worker does not emit one event per token. It flushes a chunk roughly
+every 250 milliseconds. This cuts event volume by more than an order of
+magnitude, makes the per-event cost of every option below negligible,
+and is invisible to a reader if the client renders each chunk smoothly
+across the following interval.
+
+Any per-event cost argument in this document assumes chunks, not tokens.
+
+### The rendezvous: why DynamoDB and not a delivery service
+
+With both ends ephemeral, the worker's chunks and the browser's stream
+have no shared memory to meet in. An always-on process gets this for
+free; that is the real thing serverless costs us here.
+
+| | fan out to N viewers | replay after reconnect | ordering | delivers to a waiting reader | zero at idle |
+| --- | --- | --- | --- | --- | --- |
+| EventBridge | yes | no | no | **no** | yes |
+| SQS | **no (consumes)** | **no** | FIFO only | yes (long poll) | yes |
+| DynamoDB, polled | yes | yes | yes (sort key) | no (poll) | yes |
+
+**EventBridge: rejected on shape.** It routes an event to a target, and
+a function target means a **new invocation**. There is no receive API
+and no way to deliver into the invocation already holding the stream.
+It would have to land in a store anyway, so it is strictly an extra hop.
+Delivery is also unordered, which garbles a token stream unless every
+reader re-sorts by sequence, which requires the sequence, which requires
+the store. Cost is not the objection: at chunk rates it is a fraction of
+a cent per turn.
+
+**SQS: rejected on shape.** A queue is a work queue, not a fan-out. It
+destroys a message on consume, so two tabs, or a laptop and a phone,
+would steal each other's chunks. Fixing that means a topic plus one
+queue per viewer, with queue lifecycle per viewer. Worse, a consumed
+queue cannot be re-read, and the 15-minute reconnect above requires
+re-reading.
+
+**Kinesis: rejected on cost.** A shard has an hourly floor, roughly 11
+dollars a month for one shard. It breaks zero on its own.
+
+**AppSync: rejected on cost, and now on shape.** The original arithmetic
+was per token and does not survive coalescing; at chunk rates it would
+be affordable. It is rejected now because it is a managed WebSocket, and
+this design has no WebSockets in it.
+
+DynamoDB loses exactly one column in that table, the waiting reader, and
+pays for it with up to 250 milliseconds of jitter that the client
+smooths over. The other two lose columns that cannot be bought back.
+
+**Polling is the price of not holding a socket, and it is cheap.** The
+earlier objection ("polling the message store is too slow and wasteful
+for tokens") was about the **browser** polling. A function inside AWS
+querying one partition by sort key every 250 milliseconds is a different
+cost and latency profile entirely: fractions of a cent per turn.
+
+### The invariant that keeps this safe
+
+> The stream is ephemeral and fully re-derivable from the store. The
+> work is durable and never depends on anyone watching.
+
+A turn runs to completion whether or not a browser is attached. The
+stream is a **view**, never a participant. Hold this and scale-to-zero
+cannot cost correctness. Break it once, by letting the stream carry
+state not recoverable through `after=seq`, and every reconnect becomes a
+bug.
+
+This invariant is also what preserves the product promise that closing
+the laptop does not stop work.
+
+### Why the spin-up cost is acceptable
+
+The computer container already cold-starts: image pull plus Chromium
+boot, tens of seconds. A function cold start of about a second is noise
+against that. Under `prefer_local`, when the garage Mac is on the worker
+is already warm and the only cold thing is the front door. We are not
+adding latency to the critical path; the critical path was always the
+computer.
+
+The interface should say so honestly. "Starting your computer" is a
+real state, not dead air.
+
+### Why we chose this over one small always-on process
+
+An always-on container plus a small managed database is roughly 25 to 30
+dollars a month, and it is genuinely simpler: the rendezvous is a
+variable in memory and there is no polling seam.
+
+The saving alone does not justify the extra moving parts. **The reason
+is the multi-tenant seam.** A per-request control plane goes from one
+household to many at near-linear marginal cost, with no capacity
+planning and no idle floor per tenant. v1 is one household but the
+protocol is tenant-aware precisely so it can serve others without a
+rewrite; the runtime should match.
+
+Adopt this as a principle -- **nothing bills while nobody is working** --
+or not at all. As a cost optimization it is marginal, and the cost
+framing will lose the argument the first time the polling seam is
+annoying.
+
+### Still open
+
+Placement details, which are configuration rather than architecture:
+
+- Which per-request front door (API Gateway HTTP API against a function
+  URL behind CloudFront).
+- How chattic.us reaches it: same origin, `api.chattic.us`, or a
+  CloudFront behavior. TLS and session handling on the stream request.
+- How workers authenticate their chunk POSTs.
+- Whether local `docker-compose` runs a single process standing in for
+  the front door while developing.
 
 ## 2. Storing messages
 
-**Need.** A durable transcript the web app can reload. `tenant_id` on
-every row. The computer snapshot is not the chat log.
+**Decided: DynamoDB.** Not a relational database.
 
-**Not decided.**
+### Why this was not an independent decision
 
-- Postgres vs something else as source of truth.
-- One table of append-only messages vs another shape.
-- What is a **channel** vs a 1:1 thread vs a bot-only side conversation.
-- Whether blobs (screenshots) live in S3 keyed off the transcript, or
-  elsewhere.
-- Schema, indexes, and who is allowed to write (only the control plane).
+A relational instance is always on and has a monthly floor. Keeping one
+would break "nothing bills while nobody is working" no matter how
+serverless the compute is: the database, not the compute, is what
+silently keeps the meter running.
 
-The in-memory `ControlPlane` methods (`create_thread`, `post_message`)
-and `features/messages.feature` are a protocol doodle. They must not
-drive a migration.
+So challenge 1 largely decided challenge 2. Recording that coupling
+matters: if the scale-to-zero principle is ever abandoned, this choice
+should be revisited rather than inherited.
+
+### Why it is a good fit anyway, not just a forced one
+
+The transcript is an append-only stream keyed by channel and a
+monotonic sequence, read as "everything after seq". That is a partition
+key, a sort key, and a range query. Compaction by appending a summary is
+the same pattern again: one query backwards to the latest summary, one
+forwards for the tail.
+
+The parts that feel relational -- bots, approval rules, routines -- are
+small, low-traffic, and single-household. Ad-hoc joins across them are
+where a relational store would earn its keep, and for one household
+there are not many.
+
+### One store, two lifetimes
+
+In-flight chunks and committed messages are the same technology,
+differing only by TTL:
+
+| Item | Lifetime | Written by |
+| --- | --- | --- |
+| Turn chunk | TTL, hours | Worker, through the front door |
+| Committed message | Permanent | Control plane, at `turn.completed` |
+
+Live tail and history replay become nearly the same query shape against
+the same key structure. This rhymes with compaction in challenge 3: one
+stream, two read recipes; here, one store, two lifetimes.
+
+**Keep the two item types distinguishable** -- a separate item type, or
+an adjacent table -- so "messages are immutable and permanent" stays a
+clean invariant instead of one with an asterisk about the rows that
+vanish.
+
+### Still open
+
+- The exact key structure, and whether chunks share a table with
+  messages or sit beside them.
+- Whether bots, approval rules, and routines share the table or get
+  their own.
+- Screenshot and attachment handling: S3 objects referenced from the
+  transcript, never bytes through the API.
+- `tenant_id` is required on every item. How it participates in the key
+  is not settled.
 
 ## 3. Compacting conversations
 
-**Need.** Bots keep context. A channel that runs for months cannot be
-stuffed into every model call. The human still wants to scroll history.
-
-**Working model: non-destructive compaction on an immutable stream.**
-
-This is the mechanism we will think with together. It is a Chatticus
-working model, not something we copy out of another repo. The stream
-only grows. A compact is another append, never a rewrite.
+**Working model stands: non-destructive compaction on an immutable
+stream.** A compact is another append, never a rewrite.
 
 1. Messages are an **immutable stream**. Once written, a message is not
    edited or deleted. The store only appends.
@@ -104,18 +302,25 @@ human scroll: m1 .. m6
 That is **one stream, two read recipes**, not two stores. Do not add a
 second compacted table that can drift from the log.
 
-**Still open.**
+### Still open
 
 - Who writes the summary (a dedicated turn, the control plane, a
   nightly job).
 - When to compact (token budget, message count, idle time).
 - What a summary contains (prose, structured facts, both).
-- How a summary is itself a participant in the next compact.
+- **How a summary participates in the next compact.** Because the model
+  view is "latest summary plus tail", every new summary is built from a
+  previous summary plus messages, so summaries compound, and they
+  compound lossily. This is the question that decides whether the model
+  holds up over months. Answer it before the store lands, not after.
+- Whether summaries are visible in the human scroll or collapsed.
 
-Do not implement a summarizer loop until the store exists. When it
-does, compact by appending, never by mutating.
+Compaction is non-destructive: append a summary, never rewrite the
+stream. Do not implement a summarizer loop until the store exists.
 
 ## 4. Direct bot-to-bot and channels
+
+**Open.**
 
 **Need.** Several named bots on one user. They must be able to talk
 without the human being the router. The human should be able to watch
@@ -128,29 +333,43 @@ in the room). Do not import third-party product names for this.
 - Is a channel the same object as a thread, or a room that contains
   threads.
 - Does addressing a bot in a channel enqueue a turn (same as a human
-  @-mention), or is there a separate A2A bus.
+  mention), or is there a separate bot-to-bot bus.
 - Must every bot-to-bot line be visible in the channel the human has
   open, or are there private bot side-channels.
 - How files move: path in `/workspace` (shared computer) vs attachment
   in the channel.
-- Ordering when two bots run at once in one channel.
+
+**Settled by challenge 1, and no longer open here:**
+
+- **Ordering when two bots run at once in one channel.** The control
+  plane assigns `seq` at commit, so order within a channel is already
+  total. What remains is a rendering question -- two live token streams
+  interleaving in one open tab, which wants per-turn lanes in the web
+  app. It does not constrain the store.
 
 Bots must not HTTP-call each other. Workers pull jobs. That constraint
 stands even while the channel model is open.
 
 A sketch (one thread, `addressed_to_bot_id` enqueues a turn, human sees
-the same rows) is in `docs/MESSAGING.md`. It is one candidate, not the
-architecture.
+the same rows) is in [Messaging](MESSAGING.md). It is one candidate, not
+the architecture.
 
 ## How to work on this
 
-- Put behavior changes in Gherkin only when the humans have picked a
-  path. Until then, discuss in this file and in chat.
-- Compaction, if we compact at all, is non-destructive: append a
-  summary, never rewrite the stream. See section 3.
-- Do not treat `docs/MESSAGING.md` as locked. Update this file when a
-  challenge is actually decided, then implement.
+- Challenges 1 and 2 are decided. [Messaging](MESSAGING.md) now
+  describes that design rather than sketching options. Build against it.
+- Challenge 4 is open. Put channel behavior in Gherkin only when the
+  humans have picked a path. Until then, discuss here and in chat.
+- The messaging kernel in `python/src/chatticus/` and
+  `features/messages.feature` predate these decisions. They encode a
+  transport-agnostic protocol that survives, but they are not yet the
+  DynamoDB and server-sent-events design. Do not treat them as either
+  the schema or the transport.
+- No persistent sockets. If a proposal needs one, it is wrong for this
+  architecture; say so and find the turn-scoped version.
+- Every new rejection states whether it is shape or cost, and a cost
+  rejection states its assumption.
 - Do not name other vendors' agent products in Chatticus docs, bots, or
   protocol types.
 - Computers, snapshots, and prefer-local routing are a different layer.
-  They can keep moving. Do not block them on the cloud API.
+  They keep moving independently.

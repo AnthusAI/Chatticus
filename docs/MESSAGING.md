@@ -1,29 +1,36 @@
-# Messages and the realtime API
+# Messages and the cloud API
 
-**This file is a sketch.** The live open problems — scale-to-zero vs
-streaming, the message store, compaction, and channels — are in
-[Design challenges](DESIGN_CHALLENGES.md). Do not add CDK or a database
-schema from what follows.
+This describes the decided design for the transcript and the streaming
+path. The reasoning behind each choice, including what was rejected and
+why, is in [Design challenges](DESIGN_CHALLENGES.md). Channels and
+bot-to-bot addressing are still open there; treat the thread model below
+as one candidate for that part.
 
 Chattic.us is a conversation surface. The control plane is the only
-process that writes the transcript and the only process the browser talks
+thing that writes the transcript and the only thing the browser talks
 to. Workers never notify the web app. Bots never HTTP-call each other.
+
+**There are no persistent sockets in Chatticus.** Not from the browser,
+not from the worker. Everything is a request, and the longest-lived
+request is one turn.
 
 ## Message store
 
-Postgres is the source of truth for conversations. S3 holds blobs
+DynamoDB is the source of truth for conversations. S3 holds blobs
 (screenshots, attachments). The computer snapshot is not the chat log.
 
 A **thread** is one conversation. It belongs to one `tenant_id` and one
 user. Participants are that human and one or more of that user's bots.
 
-**Messages** are append-only. Each thread has a monotonically increasing
-`seq`. Clients reconnect with `GET /threads/{thread_id}/messages?after=seq`.
-Edits and deletes are out of scope for v1.
+**Messages are append-only.** Each thread has a monotonically increasing
+`seq`, assigned by the control plane at commit, which makes order within
+a thread total. Clients reconnect with
+`GET /threads/{thread_id}/messages?after=seq`. Edits and deletes are out
+of scope for v1.
 
 | Field | Role |
 | --- | --- |
-| `tenant_id` | Isolation. Required on every row. |
+| `tenant_id` | Isolation. Required on every item. |
 | `seq` | Per-thread order. Replay cursor. |
 | `author_kind` | `human` or `bot` |
 | `author_id` | `user_id` or `bot_id` |
@@ -31,7 +38,23 @@ Edits and deletes are out of scope for v1.
 | `addressed_to_bot_id` | If set, the control plane enqueues a turn for that bot |
 
 Files stay on the shared computer. A message may name a path under
-`/workspace`. It does not copy the file into Postgres.
+`/workspace`. It does not copy the file into the transcript.
+
+### In-flight chunks live in the same store, with a TTL
+
+A turn's partial output is not a message. It is a short-lived item keyed
+by turn and sequence, carrying a TTL of hours, written by the worker and
+read by whatever is streaming. At `turn.completed` the control plane
+commits **one** message row with the joined text; the chunks then expire
+on their own.
+
+| Item | Lifetime | Written by |
+| --- | --- | --- |
+| Turn chunk | TTL, hours | Worker, through the front door |
+| Committed message | Permanent | Control plane, at `turn.completed` |
+
+Keep the two item types distinguishable so "messages are immutable and
+permanent" has no asterisk. Do not insert a message row per token.
 
 ## Bot to bot
 
@@ -47,47 +70,60 @@ protocol.
 
 The human is not the router. The human still sees the same thread.
 
-## Realtime API
+## The cloud API
 
-The web app needs tokens as the worker produces them. That is a
-**realtime API** on the control plane: an open WebSocket from chattic.us
-to a long-lived control-plane process.
+Nothing bills while nobody is working. The API is per-request, and the
+only thing that lives longer than a request is a turn.
 
 ```
-Worker  --outbound WS-->  Control plane  --realtime API WS-->  chattic.us
-                              |
-                              v
-                           Postgres
-                      (committed messages)
+browser  --POST /threads/{id}/messages-->  front door
+                                             commit message, enqueue turn,
+                                             return turn_id
+
+browser  --GET /turns/{id}/stream------->  streaming function
+              (server-sent events)           polls chunks, writes frames
+
+worker   --pull job (SQS)--------------->  runs the model loop
+         --POST chunks----------------->  front door --> chunk items (TTL)
 ```
 
-The worker already streams to the control plane over an outbound
-connection. The control plane fans those events out to subscribed
-browsers. The browser never reaches a worker.
+The front door bills per request and has no hourly floor: an API Gateway
+HTTP API, or a function URL behind CloudFront. **Never a load balancer.**
+An ALB's hourly floor costs more than the always-on container this design
+exists to avoid.
 
 ### How the web app is notified
 
-An open chat tab is notified by **the socket**, not by a push.
+1. The browser POSTs a message and gets back a `turn_id`.
+2. It opens `GET /turns/{turn_id}/stream` and reads server-sent events.
+3. The worker pulls the job, runs the model loop, and POSTs coalesced
+   chunks (roughly every 250 milliseconds, not one per token).
+4. The streaming function polls for chunks after its cursor and writes
+   them out as events.
+5. On `turn.completed` one message row is committed. The client reloads
+   or reconciles with `GET .../messages?after=seq`.
 
-1. chattic.us opens the realtime API WebSocket and subscribes to a
-   thread.
-2. The worker sends a token to the control plane (outbound, already).
-3. The control plane emits `turn.token` to every subscription on that
-   thread.
-4. The browser appends the token to the in-progress reply.
-5. On `turn.completed`, one message row is committed. If the socket
-   dropped, the client calls `GET .../messages?after=seq` and
-   resubscribes.
+The stream is scoped to **one turn**, not to the tab. Between turns the
+browser holds nothing open, which is what lets the whole system reach
+zero. A tab with no active turn learns about work finished by a routine
+through device push, or a cheap "anything after seq?" poll every 20 to
+30 seconds. Push cannot carry a token stream; it is only "come back,
+something finished".
 
-That is the whole notify path while someone is watching. Device push
-(web push, APNs, FCM) is only for "come back, something finished" when
-no tab is open. It cannot carry a token stream. Polling the message
-store is too slow and wasteful for tokens.
+Streaming functions have a maximum duration (15 minutes on Lambda). A
+longer turn ends the stream; the client reconnects with `after=seq` and
+a fresh invocation resumes. Reconnect is a normal event, not an error
+path.
 
-Where we **run** the process that holds `/ws` is a placement question
-(one household control-plane task, later more than one). It is not a
-second notify design. Do not introduce AppSync, Lambda sockets, or a
-queue-per-token to solve this.
+The client should render each chunk smoothly across the following
+interval. The up-to-250-millisecond delivery jitter is then invisible.
+
+### Approvals travel by POST
+
+Approvals are rare and human-initiated, so they do not need a duplex
+connection. `approval.required` arrives on the stream (or on the next
+poll); the human's decision is an ordinary POST. This is why
+server-sent events are sufficient and a WebSocket is not needed.
 
 ### Events
 
@@ -95,70 +131,62 @@ queue-per-token to solve this.
 | --- | --- | --- |
 | `thread.message.created` | A row is committed | yes, that row |
 | `turn.started` | A bot turn begins streaming | no |
-| `turn.token` | One token (or a small coalesced chunk) | no |
-| `turn.completed` | Tokens are joined into one row | yes, one row |
-| `approval.required` | Later, same socket | the proposal, not the action |
+| `turn.token` | One coalesced chunk | no |
+| `turn.completed` | Chunks are joined into one row | yes, one row |
+| `approval.required` | A proposed action is blocked | the proposal, not the action |
 
-Do not insert a message row per token. Coalesce the stream into one
-message when the turn completes. If the socket drops mid-turn, the
-client replays with `after=seq` and resubscribes. In-flight tokens are
-not in the message list until `turn.completed`.
+### The invariant
 
-### What the realtime API is not
+> The stream is ephemeral and fully re-derivable from the store. The
+> work is durable and never depends on anyone watching.
 
-The socket is held by the **control-plane process** (the same process
-that commits messages). FastAPI can serve both REST and `/ws`. Where
-that process runs is placement, not a second notify design.
+A turn runs to completion whether or not a browser is attached. The
+stream is a view, never a participant. If the stream ever carries state
+that cannot be recovered through `after=seq`, reconnect becomes a bug
+and the guarantee that closing the laptop does not stop work is gone.
 
-Do not put this on:
+### What the cloud API is not
 
-- **AppSync.** It can hold WebSockets. It meters the wrong thing. GraphQL
-  realtime is about **$2 per million outbound updates** plus connection
-  minutes; the Events API is about **$1 per million operations**, and a
-  publish, each subscriber delivery, connects, and pings all count.
-  A model turn is hundreds or thousands of tokens. Billing per token (or
-  per 5 KB chunk) is the expensive part, not the socket. AppSync is a
-  fit for low-volume signals ("approval ready"). It is not a token
-  pipe. We will not add it for chattic.us streaming.
-- **Lambda.** Lambda is for seconds-long HTTP. It is the wrong runtime for
-  an open socket that lives as long as a chat tab.
-- **API Gateway WebSocket plus Lambda.** Same cost and lifetime problem.
-  The gateway is not the fan-out; a process that already has the event is.
-- **SNS or SQS per token.** Too chatty. Queue turns. Fan out tokens
-  in-process (v1 household) or with Postgres `LISTEN/NOTIFY` when there
-  is more than one control-plane task.
+- **No WebSocket**, browser-side or worker-side. A socket that lives as
+  long as a chat tab needs a process that lives as long as a chat tab,
+  which is the thing we are avoiding.
+- **No load balancer.** Hourly floor, no idle scaling.
+- **No EventBridge or SQS in the token path.** Both are the wrong shape:
+  EventBridge cannot deliver into the invocation already holding the
+  stream, and SQS consumes on delivery so it can neither fan out to two
+  viewers nor be re-read on reconnect. See
+  [Design challenges](DESIGN_CHALLENGES.md) for the full comparison.
+- **No relational instance.** An always-on database would keep the meter
+  running no matter how serverless the compute is.
 
-SSE is acceptable later as a read-only fallback. The v1 API is a
-WebSocket so the same connection can carry approvals the other way.
+EventBridge is right for coarse, per-turn signals where a second of
+latency is invisible: routine wake-ups, starting a worker, and
+`turn.completed` fanning out to device push. The line is: route what you
+would wait a second for; buffer what you are rendering live.
 
-### HTTP vs the socket
+### HTTP surface
 
 | Path | Use |
 | --- | --- |
 | `POST /threads` | Open a thread |
-| `POST /threads/{id}/messages` | Human (or bot) commits a message |
+| `POST /threads/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if it enqueues a turn |
 | `GET /threads/{id}/messages?after=seq` | History and reconnect |
-| `GET /ws` (realtime API) | Live events for a subscribed thread |
+| `GET /turns/{id}/stream` | Server-sent events for one turn |
+| `POST /turns/{id}/chunks` | Worker appends coalesced output |
+| `POST /approvals/{id}` | Human decides a blocked action |
 
-Lambda may terminate some REST calls later. It does not hold `/ws`.
-Whether household REST goes through Lambda at all is part of
-placement, not the notify design.
+## Still open
 
-## Placement (not decided)
+These are placement and configuration, not architecture:
 
-The kernel fans events out in-process. That does not choose a host.
+- Which per-request front door, and how chattic.us reaches it: same
+  origin, `api.chattic.us`, or a CloudFront behavior.
+- TLS and session handling on the stream request.
+- How workers authenticate chunk POSTs.
+- Whether local `docker-compose` runs one process standing in for the
+  front door while developing.
+- The DynamoDB key structure, and whether chunks share a table with
+  messages. See [Design challenges](DESIGN_CHALLENGES.md).
 
-What we still need to pick, together:
-
-- **Process shape.** One FastAPI process for REST and `/ws` (simpler),
-  or Lambda for REST and a second service for the socket (more CDK, two
-  auth paths).
-- **Where it runs in v1.** `docker-compose` on the laptop first; then a
-  small always-on AWS task so a phone can keep the socket; or something
-  else you already have in mind.
-- **How chattic.us reaches it.** Same origin, `api.chattic.us`, CloudFront
-  behavior, TLS, session on the WebSocket upgrade.
-- **How workers reach it.** Outbound from the computer host into that
-  same process (or via SQS for jobs and a socket for tokens).
-
-Do not add a CDK service for this until that conversation lands.
+Do not add a CDK control-plane stack until the placement questions
+above are answered.

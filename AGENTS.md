@@ -20,8 +20,9 @@ xAI client. The model vendor is not the product name.
 ## Layout
 
 - `docs/` — product, architecture, stack, roadmap, messaging. Read
-  `docs/DESIGN_CHALLENGES.md` before adding a cloud API, message store,
-  or streaming path. Those problems are open.
+  `docs/MESSAGING.md` before adding a cloud API, message store, or
+  streaming path, and `docs/DESIGN_CHALLENGES.md` for why it is shaped
+  that way and what is still open.
 - `features/` — shared Gherkin. Behavior changes start here.
 - `python/` — control plane, scheduler, roster, approvals, later agent and
   worker processes.
@@ -58,12 +59,30 @@ Do not declare worker-protocol work done if `behave` or `pytest` is failing.
 
 Do not put the agent loop, computer use, or the display on Lambda.
 
-Lambda is allowed for HTTP, auth callbacks, inbound webhooks, and scheduled
-wake-ups. Lambda is not allowed to hold a socket that streams tokens for
-the life of a chat tab. Do not add AppSync as that stream (it bills per
-update). How the cloud API scales to zero **and** streams is an open
-design challenge; see `docs/DESIGN_CHALLENGES.md`. Do not add a CDK
-control-plane service until that is picked.
+Lambda is allowed for HTTP, auth callbacks, inbound webhooks, scheduled
+wake-ups, and holding one turn's server-sent event stream.
+
+## The cloud API
+
+There are no persistent sockets in Chatticus. Do not add a WebSocket,
+browser-side or worker-side. Do not add AppSync. Do not put a load
+balancer in front of the API; its hourly floor exceeds the always-on
+container the design avoids.
+
+A stream is scoped to **one turn**, never to a chat tab or a login
+session. That distinction is what lets the control plane be per-request.
+If a proposal needs a connection that outlives a turn, it is wrong for
+this architecture.
+
+The transcript is DynamoDB. Do not add a relational instance or write a
+schema migration; an always-on database breaks scale-to-zero.
+
+EventBridge and SQS are not in the token path. EventBridge is for
+routine wake-ups, worker starts, and device push. SQS is for turn jobs.
+
+See `docs/MESSAGING.md` for the design and `docs/DESIGN_CHALLENGES.md`
+for the reasoning. Do not add a CDK control-plane stack until the
+placement questions listed there are answered.
 
 The computer is the Ubuntu image in `computer/`. The same image must remain
 runnable on Fargate, EC2, and local Docker.

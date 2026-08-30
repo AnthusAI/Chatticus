@@ -8,11 +8,12 @@ household. Every record still carries `tenant_id`.
 
 ```
     User at chattic.us
-        |  cloud API (shape open)
+        |  POST to a per-request front door
+        |  server-sent events for one turn
         v
-Control plane (AWS)
-  auth, bots, approvals
-  scheduler, SQS, EventBridge
+Control plane (AWS, serverless)
+  auth, bots, approvals, transcript
+  scheduler, SQS, EventBridge, DynamoDB
         |
         |  turn jobs (pull)
         v
@@ -29,11 +30,17 @@ Control plane (AWS)
 ```
 
 The control plane accepts work, stores tenant state, and enqueues turns.
-It does not run the model loop and it does not own a display. How it
-exposes a cloud API and a transcript is [open](DESIGN_CHALLENGES.md).
+It does not run the model loop and it does not own a display.
+
+The control plane is **serverless and holds no persistent sockets**. It
+bills per request and costs nothing when nobody is working. The browser
+POSTs messages and reads one turn's output as server-sent events. See
+[Messaging](MESSAGING.md) for that design and
+[Design challenges](DESIGN_CHALLENGES.md) for why.
 
 Workers register, heartbeat, pull matching jobs, call the model, execute
-tools on their computer, and stream events back over an outbound WebSocket.
+tools on their computer, and POST coalesced output chunks back to the
+same front door. A worker holds no outbound socket either.
 
 ## Worker protocol
 
@@ -123,11 +130,11 @@ See [Computer snapshots](COMPUTER_SNAPSHOTS.md).
 
 | Concern | Store |
 | --- | --- |
-| Bots, memory, skills, routines, approval rules | Postgres (RDS) is the likely home; not locked |
-| Transcript, channels, compaction | Open. See [Design challenges](DESIGN_CHALLENGES.md) |
-| Token stream to chattic.us | Open (must stream; should not pay AppSync rates or hold Lambda) |
+| Bots, memory, skills, routines, approval rules | DynamoDB |
+| Transcript (append-only messages, compaction summaries) | DynamoDB |
+| In-flight turn chunks | DynamoDB items with a TTL, polled by the streaming function |
 | Turn jobs, heartbeats | SQS + scheduler records |
-| Routine wake-ups | EventBridge |
+| Routine wake-ups, worker starts, `turn.completed` to device push | EventBridge |
 | `/workspace` and browser profile | S3 snapshot (canonical); local volume, EBS, or EFS as a cache on the current host |
 | Secrets | Secrets Manager |
 | Object files / artifacts | S3 |
@@ -147,10 +154,12 @@ The model loop runs **on the worker**:
    Amazon Bedrock is a later option. The agent talks to a provider interface,
    not a vendor-specific SDK from the rest of the loop.
 3. Execute tool calls on the worker (or pause for approval).
-4. Stream tokens, screenshots, and approval cards to the control plane
-   over an outbound connection. How the web app is notified is open.
-5. Persist bot memory via the control plane. Transcript persistence is
-   open; see [Design challenges](DESIGN_CHALLENGES.md).
+4. POST coalesced output chunks (roughly every 250 milliseconds, not one
+   per token), screenshots, and approval cards to the control-plane front
+   door. Screenshots go to S3 and are referenced, not sent as bytes
+   through the API.
+5. Persist bot memory and the committed message via the control plane.
+   One message row is written at `turn.completed`, never one per token.
 
 Provider-hosted tools (if the vendor offers them) may run on the provider.
 Custom tools and computer actions always run on the worker.
@@ -168,8 +177,9 @@ rule.
 
 The web app at chattic.us is the human surface: bot roster, chat, approval
 cards, and a computer preview. It talks only to the control plane. It
-does not reach workers directly. How that API streams tokens and stores
-channels is [open](DESIGN_CHALLENGES.md).
+does not reach workers directly. It POSTs messages and reads one turn at
+a time over server-sent events; it holds nothing open between turns. See
+[Messaging](MESSAGING.md).
 
 ## v1 tenancy
 

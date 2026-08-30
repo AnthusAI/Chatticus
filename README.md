@@ -48,9 +48,9 @@ The control plane never logs into the garage. Workers **pull**.
    capabilities and an optional `computer_id` pin.
 3. The scheduler prefers a healthy **local** worker, then an already-warm AWS
    computer, then a cold-start Fargate task.
-4. The worker runs the model loop on that machine and streams tokens,
-   screenshots, and approval cards back over an outbound connection. How
-   chattic.us receives those tokens is [open](docs/DESIGN_CHALLENGES.md).
+4. The worker runs the model loop on that machine and POSTs coalesced
+   output chunks, screenshots, and approval cards back to the
+   control-plane front door. It holds no outbound socket.
 5. If the garage Mac is off, AWS still runs the computer. If it is on, AWS
    compute spend drops to near zero.
 
@@ -74,8 +74,29 @@ The Chatticus computer is a long-lived Linux container:
 - a browser-based display for watch and human takeover
 
 Lambda **is** used for short control-plane edges: HTTP, auth callbacks,
-inbound webhooks, and "wake a routine". It is **not** used for the agent
-loop, computer use, or the display.
+inbound webhooks, "wake a routine", and holding one turn's event stream.
+It is **not** used for the agent loop, computer use, or the display.
+
+## The cloud API scales to zero
+
+There are no persistent sockets in Chatticus. The browser POSTs a
+message and reads that turn's output as server-sent events; between
+turns it holds nothing open. The worker POSTs coalesced chunks rather
+than holding a socket of its own.
+
+A stream scoped to **one turn** is request-shaped, so the whole control
+plane can bill per request and cost nothing when nobody is working. The
+computer already scales to zero; now the API does too.
+
+The principle is: nothing bills while nobody is working. The reason is
+not the monthly saving, which is small for one household. It is that a
+per-request control plane serves many tenants at near-linear marginal
+cost with no idle floor per tenant, which is where the tenant-aware
+protocol is headed.
+
+See [Messaging](docs/MESSAGING.md) for the design and
+[Design challenges](docs/DESIGN_CHALLENGES.md) for the reasoning,
+including what was rejected and why.
 
 ## Persistence
 
@@ -89,8 +110,9 @@ container move. See [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md).
 
 | State | Where it lives |
 | --- | --- |
-| Bot memory, skills, routines | Postgres (likely; not locked) |
-| Channels, transcript, live tokens | Open. See [Design challenges](docs/DESIGN_CHALLENGES.md) |
+| Bot memory, skills, routines | DynamoDB |
+| Transcript (append-only messages) | DynamoDB |
+| In-flight turn chunks | DynamoDB, with a TTL; they expire after the turn commits |
 | `/workspace` and browser profile | S3 snapshot; local volume / EBS / EFS as a host cache |
 | Secrets | AWS Secrets Manager, never in the image |
 
@@ -120,8 +142,9 @@ The only implemented product code is the in-memory control plane
 (`python/src/chatticus/`) and the snapshot packer
 (`python/src/chatticus/snapshot/`). There is no HTTP API, no model loop, no
 computer agent, and no web app yet. Postgres in `docker-compose.yml`
-is not used by the kernel. Messaging helpers in the kernel are a sketch;
-see [Design challenges](docs/DESIGN_CHALLENGES.md).
+is unused and predates the DynamoDB decision. Messaging helpers in the
+kernel are a transport-agnostic sketch, not the DynamoDB and
+server-sent-events design; see [Messaging](docs/MESSAGING.md).
 
 ```bash
 cd python

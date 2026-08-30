@@ -24,7 +24,7 @@ The snapshot is only the **durable workplace**:
 | `/workspace` | yes | |
 | Chromium profile (cookies, logins) | yes | |
 | Image layers / apt packages | | registry image; treat extra packages as replaceable |
-| Bot memory, chats, skills | | Postgres |
+| Bot memory, chats, skills | | DynamoDB |
 | Secrets | | Secrets Manager |
 
 Canonical layout:
