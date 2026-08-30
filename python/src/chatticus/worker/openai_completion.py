@@ -14,17 +14,20 @@ DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
 _OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
 
 
-def repository_root() -> Path:
-    """Return the Chattic.us repository root that holds ``.env``."""
+def repository_root() -> Path | None:
+    """Return the Chattic.us repository root that holds ``.env``, if present."""
     for parent in Path(__file__).resolve().parents:
         if (parent / ".env.example").is_file():
             return parent
-    raise RuntimeError("Could not locate the Chattic.us repository root.")
+    return None
 
 
 def load_local_env() -> None:
     """Load ``.env`` from the repository root without overriding the process."""
-    load_dotenv(repository_root() / ".env", override=False)
+    root = repository_root()
+    if root is None:
+        return
+    load_dotenv(root / ".env", override=False)
 
 
 class OpenAITextCompletionClient:
@@ -59,10 +62,26 @@ class OpenAITextCompletionClient:
         return stripped
 
 
+def _api_key_from_ssm() -> str:
+    """Load OPENAI_API_KEY from SSM when Lambda does not inject it."""
+    parameter_name = os.environ.get("OPENAI_API_KEY_PARAMETER", "").strip()
+    if not parameter_name:
+        return ""
+    import boto3
+
+    response = boto3.client("ssm").get_parameter(
+        Name=parameter_name,
+        WithDecryption=True,
+    )
+    return str(response["Parameter"]["Value"]).strip()
+
+
 def completion_client_from_env() -> TextCompletionClient:
     """Use OpenAI when ``OPENAI_API_KEY`` is set; otherwise the fake client."""
     load_local_env()
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        api_key = _api_key_from_ssm()
     if not api_key:
         return FakeTextCompletionClient()
     model = os.environ.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL).strip()

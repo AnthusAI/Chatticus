@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import queue
-import threading
+import logging
+import os
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -24,8 +24,10 @@ from chatticus.models import (
     TurnAccessDeniedError,
     TurnEventKind,
     TurnNotFoundError,
-    TurnStatus,
 )
+
+logger = logging.getLogger("chatticus.http")
+INVOKE_HEADER = "X-Chatticus-Invoke-Key"
 
 
 class CreateChannelBody(BaseModel):
@@ -33,6 +35,20 @@ class CreateChannelBody(BaseModel):
 
     user_id: str
     bot_ids: list[str] = Field(default_factory=list)
+
+
+class CreateBotBody(BaseModel):
+    """Body for POST /bots."""
+
+    user_id: str
+    name: str
+
+
+class SetComputerBody(BaseModel):
+    """Body for POST /computers/stopped."""
+
+    user_id: str
+    stopped: bool = True
 
 
 class PostMessageBody(BaseModel):
@@ -56,13 +72,35 @@ class AppState:
     """Mutable front-door state attached to each app instance."""
 
     plane: ControlPlane
+    invoke_key: str
     open_sse_streams: int = 0
 
 
-def create_app(plane: ControlPlane) -> FastAPI:
+def _verify_invoke_key(request: Request) -> None:
+    """Reject calls that omit the invoke key when one is configured."""
+    if request.url.path == "/health":
+        return
+    expected = request.app.state.chatticus.invoke_key
+    if expected and request.headers.get(INVOKE_HEADER) != expected:
+        raise HTTPException(status_code=403, detail="invoke key required")
+
+
+def create_app(
+    plane: ControlPlane,
+    *,
+    invoke_key: str | None = None,
+) -> FastAPI:
     """Build a FastAPI app backed by one control plane instance."""
-    state = AppState(plane=plane)
-    app = FastAPI(title="Chatticus control plane")
+    resolved_key = (
+        invoke_key
+        if invoke_key is not None
+        else os.environ.get("CHATTICUS_INVOKE_KEY", "")
+    ).strip()
+    state = AppState(plane=plane, invoke_key=resolved_key)
+    app = FastAPI(
+        title="Chatticus control plane",
+        dependencies=[Depends(_verify_invoke_key)],
+    )
     app.state.chatticus = state
 
     @app.exception_handler(ChatticusError)
@@ -72,12 +110,63 @@ def create_app(plane: ControlPlane) -> FastAPI:
         status = _status_for_error(error)
         return JSONResponse(status_code=status, content={"detail": str(error)})
 
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.post("/bots")
+    def create_bot(
+        body: CreateBotBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, str]:
+        bot = state.plane.create_bot(tenant_id, body.user_id, body.name)
+        logger.info(
+            "bot_created tenant_id=%s user_id=%s bot_id=%s",
+            tenant_id,
+            body.user_id,
+            bot.bot_id,
+        )
+        return {
+            "bot_id": bot.bot_id,
+            "tenant_id": bot.tenant_id,
+            "user_id": bot.user_id,
+            "name": bot.name,
+        }
+
+    @app.post("/computers/stopped")
+    def set_computer_stopped(
+        body: SetComputerBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, bool]:
+        state.plane.set_computer_stopped(tenant_id, body.user_id, body.stopped)
+        stopped = state.plane.computer_is_stopped(tenant_id, body.user_id)
+        logger.info(
+            "computer_stopped tenant_id=%s user_id=%s stopped=%s",
+            tenant_id,
+            body.user_id,
+            stopped,
+        )
+        return {"stopped": stopped}
+
+    @app.get("/computers/stopped")
+    def get_computer_stopped(
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        user_id: str = Query(),
+    ) -> dict[str, bool]:
+        return {"stopped": state.plane.computer_is_stopped(tenant_id, user_id)}
+
     @app.post("/channels")
     def create_channel(
         body: CreateChannelBody,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         channel = state.plane.create_channel(tenant_id, body.user_id, body.bot_ids)
+        logger.info(
+            "channel_created tenant_id=%s channel_id=%s user_id=%s",
+            tenant_id,
+            channel.channel_id,
+            body.user_id,
+        )
         return _channel_payload(channel)
 
     @app.post("/channels/{channel_id}/messages")
@@ -86,7 +175,7 @@ def create_app(plane: ControlPlane) -> FastAPI:
         body: PostMessageBody,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
-        message = state.plane.post_channel_message(
+        message, started = state.plane.post_channel_message(
             channel_id,
             tenant_id,
             body.author_kind,
@@ -94,11 +183,14 @@ def create_app(plane: ControlPlane) -> FastAPI:
             body.body,
             addressed_to_bot_id=body.addressed_to_bot_id,
         )
-        turn_id: str | None = None
-        if body.addressed_to_bot_id is not None:
-            jobs = state.plane.pending_jobs_for_bot(body.addressed_to_bot_id)
-            if jobs:
-                turn_id = jobs[-1].turn_id
+        turn_id = started.turn_id if started is not None else None
+        logger.info(
+            "message_posted tenant_id=%s channel_id=%s turn_id=%s seq=%s",
+            tenant_id,
+            channel_id,
+            turn_id,
+            message.seq,
+        )
         return {
             "message": _message_payload(message),
             "turn_id": turn_id,
@@ -127,6 +219,12 @@ def create_app(plane: ControlPlane) -> FastAPI:
             body.token,
             complete=body.complete,
         )
+        logger.info(
+            "chunk_posted tenant_id=%s turn_id=%s complete=%s",
+            tenant_id,
+            turn_id,
+            body.complete,
+        )
         return {"status": "ok"}
 
     @app.get("/turns/{turn_id}/stream")
@@ -135,56 +233,39 @@ def create_app(plane: ControlPlane) -> FastAPI:
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
         after_seq: int = Query(default=0, ge=0),
     ) -> StreamingResponse:
-        owning_tenant = state.plane._turn_tenants.get(turn_id)
-        if owning_tenant is None:
-            raise HTTPException(status_code=404, detail=f"Turn {turn_id!r} not found.")
-        if owning_tenant != tenant_id:
+        try:
+            state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
             raise TurnAccessDeniedError(
                 f"Tenant {tenant_id!r} cannot watch turn {turn_id!r}."
-            )
+            ) from error
 
         def event_generator() -> Any:
             state.open_sse_streams += 1
-            event_queue = state.plane.subscribe_turn_events(turn_id)
-            live_buffer: list[Any] = []
             cursor = after_seq
-
-            def collect_live() -> None:
-                while True:
-                    try:
-                        live_event = event_queue.get(timeout=0.05)
-                    except queue.Empty:
-                        if (
-                            state.plane.turn(owning_tenant, turn_id).status
-                            == TurnStatus.COMPLETED
-                        ):
-                            break
-                        continue
-                    if live_event is None:
-                        break
-                    live_buffer.append(live_event)
-
-            collector = threading.Thread(target=collect_live, daemon=True)
-            collector.start()
+            logger.info(
+                "sse_open tenant_id=%s turn_id=%s after_seq=%s",
+                tenant_id,
+                turn_id,
+                after_seq,
+            )
             try:
-                for event in state.plane._messaging_store.list_turn_events(
-                    owning_tenant, turn_id, after_seq
-                ):
-                    yield format_turn_event_sse(event)
-                    cursor = event.seq
-                while collector.is_alive() or live_buffer:
-                    while live_buffer:
-                        live_event = live_buffer.pop(0)
-                        if live_event.seq <= cursor:
-                            continue
-                        yield format_turn_event_sse(live_event)
-                        cursor = live_event.seq
-                        if live_event.kind == TurnEventKind.TURN_COMPLETED:
-                            collector.join(timeout=0.1)
+                while True:
+                    events = state.plane.list_turn_events(tenant_id, turn_id, cursor)
+                    if not events:
+                        time.sleep(0.05)
+                        continue
+                    for event in events:
+                        yield format_turn_event_sse(event)
+                        cursor = event.seq
+                        if event.kind == TurnEventKind.TURN_COMPLETED:
+                            logger.info(
+                                "sse_complete tenant_id=%s turn_id=%s",
+                                tenant_id,
+                                turn_id,
+                            )
                             return
-                    time.sleep(0.01)
             finally:
-                state.plane.unsubscribe_turn_events(turn_id, event_queue)
                 state.open_sse_streams -= 1
 
         return StreamingResponse(

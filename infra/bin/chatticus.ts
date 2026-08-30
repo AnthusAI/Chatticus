@@ -2,7 +2,7 @@
 import * as cdk from "aws-cdk-lib";
 import { ComputerStack } from "../lib/computer-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
-import { SseSpikeStack } from "../lib/sse-spike-stack";
+import { ThinTurnStack } from "../lib/thin-turn-stack";
 
 const app = new cdk.App();
 
@@ -22,8 +22,8 @@ new ComputerStack(app, "ChatticusComputers", {
   snapshotBucket: snapshots.bucket,
 });
 
-new SseSpikeStack(app, "ChatticusSseSpike", {
+new ThinTurnStack(app, "ChatticusThinTurn", {
   env,
   description:
-    "Throwaway Lambda plus CloudFront stack for the SSE transport feasibility spike.",
+    "Zero-idle computerless turn: DynamoDB, SQS, Lambda SSE front door, CloudFront.",
 });

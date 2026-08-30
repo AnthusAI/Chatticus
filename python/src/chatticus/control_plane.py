@@ -8,6 +8,8 @@ import queue
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from typing import Callable
+
 from chatticus.messaging.store import (
     InMemoryMessagingStore,
     MessagingStore,
@@ -61,12 +63,16 @@ class ControlPlane:
         self,
         heartbeat_timeout: timedelta | None = None,
         messaging_store: MessagingStore | None = None,
+        turn_enqueued: Callable[[TurnJob], None] | None = None,
     ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
         :type heartbeat_timeout: timedelta | None
         :param messaging_store: Durable channel and turn persistence.
         :type messaging_store: MessagingStore | None
+        :param turn_enqueued: Optional hook that receives each cpu turn job
+            after it is bound to a turn (used to publish SQS in Lambda).
+        :type turn_enqueued: Callable[[TurnJob], None] | None
         """
         self.heartbeat_timeout = heartbeat_timeout or timedelta(seconds=30)
         self._now = datetime.now(UTC)
@@ -78,6 +84,7 @@ class ControlPlane:
         self._auto_review_rules: list[AutoReviewRule] = []
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
+        self._turn_enqueued = turn_enqueued
         self._channel_tenants: dict[str, str] = {}
         self._turn_tenants: dict[str, str] = {}
         self._turn_event_subscribers: dict[str, list[queue.Queue[TurnEvent | None]]] = (
@@ -291,6 +298,7 @@ class ControlPlane:
             name=name,
         )
         self._bots[bot.bot_id] = bot
+        self._messaging_store.put_bot(bot)
         return bot
 
     def ensure_computer(
@@ -307,13 +315,18 @@ class ControlPlane:
         key = (tenant_id, user_id)
         computer = self._computers_by_user.get(key)
         if computer is None:
+            computer = self._messaging_store.get_computer(tenant_id, user_id)
+        if computer is None:
             computer = Computer(
                 computer_id=computer_id or str(uuid4()),
                 tenant_id=tenant_id,
                 user_id=user_id,
             )
-            self._computers_by_user[key] = computer
+            self._messaging_store.put_computer(computer)
+        else:
             self._computers_by_id[computer.computer_id] = computer
+        self._computers_by_user[key] = computer
+        self._computers_by_id[computer.computer_id] = computer
         return computer
 
     def computer_for_user(self, tenant_id: str, user_id: str) -> Computer:
@@ -322,7 +335,31 @@ class ControlPlane:
 
         :raises KeyError: If the user has no computer.
         """
-        return self._computers_by_user[(tenant_id, user_id)]
+        computer = self._computers_by_user.get((tenant_id, user_id))
+        if computer is None:
+            computer = self._messaging_store.get_computer(tenant_id, user_id)
+            if computer is None:
+                raise KeyError((tenant_id, user_id))
+            self._computers_by_user[(tenant_id, user_id)] = computer
+            self._computers_by_id[computer.computer_id] = computer
+        return computer
+
+    def _bot(self, tenant_id: str, bot_id: str) -> Bot:
+        """Return a bot from memory or the messaging store."""
+        bot = self._bots.get(bot_id)
+        if bot is None:
+            bot = self._messaging_store.get_bot(tenant_id, bot_id)
+            if bot is None:
+                raise KeyError(bot_id)
+            self._bots[bot_id] = bot
+        return bot
+
+    def list_turn_events(
+        self, tenant_id: str, turn_id: str, after_seq: int = 0
+    ) -> list[TurnEvent]:
+        """Return durable turn events after ``after_seq``."""
+        self.turn(tenant_id, turn_id)
+        return self._messaging_store.list_turn_events(tenant_id, turn_id, after_seq)
 
     def computer_by_id(self, computer_id: str) -> Computer:
         """
@@ -559,6 +596,7 @@ class ControlPlane:
         """Mark the household computer stopped without deleting it."""
         computer = self.ensure_computer(tenant_id, user_id)
         computer.stopped = stopped
+        self._messaging_store.put_computer(computer)
 
     def computer_is_stopped(self, tenant_id: str, user_id: str) -> bool:
         """Return whether the household computer is stopped."""
@@ -580,7 +618,7 @@ class ControlPlane:
         """
         participants = [ChannelParticipant(kind=ActorKind.HUMAN, actor_id=user_id)]
         for bot_id in bot_ids or []:
-            bot = self._bots[bot_id]
+            bot = self._bot(tenant_id, bot_id)
             if bot.tenant_id != tenant_id or bot.user_id != user_id:
                 raise ActorNotInChannelError(
                     f"Bot {bot_id!r} does not belong to tenant {tenant_id!r} "
@@ -618,7 +656,7 @@ class ControlPlane:
         addressed_to_bot_id: str | None = None,
         *,
         enqueue_turn: bool = True,
-    ) -> Message:
+    ) -> tuple[Message, Turn | None]:
         """Append a committed message and enqueue a cpu turn when addressed.
 
         :raises ChannelNotFoundError: If the channel is unknown.
@@ -645,9 +683,10 @@ class ControlPlane:
         channel.next_seq += 1
         self._messaging_store.put_channel(channel)
         self._messaging_store.put_message(message)
+        started: Turn | None = None
         if enqueue_turn and addressed_to_bot_id is not None:
-            self._start_turn_for_bot(channel, addressed_to_bot_id)
-        return message
+            started = self._start_turn_for_bot(channel, addressed_to_bot_id)
+        return message, started
 
     def list_channel_messages(
         self,
@@ -773,6 +812,8 @@ class ControlPlane:
                     bot_id=job.bot_id,
                     turn_id=turn_id,
                 )
+                if self._turn_enqueued is not None:
+                    self._turn_enqueued(self._jobs[index])
                 return
 
     def _complete_turn(self, turn: Turn) -> Message:

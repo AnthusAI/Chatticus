@@ -3,7 +3,7 @@
   "title": "Deploy and exercise the zero-idle thin turn",
   "description": "Deploy the thin turn through CDK and prove it end to end.\n\nAcceptance criteria:\n- A browser or test client posts one message and observes progress and completion.\n- A forced disconnect demonstrates replay from committed state.\n- A stopped computer remains stopped for the entire turn.\n- No persistent socket, always-on scheduler, API process, lock service, or database is introduced.\n- Logs identify tenant_id, channel_id, turn_id, and attempt_id without recording message content or secrets.\n- The executable specifications and Python quality gates pass.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -18,9 +18,16 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "1da61e55-4307-42a9-ad9a-cc60a5acc07e",
+      "author": "home",
+      "text": "Implementing ChatticusThinTurn: Lambda Web Adapter front door, DynamoDB, SQS computerless worker, CloudFront, no ALB. SSE will poll the store so it survives separate Lambda invocations. Spike stack will not be redeployed.\n",
+      "created_at": "2026-08-30T19:23:31.889281Z"
+    }
+  ],
   "created_at": "2026-08-30T15:53:18.174981Z",
-  "updated_at": "2026-08-30T15:53:18.174981Z",
+  "updated_at": "2026-08-30T19:23:31.889281Z",
   "closed_at": null,
   "custom": {}
 }

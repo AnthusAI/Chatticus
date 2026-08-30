@@ -8,8 +8,11 @@ from typing import Any, Protocol
 
 from chatticus.models import (
     ActorKind,
+    Bot,
     Channel,
     ChannelParticipant,
+    Computer,
+    ComputerPolicy,
     Message,
     Turn,
     TurnEvent,
@@ -49,6 +52,18 @@ class MessagingStore(Protocol):
     ) -> list[TurnEvent]:
         """Return turn events with seq greater than after_seq."""
 
+    def put_bot(self, bot: Bot) -> None:
+        """Persist a named bot."""
+
+    def get_bot(self, tenant_id: str, bot_id: str) -> Bot | None:
+        """Load one bot."""
+
+    def put_computer(self, computer: Computer) -> None:
+        """Persist the household computer record."""
+
+    def get_computer(self, tenant_id: str, user_id: str) -> Computer | None:
+        """Load the household computer for a user."""
+
     def put_turn_chunk(
         self,
         tenant_id: str,
@@ -72,6 +87,8 @@ class InMemoryMessagingStore:
         self._turns: dict[tuple[str, str], Turn] = {}
         self._turn_events: dict[tuple[str, str], list[TurnEvent]] = {}
         self._turn_chunks: dict[tuple[str, str], list[tuple[int, str, datetime]]] = {}
+        self._bots: dict[tuple[str, str], Bot] = {}
+        self._computers: dict[tuple[str, str], Computer] = {}
 
     def put_channel(self, channel: Channel) -> None:
         self._channels[(channel.tenant_id, channel.channel_id)] = channel
@@ -120,6 +137,18 @@ class InMemoryMessagingStore:
 
     def get_turn(self, tenant_id: str, turn_id: str) -> Turn | None:
         return self._turns.get((tenant_id, turn_id))
+
+    def put_bot(self, bot: Bot) -> None:
+        self._bots[(bot.tenant_id, bot.bot_id)] = bot
+
+    def get_bot(self, tenant_id: str, bot_id: str) -> Bot | None:
+        return self._bots.get((tenant_id, bot_id))
+
+    def put_computer(self, computer: Computer) -> None:
+        self._computers[(computer.tenant_id, computer.user_id)] = computer
+
+    def get_computer(self, tenant_id: str, user_id: str) -> Computer | None:
+        return self._computers.get((tenant_id, user_id))
 
 
 class DynamoMessagingStore:
@@ -223,6 +252,7 @@ class DynamoMessagingStore:
                 "bot_id": {"S": turn.bot_id},
                 "status": {"S": turn.status},
                 "next_event_seq": {"N": str(turn.next_event_seq)},
+                "next_chunk_seq": {"N": str(turn.next_chunk_seq)},
             },
         )
 
@@ -244,6 +274,7 @@ class DynamoMessagingStore:
             bot_id=item["bot_id"]["S"],
             status=TurnStatus(item["status"]["S"]),
             next_event_seq=int(item["next_event_seq"]["N"]),
+            next_chunk_seq=int(item.get("next_chunk_seq", {}).get("N", "1")),
         )
 
     def put_turn_event(self, event: TurnEvent) -> None:
@@ -317,11 +348,78 @@ class DynamoMessagingStore:
             chunks.append((seq, item["token"]["S"]))
         return [token for _, token in sorted(chunks, key=lambda pair: pair[0])]
 
+    def put_bot(self, bot: Bot) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._roster_pk(bot.tenant_id)},
+                "sk": {"S": f"bot#{bot.bot_id}"},
+                "tenant_id": {"S": bot.tenant_id},
+                "user_id": {"S": bot.user_id},
+                "bot_id": {"S": bot.bot_id},
+                "name": {"S": bot.name},
+            },
+        )
+
+    def get_bot(self, tenant_id: str, bot_id: str) -> Bot | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"bot#{bot_id}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return Bot(
+            bot_id=item["bot_id"]["S"],
+            tenant_id=item["tenant_id"]["S"],
+            user_id=item["user_id"]["S"],
+            name=item["name"]["S"],
+        )
+
+    def put_computer(self, computer: Computer) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._roster_pk(computer.tenant_id)},
+                "sk": {"S": f"computer#{computer.user_id}"},
+                "tenant_id": {"S": computer.tenant_id},
+                "user_id": {"S": computer.user_id},
+                "computer_id": {"S": computer.computer_id},
+                "stopped": {"BOOL": computer.stopped},
+                "policy": {"S": computer.policy},
+            },
+        )
+
+    def get_computer(self, tenant_id: str, user_id: str) -> Computer | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"computer#{user_id}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return Computer(
+            computer_id=item["computer_id"]["S"],
+            tenant_id=item["tenant_id"]["S"],
+            user_id=item["user_id"]["S"],
+            policy=ComputerPolicy(item["policy"]["S"]),
+            stopped=item["stopped"]["BOOL"],
+        )
+
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
 
     def _turn_pk(self, tenant_id: str, turn_id: str) -> str:
         return f"{tenant_id}#turn#{turn_id}"
+
+    def _roster_pk(self, tenant_id: str) -> str:
+        return f"{tenant_id}#roster"
 
 
 def _participants_payload(channel: Channel) -> list[dict[str, str]]:
