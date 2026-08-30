@@ -64,7 +64,7 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-GitHub **`main`** is **v0.2.0**. The live thin turn is the **development**
+GitHub **`main`** is **v0.3.0**. The live thin turn is the **development**
 cloud environment: stack **ChatticusThinTurn** in AWS account
 `335163751677` (`us-east-1`). Staging and production thin-turn stacks are
 defined in CDK (`ChatticusThinTurnStaging`,
@@ -72,10 +72,9 @@ defined in CDK (`ChatticusThinTurnStaging`,
 never implied by a git branch; it is an explicit gated deploy of a
 release that already passed staging acceptance.
 
-The **source** on **`develop`** (and this release, once promoted) has named
-cloud environments, turn **claim**, **lease**, **fence**, durable channel
-lookup across Lambda invocations, and a recovery kernel. GitHub **`main`**
-is still **v0.2.0** until this promote.
+The **source** on **`main`** (v0.3.0) has named cloud environments, turn
+**claim**, **lease**, **fence**, durable channel lookup across Lambda
+invocations, and a recovery kernel.
 
 What the deployed **development** slice does today:
 
@@ -92,7 +91,7 @@ What the deployed **development** slice does today:
 - Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
 - `python scripts/exercise_thin_turn.py --environment development` exits 0.
 
-Worker lease renew during long model calls is on `develop` (PR 14) and is
+Worker lease renew during long model calls is on `main` (PR 14) and is
 not on this development deploy yet. Recovery deadlines still do not fire
 in Lambda (`recovery_enabled` stays off until EventBridge or equivalent).
 
