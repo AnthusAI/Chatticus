@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Chatticus SSE transport spike harness</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 2rem;
+        max-width: 960px;
+      }
+      label {
+        display: block;
+        margin-top: 1rem;
+      }
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.4rem;
+      }
+      button {
+        margin-right: 0.5rem;
+        margin-top: 0.75rem;
+      }
+      pre {
+        background: #111;
+        color: #eee;
+        padding: 1rem;
+        overflow: auto;
+        max-height: 320px;
+      }
+      .status {
+        margin-top: 1rem;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>SSE transport spike harness</h1>
+    <p>
+      Uses <code>EventSource</code> against the deployed spike. Set URLs from CDK
+      outputs, then run a measurement or reconnect test.
+    </p>
+
+    <label>
+      Direct function URL
+      <input id="direct-url" type="text" placeholder="https://.../stream" />
+    </label>
+    <label>
+      CloudFront URL
+      <input id="cloudfront-url" type="text" placeholder="https://.../stream" />
+    </label>
+    <label>
+      Duration seconds
+      <input id="duration-seconds" type="number" value="60" min="5" />
+    </label>
+    <label>
+      Reconnect after frames
+      <input id="reconnect-after" type="number" value="0" min="0" />
+    </label>
+
+    <div>
+      <button id="run-direct">Measure direct</button>
+      <button id="run-cloudfront">Measure CloudFront</button>
+      <button id="run-reconnect-direct">Reconnect test (direct)</button>
+      <button id="run-reconnect-cloudfront">Reconnect test (CloudFront)</button>
+      <button id="download-json" disabled>Download JSON</button>
+    </div>
+
+    <div class="status" id="status">Idle</div>
+    <pre id="log"></pre>
+
+    <script src="measure.js"></script>
+  </body>
+</html>

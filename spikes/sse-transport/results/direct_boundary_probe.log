@@ -1,0 +1,41 @@
+seq=99 elapsed=25.0s
+seq=199 elapsed=50.0s
+seq=299 elapsed=75.0s
+seq=399 elapsed=100.1s
+seq=499 elapsed=125.1s
+seq=599 elapsed=150.1s
+seq=699 elapsed=175.2s
+seq=799 elapsed=200.2s
+seq=899 elapsed=225.2s
+seq=999 elapsed=250.3s
+seq=1099 elapsed=275.3s
+seq=1199 elapsed=300.3s
+seq=1299 elapsed=325.4s
+seq=1399 elapsed=350.4s
+seq=1499 elapsed=375.4s
+seq=1599 elapsed=400.5s
+seq=1699 elapsed=425.5s
+seq=1799 elapsed=450.5s
+seq=1899 elapsed=475.5s
+seq=1999 elapsed=500.6s
+seq=2099 elapsed=525.6s
+seq=2199 elapsed=550.6s
+seq=2299 elapsed=575.7s
+seq=2399 elapsed=600.7s
+seq=2499 elapsed=625.8s
+seq=2599 elapsed=650.8s
+seq=2699 elapsed=675.8s
+seq=2799 elapsed=700.8s
+seq=2899 elapsed=725.8s
+seq=2999 elapsed=750.8s
+seq=3099 elapsed=775.9s
+seq=3199 elapsed=800.9s
+seq=3299 elapsed=826.0s
+seq=3399 elapsed=851.0s
+seq=3499 elapsed=876.0s
+{
+  "frame_count": 3596,
+  "duration_s": 900.4059569835663,
+  "last_seq": 3595,
+  "first_seq": 0
+}

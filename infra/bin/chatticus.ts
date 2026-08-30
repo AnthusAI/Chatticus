@@ -2,6 +2,7 @@
 import * as cdk from "aws-cdk-lib";
 import { ComputerStack } from "../lib/computer-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
+import { SseSpikeStack } from "../lib/sse-spike-stack";
 
 const app = new cdk.App();
 
@@ -19,4 +20,10 @@ new ComputerStack(app, "ChatticusComputers", {
   env,
   description: "ECS cluster, ECR, and Fargate task definition for computer hosts.",
   snapshotBucket: snapshots.bucket,
+});
+
+new SseSpikeStack(app, "ChatticusSseSpike", {
+  env,
+  description:
+    "Throwaway Lambda plus CloudFront stack for the SSE transport feasibility spike.",
 });

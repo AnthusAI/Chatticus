@@ -1,0 +1,129 @@
+{
+  "measured_at": "2026-08-30T17:08:54.666Z",
+  "direct_url": "https://6r537llsebh3kvok37t4vsvldu0mwpdf.lambda-url.us-east-1.on.aws/stream",
+  "cloudfront_url": "https://d1jcaavght8v16.cloudfront.net/stream",
+  "scenarios": [
+    {
+      "name": "direct_foreground_short",
+      "path": "direct",
+      "frame_count": 240,
+      "duration_ms": 59821,
+      "first_byte_ms": 223,
+      "inter_frame_gap_ms": {
+        "p50": 251,
+        "p95": 307,
+        "p99": 548,
+        "min": 0,
+        "max": 624
+      },
+      "batching": {
+        "material_buffering": false
+      },
+      "reconnect_result": null,
+      "close_reason": "stream_closed"
+    },
+    {
+      "name": "cloudfront_foreground_short",
+      "path": "cloudfront",
+      "frame_count": 240,
+      "duration_ms": 59774,
+      "first_byte_ms": 293,
+      "inter_frame_gap_ms": {
+        "p50": 250,
+        "p95": 284,
+        "p99": 357,
+        "min": 0,
+        "max": 584
+      },
+      "batching": {
+        "material_buffering": false
+      },
+      "reconnect_result": null,
+      "close_reason": "stream_closed"
+    },
+    {
+      "name": "direct_reconnect",
+      "path": "direct_reconnect",
+      "frame_count": 40,
+      "duration_ms": 12922,
+      "first_byte_ms": 109,
+      "inter_frame_gap_ms": {
+        "p50": 250,
+        "p95": 584,
+        "p99": 3076,
+        "min": 35,
+        "max": 3076
+      },
+      "batching": {
+        "material_buffering": false
+      },
+      "reconnect_result": {
+        "expected_next_seq": 20,
+        "actual_next_seq": 20,
+        "success": true
+      },
+      "close_reason": "stream_closed"
+    },
+    {
+      "name": "cloudfront_reconnect",
+      "path": "cloudfront_reconnect",
+      "frame_count": 40,
+      "duration_ms": 12604,
+      "first_byte_ms": 163,
+      "inter_frame_gap_ms": {
+        "p50": 251,
+        "p95": 296,
+        "p99": 3089,
+        "min": 194,
+        "max": 3089
+      },
+      "batching": {
+        "material_buffering": false
+      },
+      "reconnect_result": {
+        "expected_next_seq": 20,
+        "actual_next_seq": 20,
+        "success": true
+      },
+      "close_reason": "stream_closed"
+    },
+    {
+      "name": "direct_foreground_long",
+      "path": "direct",
+      "frame_count": 360,
+      "duration_ms": 89860,
+      "first_byte_ms": 69,
+      "inter_frame_gap_ms": {
+        "p50": 250,
+        "p95": 367,
+        "p99": 523,
+        "min": 0,
+        "max": 525
+      },
+      "batching": {
+        "material_buffering": false
+      },
+      "reconnect_result": null,
+      "close_reason": "stream_closed"
+    },
+    {
+      "name": "cloudfront_foreground_long",
+      "path": "cloudfront",
+      "frame_count": 360,
+      "duration_ms": 89937,
+      "first_byte_ms": 127,
+      "inter_frame_gap_ms": {
+        "p50": 250,
+        "p95": 333,
+        "p99": 525,
+        "min": 0,
+        "max": 533
+      },
+      "batching": {
+        "material_buffering": false
+      },
+      "reconnect_result": null,
+      "close_reason": "stream_closed"
+    }
+  ]
+}
