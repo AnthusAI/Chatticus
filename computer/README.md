@@ -57,7 +57,11 @@ Do not serialize these behind one "ready" flag, and do not hold the agent
 behind snapshot hydration. Hydration must finish before the first file or
 browser action, not before the first model call.
 
-Do not put this runtime on Lambda.
+Do not put this runtime on Lambda. It holds a browser, a display, and a
+takeover surface, none of which Lambda can host. That is the reason, and
+it does not extend to a computerless worker running the pre-computer part
+of a turn. See challenge 5 in
+[docs/DESIGN_CHALLENGES.md](../docs/DESIGN_CHALLENGES.md).
 
 See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) and
 [docs/COMPUTER_SNAPSHOTS.md](../docs/COMPUTER_SNAPSHOTS.md).

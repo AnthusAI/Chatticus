@@ -86,6 +86,16 @@ activation).
 ECS Anywhere is optional later. A thin SQS-pull worker is the v1 local
 plug-in.
 
+The protocol is substrate-agnostic: a worker advertises capabilities and
+a cost class, then pulls. Adding a host type -- a computerless worker, a
+warm Kubernetes or Nomad pool, a machine that is on anyway -- means
+adding a cost class and its rank, not changing the architecture. A pool
+bought *for* Chatticus is an idle floor and is rejected; one that exists
+anyway has no marginal cost here.
+
+`prefer_local` is misnamed for what it wants, which is "prefer already
+warm and cheapest first". Rename it before a third host type arrives.
+
 The in-memory scheduler that encodes this protocol lives in
 `python/src/chatticus/` and is specified by `features/*.feature`.
 
@@ -164,8 +174,17 @@ The model loop runs **on the worker**.
 It starts as soon as the worker has network and memory. It does **not**
 wait for the display, Chromium, or a hydrated `/workspace`; those come up
 in parallel and gate only the actions that need them. A turn that answers
-from memory or works through MCP servers never waits for a browser. See
-challenge 5 in [Design challenges](DESIGN_CHALLENGES.md).
+from memory or works through MCP servers never waits for a browser.
+
+A turn may begin on a **computerless worker** (capability `cpu`, not
+`computer`) and escalate when it first needs the computer, by appending
+the tool call to the stream and enqueueing a computer-capable job for the
+same turn. No state moves: the stream is the handoff. An agent may summon
+the computer early with a non-blocking, idempotent `start_computer` tool,
+and a caller may declare `computer` in required capabilities at enqueue,
+but correctness never depends on either -- touching a computer tool
+escalates on its own. See challenge 5 in
+[Design challenges](DESIGN_CHALLENGES.md).
 
 1. Load bot memory, conversation, skills, and the tool list (MCP + computer
    actions + tools from the model provider).

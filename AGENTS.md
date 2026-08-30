@@ -58,7 +58,11 @@ Do not declare worker-protocol work done if `behave` or `pytest` is failing.
 
 ## Computer and Lambda
 
-Do not put the agent loop, computer use, or the display on Lambda.
+Do not put computer use or the display on Lambda. The reason is that
+Lambda cannot hold a browser, a display, or a session-lifetime
+connection. Cite the reason, not the rule: a computerless worker running
+the pre-computer part of a model loop does not touch that premise and is
+allowed. It is a worker, not the control plane.
 
 Lambda is allowed for HTTP, auth callbacks, inbound webhooks, scheduled
 wake-ups, and holding one turn's server-sent event stream.
@@ -94,6 +98,12 @@ both before arguing for a change. Two that are misread most often:
   booting. Readiness is per-capability. Never put one "computer ready"
   barrier in front of the agent loop, and never hold the agent behind
   snapshot hydration.
+- The computer is summoned, not assumed. A turn may run on a
+  computerless worker and escalate when it first needs the computer. An
+  agent may call `start_computer` early, and a caller may declare
+  `computer` at enqueue, but correctness must never depend on either:
+  touching a computer tool escalates on its own. There is no
+  `stop_computer` -- the computer is shared by all of a user's bots.
 
 See `docs/MESSAGING.md` for the design and `docs/DESIGN_CHALLENGES.md`
 for the reasoning. Do not add a CDK control-plane stack until the

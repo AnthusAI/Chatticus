@@ -36,11 +36,15 @@ request-shaped, seconds to minutes. Response streaming serves it, and the
 client reconnects with `after=seq` if a turn outlives the function's
 maximum duration.
 
-**No:** agent loop, computer use, VNC/display, anything that must hold a
-browser. Never a connection scoped to a chat tab or a login session.
-That distinction, session lifetime versus turn lifetime, is the whole
-reason the cloud API can be serverless. See
-[Design challenges](DESIGN_CHALLENGES.md).
+**No:** computer use, VNC/display, anything that must hold a browser,
+and any connection scoped to a chat tab or a login session.
+
+State the premise, because the rule gets cited past its reason. Lambda is
+excluded from these because it cannot hold a browser, a display, or a
+session-lifetime connection. A turn phase that does none of those does
+not touch the premise: a **computerless worker** running the
+pre-computer part of a model loop is allowed, and is not the control
+plane. See challenge 5 in [Design challenges](DESIGN_CHALLENGES.md).
 
 ## Rust
 

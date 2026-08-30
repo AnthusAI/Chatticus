@@ -509,19 +509,59 @@ A sketch (one thread, `addressed_to_bot_id` enqueues a turn, human sees
 the same rows) is in [Messaging](MESSAGING.md). It is one candidate, not
 the architecture.
 
-## 5. Responding before the computer is ready
+## 5. Summoning the computer
 
-**Requirement 16 is decided. The mechanism is partly open.**
+**Requirement 16 is decided. The approach below is the direction; the
+mechanism is specified and some details are open.**
 
-A bot must start talking immediately. Booting a computer is concurrent
-work, not a gate. The human sees a reply forming while the workplace
-comes up behind it.
+Two problems share one answer. A bot must start talking immediately
+(requirement 16). And the computer, which is the expensive resource,
+should run only when a turn genuinely needs it.
+
+### The prize is duty cycle, not cold start
+
+Chatticus prefers structured tools over the browser. So a large share of
+turns never touch a computer at all: answering from memory, summarizing a
+thread, drafting in the user's voice, a routine that reads an API through
+a connector. Booting a browser container for those is waste, and unlike a
+cold start, which is paid once, it recurs on every turn forever.
+
+Rough shape, to re-verify before it carries a decision:
+
+| Host for a 2-minute turn | Approximate cost |
+| --- | --- |
+| Computer container, including the image pull | ~$0.005 |
+| Computerless worker doing 20 seconds of reasoning | ~$0.0002 |
+
+The absolute saving is small for one household. Two things make it
+matter anyway. It scales linearly with tenants (requirement 11). And
+without it, **scale-to-zero is defeated by trivial turns**: if every
+"thanks, that will do" spins up a browser container, the expensive thing
+is never actually idle and requirement 7 buys nothing.
+
+### A computerless worker is still a worker
+
+The pre-computer phase does not run on the control plane. It runs on a
+**worker that has capability `cpu` and not `computer`**. It registers,
+heartbeats, pulls a job, runs the model loop, and posts chunks like any
+other worker. Requirement 13 is untouched.
+
+The protocol already carries this. A turn job declares required
+capabilities; workers advertise capabilities and a cost class. A
+computerless worker is a narrower capability set and another cost class,
+not a new concept.
+
+This also means the standing "no agent loop on Lambda" rule does not need
+relaxing -- it needs its premise stated. The rule exists because Lambda
+cannot hold a browser, a display, or computer use. A phase that does none
+of those does not touch the premise. Re-derive rather than cite, exactly
+as with the socket rule.
 
 ### Readiness is per-capability, not one flag
 
-The mistake to avoid is a single "computer ready" barrier that every
-turn waits on. The container has several independent readiness gates,
-and a turn blocks only on the one it actually needs:
+Whatever host a turn is on, a single "computer ready" barrier in front of
+the agent is the mistake to avoid. The container has independent gates,
+and a turn blocks only on the one it needs:
 
 | Gate | Needed for | Ready after |
 | --- | --- | --- |
@@ -531,80 +571,137 @@ and a turn blocks only on the one it actually needs:
 | Watch and takeover surface | A human watching or taking over | last |
 
 `chatticus-agent` starts the model loop as soon as the first row is
-satisfied. It does not wait for a display it may never use. Hydration
-and browser startup run in parallel with the opening model call.
+satisfied. Hydration and browser startup run in parallel with the opening
+model call.
 
-This matters more than it looks, because Chatticus prefers structured
-tools over the browser. A turn that answers from memory, or works
-entirely through MCP servers and connectors, may never touch a display
-at all. Such a turn should never have waited for one.
+### Three ways to summon the computer
 
-### What remains cold, and what to do about it
+The same mechanism, entered from three places:
 
-Image pull is the real cost, and it is paid before any gate above. Do
-not attack it yet (non-requirement 3). When it becomes worth attacking,
-the levers are a smaller image, lazy image loading, or a warm task
-during active hours -- in that order.
+| Path | Who decides | When boot starts |
+| --- | --- | --- |
+| Declared at enqueue | Human, routine, or a calling bot | Before the first model call. Fastest. |
+| `start_computer` tool | The agent, having read the request | One model round-trip in, overlapping its own reasoning |
+| Implicit escalation | Nobody. Fallback. | At the first computer action, serialized |
 
-Two things already blunt it:
+**Correctness must never depend on the model calling the tool.** Touching
+any computer tool escalates on its own. An agent that never calls
+`start_computer` is slower, never wrong. The tool is an optimization
+layered over a mechanism that works without it.
 
-- Under `prefer_local`, a garage Mac that is on is already warm. The
-  cold path is the exception, not the norm.
-- The turn's opening model call is doing useful work while the pull
-  runs, so the wait is behind visible output.
+**Declared at enqueue** reuses the existing field: the turn job names
+`computer` in its required capabilities, which routes it to a
+computer-capable host from the start. This is not a new parameter. It is
+declaring at enqueue what would otherwise be discovered mid-turn. A
+morning routine that always drives a website should declare it and skip
+the discovery round-trip; a human who knows the work is on a website can
+say so; a bot handing off work knows what it is handing off.
+
+**The `start_computer` tool** is:
+
+- **Non-blocking.** It returns `starting`, `ready`, or `unavailable` and
+  the agent keeps working. Only an actual computer action waits.
+- **Idempotent.** Safe to call speculatively, twice, or when a warm local
+  Mac already serves the workplace. Then it is a no-op reporting `ready`.
+- **Policy-bound.** Under `local_only` with the Mac off it returns
+  `unavailable` rather than quietly starting Fargate. `computer_policy`
+  already carries this; the tool does not get its own policy.
+- **Visible.** The call appears in the stream, so "why did this turn cost
+  money" has an answer a human can read.
+
+**There is no `stop_computer`.** One computer per user is shared by every
+bot on that user, so a bot stopping it could strand another bot
+mid-task. Idle-down is a platform concern, not an agent decision.
+
+### Escalation
+
+When a turn on a computerless worker reaches a computer action:
+
+1. The host appends the tool call to the turn's stream.
+2. It enqueues a job for the same turn with `computer` in required
+   capabilities and the user's `computer_id` pin.
+3. It stops. It does not wait, and it transfers no state.
+4. A computer-capable worker pulls that job, reads the stream, executes,
+   appends the result, and continues the loop.
+
+**The stream is the handoff.** An agent loop's state is its message list,
+and Chatticus already commits that list as an immutable append-only
+stream with tool calls and results as rows. So a turn is portable across
+hosts up to its first computer action. After one, it is pinned: a live
+page, a shell's working directory, and running processes are host-local.
+That pin is the existing `computer_id` pin, not a new concept.
+
+This is a payoff from challenge 1. Because the chunk buffer is a *store*
+keyed by turn rather than a delivery path to a subscriber, two hosts can
+append chunks to one turn and the browser's stream neither knows nor
+cares.
+
+The computer tools must still be **present** in the tool list on a
+computerless worker, or the model never asks for one and never
+escalates. Presence means "escalate", not "execute". The model does not
+need to know the difference.
+
+One loop, one package. The tool registry differs by host capability,
+which the architecture already describes as a dynamic tool list. This is
+not a second implementation and must not become one.
 
 ### Say what is happening
 
 "Starting your computer" is a real state and belongs in the turn stream
-as an event, not as dead air or a spinner. A human who can see why a
-turn is waiting will accept a wait that is otherwise indistinguishable
-from a hang. See the event table in [Messaging](MESSAGING.md).
+as `turn.waiting`, naming the gate. A human who can see why a turn is
+waiting will accept a wait that is otherwise indistinguishable from a
+hang. See the event table in [Messaging](MESSAGING.md).
 
-### Start the computer eagerly
+### What remains cold
 
-Request the computer at turn enqueue, in parallel with the opening model
-call -- not lazily at the first computer action. Waiting until the agent
-knows it needs a browser serializes the two costs that should overlap.
+Image pull, paid before any gate above. Do not attack it yet
+(non-requirement 3). When it is worth attacking, the levers are a smaller
+image, lazy image loading, or a warm host during active hours, in that
+order.
 
-**Open, and a genuine tension.** Eager start boots a computer for turns
-that never touch it, which is waste. Lazy start serializes the boot
-behind the model call, which is latency. This does not violate
-requirement 7, since a turn is running and somebody *is* working, but it
-does spend money on nothing. Candidate answers: start eagerly and idle
-down aggressively; start eagerly only when the bot's recent turns
-suggest it will need the computer; let a routine declare it. Pick one
-with real usage data, not now.
+Two things already blunt it. Under `prefer_local` a garage Mac that is on
+is already warm, so the cold path is the exception. And the opening model
+call is doing useful work while the pull runs.
 
-### Why a turn could later start off the worker entirely
+### Still open
 
-Not proposed for v1. Recorded because the property that would allow it
-is a consequence of decisions already made, and it should not be
-rediscovered later.
+- Whether starting an AWS computer needs a spend control beyond
+  `computer_policy`. It is not an approval-class action under the
+  product's definition (nothing is sent, published, purchased, or
+  deleted), but it does spend money on a bot's own initiative. Policy
+  rather than an approval prompt is the likely answer; gating every boot
+  behind a human would defeat the point.
+- Whether a bot's recent behavior should speculatively declare `computer`
+  at enqueue, and how that interacts with a wrong guess.
+- Which cost class a computerless worker takes, and where it ranks. It is
+  cheaper than every computer host, so ranking is not the hard part;
+  naming is. See the note on `prefer_local` below.
+- Whether `unavailable` under `local_only` should hold the turn until the
+  Mac returns, or fail it back to the human.
 
-An agent loop's state is its message list. Chatticus already commits
-that list to an immutable, append-only stream, and tool calls and
-results are rows in it. So **a turn is portable across hosts up until
-its first computer action**, with no state transfer: another host reads
-the stream and continues. After a computer action, the turn is pinned --
-a live page, a shell's working directory, and running processes are
-host-local and do not move. That pin is the existing `computer_id` pin,
-not a new concept.
+### `prefer_local` is misnamed
 
-This is also a payoff from challenge 1: because the chunk buffer is a
-*store* keyed by turn rather than a delivery path to a subscriber, two
-different hosts can append chunks to the same turn and the browser's
-stream neither knows nor cares.
+The policy means "prefer already-warm and cheapest first". Locality is a
+proxy for that, not the goal. A computerless worker is not local and
+should rank ahead of every computer host; a warm pool on hardware that
+exists anyway is not local either and should rank like it. The name
+encodes an assumption that a third host breaks. Rename it before there is
+a third host rather than after.
 
-**What it would cost.** Running the pre-computer phase somewhere fast
-means running the agent loop off the worker. That contradicts a standing
-rule -- the agent loop does not go on Lambda -- stated in `AGENTS.md`,
-`docs/STACK.md`, and `computer/README.md`. It also risks a second
-implementation of the loop, which the working rules forbid.
+### Other substrates plug in here
 
-**Do not do this on your own initiative.** The gates above should be
-tried first; they are simpler and may make it unnecessary. If image pull
-turns out to dominate and the gates are not enough, bring it back as an
-explicit proposal to relax that rule.
+The worker protocol is substrate-agnostic by construction: workers
+advertise capabilities and a cost class, then pull. Nothing in the token
+path, the store, or the scheduler cares what kind of machine answers.
+Adding a warm pool -- Kubernetes, Nomad, a box that is on anyway -- means
+adding a cost class and its rank, not changing the architecture.
+
+The caution is requirement 7. A cluster bought **for** Chatticus is an
+idle floor and is exactly what this design rejects. A cluster that exists
+anyway for other reasons has no marginal cost here, so do not cite
+requirement 7 at it; re-derive, and the answer legitimately differs. The
+garage Mac already passes that test and is the warm-pool answer v1
+actually ships.
 
 ## How to work on this
 

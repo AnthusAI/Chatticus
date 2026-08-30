@@ -94,6 +94,15 @@ the model loop as soon as it has network and memory, and waits for a
 display only if it actually needs one. A cold computer delays a bot's
 first click, not its first word.
 
+The computer is **summoned, not assumed**. Chatticus prefers structured
+tools over the browser, so many turns never need a computer at all:
+answering from memory, summarizing, drafting, reading an API through a
+connector. Those turns run on a cheap computerless worker. A bot can
+summon its computer when it decides it needs one, a routine or a person
+can ask for it up front, and reaching for a computer tool summons it
+anyway. That is what keeps the expensive container genuinely idle instead
+of being woken by every trivial message.
+
 The principle is: nothing bills while nobody is working. The reason is
 not the monthly saving, which is small for one household. It is that a
 per-request control plane serves many tenants at near-linear marginal
