@@ -107,8 +107,14 @@ that process runs is placement, not a second notify design.
 
 Do not put this on:
 
-- **AppSync.** Managed GraphQL subscriptions over WebSockets. Fine for
-  low-volume signals. Too expensive for a token stream.
+- **AppSync.** It can hold WebSockets. It meters the wrong thing. GraphQL
+  realtime is about **$2 per million outbound updates** plus connection
+  minutes; the Events API is about **$1 per million operations**, and a
+  publish, each subscriber delivery, connects, and pings all count.
+  A model turn is hundreds or thousands of tokens. Billing per token (or
+  per 5 KB chunk) is the expensive part, not the socket. AppSync is a
+  fit for low-volume signals ("approval ready"). It is not a token
+  pipe. We will not add it for chattic.us streaming.
 - **Lambda.** Lambda is for seconds-long HTTP. It is the wrong runtime for
   an open socket that lives as long as a chat tab.
 - **API Gateway WebSocket plus Lambda.** Same cost and lifetime problem.

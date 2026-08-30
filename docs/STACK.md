@@ -11,7 +11,7 @@ implementation of the same behavior until the protocol is stable.
 | Web | TypeScript, Next.js, CloudFront | Chat, roster, computer preview, approvals |
 | Computer image | Ubuntu, Xvfb, Chromium, noVNC | Same artifact on Fargate and local Docker |
 | Data | Postgres (RDS), S3, Secrets Manager | Threads and messages in Postgres; computer snapshots and files in S3; secrets out of the image |
-| Realtime API | WebSocket on the control-plane process | Token stream to chattic.us. Not AppSync. Not Lambda. |
+| Realtime API | WebSocket on the control-plane process | Token stream to chattic.us. Not AppSync: it bills per update, and tokens are high volume. |
 | Queues and schedules | SQS, EventBridge | Turns, heartbeats, routines |
 | AWS compute | API Gateway + Lambda for REST; a long-lived control-plane service for the realtime API; ECS Fargate and optional stop/start EC2 for the computer | Lambda only for seconds-long work |
 | BDD | behave and shared `features/` Gherkin | Product narrative lives in Gherkin |
