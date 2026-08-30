@@ -1,4 +1,10 @@
-"""Turn-triggered deadlines and recovery without an always-on reaper."""
+"""Turn-triggered deadlines and recovery without an always-on reaper.
+
+Recovery scheduling and logical-enqueue dedup are in-memory kernel hooks used
+by unit and behavior tests. Production wiring waits on an EventBridge-backed
+``TurnDeadlineScheduler`` and a durable enqueue ledger; ``plane_from_env()``
+does not enable recovery until those exist.
+"""
 
 from __future__ import annotations
 

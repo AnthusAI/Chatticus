@@ -287,14 +287,6 @@ def create_app(
             "lease_expires_at": attempt.lease_expires_at.isoformat(),
         }
 
-    @app.post("/turns/{turn_id}/deadline")
-    def turn_deadline(
-        turn_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
-    ) -> dict[str, str]:
-        state.plane.handle_turn_deadline(tenant_id, turn_id)
-        return {"status": "ok"}
-
     @app.post("/turns/{turn_id}/chunks")
     def post_chunk(
         turn_id: str,

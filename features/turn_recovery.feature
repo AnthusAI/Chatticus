@@ -35,9 +35,9 @@ Feature: Interrupted turn recovery
     When the same logical enqueue is requested twice for one turn
     Then only one queue delivery is recorded
 
-  Scenario: An active worker renews its claim and queue visibility
+  Scenario: The renew API extends claim and queue visibility for a fenced owner
     Given tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
     And a worker owns an active turn
-    When the worker renews its turn lease
+    When the fenced owner calls the renew API
     Then its turn claim is extended
     And its queue visibility is extended

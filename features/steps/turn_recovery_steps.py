@@ -288,8 +288,8 @@ def given_worker_owns_turn(context: object) -> None:
     )
 
 
-@when("the worker renews its turn lease")
-def when_worker_renews(context: object) -> None:
+@when("the fenced owner calls the renew API")
+def when_fenced_owner_calls_renew_api(context: object) -> None:
     channel = _channel(context)
     client = HttpTurnClient(context.api_client, channel.tenant_id, context.fence_token)
     client.renew(
