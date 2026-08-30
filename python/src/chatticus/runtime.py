@@ -18,9 +18,10 @@ logger = logging.getLogger("chatticus.runtime")
 def plane_from_env() -> ControlPlane:
     """Build a control plane from Lambda or local environment variables.
 
-    Turn recovery (deadlines, logical-enqueue dedup, lease renewal) is
-    kernel-only in tests until an EventBridge-backed deadline scheduler and
-    durable enqueue ledger exist. ``recovery_enabled`` stays off here.
+    Turn recovery (deadlines, lease renewal) is kernel-only in tests until an
+    EventBridge-backed deadline scheduler exists. Logical-enqueue dedup is
+    durable when ``CHATTICUS_MESSAGING_TABLE`` is set. ``recovery_enabled``
+    stays off here.
     """
     load_local_env()
     table_name = os.environ.get("CHATTICUS_MESSAGING_TABLE", "").strip()

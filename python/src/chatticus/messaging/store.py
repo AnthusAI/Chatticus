@@ -111,6 +111,11 @@ class MessagingStore(Protocol):
     def list_turn_chunks(self, tenant_id: str, turn_id: str) -> list[str]:
         """Return chunk tokens in order."""
 
+    def record_logical_enqueue(
+        self, tenant_id: str, turn_id: str, enqueue_id: str
+    ) -> bool:
+        """Return True on the first delivery of ``enqueue_id`` for the turn."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -123,6 +128,7 @@ class InMemoryMessagingStore:
         self._turn_chunks: dict[tuple[str, str], list[tuple[int, str, datetime]]] = {}
         self._bots: dict[tuple[str, str], Bot] = {}
         self._computers: dict[tuple[str, str], Computer] = {}
+        self._logical_enqueue_ids: dict[tuple[str, str], set[str]] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -252,6 +258,17 @@ class InMemoryMessagingStore:
 
     def get_computer(self, tenant_id: str, user_id: str) -> Computer | None:
         return self._computers.get((tenant_id, user_id))
+
+    def record_logical_enqueue(
+        self, tenant_id: str, turn_id: str, enqueue_id: str
+    ) -> bool:
+        key = (tenant_id, turn_id)
+        with self._lock:
+            recorded = self._logical_enqueue_ids.setdefault(key, set())
+            if enqueue_id in recorded:
+                return False
+            recorded.add(enqueue_id)
+            return True
 
 
 class DynamoMessagingStore:
@@ -645,6 +662,34 @@ class DynamoMessagingStore:
             policy=ComputerPolicy(item["policy"]["S"]),
             stopped=item["stopped"]["BOOL"],
         )
+
+    def record_logical_enqueue(
+        self, tenant_id: str, turn_id: str, enqueue_id: str
+    ) -> bool:
+        try:
+            self.client.update_item(
+                TableName=self.table_name,
+                Key={
+                    "pk": {"S": self._turn_pk(tenant_id, turn_id)},
+                    "sk": {"S": "meta"},
+                },
+                UpdateExpression="ADD logical_enqueue_ids :enqueue_id",
+                ConditionExpression=(
+                    "attribute_not_exists(logical_enqueue_ids) "
+                    "OR NOT contains(logical_enqueue_ids, :enqueue_id_value)"
+                ),
+                ExpressionAttributeValues={
+                    ":enqueue_id": {"SS": [enqueue_id]},
+                    ":enqueue_id_value": {"S": enqueue_id},
+                },
+            )
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") == (
+                "ConditionalCheckFailedException"
+            ):
+                return False
+            raise
+        return True
 
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"

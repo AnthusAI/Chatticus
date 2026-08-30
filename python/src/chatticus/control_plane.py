@@ -55,7 +55,6 @@ from chatticus.models import (
 from chatticus.snapshot.uri import snapshot_uri
 from chatticus.turn_recovery import (
     InMemoryTurnDeadlineScheduler,
-    LogicalEnqueueLedger,
     QueueVisibilityLedger,
     TurnDeadlineScheduler,
     logical_enqueue_id,
@@ -78,7 +77,6 @@ class ControlPlane:
         turn_deadline: timedelta | None = None,
         max_recovery_attempts: int = 1,
         deadline_scheduler: TurnDeadlineScheduler | None = None,
-        enqueue_ledger: LogicalEnqueueLedger | None = None,
         visibility_ledger: QueueVisibilityLedger | None = None,
         visibility_renewer: Callable[[TurnJob], None] | None = None,
         recovery_enabled: bool = False,
@@ -99,8 +97,6 @@ class ControlPlane:
         :type max_recovery_attempts: int
         :param deadline_scheduler: Per-turn watchdog transport.
         :type deadline_scheduler: TurnDeadlineScheduler | None
-        :param enqueue_ledger: Tracks idempotent logical enqueue ids.
-        :type enqueue_ledger: LogicalEnqueueLedger | None
         :param visibility_ledger: Records queue visibility renewals in tests.
         :type visibility_ledger: QueueVisibilityLedger | None
         :param visibility_renewer: Extends SQS visibility for one job.
@@ -123,7 +119,7 @@ class ControlPlane:
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
         self._turn_enqueued = turn_enqueued
-        self._enqueue_ledger = enqueue_ledger or LogicalEnqueueLedger()
+        self._logical_enqueue_delivery_count = 0
         self._visibility_ledger = visibility_ledger or QueueVisibilityLedger()
         self._visibility_renewer = visibility_renewer
         self._turn_tenants: dict[str, str] = {}
@@ -861,8 +857,11 @@ class ControlPlane:
         job: TurnJob,
     ) -> bool:
         """Enqueue a turn job once per ``enqueue_id``."""
-        if not self._enqueue_ledger.record_delivery(tenant_id, enqueue_id):
+        if not self._messaging_store.record_logical_enqueue(
+            tenant_id, turn_id, enqueue_id
+        ):
             return False
+        self._logical_enqueue_delivery_count += 1
         if self._turn_enqueued is not None:
             self._turn_enqueued(job)
         return True
@@ -935,7 +934,7 @@ class ControlPlane:
     @property
     def logical_enqueue_delivery_count(self) -> int:
         """Return how many distinct logical enqueues were delivered."""
-        return self._enqueue_ledger.delivery_count
+        return self._logical_enqueue_delivery_count
 
     @property
     def queue_visibility_renewals(self) -> list[tuple[str, str]]:
