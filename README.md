@@ -64,12 +64,18 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-GitHub **`main`** is **v0.2.0**. The computerless thin turn is deployed as
-stack **ChatticusThinTurn** in AWS account `335163751677` (`us-east-1`).
+GitHub **`main`** is **v0.2.0**. The live thin turn is the **development**
+cloud environment: stack **ChatticusThinTurn** in AWS account
+`335163751677` (`us-east-1`). Staging and production thin-turn stacks are
+defined in CDK (`ChatticusThinTurnStaging`,
+`ChatticusThinTurnProduction`) and are not deployed yet. Production is
+never implied by a git branch; it is an explicit gated deploy of a
+release that already passed staging acceptance.
+
 The **source** on `main` also has turn **claim**, **lease**, and **fence**
 so a duplicate queue delivery cannot start a second model call. That
-ownership path is not the live AWS behavior until
-**ChatticusThinTurn** is redeployed from this tag.
+ownership path is not the live AWS behavior until **development**
+(**ChatticusThinTurn**) is redeployed from this tag.
 
 What the deployed slice does today:
 
@@ -262,21 +268,36 @@ black --check src ../features tests
 ruff check src ../features tests
 ```
 
-The deployed thin turn is exercised against CloudFront, not against an
-in-process queue:
+The deployed thin turn is exercised against a **named cloud environment**
+(CloudFront), not against an in-process queue:
 
 ```bash
 cd python
-python scripts/exercise_thin_turn.py --base-url https://YOUR_DISTRIBUTION.cloudfront.net
+python scripts/exercise_thin_turn.py --environment development
 ```
 
-If Docker Desktop is running, the snapshot packer can be checked with
-`sh computer/test_relocate.sh`.
+That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
+`/chatticus/development/thin-turn/cloudfront-url`, or the
+`CloudFrontUrl` output on stack `ChatticusThinTurn`. Pass `--base-url`
+only when you already have the origin. Repeat with `--environment staging`
+or `--environment production` when those stacks exist. GitHub workflow
+**Acceptance** (`workflow_dispatch`) runs the same script.
 
 AWS resources are CDK only (`infra/`). Do not create them in the console.
-`cdk deploy --all` would touch **ChatticusSnapshots** and
-**ChatticusComputers**; do not destroy those stacks. Deploy the thin-turn
-slice as stack `ChatticusThinTurn`.
+`cdk deploy --all` would touch **ChatticusSnapshots**,
+**ChatticusComputers**, and every thin-turn environment; never do that.
+Deploy one named stack:
+
+```bash
+cd infra
+npx cdk deploy ChatticusThinTurn
+npx cdk deploy ChatticusThinTurnStaging
+npx cdk deploy ChatticusThinTurnProduction
+```
+
+**ChatticusThinTurn** is development. Staging and production are separate
+stacks with their own DynamoDB, SQS, Lambda, and CloudFront. Do not
+destroy the snapshot or computer stacks.
 
 Postgres in `docker-compose.yml` is unused (it predates DynamoDB).
 

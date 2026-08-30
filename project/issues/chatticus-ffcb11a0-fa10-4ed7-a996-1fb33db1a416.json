@@ -10,9 +10,16 @@
   "parent": "chatticus-65398905-db08-4e8c-a4c3-2a8d06daeadd",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "93cbe671-a9b4-497c-94af-44b51d11df76",
+      "author": "home",
+      "text": "Redeploy target is the development stack ChatticusThinTurn. Do not use cdk deploy --all. Staging and production stay undeployed until their promotion step.",
+      "created_at": "2026-08-30T20:40:15.180005Z"
+    }
+  ],
   "created_at": "2026-08-30T20:26:22.947885Z",
-  "updated_at": "2026-08-30T20:26:22.947885Z",
+  "updated_at": "2026-08-30T20:40:15.180005Z",
   "closed_at": null,
   "custom": {}
 }

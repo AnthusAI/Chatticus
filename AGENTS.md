@@ -153,6 +153,24 @@ do not call the platform-ci reusable workflow, which requires an
 Open pull requests against `develop`. Promote `develop` to `main` when
 you intend a release, not as the daily integration path.
 
+## Cloud environments
+
+Chatticus has three named AWS environments for the thin-turn front door:
+**development**, **staging**, and **production**. Acceptance tests always
+pass `--environment` for one of those names.
+
+| Git | Cloud environment | CDK stack |
+| --- | --- | --- |
+| `develop` | development | `ChatticusThinTurn` |
+| `main` (release) | staging | `ChatticusThinTurnStaging` |
+| explicit gated deploy | production | `ChatticusThinTurnProduction` |
+
+Merging to `develop` is not a production release and is not a staging
+release. Promoting to `main` updates staging after CI. Production is a
+separate deploy of a staging-proven release. Shared stacks
+`ChatticusSnapshots` and `ChatticusComputers` are not per-environment.
+Never `cdk deploy --all`. Never destroy those two stacks.
+
 ## Milestones
 
 At every milestone, launch a **sub-agent** whose only job is Kanbus and

@@ -12,6 +12,10 @@ import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { Construct } from "constructs";
+import {
+  ChatticusCloudEnvironment,
+  thinTurnParameterPrefix,
+} from "./environments";
 
 const STRIP_ACCEPT_ENCODING_FUNCTION = `function handler(event) {
   var request = event.request;
@@ -29,9 +33,18 @@ const OPENAI_PARAMETER_NAME = "/amplify/shared/papyrus/OPENAI_API_KEY";
  *
  * Do not put a load balancer in front of this stack.
  */
+export interface ThinTurnStackProps extends cdk.StackProps {
+  chatticusEnvironment: ChatticusCloudEnvironment;
+}
+
 export class ThinTurnStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: ThinTurnStackProps) {
     super(scope, id, props);
+
+    const environmentName = props.chatticusEnvironment;
+    const parameterPrefix = thinTurnParameterPrefix(environmentName);
+    const retainData = environmentName !== "development";
+    cdk.Tags.of(this).add("chatticus:environment", environmentName);
 
     const pythonRoot = path.join(__dirname, "../../python");
     const lambdaWebAdapterLayer = lambda.LayerVersion.fromLayerVersionArn(
@@ -45,7 +58,9 @@ export class ThinTurnStack extends cdk.Stack {
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: "expires_at",
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      removalPolicy: retainData
+        ? cdk.RemovalPolicy.RETAIN
+        : cdk.RemovalPolicy.DESTROY,
     });
 
     const turnQueue = new sqs.Queue(this, "TurnJobs", {
@@ -53,7 +68,7 @@ export class ThinTurnStack extends cdk.Stack {
     });
 
     const invokeSecret = new secretsmanager.Secret(this, "InvokeKey", {
-      description: "Shared invoke key for the Chatticus thin-turn front door.",
+      description: `Shared invoke key for the Chatticus ${environmentName} thin-turn front door.`,
       generateSecretString: {
         passwordLength: 32,
         excludePunctuation: true,
@@ -112,6 +127,7 @@ export class ThinTurnStack extends cdk.Stack {
     });
 
     const sharedEnv: Record<string, string> = {
+      CHATTICUS_ENVIRONMENT: environmentName,
       CHATTICUS_MESSAGING_TABLE: table.tableName,
       CHATTICUS_TURN_QUEUE_URL: turnQueue.queueUrl,
       OPENAI_MODEL: "gpt-5.6-luna",
@@ -205,7 +221,7 @@ export class ThinTurnStack extends cdk.Stack {
 
     const originReadTimeoutSeconds = 60;
     const distribution = new cloudfront.Distribution(this, "FrontDoorDistribution", {
-      comment: "Chatticus thin-turn front door (per-request, no idle floor).",
+      comment: `Chatticus ${environmentName} thin-turn front door (per-request, no idle floor).`,
       defaultBehavior: {
         origin: new origins.FunctionUrlOrigin(functionUrl, {
           readTimeout: cdk.Duration.seconds(originReadTimeoutSeconds),
@@ -227,12 +243,24 @@ export class ThinTurnStack extends cdk.Stack {
       },
     });
 
+    const cloudFrontUrl = `https://${distribution.distributionDomainName}`;
+
+    new ssm.StringParameter(this, "CloudFrontUrlParameter", {
+      parameterName: `${parameterPrefix}/cloudfront-url`,
+      stringValue: cloudFrontUrl,
+      description: `CloudFront origin for the ${environmentName} thin-turn front door.`,
+    });
+    new ssm.StringParameter(this, "InvokeKeySecretArnParameter", {
+      parameterName: `${parameterPrefix}/invoke-key-secret-arn`,
+      stringValue: invokeSecret.secretArn,
+      description: `Invoke-key secret ARN for the ${environmentName} thin-turn front door.`,
+    });
+
+    new cdk.CfnOutput(this, "ChatticusEnvironment", { value: environmentName });
     new cdk.CfnOutput(this, "MessagingTableName", { value: table.tableName });
     new cdk.CfnOutput(this, "TurnQueueUrl", { value: turnQueue.queueUrl });
     new cdk.CfnOutput(this, "FunctionUrl", { value: functionUrl.url });
-    new cdk.CfnOutput(this, "CloudFrontUrl", {
-      value: `https://${distribution.distributionDomainName}`,
-    });
+    new cdk.CfnOutput(this, "CloudFrontUrl", { value: cloudFrontUrl });
     new cdk.CfnOutput(this, "InvokeKeySecretArn", { value: invokeSecret.secretArn });
     new cdk.CfnOutput(this, "OriginReadTimeoutSeconds", {
       value: String(originReadTimeoutSeconds),

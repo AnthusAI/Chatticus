@@ -49,6 +49,10 @@ Throughout this sequence, the control plane and its data stores must retain a
 zero idle billing floor. No step may introduce a persistent socket or an
 always-on scheduler, lock service, API process, or database.
 
+Deploy and accept against named cloud environments from the start:
+**development** (`develop`), **staging** (`main`), then a gated
+**production**. Do not treat a nameless stack as the product.
+
 ## v1 — personal, shippable scope
 
 - Web chat at chattic.us

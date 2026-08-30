@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-5e07b1e8-9d5a-45db-804f-f2d147401c24",
+  "title": "Name thin-turn stacks and point acceptance at them",
+  "description": "Acceptance criteria:\n- CDK synthesizes development, staging, and production thin-turn stacks. Development keeps stack id ChatticusThinTurn so the live lab is development.\n- Each stack publishes SSM parameters for the CloudFront URL and invoke-key secret ARN.\n- exercise_thin_turn.py accepts --environment development|staging|production and resolves the front door from env vars, SSM, or CloudFormation.\n- README, AGENTS.md, and infra README describe the promotion path. cdk deploy --all remains forbidden.\n- Do not deploy staging or production in this slice. Do not destroy ChatticusSnapshots or ChatticusComputers.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9eef23b7-f1ab-4fe5-ba9b-daa89981204c",
+  "labels": [
+    "v1",
+    "implementation"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "94650f40-230a-4c75-918e-3b05bde98a8e",
+      "author": "home",
+      "text": "Implementation in progress on cursor/cloud-environments-4a21: CDK synthesizes development (ChatticusThinTurn), staging, and production thin-turn stacks. Exercise script takes --environment. Staging and production are not being deployed in this slice. Snapshots and computers are untouched.",
+      "created_at": "2026-08-30T20:40:15.148539Z"
+    }
+  ],
+  "created_at": "2026-08-30T20:37:02.628776Z",
+  "updated_at": "2026-08-30T20:40:15.148539Z",
+  "closed_at": null,
+  "custom": {}
+}
