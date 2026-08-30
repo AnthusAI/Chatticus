@@ -72,32 +72,38 @@ defined in CDK (`ChatticusThinTurnStaging`,
 never implied by a git branch; it is an explicit gated deploy of a
 release that already passed staging acceptance.
 
-The **source** on **`develop`** has named cloud environments, turn
-**claim**, **lease**, **fence**, and the recovery kernel (idempotent
-enqueue, deadlines in tests, reconciling state). That ownership and
-recovery path is not the live AWS behavior until **development**
-(**ChatticusThinTurn**) is redeployed. GitHub **`main`** is still
-**v0.2.0** until we promote.
+The **source** on **`develop`** (and this release, once promoted) has named
+cloud environments, turn **claim**, **lease**, **fence**, durable channel
+lookup across Lambda invocations, and a recovery kernel. GitHub **`main`**
+is still **v0.2.0** until this promote.
 
-What the deployed slice does today:
+What the deployed **development** slice does today:
 
 - CloudFront in front of a Lambda function URL (no load balancer).
 - FastAPI front door: channels, messages, bots, a stopped-computer roster,
-  chunk POST, and `GET /turns/{turn_id}/stream` as `text/event-stream`.
+  chunk POST, `POST /turns/{id}/claim`, fenced chunk writes, and
+  `GET /turns/{turn_id}/stream` as `text/event-stream`.
+- Channel records are in DynamoDB, so `GET /channels/{id}/messages` works
+  on a different Lambda than the one that created the channel.
 - DynamoDB is the source of truth for the transcript, in-flight chunks
-  (TTL), and the thin roster. SSE **polls the store**, so the worker Lambda
-  and the streaming function are not the same process.
+  (TTL), and the thin roster. SSE **polls the store**.
 - SQS carries one turn job. A computerless worker Lambda runs
   **gpt-5.6-luna** (OpenAI) and POSTs chunks back through the front door.
 - Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
+- `python scripts/exercise_thin_turn.py --environment development` exits 0.
+
+Worker lease renew during long model calls is on `develop` (PR 14) and is
+not on this development deploy yet. Recovery deadlines still do not fire
+in Lambda (`recovery_enabled` stays off until EventBridge or equivalent).
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the turn path yet. The computer stays stopped.
 There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
 
-Next on the board: recover interrupted turns without a second actor
-(`e42008`), then redeploy so claim and fence are live (`ffcb11`).
+Next on the board: turn-triggered recovery in AWS (`e42008` follow-up:
+EventBridge or DynamoDB TTL watchdog, durable enqueue ledger), redeploy
+development so worker renew is live, then staging after this release.
 
 ```mermaid
 flowchart LR
