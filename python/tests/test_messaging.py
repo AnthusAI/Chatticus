@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 
 import boto3
+import pytest
 from moto import mock_aws
 
 from chatticus.control_plane import ControlPlane
@@ -21,6 +23,11 @@ from chatticus.models import (
     TurnStatus,
 )
 from chatticus.worker.computerless import ComputerlessWorker, FakeTextCompletionClient
+from chatticus.worker.openai_completion import (
+    OpenAITextCompletionClient,
+    completion_client_from_env,
+    load_local_env,
+)
 
 
 def _channel_with_bot(plane: ControlPlane, name: str = "Researcher"):
@@ -136,6 +143,78 @@ def test_computerless_worker_commits_one_answer_with_fake_openai() -> None:
     bot_messages = [m for m in messages if m["author_kind"] == ActorKind.BOT]
     assert len(bot_messages) == 1
     assert "You said: ping" in bot_messages[0]["body"]
+    api.close()
+
+
+def test_completion_client_from_env_without_key_is_fake(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "chatticus.worker.openai_completion.load_local_env",
+        lambda: None,
+    )
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    client = completion_client_from_env()
+    assert isinstance(client, FakeTextCompletionClient)
+
+
+@pytest.mark.live_openai
+def test_computerless_worker_commits_one_answer_with_live_openai() -> None:
+    load_local_env()
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        pytest.skip("OPENAI_API_KEY is not set")
+    model = os.environ.get("OPENAI_MODEL", "gpt-5.6-luna").strip() or "gpt-5.6-luna"
+    plane = ControlPlane()
+    api = _client_for(plane)
+    plane.set_computer_stopped("anthus", "ryan", True)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "Reply with a short greeting.",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    assert turn_id is not None
+    worker = ComputerlessWorker(
+        plane,
+        HttpTurnClient(api, channel.tenant_id),
+        OpenAITextCompletionClient(api_key, model),
+    )
+    worker.complete_pending_for_bot(bot.bot_id)
+    assert plane.computer_is_stopped("anthus", "ryan")
+    turn = plane.turn(channel.tenant_id, turn_id)
+    assert turn.status == TurnStatus.COMPLETED
+    messages = api.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    ).json()["messages"]
+    bot_messages = [m for m in messages if m["author_kind"] == ActorKind.BOT]
+    assert len(bot_messages) == 1
+    assert bot_messages[0]["body"].strip()
+    events: list[dict[str, object]] = []
+    with api.stream(
+        "GET",
+        f"/turns/{turn_id}/stream",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    ) as response:
+        assert response.headers["content-type"].startswith("text/event-stream")
+        buffer = ""
+        for chunk in response.iter_bytes():
+            buffer += chunk.decode()
+            while "\n\n" in buffer:
+                frame, buffer = buffer.split("\n\n", 1)
+                for line in frame.split("\n"):
+                    if line.startswith("data:"):
+                        events.append(json.loads(line[5:].strip()))
+            if events and events[-1].get("kind") == "turn.completed":
+                break
+    assert any(event.get("kind") == "turn.completed" for event in events)
     api.close()
 
 

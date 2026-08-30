@@ -3,7 +3,7 @@
   "title": "Call gpt-5.6-luna for one computerless turn",
   "description": "Replace the computerless worker's FakeTextCompletionClient with a real OpenAI client when OPENAI_API_KEY is present. Model is gpt-5.6-luna (OPENAI_MODEL in .env, default gpt-5.6-luna).\n\nWhy now: the HTTP SSE thin turn exists in-process. The next unknown is an actual model loop, not more transport.\n\nAcceptance:\n- CI (GitHub Actions, no key) still uses the fake client and stays green.\n- python-dotenv loads Chattic.us/.env locally. Never commit .env.\n- One pytest marked for live OpenAI runs when the key is set; skip when absent.\n- That test posts a text-only channel message, runs ComputerlessWorker with the live client, and asserts one durable bot answer and a completed turn stream. Do not assert exact wording.\n- No Bedrock, no xAI, no second vendor.\n- Do not deploy in this task.\n\nKey already verified against GET /v1/models/gpt-5.6-luna and a tiny chat completion. Do not print the secret.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -19,10 +19,16 @@
       "author": "home",
       "text": "Branch from develop. Merge back to develop. Do not wait for main.\n",
       "created_at": "2026-08-30T19:02:55.636452Z"
+    },
+    {
+      "id": "f1a01f0e-cd82-4f25-9647-ef0a1c458a2d",
+      "author": "home",
+      "text": "Promoting develop to main as the first thin-turn release cut. Implementing the live gpt-5.6-luna client next; merge that back to develop.\n",
+      "created_at": "2026-08-30T19:06:47.278637Z"
     }
   ],
   "created_at": "2026-08-30T18:30:35.098371Z",
-  "updated_at": "2026-08-30T19:02:55.636452Z",
+  "updated_at": "2026-08-30T19:06:47.278637Z",
   "closed_at": null,
   "custom": {}
 }

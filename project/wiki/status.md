@@ -23,7 +23,7 @@ v1 LLM is OpenAI. Live model: **gpt-5.6-luna**. Key lives in `.env` (gitignored)
 
 | Issue | Status | Note |
 | --- | --- | --- |
-| chatticus-a78994 | open | **Next code:** live gpt-5.6-luna client + skippable pytest |
+| chatticus-a78994 | in_progress | Live gpt-5.6-luna client; landing on develop |
 | chatticus-e5c86e | open | Deploy/exercise zero-idle turn |
 | chatticus-387e4f | open | Spike done; mobile Safari still unmeasured |
 
