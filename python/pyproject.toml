@@ -15,6 +15,7 @@ dependencies = []
 dev = [
     "behave",
     "black",
+    "pytest",
     "ruff",
 ]
 

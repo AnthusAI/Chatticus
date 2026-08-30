@@ -13,6 +13,21 @@ Feature: Approvals
     When a bot proposes action type "publish"
     Then the decision is "require_approval"
 
+  Scenario: Purchasing requires approval by default
+    Given an empty control plane
+    When a bot proposes action type "purchase"
+    Then the decision is "require_approval"
+
+  Scenario: Deleting requires approval by default
+    Given an empty control plane
+    When a bot proposes action type "delete"
+    Then the decision is "require_approval"
+
+  Scenario: Production changes require approval by default
+    Given an empty control plane
+    When a bot proposes action type "production_change"
+    Then the decision is "require_approval"
+
   Scenario: Reading a workspace file is allowed
     Given an empty control plane
     When a bot proposes action type "read_workspace"
@@ -27,6 +42,13 @@ Feature: Approvals
 
   Scenario: Never-allow denies the action
     Given an empty control plane
+    And an auto-review rule never-allow for "purchase"
+    When a bot proposes action type "purchase"
+    Then the decision is "deny"
+
+  Scenario: Never-allow wins over require-approval
+    Given an empty control plane
+    And an auto-review rule require-approval for "purchase"
     And an auto-review rule never-allow for "purchase"
     When a bot proposes action type "purchase"
     Then the decision is "deny"

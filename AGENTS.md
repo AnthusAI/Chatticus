@@ -43,12 +43,13 @@ the xAI Grok API; that is a model provider, not the product name.
 From `python/` after `pip install -e ".[dev]"`:
 
 ```bash
-black --check src ../features
-ruff check src ../features
+black --check src ../features tests
+ruff check src ../features tests
 behave
+pytest
 ```
 
-Do not declare worker-protocol work done if `behave` is failing.
+Do not declare worker-protocol work done if `behave` or `pytest` is failing.
 
 ## Computer and Lambda
 

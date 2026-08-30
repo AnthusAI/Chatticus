@@ -108,7 +108,12 @@ v1 language for the product brain is **Python**. The web app is
 **TypeScript**. Gherkin in `features/` is the behavior spec. Rust is not v1;
 shared Gherkin keeps a later worker daemon possible.
 
-## Local checks
+## What you can run today
+
+The only implemented product code is the in-memory control plane
+(`python/src/chatticus/`). There is no HTTP API, no model loop, no
+computer agent, and no web app yet. Postgres in `docker-compose.yml`
+is not used by the kernel.
 
 ```bash
 cd python
@@ -116,6 +121,17 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 behave
+pytest
+black --check src ../features tests
+ruff check src ../features tests
+```
+
+If Docker Desktop is running, you can also prove the computer image
+builds and Postgres starts. Neither is wired to the kernel yet:
+
+```bash
+docker compose up -d postgres
+docker build -t chatticus-computer computer/
 ```
 
 ## Documentation

@@ -38,3 +38,21 @@ Feature: Worker registration and heartbeats
     And worker "garage-mac-1" sends a heartbeat
     And 20 more seconds pass
     Then tenant "anthus" has 1 healthy worker
+
+  Scenario: Re-registering the same worker replaces the advertisement
+    Given an empty control plane
+    And a worker registered as:
+      | worker_id   | household-1 |
+      | tenant_id   | anthus      |
+      | cost_class  | local       |
+      | capabilities| computer    |
+      | computer_id | household-computer |
+    When a worker registers:
+      | worker_id   | household-1 |
+      | tenant_id   | anthus      |
+      | cost_class  | fargate     |
+      | capabilities| computer,browser |
+      | computer_id | household-computer-aws |
+    Then tenant "anthus" has 1 healthy worker
+    And worker "household-1" has cost class "fargate"
+    And worker "household-1" has computer affinity "household-computer-aws"

@@ -9,6 +9,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 behave
+pytest
 ```
 
 Gherkin lives in `../features/`. Step definitions live in `../features/steps/`.
