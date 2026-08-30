@@ -125,6 +125,7 @@ def test_plane_from_env_enables_recovery_with_scheduler_env(
     )
     plane = plane_from_env()
     assert plane.recovery_enabled
+    assert plane._wall_clock
     from chatticus.deadline.scheduler import EventBridgeTurnDeadlineScheduler
 
     assert isinstance(plane._deadline_scheduler, EventBridgeTurnDeadlineScheduler)
@@ -138,6 +139,7 @@ def test_plane_from_env_recovery_stays_off_without_scheduler(
     monkeypatch.delenv("CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP", raising=False)
     plane = plane_from_env()
     assert not plane.recovery_enabled
+    assert plane._wall_clock
 
 
 def test_deadline_lambda_handler_invokes_plane(

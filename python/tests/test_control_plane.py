@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import timedelta
 
 import pytest
@@ -44,6 +45,13 @@ def test_heartbeat_on_unknown_worker_raises() -> None:
     plane = ControlPlane()
     with pytest.raises(KeyError):
         plane.heartbeat("missing")
+
+
+def test_wall_clock_plane_does_not_freeze() -> None:
+    plane = ControlPlane(wall_clock=True)
+    first = plane.now()
+    time.sleep(0.02)
+    assert plane.now() > first
 
 
 def test_computer_for_unknown_user_raises() -> None:
