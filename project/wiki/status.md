@@ -17,6 +17,7 @@ v1 LLM is OpenAI. Live model: **gpt-5.6-luna**. Key lives in `.env` (gitignored)
 
 - SSE feasibility spike is on main (and therefore on develop); `ChatticusSseSpike` destroyed. Do not rebuild it. Do not destroy `ChatticusSnapshots` or `ChatticusComputers`.
 - Mermaid computerless-turn diagram is in `docs/MESSAGING.md` (chatticus-f0f9e0 closed).
+- README has current-state and v1-goal architecture diagrams.
 - Gherkin + FastAPI HTTP SSE thin turn is on `develop`. CI uses the fake OpenAI client.
 
 ## In flight (do this next)

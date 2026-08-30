@@ -2,7 +2,9 @@
 
 Chatticus splits into a **control plane** that is always in AWS and a
 **worker plane** of heterogeneous computers that pull jobs. v1 is one
-household. Every record still carries `tenant_id`.
+household. Every record still carries `tenant_id`. The README has mermaid
+pictures of the **deployed thin turn** and this **v1 goal**; this page is
+the protocol.
 
 ## Control plane versus workers
 
