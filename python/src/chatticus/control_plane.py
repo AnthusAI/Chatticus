@@ -53,6 +53,7 @@ from chatticus.models import (
     WorkerTenantMismatchError,
 )
 from chatticus.snapshot.uri import snapshot_uri
+from chatticus.turn_fault_hooks import CrashWindow, FaultInjector, TurnBoundary
 from chatticus.turn_recovery import (
     InMemoryTurnDeadlineScheduler,
     QueueVisibilityLedger,
@@ -81,6 +82,7 @@ class ControlPlane:
         visibility_renewer: Callable[[TurnJob], None] | None = None,
         recovery_enabled: bool = False,
         wall_clock: bool = False,
+        fault_injector: FaultInjector | None = None,
     ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
@@ -108,6 +110,8 @@ class ControlPlane:
             read so a long-lived Lambda plane does not freeze EventBridge
             deadlines at import time. Tests keep the default pinned clock.
         :type wall_clock: bool
+        :param fault_injector: Optional deterministic crash hooks for tests.
+        :type fault_injector: FaultInjector | None
         """
         self.heartbeat_timeout = heartbeat_timeout or timedelta(seconds=30)
         self.attempt_lease = attempt_lease or timedelta(seconds=60)
@@ -115,6 +119,7 @@ class ControlPlane:
         self.max_recovery_attempts = max_recovery_attempts
         self.recovery_enabled = recovery_enabled
         self._wall_clock = wall_clock
+        self._fault_injector = fault_injector
         self._frozen_now = datetime.now(UTC)
         self._workers: dict[str, WorkerRecord] = {}
         self._bots: dict[str, Bot] = {}
@@ -187,6 +192,10 @@ class ControlPlane:
     def now(self) -> datetime:
         """Return the current control-plane clock."""
         return self._now
+
+    def _fault(self, boundary: TurnBoundary, window: CrashWindow) -> None:
+        if self._fault_injector is not None:
+            self._fault_injector.maybe_crash(boundary, window)
 
     def register_worker(self, registration: WorkerRegistration) -> None:
         """Register or replace a worker and record a heartbeat.
@@ -656,7 +665,9 @@ class ControlPlane:
 
     def remove_pending_job(self, job_id: str) -> None:
         """Drop a turn job after a worker finishes it."""
+        self._fault(TurnBoundary.ACKNOWLEDGEMENT, CrashWindow.BEFORE)
         self._jobs = [job for job in self._jobs if job.job_id != job_id]
+        self._fault(TurnBoundary.ACKNOWLEDGEMENT, CrashWindow.AFTER)
 
     def set_computer_stopped(self, tenant_id: str, user_id: str, stopped: bool) -> None:
         """Mark the household computer stopped without deleting it."""
@@ -754,7 +765,9 @@ class ControlPlane:
         )
         channel.next_seq += 1
         self._messaging_store.put_channel(channel)
+        self._fault(TurnBoundary.MESSAGE_COMMIT, CrashWindow.BEFORE)
         self._messaging_store.put_message(message)
+        self._fault(TurnBoundary.MESSAGE_COMMIT, CrashWindow.AFTER)
         started: Turn | None = None
         if enqueue_turn and addressed_to_bot_id is not None:
             started = self._start_turn_for_bot(channel, addressed_to_bot_id)
@@ -803,6 +816,7 @@ class ControlPlane:
         with ``acquired=False`` and must not start another model call.
         """
         self.turn(tenant_id, turn_id)
+        self._fault(TurnBoundary.WORKER_CLAIM, CrashWindow.BEFORE)
         claimed = self._messaging_store.claim_turn_attempt(
             tenant_id,
             turn_id,
@@ -820,6 +834,8 @@ class ControlPlane:
             turn.deadline_at = self._now + self.turn_deadline
             self._messaging_store.put_turn(turn)
             self._deadline_scheduler.schedule(tenant_id, turn_id, turn.deadline_at)
+        if acquired:
+            self._fault(TurnBoundary.WORKER_CLAIM, CrashWindow.AFTER)
         return TurnAttempt(
             tenant_id=turn.tenant_id,
             turn_id=turn.turn_id,
@@ -874,11 +890,13 @@ class ControlPlane:
         job: TurnJob,
     ) -> bool:
         """Enqueue a turn job once per ``enqueue_id``."""
+        self._fault(TurnBoundary.LOGICAL_ENQUEUE, CrashWindow.BEFORE)
         if not self._messaging_store.record_logical_enqueue(
             tenant_id, turn_id, enqueue_id
         ):
             return False
         self._logical_enqueue_delivery_count += 1
+        self._fault(TurnBoundary.LOGICAL_ENQUEUE, CrashWindow.AFTER)
         if self._turn_enqueued is not None:
             self._turn_enqueued(job)
         return True
@@ -901,6 +919,7 @@ class ControlPlane:
         if turn.recovery_attempts >= self.max_recovery_attempts:
             self._fail_turn(turn, "recovery attempts exhausted")
             return
+        self._fault(TurnBoundary.DEADLINE_RECOVERY, CrashWindow.BEFORE)
         turn.recovery_attempts += 1
         turn.attempt_id = None
         turn.claimed_by_worker_id = None
@@ -908,6 +927,7 @@ class ControlPlane:
         turn.fence_token += 1
         turn.deadline_at = self._now + self.turn_deadline
         self._messaging_store.put_turn(turn)
+        self._fault(TurnBoundary.DEADLINE_RECOVERY, CrashWindow.AFTER)
         self._deadline_scheduler.schedule(tenant_id, turn_id, turn.deadline_at)
         job = self._job_for_turn(tenant_id, turn_id)
         if job is not None:
@@ -1005,6 +1025,8 @@ class ControlPlane:
         if turn.status != TurnStatus.ACTIVE:
             return
         expires_at = default_chunk_expiry(self._now)
+        if not complete:
+            self._fault(TurnBoundary.PROGRESS_APPEND, CrashWindow.BEFORE)
         appended = self._messaging_store.put_turn_chunk(
             tenant_id,
             turn_id,
@@ -1018,6 +1040,8 @@ class ControlPlane:
             return
         turn.next_chunk_seq += 1
         self._messaging_store.put_turn(turn, expected_fence=fence_token)
+        if not complete:
+            self._fault(TurnBoundary.PROGRESS_APPEND, CrashWindow.AFTER)
         self._append_turn_event(
             turn,
             TurnEventKind.TURN_TOKEN,
@@ -1120,9 +1144,22 @@ class ControlPlane:
                 addressed_to_bot_id=None,
                 created_at=self._now,
             )
+        messages = self._messaging_store.list_messages(turn.tenant_id, turn.channel_id)
+        for message in reversed(messages):
+            if (
+                message.author_kind == ActorKind.BOT
+                and message.author_id == turn.bot_id
+            ):
+                return self._finalize_committed_turn(
+                    turn,
+                    message,
+                    body=message.body,
+                    expected_fence=expected_fence,
+                )
         chunks = self._messaging_store.list_turn_chunks(turn.tenant_id, turn.turn_id)
         body = "".join(chunks)
         channel = self.channel(turn.tenant_id, turn.channel_id)
+        self._fault(TurnBoundary.COMPLETION_APPEND, CrashWindow.BEFORE)
         message = Message(
             message_id=str(uuid4()),
             channel_id=channel.channel_id,
@@ -1137,6 +1174,22 @@ class ControlPlane:
         channel.next_seq += 1
         self._messaging_store.put_channel(channel)
         self._messaging_store.put_message(message)
+        self._fault(TurnBoundary.COMPLETION_APPEND, CrashWindow.AFTER)
+        return self._finalize_committed_turn(
+            turn,
+            message,
+            body=body,
+            expected_fence=expected_fence,
+        )
+
+    def _finalize_committed_turn(
+        self,
+        turn: Turn,
+        message: Message,
+        *,
+        body: str,
+        expected_fence: int | None = None,
+    ) -> Message:
         turn.status = TurnStatus.COMPLETED
         self._messaging_store.put_turn(turn, expected_fence=expected_fence)
         self._deadline_scheduler.cancel(turn.tenant_id, turn.turn_id)
