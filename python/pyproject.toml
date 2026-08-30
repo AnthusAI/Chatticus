@@ -14,11 +14,13 @@ dependencies = []
 [project.optional-dependencies]
 aws = [
     "boto3",
+    "botocore[crt]",
 ]
 dev = [
     "behave",
     "black",
     "boto3",
+    "botocore[crt]",
     "moto",
     "pytest",
     "ruff",

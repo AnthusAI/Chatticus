@@ -26,3 +26,4 @@ python -m chatticus.snapshot pack \
 ```
 
 `--store s3` uses `CHATTICUS_SNAPSHOT_BUCKET` from `npx cdk deploy` in `infra/`.
+AWS login credentials need `botocore[crt]` (included in `pip install -e ".[aws]"`).
