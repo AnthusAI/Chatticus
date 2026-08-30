@@ -4,7 +4,10 @@ Chatticus is a roster of named AI teammates. You give a teammate a job. It
 works in real tools. It only interrupts you for approval or a human-only
 step.
 
-The surface is [chattic.us](https://chattic.us).
+The surface is [chattic.us](https://chattic.us). Named bots on that
+surface will use [Vultus](https://github.com/AnthusAI/Vultus)
+(`anthus-vultus`), an animated React avatar, as their face. That is the
+web app. It is not a second realtime transport.
 
 ## Bots
 

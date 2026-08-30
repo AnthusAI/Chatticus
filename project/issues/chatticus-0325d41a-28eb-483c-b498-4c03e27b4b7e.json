@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-0325d41a-28eb-483c-b498-4c03e27b4b7e",
+  "title": "Named bots appear as Vultus avatars on chattic.us",
+  "description": "Owner vision, not current-phase work.\n\nchattic.us will use AnthusAI/Vultus (npm: anthus-vultus), a GSAP SVG-morphing React BotAvatar, as the face of named bots in the roster and in chat. It is a UI component with states such as thinking and speaking. It is not a control-plane, worker, or streaming concern.\n\nDo not pull this into Phase 1 (SSE spike, durable computerless turn) or Phase 2 (ownership, computer, browser authority). Wire it when the web app exists, as a dependency of the Next.js surface (web/), talking only to Chatticus turn/channel state already on the control plane (e.g. map turn.started / coalesced tokens / turn.waiting to avatar states). Do not give the avatar its own socket.\n\nPackage: https://github.com/AnthusAI/Vultus",
+  "type": "story",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [
+    "later",
+    "ui"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T16:38:14.197974Z",
+  "updated_at": "2026-08-30T16:38:14.197974Z",
+  "closed_at": null,
+  "custom": {}
+}
