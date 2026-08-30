@@ -10,6 +10,11 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from chatticus.approval_binding import ApprovalBindingGate
+from chatticus.escalation_handoff import (
+    ComputerOwnershipClaim,
+    EscalationRecord,
+    PendingComputerToolCall,
+)
 from chatticus.messaging.store import (
     InMemoryMessagingStore,
     MessagingStore,
@@ -135,6 +140,8 @@ class ControlPlane:
         self._auto_review_rules: list[AutoReviewRule] = []
         self._refused_bot_auto_review: list[tuple[str, str]] = []
         self._approval_binding = ApprovalBindingGate()
+        self._escalations: dict[tuple[str, str], EscalationRecord] = {}
+        self._computer_claims: dict[str, ComputerOwnershipClaim] = {}
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
         self._turn_enqueued = turn_enqueued
@@ -703,6 +710,183 @@ class ControlPlane:
             structured_connector=structured_connector,
             takeover_control=takeover_control,
         )
+
+    def prepare_computer_tool(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        tool_name: str,
+        arguments: dict[str, str],
+    ) -> EscalationRecord:
+        """Record that a computerless turn is ready to request a computer tool."""
+        turn = self.turn(tenant_id, turn_id)
+        bot = self._bots[turn.bot_id]
+        computer = self.ensure_computer(tenant_id, bot.user_id)
+        record = EscalationRecord(
+            turn_id=turn_id,
+            tenant_id=tenant_id,
+            user_id=bot.user_id,
+            computer_id=computer.computer_id,
+            pending_call=PendingComputerToolCall(
+                action_id=str(uuid4()),
+                tool_name=tool_name,
+                arguments=dict(arguments),
+            ),
+        )
+        self._escalations[(tenant_id, turn_id)] = record
+        return record
+
+    def escalation_for(self, tenant_id: str, turn_id: str) -> EscalationRecord:
+        """Return the computer-handoff record for one turn."""
+        record = self._escalations.get((tenant_id, turn_id))
+        if record is None:
+            raise TurnNotFoundError(f"Turn {turn_id!r} has no computer handoff.")
+        return record
+
+    def commit_pending_computer_tool(self, tenant_id: str, turn_id: str) -> None:
+        """Make the pending computer tool call durable."""
+        record = self.escalation_for(tenant_id, turn_id)
+        record.call_committed = True
+
+    def enqueue_computer_continuation(self, tenant_id: str, turn_id: str) -> None:
+        """Enqueue one computer-capable continuation for the same turn."""
+        record = self.escalation_for(tenant_id, turn_id)
+        if not record.call_committed:
+            raise TurnTerminalError(
+                f"Turn {turn_id!r} has no committed computer tool call."
+            )
+        if record.continuation_enqueued:
+            return
+        turn = self.turn(tenant_id, turn_id)
+        job = self.enqueue_turn(
+            tenant_id,
+            frozenset({"cpu", "computer"}),
+            computer_id=record.computer_id,
+            user_id=record.user_id,
+            bot_id=turn.bot_id,
+        )
+        self._bind_job_to_turn(job.job_id, turn_id)
+        record.continuation_job_id = job.job_id
+        record.continuation_enqueued = True
+
+    def relinquish_computerless_ownership(self, tenant_id: str, turn_id: str) -> None:
+        """Drop the computerless fence so a computer-capable attempt can claim."""
+        record = self.escalation_for(tenant_id, turn_id)
+        if not record.continuation_enqueued:
+            raise TurnTerminalError(
+                f"Turn {turn_id!r} has not enqueued a computer continuation."
+            )
+        turn = self.turn(tenant_id, turn_id)
+        turn.claimed_by_worker_id = None
+        turn.attempt_id = None
+        turn.lease_expires_at = None
+        turn.fence_token += 1
+        self._messaging_store.put_turn(turn)
+        record.computerless_relinquished = True
+
+    def claim_computer_for_turn(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        worker_id: str,
+    ) -> bool:
+        """Take an exclusive computer lease for the fenced turn owner."""
+        self.expire_orphaned_computer_claims()
+        record = self.escalation_for(tenant_id, turn_id)
+        turn = self.turn(tenant_id, turn_id)
+        if turn.claimed_by_worker_id != worker_id:
+            return False
+        existing = self._computer_claims.get(record.computer_id)
+        if (
+            existing is not None
+            and existing.expires_at > self._now
+            and existing.turn_id != turn_id
+        ):
+            return False
+        if (
+            existing is not None
+            and existing.expires_at > self._now
+            and existing.attempt_id != turn.attempt_id
+            and existing.turn_id == turn_id
+        ):
+            return False
+        self._computer_claims[record.computer_id] = ComputerOwnershipClaim(
+            computer_id=record.computer_id,
+            turn_id=turn_id,
+            attempt_id=turn.attempt_id or worker_id,
+            worker_id=worker_id,
+            expires_at=self._now + self.attempt_lease,
+        )
+        return True
+
+    def execute_pending_computer_action(self, tenant_id: str, turn_id: str) -> None:
+        """Run the pending computer tool at most once."""
+        record = self.escalation_for(tenant_id, turn_id)
+        claim = self._computer_claims.get(record.computer_id)
+        if claim is None or claim.turn_id != turn_id or claim.expires_at <= self._now:
+            raise TurnTerminalError(f"Turn {turn_id!r} does not hold the computer.")
+        if record.computer_action_count:
+            return
+        record.computer_action_count += 1
+
+    def commit_computer_tool_result(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        result_body: str,
+    ) -> None:
+        """Commit the computer tool result without repeating the action."""
+        record = self.escalation_for(tenant_id, turn_id)
+        if record.computer_action_count != 1:
+            raise TurnTerminalError(
+                f"Turn {turn_id!r} has no computer action to commit."
+            )
+        record.result_body = result_body
+        record.result_committed = True
+
+    def recover_computer_escalation(self, tenant_id: str, turn_id: str) -> None:
+        """Continue a crashed handoff exactly once, then complete the turn."""
+        record = self.escalation_for(tenant_id, turn_id)
+        if not record.call_committed:
+            self.commit_pending_computer_tool(tenant_id, turn_id)
+        if not record.continuation_enqueued:
+            self.enqueue_computer_continuation(tenant_id, turn_id)
+        if not record.computerless_relinquished:
+            self.relinquish_computerless_ownership(tenant_id, turn_id)
+        claimed = self.claim_turn_attempt(tenant_id, turn_id, "computer-worker")
+        if claimed is None:
+            raise TurnTerminalError(
+                f"Turn {turn_id!r} could not be claimed for computer continuation."
+            )
+        if not self.claim_computer_for_turn(tenant_id, turn_id, "computer-worker"):
+            raise TurnTerminalError(f"Turn {turn_id!r} could not claim the computer.")
+        if record.computer_action_count == 0:
+            self.execute_pending_computer_action(tenant_id, turn_id)
+        if not record.result_committed:
+            self.commit_computer_tool_result(
+                tenant_id, turn_id, record.result_body or "opened"
+            )
+        turn = self.turn(tenant_id, turn_id)
+        self._complete_turn(turn, expected_fence=turn.fence_token)
+
+    def active_computer_controllers(self, computer_id: str) -> list[str]:
+        """Return attempt ids that currently hold an unexpired computer lease."""
+        self.expire_orphaned_computer_claims()
+        claim = self._computer_claims.get(computer_id)
+        if claim is None:
+            return []
+        return [claim.attempt_id]
+
+    def expire_orphaned_computer_claims(self) -> None:
+        """Drop computer leases whose deadline has passed."""
+        expired = [
+            computer_id
+            for computer_id, claim in self._computer_claims.items()
+            if claim.expires_at <= self._now
+        ]
+        for computer_id in expired:
+            del self._computer_claims[computer_id]
 
     def evaluate_action(
         self,

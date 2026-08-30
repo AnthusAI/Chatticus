@@ -3,7 +3,7 @@
   "title": "A crash at the computer seam does not lose or duplicate work",
   "description": "As a household member, I want escalation failures to recover deterministically, so that a browser is never held forever and an action is never performed twice.\n\nFeature: Escalation failure recovery\n\nScenario Outline: Failure during computer handoff\n  Given a computerless turn is ready to request a computer tool\n  When its worker stops <boundary>\n  Then the pending call is either continued exactly once or the turn ends visibly\n  And only one attempt can control the computer\n  And an orphaned computer claim expires\n\n  Examples:\n    | boundary |\n    | before the tool call is committed |\n    | after the tool call is committed but before enqueue |\n    | after enqueue but before relinquishing ownership |\n    | after the computer action but before its result is committed |",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,22 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "66e4c5a8-9aef-4e8f-8dc8-fd29aa7273de",
+      "author": "home",
+      "text": "Kernel: Gherkin escalation_failure_recovery.feature. In-memory handoff with four crash windows; not on live ThinTurn; no ChatticusComputers deploy; no staging/production.",
+      "created_at": "2026-08-30T23:30:31.562781Z"
+    },
+    {
+      "id": "4769b14e-2360-4a32-84e7-68e3c0f64346",
+      "author": "home",
+      "text": "Kernel on this branch: features/escalation_failure_recovery.feature. Four crash windows recover without duplicate computer actions; orphaned computer claims expire. Not wired to live ThinTurn. No ChatticusComputers/staging/production deploy.",
+      "created_at": "2026-08-30T23:33:27.823978Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:56.584037Z",
-  "updated_at": "2026-08-30T15:54:56.584037Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T23:33:27.823978Z",
+  "closed_at": "2026-08-30T23:33:27.813586Z",
   "custom": {}
 }
