@@ -72,19 +72,48 @@ drive a migration.
 **Need.** Bots keep context. A channel that runs for months cannot be
 stuffed into every model call. The human still wants to scroll history.
 
-**Not decided.**
+**Working model: non-destructive compaction on an immutable stream.**
 
-- What the model sees (rolling summary, retrieved excerpts, last N
-  messages, per-bot memory) vs what the UI shows (full log).
-- Who writes a compaction (a dedicated turn, the control plane after
-  every N messages, a nightly job).
-- Whether compaction is a new message in the channel, a side record,
-  or only bot memory.
-- How a human "opens the old thread" after a summary exists. One
-  correct path later; do not invent dual readers.
+This is the mechanism we will think with together. It is the same
+shape as an append-only log with an appended snapshot (the Kanbus event
+log never rewrites past events; a compact is another append).
 
-Do not add a summarizer loop until the store and the channel model
-exist on paper.
+1. Messages are an **immutable stream**. Once written, a message is not
+   edited or deleted. The store only appends.
+2. Compaction **appends a summary message** to that stream. The summary
+   is a normal row (a kind such as `summary`). It records which prefix
+   it covers (for example `covers_through_seq`).
+3. The original messages **stay**. Nothing is rewritten. The UI can
+   still show the full stream.
+4. The **compacted history** for a model call is: the **latest summary**
+   plus **every message after it** (seq greater than `covers_through_seq`).
+   If there is no summary yet, the compacted history is the whole
+   stream (or a bounded tail until the first compact).
+5. Compaction can run **anytime, asynchronously**. It does not lock the
+   channel. New messages that land while a compact job is running have
+   a higher seq than the prefix being summarized, so they appear in the
+   tail automatically. A later compact can cover a longer prefix,
+   including earlier summaries, by appending a newer summary.
+
+```
+[m1][m2][m3][m4][S covers 1-4][m5][m6]
+model view: S + m5 + m6
+human scroll: m1 .. m6
+```
+
+That is **one stream, two read recipes**, not two stores. Do not add a
+second compacted table that can drift from the log.
+
+**Still open.**
+
+- Who writes the summary (a dedicated turn, the control plane, a
+  nightly job).
+- When to compact (token budget, message count, idle time).
+- What a summary contains (prose, structured facts, both).
+- How a summary is itself a participant in the next compact.
+
+Do not implement a summarizer loop until the store exists. When it
+does, compact by appending, never by mutating.
 
 ## 4. Direct bot-to-bot and channels
 
@@ -117,6 +146,8 @@ architecture.
 
 - Put behavior changes in Gherkin only when the humans have picked a
   path. Until then, discuss in this file and in chat.
+- Compaction, if we compact at all, is non-destructive: append a
+  summary, never rewrite the stream. See section 3.
 - Do not treat `docs/MESSAGING.md` as locked. Update this file when a
   challenge is actually decided, then implement.
 - Do not name other vendors' agent products in Chatticus docs, bots, or
