@@ -30,10 +30,16 @@
       "author": "home",
       "text": "Thin turn is on develop. Next on this epic is chatticus-a78994 (live gpt-5.6-luna). Deploy remains chatticus-e5c86e. Do not wait on main for daily integration.\n",
       "created_at": "2026-08-30T19:02:55.613110Z"
+    },
+    {
+      "id": "6edc2ef2-0158-462b-ad1e-6cff8c023f17",
+      "author": "home",
+      "text": "Thin computerless turn is deployed (ChatticusThinTurn) and exercised on develop. Epic DoD for the running slice is met except production auth/web app polish.\n",
+      "created_at": "2026-08-30T19:38:58.310666Z"
     }
   ],
   "created_at": "2026-08-30T15:53:17.617903Z",
-  "updated_at": "2026-08-30T19:02:55.613110Z",
+  "updated_at": "2026-08-30T19:38:58.310666Z",
   "closed_at": null,
   "custom": {}
 }

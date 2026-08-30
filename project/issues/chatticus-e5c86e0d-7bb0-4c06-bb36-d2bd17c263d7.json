@@ -3,7 +3,7 @@
   "title": "Deploy and exercise the zero-idle thin turn",
   "description": "Deploy the thin turn through CDK and prove it end to end.\n\nAcceptance criteria:\n- A browser or test client posts one message and observes progress and completion.\n- A forced disconnect demonstrates replay from committed state.\n- A stopped computer remains stopped for the entire turn.\n- No persistent socket, always-on scheduler, API process, lock service, or database is introduced.\n- Logs identify tenant_id, channel_id, turn_id, and attempt_id without recording message content or secrets.\n- The executable specifications and Python quality gates pass.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -24,10 +24,16 @@
       "author": "home",
       "text": "Implementing ChatticusThinTurn: Lambda Web Adapter front door, DynamoDB, SQS computerless worker, CloudFront, no ALB. SSE will poll the store so it survives separate Lambda invocations. Spike stack will not be redeployed.\n",
       "created_at": "2026-08-30T19:23:31.889281Z"
+    },
+    {
+      "id": "1ea77a72-c37f-4b4f-a143-ef37d6c62d1d",
+      "author": "home",
+      "text": "Deployed ChatticusThinTurn in us-east-1. Exercise through CloudFront succeeded: POST message, SSE progress and completion, reconnect replay, computer stayed stopped, one durable bot answer. No ALB. Closing.\n",
+      "created_at": "2026-08-30T19:38:58.289370Z"
     }
   ],
   "created_at": "2026-08-30T15:53:18.174981Z",
-  "updated_at": "2026-08-30T19:23:31.889281Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T19:38:58.299610Z",
+  "closed_at": "2026-08-30T19:38:58.299610Z",
   "custom": {}
 }
