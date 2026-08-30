@@ -3,7 +3,7 @@
   "title": "Replace the obsolete in-memory messaging kernel",
   "description": "The in-memory control-plane kernel (python/src/chatticus/control_plane.py) implements the rejected design in its messaging and realtime paths. It must be replaced or bypassed for the durable computerless turn, not extended.\n\nWhat is obsolete:\n\n- post_message always enqueues frozenset({\"computer\"}) for an addressed bot. Challenge 5 says many turns never need a computer; a computerless worker must be able to take a turn. The capability set must come from the turn, not be hardcoded.\n- RealtimeSubscription and TurnStream are an in-process fan-out held by the control plane. Challenge 1 deleted persistent sockets and in-process rendezvous; the rendezvous is a DynamoDB chunk store polled by a streaming function, and the stream is scoped to one turn.\n- There is no turn_id, no turn attempt, no lease, and no fencing. The ownership work in epic chatticus-65398905 needs those primitives.\n\nWhat is not obsolete and should be preserved:\n\n- Worker registration, tenant ownership, heartbeat, cost-class routing, computer affinity and pinning, approvals and auto-review rules, and the snapshot publish/relocate/hydrate paths. These encode the worker protocol that survives.\n\nAcceptance criteria:\n\n- The durable computerless turn path (task chatticus-df6e93c2) does not reuse RealtimeSubscription or TurnStream.\n- A turn job's required capabilities are not hardcoded to computer; a computerless worker can take a turn.\n- The obsolete thread and in-process stream specifications are removed, not kept as a second supported path (task chatticus-a8f9d17c).\n- The routing/approval/snapshot kernel paths that survive keep their tests.\n\nRelated: chatticus-a8f9d17c (replace the obsolete specs), chatticus-df6e93c2 (implement the durable computerless turn path), chatticus-65398905 (recover turns without duplicate actors).",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -18,10 +18,16 @@
       "author": "home",
       "text": "On cursor/durable-computerless-turn-4a21, addressed-bot jobs are cpu-only and the old RealtimeSubscription/TurnStream types are gone. Close this when that branch merges; do not keep a second messaging kernel.\n",
       "created_at": "2026-08-30T18:30:35.056685Z"
+    },
+    {
+      "id": "404fe318-228f-44a2-82d7-244c5a1b5a08",
+      "author": "home",
+      "text": "cpu-only jobs and removal of RealtimeSubscription/TurnStream landed on develop with the thin turn. Closing.\n",
+      "created_at": "2026-08-30T19:02:55.590592Z"
     }
   ],
   "created_at": "2026-08-30T16:21:43.002157Z",
-  "updated_at": "2026-08-30T18:30:35.056685Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T19:02:55.601862Z",
+  "closed_at": "2026-08-30T19:02:55.601862Z",
   "custom": {}
 }

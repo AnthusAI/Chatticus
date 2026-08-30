@@ -24,10 +24,16 @@
       "author": "home",
       "text": "Phase 1 snapshot 2026-08-30:\n\nDone on main: SSE feasibility spike, mermaid in MESSAGING, existing snapshot/routing kernel.\n\nIn flight: durable computerless turn (epic chatticus-467464) on cursor/durable-computerless-turn-4a21. HTTP SSE accepted by manager; merge pending.\n\nOwner: v1 LLM is OpenAI gpt-5.6-luna. A working key is in Chattic.us/.env (gitignored), copied from SSM /amplify/shared/papyrus/OPENAI_API_KEY and probed live (models + one chat completion). CI must not require that key.\n\nBlocked until thin turn lands: computer summon, browser authority, Vultus, Kanbus-cloud task store.\n",
       "created_at": "2026-08-30T18:30:35.080411Z"
+    },
+    {
+      "id": "d958d731-c029-4475-9c0a-2ddc93fd62af",
+      "author": "home",
+      "text": "Integration branch is develop. Feature work merges there continuously. main is release-only.\n",
+      "created_at": "2026-08-30T19:02:55.625667Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-30T18:30:35.080411Z",
+  "updated_at": "2026-08-30T19:02:55.625667Z",
   "closed_at": null,
   "custom": {}
 }

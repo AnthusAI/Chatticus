@@ -12,9 +12,16 @@
     "git"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "9a263f1c-f8f7-4f60-a535-c2d426b04adb",
+      "author": "home",
+      "text": "develop created from main and the accepted HTTP SSE thin turn merged. CI now runs on push to develop and main. AGENTS.md states: integrate on develop, release from main. Closing when that is pushed.\n",
+      "created_at": "2026-08-30T19:02:55.531090Z"
+    }
+  ],
   "created_at": "2026-08-30T19:02:14.413251Z",
-  "updated_at": "2026-08-30T19:02:14.413251Z",
+  "updated_at": "2026-08-30T19:02:55.531090Z",
   "closed_at": null,
   "custom": {}
 }

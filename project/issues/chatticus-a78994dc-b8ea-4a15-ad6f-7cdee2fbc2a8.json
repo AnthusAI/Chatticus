@@ -13,9 +13,16 @@
     "llm"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "63557798-1275-41b0-a23a-ca72bc1a1cce",
+      "author": "home",
+      "text": "Branch from develop. Merge back to develop. Do not wait for main.\n",
+      "created_at": "2026-08-30T19:02:55.636452Z"
+    }
+  ],
   "created_at": "2026-08-30T18:30:35.098371Z",
-  "updated_at": "2026-08-30T18:30:35.098371Z",
+  "updated_at": "2026-08-30T19:02:55.636452Z",
   "closed_at": null,
   "custom": {}
 }

@@ -139,3 +139,13 @@ clusters, or click a bucket into existence. `cdk bootstrap` and
 
 This repository is its own git repo. Do not commit Chatticus into the parent
 `~/Projects` checkout.
+
+`develop` is the continuous-integration branch. Merge accepted, green work
+there as soon as it is ready. Do not park completed work on long-lived
+feature branches waiting for `main`.
+
+`main` is the release branch. Semantic-release runs only from `main`.
+Do not treat a merge to `develop` as a production release.
+
+Open pull requests against `develop`. Promote `develop` to `main` when
+you intend a release, not as the daily integration path.

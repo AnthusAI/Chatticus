@@ -8,31 +8,33 @@ Persistent named household AI teammates, one shared Linux computer per user, app
 
 v1 LLM is OpenAI. Live model: **gpt-5.6-luna**. Key lives in `.env` (gitignored). CI uses the fake completion client.
 
-## On main
+## Branches
 
-- SSE feasibility spike merged; `ChatticusSseSpike` destroyed. Do not rebuild it. Do not destroy `ChatticusSnapshots` or `ChatticusComputers`.
+- `develop` is continuous integration. Merge accepted green work here. Open PRs against `develop`.
+- `main` is the release branch. Semantic-release runs only from `main`.
+
+## On develop
+
+- SSE feasibility spike is on main (and therefore on develop); `ChatticusSseSpike` destroyed. Do not rebuild it. Do not destroy `ChatticusSnapshots` or `ChatticusComputers`.
 - Mermaid computerless-turn diagram is in `docs/MESSAGING.md` (chatticus-f0f9e0 closed).
-- Snapshot/routing/approval kernel remains.
+- Gherkin + FastAPI HTTP SSE thin turn is on `develop`. CI uses the fake OpenAI client.
 
 ## In flight (do this next)
 
-Branch `cursor/durable-computerless-turn-4a21` at `341e42e`: Gherkin + FastAPI HTTP SSE thin turn. Manager accepted the HTTP SSE send-back. **Not merged.**
-
 | Issue | Status | Note |
 | --- | --- | --- |
-| chatticus-a8f9d1 | in_progress | Specs accepted; merge with implementation |
-| chatticus-df6e93 | in_progress | HTTP SSE accepted; close after main is green |
 | chatticus-a78994 | open | **Next code:** live gpt-5.6-luna client + skippable pytest |
-| chatticus-e5c86e | open | Deploy/exercise zero-idle turn after merge |
+| chatticus-e5c86e | open | Deploy/exercise zero-idle turn |
 | chatticus-387e4f | open | Spike done; mobile Safari still unmeasured |
 
 ## Do not
 
 - Dual thread + channel APIs
-- Merge failing behave to main
-- Start computer/browser/Vultus/Kanbus-cloud until the thin HTTP turn is on main
+- Merge failing behave to `develop` or `main`
+- Start computer/browser/Vultus/Kanbus-cloud until the live model loop is proven (chatticus-a78994)
 - Put secrets in git
 - Treat in-process queue fan-out behind SSE as the deployed architecture
+- Park accepted work on feature branches waiting for `main`
 
 ## AWS
 
