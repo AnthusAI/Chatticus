@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-e04723b2-d696-4f44-8bf8-1157b50ac296",
+  "title": "Document current vs goal architecture in the README",
+  "description": "Replace the outdated README runtime section. Add mermaid diagrams for the deployed computerless thin turn and the v1 goal architecture (control plane, workers, computer, snapshots).",
+  "type": "chore",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T19:49:17.489481Z",
+  "updated_at": "2026-08-30T19:49:17.489481Z",
+  "closed_at": null,
+  "custom": {}
+}

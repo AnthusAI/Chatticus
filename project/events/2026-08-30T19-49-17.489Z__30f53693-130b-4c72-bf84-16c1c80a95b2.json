@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "30f53693-130b-4c72-bf84-16c1c80a95b2",
+  "issue_id": "chatticus-e04723b2-d696-4f44-8bf8-1157b50ac296",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T19:49:17.489Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Replace the outdated README runtime section. Add mermaid diagrams for the deployed computerless thin turn and the v1 goal architecture (control plane, workers, computer, snapshots).",
+    "issue_type": "chore",
+    "labels": [],
+    "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+    "priority": 2,
+    "status": "open",
+    "title": "Document current vs goal architecture in the README"
+  }
+}
