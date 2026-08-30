@@ -115,14 +115,16 @@ There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
 
 Next on the board: a named **staging** thin-turn deploy (9eef23) when
-`main` is promoted, not as daily parking. Overnight gated-action
-(5b687a), immutable approval binding (2b293d), unbound browser
-stops (813d8d), computer-seam recovery (b41106), capability-gated
-readiness (`turn.waiting`, c0fbf0), same-turn first computer tool
-(d3908f), and single shared computer start (b6ab7d) are kernel-only; the
-unattended-gate
-decision is in [Approval spec](docs/APPROVAL.md) (76d3e2). They are not
-on the live worker loop.
+`main` is promoted, not as daily parking. Turn recovery epic 653989 is
+closed. Remaining for summoning a computer (8f98f8): cold readiness
+measurement (e747d7) — not a Fargate scale-up this cycle.
+Overnight gated-action (5b687a), immutable approval binding (2b293d),
+unbound browser stops (813d8d), computer-seam recovery (b41106),
+capability-gated readiness (`turn.waiting`, c0fbf0), same-turn first
+computer tool (d3908f), and single shared computer start (b6ab7d) are
+kernel-only; the unattended-gate decision is in
+[Approval spec](docs/APPROVAL.md) (76d3e2). They are not on the live
+worker loop.
 
 ```mermaid
 flowchart LR

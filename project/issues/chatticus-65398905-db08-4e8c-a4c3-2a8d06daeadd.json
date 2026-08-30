@@ -3,7 +3,7 @@
   "title": "Recover turns without duplicate actors",
   "description": "Purpose: make at-least-once queue delivery and worker failure safe before any tool can act.\n\nDefinition of Done:\n- One logical turn has at most one active attempt with authority to write or act.\n- Queue redelivery cannot create a second model actor or duplicate answer.\n- A dead attempt is continued from durable state or reaches a visible terminal state within a bounded deadline.\n- A stale attempt is fenced from later writes and actions.\n- Ambiguous external-call outcomes are surfaced for reconciliation rather than blindly repeated.\n- Fault-injection specifications cover every persistence, queue, and model boundary.",
   "type": "epic",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -18,9 +18,16 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "829b48aa-0ba2-45fd-8319-bdec6d70f433",
+      "author": "home",
+      "text": "DoD met on develop: one fenced attempt (19eddc/3eb727), duplicate delivery (a7ef19), interrupted recovery (b821ea), EventBridge handoff (e42008 live on development ThinTurn), ambiguous provider reconciliation (turn_recovery.feature), fault injection (83b5e3). Not promoting extra computer kernels to main. No staging/production.",
+      "created_at": "2026-08-30T23:54:43.126808Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:55.544026Z",
-  "updated_at": "2026-08-30T15:54:55.544026Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T23:54:43.137317Z",
+  "closed_at": "2026-08-30T23:54:43.137317Z",
   "custom": {}
 }

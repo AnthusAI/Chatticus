@@ -18,9 +18,16 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "741491ed-aba3-4c17-80c5-fa9f52f62730",
+      "author": "home",
+      "text": "653989 closed. Kernel stories c0fbf0, d3908f, b41106, b6ab7d are on develop. Remaining DoD: e747d7 cold Fargate readiness measurement (not run this cycle; do not scale ChatticusComputers without an explicit measure).",
+      "created_at": "2026-08-30T23:54:43.146776Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-30T15:54:56.197143Z",
+  "updated_at": "2026-08-30T23:54:43.146776Z",
   "closed_at": null,
   "custom": {}
 }
