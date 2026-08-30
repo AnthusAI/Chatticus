@@ -106,6 +106,15 @@ class SseWatcher:
             f"Expected {count} SSE events, got {len(self.events)}: {self.events}"
         )
 
+    def wait_for_kind(self, kind: str, *, timeout: float = 5.0) -> None:
+        """Block until an event of the given kind arrives or timeout."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if any(event.get("kind") == kind for event in self.events):
+                return
+            time.sleep(0.01)
+        raise AssertionError(f"Expected an SSE event kind {kind!r}, got {self.events}")
+
 
 def read_sse_until(
     client: object,

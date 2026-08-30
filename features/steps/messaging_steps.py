@@ -419,10 +419,7 @@ def then_receives_terminal_event(context: object, user_id: str) -> None:
         "",
         complete=True,
     )
-    context.sse_watcher.wait_for_events(
-        len(context.sse_watcher.events) + 1,
-        timeout=2.0,
-    )
+    context.sse_watcher.wait_for_kind("turn.completed", timeout=5.0)
     terminal = [
         event
         for event in context.sse_watcher.events
@@ -516,10 +513,7 @@ def then_later_events_continue(context: object) -> None:
         "",
         complete=True,
     )
-    context.sse_watcher.wait_for_events(
-        len(context.sse_watcher.events) + 1,
-        timeout=2.0,
-    )
+    context.sse_watcher.wait_for_kind("turn.completed", timeout=5.0)
     completed = [
         event
         for event in context.sse_watcher.events

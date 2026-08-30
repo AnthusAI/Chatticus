@@ -37,7 +37,7 @@ jobs:
       push_changes: true
       run_publish: true
     secrets:
-      anthusbot_gh_token: ${{ secrets.ANTHUSBOT_GH_TOKEN }}
+      anthusbot_gh_token: ${{ secrets.ANTHUSBOT_GH_TOKEN || github.token }}
 
   guard-pre-1-0:
     needs: release
