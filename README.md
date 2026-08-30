@@ -7,10 +7,10 @@ shell. It comes back when something needs your approval.
 The product lives at [chattic.us](https://chattic.us).
 
 v1 is personal: one household, one AWS account, as many named bots as we
-want. The worker protocol is tenant-aware from day one so the same system
-can later serve other people without a rewrite.
+want. Every record already carries a `tenant_id` so the same system can
+later serve other people without a rewrite.
 
-## What Chatticus is
+## Named teammates and one computer
 
 A **bot** is a persistent, named teammate. It keeps memory, preferences, and
 conversation. It is not a fresh chat session on every task.
@@ -32,27 +32,48 @@ publishing, deleting, and production changes.
 Closing your laptop does not stop work. The computer runs on a worker, not
 on the device in front of you.
 
-## Architecture now and later
+## How a turn works
 
-The control plane is serverless and holds **no persistent sockets**. The
-browser POSTs a message and reads **one turn** as server-sent events. Workers
-**pull** jobs and POST coalesced chunks. Nothing in the token path is an
-always-on process.
+A **turn** is one bot response: from a human message (or a routine) until
+the control plane commits a single bot message to the transcript.
 
-Two pictures matter, and they are not the same: what is deployed today, and
-the v1 architecture that deployment is a slice of.
+There are no persistent sockets. The browser **POSTs a message** and then
+reads **server-sent events scoped to that one turn**. Reconnecting is a new
+SSE request that reads already-committed chunks after `Last-Event-Id`.
+In-process queues are not the architecture.
 
-### Current state: a computerless thin turn
+The **control plane** is the AWS side that accepts HTTP, stores tenant
+state, and enqueues jobs. It does not run the model loop and it does not
+own a display. It holds no always-on process in the token path, so when
+nobody is working, nothing bills. That idle floor is the point: a quiet
+household (and later, quiet tenants) should not pay for capacity that is
+sitting empty. There is never a load balancer in front of the API; an
+hourly LB charge would recreate the floor this design avoids.
 
-Live in AWS account `335163751677` (`us-east-1`), stack **ChatticusThinTurn**:
+**Pull workers** register, heartbeat, and take jobs from a queue. The
+control plane never SSHs into a garage Mac. A worker that has CPU and
+network but no display, browser, or `/workspace` is **computerless**.
+Text-only turns can finish there. The computer is **summoned when a tool
+needs it**, not assumed at enqueue: reaching for a display, browser, or
+`/workspace` escalates the same turn onto a computer-capable worker. No
+second transcript.
+
+See [Architecture](docs/ARCHITECTURE.md) for routing,
+[Messaging](docs/MESSAGING.md) for the transcript and stream, and
+[Design challenges](docs/DESIGN_CHALLENGES.md) for rejected alternatives.
+
+## What is live today
+
+A **computerless thin turn** is deployed as stack **ChatticusThinTurn** in
+AWS account `335163751677` (`us-east-1`):
 
 - CloudFront in front of a Lambda function URL (no load balancer).
 - FastAPI front door: channels, messages, bots, a stopped-computer roster,
-  chunk POST, and `GET /turns/{id}/stream` as `text/event-stream`.
+  chunk POST, and `GET /turns/{turn_id}/stream` as `text/event-stream`.
 - DynamoDB is the source of truth for the transcript, in-flight chunks
   (TTL), and the thin roster. SSE **polls the store**, so the worker Lambda
   and the streaming function are not the same process.
-- SQS carries one turn job. A **computerless** worker Lambda runs
+- SQS carries one turn job. A computerless worker Lambda runs
   **gpt-5.6-luna** (OpenAI) and POSTs chunks back through the front door.
 - Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
 
@@ -90,12 +111,12 @@ sequenceDiagram
   participant W as Computerless worker
   participant OA as OpenAI
 
-  Caller->>CF: POST /channels/{id}/messages
+  Caller->>CF: POST /channels/channel_id/messages
   CF->>FD: origin
   FD->>DDB: commit human message
   FD->>SQS: enqueue turn
   FD-->>Caller: turn_id
-  Caller->>CF: GET /turns/{id}/stream
+  Caller->>CF: GET /turns/turn_id/stream
   SQS->>W: deliver job
   W->>OA: text-only completion
   W->>FD: POST coalesced chunks
@@ -107,15 +128,20 @@ sequenceDiagram
   FD->>DDB: commit one bot message at turn.completed
 ```
 
-The same turn on a reconnect is a new SSE request that reads committed
-chunks after `Last-Event-Id`. In-process queues are not the architecture.
+## Where we are going
 
-### Goal: v1 product architecture
+v1 is the chattic.us Next.js app talking to that same per-request control
+plane, plus pull workers that can stay computerless or host the user's
+Linux computer: local Docker when a Mac is on, Fargate ARM64 that scales
+to zero when it is not. Workplace disk lives in S3 snapshots. EventBridge
+will wake routines later. The model vendor is OpenAI; Amazon Bedrock may
+follow.
 
-v1 still scales to zero. What changes is that a turn may stay computerless,
-or **summon** the user's one Linux computer when a tool needs a display,
-browser, or `/workspace`. The control plane never SSHs into a garage. Workers
-register, heartbeat, and pull.
+Lambda is the right runtime for HTTP, auth callbacks, webhooks, routine
+wake-ups, a computerless model loop, and holding **one turn's** SSE
+stream. It is the wrong runtime for a workplace: it cannot hold a browser,
+a display, or a session-lifetime connection. The computer is one Docker
+image on Fargate, later stop/start EC2, or Docker on a Mac.
 
 ```mermaid
 flowchart TB
@@ -171,19 +197,9 @@ How a turn chooses a host:
    that need them.
 4. Reaching for a computer tool escalates the same turn: the computerless
    attempt appends the pending tool call and a computer-capable worker
-   continues. No second transcript. No `stop_computer`; the workplace is
-   shared by all of a user's bots.
+   continues. There is no `stop_computer`; the workplace is shared by all
+   of a user's bots.
 5. At `turn.completed` the control plane commits **one** message row.
-
-Lambda is the right runtime for the front door, auth callbacks, webhooks,
-routine wake-ups, a computerless model loop, and holding one turn's SSE
-stream. It is the wrong runtime for a workplace: it cannot hold a browser,
-a display, or a session-lifetime connection. The computer is one Docker
-image on Fargate, later stop/start EC2, or Docker on a Mac.
-
-See [Architecture](docs/ARCHITECTURE.md) for routing, [Messaging](docs/MESSAGING.md)
-for the transcript and stream, and [Design challenges](docs/DESIGN_CHALLENGES.md)
-for what was rejected and why.
 
 ## Persistence
 
@@ -253,7 +269,7 @@ AWS resources are CDK only (`infra/`). Do not create them in the console.
 **ChatticusComputers**; do not destroy those stacks. Deploy the thin-turn
 slice as stack `ChatticusThinTurn`.
 
-Postgres in `docker-compose.yml` is unused and predates DynamoDB.
+Postgres in `docker-compose.yml` is unused (it predates DynamoDB).
 
 ## Task tracking
 
