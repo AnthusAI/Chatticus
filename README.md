@@ -95,7 +95,7 @@ Idle AWS computers stop (EC2) or scale to 0 (Fargate). Disk stays.
 ## Repository
 
 ```
-chattic.us/
+Chattic.us/
   features/                 Shared Gherkin (product narrative)
   python/                   Control plane, agent, worker
   web/                      chattic.us web app
