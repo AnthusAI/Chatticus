@@ -11,7 +11,13 @@ operations.
 | --- | --- |
 | `ChatticusSnapshots` | S3 bucket for computer packs; IAM role local hosts may assume |
 | `ChatticusComputers` | VPC, ECR, ECS cluster, Fargate ARM64 task definition, service (count 0 by default) |
-| `ChatticusThinTurn` | DynamoDB, SQS, Lambda front door with SSE, computerless worker, CloudFront |
+| `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE, CloudFront |
+| `ChatticusThinTurnStaging` | Staging thin turn (same shape; not deployed until `main` is promoted here) |
+| `ChatticusThinTurnProduction` | Production thin turn (gated; never implied by a git branch) |
+
+Each thin-turn stack publishes SSM
+`/chatticus/{environment}/thin-turn/cloudfront-url` and
+`/chatticus/{environment}/thin-turn/invoke-key-secret-arn`.
 
 The snapshot bucket name is a CDK output. Hosts set
 `CHATTICUS_SNAPSHOT_BUCKET` to that value. URIs look like
@@ -29,17 +35,29 @@ sh computer/test_fargate.sh
 
 ## Deploy
 
+Deploy **one** stack at a time. `cdk deploy --all` and `npm run deploy`
+are forbidden (`npm run deploy` exits nonzero). Do not destroy
+`ChatticusSnapshots` or `ChatticusComputers`.
+
 ```bash
 cd infra
 npm install
 npx cdk bootstrap
-npx cdk deploy --all
+npx cdk deploy ChatticusThinTurn
+```
+
+Staging and production, when you mean to:
+
+```bash
+npx cdk deploy ChatticusThinTurnStaging
+npx cdk deploy ChatticusThinTurnProduction
 ```
 
 Then:
 
 ```bash
 export CHATTICUS_SNAPSHOT_BUCKET=<SnapshotBucketName output>
+export CHATTICUS_DEVELOPMENT_BASE_URL=<CloudFrontUrl output>
 ```
 
 A Fargate service exists at count 0 until you deploy

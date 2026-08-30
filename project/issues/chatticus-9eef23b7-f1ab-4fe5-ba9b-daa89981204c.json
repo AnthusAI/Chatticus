@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-9eef23b7-f1ab-4fe5-ba9b-daa89981204c",
+  "title": "Development, staging, and production cloud environments",
+  "description": "Outcome: Chatticus has three named AWS environments from day one: development, staging, and production. Acceptance tests always target a named environment, never a nameless stack.\n\nPromotion: merge to develop deploys or updates development. Promote to main updates staging. Production is an explicit gated deploy of a staging-proven release. Snapshots and computers stay shared account stacks and must not be destroyed.\n\nNot included: custom domains, Amplify hosting, or putting computers on the turn path.",
+  "type": "epic",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "fe763f75-65ca-4daa-90e2-18a823c654c9",
+      "author": "home",
+      "text": "Promotion contract: develop maps to development, main maps to staging, production is a gated deploy. Acceptance is named-environment only.",
+      "created_at": "2026-08-30T20:40:15.159529Z"
+    }
+  ],
+  "created_at": "2026-08-30T20:36:57.810194Z",
+  "updated_at": "2026-08-30T20:40:15.159529Z",
+  "closed_at": null,
+  "custom": {}
+}

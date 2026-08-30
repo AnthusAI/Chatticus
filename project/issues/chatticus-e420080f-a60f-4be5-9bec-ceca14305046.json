@@ -24,10 +24,22 @@
       "author": "home",
       "text": "19eddc is closed on main. This task is the next recovery slice: idempotent enqueue, SQS visibility renewal, turn-triggered deadline, reconciling ambiguous provider outcomes. No always-on reaper.",
       "created_at": "2026-08-30T20:26:22.959071Z"
+    },
+    {
+      "id": "06c9abca-4c1e-4c32-83d0-c8725b11d72a",
+      "author": "home",
+      "text": "Implemented idempotent logical enqueue, per-turn deadline scheduler, lease+visibility renewal, recovery with at-most-one re-enqueue, and RECONCILING state for ambiguous provider outcomes. Gherkin in features/turn_recovery.feature; behave and pytest green.",
+      "created_at": "2026-08-30T20:45:05.694393Z"
+    },
+    {
+      "id": "925a28d9-3ff9-4ad8-8fe0-726c3a9b68c3",
+      "author": "home",
+      "text": "Review (Composer 2.5): WIP in /tmp/chatticus-e42008 — behave+pytest pass with PYTHONPATH but branch unpushed. Blockers before AWS: (1) InMemoryTurnDeadlineScheduler only — no Lambda/EventBridge watchdog; recovery_enabled not wired in plane_from_env. (2) POST /turns/{id}/deadline is a manual test hook — do not ship to front door. (3) runtime SQS dedup is per-invocation memory only. (4) ComputerlessWorker never calls /renew despite new API. Gherkin green in isolation.",
+      "created_at": "2026-08-30T20:46:01.821643Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.015297Z",
-  "updated_at": "2026-08-30T20:26:22.959071Z",
+  "updated_at": "2026-08-30T20:46:01.821643Z",
   "closed_at": null,
   "custom": {}
 }
