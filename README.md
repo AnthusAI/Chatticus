@@ -49,7 +49,8 @@ The control plane never logs into the garage. Workers **pull**.
 3. The scheduler prefers a healthy **local** worker, then an already-warm AWS
    computer, then a cold-start Fargate task.
 4. The worker runs the model loop on that machine and streams tokens,
-   screenshots, and approval cards back over an outbound WebSocket.
+   screenshots, and approval cards back over an outbound WebSocket. The
+   control plane pushes those events to chattic.us on the **realtime API**.
 5. If the garage Mac is off, AWS still runs the computer. If it is on, AWS
    compute spend drops to near zero.
 
@@ -88,7 +89,8 @@ container move. See [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md).
 
 | State | Where it lives |
 | --- | --- |
-| Conversations, bot memory, skills, routines | Postgres |
+| Threads, messages, bot memory, skills, routines | Postgres |
+| Live tokens for chattic.us | Realtime API on the control-plane process |
 | `/workspace` and browser profile | S3 snapshot; local volume / EBS / EFS as a host cache |
 | Secrets | AWS Secrets Manager, never in the image |
 
@@ -118,7 +120,8 @@ The only implemented product code is the in-memory control plane
 (`python/src/chatticus/`) and the snapshot packer
 (`python/src/chatticus/snapshot/`). There is no HTTP API, no model loop, no
 computer agent, and no web app yet. Postgres in `docker-compose.yml`
-is not used by the kernel.
+is not used by the kernel. The kernel does encode the message store and
+realtime API fan-out that HTTP and the WebSocket will sit on.
 
 ```bash
 cd python
@@ -151,6 +154,7 @@ npx cdk deploy --all
 
 - [Product](docs/PRODUCT.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Messages and the realtime API](docs/MESSAGING.md)
 - [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md)
 - [Stack](docs/STACK.md)
 - [Roadmap](docs/ROADMAP.md)

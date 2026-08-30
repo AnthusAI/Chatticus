@@ -19,8 +19,8 @@ xAI client. The model vendor is not the product name.
 
 ## Layout
 
-- `docs/` — product, architecture, stack, roadmap. Read these before changing
-  control-plane or computer behavior.
+- `docs/` — product, architecture, stack, roadmap, messaging. Read these
+  before changing control-plane or computer behavior.
 - `features/` — shared Gherkin. Behavior changes start here.
 - `python/` — control plane, scheduler, roster, approvals, later agent and
   worker processes.
@@ -37,8 +37,8 @@ xAI client. The model vendor is not the product name.
   Python. Rustdoc later if a Rust worker appears.
 - Gherkin in `features/` is the product narrative. Implement Python steps in
   `features/steps/` so `behave` from `python/` passes.
-- `tenant_id` is required in worker registration, jobs, bots, and
-  computers even while v1 has a single household tenant.
+- `tenant_id` is required in worker registration, jobs, bots, computers,
+  threads, and messages even while v1 has a single household tenant.
 
 ## Quality gates
 
@@ -58,7 +58,10 @@ Do not declare worker-protocol work done if `behave` or `pytest` is failing.
 Do not put the agent loop, computer use, or the display on Lambda.
 
 Lambda is allowed for HTTP, auth callbacks, inbound webhooks, and scheduled
-wake-ups.
+wake-ups. Lambda is not allowed to hold the realtime API socket or stream
+tokens to chattic.us. Do not add AppSync (or API Gateway WebSocket plus
+Lambda) for that stream. The control-plane process holds the socket. See
+`docs/MESSAGING.md`.
 
 The computer is the Ubuntu image in `computer/`. The same image must remain
 runnable on Fargate, EC2, and local Docker.

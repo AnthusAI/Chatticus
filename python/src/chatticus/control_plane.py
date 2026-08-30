@@ -1,4 +1,4 @@
-"""In-memory control plane: workers, routing, roster, approvals."""
+"""In-memory control plane: workers, routing, roster, approvals, messages."""
 
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ from chatticus.models import (
     AWS_COST_CLASSES,
     CONSEQUENTIAL_ACTION_TYPES,
     COST_CLASS_RANK,
+    ActorKind,
+    ActorNotInThreadError,
     ApprovalDecision,
     AutoReviewRule,
     AutoReviewRuleKind,
@@ -22,8 +24,18 @@ from chatticus.models import (
     ComputerSnapshot,
     CostClass,
     DuplicateBotNameError,
+    Message,
+    RealtimeEvent,
+    RealtimeEventKind,
+    RealtimeSubscription,
     SnapshotRequiredError,
+    Thread,
+    ThreadNotFoundError,
+    ThreadParticipant,
+    ThreadTenantMismatchError,
     TurnJob,
+    TurnStream,
+    TurnStreamNotFoundError,
     WorkerDoesNotHostComputerError,
     WorkerRecord,
     WorkerRegistration,
@@ -35,8 +47,8 @@ from chatticus.snapshot.uri import snapshot_uri
 class ControlPlane:
     """Tenant-aware control plane used by the product behavior specs.
 
-    This is the protocol kernel. HTTP, SQS, and the computer image sit on
-    top of the same rules.
+    This is the protocol kernel. HTTP, the realtime API, SQS, and the
+    computer image sit on top of the same rules.
     """
 
     def __init__(self, heartbeat_timeout: timedelta | None = None) -> None:
@@ -52,6 +64,11 @@ class ControlPlane:
         self._computers_by_id: dict[str, Computer] = {}
         self._snapshots: dict[str, ComputerSnapshot] = {}
         self._auto_review_rules: list[AutoReviewRule] = []
+        self._jobs: list[TurnJob] = []
+        self._threads: dict[str, Thread] = {}
+        self._messages: dict[str, list[Message]] = {}
+        self._subscriptions: dict[str, RealtimeSubscription] = {}
+        self._streams: dict[str, TurnStream] = {}
 
     def set_now(self, moment: datetime) -> None:
         """Pin the clock so behavior specs can expire heartbeats."""
@@ -153,7 +170,7 @@ class ControlPlane:
                 resolved_policy = computer.policy
         if resolved_policy is None:
             resolved_policy = ComputerPolicy.PREFER_LOCAL
-        return TurnJob(
+        job = TurnJob(
             job_id=str(uuid4()),
             tenant_id=resolved_tenant_id,
             required_capabilities=required_capabilities,
@@ -162,6 +179,12 @@ class ControlPlane:
             user_id=resolved_user_id,
             bot_id=bot_id,
         )
+        self._jobs.append(job)
+        return job
+
+    def pending_jobs_for_bot(self, bot_id: str) -> list[TurnJob]:
+        """Return turn jobs still queued for a bot."""
+        return [job for job in self._jobs if job.bot_id == bot_id]
 
     def assign_turn(self, job: TurnJob) -> WorkerRegistration | None:
         """Choose a healthy worker for a turn, or None if none match."""
@@ -488,6 +511,270 @@ class ControlPlane:
         if action_type in CONSEQUENTIAL_ACTION_TYPES:
             return ApprovalDecision.REQUIRE_APPROVAL
         return ApprovalDecision.ALLOW
+
+    def create_thread(
+        self,
+        tenant_id: str,
+        user_id: str,
+        bot_ids: list[str] | None = None,
+    ) -> Thread:
+        """Open a thread for a user and the given bots.
+
+        The human is always a participant. Each bot must belong to the same
+        tenant and user.
+
+        :raises KeyError: If a bot id is unknown.
+        :raises ActorNotInThreadError: If a bot belongs to another user.
+        """
+        participants = [ThreadParticipant(kind=ActorKind.HUMAN, actor_id=user_id)]
+        for bot_id in bot_ids or []:
+            bot = self._bots[bot_id]
+            if bot.tenant_id != tenant_id or bot.user_id != user_id:
+                raise ActorNotInThreadError(
+                    f"Bot {bot_id!r} does not belong to tenant {tenant_id!r} "
+                    f"user {user_id!r}."
+                )
+            participants.append(ThreadParticipant(kind=ActorKind.BOT, actor_id=bot_id))
+        thread = Thread(
+            thread_id=str(uuid4()),
+            tenant_id=tenant_id,
+            user_id=user_id,
+            participants=participants,
+        )
+        self._threads[thread.thread_id] = thread
+        self._messages[thread.thread_id] = []
+        return thread
+
+    def thread(self, thread_id: str) -> Thread:
+        """
+        Return a thread.
+
+        :raises ThreadNotFoundError: If the thread is unknown.
+        """
+        thread = self._threads.get(thread_id)
+        if thread is None:
+            raise ThreadNotFoundError(f"Thread {thread_id!r} does not exist.")
+        return thread
+
+    def post_message(
+        self,
+        thread_id: str,
+        tenant_id: str,
+        author_kind: ActorKind,
+        author_id: str,
+        body: str,
+        addressed_to_bot_id: str | None = None,
+        *,
+        enqueue_turn: bool = True,
+    ) -> Message:
+        """Append a committed message and fan it out on the realtime API.
+
+        Addressing a bot enqueues a turn for that bot. Streaming tokens must
+        not call this until the turn is complete.
+
+        :raises ThreadNotFoundError: If the thread is unknown.
+        :raises ThreadTenantMismatchError: If the tenant does not own the
+            thread.
+        :raises ActorNotInThreadError: If the author or addressee is not a
+            participant.
+        """
+        thread = self._require_thread_tenant(thread_id, tenant_id)
+        self._require_participant(thread, author_kind, author_id)
+        if addressed_to_bot_id is not None:
+            self._require_participant(thread, ActorKind.BOT, addressed_to_bot_id)
+        message = Message(
+            message_id=str(uuid4()),
+            thread_id=thread.thread_id,
+            tenant_id=thread.tenant_id,
+            seq=thread.next_seq,
+            author_kind=author_kind,
+            author_id=author_id,
+            body=body,
+            addressed_to_bot_id=addressed_to_bot_id,
+            created_at=self._now,
+        )
+        thread.next_seq += 1
+        self._messages[thread.thread_id].append(message)
+        self._fanout(
+            RealtimeEvent(
+                event_id=str(uuid4()),
+                tenant_id=thread.tenant_id,
+                thread_id=thread.thread_id,
+                kind=RealtimeEventKind.THREAD_MESSAGE_CREATED,
+                message_seq=message.seq,
+                message_id=message.message_id,
+                bot_id=addressed_to_bot_id,
+                body=body,
+            )
+        )
+        if enqueue_turn and addressed_to_bot_id is not None:
+            self.enqueue_turn(
+                thread.tenant_id,
+                frozenset({"computer"}),
+                bot_id=addressed_to_bot_id,
+            )
+        return message
+
+    def list_messages(
+        self,
+        thread_id: str,
+        tenant_id: str,
+        after_seq: int = 0,
+    ) -> list[Message]:
+        """Return committed messages with seq greater than ``after_seq``.
+
+        This is the reconnect path for the realtime API. In-flight tokens are
+        not in this list.
+
+        :raises ThreadNotFoundError: If the thread is unknown.
+        :raises ThreadTenantMismatchError: If the tenant does not own the
+            thread.
+        """
+        thread = self._require_thread_tenant(thread_id, tenant_id)
+        return [
+            message
+            for message in self._messages[thread.thread_id]
+            if message.seq > after_seq
+        ]
+
+    def subscribe_realtime(
+        self,
+        thread_id: str,
+        tenant_id: str,
+    ) -> RealtimeSubscription:
+        """Subscribe a chattic.us session to the thread's realtime API.
+
+        :raises ThreadNotFoundError: If the thread is unknown.
+        :raises ThreadTenantMismatchError: If the tenant does not own the
+            thread.
+        """
+        thread = self._require_thread_tenant(thread_id, tenant_id)
+        subscription = RealtimeSubscription(
+            subscription_id=str(uuid4()),
+            tenant_id=thread.tenant_id,
+            thread_id=thread.thread_id,
+        )
+        self._subscriptions[subscription.subscription_id] = subscription
+        return subscription
+
+    def subscription(self, subscription_id: str) -> RealtimeSubscription:
+        """
+        Return a realtime API subscription.
+
+        :raises KeyError: If the subscription is unknown.
+        """
+        return self._subscriptions[subscription_id]
+
+    def start_turn_stream(self, thread_id: str, tenant_id: str, bot_id: str) -> str:
+        """Open an in-flight token stream for a bot turn.
+
+        :raises ThreadNotFoundError: If the thread is unknown.
+        :raises ThreadTenantMismatchError: If the tenant does not own the
+            thread.
+        :raises ActorNotInThreadError: If the bot is not a participant.
+        """
+        thread = self._require_thread_tenant(thread_id, tenant_id)
+        self._require_participant(thread, ActorKind.BOT, bot_id)
+        stream = TurnStream(
+            stream_id=str(uuid4()),
+            thread_id=thread.thread_id,
+            tenant_id=thread.tenant_id,
+            bot_id=bot_id,
+        )
+        self._streams[stream.stream_id] = stream
+        self._fanout(
+            RealtimeEvent(
+                event_id=str(uuid4()),
+                tenant_id=thread.tenant_id,
+                thread_id=thread.thread_id,
+                kind=RealtimeEventKind.TURN_STARTED,
+                bot_id=bot_id,
+            )
+        )
+        return stream.stream_id
+
+    def append_turn_token(self, stream_id: str, token: str) -> None:
+        """Push one token on the realtime API. Does not write a message row.
+
+        :raises TurnStreamNotFoundError: If the stream is unknown.
+        """
+        stream = self._streams.get(stream_id)
+        if stream is None:
+            raise TurnStreamNotFoundError(f"Turn stream {stream_id!r} does not exist.")
+        stream.tokens.append(token)
+        self._fanout(
+            RealtimeEvent(
+                event_id=str(uuid4()),
+                tenant_id=stream.tenant_id,
+                thread_id=stream.thread_id,
+                kind=RealtimeEventKind.TURN_TOKEN,
+                bot_id=stream.bot_id,
+                token=token,
+            )
+        )
+
+    def complete_turn_stream(self, stream_id: str) -> Message:
+        """Coalesce streamed tokens into one message row.
+
+        Completing a stream does not enqueue another turn.
+
+        :raises TurnStreamNotFoundError: If the stream is unknown.
+        """
+        stream = self._streams.pop(stream_id, None)
+        if stream is None:
+            raise TurnStreamNotFoundError(f"Turn stream {stream_id!r} does not exist.")
+        body = "".join(stream.tokens)
+        message = self.post_message(
+            stream.thread_id,
+            stream.tenant_id,
+            ActorKind.BOT,
+            stream.bot_id,
+            body,
+            enqueue_turn=False,
+        )
+        self._fanout(
+            RealtimeEvent(
+                event_id=str(uuid4()),
+                tenant_id=stream.tenant_id,
+                thread_id=stream.thread_id,
+                kind=RealtimeEventKind.TURN_COMPLETED,
+                message_seq=message.seq,
+                message_id=message.message_id,
+                bot_id=stream.bot_id,
+                body=body,
+            )
+        )
+        return message
+
+    def _require_thread_tenant(self, thread_id: str, tenant_id: str) -> Thread:
+        thread = self.thread(thread_id)
+        if thread.tenant_id != tenant_id:
+            raise ThreadTenantMismatchError(
+                f"Tenant {tenant_id!r} does not own thread {thread_id!r}."
+            )
+        return thread
+
+    def _require_participant(
+        self,
+        thread: Thread,
+        kind: ActorKind,
+        actor_id: str,
+    ) -> None:
+        for participant in thread.participants:
+            if participant.kind == kind and participant.actor_id == actor_id:
+                return
+        raise ActorNotInThreadError(
+            f"{kind} {actor_id!r} is not a participant of thread "
+            f"{thread.thread_id!r}."
+        )
+
+    def _fanout(self, event: RealtimeEvent) -> None:
+        for subscription in self._subscriptions.values():
+            if (
+                subscription.tenant_id == event.tenant_id
+                and subscription.thread_id == event.thread_id
+            ):
+                subscription.events.append(event)
 
 
 def _disk_checksum(workspace: dict[str, str], browser_sessions: dict[str, str]) -> str:

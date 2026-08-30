@@ -93,6 +93,38 @@ class ComputerNotHydratedError(ChatticusError):
     """The live disk is not writable until the intended host hydrates."""
 
 
+class ActorKind(StrEnum):
+    """Who can author a thread message."""
+
+    HUMAN = "human"
+    BOT = "bot"
+
+
+class RealtimeEventKind(StrEnum):
+    """Events the realtime API pushes to a subscribed chattic.us session."""
+
+    THREAD_MESSAGE_CREATED = "thread.message.created"
+    TURN_STARTED = "turn.started"
+    TURN_TOKEN = "turn.token"
+    TURN_COMPLETED = "turn.completed"
+
+
+class ThreadNotFoundError(ChatticusError):
+    """The thread id is unknown."""
+
+
+class ThreadTenantMismatchError(ChatticusError):
+    """A tenant cannot read or write another tenant's thread."""
+
+
+class ActorNotInThreadError(ChatticusError):
+    """The author or addressee is not a participant of the thread."""
+
+
+class TurnStreamNotFoundError(ChatticusError):
+    """The turn stream id is unknown or already completed."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""
@@ -188,3 +220,77 @@ class Computer:
     disk_dirty: bool = False
     hydrate_required: bool = False
     intended_host_worker_id: str | None = None
+
+
+@dataclass(frozen=True)
+class ThreadParticipant:
+    """A human or bot that can read and post in a thread."""
+
+    kind: ActorKind
+    actor_id: str
+
+
+@dataclass
+class Thread:
+    """A conversation. Messages are append-only with a per-thread sequence."""
+
+    thread_id: str
+    tenant_id: str
+    user_id: str
+    participants: list[ThreadParticipant] = field(default_factory=list)
+    next_seq: int = 1
+
+
+@dataclass(frozen=True)
+class Message:
+    """One committed row in a thread. Streaming tokens are not messages."""
+
+    message_id: str
+    thread_id: str
+    tenant_id: str
+    seq: int
+    author_kind: ActorKind
+    author_id: str
+    body: str
+    addressed_to_bot_id: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class RealtimeEvent:
+    """One fan-out payload for the realtime API.
+
+    Tokens travel here. They are not stored as message rows. After reconnect,
+    the client replays committed messages with ``after=seq``.
+    """
+
+    event_id: str
+    tenant_id: str
+    thread_id: str
+    kind: RealtimeEventKind
+    message_seq: int | None = None
+    message_id: str | None = None
+    bot_id: str | None = None
+    token: str | None = None
+    body: str | None = None
+
+
+@dataclass
+class RealtimeSubscription:
+    """A chattic.us session subscribed to one thread's realtime API."""
+
+    subscription_id: str
+    tenant_id: str
+    thread_id: str
+    events: list[RealtimeEvent] = field(default_factory=list)
+
+
+@dataclass
+class TurnStream:
+    """In-flight token buffer for one bot turn. Not a message until complete."""
+
+    stream_id: str
+    thread_id: str
+    tenant_id: str
+    bot_id: str
+    tokens: list[str] = field(default_factory=list)

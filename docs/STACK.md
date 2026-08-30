@@ -10,9 +10,10 @@ implementation of the same behavior until the protocol is stable.
 | Agent, worker, API | Python 3.12+, FastAPI, OpenAI SDK, Playwright | OpenAI first; computer use; MCP clients; short Lambda edges |
 | Web | TypeScript, Next.js, CloudFront | Chat, roster, computer preview, approvals |
 | Computer image | Ubuntu, Xvfb, Chromium, noVNC | Same artifact on Fargate and local Docker |
-| Data | Postgres (RDS), S3, Secrets Manager | Conversations and memory in Postgres; computer snapshots and files in S3; secrets out of the image |
+| Data | Postgres (RDS), S3, Secrets Manager | Threads and messages in Postgres; computer snapshots and files in S3; secrets out of the image |
+| Realtime API | WebSocket on the control-plane process | Token stream to chattic.us. Not AppSync. Not Lambda. |
 | Queues and schedules | SQS, EventBridge | Turns, heartbeats, routines |
-| AWS compute | API Gateway + Lambda for HTTP; ECS Fargate and optional stop/start EC2 for the computer | Lambda only for seconds-long work |
+| AWS compute | API Gateway + Lambda for REST; a long-lived control-plane service for the realtime API; ECS Fargate and optional stop/start EC2 for the computer | Lambda only for seconds-long work |
 | BDD | behave and shared `features/` Gherkin | Product narrative lives in Gherkin |
 | IaC | AWS CDK in TypeScript | Same language as the web app; every AWS resource lives in `infra/`. No console or ad-hoc CLI creates. |
 
@@ -28,10 +29,11 @@ until OpenAI turns work end to end.
 ## Lambda
 
 **Yes:** auth callbacks, inbound webhooks, EventBridge "wake a routine",
-cheap HTTP.
+cheap HTTP (thread history, posting a message).
 
-**No:** agent loop, computer use, VNC/display, anything that must hold a
-browser.
+**No:** agent loop, computer use, VNC/display, the realtime API socket,
+anything that must hold a browser or stream tokens for the life of a
+chat tab.
 
 ## Rust
 

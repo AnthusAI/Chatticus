@@ -22,6 +22,13 @@ def before_scenario(context: object, scenario: object) -> None:
     context.relocate_error = None
     context.hydrate_error = None
     context.write_error = None
+    context.last_thread = None
+    context.last_message = None
+    context.last_stream_id = None
+    context.message_error = None
+    context.subscription_error = None
+    context.last_subscription = None
+    context.listed_messages = None
     context.snapshot_tmpdir = tempfile.mkdtemp(prefix="chatticus-snapshot-")
 
 
