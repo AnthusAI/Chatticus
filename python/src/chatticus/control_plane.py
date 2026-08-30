@@ -9,6 +9,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from chatticus.approval_binding import ApprovalBindingGate
 from chatticus.messaging.store import (
     InMemoryMessagingStore,
     MessagingStore,
@@ -132,6 +133,7 @@ class ControlPlane:
         self._snapshots: dict[str, ComputerSnapshot] = {}
         self._auto_review_rules: list[AutoReviewRule] = []
         self._refused_bot_auto_review: list[tuple[str, str]] = []
+        self._approval_binding = ApprovalBindingGate()
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
         self._turn_enqueued = turn_enqueued
@@ -660,6 +662,11 @@ class ControlPlane:
     def refused_bot_auto_review(self) -> list[tuple[str, str]]:
         """Return always-allow attempts the kernel rejected from a bot."""
         return list(self._refused_bot_auto_review)
+
+    @property
+    def approval_binding(self) -> ApprovalBindingGate:
+        """Propose, approve, and execute immutable consequential operations."""
+        return self._approval_binding
 
     def resolve_unattended_gated_action(
         self,
