@@ -191,12 +191,18 @@ class TurnJob:
 
 @dataclass(frozen=True)
 class AutoReviewRule:
-    """A narrow auto-review rule matching an action type for one tenant."""
+    """A narrow auto-review rule matching an action type for one tenant.
+
+    Overnight pre-authorization requires ``created_by="human"`` and
+    ``argument_bindings`` that equal the concrete operation.
+    """
 
     kind: AutoReviewRuleKind
     action_type: str
     tenant_id: str
     user_id: str | None = None
+    argument_bindings: tuple[tuple[str, str], ...] = ()
+    created_by: str = "human"
 
 
 @dataclass

@@ -52,6 +52,10 @@ from chatticus.models import (
     WorkerRegistration,
     WorkerTenantMismatchError,
 )
+from chatticus.overnight_gated import (
+    OvernightGatedResult,
+    resolve_unattended_gated_action,
+)
 from chatticus.snapshot.uri import snapshot_uri
 from chatticus.turn_fault_hooks import CrashWindow, FaultInjector, TurnBoundary
 from chatticus.turn_recovery import (
@@ -127,6 +131,7 @@ class ControlPlane:
         self._computers_by_id: dict[str, Computer] = {}
         self._snapshots: dict[str, ComputerSnapshot] = {}
         self._auto_review_rules: list[AutoReviewRule] = []
+        self._refused_bot_auto_review: list[tuple[str, str]] = []
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
         self._turn_enqueued = turn_enqueued
@@ -628,15 +633,53 @@ class ControlPlane:
         action_type: str,
         tenant_id: str,
         user_id: str | None = None,
+        *,
+        arguments: dict[str, str] | None = None,
+        created_by: str = "human",
     ) -> None:
-        """Add an auto-review rule scoped to a tenant, optionally one user."""
+        """Add an auto-review rule scoped to a tenant, optionally one user.
+
+        A bot cannot create an always-allow that loosens a consequential
+        action; that attempt is recorded and discarded.
+        """
+        if created_by == "bot" and kind == AutoReviewRuleKind.ALWAYS_ALLOW:
+            self._refused_bot_auto_review.append((tenant_id, action_type))
+            return
+        bindings = tuple(sorted((arguments or {}).items()))
         self._auto_review_rules.append(
             AutoReviewRule(
                 kind=kind,
                 action_type=action_type,
                 tenant_id=tenant_id,
                 user_id=user_id,
+                argument_bindings=bindings,
+                created_by=created_by,
             )
+        )
+
+    def refused_bot_auto_review(self) -> list[tuple[str, str]]:
+        """Return always-allow attempts the kernel rejected from a bot."""
+        return list(self._refused_bot_auto_review)
+
+    def resolve_unattended_gated_action(
+        self,
+        action_type: str,
+        tenant_id: str,
+        *,
+        arguments: dict[str, str],
+        channel: str,
+        user_id: str | None = None,
+        completion_evidence: str = "system-accepted",
+    ) -> OvernightGatedResult:
+        """Stop or pre-authorize a consequential action with no screen."""
+        return resolve_unattended_gated_action(
+            action_type=action_type,
+            arguments=arguments,
+            channel=channel,
+            rules=self._auto_review_rules,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            completion_evidence=completion_evidence,
         )
 
     def evaluate_action(

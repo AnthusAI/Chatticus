@@ -111,9 +111,9 @@ destroyed. They are not on the turn path yet. The computer stays stopped.
 There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
 
-Next on the board: gated actions with no screen (5b687a) and a named
-**staging** thin-turn deploy after this release (9eef23). Production
-stays gated. Staging CDK still synths; that stack is not deployed.
+Next on the board: a named **staging** thin-turn deploy after this
+release (9eef23). Production stays gated. Overnight gated-action kernel
+(5b687a) is in-tree, not on the live worker loop.
 
 ```mermaid
 flowchart LR
