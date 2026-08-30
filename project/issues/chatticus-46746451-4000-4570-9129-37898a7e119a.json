@@ -3,7 +3,7 @@
   "title": "Deliver one durable computerless turn",
   "description": "Purpose: deliver the smallest running slice that is recognizably Chatticus.\n\nDefinition of Done:\n- An authenticated household member addresses a named bot in a channel.\n- One OpenAI text-only loop runs without summoning a computer.\n- Messages, turn state, progress, and completion are durable and tenant-scoped.\n- A watcher sees coalesced progress through SSE scoped to that turn.\n- Disconnecting the watcher cannot stop or corrupt the turn.\n- The deployed application compute has no idle floor.\n\nNot included: tools, browser use, task tracking, approvals, and mid-turn escalation.",
   "type": "epic",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -36,10 +36,16 @@
       "author": "home",
       "text": "Thin computerless turn is deployed (ChatticusThinTurn) and exercised on develop. Epic DoD for the running slice is met except production auth/web app polish.\n",
       "created_at": "2026-08-30T19:38:58.310666Z"
+    },
+    {
+      "id": "a7b6a4dd-54d0-460c-b326-6f3db8decc1b",
+      "author": "home",
+      "text": "Computerless thin turn, Luna, deploy, SSE watch/reconnect, and named-bot-without-computer are on main (v0.2.0). Remaining children were the three stories just closed. Closing this epic. Recovery work lives under 653989.",
+      "created_at": "2026-08-30T20:26:23.033115Z"
     }
   ],
   "created_at": "2026-08-30T15:53:17.617903Z",
-  "updated_at": "2026-08-30T19:38:58.310666Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T20:26:23.043476Z",
+  "closed_at": "2026-08-30T20:26:23.043476Z",
   "custom": {}
 }

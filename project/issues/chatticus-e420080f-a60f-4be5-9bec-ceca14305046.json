@@ -18,9 +18,16 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "a6a7b2dd-6de4-426f-ac5e-218afc31d27e",
+      "author": "home",
+      "text": "19eddc is closed on main. This task is the next recovery slice: idempotent enqueue, SQS visibility renewal, turn-triggered deadline, reconciling ambiguous provider outcomes. No always-on reaper.",
+      "created_at": "2026-08-30T20:26:22.959071Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:56.015297Z",
-  "updated_at": "2026-08-30T15:54:56.015297Z",
+  "updated_at": "2026-08-30T20:26:22.959071Z",
   "closed_at": null,
   "custom": {}
 }

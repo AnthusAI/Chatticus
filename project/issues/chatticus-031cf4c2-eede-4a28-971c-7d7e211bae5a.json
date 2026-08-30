@@ -3,7 +3,7 @@
   "title": "Address a named bot without starting a computer",
   "description": "As a household member, I want a named bot to answer a text-only message without starting the shared computer, so that simple work begins immediately and costs no computer time.\n\nNot included: tool calls or messages that require the computer.\n\nFeature: Computerless bot turn\n\nScenario: Answer a text-only message\n  Given an authenticated household member has a channel with a named bot\n  And the household computer is stopped\n  When the member sends a message that the bot can answer without tools\n  Then the addressed bot completes one turn\n  And the channel contains one durable bot answer\n  And the household computer remains stopped\n\nScenario: Reject a cross-tenant message\n  Given another tenant knows the channel identifier\n  When that tenant tries to post or read the turn\n  Then access is denied\n  And the channel is unchanged",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f62d96cc-222b-47fd-b3aa-c841a399c81a",
+      "author": "home",
+      "text": "Behavior is on main: text-only addressed message, computer stays stopped, one durable bot answer (messages.feature). Closing.",
+      "created_at": "2026-08-30T20:26:22.969194Z"
+    }
+  ],
   "created_at": "2026-08-30T15:53:17.712448Z",
-  "updated_at": "2026-08-30T15:53:17.712448Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T20:26:23.000368Z",
+  "closed_at": "2026-08-30T20:26:23.000368Z",
   "custom": {}
 }
