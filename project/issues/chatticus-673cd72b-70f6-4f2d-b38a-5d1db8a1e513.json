@@ -3,7 +3,7 @@
   "title": "Document milestone Kanbus and README sub-agent",
   "description": "README and AGENTS.md require a housekeeping sub-agent at every milestone: comments, statuses, new issues, live-today README.",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -12,7 +12,7 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-08-30T20:27:00.741928Z",
-  "updated_at": "2026-08-30T20:27:00.741928Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T20:27:12.599197Z",
+  "closed_at": "2026-08-30T20:27:12.599197Z",
   "custom": {}
 }
