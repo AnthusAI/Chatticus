@@ -106,7 +106,8 @@ There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
 
 Next on the board: fault-inject every turn boundary (83b5e3). Staging
-remains undeployed.
+and production thin-turn stacks remain undeployed; their CDK templates
+synth clean on `develop`.
 
 ```mermaid
 flowchart LR

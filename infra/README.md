@@ -66,8 +66,16 @@ Publishing a snapshot does not require a running task.
 
 ## Synth (no AWS credentials required)
 
+Synth validates CloudFormation templates without deploying. CI runs
+`npx cdk synth` for every stack. Before promoting to `main` or a gated
+production deploy, confirm the named thin-turn stacks still synth clean:
+
 ```bash
 cd infra
 npm install
-npx cdk synth
+npx cdk synth ChatticusThinTurnStaging
+npx cdk synth ChatticusThinTurnProduction
 ```
+
+`ChatticusSnapshots` and `ChatticusComputers` are shared account stacks;
+synth them only when those definitions change. Never `cdk deploy --all`.
