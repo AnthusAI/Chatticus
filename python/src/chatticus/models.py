@@ -295,15 +295,3 @@ class TurnEvent:
     token: str | None = None
     message_seq: int | None = None
     body: str | None = None
-
-
-@dataclass
-class TurnStreamWatcher:
-    """One client watching GET /turns/{turn_id}/stream for a single turn."""
-
-    watcher_id: str
-    tenant_id: str
-    turn_id: str
-    after_seq: int
-    events: list[TurnEvent] = field(default_factory=list)
-    closed: bool = False

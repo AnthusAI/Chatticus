@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import queue
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -36,13 +37,11 @@ from chatticus.models import (
     Message,
     SnapshotRequiredError,
     Turn,
-    TurnAccessDeniedError,
     TurnEvent,
     TurnEventKind,
     TurnJob,
     TurnNotFoundError,
     TurnStatus,
-    TurnStreamWatcher,
     WorkerDoesNotHostComputerError,
     WorkerRecord,
     WorkerRegistration,
@@ -79,9 +78,34 @@ class ControlPlane:
         self._auto_review_rules: list[AutoReviewRule] = []
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
-        self._turn_watchers: dict[str, TurnStreamWatcher] = {}
         self._channel_tenants: dict[str, str] = {}
         self._turn_tenants: dict[str, str] = {}
+        self._turn_event_subscribers: dict[str, list[queue.Queue[TurnEvent | None]]] = (
+            {}
+        )
+
+    def subscribe_turn_events(self, turn_id: str) -> queue.Queue[TurnEvent | None]:
+        """Register one SSE watcher and return its dedicated live-event queue."""
+        subscriber = queue.Queue()
+        self._turn_event_subscribers.setdefault(turn_id, []).append(subscriber)
+        return subscriber
+
+    def unsubscribe_turn_events(
+        self,
+        turn_id: str,
+        subscriber: queue.Queue[TurnEvent | None],
+    ) -> None:
+        """Remove one SSE watcher and signal its collector thread to exit."""
+        subscribers = self._turn_event_subscribers.get(turn_id)
+        if subscribers is None:
+            return
+        try:
+            subscribers.remove(subscriber)
+        except ValueError:
+            return
+        if not subscribers:
+            del self._turn_event_subscribers[turn_id]
+        subscriber.put_nowait(None)
 
     def set_now(self, moment: datetime) -> None:
         """Pin the clock so behavior specs can expire heartbeats."""
@@ -718,43 +742,6 @@ class ControlPlane:
         turn = self.turn(tenant_id, turn_id)
         return self._complete_turn(turn)
 
-    def open_turn_stream(
-        self,
-        turn_id: str,
-        tenant_id: str,
-        after_seq: int = 0,
-    ) -> TurnStreamWatcher:
-        """Open GET /turns/{turn_id}/stream for one turn.
-
-        :raises TurnNotFoundError: If the turn is unknown.
-        :raises TurnAccessDeniedError: If the tenant does not own the turn.
-        """
-        owning_tenant = self._turn_tenants.get(turn_id)
-        if owning_tenant is None:
-            raise TurnNotFoundError(f"Turn {turn_id!r} does not exist.")
-        if owning_tenant != tenant_id:
-            raise TurnAccessDeniedError(
-                f"Tenant {tenant_id!r} cannot watch turn {turn_id!r}."
-            )
-        replay = self._messaging_store.list_turn_events(
-            owning_tenant, turn_id, after_seq
-        )
-        watcher = TurnStreamWatcher(
-            watcher_id=str(uuid4()),
-            tenant_id=tenant_id,
-            turn_id=turn_id,
-            after_seq=after_seq,
-            events=list(replay),
-        )
-        self._turn_watchers[watcher.watcher_id] = watcher
-        return watcher
-
-    def close_turn_stream(self, watcher_id: str) -> None:
-        """Close one turn-scoped stream without affecting the turn."""
-        watcher = self._turn_watchers.get(watcher_id)
-        if watcher is not None:
-            watcher.closed = True
-
     def _start_turn_for_bot(self, channel: Channel, bot_id: str) -> Turn:
         turn = Turn(
             turn_id=str(uuid4()),
@@ -839,9 +826,7 @@ class ControlPlane:
             message_seq=message.seq,
             body=body,
         )
-        for watcher in self._turn_watchers.values():
-            if watcher.turn_id == turn.turn_id and not watcher.closed:
-                watcher.closed = True
+        self._signal_turn_subscribers(turn.turn_id, None)
         return message
 
     def _append_turn_event(
@@ -867,10 +852,26 @@ class ControlPlane:
         turn.next_event_seq += 1
         self._messaging_store.put_turn(turn)
         self._messaging_store.put_turn_event(event)
-        for watcher in self._turn_watchers.values():
-            if watcher.turn_id == turn.turn_id and not watcher.closed:
-                watcher.events.append(event)
+        self._fan_out_turn_event(turn.turn_id, event)
         return event
+
+    def _fan_out_turn_event(
+        self,
+        turn_id: str,
+        event: TurnEvent | None,
+    ) -> None:
+        """Deliver one live turn event to every open SSE subscriber."""
+        for subscriber in self._turn_event_subscribers.get(turn_id, ()):
+            subscriber.put(event)
+
+    def _signal_turn_subscribers(
+        self,
+        turn_id: str,
+        sentinel: TurnEvent | None,
+    ) -> None:
+        """Broadcast a sentinel so every SSE collector can exit."""
+        for subscriber in self._turn_event_subscribers.get(turn_id, ()):
+            subscriber.put(sentinel)
 
     def _require_channel_tenant(self, channel_id: str, tenant_id: str) -> Channel:
         owning_tenant = self._channel_tenants.get(channel_id)

@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from behave import given, then, when
+from sse_helpers import (
+    SseWatcher,
+    read_sse_until,
+    tenant_headers,
+)
 
+from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
     ActorKind,
     ChannelTenantMismatchError,
     TurnAccessDeniedError,
-    TurnEventKind,
     TurnStatus,
 )
 from chatticus.worker.computerless import ComputerlessWorker
@@ -41,6 +46,26 @@ def _turn_id(context: object) -> str:
     return context.last_turn_id
 
 
+def _load_channel(context: object, tenant_id: str, channel_id: str) -> object:
+    context.last_channel = context.plane.channel(tenant_id, channel_id)
+    return context.last_channel
+
+
+def _list_messages_http(context: object, channel: object) -> list[object]:
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers=tenant_headers(channel.tenant_id),
+    )
+    assert response.status_code == 200
+    payloads = response.json()["messages"]
+    return [
+        context.plane.list_channel_messages(channel.channel_id, channel.tenant_id)[
+            index
+        ]
+        for index in range(len(payloads))
+    ]
+
+
 def _message_at_seq(context: object, seq: int) -> object:
     channel = _channel(context)
     messages = context.plane.list_channel_messages(
@@ -52,11 +77,32 @@ def _message_at_seq(context: object, seq: int) -> object:
     raise AssertionError(f"No message with seq {seq}.")
 
 
+def _post_chunk_http(
+    context: object,
+    turn_id: str,
+    tenant_id: str,
+    token: str,
+    *,
+    complete: bool = False,
+) -> None:
+    response = context.api_client.post(
+        f"/turns/{turn_id}/chunks",
+        json={"token": token, "complete": complete},
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+
+
 @when('tenant "{tenant_id}" user "{user_id}" opens a channel with bots:')
 def when_open_channel(context: object, tenant_id: str, user_id: str) -> None:
     bot_ids = _bot_ids(context, context.table)
-    channel = context.plane.create_channel(tenant_id, user_id, bot_ids)
-    context.last_channel = channel
+    response = context.api_client.post(
+        "/channels",
+        json={"user_id": user_id, "bot_ids": bot_ids},
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    _load_channel(context, tenant_id, response.json()["channel_id"])
 
 
 @given('tenant "{tenant_id}" user "{user_id}" has opened a channel with bots:')
@@ -71,8 +117,13 @@ def given_channel_with_named_bot(
     if name not in context.bots_by_name:
         context.bots_by_name[name] = context.plane.create_bot(tenant_id, user_id, name)
     bot = context.bots_by_name[name]
-    channel = context.plane.create_channel(tenant_id, user_id, [bot.bot_id])
-    context.last_channel = channel
+    response = context.api_client.post(
+        "/channels",
+        json={"user_id": user_id, "bot_ids": [bot.bot_id]},
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    _load_channel(context, tenant_id, response.json()["channel_id"])
 
 
 @when(
@@ -88,18 +139,23 @@ def when_human_posts_on_channel(
 ) -> None:
     channel = _channel(context)
     bot = context.bots_by_name[name]
-    try:
-        context.last_message = context.plane.post_channel_message(
-            channel.channel_id,
-            tenant_id,
-            ActorKind.HUMAN,
-            user_id,
-            body,
-            addressed_to_bot_id=bot.bot_id,
-        )
-        context.message_error = None
-    except (ChannelTenantMismatchError, Exception) as error:
-        context.message_error = error
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": user_id,
+            "body": body,
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers=tenant_headers(tenant_id),
+    )
+    if response.status_code == 403:
+        context.message_error = ChannelTenantMismatchError(response.json()["detail"])
+        return
+    assert response.status_code == 200
+    context.message_error = None
+    payload = response.json()
+    context.last_turn_id = payload.get("turn_id")
 
 
 @when('bot "{name}" posts "{body}" addressed to bot "{addressee}" on the channel')
@@ -109,14 +165,18 @@ def when_bot_posts_on_channel(
     channel = _channel(context)
     author = context.bots_by_name[name]
     addressee_bot = context.bots_by_name[addressee]
-    context.plane.post_channel_message(
-        channel.channel_id,
-        channel.tenant_id,
-        ActorKind.BOT,
-        author.bot_id,
-        body,
-        addressed_to_bot_id=addressee_bot.bot_id,
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.BOT,
+            "author_id": author.bot_id,
+            "body": body,
+            "addressed_to_bot_id": addressee_bot.bot_id,
+        },
+        headers=tenant_headers(channel.tenant_id),
     )
+    assert response.status_code == 200
+    context.last_turn_id = response.json().get("turn_id")
 
 
 @when('tenant "{tenant_id}" posts "{body}" on the channel')
@@ -124,17 +184,19 @@ def when_other_tenant_posts_on_channel(
     context: object, tenant_id: str, body: str
 ) -> None:
     channel = _channel(context)
-    try:
-        context.plane.post_channel_message(
-            channel.channel_id,
-            tenant_id,
-            ActorKind.HUMAN,
-            "intruder",
-            body,
-        )
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "intruder",
+            "body": body,
+        },
+        headers=tenant_headers(tenant_id),
+    )
+    if response.status_code == 403:
+        context.message_error = ChannelTenantMismatchError(response.json()["detail"])
+    else:
         context.message_error = None
-    except (ChannelTenantMismatchError, Exception) as error:
-        context.message_error = error
 
 
 @then("the channel has {count:d} message")
@@ -145,10 +207,12 @@ def then_channel_message_count_one(context: object, count: int) -> None:
 @then("the channel has {count:d} messages")
 def then_channel_message_count(context: object, count: int) -> None:
     channel = _channel(context)
-    messages = context.plane.list_channel_messages(
-        channel.channel_id, channel.tenant_id
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers=tenant_headers(channel.tenant_id),
     )
-    assert len(messages) == count
+    assert response.status_code == 200
+    assert len(response.json()["messages"]) == count
 
 
 @then('the message with seq {seq:d} has body "{body}"')
@@ -175,10 +239,12 @@ def then_message_from_bot(context: object, seq: int, name: str) -> None:
 @then("the human can read both messages on the channel")
 def then_human_reads_channel(context: object) -> None:
     channel = _channel(context)
-    messages = context.plane.list_channel_messages(
-        channel.channel_id, channel.tenant_id
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers=tenant_headers(channel.tenant_id),
     )
-    assert len(messages) == 2
+    assert response.status_code == 200
+    assert len(response.json()["messages"]) == 2
 
 
 @then('bot "{name}" has {count:d} pending turn with required capabilities:')
@@ -216,19 +282,25 @@ def when_text_only_post_on_channel(
 
 @then('bot "{name}" completes one turn')
 def then_bot_completes_one_turn(context: object, name: str) -> None:
+    channel = _channel(context)
     bot = context.bots_by_name[name]
-    worker = ComputerlessWorker(context.plane)
+    turn_client = HttpTurnClient(context.api_client, channel.tenant_id)
+    worker = ComputerlessWorker(context.plane, turn_client)
     worker.complete_pending_for_bot(bot.bot_id)
 
 
 @then("the channel contains one durable bot answer")
 def then_channel_has_durable_bot_answer(context: object) -> None:
     channel = _channel(context)
-    messages = context.plane.list_channel_messages(
-        channel.channel_id, channel.tenant_id
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers=tenant_headers(channel.tenant_id),
     )
+    assert response.status_code == 200
     bot_messages = [
-        message for message in messages if message.author_kind == ActorKind.BOT
+        message
+        for message in response.json()["messages"]
+        if message["author_kind"] == ActorKind.BOT
     ]
     assert len(bot_messages) == 1
 
@@ -250,21 +322,26 @@ def given_other_tenant_knows_channel(context: object, tenant_id: str) -> None:
 def when_other_tenant_post_or_read(context: object, tenant_id: str) -> None:
     channel = _channel(context)
     context.access_error = None
-    try:
-        context.plane.post_channel_message(
-            channel.channel_id,
-            tenant_id,
-            ActorKind.HUMAN,
-            "intruder",
-            "intrusion",
-        )
-    except (ChannelTenantMismatchError, Exception) as error:
-        context.access_error = error
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "intruder",
+            "body": "intrusion",
+        },
+        headers=tenant_headers(tenant_id),
+    )
+    if response.status_code == 403:
+        context.access_error = ChannelTenantMismatchError(response.json()["detail"])
         return
-    try:
-        context.plane.list_channel_messages(channel.channel_id, tenant_id)
-    except (ChannelTenantMismatchError, Exception) as error:
-        context.access_error = error
+    read_response = context.api_client.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers=tenant_headers(tenant_id),
+    )
+    if read_response.status_code == 403:
+        context.access_error = ChannelTenantMismatchError(
+            read_response.json()["detail"]
+        )
 
 
 @then("access is denied")
@@ -275,26 +352,30 @@ def then_access_denied(context: object) -> None:
 @then("the channel is unchanged")
 def then_channel_unchanged(context: object) -> None:
     channel = _channel(context)
-    messages = context.plane.list_channel_messages(
-        channel.channel_id, channel.tenant_id
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers=tenant_headers(channel.tenant_id),
     )
-    assert messages == []
+    assert response.status_code == 200
+    assert response.json()["messages"] == []
 
 
 @given('bot "{name}" is producing an answer for a turn on the channel')
 def given_bot_producing_turn(context: object, name: str) -> None:
     channel = _channel(context)
     bot = context.bots_by_name[name]
-    context.plane.post_channel_message(
-        channel.channel_id,
-        channel.tenant_id,
-        ActorKind.HUMAN,
-        channel.user_id,
-        "hello",
-        addressed_to_bot_id=bot.bot_id,
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": channel.user_id,
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers=tenant_headers(channel.tenant_id),
     )
-    jobs = context.plane.pending_jobs_for_bot(bot.bot_id)
-    context.last_turn_id = jobs[0].turn_id
+    assert response.status_code == 200
+    context.last_turn_id = response.json()["turn_id"]
 
 
 @given(
@@ -302,22 +383,26 @@ def given_bot_producing_turn(context: object, name: str) -> None:
     "through server-sent events"
 )
 def given_watching_turn_sse(context: object, user_id: str, tenant_id: str) -> None:
-    context.turn_stream = context.plane.open_turn_stream(_turn_id(context), tenant_id)
+    watcher = SseWatcher(context.api_client, _turn_id(context), tenant_id)
+    watcher.start()
+    watcher.wait_for_events(1, timeout=2.0)
+    context.sse_watcher = watcher
 
 
 @when("the worker posts several coalesced progress chunks for the turn")
 def when_worker_posts_chunks(context: object) -> None:
     channel = _channel(context)
-    context.plane.post_turn_chunk(_turn_id(context), channel.tenant_id, "Hel")
-    context.plane.post_turn_chunk(_turn_id(context), channel.tenant_id, "lo")
+    _post_chunk_http(context, _turn_id(context), channel.tenant_id, "Hel")
+    _post_chunk_http(context, _turn_id(context), channel.tenant_id, "lo")
 
 
 @then('user "{user_id}" receives the chunks in order before completion')
 def then_receives_chunks_in_order(context: object, user_id: str) -> None:
+    context.sse_watcher.wait_for_events(3, timeout=2.0)
     tokens = [
-        event.token
-        for event in context.turn_stream.events
-        if event.kind == TurnEventKind.TURN_TOKEN
+        event["token"]
+        for event in context.sse_watcher.events
+        if event.get("kind") == "turn.token"
     ]
     assert tokens == ["Hel", "lo"]
     turn = context.plane.turn(_channel(context).tenant_id, _turn_id(context))
@@ -327,55 +412,75 @@ def then_receives_chunks_in_order(context: object, user_id: str) -> None:
 @then('user "{user_id}" receives one terminal server-sent event')
 def then_receives_terminal_event(context: object, user_id: str) -> None:
     channel = _channel(context)
-    context.plane.complete_turn(channel.tenant_id, _turn_id(context))
+    _post_chunk_http(
+        context,
+        _turn_id(context),
+        channel.tenant_id,
+        "",
+        complete=True,
+    )
+    context.sse_watcher.wait_for_events(
+        len(context.sse_watcher.events) + 1,
+        timeout=2.0,
+    )
     terminal = [
         event
-        for event in context.turn_stream.events
-        if event.kind == TurnEventKind.TURN_COMPLETED
+        for event in context.sse_watcher.events
+        if event.get("kind") == "turn.completed"
     ]
     assert len(terminal) == 1
 
 
 @then("the turn stream ends")
 def then_turn_stream_ends(context: object) -> None:
-    assert context.turn_stream.closed
+    assert context.sse_watcher.closed
 
 
 @then("no connection remains open for the channel or chat tab")
 def then_no_persistent_connection(context: object) -> None:
-    open_watchers = [
-        watcher
-        for watcher in context.plane._turn_watchers.values()
-        if not watcher.closed
-    ]
-    assert open_watchers == []
+    assert context.app_state.open_sse_streams == 0
 
 
 @given("a turn has emitted committed events through sequence {seq:d}")
 def given_turn_events_through_seq(context: object, seq: int) -> None:
     channel = _channel(context)
     bot = context.bots_by_name["Researcher"]
-    context.plane.post_channel_message(
-        channel.channel_id,
-        channel.tenant_id,
-        ActorKind.HUMAN,
-        channel.user_id,
-        "hello",
-        addressed_to_bot_id=bot.bot_id,
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": channel.user_id,
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers=tenant_headers(channel.tenant_id),
     )
-    jobs = context.plane.pending_jobs_for_bot(bot.bot_id)
-    context.last_turn_id = jobs[0].turn_id
+    assert response.status_code == 200
+    context.last_turn_id = response.json()["turn_id"]
     tenant_id = channel.tenant_id
-    context.plane.post_turn_chunk(_turn_id(context), tenant_id, "Hel")
-    context.plane.post_turn_chunk(_turn_id(context), tenant_id, "lo")
-    context.plane.post_turn_chunk(_turn_id(context), tenant_id, "!")
-    context.turn_stream = context.plane.open_turn_stream(_turn_id(context), tenant_id)
+    turn_id = _turn_id(context)
+    _post_chunk_http(context, turn_id, tenant_id, "Hel")
+    _post_chunk_http(context, turn_id, tenant_id, "lo")
+    _post_chunk_http(context, turn_id, tenant_id, "!")
+    events = read_sse_until(
+        context.api_client,
+        turn_id,
+        tenant_id,
+        min_events=4,
+        timeout=2.0,
+    )
+    assert len(events) >= 4
+    watcher = SseWatcher(context.api_client, turn_id, tenant_id)
+    watcher.events = list(events)
+    watcher.closed = True
+    context.sse_watcher = watcher
 
 
 @given("the watching connection for that turn closes")
 def given_watching_connection_closes(context: object) -> None:
-    context.plane.close_turn_stream(context.turn_stream.watcher_id)
-    context.turn_stream = None
+    if context.sse_watcher is not None:
+        context.sse_watcher.stop()
+    context.sse_watcher = None
 
 
 @when(
@@ -385,27 +490,40 @@ def given_watching_connection_closes(context: object) -> None:
 def when_reconnect_after_seq(
     context: object, user_id: str, tenant_id: str, seq: int
 ) -> None:
-    context.turn_stream = context.plane.open_turn_stream(
-        _turn_id(context), tenant_id, after_seq=seq
+    watcher = SseWatcher(
+        context.api_client, _turn_id(context), tenant_id, after_seq=seq
     )
+    watcher.start()
+    watcher.wait_for_events(2, timeout=2.0)
+    context.sse_watcher = watcher
 
 
 @then("committed events 3 and 4 are replayed once in order")
 def then_events_replayed_in_order(context: object) -> None:
-    replayed = [event for event in context.turn_stream.events if event.seq in (3, 4)]
+    replayed = [event for event in context.sse_watcher.events if event["seq"] in (3, 4)]
     assert len(replayed) == 2
-    assert replayed[0].seq == 3
-    assert replayed[1].seq == 4
+    assert replayed[0]["seq"] == 3
+    assert replayed[1]["seq"] == 4
 
 
 @then("later events continue from the same turn")
 def then_later_events_continue(context: object) -> None:
     channel = _channel(context)
-    context.plane.complete_turn(channel.tenant_id, _turn_id(context))
+    _post_chunk_http(
+        context,
+        _turn_id(context),
+        channel.tenant_id,
+        "",
+        complete=True,
+    )
+    context.sse_watcher.wait_for_events(
+        len(context.sse_watcher.events) + 1,
+        timeout=2.0,
+    )
     completed = [
         event
-        for event in context.turn_stream.events
-        if event.kind == TurnEventKind.TURN_COMPLETED
+        for event in context.sse_watcher.events
+        if event.get("kind") == "turn.completed"
     ]
     assert len(completed) == 1
 
@@ -424,11 +542,14 @@ def given_active_turn_on_channel(context: object, user_id: str, tenant_id: str) 
 
 @when('tenant "{tenant_id}" tries to open the turn stream')
 def when_other_opens_turn_stream(context: object, tenant_id: str) -> None:
-    try:
-        context.plane.open_turn_stream(_turn_id(context), tenant_id)
+    response = context.api_client.get(
+        f"/turns/{_turn_id(context)}/stream",
+        headers=tenant_headers(tenant_id),
+    )
+    if response.status_code == 403:
+        context.stream_error = TurnAccessDeniedError(response.json()["detail"])
+    else:
         context.stream_error = None
-    except (TurnAccessDeniedError, Exception) as error:
-        context.stream_error = error
 
 
 @then("turn stream access is denied because the tenant does not match")

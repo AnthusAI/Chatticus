@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from chatticus.control_plane import ControlPlane
+from chatticus.http.client import HttpTurnClient
 from chatticus.models import TurnJob, TurnStatus
 
 
@@ -36,9 +37,11 @@ class ComputerlessWorker:
     def __init__(
         self,
         plane: ControlPlane,
+        turn_client: HttpTurnClient,
         completion_client: TextCompletionClient | None = None,
     ) -> None:
         self.plane = plane
+        self.turn_client = turn_client
         self.completion_client = completion_client or FakeTextCompletionClient()
 
     def complete_pending_for_bot(self, bot_id: str) -> None:
@@ -48,7 +51,7 @@ class ComputerlessWorker:
             self.run_job(job)
 
     def run_job(self, job: TurnJob) -> None:
-        """Execute one turn: model loop, chunks, one committed message."""
+        """Execute one turn: model loop, chunks via HTTP, one committed message."""
         if job.turn_id is None:
             return
         turn = self.plane.turn(job.tenant_id, job.turn_id)
@@ -57,8 +60,6 @@ class ComputerlessWorker:
         prompt = self.plane.turn_prompt(job.tenant_id, job.turn_id)
         answer = self.completion_client.complete(prompt)
         midpoint = max(1, len(answer) // 2)
-        self.plane.post_turn_chunk(job.turn_id, job.tenant_id, answer[:midpoint])
-        self.plane.post_turn_chunk(
-            job.turn_id, job.tenant_id, answer[midpoint:], complete=True
-        )
+        self.turn_client.post_chunk(job.turn_id, answer[:midpoint])
+        self.turn_client.post_chunk(job.turn_id, answer[midpoint:], complete=True)
         self.plane.remove_pending_job(job.job_id)
