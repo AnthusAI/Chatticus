@@ -10,6 +10,7 @@ from typing import Any
 from chatticus.control_plane import ControlPlane
 from chatticus.messaging.store import DynamoMessagingStore
 from chatticus.models import ComputerPolicy, TurnJob
+from chatticus.turn_recovery import TurnDeadlineScheduler
 from chatticus.worker.openai_completion import load_local_env
 
 logger = logging.getLogger("chatticus.runtime")
@@ -18,20 +19,33 @@ logger = logging.getLogger("chatticus.runtime")
 def plane_from_env() -> ControlPlane:
     """Build a control plane from Lambda or local environment variables.
 
-    Turn recovery (deadlines, lease renewal) is kernel-only in tests until an
-    EventBridge-backed deadline scheduler exists. Logical-enqueue dedup is
-    durable when ``CHATTICUS_MESSAGING_TABLE`` is set. ``recovery_enabled``
-    stays off here.
+    Turn recovery is enabled when Dynamo messaging and EventBridge Scheduler
+    transport are configured. Logical-enqueue dedup is durable when
+    ``CHATTICUS_MESSAGING_TABLE`` is set.
     """
     load_local_env()
     table_name = os.environ.get("CHATTICUS_MESSAGING_TABLE", "").strip()
     store = DynamoMessagingStore(table_name) if table_name else None
     queue_url = os.environ.get("CHATTICUS_TURN_QUEUE_URL", "").strip()
+    deadline_scheduler = _deadline_scheduler_from_env()
+    recovery_enabled = store is not None and deadline_scheduler is not None
     return ControlPlane(
         messaging_store=store,
         turn_enqueued=_sqs_enqueuer(queue_url) if queue_url else None,
-        recovery_enabled=False,
+        deadline_scheduler=deadline_scheduler,
+        recovery_enabled=recovery_enabled,
     )
+
+
+def _deadline_scheduler_from_env() -> TurnDeadlineScheduler | None:
+    group = os.environ.get("CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP", "").strip()
+    target_arn = os.environ.get("CHATTICUS_TURN_DEADLINE_TARGET_ARN", "").strip()
+    role_arn = os.environ.get("CHATTICUS_TURN_DEADLINE_ROLE_ARN", "").strip()
+    if not (group and target_arn and role_arn):
+        return None
+    from chatticus.deadline.scheduler import EventBridgeTurnDeadlineScheduler
+
+    return EventBridgeTurnDeadlineScheduler(group, target_arn, role_arn)
 
 
 def job_from_queue_payload(payload: dict[str, Any]) -> TurnJob:

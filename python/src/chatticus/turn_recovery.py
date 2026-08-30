@@ -1,10 +1,11 @@
 """Turn-triggered deadlines and recovery without an always-on reaper.
 
-Recovery scheduling is an in-memory kernel hook used by unit and behavior
-tests. Production wiring waits on an EventBridge-backed
-``TurnDeadlineScheduler``; ``plane_from_env()`` does not enable recovery
-until that transport exists. Logical-enqueue dedup is durable in
-``DynamoMessagingStore`` via conditional writes on the turn item.
+Recovery scheduling uses ``InMemoryTurnDeadlineScheduler`` in unit and
+behavior tests. Production wiring uses EventBridge Scheduler one-shots via
+``EventBridgeTurnDeadlineScheduler``; ``plane_from_env()`` enables recovery
+when that transport and Dynamo messaging are configured. Logical-enqueue
+dedup is durable in ``DynamoMessagingStore`` via conditional writes on the
+turn item.
 """
 
 from __future__ import annotations

@@ -5,6 +5,7 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
+import * as scheduler from "aws-cdk-lib/aws-scheduler";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as ssm from "aws-cdk-lib/aws-ssm";
@@ -130,6 +131,13 @@ export class ThinTurnStack extends cdk.Stack {
       },
     });
 
+    const turnDeadlineScheduleGroupName = `chatticus-${environmentName}-turn-deadlines`;
+    const turnDeadlineScheduleGroup = new scheduler.CfnScheduleGroup(
+      this,
+      "TurnDeadlineGroup",
+      { name: turnDeadlineScheduleGroupName },
+    );
+
     const sharedEnv: Record<string, string> = {
       CHATTICUS_ENVIRONMENT: environmentName,
       CHATTICUS_MESSAGING_TABLE: table.tableName,
@@ -156,6 +164,51 @@ export class ThinTurnStack extends cdk.Stack {
       },
       code: httpCode,
     });
+    const deadlineFunction = new lambda.Function(this, "TurnDeadline", {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: "chatticus.deadline.lambda_handler.handler",
+      architecture: lambda.Architecture.X86_64,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(60),
+      description:
+        "EventBridge Scheduler target: recover wedged turns without an always-on reaper.",
+      environment: sharedEnv,
+      code: httpCode,
+    });
+    table.grantReadWriteData(deadlineFunction);
+    turnQueue.grantSendMessages(deadlineFunction);
+
+    const schedulerInvokeRole = new iam.Role(this, "TurnDeadlineSchedulerRole", {
+      assumedBy: new iam.ServicePrincipal("scheduler.amazonaws.com"),
+    });
+    deadlineFunction.grantInvoke(schedulerInvokeRole);
+
+    const turnDeadlineSchedulerEnv: Record<string, string> = {
+      CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP: turnDeadlineScheduleGroupName,
+      CHATTICUS_TURN_DEADLINE_TARGET_ARN: deadlineFunction.functionArn,
+      CHATTICUS_TURN_DEADLINE_ROLE_ARN: schedulerInvokeRole.roleArn,
+    };
+
+    const turnDeadlineScheduleArn = `arn:aws:scheduler:${this.region}:${this.account}:schedule/${turnDeadlineScheduleGroupName}/*`;
+    const manageTurnDeadlineSchedules = new iam.PolicyStatement({
+      actions: [
+        "scheduler:CreateSchedule",
+        "scheduler:UpdateSchedule",
+        "scheduler:DeleteSchedule",
+        "scheduler:GetSchedule",
+      ],
+      resources: [turnDeadlineScheduleArn],
+    });
+    const passSchedulerInvokeRole = new iam.PolicyStatement({
+      actions: ["iam:PassRole"],
+      resources: [schedulerInvokeRole.roleArn],
+      conditions: {
+        StringEquals: {
+          "iam:PassedToService": "scheduler.amazonaws.com",
+        },
+      },
+    });
+
     table.grantReadWriteData(httpFunction);
     turnQueue.grantSendMessages(httpFunction);
     openaiParameter.grantRead(httpFunction);
@@ -167,6 +220,35 @@ export class ThinTurnStack extends cdk.Stack {
         ],
       }),
     );
+    httpFunction.addEnvironment(
+      "CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP",
+      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP,
+    );
+    httpFunction.addEnvironment(
+      "CHATTICUS_TURN_DEADLINE_TARGET_ARN",
+      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_TARGET_ARN,
+    );
+    httpFunction.addEnvironment(
+      "CHATTICUS_TURN_DEADLINE_ROLE_ARN",
+      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_ROLE_ARN,
+    );
+    httpFunction.addToRolePolicy(manageTurnDeadlineSchedules);
+    httpFunction.addToRolePolicy(passSchedulerInvokeRole);
+
+    deadlineFunction.addEnvironment(
+      "CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP",
+      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP,
+    );
+    deadlineFunction.addEnvironment(
+      "CHATTICUS_TURN_DEADLINE_TARGET_ARN",
+      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_TARGET_ARN,
+    );
+    deadlineFunction.addEnvironment(
+      "CHATTICUS_TURN_DEADLINE_ROLE_ARN",
+      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_ROLE_ARN,
+    );
+    deadlineFunction.addToRolePolicy(manageTurnDeadlineSchedules);
+    deadlineFunction.addToRolePolicy(passSchedulerInvokeRole);
 
     const functionUrl = httpFunction.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE,
@@ -263,6 +345,12 @@ export class ThinTurnStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ChatticusEnvironment", { value: environmentName });
     new cdk.CfnOutput(this, "MessagingTableName", { value: table.tableName });
     new cdk.CfnOutput(this, "TurnQueueUrl", { value: turnQueue.queueUrl });
+    new cdk.CfnOutput(this, "TurnDeadlineScheduleGroup", {
+      value: turnDeadlineScheduleGroup.name ?? turnDeadlineScheduleGroupName,
+    });
+    new cdk.CfnOutput(this, "TurnDeadlineFunctionArn", {
+      value: deadlineFunction.functionArn,
+    });
     new cdk.CfnOutput(this, "FunctionUrl", { value: functionUrl.url });
     new cdk.CfnOutput(this, "CloudFrontUrl", { value: cloudFrontUrl });
     new cdk.CfnOutput(this, "InvokeKeySecretArn", { value: invokeSecret.secretArn });
