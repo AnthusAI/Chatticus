@@ -891,6 +891,7 @@ class ControlPlane:
         turn.attempt_id = None
         turn.claimed_by_worker_id = None
         turn.lease_expires_at = None
+        turn.fence_token += 1
         turn.deadline_at = self._now + self.turn_deadline
         self._messaging_store.put_turn(turn)
         self._deadline_scheduler.schedule(tenant_id, turn_id, turn.deadline_at)

@@ -7,7 +7,12 @@ from datetime import timedelta
 import pytest
 
 from chatticus.control_plane import ControlPlane
-from chatticus.models import TurnEventKind, TurnReconcilingError, TurnStatus
+from chatticus.models import (
+    StaleAttemptError,
+    TurnEventKind,
+    TurnReconcilingError,
+    TurnStatus,
+)
 from chatticus.turn_recovery import logical_enqueue_id
 
 
@@ -71,6 +76,13 @@ def test_deadline_recovery_enqueues_once() -> None:
     assert turn.status == TurnStatus.ACTIVE
     assert turn.recovery_attempts == 1
     assert plane.logical_enqueue_delivery_count == 2
+    with pytest.raises(StaleAttemptError):
+        plane.post_turn_chunk(
+            started.turn_id,
+            "anthus",
+            "zombie ",
+            fence_token=1,
+        )
 
 
 def test_deadline_failure_after_recovery_exhausted() -> None:
