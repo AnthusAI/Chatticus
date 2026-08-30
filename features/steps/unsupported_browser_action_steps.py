@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from behave import given, then, when
-
-from chatticus.overnight_gated import USER_CONTROLLED_COMPLETION_REQUIRED
+from behave import given, when
 
 
 @given("no structured connector or takeover control can bind the exact operation")
