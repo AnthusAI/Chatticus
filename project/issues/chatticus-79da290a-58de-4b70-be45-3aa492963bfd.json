@@ -3,7 +3,7 @@
   "title": "Land accepted work on develop continuously",
   "description": "develop is the continuous-integration branch. Accepted work merges there as soon as it is green; it does not wait on main.\n\nmain remains the semantic-release branch. Do not run releases from develop.\n\nAcceptance:\n- origin/develop exists\n- CI runs on push to develop and main, and on pull requests\n- AGENTS.md states this\n- The accepted HTTP SSE thin turn is on develop",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -21,7 +21,7 @@
     }
   ],
   "created_at": "2026-08-30T19:02:14.413251Z",
-  "updated_at": "2026-08-30T19:02:55.531090Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T19:03:20.637092Z",
+  "closed_at": "2026-08-30T19:03:20.637092Z",
   "custom": {}
 }
