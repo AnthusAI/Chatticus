@@ -3,7 +3,7 @@
   "title": "Implement idempotent handoff and turn-triggered recovery",
   "description": "Close the crash windows between durable state and queue delivery.\n\nAcceptance criteria:\n- Appending work and requesting its logical enqueue can be retried idempotently.\n- Active workers renew both their turn claim and SQS visibility.\n- Each started turn schedules its own deadline or watchdog; there is no idle polling process.\n- Recovery creates at most one next attempt or a visible terminal state.\n- Ambiguous provider outcomes have an explicit reconciliation state.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -48,10 +48,22 @@
       "author": "home",
       "text": "Kernel follow-up: recovery now increments fence_token so a wedged worker cannot keep POSTing chunks. Still later: EventBridge watchdog, Dynamo enqueue ledger, Lambda ChangeMessageVisibility and worker renew.",
       "created_at": "2026-08-30T20:53:35.883862Z"
+    },
+    {
+      "id": "7a3b0a7d-f409-4118-af4e-cc3bcbc9510a",
+      "author": "home",
+      "text": "main is v0.4.0; wall_clock fix 0fe4a8f merged to main (27af2d2). Next: ChatticusThinTurn-only redeploy from develop so warm Front Door deadlines work. Staging/production still undeployed. Task stays open until a warm-container deadline recovers a turn.",
+      "created_at": "2026-08-30T22:06:45.271941Z"
+    },
+    {
+      "id": "99760f2e-44d7-482c-8be7-3b67b17546bd",
+      "author": "home",
+      "text": "Development redeploy complete (ChatticusThinTurn only, origin/develop @ 3ce656f, deploy UPDATE_COMPLETE 2026-08-30T22:08:31Z). CloudFront https://d3gpuuldffe35o.cloudfront.net. exercise_thin_turn --environment development exit 0.\n\nWarm-container EventBridge deadline proof (no update-function-configuration cold start):\n- Worker SQS ESM disabled (afb215d1), queue purged; Front Door warmed with 25 /health calls (subsequent REPORT lines show no Init Duration).\n- Wedged turn d50c784a-d760-4255-8812-b1e15eb3b118: POST message then immediate POST /turns/{id}/claim worker_id=warm-wedge-holder (acquired=true).\n- EventBridge schedule turn-cba2666c6089cc09c2c1917aa32e93f1: at(2026-08-30T22:17:06) vs now_utc 2026-08-30T22:15:06+00:00 => delta +120s (future relative to real UTC).\n- After lease expiry, recovery_attempts 0->1 at ~125s; claim cleared (claimed_by null). CloudWatch Lambda Invocations metric Sum=1 for chatticus-development-turn-deadline in the 22:15-22:20Z window. Worker ESM re-enabled after test.\n\nAcceptance: warm-container deadline recovered a wedged turn; wall_clock fix live.",
+      "created_at": "2026-08-30T22:18:44.752946Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.015297Z",
-  "updated_at": "2026-08-30T20:53:35.883862Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T22:18:58.736003Z",
+  "closed_at": "2026-08-30T22:18:46.958078Z",
   "custom": {}
 }
