@@ -3,9 +3,9 @@
   "title": "Implement the durable computerless turn path",
   "description": "Implement only what the computerless-turn stories require.\n\nScope:\n- Tenant-scoped channel, message, turn, attempt, and event persistence in DynamoDB.\n- One logical SQS turn job created after the inbound message is durable.\n- A computerless worker that runs one OpenAI text-only loop.\n- Durable coalesced progress and one committed answer.\n- Authenticated POST and one-turn SSE endpoints using the transport proven by the spike.\n\nDo not adapt the obsolete in-memory subscription into a second supported path.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
-  "assignee": null,
+  "assignee": "manager",
   "creator": null,
   "parent": "chatticus-46746451-4000-4570-9129-37898a7e119a",
   "labels": [
@@ -22,9 +22,19 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "d15605c9-0c23-4cf0-b587-452e58033166",
+      "author": "home",
+      "text": "# Implementation plan (manager)\n\nMake the computerless Gherkin green. Branch from origin/cursor/computerless-gherkin-4a21. Do not merge Gherkin to main first.\n\n## Goal\n\nThe 9 failing scenarios in features/messages.feature and features/realtime_api.feature pass. Routing/approval/snapshot stay green. black/ruff/behave/pytest all pass.\n\n## Shape (already decided)\n\n- Channel not thread. tenant_id in every key.\n- Turn jobs default to cpu, not computer. Stopped computer stays stopped.\n- Stream is one turn, SSE, re-derivable from store. No RealtimeSubscription, no TurnStream, no WebSocket, no ALB.\n- Front door per-request. Streaming path may be function URL + CloudFront (Test 1). Local docker-compose may stand in for the front door while developing (DESIGN_CHALLENGES still-open).\n- In-flight chunks DynamoDB TTL; one committed message at turn.completed.\n- Model on a computerless worker, not the control plane. OpenAI text-only. No tools, no browser, no Kanbus, no escalation.\n\n## Minimum to ship this slice\n\n1. Kernel: channel, seq, cpu-only enqueue, turn_id, durable turn events (chunks + completed). Delete or stop using TurnStream/subscribe_realtime. Delete skipped tests in test_messaging.py; replace with tests that match the Gherkin.\n2. Persistence: DynamoDB (or moto in tests + real table in CDK). Do not add RDS.\n3. Worker: pulls job, one OpenAI call, POSTs coalesced chunks, completes turn. Stub/fake OpenAI in behave if needed so CI has no live key; a recorded or injectable client is required.\n4. HTTP: POST /channels, POST /channels/{id}/messages, GET messages after=seq, GET /turns/{id}/stream SSE, POST chunks. Auth can be a test header/tenant for this slice if full Cognito is out of scope — but tenant isolation scenarios must still hold.\n5. Do not deploy a second always-on process. Local compose standing in for the front door is allowed.\n\n## Out of scope\n\nApprovals, snapshots, start_computer, Kanbus tasks, Vultus, mobile Safari.\n\n## Git\n\nBranch: cursor/durable-computerless-turn-4a21 from the Gherkin branch.\nPush. Do not merge. Do not close Kanbus.\n\nIf OpenAI cannot be called in CI, the fake must be explicit and the Gherkin still proves durable events and cpu-only jobs.\n",
+      "created_at": "2026-08-30T17:28:17.483203Z"
+    }
+  ],
   "created_at": "2026-08-30T15:53:18.082909Z",
-  "updated_at": "2026-08-30T15:53:18.082909Z",
+  "updated_at": "2026-08-30T17:28:17.483203Z",
   "closed_at": null,
-  "custom": {}
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }
