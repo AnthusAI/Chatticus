@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Protocol
 
 from chatticus.control_plane import ControlPlane
@@ -44,6 +45,36 @@ class CountingTextCompletionClient:
         return self.inner.complete(prompt)
 
 
+class SlowTextCompletionClient:
+    """Simulate a long model call for lease-renewal behavior specs."""
+
+    def __init__(
+        self,
+        inner: TextCompletionClient | None = None,
+        *,
+        plane: ControlPlane | None = None,
+        advance_seconds: int = 0,
+    ) -> None:
+        self.inner = inner or FakeTextCompletionClient()
+        self.plane = plane
+        self.advance_seconds = advance_seconds
+        self.blocking_hook: Callable[[], None] | None = None
+
+    def complete(self, prompt: str) -> str:
+        """Renew during the blocking window, then return the model answer."""
+        if self.plane is not None and self.advance_seconds:
+            mid = self.advance_seconds // 2
+            if mid:
+                self.plane.advance_seconds(mid)
+        if self.blocking_hook is not None:
+            self.blocking_hook()
+        if self.plane is not None and self.advance_seconds:
+            tail = self.advance_seconds - (self.advance_seconds // 2)
+            if tail:
+                self.plane.advance_seconds(tail)
+        return self.inner.complete(prompt)
+
+
 class ComputerlessWorker:
     """Pull cpu-only jobs, stream coalesced chunks, commit one answer."""
 
@@ -52,9 +83,12 @@ class ComputerlessWorker:
         plane: ControlPlane,
         turn_client: HttpTurnClient,
         completion_client: TextCompletionClient | None = None,
+        *,
+        queue_visibility_renewer: Callable[[], None] | None = None,
     ) -> None:
         self.plane = plane
         self.turn_client = turn_client
+        self._queue_visibility_renewer = queue_visibility_renewer
         if completion_client is None:
             from chatticus.worker.openai_completion import completion_client_from_env
 
@@ -78,8 +112,24 @@ class ComputerlessWorker:
         if not claimed.get("acquired"):
             return
         prompt = self.plane.turn_prompt(job.tenant_id, job.turn_id)
-        answer = self.completion_client.complete(prompt)
+
+        def renew() -> None:
+            self._renew_lease(job)
+
+        client = self.completion_client
+        if isinstance(client, SlowTextCompletionClient):
+            client.blocking_hook = renew
+        renew()
+        answer = client.complete(prompt)
         midpoint = max(1, len(answer) // 2)
         self.turn_client.post_chunk(job.turn_id, answer[:midpoint])
         self.turn_client.post_chunk(job.turn_id, answer[midpoint:], complete=True)
         self.plane.remove_pending_job(job.job_id)
+
+    def _renew_lease(self, job: TurnJob) -> None:
+        """Extend the turn lease and, when wired, SQS visibility."""
+        if job.turn_id is None:
+            return
+        self.turn_client.renew(job.turn_id, job.job_id, job_id=job.job_id)
+        if self._queue_visibility_renewer is not None:
+            self._queue_visibility_renewer()

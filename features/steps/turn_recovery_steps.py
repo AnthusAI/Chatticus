@@ -16,6 +16,7 @@ from chatticus.turn_recovery import logical_enqueue_id
 from chatticus.worker.computerless import (
     ComputerlessWorker,
     CountingTextCompletionClient,
+    SlowTextCompletionClient,
 )
 
 
@@ -286,6 +287,44 @@ def given_worker_owns_turn(context: object) -> None:
     context.active_job = context.plane.job_for_turn(
         channel.tenant_id, _turn_id(context)
     )
+
+
+@given("an active turn is waiting for a worker")
+def given_turn_waiting_for_worker(context: object) -> None:
+    channel = _channel(context)
+    bot = context.bots_by_name["Assistant"]
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": "human",
+            "author_id": channel.user_id,
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers=tenant_headers(channel.tenant_id),
+    )
+    assert response.status_code == 200
+    context.last_turn_id = response.json()["turn_id"]
+    context.active_job = context.plane.job_for_turn(
+        channel.tenant_id, _turn_id(context)
+    )
+    assert context.active_job is not None
+
+
+@when("the computerless worker runs a slow model call")
+def when_computerless_worker_runs_slow_model(context: object) -> None:
+    channel = _channel(context)
+    slow = SlowTextCompletionClient(
+        context.counting_client,
+        plane=context.plane,
+        advance_seconds=61,
+    )
+    worker = ComputerlessWorker(
+        context.plane,
+        HttpTurnClient(context.api_client, channel.tenant_id),
+        slow,
+    )
+    worker.run_job(context.active_job)
 
 
 @when("the fenced owner calls the renew API")

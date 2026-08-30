@@ -168,3 +168,50 @@ def test_renew_extends_lease_and_records_visibility() -> None:
     assert turn.lease_expires_at is not None
     assert turn.lease_expires_at > plane.now()
     assert ("anthus", started.turn_id) in plane.queue_visibility_renewals
+
+
+def test_computerless_worker_renews_during_slow_model_call() -> None:
+    from chatticus.http.app import create_app
+    from chatticus.http.client import HttpTurnClient
+    from chatticus.http.test_server import start_test_server
+    from chatticus.worker.computerless import (
+        ComputerlessWorker,
+        FakeTextCompletionClient,
+        SlowTextCompletionClient,
+    )
+
+    plane = _recovery_plane()
+    app = create_app(plane)
+    api = start_test_server(app)
+    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    from chatticus.models import ActorKind
+
+    _, started = plane.post_channel_message(
+        channel.channel_id,
+        "anthus",
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+    )
+    assert started is not None
+    job = plane.job_for_turn("anthus", started.turn_id)
+    assert job is not None
+    slow = SlowTextCompletionClient(
+        FakeTextCompletionClient(),
+        plane=plane,
+        advance_seconds=61,
+    )
+    worker = ComputerlessWorker(
+        plane,
+        HttpTurnClient(api, channel.tenant_id),
+        slow,
+    )
+    worker.run_job(job)
+    turn = plane.turn("anthus", started.turn_id)
+    assert turn.status == TurnStatus.COMPLETED
+    assert turn.lease_expires_at is not None
+    assert turn.lease_expires_at > plane.now()
+    assert ("anthus", started.turn_id) in plane.queue_visibility_renewals
+    api.close()
