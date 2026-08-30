@@ -199,10 +199,52 @@ a build decision.
 **Decided.** No persistent sockets anywhere. The whole control plane
 bills per request and costs nothing when nobody is working.
 
-**Untested.** That a Lambda function URL behind CloudFront actually
-streams 250-millisecond chunks promptly is reasoned, not measured, and
-everything below depends on it. Run Test 1 in
-[Feasibility tests](FEASIBILITY_TESTS.md) before building on this.
+**Tested (2026-08-30).** Test 1 in `spikes/sse-transport/` measured Python Lambda
+response streaming (Lambda Web Adapter) through a function URL and through
+CloudFront. **Pass.** No failure branch applied. Spike stack `ChatticusSseSpike`
+in account 335163751677, region us-east-1.
+
+| Path | TTFB (ms) | Inter-frame gap p50 (ms) | p95 (ms) | Batching | Reconnect (`Last-Event-ID`) |
+| --- | --- | --- | --- | --- | --- |
+| Direct function URL | 69-223 | 250-251 | 307-367 | Rare same-tick pairs; not multi-second batches | seq 20 after server close at 19 |
+| CloudFront | 127-293 | 250-251 | 284-333 | Same as direct | seq 20 after server close at 19 |
+
+Raw JSON: `spikes/sse-transport/results/summary.json`.
+
+**Transport.** Python 3.12 on Lambda with Lambda Web Adapter
+(`AWS_LWA_INVOKE_MODE=response_stream`), waitress WSGI server, function URL
+`InvokeMode.RESPONSE_STREAM`, 900 s timeout. CloudFront distribution with
+`CachingDisabled`, viewer-request function stripping `Accept-Encoding`, origin
+read timeout **60 s** (180 s quota increase not available on this account).
+Public function URL origin (OAC rejected for spike because it requires
+`AWS_IAM` auth). No ALB.
+
+**Disconnect boundaries.**
+
+- Direct: Lambda **900 s** hard stop observed (`direct_boundary_probe.json`:
+  3596 frames in 900.4 s). Client must reconnect with `Last-Event-ID` for
+  turns longer than 15 minutes.
+- CloudFront: with 250 ms chunks arriving continuously, a **90 s** foreground
+  run delivered all 360 frames with no mid-stream disconnect. Origin read
+  timeout did not cut an active chunked stream in this test; idle-gap behavior
+  was not probed to 15 minutes. Production still plans reconnect-at-timeout
+  for long gaps.
+
+**Background tab.** Playwright with `document.hidden` mocked: p95 gaps matched
+foreground (under 400 ms). Real mobile Safari was **not** measured; see
+`spikes/sse-transport/README.md` checklist.
+
+**Front door.** Lambda function URL behind CloudFront is viable for the
+streaming path. API Gateway HTTP API was not needed. Custom domain was not
+tested.
+
+**Caveats seeded during the spike.**
+
+- Duplicate `Access-Control-Allow-Origin` if both Flask and function URL CORS
+  emit headers; production must configure CORS in one place only.
+- WSGI cannot set `Connection: keep-alive` (PEP 3333); omit it.
+- CloudFront TTFB added roughly 50-100 ms over direct in warm runs, not the
+  500-800 ms sometimes reported for cold function URLs.
 
 ### The shape
 
