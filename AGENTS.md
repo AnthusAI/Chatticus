@@ -19,7 +19,8 @@ xAI client. The model vendor is not the product name.
 
 ## Layout
 
-- `docs/` — product, architecture, stack, roadmap, messaging. Read
+- `docs/` — product, architecture, stack, roadmap, messaging, tasks,
+  threat model. Read
   `docs/MESSAGING.md` before adding a cloud API, message store, or
   streaming path, and `docs/DESIGN_CHALLENGES.md` for the requirements,
   the non-requirements, why the design is shaped this way, and what is
@@ -43,7 +44,10 @@ xAI client. The model vendor is not the product name.
 - Gherkin in `features/` is the product narrative. Implement Python steps in
   `features/steps/` so `behave` from `python/` passes.
 - `tenant_id` is required in worker registration, jobs, bots, computers,
-  threads, and messages even while v1 has a single household tenant.
+  channels, and messages even while v1 has a single household tenant.
+- A **channel** is the conversation object. There is no separate thread.
+  A bot's model input is its own memory plus the channel's compacted
+  view. Every bot on a channel reads it; only the addressed bot acts.
 
 ## Quality gates
 

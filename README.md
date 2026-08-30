@@ -191,6 +191,8 @@ npx cdk deploy --all
 ## Documentation
 
 - [Product](docs/PRODUCT.md)
+- [Tasks](docs/TASKS.md)
+- [Threat model](docs/THREAT_MODEL.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Design challenges](docs/DESIGN_CHALLENGES.md) (cloud API, messages, channels — open)
 - [Messages and the realtime API](docs/MESSAGING.md) (sketch only)

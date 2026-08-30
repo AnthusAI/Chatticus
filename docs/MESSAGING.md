@@ -2,9 +2,8 @@
 
 This describes the decided design for the transcript and the streaming
 path. The reasoning behind each choice, including what was rejected and
-why, is in [Design challenges](DESIGN_CHALLENGES.md). Channels and
-bot-to-bot addressing are still open there; treat the thread model below
-as one candidate for that part.
+why, is in [Design challenges](DESIGN_CHALLENGES.md). The channel model is settled there;
+this describes it.
 
 Chattic.us is a conversation surface. The control plane is the only
 thing that writes the transcript and the only thing the browser talks
@@ -19,19 +18,19 @@ request is one turn.
 DynamoDB is the source of truth for conversations. S3 holds blobs
 (screenshots, attachments). The computer snapshot is not the chat log.
 
-A **thread** is one conversation. It belongs to one `tenant_id` and one
+A **channel** is one conversation. It belongs to one `tenant_id` and one
 user. Participants are that human and one or more of that user's bots.
 
-**Messages are append-only.** Each thread has a monotonically increasing
+**Messages are append-only.** Each channel has a monotonically increasing
 `seq`, assigned by the control plane at commit, which makes order within
-a thread total. Clients reconnect with
-`GET /threads/{thread_id}/messages?after=seq`. Edits and deletes are out
+a channel total. Clients reconnect with
+`GET /channels/{channel_id}/messages?after=seq`. Edits and deletes are out
 of scope for v1.
 
 | Field | Role |
 | --- | --- |
 | `tenant_id` | Isolation. Required on every item. |
-| `seq` | Per-thread order. Replay cursor. |
+| `seq` | Per-channel order. Replay cursor. |
 | `author_kind` | `human` or `bot` |
 | `author_id` | `user_id` or `bot_id` |
 | `body` | Committed text. Not a token. |
@@ -39,6 +38,18 @@ of scope for v1.
 
 Files stay on the shared computer. A message may name a path under
 `/workspace`. It does not copy the file into the transcript.
+
+### A bot's input is memory plus the channel
+
+A channel is shared; bot memory is not. They compose at turn start:
+
+> **A bot's model input is its own memory plus the channel's compacted
+> view.**
+
+Every bot on a channel reads the whole channel. Only the addressed bot
+acts. Bot memory is per-bot and spans channels; the channel is compacted
+once and serves every participant. See challenge 4 in
+[Design challenges](DESIGN_CHALLENGES.md).
 
 ### In-flight chunks live in the same store, with a TTL
 
@@ -61,14 +72,14 @@ permanent" has no asterisk. Do not insert a message row per token.
 There is one message table. Bot-to-bot is not a second bus, queue, or
 protocol.
 
-1. A bot posts a message in a thread the human can already see.
-2. The message is addressed to another bot on that thread.
+1. A bot posts a message in a channel the human can already see.
+2. The message is addressed to another bot on that channel.
 3. The control plane enqueues a turn for the recipient, same as a human
    message would.
 4. The recipient's worker pulls the job. It does not receive an inbound
    HTTP call from the other bot.
 
-The human is not the router. The human still sees the same thread.
+The human is not the router. The human still sees the same channel.
 
 ## The cloud API
 
@@ -76,7 +87,7 @@ Nothing bills while nobody is working. The API is per-request, and the
 only thing that lives longer than a request is a turn.
 
 ```
-browser  --POST /threads/{id}/messages-->  front door
+browser  --POST /channels/{id}/messages-->  front door
                                              commit message, enqueue turn,
                                              return turn_id
 
@@ -131,7 +142,7 @@ server-sent events are sufficient and a WebSocket is not needed.
 
 | Kind | When | Stored as a message? |
 | --- | --- | --- |
-| `thread.message.created` | A row is committed | yes, that row |
+| `channel.message.created` | A row is committed | yes, that row |
 | `turn.started` | A bot turn begins streaming | no |
 | `turn.waiting` | The turn is blocked on a readiness gate, naming which (for example a computer still booting) | no |
 | `turn.token` | One coalesced chunk | no |
@@ -181,9 +192,9 @@ would wait a second for; buffer what you are rendering live.
 
 | Path | Use |
 | --- | --- |
-| `POST /threads` | Open a thread |
-| `POST /threads/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if it enqueues a turn |
-| `GET /threads/{id}/messages?after=seq` | History and reconnect |
+| `POST /channels` | Open a channel |
+| `POST /channels/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if it enqueues a turn |
+| `GET /channels/{id}/messages?after=seq` | History and reconnect |
 | `GET /turns/{id}/stream` | Server-sent events for one turn |
 | `POST /turns/{id}/chunks` | Worker appends coalesced output |
 | `POST /approvals/{id}` | Human decides a blocked action |

@@ -377,6 +377,13 @@ Placement details, which are configuration rather than architecture:
 
 **Decided: DynamoDB.** Not a relational database.
 
+**Confirmed against the channel model.** This was chosen before challenge
+4 was settled, which was the wrong order. Re-checked afterwards, it
+holds: a channel is one append-only stream keyed by `(channel_id, seq)`,
+which is a native partition-and-sort fit. Had channels turned out to be
+rooms containing per-bot threads, the merged-view reads would have argued
+for relational instead.
+
 ### Why this was not an independent decision
 
 A relational instance is always on and has a monthly floor. Keeping one
@@ -420,16 +427,32 @@ an adjacent table -- so "messages are immutable and permanent" stays a
 clean invariant instead of one with an asterisk about the rows that
 vanish.
 
+### Shape
+
+- Partition key `tenant#channel_id`, sort key `seq`. Tenant belongs
+  *inside* the key so isolation is structural rather than a filter.
+- Compaction summaries are items in the same partition, found by
+  querying backwards for the most recent `summary`.
+- Turn chunks live in their own partition keyed by turn, with the TTL.
+
+Two indexes at least:
+
+| Index | Serves |
+| --- | --- |
+| `(bot_id, time)` | everything one bot did, across channels |
+| `(user_id, last_activity)` | the channel list, most recent first |
+
+**Full-text search across transcripts is out of v1.** DynamoDB will not
+do it. Accept that, or plan a search index later, but decide it here
+rather than discovering it.
+
 ### Still open
 
-- The exact key structure, and whether chunks share a table with
-  messages or sit beside them.
+- Whether chunks share a table with messages or sit beside them.
 - Whether bots, approval rules, and routines share the table or get
   their own.
 - Screenshot and attachment handling: S3 objects referenced from the
   transcript, never bytes through the API.
-- `tenant_id` is required on every item. How it participates in the key
-  is not settled.
 
 ## 3. Compacting conversations
 
@@ -478,41 +501,64 @@ second compacted table that can drift from the log.
 Compaction is non-destructive: append a summary, never rewrite the
 stream. Do not implement a summarizer loop until the store exists.
 
-## 4. Direct bot-to-bot and channels
+## 4. Channels and bot-to-bot
 
-**Open.**
+**Decided.** A channel is the conversation. Bots are participants in it.
 
-**Need.** Several named bots on one user. They must be able to talk
-without the human being the router. The human should be able to watch
-that work. Product language: a **channel** is a conversation with
-the human and one or more bots (and later, bot-to-bot without a human
-in the room). Do not import third-party product names for this.
+### The question that had to be answered first
 
-**Not decided.**
+Context compounds *per bot*. A conversation has *several bots in it*. So
+whose context is a channel? Nothing in the product docs answered that,
+and the storage schema is downstream of it.
 
-- Is a channel the same object as a thread, or a room that contains
-  threads.
-- Does addressing a bot in a channel enqueue a turn (same as a human
-  mention), or is there a separate bot-to-bot bus.
-- Must every bot-to-bot line be visible in the channel the human has
-  open, or are there private bot side-channels.
-- How files move: path in `/workspace` (shared computer) vs attachment
-  in the channel.
+The answer is that these are two different things, composed at turn
+start:
 
-**Settled by challenge 1, and no longer open here:**
+> **A bot's model input is its own memory plus the channel's compacted
+> view.**
 
-- **Ordering when two bots run at once in one channel.** The control
-  plane assigns `seq` at commit, so order within a channel is already
-  total. What remains is a rendering question -- two live token streams
-  interleaving in one open tab, which wants per-turn lanes in the web
-  app. It does not constrain the store.
+- A **channel** is a shared append-only stream. Compacted once, per
+  channel, serving every participant.
+- **Bot memory** is per-bot and cross-channel: durable facts and
+  preferences, not a conversation.
 
-Bots must not HTTP-call each other. Workers pull jobs. That constraint
-stands even while the channel model is open.
+That also answers the cost objection to a shared stream. A bot does not
+receive raw everything; it receives the compacted view plus its own
+memory.
 
-A sketch (one thread, `addressed_to_bot_id` enqueues a turn, human sees
-the same rows) is in [Messaging](MESSAGING.md). It is one candidate, not
-the architecture.
+### The model
+
+- A channel **is** the thread. There is no separate thread object. A 1:1
+  conversation with one bot is a channel with one bot participant, not a
+  special case.
+- A channel has a `tenant_id`, an owner user, a participant set (the
+  human and one or more of that user's bots), and a monotonic `seq`.
+- `addressed_to_bot_id` enqueues a turn for that bot. The same mechanism
+  serves human-to-bot and bot-to-bot. There is no second bus.
+- **Every bot reads the whole channel; only the addressed bot acts.** A
+  bot deciding to speak unaddressed is a later question.
+- No private bot side-channels. The product promises the human can watch
+  that work.
+- Files stay on the computer. A message names a path under `/workspace`;
+  it does not copy bytes.
+
+### Why not a room containing per-bot threads
+
+That shape gives each bot a cheap, clean context. It also rebuilds the
+human as router in software: bot A does not see bot B's work, handoff
+becomes explicit copying, and the human's merged view is a fiction
+something has to maintain. It breaks compaction too, which is per
+stream, forcing per-bot compaction over overlapping content.
+
+### Ordering is not open
+
+The control plane assigns `seq` at commit, so order within a channel is
+already total. What remains is two live turns interleaving in one open
+tab, which wants per-turn lanes in the web app. It does not constrain
+the store.
+
+Bots must not HTTP-call each other. Workers pull jobs. That holds
+regardless.
 
 ## 5. Summoning the computer
 

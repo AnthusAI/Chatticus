@@ -16,7 +16,9 @@ A bot is a persistent, named teammate:
 - Several bots can run in parallel and hand work to each other.
 
 Bots can message each other and pass ownership so the human is not the
-router between tools. How that is stored — channels, compaction, direct
+router between tools. A **channel** is the conversation object: every bot
+on it reads the whole channel, and only the addressed bot acts. Work
+itself is tracked as issues; see [Tasks](TASKS.md). How that is stored — channels, compaction, direct
 bot-to-bot — is not decided. See [Design challenges](DESIGN_CHALLENGES.md).
 
 ## One computer per user

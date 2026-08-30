@@ -11,6 +11,7 @@
 - Worker protocol with `tenant_id` and prefer-local routing
 - Serverless control plane: per-request HTTP, one-turn server-sent events,
   DynamoDB transcript
+- Task tracking through Kanbus, reachable without summoning a computer
 - Computer snapshots: publish to S3, administrator relocate, host hydrate
 - docker-compose for local control plane + computer
 - Fargate (and optional EC2) path in AWS
