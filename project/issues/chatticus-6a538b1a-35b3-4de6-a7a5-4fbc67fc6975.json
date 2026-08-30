@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-6a538b1a-35b3-4de6-a7a5-4fbc67fc6975",
+  "title": "Existing implemented and tested infrastructure",
+  "description": "Record of infrastructure already implemented and tested before the Phase 1 / Phase 2 backlog was written. This epic is closed on creation; it exists for provenance so an agent picking up later work can see what foundation is already in place.\n\nWhat is implemented and tested:\n\n- Snapshot packer and store (python/src/chatticus/snapshot/): pack and hydrate a workplace, filesystem object store and S3 store, snapshot URIs. Covered by python/tests/test_snapshot_pack.py and python/tests/test_s3_store.py and features/computer_snapshot_pack.feature, features/computer_snapshots.feature.\n- Computer image (computer/): Ubuntu base with Xvfb and Chromium, entrypoint, and two integration scripts: computer/test_relocate.sh (two containers, relocate a workplace between them) and computer/test_fargate.sh.\n- CDK (infra/): infra/lib/snapshot-stack.ts (ChatticusSnapshots bucket) and infra/lib/computer-stack.ts (Fargate computer host, scale to 0). CI in .github/workflows/infra.yml.\n- In-memory control-plane kernel (python/src/chatticus/control_plane.py, models.py): worker registration and tenant ownership, heartbeat, cost-class routing, computer affinity and pinning, approvals and auto-review rules, computer snapshot publish/relocate/hydrate, threads and messages. Covered by python/tests/test_control_plane.py, python/tests/test_messaging.py, and the routing/approval/snapshot Gherkin features.\n- Python CI (.github/workflows/ci.yml): black, ruff, behave, pytest.\n\nWhat is obsolete and must be replaced (not part of this closed record):\n\n- The messaging and realtime parts of the in-memory kernel implement the rejected design: post_message always enqueues frozenset({\"computer\"}), and RealtimeSubscription / TurnStream are an in-process fan-out. Challenge 5 says many turns never need a computer; challenge 1 deleted persistent sockets and in-process rendezvous. See the linked task to replace the obsolete messaging kernel, and task chatticus-a8f9d17c to replace the obsolete thread and in-process stream specifications.\n\nStatus: closed on creation. This is a record of work already done, not work to be picked up.",
+  "type": "epic",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "foundation"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T16:21:36.098694Z",
+  "updated_at": "2026-08-30T16:21:46.310852Z",
+  "closed_at": "2026-08-30T16:21:46.310852Z",
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
+}

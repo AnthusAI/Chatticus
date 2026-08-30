@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-0ed43694-cd0c-49ed-ae06-8e6375766ae3",
+  "title": "Replace the obsolete in-memory messaging kernel",
+  "description": "The in-memory control-plane kernel (python/src/chatticus/control_plane.py) implements the rejected design in its messaging and realtime paths. It must be replaced or bypassed for the durable computerless turn, not extended.\n\nWhat is obsolete:\n\n- post_message always enqueues frozenset({\"computer\"}) for an addressed bot. Challenge 5 says many turns never need a computer; a computerless worker must be able to take a turn. The capability set must come from the turn, not be hardcoded.\n- RealtimeSubscription and TurnStream are an in-process fan-out held by the control plane. Challenge 1 deleted persistent sockets and in-process rendezvous; the rendezvous is a DynamoDB chunk store polled by a streaming function, and the stream is scoped to one turn.\n- There is no turn_id, no turn attempt, no lease, and no fencing. The ownership work in epic chatticus-65398905 needs those primitives.\n\nWhat is not obsolete and should be preserved:\n\n- Worker registration, tenant ownership, heartbeat, cost-class routing, computer affinity and pinning, approvals and auto-review rules, and the snapshot publish/relocate/hydrate paths. These encode the worker protocol that survives.\n\nAcceptance criteria:\n\n- The durable computerless turn path (task chatticus-df6e93c2) does not reuse RealtimeSubscription or TurnStream.\n- A turn job's required capabilities are not hardcoded to computer; a computerless worker can take a turn.\n- The obsolete thread and in-process stream specifications are removed, not kept as a second supported path (task chatticus-a8f9d17c).\n- The routing/approval/snapshot kernel paths that survive keep their tests.\n\nRelated: chatticus-a8f9d17c (replace the obsolete specs), chatticus-df6e93c2 (implement the durable computerless turn path), chatticus-65398905 (recover turns without duplicate actors).",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-46746451-4000-4570-9129-37898a7e119a",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T16:21:43.002157Z",
+  "updated_at": "2026-08-30T16:21:43.002157Z",
+  "closed_at": null,
+  "custom": {}
+}
