@@ -17,14 +17,10 @@
         "max": 624
       },
       "batching": {
-        "same_event_loop_tick_frames": 3,
-        "after_long_pause_frames": 0,
-        "likely_batched": true
+        "material_buffering": false
       },
       "reconnect_result": null,
-      "close_reason": "stream_closed",
-      "backgrounded": false,
-      "output_file": "direct_foreground_short.json"
+      "close_reason": "stream_closed"
     },
     {
       "name": "cloudfront_foreground_short",
@@ -40,60 +36,10 @@
         "max": 584
       },
       "batching": {
-        "same_event_loop_tick_frames": 1,
-        "after_long_pause_frames": 0,
-        "likely_batched": true
+        "material_buffering": false
       },
       "reconnect_result": null,
-      "close_reason": "stream_closed",
-      "backgrounded": false,
-      "output_file": "cloudfront_foreground_short.json"
-    },
-    {
-      "name": "direct_background_short",
-      "path": "direct",
-      "frame_count": 240,
-      "duration_ms": 59818,
-      "first_byte_ms": 93,
-      "inter_frame_gap_ms": {
-        "p50": 251,
-        "p95": 351,
-        "p99": 521,
-        "min": 0,
-        "max": 533
-      },
-      "batching": {
-        "same_event_loop_tick_frames": 5,
-        "after_long_pause_frames": 0,
-        "likely_batched": true
-      },
-      "reconnect_result": null,
-      "close_reason": "stream_closed",
-      "backgrounded": true,
-      "output_file": "direct_background_short.json"
-    },
-    {
-      "name": "cloudfront_background_short",
-      "path": "cloudfront",
-      "frame_count": 240,
-      "duration_ms": 59756,
-      "first_byte_ms": 186,
-      "inter_frame_gap_ms": {
-        "p50": 251,
-        "p95": 352,
-        "p99": 524,
-        "min": 0,
-        "max": 632
-      },
-      "batching": {
-        "same_event_loop_tick_frames": 4,
-        "after_long_pause_frames": 0,
-        "likely_batched": true
-      },
-      "reconnect_result": null,
-      "close_reason": "stream_closed",
-      "backgrounded": true,
-      "output_file": "cloudfront_background_short.json"
+      "close_reason": "stream_closed"
     },
     {
       "name": "direct_reconnect",
@@ -109,18 +55,14 @@
         "max": 3076
       },
       "batching": {
-        "same_event_loop_tick_frames": 0,
-        "after_long_pause_frames": 1,
-        "likely_batched": true
+        "material_buffering": false
       },
       "reconnect_result": {
         "expected_next_seq": 20,
         "actual_next_seq": 20,
         "success": true
       },
-      "close_reason": "stream_closed",
-      "backgrounded": false,
-      "output_file": "direct_reconnect.json"
+      "close_reason": "stream_closed"
     },
     {
       "name": "cloudfront_reconnect",
@@ -136,18 +78,14 @@
         "max": 3089
       },
       "batching": {
-        "same_event_loop_tick_frames": 0,
-        "after_long_pause_frames": 1,
-        "likely_batched": true
+        "material_buffering": false
       },
       "reconnect_result": {
         "expected_next_seq": 20,
         "actual_next_seq": 20,
         "success": true
       },
-      "close_reason": "stream_closed",
-      "backgrounded": false,
-      "output_file": "cloudfront_reconnect.json"
+      "close_reason": "stream_closed"
     },
     {
       "name": "direct_foreground_long",
@@ -163,14 +101,10 @@
         "max": 525
       },
       "batching": {
-        "same_event_loop_tick_frames": 8,
-        "after_long_pause_frames": 0,
-        "likely_batched": true
+        "material_buffering": false
       },
       "reconnect_result": null,
-      "close_reason": "stream_closed",
-      "backgrounded": false,
-      "output_file": "direct_foreground_long.json"
+      "close_reason": "stream_closed"
     },
     {
       "name": "cloudfront_foreground_long",
@@ -186,14 +120,10 @@
         "max": 533
       },
       "batching": {
-        "same_event_loop_tick_frames": 8,
-        "after_long_pause_frames": 0,
-        "likely_batched": true
+        "material_buffering": false
       },
       "reconnect_result": null,
-      "close_reason": "stream_closed",
-      "backgrounded": false,
-      "output_file": "cloudfront_foreground_long.json"
+      "close_reason": "stream_closed"
     }
   ]
 }

@@ -230,9 +230,10 @@ Public function URL origin (OAC rejected for spike because it requires
   was not probed to 15 minutes. Production still plans reconnect-at-timeout
   for long gaps.
 
-**Background tab.** Playwright with `document.hidden` mocked: p95 gaps matched
-foreground (under 400 ms). Real mobile Safari was **not** measured; see
-`spikes/sse-transport/README.md` checklist.
+**Background tab and mobile Safari.** Neither was measured. A Playwright run can
+mock `document.hidden`, but that is not a real backgrounded tab and is not
+reported here. See `spikes/sse-transport/README.md` for a mobile Safari
+checklist.
 
 **Front door.** Lambda function URL behind CloudFront is viable for the
 streaming path. API Gateway HTTP API was not needed. Custom domain was not

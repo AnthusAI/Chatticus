@@ -48,7 +48,7 @@ function summarizeFrames(frames, metadata) {
     batching: {
       same_event_loop_tick_frames: sameTickBatches,
       after_long_pause_frames: longPauseBatches,
-      likely_batched: sameTickBatches > 0 || longPauseBatches > 0,
+      material_buffering: longPauseBatches > 0 && sameTickBatches > 0,
     },
     first_frame: frames[0] ?? null,
     last_frame: frames.length > 0 ? frames[frames.length - 1] : null,
@@ -71,6 +71,7 @@ function runMeasurement({
   durationSeconds,
   reconnectAfterFrames = 0,
   backgrounded = false,
+  hiddenDocumentMock = false,
 }) {
   return new Promise((resolve) => {
     const startedClientMs = Date.now();
@@ -94,6 +95,7 @@ function runMeasurement({
         started_client_ms: startedClientMs,
         ended_client_ms: Date.now(),
         backgrounded,
+        hidden_document_mock: hiddenDocumentMock,
         reconnect_after_frames: reconnectAfterFrames,
         reconnect_result: reconnectResult,
         close_reason: reason,

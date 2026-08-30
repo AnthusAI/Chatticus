@@ -1,0 +1,5 @@
+# Per-scenario dumps from run-measurements.mjs (full frame arrays). Keep summary.json only.
+*_foreground_*.json
+*_background_*.json
+*_hidden_document_mock_*.json
+*_reconnect.json

@@ -57,7 +57,7 @@ async function runScenario(page, harnessBaseUrl, scenario) {
   await page.fill("#duration-seconds", String(scenario.durationSeconds));
   await page.fill("#reconnect-after", String(scenario.reconnectAfterFrames ?? 0));
 
-  if (scenario.backgrounded) {
+  if (scenario.hiddenDocumentMock) {
     await page.evaluate(() => {
       Object.defineProperty(document, "hidden", {
         configurable: true,
@@ -108,18 +108,18 @@ async function main() {
       backgrounded: false,
     },
     {
-      name: "direct_background_short",
+      name: "direct_hidden_document_mock_short",
       buttonId: "#run-direct",
       expectedPath: "direct",
       durationSeconds: shortDurationSeconds,
-      backgrounded: true,
+      hiddenDocumentMock: true,
     },
     {
-      name: "cloudfront_background_short",
+      name: "cloudfront_hidden_document_mock_short",
       buttonId: "#run-cloudfront",
       expectedPath: "cloudfront",
       durationSeconds: shortDurationSeconds,
-      backgrounded: true,
+      hiddenDocumentMock: true,
     },
     {
       name: "direct_reconnect",
@@ -175,7 +175,7 @@ async function main() {
       batching: summary.batching,
       reconnect_result: summary.reconnect_result,
       close_reason: summary.close_reason,
-      backgrounded: summary.backgrounded,
+      hidden_document_mock: summary.hidden_document_mock ?? false,
       output_file: path.basename(outputPath),
     });
     console.log(`Wrote ${outputPath}`);
