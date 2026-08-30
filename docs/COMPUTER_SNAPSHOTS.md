@@ -31,7 +31,7 @@ Canonical layout:
 
 ```
 s3://chatticus-{env}/tenants/{tenant_id}/computers/{computer_id}/
-  snapshot.tar.zst      workspace + browser profile
+  snapshot.tar.gz       workspace + browser profile
   manifest.json         image digest, checksum, published_by, published_at
 ```
 
@@ -98,5 +98,28 @@ publishing.
 - Two hosts running the same `computer_id` with two live disks
 
 The control-plane kernel records snapshot URI, checksum, dirty, intended
-host, and hydrate-required. Actual tar/S3 I/O is a worker job on top of
-that protocol.
+host, and hydrate-required. Hosts pack `/workspace` and the browser profile
+into `snapshot.tar.gz` plus `manifest.json`. A **filesystem object store**
+is the local stand-in for S3: same URI (`s3://chatticus/tenants/...`),
+same layout, a directory on disk. An S3 adapter later keeps those URIs.
+
+Administrator CLI (from `python/`):
+
+```bash
+python -m chatticus.snapshot pack \
+  --live-root ./var/hosts/fargate \
+  --store ./var/snapshot-store \
+  --tenant anthus \
+  --computer household-computer \
+  --worker fargate-1
+
+python -m chatticus.snapshot hydrate \
+  --live-root ./var/hosts/garage-mac \
+  --store ./var/snapshot-store \
+  --tenant anthus \
+  --computer household-computer
+```
+
+If the Mac already has a cache whose checksum matches the manifest, hydrate
+does not download the pack again.
+

@@ -65,7 +65,8 @@ runnable on Fargate, EC2, and local Docker.
 
 Durable computer disk is an S3 snapshot plus a local cache on the current
 host. Do not mount S3 as the container root. Do not live-migrate containers.
-See `docs/COMPUTER_SNAPSHOTS.md`.
+Pack I/O lives in `python/src/chatticus/snapshot/`. See
+`docs/COMPUTER_SNAPSHOTS.md`.
 
 ## Git
 

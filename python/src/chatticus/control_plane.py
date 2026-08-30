@@ -29,6 +29,7 @@ from chatticus.models import (
     WorkerRegistration,
     WorkerTenantMismatchError,
 )
+from chatticus.snapshot.uri import snapshot_uri
 
 
 class ControlPlane:
@@ -271,10 +272,7 @@ class ControlPlane:
 
     def snapshot_uri_for(self, computer: Computer) -> str:
         """Return the canonical object-store URI for a computer snapshot."""
-        return (
-            f"s3://chatticus/tenants/{computer.tenant_id}"
-            f"/computers/{computer.computer_id}/snapshot"
-        )
+        return snapshot_uri(computer.tenant_id, computer.computer_id)
 
     def snapshot(self, snapshot_uri: str) -> ComputerSnapshot:
         """
@@ -289,12 +287,14 @@ class ControlPlane:
         computer_id: str,
         worker_id: str,
         snapshot_uri: str | None = None,
+        checksum: str | None = None,
     ) -> ComputerSnapshot:
         """Copy the live disk into object storage and clear the dirty flag.
 
-        The worker must host this computer. Production uploads a pack to S3
-        first, then calls this with the URI and the pack's checksum. The
-        in-memory kernel copies workspace files into ``_snapshots``.
+        The worker must host this computer. Production packs the live disk
+        and uploads it first, then calls this with the URI and the pack's
+        checksum. The in-memory kernel also copies workspace files into
+        ``_snapshots`` so protocol specs can read them without a host disk.
 
         :raises KeyError: If the computer or worker is unknown.
         :raises WorkerDoesNotHostComputerError: If the worker is not a host
@@ -312,10 +312,10 @@ class ControlPlane:
         uri = snapshot_uri or self.snapshot_uri_for(computer)
         workspace = dict(computer.workspace)
         browser_sessions = dict(computer.browser_sessions)
-        checksum = _disk_checksum(workspace, browser_sessions)
+        record_checksum = checksum or _disk_checksum(workspace, browser_sessions)
         record = ComputerSnapshot(
             snapshot_uri=uri,
-            checksum=checksum,
+            checksum=record_checksum,
             workspace=workspace,
             browser_sessions=browser_sessions,
             published_at=self._now,
@@ -323,7 +323,7 @@ class ControlPlane:
         )
         self._snapshots[uri] = record
         computer.snapshot_uri = uri
-        computer.snapshot_checksum = checksum
+        computer.snapshot_checksum = record_checksum
         computer.disk_dirty = False
         return record
 

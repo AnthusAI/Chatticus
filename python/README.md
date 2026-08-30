@@ -13,3 +13,14 @@ pytest
 ```
 
 Gherkin lives in `../features/`. Step definitions live in `../features/steps/`.
+
+Pack a host disk into the local snapshot store (S3 layout on disk):
+
+```bash
+python -m chatticus.snapshot pack \
+  --live-root ./var/hosts/fargate \
+  --store ./var/snapshot-store \
+  --tenant anthus \
+  --computer household-computer \
+  --worker fargate-1
+```

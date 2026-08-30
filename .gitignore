@@ -26,6 +26,7 @@ infra/cdk.out/
 !.env.example
 /workspace-data/
 computer/profile/
+var/
 
 # OS / editor
 .DS_Store

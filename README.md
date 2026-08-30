@@ -115,7 +115,8 @@ shared Gherkin keeps a later worker daemon possible.
 ## What you can run today
 
 The only implemented product code is the in-memory control plane
-(`python/src/chatticus/`). There is no HTTP API, no model loop, no
+(`python/src/chatticus/`) and the snapshot packer
+(`python/src/chatticus/snapshot/`). There is no HTTP API, no model loop, no
 computer agent, and no web app yet. Postgres in `docker-compose.yml`
 is not used by the kernel.
 
