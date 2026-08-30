@@ -42,10 +42,16 @@
       "author": "home",
       "text": "Recovery kernel is merging to develop (PR 10) for continuous integration. EventBridge watchdog, live SQS visibility, and plane_from_env opt-in remain follow-up.",
       "created_at": "2026-08-30T20:50:50.515688Z"
+    },
+    {
+      "id": "9c19e923-3d55-4b14-9dab-155800433f8b",
+      "author": "home",
+      "text": "Kernel follow-up: recovery now increments fence_token so a wedged worker cannot keep POSTing chunks. Still later: EventBridge watchdog, Dynamo enqueue ledger, Lambda ChangeMessageVisibility and worker renew.",
+      "created_at": "2026-08-30T20:53:35.883862Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.015297Z",
-  "updated_at": "2026-08-30T20:50:50.515688Z",
+  "updated_at": "2026-08-30T20:53:35.883862Z",
   "closed_at": null,
   "custom": {}
 }
