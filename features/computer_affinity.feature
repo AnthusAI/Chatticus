@@ -16,16 +16,23 @@ Feature: Computer affinity
       | tenant_id   | anthus    |
       | cost_class  | fargate   |
       | capabilities| computer,browser |
-      | computer_id | household-computer-aws |
+      | computer_id | household-computer |
 
-  Scenario: A pinned turn stays on the named computer
+  Scenario: A pinned turn prefers the local host of that computer
     When tenant "anthus" enqueues a turn:
       | capabilities | computer |
-      | computer_id  | household-computer-aws |
+      | computer_id  | household-computer |
+    Then the turn is assigned to worker "garage-mac-1"
+
+  Scenario: A pin fails over to Fargate when the local host is stale
+    When 90 seconds pass without a heartbeat from "garage-mac-1"
+    And tenant "anthus" enqueues a turn:
+      | capabilities | computer |
+      | computer_id  | household-computer |
     Then the turn is assigned to worker "fargate-1"
 
-  Scenario: A pin to an offline computer is not reassigned
-    When 90 seconds pass without a heartbeat from "garage-mac-1"
+  Scenario: A pin to a computer with no healthy host is not assigned
+    When 90 seconds pass
     And tenant "anthus" enqueues a turn:
       | capabilities | computer |
       | computer_id  | household-computer |

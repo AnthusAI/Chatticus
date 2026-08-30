@@ -16,7 +16,7 @@ Feature: Prefer-local job routing
       | tenant_id   | anthus    |
       | cost_class  | fargate   |
       | capabilities| computer,browser,terminal |
-      | computer_id | household-computer-aws |
+      | computer_id | household-computer |
 
   Scenario: A computer turn prefers the local worker
     When tenant "anthus" enqueues a turn:

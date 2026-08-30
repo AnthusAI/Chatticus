@@ -1,0 +1,30 @@
+name: Python
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        working-directory: python
+        run: pip install -e ".[dev]"
+      - name: Behave
+        working-directory: python
+        run: behave
+      - name: Pytest
+        working-directory: python
+        run: pytest
+      - name: Format
+        working-directory: python
+        run: black --check src ../features tests
+      - name: Lint
+        working-directory: python
+        run: ruff check src ../features tests

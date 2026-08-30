@@ -16,9 +16,11 @@ from chatticus.models import (
     Computer,
     ComputerPolicy,
     CostClass,
+    DuplicateBotNameError,
     TurnJob,
     WorkerRecord,
     WorkerRegistration,
+    WorkerTenantMismatchError,
 )
 
 
@@ -54,7 +56,24 @@ class ControlPlane:
         return self._now
 
     def register_worker(self, registration: WorkerRegistration) -> None:
-        """Register or replace a worker and record a heartbeat."""
+        """Register or replace a worker and record a heartbeat.
+
+        A ``worker_id`` is owned by the tenant that first registered it.
+        Re-registering under a different tenant is rejected.
+
+        :raises WorkerTenantMismatchError: If the worker already belongs to
+            another tenant.
+        """
+        existing = self._workers.get(registration.worker_id)
+        if (
+            existing is not None
+            and existing.registration.tenant_id != registration.tenant_id
+        ):
+            raise WorkerTenantMismatchError(
+                f"Worker {registration.worker_id!r} is registered to tenant "
+                f"{existing.registration.tenant_id!r}, not "
+                f"{registration.tenant_id!r}."
+            )
         self._workers[registration.worker_id] = WorkerRecord(
             registration=registration,
             last_heartbeat_at=self._now,
@@ -77,11 +96,9 @@ class ControlPlane:
         """
         return self._workers[worker_id]
 
-    def heartbeat_all_except(self, worker_id: str) -> None:
-        """Refresh every worker heartbeat except the named worker."""
-        for record in self._workers.values():
-            if record.registration.worker_id != worker_id:
-                record.last_heartbeat_at = self._now
+    def all_workers(self) -> list[WorkerRecord]:
+        """Return every registered worker, including stale ones."""
+        return list(self._workers.values())
 
     def healthy_workers(self, tenant_id: str) -> list[WorkerRecord]:
         """Return workers for a tenant whose heartbeat is still fresh."""
@@ -98,16 +115,42 @@ class ControlPlane:
         self,
         tenant_id: str,
         required_capabilities: frozenset[str],
-        computer_policy: ComputerPolicy = ComputerPolicy.PREFER_LOCAL,
+        computer_policy: ComputerPolicy | None = None,
         computer_id: str | None = None,
+        *,
+        user_id: str | None = None,
+        bot_id: str | None = None,
     ) -> TurnJob:
-        """Create a turn job. Assignment happens in ``assign_turn``."""
+        """Create a turn job. Assignment happens in ``assign_turn``.
+
+        If ``bot_id`` is set, the job belongs to that bot's user and, unless a
+        pin is supplied, is pinned to that user's computer with that
+        computer's policy.
+        """
+        resolved_user_id = user_id
+        resolved_tenant_id = tenant_id
+        if bot_id is not None:
+            bot = self._bots[bot_id]
+            resolved_user_id = bot.user_id
+            resolved_tenant_id = bot.tenant_id
+        resolved_computer_id = computer_id
+        resolved_policy = computer_policy
+        if resolved_user_id is not None:
+            computer = self.ensure_computer(resolved_tenant_id, resolved_user_id)
+            if resolved_computer_id is None:
+                resolved_computer_id = computer.computer_id
+            if resolved_policy is None:
+                resolved_policy = computer.policy
+        if resolved_policy is None:
+            resolved_policy = ComputerPolicy.PREFER_LOCAL
         return TurnJob(
             job_id=str(uuid4()),
-            tenant_id=tenant_id,
+            tenant_id=resolved_tenant_id,
             required_capabilities=required_capabilities,
-            computer_policy=computer_policy,
-            computer_id=computer_id,
+            computer_policy=resolved_policy,
+            computer_id=resolved_computer_id,
+            user_id=resolved_user_id,
+            bot_id=bot_id,
         )
 
     def assign_turn(self, job: TurnJob) -> WorkerRegistration | None:
@@ -146,7 +189,19 @@ class ControlPlane:
         return candidates[0].registration
 
     def create_bot(self, tenant_id: str, user_id: str, name: str) -> Bot:
-        """Create a named bot and ensure the user has a computer."""
+        """Create a named bot and ensure the user has a computer.
+
+        :raises DuplicateBotNameError: If the user already has this bot name.
+        """
+        for bot in self._bots.values():
+            if (
+                bot.tenant_id == tenant_id
+                and bot.user_id == user_id
+                and bot.name == name
+            ):
+                raise DuplicateBotNameError(
+                    f"Bot named {name!r} already exists for user {user_id!r}."
+                )
         self.ensure_computer(tenant_id, user_id)
         bot = Bot(
             bot_id=str(uuid4()),
@@ -157,13 +212,22 @@ class ControlPlane:
         self._bots[bot.bot_id] = bot
         return bot
 
-    def ensure_computer(self, tenant_id: str, user_id: str) -> Computer:
-        """Return the user's computer, creating it if needed."""
+    def ensure_computer(
+        self,
+        tenant_id: str,
+        user_id: str,
+        computer_id: str | None = None,
+    ) -> Computer:
+        """Return the user's computer, creating it if needed.
+
+        The first call may set a stable ``computer_id`` so workers can
+        advertise the same workplace.
+        """
         key = (tenant_id, user_id)
         computer = self._computers_by_user.get(key)
         if computer is None:
             computer = Computer(
-                computer_id=str(uuid4()),
+                computer_id=computer_id or str(uuid4()),
                 tenant_id=tenant_id,
                 user_id=user_id,
             )
@@ -206,16 +270,36 @@ class ControlPlane:
         """Return a saved browser session, if present."""
         return self.computer_for_user(tenant_id, user_id).browser_sessions.get(service)
 
-    def add_auto_review_rule(self, kind: AutoReviewRuleKind, action_type: str) -> None:
-        """Add a personal auto-review rule."""
+    def add_auto_review_rule(
+        self,
+        kind: AutoReviewRuleKind,
+        action_type: str,
+        tenant_id: str,
+        user_id: str | None = None,
+    ) -> None:
+        """Add an auto-review rule scoped to a tenant, optionally one user."""
         self._auto_review_rules.append(
-            AutoReviewRule(kind=kind, action_type=action_type)
+            AutoReviewRule(
+                kind=kind,
+                action_type=action_type,
+                tenant_id=tenant_id,
+                user_id=user_id,
+            )
         )
 
-    def evaluate_action(self, action_type: str) -> ApprovalDecision:
-        """Evaluate a proposed action against defaults and auto-review rules."""
+    def evaluate_action(
+        self,
+        action_type: str,
+        tenant_id: str,
+        user_id: str | None = None,
+    ) -> ApprovalDecision:
+        """Evaluate a proposed action against defaults and tenant rules."""
         matching = [
-            rule for rule in self._auto_review_rules if rule.action_type == action_type
+            rule
+            for rule in self._auto_review_rules
+            if rule.action_type == action_type
+            and rule.tenant_id == tenant_id
+            and (rule.user_id is None or rule.user_id == user_id)
         ]
         if any(rule.kind == AutoReviewRuleKind.NEVER_ALLOW for rule in matching):
             return ApprovalDecision.DENY

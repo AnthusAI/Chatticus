@@ -58,3 +58,9 @@ Feature: Approvals
     And an auto-review rule always-allow for "send"
     When a bot proposes action type "send"
     Then the decision is "allow"
+
+  Scenario: Auto-review rules do not leak across tenants
+    Given an empty control plane
+    And tenant "other-household" has an auto-review rule never-allow for "send"
+    When tenant "anthus" proposes action type "send"
+    Then the decision is "require_approval"

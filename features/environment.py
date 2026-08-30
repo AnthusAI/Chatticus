@@ -14,3 +14,5 @@ def before_scenario(context: object, scenario: object) -> None:
     context.last_job = None
     context.last_assignment = None
     context.last_decision = None
+    context.registration_error = None
+    context.bot_error = None

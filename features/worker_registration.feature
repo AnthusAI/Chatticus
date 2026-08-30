@@ -52,7 +52,7 @@ Feature: Worker registration and heartbeats
       | tenant_id   | anthus      |
       | cost_class  | fargate     |
       | capabilities| computer,browser |
-      | computer_id | household-computer-aws |
+      | computer_id | household-computer |
     Then tenant "anthus" has 1 healthy worker
     And worker "household-1" has cost class "fargate"
-    And worker "household-1" has computer affinity "household-computer-aws"
+    And worker "household-1" has computer affinity "household-computer"

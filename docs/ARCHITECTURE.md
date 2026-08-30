@@ -40,22 +40,31 @@ A worker advertises:
 - `worker_id`
 - `tenant_id`
 - capabilities: `computer`, `browser`, `terminal`, `cpu`
-- optional `computer_id` affinity (sticky workplace)
+- optional `computer_id` (the workplace this process hosts)
 - cost class: `local`, `fargate`, or `ec2`
 - heartbeat timestamp
+
+A `worker_id` is owned by the tenant that first registered it. Re-registering
+the same id under another tenant is rejected.
 
 A turn job carries:
 
 - `tenant_id`
+- optional `user_id` and `bot_id`
 - required capabilities
 - optional `computer_id` pin (cookies and `/workspace` stay on one workplace)
 - computer policy: `prefer_local`, `aws_only`, or `local_only`
+
+Policy is stored on the **computer** and used as the default for that user's
+turns. A turn may override it.
 
 Routing:
 
 1. Ignore workers whose heartbeat is stale, whose tenant does not match, or
    who lack required capabilities.
-2. If the job is pinned to a `computer_id`, only that workplace may take it.
+2. If the job is pinned to a `computer_id`, only hosts of **that** workplace
+   may take it. Local and AWS workers for the same user share one
+   `computer_id`, so a pin can fail over from a garage Mac to Fargate.
 3. Under `prefer_local`, choose the healthy local worker if one exists, else a
    warm AWS computer, else request a Fargate start.
 4. `aws_only` excludes local. `local_only` never starts AWS.
@@ -119,7 +128,8 @@ provider. Custom tools and computer actions always run on the worker.
 ## Approvals in the loop
 
 Before executing a tool or computer action, the worker asks the control
-plane to evaluate auto-review rules. Consequential action types default to
+plane to evaluate auto-review rules for that tenant (and user). Rules do
+not leak across tenants. Consequential action types default to
 require-approval. The conversation shows the proposed operation. Allow-once
 continues that action. Deny blocks it. Always-allow may save a matching
 rule.

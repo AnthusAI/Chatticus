@@ -10,9 +10,12 @@ from chatticus.control_plane import ControlPlane
 from chatticus.models import (
     CONSEQUENTIAL_ACTION_TYPES,
     ApprovalDecision,
+    AutoReviewRuleKind,
     ComputerPolicy,
     CostClass,
+    DuplicateBotNameError,
     WorkerRegistration,
+    WorkerTenantMismatchError,
 )
 
 
@@ -103,4 +106,47 @@ def test_aws_only_with_only_local_is_unassigned() -> None:
 def test_every_consequential_action_requires_approval_by_default() -> None:
     plane = ControlPlane()
     for action_type in CONSEQUENTIAL_ACTION_TYPES:
-        assert plane.evaluate_action(action_type) == ApprovalDecision.REQUIRE_APPROVAL
+        assert (
+            plane.evaluate_action(action_type, "anthus")
+            == ApprovalDecision.REQUIRE_APPROVAL
+        )
+
+
+def test_auto_review_rules_are_tenant_scoped() -> None:
+    plane = ControlPlane()
+    plane.add_auto_review_rule(
+        AutoReviewRuleKind.NEVER_ALLOW, "send", "other-household"
+    )
+    assert plane.evaluate_action("send", "anthus") == ApprovalDecision.REQUIRE_APPROVAL
+    assert plane.evaluate_action("send", "other-household") == ApprovalDecision.DENY
+
+
+def test_worker_cannot_change_tenant_by_re_registering() -> None:
+    plane = ControlPlane()
+    plane.register_worker(_worker("garage-mac-1", tenant_id="anthus"))
+    with pytest.raises(WorkerTenantMismatchError):
+        plane.register_worker(_worker("garage-mac-1", tenant_id="other-household"))
+    assert plane.worker("garage-mac-1").registration.tenant_id == "anthus"
+
+
+def test_duplicate_bot_name_for_one_user_is_rejected() -> None:
+    plane = ControlPlane()
+    plane.create_bot("anthus", "ryan", "Researcher")
+    with pytest.raises(DuplicateBotNameError):
+        plane.create_bot("anthus", "ryan", "Researcher")
+
+
+def test_bot_turn_pins_to_the_user_computer() -> None:
+    plane = ControlPlane()
+    computer = plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
+    job = plane.enqueue_turn(
+        "anthus",
+        frozenset({"computer"}),
+        bot_id=bot.bot_id,
+    )
+    assert job.computer_id == computer.computer_id
+    assigned = plane.assign_turn(job)
+    assert assigned is not None
+    assert assigned.worker_id == "garage-mac-1"

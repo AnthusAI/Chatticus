@@ -6,11 +6,14 @@ from datetime import timedelta
 
 from behave import given, then, when
 
+from chatticus.control_plane import ControlPlane
 from chatticus.models import (
     AutoReviewRuleKind,
     ComputerPolicy,
     CostClass,
+    DuplicateBotNameError,
     WorkerRegistration,
+    WorkerTenantMismatchError,
 )
 
 
@@ -37,7 +40,13 @@ def _registration_from_table(table: object) -> WorkerRegistration:
 
 @given("an empty control plane")
 def given_empty_control_plane(context: object) -> None:
-    context.plane.set_now(context.plane.now())
+    context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
+    context.bots_by_name = {}
+    context.last_job = None
+    context.last_assignment = None
+    context.last_decision = None
+    context.registration_error = None
+    context.bot_error = None
 
 
 @given("the heartbeat timeout is {seconds:d} seconds")
@@ -52,7 +61,11 @@ def given_worker_registered(context: object) -> None:
 
 @when("a worker registers:")
 def when_worker_registers(context: object) -> None:
-    context.plane.register_worker(_registration_from_table(context.table))
+    try:
+        context.plane.register_worker(_registration_from_table(context.table))
+        context.registration_error = None
+    except WorkerTenantMismatchError as error:
+        context.registration_error = error
 
 
 @when("{seconds:d} seconds pass")
@@ -70,7 +83,9 @@ def when_seconds_pass_without_heartbeat(
     context: object, seconds: int, worker_id: str
 ) -> None:
     context.plane.advance_seconds(seconds)
-    context.plane.heartbeat_all_except(worker_id)
+    for record in context.plane.all_workers():
+        if record.registration.worker_id != worker_id:
+            context.plane.heartbeat(record.registration.worker_id)
 
 
 @when('worker "{worker_id}" sends a heartbeat')
@@ -198,7 +213,14 @@ def then_bot_cannot_read(context: object, name: str, path: str) -> None:
 
 @when('a bot proposes action type "{action_type}"')
 def when_proposes_action(context: object, action_type: str) -> None:
-    context.last_decision = context.plane.evaluate_action(action_type)
+    context.last_decision = context.plane.evaluate_action(action_type, "anthus")
+
+
+@when('tenant "{tenant_id}" proposes action type "{action_type}"')
+def when_tenant_proposes_action(
+    context: object, tenant_id: str, action_type: str
+) -> None:
+    context.last_decision = context.plane.evaluate_action(action_type, tenant_id)
 
 
 @then('the decision is "{decision}"')
@@ -208,14 +230,73 @@ def then_decision(context: object, decision: str) -> None:
 
 @given('an auto-review rule always-allow for "{action_type}"')
 def given_always_allow(context: object, action_type: str) -> None:
-    context.plane.add_auto_review_rule(AutoReviewRuleKind.ALWAYS_ALLOW, action_type)
+    context.plane.add_auto_review_rule(
+        AutoReviewRuleKind.ALWAYS_ALLOW, action_type, "anthus"
+    )
 
 
 @given('an auto-review rule require-approval for "{action_type}"')
 def given_require_approval(context: object, action_type: str) -> None:
-    context.plane.add_auto_review_rule(AutoReviewRuleKind.REQUIRE_APPROVAL, action_type)
+    context.plane.add_auto_review_rule(
+        AutoReviewRuleKind.REQUIRE_APPROVAL, action_type, "anthus"
+    )
 
 
 @given('an auto-review rule never-allow for "{action_type}"')
 def given_never_allow(context: object, action_type: str) -> None:
-    context.plane.add_auto_review_rule(AutoReviewRuleKind.NEVER_ALLOW, action_type)
+    context.plane.add_auto_review_rule(
+        AutoReviewRuleKind.NEVER_ALLOW, action_type, "anthus"
+    )
+
+
+@given('tenant "{tenant_id}" has an auto-review rule never-allow for "{action_type}"')
+def given_tenant_never_allow(context: object, tenant_id: str, action_type: str) -> None:
+    context.plane.add_auto_review_rule(
+        AutoReviewRuleKind.NEVER_ALLOW, action_type, tenant_id
+    )
+
+
+@then("worker registration fails because the tenant does not match")
+def then_registration_tenant_mismatch(context: object) -> None:
+    assert isinstance(context.registration_error, WorkerTenantMismatchError)
+
+
+@given('tenant "{tenant_id}" user "{user_id}" has computer "{computer_id}"')
+def given_computer(
+    context: object, tenant_id: str, user_id: str, computer_id: str
+) -> None:
+    context.plane.ensure_computer(tenant_id, user_id, computer_id=computer_id)
+
+
+@when('bot "{name}" enqueues a turn:')
+def when_bot_enqueues(context: object, name: str) -> None:
+    values = _two_column_table_as_dict(context.table)
+    required = frozenset(
+        item.strip() for item in values["capabilities"].split(",") if item.strip()
+    )
+    bot = context.bots_by_name[name]
+    policy = ComputerPolicy(values["policy"]) if "policy" in values else None
+    computer_id = values.get("computer_id") or None
+    context.last_job = context.plane.enqueue_turn(
+        bot.tenant_id,
+        required,
+        computer_policy=policy,
+        computer_id=computer_id,
+        bot_id=bot.bot_id,
+    )
+    context.last_assignment = context.plane.assign_turn(context.last_job)
+
+
+@when('I create a bot named "{name}" for tenant "{tenant_id}" user "{user_id}"')
+def when_create_bot(context: object, name: str, tenant_id: str, user_id: str) -> None:
+    try:
+        bot = context.plane.create_bot(tenant_id, user_id, name)
+        context.bots_by_name[name] = bot
+        context.bot_error = None
+    except DuplicateBotNameError as error:
+        context.bot_error = error
+
+
+@then("creating the bot fails because the name is already used")
+def then_duplicate_bot(context: object) -> None:
+    assert isinstance(context.bot_error, DuplicateBotNameError)
