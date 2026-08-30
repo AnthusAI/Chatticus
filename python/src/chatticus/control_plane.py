@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from chatticus.approval_binding import ApprovalBindingGate
+from chatticus.computer_start import HostStartClaim
 from chatticus.escalation_handoff import (
     ComputerOwnershipClaim,
     EscalationRecord,
@@ -142,6 +143,7 @@ class ControlPlane:
         self._approval_binding = ApprovalBindingGate()
         self._escalations: dict[tuple[str, str], EscalationRecord] = {}
         self._computer_claims: dict[str, ComputerOwnershipClaim] = {}
+        self._host_starts: dict[tuple[str, str], HostStartClaim] = {}
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
         self._turn_enqueued = turn_enqueued
@@ -941,6 +943,53 @@ class ControlPlane:
         ]
         for computer_id in expired:
             del self._computer_claims[computer_id]
+
+    def request_computer_host_start(
+        self,
+        tenant_id: str,
+        user_id: str,
+        turn_id: str,
+    ) -> HostStartClaim:
+        """Request a host start; concurrent callers share one claim."""
+        computer = self.ensure_computer(tenant_id, user_id)
+        key = (tenant_id, computer.computer_id)
+        claim = self._host_starts.get(key)
+        expired = (
+            claim is not None
+            and claim.expires_at is not None
+            and claim.expires_at <= self._now
+        )
+        if claim is None or expired:
+            claim = HostStartClaim(
+                tenant_id=tenant_id,
+                computer_id=computer.computer_id,
+                host_start_count=1,
+                waiting_turn_ids=[turn_id],
+                expires_at=self._now + self.attempt_lease,
+            )
+        elif turn_id not in claim.waiting_turn_ids:
+            claim.waiting_turn_ids.append(turn_id)
+        self._host_starts[key] = claim
+        return claim
+
+    def host_start_claim(self, tenant_id: str, user_id: str) -> HostStartClaim:
+        """Return the current host-start claim for a user's computer."""
+        computer = self.computer_for_user(tenant_id, user_id)
+        claim = self._host_starts.get((tenant_id, computer.computer_id))
+        if claim is None:
+            raise KeyError((tenant_id, computer.computer_id))
+        return claim
+
+    def acquire_computer_disk_write(self, computer_id: str, host_id: str) -> bool:
+        """Grant disk write to at most one live host for this computer."""
+        for claim in self._host_starts.values():
+            if claim.computer_id != computer_id:
+                continue
+            if claim.live_writer_host_id is None:
+                claim.live_writer_host_id = host_id
+                return True
+            return claim.live_writer_host_id == host_id
+        return False
 
     def evaluate_action(
         self,

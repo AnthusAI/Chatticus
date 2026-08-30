@@ -3,7 +3,7 @@
   "title": "Concurrent turns start one shared computer",
   "description": "As a household member, I want concurrent bots to share one computer start, so that retries or simultaneous turns never create split-brain workplaces.\n\nFeature: Single computer start\n\nScenario: Two turns need a stopped computer\n  Given the household computer is stopped\n  When two eligible turns request that computer concurrently\n  Then the platform issues one host start request\n  And both turns wait for the same computer identity\n  And at most one live host may write that computer",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,22 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "398384b4-079a-456b-add6-7d8ebe7ee4ee",
+      "author": "home",
+      "text": "Kernel: single_computer_start.feature. Concurrent turns converge on one host start and one computer identity. Not live. No Computers/staging/production deploy.",
+      "created_at": "2026-08-30T23:50:58.828Z"
+    },
+    {
+      "id": "d1802761-a876-4727-a912-1cfe672a4000",
+      "author": "home",
+      "text": "Kernel: features/single_computer_start.feature. Two concurrent turns issue one host start, wait on one computer_id, one live writer. Not on live ThinTurn. No staging/production or Computers deploy.",
+      "created_at": "2026-08-30T23:52:03.064024Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:56.293185Z",
-  "updated_at": "2026-08-30T15:54:56.293185Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T23:52:03.064024Z",
+  "closed_at": "2026-08-30T23:52:03.053605Z",
   "custom": {}
 }
