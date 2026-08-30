@@ -74,9 +74,9 @@ stuffed into every model call. The human still wants to scroll history.
 
 **Working model: non-destructive compaction on an immutable stream.**
 
-This is the mechanism we will think with together. It is the same
-shape as an append-only log with an appended snapshot (the Kanbus event
-log never rewrites past events; a compact is another append).
+This is the mechanism we will think with together. It is a Chatticus
+working model, not something we copy out of another repo. The stream
+only grows. A compact is another append, never a rewrite.
 
 1. Messages are an **immutable stream**. Once written, a message is not
    edited or deleted. The store only appends.
