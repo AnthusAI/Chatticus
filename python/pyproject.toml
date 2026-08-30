@@ -26,6 +26,7 @@ dev = [
     "kanbus",
     "moto",
     "pytest",
+    "python-dotenv",
     "ruff",
     "uvicorn",
 ]
@@ -39,6 +40,11 @@ where = ["src"]
 [tool.black]
 line-length = 88
 target-version = ["py312"]
+
+[tool.pytest.ini_options]
+markers = [
+    "live_openai: calls the live OpenAI API when OPENAI_API_KEY is set",
+]
 
 [tool.ruff]
 line-length = 88

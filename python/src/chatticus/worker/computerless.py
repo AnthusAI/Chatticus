@@ -42,7 +42,11 @@ class ComputerlessWorker:
     ) -> None:
         self.plane = plane
         self.turn_client = turn_client
-        self.completion_client = completion_client or FakeTextCompletionClient()
+        if completion_client is None:
+            from chatticus.worker.openai_completion import completion_client_from_env
+
+            completion_client = completion_client_from_env()
+        self.completion_client = completion_client
 
     def complete_pending_for_bot(self, bot_id: str) -> None:
         """Run every queued cpu job for one bot."""
