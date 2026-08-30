@@ -35,11 +35,17 @@ def main() -> int:
         headers["X-Chatticus-Invoke-Key"] = args.invoke_key
     with httpx.Client(base_url=args.base_url.rstrip("/"), headers=headers, timeout=120.0) as client:
         health = client.get("/health")
-        health.raise_for_status()
-        bot = client.post(
+        if health.status_code != 200:
+            print(f"health {health.status_code} {health.text[:200]}", file=sys.stderr)
+            return 1
+        bot_response = client.post(
             "/bots",
             json={"user_id": args.user_id, "name": f"ExerciseBot-{uuid4().hex[:8]}"},
-        ).json()
+        )
+        if bot_response.status_code >= 400:
+            print(f"bots {bot_response.status_code} {bot_response.text[:300]}", file=sys.stderr)
+            return 1
+        bot = bot_response.json()
         client.post("/computers/stopped", json={"user_id": args.user_id, "stopped": True})
         channel = client.post(
             "/channels",
