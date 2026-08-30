@@ -79,10 +79,20 @@ project would drag the computer back in.
 
 ### Storage
 
-Issues live in DynamoDB, one Kanbus project per Chatticus user, and both
-the agent and the control plane read the same table. No projection, no
-sync, no snapshot coupling. Tasks are visible in the web app with no
-computer running.
+**Chatticus talks to a task tool across an interface it owns**, rather
+than sharing a table with Kanbus. Both reviews rejected the shared
+table: it couples an unbuilt product to an unbuilt rewrite of another
+product's storage and welds the two schemas together permanently.
+
+What Chatticus needs is small: status, evidence, close reason,
+hierarchy, assignee, bot provenance. Preferred backing is Kanbus reached
+as a structured tool. The fallback, and the way to start, is a thin
+`TaskStore` over Chatticus's own DynamoDB with those fields; if the
+Kanbus cloud backend lands, point the same tool at it and migrate once,
+never dual readers. Do not block v1 on that initiative.
+
+Kanbus supplies task state. It does not supply turn ownership, evidence
+validity, or action idempotency.
 
 `tenant_id` belongs in the partition key, as everywhere else. A worker
 registered to tenant A must never read tenant B's issues.

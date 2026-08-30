@@ -39,8 +39,22 @@ wrong no matter how cheap or elegant it is.
 
 **Platform**
 
-7. **Nothing bills while nobody is working.** No component has an idle
-   floor. This is the principle the cloud API is built to satisfy.
+7. **No provisioned idle compute.** No component holds a running process
+   when nobody is working.
+
+   The earlier wording, "nothing bills while nobody is working", was
+   literally false and is retired: DynamoDB storage, S3, ECR, Secrets
+   Manager, logs and DNS all bill at rest. What is achievable, and what
+   this requirement means, is that no vCPU is reserved for an idle
+   household.
+
+   **This is an owner decision and is not open for re-derivation.** Two
+   independent external reviews recommended dropping it for v1, on the
+   grounds that the saving is around $25 a month. The owner has affirmed
+   it: paying for the system to merely exist is not acceptable. Findings
+   that assume it will be relaxed are out of scope. Findings that show a
+   *mechanism* it breaks are in scope and valuable, and several are
+   recorded below.
 8. Output reaches the browser as it is produced. A human watching a turn
    sees it progress. See also requirement 16: this starts at the
    beginning of the turn, not once the computer is ready.
@@ -122,7 +136,7 @@ cited out of habit.
 | Rule | Follows from |
 | --- | --- |
 | No transport that meters per connection or per message | 7 |
-| No persistent sockets, browser-side or worker-side | 7 |
+| No persistent sockets on the API or token path, browser-side or worker-side | 7 |
 | A stream is scoped to one turn, never to a tab or a login session | 7, 8 |
 | No always-on datastore; no relational instance | 7 |
 | No load balancer in front of the API (hourly floor) | 7 |
@@ -398,13 +412,22 @@ An always-on container plus a small managed database is roughly 25 to 30
 dollars a month, and it is genuinely simpler: the rendezvous is a
 variable in memory and there is no polling seam.
 
-The saving alone does not justify the extra moving parts. **The reason
-is the multi-tenant seam** (requirement 11), which is a real commitment
-rather than a door left open. A per-request control plane goes from one
-household to many at near-linear marginal cost, with no capacity
-planning and no idle floor per tenant. An always-on process multiplies
-that floor by the number of tenants, or forces tenants to share one
-process and take on the isolation problem that avoids.
+The saving alone does not justify the extra moving parts.
+
+**The argument previously given here is withdrawn.** It claimed an
+always-on process either multiplies the idle floor per tenant or forces
+tenants to share a process and take on an isolation problem that
+per-request compute avoids. Both halves are false. Nobody runs a process
+per tenant; one small service serves many tenants on one floor. And
+tenant isolation is an application, data and IAM concern under
+per-request compute exactly as under a long-lived process, which this
+design already accepts by sharing DynamoDB and SQS across tenants.
+
+The honest reason is narrower: **the owner does not want to pay for the
+system to exist while it is doing nothing.** Lower marginal cost per
+additional tenant is a real but secondary benefit. Recording it this way
+matters, because a decision defended by a false premise invited exactly
+the rebuttal it received from both reviews.
 
 Adopt this as a principle -- **nothing bills while nobody is working** --
 or not at all. As a cost optimization it is marginal, and the cost
@@ -441,10 +464,16 @@ for relational instead.
 
 ### Why this was not an independent decision
 
-A relational instance is always on and has a monthly floor. Keeping one
-would break "nothing bills while nobody is working" no matter how
-serverless the compute is: the database, not the compute, is what
-silently keeps the meter running.
+A provisioned relational instance holds a running process, which breaks
+requirement 7 no matter how serverless the compute is.
+
+**One premise here has expired.** "A relational instance is always on" is
+no longer a fact: Aurora Serverless v2 can auto-pause at zero ACUs.
+Storage still bills and resume latency is unevaluated against
+requirement 16, so the conclusion still holds on access-pattern grounds
+below. It no longer holds on always-on grounds alone, and anyone
+reopening this should argue access patterns rather than cite a premise
+that moved.
 
 So challenge 1 largely decided challenge 2. Recording that coupling
 matters: if the scale-to-zero principle is ever abandoned, this choice
@@ -494,8 +523,21 @@ Two indexes at least:
 
 | Index | Serves |
 | --- | --- |
-| `(bot_id, time)` | everything one bot did, across channels |
-| `(user_id, last_activity)` | the channel list, most recent first |
+| `tenant#bot_id`, `time` | everything one bot did, across channels |
+| `tenant#user_id`, `last_activity` | the channel list, most recent first |
+| `tenant#status`, `deadline` | **in-flight and wedged turns.** Orphan reaping must be a query, not a scan. |
+| `tenant#addressed_to_bot_id`, `seq` | work addressed *to* a bot, which the first index does not answer |
+
+**Every index key carries the tenant.** Both reviews caught that
+`(bot_id, time)` drops it, which makes the base table's structural
+isolation evaporate on the index. The status/deadline index was omitted
+entirely, and it is the one requirement 7 depends on: without a way to
+find a wedged turn, a stuck computer bills forever and nothing notices.
+
+**Finding the latest summary needs its own key.** Querying backwards over
+pure `seq` scans arbitrarily many items because kind is not
+key-addressable. Keep a pointer on the channel item, or encode kind in
+the sort key. The earlier "cheap backwards query" claim was wrong.
 
 **Full-text search across transcripts is out of v1.** DynamoDB will not
 do it. Accept that, or plan a search index later, but decide it here
@@ -552,6 +594,23 @@ second compacted table that can drift from the log.
   compound lossily. This is the question that decides whether the model
   holds up over months. Answer it before the store lands, not after.
 - Whether summaries are visible in the human scroll or collapsed.
+
+**Two constraints both reviews added, and neither is optional.**
+
+*Rebuild from raw, not from prose.* Folding prose into prose forever
+loses negations, exact identifiers, paths, unresolved commitments, and
+why an approval was granted. Since originals are immutable and present,
+summaries must periodically be rebuilt from the raw window rather than
+from their predecessor, and durable facts must be written into bot
+memory or the task store *before* a compact.
+
+*Provenance must survive compaction.* A summary rewrites untrusted page
+content into trusted-looking prose and strips the marker saying it came
+from a web page. Injected text can then persist in every future model
+view, long after anything identifies it as hostile. A summary must carry
+which parts derive from content an agent read versus what the human
+said. This links compaction directly to [Threat model](THREAT_MODEL.md);
+neither document saw it alone.
 
 Compaction is non-destructive: append a summary, never rewrite the
 stream. Do not implement a summarizer loop until the store exists.
@@ -724,37 +783,62 @@ say so; a bot handing off work knows what it is handing off.
 bot on that user, so a bot stopping it could strand another bot
 mid-task. Idle-down is a platform concern, not an agent decision.
 
-### Escalation
+### Escalation is a restart, not a resume
 
-When a turn on a computerless worker reaches a computer action:
+**Revised after review.** The previous protocol had a computerless worker
+append a tool call, enqueue a continuation job, and stop -- with no turn
+identity, no lease and no fencing, under at-least-once delivery. Both
+reviews showed that produces duplicate turns, lost turns, double-billed
+model calls, and turns that hang holding a browser. It needed a durable
+journal and a state machine that did not exist.
 
-1. The host appends the tool call to the turn's stream.
-2. It enqueues a job for the same turn with `computer` in required
-   capabilities and the user's `computer_id` pin.
-3. It stops. It does not wait, and it transfers no state.
-4. A computer-capable worker pulls that job, reads the stream, executes,
-   appends the result, and continues the loop.
+The v1 answer avoids all of it:
 
-**The stream is the handoff.** An agent loop's state is its message list,
-and Chatticus already commits that list as an immutable append-only
-stream with tool calls and results as rows. So a turn is portable across
-hosts up to its first computer action. After one, it is pinned: a live
-page, a shell's working directory, and running processes are host-local.
-That pin is the existing `computer_id` pin, not a new concept.
+1. A turn begins on a computerless worker.
+2. If the model's first tool call is a computer tool, **nothing has
+   executed yet.**
+3. Discard the attempt and re-enqueue with `computer` required.
+4. A computer-capable worker runs the turn **from the beginning**,
+   reading the committed channel.
 
-This is a payoff from challenge 1. Because the chunk buffer is a *store*
-keyed by turn rather than a delivery path to a subscriber, two hosts can
-append chunks to one turn and the browser's stream neither knows nor
-cares.
+Cost: one duplicated model call. Risk: nil, because no tool has
+side-effected, and chunks are disposable by design.
 
-The computer tools must still be **present** in the tool list on a
-computerless worker, or the model never asks for one and never
-escalates. Presence means "escalate", not "execute". The model does not
-need to know the difference.
+**What was wrong before, recorded so it is not reinvented:**
 
-One loop, one package. The tool registry differs by host capability,
-which the architecture already describes as a dynamic tool list. This is
-not a second implementation and must not become one.
+- "That pin is the existing `computer_id` pin" was false.
+  `ARCHITECTURE.md` deliberately shares one `computer_id` across the Mac
+  and AWS so a pin can *fail over*. A workplace pin is not a host or
+  session pin; owning a live page needs a lease with a fencing epoch.
+- "An agent loop's state is its message list" is too loose for a
+  provider tool loop, which resumes from serialized structured items and
+  function-call identifiers, not reconstructed visible text.
+- The disposable chunk buffer and a durable turn journal were conflated.
+  Only the first was ever specified.
+
+**Deferred explicitly:** true mid-turn resume, which needs the
+turn/attempt state machine, expiring leases, fencing tokens, a
+transactional journal plus outbox, sink-level idempotency, deadlines and
+a reaper. Do not half-build it.
+
+### Coordination without a long-lived process
+
+Requirement 7 removes the obvious home for coordination state. Both
+reviews identified mechanisms this breaks; since the requirement stands,
+those primitives move into DynamoDB conditional writes:
+
+| Needs coordinating | Mechanism |
+| --- | --- |
+| At most one host started per `computer_id` | Conditional put on a start-lock item with a TTL. Losing the race means waiting, not a second `RunTask`. |
+| Monotonic `seq` with concurrent turns | Atomic counter on the channel item. Duplicate or skipped `seq` breaks `after=seq` replay, the reconnect invariant. |
+| A wedged turn, or a computer nobody is using | TTL-stamped records swept by a scheduled reaper. "Working" and "wedged" must be distinguishable or requirement 7 is false in production. |
+
+**The scheduler assumes long-lived workers, and that is a real hole.**
+`assign_turn` ranks registered, heartbeating workers. A computerless
+worker that scales to zero is never registered, so it is never healthy,
+so it is never assigned. Computer hosts keep pull-with-heartbeat;
+computerless work must be **pushed**, with the enqueue invoking the
+runtime. Nothing does this yet.
 
 ### Say what is happening
 

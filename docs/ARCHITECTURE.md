@@ -83,6 +83,13 @@ machines need no inbound ports. Watch/takeover display traffic is an
 outbound tunnel through the control plane (Tailscale or SSM hybrid
 activation).
 
+**This is the one long-lived stream in Chatticus, and the
+no-persistent-sockets rule does not cover it.** That rule scopes to the
+API and token path. A remote display is a continuous binary stream that
+server-sent events over a per-request function cannot carry, and
+requirement 4's password takeover depends on it. It needs its own
+placement decision and cost model.
+
 ECS Anywhere is optional later. A thin SQS-pull worker is the v1 local
 plug-in.
 
@@ -146,6 +153,13 @@ writes block relocate so a Mac does not start from a stale checkpoint.
 Failover when a prefer-local Mac's heartbeat dies is the same hydrate path on
 an AWS host, from the last published snapshot. Work that was never
 published is gone.
+
+**Known defect: failover does not mark the recovered host.** A sleeping
+Mac loses its heartbeat, AWS hydrates and does newer work, then the Mac
+wakes with a stale dirty volume, registers, and wins `prefer_local`.
+Unpublished writes block an *administrator* relocate, but nothing sets
+`hydrate_required` after a heartbeat failover. This is a first-week bug
+for the default household setup.
 
 See [Computer snapshots](COMPUTER_SNAPSHOTS.md).
 

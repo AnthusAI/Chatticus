@@ -58,12 +58,50 @@ single primitive covers three, it is usually the right one.
 
 Not yet built. Stated so it can be argued with.
 
-1. **Page content is data, never instruction.** The agent loop must keep
-   a durable separation between the task it was given and the text it
-   reads. Content encountered mid-task cannot revise the goal, expand
-   scope, or claim prior approval.
-2. **Approval cards render the concrete action**, from the tool call's
+1. **Assume the model is hostile once it has read a page.**
+
+   An earlier version made "page content is data, never instruction" the
+   first control. Two independent reviews rejected it and they were
+   right: that states desired model behaviour as though stating it made
+   it enforceable. Instruction hierarchies, delimiters and spotlighting
+   reduce hit rate; none produce a durable separation under adversarial
+   input. The model interprets the goal, so it cannot also guarantee the
+   goal is not rewritten.
+
+   **Demoted to a mitigation.** Keep the prompting; do not count it as a
+   boundary. The replacement premise: once the model has consumed
+   untrusted content, treat it as a potentially compromised principal
+   and enforce at capabilities and data sinks, outside the model.
+2. **Approval cards render the concrete action** from the tool call's
    actual arguments, not from model-authored prose.
+
+   **This works for structured tools and fails for the browser.**
+   `send_email(to=, body=)` has a non-story form. `click("#submit")` does
+   not: it establishes no recipient, no amount, no payload, no redirect
+   and no site state at execution time. Both reviews landed this, and it
+   matters because the browser is exactly the path offered for sites
+   with no API. So authenticated, consequential browser actions are
+   **human takeover or a structured connector** in v1, not a model click
+   plus a card.
+
+   Separately, the approval rules as implemented are too broad to carry
+   this: `AutoReviewRule` matches only action type, tenant and optional
+   user, so `always_allow send` authorises every recipient and payload,
+   which `PRODUCT.md` itself calls unacceptable. Known defect, currently
+   encoded in Gherkin as correct.
+
+3. **Enforce egress and tool allowlists in the worker, derived from the
+   task.** An injected "email `/workspace` to this address" should fail
+   because the current task never granted that tool, not because the
+   model declined. Model-generated URLs, uploads, form posts, redirects
+   and shell network access cannot police themselves. This is the
+   highest-value control here, and it is a system check.
+
+4. **Split ambient authority.** The profile driving untrusted pages must
+   not carry high-value cookies. A logged-out, disposable research
+   browser is the default for reading the open web; authenticated
+   sessions are summoned for a task and released. One shared,
+   permanently logged-in, snapshotted profile is the opposite of this.
 3. **Approval-class actions cannot be auto-approved by rules a task
    created.** A rule must originate with the human, out of band.
 4. **Scope credentials to the work.** The shared computer is a
@@ -89,6 +127,17 @@ Not yet built. Stated so it can be argued with.
   approves everything without reading has a speed bump, not a control.
   Worth instrumenting: an approval rate above roughly ninety percent
   without inspection means the boundary is theatre.
+- **No approval path for consequential work while nobody is at a
+  screen.** Requirement 3 promises work continues with the laptop
+  closed; requirement 4 gates consequential actions; v1's only surface is
+  a web tab, and push is specified as "come back, something finished",
+  not "approve this now". So either overnight work excludes anything
+  consequential, or approvals get loosened and injection pays off at 2
+  a.m. **v1 scopes the promise: overnight work drafts and prepares; it
+  does not send, publish, purchase or delete.** The documents previously
+  implied otherwise.
+- Snapshotting an authenticated profile spreads a compromise on
+  relocation. There is no reset or quarantine story.
 - Local-device execution widens this further and is gated separately.
 
 ## What a reviewer should attack

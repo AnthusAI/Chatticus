@@ -51,6 +51,12 @@ Each bot gets its own **screen** on that computer. Screens are separate work
 surfaces, not separate security boundaries. One bot can run one computer-use
 task on its screen at a time.
 
+**Unresolved:** shared browser sessions and independent parallel screens
+conflict. Chromium will not run multiple instances against one
+user-data directory. The options are a serialized browser broker,
+separate profiles without shared sessions, or dropping independent
+screens. Spike this before treating parallel browser work as available.
+
 Ask bots to keep durable project files in `/workspace` with clear project
 folders. Treat temporary directories, manually installed packages, and
 uncommitted application state as replaceable.
