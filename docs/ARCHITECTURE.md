@@ -8,11 +8,11 @@ household. Every record still carries `tenant_id`.
 
 ```
     User at chattic.us
-        |  REST + realtime API (WebSocket)
+        |  cloud API (shape open)
         v
 Control plane (AWS)
-  auth, bots, threads, realtime API, approvals
-  scheduler, SQS, EventBridge, Postgres
+  auth, bots, approvals
+  scheduler, SQS, EventBridge
         |
         |  turn jobs (pull)
         v
@@ -28,9 +28,9 @@ Control plane (AWS)
             (Bedrock later)
 ```
 
-The control plane accepts messages, stores them in the message store,
-enqueues turns, and fans live events out on the **realtime API**. It does
-not run the model loop and it does not own a display.
+The control plane accepts work, stores tenant state, and enqueues turns.
+It does not run the model loop and it does not own a display. How it
+exposes a cloud API and a transcript is [open](DESIGN_CHALLENGES.md).
 
 Workers register, heartbeat, pull matching jobs, call the model, execute
 tools on their computer, and stream events back over an outbound WebSocket.
@@ -123,8 +123,9 @@ See [Computer snapshots](COMPUTER_SNAPSHOTS.md).
 
 | Concern | Store |
 | --- | --- |
-| Bots, threads, messages, memory, skills, routines, approval rules | Postgres (RDS) |
-| Realtime API (open sockets to chattic.us) | Control-plane process, not Lambda |
+| Bots, memory, skills, routines, approval rules | Postgres (RDS) is the likely home; not locked |
+| Transcript, channels, compaction | Open. See [Design challenges](DESIGN_CHALLENGES.md) |
+| Token stream to chattic.us | Open (must stream; should not pay AppSync rates or hold Lambda) |
 | Turn jobs, heartbeats | SQS + scheduler records |
 | Routine wake-ups | EventBridge |
 | `/workspace` and browser profile | S3 snapshot (canonical); local volume, EBS, or EFS as a cache on the current host |
@@ -147,9 +148,9 @@ The model loop runs **on the worker**:
    not a vendor-specific SDK from the rest of the loop.
 3. Execute tool calls on the worker (or pause for approval).
 4. Stream tokens, screenshots, and approval cards to the control plane
-   over an outbound connection. The control plane pushes those events on
-   the realtime API to subscribed chattic.us sessions.
-5. Persist conversation and memory in Postgres via the control plane.
+   over an outbound connection. How the web app is notified is open.
+5. Persist bot memory via the control plane. Transcript persistence is
+   open; see [Design challenges](DESIGN_CHALLENGES.md).
 
 Provider-hosted tools (if the vendor offers them) may run on the provider.
 Custom tools and computer actions always run on the worker.
@@ -166,10 +167,9 @@ rule.
 ## Web
 
 The web app at chattic.us is the human surface: bot roster, chat, approval
-cards, and a computer preview. It talks only to the control plane: REST
-for history, and the **realtime API** (a WebSocket to the control-plane
-process) for live tokens, new messages, and later approvals. It does not
-reach workers directly. See [Messages and the realtime API](MESSAGING.md).
+cards, and a computer preview. It talks only to the control plane. It
+does not reach workers directly. How that API streams tokens and stores
+channels is [open](DESIGN_CHALLENGES.md).
 
 ## v1 tenancy
 

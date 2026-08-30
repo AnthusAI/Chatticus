@@ -4,9 +4,6 @@
 
 - Web chat at chattic.us
 - Named bots with isolated memory
-- Threads and an append-only message store
-- Realtime API (WebSocket on the control plane) for token streaming
-- Bot-to-bot on the same thread (enqueue a turn, no bot-to-bot HTTP)
 - One shared computer per user
 - Model tool loop via OpenAI (MCP + browser on the computer)
 - Approvals for send / publish / purchase / delete / production changes
@@ -16,12 +13,13 @@
 - docker-compose for local control plane + computer
 - Fargate (and optional EC2) path in AWS
 
-This repository currently encodes v1 protocol behavior in Gherkin and an
-in-memory Python control plane (routing, approvals, snapshot/relocate,
-message store, realtime API fan-out). Hosts can pack and hydrate a workplace
-through a filesystem object store or the CDK S3 bucket
-(`ChatticusSnapshots`). The HTTP API, computer image, web app, and remaining
-control-plane stacks are next.
+This repository currently encodes worker routing, approvals, and
+snapshot/relocate in Gherkin and an in-memory Python control plane.
+Hosts can pack and hydrate a workplace through a filesystem object store
+or the CDK S3 bucket (`ChatticusSnapshots`). The cloud API (scale-to-zero
+vs streaming), message store, compaction, and channels are **open**; see
+[Design challenges](DESIGN_CHALLENGES.md). Do not treat the messaging
+kernel as the architecture.
 
 ## v2
 

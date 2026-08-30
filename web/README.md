@@ -11,7 +11,5 @@ v1 surface:
 
 Talks only to the control plane. Does not reach workers directly.
 
-History is REST (`GET /threads/{id}/messages?after=seq`). Live tokens,
-new messages, and later approvals arrive on the **realtime API**: a
-WebSocket to the control-plane process. See
-[Messages and the realtime API](../docs/MESSAGING.md).
+How history and live tokens work is not decided. See
+[Design challenges](../docs/DESIGN_CHALLENGES.md).

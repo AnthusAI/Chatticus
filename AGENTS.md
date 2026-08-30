@@ -19,8 +19,9 @@ xAI client. The model vendor is not the product name.
 
 ## Layout
 
-- `docs/` — product, architecture, stack, roadmap, messaging. Read these
-  before changing control-plane or computer behavior.
+- `docs/` — product, architecture, stack, roadmap, messaging. Read
+  `docs/DESIGN_CHALLENGES.md` before adding a cloud API, message store,
+  or streaming path. Those problems are open.
 - `features/` — shared Gherkin. Behavior changes start here.
 - `python/` — control plane, scheduler, roster, approvals, later agent and
   worker processes.
@@ -58,10 +59,11 @@ Do not declare worker-protocol work done if `behave` or `pytest` is failing.
 Do not put the agent loop, computer use, or the display on Lambda.
 
 Lambda is allowed for HTTP, auth callbacks, inbound webhooks, and scheduled
-wake-ups. Lambda is not allowed to hold the realtime API socket or stream
-tokens to chattic.us. Do not add AppSync (or API Gateway WebSocket plus
-Lambda) for that stream. The control-plane process holds the socket. See
-`docs/MESSAGING.md`.
+wake-ups. Lambda is not allowed to hold a socket that streams tokens for
+the life of a chat tab. Do not add AppSync as that stream (it bills per
+update). How the cloud API scales to zero **and** streams is an open
+design challenge; see `docs/DESIGN_CHALLENGES.md`. Do not add a CDK
+control-plane service until that is picked.
 
 The computer is the Ubuntu image in `computer/`. The same image must remain
 runnable on Fargate, EC2, and local Docker.

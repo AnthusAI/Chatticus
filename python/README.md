@@ -1,8 +1,9 @@
 # Python control plane
 
-The product brain. v1 encodes the worker protocol, roster, approvals,
-message store, and realtime API fan-out here as an in-memory kernel.
-FastAPI, SQS adapters, and the agent loop plug into this package.
+The product brain. v1 encodes the worker protocol, roster, approvals, and
+snapshots here as an in-memory kernel. A messaging fan-out sketch exists
+in the same package; it is not the store or the cloud API. See
+[Design challenges](../docs/DESIGN_CHALLENGES.md).
 
 ```bash
 python3 -m venv .venv

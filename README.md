@@ -49,8 +49,8 @@ The control plane never logs into the garage. Workers **pull**.
 3. The scheduler prefers a healthy **local** worker, then an already-warm AWS
    computer, then a cold-start Fargate task.
 4. The worker runs the model loop on that machine and streams tokens,
-   screenshots, and approval cards back over an outbound WebSocket. The
-   control plane pushes those events to chattic.us on the **realtime API**.
+   screenshots, and approval cards back over an outbound connection. How
+   chattic.us receives those tokens is [open](docs/DESIGN_CHALLENGES.md).
 5. If the garage Mac is off, AWS still runs the computer. If it is on, AWS
    compute spend drops to near zero.
 
@@ -89,8 +89,8 @@ container move. See [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md).
 
 | State | Where it lives |
 | --- | --- |
-| Threads, messages, bot memory, skills, routines | Postgres |
-| Live tokens for chattic.us | Realtime API on the control-plane process |
+| Bot memory, skills, routines | Postgres (likely; not locked) |
+| Channels, transcript, live tokens | Open. See [Design challenges](docs/DESIGN_CHALLENGES.md) |
 | `/workspace` and browser profile | S3 snapshot; local volume / EBS / EFS as a host cache |
 | Secrets | AWS Secrets Manager, never in the image |
 
@@ -107,7 +107,7 @@ Chattic.us/
   web/                      chattic.us web app
   computer/                 Linux computer image
   infra/                    AWS CDK
-  docs/                     Product, architecture, stack, roadmap
+  docs/                     Product, architecture, design challenges, stack
 ```
 
 v1 language for the product brain is **Python**. The web app is
@@ -120,8 +120,8 @@ The only implemented product code is the in-memory control plane
 (`python/src/chatticus/`) and the snapshot packer
 (`python/src/chatticus/snapshot/`). There is no HTTP API, no model loop, no
 computer agent, and no web app yet. Postgres in `docker-compose.yml`
-is not used by the kernel. The kernel does encode the message store and
-realtime API fan-out that HTTP and the WebSocket will sit on.
+is not used by the kernel. Messaging helpers in the kernel are a sketch;
+see [Design challenges](docs/DESIGN_CHALLENGES.md).
 
 ```bash
 cd python
@@ -154,7 +154,8 @@ npx cdk deploy --all
 
 - [Product](docs/PRODUCT.md)
 - [Architecture](docs/ARCHITECTURE.md)
-- [Messages and the realtime API](docs/MESSAGING.md)
+- [Design challenges](docs/DESIGN_CHALLENGES.md) (cloud API, messages, channels — open)
+- [Messages and the realtime API](docs/MESSAGING.md) (sketch only)
 - [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md)
 - [Stack](docs/STACK.md)
 - [Roadmap](docs/ROADMAP.md)

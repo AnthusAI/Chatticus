@@ -16,8 +16,8 @@ A bot is a persistent, named teammate:
 - Several bots can run in parallel and hand work to each other.
 
 Bots can message each other and pass ownership so the human is not the
-router between tools. That is the same message store and the same thread
-the human already sees. See [Messages and the realtime API](MESSAGING.md).
+router between tools. How that is stored — channels, compaction, direct
+bot-to-bot — is not decided. See [Design challenges](DESIGN_CHALLENGES.md).
 
 ## One computer per user
 

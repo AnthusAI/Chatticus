@@ -1,5 +1,10 @@
 # Messages and the realtime API
 
+**This file is a sketch.** The live open problems — scale-to-zero vs
+streaming, the message store, compaction, and channels — are in
+[Design challenges](DESIGN_CHALLENGES.md). Do not add CDK or a database
+schema from what follows.
+
 Chattic.us is a conversation surface. The control plane is the only
 process that writes the transcript and the only process the browser talks
 to. Workers never notify the web app. Bots never HTTP-call each other.
