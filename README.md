@@ -64,7 +64,7 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-GitHub **`main`** is **v0.4.0**. The live thin turn is the **development**
+GitHub **`main`** is **v0.4.1**. The live thin turn is the **development**
 cloud environment: stack **ChatticusThinTurn** in AWS account
 `335163751677` (`us-east-1`). Staging and production thin-turn stacks are
 defined in CDK (`ChatticusThinTurnStaging`,
@@ -94,22 +94,19 @@ What the deployed **development** slice does today:
 - `python scripts/exercise_thin_turn.py --environment development` exits 0.
 
 Worker lease renew during long model calls is live on this development
-deploy. EventBridge Scheduler one-shots are configured on the front door
+deploy. EventBridge Scheduler one-shots are on the front door
 (`chatticus-development-turn-deadlines`); `recovery_enabled` is on.
-A wedged turn has recovered through EventBridge after a Front Door cold
-start. Warm containers used to freeze the control-plane clock (schedules
-in the past); `plane_from_env()` now uses a wall clock. Redeploy
-development thin-turn so that fix is live, then prove a warm-container
-deadline.
+Warm Front Door containers use a wall clock, so deadlines land in the
+future. A wedged turn has recovered through EventBridge without a
+forced Lambda cold start.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the turn path yet. The computer stays stopped.
 There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
 
-Next on the board: redeploy development with the wall-clock fix and
-prove a warm-container EventBridge deadline (e42008). Staging remains
-undeployed.
+Next on the board: fault-inject every turn boundary (83b5e3). Staging
+remains undeployed.
 
 ```mermaid
 flowchart LR
