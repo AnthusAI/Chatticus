@@ -14,7 +14,7 @@ implementation of the same behavior until the protocol is stable.
 | Queues and schedules | SQS, EventBridge | Turns, heartbeats, routines |
 | AWS compute | API Gateway + Lambda for HTTP; ECS Fargate and optional stop/start EC2 for the computer | Lambda only for seconds-long work |
 | BDD | behave and shared `features/` Gherkin | Product narrative lives in Gherkin |
-| IaC | AWS CDK in TypeScript | Same language as the web app; separate stacks for control plane and computer |
+| IaC | AWS CDK in TypeScript | Same language as the web app; every AWS resource lives in `infra/`. No console or ad-hoc CLI creates. |
 
 ## LLM providers
 

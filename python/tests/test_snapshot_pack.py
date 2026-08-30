@@ -44,6 +44,7 @@ def test_hydrate_is_cache_hit_on_matching_checksum(tmp_path: Path) -> None:
     class CountingStore:
         def __init__(self) -> None:
             self.downloads = 0
+            self.bucket = inner.bucket
 
         def put(self, snapshot_uri: str, pack: bytes, manifest: object) -> None:
             inner.put(snapshot_uri, pack, manifest)
@@ -112,8 +113,10 @@ def test_snapshot_uri_rejects_path_segments() -> None:
         snapshot_uri("anthus/../other", "household-computer")
     with pytest.raises(SnapshotUriError):
         snapshot_object_dir("https://example.com/not-a-snapshot")
-    with pytest.raises(SnapshotUriError):
-        snapshot_object_dir("s3://other-bucket/tenants/anthus/computers/x/snapshot")
+    prefix = snapshot_object_dir(
+        "s3://other-bucket/tenants/anthus/computers/x/snapshot"
+    )
+    assert prefix.as_posix() == "tenants/anthus/computers/x"
 
 
 def test_cli_pack_and_hydrate(tmp_path: Path) -> None:

@@ -68,7 +68,7 @@ class ComputerHostDisk:
         published_at: datetime | None = None,
     ) -> SnapshotManifest:
         """Pack the live disk and upload it to the shared store."""
-        uri = snapshot_uri(tenant_id, computer_id)
+        uri = snapshot_uri(tenant_id, computer_id, bucket=self.store.bucket)
         pack = pack_live_disk(self.live_root)
         checksum = pack_checksum(pack)
         manifest = SnapshotManifest(
@@ -85,7 +85,7 @@ class ComputerHostDisk:
 
     def hydrate(self, *, tenant_id: str, computer_id: str) -> SnapshotManifest:
         """Load the published snapshot unless this host already has it."""
-        uri = snapshot_uri(tenant_id, computer_id)
+        uri = snapshot_uri(tenant_id, computer_id, bucket=self.store.bucket)
         manifest = self.store.get_manifest(uri)
         if self.cache_matches(manifest.checksum):
             return manifest

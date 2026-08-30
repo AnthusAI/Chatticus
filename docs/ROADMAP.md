@@ -16,8 +16,8 @@
 This repository currently encodes v1 protocol behavior in Gherkin and an
 in-memory Python control plane (routing, approvals, snapshot/relocate).
 Hosts can pack and hydrate a workplace through a filesystem object store
-(the local stand-in for S3). The HTTP API, computer image, real S3 adapter,
-web app, and CDK stacks are next.
+or the CDK S3 bucket (`ChatticusSnapshots`). The HTTP API, computer image,
+web app, and remaining control-plane stacks are next.
 
 ## v2
 

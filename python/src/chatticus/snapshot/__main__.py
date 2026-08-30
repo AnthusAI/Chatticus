@@ -7,16 +7,17 @@ import sys
 from pathlib import Path
 
 from chatticus.snapshot.host import ComputerHostDisk
-from chatticus.snapshot.store import FilesystemSnapshotStore
+from chatticus.snapshot.store import open_snapshot_store
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run pack or hydrate against a filesystem snapshot store."""
+    """Run pack or hydrate against a snapshot store."""
     parser = argparse.ArgumentParser(
         prog="python -m chatticus.snapshot",
         description=(
             "Publish or hydrate a Chatticus computer snapshot. "
-            "The store directory is the local stand-in for S3."
+            "Use a local directory as the store, or s3 / s3://bucket "
+            "for the CDK snapshot bucket."
         ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -41,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     disk = ComputerHostDisk(
         Path(args.live_root),
-        FilesystemSnapshotStore(Path(args.store)),
+        open_snapshot_store(args.store),
     )
     if args.command == "pack":
         manifest = disk.publish(
@@ -68,7 +69,7 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--store",
         required=True,
-        help="Filesystem object store (S3 layout on local disk)",
+        help="Local store directory, or s3 / s3://bucket for the CDK snapshot bucket",
     )
     parser.add_argument("--tenant", required=True, help="tenant_id")
     parser.add_argument("--computer", required=True, help="computer_id")

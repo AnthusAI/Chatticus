@@ -68,6 +68,10 @@ host. Do not mount S3 as the container root. Do not live-migrate containers.
 Pack I/O lives in `python/src/chatticus/snapshot/`. See
 `docs/COMPUTER_SNAPSHOTS.md`.
 
+AWS resources exist only as CDK in `infra/`. Do not `aws s3 mb`, create
+clusters, or click a bucket into existence. `cdk bootstrap` and
+`cdk deploy` are the allowed AWS writes.
+
 ## Git
 
 This repository is its own git repo. Do not commit Chatticus into the parent

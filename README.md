@@ -131,13 +131,15 @@ black --check src ../features tests
 ruff check src ../features tests
 ```
 
-If Docker Desktop is running, you can also prove the computer image
-builds and Postgres starts. Neither is wired to the kernel yet:
+AWS resources are CDK only (`infra/`). Do not create them in the console.
 
 ```bash
-docker compose up -d postgres
-docker build -t chatticus-computer computer/
+cd infra
+npm install
+npx cdk bootstrap
+npx cdk deploy --all
 ```
+
 
 ## Documentation
 

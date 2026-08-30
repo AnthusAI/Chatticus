@@ -14,7 +14,7 @@ pytest
 
 Gherkin lives in `../features/`. Step definitions live in `../features/steps/`.
 
-Pack a host disk into the local snapshot store (S3 layout on disk):
+Pack a host disk into the local snapshot store, or the CDK S3 bucket:
 
 ```bash
 python -m chatticus.snapshot pack \
@@ -24,3 +24,5 @@ python -m chatticus.snapshot pack \
   --computer household-computer \
   --worker fargate-1
 ```
+
+`--store s3` uses `CHATTICUS_SNAPSHOT_BUCKET` from `npx cdk deploy` in `infra/`.

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from urllib.parse import urlparse
 
-SNAPSHOT_BUCKET = "chatticus"
+LOGICAL_SNAPSHOT_BUCKET = "chatticus"
 PACK_FILENAME = "snapshot.tar.gz"
 MANIFEST_FILENAME = "manifest.json"
 
@@ -23,32 +24,44 @@ def _require_segment(value: str, name: str) -> str:
     return value
 
 
-def snapshot_uri(tenant_id: str, computer_id: str) -> str:
+def default_snapshot_bucket() -> str:
+    """Return the bucket name from the environment, or the local logical name.
+
+    Production sets ``CHATTICUS_SNAPSHOT_BUCKET`` to the CDK
+    ``SnapshotBucketName`` output. Tests and the filesystem store use the
+    logical name ``chatticus``.
+    """
+    return os.environ.get("CHATTICUS_SNAPSHOT_BUCKET") or LOGICAL_SNAPSHOT_BUCKET
+
+
+def snapshot_uri(
+    tenant_id: str,
+    computer_id: str,
+    *,
+    bucket: str | None = None,
+) -> str:
     """Return the canonical object-store URI for a computer snapshot."""
+    resolved_bucket = _require_segment(bucket or default_snapshot_bucket(), "bucket")
     _require_segment(tenant_id, "tenant_id")
     _require_segment(computer_id, "computer_id")
     return (
-        f"s3://{SNAPSHOT_BUCKET}/tenants/{tenant_id}"
+        f"s3://{resolved_bucket}/tenants/{tenant_id}"
         f"/computers/{computer_id}/snapshot"
     )
 
 
-def snapshot_object_dir(snapshot_location: str) -> Path:
-    """Return the relative store directory for a snapshot URI.
+def snapshot_bucket_and_prefix(snapshot_location: str) -> tuple[str, Path]:
+    """Return ``(bucket, key prefix)`` for a snapshot URI.
 
-    ``s3://chatticus/tenants/{tenant}/computers/{computer}/snapshot`` maps to
-    ``tenants/{tenant}/computers/{computer}``.
+    ``s3://{bucket}/tenants/{tenant}/computers/{computer}/snapshot`` maps to
+    prefix ``tenants/{tenant}/computers/{computer}``.
     """
     parsed = urlparse(snapshot_location)
     if parsed.scheme != "s3":
         raise SnapshotUriError(
             f"Snapshot URI must use the s3 scheme, not {parsed.scheme!r}."
         )
-    if parsed.netloc != SNAPSHOT_BUCKET:
-        raise SnapshotUriError(
-            f"Snapshot URI bucket must be {SNAPSHOT_BUCKET!r}, not "
-            f"{parsed.netloc!r}."
-        )
+    bucket = _require_segment(parsed.netloc, "bucket")
     parts = [part for part in parsed.path.split("/") if part]
     if (
         len(parts) != 5
@@ -61,4 +74,10 @@ def snapshot_object_dir(snapshot_location: str) -> Path:
         )
     tenant_id = _require_segment(parts[1], "tenant_id")
     computer_id = _require_segment(parts[3], "computer_id")
-    return Path("tenants") / tenant_id / "computers" / computer_id
+    return bucket, Path("tenants") / tenant_id / "computers" / computer_id
+
+
+def snapshot_object_dir(snapshot_location: str) -> Path:
+    """Return the relative store directory for a snapshot URI."""
+    _bucket, prefix = snapshot_bucket_and_prefix(snapshot_location)
+    return prefix

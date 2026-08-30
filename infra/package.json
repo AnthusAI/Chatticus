@@ -1,0 +1,23 @@
+{
+  "name": "chatticus-infra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chatticus AWS CDK app. All AWS resources are defined here.",
+  "scripts": {
+    "build": "tsc",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --all",
+    "diff": "cdk diff"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.215.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "aws-cdk": "^2.215.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

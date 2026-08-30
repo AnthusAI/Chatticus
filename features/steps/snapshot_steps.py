@@ -17,6 +17,7 @@ class CountingSnapshotStore:
     def __init__(self, inner: FilesystemSnapshotStore) -> None:
         self.inner = inner
         self.pack_downloads = 0
+        self.bucket = inner.bucket
 
     def put(self, snapshot_uri: str, pack: bytes, manifest: object) -> None:
         self.inner.put(snapshot_uri, pack, manifest)

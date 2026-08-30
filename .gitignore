@@ -18,6 +18,7 @@ out/
 
 # CDK / AWS
 infra/cdk.out/
+infra/dist/
 *.js.map
 
 # Local secrets and data

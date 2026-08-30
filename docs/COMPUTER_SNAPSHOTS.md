@@ -99,23 +99,30 @@ publishing.
 
 The control-plane kernel records snapshot URI, checksum, dirty, intended
 host, and hydrate-required. Hosts pack `/workspace` and the browser profile
-into `snapshot.tar.gz` plus `manifest.json`. A **filesystem object store**
-is the local stand-in for S3: same URI (`s3://chatticus/tenants/...`),
-same layout, a directory on disk. An S3 adapter later keeps those URIs.
+into `snapshot.tar.gz` plus `manifest.json`.
 
-Administrator CLI (from `python/`):
+A **filesystem object store** is the local stand-in. Production uses the S3
+bucket created by the CDK stack `ChatticusSnapshots`. Hosts set
+`CHATTICUS_SNAPSHOT_BUCKET` to the stack output and pack with `--store s3`.
+Do not create that bucket with the AWS CLI.
 
 ```bash
+cd infra
+npm install
+npx cdk bootstrap
+npx cdk deploy --all
+export CHATTICUS_SNAPSHOT_BUCKET=<SnapshotBucketName>
+
 python -m chatticus.snapshot pack \
   --live-root ./var/hosts/fargate \
-  --store ./var/snapshot-store \
+  --store s3 \
   --tenant anthus \
   --computer household-computer \
   --worker fargate-1
 
 python -m chatticus.snapshot hydrate \
   --live-root ./var/hosts/garage-mac \
-  --store ./var/snapshot-store \
+  --store s3 \
   --tenant anthus \
   --computer household-computer
 ```

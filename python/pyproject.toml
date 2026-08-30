@@ -12,9 +12,14 @@ license = "MIT"
 dependencies = []
 
 [project.optional-dependencies]
+aws = [
+    "boto3",
+]
 dev = [
     "behave",
     "black",
+    "boto3",
+    "moto",
     "pytest",
     "ruff",
 ]
