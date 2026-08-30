@@ -1,0 +1,69 @@
+"""Process-wide wiring for Lambda and local .env-backed runs."""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+from typing import Any
+
+from chatticus.control_plane import ControlPlane
+from chatticus.messaging.store import DynamoMessagingStore
+from chatticus.models import ComputerPolicy, TurnJob
+from chatticus.worker.openai_completion import load_local_env
+
+logger = logging.getLogger("chatticus.runtime")
+
+
+def plane_from_env() -> ControlPlane:
+    """Build a control plane from Lambda or local environment variables."""
+    load_local_env()
+    table_name = os.environ.get("CHATTICUS_MESSAGING_TABLE", "").strip()
+    store = DynamoMessagingStore(table_name) if table_name else None
+    queue_url = os.environ.get("CHATTICUS_TURN_QUEUE_URL", "").strip()
+    return ControlPlane(
+        messaging_store=store,
+        turn_enqueued=_sqs_enqueuer(queue_url) if queue_url else None,
+    )
+
+
+def job_from_queue_payload(payload: dict[str, Any]) -> TurnJob:
+    """Rebuild a turn job from an SQS message body."""
+    capabilities = payload.get("required_capabilities") or ["cpu"]
+    return TurnJob(
+        job_id=payload["job_id"],
+        tenant_id=payload["tenant_id"],
+        required_capabilities=frozenset(capabilities),
+        computer_policy=ComputerPolicy(payload.get("computer_policy", "prefer_local")),
+        computer_id=payload.get("computer_id"),
+        user_id=payload.get("user_id"),
+        bot_id=payload.get("bot_id"),
+        turn_id=payload.get("turn_id"),
+    )
+
+
+def _sqs_enqueuer(queue_url: str):
+    def enqueue(job: TurnJob) -> None:
+        import boto3
+
+        body = json.dumps(
+            {
+                "job_id": job.job_id,
+                "tenant_id": job.tenant_id,
+                "turn_id": job.turn_id,
+                "bot_id": job.bot_id,
+                "user_id": job.user_id,
+                "computer_id": job.computer_id,
+                "computer_policy": job.computer_policy,
+                "required_capabilities": sorted(job.required_capabilities),
+            }
+        )
+        boto3.client("sqs").send_message(QueueUrl=queue_url, MessageBody=body)
+        logger.info(
+            "turn_enqueued tenant_id=%s turn_id=%s attempt_id=%s",
+            job.tenant_id,
+            job.turn_id,
+            job.job_id,
+        )
+
+    return enqueue

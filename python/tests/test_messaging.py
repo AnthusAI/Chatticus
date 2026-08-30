@@ -15,6 +15,7 @@ from chatticus.http.client import HttpTurnClient
 from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import (
     DynamoMessagingStore,
+    InMemoryMessagingStore,
     create_messaging_table,
 )
 from chatticus.models import (
@@ -304,3 +305,14 @@ def test_turn_completes_without_sse_watcher() -> None:
     turn = plane.turn(channel.tenant_id, turn_id)
     assert turn.status == TurnStatus.COMPLETED
     api.close()
+
+
+def test_bot_and_stopped_computer_survive_a_new_control_plane() -> None:
+    store = InMemoryMessagingStore()
+    first = ControlPlane(messaging_store=store)
+    bot = first.create_bot("anthus", "ryan", "Researcher")
+    first.set_computer_stopped("anthus", "ryan", True)
+    second = ControlPlane(messaging_store=store)
+    channel = second.create_channel("anthus", "ryan", [bot.bot_id])
+    assert second.computer_is_stopped("anthus", "ryan")
+    assert channel.participants[-1].actor_id == bot.bot_id

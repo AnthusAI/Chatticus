@@ -11,7 +11,7 @@ operations.
 | --- | --- |
 | `ChatticusSnapshots` | S3 bucket for computer packs; IAM role local hosts may assume |
 | `ChatticusComputers` | VPC, ECR, ECS cluster, Fargate ARM64 task definition, service (count 0 by default) |
-| `ChatticusSseSpike` | Throwaway Lambda plus CloudFront SSE transport feasibility spike (destroy when done) |
+| `ChatticusThinTurn` | DynamoDB, SQS, Lambda front door with SSE, computerless worker, CloudFront |
 
 The snapshot bucket name is a CDK output. Hosts set
 `CHATTICUS_SNAPSHOT_BUCKET` to that value. URIs look like
