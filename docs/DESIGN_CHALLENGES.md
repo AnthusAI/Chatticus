@@ -42,7 +42,8 @@ wrong no matter how cheap or elegant it is.
 7. **Nothing bills while nobody is working.** No component has an idle
    floor. This is the principle the cloud API is built to satisfy.
 8. Output reaches the browser as it is produced. A human watching a turn
-   sees it progress.
+   sees it progress. See also requirement 16: this starts at the
+   beginning of the turn, not once the computer is ready.
 9. The transcript is durable, append-only, immutable, and reloadable
    from a cursor.
 10. The stream is fully re-derivable from the store. Work never depends
@@ -55,6 +56,10 @@ wrong no matter how cheap or elegant it is.
 13. The model loop runs on the worker, never on the control plane.
 14. One computer image runs on Fargate, EC2, and local Docker.
 15. The web app talks only to the control plane, never to a worker.
+16. **A bot begins responding immediately, even while its computer is
+    still booting.** Getting the computer ready is concurrent with the
+    turn, not a gate in front of it. A cold computer delays the bot's
+    first *computer action*; it must not delay the bot's first *word*.
 
 ## Non-requirements
 
@@ -70,10 +75,19 @@ one of these, that is the tell.
 2. **Lowest total cost.** The requirement is zero at idle. A design with
    a lower average bill but an idle floor **loses** to one that costs
    slightly more per turn and nothing at rest.
-3. **A bounded cold start.** Unmeasured and unbounded for now. The
-   interface shows "starting your computer" as an honest state. Revisit
-   when there is a real image and a real turn to measure; do not spend
-   engineering on shrinking it before then.
+3. **A bounded cold start for the computer.** Two different latencies
+   hide under "cold start", and only one of them is slack:
+
+   - **Time to the bot's first word.** Fast, always. This is
+     requirement 16, not a non-requirement.
+   - **Time to the bot's first computer action.** Unmeasured and
+     unbounded for now. Image pull plus display and browser startup,
+     paid only when nothing is warm.
+
+   The second is acceptable *because* the first is fast: the wait
+   happens behind visible work rather than in front of it. Revisit when
+   there is a real image and a real turn to measure; do not spend
+   engineering on shrinking it before then. See challenge 5.
 4. **Throughput, or anything resembling web scale.** One household, a
    handful of concurrent turns. Serverless here is about the **idle
    floor**, not about scale. Do not engineer for load that does not
@@ -494,6 +508,103 @@ stands even while the channel model is open.
 A sketch (one thread, `addressed_to_bot_id` enqueues a turn, human sees
 the same rows) is in [Messaging](MESSAGING.md). It is one candidate, not
 the architecture.
+
+## 5. Responding before the computer is ready
+
+**Requirement 16 is decided. The mechanism is partly open.**
+
+A bot must start talking immediately. Booting a computer is concurrent
+work, not a gate. The human sees a reply forming while the workplace
+comes up behind it.
+
+### Readiness is per-capability, not one flag
+
+The mistake to avoid is a single "computer ready" barrier that every
+turn waits on. The container has several independent readiness gates,
+and a turn blocks only on the one it actually needs:
+
+| Gate | Needed for | Ready after |
+| --- | --- | --- |
+| Process and network | Model calls, memory, MCP and connector tools | seconds |
+| `/workspace` hydrated | File actions | snapshot hydrate |
+| Browser profile hydrated, display and Chromium up | Browser actions | display and browser startup |
+| Watch and takeover surface | A human watching or taking over | last |
+
+`chatticus-agent` starts the model loop as soon as the first row is
+satisfied. It does not wait for a display it may never use. Hydration
+and browser startup run in parallel with the opening model call.
+
+This matters more than it looks, because Chatticus prefers structured
+tools over the browser. A turn that answers from memory, or works
+entirely through MCP servers and connectors, may never touch a display
+at all. Such a turn should never have waited for one.
+
+### What remains cold, and what to do about it
+
+Image pull is the real cost, and it is paid before any gate above. Do
+not attack it yet (non-requirement 3). When it becomes worth attacking,
+the levers are a smaller image, lazy image loading, or a warm task
+during active hours -- in that order.
+
+Two things already blunt it:
+
+- Under `prefer_local`, a garage Mac that is on is already warm. The
+  cold path is the exception, not the norm.
+- The turn's opening model call is doing useful work while the pull
+  runs, so the wait is behind visible output.
+
+### Say what is happening
+
+"Starting your computer" is a real state and belongs in the turn stream
+as an event, not as dead air or a spinner. A human who can see why a
+turn is waiting will accept a wait that is otherwise indistinguishable
+from a hang. See the event table in [Messaging](MESSAGING.md).
+
+### Start the computer eagerly
+
+Request the computer at turn enqueue, in parallel with the opening model
+call -- not lazily at the first computer action. Waiting until the agent
+knows it needs a browser serializes the two costs that should overlap.
+
+**Open, and a genuine tension.** Eager start boots a computer for turns
+that never touch it, which is waste. Lazy start serializes the boot
+behind the model call, which is latency. This does not violate
+requirement 7, since a turn is running and somebody *is* working, but it
+does spend money on nothing. Candidate answers: start eagerly and idle
+down aggressively; start eagerly only when the bot's recent turns
+suggest it will need the computer; let a routine declare it. Pick one
+with real usage data, not now.
+
+### Why a turn could later start off the worker entirely
+
+Not proposed for v1. Recorded because the property that would allow it
+is a consequence of decisions already made, and it should not be
+rediscovered later.
+
+An agent loop's state is its message list. Chatticus already commits
+that list to an immutable, append-only stream, and tool calls and
+results are rows in it. So **a turn is portable across hosts up until
+its first computer action**, with no state transfer: another host reads
+the stream and continues. After a computer action, the turn is pinned --
+a live page, a shell's working directory, and running processes are
+host-local and do not move. That pin is the existing `computer_id` pin,
+not a new concept.
+
+This is also a payoff from challenge 1: because the chunk buffer is a
+*store* keyed by turn rather than a delivery path to a subscriber, two
+different hosts can append chunks to the same turn and the browser's
+stream neither knows nor cares.
+
+**What it would cost.** Running the pre-computer phase somewhere fast
+means running the agent loop off the worker. That contradicts a standing
+rule -- the agent loop does not go on Lambda -- stated in `AGENTS.md`,
+`docs/STACK.md`, and `computer/README.md`. It also risks a second
+implementation of the loop, which the working rules forbid.
+
+**Do not do this on your own initiative.** The gates above should be
+tried first; they are simpler and may make it unnecessary. If image pull
+turns out to dominate and the gates are not enough, bring it back as an
+explicit proposal to relax that rule.
 
 ## How to work on this
 

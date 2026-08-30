@@ -88,6 +88,12 @@ A stream scoped to **one turn** is request-shaped, so the whole control
 plane can bill per request and cost nothing when nobody is working. The
 computer already scales to zero; now the API does too.
 
+A bot starts talking immediately, even from cold. Getting its computer
+ready runs alongside the turn instead of in front of it: the agent begins
+the model loop as soon as it has network and memory, and waits for a
+display only if it actually needs one. A cold computer delays a bot's
+first click, not its first word.
+
 The principle is: nothing bills while nobody is working. The reason is
 not the monthly saving, which is small for one household. It is that a
 per-request control plane serves many tenants at near-linear marginal

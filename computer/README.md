@@ -40,6 +40,23 @@ v1 contents:
 - noVNC (or equivalent) for watch and human takeover (next)
 - `chatticus-worker` / `chatticus-agent` (next)
 
+## Startup ordering
+
+The agent must be able to answer while the workplace is still coming up.
+Bring capabilities up independently and let `chatticus-agent` block only
+on the one it needs:
+
+| Gate | Needed for |
+| --- | --- |
+| Process and network | Model calls, memory, MCP and connector tools |
+| `/workspace` hydrated | File actions |
+| Browser profile hydrated, display and Chromium up | Browser actions |
+| noVNC or equivalent | A human watching or taking over |
+
+Do not serialize these behind one "ready" flag, and do not hold the agent
+behind snapshot hydration. Hydration must finish before the first file or
+browser action, not before the first model call.
+
 Do not put this runtime on Lambda.
 
 See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) and

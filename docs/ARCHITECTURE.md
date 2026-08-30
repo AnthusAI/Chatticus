@@ -108,6 +108,19 @@ path.
 
 Multiple virtual displays (`:1`, `:2`, …) are the bot screens.
 
+**Startup ordering is a product requirement, not an implementation
+detail.** The container brings up its capabilities independently and
+`chatticus-agent` blocks only on the gate it needs:
+
+| Gate | Needed for |
+| --- | --- |
+| Process and network | Model calls, memory, MCP and connector tools |
+| `/workspace` hydrated | File actions |
+| Browser profile hydrated, display and Chromium up | Browser actions |
+| Watch and takeover surface | A human watching or taking over |
+
+Do not add a single "computer ready" barrier in front of the agent.
+
 ## Computer snapshots
 
 A host is not the computer. The garage Mac is a host in the same sense
@@ -146,7 +159,13 @@ the snapshot bucket as the container root.
 
 ## Agent loop
 
-The model loop runs **on the worker**:
+The model loop runs **on the worker**.
+
+It starts as soon as the worker has network and memory. It does **not**
+wait for the display, Chromium, or a hydrated `/workspace`; those come up
+in parallel and gate only the actions that need them. A turn that answers
+from memory or works through MCP servers never waits for a browser. See
+challenge 5 in [Design challenges](DESIGN_CHALLENGES.md).
 
 1. Load bot memory, conversation, skills, and the tool list (MCP + computer
    actions + tools from the model provider).

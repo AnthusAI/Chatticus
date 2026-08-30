@@ -90,6 +90,10 @@ both before arguing for a change. Two that are misread most often:
 - Chatticus does not need throughput or scale. One household, a handful
   of concurrent turns. Serverless here is about the idle floor. Do not
   engineer for load that does not exist.
+- Chatticus does need a bot to answer while its computer is still
+  booting. Readiness is per-capability. Never put one "computer ready"
+  barrier in front of the agent loop, and never hold the agent behind
+  snapshot hydration.
 
 See `docs/MESSAGING.md` for the design and `docs/DESIGN_CHALLENGES.md`
 for the reasoning. Do not add a CDK control-plane stack until the

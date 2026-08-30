@@ -97,7 +97,9 @@ exists to avoid.
 1. The browser POSTs a message and gets back a `turn_id`.
 2. It opens `GET /turns/{turn_id}/stream` and reads server-sent events.
 3. The worker pulls the job, runs the model loop, and POSTs coalesced
-   chunks (roughly every 250 milliseconds, not one per token).
+   chunks (roughly every 250 milliseconds, not one per token). It starts
+   the model loop as soon as it has network and memory; it does not wait
+   for a display or a hydrated workspace it may never use.
 4. The streaming function polls for chunks after its cursor and writes
    them out as events.
 5. On `turn.completed` one message row is committed. The client reloads
@@ -131,9 +133,20 @@ server-sent events are sufficient and a WebSocket is not needed.
 | --- | --- | --- |
 | `thread.message.created` | A row is committed | yes, that row |
 | `turn.started` | A bot turn begins streaming | no |
+| `turn.waiting` | The turn is blocked on a readiness gate, naming which (for example a computer still booting) | no |
 | `turn.token` | One coalesced chunk | no |
 | `turn.completed` | Chunks are joined into one row | yes, one row |
 | `approval.required` | A proposed action is blocked | the proposal, not the action |
+
+### Waiting is a state, not dead air
+
+A cold computer delays a bot's first *computer action*. It must not
+delay the bot's first *word*. When a turn does block on a readiness
+gate, it emits `turn.waiting` naming what it is waiting for, so the web
+app can show "starting your computer" rather than a spinner that is
+indistinguishable from a hang.
+
+See challenge 5 in [Design challenges](DESIGN_CHALLENGES.md).
 
 ### The invariant
 
