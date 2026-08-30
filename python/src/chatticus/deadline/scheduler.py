@@ -50,19 +50,23 @@ class EventBridgeTurnDeadlineScheduler:
         name = turn_deadline_schedule_name(tenant_id, turn_id)
         payload = json.dumps({"tenant_id": tenant_id, "turn_id": turn_id})
         expression = f"at({format_scheduler_at(deadline_at)})"
-        self._client.create_schedule(
-            Name=name,
-            GroupName=self._schedule_group,
-            ScheduleExpression=expression,
-            ScheduleExpressionTimezone="UTC",
-            FlexibleTimeWindow={"Mode": "OFF"},
-            Target={
+        request = {
+            "Name": name,
+            "GroupName": self._schedule_group,
+            "ScheduleExpression": expression,
+            "ScheduleExpressionTimezone": "UTC",
+            "FlexibleTimeWindow": {"Mode": "OFF"},
+            "Target": {
                 "Arn": self._target_arn,
                 "RoleArn": self._role_arn,
                 "Input": payload,
             },
-            ActionAfterCompletion="DELETE",
-        )
+            "ActionAfterCompletion": "DELETE",
+        }
+        try:
+            self._client.create_schedule(**request)
+        except self._client.exceptions.ConflictException:
+            self._client.update_schedule(**request)
         logger.info(
             "turn_deadline_scheduled tenant_id=%s turn_id=%s at=%s",
             tenant_id,

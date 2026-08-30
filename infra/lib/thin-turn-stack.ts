@@ -132,6 +132,15 @@ export class ThinTurnStack extends cdk.Stack {
     });
 
     const turnDeadlineScheduleGroupName = `chatticus-${environmentName}-turn-deadlines`;
+    const turnDeadlineFunctionName = `chatticus-${environmentName}-turn-deadline`;
+    const turnDeadlineSchedulerRoleName = `chatticus-${environmentName}-turn-deadline-scheduler`;
+    const turnDeadlineTargetArn = cdk.Stack.of(this).formatArn({
+      service: "lambda",
+      resource: "function",
+      resourceName: turnDeadlineFunctionName,
+      arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
+    });
+    const turnDeadlineSchedulerRoleArn = `arn:aws:iam::${this.account}:role/${turnDeadlineSchedulerRoleName}`;
     const turnDeadlineScheduleGroup = new scheduler.CfnScheduleGroup(
       this,
       "TurnDeadlineGroup",
@@ -146,6 +155,12 @@ export class ThinTurnStack extends cdk.Stack {
       OPENAI_API_KEY_PARAMETER: OPENAI_PARAMETER_NAME,
     };
 
+    const turnDeadlineSchedulerEnv: Record<string, string> = {
+      CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP: turnDeadlineScheduleGroupName,
+      CHATTICUS_TURN_DEADLINE_TARGET_ARN: turnDeadlineTargetArn,
+      CHATTICUS_TURN_DEADLINE_ROLE_ARN: turnDeadlineSchedulerRoleArn,
+    };
+
     const httpFunction = new lambda.Function(this, "FrontDoor", {
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: "run.sh",
@@ -156,6 +171,7 @@ export class ThinTurnStack extends cdk.Stack {
       description: "Per-request Chatticus HTTP front door with turn-scoped SSE.",
       environment: {
         ...sharedEnv,
+        ...turnDeadlineSchedulerEnv,
         AWS_LAMBDA_EXEC_WRAPPER: "/opt/bootstrap",
         AWS_LWA_INVOKE_MODE: "response_stream",
         AWS_LWA_PORT: "8080",
@@ -164,7 +180,9 @@ export class ThinTurnStack extends cdk.Stack {
       },
       code: httpCode,
     });
+
     const deadlineFunction = new lambda.Function(this, "TurnDeadline", {
+      functionName: turnDeadlineFunctionName,
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: "chatticus.deadline.lambda_handler.handler",
       architecture: lambda.Architecture.X86_64,
@@ -172,22 +190,17 @@ export class ThinTurnStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(60),
       description:
         "EventBridge Scheduler target: recover wedged turns without an always-on reaper.",
-      environment: sharedEnv,
+      environment: { ...sharedEnv, ...turnDeadlineSchedulerEnv },
       code: httpCode,
     });
     table.grantReadWriteData(deadlineFunction);
     turnQueue.grantSendMessages(deadlineFunction);
 
     const schedulerInvokeRole = new iam.Role(this, "TurnDeadlineSchedulerRole", {
+      roleName: turnDeadlineSchedulerRoleName,
       assumedBy: new iam.ServicePrincipal("scheduler.amazonaws.com"),
     });
     deadlineFunction.grantInvoke(schedulerInvokeRole);
-
-    const turnDeadlineSchedulerEnv: Record<string, string> = {
-      CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP: turnDeadlineScheduleGroupName,
-      CHATTICUS_TURN_DEADLINE_TARGET_ARN: deadlineFunction.functionArn,
-      CHATTICUS_TURN_DEADLINE_ROLE_ARN: schedulerInvokeRole.roleArn,
-    };
 
     const turnDeadlineScheduleArn = `arn:aws:scheduler:${this.region}:${this.account}:schedule/${turnDeadlineScheduleGroupName}/*`;
     const manageTurnDeadlineSchedules = new iam.PolicyStatement({
@@ -201,7 +214,7 @@ export class ThinTurnStack extends cdk.Stack {
     });
     const passSchedulerInvokeRole = new iam.PolicyStatement({
       actions: ["iam:PassRole"],
-      resources: [schedulerInvokeRole.roleArn],
+      resources: [turnDeadlineSchedulerRoleArn],
       conditions: {
         StringEquals: {
           "iam:PassedToService": "scheduler.amazonaws.com",
@@ -220,33 +233,9 @@ export class ThinTurnStack extends cdk.Stack {
         ],
       }),
     );
-    httpFunction.addEnvironment(
-      "CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP",
-      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP,
-    );
-    httpFunction.addEnvironment(
-      "CHATTICUS_TURN_DEADLINE_TARGET_ARN",
-      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_TARGET_ARN,
-    );
-    httpFunction.addEnvironment(
-      "CHATTICUS_TURN_DEADLINE_ROLE_ARN",
-      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_ROLE_ARN,
-    );
     httpFunction.addToRolePolicy(manageTurnDeadlineSchedules);
     httpFunction.addToRolePolicy(passSchedulerInvokeRole);
 
-    deadlineFunction.addEnvironment(
-      "CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP",
-      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP,
-    );
-    deadlineFunction.addEnvironment(
-      "CHATTICUS_TURN_DEADLINE_TARGET_ARN",
-      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_TARGET_ARN,
-    );
-    deadlineFunction.addEnvironment(
-      "CHATTICUS_TURN_DEADLINE_ROLE_ARN",
-      turnDeadlineSchedulerEnv.CHATTICUS_TURN_DEADLINE_ROLE_ARN,
-    );
     deadlineFunction.addToRolePolicy(manageTurnDeadlineSchedules);
     deadlineFunction.addToRolePolicy(passSchedulerInvokeRole);
 
@@ -271,6 +260,8 @@ export class ThinTurnStack extends cdk.Stack {
       },
     });
 
+    const cloudFrontUrlParameterName = `${parameterPrefix}/cloudfront-url`;
+
     const workerFunction = new lambda.Function(this, "ComputerlessWorker", {
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: "chatticus.worker.lambda_handler.handler",
@@ -280,7 +271,6 @@ export class ThinTurnStack extends cdk.Stack {
       description: "SQS computerless worker: one OpenAI text loop per turn job.",
       environment: {
         ...sharedEnv,
-        CHATTICUS_FRONT_DOOR_URL: functionUrl.url,
         CHATTICUS_INVOKE_KEY: invokeSecret.secretValue.unsafeUnwrap(),
       },
       code: httpCode,
@@ -293,6 +283,7 @@ export class ThinTurnStack extends cdk.Stack {
         actions: ["ssm:GetParameter"],
         resources: [
           `arn:aws:ssm:${this.region}:${this.account}:parameter${OPENAI_PARAMETER_NAME}`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${cloudFrontUrlParameterName}`,
         ],
       }),
     );
@@ -332,7 +323,7 @@ export class ThinTurnStack extends cdk.Stack {
     const cloudFrontUrl = `https://${distribution.distributionDomainName}`;
 
     new ssm.StringParameter(this, "CloudFrontUrlParameter", {
-      parameterName: `${parameterPrefix}/cloudfront-url`,
+      parameterName: cloudFrontUrlParameterName,
       stringValue: cloudFrontUrl,
       description: `CloudFront origin for the ${environmentName} thin-turn front door.`,
     });

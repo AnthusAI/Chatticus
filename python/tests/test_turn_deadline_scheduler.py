@@ -43,12 +43,22 @@ class _FakeSchedulerClient:
         class ResourceNotFoundException(Exception):
             pass
 
+        class ConflictException(Exception):
+            pass
+
     def __init__(self) -> None:
         self.created: list[dict[str, object]] = []
+        self.updated: list[dict[str, object]] = []
         self.deleted: list[tuple[str, str]] = []
 
     def create_schedule(self, **kwargs: object) -> None:
+        name = kwargs["Name"]
+        if any(entry["Name"] == name for entry in self.created):
+            raise self.exceptions.ConflictException(name)
         self.created.append(kwargs)
+
+    def update_schedule(self, **kwargs: object) -> None:
+        self.updated.append(kwargs)
 
     def delete_schedule(self, Name: str, GroupName: str) -> None:
         self.deleted.append((Name, GroupName))
@@ -70,6 +80,22 @@ def test_eventbridge_scheduler_create_and_cancel() -> None:
     assert client.created[0]["ActionAfterCompletion"] == "DELETE"
     scheduler.cancel("anthus", "turn-42")
     assert client.deleted == [(name, "chatticus-development-turn-deadlines")]
+
+
+def test_eventbridge_scheduler_updates_on_conflict() -> None:
+    client = _FakeSchedulerClient()
+    scheduler = EventBridgeTurnDeadlineScheduler(
+        "group",
+        "arn:aws:lambda:us-east-1:123:function:deadline",
+        "arn:aws:iam::123:role/scheduler",
+        client=client,
+    )
+    first = datetime(2026, 8, 30, 15, 0, tzinfo=UTC)
+    second = datetime(2026, 8, 30, 16, 0, tzinfo=UTC)
+    scheduler.schedule("anthus", "turn-42", first)
+    scheduler.schedule("anthus", "turn-42", second)
+    assert len(client.created) == 1
+    assert client.updated[0]["ScheduleExpression"] == "at(2026-08-30T16:00:00)"
 
 
 def test_eventbridge_scheduler_cancel_ignores_missing_schedule() -> None:
