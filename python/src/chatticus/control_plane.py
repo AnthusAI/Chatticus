@@ -7,16 +7,25 @@ import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from chatticus.messaging.store import (
+    InMemoryMessagingStore,
+    MessagingStore,
+    default_chunk_expiry,
+)
 from chatticus.models import (
     AWS_COST_CLASSES,
     CONSEQUENTIAL_ACTION_TYPES,
     COST_CLASS_RANK,
     ActorKind,
-    ActorNotInThreadError,
+    ActorNotInChannelError,
     ApprovalDecision,
     AutoReviewRule,
     AutoReviewRuleKind,
     Bot,
+    Channel,
+    ChannelNotFoundError,
+    ChannelParticipant,
+    ChannelTenantMismatchError,
     Computer,
     ComputerDirtyError,
     ComputerNotHydratedError,
@@ -25,17 +34,15 @@ from chatticus.models import (
     CostClass,
     DuplicateBotNameError,
     Message,
-    RealtimeEvent,
-    RealtimeEventKind,
-    RealtimeSubscription,
     SnapshotRequiredError,
-    Thread,
-    ThreadNotFoundError,
-    ThreadParticipant,
-    ThreadTenantMismatchError,
+    Turn,
+    TurnAccessDeniedError,
+    TurnEvent,
+    TurnEventKind,
     TurnJob,
-    TurnStream,
-    TurnStreamNotFoundError,
+    TurnNotFoundError,
+    TurnStatus,
+    TurnStreamWatcher,
     WorkerDoesNotHostComputerError,
     WorkerRecord,
     WorkerRegistration,
@@ -51,10 +58,16 @@ class ControlPlane:
     computer image sit on top of the same rules.
     """
 
-    def __init__(self, heartbeat_timeout: timedelta | None = None) -> None:
+    def __init__(
+        self,
+        heartbeat_timeout: timedelta | None = None,
+        messaging_store: MessagingStore | None = None,
+    ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
         :type heartbeat_timeout: timedelta | None
+        :param messaging_store: Durable channel and turn persistence.
+        :type messaging_store: MessagingStore | None
         """
         self.heartbeat_timeout = heartbeat_timeout or timedelta(seconds=30)
         self._now = datetime.now(UTC)
@@ -65,10 +78,10 @@ class ControlPlane:
         self._snapshots: dict[str, ComputerSnapshot] = {}
         self._auto_review_rules: list[AutoReviewRule] = []
         self._jobs: list[TurnJob] = []
-        self._threads: dict[str, Thread] = {}
-        self._messages: dict[str, list[Message]] = {}
-        self._subscriptions: dict[str, RealtimeSubscription] = {}
-        self._streams: dict[str, TurnStream] = {}
+        self._messaging_store = messaging_store or InMemoryMessagingStore()
+        self._turn_watchers: dict[str, TurnStreamWatcher] = {}
+        self._channel_tenants: dict[str, str] = {}
+        self._turn_tenants: dict[str, str] = {}
 
     def set_now(self, moment: datetime) -> None:
         """Pin the clock so behavior specs can expire heartbeats."""
@@ -160,9 +173,10 @@ class ControlPlane:
             bot = self._bots[bot_id]
             resolved_user_id = bot.user_id
             resolved_tenant_id = bot.tenant_id
+        needs_computer = "computer" in required_capabilities
         resolved_computer_id = computer_id
         resolved_policy = computer_policy
-        if resolved_user_id is not None:
+        if needs_computer and resolved_user_id is not None:
             computer = self.ensure_computer(resolved_tenant_id, resolved_user_id)
             if resolved_computer_id is None:
                 resolved_computer_id = computer.computer_id
@@ -178,6 +192,7 @@ class ControlPlane:
             computer_id=resolved_computer_id,
             user_id=resolved_user_id,
             bot_id=bot_id,
+            turn_id=None,
         )
         self._jobs.append(job)
         return job
@@ -512,53 +527,66 @@ class ControlPlane:
             return ApprovalDecision.REQUIRE_APPROVAL
         return ApprovalDecision.ALLOW
 
-    def create_thread(
+    def remove_pending_job(self, job_id: str) -> None:
+        """Drop a turn job after a worker finishes it."""
+        self._jobs = [job for job in self._jobs if job.job_id != job_id]
+
+    def set_computer_stopped(self, tenant_id: str, user_id: str, stopped: bool) -> None:
+        """Mark the household computer stopped without deleting it."""
+        computer = self.ensure_computer(tenant_id, user_id)
+        computer.stopped = stopped
+
+    def computer_is_stopped(self, tenant_id: str, user_id: str) -> bool:
+        """Return whether the household computer is stopped."""
+        return self.computer_for_user(tenant_id, user_id).stopped
+
+    def create_channel(
         self,
         tenant_id: str,
         user_id: str,
         bot_ids: list[str] | None = None,
-    ) -> Thread:
-        """Open a thread for a user and the given bots.
+    ) -> Channel:
+        """Open a channel for a user and the given bots.
 
         The human is always a participant. Each bot must belong to the same
         tenant and user.
 
         :raises KeyError: If a bot id is unknown.
-        :raises ActorNotInThreadError: If a bot belongs to another user.
+        :raises ActorNotInChannelError: If a bot belongs to another user.
         """
-        participants = [ThreadParticipant(kind=ActorKind.HUMAN, actor_id=user_id)]
+        participants = [ChannelParticipant(kind=ActorKind.HUMAN, actor_id=user_id)]
         for bot_id in bot_ids or []:
             bot = self._bots[bot_id]
             if bot.tenant_id != tenant_id or bot.user_id != user_id:
-                raise ActorNotInThreadError(
+                raise ActorNotInChannelError(
                     f"Bot {bot_id!r} does not belong to tenant {tenant_id!r} "
                     f"user {user_id!r}."
                 )
-            participants.append(ThreadParticipant(kind=ActorKind.BOT, actor_id=bot_id))
-        thread = Thread(
-            thread_id=str(uuid4()),
+            participants.append(ChannelParticipant(kind=ActorKind.BOT, actor_id=bot_id))
+        channel = Channel(
+            channel_id=str(uuid4()),
             tenant_id=tenant_id,
             user_id=user_id,
             participants=participants,
         )
-        self._threads[thread.thread_id] = thread
-        self._messages[thread.thread_id] = []
-        return thread
+        self._messaging_store.put_channel(channel)
+        self._channel_tenants[channel.channel_id] = tenant_id
+        return channel
 
-    def thread(self, thread_id: str) -> Thread:
+    def channel(self, tenant_id: str, channel_id: str) -> Channel:
         """
-        Return a thread.
+        Return a channel.
 
-        :raises ThreadNotFoundError: If the thread is unknown.
+        :raises ChannelNotFoundError: If the channel is unknown.
         """
-        thread = self._threads.get(thread_id)
-        if thread is None:
-            raise ThreadNotFoundError(f"Thread {thread_id!r} does not exist.")
-        return thread
+        record = self._messaging_store.get_channel(tenant_id, channel_id)
+        if record is None:
+            raise ChannelNotFoundError(f"Channel {channel_id!r} does not exist.")
+        return record
 
-    def post_message(
+    def post_channel_message(
         self,
-        thread_id: str,
+        channel_id: str,
         tenant_id: str,
         author_kind: ActorKind,
         author_id: str,
@@ -567,214 +595,306 @@ class ControlPlane:
         *,
         enqueue_turn: bool = True,
     ) -> Message:
-        """Append a committed message and fan it out on the realtime API.
+        """Append a committed message and enqueue a cpu turn when addressed.
 
-        Addressing a bot enqueues a turn for that bot. Streaming tokens must
-        not call this until the turn is complete.
-
-        :raises ThreadNotFoundError: If the thread is unknown.
-        :raises ThreadTenantMismatchError: If the tenant does not own the
-            thread.
-        :raises ActorNotInThreadError: If the author or addressee is not a
+        :raises ChannelNotFoundError: If the channel is unknown.
+        :raises ChannelTenantMismatchError: If the tenant does not own the
+            channel.
+        :raises ActorNotInChannelError: If the author or addressee is not a
             participant.
         """
-        thread = self._require_thread_tenant(thread_id, tenant_id)
-        self._require_participant(thread, author_kind, author_id)
+        channel = self._require_channel_tenant(channel_id, tenant_id)
+        self._require_participant(channel, author_kind, author_id)
         if addressed_to_bot_id is not None:
-            self._require_participant(thread, ActorKind.BOT, addressed_to_bot_id)
+            self._require_participant(channel, ActorKind.BOT, addressed_to_bot_id)
         message = Message(
             message_id=str(uuid4()),
-            thread_id=thread.thread_id,
-            tenant_id=thread.tenant_id,
-            seq=thread.next_seq,
+            channel_id=channel.channel_id,
+            tenant_id=channel.tenant_id,
+            seq=channel.next_seq,
             author_kind=author_kind,
             author_id=author_id,
             body=body,
             addressed_to_bot_id=addressed_to_bot_id,
             created_at=self._now,
         )
-        thread.next_seq += 1
-        self._messages[thread.thread_id].append(message)
-        self._fanout(
-            RealtimeEvent(
-                event_id=str(uuid4()),
-                tenant_id=thread.tenant_id,
-                thread_id=thread.thread_id,
-                kind=RealtimeEventKind.THREAD_MESSAGE_CREATED,
-                message_seq=message.seq,
-                message_id=message.message_id,
-                bot_id=addressed_to_bot_id,
-                body=body,
-            )
-        )
+        channel.next_seq += 1
+        self._messaging_store.put_channel(channel)
+        self._messaging_store.put_message(message)
         if enqueue_turn and addressed_to_bot_id is not None:
-            self.enqueue_turn(
-                thread.tenant_id,
-                frozenset({"computer"}),
-                bot_id=addressed_to_bot_id,
-            )
+            self._start_turn_for_bot(channel, addressed_to_bot_id)
         return message
 
-    def list_messages(
+    def list_channel_messages(
         self,
-        thread_id: str,
+        channel_id: str,
         tenant_id: str,
         after_seq: int = 0,
     ) -> list[Message]:
         """Return committed messages with seq greater than ``after_seq``.
 
-        This is the reconnect path for the realtime API. In-flight tokens are
-        not in this list.
-
-        :raises ThreadNotFoundError: If the thread is unknown.
-        :raises ThreadTenantMismatchError: If the tenant does not own the
-            thread.
+        :raises ChannelNotFoundError: If the channel is unknown.
+        :raises ChannelTenantMismatchError: If the tenant does not own the
+            channel.
         """
-        thread = self._require_thread_tenant(thread_id, tenant_id)
-        return [
-            message
-            for message in self._messages[thread.thread_id]
-            if message.seq > after_seq
-        ]
-
-    def subscribe_realtime(
-        self,
-        thread_id: str,
-        tenant_id: str,
-    ) -> RealtimeSubscription:
-        """Subscribe a chattic.us session to the thread's realtime API.
-
-        :raises ThreadNotFoundError: If the thread is unknown.
-        :raises ThreadTenantMismatchError: If the tenant does not own the
-            thread.
-        """
-        thread = self._require_thread_tenant(thread_id, tenant_id)
-        subscription = RealtimeSubscription(
-            subscription_id=str(uuid4()),
-            tenant_id=thread.tenant_id,
-            thread_id=thread.thread_id,
+        channel = self._require_channel_tenant(channel_id, tenant_id)
+        return self._messaging_store.list_messages(
+            channel.tenant_id, channel.channel_id, after_seq
         )
-        self._subscriptions[subscription.subscription_id] = subscription
-        return subscription
 
-    def subscription(self, subscription_id: str) -> RealtimeSubscription:
+    def turn(self, tenant_id: str, turn_id: str) -> Turn:
         """
-        Return a realtime API subscription.
+        Return one turn.
 
-        :raises KeyError: If the subscription is unknown.
+        :raises TurnNotFoundError: If the turn is unknown.
         """
-        return self._subscriptions[subscription_id]
+        record = self._messaging_store.get_turn(tenant_id, turn_id)
+        if record is None:
+            raise TurnNotFoundError(f"Turn {turn_id!r} does not exist.")
+        return record
 
-    def start_turn_stream(self, thread_id: str, tenant_id: str, bot_id: str) -> str:
-        """Open an in-flight token stream for a bot turn.
+    def active_turn_for_channel(self, tenant_id: str, channel_id: str) -> Turn | None:
+        """Return the active turn on a channel, if any."""
+        messages = self._messaging_store.list_messages(tenant_id, channel_id)
+        for message in reversed(messages):
+            if message.addressed_to_bot_id is None:
+                continue
+            for job in self.pending_jobs_for_bot(message.addressed_to_bot_id):
+                if job.turn_id is not None:
+                    turn = self._messaging_store.get_turn(tenant_id, job.turn_id)
+                    if (
+                        turn is not None
+                        and turn.channel_id == channel_id
+                        and turn.status == TurnStatus.ACTIVE
+                    ):
+                        return turn
+        return None
 
-        :raises ThreadNotFoundError: If the thread is unknown.
-        :raises ThreadTenantMismatchError: If the tenant does not own the
-            thread.
-        :raises ActorNotInThreadError: If the bot is not a participant.
+    def turn_prompt(self, tenant_id: str, turn_id: str) -> str:
+        """Build a text-only prompt from channel messages for the model loop."""
+        turn = self.turn(tenant_id, turn_id)
+        messages = self._messaging_store.list_messages(tenant_id, turn.channel_id)
+        lines = [f"{message.author_kind}: {message.body}" for message in messages]
+        return "\n".join(lines)
+
+    def post_turn_chunk(
+        self,
+        turn_id: str,
+        tenant_id: str,
+        token: str,
+        *,
+        complete: bool = False,
+    ) -> None:
+        """Append one coalesced chunk and optionally complete the turn.
+
+        :raises TurnNotFoundError: If the turn is unknown.
         """
-        thread = self._require_thread_tenant(thread_id, tenant_id)
-        self._require_participant(thread, ActorKind.BOT, bot_id)
-        stream = TurnStream(
-            stream_id=str(uuid4()),
-            thread_id=thread.thread_id,
-            tenant_id=thread.tenant_id,
+        turn = self.turn(tenant_id, turn_id)
+        if turn.status != TurnStatus.ACTIVE:
+            return
+        expires_at = default_chunk_expiry(self._now)
+        self._messaging_store.put_turn_chunk(
+            tenant_id,
+            turn_id,
+            turn.next_chunk_seq,
+            token,
+            expires_at,
+        )
+        turn.next_chunk_seq += 1
+        self._messaging_store.put_turn(turn)
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TURN_TOKEN,
+            token=token,
+        )
+        if complete:
+            self._complete_turn(turn)
+
+    def complete_turn(self, tenant_id: str, turn_id: str) -> Message:
+        """Join chunks into one committed message row.
+
+        :raises TurnNotFoundError: If the turn is unknown.
+        """
+        turn = self.turn(tenant_id, turn_id)
+        return self._complete_turn(turn)
+
+    def open_turn_stream(
+        self,
+        turn_id: str,
+        tenant_id: str,
+        after_seq: int = 0,
+    ) -> TurnStreamWatcher:
+        """Open GET /turns/{turn_id}/stream for one turn.
+
+        :raises TurnNotFoundError: If the turn is unknown.
+        :raises TurnAccessDeniedError: If the tenant does not own the turn.
+        """
+        owning_tenant = self._turn_tenants.get(turn_id)
+        if owning_tenant is None:
+            raise TurnNotFoundError(f"Turn {turn_id!r} does not exist.")
+        if owning_tenant != tenant_id:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot watch turn {turn_id!r}."
+            )
+        replay = self._messaging_store.list_turn_events(
+            owning_tenant, turn_id, after_seq
+        )
+        watcher = TurnStreamWatcher(
+            watcher_id=str(uuid4()),
+            tenant_id=tenant_id,
+            turn_id=turn_id,
+            after_seq=after_seq,
+            events=list(replay),
+        )
+        self._turn_watchers[watcher.watcher_id] = watcher
+        return watcher
+
+    def close_turn_stream(self, watcher_id: str) -> None:
+        """Close one turn-scoped stream without affecting the turn."""
+        watcher = self._turn_watchers.get(watcher_id)
+        if watcher is not None:
+            watcher.closed = True
+
+    def _start_turn_for_bot(self, channel: Channel, bot_id: str) -> Turn:
+        turn = Turn(
+            turn_id=str(uuid4()),
+            tenant_id=channel.tenant_id,
+            channel_id=channel.channel_id,
             bot_id=bot_id,
         )
-        self._streams[stream.stream_id] = stream
-        self._fanout(
-            RealtimeEvent(
-                event_id=str(uuid4()),
-                tenant_id=thread.tenant_id,
-                thread_id=thread.thread_id,
-                kind=RealtimeEventKind.TURN_STARTED,
-                bot_id=bot_id,
+        self._messaging_store.put_turn(turn)
+        self._turn_tenants[turn.turn_id] = channel.tenant_id
+        self._append_turn_event(turn, TurnEventKind.TURN_STARTED)
+        job = self.enqueue_turn(
+            channel.tenant_id,
+            frozenset({"cpu"}),
+            bot_id=bot_id,
+        )
+        self._bind_job_to_turn(job.job_id, turn.turn_id)
+        return turn
+
+    def _bind_job_to_turn(self, job_id: str, turn_id: str) -> None:
+        for index, job in enumerate(self._jobs):
+            if job.job_id == job_id:
+                self._jobs[index] = TurnJob(
+                    job_id=job.job_id,
+                    tenant_id=job.tenant_id,
+                    required_capabilities=job.required_capabilities,
+                    computer_policy=job.computer_policy,
+                    computer_id=job.computer_id,
+                    user_id=job.user_id,
+                    bot_id=job.bot_id,
+                    turn_id=turn_id,
+                )
+                return
+
+    def _complete_turn(self, turn: Turn) -> Message:
+        if turn.status == TurnStatus.COMPLETED:
+            chunks = self._messaging_store.list_turn_chunks(
+                turn.tenant_id, turn.turn_id
             )
-        )
-        return stream.stream_id
-
-    def append_turn_token(self, stream_id: str, token: str) -> None:
-        """Push one token on the realtime API. Does not write a message row.
-
-        :raises TurnStreamNotFoundError: If the stream is unknown.
-        """
-        stream = self._streams.get(stream_id)
-        if stream is None:
-            raise TurnStreamNotFoundError(f"Turn stream {stream_id!r} does not exist.")
-        stream.tokens.append(token)
-        self._fanout(
-            RealtimeEvent(
-                event_id=str(uuid4()),
-                tenant_id=stream.tenant_id,
-                thread_id=stream.thread_id,
-                kind=RealtimeEventKind.TURN_TOKEN,
-                bot_id=stream.bot_id,
-                token=token,
+            messages = self._messaging_store.list_messages(
+                turn.tenant_id, turn.channel_id
             )
-        )
-
-    def complete_turn_stream(self, stream_id: str) -> Message:
-        """Coalesce streamed tokens into one message row.
-
-        Completing a stream does not enqueue another turn.
-
-        :raises TurnStreamNotFoundError: If the stream is unknown.
-        """
-        stream = self._streams.pop(stream_id, None)
-        if stream is None:
-            raise TurnStreamNotFoundError(f"Turn stream {stream_id!r} does not exist.")
-        body = "".join(stream.tokens)
-        message = self.post_message(
-            stream.thread_id,
-            stream.tenant_id,
-            ActorKind.BOT,
-            stream.bot_id,
-            body,
-            enqueue_turn=False,
-        )
-        self._fanout(
-            RealtimeEvent(
-                event_id=str(uuid4()),
-                tenant_id=stream.tenant_id,
-                thread_id=stream.thread_id,
-                kind=RealtimeEventKind.TURN_COMPLETED,
-                message_seq=message.seq,
-                message_id=message.message_id,
-                bot_id=stream.bot_id,
+            for message in reversed(messages):
+                if (
+                    message.author_kind == ActorKind.BOT
+                    and message.author_id == turn.bot_id
+                ):
+                    return message
+            body = "".join(chunks)
+            return Message(
+                message_id=str(uuid4()),
+                channel_id=turn.channel_id,
+                tenant_id=turn.tenant_id,
+                seq=0,
+                author_kind=ActorKind.BOT,
+                author_id=turn.bot_id,
                 body=body,
+                addressed_to_bot_id=None,
+                created_at=self._now,
             )
+        chunks = self._messaging_store.list_turn_chunks(turn.tenant_id, turn.turn_id)
+        body = "".join(chunks)
+        channel = self.channel(turn.tenant_id, turn.channel_id)
+        message = Message(
+            message_id=str(uuid4()),
+            channel_id=channel.channel_id,
+            tenant_id=channel.tenant_id,
+            seq=channel.next_seq,
+            author_kind=ActorKind.BOT,
+            author_id=turn.bot_id,
+            body=body,
+            addressed_to_bot_id=None,
+            created_at=self._now,
         )
+        channel.next_seq += 1
+        self._messaging_store.put_channel(channel)
+        self._messaging_store.put_message(message)
+        turn.status = TurnStatus.COMPLETED
+        self._messaging_store.put_turn(turn)
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TURN_COMPLETED,
+            message_seq=message.seq,
+            body=body,
+        )
+        for watcher in self._turn_watchers.values():
+            if watcher.turn_id == turn.turn_id and not watcher.closed:
+                watcher.closed = True
         return message
 
-    def _require_thread_tenant(self, thread_id: str, tenant_id: str) -> Thread:
-        thread = self.thread(thread_id)
-        if thread.tenant_id != tenant_id:
-            raise ThreadTenantMismatchError(
-                f"Tenant {tenant_id!r} does not own thread {thread_id!r}."
+    def _append_turn_event(
+        self,
+        turn: Turn,
+        kind: TurnEventKind,
+        *,
+        token: str | None = None,
+        message_seq: int | None = None,
+        body: str | None = None,
+    ) -> TurnEvent:
+        event = TurnEvent(
+            event_id=str(uuid4()),
+            tenant_id=turn.tenant_id,
+            turn_id=turn.turn_id,
+            channel_id=turn.channel_id,
+            seq=turn.next_event_seq,
+            kind=kind,
+            token=token,
+            message_seq=message_seq,
+            body=body,
+        )
+        turn.next_event_seq += 1
+        self._messaging_store.put_turn(turn)
+        self._messaging_store.put_turn_event(event)
+        for watcher in self._turn_watchers.values():
+            if watcher.turn_id == turn.turn_id and not watcher.closed:
+                watcher.events.append(event)
+        return event
+
+    def _require_channel_tenant(self, channel_id: str, tenant_id: str) -> Channel:
+        owning_tenant = self._channel_tenants.get(channel_id)
+        if owning_tenant is None:
+            raise ChannelNotFoundError(f"Channel {channel_id!r} does not exist.")
+        if owning_tenant != tenant_id:
+            raise ChannelTenantMismatchError(
+                f"Tenant {tenant_id!r} does not own channel {channel_id!r}."
             )
-        return thread
+        return self.channel(tenant_id, channel_id)
 
     def _require_participant(
         self,
-        thread: Thread,
+        channel: Channel,
         kind: ActorKind,
         actor_id: str,
     ) -> None:
-        for participant in thread.participants:
+        for participant in channel.participants:
             if participant.kind == kind and participant.actor_id == actor_id:
                 return
-        raise ActorNotInThreadError(
-            f"{kind} {actor_id!r} is not a participant of thread "
-            f"{thread.thread_id!r}."
+        raise ActorNotInChannelError(
+            f"{kind} {actor_id!r} is not a participant of channel "
+            f"{channel.channel_id!r}."
         )
-
-    def _fanout(self, event: RealtimeEvent) -> None:
-        for subscription in self._subscriptions.values():
-            if (
-                subscription.tenant_id == event.tenant_id
-                and subscription.thread_id == event.thread_id
-            ):
-                subscription.events.append(event)
 
 
 def _disk_checksum(workspace: dict[str, str], browser_sessions: dict[str, str]) -> str:

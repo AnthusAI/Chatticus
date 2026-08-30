@@ -28,6 +28,9 @@ def before_scenario(context: object, scenario: object) -> None:
     context.message_error = None
     context.other_tenant_id = None
     context.listed_messages = None
+    context.turn_stream = None
+    context.access_error = None
+    context.stream_error = None
     context.snapshot_tmpdir = tempfile.mkdtemp(prefix="chatticus-snapshot-")
 
 

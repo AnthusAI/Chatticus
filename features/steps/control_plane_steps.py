@@ -61,6 +61,9 @@ def given_empty_control_plane(context: object) -> None:
     context.message_error = None
     context.other_tenant_id = None
     context.listed_messages = None
+    context.turn_stream = None
+    context.access_error = None
+    context.stream_error = None
 
 
 @given("the heartbeat timeout is {seconds:d} seconds")

@@ -1,120 +1,166 @@
-"""Kernel tests for the message store and realtime API.
-
-The thread and TurnStream APIs are rejected by docs/MESSAGING.md.
-Executable specs live in features/messages.feature and
-features/realtime_api.feature; implement channel and turn-scoped SSE
-there before restoring kernel tests.
-"""
+"""Kernel tests for channels, turns, and the computerless worker."""
 
 from __future__ import annotations
 
+import boto3
 import pytest
+from moto import mock_aws
 
-pytestmark = pytest.mark.skip(
-    reason=(
-        "Thread/TurnStream API rejected; see docs/MESSAGING.md and features/*.feature"
-    )
+from chatticus.control_plane import ControlPlane
+from chatticus.messaging.store import (
+    DynamoMessagingStore,
+    create_messaging_table,
 )
+from chatticus.models import (
+    ActorKind,
+    ChannelTenantMismatchError,
+    TurnAccessDeniedError,
+    TurnEventKind,
+    TurnStatus,
+)
+from chatticus.worker.computerless import ComputerlessWorker, FakeTextCompletionClient
 
 
-def _thread_with_bot(plane, name: str = "Researcher"):
+def _channel_with_bot(plane: ControlPlane, name: str = "Researcher"):
     bot = plane.create_bot("anthus", "ryan", name)
-    thread = plane.create_thread("anthus", "ryan", [bot.bot_id])
-    return bot, thread
+    channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    return bot, channel
 
 
-def test_unknown_thread_raises() -> None:
-    from chatticus.control_plane import ControlPlane
-    from chatticus.models import ThreadNotFoundError
+@mock_aws
+def test_dynamo_store_roundtrip_messages_and_events() -> None:
+    table_name = "chatticus-messaging-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    plane = ControlPlane(messaging_store=store)
+    bot, channel = _channel_with_bot(plane)
+    plane.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+    )
+    messages = plane.list_channel_messages(channel.channel_id, channel.tenant_id)
+    assert len(messages) == 1
+    jobs = plane.pending_jobs_for_bot(bot.bot_id)
+    assert jobs[0].required_capabilities == frozenset({"cpu"})
+    turn_id = jobs[0].turn_id
+    assert turn_id is not None
+    plane.post_turn_chunk(turn_id, channel.tenant_id, "Hel")
+    plane.complete_turn(channel.tenant_id, turn_id)
+    messages = plane.list_channel_messages(channel.channel_id, channel.tenant_id)
+    assert len(messages) == 2
+    events = store.list_turn_events(channel.tenant_id, turn_id)
+    assert events[0].kind == TurnEventKind.TURN_STARTED
+    assert events[-1].kind == TurnEventKind.TURN_COMPLETED
 
+
+def test_cross_tenant_channel_post_is_rejected() -> None:
     plane = ControlPlane()
-    with pytest.raises(ThreadNotFoundError):
-        plane.thread("missing")
-
-
-def test_list_messages_rejects_other_tenant() -> None:
-    from chatticus.control_plane import ControlPlane
-    from chatticus.models import ThreadTenantMismatchError
-
-    plane = ControlPlane()
-    _, thread = _thread_with_bot(plane)
-    with pytest.raises(ThreadTenantMismatchError):
-        plane.list_messages(thread.thread_id, "other")
-
-
-def test_outsider_cannot_post() -> None:
-    from chatticus.control_plane import ControlPlane
-    from chatticus.models import ActorKind, ActorNotInThreadError
-
-    plane = ControlPlane()
-    _, thread = _thread_with_bot(plane)
-    with pytest.raises(ActorNotInThreadError):
-        plane.post_message(
-            thread.thread_id,
-            "anthus",
+    _, channel = _channel_with_bot(plane)
+    with pytest.raises(ChannelTenantMismatchError):
+        plane.post_channel_message(
+            channel.channel_id,
+            "other",
             ActorKind.HUMAN,
             "alex",
             "hello",
         )
 
 
-def test_addressing_a_bot_not_in_the_thread_raises() -> None:
-    from chatticus.control_plane import ControlPlane
-    from chatticus.models import ActorKind, ActorNotInThreadError
-
+def test_cpu_turn_does_not_pin_computer() -> None:
     plane = ControlPlane()
-    researcher, thread = _thread_with_bot(plane)
-    writer = plane.create_bot("anthus", "ryan", "Writer")
-    with pytest.raises(ActorNotInThreadError):
-        plane.post_message(
-            thread.thread_id,
-            "anthus",
-            ActorKind.HUMAN,
-            "ryan",
-            "hello",
-            addressed_to_bot_id=writer.bot_id,
-        )
-    assert plane.pending_jobs_for_bot(researcher.bot_id) == []
-
-
-def test_complete_turn_stream_does_not_enqueue_another_turn() -> None:
-    from chatticus.control_plane import ControlPlane
-    from chatticus.models import ActorKind
-
-    plane = ControlPlane()
-    bot, thread = _thread_with_bot(plane)
-    plane.post_message(
-        thread.thread_id,
-        "anthus",
+    bot, channel = _channel_with_bot(plane)
+    plane.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
         ActorKind.HUMAN,
         "ryan",
         "hello",
         addressed_to_bot_id=bot.bot_id,
     )
-    assert len(plane.pending_jobs_for_bot(bot.bot_id)) == 1
-    stream_id = plane.start_turn_stream(thread.thread_id, "anthus", bot.bot_id)
-    plane.append_turn_token(stream_id, "Hi")
-    plane.complete_turn_stream(stream_id)
-    assert len(plane.pending_jobs_for_bot(bot.bot_id)) == 1
+    jobs = plane.pending_jobs_for_bot(bot.bot_id)
+    assert jobs[0].computer_id is None
 
 
-def test_unknown_turn_stream_raises() -> None:
-    from chatticus.control_plane import ControlPlane
-    from chatticus.models import TurnStreamNotFoundError
-
+def test_computerless_worker_commits_one_answer_with_fake_openai() -> None:
     plane = ControlPlane()
-    with pytest.raises(TurnStreamNotFoundError):
-        plane.append_turn_token("missing", "x")
-    with pytest.raises(TurnStreamNotFoundError):
-        plane.complete_turn_stream("missing")
+    plane.set_computer_stopped("anthus", "ryan", True)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    plane.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "ping",
+        addressed_to_bot_id=bot.bot_id,
+    )
+    worker = ComputerlessWorker(
+        plane,
+        FakeTextCompletionClient(),
+    )
+    worker.complete_pending_for_bot(bot.bot_id)
+    assert plane.computer_is_stopped("anthus", "ryan")
+    messages = plane.list_channel_messages(channel.channel_id, channel.tenant_id)
+    bot_messages = [m for m in messages if m.author_kind == ActorKind.BOT]
+    assert len(bot_messages) == 1
+    assert "You said: ping" in bot_messages[0].body
 
 
-def test_bot_from_another_user_cannot_join_thread() -> None:
-    from chatticus.control_plane import ControlPlane
-    from chatticus.models import ActorNotInThreadError
-
+def test_turn_stream_replay_after_cursor() -> None:
     plane = ControlPlane()
-    plane.create_bot("anthus", "ryan", "Researcher")
-    other = plane.create_bot("anthus", "alex", "Ops")
-    with pytest.raises(ActorNotInThreadError):
-        plane.create_thread("anthus", "ryan", [other.bot_id])
+    bot, channel = _channel_with_bot(plane)
+    plane.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+    )
+    turn_id = plane.pending_jobs_for_bot(bot.bot_id)[0].turn_id
+    assert turn_id is not None
+    plane.post_turn_chunk(turn_id, channel.tenant_id, "Hel")
+    plane.post_turn_chunk(turn_id, channel.tenant_id, "lo")
+    plane.post_turn_chunk(turn_id, channel.tenant_id, "!")
+    watcher = plane.open_turn_stream(turn_id, channel.tenant_id, after_seq=2)
+    replayed = [event.seq for event in watcher.events]
+    assert replayed == [3, 4]
+
+
+def test_cross_tenant_turn_stream_is_denied() -> None:
+    plane = ControlPlane()
+    bot, channel = _channel_with_bot(plane)
+    plane.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+    )
+    turn_id = plane.pending_jobs_for_bot(bot.bot_id)[0].turn_id
+    assert turn_id is not None
+    with pytest.raises(TurnAccessDeniedError):
+        plane.open_turn_stream(turn_id, "other")
+
+
+def test_turn_completes_without_watcher() -> None:
+    plane = ControlPlane()
+    bot, channel = _channel_with_bot(plane)
+    plane.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+    )
+    turn_id = plane.pending_jobs_for_bot(bot.bot_id)[0].turn_id
+    assert turn_id is not None
+    plane.complete_turn(channel.tenant_id, turn_id)
+    turn = plane.turn(channel.tenant_id, turn_id)
+    assert turn.status == TurnStatus.COMPLETED
