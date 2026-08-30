@@ -3,7 +3,7 @@
   "title": "Unsupported authenticated browser actions stop safely",
   "description": "As a household member, I want browser actions with unbound consequences to stop, so that a persuasive screenshot or click coordinate is not treated as meaningful approval.\n\nFeature: Unsupported authenticated browser action\n\nScenario Outline: A generic browser would perform a consequential action\n  Given no structured connector or takeover control can bind the exact operation\n  When the model attempts to <action> through an authenticated browser\n  Then the action is not executed\n  And the turn reports that user-controlled completion is required\n\n  Examples:\n    | action |\n    | send |\n    | publish |\n    | purchase |\n    | delete |\n    | change production |",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -14,9 +14,16 @@
     "security"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "897b30a3-543f-4667-8121-81de6580eeef",
+      "author": "home",
+      "text": "Kernel on develop: unsupported_browser_action.feature. Unbound authenticated browser consequential actions stop; user-controlled completion required. Not on live ThinTurn; no staging/production deploy.",
+      "created_at": "2026-08-30T23:15:30.363531Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:57.236230Z",
-  "updated_at": "2026-08-30T15:54:57.236230Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T23:15:30.383444Z",
+  "closed_at": "2026-08-30T23:15:30.383444Z",
   "custom": {}
 }
