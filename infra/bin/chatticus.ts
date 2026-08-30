@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 import * as cdk from "aws-cdk-lib";
 import { ComputerStack } from "../lib/computer-stack";
+import {
+  CHATTICUS_CLOUD_ENVIRONMENTS,
+  THIN_TURN_STACK_IDS,
+} from "../lib/environments";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
 
@@ -22,8 +26,12 @@ new ComputerStack(app, "ChatticusComputers", {
   snapshotBucket: snapshots.bucket,
 });
 
-new ThinTurnStack(app, "ChatticusThinTurn", {
-  env,
-  description:
-    "Zero-idle computerless turn: DynamoDB, SQS, Lambda SSE front door, CloudFront.",
-});
+for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
+  new ThinTurnStack(app, THIN_TURN_STACK_IDS[environmentName], {
+    env,
+    chatticusEnvironment: environmentName,
+    description:
+      `Zero-idle computerless turn (${environmentName}): DynamoDB, SQS, ` +
+      "Lambda SSE front door, CloudFront.",
+  });
+}

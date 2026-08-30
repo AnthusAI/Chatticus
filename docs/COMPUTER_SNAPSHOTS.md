@@ -110,7 +110,7 @@ Do not create that bucket with the AWS CLI.
 cd infra
 npm install
 npx cdk bootstrap
-npx cdk deploy --all
+npx cdk deploy ChatticusSnapshots
 export CHATTICUS_SNAPSHOT_BUCKET=<SnapshotBucketName>
 
 python -m chatticus.snapshot pack \

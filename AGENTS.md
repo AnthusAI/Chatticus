@@ -150,8 +150,36 @@ workflow is local to this repo and authenticates with `GITHUB_TOKEN`;
 do not call the platform-ci reusable workflow, which requires an
 `anthusbot_gh_token` this repository does not have.
 
-Open pull requests against `develop`. Promote `develop` to `main` when
-you intend a release, not as the daily integration path.
+Open pull requests against `develop`. Merge them there as soon as
+sub-agent review is addressed and CI is green. Do not park completed
+work on feature branches. Promote `develop` to `main` when you intend a
+release, not as the daily integration path.
+
+## Cloud environments
+
+Chatticus has three named AWS environments for the thin-turn front door:
+**development**, **staging**, and **production**. Acceptance tests always
+pass `--environment` for one of those names.
+
+| Git | Cloud environment | CDK stack |
+| --- | --- | --- |
+| `develop` | development | `ChatticusThinTurn` |
+| `main` (release) | staging | `ChatticusThinTurnStaging` |
+| explicit gated deploy | production | `ChatticusThinTurnProduction` |
+
+Merging to `develop` is not a production release and is not a staging
+release. Promoting to `main` updates staging after CI. Production is a
+separate deploy of a staging-proven release. Shared stacks
+`ChatticusSnapshots` and `ChatticusComputers` are not per-environment.
+Never `cdk deploy --all`. Never destroy those two stacks.
+
+## Pull request review
+
+No human GitHub reviewer will show up. Review is done in this session with
+**Composer 2.5** (and Bugbot when a branch diff should be checked) sub-agents.
+Do not mark a PR ready and wait. Launch a reviewer against `develop`, treat
+request-changes as blocking, and have a second agent apply fixes. Approval
+from that loop is the merge gate, not a person on the PR.
 
 ## Milestones
 

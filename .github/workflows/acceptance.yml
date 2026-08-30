@@ -1,0 +1,57 @@
+name: Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Named cloud environment to exercise
+        required: true
+        type: choice
+        default: development
+        options:
+          - development
+          - staging
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  thin-turn:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        working-directory: python
+        run: pip install -e ".[dev]"
+
+      - name: Require a named-environment origin
+        env:
+          CHATTICUS_ENVIRONMENT: ${{ inputs.environment }}
+          CHATTICUS_DEVELOPMENT_BASE_URL: ${{ secrets.CHATTICUS_DEVELOPMENT_BASE_URL }}
+          CHATTICUS_STAGING_BASE_URL: ${{ secrets.CHATTICUS_STAGING_BASE_URL }}
+          CHATTICUS_PRODUCTION_BASE_URL: ${{ secrets.CHATTICUS_PRODUCTION_BASE_URL }}
+        run: |
+          case "$CHATTICUS_ENVIRONMENT" in
+            development) url="$CHATTICUS_DEVELOPMENT_BASE_URL" ;;
+            staging) url="$CHATTICUS_STAGING_BASE_URL" ;;
+            production) url="$CHATTICUS_PRODUCTION_BASE_URL" ;;
+            *) echo "unknown environment $CHATTICUS_ENVIRONMENT" >&2; exit 1 ;;
+          esac
+          if [ -z "$url" ]; then
+            echo "Set repository secret CHATTICUS_$(echo "$CHATTICUS_ENVIRONMENT" | tr '[:lower:]' '[:upper:]')_BASE_URL before dispatching Acceptance. This workflow does not assume AWS credentials." >&2
+            exit 1
+          fi
+
+      - name: Exercise thin turn
+        working-directory: python
+        env:
+          CHATTICUS_DEVELOPMENT_BASE_URL: ${{ secrets.CHATTICUS_DEVELOPMENT_BASE_URL }}
+          CHATTICUS_STAGING_BASE_URL: ${{ secrets.CHATTICUS_STAGING_BASE_URL }}
+          CHATTICUS_PRODUCTION_BASE_URL: ${{ secrets.CHATTICUS_PRODUCTION_BASE_URL }}
+        run: python scripts/exercise_thin_turn.py --environment ${{ inputs.environment }}

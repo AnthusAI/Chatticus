@@ -13,7 +13,7 @@ implementation of the same behavior until the protocol is stable.
 | Data | DynamoDB, S3, Secrets Manager | Transcript, bots, and rules in DynamoDB; snapshots and files in S3; secrets out of the image. A relational instance is always on and would break scale-to-zero. |
 | Cloud API | Per-request HTTP front door plus server-sent events scoped to one turn | No persistent sockets. Nothing bills while nobody is working. See [Messaging](MESSAGING.md). The streaming path is unmeasured; see [Feasibility tests](FEASIBILITY_TESTS.md). |
 | Queues and schedules | SQS, EventBridge | Turns and heartbeats on SQS. EventBridge for routine wake-ups, worker starts, and device push. Neither is in the token path. |
-| AWS compute | CDK. Computer hosts are Fargate (scale to 0). The control plane is per-request functions; placement is not settled. | Lambda for request-shaped work, including a stream held for one turn. Never a load balancer in front of the API: the hourly floor exceeds the container it replaces. |
+| AWS compute | CDK. Computer hosts are Fargate (scale to 0). The control plane is per-request functions; placement is not settled. Thin-turn front doors are named **development**, **staging**, and **production** stacks. | Lambda for request-shaped work, including a stream held for one turn. Never a load balancer in front of the API: the hourly floor exceeds the container it replaces. Promote develop to development, main to staging, and production only as a gated deploy. |
 | BDD | behave and shared `features/` Gherkin | Product narrative lives in Gherkin |
 | IaC | AWS CDK in TypeScript | Same language as the web app; every AWS resource lives in `infra/`. No console or ad-hoc CLI creates. |
 

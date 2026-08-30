@@ -32,6 +32,9 @@ class MessagingStore(Protocol):
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         """Load one channel."""
 
+    def resolve_channel_tenant(self, channel_id: str) -> str | None:
+        """Return the owning tenant for a channel identifier."""
+
     def put_message(self, message: Message) -> None:
         """Persist one committed message row."""
 
@@ -99,8 +102,11 @@ class MessagingStore(Protocol):
         chunk_seq: int,
         token: str,
         expires_at: datetime,
-    ) -> None:
-        """Persist one in-flight chunk with TTL metadata."""
+    ) -> bool:
+        """Persist one in-flight chunk with TTL metadata.
+
+        Returns True when a new chunk was stored, False when retried idempotently.
+        """
 
     def list_turn_chunks(self, tenant_id: str, turn_id: str) -> list[str]:
         """Return chunk tokens in order."""
@@ -124,6 +130,12 @@ class InMemoryMessagingStore:
 
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         return self._channels.get((tenant_id, channel_id))
+
+    def resolve_channel_tenant(self, channel_id: str) -> str | None:
+        for (tenant_id, stored_channel_id), _ in self._channels.items():
+            if stored_channel_id == channel_id:
+                return tenant_id
+        return None
 
     def put_message(self, message: Message) -> None:
         key = (message.tenant_id, message.channel_id)
@@ -208,9 +220,18 @@ class InMemoryMessagingStore:
         chunk_seq: int,
         token: str,
         expires_at: datetime,
-    ) -> None:
+    ) -> bool:
         key = (tenant_id, turn_id)
-        self._turn_chunks.setdefault(key, []).append((chunk_seq, token, expires_at))
+        chunks = self._turn_chunks.setdefault(key, [])
+        for existing_seq, existing_token, _ in chunks:
+            if existing_seq == chunk_seq:
+                if existing_token == token:
+                    return False
+                raise StaleAttemptError(
+                    f"Turn {turn_id!r} rejected duplicate chunk seq {chunk_seq}."
+                )
+        chunks.append((chunk_seq, token, expires_at))
+        return True
 
     def list_turn_chunks(self, tenant_id: str, turn_id: str) -> list[str]:
         chunks = self._turn_chunks.get((tenant_id, turn_id), [])
@@ -262,6 +283,15 @@ class DynamoMessagingStore:
                 "participants": {"S": json.dumps(_participants_payload(channel))},
             },
         )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._channel_lookup_pk(channel.channel_id)},
+                "sk": {"S": "meta"},
+                "tenant_id": {"S": channel.tenant_id},
+                "channel_id": {"S": channel.channel_id},
+            },
+        )
 
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         response = self.client.get_item(
@@ -285,6 +315,19 @@ class DynamoMessagingStore:
             participants=participants,
             next_seq=int(item["next_seq"]["N"]),
         )
+
+    def resolve_channel_tenant(self, channel_id: str) -> str | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._channel_lookup_pk(channel_id)},
+                "sk": {"S": "meta"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return item["tenant_id"]["S"]
 
     def put_message(self, message: Message) -> None:
         self.client.put_item(
@@ -494,7 +537,23 @@ class DynamoMessagingStore:
         chunk_seq: int,
         token: str,
         expires_at: datetime,
-    ) -> None:
+    ) -> bool:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND sk = :sk",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._turn_pk(tenant_id, turn_id)},
+                ":sk": {"S": f"chunk#{chunk_seq:010d}"},
+            },
+        )
+        items = response.get("Items", [])
+        if items:
+            existing = items[0]["token"]["S"]
+            if existing == token:
+                return False
+            raise StaleAttemptError(
+                f"Turn {turn_id!r} rejected duplicate chunk seq {chunk_seq}."
+            )
         self.client.put_item(
             TableName=self.table_name,
             Item={
@@ -506,6 +565,7 @@ class DynamoMessagingStore:
                 "expires_at": {"N": str(int(expires_at.timestamp()))},
             },
         )
+        return True
 
     def list_turn_chunks(self, tenant_id: str, turn_id: str) -> list[str]:
         response = self.client.query(
@@ -589,6 +649,9 @@ class DynamoMessagingStore:
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
 
+    def _channel_lookup_pk(self, channel_id: str) -> str:
+        return f"channel_lookup#{channel_id}"
+
     def _turn_pk(self, tenant_id: str, turn_id: str) -> str:
         return f"{tenant_id}#turn#{turn_id}"
 
@@ -637,6 +700,13 @@ def _turn_item(turn: Turn) -> dict[str, Any]:
         item["claimed_by_worker_id"] = {"S": turn.claimed_by_worker_id}
     if turn.lease_expires_at is not None:
         item["lease_expires_at"] = {"N": str(int(turn.lease_expires_at.timestamp()))}
+    if turn.deadline_at is not None:
+        item["deadline_at"] = {"N": str(int(turn.deadline_at.timestamp()))}
+    item["recovery_attempts"] = {"N": str(turn.recovery_attempts)}
+    if turn.terminal_reason is not None:
+        item["terminal_reason"] = {"S": turn.terminal_reason}
+    if turn.ambiguous_provider_call_id is not None:
+        item["ambiguous_provider_call_id"] = {"S": turn.ambiguous_provider_call_id}
     return item
 
 
@@ -647,6 +717,10 @@ def _turn_from_item(item: dict[str, Any]) -> Turn:
     )
     attempt = item.get("attempt_id", {}).get("S") or None
     claimed = item.get("claimed_by_worker_id", {}).get("S") or None
+    deadline_item = item.get("deadline_at", {}).get("N")
+    deadline_at = (
+        datetime.fromtimestamp(int(deadline_item), tz=UTC) if deadline_item else None
+    )
     return Turn(
         turn_id=item["turn_id"]["S"],
         tenant_id=item["tenant_id"]["S"],
@@ -659,6 +733,12 @@ def _turn_from_item(item: dict[str, Any]) -> Turn:
         fence_token=int(item.get("fence_token", {}).get("N", "0")),
         claimed_by_worker_id=claimed,
         lease_expires_at=lease_expires_at,
+        deadline_at=deadline_at,
+        recovery_attempts=int(item.get("recovery_attempts", {}).get("N", "0")),
+        terminal_reason=item.get("terminal_reason", {}).get("S") or None,
+        ambiguous_provider_call_id=(
+            item.get("ambiguous_provider_call_id", {}).get("S") or None
+        ),
     )
 
 

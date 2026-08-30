@@ -44,13 +44,22 @@ from chatticus.models import (
     TurnEventKind,
     TurnJob,
     TurnNotFoundError,
+    TurnReconcilingError,
     TurnStatus,
+    TurnTerminalError,
     WorkerDoesNotHostComputerError,
     WorkerRecord,
     WorkerRegistration,
     WorkerTenantMismatchError,
 )
 from chatticus.snapshot.uri import snapshot_uri
+from chatticus.turn_recovery import (
+    InMemoryTurnDeadlineScheduler,
+    LogicalEnqueueLedger,
+    QueueVisibilityLedger,
+    TurnDeadlineScheduler,
+    logical_enqueue_id,
+)
 
 
 class ControlPlane:
@@ -66,6 +75,13 @@ class ControlPlane:
         messaging_store: MessagingStore | None = None,
         turn_enqueued: Callable[[TurnJob], None] | None = None,
         attempt_lease: timedelta | None = None,
+        turn_deadline: timedelta | None = None,
+        max_recovery_attempts: int = 1,
+        deadline_scheduler: TurnDeadlineScheduler | None = None,
+        enqueue_ledger: LogicalEnqueueLedger | None = None,
+        visibility_ledger: QueueVisibilityLedger | None = None,
+        visibility_renewer: Callable[[TurnJob], None] | None = None,
+        recovery_enabled: bool = False,
     ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
@@ -77,9 +93,26 @@ class ControlPlane:
         :type turn_enqueued: Callable[[TurnJob], None] | None
         :param attempt_lease: How long a claimed turn stays owned without renew.
         :type attempt_lease: timedelta | None
+        :param turn_deadline: How long an active turn may run without renewal.
+        :type turn_deadline: timedelta | None
+        :param max_recovery_attempts: Recovery tries before a visible failure.
+        :type max_recovery_attempts: int
+        :param deadline_scheduler: Per-turn watchdog transport.
+        :type deadline_scheduler: TurnDeadlineScheduler | None
+        :param enqueue_ledger: Tracks idempotent logical enqueue ids.
+        :type enqueue_ledger: LogicalEnqueueLedger | None
+        :param visibility_ledger: Records queue visibility renewals in tests.
+        :type visibility_ledger: QueueVisibilityLedger | None
+        :param visibility_renewer: Extends SQS visibility for one job.
+        :type visibility_renewer: Callable[[TurnJob], None] | None
+        :param recovery_enabled: Schedule deadlines and recover wedged turns.
+        :type recovery_enabled: bool
         """
         self.heartbeat_timeout = heartbeat_timeout or timedelta(seconds=30)
         self.attempt_lease = attempt_lease or timedelta(seconds=60)
+        self.turn_deadline = turn_deadline or timedelta(seconds=120)
+        self.max_recovery_attempts = max_recovery_attempts
+        self.recovery_enabled = recovery_enabled
         self._now = datetime.now(UTC)
         self._workers: dict[str, WorkerRecord] = {}
         self._bots: dict[str, Bot] = {}
@@ -90,11 +123,20 @@ class ControlPlane:
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
         self._turn_enqueued = turn_enqueued
-        self._channel_tenants: dict[str, str] = {}
+        self._enqueue_ledger = enqueue_ledger or LogicalEnqueueLedger()
+        self._visibility_ledger = visibility_ledger or QueueVisibilityLedger()
+        self._visibility_renewer = visibility_renewer
         self._turn_tenants: dict[str, str] = {}
         self._turn_event_subscribers: dict[str, list[queue.Queue[TurnEvent | None]]] = (
             {}
         )
+        self._post_idempotency: dict[tuple[str, str], tuple[Message, str | None]] = {}
+        if deadline_scheduler is not None:
+            self._deadline_scheduler = deadline_scheduler
+        else:
+            self._deadline_scheduler = InMemoryTurnDeadlineScheduler(
+                self.handle_turn_deadline
+            )
 
     def subscribe_turn_events(self, turn_id: str) -> queue.Queue[TurnEvent | None]:
         """Register one SSE watcher and return its dedicated live-event queue."""
@@ -126,6 +168,8 @@ class ControlPlane:
     def advance_seconds(self, seconds: float) -> None:
         """Move the clock forward without waiting in real time."""
         self._now = self._now + timedelta(seconds=seconds)
+        if isinstance(self._deadline_scheduler, InMemoryTurnDeadlineScheduler):
+            self._deadline_scheduler.check_deadlines(self._now)
 
     def now(self) -> datetime:
         """Return the current control-plane clock."""
@@ -236,6 +280,10 @@ class ControlPlane:
     def pending_jobs_for_bot(self, bot_id: str) -> list[TurnJob]:
         """Return turn jobs still queued for a bot."""
         return [job for job in self._jobs if job.bot_id == bot_id]
+
+    def job_for_turn(self, tenant_id: str, turn_id: str) -> TurnJob | None:
+        """Return the queued job bound to one turn, if any."""
+        return self._job_for_turn(tenant_id, turn_id)
 
     def assign_turn(self, job: TurnJob) -> WorkerRegistration | None:
         """Choose a healthy worker for a turn, or None if none match."""
@@ -637,7 +685,6 @@ class ControlPlane:
             participants=participants,
         )
         self._messaging_store.put_channel(channel)
-        self._channel_tenants[channel.channel_id] = tenant_id
         return channel
 
     def channel(self, tenant_id: str, channel_id: str) -> Channel:
@@ -661,6 +708,7 @@ class ControlPlane:
         addressed_to_bot_id: str | None = None,
         *,
         enqueue_turn: bool = True,
+        idempotency_key: str | None = None,
     ) -> tuple[Message, Turn | None]:
         """Append a committed message and enqueue a cpu turn when addressed.
 
@@ -670,6 +718,12 @@ class ControlPlane:
         :raises ActorNotInChannelError: If the author or addressee is not a
             participant.
         """
+        if idempotency_key is not None:
+            cached = self._post_idempotency.get((tenant_id, idempotency_key))
+            if cached is not None:
+                message, turn_id = cached
+                started = self.turn(tenant_id, turn_id) if turn_id is not None else None
+                return message, started
         channel = self._require_channel_tenant(channel_id, tenant_id)
         self._require_participant(channel, author_kind, author_id)
         if addressed_to_bot_id is not None:
@@ -691,6 +745,9 @@ class ControlPlane:
         started: Turn | None = None
         if enqueue_turn and addressed_to_bot_id is not None:
             started = self._start_turn_for_bot(channel, addressed_to_bot_id)
+        if idempotency_key is not None:
+            turn_id = started.turn_id if started is not None else None
+            self._post_idempotency[(tenant_id, idempotency_key)] = (message, turn_id)
         return message, started
 
     def list_channel_messages(
@@ -746,6 +803,10 @@ class ControlPlane:
         turn, acquired = claimed
         if turn.attempt_id is None:
             return None
+        if self.recovery_enabled and acquired:
+            turn.deadline_at = self._now + self.turn_deadline
+            self._messaging_store.put_turn(turn)
+            self._deadline_scheduler.schedule(tenant_id, turn_id, turn.deadline_at)
         return TurnAttempt(
             tenant_id=turn.tenant_id,
             turn_id=turn.turn_id,
@@ -762,6 +823,8 @@ class ControlPlane:
         turn_id: str,
         worker_id: str,
         fence_token: int,
+        *,
+        job: TurnJob | None = None,
     ) -> TurnAttempt | None:
         """Extend the lease if this worker still holds the fence."""
         renewed = self._messaging_store.renew_turn_lease(
@@ -773,6 +836,12 @@ class ControlPlane:
         )
         if renewed is None or renewed.attempt_id is None:
             return None
+        if self.recovery_enabled:
+            renewed.deadline_at = self._now + self.turn_deadline
+            self._messaging_store.put_turn(renewed, expected_fence=fence_token)
+            self._deadline_scheduler.schedule(tenant_id, turn_id, renewed.deadline_at)
+        if job is not None:
+            self._renew_queue_visibility(job)
         return TurnAttempt(
             tenant_id=renewed.tenant_id,
             turn_id=renewed.turn_id,
@@ -783,6 +852,95 @@ class ControlPlane:
             lease_expires_at=renewed.lease_expires_at
             or (self._now + self.attempt_lease),
         )
+
+    def request_logical_enqueue(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        enqueue_id: str,
+        job: TurnJob,
+    ) -> bool:
+        """Enqueue a turn job once per ``enqueue_id``."""
+        if not self._enqueue_ledger.record_delivery(tenant_id, enqueue_id):
+            return False
+        if self._turn_enqueued is not None:
+            self._turn_enqueued(job)
+        return True
+
+    def handle_turn_deadline(self, tenant_id: str, turn_id: str) -> None:
+        """Recover or fail a turn when its watchdog fires."""
+        turn = self._messaging_store.get_turn(tenant_id, turn_id)
+        if turn is None or turn.status != TurnStatus.ACTIVE:
+            return
+        lease_valid = (
+            turn.lease_expires_at is not None and turn.lease_expires_at > self._now
+        )
+        if lease_valid:
+            if turn.deadline_at is not None:
+                self._deadline_scheduler.schedule(tenant_id, turn_id, turn.deadline_at)
+            return
+        if turn.ambiguous_provider_call_id is not None:
+            self._mark_turn_reconciling(turn, "provider outcome unknown")
+            return
+        if turn.recovery_attempts >= self.max_recovery_attempts:
+            self._fail_turn(turn, "recovery attempts exhausted")
+            return
+        turn.recovery_attempts += 1
+        turn.attempt_id = None
+        turn.claimed_by_worker_id = None
+        turn.lease_expires_at = None
+        turn.fence_token += 1
+        turn.deadline_at = self._now + self.turn_deadline
+        self._messaging_store.put_turn(turn)
+        self._deadline_scheduler.schedule(tenant_id, turn_id, turn.deadline_at)
+        job = self._job_for_turn(tenant_id, turn_id)
+        if job is not None:
+            self.request_logical_enqueue(
+                tenant_id,
+                turn_id,
+                logical_enqueue_id(turn_id, recovery_attempt=turn.recovery_attempts),
+                job,
+            )
+
+    def record_ambiguous_provider_outcome(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        provider_call_id: str,
+    ) -> Turn:
+        """Mark a turn as needing reconciliation before consequential work."""
+        turn = self.turn(tenant_id, turn_id)
+        if turn.status != TurnStatus.ACTIVE:
+            raise TurnTerminalError(f"Turn {turn_id!r} is not active.")
+        turn.ambiguous_provider_call_id = provider_call_id
+        self._messaging_store.put_turn(turn)
+        return turn
+
+    def attempt_consequential_action(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        action_type: str,
+        user_id: str | None = None,
+    ) -> ApprovalDecision:
+        """Evaluate an action, blocking repeats while reconciliation is pending."""
+        turn = self.turn(tenant_id, turn_id)
+        if turn.status == TurnStatus.RECONCILING:
+            raise TurnReconcilingError(
+                f"Turn {turn_id!r} is reconciling provider call "
+                f"{turn.ambiguous_provider_call_id!r}."
+            )
+        return self.evaluate_action(action_type, tenant_id, user_id)
+
+    @property
+    def logical_enqueue_delivery_count(self) -> int:
+        """Return how many distinct logical enqueues were delivered."""
+        return self._enqueue_ledger.delivery_count
+
+    @property
+    def queue_visibility_renewals(self) -> list[tuple[str, str]]:
+        """Return queue visibility renewals recorded for behavior specs."""
+        return list(self._visibility_ledger.renewals)
 
     def active_turn_for_channel(self, tenant_id: str, channel_id: str) -> Turn | None:
         """Return the active turn on a channel, if any."""
@@ -831,13 +989,17 @@ class ControlPlane:
         if turn.status != TurnStatus.ACTIVE:
             return
         expires_at = default_chunk_expiry(self._now)
-        self._messaging_store.put_turn_chunk(
+        appended = self._messaging_store.put_turn_chunk(
             tenant_id,
             turn_id,
             turn.next_chunk_seq,
             token,
             expires_at,
         )
+        if not appended:
+            if complete:
+                self._complete_turn(turn, expected_fence=fence_token)
+            return
         turn.next_chunk_seq += 1
         self._messaging_store.put_turn(turn, expected_fence=fence_token)
         self._append_turn_event(
@@ -872,6 +1034,8 @@ class ControlPlane:
             channel_id=channel.channel_id,
             bot_id=bot_id,
         )
+        if self.recovery_enabled:
+            turn.deadline_at = self._now + self.turn_deadline
         self._messaging_store.put_turn(turn)
         self._turn_tenants[turn.turn_id] = channel.tenant_id
         self._append_turn_event(turn, TurnEventKind.TURN_STARTED)
@@ -881,12 +1045,16 @@ class ControlPlane:
             bot_id=bot_id,
         )
         self._bind_job_to_turn(job.job_id, turn.turn_id)
+        if self.recovery_enabled and turn.deadline_at is not None:
+            self._deadline_scheduler.schedule(
+                channel.tenant_id, turn.turn_id, turn.deadline_at
+            )
         return turn
 
     def _bind_job_to_turn(self, job_id: str, turn_id: str) -> None:
         for index, job in enumerate(self._jobs):
             if job.job_id == job_id:
-                self._jobs[index] = TurnJob(
+                bound = TurnJob(
                     job_id=job.job_id,
                     tenant_id=job.tenant_id,
                     required_capabilities=job.required_capabilities,
@@ -896,8 +1064,16 @@ class ControlPlane:
                     bot_id=job.bot_id,
                     turn_id=turn_id,
                 )
-                if self._turn_enqueued is not None:
-                    self._turn_enqueued(self._jobs[index])
+                self._jobs[index] = bound
+                if self.recovery_enabled:
+                    self.request_logical_enqueue(
+                        bound.tenant_id,
+                        turn_id,
+                        logical_enqueue_id(turn_id),
+                        bound,
+                    )
+                elif self._turn_enqueued is not None:
+                    self._turn_enqueued(bound)
                 return
 
     def _complete_turn(
@@ -947,6 +1123,7 @@ class ControlPlane:
         self._messaging_store.put_message(message)
         turn.status = TurnStatus.COMPLETED
         self._messaging_store.put_turn(turn, expected_fence=expected_fence)
+        self._deadline_scheduler.cancel(turn.tenant_id, turn.turn_id)
         self._append_turn_event(
             turn,
             TurnEventKind.TURN_COMPLETED,
@@ -1003,14 +1180,15 @@ class ControlPlane:
             subscriber.put(sentinel)
 
     def _require_channel_tenant(self, channel_id: str, tenant_id: str) -> Channel:
-        owning_tenant = self._channel_tenants.get(channel_id)
-        if owning_tenant is None:
-            raise ChannelNotFoundError(f"Channel {channel_id!r} does not exist.")
-        if owning_tenant != tenant_id:
+        channel = self._messaging_store.get_channel(tenant_id, channel_id)
+        if channel is not None:
+            return channel
+        owning_tenant = self._messaging_store.resolve_channel_tenant(channel_id)
+        if owning_tenant is not None and owning_tenant != tenant_id:
             raise ChannelTenantMismatchError(
                 f"Tenant {tenant_id!r} does not own channel {channel_id!r}."
             )
-        return self.channel(tenant_id, channel_id)
+        raise ChannelNotFoundError(f"Channel {channel_id!r} does not exist.")
 
     def _require_participant(
         self,
@@ -1025,6 +1203,43 @@ class ControlPlane:
             f"{kind} {actor_id!r} is not a participant of channel "
             f"{channel.channel_id!r}."
         )
+
+    def _job_for_turn(self, tenant_id: str, turn_id: str) -> TurnJob | None:
+        for job in self._jobs:
+            if job.tenant_id == tenant_id and job.turn_id == turn_id:
+                return job
+        return None
+
+    def _renew_queue_visibility(self, job: TurnJob) -> None:
+        if job.turn_id is None:
+            return
+        self._visibility_ledger.renew(job.tenant_id, job.turn_id)
+        if self._visibility_renewer is not None:
+            self._visibility_renewer(job)
+
+    def _fail_turn(self, turn: Turn, reason: str) -> None:
+        turn.status = TurnStatus.FAILED
+        turn.terminal_reason = reason
+        self._messaging_store.put_turn(turn)
+        self._deadline_scheduler.cancel(turn.tenant_id, turn.turn_id)
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TURN_FAILED,
+            body=reason,
+        )
+        self._signal_turn_subscribers(turn.turn_id, None)
+
+    def _mark_turn_reconciling(self, turn: Turn, reason: str) -> None:
+        turn.status = TurnStatus.RECONCILING
+        turn.terminal_reason = reason
+        self._messaging_store.put_turn(turn)
+        self._deadline_scheduler.cancel(turn.tenant_id, turn.turn_id)
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TURN_RECONCILING,
+            body=reason,
+        )
+        self._signal_turn_subscribers(turn.turn_id, None)
 
 
 def _disk_checksum(workspace: dict[str, str], browser_sessions: dict[str, str]) -> str:

@@ -33,6 +33,34 @@ class HttpTurnClient:
         self.fence_token = int(payload["fence_token"])
         return payload
 
+    def renew(
+        self,
+        turn_id: str,
+        worker_id: str,
+        *,
+        job_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Extend the lease and queue visibility for the fenced owner."""
+        if self.fence_token is None:
+            raise RuntimeError("claim the turn before renewing the lease")
+        payload: dict[str, Any] = {
+            "worker_id": worker_id,
+            "fence_token": self.fence_token,
+        }
+        if job_id is not None:
+            payload["job_id"] = job_id
+        response = self.client.post(
+            f"/turns/{turn_id}/renew",
+            json=payload,
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"renew POST failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+        return response.json()
+
     def post_chunk(self, turn_id: str, token: str, *, complete: bool = False) -> None:
         """Append one coalesced chunk, optionally completing the turn."""
         if self.fence_token is None:

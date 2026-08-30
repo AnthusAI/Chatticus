@@ -16,7 +16,12 @@ logger = logging.getLogger("chatticus.runtime")
 
 
 def plane_from_env() -> ControlPlane:
-    """Build a control plane from Lambda or local environment variables."""
+    """Build a control plane from Lambda or local environment variables.
+
+    Turn recovery (deadlines, logical-enqueue dedup, lease renewal) is
+    kernel-only in tests until an EventBridge-backed deadline scheduler and
+    durable enqueue ledger exist. ``recovery_enabled`` stays off here.
+    """
     load_local_env()
     table_name = os.environ.get("CHATTICUS_MESSAGING_TABLE", "").strip()
     store = DynamoMessagingStore(table_name) if table_name else None
@@ -24,6 +29,7 @@ def plane_from_env() -> ControlPlane:
     return ControlPlane(
         messaging_store=store,
         turn_enqueued=_sqs_enqueuer(queue_url) if queue_url else None,
+        recovery_enabled=False,
     )
 
 
@@ -46,6 +52,8 @@ def _sqs_enqueuer(queue_url: str):
     def enqueue(job: TurnJob) -> None:
         import boto3
 
+        if job.turn_id is None:
+            return
         body = json.dumps(
             {
                 "job_id": job.job_id,

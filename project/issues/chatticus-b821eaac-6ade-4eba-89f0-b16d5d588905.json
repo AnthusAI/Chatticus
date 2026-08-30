@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "91dd8937-f67e-44c1-827e-8c56aaf13b3c",
+      "author": "home",
+      "text": "Executable Gherkin landed in features/turn_recovery.feature with behave steps covering worker disappearance, exhausted recovery, ambiguous provider reconciliation, idempotent enqueue, and lease+visibility renewal.",
+      "created_at": "2026-08-30T20:45:05.694428Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:55.734905Z",
-  "updated_at": "2026-08-30T15:54:55.734905Z",
+  "updated_at": "2026-08-30T20:45:05.694428Z",
   "closed_at": null,
   "custom": {}
 }
