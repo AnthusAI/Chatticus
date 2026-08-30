@@ -102,8 +102,8 @@ There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
 
 Next on the board: turn-triggered recovery in AWS (`e42008` follow-up:
-EventBridge or DynamoDB TTL watchdog, durable enqueue ledger), then staging
-after this release.
+EventBridge or DynamoDB TTL watchdog; durable enqueue ledger is in
+``DynamoMessagingStore``), then staging after this release.
 
 ```mermaid
 flowchart LR
