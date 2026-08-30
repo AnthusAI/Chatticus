@@ -1,32 +1,41 @@
-"""Kernel tests for the message store and realtime API."""
+"""Kernel tests for the message store and realtime API.
+
+The thread and TurnStream APIs are rejected by docs/MESSAGING.md.
+Executable specs live in features/messages.feature and
+features/realtime_api.feature; implement channel and turn-scoped SSE
+there before restoring kernel tests.
+"""
 
 from __future__ import annotations
 
 import pytest
 
-from chatticus.control_plane import ControlPlane
-from chatticus.models import (
-    ActorKind,
-    ActorNotInThreadError,
-    ThreadNotFoundError,
-    ThreadTenantMismatchError,
-    TurnStreamNotFoundError,
+pytestmark = pytest.mark.skip(
+    reason=(
+        "Thread/TurnStream API rejected; see docs/MESSAGING.md and features/*.feature"
+    )
 )
 
 
-def _thread_with_bot(plane: ControlPlane, name: str = "Researcher"):
+def _thread_with_bot(plane, name: str = "Researcher"):
     bot = plane.create_bot("anthus", "ryan", name)
     thread = plane.create_thread("anthus", "ryan", [bot.bot_id])
     return bot, thread
 
 
 def test_unknown_thread_raises() -> None:
+    from chatticus.control_plane import ControlPlane
+    from chatticus.models import ThreadNotFoundError
+
     plane = ControlPlane()
     with pytest.raises(ThreadNotFoundError):
         plane.thread("missing")
 
 
 def test_list_messages_rejects_other_tenant() -> None:
+    from chatticus.control_plane import ControlPlane
+    from chatticus.models import ThreadTenantMismatchError
+
     plane = ControlPlane()
     _, thread = _thread_with_bot(plane)
     with pytest.raises(ThreadTenantMismatchError):
@@ -34,6 +43,9 @@ def test_list_messages_rejects_other_tenant() -> None:
 
 
 def test_outsider_cannot_post() -> None:
+    from chatticus.control_plane import ControlPlane
+    from chatticus.models import ActorKind, ActorNotInThreadError
+
     plane = ControlPlane()
     _, thread = _thread_with_bot(plane)
     with pytest.raises(ActorNotInThreadError):
@@ -47,6 +59,9 @@ def test_outsider_cannot_post() -> None:
 
 
 def test_addressing_a_bot_not_in_the_thread_raises() -> None:
+    from chatticus.control_plane import ControlPlane
+    from chatticus.models import ActorKind, ActorNotInThreadError
+
     plane = ControlPlane()
     researcher, thread = _thread_with_bot(plane)
     writer = plane.create_bot("anthus", "ryan", "Writer")
@@ -63,6 +78,9 @@ def test_addressing_a_bot_not_in_the_thread_raises() -> None:
 
 
 def test_complete_turn_stream_does_not_enqueue_another_turn() -> None:
+    from chatticus.control_plane import ControlPlane
+    from chatticus.models import ActorKind
+
     plane = ControlPlane()
     bot, thread = _thread_with_bot(plane)
     plane.post_message(
@@ -81,6 +99,9 @@ def test_complete_turn_stream_does_not_enqueue_another_turn() -> None:
 
 
 def test_unknown_turn_stream_raises() -> None:
+    from chatticus.control_plane import ControlPlane
+    from chatticus.models import TurnStreamNotFoundError
+
     plane = ControlPlane()
     with pytest.raises(TurnStreamNotFoundError):
         plane.append_turn_token("missing", "x")
@@ -89,6 +110,9 @@ def test_unknown_turn_stream_raises() -> None:
 
 
 def test_bot_from_another_user_cannot_join_thread() -> None:
+    from chatticus.control_plane import ControlPlane
+    from chatticus.models import ActorNotInThreadError
+
     plane = ControlPlane()
     plane.create_bot("anthus", "ryan", "Researcher")
     other = plane.create_bot("anthus", "alex", "Ops")
