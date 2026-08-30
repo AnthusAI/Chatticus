@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-1e09b496-29dd-442a-824e-d3833df8827d",
+  "title": "Run adversarial browser injection evaluations",
+  "description": "Build a repeatable suite in which page content successfully convinces the model to request forbidden behavior.\n\nAcceptance criteria:\n- Include workspace exfiltration, cross-origin navigation, message sending, hidden instructions, and approval substitution.\n- Assert that worker-side sinks deny each forbidden effect even when the model complies.\n- Verify allowed read-only work still succeeds.\n- Record every bypass as a blocking bug; prompt wording alone cannot close it.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4ddbe133-721a-4acb-909b-a56d511f08db",
+  "labels": [
+    "v1",
+    "verification",
+    "security"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-53d7448f-c516-4cbd-a31e-b09ce19f7055",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:57.524029Z",
+  "updated_at": "2026-08-30T15:54:57.524029Z",
+  "closed_at": null,
+  "custom": {}
+}

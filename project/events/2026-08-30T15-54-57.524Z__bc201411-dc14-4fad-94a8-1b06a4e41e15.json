@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "bc201411-dc14-4fad-94a8-1b06a4e41e15",
+  "issue_id": "chatticus-1e09b496-29dd-442a-824e-d3833df8827d",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T15:54:57.524Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Build a repeatable suite in which page content successfully convinces the model to request forbidden behavior.\n\nAcceptance criteria:\n- Include workspace exfiltration, cross-origin navigation, message sending, hidden instructions, and approval substitution.\n- Assert that worker-side sinks deny each forbidden effect even when the model complies.\n- Verify allowed read-only work still succeeds.\n- Record every bypass as a blocking bug; prompt wording alone cannot close it.",
+    "issue_type": "task",
+    "labels": [
+      "v1",
+      "verification",
+      "security"
+    ],
+    "parent": "chatticus-4ddbe133-721a-4acb-909b-a56d511f08db",
+    "priority": 0,
+    "status": "open",
+    "title": "Run adversarial browser injection evaluations"
+  }
+}

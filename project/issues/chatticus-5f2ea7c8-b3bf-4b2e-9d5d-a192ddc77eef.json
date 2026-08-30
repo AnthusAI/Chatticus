@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-5f2ea7c8-b3bf-4b2e-9d5d-a192ddc77eef",
+  "title": "Decide the v1 task-tracking approach",
+  "description": "Purpose: decide whether v1 ships with task state, and on what fallback, before v1 scope is set.\n\nTask integration is excluded from Phase 1 and Phase 2, which is correct. But docs/TASKS.md makes task state depend on a Kanbus cloud storage backend that does not exist yet, and docs/TASKS.md also says compaction eats task state if it lives only in the channel. That leaves v1 with no recorded answer for whether task state ships at all.\n\nDefinition of Done:\n- A decision is recorded: v1 ships a thin local Task item, or task state is deferred to v2 with the compaction risk accepted in writing.\n- The decision does not depend on Kanbus internals (table sharing or EFS) in v1.\n- docs/TASKS.md and the v1 scope list reflect the decision.\n\nNot included: building the thin Task item, Kanbus product integration (later phase).",
+  "type": "epic",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T16:14:54.836208Z",
+  "updated_at": "2026-08-30T16:14:54.836208Z",
+  "closed_at": null,
+  "custom": {}
+}

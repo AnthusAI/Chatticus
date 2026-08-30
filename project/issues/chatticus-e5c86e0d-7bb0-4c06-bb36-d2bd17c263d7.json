@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-e5c86e0d-7bb0-4c06-bb36-d2bd17c263d7",
+  "title": "Deploy and exercise the zero-idle thin turn",
+  "description": "Deploy the thin turn through CDK and prove it end to end.\n\nAcceptance criteria:\n- A browser or test client posts one message and observes progress and completion.\n- A forced disconnect demonstrates replay from committed state.\n- A stopped computer remains stopped for the entire turn.\n- No persistent socket, always-on scheduler, API process, lock service, or database is introduced.\n- Logs identify tenant_id, channel_id, turn_id, and attempt_id without recording message content or secrets.\n- The executable specifications and Python quality gates pass.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-46746451-4000-4570-9129-37898a7e119a",
+  "labels": [
+    "v1",
+    "verification"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-df6e93c2-bbfe-4a9c-9cfb-ec96852fbdb5",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-08-30T15:53:18.174981Z",
+  "updated_at": "2026-08-30T15:53:18.174981Z",
+  "closed_at": null,
+  "custom": {}
+}

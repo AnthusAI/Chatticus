@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "title": "Summon one computer and continue the same turn",
+  "description": "Purpose: add the household computer without putting browser readiness in front of the model loop.\n\nDefinition of Done:\n- Cold readiness gates are measured and recorded.\n- Concurrent demand starts at most one host for a computer.\n- A bot performs useful computerless work before reporting a truthful capability wait.\n- The first computer tool continues the same durable turn exactly once.\n- Failure at every escalation boundary neither loses the turn nor creates simultaneous actors.\n- Dead or wedged computer ownership expires without an always-on scheduler.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b950b06b-76be-4266-ac07-4668f171c774",
+  "labels": [
+    "v1",
+    "computer"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-65398905-db08-4e8c-a4c3-2a8d06daeadd",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:56.197143Z",
+  "updated_at": "2026-08-30T15:54:56.197143Z",
+  "closed_at": null,
+  "custom": {}
+}

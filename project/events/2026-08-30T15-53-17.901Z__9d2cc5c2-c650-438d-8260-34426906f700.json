@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "9d2cc5c2-c650-438d-8260-34426906f700",
+  "issue_id": "chatticus-e11f32e2-82a1-4143-967d-fea426673e93",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T15:53:17.901Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a household member whose connection drops, I want to resume from durable turn state, so that closing a laptop never controls whether work finishes.\n\nFeature: Durable turn reconnect\n\nScenario: Resume after a dropped stream\n  Given a turn has emitted committed events through sequence 4\n  And the watching connection closes\n  When the member reconnects after sequence 2\n  Then committed events 3 and 4 are replayed once in order\n  And later events continue from the same turn\n  And the turn completes whether or not a watcher remains connected",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-46746451-4000-4570-9129-37898a7e119a",
+    "priority": 0,
+    "status": "open",
+    "title": "Reconnect without becoming part of the turn"
+  }
+}

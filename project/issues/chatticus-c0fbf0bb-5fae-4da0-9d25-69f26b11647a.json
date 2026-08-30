@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-c0fbf0bb-5fae-4da0-9d25-69f26b11647a",
+  "title": "Work before the computer is ready and wait honestly",
+  "description": "As a household member, I want the bot to begin useful work while its computer starts, so that readiness is per capability and waiting is not disguised as progress.\n\nFeature: Capability-gated readiness\n\nScenario: A turn needs the browser after preparatory work\n  Given the household computer is stopped\n  And a turn has useful work that needs no computer before a browser step\n  When the addressed bot begins the turn\n  Then it performs the computerless work immediately\n  And it emits a waiting state naming the computer capability only when blocked\n  And it makes no claim that the browser work is complete\n  And it continues the same turn after the computer becomes ready",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:56.389330Z",
+  "updated_at": "2026-08-30T15:54:56.389330Z",
+  "closed_at": null,
+  "custom": {}
+}

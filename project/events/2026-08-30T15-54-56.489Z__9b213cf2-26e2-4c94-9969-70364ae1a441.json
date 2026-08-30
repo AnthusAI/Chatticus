@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "9b213cf2-26e2-4c94-9969-70364ae1a441",
+  "issue_id": "chatticus-d3908f56-e944-4db9-933a-1342867edd20",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T15:54:56.489Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a household member, I want a bot to gain computer capability without restarting its reasoning, so that completed work and paid model output are preserved.\n\nFeature: Mid-turn computer escalation\n\nScenario: A computerless turn requests its first computer tool\n  Given a computerless attempt has committed model output and one pending computer tool call\n  When the household computer becomes ready\n  Then one computer-capable attempt executes that exact pending call\n  And the tool result is appended to the same turn\n  And the model continues after the result\n  And no completed tool result is replayed",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "The first computer tool continues the same turn"
+  }
+}

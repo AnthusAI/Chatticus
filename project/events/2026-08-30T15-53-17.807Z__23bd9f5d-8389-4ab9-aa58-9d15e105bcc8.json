@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "23bd9f5d-8389-4ab9-aa58-9d15e105bcc8",
+  "issue_id": "chatticus-d411324d-d39b-4a3d-848e-c25709936d13",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T15:53:17.807Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a household member watching a turn, I want ordered progress while the bot works, so that the product feels alive without a persistent connection.\n\nFeature: Turn-scoped progress stream\n\nScenario: Watch an active turn\n  Given a bot is producing an answer for a turn\n  And the member is watching that turn\n  When the bot produces several coalesced progress chunks\n  Then the member receives the chunks in order before completion\n  And the member receives one terminal event\n  And the stream ends with the turn\n  And no connection remains open for the channel or chat tab",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-46746451-4000-4570-9129-37898a7e119a",
+    "priority": 0,
+    "status": "open",
+    "title": "Watch one active turn through server-sent events"
+  }
+}

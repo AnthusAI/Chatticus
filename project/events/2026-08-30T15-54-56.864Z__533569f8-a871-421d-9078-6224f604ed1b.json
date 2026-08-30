@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "533569f8-a871-421d-9078-6224f604ed1b",
+  "issue_id": "chatticus-538d28c5-8d15-47c1-ab6a-e852d2bb1569",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T15:54:56.864Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Implement continuation from durable structured model and tool events.\n\nAcceptance criteria:\n- Model requests, tool calls, tool results, and attempt transitions are durable typed events, not transient token chunks.\n- The old attempt commits the pending call and relinquishes fenced ownership before continuation.\n- The new attempt claims the same turn and executes only unresolved calls.\n- Action identifiers make tool execution retry-aware.\n- Failure-injection scenarios cover every handoff boundary and computer reclamation.",
+    "issue_type": "task",
+    "labels": [
+      "v1",
+      "implementation"
+    ],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "Implement the structured journal and fenced computer handoff"
+  }
+}

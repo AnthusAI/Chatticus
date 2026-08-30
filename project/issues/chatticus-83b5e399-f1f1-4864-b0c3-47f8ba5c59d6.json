@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-83b5e399-f1f1-4864-b0c3-47f8ba5c59d6",
+  "title": "Fault-inject every turn boundary",
+  "description": "Build deterministic failure scenarios around message commit, logical enqueue, worker claim, model acceptance, progress append, completion append, acknowledgement, and deadline recovery.\n\nAcceptance criteria:\n- Each before-and-after crash window has an executable scenario.\n- Scenarios assert provider call counts, final channel messages, current attempt, and terminal state.\n- No scenario permits two authoritative actors.\n- The suite completes without real provider calls or sleeps.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-65398905-db08-4e8c-a4c3-2a8d06daeadd",
+  "labels": [
+    "v1",
+    "verification"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-e420080f-a60f-4be5-9bec-ceca14305046",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:56.108038Z",
+  "updated_at": "2026-08-30T15:54:56.108038Z",
+  "closed_at": null,
+  "custom": {}
+}

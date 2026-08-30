@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "181c721c-baab-49f9-b966-422f2a4f71db",
+  "issue_id": "chatticus-46746451-4000-4570-9129-37898a7e119a",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T15:53:17.618Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Purpose: deliver the smallest running slice that is recognizably Chatticus.\n\nDefinition of Done:\n- An authenticated household member addresses a named bot in a channel.\n- One OpenAI text-only loop runs without summoning a computer.\n- Messages, turn state, progress, and completion are durable and tenant-scoped.\n- A watcher sees coalesced progress through SSE scoped to that turn.\n- Disconnecting the watcher cannot stop or corrupt the turn.\n- The deployed application compute has no idle floor.\n\nNot included: tools, browser use, task tracking, approvals, and mid-turn escalation.",
+    "issue_type": "epic",
+    "labels": [
+      "v1",
+      "turn"
+    ],
+    "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+    "priority": 0,
+    "status": "open",
+    "title": "Deliver one durable computerless turn"
+  }
+}

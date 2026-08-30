@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-031cf4c2-eede-4a28-971c-7d7e211bae5a",
+  "title": "Address a named bot without starting a computer",
+  "description": "As a household member, I want a named bot to answer a text-only message without starting the shared computer, so that simple work begins immediately and costs no computer time.\n\nNot included: tool calls or messages that require the computer.\n\nFeature: Computerless bot turn\n\nScenario: Answer a text-only message\n  Given an authenticated household member has a channel with a named bot\n  And the household computer is stopped\n  When the member sends a message that the bot can answer without tools\n  Then the addressed bot completes one turn\n  And the channel contains one durable bot answer\n  And the household computer remains stopped\n\nScenario: Reject a cross-tenant message\n  Given another tenant knows the channel identifier\n  When that tenant tries to post or read the turn\n  Then access is denied\n  And the channel is unchanged",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-46746451-4000-4570-9129-37898a7e119a",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T15:53:17.712448Z",
+  "updated_at": "2026-08-30T15:53:17.712448Z",
+  "closed_at": null,
+  "custom": {}
+}

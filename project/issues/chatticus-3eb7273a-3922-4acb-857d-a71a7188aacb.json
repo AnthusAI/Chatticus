@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-3eb7273a-3922-4acb-857d-a71a7188aacb",
+  "title": "A stale attempt cannot act after reassignment",
+  "description": "As a household member, I want recovered work to have one current owner, so that a delayed worker cannot corrupt a newer continuation.\n\nFeature: Stale attempt fencing\n\nScenario: An expired worker resumes late\n  Given a turn has been reassigned to a newer attempt\n  When the expired attempt tries to append output or execute an action\n  Then the operation is rejected\n  And only the newer attempt can change the turn\n  And the user sees no duplicate output or action",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-65398905-db08-4e8c-a4c3-2a8d06daeadd",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:55.827806Z",
+  "updated_at": "2026-08-30T15:54:55.827806Z",
+  "closed_at": null,
+  "custom": {}
+}

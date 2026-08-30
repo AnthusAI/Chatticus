@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "7a719b92-183a-43e4-b1c7-4599933c2f26",
+  "issue_id": "chatticus-53beb006-67ab-4190-ab92-eda3999049ad",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T15:54:56.771Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Implement the lifecycle required by the single-start and readiness stories.\n\nAcceptance criteria:\n- A conditional start claim is keyed by tenant_id and computer_id.\n- Repeated and concurrent requests converge on one logical host start.\n- Readiness is recorded independently for model, workspace, and browser capabilities.\n- A stopped or wedged host claim expires and can be reclaimed.\n- A stale local host cannot regain prefer-local routing until it reconciles with the current snapshot generation.",
+    "issue_type": "task",
+    "labels": [
+      "v1",
+      "implementation"
+    ],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "Implement single-owner computer start and readiness"
+  }
+}

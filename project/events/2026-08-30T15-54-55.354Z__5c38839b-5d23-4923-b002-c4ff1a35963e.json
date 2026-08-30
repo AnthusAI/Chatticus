@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "5c38839b-5d23-4923-b002-c4ff1a35963e",
+  "issue_id": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "event_type": "field_updated",
+  "occurred_at": "2026-08-30T15:54:55.354Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "title": {
+        "from": "Prove the serverless conversation foundation",
+        "to": "Phase 1: Prove the serverless conversation foundation"
+      }
+    }
+  }
+}

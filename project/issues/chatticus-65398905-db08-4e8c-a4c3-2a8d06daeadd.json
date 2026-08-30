@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-65398905-db08-4e8c-a4c3-2a8d06daeadd",
+  "title": "Recover turns without duplicate actors",
+  "description": "Purpose: make at-least-once queue delivery and worker failure safe before any tool can act.\n\nDefinition of Done:\n- One logical turn has at most one active attempt with authority to write or act.\n- Queue redelivery cannot create a second model actor or duplicate answer.\n- A dead attempt is continued from durable state or reaches a visible terminal state within a bounded deadline.\n- A stale attempt is fenced from later writes and actions.\n- Ambiguous external-call outcomes are surfaced for reconciliation rather than blindly repeated.\n- Fault-injection specifications cover every persistence, queue, and model boundary.",
+  "type": "epic",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b950b06b-76be-4266-ac07-4668f171c774",
+  "labels": [
+    "v1",
+    "reliability"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-46746451-4000-4570-9129-37898a7e119a",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:55.544026Z",
+  "updated_at": "2026-08-30T15:54:55.544026Z",
+  "closed_at": null,
+  "custom": {}
+}

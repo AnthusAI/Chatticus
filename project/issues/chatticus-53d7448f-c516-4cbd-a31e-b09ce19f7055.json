@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-53d7448f-c516-4cbd-a31e-b09ce19f7055",
+  "title": "Enforce browser capability and approval policy at system sinks",
+  "description": "Implement policy checks outside the model.\n\nAcceptance criteria:\n- Every connector, network egress, file transfer, credential use, and consequential action checks the task grant.\n- Browser contexts cannot share forbidden credentials or storage.\n- Approval records bind an operation digest and reject mutation or replay outside their scope.\n- Denials are durable, tenant-scoped, and visible without exposing secrets.\n- The model cannot change policy through tool arguments or page content.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4ddbe133-721a-4acb-909b-a56d511f08db",
+  "labels": [
+    "v1",
+    "implementation",
+    "security"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-3c5f8d93-cca8-41e9-be0a-e1f5ab892b44",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-538d28c5-8d15-47c1-ab6a-e852d2bb1569",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:57.427927Z",
+  "updated_at": "2026-08-30T15:54:57.427927Z",
+  "closed_at": null,
+  "custom": {}
+}

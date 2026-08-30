@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "679be90f-20cb-47cc-b27c-babe3ee05753",
+  "issue_id": "chatticus-3eb7273a-3922-4acb-857d-a71a7188aacb",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T15:54:55.828Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a household member, I want recovered work to have one current owner, so that a delayed worker cannot corrupt a newer continuation.\n\nFeature: Stale attempt fencing\n\nScenario: An expired worker resumes late\n  Given a turn has been reassigned to a newer attempt\n  When the expired attempt tries to append output or execute an action\n  Then the operation is rejected\n  And only the newer attempt can change the turn\n  And the user sees no duplicate output or action",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-65398905-db08-4e8c-a4c3-2a8d06daeadd",
+    "priority": 0,
+    "status": "open",
+    "title": "A stale attempt cannot act after reassignment"
+  }
+}

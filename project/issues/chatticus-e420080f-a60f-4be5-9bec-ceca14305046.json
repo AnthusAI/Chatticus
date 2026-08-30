@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-e420080f-a60f-4be5-9bec-ceca14305046",
+  "title": "Implement idempotent handoff and turn-triggered recovery",
+  "description": "Close the crash windows between durable state and queue delivery.\n\nAcceptance criteria:\n- Appending work and requesting its logical enqueue can be retried idempotently.\n- Active workers renew both their turn claim and SQS visibility.\n- Each started turn schedules its own deadline or watchdog; there is no idle polling process.\n- Recovery creates at most one next attempt or a visible terminal state.\n- Ambiguous provider outcomes have an explicit reconciliation state.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-65398905-db08-4e8c-a4c3-2a8d06daeadd",
+  "labels": [
+    "v1",
+    "implementation"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-19eddc0d-8c1f-4417-8be9-b313ae20e962",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:56.015297Z",
+  "updated_at": "2026-08-30T15:54:56.015297Z",
+  "closed_at": null,
+  "custom": {}
+}

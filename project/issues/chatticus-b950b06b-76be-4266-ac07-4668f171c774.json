@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-b950b06b-76be-4266-ac07-4668f171c774",
+  "title": "Phase 2: Add reliable and constrained computer execution",
+  "description": "Outcome: a turn can summon and use the household computer without duplicate actors, silent loss, indefinite billing, or authority granted by untrusted page content.\n\nScope: durable turn ownership, failure recovery, cold-computer readiness, mid-turn escalation, and browser authority controls.\n\nNot included: the complete web experience, Kanbus product integration, routines, or billing.\n\nComplete when every milestone in this initiative passes executable failure and security scenarios without an always-on control-plane component.",
+  "type": "initiative",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "074cdd39-551e-44c1-82f2-0c856f3b4acc",
+      "author": "home",
+      "text": "Derived from docs/ROADMAP.md immediate build order steps 3 through 6. Ownership and browser containment are release gates, not optional hardening after computer use ships.",
+      "created_at": "2026-08-30T15:57:41.550748Z"
+    }
+  ],
+  "created_at": "2026-08-30T15:54:55.448709Z",
+  "updated_at": "2026-08-30T15:57:41.550748Z",
+  "closed_at": null,
+  "custom": {}
+}

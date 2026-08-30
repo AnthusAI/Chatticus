@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-e747d7e4-7ad7-4d45-b468-7cae6342eb7f",
+  "title": "Run the cold computer readiness feasibility test",
+  "description": "Run Test 2 from docs/FEASIBILITY_TESTS.md and report the distribution for each readiness gate.\n\nAcceptance criteria:\n- Measure cold Fargate task submission, RUNNING, model-call ready, workspace hydrated, and Chromium ready.\n- Repeat about five times and identify cache effects.\n- Compare warm local Docker.\n- Record Chromium absence as an incomplete component rather than hiding it.\n- Move roadmap priorities according to the documented result bands.\n- Do not optimize during the measurement.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1",
+    "spike"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-65398905-db08-4e8c-a4c3-2a8d06daeadd",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:56.678476Z",
+  "updated_at": "2026-08-30T15:54:56.678476Z",
+  "closed_at": null,
+  "custom": {}
+}

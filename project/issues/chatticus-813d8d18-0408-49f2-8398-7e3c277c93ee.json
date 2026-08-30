@@ -1,0 +1,22 @@
+{
+  "id": "chatticus-813d8d18-0408-49f2-8398-7e3c277c93ee",
+  "title": "Unsupported authenticated browser actions stop safely",
+  "description": "As a household member, I want browser actions with unbound consequences to stop, so that a persuasive screenshot or click coordinate is not treated as meaningful approval.\n\nFeature: Unsupported authenticated browser action\n\nScenario Outline: A generic browser would perform a consequential action\n  Given no structured connector or takeover control can bind the exact operation\n  When the model attempts to <action> through an authenticated browser\n  Then the action is not executed\n  And the turn reports that user-controlled completion is required\n\n  Examples:\n    | action |\n    | send |\n    | publish |\n    | purchase |\n    | delete |\n    | change production |",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4ddbe133-721a-4acb-909b-a56d511f08db",
+  "labels": [
+    "v1",
+    "bdd",
+    "security"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:57.236230Z",
+  "updated_at": "2026-08-30T15:54:57.236230Z",
+  "closed_at": null,
+  "custom": {}
+}

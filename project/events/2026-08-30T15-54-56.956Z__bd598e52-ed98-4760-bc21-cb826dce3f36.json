@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "bd598e52-ed98-4760-bc21-cb826dce3f36",
+  "issue_id": "chatticus-4ddbe133-721a-4acb-909b-a56d511f08db",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T15:54:56.956Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Purpose: treat prompt separation as a mitigation and enforce authority at system-controlled sinks.\n\nDefinition of Done:\n- Page content cannot add capabilities, origins, recipients, files, or egress channels to a task.\n- Untrusted browsing cannot use privileged sessions or ambient workspace secrets.\n- A consequential approval is bound to an immutable structured operation.\n- Generic authenticated browser actions stop safely unless a connector, takeover path, or equivalent control can bind the exact operation.\n- Adversarial browser scenarios demonstrate denial and containment even when the model follows injected instructions.",
+    "issue_type": "epic",
+    "labels": [
+      "v1",
+      "security"
+    ],
+    "parent": "chatticus-b950b06b-76be-4266-ac07-4668f171c774",
+    "priority": 0,
+    "status": "open",
+    "title": "Constrain browser authority before authenticated use"
+  }
+}

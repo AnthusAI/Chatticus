@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-b411069c-c5a8-4b63-84b6-0a786b954da3",
+  "title": "A crash at the computer seam does not lose or duplicate work",
+  "description": "As a household member, I want escalation failures to recover deterministically, so that a browser is never held forever and an action is never performed twice.\n\nFeature: Escalation failure recovery\n\nScenario Outline: Failure during computer handoff\n  Given a computerless turn is ready to request a computer tool\n  When its worker stops <boundary>\n  Then the pending call is either continued exactly once or the turn ends visibly\n  And only one attempt can control the computer\n  And an orphaned computer claim expires\n\n  Examples:\n    | boundary |\n    | before the tool call is committed |\n    | after the tool call is committed but before enqueue |\n    | after enqueue but before relinquishing ownership |\n    | after the computer action but before its result is committed |",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:56.584037Z",
+  "updated_at": "2026-08-30T15:54:56.584037Z",
+  "closed_at": null,
+  "custom": {}
+}

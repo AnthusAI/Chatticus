@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-538d28c5-8d15-47c1-ab6a-e852d2bb1569",
+  "title": "Implement the structured journal and fenced computer handoff",
+  "description": "Implement continuation from durable structured model and tool events.\n\nAcceptance criteria:\n- Model requests, tool calls, tool results, and attempt transitions are durable typed events, not transient token chunks.\n- The old attempt commits the pending call and relinquishes fenced ownership before continuation.\n- The new attempt claims the same turn and executes only unresolved calls.\n- Action identifiers make tool execution retry-aware.\n- Failure-injection scenarios cover every handoff boundary and computer reclamation.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1",
+    "implementation"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-53beb006-67ab-4190-ab92-eda3999049ad",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-e420080f-a60f-4be5-9bec-ceca14305046",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:56.864780Z",
+  "updated_at": "2026-08-30T15:54:56.864780Z",
+  "closed_at": null,
+  "custom": {}
+}

@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-a8f9d17c-da17-4047-8ef7-61dc8ce4e477",
+  "title": "Replace obsolete thread and in-process stream specifications",
+  "description": "Translate the three computerless-turn stories into executable feature files before production code changes.\n\nAcceptance criteria:\n- Use channel and turn terminology; there is no separate thread object.\n- Specify turn-scoped SSE and durable replay rather than an in-process subscription.\n- Require tenant_id on every bot, channel, message, turn, and job fixture.\n- Run Behave and confirm each new scenario fails for the expected missing behavior.\n- Remove or rewrite contradictory scenarios instead of supporting both designs.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-46746451-4000-4570-9129-37898a7e119a",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T15:53:17.992127Z",
+  "updated_at": "2026-08-30T15:53:17.992127Z",
+  "closed_at": null,
+  "custom": {}
+}

@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-b6ab7dcf-f021-4101-af5b-205aebfbbd1c",
+  "title": "Concurrent turns start one shared computer",
+  "description": "As a household member, I want concurrent bots to share one computer start, so that retries or simultaneous turns never create split-brain workplaces.\n\nFeature: Single computer start\n\nScenario: Two turns need a stopped computer\n  Given the household computer is stopped\n  When two eligible turns request that computer concurrently\n  Then the platform issues one host start request\n  And both turns wait for the same computer identity\n  And at most one live host may write that computer",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T15:54:56.293185Z",
+  "updated_at": "2026-08-30T15:54:56.293185Z",
+  "closed_at": null,
+  "custom": {}
+}

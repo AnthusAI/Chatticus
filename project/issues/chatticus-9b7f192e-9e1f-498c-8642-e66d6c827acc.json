@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "title": "Phase 1: Prove the serverless conversation foundation",
+  "description": "Outcome: a household user can address a named bot and receive one durable streamed answer while application compute retains no idle floor.\n\nScope: feasibility test 1, the computerless model path, durable channel and turn state, SQS delivery, and turn-scoped SSE.\n\nNot included: computer tools, browser authority, Kanbus task integration, snapshots, and the full web application.\n\nComplete when the transport result is recorded and the thin computerless turn passes its executable specifications end to end.",
+  "type": "initiative",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "9c0aa94a-cc0c-479b-a49f-95d3e7cec090",
+      "author": "home",
+      "text": "Derived from docs/ROADMAP.md immediate build order steps 1 and 2. Scale-to-zero, DynamoDB, one-turn SSE, and no persistent sockets remain requirements; this phase does not reopen them.",
+      "created_at": "2026-08-30T15:57:41.454045Z"
+    }
+  ],
+  "created_at": "2026-08-30T15:51:21.834527Z",
+  "updated_at": "2026-08-30T15:57:41.454045Z",
+  "closed_at": null,
+  "custom": {}
+}

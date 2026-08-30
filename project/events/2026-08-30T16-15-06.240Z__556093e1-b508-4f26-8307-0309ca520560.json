@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "event_id": "556093e1-b508-4f26-8307-0309ca520560",
+  "issue_id": "chatticus-4ddbe133-721a-4acb-909b-a56d511f08db",
+  "event_type": "dependency_added",
+  "occurred_at": "2026-08-30T16:15:06.240Z",
+  "actor_id": "example-user",
+  "payload": {
+    "dependency_type": "blocked-by",
+    "target_id": "76d3e2"
+  }
+}

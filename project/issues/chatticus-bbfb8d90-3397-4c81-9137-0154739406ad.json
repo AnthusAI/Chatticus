@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-bbfb8d90-3397-4c81-9137-0154739406ad",
+  "title": "Run the Lambda and CloudFront SSE feasibility spike",
+  "description": "Run Test 1 from docs/FEASIBILITY_TESTS.md as disposable spike code.\n\nAcceptance criteria:\n- Emit numbered SSE frames every 250 ms for at least 20 minutes.\n- Capture client receive times for direct and CloudFront paths.\n- Report p50, p95, batching, disconnect boundary, and Last-Event-ID recovery.\n- Repeat with a backgrounded tab and mobile Safari.\n- Record the pass or failure branch in the gated design document.\n\nNot included: DynamoDB, authentication, model calls, workers, or production code.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-387e4fbd-3040-46ec-8182-20374e655e24",
+  "labels": [
+    "v1",
+    "spike"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T15:53:17.523802Z",
+  "updated_at": "2026-08-30T15:53:17.523802Z",
+  "closed_at": null,
+  "custom": {}
+}

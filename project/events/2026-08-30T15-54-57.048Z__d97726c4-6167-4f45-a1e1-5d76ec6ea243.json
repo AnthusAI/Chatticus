@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "d97726c4-6167-4f45-a1e1-5d76ec6ea243",
+  "issue_id": "chatticus-1137c9f0-3874-471f-b020-aef73829fb99",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T15:54:57.048Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a household member, I want untrusted pages contained even when they manipulate the model, so that reading the web cannot grant new access.\n\nFeature: Browser capability containment\n\nScenario: A page asks the model to exceed a research task\n  Given a task grants read-only browsing on approved origins\n  And grants no workspace upload, messaging, or external recipient\n  When a page instructs the model to exfiltrate workspace data\n  And the model requests the forbidden operation\n  Then the worker denies the request\n  And no data reaches an unapproved origin or tool\n  And the denial is recorded for the user\n\nScenario: Research browsing is separate from a privileged session\n  Given the household computer holds a privileged authenticated session\n  When the bot opens an untrusted research page\n  Then that browsing context cannot use the privileged session or its secrets",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd",
+      "security"
+    ],
+    "parent": "chatticus-4ddbe133-721a-4acb-909b-a56d511f08db",
+    "priority": 0,
+    "status": "open",
+    "title": "Page content cannot expand granted authority"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "85477a0b-03c0-48b1-8056-1ee79790ccca",
+  "issue_id": "chatticus-387e4fbd-3040-46ec-8182-20374e655e24",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T15:53:17.431Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Purpose: replace the unmeasured streaming premise with evidence before building the cloud API.\n\nDefinition of Done:\n- Feasibility test 1 runs against the direct Lambda function URL and CloudFront paths.\n- Foreground, background-tab, reconnect, and mobile Safari observations are recorded.\n- The measured front door is selected without weakening scale-to-zero or the one-turn stream boundary.\n- The completed test is removed from FEASIBILITY_TESTS.md and its result is recorded in the document it gates.",
+    "issue_type": "epic",
+    "labels": [
+      "v1",
+      "transport"
+    ],
+    "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+    "priority": 0,
+    "status": "open",
+    "title": "Prove one-turn SSE transport"
+  }
+}

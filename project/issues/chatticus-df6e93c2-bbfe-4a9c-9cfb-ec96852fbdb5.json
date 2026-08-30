@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-df6e93c2-bbfe-4a9c-9cfb-ec96852fbdb5",
+  "title": "Implement the durable computerless turn path",
+  "description": "Implement only what the computerless-turn stories require.\n\nScope:\n- Tenant-scoped channel, message, turn, attempt, and event persistence in DynamoDB.\n- One logical SQS turn job created after the inbound message is durable.\n- A computerless worker that runs one OpenAI text-only loop.\n- Durable coalesced progress and one committed answer.\n- Authenticated POST and one-turn SSE endpoints using the transport proven by the spike.\n\nDo not adapt the obsolete in-memory subscription into a second supported path.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-46746451-4000-4570-9129-37898a7e119a",
+  "labels": [
+    "v1",
+    "implementation"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-bbfb8d90-3397-4c81-9137-0154739406ad",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-a8f9d17c-da17-4047-8ef7-61dc8ce4e477",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-08-30T15:53:18.082909Z",
+  "updated_at": "2026-08-30T15:53:18.082909Z",
+  "closed_at": null,
+  "custom": {}
+}
