@@ -36,10 +36,16 @@
       "author": "home",
       "text": "ChatticusThinTurn-only redeploy from main v0.5.0 (no --all, no staging/production). CloudFront https://d3gpuuldffe35o.cloudfront.net. exercise_thin_turn.py --environment development exit 0. Live claim/fence: missing turn 404; second worker 409 while lease held. Snapshots/computers untouched.",
       "created_at": "2026-08-30T22:51:23.604283Z"
+    },
+    {
+      "id": "1d8f72b1-f888-4237-9aac-0ba23ae224cb",
+      "author": "home",
+      "text": "ChatticusThinTurn-only redeploy from develop (no --all, no staging/production). CloudFront https://d3gpuuldffe35o.cloudfront.net. exercise_thin_turn.py --environment development exit 0: missing_claim=404 claim_a=200 claim_b=409; SSE turn.started/token/completed; computer_stopped=True bot_messages=1. Snapshots/computers untouched. main stays v0.5.0; approval kernels not promoted.",
+      "created_at": "2026-08-30T23:21:08.838273Z"
     }
   ],
   "created_at": "2026-08-30T20:36:57.810194Z",
-  "updated_at": "2026-08-30T22:51:23.604283Z",
+  "updated_at": "2026-08-30T23:21:08.838273Z",
   "closed_at": null,
   "custom": {}
 }

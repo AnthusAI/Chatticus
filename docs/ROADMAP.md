@@ -40,7 +40,8 @@ exposes a decision that blocks the next slice.
    the **exact structured arguments**. A bot cannot add that rule.
    Generic authenticated **browser** actions cannot be pre-authorized
    overnight; they stay blocked for user-controlled completion. Kernel:
-   `features/overnight_gated_action.feature`.
+   `features/overnight_gated_action.feature`. Recorded in
+   [Approval spec](APPROVAL.md).
 8. Complete the web app, approvals, task integration, snapshots, local-worker
    preference, and AWS computer path around those proven seams.
 

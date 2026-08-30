@@ -3,7 +3,7 @@
   "title": "Fault-inject every turn boundary",
   "description": "Build deterministic failure scenarios around message commit, logical enqueue, worker claim, model acceptance, progress append, completion append, acknowledgement, and deadline recovery.\n\nAcceptance criteria:\n- Each before-and-after crash window has an executable scenario.\n- Scenarios assert provider call counts, final channel messages, current attempt, and terminal state.\n- No scenario permits two authoritative actors.\n- The suite completes without real provider calls or sleeps.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -18,9 +18,16 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "016814fa-e6ab-4383-95d4-5d6cebfa484e",
+      "author": "home",
+      "text": "Kernel on develop and main: python/tests/test_turn_fault_injection.py parametrizes ALL_CRASH_SCENARIOS (before/after every TurnBoundary including deadline recovery). No two authoritative actors. Suite uses in-memory driver; no real provider or sleeps.",
+      "created_at": "2026-08-30T23:19:45.048628Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:56.108038Z",
-  "updated_at": "2026-08-30T15:54:56.108038Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T23:19:45.061041Z",
+  "closed_at": "2026-08-30T23:19:45.061041Z",
   "custom": {}
 }

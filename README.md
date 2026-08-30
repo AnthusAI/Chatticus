@@ -103,18 +103,23 @@ deploy. EventBridge Scheduler one-shots are on the front door
 Warm Front Door containers use a wall clock, so deadlines land in the
 future. A wedged turn has recovered through EventBridge without a
 forced Lambda cold start. After a **ChatticusThinTurn**-only redeploy
-from `main` v0.5.0, live claim/fence still holds: missing-turn claim
-is 404; a second worker on an unexpired lease is 409.
+from `develop` (no `--all`, no staging or production), live claim/fence
+still holds: missing-turn claim is 404; a second worker on an unexpired
+lease is 409. GitHub **`main`** stays **v0.5.0**; overnight, approval
+binding, and unbound-browser kernels are not promoted there until they
+are on the live worker loop.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the turn path yet. The computer stays stopped.
 There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
 
-Next on the board: a named **staging** thin-turn deploy after this
-release (9eef23). Production stays gated. Overnight gated-action (5b687a),
-immutable approval binding (2b293d), and unbound browser stops (813d8d)
-are kernel-only, not on the live worker loop.
+Next on the board: a named **staging** thin-turn deploy (9eef23) when
+`main` is promoted, not as daily parking. Overnight gated-action
+(5b687a), immutable approval binding (2b293d), and unbound browser
+stops (813d8d) are kernel-only; the unattended-gate decision is in
+[Approval spec](docs/APPROVAL.md) (76d3e2). They are not on the live
+worker loop.
 
 ```mermaid
 flowchart LR
@@ -354,6 +359,7 @@ as a leftover for the implementation agent.
 - [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md)
 - [Stack](docs/STACK.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Approval spec](docs/APPROVAL.md)
 - [Threat model](docs/THREAT_MODEL.md)
 - [Tasks](docs/TASKS.md)
 - [Feasibility tests](docs/FEASIBILITY_TESTS.md)
