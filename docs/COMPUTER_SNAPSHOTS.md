@@ -130,3 +130,14 @@ python -m chatticus.snapshot hydrate \
 If the Mac already has a cache whose checksum matches the manifest, hydrate
 does not download the pack again.
 
+Inside the computer image, `/workspace` is a symlink to
+`/var/lib/chatticus/computer/workspace`. Do not give two hosts the same live
+volume. They share the snapshot store only.
+
+Prove relocate with two running containers:
+
+```bash
+sh computer/test_relocate.sh
+```
+
+

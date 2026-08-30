@@ -1,5 +1,6 @@
-# Local Chatticus: Postgres now, control plane and computer next.
-# AWS is not required to prove worker routing against the in-memory kernel.
+# Local Chatticus: Postgres plus two computer hosts that share a snapshot store.
+# The two computers are different hosts of the same workplace identity.
+# Relocate is pack on one, hydrate on the other — not docker save.
 
 services:
   postgres:
@@ -13,5 +14,37 @@ services:
     volumes:
       - chatticus-postgres:/var/lib/postgresql/data
 
+  computer-fargate:
+    build:
+      context: .
+      dockerfile: computer/Dockerfile
+    image: chatticus-computer:dev
+    hostname: fargate-1
+    environment:
+      CHATTICUS_LIVE_ROOT: /var/lib/chatticus/computer
+      CHATTICUS_SNAPSHOT_STORE: /var/lib/chatticus/store
+    volumes:
+      - fargate-live:/var/lib/chatticus/computer
+      - snapshot-store:/var/lib/chatticus/store
+
+  computer-mac:
+    build:
+      context: .
+      dockerfile: computer/Dockerfile
+    image: chatticus-computer:dev
+    hostname: garage-mac-1
+    depends_on:
+      computer-fargate:
+        condition: service_started
+    environment:
+      CHATTICUS_LIVE_ROOT: /var/lib/chatticus/computer
+      CHATTICUS_SNAPSHOT_STORE: /var/lib/chatticus/store
+    volumes:
+      - mac-live:/var/lib/chatticus/computer
+      - snapshot-store:/var/lib/chatticus/store
+
 volumes:
   chatticus-postgres:
+  fargate-live:
+  mac-live:
+  snapshot-store:

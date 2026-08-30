@@ -131,6 +131,12 @@ black --check src ../features tests
 ruff check src ../features tests
 ```
 
+If Docker Desktop is running:
+
+```bash
+sh computer/test_relocate.sh
+```
+
 AWS resources are CDK only (`infra/`). Do not create them in the console.
 
 ```bash
