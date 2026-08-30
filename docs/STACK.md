@@ -7,7 +7,7 @@ implementation of the same behavior until the protocol is stable.
 
 | Layer | Choice | Why |
 | --- | --- | --- |
-| Agent, worker, API | Python 3.12+, FastAPI, xAI SDK, Playwright | Model SDK, computer use, MCP clients, short Lambda edges |
+| Agent, worker, API | Python 3.12+, FastAPI, OpenAI SDK, Playwright | OpenAI first; computer use; MCP clients; short Lambda edges |
 | Web | TypeScript, Next.js, CloudFront | Chat, roster, computer preview, approvals |
 | Computer image | Ubuntu, Xvfb, Chromium, noVNC | Same artifact on Fargate and local Docker |
 | Data | Postgres (RDS), S3, Secrets Manager | Conversations and memory in Postgres; files in S3; secrets out of the image |
@@ -15,6 +15,15 @@ implementation of the same behavior until the protocol is stable.
 | AWS compute | API Gateway + Lambda for HTTP; ECS Fargate and optional stop/start EC2 for the computer | Lambda only for seconds-long work |
 | BDD | behave and shared `features/` Gherkin | Product narrative lives in Gherkin |
 | IaC | AWS CDK in TypeScript | Same language as the web app; separate stacks for control plane and computer |
+
+## LLM providers
+
+v1 talks to **OpenAI** (Chat Completions or Responses API with function
+calling). The agent loop depends on a small provider interface so the rest
+of Chatticus does not import a vendor SDK.
+
+Amazon Bedrock is the next provider to consider. Do not add other vendors
+until OpenAI turns work end to end.
 
 ## Lambda
 

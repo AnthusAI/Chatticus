@@ -12,8 +12,10 @@ The public site and product name is **Chatticus** at **chattic.us**.
 
 Do not describe this product as a clone, port, or copy of any third-party
 agent product. Do not use third-party product names for Chatticus bots, the
-computer, skills, routines, or the worker protocol. The reasoning model may be
-the xAI Grok API; that is a model provider, not the product name.
+computer, skills, routines, or the worker protocol.
+
+v1's LLM is **OpenAI**. Amazon Bedrock may follow. Do not assume or add an
+xAI client. The model vendor is not the product name.
 
 ## Layout
 

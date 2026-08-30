@@ -5,7 +5,7 @@
 - Web chat at chattic.us
 - Named bots with isolated memory
 - One shared computer per user
-- Model tool loop (MCP + browser on the computer)
+- Model tool loop via OpenAI (MCP + browser on the computer)
 - Approvals for send / publish / purchase / delete / production changes
 - `/workspace` on the computer
 - Worker protocol with `tenant_id` and prefer-local routing
@@ -23,6 +23,7 @@ CDK stacks are next.
 - Human takeover of the computer display
 - Bot-to-bot handoff
 - Connector/plugin install flow
+- Amazon Bedrock as a second LLM provider (optional)
 
 ## v3
 

@@ -24,8 +24,8 @@ Control plane (AWS)
         +----------+----------+
                    |
                    v
-            xAI Grok API
-```
+            OpenAI API
+            (Bedrock later)```
 
 The control plane accepts messages, stores state, and enqueues turns. It
 does not run the model loop and it does not own a display.
@@ -116,14 +116,16 @@ stays "always able to work" without paying for an always-running vCPU.
 The model loop runs **on the worker**:
 
 1. Load bot memory, conversation, skills, and the tool list (MCP + computer
-   actions + built-in search/code tools from the model provider).
-2. Call the xAI Grok API with function calling.
+   actions + tools from the model provider).
+2. Call the configured LLM provider with function calling. v1 uses OpenAI.
+   Amazon Bedrock is a later option. The agent talks to a provider interface,
+   not a vendor-specific SDK from the rest of the loop.
 3. Execute tool calls on the worker (or pause for approval).
 4. Stream tokens, screenshots, and approval cards to the control plane.
 5. Persist conversation and memory in Postgres via the control plane.
 
-Built-in provider tools (web search, code execution) may run on the
-provider. Custom tools and computer actions always run on the worker.
+Provider-hosted tools (if the vendor offers them) may run on the provider.
+Custom tools and computer actions always run on the worker.
 
 ## Approvals in the loop
 
