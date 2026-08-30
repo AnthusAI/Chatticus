@@ -37,7 +37,9 @@ from chatticus.models import (
     DuplicateBotNameError,
     Message,
     SnapshotRequiredError,
+    StaleAttemptError,
     Turn,
+    TurnAttempt,
     TurnEvent,
     TurnEventKind,
     TurnJob,
@@ -63,6 +65,7 @@ class ControlPlane:
         heartbeat_timeout: timedelta | None = None,
         messaging_store: MessagingStore | None = None,
         turn_enqueued: Callable[[TurnJob], None] | None = None,
+        attempt_lease: timedelta | None = None,
     ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
@@ -72,8 +75,11 @@ class ControlPlane:
         :param turn_enqueued: Optional hook that receives each cpu turn job
             after it is bound to a turn (used to publish SQS in Lambda).
         :type turn_enqueued: Callable[[TurnJob], None] | None
+        :param attempt_lease: How long a claimed turn stays owned without renew.
+        :type attempt_lease: timedelta | None
         """
         self.heartbeat_timeout = heartbeat_timeout or timedelta(seconds=30)
+        self.attempt_lease = attempt_lease or timedelta(seconds=60)
         self._now = datetime.now(UTC)
         self._workers: dict[str, WorkerRecord] = {}
         self._bots: dict[str, Bot] = {}
@@ -715,6 +721,69 @@ class ControlPlane:
             raise TurnNotFoundError(f"Turn {turn_id!r} does not exist.")
         return record
 
+    def claim_turn_attempt(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        worker_id: str,
+    ) -> TurnAttempt | None:
+        """Conditionally become the fenced owner of an active turn.
+
+        A worker that already holds the unexpired lease gets the attempt
+        with ``acquired=False`` and must not start another model call.
+        """
+        self.turn(tenant_id, turn_id)
+        claimed = self._messaging_store.claim_turn_attempt(
+            tenant_id,
+            turn_id,
+            worker_id,
+            str(uuid4()),
+            self._now,
+            self._now + self.attempt_lease,
+        )
+        if claimed is None:
+            return None
+        turn, acquired = claimed
+        if turn.attempt_id is None:
+            return None
+        return TurnAttempt(
+            tenant_id=turn.tenant_id,
+            turn_id=turn.turn_id,
+            attempt_id=turn.attempt_id,
+            fence_token=turn.fence_token,
+            worker_id=worker_id,
+            acquired=acquired,
+            lease_expires_at=turn.lease_expires_at or (self._now + self.attempt_lease),
+        )
+
+    def renew_turn_lease(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        worker_id: str,
+        fence_token: int,
+    ) -> TurnAttempt | None:
+        """Extend the lease if this worker still holds the fence."""
+        renewed = self._messaging_store.renew_turn_lease(
+            tenant_id,
+            turn_id,
+            worker_id,
+            fence_token,
+            self._now + self.attempt_lease,
+        )
+        if renewed is None or renewed.attempt_id is None:
+            return None
+        return TurnAttempt(
+            tenant_id=renewed.tenant_id,
+            turn_id=renewed.turn_id,
+            attempt_id=renewed.attempt_id,
+            fence_token=renewed.fence_token,
+            worker_id=worker_id,
+            acquired=False,
+            lease_expires_at=renewed.lease_expires_at
+            or (self._now + self.attempt_lease),
+        )
+
     def active_turn_for_channel(self, tenant_id: str, channel_id: str) -> Turn | None:
         """Return the active turn on a channel, if any."""
         messages = self._messaging_store.list_messages(tenant_id, channel_id)
@@ -746,12 +815,19 @@ class ControlPlane:
         token: str,
         *,
         complete: bool = False,
+        fence_token: int,
     ) -> None:
         """Append one coalesced chunk and optionally complete the turn.
 
         :raises TurnNotFoundError: If the turn is unknown.
+        :raises StaleAttemptError: If the fence does not match the owner.
         """
         turn = self.turn(tenant_id, turn_id)
+        if turn.fence_token != fence_token:
+            raise StaleAttemptError(
+                f"Turn {turn_id!r} rejected fence {fence_token} "
+                f"(current {turn.fence_token})."
+            )
         if turn.status != TurnStatus.ACTIVE:
             return
         expires_at = default_chunk_expiry(self._now)
@@ -763,22 +839,31 @@ class ControlPlane:
             expires_at,
         )
         turn.next_chunk_seq += 1
-        self._messaging_store.put_turn(turn)
+        self._messaging_store.put_turn(turn, expected_fence=fence_token)
         self._append_turn_event(
             turn,
             TurnEventKind.TURN_TOKEN,
             token=token,
+            expected_fence=fence_token,
         )
         if complete:
-            self._complete_turn(turn)
+            self._complete_turn(turn, expected_fence=fence_token)
 
-    def complete_turn(self, tenant_id: str, turn_id: str) -> Message:
+    def complete_turn(
+        self, tenant_id: str, turn_id: str, *, fence_token: int
+    ) -> Message:
         """Join chunks into one committed message row.
 
         :raises TurnNotFoundError: If the turn is unknown.
+        :raises StaleAttemptError: If the fence does not match the owner.
         """
         turn = self.turn(tenant_id, turn_id)
-        return self._complete_turn(turn)
+        if turn.fence_token != fence_token:
+            raise StaleAttemptError(
+                f"Turn {turn_id!r} rejected fence {fence_token} "
+                f"(current {turn.fence_token})."
+            )
+        return self._complete_turn(turn, expected_fence=fence_token)
 
     def _start_turn_for_bot(self, channel: Channel, bot_id: str) -> Turn:
         turn = Turn(
@@ -815,7 +900,9 @@ class ControlPlane:
                     self._turn_enqueued(self._jobs[index])
                 return
 
-    def _complete_turn(self, turn: Turn) -> Message:
+    def _complete_turn(
+        self, turn: Turn, *, expected_fence: int | None = None
+    ) -> Message:
         if turn.status == TurnStatus.COMPLETED:
             chunks = self._messaging_store.list_turn_chunks(
                 turn.tenant_id, turn.turn_id
@@ -859,12 +946,13 @@ class ControlPlane:
         self._messaging_store.put_channel(channel)
         self._messaging_store.put_message(message)
         turn.status = TurnStatus.COMPLETED
-        self._messaging_store.put_turn(turn)
+        self._messaging_store.put_turn(turn, expected_fence=expected_fence)
         self._append_turn_event(
             turn,
             TurnEventKind.TURN_COMPLETED,
             message_seq=message.seq,
             body=body,
+            expected_fence=expected_fence,
         )
         self._signal_turn_subscribers(turn.turn_id, None)
         return message
@@ -877,6 +965,7 @@ class ControlPlane:
         token: str | None = None,
         message_seq: int | None = None,
         body: str | None = None,
+        expected_fence: int | None = None,
     ) -> TurnEvent:
         event = TurnEvent(
             event_id=str(uuid4()),
@@ -890,7 +979,7 @@ class ControlPlane:
             body=body,
         )
         turn.next_event_seq += 1
-        self._messaging_store.put_turn(turn)
+        self._messaging_store.put_turn(turn, expected_fence=expected_fence)
         self._messaging_store.put_turn_event(event)
         self._fan_out_turn_event(turn.turn_id, event)
         return event

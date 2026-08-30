@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+import threading
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 from chatticus.models import (
@@ -14,6 +15,7 @@ from chatticus.models import (
     Computer,
     ComputerPolicy,
     Message,
+    StaleAttemptError,
     Turn,
     TurnEvent,
     TurnEventKind,
@@ -38,11 +40,37 @@ class MessagingStore(Protocol):
     ) -> list[Message]:
         """Return messages with seq greater than after_seq."""
 
-    def put_turn(self, turn: Turn) -> None:
-        """Persist turn metadata."""
+    def put_turn(self, turn: Turn, *, expected_fence: int | None = None) -> None:
+        """Persist turn metadata, optionally requiring the current fence."""
 
     def get_turn(self, tenant_id: str, turn_id: str) -> Turn | None:
         """Load one turn."""
+
+    def claim_turn_attempt(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        worker_id: str,
+        attempt_id: str,
+        now: datetime,
+        lease_expires_at: datetime,
+    ) -> tuple[Turn, bool] | None:
+        """Conditionally take ownership of an active turn.
+
+        Returns ``(turn, True)`` when this call became owner, ``(turn, False)``
+        when this worker already owns an unexpired lease, or ``None`` when
+        another worker holds the lease.
+        """
+
+    def renew_turn_lease(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        worker_id: str,
+        fence_token: int,
+        lease_expires_at: datetime,
+    ) -> Turn | None:
+        """Extend the lease for the fenced owner, or return None if fenced out."""
 
     def put_turn_event(self, event: TurnEvent) -> None:
         """Persist one durable turn event."""
@@ -89,6 +117,7 @@ class InMemoryMessagingStore:
         self._turn_chunks: dict[tuple[str, str], list[tuple[int, str, datetime]]] = {}
         self._bots: dict[tuple[str, str], Bot] = {}
         self._computers: dict[tuple[str, str], Computer] = {}
+        self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
         self._channels[(channel.tenant_id, channel.channel_id)] = channel
@@ -106,8 +135,61 @@ class InMemoryMessagingStore:
         messages = self._messages.get((tenant_id, channel_id), [])
         return [message for message in messages if message.seq > after_seq]
 
-    def put_turn(self, turn: Turn) -> None:
-        self._turns[(turn.tenant_id, turn.turn_id)] = turn
+    def put_turn(self, turn: Turn, *, expected_fence: int | None = None) -> None:
+        with self._lock:
+            if expected_fence is not None:
+                current = self._turns.get((turn.tenant_id, turn.turn_id))
+                if current is None or current.fence_token != expected_fence:
+                    raise StaleAttemptError(
+                        f"Turn {turn.turn_id!r} rejected a write for fence "
+                        f"{expected_fence}."
+                    )
+            self._turns[(turn.tenant_id, turn.turn_id)] = turn
+
+    def claim_turn_attempt(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        worker_id: str,
+        attempt_id: str,
+        now: datetime,
+        lease_expires_at: datetime,
+    ) -> tuple[Turn, bool] | None:
+        with self._lock:
+            turn = self._turns.get((tenant_id, turn_id))
+            if turn is None or turn.status != TurnStatus.ACTIVE:
+                return None
+            lease_valid = (
+                turn.lease_expires_at is not None and turn.lease_expires_at > now
+            )
+            if lease_valid and turn.claimed_by_worker_id == worker_id:
+                return turn, False
+            if lease_valid and turn.claimed_by_worker_id != worker_id:
+                return None
+            turn.attempt_id = attempt_id
+            turn.fence_token += 1
+            turn.claimed_by_worker_id = worker_id
+            turn.lease_expires_at = lease_expires_at
+            return turn, True
+
+    def renew_turn_lease(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        worker_id: str,
+        fence_token: int,
+        lease_expires_at: datetime,
+    ) -> Turn | None:
+        with self._lock:
+            turn = self._turns.get((tenant_id, turn_id))
+            if (
+                turn is None
+                or turn.fence_token != fence_token
+                or turn.claimed_by_worker_id != worker_id
+            ):
+                return None
+            turn.lease_expires_at = lease_expires_at
+            return turn
 
     def put_turn_event(self, event: TurnEvent) -> None:
         key = (event.tenant_id, event.turn_id)
@@ -240,21 +322,26 @@ class DynamoMessagingStore:
             messages.append(_message_from_item(item))
         return sorted(messages, key=lambda message: message.seq)
 
-    def put_turn(self, turn: Turn) -> None:
-        self.client.put_item(
-            TableName=self.table_name,
-            Item={
-                "pk": {"S": self._turn_pk(turn.tenant_id, turn.turn_id)},
-                "sk": {"S": "meta"},
-                "tenant_id": {"S": turn.tenant_id},
-                "turn_id": {"S": turn.turn_id},
-                "channel_id": {"S": turn.channel_id},
-                "bot_id": {"S": turn.bot_id},
-                "status": {"S": turn.status},
-                "next_event_seq": {"N": str(turn.next_event_seq)},
-                "next_chunk_seq": {"N": str(turn.next_chunk_seq)},
-            },
-        )
+    def put_turn(self, turn: Turn, *, expected_fence: int | None = None) -> None:
+        item = _turn_item(turn)
+        kwargs: dict[str, Any] = {
+            "TableName": self.table_name,
+            "Item": item,
+        }
+        if expected_fence is not None:
+            kwargs["ConditionExpression"] = "fence_token = :fence"
+            kwargs["ExpressionAttributeValues"] = {":fence": {"N": str(expected_fence)}}
+        try:
+            self.client.put_item(**kwargs)
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") == (
+                "ConditionalCheckFailedException"
+            ):
+                raise StaleAttemptError(
+                    f"Turn {turn.turn_id!r} rejected a write for fence "
+                    f"{expected_fence}."
+                ) from error
+            raise
 
     def get_turn(self, tenant_id: str, turn_id: str) -> Turn | None:
         response = self.client.get_item(
@@ -267,15 +354,102 @@ class DynamoMessagingStore:
         item = response.get("Item")
         if item is None:
             return None
-        return Turn(
-            turn_id=item["turn_id"]["S"],
-            tenant_id=item["tenant_id"]["S"],
-            channel_id=item["channel_id"]["S"],
-            bot_id=item["bot_id"]["S"],
-            status=TurnStatus(item["status"]["S"]),
-            next_event_seq=int(item["next_event_seq"]["N"]),
-            next_chunk_seq=int(item.get("next_chunk_seq", {}).get("N", "1")),
+        return _turn_from_item(item)
+
+    def claim_turn_attempt(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        worker_id: str,
+        attempt_id: str,
+        now: datetime,
+        lease_expires_at: datetime,
+    ) -> tuple[Turn, bool] | None:
+        current = self.get_turn(tenant_id, turn_id)
+        if current is None or current.status != TurnStatus.ACTIVE:
+            return None
+        lease_valid = (
+            current.lease_expires_at is not None and current.lease_expires_at > now
         )
+        if lease_valid and current.claimed_by_worker_id == worker_id:
+            return current, False
+        if lease_valid and current.claimed_by_worker_id != worker_id:
+            return None
+        now_epoch = str(int(now.timestamp()))
+        new_fence = current.fence_token + 1
+        try:
+            self.client.update_item(
+                TableName=self.table_name,
+                Key={
+                    "pk": {"S": self._turn_pk(tenant_id, turn_id)},
+                    "sk": {"S": "meta"},
+                },
+                UpdateExpression=(
+                    "SET attempt_id = :aid, fence_token = :fence, "
+                    "claimed_by_worker_id = :wid, lease_expires_at = :lease"
+                ),
+                ConditionExpression=(
+                    "tenant_id = :tid AND #st = :active AND fence_token = :old_fence "
+                    "AND (attribute_not_exists(lease_expires_at) "
+                    "OR lease_expires_at <= :now)"
+                ),
+                ExpressionAttributeNames={"#st": "status"},
+                ExpressionAttributeValues={
+                    ":aid": {"S": attempt_id},
+                    ":fence": {"N": str(new_fence)},
+                    ":wid": {"S": worker_id},
+                    ":lease": {"N": str(int(lease_expires_at.timestamp()))},
+                    ":tid": {"S": tenant_id},
+                    ":active": {"S": TurnStatus.ACTIVE},
+                    ":old_fence": {"N": str(current.fence_token)},
+                    ":now": {"N": now_epoch},
+                },
+            )
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") == (
+                "ConditionalCheckFailedException"
+            ):
+                return None
+            raise
+        updated = self.get_turn(tenant_id, turn_id)
+        if updated is None:
+            return None
+        return updated, True
+
+    def renew_turn_lease(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        worker_id: str,
+        fence_token: int,
+        lease_expires_at: datetime,
+    ) -> Turn | None:
+        try:
+            self.client.update_item(
+                TableName=self.table_name,
+                Key={
+                    "pk": {"S": self._turn_pk(tenant_id, turn_id)},
+                    "sk": {"S": "meta"},
+                },
+                UpdateExpression="SET lease_expires_at = :lease",
+                ConditionExpression=(
+                    "tenant_id = :tid AND fence_token = :fence "
+                    "AND claimed_by_worker_id = :wid"
+                ),
+                ExpressionAttributeValues={
+                    ":lease": {"N": str(int(lease_expires_at.timestamp()))},
+                    ":tid": {"S": tenant_id},
+                    ":fence": {"N": str(fence_token)},
+                    ":wid": {"S": worker_id},
+                },
+            )
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") == (
+                "ConditionalCheckFailedException"
+            ):
+                return None
+            raise
+        return self.get_turn(tenant_id, turn_id)
 
     def put_turn_event(self, event: TurnEvent) -> None:
         self.client.put_item(
@@ -441,6 +615,50 @@ def _message_from_item(item: dict[str, Any]) -> Message:
         body=item["body"]["S"],
         addressed_to_bot_id=addressed or None,
         created_at=datetime.fromisoformat(item["created_at"]["S"]),
+    )
+
+
+def _turn_item(turn: Turn) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "pk": {"S": f"{turn.tenant_id}#turn#{turn.turn_id}"},
+        "sk": {"S": "meta"},
+        "tenant_id": {"S": turn.tenant_id},
+        "turn_id": {"S": turn.turn_id},
+        "channel_id": {"S": turn.channel_id},
+        "bot_id": {"S": turn.bot_id},
+        "status": {"S": turn.status},
+        "next_event_seq": {"N": str(turn.next_event_seq)},
+        "next_chunk_seq": {"N": str(turn.next_chunk_seq)},
+        "fence_token": {"N": str(turn.fence_token)},
+    }
+    if turn.attempt_id is not None:
+        item["attempt_id"] = {"S": turn.attempt_id}
+    if turn.claimed_by_worker_id is not None:
+        item["claimed_by_worker_id"] = {"S": turn.claimed_by_worker_id}
+    if turn.lease_expires_at is not None:
+        item["lease_expires_at"] = {"N": str(int(turn.lease_expires_at.timestamp()))}
+    return item
+
+
+def _turn_from_item(item: dict[str, Any]) -> Turn:
+    lease_item = item.get("lease_expires_at", {}).get("N")
+    lease_expires_at = (
+        datetime.fromtimestamp(int(lease_item), tz=UTC) if lease_item else None
+    )
+    attempt = item.get("attempt_id", {}).get("S") or None
+    claimed = item.get("claimed_by_worker_id", {}).get("S") or None
+    return Turn(
+        turn_id=item["turn_id"]["S"],
+        tenant_id=item["tenant_id"]["S"],
+        channel_id=item["channel_id"]["S"],
+        bot_id=item["bot_id"]["S"],
+        status=TurnStatus(item["status"]["S"]),
+        next_event_seq=int(item["next_event_seq"]["N"]),
+        next_chunk_seq=int(item.get("next_chunk_seq", {}).get("N", "1")),
+        attempt_id=attempt,
+        fence_token=int(item.get("fence_token", {}).get("N", "0")),
+        claimed_by_worker_id=claimed,
+        lease_expires_at=lease_expires_at,
     )
 
 

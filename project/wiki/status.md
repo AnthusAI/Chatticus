@@ -24,9 +24,9 @@ v1 LLM is OpenAI. Live model: **gpt-5.6-luna**. Key lives in `.env` (gitignored)
 
 | Issue | Status | Note |
 | --- | --- | --- |
-| chatticus-a78994 | closed | Live gpt-5.6-luna; CI stays fake |
-| chatticus-e5c86e | closed | ChatticusThinTurn deployed and exercised |
+| chatticus-19eddc | in progress | Durable turn attempts, leases, fencing |
 | chatticus-387e4f | open | Spike done; mobile Safari still unmeasured |
+| chatticus-e42008 | blocked | Idempotent handoff after 19eddc |
 
 ## Do not
 

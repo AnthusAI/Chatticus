@@ -31,6 +31,19 @@ class FakeTextCompletionClient:
         return "Hello"
 
 
+class CountingTextCompletionClient:
+    """Wrap a completion client and count how many times the model is called."""
+
+    def __init__(self, inner: TextCompletionClient | None = None) -> None:
+        self.inner = inner or FakeTextCompletionClient()
+        self.calls = 0
+
+    def complete(self, prompt: str) -> str:
+        """Count one model call, then delegate."""
+        self.calls += 1
+        return self.inner.complete(prompt)
+
+
 class ComputerlessWorker:
     """Pull cpu-only jobs, stream coalesced chunks, commit one answer."""
 
@@ -60,6 +73,9 @@ class ComputerlessWorker:
             return
         turn = self.plane.turn(job.tenant_id, job.turn_id)
         if turn.status != TurnStatus.ACTIVE:
+            return
+        claimed = self.turn_client.claim(job.turn_id, job.job_id)
+        if not claimed.get("acquired"):
             return
         prompt = self.plane.turn_prompt(job.tenant_id, job.turn_id)
         answer = self.completion_client.complete(prompt)

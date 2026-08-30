@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from uuid import uuid4
+
 from behave import given, then, when
 from sse_helpers import (
     SseWatcher,
@@ -16,7 +19,10 @@ from chatticus.models import (
     TurnAccessDeniedError,
     TurnStatus,
 )
-from chatticus.worker.computerless import ComputerlessWorker
+from chatticus.worker.computerless import (
+    ComputerlessWorker,
+    CountingTextCompletionClient,
+)
 
 
 def _channel(context: object) -> object:
@@ -77,6 +83,19 @@ def _message_at_seq(context: object, seq: int) -> object:
     raise AssertionError(f"No message with seq {seq}.")
 
 
+def _claim_http(context: object, turn_id: str, tenant_id: str, worker_id: str) -> int:
+    response = context.api_client.post(
+        f"/turns/{turn_id}/claim",
+        json={"worker_id": worker_id},
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    context.fence_token = int(payload["fence_token"])
+    context.claim_acquired = payload["acquired"]
+    return context.fence_token
+
+
 def _post_chunk_http(
     context: object,
     turn_id: str,
@@ -84,13 +103,22 @@ def _post_chunk_http(
     token: str,
     *,
     complete: bool = False,
-) -> None:
+    fence_token: int | None = None,
+    expect_ok: bool = True,
+) -> int:
+    resolved_fence = fence_token if fence_token is not None else context.fence_token
     response = context.api_client.post(
         f"/turns/{turn_id}/chunks",
-        json={"token": token, "complete": complete},
+        json={
+            "token": token,
+            "complete": complete,
+            "fence_token": resolved_fence,
+        },
         headers=tenant_headers(tenant_id),
     )
-    assert response.status_code == 200
+    if expect_ok:
+        assert response.status_code == 200, response.text
+    return response.status_code
 
 
 @when('tenant "{tenant_id}" user "{user_id}" opens a channel with bots:')
@@ -376,6 +404,7 @@ def given_bot_producing_turn(context: object, name: str) -> None:
     )
     assert response.status_code == 200
     context.last_turn_id = response.json()["turn_id"]
+    _claim_http(context, context.last_turn_id, channel.tenant_id, "sse-worker")
 
 
 @given(
@@ -456,6 +485,7 @@ def given_turn_events_through_seq(context: object, seq: int) -> None:
     context.last_turn_id = response.json()["turn_id"]
     tenant_id = channel.tenant_id
     turn_id = _turn_id(context)
+    _claim_http(context, turn_id, tenant_id, "sse-worker")
     _post_chunk_http(context, turn_id, tenant_id, "Hel")
     _post_chunk_http(context, turn_id, tenant_id, "lo")
     _post_chunk_http(context, turn_id, tenant_id, "!")
@@ -549,3 +579,116 @@ def when_other_opens_turn_stream(context: object, tenant_id: str) -> None:
 @then("turn stream access is denied because the tenant does not match")
 def then_turn_stream_tenant_denied(context: object) -> None:
     assert isinstance(context.stream_error, TurnAccessDeniedError)
+
+
+@given("one unfinished turn job is delivered twice")
+def given_unfinished_job_delivered_twice(context: object) -> None:
+    channel = _channel(context)
+    bot = context.bots_by_name["Assistant"]
+    when_human_posts_on_channel(
+        context, channel.user_id, channel.tenant_id, "ping", "Assistant"
+    )
+    jobs = context.plane.pending_jobs_for_bot(bot.bot_id)
+    assert len(jobs) == 1
+    first = jobs[0]
+    second = replace(first, job_id=str(uuid4()))
+    context.duplicate_jobs = [first, second]
+    context.counting_client = CountingTextCompletionClient()
+
+
+@when("two workers try to process it concurrently")
+def when_two_workers_process_turn(context: object) -> None:
+    channel = _channel(context)
+    for job in context.duplicate_jobs:
+        worker = ComputerlessWorker(
+            context.plane,
+            HttpTurnClient(context.api_client, channel.tenant_id),
+            context.counting_client,
+        )
+        worker.run_job(job)
+
+
+@then("only one worker begins the model attempt")
+def then_one_model_attempt(context: object) -> None:
+    assert context.counting_client.calls == 1
+
+
+@then("only that attempt can append progress or completion")
+def then_only_owner_appends(context: object) -> None:
+    channel = _channel(context)
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    stale = _post_chunk_http(
+        context,
+        turn.turn_id,
+        channel.tenant_id,
+        "extra",
+        fence_token=0,
+        expect_ok=False,
+    )
+    assert stale == 409
+
+
+@then("the channel receives at most one final answer")
+def then_at_most_one_answer(context: object) -> None:
+    then_channel_has_durable_bot_answer(context)
+
+
+@given("a turn has been reassigned to a newer attempt")
+def given_turn_reassigned(context: object) -> None:
+    channel = _channel(context)
+    when_human_posts_on_channel(
+        context, channel.user_id, channel.tenant_id, "ping", "Assistant"
+    )
+    turn_id = _turn_id(context)
+    _claim_http(context, turn_id, channel.tenant_id, "worker-a")
+    context.stale_fence = context.fence_token
+    context.plane.advance_seconds(61)
+    _claim_http(context, turn_id, channel.tenant_id, "worker-b")
+    context.current_fence = context.fence_token
+
+
+@when("the expired attempt tries to append output or execute an action")
+def when_expired_attempt_appends(context: object) -> None:
+    channel = _channel(context)
+    context.stale_status = _post_chunk_http(
+        context,
+        _turn_id(context),
+        channel.tenant_id,
+        "late",
+        fence_token=context.stale_fence,
+        expect_ok=False,
+    )
+
+
+@then("the operation is rejected")
+def then_operation_rejected(context: object) -> None:
+    assert context.stale_status == 409
+
+
+@then("only the newer attempt can change the turn")
+def then_newer_attempt_writes(context: object) -> None:
+    channel = _channel(context)
+    status = _post_chunk_http(
+        context,
+        _turn_id(context),
+        channel.tenant_id,
+        "ok",
+        complete=True,
+        fence_token=context.current_fence,
+    )
+    assert status == 200
+
+
+@then("the user sees no duplicate output or action")
+def then_no_duplicate_output(context: object) -> None:
+    then_channel_has_durable_bot_answer(context)
+    messages = context.api_client.get(
+        f"/channels/{_channel(context).channel_id}/messages",
+        headers=tenant_headers(_channel(context).tenant_id),
+    ).json()["messages"]
+    bot_bodies = [
+        message["body"]
+        for message in messages
+        if message["author_kind"] == ActorKind.BOT
+    ]
+    assert bot_bodies == ["ok"]

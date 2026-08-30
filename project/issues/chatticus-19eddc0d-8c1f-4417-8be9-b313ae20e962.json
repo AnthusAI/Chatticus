@@ -13,9 +13,16 @@
     "implementation"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "05e4c69d-c401-4c25-b03f-8e65ab782b7d",
+      "author": "home",
+      "text": "Starting the ownership model: conditional claim, lease expiry, fence on chunk append. Behave covers duplicate delivery and stale writes. No EventBridge reaper in this slice (e42008).",
+      "created_at": "2026-08-30T19:53:36.418128Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:55.921721Z",
-  "updated_at": "2026-08-30T15:54:55.921721Z",
+  "updated_at": "2026-08-30T19:53:36.418128Z",
   "closed_at": null,
   "custom": {}
 }

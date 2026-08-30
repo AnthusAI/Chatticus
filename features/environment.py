@@ -31,6 +31,7 @@ def before_scenario(context: object, scenario: object) -> None:
     context.last_channel = None
     context.last_message = None
     context.last_turn_id = None
+    context.fence_token = None
     context.message_error = None
     context.other_tenant_id = None
     context.listed_messages = None
