@@ -74,7 +74,11 @@ class SseWatcher:
                             frame, buffer = buffer.split("\n\n", 1)
                             for event in parse_sse_frames(frame + "\n\n"):
                                 self.events.append(event)
-                                if event.get("kind") == "turn.completed":
+                                if event.get("kind") in (
+                                    "turn.completed",
+                                    "turn.failed",
+                                    "turn.reconciling",
+                                ):
                                     self.closed = True
                                     return
             finally:
@@ -106,14 +110,20 @@ class SseWatcher:
             f"Expected {count} SSE events, got {len(self.events)}: {self.events}"
         )
 
-    def wait_for_kind(self, kind: str, *, timeout: float = 5.0) -> None:
+    def wait_for_kind(
+        self,
+        kind: str | tuple[str, ...],
+        *,
+        timeout: float = 5.0,
+    ) -> None:
         """Block until an event of the given kind arrives or timeout."""
+        kinds = (kind,) if isinstance(kind, str) else kind
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            if any(event.get("kind") == kind for event in self.events):
+            if any(event.get("kind") in kinds for event in self.events):
                 return
             time.sleep(0.01)
-        raise AssertionError(f"Expected an SSE event kind {kind!r}, got {self.events}")
+        raise AssertionError(f"Expected an SSE event kind {kinds!r}, got {self.events}")
 
 
 def read_sse_until(
