@@ -5,10 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import queue
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
-
-from typing import Callable
 
 from chatticus.messaging.store import (
     InMemoryMessagingStore,
