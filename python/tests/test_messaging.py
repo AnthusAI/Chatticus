@@ -27,6 +27,7 @@ from chatticus.models import (
     TurnEventKind,
     TurnStatus,
 )
+from chatticus.turn_recovery import logical_enqueue_id
 from chatticus.worker.computerless import (
     ComputerlessWorker,
     CountingTextCompletionClient,
@@ -47,6 +48,55 @@ def _channel_with_bot(plane: ControlPlane, name: str = "Researcher"):
 
 def _client_for(plane: ControlPlane):
     return start_test_server(create_app(plane))
+
+
+@mock_aws
+def test_dynamo_logical_enqueue_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-messaging-enqueue-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    enqueued: list[str] = []
+
+    def capture(job: object) -> None:
+        from chatticus.models import TurnJob
+
+        assert isinstance(job, TurnJob)
+        assert job.turn_id is not None
+        enqueued.append(job.turn_id)
+
+    first = ControlPlane(
+        messaging_store=store,
+        turn_enqueued=capture,
+        recovery_enabled=True,
+    )
+    bot = first.create_bot("anthus", "ryan", "Assistant")
+    channel = first.create_channel("anthus", "ryan", [bot.bot_id])
+    _, started = first.post_channel_message(
+        channel.channel_id,
+        "anthus",
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+    )
+    assert started is not None
+    job = first.job_for_turn("anthus", started.turn_id)
+    assert job is not None
+    enqueue_id = logical_enqueue_id(started.turn_id)
+    assert first.logical_enqueue_delivery_count == 1
+    assert len(enqueued) == 1
+
+    second = ControlPlane(
+        messaging_store=store,
+        turn_enqueued=capture,
+        recovery_enabled=True,
+    )
+    assert not second.request_logical_enqueue(
+        "anthus", started.turn_id, enqueue_id, job
+    )
+    assert second.logical_enqueue_delivery_count == 0
+    assert len(enqueued) == 1
 
 
 @mock_aws
