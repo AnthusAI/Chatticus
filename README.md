@@ -112,8 +112,9 @@ There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
 
 Next on the board: a named **staging** thin-turn deploy after this
-release (9eef23). Production stays gated. Overnight gated-action kernel
-(5b687a) is in-tree, not on the live worker loop.
+release (9eef23). Production stays gated. Overnight gated-action (5b687a),
+immutable approval binding (2b293d), and unbound browser stops (813d8d)
+are kernel-only, not on the live worker loop.
 
 ```mermaid
 flowchart LR

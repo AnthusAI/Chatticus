@@ -24,6 +24,14 @@ USER_CONTROLLED_COMPLETION_REQUIRED = "user_controlled_completion_required"
 CHANNEL_STRUCTURED = "structured"
 CHANNEL_BROWSER = "browser"
 
+BROWSER_ACTION_ALIASES = {
+    "send": "send",
+    "publish": "publish",
+    "purchase": "purchase",
+    "delete": "delete",
+    "change production": "production_change",
+}
+
 
 @dataclass(frozen=True)
 class OvernightGatedResult:
@@ -85,4 +93,35 @@ def resolve_unattended_gated_action(
         turn_status="blocked",
         reason=WAITING_FOR_HUMAN,
         completion_evidence=None,
+    )
+
+
+def resolve_unbound_authenticated_browser_action(
+    action: str,
+    *,
+    structured_connector: bool = False,
+    takeover_control: bool = False,
+) -> OvernightGatedResult:
+    """Stop a generic authenticated browser consequential action.
+
+    A screenshot or click coordinate is not approval. Without a structured
+    connector or human takeover that can bind the exact operation, the
+    action does not execute.
+    """
+    if structured_connector or takeover_control:
+        raise ValueError("binding control is present; this path is for unbound actions")
+    action_type = BROWSER_ACTION_ALIASES.get(action, action)
+    if action_type not in CONSEQUENTIAL_ACTION_TYPES:
+        return OvernightGatedResult(
+            executed=True,
+            turn_status="completed",
+            reason=None,
+            completion_evidence=None,
+        )
+    return OvernightGatedResult(
+        executed=False,
+        turn_status="blocked",
+        reason=USER_CONTROLLED_COMPLETION_REQUIRED,
+        completion_evidence=None,
+        retried_unattended=False,
     )

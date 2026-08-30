@@ -56,6 +56,7 @@ from chatticus.models import (
 from chatticus.overnight_gated import (
     OvernightGatedResult,
     resolve_unattended_gated_action,
+    resolve_unbound_authenticated_browser_action,
 )
 from chatticus.snapshot.uri import snapshot_uri
 from chatticus.turn_fault_hooks import CrashWindow, FaultInjector, TurnBoundary
@@ -687,6 +688,20 @@ class ControlPlane:
             tenant_id=tenant_id,
             user_id=user_id,
             completion_evidence=completion_evidence,
+        )
+
+    def attempt_authenticated_browser_action(
+        self,
+        action: str,
+        *,
+        structured_connector: bool = False,
+        takeover_control: bool = False,
+    ) -> OvernightGatedResult:
+        """Refuse unbound consequential browser actions."""
+        return resolve_unbound_authenticated_browser_action(
+            action,
+            structured_connector=structured_connector,
+            takeover_control=takeover_control,
         )
 
     def evaluate_action(
