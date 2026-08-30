@@ -150,8 +150,10 @@ workflow is local to this repo and authenticates with `GITHUB_TOKEN`;
 do not call the platform-ci reusable workflow, which requires an
 `anthusbot_gh_token` this repository does not have.
 
-Open pull requests against `develop`. Promote `develop` to `main` when
-you intend a release, not as the daily integration path.
+Open pull requests against `develop`. Merge them there as soon as
+sub-agent review is addressed and CI is green. Do not park completed
+work on feature branches. Promote `develop` to `main` when you intend a
+release, not as the daily integration path.
 
 ## Cloud environments
 

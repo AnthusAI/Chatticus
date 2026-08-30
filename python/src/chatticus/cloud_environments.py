@@ -95,7 +95,14 @@ def resolve_thin_turn_base_url(
             return value
     stack_name = THIN_TURN_STACK_IDS[environment]
     cloudformation = boto3.client("cloudformation", region_name=region)
-    stack = cloudformation.describe_stacks(StackName=stack_name)
+    try:
+        stack = cloudformation.describe_stacks(StackName=stack_name)
+    except Exception as error:
+        raise LookupError(
+            f"Could not read CloudFormation stack {stack_name} for "
+            f"{environment}. Set {base_url_environment_variable(environment)} "
+            "or deploy that environment."
+        ) from error
     outputs = {
         output["OutputKey"]: output["OutputValue"]
         for output in stack["Stacks"][0].get("Outputs", [])

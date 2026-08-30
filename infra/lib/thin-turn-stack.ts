@@ -53,22 +53,26 @@ export class ThinTurnStack extends cdk.Stack {
       `arn:aws:lambda:${this.region}:753240598075:layer:LambdaAdapterLayerX86:${LAMBDA_WEB_ADAPTER_LAYER_VERSION}`,
     );
 
+    const dataRetention = retainData
+      ? cdk.RemovalPolicy.RETAIN
+      : cdk.RemovalPolicy.DESTROY;
+
     const table = new dynamodb.Table(this, "Messaging", {
       partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: "expires_at",
-      removalPolicy: retainData
-        ? cdk.RemovalPolicy.RETAIN
-        : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: dataRetention,
     });
 
     const turnQueue = new sqs.Queue(this, "TurnJobs", {
       visibilityTimeout: cdk.Duration.seconds(180),
+      removalPolicy: dataRetention,
     });
 
     const invokeSecret = new secretsmanager.Secret(this, "InvokeKey", {
       description: `Shared invoke key for the Chatticus ${environmentName} thin-turn front door.`,
+      removalPolicy: dataRetention,
       generateSecretString: {
         passwordLength: 32,
         excludePunctuation: true,

@@ -281,7 +281,13 @@ That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
 `CloudFrontUrl` output on stack `ChatticusThinTurn`. Pass `--base-url`
 only when you already have the origin. Repeat with `--environment staging`
 or `--environment production` when those stacks exist. GitHub workflow
-**Acceptance** (`workflow_dispatch`) runs the same script.
+**Acceptance** (`workflow_dispatch`) runs the same script. It is not run
+on every `develop` push; dispatch it after a deploy, with
+`CHATTICUS_<ENVIRONMENT>_BASE_URL` set. Staging and production choices
+fail closed until those secrets (and stacks) exist.
+
+If Docker Desktop is running, the snapshot packer can be checked with
+`sh computer/test_relocate.sh`.
 
 AWS resources are CDK only (`infra/`). Do not create them in the console.
 `cdk deploy --all` would touch **ChatticusSnapshots**,

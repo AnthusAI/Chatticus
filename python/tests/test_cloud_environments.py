@@ -1,5 +1,7 @@
 """Named cloud environments used for promotion and acceptance."""
 
+from pathlib import Path
+
 import pytest
 
 from chatticus.cloud_environments import (
@@ -81,3 +83,64 @@ def test_ssm_auth_errors_are_not_swallowed(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: FakeSsm())
     with pytest.raises(RuntimeError, match="LoginRefreshRequired"):
         resolve_thin_turn_base_url("development")
+
+
+def test_unknown_git_branch_does_not_map() -> None:
+    with pytest.raises(ValueError, match="cursor/feature"):
+        environment_for_git_branch("cursor/feature")
+
+
+def test_python_stack_ids_match_cdk() -> None:
+    source = (
+        Path(__file__).resolve().parents[2] / "infra" / "lib" / "environments.ts"
+    ).read_text()
+    for environment, stack_id in THIN_TURN_STACK_IDS.items():
+        assert f'{environment}: "{stack_id}"' in source
+
+
+def test_resolve_uses_ssm_parameter(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CHATTICUS_STAGING_BASE_URL", raising=False)
+    import boto3
+
+    class FakeSsm:
+        class exceptions:
+            class ParameterNotFound(Exception):
+                pass
+
+        def get_parameter(self, Name: str) -> dict:
+            assert Name == "/chatticus/staging/thin-turn/cloudfront-url"
+            return {"Parameter": {"Value": "https://staging.cloudfront.net/"}}
+
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: FakeSsm())
+    url = resolve_thin_turn_base_url("staging")
+    assert url == "https://staging.cloudfront.net"
+
+
+def test_cloudformation_errors_become_lookup_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("CHATTICUS_PRODUCTION_BASE_URL", raising=False)
+    import boto3
+
+    class FakeSsm:
+        class exceptions:
+            class ParameterNotFound(Exception):
+                pass
+
+        def get_parameter(self, Name: str) -> dict:
+            raise FakeSsm.exceptions.ParameterNotFound()
+
+    class FakeCloudFormation:
+        def describe_stacks(self, StackName: str) -> dict:
+            raise RuntimeError("ExpiredToken")
+
+    def client(name: str, region_name: str | None = None) -> object:
+        if name == "ssm":
+            return FakeSsm()
+        if name == "cloudformation":
+            return FakeCloudFormation()
+        raise AssertionError(name)
+
+    monkeypatch.setattr(boto3, "client", client)
+    with pytest.raises(LookupError, match="ChatticusThinTurnProduction"):
+        resolve_thin_turn_base_url("production")
