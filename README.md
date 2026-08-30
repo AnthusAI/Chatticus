@@ -64,7 +64,7 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-GitHub **`main`** is **v0.4.1**. The live thin turn is the **development**
+GitHub **`main`** is **v0.5.0**. The live thin turn is the **development**
 cloud environment: stack **ChatticusThinTurn** in AWS account
 `335163751677` (`us-east-1`). Staging and production thin-turn stacks are
 defined in CDK (`ChatticusThinTurnStaging`,
@@ -76,7 +76,9 @@ The **source** has named cloud environments, turn **claim**, **lease**,
 **fence**, durable channel lookup across Lambda invocations, a durable
 logical-enqueue ledger, EventBridge Scheduler one-shot turn deadlines,
 and a recovery kernel (`recovery_enabled` when the messaging table and
-scheduler env vars are set).
+scheduler env vars are set). Kernel tests cover turn-boundary fault
+injection and in-memory page-content authority containment (not on the
+live worker loop yet).
 
 What the deployed **development** slice does today:
 
@@ -105,9 +107,9 @@ destroyed. They are not on the turn path yet. The computer stays stopped.
 There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
 
-Next on the board: fault-inject every turn boundary (83b5e3). Staging
-and production thin-turn stacks remain undeployed; their CDK templates
-synth clean on `develop`.
+Next on the board: gated actions with no screen (5b687a) and a named
+**staging** thin-turn deploy after this release (9eef23). Production
+stays gated. Staging CDK still synths; that stack is not deployed.
 
 ```mermaid
 flowchart LR
