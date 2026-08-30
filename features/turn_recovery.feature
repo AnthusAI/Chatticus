@@ -41,3 +41,10 @@ Feature: Interrupted turn recovery
     When the fenced owner calls the renew API
     Then its turn claim is extended
     And its queue visibility is extended
+
+  Scenario: The computerless worker renews during a long model call
+    Given tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
+    And an active turn is waiting for a worker
+    When the computerless worker runs a slow model call
+    Then its turn claim is extended
+    And its queue visibility is extended
