@@ -105,6 +105,7 @@ class TurnEventKind(StrEnum):
 
     CHANNEL_MESSAGE_CREATED = "channel.message.created"
     TURN_STARTED = "turn.started"
+    TURN_WAITING = "turn.waiting"
     TURN_TOKEN = "turn.token"
     TURN_COMPLETED = "turn.completed"
     TURN_FAILED = "turn.failed"

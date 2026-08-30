@@ -1251,6 +1251,66 @@ class ControlPlane:
         lines = [f"{message.author_kind}: {message.body}" for message in messages]
         return "\n".join(lines)
 
+    def emit_turn_waiting(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        gate: str,
+        *,
+        fence_token: int,
+    ) -> TurnEvent:
+        """Record that a turn is blocked on one readiness gate.
+
+        :raises TurnNotFoundError: If the turn is unknown.
+        :raises StaleAttemptError: If the fence does not match the owner.
+        """
+        turn = self.turn(tenant_id, turn_id)
+        if turn.fence_token != fence_token:
+            raise StaleAttemptError(
+                f"Turn {turn_id!r} rejected fence {fence_token} "
+                f"(current {turn.fence_token})."
+            )
+        if turn.status != TurnStatus.ACTIVE:
+            msg = f"Turn {turn_id!r} is not active."
+            raise TurnTerminalError(msg)
+        return self._append_turn_event(
+            turn,
+            TurnEventKind.TURN_WAITING,
+            body=gate,
+            expected_fence=fence_token,
+        )
+
+    def release_turn_claim_for_waiting(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        fence_token: int,
+    ) -> None:
+        """Drop the turn lease while blocked on a readiness gate.
+
+        The turn stays active so a later attempt can continue on the same
+        durable turn after the named capability becomes ready.
+
+        :raises TurnNotFoundError: If the turn is unknown.
+        :raises StaleAttemptError: If the fence does not match the owner.
+        :raises TurnTerminalError: If the turn is no longer active.
+        """
+        turn = self.turn(tenant_id, turn_id)
+        if turn.fence_token != fence_token:
+            raise StaleAttemptError(
+                f"Turn {turn_id!r} rejected fence {fence_token} "
+                f"(current {turn.fence_token})."
+            )
+        if turn.status != TurnStatus.ACTIVE:
+            msg = f"Turn {turn_id!r} is not active."
+            raise TurnTerminalError(msg)
+        turn.claimed_by_worker_id = None
+        turn.attempt_id = None
+        turn.lease_expires_at = None
+        turn.fence_token += 1
+        self._messaging_store.put_turn(turn)
+
     def post_turn_chunk(
         self,
         turn_id: str,

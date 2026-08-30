@@ -3,7 +3,7 @@
   "title": "Work before the computer is ready and wait honestly",
   "description": "As a household member, I want the bot to begin useful work while its computer starts, so that readiness is per capability and waiting is not disguised as progress.\n\nFeature: Capability-gated readiness\n\nScenario: A turn needs the browser after preparatory work\n  Given the household computer is stopped\n  And a turn has useful work that needs no computer before a browser step\n  When the addressed bot begins the turn\n  Then it performs the computerless work immediately\n  And it emits a waiting state naming the computer capability only when blocked\n  And it makes no claim that the browser work is complete\n  And it continues the same turn after the computer becomes ready",
   "type": "story",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "529ef132-05f3-4bb9-a8a8-f0979b7d1a82",
+      "author": "home",
+      "text": "Frontier tick: Gherkin + in-memory capability-gated readiness kernel.",
+      "created_at": "2026-08-30T23:38:28.128186Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:56.389330Z",
-  "updated_at": "2026-08-30T15:54:56.389330Z",
+  "updated_at": "2026-08-30T23:38:28.128186Z",
   "closed_at": null,
   "custom": {}
 }
