@@ -135,10 +135,25 @@ WebSocket so the same connection can carry approvals the other way.
 | `GET /threads/{id}/messages?after=seq` | History and reconnect |
 | `GET /ws` (realtime API) | Live events for a subscribed thread |
 
-Lambda may terminate the REST calls. It does not hold `/ws`.
+Lambda may terminate some REST calls later. It does not hold `/ws`.
+Whether household REST goes through Lambda at all is part of
+placement, not the notify design.
 
-v1 is one household. One control-plane task can fan out from commit
-hooks. Several tasks share the same Postgres; they notify each other
-with `LISTEN/NOTIFY` so a browser pinned to task A still sees tokens
-that arrived on task B. Sticky sessions are optional, not a substitute
-for replay.
+## Placement (not decided)
+
+The kernel fans events out in-process. That does not choose a host.
+
+What we still need to pick, together:
+
+- **Process shape.** One FastAPI process for REST and `/ws` (simpler),
+  or Lambda for REST and a second service for the socket (more CDK, two
+  auth paths).
+- **Where it runs in v1.** `docker-compose` on the laptop first; then a
+  small always-on AWS task so a phone can keep the socket; or something
+  else you already have in mind.
+- **How chattic.us reaches it.** Same origin, `api.chattic.us`, CloudFront
+  behavior, TLS, session on the WebSocket upgrade.
+- **How workers reach it.** Outbound from the computer host into that
+  same process (or via SQS for jobs and a socket for tokens).
+
+Do not add a CDK service for this until that conversation lands.
