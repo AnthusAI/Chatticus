@@ -43,9 +43,18 @@ def job_from_queue_payload(payload: dict[str, Any]) -> TurnJob:
 
 
 def _sqs_enqueuer(queue_url: str):
+    delivered: set[tuple[str, str]] = set()
+
     def enqueue(job: TurnJob) -> None:
         import boto3
 
+        if job.turn_id is None:
+            return
+        enqueue_id = f"{job.tenant_id}#{job.turn_id}#initial"
+        key = (job.tenant_id, enqueue_id)
+        if key in delivered:
+            return
+        delivered.add(key)
         body = json.dumps(
             {
                 "job_id": job.job_id,

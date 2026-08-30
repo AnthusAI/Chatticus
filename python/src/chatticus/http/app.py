@@ -26,6 +26,8 @@ from chatticus.models import (
     TurnClaimDeniedError,
     TurnEventKind,
     TurnNotFoundError,
+    TurnReconcilingError,
+    TurnTerminalError,
 )
 
 logger = logging.getLogger("chatticus.http")
@@ -74,6 +76,14 @@ class ClaimTurnBody(BaseModel):
     """Body for POST /turns/{turn_id}/claim."""
 
     worker_id: str
+
+
+class RenewTurnBody(BaseModel):
+    """Body for POST /turns/{turn_id}/renew."""
+
+    worker_id: str
+    fence_token: int
+    job_id: str | None = None
 
 
 @dataclass
@@ -242,6 +252,49 @@ def create_app(
             "lease_expires_at": attempt.lease_expires_at.isoformat(),
         }
 
+    @app.post("/turns/{turn_id}/renew")
+    def renew_turn(
+        turn_id: str,
+        body: RenewTurnBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        job = None
+        if body.job_id is not None:
+            job = state.plane.job_for_turn(tenant_id, turn_id)
+            if job is not None and job.job_id != body.job_id:
+                job = None
+        attempt = state.plane.renew_turn_lease(
+            tenant_id,
+            turn_id,
+            body.worker_id,
+            body.fence_token,
+            job=job,
+        )
+        if attempt is None:
+            raise TurnClaimDeniedError(
+                f"Turn {turn_id!r} rejected renewal for fence {body.fence_token}."
+            )
+        logger.info(
+            "turn_renewed tenant_id=%s turn_id=%s worker_id=%s fence=%s",
+            tenant_id,
+            turn_id,
+            body.worker_id,
+            body.fence_token,
+        )
+        return {
+            "attempt_id": attempt.attempt_id,
+            "fence_token": attempt.fence_token,
+            "lease_expires_at": attempt.lease_expires_at.isoformat(),
+        }
+
+    @app.post("/turns/{turn_id}/deadline")
+    def turn_deadline(
+        turn_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, str]:
+        state.plane.handle_turn_deadline(tenant_id, turn_id)
+        return {"status": "ok"}
+
     @app.post("/turns/{turn_id}/chunks")
     def post_chunk(
         turn_id: str,
@@ -294,7 +347,11 @@ def create_app(
                     for event in events:
                         yield format_turn_event_sse(event)
                         cursor = event.seq
-                        if event.kind == TurnEventKind.TURN_COMPLETED:
+                        if event.kind in (
+                            TurnEventKind.TURN_COMPLETED,
+                            TurnEventKind.TURN_FAILED,
+                            TurnEventKind.TURN_RECONCILING,
+                        ):
                             logger.info(
                                 "sse_complete tenant_id=%s turn_id=%s",
                                 tenant_id,
@@ -323,6 +380,8 @@ def _status_for_error(error: ChatticusError) -> int:
     ):
         return 403
     if isinstance(error, StaleAttemptError | TurnClaimDeniedError):
+        return 409
+    if isinstance(error, TurnReconcilingError | TurnTerminalError):
         return 409
     if isinstance(error, ChannelNotFoundError | TurnNotFoundError):
         return 404

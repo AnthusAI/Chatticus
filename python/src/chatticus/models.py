@@ -107,6 +107,8 @@ class TurnEventKind(StrEnum):
     TURN_STARTED = "turn.started"
     TURN_TOKEN = "turn.token"
     TURN_COMPLETED = "turn.completed"
+    TURN_FAILED = "turn.failed"
+    TURN_RECONCILING = "turn.reconciling"
 
 
 class TurnStatus(StrEnum):
@@ -114,6 +116,8 @@ class TurnStatus(StrEnum):
 
     ACTIVE = "active"
     COMPLETED = "completed"
+    FAILED = "failed"
+    RECONCILING = "reconciling"
 
 
 class ChannelNotFoundError(ChatticusError):
@@ -142,6 +146,14 @@ class StaleAttemptError(ChatticusError):
 
 class TurnClaimDeniedError(ChatticusError):
     """Another unexpired attempt already owns the turn."""
+
+
+class TurnReconcilingError(ChatticusError):
+    """A consequential action cannot run while reconciliation is pending."""
+
+
+class TurnTerminalError(ChatticusError):
+    """The turn already reached a terminal state."""
 
 
 @dataclass(frozen=True)
@@ -292,6 +304,10 @@ class Turn:
     fence_token: int = 0
     claimed_by_worker_id: str | None = None
     lease_expires_at: datetime | None = None
+    deadline_at: datetime | None = None
+    recovery_attempts: int = 0
+    terminal_reason: str | None = None
+    ambiguous_provider_call_id: str | None = None
 
 
 @dataclass(frozen=True)
