@@ -3,7 +3,7 @@
   "title": "Redeploy ChatticusThinTurn so claim and fence are live",
   "description": "main (v0.2.0) has POST /turns/{id}/claim and fenced chunk writes. The AWS stack was last exercised as the computerless Luna thin turn. Redeploy ChatticusThinTurn before treating ownership as live. Do not destroy ChatticusSnapshots or ChatticusComputers.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -22,10 +22,28 @@
       "author": "home",
       "text": "Live development acceptance (CloudFront): GET /health 200; full exercise_thin_turn.py passed including SSE complete and reconnect. POST /turns/{id}/claim is 404 on the deployed stack. Redeploy ChatticusThinTurn (development only, not --all) before treating claim/fence as live.",
       "created_at": "2026-08-30T20:43:26.117707Z"
+    },
+    {
+      "id": "9918b1b6-cf22-4a35-beb1-8380a06c132b",
+      "author": "home",
+      "text": "Development acceptance after ChatticusThinTurn redeploy (2026-08-30T21:04:06Z). CloudFront https://d3gpuuldffe35o.cloudfront.net\n\nGET /health: 200 {\"status\":\"ok\"}\n\npython scripts/exercise_thin_turn.py --environment development: exit 1 on final step only. SSE path passed (turn.started, turn.token, turn.completed; reconnect after_seq=2 replays through turn.completed). GET /channels/{channel_id}/messages returned 404 Channel does not exist — expected in-memory channel map limitation across Lambda instances, not a missing route.\n\nPOST /turns/{turn_id}/claim is live:\n- fake turn_id: 404 Turn does not exist\n- turn already owned by worker: 409 owned by another unexpired attempt\n- fresh turn immediate claim: 200 with fence_token=1, acquired=true\n\nVerdict: accept ffcb11 claim/fence slice on development. Evidence: /tmp/chatticus-loop-accept.md. No deploy performed.",
+      "created_at": "2026-08-30T21:04:14.282754Z"
+    },
+    {
+      "id": "76eb48f1-8633-4001-80c2-62bf5ab2ebd2",
+      "author": "home",
+      "text": "Claim is live on development (POST /turns/{id}/claim returns 404 Turn does not exist for missing turns). exercise_thin_turn.py completed SSE through reconnect then failed on GET /channels/{id}/messages with 404 Channel does not exist because ControlPlane._channel_tenants was in-memory per Lambda. Fix in cursor/durable-channel-lookup-4a21: channel list/get loads from MessagingStore/Dynamo with durable tenant resolution.",
+      "created_at": "2026-08-30T21:04:22.730235Z"
+    },
+    {
+      "id": "893425e9-6baa-4da2-b7df-ab9bd058fb7e",
+      "author": "home",
+      "text": "PR #13 merged to develop (durable channel lookup). Redeployed ChatticusThinTurn development only (not --all).\n\npython scripts/exercise_thin_turn.py --environment development: exit 0. SSE complete + reconnect passed. GET /channels/{channel_id}/messages: 200 (was 404 cross-Lambda before PR #13).\n\nClaim/fence still live on development:\n- missing turn_id: 404 Turn does not exist\n- fresh claim: 200 acquired=true fence_token=1\n- second worker: 409 owned by another unexpired attempt\n\nClosing ffcb11.",
+      "created_at": "2026-08-30T21:07:36.193127Z"
     }
   ],
   "created_at": "2026-08-30T20:26:22.947885Z",
-  "updated_at": "2026-08-30T20:43:26.117707Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T21:07:38.578770Z",
+  "closed_at": "2026-08-30T21:07:38.578770Z",
   "custom": {}
 }
