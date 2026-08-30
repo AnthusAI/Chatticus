@@ -177,6 +177,11 @@ a build decision.
 **Decided.** No persistent sockets anywhere. The whole control plane
 bills per request and costs nothing when nobody is working.
 
+**Untested.** That a Lambda function URL behind CloudFront actually
+streams 250-millisecond chunks promptly is reasoned, not measured, and
+everything below depends on it. Run Test 1 in
+[Feasibility tests](FEASIBILITY_TESTS.md) before building on this.
+
 ### The shape
 
 ```
@@ -513,6 +518,11 @@ the architecture.
 
 **Requirement 16 is decided. The approach below is the direction; the
 mechanism is specified and some details are open.**
+
+**Unmeasured.** How long a cold computer actually takes to reach each
+gate below is unknown, and requirement 16 is only compatible with
+non-requirement 3 if that number is tolerable. Run Test 2 in
+[Feasibility tests](FEASIBILITY_TESTS.md).
 
 Two problems share one answer. A bot must start talking immediately
 (requirement 16). And the computer, which is the expensive resource,

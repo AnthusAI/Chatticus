@@ -23,7 +23,9 @@ xAI client. The model vendor is not the product name.
   `docs/MESSAGING.md` before adding a cloud API, message store, or
   streaming path, and `docs/DESIGN_CHALLENGES.md` for the requirements,
   the non-requirements, why the design is shaped this way, and what is
-  still open.
+  still open. `docs/FEASIBILITY_TESTS.md` holds the assumptions that are
+  decided but unmeasured; run the test before building on the decision
+  it gates. Spike code is throwaway and does not go in `python/src`.
 - `features/` — shared Gherkin. Behavior changes start here.
 - `python/` — control plane, scheduler, roster, approvals, later agent and
   worker processes.

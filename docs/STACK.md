@@ -11,7 +11,7 @@ implementation of the same behavior until the protocol is stable.
 | Web | TypeScript, Next.js, CloudFront | Chat, roster, computer preview, approvals |
 | Computer image | Ubuntu, Xvfb, Chromium, noVNC | Same artifact on Fargate and local Docker |
 | Data | DynamoDB, S3, Secrets Manager | Transcript, bots, and rules in DynamoDB; snapshots and files in S3; secrets out of the image. A relational instance is always on and would break scale-to-zero. |
-| Cloud API | Per-request HTTP front door plus server-sent events scoped to one turn | No persistent sockets. Nothing bills while nobody is working. See [Messaging](MESSAGING.md). |
+| Cloud API | Per-request HTTP front door plus server-sent events scoped to one turn | No persistent sockets. Nothing bills while nobody is working. See [Messaging](MESSAGING.md). The streaming path is unmeasured; see [Feasibility tests](FEASIBILITY_TESTS.md). |
 | Queues and schedules | SQS, EventBridge | Turns and heartbeats on SQS. EventBridge for routine wake-ups, worker starts, and device push. Neither is in the token path. |
 | AWS compute | CDK. Computer hosts are Fargate (scale to 0). The control plane is per-request functions; placement is not settled. | Lambda for request-shaped work, including a stream held for one turn. Never a load balancer in front of the API: the hourly floor exceeds the container it replaces. |
 | BDD | behave and shared `features/` Gherkin | Product narrative lives in Gherkin |
