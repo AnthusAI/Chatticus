@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "e3942b08-e544-4c01-b725-2ab407dfe435",
+  "issue_id": "chatticus-bbfb8d90-3397-4c81-9137-0154739406ad",
+  "event_type": "field_updated",
+  "occurred_at": "2026-08-30T16:35:04.025Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "assignee": {
+        "from": null,
+        "to": "manager"
+      }
+    }
+  }
+}
