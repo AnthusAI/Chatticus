@@ -64,6 +64,29 @@ and it costs an afternoon. Everything else in the cloud API is downstream.
   documented boundary.
 - Reconnect with `Last-Event-ID` resumes without loss.
 
+**Known constraints to seed the spike.** These are documented limits of
+the chosen transport, not speculation. The spike should test against them
+rather than rediscover them.
+
+- **Python is not a first-class streaming runtime.** AWS documents
+  response streaming as native on Node managed runtimes. Python needs a
+  custom runtime or the Lambda Web Adapter. The stack is Python, so the
+  spike must use one of those, not the Node path.
+- **CloudFront caps the origin connection well under 15 minutes.** The
+  origin read timeout defaults to 30 seconds, has a standard maximum of
+  60 seconds, and a hard maximum of 180 seconds (quota increase). A
+  15-minute hold through CloudFront will not happen; reconnect-at-timeout
+  is the real path, and 30 to 60 seconds is a normal turn. The spike's
+  20-minute target is correct as a boundary probe, but the CloudFront
+  path is expected to end near 180 seconds, not 15 minutes.
+- **Function URL plus `Content-Encoding` has produced 502s behind
+  CloudFront.** The known workaround is stripping `Accept-Encoding` at the
+  edge (a viewer-request function) so the origin emits identity encoding.
+  Build that into the spike distribution from the start.
+- **CloudFront TTFB on function URLs has been reported around 500 to 800
+  milliseconds** even with caching disabled. Measure it; it is the part
+  most likely to push the p95 inter-frame gap over the pass criteria.
+
 **If it fails.** Record which of these applies, then follow it.
 
 - **CloudFront buffers.** Try the function URL directly with a custom

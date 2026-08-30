@@ -129,6 +129,28 @@ cited out of habit.
 | The worker/browser rendezvous is a readable store with per-reader cursors | 10 |
 | Output is coalesced into chunks, not sent per token | non-requirement 1 |
 
+### Reaping is metered per use, and that is allowed
+
+The ownership work in challenge 5 needs a watchdog or reaper so a dead or
+wedged turn releases its claim without an always-on scheduler. That
+watchdog transport (DynamoDB TTL with Streams, or EventBridge Scheduler)
+is metered per event, which looks like it collides with the rule above:
+"no transport that meters per connection or per message."
+
+It does not. Re-derive from requirement 7, as the rule itself demands.
+A metered transport bills for **use**, not for **capacity**. A reaper
+that fires once per turn, only when a turn fails to renew, has no idle
+floor and scales with work actually done. That is the same shape as SQS
+and EventBridge, both already in the design. The forbidden shape is a
+meter that scales with how much the product is *used* while sitting
+idle (AppSync per update) or a process held open for a session. A rare,
+per-turn scheduled wake-up is neither.
+
+State this where the reaper is specified so a later reader does not cite
+the per-message rule at it and either drop the reaper or quietly add an
+always-on process. The reaper is a requirement 7 mechanism, not an
+exception to it.
+
 ### Why "no sockets" is a cost rule, not a taste
 
 The ban on persistent sockets is worth stating precisely, because the

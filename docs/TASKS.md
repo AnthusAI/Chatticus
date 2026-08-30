@@ -91,6 +91,17 @@ This requires a cloud storage backend that Kanbus does not yet have. It
 is filed there as the "Cloud storage backend for Kanbus" initiative.
 Chatticus should not start integration work until that lands.
 
+**Fallback if that work stalls.** The architectural win — task state off
+the transcript, reachable at the first readiness gate, evidence required
+to close — needs a structured tool and a few fields, not
+Kanbus-the-database. If the cloud storage backend does not land, ship a
+thin Task item in Chatticus DynamoDB (status, evidence, close reason, bot
+provenance) and point the same tool at Kanbus HTTP later if its store
+ever matches. Waiting to start Chatticus integration is how v1 ships
+with no task object after this document already established that
+compaction eats task state. Decide the fallback before v1 scope is set,
+not after.
+
 ### Tasks and artifacts are different things
 
 Kanbus holds task **state**. `/workspace` holds the **artifacts**: the
