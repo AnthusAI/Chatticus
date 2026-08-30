@@ -32,3 +32,4 @@ var/
 .vscode/
 *.swp
 project/.overlay/
+project/.cache/
