@@ -11,5 +11,6 @@ v1 surface:
 
 Talks only to the control plane. Does not reach workers directly.
 
-How history and live tokens work is not decided. See
-[Design challenges](../docs/DESIGN_CHALLENGES.md).
+History and live tokens are decided: server-sent events scoped to one
+turn, DynamoDB transcript, reconnect with `after=seq`. See
+[Messaging](../docs/MESSAGING.md).

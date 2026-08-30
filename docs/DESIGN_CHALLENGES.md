@@ -783,10 +783,13 @@ actually ships.
 
 ## How to work on this
 
-- Challenges 1 and 2 are decided. [Messaging](MESSAGING.md) now
+- Challenges 1, 2, and 4 are decided. [Messaging](MESSAGING.md)
   describes that design rather than sketching options. Build against it.
-- Challenge 4 is open. Put channel behavior in Gherkin only when the
-  humans have picked a path. Until then, discuss here and in chat.
+- Challenge 3 (compaction) has a working model with open sub-questions:
+  who writes the summary, when to compact, what a summary contains, and
+  how summaries compound. The "bot deciding to speak unaddressed" question
+  under challenge 4 is also still open. Discuss those here and in chat
+  before encoding them in Gherkin.
 - The messaging kernel in `python/src/chatticus/` and
   `features/messages.feature` predate these decisions. They encode a
   transport-agnostic protocol that survives, but they are not yet the
