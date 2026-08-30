@@ -32,6 +32,9 @@ class MessagingStore(Protocol):
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         """Load one channel."""
 
+    def resolve_channel_tenant(self, channel_id: str) -> str | None:
+        """Return the owning tenant for a channel identifier."""
+
     def put_message(self, message: Message) -> None:
         """Persist one committed message row."""
 
@@ -127,6 +130,12 @@ class InMemoryMessagingStore:
 
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         return self._channels.get((tenant_id, channel_id))
+
+    def resolve_channel_tenant(self, channel_id: str) -> str | None:
+        for (tenant_id, stored_channel_id), _ in self._channels.items():
+            if stored_channel_id == channel_id:
+                return tenant_id
+        return None
 
     def put_message(self, message: Message) -> None:
         key = (message.tenant_id, message.channel_id)
@@ -274,6 +283,15 @@ class DynamoMessagingStore:
                 "participants": {"S": json.dumps(_participants_payload(channel))},
             },
         )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._channel_lookup_pk(channel.channel_id)},
+                "sk": {"S": "meta"},
+                "tenant_id": {"S": channel.tenant_id},
+                "channel_id": {"S": channel.channel_id},
+            },
+        )
 
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         response = self.client.get_item(
@@ -297,6 +315,19 @@ class DynamoMessagingStore:
             participants=participants,
             next_seq=int(item["next_seq"]["N"]),
         )
+
+    def resolve_channel_tenant(self, channel_id: str) -> str | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._channel_lookup_pk(channel_id)},
+                "sk": {"S": "meta"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return item["tenant_id"]["S"]
 
     def put_message(self, message: Message) -> None:
         self.client.put_item(
@@ -617,6 +648,9 @@ class DynamoMessagingStore:
 
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
+
+    def _channel_lookup_pk(self, channel_id: str) -> str:
+        return f"channel_lookup#{channel_id}"
 
     def _turn_pk(self, tenant_id: str, turn_id: str) -> str:
         return f"{tenant_id}#turn#{turn_id}"
