@@ -1,96 +1,227 @@
-"""Kernel tests for the message store and realtime API."""
+"""Kernel and HTTP tests for channels, turns, and the computerless worker."""
 
 from __future__ import annotations
 
-import pytest
+import json
+
+import boto3
+from moto import mock_aws
 
 from chatticus.control_plane import ControlPlane
+from chatticus.http.app import create_app
+from chatticus.http.client import HttpTurnClient
+from chatticus.http.test_server import start_test_server
+from chatticus.messaging.store import (
+    DynamoMessagingStore,
+    create_messaging_table,
+)
 from chatticus.models import (
     ActorKind,
-    ActorNotInThreadError,
-    ThreadNotFoundError,
-    ThreadTenantMismatchError,
-    TurnStreamNotFoundError,
+    TurnEventKind,
+    TurnStatus,
 )
+from chatticus.worker.computerless import ComputerlessWorker, FakeTextCompletionClient
 
 
-def _thread_with_bot(plane: ControlPlane, name: str = "Researcher"):
+def _channel_with_bot(plane: ControlPlane, name: str = "Researcher"):
     bot = plane.create_bot("anthus", "ryan", name)
-    thread = plane.create_thread("anthus", "ryan", [bot.bot_id])
-    return bot, thread
+    channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    return bot, channel
 
 
-def test_unknown_thread_raises() -> None:
-    plane = ControlPlane()
-    with pytest.raises(ThreadNotFoundError):
-        plane.thread("missing")
+def _client_for(plane: ControlPlane):
+    return start_test_server(create_app(plane))
 
 
-def test_list_messages_rejects_other_tenant() -> None:
-    plane = ControlPlane()
-    _, thread = _thread_with_bot(plane)
-    with pytest.raises(ThreadTenantMismatchError):
-        plane.list_messages(thread.thread_id, "other")
-
-
-def test_outsider_cannot_post() -> None:
-    plane = ControlPlane()
-    _, thread = _thread_with_bot(plane)
-    with pytest.raises(ActorNotInThreadError):
-        plane.post_message(
-            thread.thread_id,
-            "anthus",
-            ActorKind.HUMAN,
-            "alex",
-            "hello",
-        )
-
-
-def test_addressing_a_bot_not_in_the_thread_raises() -> None:
-    plane = ControlPlane()
-    researcher, thread = _thread_with_bot(plane)
-    writer = plane.create_bot("anthus", "ryan", "Writer")
-    with pytest.raises(ActorNotInThreadError):
-        plane.post_message(
-            thread.thread_id,
-            "anthus",
-            ActorKind.HUMAN,
-            "ryan",
-            "hello",
-            addressed_to_bot_id=writer.bot_id,
-        )
-    assert plane.pending_jobs_for_bot(researcher.bot_id) == []
-
-
-def test_complete_turn_stream_does_not_enqueue_another_turn() -> None:
-    plane = ControlPlane()
-    bot, thread = _thread_with_bot(plane)
-    plane.post_message(
-        thread.thread_id,
-        "anthus",
-        ActorKind.HUMAN,
-        "ryan",
-        "hello",
-        addressed_to_bot_id=bot.bot_id,
+@mock_aws
+def test_dynamo_store_roundtrip_messages_and_events() -> None:
+    table_name = "chatticus-messaging-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    plane = ControlPlane(messaging_store=store)
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    response = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
     )
-    assert len(plane.pending_jobs_for_bot(bot.bot_id)) == 1
-    stream_id = plane.start_turn_stream(thread.thread_id, "anthus", bot.bot_id)
-    plane.append_turn_token(stream_id, "Hi")
-    plane.complete_turn_stream(stream_id)
-    assert len(plane.pending_jobs_for_bot(bot.bot_id)) == 1
+    assert response.status_code == 200
+    turn_id = response.json()["turn_id"]
+    assert turn_id is not None
+    jobs = plane.pending_jobs_for_bot(bot.bot_id)
+    assert jobs[0].required_capabilities == frozenset({"cpu"})
+    turn_client = HttpTurnClient(api, channel.tenant_id)
+    turn_client.post_chunk(turn_id, "Hel")
+    turn_client.post_chunk(turn_id, "", complete=True)
+    messages = api.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    ).json()["messages"]
+    assert len(messages) == 2
+    events = store.list_turn_events(channel.tenant_id, turn_id)
+    assert events[0].kind == TurnEventKind.TURN_STARTED
+    assert events[-1].kind == TurnEventKind.TURN_COMPLETED
+    api.close()
 
 
-def test_unknown_turn_stream_raises() -> None:
+def test_cross_tenant_channel_post_is_rejected() -> None:
     plane = ControlPlane()
-    with pytest.raises(TurnStreamNotFoundError):
-        plane.append_turn_token("missing", "x")
-    with pytest.raises(TurnStreamNotFoundError):
-        plane.complete_turn_stream("missing")
+    api = _client_for(plane)
+    _, channel = _channel_with_bot(plane)
+    response = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "alex",
+            "body": "hello",
+        },
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert response.status_code == 403
+    api.close()
 
 
-def test_bot_from_another_user_cannot_join_thread() -> None:
+def test_cpu_turn_does_not_pin_computer() -> None:
     plane = ControlPlane()
-    plane.create_bot("anthus", "ryan", "Researcher")
-    other = plane.create_bot("anthus", "alex", "Ops")
-    with pytest.raises(ActorNotInThreadError):
-        plane.create_thread("anthus", "ryan", [other.bot_id])
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    jobs = plane.pending_jobs_for_bot(bot.bot_id)
+    assert jobs[0].computer_id is None
+    api.close()
+
+
+def test_computerless_worker_commits_one_answer_with_fake_openai() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    plane.set_computer_stopped("anthus", "ryan", True)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "ping",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    worker = ComputerlessWorker(
+        plane,
+        HttpTurnClient(api, channel.tenant_id),
+        FakeTextCompletionClient(),
+    )
+    worker.complete_pending_for_bot(bot.bot_id)
+    assert plane.computer_is_stopped("anthus", "ryan")
+    messages = api.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    ).json()["messages"]
+    bot_messages = [m for m in messages if m["author_kind"] == ActorKind.BOT]
+    assert len(bot_messages) == 1
+    assert "You said: ping" in bot_messages[0]["body"]
+    api.close()
+
+
+def test_http_sse_replay_after_cursor() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    turn_client = HttpTurnClient(api, channel.tenant_id)
+    turn_client.post_chunk(turn_id, "Hel")
+    turn_client.post_chunk(turn_id, "lo")
+    turn_client.post_chunk(turn_id, "!")
+    turn_client.post_chunk(turn_id, "", complete=True)
+    events: list[dict[str, object]] = []
+    with api.stream(
+        "GET",
+        f"/turns/{turn_id}/stream",
+        headers={"X-Tenant-Id": channel.tenant_id},
+        params={"after_seq": 2},
+    ) as response:
+        buffer = ""
+        for chunk in response.iter_bytes():
+            buffer += chunk.decode()
+            while "\n\n" in buffer:
+                frame, buffer = buffer.split("\n\n", 1)
+                for line in frame.split("\n"):
+                    if line.startswith("data:"):
+                        events.append(json.loads(line[5:].strip()))
+                    if len(events) >= 2:
+                        break
+            if len(events) >= 2:
+                break
+    replayed = [event["seq"] for event in events[:2]]
+    assert replayed == [3, 4]
+    api.close()
+
+
+def test_http_cross_tenant_turn_stream_is_denied() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    response = api.get(
+        f"/turns/{turn_id}/stream",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert response.status_code == 403
+    api.close()
+
+
+def test_turn_completes_without_sse_watcher() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    HttpTurnClient(api, channel.tenant_id).post_chunk(turn_id, "", complete=True)
+    turn = plane.turn(channel.tenant_id, turn_id)
+    assert turn.status == TurnStatus.COMPLETED
+    api.close()

@@ -21,14 +21,14 @@
       "created_at": "2026-08-30T17:22:05.354496Z"
     },
     {
-      "id": "33ee9a35-3289-40b0-8353-963bd4c3c8f1",
+      "id": "a2781000-5a9d-4c3d-aae0-d3ceeea47f2d",
       "author": "home",
-      "text": "Manager review: accept on branch cursor/computerless-gherkin-4a21. Do not merge to main while those 9 scenarios fail (CI runs behave). pytest skip of test_messaging.py is a holding pattern; delete the skipped TurnStream tests when the kernel lands, do not keep a skipped shrine to the rejected API. Next: df6e93 on top of this branch until behave is green.",
-      "created_at": "2026-08-30T17:28:17.455707Z"
+      "text": "Manager status 2026-08-30:\n\nSpecs on cursor/computerless-gherkin-4a21 were accepted. They now also live on cursor/durable-computerless-turn-4a21 (341e42e) with HTTP SSE steps that speak GET /turns/{id}/stream as text/event-stream via a local uvicorn front door.\n\nDo not merge Gherkin alone. Merge Gherkin + implementation together after the durable-turn task is accepted. Do not close this issue until that merge is on main and CI behave is green there.\n",
+      "created_at": "2026-08-30T18:30:35.021468Z"
     }
   ],
   "created_at": "2026-08-30T15:53:17.992127Z",
-  "updated_at": "2026-08-30T17:28:17.455707Z",
+  "updated_at": "2026-08-30T18:30:35.021468Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

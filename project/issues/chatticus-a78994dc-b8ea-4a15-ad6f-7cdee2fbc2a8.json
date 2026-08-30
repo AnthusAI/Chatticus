@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-a78994dc-b8ea-4a15-ad6f-7cdee2fbc2a8",
+  "title": "Call gpt-5.6-luna for one computerless turn",
+  "description": "Replace the computerless worker's FakeTextCompletionClient with a real OpenAI client when OPENAI_API_KEY is present. Model is gpt-5.6-luna (OPENAI_MODEL in .env, default gpt-5.6-luna).\n\nWhy now: the HTTP SSE thin turn exists in-process. The next unknown is an actual model loop, not more transport.\n\nAcceptance:\n- CI (GitHub Actions, no key) still uses the fake client and stays green.\n- python-dotenv loads Chattic.us/.env locally. Never commit .env.\n- One pytest marked for live OpenAI runs when the key is set; skip when absent.\n- That test posts a text-only channel message, runs ComputerlessWorker with the live client, and asserts one durable bot answer and a completed turn stream. Do not assert exact wording.\n- No Bedrock, no xAI, no second vendor.\n- Do not deploy in this task.\n\nKey already verified against GET /v1/models/gpt-5.6-luna and a tiny chat completion. Do not print the secret.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-46746451-4000-4570-9129-37898a7e119a",
+  "labels": [
+    "v1",
+    "llm"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T18:30:35.098371Z",
+  "updated_at": "2026-08-30T18:30:35.098371Z",
+  "closed_at": null,
+  "custom": {}
+}

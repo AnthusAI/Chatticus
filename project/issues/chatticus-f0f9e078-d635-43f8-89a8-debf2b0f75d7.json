@@ -25,15 +25,15 @@
       "created_at": "2026-08-30T17:22:05.366396Z"
     },
     {
-      "id": "3a03194d-fd70-4d25-8abc-a87e522e2b6c",
+      "id": "4005697f-4118-4216-9dd7-6cf98f459405",
       "author": "home",
-      "text": "Merged to main. One mermaid in MESSAGING; DESIGN_CHALLENGES links it.",
-      "created_at": "2026-08-30T17:23:13.638266Z"
+      "text": "Landed on main as b9f5bda. One mermaid sequenceDiagram is in docs/MESSAGING.md; DESIGN_CHALLENGES challenge 1 links there. ChatticusSseSpike was destroyed. Closing.\n",
+      "created_at": "2026-08-30T18:30:34.986155Z"
     }
   ],
   "created_at": "2026-08-30T17:06:59.956068Z",
-  "updated_at": "2026-08-30T17:23:13.638266Z",
-  "closed_at": "2026-08-30T17:23:13.623380Z",
+  "updated_at": "2026-08-30T18:30:34.997166Z",
+  "closed_at": "2026-08-30T18:30:34.997166Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"

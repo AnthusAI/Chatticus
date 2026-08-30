@@ -18,9 +18,16 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "212512a8-04f7-40ff-b50e-7e570376461a",
+      "author": "home",
+      "text": "Status 2026-08-30:\n\nDone: Test 1 (chatticus-bbfb8d) merged; stack ChatticusSseSpike destroyed; mermaid follow-up (chatticus-f0f9e0) closed.\n\nStill open on the original DoD: mobile Safari was not measured. Do not treat CloudFront as the product front door. Do not rebuild the spike. Leave this epic open until that gap is either measured or explicitly waived by the owner.\n",
+      "created_at": "2026-08-30T18:30:35.009657Z"
+    }
+  ],
   "created_at": "2026-08-30T15:53:17.431152Z",
-  "updated_at": "2026-08-30T15:53:17.431152Z",
+  "updated_at": "2026-08-30T18:30:35.009657Z",
   "closed_at": null,
   "custom": {}
 }

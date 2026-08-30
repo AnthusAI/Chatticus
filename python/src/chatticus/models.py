@@ -100,29 +100,40 @@ class ActorKind(StrEnum):
     BOT = "bot"
 
 
-class RealtimeEventKind(StrEnum):
-    """Events the realtime API pushes to a subscribed chattic.us session."""
+class TurnEventKind(StrEnum):
+    """Durable events for one turn-scoped server-sent event stream."""
 
-    THREAD_MESSAGE_CREATED = "thread.message.created"
+    CHANNEL_MESSAGE_CREATED = "channel.message.created"
     TURN_STARTED = "turn.started"
     TURN_TOKEN = "turn.token"
     TURN_COMPLETED = "turn.completed"
 
 
-class ThreadNotFoundError(ChatticusError):
-    """The thread id is unknown."""
+class TurnStatus(StrEnum):
+    """Lifecycle of one bot turn."""
+
+    ACTIVE = "active"
+    COMPLETED = "completed"
 
 
-class ThreadTenantMismatchError(ChatticusError):
-    """A tenant cannot read or write another tenant's thread."""
+class ChannelNotFoundError(ChatticusError):
+    """The channel id is unknown."""
 
 
-class ActorNotInThreadError(ChatticusError):
-    """The author or addressee is not a participant of the thread."""
+class ChannelTenantMismatchError(ChatticusError):
+    """A tenant cannot read or write another tenant's channel."""
 
 
-class TurnStreamNotFoundError(ChatticusError):
-    """The turn stream id is unknown or already completed."""
+class ActorNotInChannelError(ChatticusError):
+    """The author or addressee is not a participant of the channel."""
+
+
+class TurnNotFoundError(ChatticusError):
+    """The turn id is unknown."""
+
+
+class TurnAccessDeniedError(ChatticusError):
+    """A tenant cannot open another tenant's turn stream."""
 
 
 @dataclass(frozen=True)
@@ -155,6 +166,7 @@ class TurnJob:
     computer_id: str | None = None
     user_id: str | None = None
     bot_id: str | None = None
+    turn_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -220,33 +232,34 @@ class Computer:
     disk_dirty: bool = False
     hydrate_required: bool = False
     intended_host_worker_id: str | None = None
+    stopped: bool = False
 
 
 @dataclass(frozen=True)
-class ThreadParticipant:
-    """A human or bot that can read and post in a thread."""
+class ChannelParticipant:
+    """A human or bot that can read and post in a channel."""
 
     kind: ActorKind
     actor_id: str
 
 
 @dataclass
-class Thread:
-    """A conversation. Messages are append-only with a per-thread sequence."""
+class Channel:
+    """A conversation. Messages are append-only with a per-channel sequence."""
 
-    thread_id: str
+    channel_id: str
     tenant_id: str
     user_id: str
-    participants: list[ThreadParticipant] = field(default_factory=list)
+    participants: list[ChannelParticipant] = field(default_factory=list)
     next_seq: int = 1
 
 
 @dataclass(frozen=True)
 class Message:
-    """One committed row in a thread. Streaming tokens are not messages."""
+    """One committed row in a channel. Streaming tokens are not messages."""
 
     message_id: str
-    thread_id: str
+    channel_id: str
     tenant_id: str
     seq: int
     author_kind: ActorKind
@@ -256,41 +269,29 @@ class Message:
     created_at: datetime
 
 
-@dataclass(frozen=True)
-class RealtimeEvent:
-    """One fan-out payload for the realtime API.
+@dataclass
+class Turn:
+    """One bot turn with durable events and optional in-flight chunks."""
 
-    Tokens travel here. They are not stored as message rows. After reconnect,
-    the client replays committed messages with ``after=seq``.
-    """
+    turn_id: str
+    tenant_id: str
+    channel_id: str
+    bot_id: str
+    status: TurnStatus = TurnStatus.ACTIVE
+    next_event_seq: int = 1
+    next_chunk_seq: int = 1
+
+
+@dataclass(frozen=True)
+class TurnEvent:
+    """One durable event for turn-scoped server-sent events."""
 
     event_id: str
     tenant_id: str
-    thread_id: str
-    kind: RealtimeEventKind
-    message_seq: int | None = None
-    message_id: str | None = None
-    bot_id: str | None = None
+    turn_id: str
+    channel_id: str
+    seq: int
+    kind: TurnEventKind
     token: str | None = None
+    message_seq: int | None = None
     body: str | None = None
-
-
-@dataclass
-class RealtimeSubscription:
-    """A chattic.us session subscribed to one thread's realtime API."""
-
-    subscription_id: str
-    tenant_id: str
-    thread_id: str
-    events: list[RealtimeEvent] = field(default_factory=list)
-
-
-@dataclass
-class TurnStream:
-    """In-flight token buffer for one bot turn. Not a message until complete."""
-
-    stream_id: str
-    thread_id: str
-    tenant_id: str
-    bot_id: str
-    tokens: list[str] = field(default_factory=list)

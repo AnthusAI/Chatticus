@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "bf4974d0-55a9-4bb2-822d-98c3365ba747",
+  "issue_id": "chatticus-79da290a-58de-4b70-be45-3aa492963bfd",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-30T19:02:14.413Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "develop is the continuous-integration branch. Accepted work merges there as soon as it is green; it does not wait on main.\n\nmain remains the semantic-release branch. Do not run releases from develop.\n\nAcceptance:\n- origin/develop exists\n- CI runs on push to develop and main, and on pull requests\n- AGENTS.md states this\n- The accepted HTTP SSE thin turn is on develop",
+    "issue_type": "chore",
+    "labels": [
+      "git"
+    ],
+    "parent": null,
+    "priority": 1,
+    "status": "open",
+    "title": "Land accepted work on develop continuously"
+  }
+}

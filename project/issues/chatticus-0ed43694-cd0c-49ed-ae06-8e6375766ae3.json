@@ -12,9 +12,16 @@
     "v1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "6d4c6d52-8da6-4979-a14a-1a24547dd528",
+      "author": "home",
+      "text": "On cursor/durable-computerless-turn-4a21, addressed-bot jobs are cpu-only and the old RealtimeSubscription/TurnStream types are gone. Close this when that branch merges; do not keep a second messaging kernel.\n",
+      "created_at": "2026-08-30T18:30:35.056685Z"
+    }
+  ],
   "created_at": "2026-08-30T16:21:43.002157Z",
-  "updated_at": "2026-08-30T16:21:43.002157Z",
+  "updated_at": "2026-08-30T18:30:35.056685Z",
   "closed_at": null,
   "custom": {}
 }

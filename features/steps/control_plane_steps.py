@@ -7,6 +7,8 @@ from datetime import timedelta
 from behave import given, then, when
 
 from chatticus.control_plane import ControlPlane
+from chatticus.http.app import create_app
+from chatticus.http.test_server import start_test_server
 from chatticus.models import (
     AutoReviewRuleKind,
     ComputerDirtyError,
@@ -45,6 +47,10 @@ def _registration_from_table(table: object) -> WorkerRegistration:
 @given("an empty control plane")
 def given_empty_control_plane(context: object) -> None:
     context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
+    app = create_app(context.plane)
+    context.api_app = app
+    context.app_state = app.state.chatticus
+    context.api_client = start_test_server(app)
     context.bots_by_name = {}
     context.last_job = None
     context.last_assignment = None
@@ -55,13 +61,15 @@ def given_empty_control_plane(context: object) -> None:
     context.relocate_error = None
     context.hydrate_error = None
     context.write_error = None
-    context.last_thread = None
+    context.last_channel = None
     context.last_message = None
-    context.last_stream_id = None
+    context.last_turn_id = None
     context.message_error = None
-    context.subscription_error = None
-    context.last_subscription = None
+    context.other_tenant_id = None
     context.listed_messages = None
+    context.sse_watcher = None
+    context.access_error = None
+    context.stream_error = None
 
 
 @given("the heartbeat timeout is {seconds:d} seconds")

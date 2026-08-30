@@ -21,10 +21,13 @@ dev = [
     "black",
     "boto3",
     "botocore[crt]",
+    "fastapi",
+    "httpx",
     "kanbus",
     "moto",
     "pytest",
     "ruff",
+    "uvicorn",
 ]
 
 [tool.setuptools]

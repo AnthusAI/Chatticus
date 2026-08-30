@@ -18,9 +18,16 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "583d8091-6135-4325-8c6f-654ea81666b1",
+      "author": "home",
+      "text": "Orientation 2026-08-30 (for agents returning from rate limits):\n\nCenter of gravity: one durable computerless turn. Scale-to-zero is a requirement.\n\nNow:\n- Transport spike is done and torn down (chatticus-bbfb8d closed).\n- Gherkin + HTTP SSE implementation are together on cursor/durable-computerless-turn-4a21 at 341e42e. Manager accepted the HTTP SSE send-back. Not merged.\n- Next on this epic: live OpenAI gpt-5.6-luna through .env (CI stays fake), then merge to main, then chatticus-e5c86e deploy/exercise.\n\nDo not: reopen sockets, dual thread+channel APIs, resurrect ChatticusSseSpike, or start Phase 2 computer work until the thin HTTP turn is on main.\n",
+      "created_at": "2026-08-30T18:30:35.068943Z"
+    }
+  ],
   "created_at": "2026-08-30T15:53:17.617903Z",
-  "updated_at": "2026-08-30T15:53:17.617903Z",
+  "updated_at": "2026-08-30T18:30:35.068943Z",
   "closed_at": null,
   "custom": {}
 }

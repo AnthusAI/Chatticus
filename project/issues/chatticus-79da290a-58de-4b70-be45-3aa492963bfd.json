@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-79da290a-58de-4b70-be45-3aa492963bfd",
+  "title": "Land accepted work on develop continuously",
+  "description": "develop is the continuous-integration branch. Accepted work merges there as soon as it is green; it does not wait on main.\n\nmain remains the semantic-release branch. Do not run releases from develop.\n\nAcceptance:\n- origin/develop exists\n- CI runs on push to develop and main, and on pull requests\n- AGENTS.md states this\n- The accepted HTTP SSE thin turn is on develop",
+  "type": "chore",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [
+    "git"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T19:02:14.413251Z",
+  "updated_at": "2026-08-30T19:02:14.413251Z",
+  "closed_at": null,
+  "custom": {}
+}
