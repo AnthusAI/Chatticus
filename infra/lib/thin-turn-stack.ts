@@ -8,6 +8,8 @@ import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as ssm from "aws-cdk-lib/aws-ssm";
+import { execSync } from "child_process";
+import * as fs from "fs";
 import * as path from "path";
 import { Construct } from "constructs";
 
@@ -76,6 +78,36 @@ export class ThinTurnStack extends cdk.Stack {
             "chmod +x /asset-output/run.sh",
           ].join(" && "),
         ],
+        local: {
+          tryBundle(outputDir: string): boolean {
+            try {
+              execSync(
+                [
+                  "pip install",
+                  "--platform manylinux2014_x86_64",
+                  "--implementation cp",
+                  "--python-version 3.12",
+                  "--only-binary=:all:",
+                  "fastapi uvicorn 'pydantic>=2' httpx python-dotenv",
+                  `-t ${outputDir}`,
+                ].join(" "),
+                { cwd: pythonRoot, stdio: "inherit" },
+              );
+              copyDir(
+                path.join(pythonRoot, "src/chatticus"),
+                path.join(outputDir, "chatticus"),
+              );
+              fs.copyFileSync(
+                path.join(pythonRoot, "lambda/run.sh"),
+                path.join(outputDir, "run.sh"),
+              );
+              fs.chmodSync(path.join(outputDir, "run.sh"), 0o755);
+              return true;
+            } catch {
+              return false;
+            }
+          },
+        },
       },
     });
 
@@ -205,5 +237,18 @@ export class ThinTurnStack extends cdk.Stack {
     new cdk.CfnOutput(this, "OriginReadTimeoutSeconds", {
       value: String(originReadTimeoutSeconds),
     });
+  }
+}
+
+function copyDir(src: string, dest: string): void {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const from = path.join(src, entry.name);
+    const to = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDir(from, to);
+    } else {
+      fs.copyFileSync(from, to);
+    }
   }
 }

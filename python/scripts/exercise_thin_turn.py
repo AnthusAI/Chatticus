@@ -96,8 +96,19 @@ def main() -> int:
                 if time.time() > deadline:
                     break
         print(f"reconnect_after={cutoff} replay_kinds={[e.get('kind') for e in replayed]}")
-        stopped = client.get("/computers/stopped", params={"user_id": args.user_id}).json()
-        messages = client.get(f"/channels/{channel['channel_id']}/messages").json()["messages"]
+        stopped_response = client.get("/computers/stopped", params={"user_id": args.user_id})
+        if stopped_response.status_code != 200:
+            print(
+                f"stopped {stopped_response.status_code} {stopped_response.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        stopped = stopped_response.json()
+        listed = client.get(f"/channels/{channel['channel_id']}/messages")
+        if listed.status_code != 200:
+            print(f"messages {listed.status_code} {listed.text[:300]}", file=sys.stderr)
+            return 1
+        messages = listed.json()["messages"]
         bot_messages = [m for m in messages if m["author_kind"] == ActorKind.BOT]
         print(f"computer_stopped={stopped['stopped']} bot_messages={len(bot_messages)}")
         if not stopped["stopped"] or not bot_messages:
