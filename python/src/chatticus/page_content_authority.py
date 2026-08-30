@@ -122,7 +122,10 @@ class PageContentAuthorityGate:
                 )
             return ApprovalDecision.ALLOW
 
-        if operation.action_type == "upload_workspace" and not grant.allow_workspace_upload:
+        if (
+            operation.action_type == "upload_workspace"
+            and not grant.allow_workspace_upload
+        ):
             return self._deny(
                 "workspace upload not granted by task",
                 operation,
