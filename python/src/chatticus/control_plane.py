@@ -80,6 +80,7 @@ class ControlPlane:
         visibility_ledger: QueueVisibilityLedger | None = None,
         visibility_renewer: Callable[[TurnJob], None] | None = None,
         recovery_enabled: bool = False,
+        wall_clock: bool = False,
     ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
@@ -103,13 +104,18 @@ class ControlPlane:
         :type visibility_renewer: Callable[[TurnJob], None] | None
         :param recovery_enabled: Schedule deadlines and recover wedged turns.
         :type recovery_enabled: bool
+        :param wall_clock: When true, ``_now`` is ``datetime.now(UTC)`` every
+            read so a long-lived Lambda plane does not freeze EventBridge
+            deadlines at import time. Tests keep the default pinned clock.
+        :type wall_clock: bool
         """
         self.heartbeat_timeout = heartbeat_timeout or timedelta(seconds=30)
         self.attempt_lease = attempt_lease or timedelta(seconds=60)
         self.turn_deadline = turn_deadline or timedelta(seconds=120)
         self.max_recovery_attempts = max_recovery_attempts
         self.recovery_enabled = recovery_enabled
-        self._now = datetime.now(UTC)
+        self._wall_clock = wall_clock
+        self._frozen_now = datetime.now(UTC)
         self._workers: dict[str, WorkerRecord] = {}
         self._bots: dict[str, Bot] = {}
         self._computers_by_user: dict[tuple[str, str], Computer] = {}
@@ -156,6 +162,17 @@ class ControlPlane:
         if not subscribers:
             del self._turn_event_subscribers[turn_id]
         subscriber.put_nowait(None)
+
+    @property
+    def _now(self) -> datetime:
+        if self._wall_clock:
+            return datetime.now(UTC)
+        return self._frozen_now
+
+    @_now.setter
+    def _now(self, moment: datetime) -> None:
+        self._wall_clock = False
+        self._frozen_now = moment
 
     def set_now(self, moment: datetime) -> None:
         """Pin the clock so behavior specs can expire heartbeats."""

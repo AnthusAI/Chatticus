@@ -34,6 +34,7 @@ def plane_from_env() -> ControlPlane:
         turn_enqueued=_sqs_enqueuer(queue_url) if queue_url else None,
         deadline_scheduler=deadline_scheduler,
         recovery_enabled=recovery_enabled,
+        wall_clock=True,
     )
 
 
