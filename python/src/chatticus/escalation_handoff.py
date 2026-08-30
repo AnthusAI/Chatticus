@@ -64,6 +64,10 @@ class EscalationRecord:
     result_committed: bool = False
     continuation_job_id: str | None = None
     result_body: str | None = None
+    executed_action_id: str | None = None
+    computerless_output: str | None = None
+    continuation_output: str | None = None
+    result_replay_attempts: int = 0
 
 
 class EscalationCrash(Exception):

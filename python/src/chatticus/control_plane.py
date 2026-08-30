@@ -829,6 +829,7 @@ class ControlPlane:
         if record.computer_action_count:
             return
         record.computer_action_count += 1
+        record.executed_action_id = record.pending_call.action_id
 
     def commit_computer_tool_result(
         self,
@@ -842,8 +843,19 @@ class ControlPlane:
             raise TurnTerminalError(
                 f"Turn {turn_id!r} has no computer action to commit."
             )
+        if record.result_committed:
+            record.result_replay_attempts += 1
+            return
         record.result_body = result_body
         record.result_committed = True
+        turn = self.turn(tenant_id, turn_id)
+        if turn.claimed_by_worker_id is not None:
+            self.post_turn_chunk(
+                turn_id,
+                tenant_id,
+                f"[tool:{record.pending_call.action_id}]{result_body}",
+                fence_token=turn.fence_token,
+            )
 
     def recover_computer_escalation(self, tenant_id: str, turn_id: str) -> None:
         """Continue a crashed handoff exactly once, then complete the turn."""
@@ -869,6 +881,48 @@ class ControlPlane:
             )
         turn = self.turn(tenant_id, turn_id)
         self._complete_turn(turn, expected_fence=turn.fence_token)
+
+    def commit_computerless_model_output(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        token: str,
+    ) -> None:
+        """Append computerless model text to the same turn before escalation."""
+        record = self.escalation_for(tenant_id, turn_id)
+        turn = self.turn(tenant_id, turn_id)
+        self.post_turn_chunk(turn_id, tenant_id, token, fence_token=turn.fence_token)
+        record.computerless_output = (record.computerless_output or "") + token
+
+    def continue_model_after_tool_result(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        token: str,
+    ) -> None:
+        """Append model text after the computer tool result on the same turn."""
+        record = self.escalation_for(tenant_id, turn_id)
+        if not record.result_committed:
+            raise TurnTerminalError(
+                f"Turn {turn_id!r} has no computer tool result to continue from."
+            )
+        turn = self.turn(tenant_id, turn_id)
+        self.post_turn_chunk(turn_id, tenant_id, token, fence_token=turn.fence_token)
+        record.continuation_output = (record.continuation_output or "") + token
+
+    def replay_completed_computer_tool_result(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        result_body: str,
+    ) -> None:
+        """Refuse to replace a committed computer tool result."""
+        self.commit_computer_tool_result(tenant_id, turn_id, result_body)
+
+    def turn_progress_tokens(self, tenant_id: str, turn_id: str) -> list[str]:
+        """Return committed in-flight tokens for one turn."""
+        self.turn(tenant_id, turn_id)
+        return self._messaging_store.list_turn_chunks(tenant_id, turn_id)
 
     def active_computer_controllers(self, computer_id: str) -> list[str]:
         """Return attempt ids that currently hold an unexpired computer lease."""

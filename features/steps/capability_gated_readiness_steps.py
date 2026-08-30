@@ -28,6 +28,9 @@ def when_bot_begins_turn(context: object) -> None:
 
 @when("the household computer becomes ready")
 def when_computer_ready(context: object) -> None:
+    if getattr(context, "mid_turn", None) is not None:
+        context.mid_turn_outcome = context.mid_turn.when_computer_becomes_ready()
+        return
     context.capability_driver.mark_computer_ready()
 
 
