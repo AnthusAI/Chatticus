@@ -21,8 +21,9 @@ xAI client. The model vendor is not the product name.
 
 - `docs/` — product, architecture, stack, roadmap, messaging. Read
   `docs/MESSAGING.md` before adding a cloud API, message store, or
-  streaming path, and `docs/DESIGN_CHALLENGES.md` for why it is shaped
-  that way and what is still open.
+  streaming path, and `docs/DESIGN_CHALLENGES.md` for the requirements,
+  the non-requirements, why the design is shaped this way, and what is
+  still open.
 - `features/` — shared Gherkin. Behavior changes start here.
 - `python/` — control plane, scheduler, roster, approvals, later agent and
   worker processes.
@@ -79,6 +80,16 @@ schema migration; an always-on database breaks scale-to-zero.
 
 EventBridge and SQS are not in the token path. EventBridge is for
 routine wake-ups, worker starts, and device push. SQS is for turn jobs.
+
+`docs/DESIGN_CHALLENGES.md` lists the requirements these rules serve and,
+just as importantly, the **non-requirements**. Check a proposal against
+both before arguing for a change. Two that are misread most often:
+
+- Chatticus does not need token-by-token delivery. It needs a human
+  watching a turn to see it progress. Coalesced chunks satisfy that.
+- Chatticus does not need throughput or scale. One household, a handful
+  of concurrent turns. Serverless here is about the idle floor. Do not
+  engineer for load that does not exist.
 
 See `docs/MESSAGING.md` for the design and `docs/DESIGN_CHALLENGES.md`
 for the reasoning. Do not add a CDK control-plane stack until the

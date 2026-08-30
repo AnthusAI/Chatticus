@@ -39,6 +39,8 @@ protocol sketch, not the schema.
 ## v3
 
 - Teach-by-demonstration
-- Multi-tenant auth and billing
+- Multi-tenant auth and billing. The *features* are v3; the *seam* is a
+  v1 requirement. Serving other households is a commitment, not a door
+  left open, and the architecture is held to it now.
 - Desktop and iOS clients
 - Optional Rust worker daemon

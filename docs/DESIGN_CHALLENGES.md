@@ -3,13 +3,141 @@
 Read this before adding a control-plane API, a message store, or a
 streaming path for chattic.us.
 
-Challenges 1 and 2 are **decided**. Challenge 3 has a working model with
-open sub-questions. Challenge 4 is **open**.
+It has four parts:
+
+- **Requirements**: what must hold or the product is broken.
+- **Non-requirements**: what looks like a requirement and is not. Read
+  this one. Mistaking any of them for a requirement is how this design
+  gets over-built.
+- **Derived rules**: consequences of the two above, each naming the
+  requirement it comes from.
+- **Challenges**: 1 and 2 are **decided**, 3 has a working model with
+  open sub-questions, and 4 is **open**.
 
 The reasoning is kept with each decision. A decision whose premise is not
 written down cannot be re-checked when the premise changes, and every
 premise here is one AWS price change or one product requirement away from
 moving.
+
+## Requirements
+
+These must hold or the product is broken. A proposal that violates one is
+wrong no matter how cheap or elegant it is.
+
+**Product**
+
+1. A bot is persistent. Memory and context compound across turns. It is
+   not a fresh session per task.
+2. One computer per user, shared by every bot on that user. The **user**
+   is the security boundary.
+3. Work continues when the human's device is closed or offline.
+4. Consequential actions are gated by approval. Passwords, codes, and
+   identity checks are a takeover of the computer, never text in chat.
+5. The human is not the router between bots.
+6. The human can watch bot-to-bot work. The mechanism is open; the
+   visibility is not.
+
+**Platform**
+
+7. **Nothing bills while nobody is working.** No component has an idle
+   floor. This is the principle the cloud API is built to satisfy.
+8. Output reaches the browser as it is produced. A human watching a turn
+   sees it progress.
+9. The transcript is durable, append-only, immutable, and reloadable
+   from a cursor.
+10. The stream is fully re-derivable from the store. Work never depends
+    on anyone watching.
+11. **The tenant seam survives without a rewrite.** Chatticus will serve
+    other households. v1 being one household does not make this
+    aspirational.
+12. Workers pull. The control plane never reaches into a worker, and a
+    home machine needs no inbound ports.
+13. The model loop runs on the worker, never on the control plane.
+14. One computer image runs on Fargate, EC2, and local Docker.
+15. The web app talks only to the control plane, never to a worker.
+
+## Non-requirements
+
+These look like requirements and are not. Each one, mistaken for a
+requirement, would push the design toward something more complex and
+more expensive than the product needs. When a proposal is justified by
+one of these, that is the tell.
+
+1. **Token-by-token delivery.** The requirement is that a human watching
+   a turn sees it progress. Chunks of roughly 250 milliseconds satisfy
+   that completely. This is what licenses coalescing, and coalescing is
+   what makes the per-event cost of everything downstream negligible.
+2. **Lowest total cost.** The requirement is zero at idle. A design with
+   a lower average bill but an idle floor **loses** to one that costs
+   slightly more per turn and nothing at rest.
+3. **A bounded cold start.** Unmeasured and unbounded for now. The
+   interface shows "starting your computer" as an honest state. Revisit
+   when there is a real image and a real turn to measure; do not spend
+   engineering on shrinking it before then.
+4. **Throughput, or anything resembling web scale.** One household, a
+   handful of concurrent turns. Serverless here is about the **idle
+   floor**, not about scale. Do not engineer for load that does not
+   exist. This is the most likely way to over-build from a correct
+   decision.
+5. **Bidirectional realtime.** Approvals are rare and human-paced. A
+   POST serves them. Nothing needs a duplex channel.
+6. **Live updates in a tab with no turn running.** Device push, and a
+   cheap poll, cover "something finished while you were away."
+7. **Durable in-flight chunks.** Chunks are disposable. Only the
+   committed message is durable. Losing chunks costs a re-read, never
+   work.
+8. **Exactly-once chunk delivery.** Chunks are idempotent by turn and
+   sequence, and re-readable.
+9. **Ordering across channels.** Only order within a channel is
+   guaranteed, and `seq` at commit already provides it.
+10. **Edits and deletes.** Out of scope for v1.
+11. **Bots as a security boundary.** They are not, and no design should
+    imply they are. Separate screens are work surfaces, not isolation.
+12. **Live migration of a running computer.** Publish a snapshot, then
+    hydrate on the next host.
+13. **Multi-region or high availability.** Not v1.
+14. **Sub-second lifecycle events.** Routine wake-ups, worker starts,
+    and device push tolerate seconds.
+
+## Derived rules
+
+These are consequences, not axioms. Each names the requirement it comes
+from, so that if the premise moves the rule is re-derived rather than
+cited out of habit.
+
+| Rule | Follows from |
+| --- | --- |
+| No transport that meters per connection or per message | 7 |
+| No persistent sockets, browser-side or worker-side | 7 |
+| A stream is scoped to one turn, never to a tab or a login session | 7, 8 |
+| No always-on datastore; no relational instance | 7 |
+| No load balancer in front of the API (hourly floor) | 7 |
+| The worker/browser rendezvous is a readable store with per-reader cursors | 10 |
+| Output is coalesced into chunks, not sent per token | non-requirement 1 |
+
+### Why "no sockets" is a cost rule, not a taste
+
+The ban on persistent sockets is worth stating precisely, because the
+imprecise version will be misapplied.
+
+We have paid large AppSync bills. That is the direct evidence, and it is
+better than any arithmetic in this document. But the lesson is not "open
+connections are inherently expensive." A socket held by a process you
+are already paying for continuously costs nothing extra per connection.
+
+A socket is expensive in two specific ways, and both trace to
+requirement 7:
+
+- **A managed socket service meters it.** Per update, per operation, per
+  connection-minute. That is the AppSync bill, and it scales with how
+  much the product is used rather than with how much capacity it needs.
+- **A self-held socket requires a process that outlives the request.**
+  That process has an idle floor whether or not anyone is connected.
+
+So the rule is derived, not independent. The practical consequence: if
+someone later proposes a socket on a process we are already running
+continuously for unrelated reasons, do not cite this rule at them. Go
+back to requirement 7 and re-derive. The answer may legitimately differ.
 
 ## How to record a rejection
 
@@ -147,6 +275,13 @@ was per token and does not survive coalescing; at chunk rates it would
 be affordable. It is rejected now because it is a managed WebSocket, and
 this design has no WebSockets in it.
 
+The cost objection is not hypothetical: **we have paid large AppSync
+bills.** That is real evidence and it outranks any arithmetic here. The
+lesson it carries is narrow and worth keeping straight -- a metered
+transport bills for how much the product is *used*, not for how much
+capacity it *needs*, which is the same failure mode as an idle floor
+seen from the other end. See "Why 'no sockets' is a cost rule" above.
+
 DynamoDB loses exactly one column in that table, the waiting reader, and
 pays for it with up to 250 milliseconds of jitter that the client
 smooths over. The other two lose columns that cannot be bought back.
@@ -190,16 +325,22 @@ dollars a month, and it is genuinely simpler: the rendezvous is a
 variable in memory and there is no polling seam.
 
 The saving alone does not justify the extra moving parts. **The reason
-is the multi-tenant seam.** A per-request control plane goes from one
+is the multi-tenant seam** (requirement 11), which is a real commitment
+rather than a door left open. A per-request control plane goes from one
 household to many at near-linear marginal cost, with no capacity
-planning and no idle floor per tenant. v1 is one household but the
-protocol is tenant-aware precisely so it can serve others without a
-rewrite; the runtime should match.
+planning and no idle floor per tenant. An always-on process multiplies
+that floor by the number of tenants, or forces tenants to share one
+process and take on the isolation problem that avoids.
 
 Adopt this as a principle -- **nothing bills while nobody is working** --
 or not at all. As a cost optimization it is marginal, and the cost
 framing will lose the argument the first time the polling seam is
 annoying.
+
+Note what this argument does **not** claim. It is not that the system
+must handle high load; see non-requirement 4. One household running a
+handful of concurrent turns is the actual v1 workload, and the design
+should stay boring at that size.
 
 ### Still open
 
@@ -369,6 +510,9 @@ the architecture.
   architecture; say so and find the turn-scoped version.
 - Every new rejection states whether it is shape or cost, and a cost
   rejection states its assumption.
+- Before arguing for a change, check it against Requirements and
+  Non-requirements above. Most proposals that feel necessary are serving
+  a non-requirement.
 - Do not name other vendors' agent products in Chatticus docs, bots, or
   protocol types.
 - Computers, snapshots, and prefer-local routing are a different layer.
