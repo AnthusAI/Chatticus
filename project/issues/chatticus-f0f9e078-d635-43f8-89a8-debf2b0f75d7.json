@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-f0f9e078-d635-43f8-89a8-debf2b0f75d7",
+  "title": "Replace the MESSAGING ASCII turn picture with one mermaid after Test 1",
+  "description": "After the SSE spike records its result (chatticus-bbfb8d), do the 30-minute diagram step. Do not start this while Test 1 is still open.\n\nDecision (Grok recommendation, adopted):\n\n- Primary: hand-authored mermaid in the existing source-of-truth doc. Roles, not CDK logical IDs. No AWS icon posters, no cdk-dia, no Icepanel, no Workload Discovery (idle floor / drift).\n- One picture for the computerless turn: replace the ASCII block in docs/MESSAGING.md. Delete the duplicate ASCII in DESIGN_CHALLENGES challenge 1 (link to MESSAGING). If front-door placement is still open, keep a generic Front door box; do not draw CloudFront as the product.\n- Do not diagram ChatticusSseSpike as architecture. Destroy or leave it unmarked.\n- Do not add docs/architecture/. Do not fail CI on diagrams.\n- Diagrams 2 (summon/hydrate) and 3 (host ranking) wait until that code is about to land. Not this task.\n\nAcceptance: one mermaid in MESSAGING, no new doc file, no generated PNG as source of truth.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-387e4fbd-3040-46ec-8182-20374e655e24",
+  "labels": [
+    "later"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-bbfb8d90-3397-4c81-9137-0154739406ad",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-08-30T17:06:59.956068Z",
+  "updated_at": "2026-08-30T17:06:59.956068Z",
+  "closed_at": null,
+  "custom": {}
+}

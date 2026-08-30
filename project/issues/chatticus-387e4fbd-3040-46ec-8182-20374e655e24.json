@@ -12,7 +12,12 @@
     "v1",
     "transport"
   ],
-  "dependencies": [],
+  "dependencies": [
+    {
+      "target": "chatticus-bbfb8d",
+      "type": "blocked-by"
+    }
+  ],
   "comments": [],
   "created_at": "2026-08-30T15:53:17.431152Z",
   "updated_at": "2026-08-30T15:53:17.431152Z",
