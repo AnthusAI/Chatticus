@@ -117,10 +117,10 @@ escalation, and no approvals on this slice.
 Next on the board: a named **staging** thin-turn deploy (9eef23) when
 `main` is promoted, not as daily parking. Overnight gated-action
 (5b687a), immutable approval binding (2b293d), unbound browser
-stops (813d8d), and computer-seam recovery (b41106) are kernel-only;
-the unattended-gate decision is in
-[Approval spec](docs/APPROVAL.md) (76d3e2). They are not on the live
-worker loop.
+stops (813d8d), computer-seam recovery (b41106), and capability-gated
+readiness (`turn.waiting`, c0fbf0) are kernel-only; the unattended-gate
+decision is in [Approval spec](docs/APPROVAL.md) (76d3e2). They are not
+on the live worker loop.
 
 ```mermaid
 flowchart LR
