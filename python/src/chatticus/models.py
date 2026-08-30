@@ -136,6 +136,14 @@ class TurnAccessDeniedError(ChatticusError):
     """A tenant cannot open another tenant's turn stream."""
 
 
+class StaleAttemptError(ChatticusError):
+    """A fenced attempt tried to write after the turn changed owners."""
+
+
+class TurnClaimDeniedError(ChatticusError):
+    """Another unexpired attempt already owns the turn."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""
@@ -280,6 +288,23 @@ class Turn:
     status: TurnStatus = TurnStatus.ACTIVE
     next_event_seq: int = 1
     next_chunk_seq: int = 1
+    attempt_id: str | None = None
+    fence_token: int = 0
+    claimed_by_worker_id: str | None = None
+    lease_expires_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class TurnAttempt:
+    """The current fenced owner of one turn, if a claim succeeded."""
+
+    tenant_id: str
+    turn_id: str
+    attempt_id: str
+    fence_token: int
+    worker_id: str
+    acquired: bool
+    lease_expires_at: datetime
 
 
 @dataclass(frozen=True)

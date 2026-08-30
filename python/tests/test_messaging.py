@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import replace
+from datetime import timedelta
+from uuid import uuid4
 
 import boto3
 import pytest
@@ -20,10 +23,15 @@ from chatticus.messaging.store import (
 )
 from chatticus.models import (
     ActorKind,
+    StaleAttemptError,
     TurnEventKind,
     TurnStatus,
 )
-from chatticus.worker.computerless import ComputerlessWorker, FakeTextCompletionClient
+from chatticus.worker.computerless import (
+    ComputerlessWorker,
+    CountingTextCompletionClient,
+    FakeTextCompletionClient,
+)
 from chatticus.worker.openai_completion import (
     OpenAITextCompletionClient,
     completion_client_from_env,
@@ -66,6 +74,7 @@ def test_dynamo_store_roundtrip_messages_and_events() -> None:
     jobs = plane.pending_jobs_for_bot(bot.bot_id)
     assert jobs[0].required_capabilities == frozenset({"cpu"})
     turn_client = HttpTurnClient(api, channel.tenant_id)
+    turn_client.claim(turn_id, "test-worker")
     turn_client.post_chunk(turn_id, "Hel")
     turn_client.post_chunk(turn_id, "", complete=True)
     messages = api.get(
@@ -235,6 +244,7 @@ def test_http_sse_replay_after_cursor() -> None:
     )
     turn_id = post.json()["turn_id"]
     turn_client = HttpTurnClient(api, channel.tenant_id)
+    turn_client.claim(turn_id, "test-worker")
     turn_client.post_chunk(turn_id, "Hel")
     turn_client.post_chunk(turn_id, "lo")
     turn_client.post_chunk(turn_id, "!")
@@ -301,7 +311,9 @@ def test_turn_completes_without_sse_watcher() -> None:
         headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
-    HttpTurnClient(api, channel.tenant_id).post_chunk(turn_id, "", complete=True)
+    client = HttpTurnClient(api, channel.tenant_id)
+    client.claim(turn_id, "test-worker")
+    client.post_chunk(turn_id, "", complete=True)
     turn = plane.turn(channel.tenant_id, turn_id)
     assert turn.status == TurnStatus.COMPLETED
     api.close()
@@ -316,3 +328,67 @@ def test_bot_and_stopped_computer_survive_a_new_control_plane() -> None:
     channel = second.create_channel("anthus", "ryan", [bot.bot_id])
     assert second.computer_is_stopped("anthus", "ryan")
     assert channel.participants[-1].actor_id == bot.bot_id
+
+
+def test_duplicate_delivery_calls_the_model_once() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "ping",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    job = plane.pending_jobs_for_bot(bot.bot_id)[0]
+    other = replace(job, job_id=str(uuid4()))
+    counting = CountingTextCompletionClient()
+    ComputerlessWorker(plane, HttpTurnClient(api, channel.tenant_id), counting).run_job(
+        job
+    )
+    ComputerlessWorker(plane, HttpTurnClient(api, channel.tenant_id), counting).run_job(
+        other
+    )
+    assert counting.calls == 1
+    api.close()
+
+
+def test_stale_attempt_cannot_append_after_reassignment() -> None:
+    plane = ControlPlane(attempt_lease=timedelta(seconds=60))
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "ping",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    first = plane.claim_turn_attempt(channel.tenant_id, turn_id, "worker-a")
+    assert first is not None and first.acquired
+    plane.advance_seconds(61)
+    second = plane.claim_turn_attempt(channel.tenant_id, turn_id, "worker-b")
+    assert second is not None and second.acquired
+    assert second.fence_token != first.fence_token
+    with pytest.raises(StaleAttemptError):
+        plane.post_turn_chunk(
+            turn_id, channel.tenant_id, "late", fence_token=first.fence_token
+        )
+    plane.post_turn_chunk(
+        turn_id,
+        channel.tenant_id,
+        "ok",
+        complete=True,
+        fence_token=second.fence_token,
+    )
+    turn = plane.turn(channel.tenant_id, turn_id)
+    assert turn.status == TurnStatus.COMPLETED
+    api.close()

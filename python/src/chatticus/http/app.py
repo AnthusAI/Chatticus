@@ -21,7 +21,9 @@ from chatticus.models import (
     ChannelNotFoundError,
     ChannelTenantMismatchError,
     ChatticusError,
+    StaleAttemptError,
     TurnAccessDeniedError,
+    TurnClaimDeniedError,
     TurnEventKind,
     TurnNotFoundError,
 )
@@ -65,6 +67,13 @@ class PostChunkBody(BaseModel):
 
     token: str
     complete: bool = False
+    fence_token: int
+
+
+class ClaimTurnBody(BaseModel):
+    """Body for POST /turns/{turn_id}/claim."""
+
+    worker_id: str
 
 
 @dataclass
@@ -207,6 +216,32 @@ def create_app(
             "messages": [_message_payload(message) for message in messages],
         }
 
+    @app.post("/turns/{turn_id}/claim")
+    def claim_turn(
+        turn_id: str,
+        body: ClaimTurnBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        attempt = state.plane.claim_turn_attempt(tenant_id, turn_id, body.worker_id)
+        if attempt is None:
+            raise TurnClaimDeniedError(
+                f"Turn {turn_id!r} is owned by another unexpired attempt."
+            )
+        logger.info(
+            "turn_claimed tenant_id=%s turn_id=%s worker_id=%s acquired=%s fence=%s",
+            tenant_id,
+            turn_id,
+            body.worker_id,
+            attempt.acquired,
+            attempt.fence_token,
+        )
+        return {
+            "attempt_id": attempt.attempt_id,
+            "fence_token": attempt.fence_token,
+            "acquired": attempt.acquired,
+            "lease_expires_at": attempt.lease_expires_at.isoformat(),
+        }
+
     @app.post("/turns/{turn_id}/chunks")
     def post_chunk(
         turn_id: str,
@@ -218,6 +253,7 @@ def create_app(
             tenant_id,
             body.token,
             complete=body.complete,
+            fence_token=body.fence_token,
         )
         logger.info(
             "chunk_posted tenant_id=%s turn_id=%s complete=%s",
@@ -286,6 +322,8 @@ def _status_for_error(error: ChatticusError) -> int:
         ChannelTenantMismatchError | TurnAccessDeniedError | ActorNotInChannelError,
     ):
         return 403
+    if isinstance(error, StaleAttemptError | TurnClaimDeniedError):
+        return 409
     if isinstance(error, ChannelNotFoundError | TurnNotFoundError):
         return 404
     return 400
