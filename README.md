@@ -172,6 +172,18 @@ black --check src ../features tests
 ruff check src ../features tests
 ```
 
+## Task tracking
+
+This repository uses [Kanbus](https://github.com/AnthusAI/Kanbus) for issue
+tracking. The CLI is included in the Python dev dependencies (`pip install -e
+".[dev]"` from `python/`). See [CONTRIBUTING_AGENT.md](CONTRIBUTING_AGENT.md)
+for the workflow.
+
+```bash
+kanbus list
+kanbus create "Describe the work" --type task
+```
+
 If Docker Desktop is running:
 
 ```bash

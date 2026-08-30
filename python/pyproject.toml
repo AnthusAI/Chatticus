@@ -21,6 +21,7 @@ dev = [
     "black",
     "boto3",
     "botocore[crt]",
+    "kanbus",
     "moto",
     "pytest",
     "ruff",

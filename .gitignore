@@ -10,18 +10,15 @@ coverage.xml
 htmlcov/
 dist/
 build/
-
 # Node
 node_modules/
 .next/
 out/
-
 # CDK / AWS
 infra/cdk.out/
 infra/dist/
 infra/cdk-outputs.json
 *.js.map
-
 # Local secrets and data
 .env
 .env.*
@@ -29,9 +26,9 @@ infra/cdk-outputs.json
 /workspace-data/
 computer/profile/
 var/
-
 # OS / editor
 .DS_Store
 .idea/
 .vscode/
 *.swp
+project/.overlay/
