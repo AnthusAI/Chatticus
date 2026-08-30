@@ -3,7 +3,7 @@
   "title": "Run the Lambda and CloudFront SSE feasibility spike",
   "description": "Run Test 1 from docs/FEASIBILITY_TESTS.md as disposable spike code.\n\nAcceptance criteria:\n- Emit numbered SSE frames every 250 ms for at least 20 minutes.\n- Capture client receive times for direct and CloudFront paths.\n- Report p50, p95, batching, disconnect boundary, and Last-Event-ID recovery.\n- Repeat with a backgrounded tab and mobile Safari.\n- Record the pass or failure branch in the gated design document.\n\nNot included: DynamoDB, authentication, model calls, workers, or production code.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": "manager",
   "creator": null,
@@ -25,11 +25,17 @@
       "author": "home",
       "text": "Diagram policy: do not treat ChatticusSseSpike as architecture. After this issue records Test 1, the MESSAGING mermaid task (blocked-by this) is the only diagram work.",
       "created_at": "2026-08-30T17:07:00.072693Z"
+    },
+    {
+      "id": "28894c8b-c974-462a-9916-4c5e12dc6844",
+      "author": "home",
+      "text": "Merged to main 3b3f084. Destroy ChatticusSseSpike when the live URLs are no longer needed. Safari still unmeasured.",
+      "created_at": "2026-08-30T17:22:05.315200Z"
     }
   ],
   "created_at": "2026-08-30T15:53:17.523802Z",
-  "updated_at": "2026-08-30T17:07:00.072693Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T17:22:05.315200Z",
+  "closed_at": "2026-08-30T17:22:05.302963Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"

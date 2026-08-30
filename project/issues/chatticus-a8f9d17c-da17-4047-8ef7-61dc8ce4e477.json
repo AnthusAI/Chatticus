@@ -3,9 +3,9 @@
   "title": "Replace obsolete thread and in-process stream specifications",
   "description": "Translate the three computerless-turn stories into executable feature files before production code changes.\n\nAcceptance criteria:\n- Use channel and turn terminology; there is no separate thread object.\n- Specify turn-scoped SSE and durable replay rather than an in-process subscription.\n- Require tenant_id on every bot, channel, message, turn, and job fixture.\n- Run Behave and confirm each new scenario fails for the expected missing behavior.\n- Remove or rewrite contradictory scenarios instead of supporting both designs.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
-  "assignee": null,
+  "assignee": "manager",
   "creator": null,
   "parent": "chatticus-46746451-4000-4570-9129-37898a7e119a",
   "labels": [
@@ -13,9 +13,19 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "6b4ae7a4-31f5-4421-bcd5-1c8c9c3b32f1",
+      "author": "home",
+      "text": "# Implementation plan (manager)\n\nSpecs only. No production control-plane HTTP, no DynamoDB, no model loop. Do not extend RealtimeSubscription / TurnStream to \"make scenarios pass.\"\n\n## Stories to encode (Gherkin is the product narrative)\n\nFrom Kanbus, not from the old feature files:\n\n1. chatticus-031cf4 — Address a named bot without starting a computer\n   - Channel with a named bot; computer is stopped.\n   - Text-only message; bot completes one turn; one durable bot answer; computer stays stopped.\n   - Cross-tenant post/read denied; channel unchanged.\n\n2. chatticus-d41132 — Watch one active turn through server-sent events\n   - Coalesced progress chunks in order; one terminal event; stream ends with the turn; no connection remains for the channel or tab.\n\n3. chatticus-e11f32 — Reconnect without becoming part of the turn\n   - After drop, replay committed events after a cursor; turn completes whether or not a watcher remains.\n\n## What to do to the repo\n\n- Rewrite features/messages.feature: channel not thread; tenant_id on every fixture; addressing enqueues a turn whose required capabilities are NOT hardcoded to computer (cpu-only is enough). Keep bot-to-bot and file-path-in-message if they still match MESSAGING.md; use channel language.\n- Replace features/realtime_api.feature: no in-process subscription, no subscribe_realtime, no turn stream tokens as kernel methods. Specify GET /turns/{id}/stream semantics as behavior: ordered chunks, terminal event, after=seq replay of committed events, watcher absence does not stop the turn.\n- Step definitions: fail with missing-behavior errors for the new durable/computerless/SSE-as-store assertions. Delete or rewrite steps that only exist to drive TurnStream / RealtimeSubscription. One correct path — do not keep a thread API alongside a channel API.\n- python tests that encode thread.message.created / TurnStream must not remain the spec. If test_messaging.py is the old doodle, mark it or rewrite so CI is not asserting the rejected design as success. Prefer: old passing tests that lock the rejected API are deleted or changed so they no longer pass the obsolete path. Routing/approval/snapshot features stay.\n- From python/: behave must run. New computerless/SSE scenarios FAIL (pending is not failure — they must fail for expected missing behavior, or be @wip only if behave treats wip as skip — acceptance says FAIL). Existing snapshot/routing scenarios still PASS.\n\n## Do not\n\n- Implement DynamoDB or Lambda in this task.\n- Add AppSync or WebSocket.\n- Dual-read thread and channel.\n- Emojis.\n- Close this issue until behave demonstrates the split: old contradictions gone, new scenarios failing for the right reason.\n\n## Git\n\nBranch: cursor/computerless-gherkin-4a21\nPush origin. Do not merge.\n",
+      "created_at": "2026-08-30T17:22:05.354496Z"
+    }
+  ],
   "created_at": "2026-08-30T15:53:17.992127Z",
-  "updated_at": "2026-08-30T15:53:17.992127Z",
+  "updated_at": "2026-08-30T17:22:05.354496Z",
   "closed_at": null,
-  "custom": {}
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }
