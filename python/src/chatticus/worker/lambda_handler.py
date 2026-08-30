@@ -20,6 +20,21 @@ logger = logging.getLogger("chatticus.worker")
 _DEFAULT_VISIBILITY_SECONDS = 180
 
 
+def _front_door_base_url() -> str:
+    direct = os.environ.get("CHATTICUS_FRONT_DOOR_URL", "").strip()
+    if direct:
+        return direct.rstrip("/")
+    environment = os.environ.get("CHATTICUS_ENVIRONMENT", "").strip()
+    if not environment:
+        raise KeyError("CHATTICUS_FRONT_DOOR_URL or CHATTICUS_ENVIRONMENT")
+    from chatticus.cloud_environments import (
+        parse_cloud_environment,
+        resolve_thin_turn_base_url,
+    )
+
+    return resolve_thin_turn_base_url(parse_cloud_environment(environment))
+
+
 def _sqs_visibility_renewer(
     sqs_client: Any,
     queue_url: str,
@@ -40,7 +55,7 @@ def _sqs_visibility_renewer(
 def handler(event: dict[str, Any], _context: object) -> None:
     """Run one OpenAI text loop per SQS record and POST chunks to the front door."""
     plane = plane_from_env()
-    base_url = os.environ["CHATTICUS_FRONT_DOOR_URL"].rstrip("/")
+    base_url = _front_door_base_url()
     invoke_key = os.environ.get("CHATTICUS_INVOKE_KEY", "")
     queue_url = os.environ.get("CHATTICUS_TURN_QUEUE_URL", "").strip()
     visibility_timeout = int(
