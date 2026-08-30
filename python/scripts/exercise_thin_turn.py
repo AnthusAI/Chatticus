@@ -71,6 +71,17 @@ def main() -> int:
         if health.status_code != 200:
             print(f"health {health.status_code} {health.text[:200]}", file=sys.stderr)
             return 1
+        missing = client.post(
+            "/turns/missing-turn-id/claim",
+            json={"worker_id": "exercise-missing"},
+        )
+        if missing.status_code != 404:
+            print(
+                f"missing_claim {missing.status_code} {missing.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("missing_claim=404")
         bot_response = client.post(
             "/bots",
             json={"user_id": args.user_id, "name": f"ExerciseBot-{uuid4().hex[:8]}"},
@@ -89,6 +100,41 @@ def main() -> int:
             "/channels",
             json={"user_id": args.user_id, "bot_ids": [bot["bot_id"]]},
         ).json()
+        fence_posted = client.post(
+            f"/channels/{channel['channel_id']}/messages",
+            json={
+                "author_kind": ActorKind.HUMAN,
+                "author_id": args.user_id,
+                "body": "Fence probe; do not wait on this turn.",
+                "addressed_to_bot_id": bot["bot_id"],
+            },
+        ).json()
+        fence_turn_id = fence_posted["turn_id"]
+        claim_a = client.post(
+            f"/turns/{fence_turn_id}/claim",
+            json={"worker_id": "exercise-fence-a"},
+        )
+        claim_b = client.post(
+            f"/turns/{fence_turn_id}/claim",
+            json={"worker_id": "exercise-fence-b"},
+        )
+        print(
+            f"fence_turn_id={fence_turn_id} "
+            f"claim_a={claim_a.status_code} claim_b={claim_b.status_code}"
+        )
+        acquired = claim_a.status_code == 200 and claim_a.json().get("acquired") is True
+        if acquired and claim_b.status_code != 409:
+            print(
+                "second claim did not get 409 while the lease was held",
+                file=sys.stderr,
+            )
+            return 1
+        if not acquired and claim_a.status_code != 409:
+            print(
+                f"fence claim unexpected {claim_a.status_code} {claim_a.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
         posted = client.post(
             f"/channels/{channel['channel_id']}/messages",
             json={

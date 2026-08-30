@@ -93,7 +93,9 @@ What the deployed **development** slice does today:
 - SQS carries one turn job. A computerless worker Lambda runs
   **gpt-5.6-luna** (OpenAI) and POSTs chunks back through the front door.
 - Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
-- `python scripts/exercise_thin_turn.py --environment development` exits 0.
+- `cd python && python scripts/exercise_thin_turn.py --environment development`
+  exits 0. That run includes missing-turn claim **404** and a live
+  second-worker claim **409** while the lease is held.
 
 Worker lease renew during long model calls is live on this development
 deploy. EventBridge Scheduler one-shots are on the front door
