@@ -3,7 +3,7 @@
   "title": "Implement the durable computerless turn path",
   "description": "Implement only what the computerless-turn stories require.\n\nScope:\n- Tenant-scoped channel, message, turn, attempt, and event persistence in DynamoDB.\n- One logical SQS turn job created after the inbound message is durable.\n- A computerless worker that runs one OpenAI text-only loop.\n- Durable coalesced progress and one committed answer.\n- Authenticated POST and one-turn SSE endpoints using the transport proven by the spike.\n\nDo not adapt the obsolete in-memory subscription into a second supported path.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -22,9 +22,16 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "9d084287-74bb-4ff3-b92f-39f087f8fb5e",
+      "author": "home",
+      "text": "Manager review 2026-08-30 of 341e42e (HTTP SSE send-back): accepted as the in-process thin-turn front door. The previous reject (in-process TurnStreamWatcher as the product stream) is addressed.\n\nWhat now exists:\n- FastAPI POST/GET channels and messages, POST /turns/{id}/chunks, GET /turns/{id}/stream with media type text/event-stream\n- Behave/pytest drive that HTTP surface through uvicorn, not a private kernel subscription\n- ComputerlessWorker posts chunks only through HttpTurnClient\n- FakeTextCompletionClient remains the CI default\n- cpu-only jobs; computer stays stopped\n\nWhat this is not:\n- Not merged to main\n- Not the deployed Lambda/CloudFront path (that is chatticus-e5c86e)\n- Live events still fan out in-process behind the HTTP generator; the DynamoDB poll-by-streaming-function shape still belongs to deploy, not this task\n- Still no live OpenAI client (new task for gpt-5.6-luna + .env)\n\nDo not close until the branch is on main with green CI. Do not start computer/browser/Vultus work from this issue.\n",
+      "created_at": "2026-08-30T18:30:35.044666Z"
+    }
+  ],
   "created_at": "2026-08-30T15:53:18.082909Z",
-  "updated_at": "2026-08-30T15:53:18.082909Z",
+  "updated_at": "2026-08-30T18:30:35.044666Z",
   "closed_at": null,
   "custom": {}
 }

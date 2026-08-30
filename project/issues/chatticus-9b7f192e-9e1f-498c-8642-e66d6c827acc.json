@@ -18,10 +18,16 @@
       "author": "home",
       "text": "Derived from docs/ROADMAP.md immediate build order steps 1 and 2. Scale-to-zero, DynamoDB, one-turn SSE, and no persistent sockets remain requirements; this phase does not reopen them.",
       "created_at": "2026-08-30T15:57:41.454045Z"
+    },
+    {
+      "id": "8fd074b4-8f62-402c-b8d1-142ee3a8d1d3",
+      "author": "home",
+      "text": "Phase 1 snapshot 2026-08-30:\n\nDone on main: SSE feasibility spike, mermaid in MESSAGING, existing snapshot/routing kernel.\n\nIn flight: durable computerless turn (epic chatticus-467464) on cursor/durable-computerless-turn-4a21. HTTP SSE accepted by manager; merge pending.\n\nOwner: v1 LLM is OpenAI gpt-5.6-luna. A working key is in Chattic.us/.env (gitignored), copied from SSM /amplify/shared/papyrus/OPENAI_API_KEY and probed live (models + one chat completion). CI must not require that key.\n\nBlocked until thin turn lands: computer summon, browser authority, Vultus, Kanbus-cloud task store.\n",
+      "created_at": "2026-08-30T18:30:35.080411Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-30T15:57:41.454045Z",
+  "updated_at": "2026-08-30T18:30:35.080411Z",
   "closed_at": null,
   "custom": {}
 }

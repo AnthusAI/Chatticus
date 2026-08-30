@@ -3,7 +3,7 @@
   "title": "Replace the MESSAGING ASCII turn picture with one mermaid after Test 1",
   "description": "After the SSE spike records its result (chatticus-bbfb8d), do the 30-minute diagram step. Do not start this while Test 1 is still open.\n\nDecision (Grok recommendation, adopted):\n\n- Primary: hand-authored mermaid in the existing source-of-truth doc. Roles, not CDK logical IDs. No AWS icon posters, no cdk-dia, no Icepanel, no Workload Discovery (idle floor / drift).\n- One picture for the computerless turn: replace the ASCII block in docs/MESSAGING.md. Delete the duplicate ASCII in DESIGN_CHALLENGES challenge 1 (link to MESSAGING). If front-door placement is still open, keep a generic Front door box; do not draw CloudFront as the product.\n- Do not diagram ChatticusSseSpike as architecture. Destroy or leave it unmarked.\n- Do not add docs/architecture/. Do not fail CI on diagrams.\n- Diagrams 2 (summon/hydrate) and 3 (host ranking) wait until that code is about to land. Not this task.\n\nAcceptance: one mermaid in MESSAGING, no new doc file, no generated PNG as source of truth.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 3,
   "assignee": "manager",
   "creator": null,
@@ -23,11 +23,17 @@
       "author": "home",
       "text": "# Implementation plan (manager)\n\nReplace the ASCII cloud-API block in docs/MESSAGING.md with one mermaid sequence diagram (roles: Browser, Front door, Chunk store, Turn queue, Computerless worker). Delete the duplicate ASCII in DESIGN_CHALLENGES challenge 1 and link to MESSAGING.\n\nFront door stays generic \"per-request\" unless you quote Test 1: streaming path may be function URL + CloudFront; do not draw ChatticusSseSpike as the product.\n\nNo docs/architecture/. No PNG as source of truth. No new design document.\n\nBranch: cursor/messaging-mermaid-4a21\n",
       "created_at": "2026-08-30T17:22:05.366396Z"
+    },
+    {
+      "id": "4005697f-4118-4216-9dd7-6cf98f459405",
+      "author": "home",
+      "text": "Landed on main as b9f5bda. One mermaid sequenceDiagram is in docs/MESSAGING.md; DESIGN_CHALLENGES challenge 1 links there. ChatticusSseSpike was destroyed. Closing.\n",
+      "created_at": "2026-08-30T18:30:34.986155Z"
     }
   ],
   "created_at": "2026-08-30T17:06:59.956068Z",
-  "updated_at": "2026-08-30T17:22:05.366396Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T18:30:34.997166Z",
+  "closed_at": "2026-08-30T18:30:34.997166Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
