@@ -36,10 +36,16 @@
       "author": "home",
       "text": "Review (Composer 2.5): WIP in /tmp/chatticus-e42008 — behave+pytest pass with PYTHONPATH but branch unpushed. Blockers before AWS: (1) InMemoryTurnDeadlineScheduler only — no Lambda/EventBridge watchdog; recovery_enabled not wired in plane_from_env. (2) POST /turns/{id}/deadline is a manual test hook — do not ship to front door. (3) runtime SQS dedup is per-invocation memory only. (4) ComputerlessWorker never calls /renew despite new API. Gherkin green in isolation.",
       "created_at": "2026-08-30T20:46:01.821643Z"
+    },
+    {
+      "id": "16c9d138-73fe-4d97-a3af-67ed30478d52",
+      "author": "home",
+      "text": "Recovery kernel is merging to develop (PR 10) for continuous integration. EventBridge watchdog, live SQS visibility, and plane_from_env opt-in remain follow-up.",
+      "created_at": "2026-08-30T20:50:50.515688Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.015297Z",
-  "updated_at": "2026-08-30T20:46:01.821643Z",
+  "updated_at": "2026-08-30T20:50:50.515688Z",
   "closed_at": null,
   "custom": {}
 }
