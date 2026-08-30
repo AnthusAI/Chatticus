@@ -3,16 +3,23 @@
   "title": "Cut a GitHub release from main with GITHUB_TOKEN",
   "description": "Semantic-release on main failed because the platform-ci reusable workflow requires anthusbot_gh_token. Ship an in-repo release job that uses GITHUB_TOKEN, then promote to main so a tag is cut.",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "e60c8560-0cee-4bd9-a89f-0740aeb8ddb4",
+      "author": "home",
+      "text": "Semantic-release succeeded on main: GitHub release v0.1.0 (first tag of the version already in pyproject.toml). The in-repo workflow uses GITHUB_TOKEN. PyPI was skipped because PYPI_TOKEN is unset.",
+      "created_at": "2026-08-30T19:47:57.688166Z"
+    }
+  ],
   "created_at": "2026-08-30T19:45:19.551224Z",
-  "updated_at": "2026-08-30T19:45:19.551224Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T19:47:57.698850Z",
+  "closed_at": "2026-08-30T19:47:57.698850Z",
   "custom": {}
 }
