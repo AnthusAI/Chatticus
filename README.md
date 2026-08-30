@@ -72,10 +72,12 @@ defined in CDK (`ChatticusThinTurnStaging`,
 never implied by a git branch; it is an explicit gated deploy of a
 release that already passed staging acceptance.
 
-The **source** on `main` also has turn **claim**, **lease**, and **fence**
-so a duplicate queue delivery cannot start a second model call. That
-ownership path is not the live AWS behavior until **development**
-(**ChatticusThinTurn**) is redeployed from this tag.
+The **source** on **`develop`** has named cloud environments, turn
+**claim**, **lease**, **fence**, and the recovery kernel (idempotent
+enqueue, deadlines in tests, reconciling state). That ownership and
+recovery path is not the live AWS behavior until **development**
+(**ChatticusThinTurn**) is redeployed. GitHub **`main`** is still
+**v0.2.0** until we promote.
 
 What the deployed slice does today:
 

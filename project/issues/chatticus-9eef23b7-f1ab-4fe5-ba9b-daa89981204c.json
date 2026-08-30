@@ -18,10 +18,16 @@
       "author": "home",
       "text": "Promotion contract: develop maps to development, main maps to staging, production is a gated deploy. Acceptance is named-environment only.",
       "created_at": "2026-08-30T20:40:15.159529Z"
+    },
+    {
+      "id": "490302e2-fc02-401b-afe9-45b4e9bd1d78",
+      "author": "home",
+      "text": "Development naming is on develop. Staging and production remain synth-only until their promotion deploys.",
+      "created_at": "2026-08-30T20:50:50.504323Z"
     }
   ],
   "created_at": "2026-08-30T20:36:57.810194Z",
-  "updated_at": "2026-08-30T20:40:15.159529Z",
+  "updated_at": "2026-08-30T20:50:50.504323Z",
   "closed_at": null,
   "custom": {}
 }

@@ -3,7 +3,7 @@
   "title": "Name thin-turn stacks and point acceptance at them",
   "description": "Acceptance criteria:\n- CDK synthesizes development, staging, and production thin-turn stacks. Development keeps stack id ChatticusThinTurn so the live lab is development.\n- Each stack publishes SSM parameters for the CloudFront URL and invoke-key secret ARN.\n- exercise_thin_turn.py accepts --environment development|staging|production and resolves the front door from env vars, SSM, or CloudFormation.\n- README, AGENTS.md, and infra README describe the promotion path. cdk deploy --all remains forbidden.\n- Do not deploy staging or production in this slice. Do not destroy ChatticusSnapshots or ChatticusComputers.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -37,10 +37,16 @@
       "author": "home",
       "text": "Sub-agent review (not a human GitHub reviewer): npm deploy --all removed, SSM errors no longer swallowed, Acceptance fails closed without the named URL secret. Live claim/fence still waits on ChatticusThinTurn redeploy.",
       "created_at": "2026-08-30T20:48:08.063644Z"
+    },
+    {
+      "id": "c0ce8833-bb48-46ac-a6b0-4605b502fc47",
+      "author": "home",
+      "text": "Merged to develop via PR 9. Named environments are on the integration branch. Staging and production stacks are still not deployed. Close after this comment.",
+      "created_at": "2026-08-30T20:50:50.478930Z"
     }
   ],
   "created_at": "2026-08-30T20:37:02.628776Z",
-  "updated_at": "2026-08-30T20:48:08.063644Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T20:50:50.491675Z",
+  "closed_at": "2026-08-30T20:50:50.491675Z",
   "custom": {}
 }
