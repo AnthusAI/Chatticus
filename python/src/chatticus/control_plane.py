@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -14,10 +16,15 @@ from chatticus.models import (
     AutoReviewRuleKind,
     Bot,
     Computer,
+    ComputerDirtyError,
+    ComputerNotHydratedError,
     ComputerPolicy,
+    ComputerSnapshot,
     CostClass,
     DuplicateBotNameError,
+    SnapshotRequiredError,
     TurnJob,
+    WorkerDoesNotHostComputerError,
     WorkerRecord,
     WorkerRegistration,
     WorkerTenantMismatchError,
@@ -41,6 +48,8 @@ class ControlPlane:
         self._workers: dict[str, WorkerRecord] = {}
         self._bots: dict[str, Bot] = {}
         self._computers_by_user: dict[tuple[str, str], Computer] = {}
+        self._computers_by_id: dict[str, Computer] = {}
+        self._snapshots: dict[str, ComputerSnapshot] = {}
         self._auto_review_rules: list[AutoReviewRule] = []
 
     def set_now(self, moment: datetime) -> None:
@@ -166,6 +175,15 @@ class ControlPlane:
                 for record in candidates
                 if record.registration.computer_id == job.computer_id
             ]
+            computer = self._computers_by_id.get(job.computer_id)
+            if computer is not None and computer.hydrate_required:
+                if computer.intended_host_worker_id is None:
+                    return None
+                candidates = [
+                    record
+                    for record in candidates
+                    if record.registration.worker_id == computer.intended_host_worker_id
+                ]
         if job.computer_policy == ComputerPolicy.LOCAL_ONLY:
             candidates = [
                 record
@@ -232,6 +250,7 @@ class ControlPlane:
                 user_id=user_id,
             )
             self._computers_by_user[key] = computer
+            self._computers_by_id[computer.computer_id] = computer
         return computer
 
     def computer_for_user(self, tenant_id: str, user_id: str) -> Computer:
@@ -241,6 +260,138 @@ class ControlPlane:
         :raises KeyError: If the user has no computer.
         """
         return self._computers_by_user[(tenant_id, user_id)]
+
+    def computer_by_id(self, computer_id: str) -> Computer:
+        """
+        Return a computer by workplace id.
+
+        :raises KeyError: If no computer has that id.
+        """
+        return self._computers_by_id[computer_id]
+
+    def snapshot_uri_for(self, computer: Computer) -> str:
+        """Return the canonical object-store URI for a computer snapshot."""
+        return (
+            f"s3://chatticus/tenants/{computer.tenant_id}"
+            f"/computers/{computer.computer_id}/snapshot"
+        )
+
+    def snapshot(self, snapshot_uri: str) -> ComputerSnapshot:
+        """
+        Return a published snapshot.
+
+        :raises KeyError: If nothing was published at that URI.
+        """
+        return self._snapshots[snapshot_uri]
+
+    def publish_snapshot(
+        self,
+        computer_id: str,
+        worker_id: str,
+        snapshot_uri: str | None = None,
+    ) -> ComputerSnapshot:
+        """Copy the live disk into object storage and clear the dirty flag.
+
+        The worker must host this computer. Production uploads a pack to S3
+        first, then calls this with the URI and the pack's checksum. The
+        in-memory kernel copies workspace files into ``_snapshots``.
+
+        :raises KeyError: If the computer or worker is unknown.
+        :raises WorkerDoesNotHostComputerError: If the worker is not a host
+            of this workplace.
+        :raises ComputerNotHydratedError: If relocate is waiting on another
+            host to hydrate first.
+        """
+        computer = self.computer_by_id(computer_id)
+        if computer.hydrate_required:
+            raise ComputerNotHydratedError(
+                f"Computer {computer_id!r} must be hydrated before the live "
+                "disk can be published."
+            )
+        self._require_host(computer, worker_id)
+        uri = snapshot_uri or self.snapshot_uri_for(computer)
+        workspace = dict(computer.workspace)
+        browser_sessions = dict(computer.browser_sessions)
+        checksum = _disk_checksum(workspace, browser_sessions)
+        record = ComputerSnapshot(
+            snapshot_uri=uri,
+            checksum=checksum,
+            workspace=workspace,
+            browser_sessions=browser_sessions,
+            published_at=self._now,
+            published_by_worker_id=worker_id,
+        )
+        self._snapshots[uri] = record
+        computer.snapshot_uri = uri
+        computer.snapshot_checksum = checksum
+        computer.disk_dirty = False
+        return record
+
+    def relocate_computer(self, computer_id: str, target_worker_id: str) -> None:
+        """Point the next run at a host. Does not copy a container.
+
+        The target worker must already advertise this ``computer_id``. Turns
+        stay pinned to that host until it hydrates. Prefer-local ranking
+        resumes after hydrate.
+
+        :raises KeyError: If the computer or worker is unknown.
+        :raises SnapshotRequiredError: If nothing has been published.
+        :raises ComputerDirtyError: If the live disk has unpublished writes.
+        :raises WorkerDoesNotHostComputerError: If the target is not a host
+            of this workplace.
+        """
+        computer = self.computer_by_id(computer_id)
+        if computer.snapshot_uri is None:
+            raise SnapshotRequiredError(
+                f"Computer {computer_id!r} has no published snapshot."
+            )
+        if computer.disk_dirty:
+            raise ComputerDirtyError(
+                f"Computer {computer_id!r} has unpublished live-disk writes."
+            )
+        self._require_host(computer, target_worker_id)
+        computer.intended_host_worker_id = target_worker_id
+        computer.hydrate_required = True
+
+    def hydrate_computer(self, computer_id: str, worker_id: str) -> None:
+        """Load the published snapshot onto the intended host's live disk.
+
+        :raises KeyError: If the computer or worker is unknown, or the
+            snapshot URI is missing from object storage.
+        :raises SnapshotRequiredError: If nothing has been published.
+        :raises WorkerDoesNotHostComputerError: If this worker is not the
+            intended host, or does not host the workplace.
+        """
+        computer = self.computer_by_id(computer_id)
+        if computer.snapshot_uri is None:
+            raise SnapshotRequiredError(
+                f"Computer {computer_id!r} has no published snapshot."
+            )
+        self._require_host(computer, worker_id)
+        if (
+            computer.intended_host_worker_id is not None
+            and worker_id != computer.intended_host_worker_id
+        ):
+            raise WorkerDoesNotHostComputerError(
+                f"Worker {worker_id!r} is not the intended host "
+                f"{computer.intended_host_worker_id!r} for computer "
+                f"{computer_id!r}."
+            )
+        record = self._snapshots[computer.snapshot_uri]
+        computer.workspace = dict(record.workspace)
+        computer.browser_sessions = dict(record.browser_sessions)
+        computer.disk_dirty = False
+        computer.hydrate_required = False
+        computer.intended_host_worker_id = None
+
+    def _require_host(self, computer: Computer, worker_id: str) -> None:
+        record = self._workers[worker_id]
+        if record.registration.computer_id != computer.computer_id:
+            raise WorkerDoesNotHostComputerError(
+                f"Worker {worker_id!r} hosts "
+                f"{record.registration.computer_id!r}, not "
+                f"{computer.computer_id!r}."
+            )
 
     def remember(self, bot_id: str, key: str, value: str) -> None:
         """Store a memory item on one bot."""
@@ -254,21 +405,48 @@ class ControlPlane:
         self, tenant_id: str, user_id: str, path: str, content: str
     ) -> None:
         """Write a file on the user's shared computer."""
-        self.computer_for_user(tenant_id, user_id).workspace[path] = content
+        computer = self.computer_for_user(tenant_id, user_id)
+        if computer.hydrate_required:
+            raise ComputerNotHydratedError(
+                f"Computer {computer.computer_id!r} must be hydrated before "
+                "the live disk can be written."
+            )
+        computer.workspace[path] = content
+        computer.disk_dirty = True
 
     def read_workspace(self, tenant_id: str, user_id: str, path: str) -> str | None:
-        """Read a file from the user's shared computer."""
-        return self.computer_for_user(tenant_id, user_id).workspace.get(path)
+        """Read a file from the user's shared computer.
+
+        While hydrate is required, reads come from the published snapshot
+        (the object every host can see), not from a host's stale overlay.
+        """
+        computer = self.computer_for_user(tenant_id, user_id)
+        if computer.hydrate_required and computer.snapshot_uri is not None:
+            return self._snapshots[computer.snapshot_uri].workspace.get(path)
+        return computer.workspace.get(path)
 
     def save_browser_session(
         self, tenant_id: str, user_id: str, service: str, session: str
     ) -> None:
         """Persist a browser session on the user's computer."""
-        self.computer_for_user(tenant_id, user_id).browser_sessions[service] = session
+        computer = self.computer_for_user(tenant_id, user_id)
+        if computer.hydrate_required:
+            raise ComputerNotHydratedError(
+                f"Computer {computer.computer_id!r} must be hydrated before "
+                "the live disk can be written."
+            )
+        computer.browser_sessions[service] = session
+        computer.disk_dirty = True
 
     def browser_session(self, tenant_id: str, user_id: str, service: str) -> str | None:
-        """Return a saved browser session, if present."""
-        return self.computer_for_user(tenant_id, user_id).browser_sessions.get(service)
+        """Return a saved browser session, if present.
+
+        While hydrate is required, reads come from the published snapshot.
+        """
+        computer = self.computer_for_user(tenant_id, user_id)
+        if computer.hydrate_required and computer.snapshot_uri is not None:
+            return self._snapshots[computer.snapshot_uri].browser_sessions.get(service)
+        return computer.browser_sessions.get(service)
 
     def add_auto_review_rule(
         self,
@@ -310,3 +488,12 @@ class ControlPlane:
         if action_type in CONSEQUENTIAL_ACTION_TYPES:
             return ApprovalDecision.REQUIRE_APPROVAL
         return ApprovalDecision.ALLOW
+
+
+def _disk_checksum(workspace: dict[str, str], browser_sessions: dict[str, str]) -> str:
+    payload = json.dumps(
+        {"workspace": workspace, "browser_sessions": browser_sessions},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode()).hexdigest()

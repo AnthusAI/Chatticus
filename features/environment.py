@@ -16,3 +16,7 @@ def before_scenario(context: object, scenario: object) -> None:
     context.last_decision = None
     context.registration_error = None
     context.bot_error = None
+    context.snapshot_error = None
+    context.relocate_error = None
+    context.hydrate_error = None
+    context.write_error = None

@@ -86,15 +86,33 @@ One Docker image, three hosts:
 
 | Host | When | Disk |
 | --- | --- | --- |
-| Docker on a Mac | cheapest when the machine is on | bind-mount `/workspace`, local browser profile, optional S3 sync |
-| ECS Fargate | burst, scale to 0 | EFS `/workspace`, S3 snapshot of the Chromium profile |
-| EC2 stop/start | closest to an always-ready workplace | EBS keeps the profile across stops |
+| Docker on a Mac | cheapest when the machine is on | local volume hydrated from the S3 snapshot |
+| ECS Fargate | burst, scale to 0 | local task volume hydrated from the S3 snapshot |
+| EC2 stop/start | closest to an always-ready workplace | EBS as a warm cache of the same snapshot |
 
 The image contains Xvfb (or equivalent) virtual displays, Chromium, a shell,
 noVNC or equivalent for watch and takeover, `chatticus-worker`, and
 `chatticus-agent`.
 
 Multiple virtual displays (`:1`, `:2`, …) are the bot screens.
+
+## Computer snapshots
+
+A host is not the computer. The garage Mac is a host in the same sense
+Fargate is a host. Relocating a workplace is **publish to S3, then hydrate
+on the next host**. It is not live migration and not `docker save` of the
+OS image. The image stays in ECR. The snapshot is `/workspace` plus the
+browser profile.
+
+While `hydrate_required` is set, turns for that `computer_id` go only to
+the intended host. Prefer-local ranking resumes after hydrate. Unpublished
+writes block relocate so a Mac does not start from a stale checkpoint.
+
+Failover when a prefer-local Mac's heartbeat dies is the same hydrate path on
+an AWS host, from the last published snapshot. Work that was never
+published is gone.
+
+See [Computer snapshots](COMPUTER_SNAPSHOTS.md).
 
 ## What lives where
 
@@ -103,13 +121,14 @@ Multiple virtual displays (`:1`, `:2`, …) are the bot screens.
 | Bots, conversations, memory, skills, routines, approval rules | Postgres (RDS) |
 | Turn jobs, heartbeats | SQS + scheduler records |
 | Routine wake-ups | EventBridge |
-| `/workspace` | EFS or local bind-mount; S3 for failover |
-| Browser profile | EBS or S3 snapshot |
+| `/workspace` and browser profile | S3 snapshot (canonical); local volume, EBS, or EFS as a cache on the current host |
 | Secrets | Secrets Manager |
 | Object files / artifacts | S3 |
 
-Stopping compute does not delete workplace disk. That is how Chatticus
-stays "always able to work" without paying for an always-running vCPU.
+Stopping compute does not delete the published snapshot. That is how
+Chatticus stays "always able to work" without paying for an always-running
+vCPU. A host that is about to run the computer hydrates; it does not mount
+the snapshot bucket as the container root.
 
 ## Agent loop
 

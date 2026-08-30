@@ -9,9 +9,13 @@ from behave import given, then, when
 from chatticus.control_plane import ControlPlane
 from chatticus.models import (
     AutoReviewRuleKind,
+    ComputerDirtyError,
+    ComputerNotHydratedError,
     ComputerPolicy,
     CostClass,
     DuplicateBotNameError,
+    SnapshotRequiredError,
+    WorkerDoesNotHostComputerError,
     WorkerRegistration,
     WorkerTenantMismatchError,
 )
@@ -47,6 +51,10 @@ def given_empty_control_plane(context: object) -> None:
     context.last_decision = None
     context.registration_error = None
     context.bot_error = None
+    context.snapshot_error = None
+    context.relocate_error = None
+    context.hydrate_error = None
+    context.write_error = None
 
 
 @given("the heartbeat timeout is {seconds:d} seconds")
@@ -160,7 +168,11 @@ def when_bot_writes_workspace(
     context: object, name: str, path: str, content: str
 ) -> None:
     bot = context.bots_by_name[name]
-    context.plane.write_workspace(bot.tenant_id, bot.user_id, path, content)
+    try:
+        context.plane.write_workspace(bot.tenant_id, bot.user_id, path, content)
+        context.write_error = None
+    except ComputerNotHydratedError as error:
+        context.write_error = error
 
 
 @then('bot "{name}" can read "{path}" as "{content}" from the computer')
@@ -300,3 +312,71 @@ def when_create_bot(context: object, name: str, tenant_id: str, user_id: str) ->
 @then("creating the bot fails because the name is already used")
 def then_duplicate_bot(context: object) -> None:
     assert isinstance(context.bot_error, DuplicateBotNameError)
+
+
+@when('worker "{worker_id}" publishes a snapshot of computer "{computer_id}"')
+def when_publish_snapshot(context: object, worker_id: str, computer_id: str) -> None:
+    try:
+        context.plane.publish_snapshot(computer_id, worker_id)
+        context.snapshot_error = None
+    except (ComputerNotHydratedError, WorkerDoesNotHostComputerError) as error:
+        context.snapshot_error = error
+
+
+@when('an administrator relocates computer "{computer_id}" to worker "{worker_id}"')
+def when_relocate_computer(context: object, computer_id: str, worker_id: str) -> None:
+    try:
+        context.plane.relocate_computer(computer_id, worker_id)
+        context.relocate_error = None
+    except (SnapshotRequiredError, ComputerDirtyError) as error:
+        context.relocate_error = error
+
+
+@when('worker "{worker_id}" hydrates computer "{computer_id}"')
+def when_hydrate_computer(context: object, worker_id: str, computer_id: str) -> None:
+    try:
+        context.plane.hydrate_computer(computer_id, worker_id)
+        context.hydrate_error = None
+    except (
+        SnapshotRequiredError,
+        WorkerDoesNotHostComputerError,
+    ) as error:
+        context.hydrate_error = error
+
+
+@then('computer "{computer_id}" has snapshot URI "{snapshot_uri}"')
+def then_snapshot_uri(context: object, computer_id: str, snapshot_uri: str) -> None:
+    computer = context.plane.computer_by_id(computer_id)
+    assert computer.snapshot_uri == snapshot_uri
+
+
+@then('computer "{computer_id}" is not dirty')
+def then_computer_not_dirty(context: object, computer_id: str) -> None:
+    assert context.plane.computer_by_id(computer_id).disk_dirty is False
+
+
+@then('computer "{computer_id}" does not require hydrate')
+def then_computer_not_hydrate_required(context: object, computer_id: str) -> None:
+    computer = context.plane.computer_by_id(computer_id)
+    assert computer.hydrate_required is False
+    assert computer.intended_host_worker_id is None
+
+
+@then("relocate fails because a snapshot is required")
+def then_relocate_snapshot_required(context: object) -> None:
+    assert isinstance(context.relocate_error, SnapshotRequiredError)
+
+
+@then("relocate fails because the disk is dirty")
+def then_relocate_dirty(context: object) -> None:
+    assert isinstance(context.relocate_error, ComputerDirtyError)
+
+
+@then("hydrate fails because the worker does not host that computer")
+def then_hydrate_wrong_host(context: object) -> None:
+    assert isinstance(context.hydrate_error, WorkerDoesNotHostComputerError)
+
+
+@then("writing the computer fails because it is not hydrated")
+def then_write_not_hydrated(context: object) -> None:
+    assert isinstance(context.write_error, ComputerNotHydratedError)

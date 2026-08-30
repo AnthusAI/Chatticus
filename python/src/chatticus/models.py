@@ -77,6 +77,22 @@ class DuplicateBotNameError(ChatticusError):
     """Bot names are unique per tenant user."""
 
 
+class SnapshotRequiredError(ChatticusError):
+    """Relocate and hydrate need a published snapshot in object storage."""
+
+
+class ComputerDirtyError(ChatticusError):
+    """Relocate is blocked until the live disk is published."""
+
+
+class WorkerDoesNotHostComputerError(ChatticusError):
+    """The worker's computer_id does not match this workplace."""
+
+
+class ComputerNotHydratedError(ChatticusError):
+    """The live disk is not writable until the intended host hydrates."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""
@@ -131,12 +147,34 @@ class Bot:
 
 
 @dataclass
+class ComputerSnapshot:
+    """Canonical workplace disk as it would appear in S3.
+
+    The in-memory kernel stores file bytes here. Production stores a pack
+    at ``snapshot_uri``; this record is the control-plane view of that
+    object.
+    """
+
+    snapshot_uri: str
+    checksum: str
+    workspace: dict[str, str]
+    browser_sessions: dict[str, str]
+    published_at: datetime
+    published_by_worker_id: str
+
+
+@dataclass
 class Computer:
     """User-scoped workplace. Shared by every bot of that user.
 
     Local and AWS workers that host this workplace share the same
     ``computer_id``. That is how a pin survives failover from a garage Mac
     to Fargate.
+
+    Durable files and the browser profile are a snapshot in object storage,
+    not a particular host's overlay. A host hydrates a local cache, runs,
+    and publishes before another host takes over. See
+    ``docs/COMPUTER_SNAPSHOTS.md``.
     """
 
     computer_id: str
@@ -145,3 +183,8 @@ class Computer:
     policy: ComputerPolicy = ComputerPolicy.PREFER_LOCAL
     workspace: dict[str, str] = field(default_factory=dict)
     browser_sessions: dict[str, str] = field(default_factory=dict)
+    snapshot_uri: str | None = None
+    snapshot_checksum: str | None = None
+    disk_dirty: bool = False
+    hydrate_required: bool = False
+    intended_host_worker_id: str | None = None

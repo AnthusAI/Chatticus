@@ -9,12 +9,13 @@
 - Approvals for send / publish / purchase / delete / production changes
 - `/workspace` on the computer
 - Worker protocol with `tenant_id` and prefer-local routing
+- Computer snapshots: publish to S3, administrator relocate, host hydrate
 - docker-compose for local control plane + computer
 - Fargate (and optional EC2) path in AWS
 
 This repository currently encodes v1 protocol behavior in Gherkin and an
-in-memory Python control plane. The HTTP API, computer image, web app, and
-CDK stacks are next.
+in-memory Python control plane (routing, approvals, snapshot/relocate).
+The HTTP API, computer image, S3 pack I/O, web app, and CDK stacks are next.
 
 ## v2
 

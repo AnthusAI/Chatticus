@@ -11,9 +11,13 @@ from chatticus.models import (
     CONSEQUENTIAL_ACTION_TYPES,
     ApprovalDecision,
     AutoReviewRuleKind,
+    ComputerDirtyError,
+    ComputerNotHydratedError,
     ComputerPolicy,
     CostClass,
     DuplicateBotNameError,
+    SnapshotRequiredError,
+    WorkerDoesNotHostComputerError,
     WorkerRegistration,
     WorkerTenantMismatchError,
 )
@@ -150,3 +154,102 @@ def test_bot_turn_pins_to_the_user_computer() -> None:
     assigned = plane.assign_turn(job)
     assert assigned is not None
     assert assigned.worker_id == "garage-mac-1"
+
+
+def test_computer_by_unknown_id_raises() -> None:
+    plane = ControlPlane()
+    with pytest.raises(KeyError):
+        plane.computer_by_id("missing")
+
+
+def test_publish_snapshot_copies_disk_into_object_storage() -> None:
+    plane = ControlPlane()
+    computer = plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
+    plane.write_workspace("anthus", "ryan", "notes.md", "weekly")
+    record = plane.publish_snapshot("household-computer", "fargate-1")
+    assert record.snapshot_uri == plane.snapshot_uri_for(computer)
+    assert record.workspace["notes.md"] == "weekly"
+    assert record.published_by_worker_id == "fargate-1"
+    stored = plane.snapshot(record.snapshot_uri)
+    assert stored.checksum == computer.snapshot_checksum
+    assert computer.disk_dirty is False
+
+
+def test_relocate_without_snapshot_raises() -> None:
+    plane = ControlPlane()
+    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
+    with pytest.raises(SnapshotRequiredError):
+        plane.relocate_computer("household-computer", "garage-mac-1")
+
+
+def test_dirty_disk_blocks_relocate() -> None:
+    plane = ControlPlane()
+    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
+    plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
+    plane.write_workspace("anthus", "ryan", "notes.md", "weekly")
+    plane.publish_snapshot("household-computer", "fargate-1")
+    plane.write_workspace("anthus", "ryan", "notes.md", "unsynced")
+    with pytest.raises(ComputerDirtyError):
+        plane.relocate_computer("household-computer", "garage-mac-1")
+
+
+def test_hydrate_restores_published_disk() -> None:
+    plane = ControlPlane()
+    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
+    plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
+    plane.write_workspace("anthus", "ryan", "notes.md", "published")
+    plane.publish_snapshot("household-computer", "fargate-1")
+    plane.relocate_computer("household-computer", "garage-mac-1")
+    plane.hydrate_computer("household-computer", "garage-mac-1")
+    assert plane.read_workspace("anthus", "ryan", "notes.md") == "published"
+
+
+def test_wrong_host_cannot_publish_or_hydrate() -> None:
+    plane = ControlPlane()
+    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
+    plane.register_worker(_worker("other-mac", computer_id="other-computer"))
+    plane.write_workspace("anthus", "ryan", "notes.md", "weekly")
+    with pytest.raises(WorkerDoesNotHostComputerError):
+        plane.publish_snapshot("household-computer", "other-mac")
+    plane.publish_snapshot("household-computer", "fargate-1")
+    with pytest.raises(WorkerDoesNotHostComputerError):
+        plane.relocate_computer("household-computer", "other-mac")
+    plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
+    plane.relocate_computer("household-computer", "garage-mac-1")
+    with pytest.raises(WorkerDoesNotHostComputerError):
+        plane.hydrate_computer("household-computer", "fargate-1")
+    with pytest.raises(WorkerDoesNotHostComputerError):
+        plane.hydrate_computer("household-computer", "other-mac")
+
+
+def test_publish_while_hydrate_required_raises() -> None:
+    plane = ControlPlane()
+    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
+    plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
+    plane.write_workspace("anthus", "ryan", "notes.md", "weekly")
+    plane.publish_snapshot("household-computer", "fargate-1")
+    plane.relocate_computer("household-computer", "garage-mac-1")
+    with pytest.raises(ComputerNotHydratedError):
+        plane.publish_snapshot("household-computer", "garage-mac-1")
+    with pytest.raises(ComputerNotHydratedError):
+        plane.save_browser_session("anthus", "ryan", "salesforce", "signed-in")
+
+
+def test_hydrate_without_snapshot_raises() -> None:
+    plane = ControlPlane()
+    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
+    with pytest.raises(SnapshotRequiredError):
+        plane.hydrate_computer("household-computer", "garage-mac-1")
+
+
+def test_unknown_snapshot_uri_raises() -> None:
+    plane = ControlPlane()
+    with pytest.raises(KeyError):
+        plane.snapshot("s3://chatticus/missing")

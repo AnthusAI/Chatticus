@@ -31,6 +31,14 @@ The computer is isolated to the **user**, not to an individual bot. A login
 or file placed on the computer is available to all of that user's bots. Do
 not treat separate bots as a security boundary.
 
+The computer is not tied to one physical box. A garage Mac, a Fargate
+task, and a stop/start EC2 instance are **hosts**. They all run the same
+workplace identity (`computer_id`). Durable `/workspace` files and the
+browser profile live in an **S3 snapshot**. A host hydrates that snapshot
+onto local disk, runs, and publishes before another host takes over. There
+is no live container move. An administrator relocate is "publish, then
+hydrate on this host." See [Computer snapshots](COMPUTER_SNAPSHOTS.md).
+
 Each bot gets its own **screen** on that computer. Screens are separate work
 surfaces, not separate security boundaries. One bot can run one computer-use
 task on its screen at a time.
@@ -106,7 +114,10 @@ added to the transcript and is not shown to the model.
 ## Local device versus the Chatticus computer
 
 The Chatticus computer is the Linux workplace on a worker. The Mac or
-Windows machine in front of the human is a different machine.
+Windows machine in front of the human is a different machine unless that
+machine is also registered as a **host** of the computer (Docker worker
+on the garage Mac). Hosting the computer is not the same as local-device
+execution.
 
 A bot runs commands on the local device only when that capability is
 enabled and the human's local-device policy allows it. Default is ask every

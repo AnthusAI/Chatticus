@@ -78,19 +78,23 @@ loop, computer use, or the display.
 
 ## Persistence
 
-Compute and disk are separate, so idle computers can stop without losing
-the workplace.
+Compute and disk are separate. The **computer** is a `computer_id`. The
+**host** is whichever Mac, Fargate task, or EC2 instance is running it.
+
+Canonical workplace disk (`/workspace` and the browser profile) is an **S3
+snapshot**. Hosts hydrate a local cache, run, and publish. Relocate is an
+administrator action: point the next host at that snapshot. There is no live
+container move. See [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md).
 
 | State | Where it lives |
 | --- | --- |
 | Conversations, bot memory, skills, routines | Postgres |
-| `/workspace` files | EFS on AWS, bind-mount locally, optional S3 sync for failover |
-| Browser profile / cookies | EBS on stop/start EC2, or an S3 snapshot for Fargate |
+| `/workspace` and browser profile | S3 snapshot; local volume / EBS / EFS as a host cache |
 | Secrets | AWS Secrets Manager, never in the image |
 
 Computer policy: `prefer_local`, `aws_only`, or `local_only`.
 
-Idle AWS computers stop (EC2) or scale to 0 (Fargate). Disk stays.
+Idle AWS computers stop (EC2) or scale to 0 (Fargate). The snapshot stays.
 
 ## Repository
 
@@ -138,6 +142,7 @@ docker build -t chatticus-computer computer/
 
 - [Product](docs/PRODUCT.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md)
 - [Stack](docs/STACK.md)
 - [Roadmap](docs/ROADMAP.md)
 - [AGENTS.md](AGENTS.md) for coding agents working in this repo
