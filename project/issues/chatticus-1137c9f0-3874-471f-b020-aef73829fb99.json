@@ -3,7 +3,7 @@
   "title": "Page content cannot expand granted authority",
   "description": "As a household member, I want untrusted pages contained even when they manipulate the model, so that reading the web cannot grant new access.\n\nFeature: Browser capability containment\n\nScenario: A page asks the model to exceed a research task\n  Given a task grants read-only browsing on approved origins\n  And grants no workspace upload, messaging, or external recipient\n  When a page instructs the model to exfiltrate workspace data\n  And the model requests the forbidden operation\n  Then the worker denies the request\n  And no data reaches an unapproved origin or tool\n  And the denial is recorded for the user\n\nScenario: Research browsing is separate from a privileged session\n  Given the household computer holds a privileged authenticated session\n  When the bot opens an untrusted research page\n  Then that browsing context cannot use the privileged session or its secrets",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -14,9 +14,16 @@
     "security"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "bbbdd7f9-e5fe-4bd3-9b81-f81667c5dedd",
+      "author": "home",
+      "text": "Merged to develop via PR 24 (b87a1fa). In-memory PageContentAuthorityGate + Gherkin; not wired to the live worker HTTP loop. Closing the kernel/BDD slice.",
+      "created_at": "2026-08-30T22:41:05.569085Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:57.047924Z",
-  "updated_at": "2026-08-30T15:54:57.047924Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T22:41:05.579541Z",
+  "closed_at": "2026-08-30T22:41:05.579541Z",
   "custom": {}
 }
