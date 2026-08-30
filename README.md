@@ -80,8 +80,8 @@ What the deployed **development** slice does today:
 
 - CloudFront in front of a Lambda function URL (no load balancer).
 - FastAPI front door: channels, messages, bots, a stopped-computer roster,
-  chunk POST, `POST /turns/{id}/claim`, fenced chunk writes, and
-  `GET /turns/{turn_id}/stream` as `text/event-stream`.
+  chunk POST, `POST /turns/{id}/claim`, `POST /turns/{id}/renew`, fenced
+  chunk writes, and `GET /turns/{turn_id}/stream` as `text/event-stream`.
 - Channel records are in DynamoDB, so `GET /channels/{id}/messages` works
   on a different Lambda than the one that created the channel.
 - DynamoDB is the source of truth for the transcript, in-flight chunks
@@ -91,9 +91,10 @@ What the deployed **development** slice does today:
 - Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
 - `python scripts/exercise_thin_turn.py --environment development` exits 0.
 
-Worker lease renew during long model calls is on `main` (PR 14) and is
-not on this development deploy yet. Recovery deadlines still do not fire
-in Lambda (`recovery_enabled` stays off until EventBridge or equivalent).
+Worker lease renew during long model calls is live on this development
+deploy (redeployed from `main` v0.3.0, PR 14). Recovery deadlines still do
+not fire in Lambda (`recovery_enabled` stays off until EventBridge or
+equivalent).
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the turn path yet. The computer stays stopped.
@@ -101,8 +102,8 @@ There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
 
 Next on the board: turn-triggered recovery in AWS (`e42008` follow-up:
-EventBridge or DynamoDB TTL watchdog, durable enqueue ledger), redeploy
-development so worker renew is live, then staging after this release.
+EventBridge or DynamoDB TTL watchdog, durable enqueue ledger), then staging
+after this release.
 
 ```mermaid
 flowchart LR
