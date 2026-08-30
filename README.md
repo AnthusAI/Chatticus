@@ -64,8 +64,14 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-A **computerless thin turn** is deployed as stack **ChatticusThinTurn** in
-AWS account `335163751677` (`us-east-1`):
+GitHub **`main`** is **v0.2.0**. The computerless thin turn is deployed as
+stack **ChatticusThinTurn** in AWS account `335163751677` (`us-east-1`).
+The **source** on `main` also has turn **claim**, **lease**, and **fence**
+so a duplicate queue delivery cannot start a second model call. That
+ownership path is not the live AWS behavior until
+**ChatticusThinTurn** is redeployed from this tag.
+
+What the deployed slice does today:
 
 - CloudFront in front of a Lambda function URL (no load balancer).
 - FastAPI front door: channels, messages, bots, a stopped-computer roster,
@@ -81,6 +87,9 @@ AWS account `335163751677` (`us-east-1`):
 destroyed. They are not on the turn path yet. The computer stays stopped.
 There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
+
+Next on the board: recover interrupted turns without a second actor
+(`e42008`), then redeploy so claim and fence are live (`ffcb11`).
 
 ```mermaid
 flowchart LR
@@ -280,6 +289,15 @@ This repository uses [Kanbus](https://github.com/AnthusAI/Kanbus). Prefer
 kbs list
 kbs create "Describe the work" --type task
 ```
+
+At **every milestone** (a slice merged to `develop`, a promote to `main`, a
+deploy, a closed epic, or anything that changes what is true), **launch a
+sub-agent** whose only job is housekeeping. That agent comments on the
+Kanbus issues it touches, sets statuses to match reality, **creates new
+issues** for significant work that appeared, and **rewrites the "What is
+live today" section of this README** (and the next-up line) so a new reader
+is not looking at last week's world. Do not skip that pass. Do not treat it
+as a leftover for the implementation agent.
 
 ## Documentation
 

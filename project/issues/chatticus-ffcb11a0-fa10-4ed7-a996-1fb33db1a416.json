@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-ffcb11a0-fa10-4ed7-a996-1fb33db1a416",
+  "title": "Redeploy ChatticusThinTurn so claim and fence are live",
+  "description": "main (v0.2.0) has POST /turns/{id}/claim and fenced chunk writes. The AWS stack was last exercised as the computerless Luna thin turn. Redeploy ChatticusThinTurn before treating ownership as live. Do not destroy ChatticusSnapshots or ChatticusComputers.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-65398905-db08-4e8c-a4c3-2a8d06daeadd",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-30T20:26:22.947885Z",
+  "updated_at": "2026-08-30T20:26:22.947885Z",
+  "closed_at": null,
+  "custom": {}
+}
