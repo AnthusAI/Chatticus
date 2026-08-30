@@ -35,9 +35,9 @@ sh computer/test_fargate.sh
 
 ## Deploy
 
-Deploy **one** stack at a time. `cdk deploy --all` would create or update
-snapshots, computers, and every thin-turn environment together. Do not
-do that. Do not destroy `ChatticusSnapshots` or `ChatticusComputers`.
+Deploy **one** stack at a time. `cdk deploy --all` and `npm run deploy`
+are forbidden (`npm run deploy` exits nonzero). Do not destroy
+`ChatticusSnapshots` or `ChatticusComputers`.
 
 ```bash
 cd infra

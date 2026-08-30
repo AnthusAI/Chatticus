@@ -64,3 +64,20 @@ def test_resolve_reads_process_environment(monkeypatch: pytest.MonkeyPatch) -> N
     )
     url = resolve_thin_turn_base_url("development")
     assert url == "https://dev.cloudfront.net"
+
+
+def test_ssm_auth_errors_are_not_swallowed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CHATTICUS_DEVELOPMENT_BASE_URL", raising=False)
+    import boto3
+
+    class FakeSsm:
+        class exceptions:
+            class ParameterNotFound(Exception):
+                pass
+
+        def get_parameter(self, Name: str) -> dict:
+            raise RuntimeError("LoginRefreshRequired")
+
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: FakeSsm())
+    with pytest.raises(RuntimeError, match="LoginRefreshRequired"):
+        resolve_thin_turn_base_url("development")

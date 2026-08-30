@@ -171,6 +171,14 @@ separate deploy of a staging-proven release. Shared stacks
 `ChatticusSnapshots` and `ChatticusComputers` are not per-environment.
 Never `cdk deploy --all`. Never destroy those two stacks.
 
+## Pull request review
+
+No human GitHub reviewer will show up. Review is done in this session with
+**Composer 2.5** (and Bugbot when a branch diff should be checked) sub-agents.
+Do not mark a PR ready and wait. Launch a reviewer against `develop`, treat
+request-changes as blocking, and have a second agent apply fixes. Approval
+from that loop is the merge gate, not a person on the PR.
+
 ## Milestones
 
 At every milestone, launch a **sub-agent** whose only job is Kanbus and

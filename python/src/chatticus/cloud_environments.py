@@ -89,8 +89,6 @@ def resolve_thin_turn_base_url(
         response = ssm.get_parameter(Name=parameter_name)
     except ssm.exceptions.ParameterNotFound:
         response = None
-    except Exception:
-        response = None
     if response is not None:
         value = response["Parameter"]["Value"].rstrip("/")
         if value:
