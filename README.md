@@ -92,18 +92,17 @@ What the deployed **development** slice does today:
 - `python scripts/exercise_thin_turn.py --environment development` exits 0.
 
 Worker lease renew during long model calls is live on this development
-deploy (redeployed from `main` v0.3.0, PR 14). Recovery deadlines still do
-not fire in Lambda (`recovery_enabled` stays off until EventBridge or
-equivalent).
+deploy (redeployed from `main` v0.3.0, PR 14). After the thin-turn stack
+redeploy, recovery deadlines fire via EventBridge Scheduler one-shots
+(`recovery_enabled` when schedule group env vars are set).
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the turn path yet. The computer stays stopped.
 There is no chattic.us web app, no local pull worker, no mid-turn
 escalation, and no approvals on this slice.
 
-Next on the board: turn-triggered recovery in AWS (`e42008` follow-up:
-EventBridge or DynamoDB TTL watchdog; durable enqueue ledger is in
-``DynamoMessagingStore``), then staging after this release.
+Next on the board: redeploy development thin-turn for EventBridge deadlines,
+then staging after this release.
 
 ```mermaid
 flowchart LR
