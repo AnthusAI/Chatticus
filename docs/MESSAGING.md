@@ -60,6 +60,30 @@ The worker already streams to the control plane over an outbound
 connection. The control plane fans those events out to subscribed
 browsers. The browser never reaches a worker.
 
+### How the web app is notified
+
+An open chat tab is notified by **the socket**, not by a push.
+
+1. chattic.us opens the realtime API WebSocket and subscribes to a
+   thread.
+2. The worker sends a token to the control plane (outbound, already).
+3. The control plane emits `turn.token` to every subscription on that
+   thread.
+4. The browser appends the token to the in-progress reply.
+5. On `turn.completed`, one message row is committed. If the socket
+   dropped, the client calls `GET .../messages?after=seq` and
+   resubscribes.
+
+That is the whole notify path while someone is watching. Device push
+(web push, APNs, FCM) is only for "come back, something finished" when
+no tab is open. It cannot carry a token stream. Polling the message
+store is too slow and wasteful for tokens.
+
+Where we **run** the process that holds `/ws` is a placement question
+(one household control-plane task, later more than one). It is not a
+second notify design. Do not introduce AppSync, Lambda sockets, or a
+queue-per-token to solve this.
+
 ### Events
 
 | Kind | When | Stored as a message? |
@@ -77,9 +101,9 @@ not in the message list until `turn.completed`.
 
 ### What the realtime API is not
 
-The socket is held by the **control-plane process** (FastAPI or equivalent
-on a small always-on ECS service). That is the same place that commits
-messages.
+The socket is held by the **control-plane process** (the same process
+that commits messages). FastAPI can serve both REST and `/ws`. Where
+that process runs is placement, not a second notify design.
 
 Do not put this on:
 
