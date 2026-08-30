@@ -20,6 +20,13 @@ Two hosts on one machine, sharing a snapshot store (not a live disk):
 sh computer/test_relocate.sh
 ```
 
+Run a computer on AWS Fargate (ARM64), hydrate its snapshot locally, then
+scale the service back to 0:
+
+```bash
+sh computer/test_fargate.sh
+```
+
 That packs on a Fargate-named container, hydrates onto a Mac-named
 container, then the reverse. Stale files on the target host are dropped.
 

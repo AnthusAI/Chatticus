@@ -18,4 +18,15 @@ else
 fi
 
 cd /workspace
+
+if [ -n "${CHATTICUS_SMOKE_COMPUTER:-}" ]; then
+  printf '%s\n' "from-aws-fargate" > "${LIVE}/workspace/aws-fargate.md"
+  python -m chatticus.snapshot pack \
+    --live-root "${LIVE}" \
+    --store s3 \
+    --tenant "${CHATTICUS_TENANT_ID:-anthus}" \
+    --computer "${CHATTICUS_SMOKE_COMPUTER}" \
+    --worker fargate-aws
+fi
+
 exec "$@"

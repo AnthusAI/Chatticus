@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY python /opt/chatticus/src
 RUN python3 -m venv /opt/chatticus/venv \
     && /opt/chatticus/venv/bin/pip install --upgrade pip \
-    && /opt/chatticus/venv/bin/pip install /opt/chatticus/src
+    && /opt/chatticus/venv/bin/pip install /opt/chatticus/src boto3
 
 ENV PATH="/opt/chatticus/venv/bin:${PATH}"
 

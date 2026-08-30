@@ -14,13 +14,20 @@ export interface ComputerStackProps extends cdk.StackProps {
 /**
  * Fargate-capable computer hosts. The workplace image is stored in ECR.
  *
- * The service starts at desired count 0. Publishing a snapshot and hydrating
- * onto another host does not require a running task; turning a host on is a
- * later deploy or run-task against this definition.
+ * The service desired count defaults to 0 (scale to 0). Pass
+ * ``-c computerCount=1`` to run a host. v1 AWS computers are Fargate ARM64
+ * so the same image runs on Apple Silicon Docker and Fargate. Optional
+ * stop/start EC2 is later, for a warm EBS cache.
  */
 export class ComputerStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ComputerStackProps) {
     super(scope, id, props);
+
+    const computerCount = Number(this.node.tryGetContext("computerCount") ?? 0);
+    const smokeComputer =
+      typeof this.node.tryGetContext("smokeComputer") === "string"
+        ? String(this.node.tryGetContext("smokeComputer"))
+        : "";
 
     const vpc = new ec2.Vpc(this, "Vpc", {
       maxAzs: 2,
@@ -59,10 +66,19 @@ export class ComputerStack extends cdk.Stack {
       memoryLimitMiB: 512,
       taskRole,
       runtimePlatform: {
-        cpuArchitecture: ecs.CpuArchitecture.X86_64,
+        cpuArchitecture: ecs.CpuArchitecture.ARM64,
         operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
       },
     });
+
+    const computerEnvironment: { [key: string]: string } = {
+      CHATTICUS_SNAPSHOT_BUCKET: props.snapshotBucket.bucketName,
+      CHATTICUS_LIVE_ROOT: "/var/lib/chatticus/computer",
+      CHATTICUS_TENANT_ID: "anthus",
+    };
+    if (smokeComputer !== "") {
+      computerEnvironment.CHATTICUS_SMOKE_COMPUTER = smokeComputer;
+    }
 
     taskDefinition.addContainer("computer", {
       image: ecs.ContainerImage.fromEcrRepository(repository, "dev"),
@@ -70,10 +86,7 @@ export class ComputerStack extends cdk.Stack {
         logGroup,
         streamPrefix: "computer",
       }),
-      environment: {
-        CHATTICUS_SNAPSHOT_BUCKET: props.snapshotBucket.bucketName,
-        CHATTICUS_LIVE_ROOT: "/var/lib/chatticus/computer",
-      },
+      environment: computerEnvironment,
     });
 
     const securityGroup = new ec2.SecurityGroup(this, "ComputerSecurityGroup", {
@@ -82,16 +95,17 @@ export class ComputerStack extends cdk.Stack {
       allowAllOutbound: true,
     });
 
-    new ecs.FargateService(this, "FargateHost", {
+    const service = new ecs.FargateService(this, "FargateHost", {
       cluster,
       taskDefinition,
-      desiredCount: 0,
+      desiredCount: Number.isFinite(computerCount) ? computerCount : 0,
       assignPublicIp: true,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       securityGroups: [securityGroup],
       circuitBreaker: { rollback: true },
       minHealthyPercent: 0,
       maxHealthyPercent: 100,
+      enableExecuteCommand: true,
     });
 
     new cdk.CfnOutput(this, "ComputerRepositoryUri", {
@@ -102,6 +116,9 @@ export class ComputerStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "ComputerTaskDefinitionArn", {
       value: taskDefinition.taskDefinitionArn,
+    });
+    new cdk.CfnOutput(this, "ComputerServiceName", {
+      value: service.serviceName,
     });
   }
 }

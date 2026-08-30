@@ -87,12 +87,15 @@ One Docker image, three hosts:
 | Host | When | Disk |
 | --- | --- | --- |
 | Docker on a Mac | cheapest when the machine is on | local volume hydrated from the S3 snapshot |
-| ECS Fargate | burst, scale to 0 | local task volume hydrated from the S3 snapshot |
-| EC2 stop/start | closest to an always-ready workplace | EBS as a warm cache of the same snapshot |
+| ECS Fargate (ARM64) | v1 AWS computer; burst, scale to 0 | task ephemeral disk hydrated from the S3 snapshot |
+| EC2 stop/start | later; closest to an always-ready workplace | EBS as a warm cache of the same snapshot |
 
 The image contains Xvfb (or equivalent) virtual displays, Chromium, a shell,
 noVNC or equivalent for watch and takeover, `chatticus-worker`, and
-`chatticus-agent`.
+`chatticus-agent`. v1 AWS computers run this image on **Fargate ARM64**
+(same architecture as Apple Silicon Docker). Scale the Fargate service to
+0 when no host is needed. Stop/start EC2 is a later host, not the v1
+path.
 
 Multiple virtual displays (`:1`, `:2`, …) are the bot screens.
 
