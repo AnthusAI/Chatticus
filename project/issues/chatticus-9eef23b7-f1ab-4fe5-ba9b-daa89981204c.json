@@ -30,10 +30,16 @@
       "author": "home",
       "text": "Staging and production thin-turn synth verified on develop @ 1e915dd: ChatticusThinTurnStaging and ChatticusThinTurnProduction exit 0 with npx cdk synth. No deploy; stacks remain synth-only until main promotion (staging) or gated production release.",
       "created_at": "2026-08-30T22:24:20.399694Z"
+    },
+    {
+      "id": "99cc46f5-2004-45c5-85e3-8cbe6ee3d80f",
+      "author": "home",
+      "text": "ChatticusThinTurn-only redeploy from main v0.5.0 (no --all, no staging/production). CloudFront https://d3gpuuldffe35o.cloudfront.net. exercise_thin_turn.py --environment development exit 0. Live claim/fence: missing turn 404; second worker 409 while lease held. Snapshots/computers untouched.",
+      "created_at": "2026-08-30T22:51:23.604283Z"
     }
   ],
   "created_at": "2026-08-30T20:36:57.810194Z",
-  "updated_at": "2026-08-30T22:24:20.399694Z",
+  "updated_at": "2026-08-30T22:51:23.604283Z",
   "closed_at": null,
   "custom": {}
 }

@@ -77,8 +77,8 @@ The **source** has named cloud environments, turn **claim**, **lease**,
 logical-enqueue ledger, EventBridge Scheduler one-shot turn deadlines,
 and a recovery kernel (`recovery_enabled` when the messaging table and
 scheduler env vars are set). Kernel tests cover turn-boundary fault
-injection and in-memory page-content authority containment (not on the
-live worker loop yet).
+injection and in-memory page-content authority containment (not wired
+into the live worker HTTP loop).
 
 What the deployed **development** slice does today:
 
@@ -100,7 +100,9 @@ deploy. EventBridge Scheduler one-shots are on the front door
 (`chatticus-development-turn-deadlines`); `recovery_enabled` is on.
 Warm Front Door containers use a wall clock, so deadlines land in the
 future. A wedged turn has recovered through EventBridge without a
-forced Lambda cold start.
+forced Lambda cold start. After a **ChatticusThinTurn**-only redeploy
+from `main` v0.5.0, live claim/fence still holds: missing-turn claim
+is 404; a second worker on an unexpired lease is 409.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the turn path yet. The computer stays stopped.
