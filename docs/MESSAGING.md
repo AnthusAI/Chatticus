@@ -86,16 +86,29 @@ The human is not the router. The human still sees the same channel.
 Nothing bills while nobody is working. The API is per-request, and the
 only thing that lives longer than a request is a turn.
 
-```
-browser  --POST /channels/{id}/messages-->  front door
-                                             commit message, enqueue turn,
-                                             return turn_id
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant FD as Front door<br/>(per-request)
+    participant CS as Chunk store<br/>(DynamoDB TTL)
+    participant TQ as Turn queue<br/>(SQS)
+    participant W as Computerless worker
 
-browser  --GET /turns/{id}/stream------->  streaming function
-              (server-sent events)           polls chunks, writes frames
+    Browser->>FD: POST /channels/{id}/messages
+    FD->>TQ: enqueue turn
+    FD-->>Browser: turn_id
 
-worker   --pull job (SQS)--------------->  runs the model loop
-         --POST chunks----------------->  front door --> chunk items (TTL)
+    Browser->>FD: GET /turns/{id}/stream (SSE)
+    Note over FD: streaming path may be<br/>function URL + CloudFront
+
+    TQ->>W: pull job
+    W->>W: run model loop
+    W->>FD: POST chunks
+    FD->>CS: write chunk items (TTL)
+    loop poll after cursor
+        FD->>CS: read chunks
+        FD-->>Browser: SSE frames
+    end
 ```
 
 The front door bills per request and has no hourly floor: an API Gateway

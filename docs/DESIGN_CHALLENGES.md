@@ -249,17 +249,7 @@ tested.
 
 ### The shape
 
-```
-browser  --POST /channels/{id}/messages-->  front door (per-request)
-                                              writes message, enqueues turn,
-                                              returns turn_id
-
-browser  --GET /turns/{id}/stream (SSE)-->  streaming function
-                                              polls chunk buffer, writes frames
-
-worker   --pull job (SQS)-->  runs model loop
-         --POST chunks-->     front door  -->  chunk buffer (TTL)
-```
+See the sequence diagram in [Messaging](MESSAGING.md#the-cloud-api).
 
 | Piece | Choice | Idle cost |
 | --- | --- | --- |
