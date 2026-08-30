@@ -86,6 +86,7 @@ def test_eventbridge_scheduler_cancel_ignores_missing_schedule() -> None:
 def test_plane_from_env_enables_recovery_with_scheduler_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
     monkeypatch.setenv("CHATTICUS_MESSAGING_TABLE", "Messaging")
     monkeypatch.setenv("CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP", "deadlines")
     monkeypatch.setenv(
@@ -106,6 +107,7 @@ def test_plane_from_env_enables_recovery_with_scheduler_env(
 def test_plane_from_env_recovery_stays_off_without_scheduler(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
     monkeypatch.setenv("CHATTICUS_MESSAGING_TABLE", "Messaging")
     monkeypatch.delenv("CHATTICUS_TURN_DEADLINE_SCHEDULE_GROUP", raising=False)
     plane = plane_from_env()
