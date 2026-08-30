@@ -3,7 +3,7 @@
   "title": "Implement durable turn attempts, leases, and fencing",
   "description": "Add the minimum durable ownership model required by the reliability stories.\n\nAcceptance criteria:\n- Stable turn_id and monotonically distinct attempt identity.\n- Conditional claim and renewal with an expiry time.\n- A fencing value is checked on every event append and action request.\n- A duplicate worker can detect ownership without calling the model.\n- Tenant identity is part of every key and condition.\n- Unit and Behave scenarios prove concurrent claims and stale writes.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -22,7 +22,7 @@
     }
   ],
   "created_at": "2026-08-30T15:54:55.921721Z",
-  "updated_at": "2026-08-30T19:53:36.418128Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T20:01:43.439746Z",
+  "closed_at": "2026-08-30T20:01:43.439746Z",
   "custom": {}
 }

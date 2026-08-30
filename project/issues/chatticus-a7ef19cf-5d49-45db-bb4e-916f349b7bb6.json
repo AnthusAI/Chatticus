@@ -3,7 +3,7 @@
   "title": "Duplicate delivery produces one model attempt",
   "description": "As a household member, I want queue retries to be invisible, so that one request never becomes two answers or two bills from concurrent model calls.\n\nFeature: Duplicate turn delivery\n\nScenario: Two workers receive the same logical turn\n  Given one unfinished turn job is delivered twice\n  When two workers try to process it concurrently\n  Then only one worker begins the model attempt\n  And only that attempt can append progress or completion\n  And the channel receives at most one final answer",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "c5f5701a-86fe-42b7-9c00-e8f8bf8d0cb0",
+      "author": "home",
+      "text": "Specified and passing in features/turn_attempts.feature: duplicate delivery calls the model once.",
+      "created_at": "2026-08-30T20:01:43.420292Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:55.639110Z",
-  "updated_at": "2026-08-30T15:54:55.639110Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T20:01:43.449606Z",
+  "closed_at": "2026-08-30T20:01:43.449606Z",
   "custom": {}
 }
