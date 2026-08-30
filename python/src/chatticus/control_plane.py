@@ -126,7 +126,6 @@ class ControlPlane:
         self._enqueue_ledger = enqueue_ledger or LogicalEnqueueLedger()
         self._visibility_ledger = visibility_ledger or QueueVisibilityLedger()
         self._visibility_renewer = visibility_renewer
-        self._channel_tenants: dict[str, str] = {}
         self._turn_tenants: dict[str, str] = {}
         self._turn_event_subscribers: dict[str, list[queue.Queue[TurnEvent | None]]] = (
             {}
@@ -686,7 +685,6 @@ class ControlPlane:
             participants=participants,
         )
         self._messaging_store.put_channel(channel)
-        self._channel_tenants[channel.channel_id] = tenant_id
         return channel
 
     def channel(self, tenant_id: str, channel_id: str) -> Channel:
@@ -1182,14 +1180,15 @@ class ControlPlane:
             subscriber.put(sentinel)
 
     def _require_channel_tenant(self, channel_id: str, tenant_id: str) -> Channel:
-        owning_tenant = self._channel_tenants.get(channel_id)
-        if owning_tenant is None:
-            raise ChannelNotFoundError(f"Channel {channel_id!r} does not exist.")
-        if owning_tenant != tenant_id:
+        channel = self._messaging_store.get_channel(tenant_id, channel_id)
+        if channel is not None:
+            return channel
+        owning_tenant = self._messaging_store.resolve_channel_tenant(channel_id)
+        if owning_tenant is not None and owning_tenant != tenant_id:
             raise ChannelTenantMismatchError(
                 f"Tenant {tenant_id!r} does not own channel {channel_id!r}."
             )
-        return self.channel(tenant_id, channel_id)
+        raise ChannelNotFoundError(f"Channel {channel_id!r} does not exist.")
 
     def _require_participant(
         self,

@@ -88,6 +88,29 @@ def test_dynamo_store_roundtrip_messages_and_events() -> None:
     api.close()
 
 
+@mock_aws
+def test_channel_messages_survive_a_new_control_plane_in_dynamo() -> None:
+    table_name = "chatticus-messaging-survival-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    bot, channel = _channel_with_bot(first)
+    first.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )
+    second = ControlPlane(messaging_store=store)
+    messages = second.list_channel_messages(channel.channel_id, channel.tenant_id)
+    assert len(messages) == 1
+    assert messages[0].body == "hello"
+
+
 def test_cross_tenant_channel_post_is_rejected() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
@@ -328,6 +351,25 @@ def test_bot_and_stopped_computer_survive_a_new_control_plane() -> None:
     channel = second.create_channel("anthus", "ryan", [bot.bot_id])
     assert second.computer_is_stopped("anthus", "ryan")
     assert channel.participants[-1].actor_id == bot.bot_id
+
+
+def test_channel_messages_survive_a_new_control_plane() -> None:
+    store = InMemoryMessagingStore()
+    first = ControlPlane(messaging_store=store)
+    bot, channel = _channel_with_bot(first)
+    first.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )
+    second = ControlPlane(messaging_store=store)
+    messages = second.list_channel_messages(channel.channel_id, channel.tenant_id)
+    assert len(messages) == 1
+    assert messages[0].body == "hello"
 
 
 def test_duplicate_delivery_calls_the_model_once() -> None:
