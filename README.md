@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `6f310b2` (no `--all`).
+from `develop` @ `744dc8b` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -105,7 +105,10 @@ What each deployed thin-turn slice does today:
 - DynamoDB is the source of truth for the transcript, in-flight chunks
   (TTL), and the thin roster. SSE **polls the store**.
 - SQS carries one turn job. A computerless worker Lambda runs
-  **gpt-5.6-luna** (OpenAI) and POSTs chunks back through the front door.
+  **gpt-5.6-luna** (OpenAI). A text-only reply still completes. If the
+  model calls `request_computer_capability`, the worker POSTs
+  `turn.waiting` and leaves the turn active instead of claiming the
+  browser work is done.
 - Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
 
 Worker lease renew during long model calls is live on development.

@@ -18,10 +18,16 @@
       "author": "home",
       "text": "Computerless worker POSTs turn.waiting when CompletionOutcome.wait_gate is set. FakeTextCompletionClient does that for prompts containing open the household browser. OpenAI still returns text-only, so the live greeting exercise must still complete. Gherkin in messages.feature; pytest covers active turn, waiting event, no bot message.",
       "created_at": "2026-08-31T01:07:23.400812Z"
+    },
+    {
+      "id": "aebd88cb-63f3-498d-9bdb-39e564356dd8",
+      "author": "home",
+      "text": "OpenAI Chat Completions now offers request_computer_capability. Worker still POSTs turn.waiting when wait_gate is set. ChatticusThinTurn-only redeploy from develop @ 744dc8b. exercise --environment development exit 0: greeting still turn.completed (luna did not wait on a short hello). Live model-requested waiting is not yet a named exercise assertion. No staging/production deploy. No --all.",
+      "created_at": "2026-08-31T01:15:06.933683Z"
     }
   ],
   "created_at": "2026-08-31T01:04:30.320648Z",
-  "updated_at": "2026-08-31T01:07:23.400812Z",
+  "updated_at": "2026-08-31T01:15:06.933683Z",
   "closed_at": null,
   "custom": {}
 }
