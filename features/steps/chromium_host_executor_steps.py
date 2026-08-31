@@ -22,7 +22,9 @@ def given_host_booted_through_browser(context: object) -> None:
         context.host_boot = driver.boot_through_browser()
 
 
-@when("a computer-capable pull worker with a chromium executor pulls that continuation job")
+@when(
+    "a computer-capable pull worker with a chromium executor pulls that continuation job"
+)
 def when_worker_pulls_with_chromium_executor(context: object) -> None:
     setup = context.computer_continuation
     executor = ChromiumActionExecutor(display=":99")
