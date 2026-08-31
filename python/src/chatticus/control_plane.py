@@ -1183,13 +1183,17 @@ class ControlPlane:
         tenant_id: str,
         user_id: str,
         generation: int,
-    ) -> None:
-        """Record that the host-start driver ran for one generation."""
-        computer = self.computer_for_user(tenant_id, user_id)
-        if generation <= computer.host_start_dispatched_generation:
-            return
-        computer.host_start_dispatched_generation = generation
-        self._messaging_store.put_computer(computer)
+    ) -> bool:
+        """Claim host-start dispatch for one generation. True if this caller won."""
+        won = self._messaging_store.claim_host_start_dispatch(
+            tenant_id, user_id, generation
+        )
+        if won:
+            computer = self.computer_for_user(tenant_id, user_id)
+            computer.host_start_dispatched_generation = max(
+                computer.host_start_dispatched_generation, generation
+            )
+        return won
 
     def host_start_claim(self, tenant_id: str, user_id: str) -> HostStartClaim:
         """Return the current host-start claim for a user's computer."""

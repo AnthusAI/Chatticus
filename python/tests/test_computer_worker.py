@@ -269,3 +269,37 @@ def test_computer_worker_nacks_when_host_starter_fails() -> None:
     with pytest.raises(ComputerWorkerHostNotReady, match="host start failed"):
         worker.run_job(setup.continuation_job)
     api.close()
+
+
+def test_concurrent_computer_workers_start_host_once() -> None:
+    import threading
+
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+    starter = RecordingHostStarter()
+    errors: list[BaseException] = []
+    barrier = threading.Barrier(2)
+
+    def pull() -> None:
+        worker = ComputerWorker(
+            plane,
+            HttpTurnClient(api, setup.tenant_id),
+            host_starter=starter,
+        )
+        barrier.wait()
+        try:
+            worker.run_job(setup.continuation_job)
+        except ComputerWorkerHostNotReady:
+            pass
+        except BaseException as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=pull) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert errors == []
+    assert len(starter.invocations) == 1
+    api.close()

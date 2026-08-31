@@ -725,6 +725,31 @@ def test_http_get_computer_sees_host_start_from_a_second_process() -> None:
 
 
 @mock_aws
+def test_dynamo_host_start_dispatch_is_claimed_once() -> None:
+    table_name = "chatticus-host-start-dispatch-once-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    plane = ControlPlane(messaging_store=store)
+    plane.ensure_computer("anthus", "ryan")
+    plane.request_computer_host_start("anthus", "ryan", "turn-a")
+    computer = plane.computer_for_user("anthus", "ryan")
+    first = plane.mark_host_start_dispatched(
+        "anthus", "ryan", computer.host_start_generation
+    )
+    second = plane.mark_host_start_dispatched(
+        "anthus", "ryan", computer.host_start_generation
+    )
+    other = ControlPlane(messaging_store=store)
+    third = other.mark_host_start_dispatched(
+        "anthus", "ryan", computer.host_start_generation
+    )
+    assert first is True
+    assert second is False
+    assert third is False
+
+
+@mock_aws
 def test_http_get_user_computer_reports_host_start_generation_after_recycle() -> None:
     table_name = "chatticus-computer-host-start-generation-test"
     client = boto3.client("dynamodb", region_name="us-east-1")

@@ -66,15 +66,16 @@ class ComputerWorker:
         computer = self.plane.computer_for_user(tenant_id, user_id)
         if computer.host_start_dispatched_generation >= computer.host_start_generation:
             return
+        if not self.plane.mark_host_start_dispatched(
+            tenant_id, user_id, computer.host_start_generation
+        ):
+            return
         try:
             self.host_starter.start_host(claim)
         except Exception as exc:
             raise ComputerWorkerHostNotReady(
                 f"Turn {turn_id!r} host start failed: {exc}."
             ) from exc
-        self.plane.mark_host_start_dispatched(
-            tenant_id, user_id, computer.host_start_generation
-        )
 
     def _host_ready_for_tool(self, job: TurnJob, tool_name: str) -> bool:
         """Return whether a real computer host can run one pending tool call."""

@@ -192,6 +192,39 @@ def when_computer_worker_pulls_without_host_executor(context: object) -> None:
         context.computer_worker_error = exc
 
 
+@when(
+    "two computer-capable pull workers without a host executor pull that continuation concurrently"  # noqa: E501
+)
+def when_two_computer_workers_pull_concurrently(context: object) -> None:
+    import threading
+
+    setup = context.computer_continuation
+    host_starter = getattr(context, "host_starter", None)
+    errors: list[BaseException] = []
+    barrier = threading.Barrier(2)
+
+    def pull() -> None:
+        worker = ComputerWorker(
+            context.plane,
+            HttpTurnClient(context.api_client, setup.tenant_id),
+            host_starter=host_starter,
+        )
+        barrier.wait()
+        try:
+            worker.run_job(setup.continuation_job)
+        except ComputerWorkerHostNotReady:
+            pass
+        except BaseException as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=pull) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert errors == []
+
+
 @when("the host start lease expires")
 def when_host_start_lease_expires(context: object) -> None:
     context.plane.advance_seconds(context.plane.attempt_lease.total_seconds() + 1)

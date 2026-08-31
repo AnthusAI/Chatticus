@@ -112,6 +112,11 @@ class MessagingStore(Protocol):
     def get_computer(self, tenant_id: str, user_id: str) -> Computer | None:
         """Load the household computer for a user."""
 
+    def claim_host_start_dispatch(
+        self, tenant_id: str, user_id: str, generation: int
+    ) -> bool:
+        """Return True when this caller first claims host start for generation."""
+
     def put_turn_chunk(
         self,
         tenant_id: str,
@@ -373,6 +378,19 @@ class InMemoryMessagingStore:
 
     def get_computer(self, tenant_id: str, user_id: str) -> Computer | None:
         return self._computers.get((tenant_id, user_id))
+
+    def claim_host_start_dispatch(
+        self, tenant_id: str, user_id: str, generation: int
+    ) -> bool:
+        with self._lock:
+            computer = self._computers.get((tenant_id, user_id))
+            if computer is None:
+                return False
+            if computer.host_start_dispatched_generation >= generation:
+                return False
+            computer.host_start_dispatched_generation = generation
+            self._computers[(tenant_id, user_id)] = computer
+            return True
 
     def record_logical_enqueue(
         self, tenant_id: str, turn_id: str, enqueue_id: str
@@ -1003,6 +1021,32 @@ class DynamoMessagingStore:
                 datetime.fromtimestamp(lease_epoch, tz=UTC) if lease_epoch else None
             ),
         )
+
+    def claim_host_start_dispatch(
+        self, tenant_id: str, user_id: str, generation: int
+    ) -> bool:
+        try:
+            self.client.update_item(
+                TableName=self.table_name,
+                Key={
+                    "pk": {"S": self._roster_pk(tenant_id)},
+                    "sk": {"S": f"computer#{user_id}"},
+                },
+                UpdateExpression="SET host_start_dispatched_generation = :gen",
+                ConditionExpression=(
+                    "attribute_exists(pk) AND "
+                    "(attribute_not_exists(host_start_dispatched_generation) "
+                    "OR host_start_dispatched_generation < :gen)"
+                ),
+                ExpressionAttributeValues={":gen": {"N": str(generation)}},
+            )
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") == (
+                "ConditionalCheckFailedException"
+            ):
+                return False
+            raise
+        return True
 
     def record_logical_enqueue(
         self, tenant_id: str, turn_id: str, enqueue_id: str
