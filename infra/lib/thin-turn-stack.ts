@@ -407,8 +407,12 @@ export class ThinTurnStack extends cdk.Stack {
         {
           StringEquals: {
             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-            "token.actions.githubusercontent.com:repository": "AnthusAI/Chattic.us",
-            "token.actions.githubusercontent.com:workflow": "Acceptance",
+          },
+          StringLike: {
+            "token.actions.githubusercontent.com:job_workflow_ref": [
+              "AnthusAI/Chattic.us/.github/workflows/acceptance.yml@refs/heads/develop",
+              "AnthusAI/Chattic.us/.github/workflows/acceptance.yml@refs/heads/main",
+            ],
           },
         },
       ),
