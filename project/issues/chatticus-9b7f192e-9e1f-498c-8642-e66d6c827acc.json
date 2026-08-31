@@ -90,10 +90,16 @@
       "author": "home",
       "text": "Named-bot durable memory is on the live roster and in the turn prompt (3f70c0, ee34d01). Compaction still open. Safari/background-tab still unmeasured on 387e4f.",
       "created_at": "2026-08-31T04:22:31.330074Z"
+    },
+    {
+      "id": "cc06c423-a2ba-425b-bbf7-f23de39be00b",
+      "author": "home",
+      "text": "Frontier tick: durable channel post Idempotency-Key is live on development ThinTurn (ba3465e code, README pin 6dbde8c). exercise --environment development exit 0 with claim_a=200 claim_b=409 post_idempotent=1. f75044 closed. Safari/background-tab still unmeasured on 387e4f. No staging/production deploy. main stays v0.5.0.",
+      "created_at": "2026-08-31T04:33:58.552500Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T04:22:31.330074Z",
+  "updated_at": "2026-08-31T04:33:58.552500Z",
   "closed_at": null,
   "custom": {}
 }
