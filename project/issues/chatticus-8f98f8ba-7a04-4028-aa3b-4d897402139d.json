@@ -67,10 +67,16 @@
       "author": "home",
       "text": "6f702c live: ComputerTurnJobs has a nack worker without a host. Remaining epic DoD: Chromium-backed executor on Fargate, not a standing desiredCount, not a fake opened.",
       "created_at": "2026-08-31T08:50:59.683527Z"
+    },
+    {
+      "id": "863096f9-d271-422c-a4d5-feb0cf3558b5",
+      "author": "home",
+      "text": "dfec90 landed this tick: development ThinTurn ComputerWorker now calls EcsHostStarter via env/IAM (ecs:RunTask, desiredCount still 0). PR cursor/ecs-host-starter-thinturn-4a21. Remaining DoD: live Chromium executor completes tool.result on summoned Fargate host; readiness gate after RunTask.",
+      "created_at": "2026-08-31T11:40:04.676888Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T08:50:59.683527Z",
+  "updated_at": "2026-08-31T11:40:04.676888Z",
   "closed_at": null,
   "custom": {}
 }

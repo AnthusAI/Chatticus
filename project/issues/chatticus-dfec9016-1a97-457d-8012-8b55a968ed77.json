@@ -3,16 +3,23 @@
   "title": "Wire development ThinTurn ComputerWorker ECS host start",
   "description": "",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "40f6f11e-5e85-406c-8635-5ac7bf0885c3",
+      "author": "home",
+      "text": "Landed: ThinTurn development deploy script passes CDK context from ChatticusComputers outputs; ComputerWorker gets CHATTICUS_HOST_STARTER=ecs, ECS env, ecs:RunTask + PassRole. Live deploy verified Lambda env. Still open: Chromium executor on summoned task, host readiness, real tool.result.",
+      "created_at": "2026-08-31T11:40:04.667037Z"
+    }
+  ],
   "created_at": "2026-08-31T11:36:21.118569Z",
-  "updated_at": "2026-08-31T11:36:21.118569Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T11:40:13.063088Z",
+  "closed_at": "2026-08-31T11:40:13.063088Z",
   "custom": {}
 }
