@@ -3,7 +3,7 @@
   "title": "Phase 1: Prove the serverless conversation foundation",
   "description": "Outcome: a household user can address a named bot and receive one durable streamed answer while application compute retains no idle floor.\n\nScope: feasibility test 1, the computerless model path, durable channel and turn state, SQS delivery, and turn-scoped SSE.\n\nNot included: computer tools, browser authority, Kanbus task integration, snapshots, and the full web application.\n\nComplete when the transport result is recorded and the thin computerless turn passes its executable specifications end to end.",
   "type": "initiative",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -156,10 +156,16 @@
       "author": "home",
       "text": "Frontier: GET /users/{user_id}/computer is live on development ThinTurn (47d0c09). exercise exit 0 with claim_a=200 claim_b=409 computer_get=1. 7fac2f closed. No staging/production. main stays v0.5.0.",
       "created_at": "2026-08-31T05:54:04.186670Z"
+    },
+    {
+      "id": "3c13706e-0498-4bb8-9cdf-c5a6cdffe279",
+      "author": "home",
+      "text": "Board lag 2026-08-31: this initiative is no longer Discovery. The thin computerless turn is live on development, staging, and production (v0.6.0 on main). Remaining Phase 1 child is 387e4f (Safari/background-tab unmeasured). 5f2ea7 task-tracking is excluded from this phase by its own text; kbs 0.18 cannot clear a parent so it stays linked. Not closing this initiative until 387e4f is measured or waived.",
+      "created_at": "2026-08-31T05:56:28.952713Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T05:54:04.186670Z",
+  "updated_at": "2026-08-31T05:56:28.963160Z",
   "closed_at": null,
   "custom": {}
 }
