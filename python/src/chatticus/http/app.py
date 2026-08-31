@@ -476,6 +476,13 @@ def _channel_payload(channel: Any) -> dict[str, Any]:
 
 
 def _turn_payload(turn: Any) -> dict[str, Any]:
+    pending = None
+    if turn.pending_computer_tool_name is not None:
+        pending = {
+            "action_id": turn.pending_computer_action_id,
+            "tool_name": turn.pending_computer_tool_name,
+            "arguments": {"gate": turn.waiting_for} if turn.waiting_for else {},
+        }
     return {
         "turn_id": turn.turn_id,
         "tenant_id": turn.tenant_id,
@@ -483,6 +490,7 @@ def _turn_payload(turn: Any) -> dict[str, Any]:
         "bot_id": turn.bot_id,
         "status": turn.status.value,
         "waiting_for": turn.waiting_for,
+        "pending_computer_tool": pending,
     }
 
 

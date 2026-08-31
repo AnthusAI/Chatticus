@@ -59,3 +59,4 @@ Feature: Turn-scoped server-sent events
     And user "ryan" of tenant "anthus" has an active turn on the channel
     When the worker posts a progress chunk and then waits on the browser gate
     Then user "ryan" can read the turn gate as browser without opening SSE
+    And user "ryan" can read the pending computer tool request_computer_capability for browser

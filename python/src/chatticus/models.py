@@ -324,6 +324,8 @@ class Turn:
     terminal_reason: str | None = None
     ambiguous_provider_call_id: str | None = None
     waiting_for: str | None = None
+    pending_computer_action_id: str | None = None
+    pending_computer_tool_name: str | None = None
 
 
 @dataclass(frozen=True)

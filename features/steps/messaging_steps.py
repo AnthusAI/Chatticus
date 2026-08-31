@@ -646,6 +646,24 @@ def then_user_reads_turn_gate_without_sse(
     assert payload["waiting_for"] == gate
 
 
+@then('user "{user_id}" can read the pending computer tool {tool_name} for {gate}')
+def then_user_reads_pending_computer_tool(
+    context: object, user_id: str, tool_name: str, gate: str
+) -> None:
+    del user_id
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/turns/{_turn_id(context)}",
+        headers=tenant_headers(channel.tenant_id),
+    )
+    assert response.status_code == 200
+    pending = response.json().get("pending_computer_tool")
+    assert pending is not None
+    assert pending["tool_name"] == tool_name
+    assert pending["arguments"] == {"gate": gate}
+    assert pending["action_id"]
+
+
 @when('user "{user_id}" of tenant "{tenant_id}" tries to resume that waiting turn')
 def when_user_tries_to_resume_waiting_turn(
     context: object, user_id: str, tenant_id: str

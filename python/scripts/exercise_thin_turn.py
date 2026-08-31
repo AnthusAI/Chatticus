@@ -176,6 +176,15 @@ def main() -> int:
                 )
                 return 1
             print("turn_waiting_for=browser")
+            pending = turn_payload.get("pending_computer_tool") or {}
+            if (
+                pending.get("tool_name") != "request_computer_capability"
+                or pending.get("arguments") != {"gate": "browser"}
+                or not pending.get("action_id")
+            ):
+                print(f"pending_computer_tool={pending!r}", file=sys.stderr)
+                return 1
+            print("pending_computer_tool=request_computer_capability")
             waiting_kinds: list[str] = []
             with client.stream("GET", f"/turns/{fence_turn_id}/stream") as stream:
                 stream.raise_for_status()
@@ -369,6 +378,15 @@ def main() -> int:
             )
             return 1
         print("model_turn_waiting_for=browser")
+        model_pending = model_turn_read.json().get("pending_computer_tool") or {}
+        if (
+            model_pending.get("tool_name") != "request_computer_capability"
+            or model_pending.get("arguments") != {"gate": "browser"}
+            or not model_pending.get("action_id")
+        ):
+            print(f"model_pending_computer_tool={model_pending!r}", file=sys.stderr)
+            return 1
+        print("model_pending_computer_tool=request_computer_capability")
         model_resume = client.post(f"/turns/{browser_turn_id}/resume")
         if model_resume.status_code != 409:
             print(

@@ -510,6 +510,10 @@ def test_http_get_turn_exposes_waiting_gate() -> None:
     assert payload["turn_id"] == turn_id
     assert payload["status"] == "active"
     assert payload["waiting_for"] == "browser"
+    pending = payload["pending_computer_tool"]
+    assert pending["tool_name"] == "request_computer_capability"
+    assert pending["arguments"] == {"gate": "browser"}
+    assert pending["action_id"]
     denied = api.get(
         f"/turns/{turn_id}",
         headers={"X-Tenant-Id": "other"},

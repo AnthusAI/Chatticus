@@ -1383,6 +1383,8 @@ class ControlPlane:
             msg = f"Turn {turn_id!r} is not active."
             raise TurnTerminalError(msg)
         turn.waiting_for = gate
+        turn.pending_computer_action_id = str(uuid4())
+        turn.pending_computer_tool_name = "request_computer_capability"
         return self._append_turn_event(
             turn,
             TurnEventKind.TURN_WAITING,
@@ -1654,6 +1656,8 @@ class ControlPlane:
     ) -> Message:
         turn.status = TurnStatus.COMPLETED
         turn.waiting_for = None
+        turn.pending_computer_action_id = None
+        turn.pending_computer_tool_name = None
         self._messaging_store.put_turn(turn, expected_fence=expected_fence)
         self._deadline_scheduler.cancel(turn.tenant_id, turn.turn_id)
         self._append_turn_event(
