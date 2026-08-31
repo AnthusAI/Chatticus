@@ -234,9 +234,9 @@ def create_app(
     def list_messages(
         channel_id: str,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
-        after_seq: int = Query(default=0, ge=0),
+        after: int = Query(default=0, ge=0),
     ) -> dict[str, Any]:
-        messages = state.plane.list_channel_messages(channel_id, tenant_id, after_seq)
+        messages = state.plane.list_channel_messages(channel_id, tenant_id, after)
         return {
             "messages": [_message_payload(message) for message in messages],
         }

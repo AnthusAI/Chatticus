@@ -63,6 +63,43 @@ def test_cursor_from_last_event_id() -> None:
         cursor_from_last_event_id("seq-2")
 
 
+def test_list_channel_messages_after_query_skips_earlier_seq() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    researcher = plane.create_bot("anthus", "ryan", "Researcher")
+    writer = plane.create_bot("anthus", "ryan", "Writer")
+    channel = plane.create_channel("anthus", "ryan", [researcher.bot_id, writer.bot_id])
+    api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "research then draft",
+            "addressed_to_bot_id": researcher.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.BOT,
+            "author_id": researcher.bot_id,
+            "body": "notes are in /workspace/accounts.md",
+            "addressed_to_bot_id": writer.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    listed = api.get(
+        f"/channels/{channel.channel_id}/messages",
+        params={"after": 1},
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert listed.status_code == 200
+    payloads = listed.json()["messages"]
+    assert [item["seq"] for item in payloads] == [2]
+    api.close()
+
+
 @mock_aws
 def test_dynamo_logical_enqueue_survives_a_new_control_plane() -> None:
     table_name = "chatticus-messaging-enqueue-test"

@@ -308,6 +308,29 @@ def then_human_reads_channel(context: object) -> None:
     assert len(response.json()["messages"]) == 2
 
 
+@when(
+    'user "{user_id}" of tenant "{tenant_id}" lists channel messages after seq {seq:d}'
+)
+def when_list_channel_messages_after_seq(
+    context: object, user_id: str, tenant_id: str, seq: int
+) -> None:
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/messages",
+        params={"after": seq},
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    context.listed_messages = response.json()["messages"]
+
+
+@then("the listing contains only the message with seq {seq:d}")
+def then_listing_contains_only_seq(context: object, seq: int) -> None:
+    listed = context.listed_messages
+    assert listed is not None
+    assert [item["seq"] for item in listed] == [seq]
+
+
 @then('bot "{name}" has {count:d} pending turn with required capabilities:')
 def then_bot_pending_turn_with_capabilities(
     context: object, name: str, count: int

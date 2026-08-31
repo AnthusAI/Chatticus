@@ -31,6 +31,18 @@ Feature: Channels and the message store
       | cpu |
     And the human can read both messages on the channel
 
+  Scenario: Channel history reconnects after a seq
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has a bot named "Writer"
+    And tenant "anthus" user "ryan" has opened a channel with bots:
+      | Researcher |
+      | Writer     |
+    When user "ryan" of tenant "anthus" posts "research then draft" addressed to bot "Researcher" on the channel
+    And bot "Researcher" posts "notes are in /workspace/accounts.md" addressed to bot "Writer" on the channel
+    And user "ryan" of tenant "anthus" lists channel messages after seq 1
+    Then the listing contains only the message with seq 2
+
   Scenario: A file handoff is a path in chat and bytes on the computer
     Given an empty control plane
     And tenant "anthus" user "ryan" has a bot named "Researcher"

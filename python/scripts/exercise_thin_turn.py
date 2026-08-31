@@ -393,6 +393,30 @@ def main() -> int:
         print(f"computer_stopped={stopped['stopped']} bot_messages={len(bot_messages)}")
         if not stopped["stopped"] or not bot_messages:
             return 1
+        after = messages[0]["seq"]
+        listed_after = client.get(
+            f"/channels/{channel['channel_id']}/messages",
+            params={"after": after},
+        )
+        if listed_after.status_code != 200:
+            print(
+                f"messages_after {listed_after.status_code} "
+                f"{listed_after.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        after_messages = listed_after.json()["messages"]
+        print(f"channel_after={after} remaining={len(after_messages)}")
+        if any(item["seq"] <= after for item in after_messages):
+            print("channel after replayed seq at or before after", file=sys.stderr)
+            return 1
+        if len(after_messages) != len(messages) - 1:
+            print(
+                f"channel after count {len(after_messages)} "
+                f"expected {len(messages) - 1}",
+                file=sys.stderr,
+            )
+            return 1
         browser_post = client.post(
             f"/channels/{channel['channel_id']}/messages",
             json={
