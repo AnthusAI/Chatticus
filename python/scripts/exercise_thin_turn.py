@@ -190,6 +190,15 @@ def main() -> int:
                 )
                 return 1
             print("stale_waiting=409")
+            resume_stopped = client.post(f"/turns/{fence_turn_id}/resume")
+            if resume_stopped.status_code != 409:
+                print(
+                    f"resume_while_stopped {resume_stopped.status_code} "
+                    f"{resume_stopped.text[:300]}",
+                    file=sys.stderr,
+                )
+                return 1
+            print("resume_while_stopped=409")
             finisher = client.post(
                 f"/turns/{fence_turn_id}/claim",
                 json={"worker_id": "exercise-waiting-finisher"},
@@ -329,6 +338,15 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+        model_resume = client.post(f"/turns/{browser_turn_id}/resume")
+        if model_resume.status_code != 409:
+            print(
+                f"model_resume_while_stopped {model_resume.status_code} "
+                f"{model_resume.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("model_resume_while_stopped=409")
     return 0
 
 

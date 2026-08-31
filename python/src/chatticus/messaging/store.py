@@ -752,6 +752,8 @@ def _turn_item(turn: Turn) -> dict[str, Any]:
         item["terminal_reason"] = {"S": turn.terminal_reason}
     if turn.ambiguous_provider_call_id is not None:
         item["ambiguous_provider_call_id"] = {"S": turn.ambiguous_provider_call_id}
+    if turn.waiting_for is not None:
+        item["waiting_for"] = {"S": turn.waiting_for}
     return item
 
 
@@ -784,6 +786,7 @@ def _turn_from_item(item: dict[str, Any]) -> Turn:
         ambiguous_provider_call_id=(
             item.get("ambiguous_provider_call_id", {}).get("S") or None
         ),
+        waiting_for=item.get("waiting_for", {}).get("S") or None,
     )
 
 

@@ -21,11 +21,13 @@ from chatticus.models import (
     ChannelNotFoundError,
     ChannelTenantMismatchError,
     ChatticusError,
+    ComputerNotReadyError,
     StaleAttemptError,
     TurnAccessDeniedError,
     TurnClaimDeniedError,
     TurnEventKind,
     TurnNotFoundError,
+    TurnNotWaitingError,
     TurnReconcilingError,
     TurnTerminalError,
 )
@@ -319,6 +321,27 @@ def create_app(
         )
         return {"status": "ok", "kind": event.kind, "gate": body.gate}
 
+    @app.post("/turns/{turn_id}/resume")
+    def resume_turn(
+        turn_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, str]:
+        job = state.plane.resume_waiting_turn(tenant_id, turn_id)
+        turn = state.plane.turn(tenant_id, turn_id)
+        logger.info(
+            "turn_resume tenant_id=%s turn_id=%s job_id=%s gate=%s",
+            tenant_id,
+            turn_id,
+            job.job_id,
+            turn.waiting_for,
+        )
+        return {
+            "status": "ok",
+            "turn_id": turn_id,
+            "job_id": job.job_id,
+            "gate": turn.waiting_for or "",
+        }
+
     @app.post("/turns/{turn_id}/chunks")
     def post_chunk(
         turn_id: str,
@@ -413,7 +436,13 @@ def _status_for_error(error: ChatticusError) -> int:
         return 403
     if isinstance(error, StaleAttemptError | TurnClaimDeniedError):
         return 409
-    if isinstance(error, TurnReconcilingError | TurnTerminalError):
+    if isinstance(
+        error,
+        TurnReconcilingError
+        | TurnTerminalError
+        | TurnNotWaitingError
+        | ComputerNotReadyError,
+    ):
         return 409
     if isinstance(error, ChannelNotFoundError | TurnNotFoundError):
         return 404

@@ -623,6 +623,32 @@ def then_turn_remains_active(context: object) -> None:
     assert turn.claimed_by_worker_id is None
 
 
+@then("the turn is still waiting on the browser gate")
+def then_turn_still_waiting_on_browser(context: object) -> None:
+    channel = _channel(context)
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    assert turn.waiting_for == "browser"
+
+
+@when('user "{user_id}" of tenant "{tenant_id}" tries to resume that waiting turn')
+def when_user_tries_to_resume_waiting_turn(
+    context: object, user_id: str, tenant_id: str
+) -> None:
+    del user_id
+    response = context.api_client.post(
+        f"/turns/{_turn_id(context)}/resume",
+        headers=tenant_headers(tenant_id),
+    )
+    context.resume_response = response
+
+
+@then("resume is refused because the computer is not ready")
+def then_resume_refused_computer_not_ready(context: object) -> None:
+    assert context.resume_response.status_code == 409
+    detail = context.resume_response.json()["detail"]
+    assert "still stopped" in detail
+
+
 @given("one unfinished turn job is delivered twice")
 def given_unfinished_job_delivered_twice(context: object) -> None:
     channel = _channel(context)

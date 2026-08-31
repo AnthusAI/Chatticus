@@ -38,6 +38,7 @@ from chatticus.models import (
     Computer,
     ComputerDirtyError,
     ComputerNotHydratedError,
+    ComputerNotReadyError,
     ComputerPolicy,
     ComputerSnapshot,
     CostClass,
@@ -51,6 +52,7 @@ from chatticus.models import (
     TurnEventKind,
     TurnJob,
     TurnNotFoundError,
+    TurnNotWaitingError,
     TurnReconcilingError,
     TurnStatus,
     TurnTerminalError,
@@ -1376,12 +1378,56 @@ class ControlPlane:
         if turn.status != TurnStatus.ACTIVE:
             msg = f"Turn {turn_id!r} is not active."
             raise TurnTerminalError(msg)
+        turn.waiting_for = gate
         return self._append_turn_event(
             turn,
             TurnEventKind.TURN_WAITING,
             body=gate,
             expected_fence=fence_token,
         )
+
+    def resume_waiting_turn(self, tenant_id: str, turn_id: str) -> TurnJob:
+        """Re-enqueue a waiting turn only when the household computer is running.
+
+        The same durable turn stays active. A stopped computer is not treated
+        as ready: resume must not enqueue browser work that cannot run.
+
+        :raises TurnNotFoundError: If the turn is unknown.
+        :raises TurnTerminalError: If the turn is no longer active.
+        :raises TurnNotWaitingError: If the turn is not blocked on a gate.
+        :raises ComputerNotReadyError: If the household computer is stopped.
+        """
+        turn = self.turn(tenant_id, turn_id)
+        if turn.status != TurnStatus.ACTIVE:
+            msg = f"Turn {turn_id!r} is not active."
+            raise TurnTerminalError(msg)
+        if not turn.waiting_for:
+            msg = f"Turn {turn_id!r} is not waiting on a readiness gate."
+            raise TurnNotWaitingError(msg)
+        channel = self.channel(tenant_id, turn.channel_id)
+        if self.computer_is_stopped(tenant_id, channel.user_id):
+            msg = (
+                f"Household computer for user {channel.user_id!r} is still "
+                f"stopped; turn {turn_id!r} remains waiting on "
+                f"{turn.waiting_for!r}."
+            )
+            raise ComputerNotReadyError(msg)
+        self._jobs = [
+            job
+            for job in self._jobs
+            if not (job.tenant_id == tenant_id and job.turn_id == turn_id)
+        ]
+        job = self.enqueue_turn(
+            tenant_id,
+            frozenset({"computer"}),
+            bot_id=turn.bot_id,
+        )
+        self._bind_job_to_turn(job.job_id, turn.turn_id)
+        bound = self.job_for_turn(tenant_id, turn.turn_id)
+        if bound is None:
+            msg = f"Turn {turn_id!r} failed to re-enqueue after resume."
+            raise TurnTerminalError(msg)
+        return bound
 
     def release_turn_claim_for_waiting(
         self,
@@ -1603,6 +1649,7 @@ class ControlPlane:
         expected_fence: int | None = None,
     ) -> Message:
         turn.status = TurnStatus.COMPLETED
+        turn.waiting_for = None
         self._messaging_store.put_turn(turn, expected_fence=expected_fence)
         self._deadline_scheduler.cancel(turn.tenant_id, turn.turn_id)
         self._append_turn_event(

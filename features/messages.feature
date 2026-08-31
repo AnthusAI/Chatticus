@@ -70,6 +70,7 @@ Feature: Channels and the message store
     And bot "Assistant" runs one computerless worker turn
     Then user "ryan" receives a waiting server-sent event naming browser
     And the turn remains active
+    And the turn is still waiting on the browser gate
     And tenant "anthus" user "ryan" household computer remains stopped
 
   Scenario: Reject a cross-tenant channel access attempt

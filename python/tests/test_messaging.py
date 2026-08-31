@@ -23,8 +23,10 @@ from chatticus.messaging.store import (
 )
 from chatticus.models import (
     ActorKind,
+    ComputerNotReadyError,
     StaleAttemptError,
     TurnEventKind,
+    TurnNotWaitingError,
     TurnStatus,
 )
 from chatticus.turn_recovery import logical_enqueue_id
@@ -277,6 +279,7 @@ def test_computerless_worker_waits_when_the_model_needs_the_browser() -> None:
     turn = plane.turn(channel.tenant_id, turn_id)
     assert turn.status == TurnStatus.ACTIVE
     assert turn.claimed_by_worker_id is None
+    assert turn.waiting_for == "browser"
     events = plane.list_turn_events(channel.tenant_id, turn_id)
     waiting = [event for event in events if event.kind == TurnEventKind.TURN_WAITING]
     assert len(waiting) == 1
@@ -453,6 +456,7 @@ def test_http_waiting_emits_gate_and_releases_claim() -> None:
     turn = plane.turn(channel.tenant_id, turn_id)
     assert turn.status == TurnStatus.ACTIVE
     assert turn.claimed_by_worker_id is None
+    assert turn.waiting_for == "browser"
     events = plane.list_turn_events(channel.tenant_id, turn_id)
     waiting = [event for event in events if event.kind == TurnEventKind.TURN_WAITING]
     assert len(waiting) == 1
@@ -463,6 +467,82 @@ def test_http_waiting_emits_gate_and_releases_claim() -> None:
         headers={"X-Tenant-Id": channel.tenant_id},
     )
     assert stale.status_code == 409
+    plane.set_computer_stopped("anthus", "ryan", True)
+    refused = api.post(
+        f"/turns/{turn_id}/resume",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert refused.status_code == 409
+    with pytest.raises(ComputerNotReadyError):
+        plane.resume_waiting_turn(channel.tenant_id, turn_id)
+    still = plane.turn(channel.tenant_id, turn_id)
+    assert still.status == TurnStatus.ACTIVE
+    assert still.waiting_for == "browser"
+    assert still.claimed_by_worker_id is None
+    api.close()
+
+
+def test_resume_enqueues_the_same_turn_when_the_computer_is_running() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "open the household browser",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    client = HttpTurnClient(api, channel.tenant_id)
+    client.claim(turn_id, "waiting-worker")
+    client.post_chunk(turn_id, "Here is a draft.")
+    client.post_waiting(turn_id, "browser")
+    plane.set_computer_stopped("anthus", "ryan", False)
+    resumed = api.post(
+        f"/turns/{turn_id}/resume",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert resumed.status_code == 200
+    payload = resumed.json()
+    assert payload["turn_id"] == turn_id
+    assert payload["gate"] == "browser"
+    job = plane.job_for_turn(channel.tenant_id, turn_id)
+    assert job is not None
+    assert job.job_id == payload["job_id"]
+    assert job.turn_id == turn_id
+    assert "computer" in job.required_capabilities
+    turn = plane.turn(channel.tenant_id, turn_id)
+    assert turn.status == TurnStatus.ACTIVE
+    assert turn.waiting_for == "browser"
+    api.close()
+
+
+def test_resume_without_a_wait_gate_is_refused() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    refused = api.post(
+        f"/turns/{turn_id}/resume",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert refused.status_code == 409
+    with pytest.raises(TurnNotWaitingError):
+        plane.resume_waiting_turn(channel.tenant_id, turn_id)
     api.close()
 
 

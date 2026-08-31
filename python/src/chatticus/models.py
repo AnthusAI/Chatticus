@@ -157,6 +157,14 @@ class TurnTerminalError(ChatticusError):
     """The turn already reached a terminal state."""
 
 
+class TurnNotWaitingError(ChatticusError):
+    """Resume was called on a turn that is not blocked on a readiness gate."""
+
+
+class ComputerNotReadyError(ChatticusError):
+    """The household computer is still stopped, so the waiting turn cannot resume."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""
@@ -315,6 +323,7 @@ class Turn:
     recovery_attempts: int = 0
     terminal_reason: str | None = None
     ambiguous_provider_call_id: str | None = None
+    waiting_for: str | None = None
 
 
 @dataclass(frozen=True)
