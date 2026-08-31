@@ -3,7 +3,7 @@
   "title": "Implement single-owner computer start and readiness",
   "description": "Implement the lifecycle required by the single-start and readiness stories.\n\nAcceptance criteria:\n- A conditional start claim is keyed by tenant_id and computer_id.\n- Repeated and concurrent requests converge on one logical host start.\n- Readiness is recorded independently for model, workspace, and browser capabilities.\n- A stopped or wedged host claim expires and can be reclaimed.\n- A stale local host cannot regain prefer-local routing until it reconciles with the current snapshot generation.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -25,10 +25,16 @@
       "author": "home",
       "text": "e747d7 measurement exists. This task is no longer waiting on an unknown cold-start number for process/network. Browser/Chromium remains an incomplete component.",
       "created_at": "2026-08-31T07:40:00.693900Z"
+    },
+    {
+      "id": "bd15d4fc-0ec1-48b0-b80f-1de9510f89af",
+      "author": "home",
+      "text": "Kernel on cursor/frontier-gap-4a21 @ 799baef. Gherkin: single_computer_start (concurrent start, retry idempotency, lease reclaim, stale-local prefer-local), computer_host_readiness (model/workspace/browser independent), capability_gated_readiness unchanged. Acceptance: tenant+computer keyed claim, one logical start per lease, per-capability readiness on Computer, expire_host_start_claims + host_start_generation reclaim, snapshot_generation + hydrated_snapshot_generation stale-local gate in assign_turn and select_computer_start_host. 181 pytest pass. Kernel-only; not live ThinTurn. No Computers/staging/production deploy.",
+      "created_at": "2026-08-31T07:52:19.336419Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.770889Z",
-  "updated_at": "2026-08-31T07:40:00.693900Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T07:52:19.347401Z",
+  "closed_at": "2026-08-31T07:52:19.347401Z",
   "custom": {}
 }
