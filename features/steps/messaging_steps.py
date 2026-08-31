@@ -645,6 +645,28 @@ def given_watching_connection_closes(context: object) -> None:
     context.sse_watcher = None
 
 
+@when('user "{user_id}" of tenant "{tenant_id}" lists turn events after seq {seq:d}')
+def when_list_turn_events_after_seq(
+    context: object, user_id: str, tenant_id: str, seq: int
+) -> None:
+    response = context.api_client.get(
+        f"/turns/{_turn_id(context)}/events",
+        params={"after": seq},
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    context.listed_turn_events = response.json()["events"]
+
+
+@then("the turn listing contains only events {start:d} and {end:d} in order")
+def then_turn_listing_contains_only_events(
+    context: object, start: int, end: int
+) -> None:
+    listed = context.listed_turn_events
+    assert listed is not None
+    assert [event["seq"] for event in listed] == [start, end]
+
+
 @when(
     'user "{user_id}" of tenant "{tenant_id}" reconnects to the turn '
     "with Last-Event-ID {seq:d}"

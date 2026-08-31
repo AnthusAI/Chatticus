@@ -417,6 +417,35 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+        first_turn_seq = all_events[0]["seq"]
+        listed_turn_after = client.get(
+            f"/turns/{turn_id}/events",
+            params={"after": first_turn_seq},
+        )
+        if listed_turn_after.status_code != 200:
+            print(
+                f"turn_events_after {listed_turn_after.status_code} "
+                f"{listed_turn_after.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        turn_after_events = listed_turn_after.json()["events"]
+        print(
+            f"turn_after={first_turn_seq} remaining={len(turn_after_events)} "
+            f"kinds={[event.get('kind') for event in turn_after_events]}"
+        )
+        if any(item["seq"] <= first_turn_seq for item in turn_after_events):
+            print("turn events after replayed seq at or before after", file=sys.stderr)
+            return 1
+        if not turn_after_events:
+            print("turn events after returned no rows", file=sys.stderr)
+            return 1
+        if turn_after_events[-1].get("kind") != "turn.completed":
+            print(
+                "turn events after did not end at turn.completed",
+                file=sys.stderr,
+            )
+            return 1
         browser_post = client.post(
             f"/channels/{channel['channel_id']}/messages",
             json={

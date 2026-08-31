@@ -88,7 +88,8 @@ computerless worker does not race the claim), plus SSE `turn.started` /
 `Last-Event-ID` and requires ordered replay through `turn.completed`.
 After the greeting completes, **development** also lists channel history
 with `GET /channels/{id}/messages?after=<seq>` and requires only later
-rows.
+rows, and lists the durable turn journal with
+`GET /turns/{id}/events?after=<seq>` through `turn.completed`.
 **Development** also proves `POST /turns/{id}/waiting`:
 SSE `turn.waiting` naming `browser`, `GET /turns/{id}` returning
 `waiting_for=browser` and pending tool `request_computer_capability`,

@@ -100,6 +100,39 @@ def test_list_channel_messages_after_query_skips_earlier_seq() -> None:
     api.close()
 
 
+def test_list_turn_events_after_query_skips_earlier_seq() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    client = HttpTurnClient(api, channel.tenant_id)
+    client.claim(turn_id, "events-worker")
+    client.post_chunk(turn_id, "Hel")
+    client.post_chunk(turn_id, "lo")
+    client.post_chunk(turn_id, "!")
+    listed = api.get(
+        f"/turns/{turn_id}/events",
+        params={"after": 2},
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert listed.status_code == 200
+    payloads = listed.json()["events"]
+    assert [item["seq"] for item in payloads] == [3, 4]
+    assert payloads[0]["kind"] == TurnEventKind.TURN_TOKEN
+    assert payloads[1]["kind"] == TurnEventKind.TURN_TOKEN
+    api.close()
+
+
 @mock_aws
 def test_dynamo_logical_enqueue_survives_a_new_control_plane() -> None:
     table_name = "chatticus-messaging-enqueue-test"

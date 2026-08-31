@@ -25,6 +25,13 @@ Feature: Turn-scoped server-sent events
     And later events continue from the same turn
     And the turn completes whether or not a watcher remains connected
 
+  Scenario: Turn journal reconnects after a seq without opening SSE
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"
+    And a turn has emitted committed events through sequence 4
+    When user "ryan" of tenant "anthus" lists turn events after seq 2
+    Then the turn listing contains only events 3 and 4 in order
+
   Scenario: Another tenant cannot watch a turn stream
     Given an empty control plane
     And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"

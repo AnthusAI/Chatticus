@@ -208,6 +208,7 @@ would wait a second for; buffer what you are rendering live.
 | `POST /channels` | Open a channel |
 | `POST /channels/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if it enqueues a turn |
 | `GET /channels/{id}/messages?after=<seq>` | History and reconnect |
+| `GET /turns/{id}/events?after=<seq>` | Durable turn journal after a seq |
 | `GET /turns/{id}/stream` | Server-sent events for one turn (`Last-Event-ID`) |
 | `POST /turns/{id}/chunks` | Worker appends coalesced output |
 | `POST /approvals/{id}` | Human decides a blocked action |
