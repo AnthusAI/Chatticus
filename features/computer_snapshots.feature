@@ -59,11 +59,17 @@ Feature: Computer snapshots and host relocate
       | capabilities | computer |
       | computer_id  | household-computer |
     Then the turn is assigned to worker "fargate-1"
-    When worker "fargate-1" hydrates computer "household-computer"
+
+  Scenario: After the intended host hydrates, a stale local host is not preferred
+    Given tenant "anthus" user "ryan" has a bot named "Researcher"
+    When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
+    And worker "fargate-1" publishes a snapshot of computer "household-computer"
+    And an administrator relocates computer "household-computer" to worker "fargate-1"
+    And worker "fargate-1" hydrates computer "household-computer"
     And tenant "anthus" enqueues a turn:
       | capabilities | computer |
       | computer_id  | household-computer |
-    Then the turn is assigned to worker "garage-mac-1"
+    Then the turn is assigned to worker "fargate-1"
 
   Scenario: A worker that does not host the computer cannot hydrate it
     Given a worker registered as:

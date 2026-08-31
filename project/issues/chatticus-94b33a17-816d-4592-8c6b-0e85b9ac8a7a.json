@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-94b33a17-816d-4592-8c6b-0e85b9ac8a7a",
+  "title": "Relocate-after-hydrate Gherkin must skip a stale local host",
+  "description": "",
+  "type": "bug",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "7bd92579-0cb9-4473-88d3-ad15ce845ea8",
+      "author": "home",
+      "text": "Gherkin now matches 53beb0 stale-local gating: after the intended Fargate host hydrates, garage-mac is still stale so the next turn stays on fargate-1. computer_snapshots.feature 8/8 green.",
+      "created_at": "2026-08-31T10:18:54.254533Z"
+    }
+  ],
+  "created_at": "2026-08-31T10:18:14.404320Z",
+  "updated_at": "2026-08-31T10:18:54.263949Z",
+  "closed_at": "2026-08-31T10:18:54.263949Z",
+  "custom": {}
+}
