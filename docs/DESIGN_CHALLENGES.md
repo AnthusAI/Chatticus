@@ -202,7 +202,8 @@ bills per request and costs nothing when nobody is working.
 **Tested (2026-08-30).** Test 1 in `spikes/sse-transport/` measured Python Lambda
 response streaming (Lambda Web Adapter) through a function URL and through
 CloudFront. **Pass.** No failure branch applied. Spike stack `ChatticusSseSpike`
-in account 335163751677, region us-east-1.
+in `us-east-1`. Endpoints were stack outputs at measurement time; do not
+commit those URLs.
 
 | Path | TTFB (ms) | Inter-frame gap p50 (ms) | p95 (ms) | Batching | Reconnect (`Last-Event-ID`) |
 | --- | --- | --- | --- | --- | --- |

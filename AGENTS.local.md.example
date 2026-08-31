@@ -1,0 +1,18 @@
+# AGENTS.local.md.example
+#
+# Copy to AGENTS.local.md at the repo root. That copy is gitignored and must
+# never be committed. Fill values from SSM / CloudFormation after `aws login`.
+
+# ## AWS
+# Account id, region, and `aws login` notes for this desk.
+
+# ## API bases
+# aws ssm get-parameter --name /chatticus/development/thin-turn/cloudfront-url
+# aws cloudformation describe-stacks --stack-name ChatticusThinTurn \
+#   --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue"
+# aws cloudformation describe-stacks --stack-name ChatticusWeb \
+#   --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionDomainName'].OutputValue"
+
+# export CHATTICUS_DEVELOPMENT_BASE_URL=
+# export CHATTICUS_STAGING_BASE_URL=
+# export CHATTICUS_PRODUCTION_BASE_URL=

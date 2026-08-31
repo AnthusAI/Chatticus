@@ -23,6 +23,7 @@ infra/cdk-outputs.json
 .env
 .env.*
 !.env.example
+AGENTS.local.md
 /workspace-data/
 computer/profile/
 var/

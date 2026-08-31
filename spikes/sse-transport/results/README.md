@@ -4,10 +4,14 @@ Measured 2026-08-30 against stack `ChatticusSseSpike` (us-east-1).
 
 ## Deployed endpoints
 
-| Output | URL |
+Endpoints were CloudFormation outputs at measurement time. Record the
+current function URL and CloudFront domain in gitignored `AGENTS.local.md`;
+do not commit them.
+
+| Output | Source |
 | --- | --- |
-| Direct function URL | https://6r537llsebh3kvok37t4vsvldu0mwpdf.lambda-url.us-east-1.on.aws/stream |
-| CloudFront | https://d1jcaavght8v16.cloudfront.net/stream |
+| Direct function URL | `ChatticusSseSpike` `SseSpikeFunctionUrl` |
+| CloudFront | `ChatticusSseSpike` `SseSpikeCloudFrontUrl` |
 | Origin read timeout | 60 s (180 s quota not available) |
 
 ## Playwright summary (Chromium desktop, foreground)

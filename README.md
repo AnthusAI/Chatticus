@@ -64,26 +64,30 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-GitHub **`main`** is promoted to the 2026-08-31 live development pin
-(`50ad1d4` ThinTurn code, plus this docs commit). That is a git promotion
-only. Three named thin-turn environments are live in AWS account
-`335163751677` (`us-east-1`). Production is never implied by a git
-branch; it is an explicit gated deploy of a release that already passed
-staging acceptance. Git promotion does not redeploy stacks. Staging and
-production were last recorded as deployed from `origin/main` @ `760915d`
-(v0.5.0); they have not been redeployed from this pin. Development was
-redeployed ThinTurn-only from `develop` @ `50ad1d4` (no `--all`). That
-pin attaches a `ComputerWorker` Lambda to `ComputerTurnJobs` that nacks
-without a host (`computer_queue_job=in_flight_nack`) and does not fake
-`tool.result`. A CloudFront run of the named exercise on 2026-08-31
-exited 0 with `health_environment=1`, `missing_claim=404`, `claim_a=200`
-then `claim_b=409`, `host_start_generation=1` after resume (23c93e,
-2a2b64, bf5b02), and `computer_queue_job=in_flight_nack`. GET computer
-includes `host_start_generation` (0 before any start). The live
-ComputerWorker still uses a no-op `HostStarter`; CDK does not set
+GitHub **`main`** is a git promotion of the 2026-08-31 development pin,
+not a stack redeploy. Three named thin-turn environments are live in
+`us-east-1`. Production is never implied by a git branch; it is an
+explicit gated deploy of a release that already passed staging
+acceptance. Staging and production were last recorded as deployed from
+`origin/main` @ `760915d` (v0.5.0); they have not been redeployed from
+this pin. Development was redeployed ThinTurn-only from `develop` @
+`50ad1d4` (no `--all`). That pin attaches a `ComputerWorker` Lambda to
+`ComputerTurnJobs` that nacks without a host
+(`computer_queue_job=in_flight_nack`) and does not fake `tool.result`.
+A named-environment run of the exercise on 2026-08-31 exited 0 with
+`health_environment=1`, `missing_claim=404`, `claim_a=200` then
+`claim_b=409`, `host_start_generation=1` after resume (23c93e, 2a2b64,
+bf5b02), and `computer_queue_job=in_flight_nack`. GET computer includes
+`host_start_generation` (0 before any start). The live ComputerWorker
+still uses a no-op `HostStarter`; CDK does not set
 `CHATTICUS_HOST_STARTER=ecs` and does not grant `ecs:RunTask`. A demo CLI
 (Kanbus epic 35d86b) is starting; it talks to this HTTP surface.
 `exercise_thin_turn.py` stays the pass/fail gate.
+
+Per-account CloudFront distribution domains, Lambda function URLs, and
+AWS account ids belong in gitignored `AGENTS.local.md`, not in this
+file. Resolve the front door from SSM, CloudFormation, or
+`CHATTICUS_*_BASE_URL`.
 
 | Environment | Web stack | Site | API base (same origin) |
 | --- | --- | --- | --- |
@@ -93,10 +97,11 @@ ComputerWorker still uses a no-op `HostStarter`; CDK does not set
 
 Deploy DNS once (`infra/deploy-chatticus-dns.sh`), set registrar name servers
 to the stack **NameServers** output, then deploy thin-turn + web per environment.
-Until DNS propagates, use the CloudFront distribution domain from stack outputs.
+Until DNS propagates, pass `--base-url` with the CloudFront distribution domain
+from stack outputs (record it in gitignored `AGENTS.local.md`, not in the repo).
 
-If SSM or CloudFormation credentials are expired, the exercise falls
-back to those published API bases (b4c3d2). SQS queue checks still need
+If SSM or CloudFormation credentials are expired, set
+`CHATTICUS_{ENVIRONMENT}_BASE_URL` or pass `--base-url`. SQS queue checks still need
 `aws login`.
 
 `cd python && python scripts/exercise_thin_turn.py --environment <name>`
@@ -446,9 +451,10 @@ That is the same as
 `python scripts/exercise_thin_turn.py --environment development` plus an
 identity check. It resolves the front door from
 `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
-`/chatticus/development/thin-turn/cloudfront-url`, the
-`CloudFrontUrl` output on stack `ChatticusThinTurn`, or the published
-CloudFront origin in `THIN_TURN_PUBLISHED_BASE_URLS`. SQS queue checks
+`/chatticus/development/thin-turn/cloudfront-url`, or the
+`CloudFrontUrl` output on stack `ChatticusWeb` (or `ChatticusThinTurn`
+before the web stack exists). When AWS lookup fails, pass `--base-url` or
+set the env var (see gitignored `AGENTS.local.md`). SQS queue checks
 need that same AWS identity. Repeat with `staging` or `production` when
 you mean those stacks. It does not scale Fargate. Do not run this from
 GitHub Actions.
