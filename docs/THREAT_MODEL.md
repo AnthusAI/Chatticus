@@ -77,8 +77,10 @@ Not yet built. Stated so it can be argued with.
 
 ## Known gaps
 
-- Nothing above is implemented, and the agent loop that would enforce it
-  does not exist yet.
+- Direction items 1–3 have an in-memory kernel (page-content authority,
+  overnight gated actions, immutable approval binding, unbound browser
+  stops). They are not wired into the live worker HTTP loop. The agent
+  loop that would enforce them on a computer does not exist yet.
 - No answer for a compromised browser session persisting across turns via
   the snapshot: a poisoned cookie or a modified page in the profile
   survives relocation.

@@ -3,7 +3,7 @@
   "title": "Resolve gated actions when no human is at a screen",
   "description": "Purpose: reconcile requirement 3 (work continues when the laptop is closed) with requirement 4 (consequential actions are gated) before any approval code is specified.\n\nv1 is a web tab. Device push is \"come back, something finished,\" not \"approve this now\" (docs/MESSAGING.md). iOS is v3. So a consequential action that a routine or an overnight turn reaches while nobody is at a screen has no completable approval path.\n\nEither overnight work is scoped to non-consequential actions (the honest v1, matching the first-handoff example: draft overnight, approve in the morning), or auto-review gets loosened so routines finish unattended and the threat model becomes theatre. The third option — silent failure or indefinite blocking — is the failure mode this epic exists to prevent.\n\nDefinition of Done:\n- The v1 scope of \"work continues with the laptop closed\" is written explicitly: which consequential classes may run unattended, and which may not.\n- For each consequential class that may run unattended, an enforceable control (structured connector, pre-authorized rule, or human takeover) is named, or the class is excluded from overnight work.\n- No approval design depends on a human being present at a screen unless that presence is guaranteed.\n- The decision is recorded in the approval spec and in docs/ROADMAP.md, not discovered in production.\n\nNot included: the full iOS/push approval client (v3), routine scheduling mechanics (v2).",
   "type": "epic",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,16 @@
     "v1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "a30d82f9-658e-4f8e-a058-6b49a67e8a0d",
+      "author": "home",
+      "text": "Decision recorded in docs/APPROVAL.md and docs/ROADMAP.md item 7. Unattended consequential classes run only against a human always-allow that binds exact structured arguments; generic authenticated browser cannot be pre-authorized overnight. Kernel: overnight_gated_action, exact_consequential_approval, unsupported_browser_action. Not on live ThinTurn HTTP loop. No staging/production deploy.",
+      "created_at": "2026-08-30T23:19:45.070868Z"
+    }
+  ],
   "created_at": "2026-08-30T16:14:40.076676Z",
-  "updated_at": "2026-08-30T16:14:40.076676Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T23:19:45.080867Z",
+  "closed_at": "2026-08-30T23:19:45.080867Z",
   "custom": {}
 }

@@ -3,7 +3,7 @@
   "title": "Approval binds one immutable consequential operation",
   "description": "As a household member, I want an approval to authorize exactly what I reviewed, so that an injected model cannot substitute a different action afterward.\n\nFeature: Exact consequential approval\n\nScenario: Execute the reviewed structured operation\n  Given a bot proposes a structured consequential operation with concrete destination and payload\n  When the user approves that operation\n  Then only the reviewed destination and payload may execute\n  And changing either requires a new approval\n  And completion evidence identifies the target-system result",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -16,7 +16,7 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-08-30T15:54:57.142272Z",
-  "updated_at": "2026-08-30T15:54:57.142272Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T23:07:19.904147Z",
+  "closed_at": "2026-08-30T23:07:19.904147Z",
   "custom": {}
 }

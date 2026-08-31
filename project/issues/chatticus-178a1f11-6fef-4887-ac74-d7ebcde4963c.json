@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-178a1f11-6fef-4887-ac74-d7ebcde4963c",
+  "title": "Exercise live development SSE reconnect through CloudFront",
+  "description": "Acceptance criteria:\n- exercise_thin_turn.py drops an active turn stream mid-flight and reconnects with after_seq through the named development CloudFront front door.\n- Reconnect replays committed events once in order and the turn still completes.\n- Record the result in a Kanbus comment on chatticus-387e4f; do not close the epic while mobile Safari and real background-tab observations remain open.\n- No spike redeploy; no staging or production.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-387e4fbd-3040-46ec-8182-20374e655e24",
+  "labels": [
+    "v1",
+    "transport"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "cbfb7e92-6bbe-4d51-b756-8d082f8099cf",
+      "author": "home",
+      "text": "Live development exercise exit 0 on CloudFront d3gpuuldffe35o: dropped_mid_stream=True after turn.started+turn.token, reconnect_after_seq=2, resumed turn.token+turn.completed with no duplicate seqs. black/ruff/behave/pytest green on de44cdc. No ThinTurn redeploy (exercise-only against existing d99b028 stack).",
+      "created_at": "2026-08-31T02:37:29.171370Z"
+    }
+  ],
+  "created_at": "2026-08-31T02:35:45.770457Z",
+  "updated_at": "2026-08-31T02:37:32.925298Z",
+  "closed_at": "2026-08-31T02:37:32.925298Z",
+  "custom": {}
+}

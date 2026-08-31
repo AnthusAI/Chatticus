@@ -3,7 +3,7 @@
   "title": "The first computer tool continues the same turn",
   "description": "As a household member, I want a bot to gain computer capability without restarting its reasoning, so that completed work and paid model output are preserved.\n\nFeature: Mid-turn computer escalation\n\nScenario: A computerless turn requests its first computer tool\n  Given a computerless attempt has committed model output and one pending computer tool call\n  When the household computer becomes ready\n  Then one computer-capable attempt executes that exact pending call\n  And the tool result is appended to the same turn\n  And the model continues after the result\n  And no completed tool result is replayed",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,22 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "ae5b6141-47e5-448f-90c4-a985131ca001",
+      "author": "home",
+      "text": "Kernel: mid_turn_computer_escalation.feature. Same-turn continuation after first computer tool; no result replay. Not on live ThinTurn. No staging/production or Computers deploy.",
+      "created_at": "2026-08-30T23:46:09.494866Z"
+    },
+    {
+      "id": "d947c4bd-fb0c-4c86-9bb5-267fd09b9d03",
+      "author": "home",
+      "text": "Kernel on develop: features/mid_turn_computer_escalation.feature. First computer tool continues the same turn; exact pending call; result is not replayed. Not on live ThinTurn. No staging/production.",
+      "created_at": "2026-08-30T23:47:56.609827Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:56.489544Z",
-  "updated_at": "2026-08-30T15:54:56.489544Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T23:47:56.609827Z",
+  "closed_at": "2026-08-30T23:47:56.598057Z",
   "custom": {}
 }

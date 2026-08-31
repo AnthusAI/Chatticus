@@ -24,10 +24,28 @@
       "author": "home",
       "text": "Status 2026-08-30:\n\nDone: Test 1 (chatticus-bbfb8d) merged; stack ChatticusSseSpike destroyed; mermaid follow-up (chatticus-f0f9e0) closed.\n\nStill open on the original DoD: mobile Safari was not measured. Do not treat CloudFront as the product front door. Do not rebuild the spike. Leave this epic open until that gap is either measured or explicitly waived by the owner.\n",
       "created_at": "2026-08-30T18:30:35.009657Z"
+    },
+    {
+      "id": "8efe00db-e1c7-45b5-9088-ed51a6f13b60",
+      "author": "home",
+      "text": "Reconnect on the live development ThinTurn front door is now exercised: exercise_thin_turn.py drops mid-stream and reconnects with after_seq through CloudFront (de44cdc on develop). Spike Test 1 already covered foreground desktop reconnect.\n\nStill open on original DoD: real background-tab and mobile Safari were not measured and cannot be faked here. Epic stays open until those are measured or explicitly waived by the owner.",
+      "created_at": "2026-08-31T02:37:29.171390Z"
+    },
+    {
+      "id": "222e47cc-3b69-486b-9b4e-02db8287886c",
+      "author": "home",
+      "text": "Product turn SSE now emits id=seq and honors Last-Event-ID through CloudFront (1e389e, baed1eb). Foreground reconnect is live. Background tab and mobile Safari remain unmeasured.",
+      "created_at": "2026-08-31T03:56:24.588086Z"
+    },
+    {
+      "id": "27456662-acc0-4428-b2a5-dd460cb6a961",
+      "author": "home",
+      "text": "Foreground reconnect and HTTP turn-journal poll after seq are live on development (555ccff). Background tab and mobile Safari remain unmeasured; epic stays open.",
+      "created_at": "2026-08-31T04:11:41.587098Z"
     }
   ],
   "created_at": "2026-08-30T15:53:17.431152Z",
-  "updated_at": "2026-08-30T18:30:35.009657Z",
+  "updated_at": "2026-08-31T04:11:41.587098Z",
   "closed_at": null,
   "custom": {}
 }

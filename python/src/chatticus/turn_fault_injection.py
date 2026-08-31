@@ -97,7 +97,8 @@ class StepwiseTurnWorker:
             return self.cached_answer
         self._fault(TurnBoundary.MODEL_ACCEPTANCE, CrashWindow.BEFORE)
         prompt = self.plane.turn_prompt(job.tenant_id, job.turn_id)
-        answer = self.completion_client.complete(prompt)
+        outcome = self.completion_client.complete(prompt)
+        answer = outcome.text if hasattr(outcome, "text") else outcome
         self.cached_answer = answer
         self._fault(TurnBoundary.MODEL_ACCEPTANCE, CrashWindow.AFTER)
         return answer

@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-2cfcb8d9-4ce3-4a30-bad3-26328fdc5df9",
+  "title": "Retrying a channel open with one idempotency key does not duplicate",
+  "description": "As a household member, I want retrying POST /channels with the same Idempotency-Key to return the original channel, so a dropped HTTP response does not open a second conversation.\n\nFeature: Channels and the message store\n\nScenario: Retrying a channel open with the same idempotency key does not duplicate\n  Given an empty control plane\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Assistant\"\n  When tenant \"anthus\" user \"ryan\" opens a channel with idempotency key \"retry-ch\" with bots:\n    | Assistant |\n  And tenant \"anthus\" user \"ryan\" opens a channel with idempotency key \"retry-ch\" with bots:\n    | Assistant |\n  Then the opened channel identifier is unchanged\n\nThe key is stored on the messaging table so a recycled Front Door Lambda still sees it.\n\nNot included: staging, production, Fargate, Safari.",
+  "type": "story",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T04:51:30.199671Z",
+  "updated_at": "2026-08-31T04:55:37.493174Z",
+  "closed_at": "2026-08-31T04:55:37.493174Z",
+  "custom": {}
+}

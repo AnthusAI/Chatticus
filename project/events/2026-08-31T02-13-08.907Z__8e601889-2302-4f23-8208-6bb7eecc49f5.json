@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "8e601889-2302-4f23-8208-6bb7eecc49f5",
+  "issue_id": "chatticus-86c75d51-b037-46f3-ad80-1f571f62543c",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T02:13:08.907Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a household member, I want a computerless worker to leave a waiting turn alone, so that a later computer-capable attempt can execute the pending tool without a second model call.\n\nFeature: Computerless turn\n\nScenario: A computerless worker does not retry the model on a waiting turn\n  Given an empty control plane\n  And tenant anthus user ryan has a channel with a named bot Assistant\n  And tenant anthus user ryan household computer is stopped\n  When user ryan of tenant anthus posts a browser request addressed to bot Assistant\n  And a counting computerless worker processes bot Assistant\n  And the same waiting turn is delivered to a computerless worker again\n  Then the model is called only once\n  And the turn remains active\n  And the pending computer tool action identifier is unchanged\n\nNot included: Fargate, executing the browser tool, staging or production.",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "A computerless worker does not retry the model on a waiting turn"
+  }
+}

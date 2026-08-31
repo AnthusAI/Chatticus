@@ -16,12 +16,16 @@ from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
     ActorKind,
     ChannelTenantMismatchError,
+    ComputerlessCannotExecuteComputerJob,
     TurnAccessDeniedError,
+    TurnEventKind,
+    TurnJob,
     TurnStatus,
 )
 from chatticus.worker.computerless import (
     ComputerlessWorker,
     CountingTextCompletionClient,
+    FakeTextCompletionClient,
 )
 
 
@@ -133,6 +137,29 @@ def when_open_channel(context: object, tenant_id: str, user_id: str) -> None:
     _load_channel(context, tenant_id, response.json()["channel_id"])
 
 
+@when(
+    'tenant "{tenant_id}" user "{user_id}" opens a channel with '
+    'idempotency key "{key}" with bots:'
+)
+def when_open_channel_with_idempotency(
+    context: object, tenant_id: str, user_id: str, key: str
+) -> None:
+    bot_ids = _bot_ids(context, context.table)
+    previous = getattr(context, "idempotent_channel_id", None)
+    response = context.api_client.post(
+        "/channels",
+        json={"user_id": user_id, "bot_ids": bot_ids},
+        headers={**tenant_headers(tenant_id), "Idempotency-Key": key},
+    )
+    assert response.status_code == 200
+    channel_id = response.json()["channel_id"]
+    if previous is None:
+        context.idempotent_channel_id = channel_id
+    else:
+        context.repeated_channel_id = channel_id
+    _load_channel(context, tenant_id, channel_id)
+
+
 @given('tenant "{tenant_id}" user "{user_id}" has opened a channel with bots:')
 def given_open_channel(context: object, tenant_id: str, user_id: str) -> None:
     when_open_channel(context, tenant_id, user_id)
@@ -180,6 +207,66 @@ def when_human_posts_on_channel(
     if response.status_code == 403:
         context.message_error = ChannelTenantMismatchError(response.json()["detail"])
         return
+    assert response.status_code == 200
+    context.message_error = None
+    payload = response.json()
+    context.last_turn_id = payload.get("turn_id")
+
+
+@when(
+    'user "{user_id}" of tenant "{tenant_id}" posts "{body}" '
+    'addressed to bot "{name}" on the channel with idempotency key "{key}"'
+)
+def when_human_posts_on_channel_with_idempotency_key(
+    context: object,
+    user_id: str,
+    tenant_id: str,
+    body: str,
+    name: str,
+    key: str,
+) -> None:
+    channel = _channel(context)
+    bot = context.bots_by_name[name]
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": user_id,
+            "body": body,
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={**tenant_headers(tenant_id), "Idempotency-Key": key},
+    )
+    assert response.status_code == 200
+    context.message_error = None
+    payload = response.json()
+    context.last_turn_id = payload.get("turn_id")
+    context.last_message_id = payload["message"]["message_id"]
+
+
+@when(
+    'user "{user_id}" of tenant "{tenant_id}" posts a fence probe '
+    'addressed to bot "{name}" without enqueueing a turn job'
+)
+def when_human_posts_fence_probe_without_enqueue(
+    context: object,
+    user_id: str,
+    tenant_id: str,
+    name: str,
+) -> None:
+    channel = _channel(context)
+    bot = context.bots_by_name[name]
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": user_id,
+            "body": "Fence probe; do not wait on this turn.",
+            "addressed_to_bot_id": bot.bot_id,
+            "enqueue_turn": False,
+        },
+        headers=tenant_headers(tenant_id),
+    )
     assert response.status_code == 200
     context.message_error = None
     payload = response.json()
@@ -243,6 +330,31 @@ def then_channel_message_count(context: object, count: int) -> None:
     assert len(response.json()["messages"]) == count
 
 
+@then("the opened channel identifier is unchanged")
+def then_opened_channel_identifier_is_unchanged(context: object) -> None:
+    first = getattr(context, "idempotent_channel_id", None)
+    second = getattr(context, "repeated_channel_id", None)
+    assert first is not None
+    assert second == first
+
+
+@then('tenant "{tenant_id}" can read the open channel by identifier')
+def then_tenant_reads_open_channel(context: object, tenant_id: str) -> None:
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["channel_id"] == channel.channel_id
+    assert payload["tenant_id"] == tenant_id
+    assert payload["user_id"] == channel.user_id
+    participant_ids = {item["actor_id"] for item in payload["participants"]}
+    expected_ids = {participant.actor_id for participant in channel.participants}
+    assert participant_ids == expected_ids
+
+
 @then('the message with seq {seq:d} has body "{body}"')
 def then_message_body(context: object, seq: int, body: str) -> None:
     message = _message_at_seq(context, seq)
@@ -275,6 +387,29 @@ def then_human_reads_channel(context: object) -> None:
     assert len(response.json()["messages"]) == 2
 
 
+@when(
+    'user "{user_id}" of tenant "{tenant_id}" lists channel messages after seq {seq:d}'
+)
+def when_list_channel_messages_after_seq(
+    context: object, user_id: str, tenant_id: str, seq: int
+) -> None:
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/messages",
+        params={"after": seq},
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    context.listed_messages = response.json()["messages"]
+
+
+@then("the listing contains only the message with seq {seq:d}")
+def then_listing_contains_only_seq(context: object, seq: int) -> None:
+    listed = context.listed_messages
+    assert listed is not None
+    assert [item["seq"] for item in listed] == [seq]
+
+
 @then('bot "{name}" has {count:d} pending turn with required capabilities:')
 def then_bot_pending_turn_with_capabilities(
     context: object, name: str, count: int
@@ -284,6 +419,27 @@ def then_bot_pending_turn_with_capabilities(
     assert len(jobs) == count
     expected = _capabilities_from_table(context.table)
     assert jobs[0].required_capabilities == expected
+
+
+@then("the channel has a turn")
+def then_channel_has_a_turn(context: object) -> None:
+    channel = _channel(context)
+    turn_id = context.last_turn_id
+    assert turn_id
+    turn = context.plane.turn(channel.tenant_id, turn_id)
+    assert turn.channel_id == channel.channel_id
+    assert context.plane.job_for_turn(channel.tenant_id, turn_id) is None
+
+
+@then('bot "{name}" has 0 pending turns')
+def then_bot_has_zero_pending_turns(context: object, name: str) -> None:
+    bot = context.bots_by_name[name]
+    assert context.plane.pending_jobs_for_bot(bot.bot_id) == []
+
+
+@then("the cpu enqueue hook was not invoked")
+def then_cpu_enqueue_hook_was_never_invoked(context: object) -> None:
+    assert getattr(context, "cpu_enqueued_jobs", None) == []
 
 
 @then("posting fails because the tenant does not match")
@@ -296,6 +452,12 @@ def given_household_computer_stopped(
     context: object, tenant_id: str, user_id: str
 ) -> None:
     context.plane.set_computer_stopped(tenant_id, user_id, True)
+
+
+@given('tenant "{tenant_id}" user "{user_id}" household computer is running')
+@when('tenant "{tenant_id}" user "{user_id}" household computer is running')
+def household_computer_running(context: object, tenant_id: str, user_id: str) -> None:
+    context.plane.set_computer_stopped(tenant_id, user_id, False)
 
 
 @when(
@@ -313,8 +475,56 @@ def then_bot_completes_one_turn(context: object, name: str) -> None:
     channel = _channel(context)
     bot = context.bots_by_name[name]
     turn_client = HttpTurnClient(context.api_client, channel.tenant_id)
-    worker = ComputerlessWorker(context.plane, turn_client)
+    worker = ComputerlessWorker(context.plane, turn_client, FakeTextCompletionClient())
     worker.complete_pending_for_bot(bot.bot_id)
+
+
+@when('bot "{name}" runs one computerless worker turn')
+def when_bot_runs_computerless_worker(context: object, name: str) -> None:
+    then_bot_completes_one_turn(context, name)
+
+
+@when('a counting computerless worker processes bot "{name}"')
+def when_counting_computerless_worker_processes(context: object, name: str) -> None:
+    channel = _channel(context)
+    bot = context.bots_by_name[name]
+    context.counting_client = CountingTextCompletionClient()
+    worker = ComputerlessWorker(
+        context.plane,
+        HttpTurnClient(context.api_client, channel.tenant_id),
+        context.counting_client,
+    )
+    worker.complete_pending_for_bot(bot.bot_id)
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    context.waiting_action_id = turn.pending_computer_action_id
+
+
+@when("the same waiting turn is delivered to a computerless worker again")
+def when_waiting_turn_redelivered_to_computerless(context: object) -> None:
+    channel = _channel(context)
+    turn_id = _turn_id(context)
+    turn = context.plane.turn(channel.tenant_id, turn_id)
+    job = TurnJob(
+        job_id=str(uuid4()),
+        tenant_id=channel.tenant_id,
+        required_capabilities=frozenset({"cpu"}),
+        user_id=channel.user_id,
+        bot_id=turn.bot_id,
+        turn_id=turn_id,
+    )
+    ComputerlessWorker(
+        context.plane,
+        HttpTurnClient(context.api_client, channel.tenant_id),
+        context.counting_client,
+    ).run_job(job)
+
+
+@then("the pending computer tool action identifier is unchanged")
+def then_pending_tool_action_id_unchanged(context: object) -> None:
+    channel = _channel(context)
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    assert turn.pending_computer_action_id == context.waiting_action_id
+    assert turn.pending_computer_action_id
 
 
 @then("the channel contains one durable bot answer")
@@ -362,6 +572,15 @@ def when_other_tenant_post_or_read(context: object, tenant_id: str) -> None:
     if response.status_code == 403:
         context.access_error = ChannelTenantMismatchError(response.json()["detail"])
         return
+    channel_response = context.api_client.get(
+        f"/channels/{channel.channel_id}",
+        headers=tenant_headers(tenant_id),
+    )
+    if channel_response.status_code == 403:
+        context.access_error = ChannelTenantMismatchError(
+            channel_response.json()["detail"]
+        )
+        return
     read_response = context.api_client.get(
         f"/channels/{channel.channel_id}/messages",
         headers=tenant_headers(tenant_id),
@@ -408,6 +627,10 @@ def given_bot_producing_turn(context: object, name: str) -> None:
 
 
 @given(
+    'user "{user_id}" of tenant "{tenant_id}" is watching that turn '
+    "through server-sent events"
+)
+@when(
     'user "{user_id}" of tenant "{tenant_id}" is watching that turn '
     "through server-sent events"
 )
@@ -510,11 +733,33 @@ def given_watching_connection_closes(context: object) -> None:
     context.sse_watcher = None
 
 
+@when('user "{user_id}" of tenant "{tenant_id}" lists turn events after seq {seq:d}')
+def when_list_turn_events_after_seq(
+    context: object, user_id: str, tenant_id: str, seq: int
+) -> None:
+    response = context.api_client.get(
+        f"/turns/{_turn_id(context)}/events",
+        params={"after": seq},
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    context.listed_turn_events = response.json()["events"]
+
+
+@then("the turn listing contains only events {start:d} and {end:d} in order")
+def then_turn_listing_contains_only_events(
+    context: object, start: int, end: int
+) -> None:
+    listed = context.listed_turn_events
+    assert listed is not None
+    assert [event["seq"] for event in listed] == [start, end]
+
+
 @when(
     'user "{user_id}" of tenant "{tenant_id}" reconnects to the turn '
-    "after sequence {seq:d}"
+    "with Last-Event-ID {seq:d}"
 )
-def when_reconnect_after_seq(
+def when_reconnect_with_last_event_id(
     context: object, user_id: str, tenant_id: str, seq: int
 ) -> None:
     watcher = SseWatcher(
@@ -579,6 +824,216 @@ def when_other_opens_turn_stream(context: object, tenant_id: str) -> None:
 @then("turn stream access is denied because the tenant does not match")
 def then_turn_stream_tenant_denied(context: object) -> None:
     assert isinstance(context.stream_error, TurnAccessDeniedError)
+
+
+@when("the worker posts a progress chunk and then waits on the browser gate")
+def when_worker_posts_chunk_then_waiting(context: object) -> None:
+    channel = _channel(context)
+    turn_id = _turn_id(context)
+    tenant_id = channel.tenant_id
+    _post_chunk_http(context, turn_id, tenant_id, "Here is a draft.")
+    client = HttpTurnClient(
+        context.api_client, tenant_id, fence_token=context.fence_token
+    )
+    client.post_waiting(turn_id, "browser")
+
+
+@then('user "{user_id}" receives a waiting server-sent event naming {gate}')
+def then_receives_waiting_event(context: object, user_id: str, gate: str) -> None:
+    context.sse_watcher.wait_for_kind("turn.waiting", timeout=5.0)
+    waiting = [
+        event
+        for event in context.sse_watcher.events
+        if event.get("kind") == "turn.waiting"
+    ]
+    assert waiting
+    assert waiting[0].get("body") == gate
+
+
+@then("the turn remains active")
+def then_turn_remains_active(context: object) -> None:
+    channel = _channel(context)
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    assert turn.status == TurnStatus.ACTIVE
+    assert turn.claimed_by_worker_id is None
+
+
+@then("the turn is still waiting on the browser gate")
+def then_turn_still_waiting_on_browser(context: object) -> None:
+    channel = _channel(context)
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    assert turn.waiting_for == "browser"
+
+
+@then('user "{user_id}" can read the turn gate as {gate} without opening SSE')
+def then_user_reads_turn_gate_without_sse(
+    context: object, user_id: str, gate: str
+) -> None:
+    del user_id
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/turns/{_turn_id(context)}",
+        headers=tenant_headers(channel.tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "active"
+    assert payload["waiting_for"] == gate
+
+
+@then('user "{user_id}" can read the pending computer tool {tool_name} for {gate}')
+def then_user_reads_pending_computer_tool(
+    context: object, user_id: str, tool_name: str, gate: str
+) -> None:
+    del user_id
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/turns/{_turn_id(context)}",
+        headers=tenant_headers(channel.tenant_id),
+    )
+    assert response.status_code == 200
+    pending = response.json().get("pending_computer_tool")
+    assert pending is not None
+    assert pending["tool_name"] == tool_name
+    assert pending["arguments"] == {"gate": gate}
+    assert pending["action_id"]
+
+
+@then("the waiting journal event names {tool_name} for {gate}")
+def then_waiting_journal_names_tool(context: object, tool_name: str, gate: str) -> None:
+    channel = _channel(context)
+    turn_id = _turn_id(context)
+    events = context.plane.list_turn_events(channel.tenant_id, turn_id)
+    waiting = [event for event in events if event.kind == TurnEventKind.TURN_WAITING]
+    assert len(waiting) == 1
+    pending = waiting[0].pending_computer_tool
+    assert pending is not None
+    assert pending.tool_name == tool_name
+    assert pending.arguments == {"gate": gate}
+    assert pending.action_id
+    sse_waiting = [
+        event
+        for event in context.sse_watcher.events
+        if event.get("kind") == TurnEventKind.TURN_WAITING
+    ]
+    assert sse_waiting
+    sse_pending = sse_waiting[0].get("pending_computer_tool")
+    assert sse_pending is not None
+    assert sse_pending["tool_name"] == tool_name
+    assert sse_pending["arguments"] == {"gate": gate}
+    assert sse_pending["action_id"] == pending.action_id
+
+
+@then('user "{user_id}" reads the same action identifier from GET and the journal')
+def then_action_id_stable_across_get_and_journal(context: object, user_id: str) -> None:
+    del user_id
+    channel = _channel(context)
+    turn_id = _turn_id(context)
+    headers = tenant_headers(channel.tenant_id)
+    first = context.api_client.get(f"/turns/{turn_id}", headers=headers).json()
+    second = context.api_client.get(f"/turns/{turn_id}", headers=headers).json()
+    get_action_id = first["pending_computer_tool"]["action_id"]
+    assert get_action_id
+    assert second["pending_computer_tool"]["action_id"] == get_action_id
+    events = context.plane.list_turn_events(channel.tenant_id, turn_id)
+    waiting = [event for event in events if event.kind == TurnEventKind.TURN_WAITING]
+    assert waiting[0].pending_computer_tool is not None
+    assert waiting[0].pending_computer_tool.action_id == get_action_id
+
+
+@when('user "{user_id}" of tenant "{tenant_id}" tries to resume that waiting turn')
+def when_user_tries_to_resume_waiting_turn(
+    context: object, user_id: str, tenant_id: str
+) -> None:
+    del user_id
+    response = context.api_client.post(
+        f"/turns/{_turn_id(context)}/resume",
+        headers=tenant_headers(tenant_id),
+    )
+    context.resume_response = response
+
+
+@when('user "{user_id}" of tenant "{tenant_id}" resumes that waiting turn')
+def when_user_resumes_waiting_turn(
+    context: object, user_id: str, tenant_id: str
+) -> None:
+    del user_id
+    response = context.api_client.post(
+        f"/turns/{_turn_id(context)}/resume",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    context.resume_response = response
+
+
+@when("a computerless worker is given the continuation job")
+def when_computerless_given_continuation_job(context: object) -> None:
+    channel = _channel(context)
+    job = context.plane.job_for_turn(channel.tenant_id, _turn_id(context))
+    assert job is not None
+    context.continuation_job = job
+    context.continuation_error = None
+    try:
+        ComputerlessWorker(
+            context.plane,
+            HttpTurnClient(context.api_client, channel.tenant_id),
+            context.counting_client,
+        ).run_job(job)
+    except ComputerlessCannotExecuteComputerJob as exc:
+        context.continuation_error = exc
+
+
+@then("the computerless worker refuses the computer job")
+def then_computerless_refuses_computer_job(context: object) -> None:
+    assert isinstance(context.continuation_error, ComputerlessCannotExecuteComputerJob)
+
+
+@then("the continuation job remains queued")
+def then_continuation_job_remains_queued(context: object) -> None:
+    channel = _channel(context)
+    job = context.plane.job_for_turn(channel.tenant_id, _turn_id(context))
+    assert job is not None
+    assert job.job_id == context.continuation_job.job_id
+    assert "computer" in job.required_capabilities
+
+
+@then("the resume response requires computer")
+def then_resume_response_requires_computer(context: object) -> None:
+    payload = context.resume_response.json()
+    assert payload.get("required_capabilities") == ["computer"]
+
+
+@then("the continuation job requires computer")
+def then_continuation_job_requires_computer(context: object) -> None:
+    channel = _channel(context)
+    job = context.plane.job_for_turn(channel.tenant_id, _turn_id(context))
+    assert job is not None
+    assert "computer" in job.required_capabilities
+    context.continuation_job = job
+
+
+@then("the cpu enqueue hook was not invoked for that job")
+def then_cpu_enqueue_hook_skipped_continuation(context: object) -> None:
+    job = context.continuation_job
+    captured_ids = [item.job_id for item in context.cpu_enqueued_jobs]
+    assert captured_ids, "cpu enqueue hook never ran for the original text job"
+    assert job.job_id not in captured_ids
+    assert "computer" not in context.cpu_enqueued_jobs[0].required_capabilities
+
+
+@then("the computer enqueue hook received that job")
+def then_computer_enqueue_hook_received_continuation(context: object) -> None:
+    job = context.continuation_job
+    captured_ids = [item.job_id for item in context.computer_enqueued_jobs]
+    assert captured_ids == [job.job_id]
+    assert "computer" in context.computer_enqueued_jobs[0].required_capabilities
+
+
+@then("resume is refused because the computer is not ready")
+def then_resume_refused_computer_not_ready(context: object) -> None:
+    assert context.resume_response.status_code == 409
+    detail = context.resume_response.json()["detail"]
+    assert "still stopped" in detail
 
 
 @given("one unfinished turn job is delivered twice")

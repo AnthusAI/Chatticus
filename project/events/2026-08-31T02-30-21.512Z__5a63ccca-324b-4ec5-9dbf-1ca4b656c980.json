@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "event_id": "5a63ccca-324b-4ec5-9dbf-1ca4b656c980",
+  "issue_id": "chatticus-0b30dc56-1217-4f7b-85f6-310f9522a0e4",
+  "event_type": "state_transition",
+  "occurred_at": "2026-08-31T02:30:21.512Z",
+  "actor_id": "example-user",
+  "payload": {
+    "from_status": "in_progress",
+    "to_status": "closed"
+  }
+}

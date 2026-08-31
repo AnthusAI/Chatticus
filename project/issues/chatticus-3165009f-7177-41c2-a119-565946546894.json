@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-3165009f-7177-41c2-a119-565946546894",
+  "title": "Channel history reconnects with after seq",
+  "description": "As a household member, I want channel history to resume after a seq using the after query MESSAGING.md already names, so a tab can poll cheaply between turns without replaying the whole transcript.\n\nFeature: Channels and the message store\n\nScenario: Channel history reconnects after a seq\n  Given an empty control plane\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Writer\"\n  And tenant \"anthus\" user \"ryan\" has opened a channel with bots:\n    | Researcher |\n    | Writer     |\n  When user \"ryan\" of tenant \"anthus\" posts \"research then draft\" addressed to bot \"Researcher\" on the channel\n  And bot \"Researcher\" posts \"notes are in /workspace/accounts.md\" addressed to bot \"Writer\" on the channel\n  And user \"ryan\" of tenant \"anthus\" lists channel messages after seq 1\n  Then the listing contains only the message with seq 2\n\nGET /channels/{id}/messages uses query after, not after_seq. Turn SSE remains Last-Event-ID.\n\nNot included: staging, production, Fargate, Safari.",
+  "type": "story",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "05e89faf-ba7e-4bf2-b202-d5915365269a",
+      "author": "home",
+      "text": "Live on development ThinTurn @ 61c69d9. Named exercise: claim_a=200 claim_b=409, channel_after remaining later seqs only. Not staging or production.",
+      "created_at": "2026-08-31T04:03:44.120543Z"
+    }
+  ],
+  "created_at": "2026-08-31T03:59:42.218472Z",
+  "updated_at": "2026-08-31T04:03:44.134828Z",
+  "closed_at": "2026-08-31T04:03:44.134828Z",
+  "custom": {}
+}

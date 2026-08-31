@@ -26,6 +26,23 @@ Feature: Shared computer and isolated bot memory
     When bot "Researcher" remembers "voice" as "short and direct"
     Then bot "Writer" does not remember "voice"
 
+  Scenario: A bot's turn prompt includes its memory and the channel
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has opened a channel with bots:
+      | Researcher |
+    When bot "Researcher" remembers "voice" as "short and direct"
+    And user "ryan" of tenant "anthus" posts "hello" addressed to bot "Researcher" on the channel
+    Then the turn prompt contains memory "voice" as "short and direct"
+    And the turn prompt contains channel text "hello"
+
+  Scenario: Bot memory can be written after a recycled control plane
+    Given an empty control plane backed by a durable messaging store
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When the control plane is recycled onto the same messaging store
+    And bot "Researcher" remembers "voice" as "short and direct"
+    Then bot "Researcher" has memory "voice" as "short and direct"
+
   Scenario: Another user does not share that computer
     Given an empty control plane
     And tenant "anthus" user "ryan" has a bot named "Researcher"

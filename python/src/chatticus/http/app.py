@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
-import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any
@@ -14,20 +14,27 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from chatticus.control_plane import ControlPlane
-from chatticus.http.sse import format_turn_event_sse
+from chatticus.http.sse import (
+    cursor_from_last_event_id,
+    format_turn_event_sse,
+    turn_event_payload,
+)
 from chatticus.models import (
     ActorKind,
     ActorNotInChannelError,
     ChannelNotFoundError,
     ChannelTenantMismatchError,
     ChatticusError,
+    ComputerNotReadyError,
     StaleAttemptError,
     TurnAccessDeniedError,
     TurnClaimDeniedError,
     TurnEventKind,
     TurnNotFoundError,
+    TurnNotWaitingError,
     TurnReconcilingError,
     TurnTerminalError,
+    pending_computer_tool_from_turn,
 )
 
 logger = logging.getLogger("chatticus.http")
@@ -48,6 +55,13 @@ class CreateBotBody(BaseModel):
     name: str
 
 
+class RememberBotBody(BaseModel):
+    """Body for POST /bots/{bot_id}/memory."""
+
+    key: str
+    value: str
+
+
 class SetComputerBody(BaseModel):
     """Body for POST /computers/stopped."""
 
@@ -62,6 +76,10 @@ class PostMessageBody(BaseModel):
     author_id: str
     body: str
     addressed_to_bot_id: str | None = None
+    enqueue_turn: bool = Field(
+        default=True,
+        description="When false, start the addressed turn without a cpu SQS job.",
+    )
 
 
 class PostChunkBody(BaseModel):
@@ -84,6 +102,13 @@ class RenewTurnBody(BaseModel):
     worker_id: str
     fence_token: int
     job_id: str | None = None
+
+
+class WaitTurnBody(BaseModel):
+    """Body for POST /turns/{turn_id}/waiting."""
+
+    gate: str
+    fence_token: int
 
 
 @dataclass
@@ -137,8 +162,12 @@ def create_app(
     def create_bot(
         body: CreateBotBody,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, str]:
-        bot = state.plane.create_bot(tenant_id, body.user_id, body.name)
+        key = (idempotency_key or "").strip() or None
+        bot = state.plane.create_bot(
+            tenant_id, body.user_id, body.name, idempotency_key=key
+        )
         logger.info(
             "bot_created tenant_id=%s user_id=%s bot_id=%s",
             tenant_id,
@@ -151,6 +180,55 @@ def create_app(
             "user_id": bot.user_id,
             "name": bot.name,
         }
+
+    @app.get("/bots")
+    def lookup_bot(
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        user_id: str = Query(),
+        name: str = Query(),
+    ) -> dict[str, Any]:
+        try:
+            bot = state.plane.bot_by_name(tenant_id, user_id, name)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="bot not found") from error
+        return _bot_payload(bot)
+
+    @app.get("/users/{user_id}/bots")
+    def list_user_bots(
+        user_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        bots = state.plane.list_bots(tenant_id, user_id)
+        return {"bots": [_bot_payload(bot) for bot in bots]}
+
+    @app.get("/bots/{bot_id}")
+    def get_bot(
+        bot_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            bot = state.plane.bot(tenant_id, bot_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="bot not found") from error
+        return _bot_payload(bot)
+
+    @app.post("/bots/{bot_id}/memory")
+    def remember_bot(
+        bot_id: str,
+        body: RememberBotBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            state.plane.remember(tenant_id, bot_id, body.key, body.value)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="bot not found") from error
+        logger.info(
+            "bot_memory_written tenant_id=%s bot_id=%s key=%s",
+            tenant_id,
+            bot_id,
+            body.key,
+        )
+        return _bot_payload(state.plane.bot(tenant_id, bot_id))
 
     @app.post("/computers/stopped")
     def set_computer_stopped(
@@ -178,8 +256,15 @@ def create_app(
     def create_channel(
         body: CreateChannelBody,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, Any]:
-        channel = state.plane.create_channel(tenant_id, body.user_id, body.bot_ids)
+        key = (idempotency_key or "").strip() or None
+        channel = state.plane.create_channel(
+            tenant_id,
+            body.user_id,
+            body.bot_ids,
+            idempotency_key=key,
+        )
         logger.info(
             "channel_created tenant_id=%s channel_id=%s user_id=%s",
             tenant_id,
@@ -188,12 +273,25 @@ def create_app(
         )
         return _channel_payload(channel)
 
+    @app.get("/channels/{channel_id}")
+    def get_channel(
+        channel_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            channel = state.plane.channel(tenant_id, channel_id)
+        except ChannelNotFoundError as error:
+            raise HTTPException(status_code=404, detail="channel not found") from error
+        return _channel_payload(channel)
+
     @app.post("/channels/{channel_id}/messages")
     def post_message(
         channel_id: str,
         body: PostMessageBody,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, Any]:
+        key = (idempotency_key or "").strip() or None
         message, started = state.plane.post_channel_message(
             channel_id,
             tenant_id,
@@ -201,6 +299,8 @@ def create_app(
             body.author_id,
             body.body,
             addressed_to_bot_id=body.addressed_to_bot_id,
+            enqueue_turn=body.enqueue_turn,
+            idempotency_key=key,
         )
         turn_id = started.turn_id if started is not None else None
         logger.info(
@@ -219,9 +319,9 @@ def create_app(
     def list_messages(
         channel_id: str,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
-        after_seq: int = Query(default=0, ge=0),
+        after: int = Query(default=0, ge=0),
     ) -> dict[str, Any]:
-        messages = state.plane.list_channel_messages(channel_id, tenant_id, after_seq)
+        messages = state.plane.list_channel_messages(channel_id, tenant_id, after)
         return {
             "messages": [_message_payload(message) for message in messages],
         }
@@ -287,6 +387,83 @@ def create_app(
             "lease_expires_at": attempt.lease_expires_at.isoformat(),
         }
 
+    @app.post("/turns/{turn_id}/waiting")
+    def wait_turn(
+        turn_id: str,
+        body: WaitTurnBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, str]:
+        event = state.plane.emit_turn_waiting(
+            tenant_id,
+            turn_id,
+            body.gate,
+            fence_token=body.fence_token,
+        )
+        state.plane.release_turn_claim_for_waiting(
+            tenant_id,
+            turn_id,
+            fence_token=body.fence_token,
+        )
+        logger.info(
+            "turn_waiting tenant_id=%s turn_id=%s gate=%s",
+            tenant_id,
+            turn_id,
+            body.gate,
+        )
+        return {"status": "ok", "kind": event.kind, "gate": body.gate}
+
+    @app.post("/turns/{turn_id}/resume")
+    def resume_turn(
+        turn_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        job = state.plane.resume_waiting_turn(tenant_id, turn_id)
+        turn = state.plane.turn(tenant_id, turn_id)
+        logger.info(
+            "turn_resume tenant_id=%s turn_id=%s job_id=%s gate=%s",
+            tenant_id,
+            turn_id,
+            job.job_id,
+            turn.waiting_for,
+        )
+        return {
+            "status": "ok",
+            "turn_id": turn_id,
+            "job_id": job.job_id,
+            "gate": turn.waiting_for or "",
+            "required_capabilities": sorted(job.required_capabilities),
+        }
+
+    @app.get("/turns/{turn_id}")
+    def get_turn(
+        turn_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            turn = state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot read turn {turn_id!r}."
+            ) from error
+        return _turn_payload(turn)
+
+    @app.get("/turns/{turn_id}/events")
+    def list_turn_events(
+        turn_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        after: int = Query(default=0, ge=0),
+    ) -> dict[str, Any]:
+        try:
+            state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot read turn {turn_id!r}."
+            ) from error
+        events = state.plane.list_turn_events(tenant_id, turn_id, after)
+        return {
+            "events": [turn_event_payload(event) for event in events],
+        }
+
     @app.post("/turns/{turn_id}/chunks")
     def post_chunk(
         turn_id: str,
@@ -309,10 +486,11 @@ def create_app(
         return {"status": "ok"}
 
     @app.get("/turns/{turn_id}/stream")
-    def stream_turn(
+    async def stream_turn(
+        request: Request,
         turn_id: str,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
-        after_seq: int = Query(default=0, ge=0),
+        last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
     ) -> StreamingResponse:
         try:
             state.plane.turn(tenant_id, turn_id)
@@ -320,25 +498,38 @@ def create_app(
             raise TurnAccessDeniedError(
                 f"Tenant {tenant_id!r} cannot watch turn {turn_id!r}."
             ) from error
+        try:
+            cursor = cursor_from_last_event_id(last_event_id)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
 
-        def event_generator() -> Any:
+        async def event_generator() -> Any:
             state.open_sse_streams += 1
-            cursor = after_seq
+            replay_from = cursor
             logger.info(
-                "sse_open tenant_id=%s turn_id=%s after_seq=%s",
+                "sse_open tenant_id=%s turn_id=%s last_event_id=%s",
                 tenant_id,
                 turn_id,
-                after_seq,
+                replay_from,
             )
             try:
                 while True:
-                    events = state.plane.list_turn_events(tenant_id, turn_id, cursor)
+                    if await request.is_disconnected():
+                        logger.info(
+                            "sse_disconnect tenant_id=%s turn_id=%s",
+                            tenant_id,
+                            turn_id,
+                        )
+                        return
+                    events = state.plane.list_turn_events(
+                        tenant_id, turn_id, replay_from
+                    )
                     if not events:
-                        time.sleep(0.05)
+                        await asyncio.sleep(0.05)
                         continue
                     for event in events:
                         yield format_turn_event_sse(event)
-                        cursor = event.seq
+                        replay_from = event.seq
                         if event.kind in (
                             TurnEventKind.TURN_COMPLETED,
                             TurnEventKind.TURN_FAILED,
@@ -373,11 +564,27 @@ def _status_for_error(error: ChatticusError) -> int:
         return 403
     if isinstance(error, StaleAttemptError | TurnClaimDeniedError):
         return 409
-    if isinstance(error, TurnReconcilingError | TurnTerminalError):
+    if isinstance(
+        error,
+        TurnReconcilingError
+        | TurnTerminalError
+        | TurnNotWaitingError
+        | ComputerNotReadyError,
+    ):
         return 409
     if isinstance(error, ChannelNotFoundError | TurnNotFoundError):
         return 404
     return 400
+
+
+def _bot_payload(bot: Any) -> dict[str, Any]:
+    return {
+        "bot_id": bot.bot_id,
+        "tenant_id": bot.tenant_id,
+        "user_id": bot.user_id,
+        "name": bot.name,
+        "memory": dict(bot.memory),
+    }
 
 
 def _channel_payload(channel: Any) -> dict[str, Any]:
@@ -390,6 +597,26 @@ def _channel_payload(channel: Any) -> dict[str, Any]:
             for participant in channel.participants
         ],
         "next_seq": channel.next_seq,
+    }
+
+
+def _turn_payload(turn: Any) -> dict[str, Any]:
+    pending = None
+    snapshot = pending_computer_tool_from_turn(turn)
+    if snapshot is not None:
+        pending = {
+            "action_id": snapshot.action_id,
+            "tool_name": snapshot.tool_name,
+            "arguments": dict(snapshot.arguments),
+        }
+    return {
+        "turn_id": turn.turn_id,
+        "tenant_id": turn.tenant_id,
+        "channel_id": turn.channel_id,
+        "bot_id": turn.bot_id,
+        "status": turn.status.value,
+        "waiting_for": turn.waiting_for,
+        "pending_computer_tool": pending,
     }
 
 

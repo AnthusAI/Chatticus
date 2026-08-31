@@ -36,10 +36,112 @@
       "author": "home",
       "text": "Cloud environments are now a Phase 1 epic (9eef23). The live thin turn is development. Staging and production exist in CDK, not yet in AWS.",
       "created_at": "2026-08-30T20:40:15.169104Z"
+    },
+    {
+      "id": "7e0e125a-51a0-4e53-b914-b47d74abe626",
+      "author": "home",
+      "text": "Frontier tick2 2026-08-30: kbs ready P0/P1 is 9eef23 (staging deploy, not authorized) and this initiative. e747d7 Fargate not authorized. Other P0/P1 blocked on Phase 2 chain (8f98f8, 4ddbe1). P3 ready (8527b1, 5f2ea7, 0325d4) deferred. develop @ 6ccee96; pytest 120 passed 2 skipped; behave 96 scenarios passed. No deploy.",
+      "created_at": "2026-08-31T00:07:19.089041Z"
+    },
+    {
+      "id": "16560cdd-d079-48e9-8fc2-b22e69d2b072",
+      "author": "home",
+      "text": "Cloud-environment epic 9eef23 closed. Development, staging, and production thin turns are deployed. Named-env exercise exits 0 on all three (claim 404/200/409 and SSE). Production remains gated, never implied by git. Phase 1 transport slice is live in three named environments; remaining Phase 1 work is whatever is still not on the worker HTTP loop (web app, product login, local pull worker are still out of scope). Next board item is not another environment: e747d7 cold Fargate readiness measurement, still not a Computers scale-up.",
+      "created_at": "2026-08-31T00:28:30.889610Z"
+    },
+    {
+      "id": "7f56a2eb-7d20-4e6a-b66b-018fadbcbe37",
+      "author": "home",
+      "text": "Timer tick: exercise --environment development exit 0. waiting_stream_kinds turn.started/token/waiting; stale_waiting=409; greeting completed; computer_stopped=True. Worker waiting path is in progress on 1736b3 (Fake client only; no Fargate, no production deploy).",
+      "created_at": "2026-08-31T01:07:23.414071Z"
+    },
+    {
+      "id": "c9f17c4c-c698-4235-8096-f68df56f509f",
+      "author": "home",
+      "text": "Timer tick: exercise --environment development exit 0 after ThinTurn-only 7266e93. resume_while_stopped=409 and model_resume_while_stopped=409. 66d3c4 closed. e747d7 still not authorized. No staging/production deploy. main stays v0.5.0.",
+      "created_at": "2026-08-31T01:40:51.999728Z"
+    },
+    {
+      "id": "c60543f7-04c9-462d-929c-17f6490eb0e5",
+      "author": "home",
+      "text": "Frontier tick: GET /turns/{id} wait gate live on development @ e4511c3. exercise exit 0 with turn_waiting_for and model_turn_waiting_for. dfa7a9/1ebef2 closed. e747d7 still not authorized.",
+      "created_at": "2026-08-31T01:48:59.738975Z"
+    },
+    {
+      "id": "8f75d1ad-b4d8-40d1-b7da-dcb8451b7cf8",
+      "author": "home",
+      "text": "Frontier tick: e42008 follow-up on cursor/waiting-deadline-recovery-4a21 @ e3b20c8. Gherkin proves deadline recovery skips legitimately waiting turns; RenewingTextCompletionClient renews lease+SQS visibility during blocking OpenAI calls. ThinTurn-only development deploy; exercise --environment development exit 0. Safari/background-tab still unmeasured (387e4f open). e747d7/53beb0/538d28 still blocked.",
+      "created_at": "2026-08-31T03:46:48.690684Z"
+    },
+    {
+      "id": "23307568-5059-43de-b255-01f112462e36",
+      "author": "home",
+      "text": "Channel history poll GET /channels/{id}/messages?after=seq is live on development (316500, 61c69d9). Turn SSE remains Last-Event-ID. Safari/background-tab still unmeasured on 387e4f.",
+      "created_at": "2026-08-31T04:03:44.144508Z"
+    },
+    {
+      "id": "f9b2785a-097c-4c62-bd77-15ff31770eb7",
+      "author": "home",
+      "text": "Frontier tick: GET /turns/{id}/events?after=seq is live on development (9958c56, code 555ccff). exercise --environment development exit 0 with turn_after replay through turn.completed. Channel history after and turn journal after now both match MESSAGING.md poll path. Safari/background-tab still unmeasured on 387e4f. e747d7/53beb0/538d28 still blocked.",
+      "created_at": "2026-08-31T04:11:41.576117Z"
+    },
+    {
+      "id": "0554ed03-ffcb-4bb0-8c00-6e9672dc3fcc",
+      "author": "home",
+      "text": "Named-bot durable memory is on the live roster and in the turn prompt (3f70c0, ee34d01). Compaction still open. Safari/background-tab still unmeasured on 387e4f.",
+      "created_at": "2026-08-31T04:22:31.330074Z"
+    },
+    {
+      "id": "cc06c423-a2ba-425b-bbf7-f23de39be00b",
+      "author": "home",
+      "text": "Frontier tick: durable channel post Idempotency-Key is live on development ThinTurn (ba3465e code, README pin 6dbde8c). exercise --environment development exit 0 with claim_a=200 claim_b=409 post_idempotent=1. f75044 closed. Safari/background-tab still unmeasured on 387e4f. No staging/production deploy. main stays v0.5.0.",
+      "created_at": "2026-08-31T04:33:58.552500Z"
+    },
+    {
+      "id": "ec38cf73-46cf-4a9c-9381-b948d95f50ba",
+      "author": "home",
+      "text": "Frontier tick: durable per-user bot name reservation is live on development ThinTurn (4a6a5e0 code, README f062c8b). exercise --environment development exit 0 with bot_name_dup=1 claim_a=200 claim_b=409 post_idempotent=1. 28503e closed. Safari/background-tab still unmeasured on 387e4f.",
+      "created_at": "2026-08-31T04:46:17.674277Z"
+    },
+    {
+      "id": "1d48262a-0bfd-4740-a173-35cb35b1994f",
+      "author": "home",
+      "text": "Frontier: durable POST /channels Idempotency-Key is live on development ThinTurn (f2f668f). exercise exit 0 with claim_a=200 claim_b=409 channel_idempotent=1 post_idempotent=1 bot_name_dup=1. 2cfcb8 closed. No staging/production. main stays v0.5.0. 387e4f Safari still unmeasured.",
+      "created_at": "2026-08-31T04:55:37.504859Z"
+    },
+    {
+      "id": "f120ecc9-e83f-447e-aac3-4f3c7c543261",
+      "author": "home",
+      "text": "Frontier: durable POST /bots Idempotency-Key is live on development ThinTurn (dc8fe0f). exercise exit 0 with claim_a=200 claim_b=409 bot_idempotent=1 bot_name_dup=1 channel_idempotent=1 post_idempotent=1. bda7ff closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T05:01:29.178396Z"
+    },
+    {
+      "id": "50f07c9e-9dd5-4a30-a04e-b1e7a974d340",
+      "author": "home",
+      "text": "Frontier tick: GET /channels/{id} live on development ThinTurn (c2f3e55 code, README 3146118). exercise exit 0 with channel_get=1 claim_a=200 claim_b=409. 73aaf6 closed. Safari/background-tab still unmeasured on 387e4f.",
+      "created_at": "2026-08-31T05:08:13.994143Z"
+    },
+    {
+      "id": "b3b080b2-de0d-4b19-8f71-4aaf458fbf86",
+      "author": "home",
+      "text": "Frontier: bot memory writes hydrate from Dynamo after recycle (477209d). exercise exit 0 with claim_a=200 claim_b=409 bot_memory=voice channel_get=1. 3a94d6 closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T05:15:12.413832Z"
+    },
+    {
+      "id": "ef44886e-abba-447f-aad6-245a9049103d",
+      "author": "home",
+      "text": "Frontier: GET /bots?user_id=&name= is live on development ThinTurn (b61e5e3). exercise exit 0 with claim_a=200 claim_b=409 bot_by_name=1. 3ce843 closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T05:21:59.234051Z"
+    },
+    {
+      "id": "ca5e0373-dfe6-48c3-b87f-f3f53a31c39c",
+      "author": "home",
+      "text": "Frontier: GET /users/{user_id}/bots is live on development ThinTurn (e320617 code, README pin b7ea9ea). exercise exit 0 with claim_a=200 claim_b=409 bots_list=1. 9b2999 closed. No staging/production. main stays v0.5.0. 387e4f Safari still unmeasured. e747d7 still not authorized.",
+      "created_at": "2026-08-31T05:33:06.780101Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-30T20:40:15.169104Z",
+  "updated_at": "2026-08-31T05:33:06.780101Z",
   "closed_at": null,
   "custom": {}
 }

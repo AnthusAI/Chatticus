@@ -9,6 +9,13 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from chatticus.approval_binding import ApprovalBindingGate
+from chatticus.computer_start import HostStartClaim
+from chatticus.escalation_handoff import (
+    ComputerOwnershipClaim,
+    EscalationRecord,
+    PendingComputerToolCall,
+)
 from chatticus.messaging.store import (
     InMemoryMessagingStore,
     MessagingStore,
@@ -31,11 +38,13 @@ from chatticus.models import (
     Computer,
     ComputerDirtyError,
     ComputerNotHydratedError,
+    ComputerNotReadyError,
     ComputerPolicy,
     ComputerSnapshot,
     CostClass,
     DuplicateBotNameError,
     Message,
+    PendingComputerToolSnapshot,
     SnapshotRequiredError,
     StaleAttemptError,
     Turn,
@@ -44,6 +53,7 @@ from chatticus.models import (
     TurnEventKind,
     TurnJob,
     TurnNotFoundError,
+    TurnNotWaitingError,
     TurnReconcilingError,
     TurnStatus,
     TurnTerminalError,
@@ -51,6 +61,12 @@ from chatticus.models import (
     WorkerRecord,
     WorkerRegistration,
     WorkerTenantMismatchError,
+    pending_computer_tool_from_turn,
+)
+from chatticus.overnight_gated import (
+    OvernightGatedResult,
+    resolve_unattended_gated_action,
+    resolve_unbound_authenticated_browser_action,
 )
 from chatticus.snapshot.uri import snapshot_uri
 from chatticus.turn_fault_hooks import CrashWindow, FaultInjector, TurnBoundary
@@ -74,6 +90,7 @@ class ControlPlane:
         heartbeat_timeout: timedelta | None = None,
         messaging_store: MessagingStore | None = None,
         turn_enqueued: Callable[[TurnJob], None] | None = None,
+        computer_enqueued: Callable[[TurnJob], None] | None = None,
         attempt_lease: timedelta | None = None,
         turn_deadline: timedelta | None = None,
         max_recovery_attempts: int = 1,
@@ -92,6 +109,9 @@ class ControlPlane:
         :param turn_enqueued: Optional hook that receives each cpu turn job
             after it is bound to a turn (used to publish SQS in Lambda).
         :type turn_enqueued: Callable[[TurnJob], None] | None
+        :param computer_enqueued: Optional hook that receives computer
+            continuation jobs (a queue the cpu worker does not consume).
+        :type computer_enqueued: Callable[[TurnJob], None] | None
         :param attempt_lease: How long a claimed turn stays owned without renew.
         :type attempt_lease: timedelta | None
         :param turn_deadline: How long an active turn may run without renewal.
@@ -127,9 +147,15 @@ class ControlPlane:
         self._computers_by_id: dict[str, Computer] = {}
         self._snapshots: dict[str, ComputerSnapshot] = {}
         self._auto_review_rules: list[AutoReviewRule] = []
+        self._refused_bot_auto_review: list[tuple[str, str]] = []
+        self._approval_binding = ApprovalBindingGate()
+        self._escalations: dict[tuple[str, str], EscalationRecord] = {}
+        self._computer_claims: dict[str, ComputerOwnershipClaim] = {}
+        self._host_starts: dict[tuple[str, str], HostStartClaim] = {}
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
         self._turn_enqueued = turn_enqueued
+        self._computer_enqueued = computer_enqueued
         self._logical_enqueue_delivery_count = 0
         self._visibility_ledger = visibility_ledger or QueueVisibilityLedger()
         self._visibility_renewer = visibility_renewer
@@ -137,7 +163,6 @@ class ControlPlane:
         self._turn_event_subscribers: dict[str, list[queue.Queue[TurnEvent | None]]] = (
             {}
         )
-        self._post_idempotency: dict[tuple[str, str], tuple[Message, str | None]] = {}
         if deadline_scheduler is not None:
             self._deadline_scheduler = deadline_scheduler
         else:
@@ -272,7 +297,7 @@ class ControlPlane:
         resolved_user_id = user_id
         resolved_tenant_id = tenant_id
         if bot_id is not None:
-            bot = self._bots[bot_id]
+            bot = self._bot(resolved_tenant_id, bot_id)
             resolved_user_id = bot.user_id
             resolved_tenant_id = bot.tenant_id
         needs_computer = "computer" in required_capabilities
@@ -351,20 +376,28 @@ class ControlPlane:
         )
         return candidates[0].registration
 
-    def create_bot(self, tenant_id: str, user_id: str, name: str) -> Bot:
+    def create_bot(
+        self,
+        tenant_id: str,
+        user_id: str,
+        name: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> Bot:
         """Create a named bot and ensure the user has a computer.
 
         :raises DuplicateBotNameError: If the user already has this bot name.
         """
-        for bot in self._bots.values():
-            if (
-                bot.tenant_id == tenant_id
-                and bot.user_id == user_id
-                and bot.name == name
-            ):
-                raise DuplicateBotNameError(
-                    f"Bot named {name!r} already exists for user {user_id!r}."
-                )
+        if idempotency_key is not None:
+            cached = self._messaging_store.get_bot_idempotency(
+                tenant_id, idempotency_key
+            )
+            if cached is not None:
+                return cached
+        if self._messaging_store.get_bot_by_name(tenant_id, user_id, name) is not None:
+            raise DuplicateBotNameError(
+                f"Bot named {name!r} already exists for user {user_id!r}."
+            )
         self.ensure_computer(tenant_id, user_id)
         bot = Bot(
             bot_id=str(uuid4()),
@@ -373,8 +406,39 @@ class ControlPlane:
             name=name,
         )
         self._bots[bot.bot_id] = bot
-        self._messaging_store.put_bot(bot)
+        self._messaging_store.put_bot(bot, reserve_name=True)
+        if idempotency_key is not None:
+            self._messaging_store.put_bot_idempotency(tenant_id, idempotency_key, bot)
         return bot
+
+    def bot(self, tenant_id: str, bot_id: str) -> Bot:
+        """Return one bot owned by the tenant.
+
+        :raises KeyError: If the bot is unknown to this tenant.
+        """
+        record = self._bot(tenant_id, bot_id)
+        if record.tenant_id != tenant_id:
+            raise KeyError(bot_id)
+        return record
+
+    def bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot:
+        """Return one bot by the household user's chosen name.
+
+        :raises KeyError: If the bot is unknown to this tenant and user.
+        """
+        bot = self._messaging_store.get_bot_by_name(tenant_id, user_id, name)
+        if bot is None or bot.tenant_id != tenant_id or bot.user_id != user_id:
+            raise KeyError(name)
+        self._bots[bot.bot_id] = bot
+        return bot
+
+    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
+        """Return named bots owned by one household user."""
+        bots = self._messaging_store.list_bots(tenant_id, user_id)
+        owned = [bot for bot in bots if bot.tenant_id == tenant_id]
+        for bot in owned:
+            self._bots[bot.bot_id] = bot
+        return sorted(owned, key=lambda bot: bot.name)
 
     def ensure_computer(
         self,
@@ -567,13 +631,15 @@ class ControlPlane:
                 f"{computer.computer_id!r}."
             )
 
-    def remember(self, bot_id: str, key: str, value: str) -> None:
-        """Store a memory item on one bot."""
-        self._bots[bot_id].memory[key] = value
+    def remember(self, tenant_id: str, bot_id: str, key: str, value: str) -> None:
+        """Store a memory item on one bot and persist the roster record."""
+        bot = self._bot(tenant_id, bot_id)
+        bot.memory[key] = value
+        self._messaging_store.put_bot(bot)
 
-    def memory(self, bot_id: str, key: str) -> str | None:
+    def memory(self, tenant_id: str, bot_id: str, key: str) -> str | None:
         """Return one bot memory item, if present."""
-        return self._bots[bot_id].memory.get(key)
+        return self._bot(tenant_id, bot_id).memory.get(key)
 
     def write_workspace(
         self, tenant_id: str, user_id: str, path: str, content: str
@@ -628,16 +694,351 @@ class ControlPlane:
         action_type: str,
         tenant_id: str,
         user_id: str | None = None,
+        *,
+        arguments: dict[str, str] | None = None,
+        created_by: str = "human",
     ) -> None:
-        """Add an auto-review rule scoped to a tenant, optionally one user."""
+        """Add an auto-review rule scoped to a tenant, optionally one user.
+
+        A bot cannot create an always-allow that loosens a consequential
+        action; that attempt is recorded and discarded.
+        """
+        if created_by == "bot" and kind == AutoReviewRuleKind.ALWAYS_ALLOW:
+            self._refused_bot_auto_review.append((tenant_id, action_type))
+            return
+        bindings = tuple(sorted((arguments or {}).items()))
         self._auto_review_rules.append(
             AutoReviewRule(
                 kind=kind,
                 action_type=action_type,
                 tenant_id=tenant_id,
                 user_id=user_id,
+                argument_bindings=bindings,
+                created_by=created_by,
             )
         )
+
+    def refused_bot_auto_review(self) -> list[tuple[str, str]]:
+        """Return always-allow attempts the kernel rejected from a bot."""
+        return list(self._refused_bot_auto_review)
+
+    @property
+    def approval_binding(self) -> ApprovalBindingGate:
+        """Propose, approve, and execute immutable consequential operations."""
+        return self._approval_binding
+
+    def resolve_unattended_gated_action(
+        self,
+        action_type: str,
+        tenant_id: str,
+        *,
+        arguments: dict[str, str],
+        channel: str,
+        user_id: str | None = None,
+        completion_evidence: str = "system-accepted",
+    ) -> OvernightGatedResult:
+        """Stop or pre-authorize a consequential action with no screen."""
+        return resolve_unattended_gated_action(
+            action_type=action_type,
+            arguments=arguments,
+            channel=channel,
+            rules=self._auto_review_rules,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            completion_evidence=completion_evidence,
+        )
+
+    def attempt_authenticated_browser_action(
+        self,
+        action: str,
+        *,
+        structured_connector: bool = False,
+        takeover_control: bool = False,
+    ) -> OvernightGatedResult:
+        """Refuse unbound consequential browser actions."""
+        return resolve_unbound_authenticated_browser_action(
+            action,
+            structured_connector=structured_connector,
+            takeover_control=takeover_control,
+        )
+
+    def prepare_computer_tool(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        tool_name: str,
+        arguments: dict[str, str],
+    ) -> EscalationRecord:
+        """Record that a computerless turn is ready to request a computer tool."""
+        turn = self.turn(tenant_id, turn_id)
+        bot = self._bot(tenant_id, turn.bot_id)
+        computer = self.ensure_computer(tenant_id, bot.user_id)
+        record = EscalationRecord(
+            turn_id=turn_id,
+            tenant_id=tenant_id,
+            user_id=bot.user_id,
+            computer_id=computer.computer_id,
+            pending_call=PendingComputerToolCall(
+                action_id=str(uuid4()),
+                tool_name=tool_name,
+                arguments=dict(arguments),
+            ),
+        )
+        self._escalations[(tenant_id, turn_id)] = record
+        return record
+
+    def escalation_for(self, tenant_id: str, turn_id: str) -> EscalationRecord:
+        """Return the computer-handoff record for one turn."""
+        record = self._escalations.get((tenant_id, turn_id))
+        if record is None:
+            raise TurnNotFoundError(f"Turn {turn_id!r} has no computer handoff.")
+        return record
+
+    def commit_pending_computer_tool(self, tenant_id: str, turn_id: str) -> None:
+        """Make the pending computer tool call durable."""
+        record = self.escalation_for(tenant_id, turn_id)
+        record.call_committed = True
+
+    def enqueue_computer_continuation(self, tenant_id: str, turn_id: str) -> None:
+        """Enqueue one computer-capable continuation for the same turn."""
+        record = self.escalation_for(tenant_id, turn_id)
+        if not record.call_committed:
+            raise TurnTerminalError(
+                f"Turn {turn_id!r} has no committed computer tool call."
+            )
+        if record.continuation_enqueued:
+            return
+        turn = self.turn(tenant_id, turn_id)
+        job = self.enqueue_turn(
+            tenant_id,
+            frozenset({"cpu", "computer"}),
+            computer_id=record.computer_id,
+            user_id=record.user_id,
+            bot_id=turn.bot_id,
+        )
+        self._bind_job_to_turn(job.job_id, turn_id)
+        record.continuation_job_id = job.job_id
+        record.continuation_enqueued = True
+
+    def relinquish_computerless_ownership(self, tenant_id: str, turn_id: str) -> None:
+        """Drop the computerless fence so a computer-capable attempt can claim."""
+        record = self.escalation_for(tenant_id, turn_id)
+        if not record.continuation_enqueued:
+            raise TurnTerminalError(
+                f"Turn {turn_id!r} has not enqueued a computer continuation."
+            )
+        turn = self.turn(tenant_id, turn_id)
+        turn.claimed_by_worker_id = None
+        turn.attempt_id = None
+        turn.lease_expires_at = None
+        turn.fence_token += 1
+        self._messaging_store.put_turn(turn)
+        record.computerless_relinquished = True
+
+    def claim_computer_for_turn(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        worker_id: str,
+    ) -> bool:
+        """Take an exclusive computer lease for the fenced turn owner."""
+        self.expire_orphaned_computer_claims()
+        record = self.escalation_for(tenant_id, turn_id)
+        turn = self.turn(tenant_id, turn_id)
+        if turn.claimed_by_worker_id != worker_id:
+            return False
+        existing = self._computer_claims.get(record.computer_id)
+        if (
+            existing is not None
+            and existing.expires_at > self._now
+            and existing.turn_id != turn_id
+        ):
+            return False
+        if (
+            existing is not None
+            and existing.expires_at > self._now
+            and existing.attempt_id != turn.attempt_id
+            and existing.turn_id == turn_id
+        ):
+            return False
+        self._computer_claims[record.computer_id] = ComputerOwnershipClaim(
+            computer_id=record.computer_id,
+            turn_id=turn_id,
+            attempt_id=turn.attempt_id or worker_id,
+            worker_id=worker_id,
+            expires_at=self._now + self.attempt_lease,
+        )
+        return True
+
+    def execute_pending_computer_action(self, tenant_id: str, turn_id: str) -> None:
+        """Run the pending computer tool at most once."""
+        record = self.escalation_for(tenant_id, turn_id)
+        claim = self._computer_claims.get(record.computer_id)
+        if claim is None or claim.turn_id != turn_id or claim.expires_at <= self._now:
+            raise TurnTerminalError(f"Turn {turn_id!r} does not hold the computer.")
+        if record.computer_action_count:
+            return
+        record.computer_action_count += 1
+        record.executed_action_id = record.pending_call.action_id
+
+    def commit_computer_tool_result(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        result_body: str,
+    ) -> None:
+        """Commit the computer tool result without repeating the action."""
+        record = self.escalation_for(tenant_id, turn_id)
+        if record.computer_action_count != 1:
+            raise TurnTerminalError(
+                f"Turn {turn_id!r} has no computer action to commit."
+            )
+        if record.result_committed:
+            record.result_replay_attempts += 1
+            return
+        record.result_body = result_body
+        record.result_committed = True
+        turn = self.turn(tenant_id, turn_id)
+        if turn.claimed_by_worker_id is not None:
+            self.post_turn_chunk(
+                turn_id,
+                tenant_id,
+                f"[tool:{record.pending_call.action_id}]{result_body}",
+                fence_token=turn.fence_token,
+            )
+
+    def recover_computer_escalation(self, tenant_id: str, turn_id: str) -> None:
+        """Continue a crashed handoff exactly once, then complete the turn."""
+        record = self.escalation_for(tenant_id, turn_id)
+        if not record.call_committed:
+            self.commit_pending_computer_tool(tenant_id, turn_id)
+        if not record.continuation_enqueued:
+            self.enqueue_computer_continuation(tenant_id, turn_id)
+        if not record.computerless_relinquished:
+            self.relinquish_computerless_ownership(tenant_id, turn_id)
+        claimed = self.claim_turn_attempt(tenant_id, turn_id, "computer-worker")
+        if claimed is None:
+            raise TurnTerminalError(
+                f"Turn {turn_id!r} could not be claimed for computer continuation."
+            )
+        if not self.claim_computer_for_turn(tenant_id, turn_id, "computer-worker"):
+            raise TurnTerminalError(f"Turn {turn_id!r} could not claim the computer.")
+        if record.computer_action_count == 0:
+            self.execute_pending_computer_action(tenant_id, turn_id)
+        if not record.result_committed:
+            self.commit_computer_tool_result(
+                tenant_id, turn_id, record.result_body or "opened"
+            )
+        turn = self.turn(tenant_id, turn_id)
+        self._complete_turn(turn, expected_fence=turn.fence_token)
+
+    def commit_computerless_model_output(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        token: str,
+    ) -> None:
+        """Append computerless model text to the same turn before escalation."""
+        record = self.escalation_for(tenant_id, turn_id)
+        turn = self.turn(tenant_id, turn_id)
+        self.post_turn_chunk(turn_id, tenant_id, token, fence_token=turn.fence_token)
+        record.computerless_output = (record.computerless_output or "") + token
+
+    def continue_model_after_tool_result(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        token: str,
+    ) -> None:
+        """Append model text after the computer tool result on the same turn."""
+        record = self.escalation_for(tenant_id, turn_id)
+        if not record.result_committed:
+            raise TurnTerminalError(
+                f"Turn {turn_id!r} has no computer tool result to continue from."
+            )
+        turn = self.turn(tenant_id, turn_id)
+        self.post_turn_chunk(turn_id, tenant_id, token, fence_token=turn.fence_token)
+        record.continuation_output = (record.continuation_output or "") + token
+
+    def replay_completed_computer_tool_result(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        result_body: str,
+    ) -> None:
+        """Refuse to replace a committed computer tool result."""
+        self.commit_computer_tool_result(tenant_id, turn_id, result_body)
+
+    def turn_progress_tokens(self, tenant_id: str, turn_id: str) -> list[str]:
+        """Return committed in-flight tokens for one turn."""
+        self.turn(tenant_id, turn_id)
+        return self._messaging_store.list_turn_chunks(tenant_id, turn_id)
+
+    def active_computer_controllers(self, computer_id: str) -> list[str]:
+        """Return attempt ids that currently hold an unexpired computer lease."""
+        self.expire_orphaned_computer_claims()
+        claim = self._computer_claims.get(computer_id)
+        if claim is None:
+            return []
+        return [claim.attempt_id]
+
+    def expire_orphaned_computer_claims(self) -> None:
+        """Drop computer leases whose deadline has passed."""
+        expired = [
+            computer_id
+            for computer_id, claim in self._computer_claims.items()
+            if claim.expires_at <= self._now
+        ]
+        for computer_id in expired:
+            del self._computer_claims[computer_id]
+
+    def request_computer_host_start(
+        self,
+        tenant_id: str,
+        user_id: str,
+        turn_id: str,
+    ) -> HostStartClaim:
+        """Request a host start; concurrent callers share one claim."""
+        computer = self.ensure_computer(tenant_id, user_id)
+        key = (tenant_id, computer.computer_id)
+        claim = self._host_starts.get(key)
+        expired = (
+            claim is not None
+            and claim.expires_at is not None
+            and claim.expires_at <= self._now
+        )
+        if claim is None or expired:
+            claim = HostStartClaim(
+                tenant_id=tenant_id,
+                computer_id=computer.computer_id,
+                host_start_count=1,
+                waiting_turn_ids=[turn_id],
+                expires_at=self._now + self.attempt_lease,
+            )
+        elif turn_id not in claim.waiting_turn_ids:
+            claim.waiting_turn_ids.append(turn_id)
+        self._host_starts[key] = claim
+        return claim
+
+    def host_start_claim(self, tenant_id: str, user_id: str) -> HostStartClaim:
+        """Return the current host-start claim for a user's computer."""
+        computer = self.computer_for_user(tenant_id, user_id)
+        claim = self._host_starts.get((tenant_id, computer.computer_id))
+        if claim is None:
+            raise KeyError((tenant_id, computer.computer_id))
+        return claim
+
+    def acquire_computer_disk_write(self, computer_id: str, host_id: str) -> bool:
+        """Grant disk write to at most one live host for this computer."""
+        for claim in self._host_starts.values():
+            if claim.computer_id != computer_id:
+                continue
+            if claim.live_writer_host_id is None:
+                claim.live_writer_host_id = host_id
+                return True
+            return claim.live_writer_host_id == host_id
+        return False
 
     def evaluate_action(
         self,
@@ -669,6 +1070,15 @@ class ControlPlane:
         self._jobs = [job for job in self._jobs if job.job_id != job_id]
         self._fault(TurnBoundary.ACKNOWLEDGEMENT, CrashWindow.AFTER)
 
+    def _offer_turn_queues(self, job: TurnJob) -> None:
+        """Publish a cpu job to the cpu queue or a computer job to its queue."""
+        if "computer" in job.required_capabilities:
+            if self._computer_enqueued is not None:
+                self._computer_enqueued(job)
+            return
+        if self._turn_enqueued is not None:
+            self._turn_enqueued(job)
+
     def set_computer_stopped(self, tenant_id: str, user_id: str, stopped: bool) -> None:
         """Mark the household computer stopped without deleting it."""
         computer = self.ensure_computer(tenant_id, user_id)
@@ -684,6 +1094,8 @@ class ControlPlane:
         tenant_id: str,
         user_id: str,
         bot_ids: list[str] | None = None,
+        *,
+        idempotency_key: str | None = None,
     ) -> Channel:
         """Open a channel for a user and the given bots.
 
@@ -693,6 +1105,12 @@ class ControlPlane:
         :raises KeyError: If a bot id is unknown.
         :raises ActorNotInChannelError: If a bot belongs to another user.
         """
+        if idempotency_key is not None:
+            cached = self._messaging_store.get_channel_idempotency(
+                tenant_id, idempotency_key
+            )
+            if cached is not None:
+                return cached
         participants = [ChannelParticipant(kind=ActorKind.HUMAN, actor_id=user_id)]
         for bot_id in bot_ids or []:
             bot = self._bot(tenant_id, bot_id)
@@ -709,6 +1127,10 @@ class ControlPlane:
             participants=participants,
         )
         self._messaging_store.put_channel(channel)
+        if idempotency_key is not None:
+            self._messaging_store.put_channel_idempotency(
+                tenant_id, idempotency_key, channel
+            )
         return channel
 
     def channel(self, tenant_id: str, channel_id: str) -> Channel:
@@ -734,7 +1156,13 @@ class ControlPlane:
         enqueue_turn: bool = True,
         idempotency_key: str | None = None,
     ) -> tuple[Message, Turn | None]:
-        """Append a committed message and enqueue a cpu turn when addressed.
+        """Append a committed message and start a cpu turn when addressed.
+
+        When ``enqueue_turn`` is false, the turn is created and
+        ``turn.started`` is recorded, but no job, cpu queue publish, or
+        deadline is scheduled. That is the fence-probe path: a human
+        worker can claim the lease without racing the computerless
+        Lambda.
 
         :raises ChannelNotFoundError: If the channel is unknown.
         :raises ChannelTenantMismatchError: If the tenant does not own the
@@ -743,7 +1171,9 @@ class ControlPlane:
             participant.
         """
         if idempotency_key is not None:
-            cached = self._post_idempotency.get((tenant_id, idempotency_key))
+            cached = self._messaging_store.get_post_idempotency(
+                tenant_id, idempotency_key
+            )
             if cached is not None:
                 message, turn_id = cached
                 started = self.turn(tenant_id, turn_id) if turn_id is not None else None
@@ -769,11 +1199,15 @@ class ControlPlane:
         self._messaging_store.put_message(message)
         self._fault(TurnBoundary.MESSAGE_COMMIT, CrashWindow.AFTER)
         started: Turn | None = None
-        if enqueue_turn and addressed_to_bot_id is not None:
-            started = self._start_turn_for_bot(channel, addressed_to_bot_id)
+        if addressed_to_bot_id is not None:
+            started = self._start_turn_for_bot(
+                channel, addressed_to_bot_id, enqueue=enqueue_turn
+            )
         if idempotency_key is not None:
             turn_id = started.turn_id if started is not None else None
-            self._post_idempotency[(tenant_id, idempotency_key)] = (message, turn_id)
+            self._messaging_store.put_post_idempotency(
+                tenant_id, idempotency_key, message, turn_id
+            )
         return message, started
 
     def list_channel_messages(
@@ -897,14 +1331,17 @@ class ControlPlane:
             return False
         self._logical_enqueue_delivery_count += 1
         self._fault(TurnBoundary.LOGICAL_ENQUEUE, CrashWindow.AFTER)
-        if self._turn_enqueued is not None:
-            self._turn_enqueued(job)
+        self._offer_turn_queues(job)
         return True
 
     def handle_turn_deadline(self, tenant_id: str, turn_id: str) -> None:
         """Recover or fail a turn when its watchdog fires."""
         turn = self._messaging_store.get_turn(tenant_id, turn_id)
         if turn is None or turn.status != TurnStatus.ACTIVE:
+            return
+        if turn.waiting_for is not None:
+            if turn.deadline_at is not None:
+                self._deadline_scheduler.schedule(tenant_id, turn_id, turn.deadline_at)
             return
         lease_valid = (
             turn.lease_expires_at is not None and turn.lease_expires_at > self._now
@@ -996,11 +1433,126 @@ class ControlPlane:
         return None
 
     def turn_prompt(self, tenant_id: str, turn_id: str) -> str:
-        """Build a text-only prompt from channel messages for the model loop."""
+        """Build a text-only prompt from bot memory plus channel messages.
+
+        Channel compaction is still an open design question; this joins the
+        bot's isolated memory with the full channel transcript, memory first
+        so the latest channel line remains the last line of the prompt.
+        """
         turn = self.turn(tenant_id, turn_id)
+        bot = self._bot(tenant_id, turn.bot_id)
+        lines = [f"memory {key}: {value}" for key, value in sorted(bot.memory.items())]
         messages = self._messaging_store.list_messages(tenant_id, turn.channel_id)
-        lines = [f"{message.author_kind}: {message.body}" for message in messages]
+        lines.extend(f"{message.author_kind}: {message.body}" for message in messages)
         return "\n".join(lines)
+
+    def emit_turn_waiting(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        gate: str,
+        *,
+        fence_token: int,
+    ) -> TurnEvent:
+        """Record that a turn is blocked on one readiness gate.
+
+        :raises TurnNotFoundError: If the turn is unknown.
+        :raises StaleAttemptError: If the fence does not match the owner.
+        """
+        turn = self.turn(tenant_id, turn_id)
+        if turn.fence_token != fence_token:
+            raise StaleAttemptError(
+                f"Turn {turn_id!r} rejected fence {fence_token} "
+                f"(current {turn.fence_token})."
+            )
+        if turn.status != TurnStatus.ACTIVE:
+            msg = f"Turn {turn_id!r} is not active."
+            raise TurnTerminalError(msg)
+        turn.waiting_for = gate
+        turn.pending_computer_action_id = str(uuid4())
+        turn.pending_computer_tool_name = "request_computer_capability"
+        pending = pending_computer_tool_from_turn(turn)
+        return self._append_turn_event(
+            turn,
+            TurnEventKind.TURN_WAITING,
+            body=gate,
+            pending_computer_tool=pending,
+            expected_fence=fence_token,
+        )
+
+    def resume_waiting_turn(self, tenant_id: str, turn_id: str) -> TurnJob:
+        """Re-enqueue a waiting turn only when the household computer is running.
+
+        The same durable turn stays active. A stopped computer is not treated
+        as ready: resume must not enqueue browser work that cannot run.
+
+        :raises TurnNotFoundError: If the turn is unknown.
+        :raises TurnTerminalError: If the turn is no longer active.
+        :raises TurnNotWaitingError: If the turn is not blocked on a gate.
+        :raises ComputerNotReadyError: If the household computer is stopped.
+        """
+        turn = self.turn(tenant_id, turn_id)
+        if turn.status != TurnStatus.ACTIVE:
+            msg = f"Turn {turn_id!r} is not active."
+            raise TurnTerminalError(msg)
+        if not turn.waiting_for:
+            msg = f"Turn {turn_id!r} is not waiting on a readiness gate."
+            raise TurnNotWaitingError(msg)
+        channel = self.channel(tenant_id, turn.channel_id)
+        if self.computer_is_stopped(tenant_id, channel.user_id):
+            msg = (
+                f"Household computer for user {channel.user_id!r} is still "
+                f"stopped; turn {turn_id!r} remains waiting on "
+                f"{turn.waiting_for!r}."
+            )
+            raise ComputerNotReadyError(msg)
+        self._jobs = [
+            job
+            for job in self._jobs
+            if not (job.tenant_id == tenant_id and job.turn_id == turn_id)
+        ]
+        job = self.enqueue_turn(
+            tenant_id,
+            frozenset({"computer"}),
+            bot_id=turn.bot_id,
+        )
+        self._bind_job_to_turn(job.job_id, turn.turn_id)
+        bound = self.job_for_turn(tenant_id, turn.turn_id)
+        if bound is None:
+            msg = f"Turn {turn_id!r} failed to re-enqueue after resume."
+            raise TurnTerminalError(msg)
+        return bound
+
+    def release_turn_claim_for_waiting(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        fence_token: int,
+    ) -> None:
+        """Drop the turn lease while blocked on a readiness gate.
+
+        The turn stays active so a later attempt can continue on the same
+        durable turn after the named capability becomes ready.
+
+        :raises TurnNotFoundError: If the turn is unknown.
+        :raises StaleAttemptError: If the fence does not match the owner.
+        :raises TurnTerminalError: If the turn is no longer active.
+        """
+        turn = self.turn(tenant_id, turn_id)
+        if turn.fence_token != fence_token:
+            raise StaleAttemptError(
+                f"Turn {turn_id!r} rejected fence {fence_token} "
+                f"(current {turn.fence_token})."
+            )
+        if turn.status != TurnStatus.ACTIVE:
+            msg = f"Turn {turn_id!r} is not active."
+            raise TurnTerminalError(msg)
+        turn.claimed_by_worker_id = None
+        turn.attempt_id = None
+        turn.lease_expires_at = None
+        turn.fence_token += 1
+        self._messaging_store.put_turn(turn)
 
     def post_turn_chunk(
         self,
@@ -1067,28 +1619,31 @@ class ControlPlane:
             )
         return self._complete_turn(turn, expected_fence=fence_token)
 
-    def _start_turn_for_bot(self, channel: Channel, bot_id: str) -> Turn:
+    def _start_turn_for_bot(
+        self, channel: Channel, bot_id: str, *, enqueue: bool = True
+    ) -> Turn:
         turn = Turn(
             turn_id=str(uuid4()),
             tenant_id=channel.tenant_id,
             channel_id=channel.channel_id,
             bot_id=bot_id,
         )
-        if self.recovery_enabled:
+        if enqueue and self.recovery_enabled:
             turn.deadline_at = self._now + self.turn_deadline
         self._messaging_store.put_turn(turn)
         self._turn_tenants[turn.turn_id] = channel.tenant_id
         self._append_turn_event(turn, TurnEventKind.TURN_STARTED)
-        job = self.enqueue_turn(
-            channel.tenant_id,
-            frozenset({"cpu"}),
-            bot_id=bot_id,
-        )
-        self._bind_job_to_turn(job.job_id, turn.turn_id)
-        if self.recovery_enabled and turn.deadline_at is not None:
-            self._deadline_scheduler.schedule(
-                channel.tenant_id, turn.turn_id, turn.deadline_at
+        if enqueue:
+            job = self.enqueue_turn(
+                channel.tenant_id,
+                frozenset({"cpu"}),
+                bot_id=bot_id,
             )
+            self._bind_job_to_turn(job.job_id, turn.turn_id)
+            if self.recovery_enabled and turn.deadline_at is not None:
+                self._deadline_scheduler.schedule(
+                    channel.tenant_id, turn.turn_id, turn.deadline_at
+                )
         return turn
 
     def _bind_job_to_turn(self, job_id: str, turn_id: str) -> None:
@@ -1112,8 +1667,8 @@ class ControlPlane:
                         logical_enqueue_id(turn_id),
                         bound,
                     )
-                elif self._turn_enqueued is not None:
-                    self._turn_enqueued(bound)
+                else:
+                    self._offer_turn_queues(bound)
                 return
 
     def _complete_turn(
@@ -1191,6 +1746,9 @@ class ControlPlane:
         expected_fence: int | None = None,
     ) -> Message:
         turn.status = TurnStatus.COMPLETED
+        turn.waiting_for = None
+        turn.pending_computer_action_id = None
+        turn.pending_computer_tool_name = None
         self._messaging_store.put_turn(turn, expected_fence=expected_fence)
         self._deadline_scheduler.cancel(turn.tenant_id, turn.turn_id)
         self._append_turn_event(
@@ -1211,6 +1769,7 @@ class ControlPlane:
         token: str | None = None,
         message_seq: int | None = None,
         body: str | None = None,
+        pending_computer_tool: PendingComputerToolSnapshot | None = None,
         expected_fence: int | None = None,
     ) -> TurnEvent:
         event = TurnEvent(
@@ -1223,6 +1782,7 @@ class ControlPlane:
             token=token,
             message_seq=message_seq,
             body=body,
+            pending_computer_tool=pending_computer_tool,
         )
         turn.next_event_seq += 1
         self._messaging_store.put_turn(turn, expected_fence=expected_fence)

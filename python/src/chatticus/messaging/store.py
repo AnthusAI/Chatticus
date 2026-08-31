@@ -14,7 +14,9 @@ from chatticus.models import (
     ChannelParticipant,
     Computer,
     ComputerPolicy,
+    DuplicateBotNameError,
     Message,
+    PendingComputerToolSnapshot,
     StaleAttemptError,
     Turn,
     TurnEvent,
@@ -83,11 +85,20 @@ class MessagingStore(Protocol):
     ) -> list[TurnEvent]:
         """Return turn events with seq greater than after_seq."""
 
-    def put_bot(self, bot: Bot) -> None:
-        """Persist a named bot."""
+    def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
+        """Persist a named bot.
+
+        When ``reserve_name`` is true, atomically claim the user's bot name.
+        """
 
     def get_bot(self, tenant_id: str, bot_id: str) -> Bot | None:
         """Load one bot."""
+
+    def get_bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot | None:
+        """Load one bot by the household user's chosen name."""
+
+    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
+        """Return named bots owned by one household user."""
 
     def put_computer(self, computer: Computer) -> None:
         """Persist the household computer record."""
@@ -116,6 +127,44 @@ class MessagingStore(Protocol):
     ) -> bool:
         """Return True on the first delivery of ``enqueue_id`` for the turn."""
 
+    def get_post_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> tuple[Message, str | None] | None:
+        """Return the message and turn stored for one post idempotency key."""
+
+    def put_post_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        message: Message,
+        turn_id: str | None,
+    ) -> None:
+        """Persist the result of one idempotent channel post."""
+
+    def get_channel_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> Channel | None:
+        """Return the channel stored for one create-channel idempotency key."""
+
+    def put_channel_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        channel: Channel,
+    ) -> None:
+        """Persist the result of one idempotent channel create."""
+
+    def get_bot_idempotency(self, tenant_id: str, idempotency_key: str) -> Bot | None:
+        """Return the bot stored for one create-bot idempotency key."""
+
+    def put_bot_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        bot: Bot,
+    ) -> None:
+        """Persist the result of one idempotent bot create."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -129,6 +178,9 @@ class InMemoryMessagingStore:
         self._bots: dict[tuple[str, str], Bot] = {}
         self._computers: dict[tuple[str, str], Computer] = {}
         self._logical_enqueue_ids: dict[tuple[str, str], set[str]] = {}
+        self._post_idempotency: dict[tuple[str, str], tuple[Message, str | None]] = {}
+        self._channel_idempotency: dict[tuple[str, str], str] = {}
+        self._bot_idempotency: dict[tuple[str, str], str] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -247,11 +299,39 @@ class InMemoryMessagingStore:
     def get_turn(self, tenant_id: str, turn_id: str) -> Turn | None:
         return self._turns.get((tenant_id, turn_id))
 
-    def put_bot(self, bot: Bot) -> None:
-        self._bots[(bot.tenant_id, bot.bot_id)] = bot
+    def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
+        with self._lock:
+            if reserve_name and self.get_bot_by_name(
+                bot.tenant_id, bot.user_id, bot.name
+            ):
+                raise DuplicateBotNameError(
+                    f"Bot named {bot.name!r} already exists for user "
+                    f"{bot.user_id!r}."
+                )
+            self._bots[(bot.tenant_id, bot.bot_id)] = bot
 
     def get_bot(self, tenant_id: str, bot_id: str) -> Bot | None:
         return self._bots.get((tenant_id, bot_id))
+
+    def get_bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot | None:
+        for bot in self._bots.values():
+            if (
+                bot.tenant_id == tenant_id
+                and bot.user_id == user_id
+                and bot.name == name
+            ):
+                return bot
+        return None
+
+    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
+        return sorted(
+            (
+                bot
+                for bot in self._bots.values()
+                if bot.tenant_id == tenant_id and bot.user_id == user_id
+            ),
+            key=lambda bot: bot.name,
+        )
 
     def put_computer(self, computer: Computer) -> None:
         self._computers[(computer.tenant_id, computer.user_id)] = computer
@@ -269,6 +349,50 @@ class InMemoryMessagingStore:
                 return False
             recorded.add(enqueue_id)
             return True
+
+    def get_post_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> tuple[Message, str | None] | None:
+        return self._post_idempotency.get((tenant_id, idempotency_key))
+
+    def put_post_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        message: Message,
+        turn_id: str | None,
+    ) -> None:
+        self._post_idempotency[(tenant_id, idempotency_key)] = (message, turn_id)
+
+    def get_channel_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> Channel | None:
+        channel_id = self._channel_idempotency.get((tenant_id, idempotency_key))
+        if channel_id is None:
+            return None
+        return self.get_channel(tenant_id, channel_id)
+
+    def put_channel_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        channel: Channel,
+    ) -> None:
+        self._channel_idempotency[(tenant_id, idempotency_key)] = channel.channel_id
+
+    def get_bot_idempotency(self, tenant_id: str, idempotency_key: str) -> Bot | None:
+        bot_id = self._bot_idempotency.get((tenant_id, idempotency_key))
+        if bot_id is None:
+            return None
+        return self.get_bot(tenant_id, bot_id)
+
+    def put_bot_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        bot: Bot,
+    ) -> None:
+        self._bot_idempotency[(tenant_id, idempotency_key)] = bot.bot_id
 
 
 class DynamoMessagingStore:
@@ -349,19 +473,11 @@ class DynamoMessagingStore:
     def put_message(self, message: Message) -> None:
         self.client.put_item(
             TableName=self.table_name,
-            Item={
-                "pk": {"S": self._channel_pk(message.tenant_id, message.channel_id)},
-                "sk": {"S": f"msg#{message.seq:010d}"},
-                "tenant_id": {"S": message.tenant_id},
-                "channel_id": {"S": message.channel_id},
-                "message_id": {"S": message.message_id},
-                "seq": {"N": str(message.seq)},
-                "author_kind": {"S": message.author_kind},
-                "author_id": {"S": message.author_id},
-                "body": {"S": message.body},
-                "addressed_to_bot_id": {"S": message.addressed_to_bot_id or ""},
-                "created_at": {"S": message.created_at.isoformat()},
-            },
+            Item=_message_item(
+                message,
+                pk=self._channel_pk(message.tenant_id, message.channel_id),
+                sk=f"msg#{message.seq:010d}",
+            ),
         )
 
     def list_messages(
@@ -512,21 +628,34 @@ class DynamoMessagingStore:
         return self.get_turn(tenant_id, turn_id)
 
     def put_turn_event(self, event: TurnEvent) -> None:
+        item: dict[str, Any] = {
+            "pk": {"S": self._turn_pk(event.tenant_id, event.turn_id)},
+            "sk": {"S": f"evt#{event.seq:010d}"},
+            "tenant_id": {"S": event.tenant_id},
+            "turn_id": {"S": event.turn_id},
+            "channel_id": {"S": event.channel_id},
+            "event_id": {"S": event.event_id},
+            "seq": {"N": str(event.seq)},
+            "kind": {"S": event.kind},
+            "token": {"S": event.token or ""},
+            "message_seq": {"N": str(event.message_seq or 0)},
+            "body": {"S": event.body or ""},
+        }
+        if event.pending_computer_tool is not None:
+            item["pending_computer_tool"] = {
+                "S": json.dumps(
+                    {
+                        "action_id": event.pending_computer_tool.action_id,
+                        "tool_name": event.pending_computer_tool.tool_name,
+                        "arguments": event.pending_computer_tool.arguments,
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+            }
         self.client.put_item(
             TableName=self.table_name,
-            Item={
-                "pk": {"S": self._turn_pk(event.tenant_id, event.turn_id)},
-                "sk": {"S": f"evt#{event.seq:010d}"},
-                "tenant_id": {"S": event.tenant_id},
-                "turn_id": {"S": event.turn_id},
-                "channel_id": {"S": event.channel_id},
-                "event_id": {"S": event.event_id},
-                "seq": {"N": str(event.seq)},
-                "kind": {"S": event.kind},
-                "token": {"S": event.token or ""},
-                "message_seq": {"N": str(event.message_seq or 0)},
-                "body": {"S": event.body or ""},
-            },
+            Item=item,
         )
 
     def list_turn_events(
@@ -599,18 +728,52 @@ class DynamoMessagingStore:
             chunks.append((seq, item["token"]["S"]))
         return [token for _, token in sorted(chunks, key=lambda pair: pair[0])]
 
-    def put_bot(self, bot: Bot) -> None:
-        self.client.put_item(
-            TableName=self.table_name,
-            Item={
-                "pk": {"S": self._roster_pk(bot.tenant_id)},
-                "sk": {"S": f"bot#{bot.bot_id}"},
-                "tenant_id": {"S": bot.tenant_id},
-                "user_id": {"S": bot.user_id},
-                "bot_id": {"S": bot.bot_id},
-                "name": {"S": bot.name},
-            },
-        )
+    def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
+        bot_item = {
+            "pk": {"S": self._roster_pk(bot.tenant_id)},
+            "sk": {"S": f"bot#{bot.bot_id}"},
+            "tenant_id": {"S": bot.tenant_id},
+            "user_id": {"S": bot.user_id},
+            "bot_id": {"S": bot.bot_id},
+            "name": {"S": bot.name},
+            "memory": {"S": json.dumps(bot.memory)},
+        }
+        if not reserve_name:
+            self.client.put_item(TableName=self.table_name, Item=bot_item)
+            return
+        name_item = {
+            "pk": {"S": self._roster_pk(bot.tenant_id)},
+            "sk": {"S": self._bot_name_sk(bot.user_id, bot.name)},
+            "tenant_id": {"S": bot.tenant_id},
+            "user_id": {"S": bot.user_id},
+            "bot_id": {"S": bot.bot_id},
+            "name": {"S": bot.name},
+        }
+        try:
+            self.client.transact_write_items(
+                TransactItems=[
+                    {"Put": {"TableName": self.table_name, "Item": bot_item}},
+                    {
+                        "Put": {
+                            "TableName": self.table_name,
+                            "Item": name_item,
+                            "ConditionExpression": "attribute_not_exists(pk)",
+                        }
+                    },
+                ]
+            )
+        except self.client.exceptions.TransactionCanceledException as error:
+            reasons = error.response.get("CancellationReasons", ())
+            if any(
+                reason.get("Code") == "ConditionalCheckFailed"
+                for reason in reasons
+                if isinstance(reason, dict)
+            ):
+                raise DuplicateBotNameError(
+                    f"Bot named {bot.name!r} already exists for user "
+                    f"{bot.user_id!r}."
+                ) from error
+            raise
 
     def get_bot(self, tenant_id: str, bot_id: str) -> Bot | None:
         response = self.client.get_item(
@@ -623,12 +786,54 @@ class DynamoMessagingStore:
         item = response.get("Item")
         if item is None:
             return None
-        return Bot(
-            bot_id=item["bot_id"]["S"],
-            tenant_id=item["tenant_id"]["S"],
-            user_id=item["user_id"]["S"],
-            name=item["name"]["S"],
+        memory_raw = item.get("memory", {}).get("S", "{}")
+        try:
+            memory = json.loads(memory_raw)
+        except json.JSONDecodeError:
+            memory = {}
+        if not isinstance(memory, dict):
+            memory = {}
+        return self._bot_from_item(item)
+
+    def get_bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": self._bot_name_sk(user_id, name)},
+            },
         )
+        item = response.get("Item")
+        if item is not None:
+            return self.get_bot(tenant_id, item["bot_id"]["S"])
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._roster_pk(tenant_id)},
+                ":prefix": {"S": "bot#"},
+            },
+        )
+        for row in response.get("Items", []):
+            if row["user_id"]["S"] == user_id and row["name"]["S"] == name:
+                return self._bot_from_item(row)
+        return None
+
+    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._roster_pk(tenant_id)},
+                ":prefix": {"S": "bot#"},
+            },
+        )
+        bots: list[Bot] = []
+        for row in response.get("Items", []):
+            if row.get("user_id", {}).get("S") != user_id:
+                continue
+            bots.append(self._bot_from_item(row))
+        return sorted(bots, key=lambda bot: bot.name)
 
     def put_computer(self, computer: Computer) -> None:
         self.client.put_item(
@@ -691,6 +896,104 @@ class DynamoMessagingStore:
             raise
         return True
 
+    def get_post_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> tuple[Message, str | None] | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"idem#{idempotency_key}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        turn_id = item.get("turn_id", {}).get("S") or None
+        return _message_from_item(item), turn_id
+
+    def put_post_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        message: Message,
+        turn_id: str | None,
+    ) -> None:
+        item = _message_item(
+            message,
+            pk=self._roster_pk(tenant_id),
+            sk=f"idem#{idempotency_key}",
+        )
+        if turn_id is not None:
+            item["turn_id"] = {"S": turn_id}
+        self.client.put_item(TableName=self.table_name, Item=item)
+
+    def get_channel_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> Channel | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"chidem#{idempotency_key}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        channel_id = item.get("channel_id", {}).get("S")
+        if not channel_id:
+            return None
+        return self.get_channel(tenant_id, channel_id)
+
+    def put_channel_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        channel: Channel,
+    ) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"chidem#{idempotency_key}"},
+                "tenant_id": {"S": tenant_id},
+                "channel_id": {"S": channel.channel_id},
+            },
+        )
+
+    def get_bot_idempotency(self, tenant_id: str, idempotency_key: str) -> Bot | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"botidem#{idempotency_key}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        bot_id = item.get("bot_id", {}).get("S")
+        if not bot_id:
+            return None
+        return self.get_bot(tenant_id, bot_id)
+
+    def put_bot_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        bot: Bot,
+    ) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"botidem#{idempotency_key}"},
+                "tenant_id": {"S": tenant_id},
+                "bot_id": {"S": bot.bot_id},
+            },
+        )
+
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
 
@@ -702,6 +1005,41 @@ class DynamoMessagingStore:
 
     def _roster_pk(self, tenant_id: str) -> str:
         return f"{tenant_id}#roster"
+
+    def _bot_name_sk(self, user_id: str, name: str) -> str:
+        return f"bot_name#{user_id}#{name}"
+
+    def _bot_from_item(self, item: dict[str, Any]) -> Bot:
+        memory_raw = item.get("memory", {}).get("S", "{}")
+        try:
+            memory = json.loads(memory_raw)
+        except json.JSONDecodeError:
+            memory = {}
+        if not isinstance(memory, dict):
+            memory = {}
+        return Bot(
+            bot_id=item["bot_id"]["S"],
+            tenant_id=item["tenant_id"]["S"],
+            user_id=item["user_id"]["S"],
+            name=item["name"]["S"],
+            memory={str(key): str(value) for key, value in memory.items()},
+        )
+
+
+def _message_item(message: Message, *, pk: str, sk: str) -> dict[str, Any]:
+    return {
+        "pk": {"S": pk},
+        "sk": {"S": sk},
+        "tenant_id": {"S": message.tenant_id},
+        "channel_id": {"S": message.channel_id},
+        "message_id": {"S": message.message_id},
+        "seq": {"N": str(message.seq)},
+        "author_kind": {"S": message.author_kind},
+        "author_id": {"S": message.author_id},
+        "body": {"S": message.body},
+        "addressed_to_bot_id": {"S": message.addressed_to_bot_id or ""},
+        "created_at": {"S": message.created_at.isoformat()},
+    }
 
 
 def _participants_payload(channel: Channel) -> list[dict[str, str]]:
@@ -752,6 +1090,12 @@ def _turn_item(turn: Turn) -> dict[str, Any]:
         item["terminal_reason"] = {"S": turn.terminal_reason}
     if turn.ambiguous_provider_call_id is not None:
         item["ambiguous_provider_call_id"] = {"S": turn.ambiguous_provider_call_id}
+    if turn.waiting_for is not None:
+        item["waiting_for"] = {"S": turn.waiting_for}
+    if turn.pending_computer_action_id is not None:
+        item["pending_computer_action_id"] = {"S": turn.pending_computer_action_id}
+    if turn.pending_computer_tool_name is not None:
+        item["pending_computer_tool_name"] = {"S": turn.pending_computer_tool_name}
     return item
 
 
@@ -784,6 +1128,13 @@ def _turn_from_item(item: dict[str, Any]) -> Turn:
         ambiguous_provider_call_id=(
             item.get("ambiguous_provider_call_id", {}).get("S") or None
         ),
+        waiting_for=item.get("waiting_for", {}).get("S") or None,
+        pending_computer_action_id=(
+            item.get("pending_computer_action_id", {}).get("S") or None
+        ),
+        pending_computer_tool_name=(
+            item.get("pending_computer_tool_name", {}).get("S") or None
+        ),
     )
 
 
@@ -791,6 +1142,15 @@ def _turn_event_from_item(item: dict[str, Any]) -> TurnEvent:
     message_seq = int(item["message_seq"]["N"])
     token = item["token"]["S"]
     body = item["body"]["S"]
+    pending_raw = item.get("pending_computer_tool", {}).get("S")
+    pending = None
+    if pending_raw:
+        payload = json.loads(pending_raw)
+        pending = PendingComputerToolSnapshot(
+            action_id=payload["action_id"],
+            tool_name=payload["tool_name"],
+            arguments=dict(payload["arguments"]),
+        )
     return TurnEvent(
         event_id=item["event_id"]["S"],
         tenant_id=item["tenant_id"]["S"],
@@ -801,6 +1161,7 @@ def _turn_event_from_item(item: dict[str, Any]) -> TurnEvent:
         token=token or None,
         message_seq=message_seq or None,
         body=body or None,
+        pending_computer_tool=pending,
     )
 
 

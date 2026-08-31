@@ -27,11 +27,15 @@ def plane_from_env() -> ControlPlane:
     table_name = os.environ.get("CHATTICUS_MESSAGING_TABLE", "").strip()
     store = DynamoMessagingStore(table_name) if table_name else None
     queue_url = os.environ.get("CHATTICUS_TURN_QUEUE_URL", "").strip()
+    computer_queue_url = os.environ.get("CHATTICUS_COMPUTER_TURN_QUEUE_URL", "").strip()
     deadline_scheduler = _deadline_scheduler_from_env()
     recovery_enabled = store is not None and deadline_scheduler is not None
     return ControlPlane(
         messaging_store=store,
         turn_enqueued=_sqs_enqueuer(queue_url) if queue_url else None,
+        computer_enqueued=(
+            _sqs_enqueuer(computer_queue_url) if computer_queue_url else None
+        ),
         deadline_scheduler=deadline_scheduler,
         recovery_enabled=recovery_enabled,
         wall_clock=True,

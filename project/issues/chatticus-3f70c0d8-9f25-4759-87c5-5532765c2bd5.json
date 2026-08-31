@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-3f70c0d8-9f25-4759-87c5-5532765c2bd5",
+  "title": "A bot turn prompt includes durable isolated memory",
+  "description": "As a household member, I want a named bot to bring its own durable memory into a turn along with the channel, so the teammate is not a fresh session and another bot on the same computer does not inherit that memory.\n\nFeature: Shared computer and isolated bot memory\n\nScenario: A bot's turn prompt includes its memory and the channel\n  Given an empty control plane\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n  And tenant \"anthus\" user \"ryan\" has opened a channel with bots:\n    | Researcher |\n  When bot \"Researcher\" remembers \"voice\" as \"short and direct\"\n  And user \"ryan\" of tenant \"anthus\" posts \"hello\" addressed to bot \"Researcher\" on the channel\n  Then the turn prompt contains memory \"voice\" as \"short and direct\"\n  And the turn prompt contains channel text \"hello\"\n\nMemory is persisted on the bot roster item. Compaction of the channel remains open (DESIGN_CHALLENGES).\n\nNot included: staging, production, Fargate, Safari, Vultus.",
+  "type": "story",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "88fdafce-194b-46bb-80f8-173f3d882ff4",
+      "author": "home",
+      "text": "Live on development ThinTurn @ ee34d01. Named exercise: bot_memory=voice, claim_a=200 claim_b=409. Channel compaction remains open. Not staging or production.",
+      "created_at": "2026-08-31T04:22:31.309767Z"
+    }
+  ],
+  "created_at": "2026-08-31T04:17:53.978446Z",
+  "updated_at": "2026-08-31T04:22:31.319999Z",
+  "closed_at": "2026-08-31T04:22:31.319999Z",
+  "custom": {}
+}

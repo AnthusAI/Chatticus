@@ -33,15 +33,15 @@ exposes a decision that blocks the next slice.
    purchase, delete, or change production wait for a structured connector,
    human takeover, or another control that can describe and bind the exact
    operation.
-7. Resolve the overnight-approval contradiction before specifying
-   approval code. Requirement 3 says work continues with the laptop
-   closed; requirement 4 says consequential actions are gated; v1 is a
-   web tab and device push is "come back, something finished," not
-   "approve this now." Either overnight work is scoped to
-   non-consequential actions (the honest v1), or auto-review gets
-   loosened and the threat model becomes theatre. Decide which, and write
-   the decision into the approval spec rather than discovering it in
-   production.
+7. Overnight consequential actions are gated, not loosened. v1 is a web
+   tab; device push is "come back," not "approve this now." Unattended
+   send, publish, purchase, delete, or production change **does not
+   execute** unless a **human** created an always-allow rule that binds
+   the **exact structured arguments**. A bot cannot add that rule.
+   Generic authenticated **browser** actions cannot be pre-authorized
+   overnight; they stay blocked for user-controlled completion. Kernel:
+   `features/overnight_gated_action.feature`. Recorded in
+   [Approval spec](APPROVAL.md).
 8. Complete the web app, approvals, task integration, snapshots, local-worker
    preference, and AWS computer path around those proven seams.
 

@@ -23,11 +23,37 @@ def turn_event_payload(event: TurnEvent) -> dict[str, Any]:
         payload["message_seq"] = event.message_seq
     if event.body is not None:
         payload["body"] = event.body
+    if event.pending_computer_tool is not None:
+        pending = event.pending_computer_tool
+        payload["pending_computer_tool"] = {
+            "action_id": pending.action_id,
+            "tool_name": pending.tool_name,
+            "arguments": dict(pending.arguments),
+        }
     return payload
 
 
+def cursor_from_last_event_id(last_event_id: str | None) -> int:
+    """Return the exclusive seq cursor encoded by an SSE ``Last-Event-ID``.
+
+    Missing or empty means the client has seen nothing. A numeric value is
+    the last durable ``seq`` the client already has, so replay starts after
+    it. Non-numeric values are rejected.
+
+    :raises ValueError: If the header is present and not a decimal integer.
+    """
+    if last_event_id is None:
+        return 0
+    stripped = last_event_id.strip()
+    if stripped == "":
+        return 0
+    if not stripped.isdigit():
+        raise ValueError(f"Last-Event-ID {last_event_id!r} is not a sequence.")
+    return int(stripped)
+
+
 def format_turn_event_sse(event: TurnEvent) -> str:
-    """Format one turn event as an SSE frame with event type and JSON data."""
+    """Format one turn event as an SSE frame with ``id`` equal to ``seq``."""
     payload = turn_event_payload(event)
     data = json.dumps(payload, separators=(",", ":"))
-    return f"event: {event.kind}\ndata: {data}\n\n"
+    return f"event: {event.kind}\nid: {event.seq}\ndata: {data}\n\n"

@@ -1,4 +1,4 @@
-"""HTTP client for workers posting turn chunks through the front door."""
+"""HTTP client for workers claiming turns, posting chunks, and waiting."""
 
 from __future__ import annotations
 
@@ -77,5 +77,23 @@ class HttpTurnClient:
         if response.status_code >= 400:
             raise RuntimeError(
                 f"chunk POST failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+
+    def post_waiting(self, turn_id: str, gate: str) -> None:
+        """Record that the fenced owner is blocked on one readiness gate."""
+        if self.fence_token is None:
+            raise RuntimeError("claim the turn before posting waiting")
+        response = self.client.post(
+            f"/turns/{turn_id}/waiting",
+            json={
+                "gate": gate,
+                "fence_token": self.fence_token,
+            },
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"waiting POST failed with status {response.status_code}: "
                 f"{response.text}"
             )

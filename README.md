@@ -64,13 +64,58 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-GitHub **`main`** is **v0.5.0**. The live thin turn is the **development**
-cloud environment: stack **ChatticusThinTurn** in AWS account
-`335163751677` (`us-east-1`). Staging and production thin-turn stacks are
-defined in CDK (`ChatticusThinTurnStaging`,
-`ChatticusThinTurnProduction`) and are not deployed yet. Production is
-never implied by a git branch; it is an explicit gated deploy of a
-release that already passed staging acceptance.
+GitHub **`main`** is **v0.5.0**. Three named thin-turn environments are
+live in AWS account `335163751677` (`us-east-1`). Production is never
+implied by a git branch; it is an explicit gated deploy of a release that
+already passed staging acceptance. Staging and production were deployed
+from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
+from `develop` @ `e320617` (no `--all`).
+
+| Environment | Stack | CloudFront |
+| --- | --- | --- |
+| development | `ChatticusThinTurn` | https://d3gpuuldffe35o.cloudfront.net |
+| staging | `ChatticusThinTurnStaging` | https://dntj3flm2ozck.cloudfront.net |
+| production | `ChatticusThinTurnProduction` | https://d3lnmalpqx92ls.cloudfront.net |
+
+`cd python && python scripts/exercise_thin_turn.py --environment <name>`
+exits 0 for **development**, **staging**, and **production**. Each run
+includes missing-turn claim **404** and a live second-worker claim **409**
+while the lease is held (`claim_a=200` then `claim_b=409` on development,
+because the fence probe starts the turn with `enqueue_turn=false` so the
+computerless worker does not race the claim), plus a live idempotent
+channel post (`post_idempotent=1`: two `POST /channels/{id}/messages` with
+the same `Idempotency-Key` produce one row), a duplicate bot create
+(`bot_name_dup=1`: a second `POST /bots` with the same name returns
+**400**), a live idempotent channel open (`channel_idempotent=1`: two
+`POST /channels` with the same `Idempotency-Key` return one channel), a live
+`GET /channels/{id}` roundtrip (`channel_get=1`), plus a live bot-memory
+roundtrip (`POST /bots/{id}/memory` then `GET /bots/{id}`), a live
+idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
+`Idempotency-Key` return one bot_id), a live named-bot lookup
+(`bot_by_name=1`: `GET /bots?user_id=&name=` returns that bot_id), a live user bot list
+(`bots_list=1`: `GET /users/{user_id}/bots` includes that bot_id), plus SSE `turn.started` /
+`turn.token` / `turn.completed`. **Development** also drops that greeting stream after
+`turn.started` and a token, then reconnects through CloudFront with
+`Last-Event-ID` and requires ordered replay through `turn.completed`.
+After the greeting completes, **development** also lists channel history
+with `GET /channels/{id}/messages?after=<seq>` and requires only later
+rows, and lists the durable turn journal with
+`GET /turns/{id}/events?after=<seq>` through `turn.completed`.
+**Development** also proves `POST /turns/{id}/waiting`:
+SSE `turn.waiting` naming `browser`, `GET /turns/{id}` returning
+`waiting_for=browser` and pending tool `request_computer_capability`,
+then a stale fence **409**, then
+`POST /turns/{id}/resume` **409** while the household computer is stopped.
+The fence probe also requires durable `turn.waiting` journal events to carry
+`pending_computer_tool` with the same `action_id` as `GET /turns/{id}`. The same named exercise then asks luna to open the household browser; the
+worker emits `turn.waiting` instead of completing, `GET /turns/{id}` still
+names `browser` and the pending computer tool, the journal event matches that
+`action_id`, and resume is **409** again. It then marks the computer
+running, resumes that turn, checks `POST /turns/{id}/resume` returns
+`required_capabilities=computer`, and receives the continuation from
+`ComputerTurnJobs` (not the cpu queue) before marking the computer
+stopped. Staging and production do not
+have waiting, resume, or turn read yet.
 
 The **source** has named cloud environments, turn **claim**, **lease**,
 **fence**, durable channel lookup across Lambda invocations, a durable
@@ -80,40 +125,80 @@ scheduler env vars are set). Kernel tests cover turn-boundary fault
 injection and in-memory page-content authority containment (not wired
 into the live worker HTTP loop).
 
-What the deployed **development** slice does today:
+What each deployed thin-turn slice does today:
 
 - CloudFront in front of a Lambda function URL (no load balancer).
-- FastAPI front door: channels, messages, bots, a stopped-computer roster,
+- FastAPI front door: channels (`GET /channels/{id}` and `POST /channels`),
+  messages, bots (`GET /bots?user_id=&name=` and `GET /users/{user_id}/bots`),
+  a stopped-computer roster,
   chunk POST, `POST /turns/{id}/claim`, `POST /turns/{id}/renew`, fenced
-  chunk writes, and `GET /turns/{turn_id}/stream` as `text/event-stream`.
-- Channel records are in DynamoDB, so `GET /channels/{id}/messages` works
-  on a different Lambda than the one that created the channel.
+  chunk writes, `POST /turns/{id}/waiting` (development),
+  `POST /turns/{id}/resume` (development; **409** while the computer is
+  stopped; **200** with `required_capabilities` when running), `GET /turns/{id}` (development; exposes `waiting_for` and
+  the pending `request_computer_capability` call), and
+  `GET /turns/{turn_id}/stream` as `text/event-stream`.
+- Channel records and named bots are in DynamoDB, so a different Front Door
+  instance can enqueue a turn for a bot it did not create. Per-user bot
+  names are reserved on the roster table so a recycled Lambda cannot fork
+  two bots with the same name. A recycled Front Door can list a user's
+  named bots from that roster. Bot memory is
+  stored on that roster item; a recycled Front Door hydrates the bot from
+  Dynamo before writing memory. The computerless worker prompt is that
+  memory plus the channel transcript. Another bot on the same computer
+  does not inherit it.
 - DynamoDB is the source of truth for the transcript, in-flight chunks
-  (TTL), and the thin roster. SSE **polls the store**.
+  (TTL), and the thin roster. SSE **polls the store**. Retrying
+  `POST /channels` or `POST /channels/{id}/messages` or `POST /bots` with the same
+  `Idempotency-Key` returns the original channel, message, turn, or bot after
+  Front Door recycle.
 - SQS carries one turn job. A computerless worker Lambda runs
-  **gpt-5.6-luna** (OpenAI) and POSTs chunks back through the front door.
+  **gpt-5.6-luna** (OpenAI). A text-only reply still completes. If the
+  model calls `request_computer_capability`, the worker POSTs
+  `turn.waiting`, records `waiting_for` and the pending computer tool on
+  the turn and in the durable journal event, and leaves the turn active instead of claiming the browser
+  work is done. A later computerless delivery of that same turn does not
+  claim it or call the model again. Resume while the computer is marked
+  running records a computer-required continuation on a dedicated SQS
+  queue the cpu worker does not consume, so the pending tool survives
+  Front Door recycling. If such a job still reached a computerless
+  worker, it is refused without ack. Resume of that
+  same turn is refused while the computer is stopped. EventBridge deadline
+  recovery does not fail a turn that is legitimately waiting on a gate.
 - Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
-- `cd python && python scripts/exercise_thin_turn.py --environment development`
-  exits 0. That run includes missing-turn claim **404** and a live
-  second-worker claim **409** while the lease is held.
 
-Worker lease renew during long model calls is live on this development
-deploy. EventBridge Scheduler one-shots are on the front door
-(`chatticus-development-turn-deadlines`); `recovery_enabled` is on.
+Worker lease renew during long model calls is live on development.
+EventBridge Scheduler one-shots are on each front door
+(`chatticus-{environment}-turn-deadlines`); `recovery_enabled` is on.
 Warm Front Door containers use a wall clock, so deadlines land in the
 future. A wedged turn has recovered through EventBridge without a
-forced Lambda cold start. After a **ChatticusThinTurn**-only redeploy
-from `main` v0.5.0, live claim/fence still holds: missing-turn claim
-is 404; a second worker on an unexpired lease is 409.
+forced Lambda cold start on development. GitHub **`main`** stays
+**v0.5.0**; overnight, approval binding, unbound-browser, and
+computer-handoff kernels on `develop` are not promoted there until they
+are on the live worker loop.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the turn path yet. The computer stays stopped.
 There is no chattic.us web app, no local pull worker, no mid-turn
-escalation, and no approvals on this slice.
+escalation onto a running computer, and no approvals on these slices.
 
-Next on the board: gated actions with no screen (5b687a) and a named
-**staging** thin-turn deploy after this release (9eef23). Production
-stays gated. Staging CDK still synths; that stack is not deployed.
+Cloud-environment epic 9eef23 is closed: three named stacks, named-env
+acceptance on each. Turn recovery epic 653989 is closed. Remaining for
+summoning a computer (8f98f8): cold readiness measurement (e747d7) — not
+a Fargate scale-up this cycle. Waiting-turn resume while the computer is
+stopped (66d3c4), waiting-turn gate read over HTTP (dfa7a9), pending
+computer tool on the waiting turn (96c0e8), waiting journal snapshot
+(d04942), computerless skip of a waiting turn (86c75d), computerless
+refuse of a computer continuation (0b30dc), keeping computer
+continuations off the cpu queue (f861ee), and a dedicated computer
+turn queue with no worker attached yet (5c7e77), and a named-exercise
+receive of that computer continuation from SQS (10ec55) are live on
+development. Overnight gated-action
+(5b687a), immutable approval binding (2b293d), unbound browser stops
+(813d8d), computer-seam recovery (b41106), capability-gated readiness
+(`turn.waiting`, c0fbf0), same-turn first computer tool (d3908f), and
+single shared computer start (b6ab7d) are kernel-only; the
+unattended-gate decision is in [Approval spec](docs/APPROVAL.md)
+(76d3e2). They are not on the live worker loop.
 
 ```mermaid
 flowchart LR
@@ -298,11 +383,10 @@ That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
 `/chatticus/development/thin-turn/cloudfront-url`, or the
 `CloudFrontUrl` output on stack `ChatticusThinTurn`. Pass `--base-url`
 only when you already have the origin. Repeat with `--environment staging`
-or `--environment production` when those stacks exist. GitHub workflow
-**Acceptance** (`workflow_dispatch`) runs the same script. It is not run
-on every `develop` push; dispatch it after a deploy, with
-`CHATTICUS_<ENVIRONMENT>_BASE_URL` set. Staging and production choices
-fail closed until those secrets (and stacks) exist.
+or `--environment production`. GitHub workflow **Acceptance**
+(`workflow_dispatch`) runs the same script. It is not run on every
+`develop` push; dispatch it after a deploy, with
+`CHATTICUS_<ENVIRONMENT>_BASE_URL` set.
 
 If Docker Desktop is running, the snapshot packer can be checked with
 `sh computer/test_relocate.sh`.
@@ -320,8 +404,9 @@ npx cdk deploy ChatticusThinTurnProduction
 ```
 
 **ChatticusThinTurn** is development. Staging and production are separate
-stacks with their own DynamoDB, SQS, Lambda, and CloudFront. Do not
-destroy the snapshot or computer stacks.
+stacks with their own DynamoDB, SQS, Lambda, and CloudFront; both are
+deployed from the v0.5.0 release on `main`. Do not destroy the snapshot
+or computer stacks.
 
 Postgres in `docker-compose.yml` is unused (it predates DynamoDB).
 
@@ -353,6 +438,7 @@ as a leftover for the implementation agent.
 - [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md)
 - [Stack](docs/STACK.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Approval spec](docs/APPROVAL.md)
 - [Threat model](docs/THREAT_MODEL.md)
 - [Tasks](docs/TASKS.md)
 - [Feasibility tests](docs/FEASIBILITY_TESTS.md)

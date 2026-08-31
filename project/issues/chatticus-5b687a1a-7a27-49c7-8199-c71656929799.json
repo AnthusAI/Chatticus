@@ -3,7 +3,7 @@
   "title": "A gated action reached with no screen attached stops or is pre-authorized",
   "description": "As a household member, I want a routine or overnight turn that reaches a consequential action while my laptop is closed to either stop honestly or run only against a pre-authorized control, so that approvals are never silently bypassed and work is never silently lost.\n\nFeature: Overnight gated action\n\nScenario: A consequential action is reached with no watcher\n  Given a routine is running with the laptop closed\n  And the routine reaches a send, publish, purchase, delete, or production change\n  And no human is at a screen and device push can only say \"come back\"\n  When the turn reaches that gated action\n  Then the turn does not execute the action\n  And the turn reports a blocked state that survives until a human returns\n  And no auto-review rule loosens a consequential action on the bot's own initiative\n\nScenario: A pre-authorized rule allows an unattended consequential action\n  Given a human has, out of band, created an always-allow rule for a narrow structured operation\n  And the routine reaches that exact operation with the laptop closed\n  When the turn reaches that operation\n  Then the operation executes only if its concrete arguments match the rule\n  And a change to recipient, amount, destination, or body requires a new approval\n  And completion evidence is recorded from the system acted upon\n\nScenario: A generic browser action cannot be pre-authorized overnight\n  Given no structured connector or takeover control can bind the exact operation\n  And a routine reaches a send or purchase through an authenticated browser with the laptop closed\n  When the turn reaches that action\n  Then the action is not executed\n  And the turn reports that user-controlled completion is required\n  And the routine does not retry the action unattended",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "b1f6947e-bf43-42c3-8691-49126d73c9ca",
+      "author": "home",
+      "text": "Kernel on develop: overnight_gated_action.feature. Unattended consequential actions block unless a human always-allow matches exact structured arguments. Browser overnight cannot be pre-authorized. Not on the live ThinTurn worker; no staging/production deploy.",
+      "created_at": "2026-08-30T23:02:08.827584Z"
+    }
+  ],
   "created_at": "2026-08-30T16:14:45.535597Z",
-  "updated_at": "2026-08-30T16:14:45.535597Z",
-  "closed_at": null,
+  "updated_at": "2026-08-30T23:02:08.848020Z",
+  "closed_at": "2026-08-30T23:02:08.848020Z",
   "custom": {}
 }

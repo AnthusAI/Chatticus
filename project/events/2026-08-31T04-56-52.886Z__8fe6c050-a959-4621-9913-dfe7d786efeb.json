@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "8fe6c050-a959-4621-9913-dfe7d786efeb",
+  "issue_id": "chatticus-bda7ff81-f067-4326-8eaf-e5ae26e7c3da",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T04:56:52.886Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+    "priority": 0,
+    "status": "open",
+    "title": "Retrying a bot create with one idempotency key does not duplicate"
+  }
+}

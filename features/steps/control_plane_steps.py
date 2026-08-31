@@ -9,6 +9,7 @@ from behave import given, then, when
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.test_server import start_test_server
+from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
     AutoReviewRuleKind,
     ComputerDirtyError,
@@ -47,6 +48,83 @@ def _registration_from_table(table: object) -> WorkerRegistration:
 @given("an empty control plane")
 def given_empty_control_plane(context: object) -> None:
     context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
+    app = create_app(context.plane)
+    context.api_app = app
+    context.app_state = app.state.chatticus
+    context.api_client = start_test_server(app)
+    context.bots_by_name = {}
+    context.last_job = None
+    context.last_assignment = None
+    context.last_decision = None
+    context.registration_error = None
+    context.bot_error = None
+    context.snapshot_error = None
+    context.relocate_error = None
+    context.hydrate_error = None
+    context.write_error = None
+    context.last_channel = None
+    context.last_message = None
+    context.last_turn_id = None
+    context.message_error = None
+    context.other_tenant_id = None
+    context.listed_messages = None
+    context.sse_watcher = None
+    context.access_error = None
+    context.stream_error = None
+
+
+@given("an empty control plane with a cpu enqueue hook")
+def given_empty_control_plane_with_cpu_enqueue_hook(context: object) -> None:
+    context.cpu_enqueued_jobs = []
+
+    def capture(job: object) -> None:
+        context.cpu_enqueued_jobs.append(job)
+
+    context.plane = ControlPlane(
+        heartbeat_timeout=timedelta(seconds=30),
+        turn_enqueued=capture,
+    )
+    app = create_app(context.plane)
+    context.api_app = app
+    context.app_state = app.state.chatticus
+    context.api_client = start_test_server(app)
+    context.bots_by_name = {}
+    context.last_job = None
+    context.last_assignment = None
+    context.last_decision = None
+    context.registration_error = None
+    context.bot_error = None
+    context.snapshot_error = None
+    context.relocate_error = None
+    context.hydrate_error = None
+    context.write_error = None
+    context.last_channel = None
+    context.last_message = None
+    context.last_turn_id = None
+    context.message_error = None
+    context.other_tenant_id = None
+    context.listed_messages = None
+    context.sse_watcher = None
+    context.access_error = None
+    context.stream_error = None
+
+
+@given("an empty control plane with cpu and computer enqueue hooks")
+def given_empty_control_plane_with_cpu_and_computer_hooks(context: object) -> None:
+    context.cpu_enqueued_jobs = []
+    context.computer_enqueued_jobs = []
+
+    def capture_cpu(job: object) -> None:
+        context.cpu_enqueued_jobs.append(job)
+
+    def capture_computer(job: object) -> None:
+        context.computer_enqueued_jobs.append(job)
+
+    context.plane = ControlPlane(
+        heartbeat_timeout=timedelta(seconds=30),
+        turn_enqueued=capture_cpu,
+        computer_enqueued=capture_computer,
+    )
     app = create_app(context.plane)
     context.api_app = app
     context.app_state = app.state.chatticus
@@ -223,13 +301,38 @@ def then_sees_session(context: object, name: str, service: str, session: str) ->
 @when('bot "{name}" remembers "{key}" as "{value}"')
 def when_bot_remembers(context: object, name: str, key: str, value: str) -> None:
     bot = context.bots_by_name[name]
-    context.plane.remember(bot.bot_id, key, value)
+    context.plane.remember(bot.tenant_id, bot.bot_id, key, value)
 
 
 @then('bot "{name}" does not remember "{key}"')
 def then_bot_does_not_remember(context: object, name: str, key: str) -> None:
     bot = context.bots_by_name[name]
-    assert context.plane.memory(bot.bot_id, key) is None
+    assert context.plane.memory(bot.tenant_id, bot.bot_id, key) is None
+
+
+@when("the control plane is recycled onto the same messaging store")
+def when_control_plane_is_recycled(context: object) -> None:
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+
+
+@then('bot "{name}" has memory "{key}" as "{value}"')
+def then_bot_has_memory(context: object, name: str, key: str, value: str) -> None:
+    bot = context.bots_by_name[name]
+    assert context.plane.memory(bot.tenant_id, bot.bot_id, key) == value
+
+
+@then('the turn prompt contains memory "{key}" as "{value}"')
+def then_turn_prompt_contains_memory(context: object, key: str, value: str) -> None:
+    channel = context.last_channel
+    prompt = context.plane.turn_prompt(channel.tenant_id, context.last_turn_id)
+    assert f"memory {key}: {value}" in prompt.splitlines()
+
+
+@then('the turn prompt contains channel text "{body}"')
+def then_turn_prompt_contains_channel_text(context: object, body: str) -> None:
+    channel = context.last_channel
+    prompt = context.plane.turn_prompt(channel.tenant_id, context.last_turn_id)
+    assert any(line.endswith(body) for line in prompt.splitlines())
 
 
 @then('bot "{name}" cannot read "{path}" from its computer')
@@ -324,9 +427,128 @@ def when_create_bot(context: object, name: str, tenant_id: str, user_id: str) ->
         context.bot_error = error
 
 
+@when(
+    'tenant "{tenant_id}" user "{user_id}" creates bot "{name}" '
+    'using idempotency key "{key}"'
+)
+def when_create_bot_with_idempotency(
+    context: object, name: str, tenant_id: str, user_id: str, key: str
+) -> None:
+    previous = getattr(context, "idempotent_bot_id", None)
+    bot = context.plane.create_bot(tenant_id, user_id, name, idempotency_key=key)
+    context.bots_by_name[name] = bot
+    context.bot_error = None
+    if previous is None:
+        context.idempotent_bot_id = bot.bot_id
+    else:
+        context.repeated_bot_id = bot.bot_id
+
+
+@given("an empty control plane backed by a durable messaging store")
+def given_durable_messaging_store(context: object) -> None:
+    context.messaging_store = InMemoryMessagingStore()
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    context.bots_by_name = {}
+
+
+@given("an empty control plane backed by a durable messaging store with HTTP")
+def given_durable_messaging_store_with_http(context: object) -> None:
+    context.messaging_store = InMemoryMessagingStore()
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    app = create_app(context.plane)
+    context.api_app = app
+    context.app_state = app.state.chatticus
+    context.api_client = start_test_server(app)
+    context.bots_by_name = {}
+    context.last_channel = None
+    context.last_turn_id = None
+    context.message_error = None
+    context.other_tenant_id = None
+    context.listed_messages = None
+    context.access_error = None
+
+
+@when("a recycled Front Door serves the same messaging store")
+def when_recycled_front_door(context: object) -> None:
+    context.api_client.close()
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    app = create_app(context.plane)
+    context.api_app = app
+    context.app_state = app.state.chatticus
+    context.api_client = start_test_server(app)
+
+
+@when(
+    'a new control plane instance creates a bot named "{name}" '
+    'for tenant "{tenant_id}" user "{user_id}"'
+)
+def when_recycled_plane_creates_bot(
+    context: object, name: str, tenant_id: str, user_id: str
+) -> None:
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    when_create_bot(context, name, tenant_id, user_id)
+
+
+@when(
+    'a recycled control plane creates bot "{name}" for tenant '
+    '"{tenant_id}" user "{user_id}" using idempotency key "{key}"'
+)
+def when_recycled_plane_creates_bot_with_idempotency(
+    context: object, name: str, tenant_id: str, user_id: str, key: str
+) -> None:
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    when_create_bot_with_idempotency(context, name, tenant_id, user_id, key)
+
+
 @then("creating the bot fails because the name is already used")
 def then_duplicate_bot(context: object) -> None:
     assert isinstance(context.bot_error, DuplicateBotNameError)
+
+
+@then("the created bot identifier is unchanged")
+def then_created_bot_identifier_is_unchanged(context: object) -> None:
+    first = getattr(context, "idempotent_bot_id", None)
+    second = getattr(context, "repeated_bot_id", None)
+    assert first is not None
+    assert second == first
+
+
+@then('tenant "{tenant_id}" can look up bot "{name}" for user "{user_id}"')
+def then_lookup_bot_by_name(
+    context: object, tenant_id: str, name: str, user_id: str
+) -> None:
+    expected = context.bots_by_name[name]
+    response = context.api_client.get(
+        "/bots",
+        params={"user_id": user_id, "name": name},
+        headers={"X-Tenant-Id": tenant_id},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["bot_id"] == expected.bot_id
+    assert payload["name"] == name
+    assert payload["user_id"] == user_id
+
+
+@then('tenant "{tenant_id}" can list bots for user "{user_id}":')
+def then_list_user_bots(context: object, tenant_id: str, user_id: str) -> None:
+    expected_names: list[str] = []
+    if context.table.headings and context.table.headings[0].strip():
+        expected_names.append(context.table.headings[0].strip())
+    expected_names.extend(row.cells[0].strip() for row in context.table)
+    expected_names = [name for name in expected_names if name]
+    response = context.api_client.get(
+        f"/users/{user_id}/bots",
+        headers={"X-Tenant-Id": tenant_id},
+    )
+    assert response.status_code == 200
+    names = [bot["name"] for bot in response.json()["bots"]]
+    assert names == expected_names
+    for name in expected_names:
+        expected = context.bots_by_name[name]
+        payload = next(bot for bot in response.json()["bots"] if bot["name"] == name)
+        assert payload["bot_id"] == expected.bot_id
+        assert payload["user_id"] == user_id
 
 
 @when('worker "{worker_id}" publishes a snapshot of computer "{computer_id}"')

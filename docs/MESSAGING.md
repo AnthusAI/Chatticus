@@ -127,7 +127,7 @@ exists to avoid.
 4. The streaming function polls for chunks after its cursor and writes
    them out as events.
 5. On `turn.completed` one message row is committed. The client reloads
-   or reconciles with `GET .../messages?after=seq`.
+   or reconciles with `GET .../messages?after=<seq>`.
 
 The stream is scoped to **one turn**, not to the tab. Between turns the
 browser holds nothing open, which is what lets the whole system reach
@@ -137,8 +137,8 @@ through device push, or a cheap "anything after seq?" poll every 20 to
 something finished".
 
 Streaming functions have a maximum duration (15 minutes on Lambda). A
-longer turn ends the stream; the client reconnects with `after=seq` and
-a fresh invocation resumes. Reconnect is a normal event, not an error
+longer turn ends the stream; the client reconnects with `Last-Event-ID`
+and a fresh invocation resumes. Reconnect is a normal event, not an error
 path.
 
 The client should render each chunk smoothly across the following
@@ -179,7 +179,7 @@ See challenge 5 in [Design challenges](DESIGN_CHALLENGES.md).
 
 A turn runs to completion whether or not a browser is attached. The
 stream is a view, never a participant. If the stream ever carries state
-that cannot be recovered through `after=seq`, reconnect becomes a bug
+that cannot be recovered through `Last-Event-ID`, reconnect becomes a bug
 and the guarantee that closing the laptop does not stop work is gone.
 
 ### What the cloud API is not
@@ -205,10 +205,17 @@ would wait a second for; buffer what you are rendering live.
 
 | Path | Use |
 | --- | --- |
-| `POST /channels` | Open a channel |
-| `POST /channels/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if it enqueues a turn |
-| `GET /channels/{id}/messages?after=seq` | History and reconnect |
-| `GET /turns/{id}/stream` | Server-sent events for one turn |
+| `POST /bots` | Create a named bot. Retry with the same `Idempotency-Key` header returns the original bot |
+| `GET /bots?user_id=&name=` | Look up a named bot after recycle |
+| `GET /users/{user_id}/bots` | List a household user's named bots after recycle |
+| `GET /bots/{id}` | Read a bot, including isolated memory |
+| `POST /bots/{id}/memory` | Persist one bot memory item |
+| `POST /channels` | Open a channel. Retry with the same `Idempotency-Key` header returns the original channel |
+| `GET /channels/{id}` | Read a channel record after recycle |
+| `POST /channels/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if a turn starts. Retry with the same `Idempotency-Key` header does not duplicate the message or enqueue a second turn |
+| `GET /channels/{id}/messages?after=<seq>` | History and reconnect |
+| `GET /turns/{id}/events?after=<seq>` | Durable turn journal after a seq |
+| `GET /turns/{id}/stream` | Server-sent events for one turn (`Last-Event-ID`) |
 | `POST /turns/{id}/chunks` | Worker appends coalesced output |
 | `POST /approvals/{id}` | Human decides a blocked action |
 

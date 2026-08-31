@@ -105,6 +105,7 @@ class TurnEventKind(StrEnum):
 
     CHANNEL_MESSAGE_CREATED = "channel.message.created"
     TURN_STARTED = "turn.started"
+    TURN_WAITING = "turn.waiting"
     TURN_TOKEN = "turn.token"
     TURN_COMPLETED = "turn.completed"
     TURN_FAILED = "turn.failed"
@@ -156,6 +157,18 @@ class TurnTerminalError(ChatticusError):
     """The turn already reached a terminal state."""
 
 
+class TurnNotWaitingError(ChatticusError):
+    """Resume was called on a turn that is not blocked on a readiness gate."""
+
+
+class ComputerNotReadyError(ChatticusError):
+    """The household computer is still stopped, so the waiting turn cannot resume."""
+
+
+class ComputerlessCannotExecuteComputerJob(ChatticusError):
+    """A cpu-only worker must not ack a job that requires the computer."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""
@@ -191,12 +204,18 @@ class TurnJob:
 
 @dataclass(frozen=True)
 class AutoReviewRule:
-    """A narrow auto-review rule matching an action type for one tenant."""
+    """A narrow auto-review rule matching an action type for one tenant.
+
+    Overnight pre-authorization requires ``created_by="human"`` and
+    ``argument_bindings`` that equal the concrete operation.
+    """
 
     kind: AutoReviewRuleKind
     action_type: str
     tenant_id: str
     user_id: str | None = None
+    argument_bindings: tuple[tuple[str, str], ...] = ()
+    created_by: str = "human"
 
 
 @dataclass
@@ -308,6 +327,9 @@ class Turn:
     recovery_attempts: int = 0
     terminal_reason: str | None = None
     ambiguous_provider_call_id: str | None = None
+    waiting_for: str | None = None
+    pending_computer_action_id: str | None = None
+    pending_computer_tool_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -324,6 +346,26 @@ class TurnAttempt:
 
 
 @dataclass(frozen=True)
+class PendingComputerToolSnapshot:
+    """One pending computer tool call recorded on a waiting turn."""
+
+    action_id: str
+    tool_name: str
+    arguments: dict[str, str]
+
+
+def pending_computer_tool_from_turn(turn: Turn) -> PendingComputerToolSnapshot | None:
+    """Return the pending computer tool on one turn, if any."""
+    if turn.pending_computer_tool_name is None:
+        return None
+    return PendingComputerToolSnapshot(
+        action_id=turn.pending_computer_action_id or "",
+        tool_name=turn.pending_computer_tool_name,
+        arguments={"gate": turn.waiting_for} if turn.waiting_for else {},
+    )
+
+
+@dataclass(frozen=True)
 class TurnEvent:
     """One durable event for turn-scoped server-sent events."""
 
@@ -336,3 +378,4 @@ class TurnEvent:
     token: str | None = None
     message_seq: int | None = None
     body: str | None = None
+    pending_computer_tool: PendingComputerToolSnapshot | None = None

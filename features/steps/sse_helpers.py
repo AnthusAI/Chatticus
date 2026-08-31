@@ -13,6 +13,13 @@ def tenant_headers(tenant_id: str) -> dict[str, str]:
     return {"X-Tenant-Id": tenant_id}
 
 
+def _stream_headers(tenant_id: str, last_event_id: int = 0) -> dict[str, str]:
+    headers = tenant_headers(tenant_id)
+    if last_event_id:
+        headers["Last-Event-ID"] = str(last_event_id)
+    return headers
+
+
 def parse_sse_frames(buffer: str) -> list[dict[str, Any]]:
     """Parse complete SSE frames from a text buffer."""
     events: list[dict[str, Any]] = []
@@ -55,11 +62,13 @@ class SseWatcher:
 
         def run() -> None:
             try:
+                headers = tenant_headers(self.tenant_id)
+                if self.after_seq:
+                    headers["Last-Event-ID"] = str(self.after_seq)
                 with self.client.stream(
                     "GET",
                     f"/turns/{self.turn_id}/stream",
-                    headers=tenant_headers(self.tenant_id),
-                    params={"after_seq": self.after_seq},
+                    headers=headers,
                 ) as response:
                     self._response = response
                     if response.status_code != 200:
@@ -141,8 +150,7 @@ def read_sse_until(
     with client.stream(
         "GET",
         f"/turns/{turn_id}/stream",
-        headers=tenant_headers(tenant_id),
-        params={"after_seq": after_seq},
+        headers=_stream_headers(tenant_id, after_seq),
     ) as response:
         if response.status_code != 200:
             return events

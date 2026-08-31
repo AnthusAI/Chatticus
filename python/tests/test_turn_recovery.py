@@ -215,3 +215,64 @@ def test_computerless_worker_renews_during_slow_model_call() -> None:
     assert turn.lease_expires_at > plane.now()
     assert ("anthus", started.turn_id) in plane.queue_visibility_renewals
     api.close()
+
+
+def test_deadline_recovery_skips_legitimately_waiting_turn() -> None:
+    plane = _recovery_plane()
+    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    from chatticus.models import ActorKind
+
+    _, started = plane.post_channel_message(
+        channel.channel_id,
+        "anthus",
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+    )
+    assert started is not None
+    attempt = plane.claim_turn_attempt("anthus", started.turn_id, "worker-a")
+    assert attempt is not None
+    plane.emit_turn_waiting("anthus", started.turn_id, "browser", fence_token=1)
+    plane.release_turn_claim_for_waiting("anthus", started.turn_id, fence_token=1)
+    turn = plane.turn("anthus", started.turn_id)
+    turn.recovery_attempts = 1
+    plane._messaging_store.put_turn(turn)
+    plane.advance_seconds(61)
+    plane.handle_turn_deadline("anthus", started.turn_id)
+    turn = plane.turn("anthus", started.turn_id)
+    assert turn.status == TurnStatus.ACTIVE
+    assert turn.waiting_for == "browser"
+    assert turn.recovery_attempts == 1
+
+
+def test_renewing_completion_client_renews_during_blocking_call() -> None:
+    import time
+
+    from chatticus.worker.computerless import (
+        CompletionOutcome,
+        FakeTextCompletionClient,
+        RenewingTextCompletionClient,
+    )
+
+    renewals = 0
+
+    def renew() -> None:
+        nonlocal renewals
+        renewals += 1
+
+    class BlockingCompletionClient:
+        def complete(self, prompt: str) -> CompletionOutcome:
+            del prompt
+            time.sleep(0.05)
+            return FakeTextCompletionClient().complete("hello")
+
+    client = RenewingTextCompletionClient(
+        BlockingCompletionClient(),
+        renew,
+        interval_seconds=0.01,
+    )
+    outcome = client.complete("hello")
+    assert outcome.text
+    assert renewals >= 2

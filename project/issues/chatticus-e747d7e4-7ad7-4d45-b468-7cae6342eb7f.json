@@ -18,9 +18,16 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cde3dc95-1cf4-4e51-b90c-8429ee469dc9",
+      "author": "home",
+      "text": "blocked-by 653989 removed after that epic closed. Ready to measure Test 2. Not starting ChatticusComputers this cycle (no Fargate scale-up).",
+      "created_at": "2026-08-30T23:57:39.858725Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:56.678476Z",
-  "updated_at": "2026-08-30T15:54:56.678476Z",
+  "updated_at": "2026-08-30T23:57:39.858725Z",
   "closed_at": null,
   "custom": {}
 }

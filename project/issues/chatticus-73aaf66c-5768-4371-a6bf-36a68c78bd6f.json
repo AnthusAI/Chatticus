@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-73aaf66c-5768-4371-a6bf-36a68c78bd6f",
+  "title": "GET /channels/{id} survives Front Door recycle",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "97647297-3d50-4a68-89b9-d8ea763594df",
+      "author": "home",
+      "text": "GET /channels/{id} live on development ThinTurn @ c2f3e55. exercise exit 0 with channel_get=1 claim_a=200 claim_b=409.",
+      "created_at": "2026-08-31T05:08:07.194506Z"
+    }
+  ],
+  "created_at": "2026-08-31T05:04:48.140565Z",
+  "updated_at": "2026-08-31T05:08:07.205134Z",
+  "closed_at": "2026-08-31T05:08:07.205134Z",
+  "custom": {}
+}

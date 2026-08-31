@@ -124,6 +124,7 @@ def given_recovery_already_attempted(context: object) -> None:
     turn = context.plane.turn(_channel(context).tenant_id, _turn_id(context))
     turn.recovery_attempts = 1
     context.plane._messaging_store.put_turn(turn)
+    context.recovery_attempts_before_deadline = turn.recovery_attempts
 
 
 @when("the turn deadline is reached")
@@ -351,3 +352,55 @@ def then_visibility_extended(context: object) -> None:
     channel = _channel(context)
     renewals = context.plane.queue_visibility_renewals
     assert (channel.tenant_id, _turn_id(context)) in renewals
+
+
+@given("a turn is blocked on the browser gate with its worker claim released")
+def given_turn_blocked_on_browser_gate(context: object) -> None:
+    channel = _channel(context)
+    bot = context.bots_by_name["Assistant"]
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": "human",
+            "author_id": channel.user_id,
+            "body": "open the household browser",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers=tenant_headers(channel.tenant_id),
+    )
+    assert response.status_code == 200
+    context.last_turn_id = response.json()["turn_id"]
+    context.logical_enqueue_before_deadline = (
+        context.plane.logical_enqueue_delivery_count
+    )
+    _claim(context, "waiting-worker")
+    _post_chunk(context, "Here is a draft.")
+    waiting = context.api_client.post(
+        f"/turns/{_turn_id(context)}/waiting",
+        json={"gate": "browser", "fence_token": context.fence_token},
+        headers=tenant_headers(channel.tenant_id),
+    )
+    assert waiting.status_code == 200, waiting.text
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    assert turn.waiting_for == "browser"
+    assert turn.claimed_by_worker_id is None
+
+
+@then("the turn remains waiting on the browser gate")
+def then_turn_remains_waiting_on_browser_gate(context: object) -> None:
+    channel = _channel(context)
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    assert turn.status == TurnStatus.ACTIVE
+    assert turn.waiting_for == "browser"
+    assert turn.claimed_by_worker_id is None
+
+
+@then("recovery is not attempted again")
+def then_recovery_not_attempted_again(context: object) -> None:
+    channel = _channel(context)
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    assert turn.recovery_attempts == context.recovery_attempts_before_deadline
+    assert (
+        context.plane.logical_enqueue_delivery_count
+        == context.logical_enqueue_before_deadline
+    )

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "aec232d8-5fe8-43a4-acec-6e850886d11b",
+  "issue_id": "chatticus-66d3c4a8-0df2-49eb-87e3-14684072584b",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T01:33:31.878Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a household member, I want a waiting turn to stay blocked while the computer is stopped, so that resume does not pretend the browser is ready.\n\nFeature: Waiting turn resume\n\nScenario: Resume is refused while the household computer is stopped\n  Given an empty control plane\n  And tenant \"anthus\" user \"ryan\" household computer is stopped\n  And tenant \"anthus\" user \"ryan\" has a channel with a named bot \"Researcher\"\n  And user \"ryan\" of tenant \"anthus\" has an active turn on the channel\n  When the worker posts a progress chunk and then waits on the browser gate\n  And user \"ryan\" of tenant \"anthus\" tries to resume that waiting turn\n  Then resume is refused because the computer is not ready\n  And the turn remains active\n  And the turn is still waiting on the browser gate\n\nNot included: starting Fargate, executing browser tools, deploying staging or production.",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "A waiting turn cannot resume while the computer is stopped"
+  }
+}
