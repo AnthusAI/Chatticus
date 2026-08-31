@@ -81,7 +81,10 @@ from `develop` @ `d99b028` (no `--all`).
 exits 0 for **development**, **staging**, and **production**. Each run
 includes missing-turn claim **404** and a live second-worker claim **409**
 while the lease is held, plus SSE `turn.started` / `turn.token` /
-`turn.completed`. **Development** also proves `POST /turns/{id}/waiting`:
+`turn.completed`. **Development** also drops that greeting stream after
+`turn.started` and a token, then reconnects through CloudFront with
+`after_seq` and requires ordered replay through `turn.completed`.
+**Development** also proves `POST /turns/{id}/waiting`:
 SSE `turn.waiting` naming `browser`, `GET /turns/{id}` returning
 `waiting_for=browser` and pending tool `request_computer_capability`,
 then a stale fence **409**, then
