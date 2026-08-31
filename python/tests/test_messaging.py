@@ -395,6 +395,74 @@ def test_http_list_user_bots_survives_a_new_control_plane() -> None:
     api.close()
 
 
+def test_http_list_user_channels() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    first = api.post(
+        "/channels",
+        json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    second = api.post(
+        "/channels",
+        json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    api.post(
+        "/channels",
+        json={
+            "user_id": "alex",
+            "bot_ids": [plane.create_bot("anthus", "alex", "Ops").bot_id],
+        },
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    listed = api.get(
+        "/users/ryan/channels",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert listed.status_code == 200
+    channels = listed.json()["channels"]
+    assert [channel["channel_id"] for channel in channels] == sorted(
+        [first.json()["channel_id"], second.json()["channel_id"]]
+    )
+    empty = api.get(
+        "/users/ryan/channels",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert empty.status_code == 200
+    assert empty.json()["channels"] == []
+    api.close()
+
+
+@mock_aws
+def test_http_list_user_channels_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-channel-list-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    bot = first.create_bot("anthus", "ryan", "Researcher")
+    first_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
+    second_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
+    first.create_channel(
+        "anthus",
+        "alex",
+        [first.create_bot("anthus", "alex", "Ops").bot_id],
+    )
+    api = _client_for(ControlPlane(messaging_store=store))
+    listed = api.get(
+        "/users/ryan/channels",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert listed.status_code == 200
+    channels = listed.json()["channels"]
+    assert [channel["channel_id"] for channel in channels] == sorted(
+        [first_channel.channel_id, second_channel.channel_id]
+    )
+    api.close()
+
+
 def test_http_bot_memory_roundtrip() -> None:
     plane = ControlPlane()
     api = _client_for(plane)

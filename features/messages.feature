@@ -188,3 +188,15 @@ Feature: Channels and the message store
       | Assistant |
     And a recycled Front Door serves the same messaging store
     Then tenant "anthus" can read the open channel by identifier
+
+  Scenario: A user's channels can be listed after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    And tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    When a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can list channels for user "ryan":
+      | 1 |
+      | 2 |

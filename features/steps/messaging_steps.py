@@ -134,7 +134,13 @@ def when_open_channel(context: object, tenant_id: str, user_id: str) -> None:
         headers=tenant_headers(tenant_id),
     )
     assert response.status_code == 200
-    _load_channel(context, tenant_id, response.json()["channel_id"])
+    channel_id = response.json()["channel_id"]
+    opened = getattr(context, "opened_channel_ids", None)
+    if opened is None:
+        context.opened_channel_ids = [channel_id]
+    else:
+        opened.append(channel_id)
+    _load_channel(context, tenant_id, channel_id)
 
 
 @when(
@@ -353,6 +359,38 @@ def then_tenant_reads_open_channel(context: object, tenant_id: str) -> None:
     participant_ids = {item["actor_id"] for item in payload["participants"]}
     expected_ids = {participant.actor_id for participant in channel.participants}
     assert participant_ids == expected_ids
+
+
+@then('tenant "{tenant_id}" can list channels for user "{user_id}":')
+def then_list_user_channels(context: object, tenant_id: str, user_id: str) -> None:
+    opened_ids: list[str] = getattr(context, "opened_channel_ids", [])
+
+    def resolve_cell(cell: str) -> str:
+        value = cell.strip()
+        if value.isdigit():
+            return opened_ids[int(value) - 1]
+        return value
+
+    expected_ids: list[str] = []
+    if context.table.headings and context.table.headings[0].strip():
+        expected_ids.append(resolve_cell(context.table.headings[0]))
+    expected_ids.extend(resolve_cell(row.cells[0]) for row in context.table)
+    expected_ids = [channel_id for channel_id in expected_ids if channel_id]
+    response = context.api_client.get(
+        f"/users/{user_id}/channels",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    listed_ids = [channel["channel_id"] for channel in response.json()["channels"]]
+    assert listed_ids == sorted(expected_ids)
+    for channel_id in expected_ids:
+        payload = next(
+            channel
+            for channel in response.json()["channels"]
+            if channel["channel_id"] == channel_id
+        )
+        assert payload["tenant_id"] == tenant_id
+        assert payload["user_id"] == user_id
 
 
 @then('the message with seq {seq:d} has body "{body}"')

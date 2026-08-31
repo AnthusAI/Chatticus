@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-b4c31e32-96f3-44f4-98d5-ca7bfd9814e9",
+  "title": "List user channels after Front Door recycle",
+  "description": "Feature: Household channel roster after recycle\n\n  Scenario: A user's channels can be listed after a Front Door recycle\n    Given an empty control plane backed by a durable messaging store with HTTP\n    And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n    And tenant \"anthus\" user \"ryan\" opens a channel with bots:\n      | Researcher |\n    And tenant \"anthus\" user \"ryan\" opens a channel with bots:\n      | Researcher |\n    When a recycled Front Door serves the same messaging store\n    Then tenant \"anthus\" can list channels for user \"ryan\":\n      | 1 |\n      | 2 |",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T05:38:51.997167Z",
+  "updated_at": "2026-08-31T05:38:56.103685Z",
+  "closed_at": null,
+  "custom": {}
+}

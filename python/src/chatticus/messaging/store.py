@@ -34,6 +34,9 @@ class MessagingStore(Protocol):
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         """Load one channel."""
 
+    def list_channels(self, tenant_id: str, user_id: str) -> list[Channel]:
+        """Return channels owned by one household user."""
+
     def resolve_channel_tenant(self, channel_id: str) -> str | None:
         """Return the owning tenant for a channel identifier."""
 
@@ -188,6 +191,16 @@ class InMemoryMessagingStore:
 
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         return self._channels.get((tenant_id, channel_id))
+
+    def list_channels(self, tenant_id: str, user_id: str) -> list[Channel]:
+        return sorted(
+            (
+                channel
+                for channel in self._channels.values()
+                if channel.tenant_id == tenant_id and channel.user_id == user_id
+            ),
+            key=lambda channel: channel.channel_id,
+        )
 
     def resolve_channel_tenant(self, channel_id: str) -> str | None:
         for (tenant_id, stored_channel_id), _ in self._channels.items():
@@ -433,6 +446,18 @@ class DynamoMessagingStore:
                 "channel_id": {"S": channel.channel_id},
             },
         )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._roster_pk(channel.tenant_id)},
+                "sk": {
+                    "S": self._channel_roster_sk(channel.user_id, channel.channel_id)
+                },
+                "tenant_id": {"S": channel.tenant_id},
+                "user_id": {"S": channel.user_id},
+                "channel_id": {"S": channel.channel_id},
+            },
+        )
 
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         response = self.client.get_item(
@@ -456,6 +481,23 @@ class DynamoMessagingStore:
             participants=participants,
             next_seq=int(item["next_seq"]["N"]),
         )
+
+    def list_channels(self, tenant_id: str, user_id: str) -> list[Channel]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._roster_pk(tenant_id)},
+                ":prefix": {"S": f"channel#{user_id}#"},
+            },
+        )
+        channels: list[Channel] = []
+        for row in response.get("Items", []):
+            channel_id = row["channel_id"]["S"]
+            channel = self.get_channel(tenant_id, channel_id)
+            if channel is not None:
+                channels.append(channel)
+        return sorted(channels, key=lambda channel: channel.channel_id)
 
     def resolve_channel_tenant(self, channel_id: str) -> str | None:
         response = self.client.get_item(
@@ -1008,6 +1050,9 @@ class DynamoMessagingStore:
 
     def _bot_name_sk(self, user_id: str, name: str) -> str:
         return f"bot_name#{user_id}#{name}"
+
+    def _channel_roster_sk(self, user_id: str, channel_id: str) -> str:
+        return f"channel#{user_id}#{channel_id}"
 
     def _bot_from_item(self, item: dict[str, Any]) -> Bot:
         memory_raw = item.get("memory", {}).get("S", "{}")
