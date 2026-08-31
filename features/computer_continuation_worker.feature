@@ -44,6 +44,13 @@ Feature: Computer-capable continuation worker
     When a computer-capable pull worker without a host executor pulls that continuation job
     Then the host start driver was invoked twice
 
+  Scenario: The computer queue lambda leaves a job in flight when the host is not ready
+    Given a fenced computer handoff with a queued continuation job
+    And a recording host start driver
+    When the computer queue lambda handler processes that job without a host executor
+    Then the handler returns a batch item failure for that message
+    And the host start driver was invoked once
+
   Scenario: Orphaned computer ownership expires without a scheduler
     Given a fenced computer handoff with a queued continuation job
     And the pending computer action ran before its lease expired

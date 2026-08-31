@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import replace
+from unittest.mock import patch
 from uuid import uuid4
 
 from behave import given, then, when
@@ -16,6 +19,27 @@ from chatticus.models import (
     TurnEventKind,
 )
 from chatticus.worker.computer import ComputerWorker, FakeComputerActionExecutor
+from chatticus.worker.lambda_handler import handler
+
+
+def _sqs_record_for_job(job: object, *, message_id: str) -> dict[str, str]:
+    body = json.dumps(
+        {
+            "job_id": job.job_id,
+            "tenant_id": job.tenant_id,
+            "turn_id": job.turn_id,
+            "bot_id": job.bot_id,
+            "user_id": job.user_id,
+            "computer_id": job.computer_id,
+            "computer_policy": job.computer_policy,
+            "required_capabilities": sorted(job.required_capabilities),
+        }
+    )
+    return {
+        "messageId": message_id,
+        "receiptHandle": "receipt-1",
+        "body": body,
+    }
 
 
 @given("a fenced computer handoff with a queued continuation job")
@@ -84,6 +108,38 @@ def when_computer_worker_given_cpu_job(context: object) -> None:
 @given("a recording host start driver")
 def given_recording_host_start_driver(context: object) -> None:
     context.host_starter = RecordingHostStarter()
+
+
+@when("the computer queue lambda handler processes that job without a host executor")
+def when_computer_lambda_processes_without_host_executor(context: object) -> None:
+    setup = context.computer_continuation
+    message_id = "computer-queue-msg-1"
+    event = {
+        "Records": [_sqs_record_for_job(setup.continuation_job, message_id=message_id)]
+    }
+    host_starter = getattr(context, "host_starter", None)
+    env = {
+        "CHATTICUS_WORKER_KIND": "computer",
+        "CHATTICUS_INVOKE_KEY": "",
+        "CHATTICUS_COMPUTER_TURN_QUEUE_URL": "https://sqs.example/computer",
+    }
+    with (
+        patch.dict(os.environ, env, clear=False),
+        patch(
+            "chatticus.worker.lambda_handler.plane_from_env",
+            lambda: context.plane,
+        ),
+        patch(
+            "chatticus.worker.lambda_handler._front_door_base_url",
+            lambda: str(context.api_client.base_url),
+        ),
+        patch(
+            "chatticus.worker.lambda_handler.host_starter_from_env",
+            lambda: host_starter,
+        ),
+    ):
+        context.lambda_result = handler(event, None)
+    context.lambda_message_id = message_id
 
 
 @when(
@@ -168,6 +224,14 @@ def then_computer_continuation_job_remains_queued(context: object) -> None:
     ]
     assert len(remaining) == 1
     assert "computer" in remaining[0].required_capabilities
+
+
+@then("the handler returns a batch item failure for that message")
+def then_handler_returns_batch_item_failure(context: object) -> None:
+    result = context.lambda_result
+    assert result == {
+        "batchItemFailures": [{"itemIdentifier": context.lambda_message_id}]
+    }
 
 
 @then("the host start driver was invoked once")

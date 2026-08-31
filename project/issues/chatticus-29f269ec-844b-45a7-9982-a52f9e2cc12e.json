@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-29f269ec-844b-45a7-9982-a52f9e2cc12e",
+  "title": "Computer queue lambda nacks in-flight when host is not ready",
+  "description": "Feature: Computer queue lambda partial batch failure\n\nScenario: The computer queue lambda leaves a job in flight when the host is not ready\n  Given a fenced computer handoff with a queued continuation job\n  And a recording host start driver\n  When the computer queue lambda handler processes that job without a host executor\n  Then the handler returns a batch item failure for that message\n  And the host start driver was invoked once",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T09:14:03.038135Z",
+  "updated_at": "2026-08-31T09:14:03.038135Z",
+  "closed_at": null,
+  "custom": {}
+}
