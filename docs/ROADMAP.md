@@ -32,7 +32,13 @@ exposes a decision that blocks the next slice.
    model. Generic authenticated browser actions that can send, publish,
    purchase, delete, or change production wait for a structured connector,
    human takeover, or another control that can describe and bind the exact
-   operation.
+   operation. Kernel:
+   `features/task_authority_grant.feature`,
+   `features/browser_context_policy.feature`,
+   `features/consequential_binding_control.feature`,
+   `features/prompt_injection_containment.feature`,
+   `features/v1_security_policy_exclusions.feature`.
+   Recorded in [Browser authority](BROWSER_AUTHORITY.md).
 7. Overnight consequential actions are gated, not loosened. v1 is a web
    tab; device push is "come back," not "approve this now." Unattended
    send, publish, purchase, delete, or production change **does not

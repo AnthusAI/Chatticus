@@ -179,8 +179,9 @@ The **source** has named cloud environments, turn **claim**, **lease**,
 logical-enqueue ledger, EventBridge Scheduler one-shot turn deadlines,
 and a recovery kernel (`recovery_enabled` when the messaging table and
 scheduler env vars are set). Kernel tests cover turn-boundary fault
-injection and in-memory page-content authority containment (not wired
-into the live worker HTTP loop).
+injection and in-memory page-content authority containment plus the
+executable capability, egress, and browser-context policy kernel (not
+wired into the live worker HTTP loop).
 
 What each deployed thin-turn slice does today:
 
@@ -543,6 +544,7 @@ as a leftover for the implementation agent.
 - [Stack](docs/STACK.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Approval spec](docs/APPROVAL.md)
+- [Browser authority](docs/BROWSER_AUTHORITY.md)
 - [Threat model](docs/THREAT_MODEL.md)
 - [Tasks](docs/TASKS.md)
 - [Feasibility tests](docs/FEASIBILITY_TESTS.md)

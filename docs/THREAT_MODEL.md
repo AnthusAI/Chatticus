@@ -1,8 +1,9 @@
 # Threat model
 
-This is a **stated direction, not a finished design.** The central risk
-below is acknowledged and only partly answered. Attack it before
-building on it.
+The central risk below is acknowledged and only partly answered in the
+**live** worker. The executable v1 policy is recorded in
+[Browser authority](BROWSER_AUTHORITY.md) and the Gherkin it names.
+Attack those cases before wiring sinks (task 53d744).
 
 ## The premise creates the risk
 
@@ -56,7 +57,8 @@ single primitive covers three, it is usually the right one.
 
 ## Direction
 
-Not yet built. Stated so it can be argued with.
+Specified as an in-memory kernel. Not wired into the live worker HTTP
+loop. Stated so it can be argued with.
 
 1. **Page content is data, never instruction.** The agent loop must keep
    a durable separation between the task it was given and the text it
@@ -79,19 +81,21 @@ Not yet built. Stated so it can be argued with.
 
 - Direction items 1–3 have an in-memory kernel (page-content authority,
   overnight gated actions, immutable approval binding, unbound browser
-  stops). They are not wired into the live worker HTTP loop. The agent
-  loop that would enforce them on a computer does not exist yet.
-- No answer for a compromised browser session persisting across turns via
-  the snapshot: a poisoned cookie or a modified page in the profile
-  survives relocation.
-- No answer for injection reaching a bot through a *channel*, from
-  content another bot summarized into it. Bot-to-bot is not a trust
-  boundary either.
-- Approval fatigue is unaddressed and would defeat all of it. A human who
-  approves everything without reading has a speed bump, not a control.
-  Worth instrumenting: an approval rate above roughly ninety percent
-  without inspection means the boundary is theatre.
-- Local-device execution widens this further and is gated separately.
+  stops, and the grant / context / injection cases in
+  [Browser authority](BROWSER_AUTHORITY.md)). They are not wired into
+  the live worker HTTP loop. The agent loop that would enforce them on a
+  computer does not exist yet.
+- `snapshot_cookie_integrity` is a v1 exclusion: a poisoned cookie or a
+  modified page in the profile survives relocation.
+- `bot_to_bot_channel_injection` is a v1 exclusion: content another bot
+  summarized onto a channel is not a trust boundary.
+- `approval_fatigue` is a v1 exclusion: a human who approves everything
+  without reading has a speed bump, not a control. Worth instrumenting
+  later: an approval rate above roughly ninety percent without inspection
+  means the boundary is theatre.
+- `local_device_execution_isolation` is gated separately.
+- The full exclusion list is executable in
+  `features/v1_security_policy_exclusions.feature`.
 
 ## What a reviewer should attack
 
