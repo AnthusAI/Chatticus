@@ -24,13 +24,13 @@ Production is never implied by a git branch.
 
 ## Live AWS (account `335163751677`, `us-east-1`)
 
-Development ThinTurn last successful redeploy: **`19070b1`** (ComputerWorker Lambda on `ComputerTurnJobs`, nack without host, no FakeComputerActionExecutor). `origin/develop` is ahead at **`a9c29b0`**: durable `host_start_generation` (**23c93e**), once-per-lease HostStarter (**60976f**), and SQS `batchItemFailures` nack (**29f269**) are in git, **not** on that pin until the next ThinTurn-only deploy.
+Development ThinTurn last successful redeploy: **`19070b1`**. A 2026-08-31 CloudFront exercise (`--base-url https://d3gpuuldffe35o.cloudfront.net`) proved live `health_environment=1`, `missing_claim=404`, `claim_a=200` then `claim_b=409`. After computer-queue resume, `GET /users/{id}/computer` still omits `host_start_generation` (**23c93e** not live). SQS lookup still needs `aws login`. `origin/develop` is ahead with 23c93e, 60976f, and 29f269.
 
 Staging and production were last recorded from `origin/main` @ `760915d` (v0.5.0). Do not deploy them unless asked.
 
 CloudFront development: https://d3gpuuldffe35o.cloudfront.net
 
-`cd python && pip install -e ".[dev]" && python scripts/exercise_thin_turn.py --environment development` is the pass/fail gate. Unset `AWS_PROFILE` if it is `AdministratorAccess-335163751677`.
+`cd python && pip install -e ".[dev]" && python scripts/exercise_thin_turn.py --environment development --base-url https://d3gpuuldffe35o.cloudfront.net` is the pass/fail gate when SSM is blocked. Unset `AWS_PROFILE` if it is `AdministratorAccess-335163751677`. Full SQS checks still need `aws login`.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be destroyed. Computers service desired count stays **0**. Do not `cdk deploy --all`.
 

@@ -873,10 +873,41 @@ def main() -> int:
                     json={"user_id": args.user_id, "stopped": True},
                 )
                 return 1
-            computer_queue = thin_turn_stack_output(
-                "development", "ComputerTurnQueueUrl"
-            )
-            cpu_queue = thin_turn_stack_output("development", "TurnQueueUrl")
+            generation = None
+            deadline = time.monotonic() + 25
+            while time.monotonic() < deadline:
+                computer_after = client.get(f"/users/{args.user_id}/computer")
+                generation = computer_after.json().get("host_start_generation")
+                if isinstance(generation, int) and generation >= 1:
+                    break
+                time.sleep(2)
+            if not isinstance(generation, int) or generation < 1:
+                print(
+                    f"host_start_generation={generation!r}",
+                    file=sys.stderr,
+                )
+                client.post(
+                    "/computers/stopped",
+                    json={"user_id": args.user_id, "stopped": True},
+                )
+                return 1
+            print(f"host_start_generation={generation}")
+            try:
+                computer_queue = thin_turn_stack_output(
+                    "development", "ComputerTurnQueueUrl"
+                )
+                cpu_queue = thin_turn_stack_output("development", "TurnQueueUrl")
+            except Exception as error:
+                print(
+                    "computer_queue lookup needs AWS credentials "
+                    f"({error.__class__.__name__}). Reauthenticate with aws login.",
+                    file=sys.stderr,
+                )
+                client.post(
+                    "/computers/stopped",
+                    json={"user_id": args.user_id, "stopped": True},
+                )
+                return 1
             computer_body = _sqs_receive_computer_continuation(
                 computer_queue,
                 job_id=job_id,
@@ -925,15 +956,6 @@ def main() -> int:
                 )
                 return 1
             print("computer_queue_turn_still_waiting=browser")
-            computer_after = client.get(f"/users/{args.user_id}/computer")
-            generation = computer_after.json().get("host_start_generation")
-            if not isinstance(generation, int) or generation < 1:
-                print(
-                    f"host_start_generation={generation!r}",
-                    file=sys.stderr,
-                )
-                return 1
-            print(f"host_start_generation={generation}")
     return 0
 
 

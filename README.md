@@ -74,8 +74,11 @@ redeployed from v0.6.0 here. Development was last redeployed ThinTurn-only
 from `develop` @ `19070b1` (no `--all`). That pin attaches a
 `ComputerWorker` Lambda to `ComputerTurnJobs` that nacks without a host
 (`computer_queue_job=in_flight_nack`) and does not fake `tool.result`.
-Durable `host_start_generation` on nack is on `develop` (23c93e) and is
-not on that pin until the next ThinTurn-only redeploy. A once-per-lease
+A CloudFront run of the named exercise on 2026-08-31 proved live
+`health_environment=1`, `missing_claim=404`, and `claim_a=200` then
+`claim_b=409`. After resume, `GET /users/{id}/computer` still has no
+`host_start_generation` (23c93e is git-ahead). SQS queue lookup still
+needs `aws login`. A once-per-lease
 `HostStarter` (60976f) and SQS `batchItemFailures` nack (29f269) are
 kernel-only on `develop`: the live ComputerWorker still nacks with a
 no-op starter; CDK does not set `CHATTICUS_HOST_STARTER=ecs` and does
