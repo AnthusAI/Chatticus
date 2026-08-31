@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
 
 from chatticus.control_plane import ControlPlane
 from chatticus.models import ActorKind
@@ -52,9 +51,7 @@ class SingleComputerStartDriver:
         bot = self.plane.create_bot(
             self.tenant_id, self.user_id, f"Researcher-{bot_count + 1}"
         )
-        channel = self.plane.create_channel(
-            self.tenant_id, self.user_id, [bot.bot_id]
-        )
+        channel = self.plane.create_channel(self.tenant_id, self.user_id, [bot.bot_id])
         _, turn = self.plane.post_channel_message(
             channel.channel_id,
             self.tenant_id,
@@ -78,9 +75,7 @@ class SingleComputerStartDriver:
 
     def expire_host_start_lease(self) -> None:
         """Advance past the host-start lease without granting a live writer."""
-        self.plane.advance_seconds(
-            self.plane.attempt_lease.total_seconds() + 1
-        )
+        self.plane.advance_seconds(self.plane.attempt_lease.total_seconds() + 1)
         self.plane.expire_host_start_claims()
 
     def host_start_count(self) -> int:
