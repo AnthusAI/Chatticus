@@ -3,7 +3,7 @@
   "title": "Two waiting browser turns cannot double-commit tool.result",
   "description": "Purpose: close the 5dad85 acceptance hole that two simultaneous waiting_for=browser turns on one household could double-commit tool.result on the same computer.\n\nAcceptance:\n- Kernel (and live development if claimed) proves two concurrent computer continuations cannot both commit tool.result for the same action_id / turn fence.\n- desiredCount stays 0. No cdk deploy --all, no production, no 35d86b / PR #26.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -16,10 +16,16 @@
       "author": "agent@example.com",
       "text": "Planner Composer 2.5 on worktree /tmp/chatticus-cfa9d3-two-actor branch cursor/two-actor-tool-result-4a21. Not 35d86b. desiredCount 0.",
       "created_at": "2026-08-31T22:08:22.774367Z"
+    },
+    {
+      "id": "83b9442d-17d8-4b21-bac8-1782dfc3bfd6",
+      "author": "agent@example.com",
+      "text": "Landed on develop via #70. Kernel: duplicate browser-waiting continuation → one tool.result, queue empty. Counting executor stays in tests. Acceptance APPROVE.",
+      "created_at": "2026-08-31T22:20:03.329134Z"
     }
   ],
   "created_at": "2026-08-31T22:08:11.469929Z",
-  "updated_at": "2026-08-31T22:08:22.774367Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T22:20:03.338446Z",
+  "closed_at": "2026-08-31T22:20:03.338446Z",
   "custom": {}
 }
