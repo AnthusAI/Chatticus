@@ -230,7 +230,7 @@ def test_dynamo_bot_memory_survives_a_new_control_plane() -> None:
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
     bot = first.create_bot("anthus", "ryan", "Researcher")
-    first.remember(bot.bot_id, "voice", "short and direct")
+    first.remember("anthus", bot.bot_id, "voice", "short and direct")
     second = ControlPlane(messaging_store=store)
     loaded = second.bot("anthus", bot.bot_id)
     assert loaded.memory["voice"] == "short and direct"
@@ -247,6 +247,42 @@ def test_dynamo_bot_memory_survives_a_new_control_plane() -> None:
     prompt = second.turn_prompt("anthus", started.turn_id)
     assert "memory voice: short and direct" in prompt.splitlines()
     assert prompt.splitlines()[-1].endswith("hello")
+
+
+def test_remember_hydrates_bot_on_a_new_control_plane() -> None:
+    store = InMemoryMessagingStore()
+    first = ControlPlane(messaging_store=store)
+    bot = first.create_bot("anthus", "ryan", "Researcher")
+    second = ControlPlane(messaging_store=store)
+    second.remember("anthus", bot.bot_id, "voice", "short and direct")
+    assert second.memory("anthus", bot.bot_id, "voice") == "short and direct"
+
+
+@mock_aws
+def test_dynamo_remember_hydrates_bot_on_a_new_control_plane() -> None:
+    table_name = "chatticus-bot-memory-write-recycle-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    bot = ControlPlane(messaging_store=store).create_bot("anthus", "ryan", "Researcher")
+    second = ControlPlane(messaging_store=store)
+    second.remember("anthus", bot.bot_id, "voice", "short and direct")
+    assert second.memory("anthus", bot.bot_id, "voice") == "short and direct"
+
+
+def test_http_bot_memory_write_on_a_new_control_plane() -> None:
+    store = InMemoryMessagingStore()
+    first = ControlPlane(messaging_store=store)
+    bot = first.create_bot("anthus", "ryan", "Researcher")
+    api = _client_for(ControlPlane(messaging_store=store))
+    remembered = api.post(
+        f"/bots/{bot.bot_id}/memory",
+        json={"key": "voice", "value": "short and direct"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert remembered.status_code == 200
+    assert remembered.json()["memory"]["voice"] == "short and direct"
+    api.close()
 
 
 def test_http_bot_memory_roundtrip() -> None:

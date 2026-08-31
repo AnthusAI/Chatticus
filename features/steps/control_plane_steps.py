@@ -301,13 +301,24 @@ def then_sees_session(context: object, name: str, service: str, session: str) ->
 @when('bot "{name}" remembers "{key}" as "{value}"')
 def when_bot_remembers(context: object, name: str, key: str, value: str) -> None:
     bot = context.bots_by_name[name]
-    context.plane.remember(bot.bot_id, key, value)
+    context.plane.remember(bot.tenant_id, bot.bot_id, key, value)
 
 
 @then('bot "{name}" does not remember "{key}"')
 def then_bot_does_not_remember(context: object, name: str, key: str) -> None:
     bot = context.bots_by_name[name]
-    assert context.plane.memory(bot.bot_id, key) is None
+    assert context.plane.memory(bot.tenant_id, bot.bot_id, key) is None
+
+
+@when("the control plane is recycled onto the same messaging store")
+def when_control_plane_is_recycled(context: object) -> None:
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+
+
+@then('bot "{name}" has memory "{key}" as "{value}"')
+def then_bot_has_memory(context: object, name: str, key: str, value: str) -> None:
+    bot = context.bots_by_name[name]
+    assert context.plane.memory(bot.tenant_id, bot.bot_id, key) == value
 
 
 @then('the turn prompt contains memory "{key}" as "{value}"')

@@ -63,7 +63,7 @@ def test_computer_for_unknown_user_raises() -> None:
 def test_remember_on_unknown_bot_raises() -> None:
     plane = ControlPlane()
     with pytest.raises(KeyError):
-        plane.remember("missing", "voice", "short")
+        plane.remember("anthus", "missing", "voice", "short")
 
 
 def test_heartbeat_at_exact_timeout_is_still_healthy() -> None:

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "71e5ecc3-a829-4b89-a78d-935b9d43b0d8",
+  "issue_id": "chatticus-3a94d6c9-b3d4-4584-baaf-f016aa43b06b",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T05:11:59.156Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+    "priority": 0,
+    "status": "open",
+    "title": "Bot memory writes hydrate from the store after Front Door recycle"
+  }
+}

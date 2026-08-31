@@ -612,17 +612,15 @@ class ControlPlane:
                 f"{computer.computer_id!r}."
             )
 
-    def remember(self, bot_id: str, key: str, value: str) -> None:
+    def remember(self, tenant_id: str, bot_id: str, key: str, value: str) -> None:
         """Store a memory item on one bot and persist the roster record."""
-        bot = self._bots.get(bot_id)
-        if bot is None:
-            raise KeyError(bot_id)
+        bot = self._bot(tenant_id, bot_id)
         bot.memory[key] = value
         self._messaging_store.put_bot(bot)
 
-    def memory(self, bot_id: str, key: str) -> str | None:
+    def memory(self, tenant_id: str, bot_id: str, key: str) -> str | None:
         """Return one bot memory item, if present."""
-        return self._bots[bot_id].memory.get(key)
+        return self._bot(tenant_id, bot_id).memory.get(key)
 
     def write_workspace(
         self, tenant_id: str, user_id: str, path: str, content: str
@@ -755,7 +753,7 @@ class ControlPlane:
     ) -> EscalationRecord:
         """Record that a computerless turn is ready to request a computer tool."""
         turn = self.turn(tenant_id, turn_id)
-        bot = self._bots[turn.bot_id]
+        bot = self._bot(tenant_id, turn.bot_id)
         computer = self.ensure_computer(tenant_id, bot.user_id)
         record = EscalationRecord(
             turn_id=turn_id,

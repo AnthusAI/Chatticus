@@ -199,10 +199,9 @@ def create_app(
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
-            bot = state.plane.bot(tenant_id, bot_id)
+            state.plane.remember(tenant_id, bot_id, body.key, body.value)
         except KeyError as error:
             raise HTTPException(status_code=404, detail="bot not found") from error
-        state.plane.remember(bot.bot_id, body.key, body.value)
         logger.info(
             "bot_memory_written tenant_id=%s bot_id=%s key=%s",
             tenant_id,
