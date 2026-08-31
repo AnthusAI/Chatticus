@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-35d86b02-2fc0-47dd-b24d-f88e58d9be97",
+  "title": "Show a live thin-turn conversation from the CLI",
+  "description": "Purpose: let a person see the live thin turn without reading exercise_thin_turn.py exit codes.\n\nexercise_thin_turn.py is an acceptance harness. It prints claim_a=200 and bots_list=1. It is not a demo. The product surface is still the web app (Vultus), which is not Phase 1. Until that exists, a CLI is how a human addresses a named bot and watches one durable streamed answer.\n\nDefinition of Done:\n- A documented command talks to a named cloud environment (development first).\n- The person types a message, sees tokens as they arrive, and sees the committed reply.\n- Reconnect after a drop still shows the same turn from stored chunks.\n- Auth is the existing invoke key plus tenant, not product login.\n- exercise_thin_turn.py stays the pass/fail gate; this CLI does not replace it.\n\nNot included: chattic.us, Vultus, product login, computer, browser, approvals.",
+  "type": "epic",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "demo"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T06:07:24.315584Z",
+  "updated_at": "2026-08-31T06:07:24.315584Z",
+  "closed_at": null,
+  "custom": {}
+}
