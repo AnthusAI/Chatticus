@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import pytest
+from computer_worker_helpers import CountingComputerActionExecutor
 
+from chatticus.browser_waiting_continuation_driver import (
+    prepare_browser_waiting_continuation,
+)
 from chatticus.computer_capabilities import BROWSER_CAPABILITY
 from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.control_plane import ControlPlane
@@ -345,4 +349,51 @@ def test_computer_worker_hydrates_waiting_turn_after_process_recycle() -> None:
     assert recycled.unresolved_tool_action_ids(channel.tenant_id, turn_id) == []
     finished = recycled.turn(channel.tenant_id, turn_id)
     assert finished.waiting_for is None
+    api.close()
+
+
+def test_concurrent_browser_waiting_workers_commit_tool_result_once() -> None:
+    import threading
+
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_browser_waiting_continuation(plane)
+    executor = CountingComputerActionExecutor()
+    duplicate_job = setup.continuation_job
+    errors: list[BaseException] = []
+    barrier = threading.Barrier(2)
+
+    def pull() -> None:
+        worker = ComputerWorker(
+            plane,
+            HttpTurnClient(api, setup.tenant_id),
+            action_executor=executor,
+        )
+        barrier.wait()
+        try:
+            worker.run_job(duplicate_job)
+        except BaseException as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=pull) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert errors == []
+    assert executor.calls == 1
+    events = plane.list_turn_events(setup.tenant_id, setup.turn_id)
+    results = [
+        event
+        for event in events
+        if event.kind == TurnEventKind.TOOL_RESULT
+        and event.action_id == setup.pending_action_id
+    ]
+    assert len(results) == 1
+    assert results[0].body == "opened"
+    assert plane.unresolved_tool_action_ids(setup.tenant_id, setup.turn_id) == []
+    remaining = [
+        job for job in plane._jobs if job.job_id == setup.continuation_job.job_id
+    ]
+    assert remaining == []
     api.close()
