@@ -209,7 +209,7 @@ would wait a second for; buffer what you are rendering live.
 | `GET /bots/{id}` | Read a bot, including isolated memory |
 | `POST /bots/{id}/memory` | Persist one bot memory item |
 | `POST /channels` | Open a channel |
-| `POST /channels/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if it enqueues a turn |
+| `POST /channels/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if a turn starts. Retry with the same `Idempotency-Key` header does not duplicate the message or enqueue a second turn |
 | `GET /channels/{id}/messages?after=<seq>` | History and reconnect |
 | `GET /turns/{id}/events?after=<seq>` | Durable turn journal after a seq |
 | `GET /turns/{id}/stream` | Server-sent events for one turn (`Last-Event-ID`) |

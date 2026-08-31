@@ -191,6 +191,37 @@ def when_human_posts_on_channel(
 
 
 @when(
+    'user "{user_id}" of tenant "{tenant_id}" posts "{body}" '
+    'addressed to bot "{name}" on the channel with idempotency key "{key}"'
+)
+def when_human_posts_on_channel_with_idempotency_key(
+    context: object,
+    user_id: str,
+    tenant_id: str,
+    body: str,
+    name: str,
+    key: str,
+) -> None:
+    channel = _channel(context)
+    bot = context.bots_by_name[name]
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": user_id,
+            "body": body,
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={**tenant_headers(tenant_id), "Idempotency-Key": key},
+    )
+    assert response.status_code == 200
+    context.message_error = None
+    payload = response.json()
+    context.last_turn_id = payload.get("turn_id")
+    context.last_message_id = payload["message"]["message_id"]
+
+
+@when(
     'user "{user_id}" of tenant "{tenant_id}" posts a fence probe '
     'addressed to bot "{name}" without enqueueing a turn job'
 )

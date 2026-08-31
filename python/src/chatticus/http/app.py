@@ -248,7 +248,9 @@ def create_app(
         channel_id: str,
         body: PostMessageBody,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, Any]:
+        key = (idempotency_key or "").strip() or None
         message, started = state.plane.post_channel_message(
             channel_id,
             tenant_id,
@@ -257,6 +259,7 @@ def create_app(
             body.body,
             addressed_to_bot_id=body.addressed_to_bot_id,
             enqueue_turn=body.enqueue_turn,
+            idempotency_key=key,
         )
         turn_id = started.turn_id if started is not None else None
         logger.info(

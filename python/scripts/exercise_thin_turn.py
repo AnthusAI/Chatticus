@@ -181,6 +181,57 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+        idem_key = str(uuid4())
+        idem_body = {
+            "author_kind": ActorKind.HUMAN,
+            "author_id": args.user_id,
+            "body": "Idempotent post; do not enqueue.",
+            "addressed_to_bot_id": bot["bot_id"],
+            "enqueue_turn": False,
+        }
+        first_idem = client.post(
+            f"/channels/{channel['channel_id']}/messages",
+            json=idem_body,
+            headers={"Idempotency-Key": idem_key},
+        )
+        second_idem = client.post(
+            f"/channels/{channel['channel_id']}/messages",
+            json=idem_body,
+            headers={"Idempotency-Key": idem_key},
+        )
+        if first_idem.status_code >= 400 or second_idem.status_code >= 400:
+            print(
+                "post_idempotent failed "
+                f"{first_idem.status_code} {second_idem.status_code} "
+                f"{first_idem.text[:200]} {second_idem.text[:200]}",
+                file=sys.stderr,
+            )
+            return 1
+        first_message = first_idem.json()["message"]
+        second_message = second_idem.json()["message"]
+        listed = client.get(f"/channels/{channel['channel_id']}/messages")
+        if listed.status_code != 200:
+            print(
+                f"list_messages {listed.status_code} {listed.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        message_ids = [item["message_id"] for item in listed.json()["messages"]]
+        if (
+            first_message["message_id"] != second_message["message_id"]
+            or first_idem.json()["turn_id"] != second_idem.json()["turn_id"]
+            or message_ids.count(first_message["message_id"]) != 1
+            or len(message_ids) != 2
+        ):
+            print(
+                "post_idempotent duplicated "
+                f"first={first_message['message_id']} "
+                f"second={second_message['message_id']} "
+                f"count={len(message_ids)}",
+                file=sys.stderr,
+            )
+            return 1
+        print("post_idempotent=1")
         if acquired:
             fence_token = claim_a.json()["fence_token"]
             draft = client.post(

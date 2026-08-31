@@ -261,6 +261,7 @@ export class ThinTurnStack extends cdk.Stack {
           "x-tenant-id",
           "x-chatticus-invoke-key",
           "last-event-id",
+          "idempotency-key",
           "cache-control",
         ],
         exposedHeaders: ["*"],

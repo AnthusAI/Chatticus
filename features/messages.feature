@@ -162,3 +162,12 @@ Feature: Channels and the message store
     Then the channel has a turn
     And bot "Assistant" has 0 pending turns
     And the cpu enqueue hook was not invoked
+
+  Scenario: Retrying a post with the same idempotency key does not duplicate
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
+    When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel with idempotency key "retry-1"
+    And user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel with idempotency key "retry-1"
+    Then the channel has 1 message
+    And bot "Assistant" has 1 pending turn with required capabilities:
+      | cpu |

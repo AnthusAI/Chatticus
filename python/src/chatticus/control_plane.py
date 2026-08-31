@@ -163,7 +163,6 @@ class ControlPlane:
         self._turn_event_subscribers: dict[str, list[queue.Queue[TurnEvent | None]]] = (
             {}
         )
-        self._post_idempotency: dict[tuple[str, str], tuple[Message, str | None]] = {}
         if deadline_scheduler is not None:
             self._deadline_scheduler = deadline_scheduler
         else:
@@ -1133,7 +1132,9 @@ class ControlPlane:
             participant.
         """
         if idempotency_key is not None:
-            cached = self._post_idempotency.get((tenant_id, idempotency_key))
+            cached = self._messaging_store.get_post_idempotency(
+                tenant_id, idempotency_key
+            )
             if cached is not None:
                 message, turn_id = cached
                 started = self.turn(tenant_id, turn_id) if turn_id is not None else None
@@ -1165,7 +1166,9 @@ class ControlPlane:
             )
         if idempotency_key is not None:
             turn_id = started.turn_id if started is not None else None
-            self._post_idempotency[(tenant_id, idempotency_key)] = (message, turn_id)
+            self._messaging_store.put_post_idempotency(
+                tenant_id, idempotency_key, message, turn_id
+            )
         return message, started
 
     def list_channel_messages(

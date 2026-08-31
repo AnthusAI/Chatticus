@@ -117,6 +117,20 @@ class MessagingStore(Protocol):
     ) -> bool:
         """Return True on the first delivery of ``enqueue_id`` for the turn."""
 
+    def get_post_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> tuple[Message, str | None] | None:
+        """Return the message and turn stored for one post idempotency key."""
+
+    def put_post_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        message: Message,
+        turn_id: str | None,
+    ) -> None:
+        """Persist the result of one idempotent channel post."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -130,6 +144,7 @@ class InMemoryMessagingStore:
         self._bots: dict[tuple[str, str], Bot] = {}
         self._computers: dict[tuple[str, str], Computer] = {}
         self._logical_enqueue_ids: dict[tuple[str, str], set[str]] = {}
+        self._post_idempotency: dict[tuple[str, str], tuple[Message, str | None]] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -271,6 +286,20 @@ class InMemoryMessagingStore:
             recorded.add(enqueue_id)
             return True
 
+    def get_post_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> tuple[Message, str | None] | None:
+        return self._post_idempotency.get((tenant_id, idempotency_key))
+
+    def put_post_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        message: Message,
+        turn_id: str | None,
+    ) -> None:
+        self._post_idempotency[(tenant_id, idempotency_key)] = (message, turn_id)
+
 
 class DynamoMessagingStore:
     """DynamoDB-backed store. Tests use moto; production uses a CDK table."""
@@ -350,19 +379,11 @@ class DynamoMessagingStore:
     def put_message(self, message: Message) -> None:
         self.client.put_item(
             TableName=self.table_name,
-            Item={
-                "pk": {"S": self._channel_pk(message.tenant_id, message.channel_id)},
-                "sk": {"S": f"msg#{message.seq:010d}"},
-                "tenant_id": {"S": message.tenant_id},
-                "channel_id": {"S": message.channel_id},
-                "message_id": {"S": message.message_id},
-                "seq": {"N": str(message.seq)},
-                "author_kind": {"S": message.author_kind},
-                "author_id": {"S": message.author_id},
-                "body": {"S": message.body},
-                "addressed_to_bot_id": {"S": message.addressed_to_bot_id or ""},
-                "created_at": {"S": message.created_at.isoformat()},
-            },
+            Item=_message_item(
+                message,
+                pk=self._channel_pk(message.tenant_id, message.channel_id),
+                sk=f"msg#{message.seq:010d}",
+            ),
         )
 
     def list_messages(
@@ -714,6 +735,38 @@ class DynamoMessagingStore:
             raise
         return True
 
+    def get_post_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> tuple[Message, str | None] | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"idem#{idempotency_key}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        turn_id = item.get("turn_id", {}).get("S") or None
+        return _message_from_item(item), turn_id
+
+    def put_post_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        message: Message,
+        turn_id: str | None,
+    ) -> None:
+        item = _message_item(
+            message,
+            pk=self._roster_pk(tenant_id),
+            sk=f"idem#{idempotency_key}",
+        )
+        if turn_id is not None:
+            item["turn_id"] = {"S": turn_id}
+        self.client.put_item(TableName=self.table_name, Item=item)
+
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
 
@@ -725,6 +778,22 @@ class DynamoMessagingStore:
 
     def _roster_pk(self, tenant_id: str) -> str:
         return f"{tenant_id}#roster"
+
+
+def _message_item(message: Message, *, pk: str, sk: str) -> dict[str, Any]:
+    return {
+        "pk": {"S": pk},
+        "sk": {"S": sk},
+        "tenant_id": {"S": message.tenant_id},
+        "channel_id": {"S": message.channel_id},
+        "message_id": {"S": message.message_id},
+        "seq": {"N": str(message.seq)},
+        "author_kind": {"S": message.author_kind},
+        "author_id": {"S": message.author_id},
+        "body": {"S": message.body},
+        "addressed_to_bot_id": {"S": message.addressed_to_bot_id or ""},
+        "created_at": {"S": message.created_at.isoformat()},
+    }
 
 
 def _participants_payload(channel: Channel) -> list[dict[str, str]]:

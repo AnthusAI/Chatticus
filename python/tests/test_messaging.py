@@ -841,6 +841,86 @@ def test_post_message_without_enqueue_creates_turn_without_cpu_job() -> None:
     api.close()
 
 
+def test_http_post_idempotency_key_does_not_duplicate() -> None:
+    captured: list[TurnJob] = []
+    plane = ControlPlane(turn_enqueued=captured.append)
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    payload = {
+        "author_kind": ActorKind.HUMAN,
+        "author_id": "ryan",
+        "body": "hello",
+        "addressed_to_bot_id": bot.bot_id,
+        "enqueue_turn": False,
+    }
+    headers = {
+        "X-Tenant-Id": channel.tenant_id,
+        "Idempotency-Key": "retry-1",
+    }
+    first = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json=payload,
+        headers=headers,
+    )
+    second = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json=payload,
+        headers=headers,
+    )
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert (
+        first.json()["message"]["message_id"] == second.json()["message"]["message_id"]
+    )
+    assert first.json()["turn_id"] == second.json()["turn_id"]
+    listed = api.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert [item["message_id"] for item in listed.json()["messages"]] == [
+        first.json()["message"]["message_id"]
+    ]
+    assert captured == []
+    api.close()
+
+
+@mock_aws
+def test_dynamo_post_idempotency_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-post-idempotency-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    bot, channel = _channel_with_bot(ControlPlane(messaging_store=store), "Assistant")
+    first = ControlPlane(messaging_store=store)
+    _, started = first.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+        idempotency_key="retry-1",
+    )
+    second = ControlPlane(messaging_store=store)
+    message, again = second.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+        idempotency_key="retry-1",
+    )
+    listed = second.list_channel_messages(channel.channel_id, channel.tenant_id)
+    assert len(listed) == 1
+    assert listed[0].message_id == message.message_id
+    assert started is not None
+    assert again is not None
+    assert again.turn_id == started.turn_id
+
+
 def test_resume_does_not_publish_computer_job_to_cpu_queue() -> None:
     captured: list[TurnJob] = []
     plane = ControlPlane(turn_enqueued=captured.append)
