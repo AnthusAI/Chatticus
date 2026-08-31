@@ -132,10 +132,16 @@
       "author": "home",
       "text": "Frontier: GET /bots?user_id=&name= is live on development ThinTurn (b61e5e3). exercise exit 0 with claim_a=200 claim_b=409 bot_by_name=1. 3ce843 closed. No staging/production. main stays v0.5.0.",
       "created_at": "2026-08-31T05:21:59.234051Z"
+    },
+    {
+      "id": "ca5e0373-dfe6-48c3-b87f-f3f53a31c39c",
+      "author": "home",
+      "text": "Frontier: GET /users/{user_id}/bots is live on development ThinTurn (e320617 code, README pin b7ea9ea). exercise exit 0 with claim_a=200 claim_b=409 bots_list=1. 9b2999 closed. No staging/production. main stays v0.5.0. 387e4f Safari still unmeasured. e747d7 still not authorized.",
+      "created_at": "2026-08-31T05:33:06.780101Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T05:21:59.234051Z",
+  "updated_at": "2026-08-31T05:33:06.780101Z",
   "closed_at": null,
   "custom": {}
 }
