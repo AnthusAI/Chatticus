@@ -254,6 +254,17 @@ def create_app(
         )
         return _channel_payload(channel)
 
+    @app.get("/channels/{channel_id}")
+    def get_channel(
+        channel_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            channel = state.plane.channel(tenant_id, channel_id)
+        except ChannelNotFoundError as error:
+            raise HTTPException(status_code=404, detail="channel not found") from error
+        return _channel_payload(channel)
+
     @app.post("/channels/{channel_id}/messages")
     def post_message(
         channel_id: str,

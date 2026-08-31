@@ -338,6 +338,23 @@ def then_opened_channel_identifier_is_unchanged(context: object) -> None:
     assert second == first
 
 
+@then('tenant "{tenant_id}" can read the open channel by identifier')
+def then_tenant_reads_open_channel(context: object, tenant_id: str) -> None:
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["channel_id"] == channel.channel_id
+    assert payload["tenant_id"] == tenant_id
+    assert payload["user_id"] == channel.user_id
+    participant_ids = {item["actor_id"] for item in payload["participants"]}
+    expected_ids = {participant.actor_id for participant in channel.participants}
+    assert participant_ids == expected_ids
+
+
 @then('the message with seq {seq:d} has body "{body}"')
 def then_message_body(context: object, seq: int, body: str) -> None:
     message = _message_at_seq(context, seq)
@@ -554,6 +571,15 @@ def when_other_tenant_post_or_read(context: object, tenant_id: str) -> None:
     )
     if response.status_code == 403:
         context.access_error = ChannelTenantMismatchError(response.json()["detail"])
+        return
+    channel_response = context.api_client.get(
+        f"/channels/{channel.channel_id}",
+        headers=tenant_headers(tenant_id),
+    )
+    if channel_response.status_code == 403:
+        context.access_error = ChannelTenantMismatchError(
+            channel_response.json()["detail"]
+        )
         return
     read_response = context.api_client.get(
         f"/channels/{channel.channel_id}/messages",

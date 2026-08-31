@@ -939,6 +939,55 @@ def test_http_channel_create_idempotency_key_does_not_duplicate() -> None:
     api.close()
 
 
+def test_http_get_channel_roundtrip() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    fetched = api.get(
+        f"/channels/{channel.channel_id}",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    payload = fetched.json()
+    assert payload["channel_id"] == channel.channel_id
+    assert payload["tenant_id"] == channel.tenant_id
+    assert payload["user_id"] == channel.user_id
+    missing = api.get(
+        f"/channels/{channel.channel_id}",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert missing.status_code == 404
+    api.close()
+
+
+@mock_aws
+def test_http_get_channel_survives_a_new_control_plane_in_dynamo() -> None:
+    table_name = "chatticus-channel-get-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first_plane = ControlPlane(messaging_store=store)
+    first_api = _client_for(first_plane)
+    bot, channel = _channel_with_bot(first_plane, "Assistant")
+    created = first_api.post(
+        "/channels",
+        json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert created.status_code == 200
+    channel_id = created.json()["channel_id"]
+    first_api.close()
+    second_plane = ControlPlane(messaging_store=store)
+    second_api = _client_for(second_plane)
+    fetched = second_api.get(
+        f"/channels/{channel_id}",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["channel_id"] == channel_id
+    second_api.close()
+
+
 @mock_aws
 def test_dynamo_channel_create_idempotency_survives_a_new_control_plane() -> None:
     table_name = "chatticus-channel-idempotency-test"

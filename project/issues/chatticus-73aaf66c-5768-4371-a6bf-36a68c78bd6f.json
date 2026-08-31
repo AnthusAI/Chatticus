@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-73aaf66c-5768-4371-a6bf-36a68c78bd6f",
+  "title": "GET /channels/{id} survives Front Door recycle",
+  "description": "",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T05:04:48.140565Z",
+  "updated_at": "2026-08-31T05:04:50.481175Z",
+  "closed_at": null,
+  "custom": {}
+}

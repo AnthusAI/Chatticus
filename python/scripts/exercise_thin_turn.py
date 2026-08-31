@@ -202,6 +202,21 @@ def main() -> int:
             )
             return 1
         print("channel_idempotent=1")
+        channel_get = client.get(f"/channels/{channel['channel_id']}")
+        if channel_get.status_code != 200:
+            print(
+                f"channel_get {channel_get.status_code} {channel_get.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        if channel_get.json().get("channel_id") != channel["channel_id"]:
+            print(
+                "channel_get roundtrip failed "
+                f"{channel_get.json().get('channel_id')} != {channel['channel_id']}",
+                file=sys.stderr,
+            )
+            return 1
+        print("channel_get=1")
         fence_posted = client.post(
             f"/channels/{channel['channel_id']}/messages",
             json={

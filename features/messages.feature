@@ -180,3 +180,11 @@ Feature: Channels and the message store
     And tenant "anthus" user "ryan" opens a channel with idempotency key "retry-ch" with bots:
       | Assistant |
     Then the opened channel identifier is unchanged
+
+  Scenario: A stored channel can be read after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Assistant"
+    When tenant "anthus" user "ryan" opens a channel with bots:
+      | Assistant |
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can read the open channel by identifier

@@ -440,6 +440,33 @@ def given_durable_messaging_store(context: object) -> None:
     context.bots_by_name = {}
 
 
+@given("an empty control plane backed by a durable messaging store with HTTP")
+def given_durable_messaging_store_with_http(context: object) -> None:
+    context.messaging_store = InMemoryMessagingStore()
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    app = create_app(context.plane)
+    context.api_app = app
+    context.app_state = app.state.chatticus
+    context.api_client = start_test_server(app)
+    context.bots_by_name = {}
+    context.last_channel = None
+    context.last_turn_id = None
+    context.message_error = None
+    context.other_tenant_id = None
+    context.listed_messages = None
+    context.access_error = None
+
+
+@when("a recycled Front Door serves the same messaging store")
+def when_recycled_front_door(context: object) -> None:
+    context.api_client.close()
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    app = create_app(context.plane)
+    context.api_app = app
+    context.app_state = app.state.chatticus
+    context.api_client = start_test_server(app)
+
+
 @when(
     'a new control plane instance creates a bot named "{name}" '
     'for tenant "{tenant_id}" user "{user_id}"'
