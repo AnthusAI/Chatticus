@@ -5,11 +5,42 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import httpx
+
 _SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "exercise_thin_turn.py"
 _SPEC = importlib.util.spec_from_file_location("exercise_thin_turn", _SCRIPT)
 assert _SPEC is not None and _SPEC.loader is not None
 _EXERCISE = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_EXERCISE)
+
+
+def _response(status_code: int, body: object) -> httpx.Response:
+    import json
+
+    return httpx.Response(
+        status_code,
+        request=httpx.Request("GET", "https://example.test/probe"),
+        content=json.dumps(body).encode(),
+        headers={"content-type": "application/json"},
+    )
+
+
+def test_task_http_routes_absent_for_unknown_path() -> None:
+    assert _EXERCISE._task_http_routes_absent(_response(404, {"detail": "Not Found"}))
+
+
+def test_task_http_routes_absent_rejects_domain_not_found() -> None:
+    assert not _EXERCISE._task_http_routes_absent(
+        _response(404, {"detail": "bot not found"})
+    )
+
+
+def test_task_http_required_when_development_live_flag_set(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CHATTICUS_DEVELOPMENT_TASK_HTTP_LIVE", "1")
+    assert _EXERCISE._task_http_required("development")
+    assert not _EXERCISE._task_http_required("staging")
 
 
 def test_computer_continuation_matches_this_job() -> None:

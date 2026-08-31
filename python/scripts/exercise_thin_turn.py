@@ -113,6 +113,171 @@ def _computer_continuation_matches(body: dict, *, job_id: str, turn_id: str) -> 
     )
 
 
+def _http_detail(response: httpx.Response) -> str:
+    """Return a FastAPI or API-gateway error detail string when present."""
+    try:
+        body = response.json()
+    except json.JSONDecodeError:
+        return ""
+    detail = body.get("detail")
+    if detail is not None:
+        return str(detail)
+    message = body.get("message")
+    if message is not None:
+        return str(message)
+    return ""
+
+
+def _task_http_routes_absent(response: httpx.Response) -> bool:
+    """True when the deployed stack has no task list/create/read handlers."""
+    if response.status_code not in (404, 405):
+        return False
+    detail = _http_detail(response)
+    return detail in ("Not Found", "")
+
+
+def _task_http_required(environment: str | None) -> bool:
+    """Fail instead of skip when task routes are expected on the named stack."""
+    if os.environ.get("CHATTICUS_TASK_HTTP_REQUIRED", "").strip() == "1":
+        return True
+    return environment == "development" and os.environ.get(
+        "CHATTICUS_DEVELOPMENT_TASK_HTTP_LIVE", ""
+    ).strip() == "1"
+
+
+def _exercise_named_task_http(
+    client: SameOriginApiClient,
+    *,
+    bot_id: str,
+    user_id: str,
+    tenant_id: str,
+    environment: str | None,
+) -> int:
+    """Exercise live task HTTP create, list, and read. Return 0 on pass or skip."""
+    listed = client.get(f"/users/{user_id}/tasks")
+    if _task_http_routes_absent(listed):
+        if _task_http_required(environment):
+            print(
+                "task_http_required routes_missing "
+                f"{listed.status_code} {listed.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("task_http_skip=1")
+        return 0
+    if listed.status_code != 200:
+        print(
+            f"tasks_list_probe {listed.status_code} {listed.text[:300]}",
+            file=sys.stderr,
+        )
+        return 1
+    task_title = f"Exercise-{uuid4().hex[:8]}"
+    created = client.post(
+        f"/bots/{bot_id}/tasks/tool",
+        json={
+            "user_id": user_id,
+            "action": "create",
+            "arguments": {"title": task_title},
+        },
+    )
+    if created.status_code != 200:
+        print(
+            f"task_create {created.status_code} {created.text[:300]}",
+            file=sys.stderr,
+        )
+        return 1
+    payload = created.json()
+    task_id = payload.get("task_id")
+    if not task_id or payload.get("status") != "open":
+        print(f"task_create payload={payload!r}", file=sys.stderr)
+        return 1
+    if payload.get("created_by_bot_id") != bot_id:
+        print(
+            "task_create bot="
+            f"{payload.get('created_by_bot_id')!r} != {bot_id!r}",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"task_create=1 task_id={task_id}")
+    listed_after = client.get(f"/users/{user_id}/tasks")
+    if listed_after.status_code != 200:
+        print(
+            f"tasks_list {listed_after.status_code} {listed_after.text[:300]}",
+            file=sys.stderr,
+        )
+        return 1
+    listed_tasks = listed_after.json().get("tasks") or []
+    listed_ids = [row.get("task_id") for row in listed_tasks]
+    if task_id not in listed_ids:
+        print(
+            f"tasks_list missing {task_id!r} in {listed_ids!r}",
+            file=sys.stderr,
+        )
+        return 1
+    listed_row = next(row for row in listed_tasks if row.get("task_id") == task_id)
+    if listed_row.get("title") != task_title:
+        print(
+            f"tasks_list title={listed_row.get('title')!r} != {task_title!r}",
+            file=sys.stderr,
+        )
+        return 1
+    print("tasks_list=1")
+    fetched = client.get(f"/tasks/{task_id}")
+    if fetched.status_code != 200:
+        print(
+            f"task_get {fetched.status_code} {fetched.text[:300]}",
+            file=sys.stderr,
+        )
+        return 1
+    fetched_payload = fetched.json()
+    if fetched_payload.get("task_id") != task_id:
+        print(
+            "task_get task_id="
+            f"{fetched_payload.get('task_id')!r} != {task_id!r}",
+            file=sys.stderr,
+        )
+        return 1
+    if fetched_payload.get("title") != task_title:
+        print(
+            f"task_get title={fetched_payload.get('title')!r} != {task_title!r}",
+            file=sys.stderr,
+        )
+        return 1
+    print("task_get=1")
+    other_tenant = f"{tenant_id}-isolation-exercise"
+    other_listed = client.get(
+        f"/users/{user_id}/tasks",
+        headers={"X-Tenant-Id": other_tenant},
+    )
+    if other_listed.status_code != 200:
+        print(
+            "task_tenant_list "
+            f"{other_listed.status_code} {other_listed.text[:300]}",
+            file=sys.stderr,
+        )
+        return 1
+    if other_listed.json().get("tasks"):
+        print(
+            "task_tenant_list expected empty "
+            f"got {other_listed.json().get('tasks')!r}",
+            file=sys.stderr,
+        )
+        return 1
+    other_get = client.get(
+        f"/tasks/{task_id}",
+        headers={"X-Tenant-Id": other_tenant},
+    )
+    if other_get.status_code != 404:
+        print(
+            "task_tenant_get "
+            f"{other_get.status_code} {other_get.text[:300]}",
+            file=sys.stderr,
+        )
+        return 1
+    print("task_tenant_isolation=1")
+    return 0
+
+
 def _sqs_receive_computer_continuation(
     queue_url: str,
     *,
@@ -285,6 +450,16 @@ def main() -> int:
             )
             return 1
         print("bots_list=1")
+        if args.environment:
+            task_result = _exercise_named_task_http(
+                client,
+                bot_id=bot["bot_id"],
+                user_id=args.user_id,
+                tenant_id=args.tenant_id,
+                environment=environment,
+            )
+            if task_result != 0:
+                return task_result
         remembered = client.post(
             f"/bots/{bot['bot_id']}/memory",
             json={"key": "voice", "value": "short and direct"},
