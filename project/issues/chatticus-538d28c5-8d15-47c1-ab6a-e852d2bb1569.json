@@ -16,15 +16,18 @@
     {
       "target": "chatticus-53beb006-67ab-4190-ab92-eda3999049ad",
       "type": "blocked-by"
-    },
-    {
-      "target": "chatticus-e420080f-a60f-4be5-9bec-ceca14305046",
-      "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "5b571f7d-87c1-440a-8099-971994caf98c",
+      "author": "home",
+      "text": "Removed stale blocked-by e42008 (closed). Remaining chain is 53beb0, which is blocked by e747d7. No computer-handoff implementation this cycle.",
+      "created_at": "2026-08-31T07:19:11.445402Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:56.864780Z",
-  "updated_at": "2026-08-30T15:54:56.864780Z",
+  "updated_at": "2026-08-31T07:19:11.445402Z",
   "closed_at": null,
   "custom": {}
 }

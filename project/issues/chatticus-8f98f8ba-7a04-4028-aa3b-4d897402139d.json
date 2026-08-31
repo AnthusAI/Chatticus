@@ -42,10 +42,16 @@
       "author": "home",
       "text": "86c75d closed: computerless worker does not reclaim a waiting turn or recall the model. Remaining DoD: e747d7 cold Fargate measurement (not a Computers scale-up).",
       "created_at": "2026-08-31T02:17:29.466697Z"
+    },
+    {
+      "id": "e81666ca-fc67-4ae3-b82f-8e3fccdf3649",
+      "author": "home",
+      "text": "Development Front Door household-recovery HTTP is complete (bots/channels/turns/computer/channel turn/history/journal/health environment). Named exercise drains stale ComputerTurnJobs leftovers. Remaining epic DoD is still e747d7 (not a Computers scale-up). Do not merge develop to main as parking.",
+      "created_at": "2026-08-31T07:19:11.455204Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T02:17:29.466697Z",
+  "updated_at": "2026-08-31T07:19:11.455204Z",
   "closed_at": null,
   "custom": {}
 }

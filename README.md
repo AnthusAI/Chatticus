@@ -74,8 +74,10 @@ redeployed from v0.6.0 here. Development was last redeployed ThinTurn-only
 from `develop` @ `6baa46a` (no `--all`). `develop` is ahead of `main`
 (channels list, household computer read, channel active-turn read,
 waiting-turn read, user active-turn list, named `GET /health`
-environment). A demo CLI (Kanbus epic 35d86b) is starting; it talks to
-this HTTP surface. `exercise_thin_turn.py` stays the pass/fail gate.
+environment, recycle Gherkin for history/journal/turn-by-id/bot-by-id,
+stale `ComputerTurnJobs` drain in the named exercise). A demo CLI
+(Kanbus epic 35d86b) is starting; it talks to this HTTP surface.
+`exercise_thin_turn.py` stays the pass/fail gate.
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
