@@ -48,10 +48,16 @@
       "author": "home",
       "text": "Board lag pass 2026-08-31: left open on purpose. Foreground CloudFront reconnect is live; mobile Safari and background-tab are still unmeasured. Owner has not waived.",
       "created_at": "2026-08-31T05:56:28.987623Z"
+    },
+    {
+      "id": "93c25102-f982-4390-935d-4b6726ac2e72",
+      "author": "agent@example.com",
+      "text": "Board currency: all children closed. Epic stays open only for the mobile Safari measurement (or owner waiver). Not in_progress; no SSE spike rebuild.",
+      "created_at": "2026-08-31T19:51:53.809488Z"
     }
   ],
   "created_at": "2026-08-30T15:53:17.431152Z",
-  "updated_at": "2026-08-31T05:56:28.987623Z",
+  "updated_at": "2026-08-31T19:51:53.809488Z",
   "closed_at": null,
   "custom": {}
 }

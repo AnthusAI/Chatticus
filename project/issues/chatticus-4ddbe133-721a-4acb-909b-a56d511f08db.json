@@ -22,9 +22,16 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "4c920478-2e61-4e3c-b7a9-049e905adad3",
+      "author": "agent@example.com",
+      "text": "Board currency: not started. Open children 3c5f8d (specify, blocked by 8f98f8), 53d744 (enforce), 1e09b4 (evals). Do not mark in_progress until specify work begins.",
+      "created_at": "2026-08-31T19:51:53.821423Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:56.956699Z",
-  "updated_at": "2026-08-30T15:54:56.956699Z",
+  "updated_at": "2026-08-31T19:51:53.821423Z",
   "closed_at": null,
   "custom": {}
 }

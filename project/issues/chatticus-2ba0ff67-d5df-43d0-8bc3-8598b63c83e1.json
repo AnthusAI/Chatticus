@@ -3,16 +3,23 @@
   "title": "CDK OIDC deploy role for GitHub Actions",
   "description": "",
   "type": "sub-task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-6abbb814-51c1-4dd2-bcd9-10143e03146e",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "1c4474aa-34dc-4574-aa7f-d0f695bdb5ce",
+      "author": "agent@example.com",
+      "text": "Done on develop via PR #41 (df7419e): ChatticusGitHubDeploy OIDC role. Remaining GHA work is ChatticusWeb workflow (b1b7d2), not this sub-task.",
+      "created_at": "2026-08-31T19:51:53.771697Z"
+    }
+  ],
   "created_at": "2026-08-31T16:34:08.590844Z",
-  "updated_at": "2026-08-31T16:34:08.590844Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T19:51:53.771697Z",
+  "closed_at": "2026-08-31T19:51:53.759226Z",
   "custom": {}
 }

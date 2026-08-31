@@ -10,9 +10,16 @@
   "parent": "chatticus-6abbb814-51c1-4dd2-bcd9-10143e03146e",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "009179a9-6952-4804-a43c-7cdecdc6d8e5",
+      "author": "agent@example.com",
+      "text": "Still open: #41 removed deploy-web.yml so this ChatticusWeb GHA slice is not done. Parent 6abbb8 stays in_progress. Do not revive a workflow that cdk deploys Web+staging+production in one job.",
+      "created_at": "2026-08-31T19:51:53.784544Z"
+    }
+  ],
   "created_at": "2026-08-31T16:34:08.603531Z",
-  "updated_at": "2026-08-31T16:34:08.603531Z",
+  "updated_at": "2026-08-31T19:51:53.784544Z",
   "closed_at": null,
   "custom": {}
 }
