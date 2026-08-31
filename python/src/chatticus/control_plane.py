@@ -1180,6 +1180,19 @@ class ControlPlane:
         self._host_starts[key] = claim
         return claim
 
+    def mark_host_start_dispatched(
+        self,
+        tenant_id: str,
+        user_id: str,
+        generation: int,
+    ) -> None:
+        """Record that the host-start driver ran for one generation."""
+        computer = self.computer_for_user(tenant_id, user_id)
+        if generation <= computer.host_start_dispatched_generation:
+            return
+        computer.host_start_dispatched_generation = generation
+        self._messaging_store.put_computer(computer)
+
     def host_start_claim(self, tenant_id: str, user_id: str) -> HostStartClaim:
         """Return the current host-start claim for a user's computer."""
         computer = self.computer_for_user(tenant_id, user_id)

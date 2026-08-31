@@ -962,6 +962,9 @@ class DynamoMessagingStore:
                 "stopped": {"BOOL": computer.stopped},
                 "policy": {"S": computer.policy},
                 "host_start_generation": {"N": str(computer.host_start_generation)},
+                "host_start_dispatched_generation": {
+                    "N": str(computer.host_start_dispatched_generation)
+                },
                 "host_start_lease_expires_at": {
                     "N": str(
                         int(computer.host_start_lease_expires_at.timestamp())
@@ -992,6 +995,9 @@ class DynamoMessagingStore:
             stopped=item["stopped"]["BOOL"],
             host_start_generation=int(
                 item.get("host_start_generation", {}).get("N", "0")
+            ),
+            host_start_dispatched_generation=int(
+                item.get("host_start_dispatched_generation", {}).get("N", "0")
             ),
             host_start_lease_expires_at=(
                 datetime.fromtimestamp(lease_epoch, tz=UTC) if lease_epoch else None

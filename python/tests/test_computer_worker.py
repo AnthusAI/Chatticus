@@ -7,6 +7,7 @@ import pytest
 from chatticus.computer_capabilities import BROWSER_CAPABILITY
 from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.control_plane import ControlPlane
+from chatticus.host_starter import RecordingHostStarter
 from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.test_server import start_test_server
@@ -161,6 +162,47 @@ def test_computer_worker_continues_structured_handoff_journal() -> None:
     assert (
         driver.plane.unresolved_tool_action_ids(driver.tenant_id, driver.turn_id) == []
     )
+    api.close()
+
+
+def test_computer_worker_invokes_host_starter_once_per_lease() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+    starter = RecordingHostStarter()
+    worker = ComputerWorker(
+        plane,
+        HttpTurnClient(api, setup.tenant_id),
+        host_starter=starter,
+    )
+    with pytest.raises(ComputerWorkerHostNotReady):
+        worker.run_job(setup.continuation_job)
+    assert len(starter.invocations) == 1
+    assert starter.invocations[0].host_start_count == 1
+    with pytest.raises(ComputerWorkerHostNotReady):
+        worker.run_job(setup.continuation_job)
+    assert len(starter.invocations) == 1
+    api.close()
+
+
+def test_computer_worker_invokes_host_starter_again_after_lease_expiry() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+    starter = RecordingHostStarter()
+    worker = ComputerWorker(
+        plane,
+        HttpTurnClient(api, setup.tenant_id),
+        host_starter=starter,
+    )
+    with pytest.raises(ComputerWorkerHostNotReady):
+        worker.run_job(setup.continuation_job)
+    plane.advance_seconds(plane.attempt_lease.total_seconds() + 1)
+    plane.expire_host_start_claims()
+    with pytest.raises(ComputerWorkerHostNotReady):
+        worker.run_job(setup.continuation_job)
+    assert len(starter.invocations) == 2
+    assert [claim.host_start_count for claim in starter.invocations] == [1, 2]
     api.close()
 
 

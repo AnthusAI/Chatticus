@@ -8,6 +8,7 @@ from uuid import uuid4
 from behave import given, then, when
 
 from chatticus.computer_continuation_driver import prepare_computer_continuation
+from chatticus.host_starter import RecordingHostStarter
 from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
     ComputerWorkerHostNotReady,
@@ -80,20 +81,33 @@ def when_computer_worker_given_cpu_job(context: object) -> None:
         context.computer_worker_error = exc
 
 
+@given("a recording host start driver")
+def given_recording_host_start_driver(context: object) -> None:
+    context.host_starter = RecordingHostStarter()
+
+
 @when(
     "a computer-capable pull worker without a host executor pulls that continuation job"
 )
 def when_computer_worker_pulls_without_host_executor(context: object) -> None:
     setup = context.computer_continuation
     context.computer_worker_error = None
+    host_starter = getattr(context, "host_starter", None)
     worker = ComputerWorker(
         context.plane,
         HttpTurnClient(context.api_client, setup.tenant_id),
+        host_starter=host_starter,
     )
     try:
         worker.run_job(setup.continuation_job)
     except ComputerWorkerHostNotReady as exc:
         context.computer_worker_error = exc
+
+
+@when("the host start lease expires")
+def when_host_start_lease_expires(context: object) -> None:
+    context.plane.advance_seconds(context.plane.attempt_lease.total_seconds() + 1)
+    context.plane.expire_host_start_claims()
 
 
 @then("no tool result is committed for the pending action")
@@ -154,6 +168,21 @@ def then_computer_continuation_job_remains_queued(context: object) -> None:
     ]
     assert len(remaining) == 1
     assert "computer" in remaining[0].required_capabilities
+
+
+@then("the host start driver was invoked once")
+def then_host_start_driver_invoked_once(context: object) -> None:
+    assert len(context.host_starter.invocations) == 1
+
+
+@then("the host start driver was still invoked only once")
+def then_host_start_driver_still_invoked_once(context: object) -> None:
+    assert len(context.host_starter.invocations) == 1
+
+
+@then("the host start driver was invoked twice")
+def then_host_start_driver_invoked_twice(context: object) -> None:
+    assert len(context.host_starter.invocations) == 2
 
 
 @then("the household computer has recorded one host start")

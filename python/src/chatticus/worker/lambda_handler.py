@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 
+from chatticus.host_starter import host_starter_from_env
 from chatticus.http.app import INVOKE_HEADER
 from chatticus.http.client import HttpTurnClient
 from chatticus.runtime import job_from_queue_payload, plane_from_env
@@ -104,6 +105,7 @@ def handler(event: dict[str, Any], _context: object) -> None:
                 ComputerWorker(
                     plane,
                     turn_client,
+                    host_starter=host_starter_from_env(),
                     queue_visibility_renewer=queue_visibility_renewer,
                 ).run_job(job)
             else:

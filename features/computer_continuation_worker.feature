@@ -28,6 +28,22 @@ Feature: Computer-capable continuation worker
     When a computer-capable pull worker without a host executor pulls that continuation job
     Then the household computer has recorded one host start
 
+  Scenario: A computer-capable pull worker invokes the host start driver once per lease
+    Given a fenced computer handoff with a queued continuation job
+    And a recording host start driver
+    When a computer-capable pull worker without a host executor pulls that continuation job
+    Then the host start driver was invoked once
+    When a computer-capable pull worker without a host executor pulls that continuation job
+    Then the host start driver was still invoked only once
+
+  Scenario: A new host start lease invokes the driver again
+    Given a fenced computer handoff with a queued continuation job
+    And a recording host start driver
+    When a computer-capable pull worker without a host executor pulls that continuation job
+    And the host start lease expires
+    When a computer-capable pull worker without a host executor pulls that continuation job
+    Then the host start driver was invoked twice
+
   Scenario: Orphaned computer ownership expires without a scheduler
     Given a fenced computer handoff with a queued continuation job
     And the pending computer action ran before its lease expired

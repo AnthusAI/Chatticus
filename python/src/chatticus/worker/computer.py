@@ -9,6 +9,7 @@ from chatticus.computer_capabilities import (
     capability_for_computer_tool,
 )
 from chatticus.control_plane import ControlPlane
+from chatticus.host_starter import HostStarter, NoOpHostStarter
 from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
     ComputerWorkerHostNotReady,
@@ -44,12 +45,30 @@ class ComputerWorker:
         turn_client: HttpTurnClient,
         *,
         action_executor: ComputerActionExecutor | None = None,
+        host_starter: HostStarter | None = None,
         queue_visibility_renewer: Callable[[], None] | None = None,
     ) -> None:
         self.plane = plane
         self.turn_client = turn_client
         self._queue_visibility_renewer = queue_visibility_renewer
         self.action_executor = action_executor
+        self.host_starter = host_starter or NoOpHostStarter()
+
+    def _dispatch_host_start_if_needed(
+        self,
+        tenant_id: str,
+        user_id: str,
+        turn_id: str,
+    ) -> None:
+        """Invoke the host-start driver once per durable generation."""
+        claim = self.plane.request_computer_host_start(tenant_id, user_id, turn_id)
+        computer = self.plane.computer_for_user(tenant_id, user_id)
+        if computer.host_start_dispatched_generation >= computer.host_start_generation:
+            return
+        self.host_starter.start_host(claim)
+        self.plane.mark_host_start_dispatched(
+            tenant_id, user_id, computer.host_start_generation
+        )
 
     def _host_ready_for_tool(self, job: TurnJob, tool_name: str) -> bool:
         """Return whether a real computer host can run one pending tool call."""
@@ -107,7 +126,7 @@ class ComputerWorker:
         tool_name = record.pending_call.tool_name
         if unresolved and not self._host_ready_for_tool(job, tool_name):
             if job.user_id is not None:
-                self.plane.request_computer_host_start(
+                self._dispatch_host_start_if_needed(
                     job.tenant_id, job.user_id, job.turn_id
                 )
             raise ComputerWorkerHostNotReady(

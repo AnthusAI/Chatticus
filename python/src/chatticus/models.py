@@ -287,6 +287,7 @@ class Computer:
     workspace_ready: bool = False
     browser_ready: bool = False
     host_start_generation: int = 0
+    host_start_dispatched_generation: int = 0
     host_start_lease_expires_at: datetime | None = None
     disk_dirty: bool = False
     hydrate_required: bool = False
