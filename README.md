@@ -71,36 +71,29 @@ thin-turn environments are live in AWS account `335163751677`
 production were last recorded as deployed from `760915d` (v0.5.0).
 
 Development **ChatticusThinTurn** was last updated ThinTurn-only (no
-`--all`) at **2026-08-31T12:27:42Z**. That pin sets
-`CHATTICUS_HOST_STARTER=ecs`, grants `ecs:RunTask`, `ecs:TagResource`, and
-`iam:PassRole`, claims one durable `host_start_dispatched_generation`
-before `RunTask` (dfec90, 45a162, b6627b), and grants the imported
-Computers task role SQS consume plus Dynamo (4bca15). CDK deploy uses
-`tsx` so Node 26 agents can synth. A live named exercise `RunTask`s one
-sleep-infinity host (not a stampede); that task is stopped after the
-proof. **ChatticusComputers** was not redeployed (`desiredCount` remains
-0; last stack update 2026-08-30T08:53:08Z). The worker still nacks
-`ComputerWorkerHostNotReady` until capability readiness is true and
-does not fake `tool.result`. GitHub Actions must not hit live AWS.
+`--all`) at **2026-08-31T13:39:35Z**. That pin sets
+`CHATTICUS_HOST_STARTER=ecs`, `CHATTICUS_ECS_HOST_COMMAND=python -m chatticus.computer_host_worker`,
+`CHATTICUS_FRONT_DOOR_URL` to the Lambda function URL, plus `ecs:RunTask`,
+`ecs:TagResource`, `iam:PassRole`, and durable
+`host_start_dispatched_generation` before `RunTask`. **ChatticusComputers**
+was not redeployed (`desiredCount` remains 0). ECR `:dev` was pushed
+`sha256:fdebcf6843547e191e4083d7f3e02f9fbdc7a426f256b54030cbb7a361196914`
+without a Computers stack deploy. **ChatticusWeb** was created
+2026-08-31 (distribution `d3gds8al0gg3jl.cloudfront.net`);
+`dev.chattic.us` does not resolve yet. The previous development thin-turn
+CloudFront origin (`d3gpuuldffe35o.cloudfront.net`) is gone because this
+stack no longer owns CloudFront. GitHub Actions must not hit live AWS.
 
-A CloudFront run of `cd python && sh scripts/live_aws_thin_turn.sh
-development` on 2026-08-31 exited 0 with `health_environment=1`,
-`missing_claim=404`, `claim_a=200` then `claim_b=409`,
-`host_start_generation=1` after resume (23c93e, 2a2b64, bf5b02), and
-`computer_queue_job=in_flight_nack`. GET computer includes
-`host_start_generation` (0 before any start). Concurrent ComputerWorker
-nacks claim one durable dispatch generation before `RunTask` (b6627b).
-Chromium `browser_open` and host boot gates are kernel-only (0eef8f).
-RunTask may override the computer container to
-`python -m chatticus.computer_host_worker` when CDK context
-`computerHostCommand=host-worker` is set (4bca15). Development Lambda
-does not set that yet. A recycled host rebuilds the handoff from the
-durable waiting turn and can run the tool when SQS is empty (Lambda still
-holds the nack). `computer/push-computer-image.sh` pushes `:dev` without
-deploying ChatticusComputers. Live ECR `:dev` is still 2026-08-30 (sleep
-infinity). Remaining 8f98f8: rebuild/push that image from a machine with
-Docker, enable the override, and prove a live browser tool completes the
-same turn. A demo CLI (Kanbus epic 35d86b) is starting; it talks to this HTTP
+A Function-URL run of `exercise_thin_turn.py --environment development`
+on 2026-08-31 exited 0 with `health_environment=1`, `missing_claim=404`,
+`claim_a=200` then `claim_b=409`, `host_start_generation=25` after resume,
+and `computer_queue_job=in_flight_nack`. The named exercise loads the
+invoke key from Secrets Manager when the origin is the function URL.
+SSE through the function URL needs a long HTTP timeout; CloudFront
+`/api/*` is the public path and does not match exercise routes that
+start with `/turns`. The worker does not fake `tool.result`. Remaining
+8f98f8: a summoned host that actually completes the browser tool on the
+same turn (live still nacks). A demo CLI (Kanbus epic 35d86b) is starting; it talks to this HTTP
 surface. `exercise_thin_turn.py` stays the pass/fail gate.
 
 | Environment | Web stack | Site | API base (same origin) |

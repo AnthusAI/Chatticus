@@ -20,6 +20,22 @@ from chatticus.cloud_environments import (
 from chatticus.models import ActorKind
 
 
+def _invoke_key_for_environment(environment: str) -> str:
+    """Read the front-door invoke key from the named stack secret."""
+    import boto3
+
+    arn = thin_turn_stack_output(environment, "InvokeKeySecretArn")
+    region = (
+        os.environ.get("AWS_REGION")
+        or os.environ.get("AWS_DEFAULT_REGION")
+        or "us-east-1"
+    )
+    secret = boto3.client("secretsmanager", region_name=region).get_secret_value(
+        SecretId=arn
+    )
+    return secret["SecretString"]
+
+
 def _frames(buffer: str) -> tuple[list[dict], str]:
     events: list[dict] = []
     while "\n\n" in buffer:
@@ -135,9 +151,12 @@ def main() -> int:
     if args.environment:
         print(f"environment={args.environment} base_url={base_url}")
     headers = {"X-Tenant-Id": args.tenant_id}
-    if args.invoke_key:
-        headers["X-Chatticus-Invoke-Key"] = args.invoke_key
-    with httpx.Client(base_url=base_url, headers=headers, timeout=120.0) as client:
+    invoke_key = args.invoke_key
+    if not invoke_key and environment is not None:
+        invoke_key = _invoke_key_for_environment(environment)
+    if invoke_key:
+        headers["X-Chatticus-Invoke-Key"] = invoke_key
+    with httpx.Client(base_url=base_url, headers=headers, timeout=900.0) as client:
         health = client.get("/health")
         if health.status_code != 200:
             print(f"health {health.status_code} {health.text[:200]}", file=sys.stderr)

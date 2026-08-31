@@ -105,7 +105,7 @@ def resolve_thin_turn_base_url(
             output["OutputKey"]: output["OutputValue"]
             for output in stack["Stacks"][0].get("Outputs", [])
         }
-        cloudfront_url = outputs.get("CloudFrontUrl")
+        cloudfront_url = outputs.get("CloudFrontUrl") or outputs.get("FunctionUrl")
         if cloudfront_url:
             return cloudfront_url.rstrip("/")
     except Exception:
