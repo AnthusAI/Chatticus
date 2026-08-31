@@ -139,10 +139,16 @@
       "author": "agent@example.com",
       "text": "Board currency: every child under this epic is closed, including e747d7 (Fargate RUNNING median 22s; Chromium not in the image). Implementation is not unstarted. Remaining epic DoD is browser-ready cold-start once Chromium is in the computer image. Leave this epic open for that gap; do not start 35d86b here.",
       "created_at": "2026-08-31T19:51:53.798147Z"
+    },
+    {
+      "id": "5e756028-ec54-4755-81ae-644345990a5a",
+      "author": "agent@example.com",
+      "text": "5dad85 closed: summoned Fargate Chromium path is live on development (not a Computers scale-up). Epic remaining only if unmeasured cold Chromium timing or two-actor double-commit still needs a named child.",
+      "created_at": "2026-08-31T22:04:03.631313Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T21:39:48.310574Z",
+  "updated_at": "2026-08-31T22:04:03.631313Z",
   "closed_at": null,
   "custom": {}
 }
