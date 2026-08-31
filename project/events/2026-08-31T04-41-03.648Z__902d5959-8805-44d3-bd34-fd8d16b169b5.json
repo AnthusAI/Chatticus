@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "902d5959-8805-44d3-bd34-fd8d16b169b5",
+  "issue_id": "chatticus-28503e7b-4a6f-478b-bc29-a6d0b99365c7",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T04:41:03.648Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a household member, I want bot names to stay unique per user after a Front Door Lambda recycle, so a retried create does not fork two bots with the same name.\n\nFeature: Bot turns pin to the user's computer\n\nScenario: Duplicate bot names for one user are rejected\n  Given an empty control plane\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n  When I create a bot named \"Researcher\" for tenant \"anthus\" user \"ryan\"\n  Then creating the bot fails because the name is already used\n\nScenario: Duplicate bot names are rejected after a new control plane instance\n  Given an empty control plane backed by a durable messaging store\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\" on the store\n  When a new control plane instance creates a bot named \"Researcher\" for tenant \"anthus\" user \"ryan\"\n  Then creating the bot fails because the name is already used\n\nThe name reservation lives on the messaging table, not in Lambda memory.",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+    "priority": 0,
+    "status": "open",
+    "title": "Durable bot name uniqueness survives Front Door recycle"
+  }
+}

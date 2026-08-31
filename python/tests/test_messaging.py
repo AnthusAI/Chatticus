@@ -26,6 +26,7 @@ from chatticus.models import (
     ActorKind,
     ComputerlessCannotExecuteComputerJob,
     ComputerNotReadyError,
+    DuplicateBotNameError,
     StaleAttemptError,
     TurnEventKind,
     TurnJob,
@@ -1102,6 +1103,46 @@ def test_bot_and_stopped_computer_survive_a_new_control_plane() -> None:
     channel = second.create_channel("anthus", "ryan", [bot.bot_id])
     assert second.computer_is_stopped("anthus", "ryan")
     assert channel.participants[-1].actor_id == bot.bot_id
+
+
+def test_duplicate_bot_name_survives_a_new_control_plane() -> None:
+    store = InMemoryMessagingStore()
+    first = ControlPlane(messaging_store=store)
+    first.create_bot("anthus", "ryan", "Researcher")
+    second = ControlPlane(messaging_store=store)
+    with pytest.raises(DuplicateBotNameError):
+        second.create_bot("anthus", "ryan", "Researcher")
+
+
+@mock_aws
+def test_dynamo_duplicate_bot_name_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-bot-name-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    first.create_bot("anthus", "ryan", "Researcher")
+    second = ControlPlane(messaging_store=store)
+    with pytest.raises(DuplicateBotNameError):
+        second.create_bot("anthus", "ryan", "Researcher")
+
+
+def test_http_duplicate_bot_name_is_rejected() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    created = api.post(
+        "/bots",
+        json={"user_id": "ryan", "name": "Researcher"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert created.status_code == 200
+    duplicate = api.post(
+        "/bots",
+        json={"user_id": "ryan", "name": "Researcher"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert duplicate.status_code == 400
+    api.close()
 
 
 def test_channel_messages_survive_a_new_control_plane() -> None:

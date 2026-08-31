@@ -381,15 +381,10 @@ class ControlPlane:
 
         :raises DuplicateBotNameError: If the user already has this bot name.
         """
-        for bot in self._bots.values():
-            if (
-                bot.tenant_id == tenant_id
-                and bot.user_id == user_id
-                and bot.name == name
-            ):
-                raise DuplicateBotNameError(
-                    f"Bot named {name!r} already exists for user {user_id!r}."
-                )
+        if self._messaging_store.get_bot_by_name(tenant_id, user_id, name) is not None:
+            raise DuplicateBotNameError(
+                f"Bot named {name!r} already exists for user {user_id!r}."
+            )
         self.ensure_computer(tenant_id, user_id)
         bot = Bot(
             bot_id=str(uuid4()),
@@ -398,7 +393,7 @@ class ControlPlane:
             name=name,
         )
         self._bots[bot.bot_id] = bot
-        self._messaging_store.put_bot(bot)
+        self._messaging_store.put_bot(bot, reserve_name=True)
         return bot
 
     def bot(self, tenant_id: str, bot_id: str) -> Bot:

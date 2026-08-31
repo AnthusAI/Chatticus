@@ -14,6 +14,7 @@ from chatticus.models import (
     ChannelParticipant,
     Computer,
     ComputerPolicy,
+    DuplicateBotNameError,
     Message,
     PendingComputerToolSnapshot,
     StaleAttemptError,
@@ -84,11 +85,17 @@ class MessagingStore(Protocol):
     ) -> list[TurnEvent]:
         """Return turn events with seq greater than after_seq."""
 
-    def put_bot(self, bot: Bot) -> None:
-        """Persist a named bot."""
+    def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
+        """Persist a named bot.
+
+        When ``reserve_name`` is true, atomically claim the user's bot name.
+        """
 
     def get_bot(self, tenant_id: str, bot_id: str) -> Bot | None:
         """Load one bot."""
+
+    def get_bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot | None:
+        """Load one bot by the household user's chosen name."""
 
     def put_computer(self, computer: Computer) -> None:
         """Persist the household computer record."""
@@ -263,11 +270,29 @@ class InMemoryMessagingStore:
     def get_turn(self, tenant_id: str, turn_id: str) -> Turn | None:
         return self._turns.get((tenant_id, turn_id))
 
-    def put_bot(self, bot: Bot) -> None:
-        self._bots[(bot.tenant_id, bot.bot_id)] = bot
+    def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
+        with self._lock:
+            if reserve_name and self.get_bot_by_name(
+                bot.tenant_id, bot.user_id, bot.name
+            ):
+                raise DuplicateBotNameError(
+                    f"Bot named {bot.name!r} already exists for user "
+                    f"{bot.user_id!r}."
+                )
+            self._bots[(bot.tenant_id, bot.bot_id)] = bot
 
     def get_bot(self, tenant_id: str, bot_id: str) -> Bot | None:
         return self._bots.get((tenant_id, bot_id))
+
+    def get_bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot | None:
+        for bot in self._bots.values():
+            if (
+                bot.tenant_id == tenant_id
+                and bot.user_id == user_id
+                and bot.name == name
+            ):
+                return bot
+        return None
 
     def put_computer(self, computer: Computer) -> None:
         self._computers[(computer.tenant_id, computer.user_id)] = computer
@@ -634,19 +659,52 @@ class DynamoMessagingStore:
             chunks.append((seq, item["token"]["S"]))
         return [token for _, token in sorted(chunks, key=lambda pair: pair[0])]
 
-    def put_bot(self, bot: Bot) -> None:
-        self.client.put_item(
-            TableName=self.table_name,
-            Item={
-                "pk": {"S": self._roster_pk(bot.tenant_id)},
-                "sk": {"S": f"bot#{bot.bot_id}"},
-                "tenant_id": {"S": bot.tenant_id},
-                "user_id": {"S": bot.user_id},
-                "bot_id": {"S": bot.bot_id},
-                "name": {"S": bot.name},
-                "memory": {"S": json.dumps(bot.memory)},
-            },
-        )
+    def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
+        bot_item = {
+            "pk": {"S": self._roster_pk(bot.tenant_id)},
+            "sk": {"S": f"bot#{bot.bot_id}"},
+            "tenant_id": {"S": bot.tenant_id},
+            "user_id": {"S": bot.user_id},
+            "bot_id": {"S": bot.bot_id},
+            "name": {"S": bot.name},
+            "memory": {"S": json.dumps(bot.memory)},
+        }
+        if not reserve_name:
+            self.client.put_item(TableName=self.table_name, Item=bot_item)
+            return
+        name_item = {
+            "pk": {"S": self._roster_pk(bot.tenant_id)},
+            "sk": {"S": self._bot_name_sk(bot.user_id, bot.name)},
+            "tenant_id": {"S": bot.tenant_id},
+            "user_id": {"S": bot.user_id},
+            "bot_id": {"S": bot.bot_id},
+            "name": {"S": bot.name},
+        }
+        try:
+            self.client.transact_write_items(
+                TransactItems=[
+                    {"Put": {"TableName": self.table_name, "Item": bot_item}},
+                    {
+                        "Put": {
+                            "TableName": self.table_name,
+                            "Item": name_item,
+                            "ConditionExpression": "attribute_not_exists(pk)",
+                        }
+                    },
+                ]
+            )
+        except self.client.exceptions.TransactionCanceledException as error:
+            reasons = error.response.get("CancellationReasons", ())
+            if any(
+                reason.get("Code") == "ConditionalCheckFailed"
+                for reason in reasons
+                if isinstance(reason, dict)
+            ):
+                raise DuplicateBotNameError(
+                    f"Bot named {bot.name!r} already exists for user "
+                    f"{bot.user_id!r}."
+                ) from error
+            raise
 
     def get_bot(self, tenant_id: str, bot_id: str) -> Bot | None:
         response = self.client.get_item(
@@ -666,13 +724,31 @@ class DynamoMessagingStore:
             memory = {}
         if not isinstance(memory, dict):
             memory = {}
-        return Bot(
-            bot_id=item["bot_id"]["S"],
-            tenant_id=item["tenant_id"]["S"],
-            user_id=item["user_id"]["S"],
-            name=item["name"]["S"],
-            memory={str(key): str(value) for key, value in memory.items()},
+        return self._bot_from_item(item)
+
+    def get_bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": self._bot_name_sk(user_id, name)},
+            },
         )
+        item = response.get("Item")
+        if item is not None:
+            return self.get_bot(tenant_id, item["bot_id"]["S"])
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._roster_pk(tenant_id)},
+                ":prefix": {"S": "bot#"},
+            },
+        )
+        for row in response.get("Items", []):
+            if row["user_id"]["S"] == user_id and row["name"]["S"] == name:
+                return self._bot_from_item(row)
+        return None
 
     def put_computer(self, computer: Computer) -> None:
         self.client.put_item(
@@ -778,6 +854,25 @@ class DynamoMessagingStore:
 
     def _roster_pk(self, tenant_id: str) -> str:
         return f"{tenant_id}#roster"
+
+    def _bot_name_sk(self, user_id: str, name: str) -> str:
+        return f"bot_name#{user_id}#{name}"
+
+    def _bot_from_item(self, item: dict[str, Any]) -> Bot:
+        memory_raw = item.get("memory", {}).get("S", "{}")
+        try:
+            memory = json.loads(memory_raw)
+        except json.JSONDecodeError:
+            memory = {}
+        if not isinstance(memory, dict):
+            memory = {}
+        return Bot(
+            bot_id=item["bot_id"]["S"],
+            tenant_id=item["tenant_id"]["S"],
+            user_id=item["user_id"]["S"],
+            name=item["name"]["S"],
+            memory={str(key): str(value) for key, value in memory.items()},
+        )
 
 
 def _message_item(message: Message, *, pk: str, sk: str) -> dict[str, Any]:

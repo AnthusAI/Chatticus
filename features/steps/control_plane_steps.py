@@ -9,6 +9,7 @@ from behave import given, then, when
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.test_server import start_test_server
+from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
     AutoReviewRuleKind,
     ComputerDirtyError,
@@ -413,6 +414,24 @@ def when_create_bot(context: object, name: str, tenant_id: str, user_id: str) ->
         context.bot_error = None
     except DuplicateBotNameError as error:
         context.bot_error = error
+
+
+@given("an empty control plane backed by a durable messaging store")
+def given_durable_messaging_store(context: object) -> None:
+    context.messaging_store = InMemoryMessagingStore()
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    context.bots_by_name = {}
+
+
+@when(
+    'a new control plane instance creates a bot named "{name}" '
+    'for tenant "{tenant_id}" user "{user_id}"'
+)
+def when_recycled_plane_creates_bot(
+    context: object, name: str, tenant_id: str, user_id: str
+) -> None:
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    when_create_bot(context, name, tenant_id, user_id)
 
 
 @then("creating the bot fails because the name is already used")

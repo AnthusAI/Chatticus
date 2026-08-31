@@ -22,3 +22,9 @@ Feature: Bot turns pin to the user's computer
     And tenant "anthus" user "ryan" has a bot named "Researcher"
     When I create a bot named "Researcher" for tenant "anthus" user "ryan"
     Then creating the bot fails because the name is already used
+
+  Scenario: Duplicate bot names are rejected after a new control plane instance
+    Given an empty control plane backed by a durable messaging store
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When a new control plane instance creates a bot named "Researcher" for tenant "anthus" user "ryan"
+    Then creating the bot fails because the name is already used

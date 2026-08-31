@@ -115,6 +115,17 @@ def main() -> int:
             )
             return 1
         bot = bot_response.json()
+        duplicate_bot = client.post(
+            "/bots",
+            json={"user_id": args.user_id, "name": bot["name"]},
+        )
+        if duplicate_bot.status_code != 400:
+            print(
+                f"bot_name_dup {duplicate_bot.status_code} {duplicate_bot.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("bot_name_dup=1")
         remembered = client.post(
             f"/bots/{bot['bot_id']}/memory",
             json={"key": "voice", "value": "short and direct"},
