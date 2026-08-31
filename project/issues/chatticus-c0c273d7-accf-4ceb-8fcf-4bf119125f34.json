@@ -10,9 +10,19 @@
   "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "9873c4b5-dc9a-419f-a254-c69f0535e62e",
+      "author": "ubuntu",
+      "text": "Implementation landed in PR #32 (`infra/lib/web-stack.ts`, `dns-stack.ts`, thin-turn CloudFront removal). Deploy blocked in cloud \u2014 needs local `aws login` then `deploy-chatticus-web-development.sh`.\n",
+      "created_at": "2026-08-31T12:19:08.703088Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-08-31T11:31:17.613238Z",
-  "updated_at": "2026-08-31T12:10:19.277812Z",
+  "updated_at": "2026-08-31T12:19:08.703088Z",
   "closed_at": null,
   "custom": {},
   "agent": null

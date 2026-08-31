@@ -10,9 +10,19 @@
   "parent": "chatticus-a744a602-b8ad-4428-86d0-04c1099506dd",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "9356a261-2f74-4775-90fd-21e373ae97d0",
+      "author": "ubuntu",
+      "text": "**Handoff to local agent (2026-08-31):** Cloud agent completed implementation on branch `cursor/implement-web-aws-182a` (PR #32) but cannot deploy \u2014 this VM has no AWS credentials (`aws sts get-caller-identity` fails; only `OPENAI_API_KEY` is in cloud secrets). Partial `aws login` sessions in `~/.aws/cli/cache/session.db` were never completed.\n\nLocal agent with `aws login` (account `335163751677`, `us-east-1`) should deploy in order:\n1. `cd infra && sh deploy-chatticus-dns.sh` \u2192 copy **NameServers** output\n2. User sets those four NS at GoDaddy (only manual step)\n3. Wait for ACM DNS validation after delegation\n4. `sh deploy-chatticus-web-development.sh` (thin-turn + web)\n5. Verify `curl https://dev.chattic.us/api/health` and open `https://dev.chattic.us`\n\nMerge PR #32 to `develop` first if not already merged.\n",
+      "created_at": "2026-08-31T12:19:07.515401Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-08-31T11:30:48.055887Z",
-  "updated_at": "2026-08-31T12:10:18.643571Z",
+  "updated_at": "2026-08-31T12:19:07.515401Z",
   "closed_at": null,
   "custom": {},
   "agent": null
