@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from chatticus.control_plane import ControlPlane
-from chatticus.http.sse import format_turn_event_sse
+from chatticus.http.sse import cursor_from_last_event_id, format_turn_event_sse
 from chatticus.models import (
     ActorKind,
     ActorNotInChannelError,
@@ -388,7 +388,7 @@ def create_app(
         request: Request,
         turn_id: str,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
-        after_seq: int = Query(default=0, ge=0),
+        last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
     ) -> StreamingResponse:
         try:
             state.plane.turn(tenant_id, turn_id)
@@ -396,15 +396,19 @@ def create_app(
             raise TurnAccessDeniedError(
                 f"Tenant {tenant_id!r} cannot watch turn {turn_id!r}."
             ) from error
+        try:
+            cursor = cursor_from_last_event_id(last_event_id)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
 
         async def event_generator() -> Any:
             state.open_sse_streams += 1
-            cursor = after_seq
+            replay_from = cursor
             logger.info(
-                "sse_open tenant_id=%s turn_id=%s after_seq=%s",
+                "sse_open tenant_id=%s turn_id=%s last_event_id=%s",
                 tenant_id,
                 turn_id,
-                after_seq,
+                replay_from,
             )
             try:
                 while True:
@@ -415,13 +419,15 @@ def create_app(
                             turn_id,
                         )
                         return
-                    events = state.plane.list_turn_events(tenant_id, turn_id, cursor)
+                    events = state.plane.list_turn_events(
+                        tenant_id, turn_id, replay_from
+                    )
                     if not events:
                         await asyncio.sleep(0.05)
                         continue
                     for event in events:
                         yield format_turn_event_sse(event)
-                        cursor = event.seq
+                        replay_from = event.seq
                         if event.kind in (
                             TurnEventKind.TURN_COMPLETED,
                             TurnEventKind.TURN_FAILED,

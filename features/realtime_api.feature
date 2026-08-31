@@ -20,7 +20,7 @@ Feature: Turn-scoped server-sent events
     And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"
     And a turn has emitted committed events through sequence 4
     And the watching connection for that turn closes
-    When user "ryan" of tenant "anthus" reconnects to the turn after sequence 2
+    When user "ryan" of tenant "anthus" reconnects to the turn with Last-Event-ID 2
     Then committed events 3 and 4 are replayed once in order
     And later events continue from the same turn
     And the turn completes whether or not a watcher remains connected

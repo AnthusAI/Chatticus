@@ -337,12 +337,12 @@ def main() -> int:
             reconnect_after = events[-1]["seq"]
         else:
             reconnect_after = max(1, events[0]["seq"])
-        print(f"reconnect_after_seq={reconnect_after}")
+        print(f"reconnect_last_event_id={reconnect_after}")
         resumed: list[dict] = []
         with client.stream(
             "GET",
             f"/turns/{turn_id}/stream",
-            params={"after_seq": reconnect_after},
+            headers={"Last-Event-ID": str(reconnect_after)},
         ) as stream:
             stream.raise_for_status()
             buffer = ""
@@ -367,7 +367,7 @@ def main() -> int:
             return 1
         if resumed and min(event["seq"] for event in resumed) <= reconnect_after:
             print(
-                f"reconnect replayed seq at or before after_seq={reconnect_after}",
+                f"reconnect replayed seq at or before Last-Event-ID={reconnect_after}",
                 file=sys.stderr,
             )
             return 1

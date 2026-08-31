@@ -624,9 +624,9 @@ def given_watching_connection_closes(context: object) -> None:
 
 @when(
     'user "{user_id}" of tenant "{tenant_id}" reconnects to the turn '
-    "after sequence {seq:d}"
+    "with Last-Event-ID {seq:d}"
 )
-def when_reconnect_after_seq(
+def when_reconnect_with_last_event_id(
     context: object, user_id: str, tenant_id: str, seq: int
 ) -> None:
     watcher = SseWatcher(

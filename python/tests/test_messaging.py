@@ -15,6 +15,7 @@ from moto import mock_aws
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
+from chatticus.http.sse import cursor_from_last_event_id
 from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import (
     DynamoMessagingStore,
@@ -52,6 +53,14 @@ def _channel_with_bot(plane: ControlPlane, name: str = "Researcher"):
 
 def _client_for(plane: ControlPlane):
     return start_test_server(create_app(plane))
+
+
+def test_cursor_from_last_event_id() -> None:
+    assert cursor_from_last_event_id(None) == 0
+    assert cursor_from_last_event_id("") == 0
+    assert cursor_from_last_event_id(" 4 ") == 4
+    with pytest.raises(ValueError):
+        cursor_from_last_event_id("seq-2")
 
 
 @mock_aws
@@ -418,7 +427,7 @@ def test_computerless_worker_commits_one_answer_with_live_openai() -> None:
     api.close()
 
 
-def test_http_sse_replay_after_cursor() -> None:
+def test_http_sse_replay_from_last_event_id() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
@@ -440,26 +449,62 @@ def test_http_sse_replay_after_cursor() -> None:
     turn_client.post_chunk(turn_id, "!")
     turn_client.post_chunk(turn_id, "", complete=True)
     events: list[dict[str, object]] = []
+    sse_ids: list[str] = []
     with api.stream(
         "GET",
         f"/turns/{turn_id}/stream",
-        headers={"X-Tenant-Id": channel.tenant_id},
-        params={"after_seq": 2},
+        headers={
+            "X-Tenant-Id": channel.tenant_id,
+            "Last-Event-ID": "2",
+        },
     ) as response:
         buffer = ""
         for chunk in response.iter_bytes():
             buffer += chunk.decode()
             while "\n\n" in buffer:
                 frame, buffer = buffer.split("\n\n", 1)
+                event_id = None
+                payload = None
                 for line in frame.split("\n"):
+                    if line.startswith("id:"):
+                        event_id = line[3:].strip()
                     if line.startswith("data:"):
-                        events.append(json.loads(line[5:].strip()))
-                    if len(events) >= 2:
-                        break
+                        payload = json.loads(line[5:].strip())
+                if payload is not None:
+                    events.append(payload)
+                    if event_id is not None:
+                        sse_ids.append(event_id)
             if len(events) >= 2:
                 break
     replayed = [event["seq"] for event in events[:2]]
     assert replayed == [3, 4]
+    assert sse_ids[:2] == ["3", "4"]
+    api.close()
+
+
+def test_http_sse_rejects_non_numeric_last_event_id() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    response = api.get(
+        f"/turns/{turn_id}/stream",
+        headers={
+            "X-Tenant-Id": channel.tenant_id,
+            "Last-Event-ID": "not-a-seq",
+        },
+    )
+    assert response.status_code == 400
     api.close()
 
 
