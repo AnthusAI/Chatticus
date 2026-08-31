@@ -3,16 +3,23 @@
   "title": "Waiting journal carries the pending computer tool",
   "description": "",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "9f0f59fa-872f-4a75-a432-65a952760371",
+      "author": "home",
+      "text": "Durable turn.waiting journal events and SSE replay now carry pending_computer_tool with action_id matching GET /turns/{id}. Deployed development ThinTurn @ a04c712; exercise_thin_turn exits 0.",
+      "created_at": "2026-08-31T02:07:26.999902Z"
+    }
+  ],
   "created_at": "2026-08-31T02:03:02.528227Z",
-  "updated_at": "2026-08-31T02:03:08.061155Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T02:07:26.999902Z",
+  "closed_at": "2026-08-31T02:07:26.986300Z",
   "custom": {}
 }
