@@ -265,7 +265,7 @@ def main() -> int:
             json={
                 "author_kind": ActorKind.HUMAN,
                 "author_id": args.user_id,
-                "body": "Reply with a short greeting.",
+                "body": "Reply with three short sentences separated by periods.",
                 "addressed_to_bot_id": bot["bot_id"],
             },
         )
@@ -283,41 +283,73 @@ def main() -> int:
             f"channel_id={channel['channel_id']} turn_id={turn_id}"
         )
         events: list[dict] = []
+        dropped_mid_stream = False
         with client.stream("GET", f"/turns/{turn_id}/stream") as stream:
             stream.raise_for_status()
             buffer = ""
+            deadline = time.time() + 90
             for chunk in stream.iter_bytes():
                 buffer += chunk.decode()
                 parsed, buffer = _frames(buffer)
                 events.extend(parsed)
-                if events and events[-1].get("kind") == "turn.completed":
+                kinds_so_far = [event.get("kind") for event in events]
+                if (
+                    "turn.started" in kinds_so_far
+                    and "turn.token" in kinds_so_far
+                    and "turn.completed" not in kinds_so_far
+                ):
+                    dropped_mid_stream = True
                     break
-        kinds = [event.get("kind") for event in events]
-        print(f"first_stream_kinds={kinds}")
-        if "turn.completed" not in kinds:
-            print("first stream did not complete", file=sys.stderr)
-            return 1
-        cutoff = max(1, events[1]["seq"] if len(events) > 1 else 1)
-        replayed: list[dict] = []
-        with client.stream(
-            "GET",
-            f"/turns/{turn_id}/stream",
-            params={"after_seq": cutoff},
-        ) as stream:
-            stream.raise_for_status()
-            buffer = ""
-            deadline = time.time() + 30
-            for chunk in stream.iter_bytes():
-                buffer += chunk.decode()
-                parsed, buffer = _frames(buffer)
-                replayed.extend(parsed)
-                if replayed and replayed[-1].get("kind") == "turn.completed":
+                if events and events[-1].get("kind") == "turn.completed":
                     break
                 if time.time() > deadline:
                     break
-        print(
-            f"reconnect_after={cutoff} replay_kinds={[e.get('kind') for e in replayed]}"
-        )
+        kinds = [event.get("kind") for event in events]
+        print(f"first_stream_kinds={kinds} dropped_mid_stream={dropped_mid_stream}")
+        if not events:
+            print("first stream delivered no events", file=sys.stderr)
+            return 1
+        if dropped_mid_stream:
+            reconnect_after = events[-1]["seq"]
+        else:
+            reconnect_after = max(1, events[0]["seq"])
+        print(f"reconnect_after_seq={reconnect_after}")
+        resumed: list[dict] = []
+        with client.stream(
+            "GET",
+            f"/turns/{turn_id}/stream",
+            params={"after_seq": reconnect_after},
+        ) as stream:
+            stream.raise_for_status()
+            buffer = ""
+            deadline = time.time() + 90
+            for chunk in stream.iter_bytes():
+                buffer += chunk.decode()
+                parsed, buffer = _frames(buffer)
+                resumed.extend(parsed)
+                combined = events + resumed
+                if combined and combined[-1].get("kind") == "turn.completed":
+                    break
+                if time.time() > deadline:
+                    break
+        print(f"resumed_stream_kinds={[event.get('kind') for event in resumed]}")
+        all_events = events + resumed
+        seqs = [event["seq"] for event in all_events]
+        if len(seqs) != len(set(seqs)):
+            print(f"duplicate seqs across drop/reconnect: {seqs}", file=sys.stderr)
+            return 1
+        if seqs != sorted(seqs):
+            print(f"out-of-order seqs: {seqs}", file=sys.stderr)
+            return 1
+        if resumed and min(event["seq"] for event in resumed) <= reconnect_after:
+            print(
+                f"reconnect replayed seq at or before after_seq={reconnect_after}",
+                file=sys.stderr,
+            )
+            return 1
+        if not any(event.get("kind") == "turn.completed" for event in all_events):
+            print("reconnect did not reach turn.completed", file=sys.stderr)
+            return 1
         stopped_response = client.get(
             "/computers/stopped", params={"user_id": args.user_id}
         )
@@ -336,9 +368,6 @@ def main() -> int:
         bot_messages = [m for m in messages if m["author_kind"] == ActorKind.BOT]
         print(f"computer_stopped={stopped['stopped']} bot_messages={len(bot_messages)}")
         if not stopped["stopped"] or not bot_messages:
-            return 1
-        if not any(event.get("kind") == "turn.completed" for event in replayed):
-            print("reconnect did not replay completion", file=sys.stderr)
             return 1
         browser_post = client.post(
             f"/channels/{channel['channel_id']}/messages",
