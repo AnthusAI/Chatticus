@@ -32,7 +32,7 @@ class FakeComputerActionExecutor:
 
     def execute(self, tool_name: str, arguments: dict[str, str]) -> str:
         """Return a short result derived from the tool name."""
-        if tool_name == "browser_open":
+        if tool_name in {"browser_open", "request_computer_capability"}:
             return "opened"
         return f"{tool_name}-done"
 
@@ -66,10 +66,19 @@ class ComputerWorker:
         computer = self.plane.computer_for_user(tenant_id, user_id)
         if computer.host_start_dispatched_generation >= computer.host_start_generation:
             return
-        self.host_starter.start_host(claim)
-        self.plane.mark_host_start_dispatched(
+        if not self.plane.mark_host_start_dispatched(
             tenant_id, user_id, computer.host_start_generation
-        )
+        ):
+            return
+        try:
+            self.host_starter.start_host(claim)
+        except Exception as exc:
+            self.plane.release_host_start_dispatch(
+                tenant_id, user_id, computer.host_start_generation
+            )
+            raise ComputerWorkerHostNotReady(
+                f"Turn {turn_id!r} host start failed: {exc}."
+            ) from exc
 
     def _host_ready_for_tool(self, job: TurnJob, tool_name: str) -> bool:
         """Return whether a real computer host can run one pending tool call."""
@@ -116,10 +125,7 @@ class ComputerWorker:
             self.plane.remove_pending_job(job.job_id)
             return
         self.plane.expire_orphaned_computer_claims()
-        try:
-            record = self.plane.escalation_for(job.tenant_id, job.turn_id)
-        except Exception:
-            record = None
+        record = self.plane.ensure_computer_escalation(job.tenant_id, job.turn_id)
         unresolved = self.plane.unresolved_tool_action_ids(job.tenant_id, job.turn_id)
         if record is None:
             pending = pending_computer_tool_from_turn(turn)
@@ -173,3 +179,6 @@ class ComputerWorker:
         if self.plane.unresolved_tool_action_ids(job.tenant_id, job.turn_id):
             return
         self.plane.remove_pending_job(job.job_id)
+        turn = self.plane.turn(job.tenant_id, job.turn_id)
+        if turn.status == TurnStatus.ACTIVE:
+            self.plane.complete_computer_continuation(job.tenant_id, job.turn_id)

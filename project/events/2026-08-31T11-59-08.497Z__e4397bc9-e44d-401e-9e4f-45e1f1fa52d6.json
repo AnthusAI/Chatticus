@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "e4397bc9-e44d-401e-9e4f-45e1f1fa52d6",
+  "issue_id": "chatticus-b6627b37-cefe-48b8-acdf-4d86afdcde0e",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T11:59:08.497Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Epic 8f98f8 requires concurrent demand to start at most one host. Live RunTask after ecs:TagResource raced several sleep-infinity tasks from parallel nacks. Claim the durable dispatch generation before RunTask so a second worker skips start_host.\n\n```gherkin\nFeature: Single host start dispatch\n  Scenario: Concurrent pull workers start at most one host for one generation\n    Given a fenced computer handoff with a queued continuation job\n    And a recording host start driver\n    When two computer-capable pull workers without a host executor pull that continuation concurrently\n    Then the host start driver was invoked once\n```\n\nThinTurn-only. Do not scale ChatticusComputers desiredCount. Do not cdk deploy --all.",
+    "issue_type": "story",
+    "labels": [],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 0,
+    "status": "open",
+    "title": "Concurrent ComputerWorker nacks start at most one Fargate host per generation"
+  }
+}

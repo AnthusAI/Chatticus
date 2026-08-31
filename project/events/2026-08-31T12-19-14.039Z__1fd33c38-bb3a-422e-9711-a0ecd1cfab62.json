@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "1fd33c38-bb3a-422e-9711-a0ecd1cfab62",
+  "issue_id": "chatticus-4bca1522-b30d-4bad-a898-c2b3f7c85afa",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T12:19:14.039Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Live ComputerWorker RunTask still starts sleep-infinity. The Chromium executor is kernel-only (0eef8f). The summoned host must boot, record browser readiness, and pull ComputerTurnJobs itself. Lambda must not run Chromium. ChatticusComputers desiredCount stays 0. Do not cdk deploy --all.\n\n```gherkin\nFeature: Host computer pull worker\n  Scenario: ECS RunTask overrides the computer container to the host worker\n    Given CHATTICUS_ECS_HOST_COMMAND is the computer host worker module\n    When the ECS host starter starts a host for a claim\n    Then RunTask overrides that container command\n```",
+    "issue_type": "story",
+    "labels": [],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 0,
+    "status": "open",
+    "title": "Summoned Fargate host pulls ComputerTurnJobs with ChromiumActionExecutor"
+  }
+}

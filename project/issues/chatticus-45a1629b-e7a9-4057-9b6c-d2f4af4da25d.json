@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-45a1629b-e7a9-4057-9b6c-d2f4af4da25d",
+  "title": "Development ComputerWorker RunTask may tag the summoned Fargate task",
+  "description": "Live ComputerWorker RunTask is denied on ecs:TagResource because start_host attaches tenant/computer/generation tags. No Fargate task is created. ThinTurn-only IAM fix; do not deploy ChatticusComputers or change desiredCount.\n\n```gherkin\nFeature: Tagged ECS host start\n  Scenario: Development ComputerWorker may tag the summoned task\n    Given development ThinTurn ComputerWorker is wired for ECS host start\n    When it runs a Fargate task for a host-start claim\n    Then the RunTask call is allowed to tag that task\n```",
+  "type": "bug",
+  "status": "closed",
+  "priority": 1,
+  "assignee": "home",
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "4d41e201-b7d7-4434-982c-bce34eaf1d40",
+      "author": "home",
+      "text": "ThinTurn-only deploy 2026-08-31T11:51:03Z granted ecs:TagResource. Live ComputerWorker RunTask succeeded (Fargate tasks appeared). Concurrent nacks started extra sleep-infinity hosts; they were stopped. ComputerTurnJobs purged so the nack loop would not keep RunTask. ChatticusComputers desiredCount stayed 0. Named exercise still claim 200/409 and in_flight_nack. Remaining 8f98f8: Chromium executor and host readiness; durable single-flight so Lambda races do not stampede RunTask.\n",
+      "created_at": "2026-08-31T11:56:15.193671Z"
+    }
+  ],
+  "created_at": "2026-08-31T11:48:15.479181Z",
+  "updated_at": "2026-08-31T11:56:15.204980Z",
+  "closed_at": "2026-08-31T11:56:15.204980Z",
+  "custom": {}
+}

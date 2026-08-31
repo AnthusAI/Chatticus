@@ -50,6 +50,22 @@ class SameOriginApiClient:
         self._client.__exit__(*args)
 
 
+def _invoke_key_for_environment(environment: str) -> str:
+    """Read the front-door invoke key from the named stack secret."""
+    import boto3
+
+    arn = thin_turn_stack_output(environment, "InvokeKeySecretArn")
+    region = (
+        os.environ.get("AWS_REGION")
+        or os.environ.get("AWS_DEFAULT_REGION")
+        or "us-east-1"
+    )
+    secret = boto3.client("secretsmanager", region_name=region).get_secret_value(
+        SecretId=arn
+    )
+    return secret["SecretString"]
+
+
 def _frames(buffer: str) -> tuple[list[dict], str]:
     events: list[dict] = []
     while "\n\n" in buffer:
@@ -165,9 +181,12 @@ def main() -> int:
     if args.environment:
         print(f"environment={args.environment} base_url={base_url}")
     headers = {"X-Tenant-Id": args.tenant_id}
-    if args.invoke_key:
-        headers["X-Chatticus-Invoke-Key"] = args.invoke_key
-    with SameOriginApiClient(base_url, headers=headers, timeout=120.0) as client:
+    invoke_key = args.invoke_key
+    if not invoke_key and environment is not None:
+        invoke_key = _invoke_key_for_environment(environment)
+    if invoke_key:
+        headers["X-Chatticus-Invoke-Key"] = invoke_key
+    with SameOriginApiClient(base_url, headers=headers, timeout=900.0) as client:
         health = client.get("/health")
         if health.status_code != 200:
             print(f"health {health.status_code} {health.text[:200]}", file=sys.stderr)
@@ -957,10 +976,34 @@ def main() -> int:
                 turn_id=browser_turn_id,
                 wait_seconds=20,
             )
-            still_waiting = client.get(f"/turns/{browser_turn_id}")
-            waiting_for = still_waiting.json().get("waiting_for")
+            waiting_for = "browser"
+            status = None
+            has_tool_result = False
+            host_deadline = time.monotonic() + 180
+            while time.monotonic() < host_deadline:
+                still_waiting = client.get(f"/turns/{browser_turn_id}")
+                payload = still_waiting.json()
+                waiting_for = payload.get("waiting_for")
+                status = payload.get("status")
+                events_response = client.get(f"/turns/{browser_turn_id}/events")
+                has_tool_result = any(
+                    event.get("kind") == "tool.result"
+                    for event in (events_response.json().get("events") or [])
+                )
+                if (
+                    has_tool_result
+                    or status == "completed"
+                    or waiting_for in (None, "")
+                ):
+                    break
+                time.sleep(5)
+            host_completed = (
+                has_tool_result or status == "completed" or waiting_for in (None, "")
+            )
             if computer_body is None:
-                if waiting_for != "browser":
+                if host_completed:
+                    print("computer_queue_job=completed")
+                elif waiting_for != "browser":
                     print(
                         "computer_queue delivered no matching message "
                         f"waiting_for={waiting_for!r}",
@@ -971,7 +1014,8 @@ def main() -> int:
                         json={"user_id": args.user_id, "stopped": True},
                     )
                     return 1
-                print("computer_queue_job=in_flight_nack")
+                else:
+                    print("computer_queue_job=in_flight_nack")
             else:
                 print("computer_queue_job=computer")
             cpu_message = _sqs_receive_one(cpu_queue, wait_seconds=2)
@@ -991,14 +1035,17 @@ def main() -> int:
                 json={"user_id": args.user_id, "stopped": True},
             )
             still = client.get(f"/turns/{browser_turn_id}")
-            if still.json().get("waiting_for") != "browser":
+            if host_completed:
+                print("computer_queue_turn_completed=1")
+            elif still.json().get("waiting_for") != "browser":
                 print(
                     f"after_computer_queue waiting_for="
                     f"{still.json().get('waiting_for')!r}",
                     file=sys.stderr,
                 )
                 return 1
-            print("computer_queue_turn_still_waiting=browser")
+            else:
+                print("computer_queue_turn_still_waiting=browser")
     return 0
 
 

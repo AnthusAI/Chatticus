@@ -65,20 +65,39 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 ## What is live today
 
 **2026-08-31:** `ChatticusDns`, all three `ChatticusWeb*` stacks, and matching
-`ChatticusThinTurn*` stacks are deployed in `us-east-1`. Same-origin HTTPS is
-live at `dev.chattic.us`,
-`staging.chattic.us`, `chattic.us`, and `www.chattic.us`. SSM
-`/chatticus/{environment}/thin-turn/cloudfront-url` is
-`https://{hostname}/api` for each environment. A development run of
+`ChatticusThinTurn*` stacks are deployed in `us-east-1`. Same-origin HTTPS
+is live at `dev.chattic.us`, `staging.chattic.us`, `chattic.us`, and
+`www.chattic.us`. SSM `/chatticus/{environment}/thin-turn/cloudfront-url`
+is `https://{hostname}/api` for each environment. A development run of
 `exercise_thin_turn.py` against `https://dev.chattic.us/api` exited 0 on
 2026-08-31 after the web stack fix (CloudFront `/api*` routing and API error
 passthrough). GitHub **Deploy web** is manual (`workflow_dispatch`) and
 needs OIDC setup (see `infra/README.md`); it is not wired yet.
 
-GitHub **`main`** is a git promotion of the 2026-08-31 development pin,
-not an automatic stack redeploy. Production is never implied by a git
-branch; it is an explicit gated deploy of a release that already passed
-staging acceptance.
+GitHub **`main`** is `064a4f0` (PR #28, 2026-08-31): git promotion of
+the nack/reread pin (`50ad1d4`), not a stack redeploy. Production is never
+implied by a git branch. Staging and production were last recorded as
+deployed from `760915d` (v0.5.0).
+
+Development **ChatticusThinTurn** last **ThinTurn-only** CDK pin is
+**2026-08-31T16:02:57Z** (PR #34, ECS host-start context). Live
+ComputerWorker has `CHATTICUS_HOST_STARTER=ecs` and
+`CHATTICUS_ECS_HOST_COMMAND` for the host worker. **ChatticusWeb** can
+still restack ThinTurn; this pin looks up the live ChatticusComputers
+stack at synth so a Web restack cannot drop `ecs:RunTask`.
+**ChatticusComputers** was not redeployed (`desiredCount` remains 0).
+GitHub Actions must not hit live AWS.
+
+A named `exercise_thin_turn.py --environment development` run after that
+CDK pin exited 0 with `health_environment=1`, `missing_claim=404`,
+`claim_a=200` then `claim_b=409`, `host_start_generation=1`,
+`computer_queue_job=completed`, and `computer_queue_turn_completed=1`.
+Leftover RunTask was stopped; desiredCount stayed 0. That is a completed
+computer continuation after a real ThinTurn-only CDK deploy, not a
+CLI-patched Lambda env. `dev.chattic.us` DNS may still fail; resolve the
+front door from SSM, CloudFormation, or `CHATTICUS_DEVELOPMENT_BASE_URL`.
+A demo CLI (Kanbus epic 35d86b) is a separate slice.
+`exercise_thin_turn.py` stays the pass/fail gate.
 
 Per-account CloudFront distribution domains, Lambda function URLs, and
 AWS account ids belong in gitignored `AGENTS.local.md`, not in this
@@ -100,11 +119,16 @@ If SSM or CloudFormation credentials are expired, set
 `CHATTICUS_{ENVIRONMENT}_BASE_URL` or pass `--base-url`. SQS queue checks still need
 `aws login`.
 
-`cd python && python scripts/exercise_thin_turn.py --environment <name>`
-exits 0 for **development**, **staging**, and **production**. Each run
-includes missing-turn claim **404** and a live second-worker claim **409**
-while the lease is held (`claim_a=200` then `claim_b=409` on development,
-because the fence probe starts the turn with `enqueue_turn=false` so the
+`cd python && sh scripts/live_aws_thin_turn.sh development` (same gate as
+`python scripts/exercise_thin_turn.py --environment development`) is the
+named-environment command re-proven on 2026-08-31 (claim **200** then
+**409**, `host_start_generation=1`, in-flight nack after ChatticusWeb
+wiped ComputerWorker RunTask). Staging and
+production last recorded a passing named exercise on the v0.5.0 pin;
+they were not re-proven on this pass. A development run includes
+missing-turn claim **404** and a live second-worker claim **409**
+while the lease is held (`claim_a=200` then `claim_b=409`, because the
+fence probe starts the turn with `enqueue_turn=false` so the
 computerless worker does not race the claim), plus **development** naming
 itself on `GET /health` (`health_environment=1`), a live idempotent
 channel post (`post_idempotent=1`: two `POST /channels/{id}/messages` with
@@ -217,22 +241,23 @@ unbound-browser, and full computer-handoff execution still are not on
 the live worker loop. Do not merge `develop` to `main` as daily parking.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
-destroyed. They are not on the thin-turn path yet. Cold Fargate time to
-`RUNNING` for the current computer image is tens of seconds (Test 2);
-Chromium is not in the image. The computer service stays at desired
-count 0. The chattic.us Next.js UI deploys via `ChatticusWeb*` stacks
-(infra README); it is not on the live turn path until DNS and deploy land.
-No live Fargate computer pull
-worker, no mid-turn escalation onto a running computer, and no approvals
-on these slices.
+destroyed. Development ComputerWorker may `ecs:RunTask` into that cluster
+with desired count still 0. Cold Fargate time to `RUNNING` for the
+current computer image is tens of seconds (Test 2). Chromium is in the
+image and is not wired as the live `ComputerActionExecutor`. The
+chattic.us Next.js UI deploys via `ChatticusWeb*` stacks (infra README);
+it is not on the live turn path until DNS and deploy land. There is no
+pull worker that finishes a browser tool on a running host, and no
+approvals on these slices.
 
 Cloud-environment epic 9eef23 is closed: three named stacks, named-env
 acceptance on each. Turn recovery epic 653989 is closed. Cold Fargate
 readiness (e747d7, Test 2) is measured for the current image: tens of
-seconds to RUNNING; Chromium still missing. Remaining for summoning a
-computer (8f98f8): a live Fargate Chromium executor; development
-ThinTurn nacks ComputerTurnJobs without a host and records
-`host_start_generation`. Structured handoff (538d28) is
+seconds to RUNNING; Chromium is in the image. Remaining for summoning a
+computer (8f98f8): a Chromium executor and host-readiness gate on the
+ephemeral Fargate task so ComputerTurnJobs can finish instead of nacking
+`ComputerWorkerHostNotReady`; `host_start_generation` is already live.
+Structured handoff (538d28) is
 kernel-only on `develop` — model.request, tool.call, tool.result, and
 attempt claim/relinquish are durable typed journal events; continuation
 executes only unresolved action ids; failure injection covers handoff
@@ -480,9 +505,10 @@ npx cdk deploy ChatticusThinTurnProduction
 
 **ChatticusThinTurn** is development. Staging and production are separate
 stacks with their own DynamoDB, SQS, Lambda, and CloudFront. GitHub
-`main` includes the 2026-08-31 development live pin; those stacks were last
-recorded as deployed from the v0.5.0 pin (`760915d`) unless a later gated
-CDK deploy is proven. Do not destroy the snapshot or computer stacks.
+`main` includes the 2026-08-31 development live pin; PR #34 adds
+Computers-stack lookup so Web restacks keep ECS host-start. Do not merge
+`develop` to `main` as parking. Staging and production stacks were last
+recorded from `760915d`. Do not destroy the snapshot or computer stacks.
 
 Postgres in `docker-compose.yml` is unused (it predates DynamoDB).
 

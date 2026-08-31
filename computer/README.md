@@ -27,6 +27,12 @@ scale the service back to 0:
 sh computer/test_fargate.sh
 ```
 
+Push a rebuilt image to ECR without changing the Computers service:
+
+```bash
+sh computer/push-computer-image.sh
+```
+
 That packs on a Fargate-named container, hydrates onto a Mac-named
 container, then the reverse. Stale files on the target host are dropped.
 
@@ -37,6 +43,9 @@ v1 contents:
 - Chromium (in image; browser gate still unmeasured on cold start)
 - shell and `/workspace`
 - snapshot pack/hydrate CLI
+- `python -m chatticus.computer_host_worker` (Chatticus package from `python/`;
+  RunTask may override the container command when `CHATTICUS_ECS_HOST_COMMAND`
+  is set; entrypoint starts Xvfb when `CHATTICUS_COMPUTER_BOOT=1`)
 - noVNC (or equivalent) for watch and human takeover (next)
 - `chatticus-worker` / `chatticus-agent` (next)
 

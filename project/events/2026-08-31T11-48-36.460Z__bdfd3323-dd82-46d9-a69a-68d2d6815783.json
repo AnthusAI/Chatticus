@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "bdfd3323-dd82-46d9-a69a-68d2d6815783",
+  "issue_id": "chatticus-45a1629b-e7a9-4057-9b6c-d2f4af4da25d",
+  "event_type": "field_updated",
+  "occurred_at": "2026-08-31T11:48:36.460Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "assignee": {
+        "from": null,
+        "to": "home"
+      },
+      "description": {
+        "from": "",
+        "to": "Live ComputerWorker RunTask is denied on ecs:TagResource because start_host attaches tenant/computer/generation tags. No Fargate task is created. ThinTurn-only IAM fix; do not deploy ChatticusComputers or change desiredCount.\n\n```gherkin\nFeature: Tagged ECS host start\n  Scenario: Development ComputerWorker may tag the summoned task\n    Given development ThinTurn ComputerWorker is wired for ECS host start\n    When it runs a Fargate task for a host-start claim\n    Then the RunTask call is allowed to tag that task\n```"
+      }
+    }
+  }
+}

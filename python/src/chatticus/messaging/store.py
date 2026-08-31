@@ -112,6 +112,16 @@ class MessagingStore(Protocol):
     def get_computer(self, tenant_id: str, user_id: str) -> Computer | None:
         """Load the household computer for a user."""
 
+    def claim_host_start_dispatch(
+        self, tenant_id: str, user_id: str, generation: int
+    ) -> bool:
+        """Return True when this caller first claims host start for generation."""
+
+    def release_host_start_dispatch(
+        self, tenant_id: str, user_id: str, generation: int
+    ) -> None:
+        """Allow another worker to dispatch the same generation after RunTask failed."""
+
     def put_turn_chunk(
         self,
         tenant_id: str,
@@ -373,6 +383,31 @@ class InMemoryMessagingStore:
 
     def get_computer(self, tenant_id: str, user_id: str) -> Computer | None:
         return self._computers.get((tenant_id, user_id))
+
+    def claim_host_start_dispatch(
+        self, tenant_id: str, user_id: str, generation: int
+    ) -> bool:
+        with self._lock:
+            computer = self._computers.get((tenant_id, user_id))
+            if computer is None:
+                return False
+            if computer.host_start_dispatched_generation >= generation:
+                return False
+            computer.host_start_dispatched_generation = generation
+            self._computers[(tenant_id, user_id)] = computer
+            return True
+
+    def release_host_start_dispatch(
+        self, tenant_id: str, user_id: str, generation: int
+    ) -> None:
+        with self._lock:
+            computer = self._computers.get((tenant_id, user_id))
+            if computer is None:
+                return
+            if computer.host_start_dispatched_generation != generation:
+                return
+            computer.host_start_dispatched_generation = generation - 1
+            self._computers[(tenant_id, user_id)] = computer
 
     def record_logical_enqueue(
         self, tenant_id: str, turn_id: str, enqueue_id: str
@@ -961,6 +996,9 @@ class DynamoMessagingStore:
                 "computer_id": {"S": computer.computer_id},
                 "stopped": {"BOOL": computer.stopped},
                 "policy": {"S": computer.policy},
+                "model_ready": {"BOOL": computer.model_ready},
+                "workspace_ready": {"BOOL": computer.workspace_ready},
+                "browser_ready": {"BOOL": computer.browser_ready},
                 "host_start_generation": {"N": str(computer.host_start_generation)},
                 "host_start_dispatched_generation": {
                     "N": str(computer.host_start_dispatched_generation)
@@ -993,6 +1031,9 @@ class DynamoMessagingStore:
             user_id=item["user_id"]["S"],
             policy=ComputerPolicy(item["policy"]["S"]),
             stopped=item["stopped"]["BOOL"],
+            model_ready=item.get("model_ready", {}).get("BOOL", True),
+            workspace_ready=item.get("workspace_ready", {}).get("BOOL", False),
+            browser_ready=item.get("browser_ready", {}).get("BOOL", False),
             host_start_generation=int(
                 item.get("host_start_generation", {}).get("N", "0")
             ),
@@ -1003,6 +1044,58 @@ class DynamoMessagingStore:
                 datetime.fromtimestamp(lease_epoch, tz=UTC) if lease_epoch else None
             ),
         )
+
+    def claim_host_start_dispatch(
+        self, tenant_id: str, user_id: str, generation: int
+    ) -> bool:
+        try:
+            self.client.update_item(
+                TableName=self.table_name,
+                Key={
+                    "pk": {"S": self._roster_pk(tenant_id)},
+                    "sk": {"S": f"computer#{user_id}"},
+                },
+                UpdateExpression="SET host_start_dispatched_generation = :gen",
+                ConditionExpression=(
+                    "attribute_exists(pk) AND "
+                    "(attribute_not_exists(host_start_dispatched_generation) "
+                    "OR host_start_dispatched_generation < :gen)"
+                ),
+                ExpressionAttributeValues={":gen": {"N": str(generation)}},
+            )
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") == (
+                "ConditionalCheckFailedException"
+            ):
+                return False
+            raise
+        return True
+
+    def release_host_start_dispatch(
+        self, tenant_id: str, user_id: str, generation: int
+    ) -> None:
+        try:
+            self.client.update_item(
+                TableName=self.table_name,
+                Key={
+                    "pk": {"S": self._roster_pk(tenant_id)},
+                    "sk": {"S": f"computer#{user_id}"},
+                },
+                UpdateExpression="SET host_start_dispatched_generation = :prev",
+                ConditionExpression=(
+                    "attribute_exists(pk) AND host_start_dispatched_generation = :gen"
+                ),
+                ExpressionAttributeValues={
+                    ":gen": {"N": str(generation)},
+                    ":prev": {"N": str(max(generation - 1, 0))},
+                },
+            )
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") == (
+                "ConditionalCheckFailedException"
+            ):
+                return
+            raise
 
     def record_logical_enqueue(
         self, tenant_id: str, turn_id: str, enqueue_id: str
