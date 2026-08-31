@@ -48,10 +48,16 @@
       "author": "home",
       "text": "Timer tick: exercise_thin_turn.py --environment development exit 0. CloudFront https://d3gpuuldffe35o.cloudfront.net. missing_claim=404 claim_a=200 claim_b=409; SSE turn.started/token/completed; reconnect replay; computer_stopped=True bot_messages=1. No staging/production. Snapshots/computers untouched.",
       "created_at": "2026-08-30T23:43:11.126064Z"
+    },
+    {
+      "id": "11631aff-6133-4dae-bac8-377e41c5a924",
+      "author": "home",
+      "text": "ChatticusThinTurn-only redeploy from develop @ f5bd945 (no --all, no staging/production). CloudFront https://d3gpuuldffe35o.cloudfront.net. exercise_thin_turn.py --environment development exit 0: missing_claim=404 claim_a=200 claim_b=409; SSE turn.started/token/completed; reconnect replay; computer_stopped=True bot_messages=1. Snapshots/computers untouched. main stays v0.5.0.",
+      "created_at": "2026-08-31T00:13:04.041916Z"
     }
   ],
   "created_at": "2026-08-30T20:36:57.810194Z",
-  "updated_at": "2026-08-30T23:43:11.126064Z",
+  "updated_at": "2026-08-31T00:13:04.041916Z",
   "closed_at": null,
   "custom": {}
 }

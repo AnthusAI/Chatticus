@@ -103,11 +103,11 @@ deploy. EventBridge Scheduler one-shots are on the front door
 Warm Front Door containers use a wall clock, so deadlines land in the
 future. A wedged turn has recovered through EventBridge without a
 forced Lambda cold start. After a **ChatticusThinTurn**-only redeploy
-from `develop` (no `--all`, no staging or production), live claim/fence
-still holds: missing-turn claim is 404; a second worker on an unexpired
-lease is 409. GitHub **`main`** stays **v0.5.0**; overnight, approval
-binding, and unbound-browser kernels are not promoted there until they
-are on the live worker loop.
+from `develop` @ `f5bd945` (no `--all`, no staging or production), live
+claim/fence still holds: missing-turn claim is 404; a second worker on
+an unexpired lease is 409. GitHub **`main`** stays **v0.5.0**; overnight,
+approval binding, unbound-browser, and computer-handoff kernels are not
+promoted there until they are on the live worker loop.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the turn path yet. The computer stays stopped.
