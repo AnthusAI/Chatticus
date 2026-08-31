@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `e320617` (no `--all`).
+from `develop` @ `81b427b` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -93,7 +93,8 @@ roundtrip (`POST /bots/{id}/memory` then `GET /bots/{id}`), a live
 idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
 `Idempotency-Key` return one bot_id), a live named-bot lookup
 (`bot_by_name=1`: `GET /bots?user_id=&name=` returns that bot_id), a live user bot list
-(`bots_list=1`: `GET /users/{user_id}/bots` includes that bot_id), plus SSE `turn.started` /
+(`bots_list=1`: `GET /users/{user_id}/bots` includes that bot_id), a live user channel list
+(`channels_list=1`: `GET /users/{user_id}/channels` includes that channel_id), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
 `Last-Event-ID` and requires ordered replay through `turn.completed`.
@@ -128,7 +129,8 @@ into the live worker HTTP loop).
 What each deployed thin-turn slice does today:
 
 - CloudFront in front of a Lambda function URL (no load balancer).
-- FastAPI front door: channels (`GET /channels/{id}` and `POST /channels`),
+- FastAPI front door: channels (`GET /channels/{id}`, `POST /channels`, and
+  `GET /users/{user_id}/channels`),
   messages, bots (`GET /bots?user_id=&name=` and `GET /users/{user_id}/bots`),
   a stopped-computer roster,
   chunk POST, `POST /turns/{id}/claim`, `POST /turns/{id}/renew`, fenced
@@ -141,7 +143,7 @@ What each deployed thin-turn slice does today:
   instance can enqueue a turn for a bot it did not create. Per-user bot
   names are reserved on the roster table so a recycled Lambda cannot fork
   two bots with the same name. A recycled Front Door can list a user's
-  named bots from that roster. Bot memory is
+  named bots and channels from that roster. Bot memory is
   stored on that roster item; a recycled Front Door hydrates the bot from
   Dynamo before writing memory. The computerless worker prompt is that
   memory plus the channel transcript. Another bot on the same computer
