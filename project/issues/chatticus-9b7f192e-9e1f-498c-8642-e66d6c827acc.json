@@ -102,10 +102,16 @@
       "author": "home",
       "text": "Frontier tick: durable per-user bot name reservation is live on development ThinTurn (4a6a5e0 code, README f062c8b). exercise --environment development exit 0 with bot_name_dup=1 claim_a=200 claim_b=409 post_idempotent=1. 28503e closed. Safari/background-tab still unmeasured on 387e4f.",
       "created_at": "2026-08-31T04:46:17.674277Z"
+    },
+    {
+      "id": "1d48262a-0bfd-4740-a173-35cb35b1994f",
+      "author": "home",
+      "text": "Frontier: durable POST /channels Idempotency-Key is live on development ThinTurn (f2f668f). exercise exit 0 with claim_a=200 claim_b=409 channel_idempotent=1 post_idempotent=1 bot_name_dup=1. 2cfcb8 closed. No staging/production. main stays v0.5.0. 387e4f Safari still unmeasured.",
+      "created_at": "2026-08-31T04:55:37.504859Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T04:46:17.674277Z",
+  "updated_at": "2026-08-31T04:55:37.504859Z",
   "closed_at": null,
   "custom": {}
 }
