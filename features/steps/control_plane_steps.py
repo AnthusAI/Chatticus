@@ -530,6 +530,27 @@ def then_lookup_bot_by_name(
     assert payload["user_id"] == user_id
 
 
+@then('tenant "{tenant_id}" can list bots for user "{user_id}":')
+def then_list_user_bots(context: object, tenant_id: str, user_id: str) -> None:
+    expected_names: list[str] = []
+    if context.table.headings and context.table.headings[0].strip():
+        expected_names.append(context.table.headings[0].strip())
+    expected_names.extend(row.cells[0].strip() for row in context.table)
+    expected_names = [name for name in expected_names if name]
+    response = context.api_client.get(
+        f"/users/{user_id}/bots",
+        headers={"X-Tenant-Id": tenant_id},
+    )
+    assert response.status_code == 200
+    names = [bot["name"] for bot in response.json()["bots"]]
+    assert names == expected_names
+    for name in expected_names:
+        expected = context.bots_by_name[name]
+        payload = next(bot for bot in response.json()["bots"] if bot["name"] == name)
+        assert payload["bot_id"] == expected.bot_id
+        assert payload["user_id"] == user_id
+
+
 @when('worker "{worker_id}" publishes a snapshot of computer "{computer_id}"')
 def when_publish_snapshot(context: object, worker_id: str, computer_id: str) -> None:
     try:

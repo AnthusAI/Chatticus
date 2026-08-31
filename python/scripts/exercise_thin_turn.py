@@ -162,6 +162,17 @@ def main() -> int:
             )
             return 1
         print("bot_by_name=1")
+        listed_bots = client.get(f"/users/{args.user_id}/bots")
+        listed_ids = [
+            row.get("bot_id") for row in (listed_bots.json().get("bots") or [])
+        ]
+        if listed_bots.status_code != 200 or bot["bot_id"] not in listed_ids:
+            print(
+                f"bots_list {listed_bots.status_code} {listed_bots.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("bots_list=1")
         remembered = client.post(
             f"/bots/{bot['bot_id']}/memory",
             json={"key": "voice", "value": "short and direct"},

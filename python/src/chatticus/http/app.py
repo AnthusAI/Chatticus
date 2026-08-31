@@ -193,6 +193,14 @@ def create_app(
             raise HTTPException(status_code=404, detail="bot not found") from error
         return _bot_payload(bot)
 
+    @app.get("/users/{user_id}/bots")
+    def list_user_bots(
+        user_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        bots = state.plane.list_bots(tenant_id, user_id)
+        return {"bots": [_bot_payload(bot) for bot in bots]}
+
     @app.get("/bots/{bot_id}")
     def get_bot(
         bot_id: str,

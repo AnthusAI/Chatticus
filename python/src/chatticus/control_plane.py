@@ -432,6 +432,14 @@ class ControlPlane:
         self._bots[bot.bot_id] = bot
         return bot
 
+    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
+        """Return named bots owned by one household user."""
+        bots = self._messaging_store.list_bots(tenant_id, user_id)
+        owned = [bot for bot in bots if bot.tenant_id == tenant_id]
+        for bot in owned:
+            self._bots[bot.bot_id] = bot
+        return sorted(owned, key=lambda bot: bot.name)
+
     def ensure_computer(
         self,
         tenant_id: str,

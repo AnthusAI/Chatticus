@@ -97,6 +97,9 @@ class MessagingStore(Protocol):
     def get_bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot | None:
         """Load one bot by the household user's chosen name."""
 
+    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
+        """Return named bots owned by one household user."""
+
     def put_computer(self, computer: Computer) -> None:
         """Persist the household computer record."""
 
@@ -319,6 +322,16 @@ class InMemoryMessagingStore:
             ):
                 return bot
         return None
+
+    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
+        return sorted(
+            (
+                bot
+                for bot in self._bots.values()
+                if bot.tenant_id == tenant_id and bot.user_id == user_id
+            ),
+            key=lambda bot: bot.name,
+        )
 
     def put_computer(self, computer: Computer) -> None:
         self._computers[(computer.tenant_id, computer.user_id)] = computer
@@ -805,6 +818,22 @@ class DynamoMessagingStore:
             if row["user_id"]["S"] == user_id and row["name"]["S"] == name:
                 return self._bot_from_item(row)
         return None
+
+    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._roster_pk(tenant_id)},
+                ":prefix": {"S": "bot#"},
+            },
+        )
+        bots: list[Bot] = []
+        for row in response.get("Items", []):
+            if row.get("user_id", {}).get("S") != user_id:
+                continue
+            bots.append(self._bot_from_item(row))
+        return sorted(bots, key=lambda bot: bot.name)
 
     def put_computer(self, computer: Computer) -> None:
         self.client.put_item(

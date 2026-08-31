@@ -40,3 +40,12 @@ Feature: Bot turns pin to the user's computer
     And tenant "anthus" user "ryan" has a bot named "Researcher"
     When a recycled Front Door serves the same messaging store
     Then tenant "anthus" can look up bot "Researcher" for user "ryan"
+
+  Scenario: A user's bots can be listed after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has a bot named "Writer"
+    When a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can list bots for user "ryan":
+      | Researcher |
+      | Writer     |

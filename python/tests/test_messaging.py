@@ -335,6 +335,66 @@ def test_http_lookup_bot_by_name_survives_a_new_control_plane() -> None:
     api.close()
 
 
+def test_http_list_user_bots() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    researcher = api.post(
+        "/bots",
+        json={"user_id": "ryan", "name": "Researcher"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    writer = api.post(
+        "/bots",
+        json={"user_id": "ryan", "name": "Writer"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    api.post(
+        "/bots",
+        json={"user_id": "alex", "name": "Ops"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    listed = api.get(
+        "/users/ryan/bots",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert listed.status_code == 200
+    bots = listed.json()["bots"]
+    assert [bot["name"] for bot in bots] == ["Researcher", "Writer"]
+    assert {bot["bot_id"] for bot in bots} == {
+        researcher.json()["bot_id"],
+        writer.json()["bot_id"],
+    }
+    empty = api.get(
+        "/users/ryan/bots",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert empty.status_code == 200
+    assert empty.json()["bots"] == []
+    api.close()
+
+
+@mock_aws
+def test_http_list_user_bots_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-bot-list-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    researcher = first.create_bot("anthus", "ryan", "Researcher")
+    writer = first.create_bot("anthus", "ryan", "Writer")
+    first.create_bot("anthus", "alex", "Ops")
+    api = _client_for(ControlPlane(messaging_store=store))
+    listed = api.get(
+        "/users/ryan/bots",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert listed.status_code == 200
+    bots = listed.json()["bots"]
+    assert [bot["name"] for bot in bots] == ["Researcher", "Writer"]
+    assert {bot["bot_id"] for bot in bots} == {researcher.bot_id, writer.bot_id}
+    api.close()
+
+
 def test_http_bot_memory_roundtrip() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
