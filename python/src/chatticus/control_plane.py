@@ -488,9 +488,7 @@ class ControlPlane:
         advertise the same workplace.
         """
         key = (tenant_id, user_id)
-        computer = self._computers_by_user.get(key)
-        if computer is None:
-            computer = self._messaging_store.get_computer(tenant_id, user_id)
+        computer = self._messaging_store.get_computer(tenant_id, user_id)
         if computer is None:
             computer = Computer(
                 computer_id=computer_id or str(uuid4()),
@@ -498,8 +496,6 @@ class ControlPlane:
                 user_id=user_id,
             )
             self._messaging_store.put_computer(computer)
-        else:
-            self._computers_by_id[computer.computer_id] = computer
         self._computers_by_user[key] = computer
         self._computers_by_id[computer.computer_id] = computer
         return computer
@@ -508,15 +504,17 @@ class ControlPlane:
         """
         Return the existing computer for a user.
 
+        Always read the messaging store. Front Door and ComputerWorker
+        are separate processes; a cached Computer would hide
+        ``host_start_generation`` written by the worker.
+
         :raises KeyError: If the user has no computer.
         """
-        computer = self._computers_by_user.get((tenant_id, user_id))
+        computer = self._messaging_store.get_computer(tenant_id, user_id)
         if computer is None:
-            computer = self._messaging_store.get_computer(tenant_id, user_id)
-            if computer is None:
-                raise KeyError((tenant_id, user_id))
-            self._computers_by_user[(tenant_id, user_id)] = computer
-            self._computers_by_id[computer.computer_id] = computer
+            raise KeyError((tenant_id, user_id))
+        self._computers_by_user[(tenant_id, user_id)] = computer
+        self._computers_by_id[computer.computer_id] = computer
         return computer
 
     def _bot(self, tenant_id: str, bot_id: str) -> Bot:

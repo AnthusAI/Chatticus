@@ -697,6 +697,34 @@ def test_http_get_user_computer_reports_host_start_generation_after_nack() -> No
 
 
 @mock_aws
+def test_http_get_computer_sees_host_start_from_a_second_process() -> None:
+    table_name = "chatticus-computer-host-start-second-process-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    door = ControlPlane(messaging_store=store)
+    api = _client_for(door)
+    prepare_computer_continuation(door)
+    primed = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert primed.status_code == 200
+    assert primed.json()["host_start_generation"] == 0
+    worker_plane = ControlPlane(messaging_store=store)
+    worker_plane.request_computer_host_start(
+        "anthus", "ryan", "host-start-from-second-process"
+    )
+    fetched = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["host_start_generation"] == 1
+    api.close()
+
+
+@mock_aws
 def test_http_get_user_computer_reports_host_start_generation_after_recycle() -> None:
     table_name = "chatticus-computer-host-start-generation-test"
     client = boto3.client("dynamodb", region_name="us-east-1")

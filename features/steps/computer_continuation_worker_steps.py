@@ -11,6 +11,7 @@ from uuid import uuid4
 from behave import given, then, when
 
 from chatticus.computer_continuation_driver import prepare_computer_continuation
+from chatticus.control_plane import ControlPlane
 from chatticus.host_starter import RecordingHostStarter
 from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
@@ -78,6 +79,21 @@ def when_computer_worker_pulls_continuation(context: object) -> None:
         worker.run_job(setup.continuation_job)
     except ComputerWorkerRequiresComputerCapability as exc:
         context.computer_worker_error = exc
+
+
+@when(
+    "a second process sharing the store records a host start for tenant "
+    '"{tenant_id}" user "{user_id}"'
+)
+def when_second_process_records_host_start(
+    context: object, tenant_id: str, user_id: str
+) -> None:
+    worker_plane = ControlPlane(messaging_store=context.messaging_store)
+    worker_plane.request_computer_host_start(
+        tenant_id,
+        user_id,
+        "host-start-from-second-process",
+    )
 
 
 @when("a computer-capable worker pulls that continuation job after the lease dies")

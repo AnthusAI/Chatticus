@@ -24,9 +24,10 @@ Feature: Household computer host start generation on HTTP
     When a computer-capable pull worker without a host executor pulls that continuation job
     Then tenant "anthus" household computer for user "ryan" reports host_start_generation 1
 
-  Scenario: GET computer still reports host_start_generation after a Front Door recycle
+  Scenario: GET computer sees a host start recorded by another worker process
     Given an empty control plane backed by a durable messaging store with HTTP
-    And a fenced computer handoff with a queued continuation job
-    When a computer-capable pull worker without a host executor pulls that continuation job
-    And a recycled Front Door serves the same messaging store
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" household computer is stopped
+    Then tenant "anthus" can read the household computer for user "ryan"
+    When a second process sharing the store records a host start for tenant "anthus" user "ryan"
     Then tenant "anthus" household computer for user "ryan" reports host_start_generation 1
