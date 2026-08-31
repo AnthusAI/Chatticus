@@ -39,3 +39,10 @@ def test_development_thinturn_deploy_script_reads_computer_stack_outputs() -> No
     assert "ComputerClusterName" in text
     assert "computerHostStart=ecs" in text
     assert "describe-task-definition" in text
+
+
+def test_cdk_app_uses_tsx_not_ts_node() -> None:
+    cdk_json = Path(__file__).resolve().parents[2] / "infra" / "cdk.json"
+    text = cdk_json.read_text()
+    assert "tsx bin/chatticus.ts" in text
+    assert "ts-node" not in text
