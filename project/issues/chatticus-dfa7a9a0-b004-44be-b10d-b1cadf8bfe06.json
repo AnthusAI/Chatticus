@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-dfa7a9a0-b004-44be-b10d-b1cadf8bfe06",
+  "title": "A waiting turn exposes its gate without opening SSE",
+  "description": "As a client, I want to read which gate a waiting turn is blocked on without subscribing to SSE, so that polling and reconnect logic stay honest.\n\nFeature: Turn-scoped server-sent events\n\nScenario: A waiting turn exposes its gate over HTTP\n  Given an empty control plane\n  And tenant anthus user ryan has a channel with a named bot Researcher\n  And user ryan of tenant anthus has an active turn on the channel\n  When the worker posts a progress chunk and then waits on the browser gate\n  Then user ryan can read the turn gate as browser without opening SSE\n\nAlso: EventBridge deadline recovery must not fail a turn that is legitimately waiting on a readiness gate.",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "f240d1a1-db37-4108-9407-ecd900579ea5",
+      "author": "home",
+      "text": "DoD met on development. ChatticusThinTurn-only from develop @ e4511c3. exercise --environment development exit 0: turn_waiting_for=browser; model_turn_waiting_for=browser; resume_while_stopped=409; model_resume_while_stopped=409. Deadline recovery skips legitimately waiting turns. No Fargate. No staging/production.",
+      "created_at": "2026-08-31T01:48:59.733651Z"
+    }
+  ],
+  "created_at": "2026-08-31T01:45:31.186655Z",
+  "updated_at": "2026-08-31T01:48:59.745304Z",
+  "closed_at": "2026-08-31T01:48:59.745304Z",
+  "custom": {}
+}

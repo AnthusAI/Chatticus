@@ -60,10 +60,16 @@
       "author": "home",
       "text": "Timer tick: exercise --environment development exit 0 after ThinTurn-only 7266e93. resume_while_stopped=409 and model_resume_while_stopped=409. 66d3c4 closed. e747d7 still not authorized. No staging/production deploy. main stays v0.5.0.",
       "created_at": "2026-08-31T01:40:51.999728Z"
+    },
+    {
+      "id": "c60543f7-04c9-462d-929c-17f6490eb0e5",
+      "author": "home",
+      "text": "Frontier tick: GET /turns/{id} wait gate live on development @ e4511c3. exercise exit 0 with turn_waiting_for and model_turn_waiting_for. dfa7a9/1ebef2 closed. e747d7 still not authorized.",
+      "created_at": "2026-08-31T01:48:59.738975Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T01:40:51.999728Z",
+  "updated_at": "2026-08-31T01:48:59.738975Z",
   "closed_at": null,
   "custom": {}
 }

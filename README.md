@@ -140,7 +140,8 @@ Cloud-environment epic 9eef23 is closed: three named stacks, named-env
 acceptance on each. Turn recovery epic 653989 is closed. Remaining for
 summoning a computer (8f98f8): cold readiness measurement (e747d7) — not
 a Fargate scale-up this cycle. Waiting-turn resume while the computer is
-stopped (66d3c4) is live on development. Overnight gated-action
+stopped (66d3c4) and waiting-turn gate read over HTTP (dfa7a9) are live on
+development. Overnight gated-action
 (5b687a), immutable approval binding (2b293d), unbound browser stops
 (813d8d), computer-seam recovery (b41106), capability-gated readiness
 (`turn.waiting`, c0fbf0), same-turn first computer tool (d3908f), and

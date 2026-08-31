@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "446ddbb3-c03b-41c6-ab33-4be0e290266b",
+  "issue_id": "chatticus-dfa7a9a0-b004-44be-b10d-b1cadf8bfe06",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T01:45:31.187Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a client, I want to read which gate a waiting turn is blocked on without subscribing to SSE, so that polling and reconnect logic stay honest.\n\nFeature: Turn-scoped server-sent events\n\nScenario: A waiting turn exposes its gate over HTTP\n  Given an empty control plane\n  And tenant anthus user ryan has a channel with a named bot Researcher\n  And user ryan of tenant anthus has an active turn on the channel\n  When the worker posts a progress chunk and then waits on the browser gate\n  Then user ryan can read the turn gate as browser without opening SSE\n\nAlso: EventBridge deadline recovery must not fail a turn that is legitimately waiting on a readiness gate.",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "A waiting turn exposes its gate without opening SSE"
+  }
+}

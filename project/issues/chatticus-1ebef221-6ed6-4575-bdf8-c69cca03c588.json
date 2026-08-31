@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-1ebef221-6ed6-4575-bdf8-c69cca03c588",
+  "title": "GET /turns/{id} wait gate and recovery honesty",
+  "description": "Implements story chatticus-dfa7a9: GET /turns/{id} returns waiting_for; deadline recovery skips legitimately waiting turns.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "fc7a1efe-b23f-4376-a97d-10163829c4b1",
+      "author": "home",
+      "text": "GET /turns/{id} returns waiting_for; handle_turn_deadline skips waiting turns. FF merge develop @ e4511c3.",
+      "created_at": "2026-08-31T01:48:59.757901Z"
+    }
+  ],
+  "created_at": "2026-08-31T01:45:39.191043Z",
+  "updated_at": "2026-08-31T01:48:59.772035Z",
+  "closed_at": "2026-08-31T01:48:59.772035Z",
+  "custom": {}
+}
