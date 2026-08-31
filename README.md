@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `dc8fe0f` (no `--all`).
+from `develop` @ `c2f3e55` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -87,7 +87,8 @@ channel post (`post_idempotent=1`: two `POST /channels/{id}/messages` with
 the same `Idempotency-Key` produce one row), a duplicate bot create
 (`bot_name_dup=1`: a second `POST /bots` with the same name returns
 **400**), a live idempotent channel open (`channel_idempotent=1`: two
-`POST /channels` with the same `Idempotency-Key` return one channel), plus a live bot-memory
+`POST /channels` with the same `Idempotency-Key` return one channel), a live
+`GET /channels/{id}` roundtrip (`channel_get=1`), plus a live bot-memory
 roundtrip (`POST /bots/{id}/memory` then `GET /bots/{id}`), a live
 idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
 `Idempotency-Key` return one bot_id), plus SSE `turn.started` /
@@ -125,7 +126,8 @@ into the live worker HTTP loop).
 What each deployed thin-turn slice does today:
 
 - CloudFront in front of a Lambda function URL (no load balancer).
-- FastAPI front door: channels, messages, bots, a stopped-computer roster,
+- FastAPI front door: channels (`GET /channels/{id}` and `POST /channels`),
+  messages, bots, a stopped-computer roster,
   chunk POST, `POST /turns/{id}/claim`, `POST /turns/{id}/renew`, fenced
   chunk writes, `POST /turns/{id}/waiting` (development),
   `POST /turns/{id}/resume` (development; **409** while the computer is
