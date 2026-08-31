@@ -463,6 +463,51 @@ def test_http_list_user_channels_survives_a_new_control_plane() -> None:
     api.close()
 
 
+def test_http_get_user_computer() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    plane.create_bot("anthus", "ryan", "Researcher")
+    plane.set_computer_stopped("anthus", "ryan", True)
+    expected = plane.computer_for_user("anthus", "ryan")
+    fetched = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    payload = fetched.json()
+    assert payload["computer_id"] == expected.computer_id
+    assert payload["stopped"] is True
+    assert payload["user_id"] == "ryan"
+    missing = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert missing.status_code == 404
+    api.close()
+
+
+@mock_aws
+def test_http_get_user_computer_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-computer-get-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    first.create_bot("anthus", "ryan", "Researcher")
+    first.set_computer_stopped("anthus", "ryan", True)
+    expected = first.computer_for_user("anthus", "ryan")
+    api = _client_for(ControlPlane(messaging_store=store))
+    fetched = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    payload = fetched.json()
+    assert payload["computer_id"] == expected.computer_id
+    assert payload["stopped"] is True
+    api.close()
+
+
 def test_http_bot_memory_roundtrip() -> None:
     plane = ControlPlane()
     api = _client_for(plane)

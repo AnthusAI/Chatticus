@@ -198,6 +198,18 @@ def main() -> int:
         client.post(
             "/computers/stopped", json={"user_id": args.user_id, "stopped": True}
         )
+        computer = client.get(f"/users/{args.user_id}/computer")
+        if (
+            computer.status_code != 200
+            or computer.json().get("stopped") is not True
+            or not computer.json().get("computer_id")
+        ):
+            print(
+                f"computer_get {computer.status_code} {computer.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("computer_get=1")
         channel_key = str(uuid4())
         channel_body = {"user_id": args.user_id, "bot_ids": [bot["bot_id"]]}
         first_channel = client.post(
@@ -245,7 +257,8 @@ def main() -> int:
         listed_channels = client.get(f"/users/{args.user_id}/channels")
         if listed_channels.status_code != 200:
             print(
-                f"channels_list {listed_channels.status_code} {listed_channels.text[:300]}",
+                "channels_list "
+                f"{listed_channels.status_code} {listed_channels.text[:300]}",
                 file=sys.stderr,
             )
             return 1

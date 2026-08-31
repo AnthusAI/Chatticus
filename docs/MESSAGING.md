@@ -209,6 +209,7 @@ would wait a second for; buffer what you are rendering live.
 | `GET /bots?user_id=&name=` | Look up a named bot after recycle |
 | `GET /users/{user_id}/bots` | List a household user's named bots after recycle |
 | `GET /users/{user_id}/channels` | List a household user's channels after recycle |
+| `GET /users/{user_id}/computer` | Read the household computer (id, stopped, policy) after recycle |
 | `GET /bots/{id}` | Read a bot, including isolated memory |
 | `POST /bots/{id}/memory` | Persist one bot memory item |
 | `POST /channels` | Open a channel. Retry with the same `Idempotency-Key` header returns the original channel |

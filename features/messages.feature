@@ -200,3 +200,10 @@ Feature: Channels and the message store
     Then tenant "anthus" can list channels for user "ryan":
       | 1 |
       | 2 |
+
+  Scenario: A user's computer can be read after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" household computer is stopped
+    When a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can read the household computer for user "ryan"

@@ -393,6 +393,26 @@ def then_list_user_channels(context: object, tenant_id: str, user_id: str) -> No
         assert payload["user_id"] == user_id
 
 
+@then('tenant "{tenant_id}" can read the household computer for user "{user_id}"')
+def then_read_household_computer(context: object, tenant_id: str, user_id: str) -> None:
+    expected_id = context.household_computer_ids[(tenant_id, user_id)]
+    response = context.api_client.get(
+        f"/users/{user_id}/computer",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["computer_id"] == expected_id
+    assert payload["tenant_id"] == tenant_id
+    assert payload["user_id"] == user_id
+    assert payload["stopped"] is True
+    missing = context.api_client.get(
+        f"/users/{user_id}/computer",
+        headers=tenant_headers("other"),
+    )
+    assert missing.status_code == 404
+
+
 @then('the message with seq {seq:d} has body "{body}"')
 def then_message_body(context: object, seq: int, body: str) -> None:
     message = _message_at_seq(context, seq)
@@ -490,6 +510,13 @@ def given_household_computer_stopped(
     context: object, tenant_id: str, user_id: str
 ) -> None:
     context.plane.set_computer_stopped(tenant_id, user_id, True)
+    computers = getattr(context, "household_computer_ids", None)
+    if computers is None:
+        computers = {}
+        context.household_computer_ids = computers
+    computers[(tenant_id, user_id)] = context.plane.computer_for_user(
+        tenant_id, user_id
+    ).computer_id
 
 
 @given('tenant "{tenant_id}" user "{user_id}" household computer is running')

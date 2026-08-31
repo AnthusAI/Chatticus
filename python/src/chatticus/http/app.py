@@ -209,6 +209,17 @@ def create_app(
         channels = state.plane.list_channels(tenant_id, user_id)
         return {"channels": [_channel_payload(channel) for channel in channels]}
 
+    @app.get("/users/{user_id}/computer")
+    def get_user_computer(
+        user_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            computer = state.plane.computer_for_user(tenant_id, user_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="computer not found") from error
+        return _computer_payload(computer)
+
     @app.get("/bots/{bot_id}")
     def get_bot(
         bot_id: str,
@@ -592,6 +603,16 @@ def _bot_payload(bot: Any) -> dict[str, Any]:
         "user_id": bot.user_id,
         "name": bot.name,
         "memory": dict(bot.memory),
+    }
+
+
+def _computer_payload(computer: Any) -> dict[str, Any]:
+    return {
+        "computer_id": computer.computer_id,
+        "tenant_id": computer.tenant_id,
+        "user_id": computer.user_id,
+        "stopped": computer.stopped,
+        "policy": str(computer.policy),
     }
 
 
