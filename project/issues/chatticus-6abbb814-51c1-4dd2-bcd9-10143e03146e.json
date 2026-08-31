@@ -22,10 +22,16 @@
       "author": "home",
       "text": "OIDC CDK ChatticusGitHubDeploy stacks on PR #40 in follow-up PR; role deployed; set GitHub development AWS_DEPLOY_ROLE_ARN from GithubDeployRoleArn output.",
       "created_at": "2026-08-31T17:08:10.018639Z"
+    },
+    {
+      "id": "bf6f0ad9-e125-4de8-bb34-951e99f23e42",
+      "author": "home",
+      "text": "Slice (development env): GitHub environment development created via gh api PUT; environment secret AWS_DEPLOY_ROLE_ARN set from ChatticusGitHubDeploy GithubDeployRoleArn output. Blocker cleared — Deploy ThinTurn (development) workflow_dispatch can assume OIDC role once PR #41 merges and stack is live.",
+      "created_at": "2026-08-31T18:16:25.292736Z"
     }
   ],
   "created_at": "2026-08-31T11:31:18.846366Z",
-  "updated_at": "2026-08-31T17:08:10.018639Z",
+  "updated_at": "2026-08-31T18:16:25.292736Z",
   "closed_at": null,
   "custom": {}
 }
