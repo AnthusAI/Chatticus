@@ -326,7 +326,7 @@ def create_app(
     def resume_turn(
         turn_id: str,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
-    ) -> dict[str, str]:
+    ) -> dict[str, Any]:
         job = state.plane.resume_waiting_turn(tenant_id, turn_id)
         turn = state.plane.turn(tenant_id, turn_id)
         logger.info(
@@ -341,6 +341,7 @@ def create_app(
             "turn_id": turn_id,
             "job_id": job.job_id,
             "gate": turn.waiting_for or "",
+            "required_capabilities": sorted(job.required_capabilities),
         }
 
     @app.get("/turns/{turn_id}")

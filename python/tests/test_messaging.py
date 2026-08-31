@@ -617,6 +617,7 @@ def test_resume_enqueues_the_same_turn_when_the_computer_is_running() -> None:
     payload = resumed.json()
     assert payload["turn_id"] == turn_id
     assert payload["gate"] == "browser"
+    assert payload["required_capabilities"] == ["computer"]
     job = plane.job_for_turn(channel.tenant_id, turn_id)
     assert job is not None
     assert job.job_id == payload["job_id"]

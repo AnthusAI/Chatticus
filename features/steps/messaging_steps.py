@@ -814,6 +814,12 @@ def then_continuation_job_remains_queued(context: object) -> None:
     assert "computer" in job.required_capabilities
 
 
+@then("the resume response requires computer")
+def then_resume_response_requires_computer(context: object) -> None:
+    payload = context.resume_response.json()
+    assert payload.get("required_capabilities") == ["computer"]
+
+
 @then("the continuation job requires computer")
 def then_continuation_job_requires_computer(context: object) -> None:
     channel = _channel(context)

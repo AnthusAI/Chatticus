@@ -502,6 +502,18 @@ def main() -> int:
                 return 1
             resume_payload = resumed_running.json()
             job_id = resume_payload.get("job_id")
+            resume_caps = resume_payload.get("required_capabilities") or []
+            if resume_caps != ["computer"]:
+                print(
+                    f"resume_required_capabilities={resume_caps!r}",
+                    file=sys.stderr,
+                )
+                client.post(
+                    "/computers/stopped",
+                    json={"user_id": args.user_id, "stopped": True},
+                )
+                return 1
+            print("resume_required_capabilities=computer")
             if not job_id:
                 print(f"resume_payload={resume_payload!r}", file=sys.stderr)
                 client.post(
