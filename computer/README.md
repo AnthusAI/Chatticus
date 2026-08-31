@@ -37,6 +37,9 @@ v1 contents:
 - Chromium (in image; browser gate still unmeasured on cold start)
 - shell and `/workspace`
 - snapshot pack/hydrate CLI
+- `python -m chatticus.computer_host_worker` (Chatticus package from `python/`;
+  RunTask may override the container command when `CHATTICUS_ECS_HOST_COMMAND`
+  is set; entrypoint starts Xvfb when `CHATTICUS_COMPUTER_BOOT=1`)
 - noVNC (or equivalent) for watch and human takeover (next)
 - `chatticus-worker` / `chatticus-agent` (next)
 
