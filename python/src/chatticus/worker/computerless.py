@@ -8,7 +8,11 @@ from typing import Protocol
 
 from chatticus.control_plane import ControlPlane
 from chatticus.http.client import HttpTurnClient
-from chatticus.models import TurnJob, TurnStatus
+from chatticus.models import (
+    ComputerlessCannotExecuteComputerJob,
+    TurnJob,
+    TurnStatus,
+)
 
 
 @dataclass(frozen=True)
@@ -119,9 +123,20 @@ class ComputerlessWorker:
             self.run_job(job)
 
     def run_job(self, job: TurnJob) -> None:
-        """Execute one turn: model loop, chunks via HTTP, one committed message."""
+        """Execute one cpu turn: model loop, chunks via HTTP, one committed message.
+
+        A job that requires ``computer`` is refused without removing it from
+        the queue. Waiting-turn skip applies only to cpu redelivery so a
+        computer continuation is not acked by this worker.
+        """
         if job.turn_id is None:
             return
+        if "computer" in job.required_capabilities:
+            msg = (
+                f"Computerless worker cannot execute job {job.job_id!r} "
+                f"that requires computer capability."
+            )
+            raise ComputerlessCannotExecuteComputerJob(msg)
         turn = self.plane.turn(job.tenant_id, job.turn_id)
         if turn.status != TurnStatus.ACTIVE:
             return

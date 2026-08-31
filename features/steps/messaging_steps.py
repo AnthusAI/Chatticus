@@ -16,6 +16,7 @@ from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
     ActorKind,
     ChannelTenantMismatchError,
+    ComputerlessCannotExecuteComputerJob,
     TurnAccessDeniedError,
     TurnEventKind,
     TurnJob,
@@ -299,6 +300,12 @@ def given_household_computer_stopped(
     context: object, tenant_id: str, user_id: str
 ) -> None:
     context.plane.set_computer_stopped(tenant_id, user_id, True)
+
+
+@given('tenant "{tenant_id}" user "{user_id}" household computer is running')
+@when('tenant "{tenant_id}" user "{user_id}" household computer is running')
+def household_computer_running(context: object, tenant_id: str, user_id: str) -> None:
+    context.plane.set_computer_stopped(tenant_id, user_id, False)
 
 
 @when(
@@ -761,6 +768,50 @@ def when_user_tries_to_resume_waiting_turn(
         headers=tenant_headers(tenant_id),
     )
     context.resume_response = response
+
+
+@when('user "{user_id}" of tenant "{tenant_id}" resumes that waiting turn')
+def when_user_resumes_waiting_turn(
+    context: object, user_id: str, tenant_id: str
+) -> None:
+    del user_id
+    response = context.api_client.post(
+        f"/turns/{_turn_id(context)}/resume",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    context.resume_response = response
+
+
+@when("a computerless worker is given the continuation job")
+def when_computerless_given_continuation_job(context: object) -> None:
+    channel = _channel(context)
+    job = context.plane.job_for_turn(channel.tenant_id, _turn_id(context))
+    assert job is not None
+    context.continuation_job = job
+    context.continuation_error = None
+    try:
+        ComputerlessWorker(
+            context.plane,
+            HttpTurnClient(context.api_client, channel.tenant_id),
+            context.counting_client,
+        ).run_job(job)
+    except ComputerlessCannotExecuteComputerJob as exc:
+        context.continuation_error = exc
+
+
+@then("the computerless worker refuses the computer job")
+def then_computerless_refuses_computer_job(context: object) -> None:
+    assert isinstance(context.continuation_error, ComputerlessCannotExecuteComputerJob)
+
+
+@then("the continuation job remains queued")
+def then_continuation_job_remains_queued(context: object) -> None:
+    channel = _channel(context)
+    job = context.plane.job_for_turn(channel.tenant_id, _turn_id(context))
+    assert job is not None
+    assert job.job_id == context.continuation_job.job_id
+    assert "computer" in job.required_capabilities
 
 
 @then("resume is refused because the computer is not ready")

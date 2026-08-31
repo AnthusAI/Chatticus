@@ -165,6 +165,10 @@ class ComputerNotReadyError(ChatticusError):
     """The household computer is still stopped, so the waiting turn cannot resume."""
 
 
+class ComputerlessCannotExecuteComputerJob(ChatticusError):
+    """A cpu-only worker must not ack a job that requires the computer."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""
