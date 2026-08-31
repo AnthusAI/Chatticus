@@ -3,7 +3,7 @@
   "title": "Read a channel's active turn after Front Door recycle",
   "description": "As a household member, I want to read the active turn on a channel after a Front Door recycle, so I can reconnect to the stream without a remembered turn_id.\n\nFeature: Channels and the message store\n\nScenario: An active turn can be read after a Front Door recycle\n  Given an empty control plane backed by a durable messaging store with HTTP\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n  When tenant \"anthus\" user \"ryan\" opens a channel with bots:\n    | Researcher |\n  And user \"ryan\" of tenant \"anthus\" posts a fence probe addressed to bot \"Researcher\" without enqueueing a turn job\n  And a recycled Front Door serves the same messaging store\n  Then tenant \"anthus\" can read the active turn on the open channel\n\nNot included: staging, production, Fargate, Safari.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "5b6d90e3-7b7d-45af-99a2-6705d51a5eb2",
+      "author": "home",
+      "text": "Live on development ThinTurn @ 5fb2fc4. Exercise: claim_a=200 claim_b=409 channel_turn=1. No --all, no snapshots/computers, no staging/production.",
+      "created_at": "2026-08-31T06:03:19.993231Z"
+    }
+  ],
   "created_at": "2026-08-31T05:57:57.137133Z",
-  "updated_at": "2026-08-31T05:58:00.740675Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T06:03:20.006576Z",
+  "closed_at": "2026-08-31T06:03:20.006576Z",
   "custom": {}
 }

@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `47d0c09` (no `--all`).
+from `develop` @ `5fb2fc4` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -95,7 +95,8 @@ idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
 (`bot_by_name=1`: `GET /bots?user_id=&name=` returns that bot_id), a live user bot list
 (`bots_list=1`: `GET /users/{user_id}/bots` includes that bot_id), a live user channel list
 (`channels_list=1`: `GET /users/{user_id}/channels` includes that channel_id), a live household computer read
-(`computer_get=1`: `GET /users/{user_id}/computer` returns `computer_id` and `stopped=true`), plus SSE `turn.started` /
+(`computer_get=1`: `GET /users/{user_id}/computer` returns `computer_id` and `stopped=true`), a live channel active-turn read
+(`channel_turn=1`: `GET /channels/{id}/turn` returns the fence-probe turn_id), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
 `Last-Event-ID` and requires ordered replay through `turn.completed`.
@@ -130,8 +131,8 @@ into the live worker HTTP loop).
 What each deployed thin-turn slice does today:
 
 - CloudFront in front of a Lambda function URL (no load balancer).
-- FastAPI front door: channels (`GET /channels/{id}`, `POST /channels`, and
-  `GET /users/{user_id}/channels`),
+- FastAPI front door: channels (`GET /channels/{id}`, `POST /channels`,
+  `GET /users/{user_id}/channels`, and `GET /channels/{id}/turn`),
   messages, bots (`GET /bots?user_id=&name=` and `GET /users/{user_id}/bots`),
   the household computer (`GET /users/{user_id}/computer`),
   a stopped-computer roster,
@@ -146,7 +147,8 @@ What each deployed thin-turn slice does today:
   names are reserved on the roster table so a recycled Lambda cannot fork
   two bots with the same name. A recycled Front Door can list a user's
   named bots and channels from that roster. A recycled Front Door can also
-  read the household computer id and stopped flag. Bot memory is
+  read the household computer id and stopped flag. A recycled Front Door
+  can read the active turn on a channel without a remembered turn_id. Bot memory is
   stored on that roster item; a recycled Front Door hydrates the bot from
   Dynamo before writing memory. The computerless worker prompt is that
   memory plus the channel transcript. Another bot on the same computer

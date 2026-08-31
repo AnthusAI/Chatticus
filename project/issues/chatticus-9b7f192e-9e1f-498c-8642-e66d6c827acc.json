@@ -162,10 +162,16 @@
       "author": "home",
       "text": "Board lag 2026-08-31: this initiative is no longer Discovery. The thin computerless turn is live on development, staging, and production (v0.6.0 on main). Remaining Phase 1 child is 387e4f (Safari/background-tab unmeasured). 5f2ea7 task-tracking is excluded from this phase by its own text; kbs 0.18 cannot clear a parent so it stays linked. Not closing this initiative until 387e4f is measured or waived.",
       "created_at": "2026-08-31T05:56:28.952713Z"
+    },
+    {
+      "id": "eeffaa95-11f1-4a8a-bf29-a08c7e7333c0",
+      "author": "home",
+      "text": "Frontier: GET /channels/{id}/turn is live on development ThinTurn (5fb2fc4). exercise exit 0 with claim_a=200 claim_b=409 channel_turn=1. 206992 closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T06:03:20.016710Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T05:56:28.963160Z",
+  "updated_at": "2026-08-31T06:03:20.016710Z",
   "closed_at": null,
   "custom": {}
 }
