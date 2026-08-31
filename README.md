@@ -71,15 +71,16 @@ thin-turn environments are live in AWS account `335163751677`
 production were last recorded as deployed from `760915d` (v0.5.0).
 
 Development **ChatticusThinTurn** was last updated ThinTurn-only (no
-`--all`) at **2026-08-31T11:38:09Z** (ComputerWorker last-modified
-**2026-08-31T11:38:39Z**). That pin sets `CHATTICUS_HOST_STARTER=ecs` on
-ComputerWorker, passes cluster/task/subnet/SG env, and grants
-`ecs:RunTask` plus `iam:PassRole` (dfec90). **ChatticusComputers** was
-not redeployed (`desiredCount` remains 0; last stack update
-2026-08-30T08:53:08Z). Ephemeral `RunTask` is the start path. The worker
-still nacks `ComputerWorkerHostNotReady` until capability readiness is
-true and does not fake `tool.result`. GitHub Actions must not hit live
-AWS.
+`--all`) at **2026-08-31T11:51:03Z** (ComputerWorker last-modified
+**2026-08-31T11:51:27Z**). That pin sets `CHATTICUS_HOST_STARTER=ecs`,
+grants `ecs:RunTask`, `ecs:TagResource`, and `iam:PassRole` (dfec90,
+45a162). A live named exercise then actually `RunTask`s (sleep-infinity
+image). Concurrent nacks raced several hosts; those tasks were stopped
+and leftover ComputerTurnJobs were purged so the nack loop would not keep
+billing. **ChatticusComputers** was not redeployed (`desiredCount` remains
+0; last stack update 2026-08-30T08:53:08Z). The worker still nacks
+`ComputerWorkerHostNotReady` until capability readiness is true and does
+not fake `tool.result`. GitHub Actions must not hit live AWS.
 
 A CloudFront run of `cd python && sh scripts/live_aws_thin_turn.sh
 development` on 2026-08-31 exited 0 with `health_environment=1`,

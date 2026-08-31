@@ -79,10 +79,16 @@
       "author": "home",
       "text": "Cycle tick: development ComputerWorker env is CHATTICUS_HOST_STARTER=ecs (ThinTurn-only update 2026-08-31T11:38:09Z). ChatticusComputers desiredCount still 0. Named exercise still in_flight_nack. README What is live today updated on this branch so it no longer claims a no-op HostStarter. Remaining: Chromium executor + readiness on the summoned task. Do not merge to main as parking; PR 31 is the develop landing.\n",
       "created_at": "2026-08-31T11:43:59.569467Z"
+    },
+    {
+      "id": "26837276-9cf5-4562-bd76-6dd9a6008553",
+      "author": "home",
+      "text": "45a162 closed: live ecs:RunTask works after TagResource. Extra concurrent hosts stopped; queue purged; desiredCount 0. Do not merge to main. Next: Chromium executor + readiness, and single-flight host start across Lambda instances.\n",
+      "created_at": "2026-08-31T11:56:15.214605Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T11:43:59.569467Z",
+  "updated_at": "2026-08-31T11:56:15.214605Z",
   "closed_at": null,
   "custom": {}
 }
