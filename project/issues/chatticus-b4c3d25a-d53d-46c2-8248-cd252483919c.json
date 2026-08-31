@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-b4c3d25a-d53d-46c2-8248-cd252483919c",
+  "title": "Fall back to published CloudFront URLs when SSM credentials expire",
+  "description": "",
+  "type": "chore",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "65e45e7e-7498-4b9f-a8b1-89e504870799",
+      "author": "home",
+      "text": "Published CloudFront origins are the fallback when SSM/CFN credentials expire. Live exercise --environment development without --base-url reached d3gpuuldffe35o, claim_a=200 claim_b=409, host_start_generation still None (19070b1). SQS still needs aws login.",
+      "created_at": "2026-08-31T09:44:01.567391Z"
+    }
+  ],
+  "created_at": "2026-08-31T09:41:39.384183Z",
+  "updated_at": "2026-08-31T09:44:01.578192Z",
+  "closed_at": "2026-08-31T09:44:01.578192Z",
+  "custom": {}
+}

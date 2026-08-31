@@ -96,6 +96,10 @@ stale `ComputerTurnJobs` drain in the named exercise). A demo CLI
 | staging | `ChatticusThinTurnStaging` | https://dntj3flm2ozck.cloudfront.net |
 | production | `ChatticusThinTurnProduction` | https://d3lnmalpqx92ls.cloudfront.net |
 
+If SSM or CloudFormation credentials are expired, the exercise falls
+back to those published origins (b4c3d2). SQS queue checks still need
+`aws login`.
+
 `cd python && python scripts/exercise_thin_turn.py --environment <name>`
 exits 0 for **development**, **staging**, and **production**. Each run
 includes missing-turn claim **404** and a live second-worker claim **409**

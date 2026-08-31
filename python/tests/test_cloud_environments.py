@@ -68,9 +68,13 @@ def test_resolve_reads_process_environment(monkeypatch: pytest.MonkeyPatch) -> N
     assert url == "https://dev.cloudfront.net"
 
 
-def test_ssm_auth_errors_are_not_swallowed(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ssm_auth_errors_fall_back_to_published_origin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("CHATTICUS_DEVELOPMENT_BASE_URL", raising=False)
     import boto3
+
+    from chatticus.cloud_environments import THIN_TURN_PUBLISHED_BASE_URLS
 
     class FakeSsm:
         class exceptions:
@@ -81,8 +85,8 @@ def test_ssm_auth_errors_are_not_swallowed(monkeypatch: pytest.MonkeyPatch) -> N
             raise RuntimeError("LoginRefreshRequired")
 
     monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: FakeSsm())
-    with pytest.raises(RuntimeError, match="LoginRefreshRequired"):
-        resolve_thin_turn_base_url("development")
+    url = resolve_thin_turn_base_url("development")
+    assert url == THIN_TURN_PUBLISHED_BASE_URLS["development"]
 
 
 def test_unknown_git_branch_does_not_map() -> None:
@@ -116,7 +120,7 @@ def test_resolve_uses_ssm_parameter(monkeypatch: pytest.MonkeyPatch) -> None:
     assert url == "https://staging.cloudfront.net"
 
 
-def test_cloudformation_errors_become_lookup_errors(
+def test_cloudformation_auth_errors_fall_back_to_published_origin(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("CHATTICUS_PRODUCTION_BASE_URL", raising=False)
@@ -142,8 +146,10 @@ def test_cloudformation_errors_become_lookup_errors(
         raise AssertionError(name)
 
     monkeypatch.setattr(boto3, "client", client)
-    with pytest.raises(LookupError, match="ChatticusThinTurnProduction"):
-        resolve_thin_turn_base_url("production")
+    from chatticus.cloud_environments import THIN_TURN_PUBLISHED_BASE_URLS
+
+    url = resolve_thin_turn_base_url("production")
+    assert url == THIN_TURN_PUBLISHED_BASE_URLS["production"]
 
 
 def test_thin_turn_stack_output_reads_cloudformation(
