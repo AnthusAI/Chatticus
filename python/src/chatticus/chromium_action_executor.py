@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from collections.abc import Sequence
 
-_SUPPORTED_TOOLS = frozenset({"browser_open"})
+_SUPPORTED_TOOLS = frozenset({"browser_open", "request_computer_capability"})
 
 
 def chromium_binary_path() -> str:
@@ -68,6 +68,16 @@ class ChromiumActionExecutor:
             raise ValueError(msg)
         if tool_name == "browser_open":
             return self._browser_open(arguments)
+        if tool_name == "request_computer_capability":
+            gate = arguments.get("gate", "browser").strip() or "browser"
+            if gate != "browser":
+                msg = (
+                    "ChromiumActionExecutor only opens the browser for "
+                    f"request_computer_capability gate {gate!r}."
+                )
+                raise ValueError(msg)
+            url = arguments.get("url", "").strip() or "about:blank"
+            return self._browser_open({"url": url})
         msg = f"Unsupported tool {tool_name!r}."
         raise ValueError(msg)
 

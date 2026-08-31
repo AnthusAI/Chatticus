@@ -11,7 +11,7 @@ BROWSER_CAPABILITY = "browser"
 
 def capability_for_computer_tool(tool_name: str) -> str:
     """Return the host readiness gate one computer tool needs."""
-    if tool_name.startswith("browser"):
+    if tool_name.startswith("browser") or tool_name == "request_computer_capability":
         return BROWSER_CAPABILITY
     return WORKSPACE_CAPABILITY
 

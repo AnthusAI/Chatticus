@@ -28,10 +28,16 @@
       "author": "home",
       "text": "In-repo proof: computer/Dockerfile pip installs chatticus with boto3 httpx fastapi pydantic python-dotenv; entrypoint starts Xvfb when CHATTICUS_COMPUTER_BOOT=1; python/tests/test_computer_image.py asserts layout and pip mirror; Docker build smoke skipped when daemon unavailable. Story stays open: no ECR push, HOST_COMMAND still unset on live Lambda, live browser tool not proven.",
       "created_at": "2026-08-31T12:39:31.221830Z"
+    },
+    {
+      "id": "93fd18f3-65d2-4199-a125-55636f1cbb5e",
+      "author": "home",
+      "text": "Kernel: a recycled host hydrates the waiting-turn handoff and runs the tool when SQS is empty. CDK context computerHostCommand=host-worker is opt-in; deploy-chatticus-thinturn-development.sh does not pass it. Live HOST_COMMAND remains unset. ECR :dev is still 2026-08-30. computer/push-computer-image.sh pushes :dev without deploying ChatticusComputers.",
+      "created_at": "2026-08-31T12:56:41.056760Z"
     }
   ],
   "created_at": "2026-08-31T12:19:14.039212Z",
-  "updated_at": "2026-08-31T12:39:31.221830Z",
+  "updated_at": "2026-08-31T12:56:41.056760Z",
   "closed_at": null,
   "custom": {}
 }

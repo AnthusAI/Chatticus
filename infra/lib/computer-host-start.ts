@@ -86,6 +86,10 @@ export function wireComputerWorkerEcsHostStart(
     CHATTICUS_ECS_SUBNETS: config.subnets.join(","),
     CHATTICUS_ECS_CONTAINER_NAME: "computer",
   };
+    if (contextString(stack, "computerHostCommand") === "host-worker") {
+      environment.CHATTICUS_ECS_HOST_COMMAND =
+        "python -m chatticus.computer_host_worker";
+    }
   if (config.securityGroups.length > 0) {
     environment.CHATTICUS_ECS_SECURITY_GROUPS = config.securityGroups.join(",");
   }

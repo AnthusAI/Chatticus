@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from typing import Any
 
 from chatticus.chromium_action_executor import ChromiumActionExecutor
@@ -16,6 +17,26 @@ from chatticus.runtime import job_from_queue_payload
 from chatticus.worker.computer import ComputerActionExecutor, ComputerWorker
 
 logger = logging.getLogger("chatticus.computer_host_worker")
+
+
+def waiting_computer_job(
+    plane: ControlPlane, tenant_id: str, user_id: str
+) -> TurnJob | None:
+    """Rebuild one computer job from a durable waiting turn for this user."""
+    computer = plane.computer_for_user(tenant_id, user_id)
+    for turn in plane.list_active_turns(tenant_id, user_id):
+        if not turn.waiting_for:
+            continue
+        return TurnJob(
+            job_id=f"host-{computer.computer_id}-{turn.turn_id}",
+            tenant_id=tenant_id,
+            required_capabilities=frozenset({"cpu", "computer"}),
+            computer_id=computer.computer_id,
+            user_id=user_id,
+            bot_id=turn.bot_id,
+            turn_id=turn.turn_id,
+        )
+    return None
 
 
 def run_host_worker_once(
@@ -41,17 +62,21 @@ def run_host_worker_once(
         VisibilityTimeout=180,
     )
     messages = response.get("Messages") or []
-    if not messages:
+    receipt = None
+    if messages:
+        message = messages[0]
+        body = message.get("Body") or message.get("body")
+        job = job_from_queue_payload(json.loads(body))
+        receipt = message.get("ReceiptHandle") or message.get("receiptHandle")
+    else:
+        job = waiting_computer_job(plane, tenant_id, user_id)
+    if job is None:
         return None
-    message = messages[0]
-    body = message.get("Body") or message.get("body")
-    job = job_from_queue_payload(json.loads(body))
     ComputerWorker(
         plane,
         turn_client,
         action_executor=action_executor or ChromiumActionExecutor(),
     ).run_job(job)
-    receipt = message.get("ReceiptHandle") or message.get("receiptHandle")
     if receipt:
         sqs_client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt)
     return job
@@ -86,18 +111,25 @@ def main() -> None:
     invoke_key = os.environ.get("CHATTICUS_INVOKE_KEY", "").strip()
     if invoke_key:
         headers[INVOKE_HEADER] = invoke_key
+    deadline = time.monotonic() + int(
+        os.environ.get("CHATTICUS_HOST_WORKER_SECONDS", "120")
+    )
     with httpx.Client(
         base_url=_front_door_base_url(), headers=headers, timeout=60.0
     ) as client:
         turn_client = HttpTurnClient(client, tenant_id)
-        run_host_worker_once(
-            plane=plane,
-            turn_client=turn_client,
-            sqs_client=sqs_client,
-            queue_url=queue_url,
-            tenant_id=tenant_id,
-            user_id=user_id,
-        )
+        while time.monotonic() < deadline:
+            ran = run_host_worker_once(
+                plane=plane,
+                turn_client=turn_client,
+                sqs_client=sqs_client,
+                queue_url=queue_url,
+                tenant_id=tenant_id,
+                user_id=user_id,
+            )
+            if ran is not None:
+                return
+            time.sleep(1)
 
 
 if __name__ == "__main__":

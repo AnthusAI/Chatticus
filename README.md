@@ -92,14 +92,15 @@ development` on 2026-08-31 exited 0 with `health_environment=1`,
 nacks claim one durable dispatch generation before `RunTask` (b6627b).
 Chromium `browser_open` and host boot gates are kernel-only (0eef8f).
 RunTask may override the computer container to
-`python -m chatticus.computer_host_worker` when
-`CHATTICUS_ECS_HOST_COMMAND` is set (4bca15); development Lambda does not
-set that yet. The in-repo `computer/Dockerfile` copies `python/`, pip
-installs `chatticus` with `boto3`, `httpx`, `fastapi`, and `python-dotenv`, and
-`python/tests/test_computer_image.py` proves the module layout; Docker
-build smoke runs when a daemon is available. Remaining 8f98f8: push the
-rebuilt image to ECR, enable the override on development, and prove a live
-browser tool completes the same turn. A demo CLI (Kanbus epic 35d86b) is starting; it talks to this HTTP
+`python -m chatticus.computer_host_worker` when CDK context
+`computerHostCommand=host-worker` is set (4bca15). Development Lambda
+does not set that yet. A recycled host rebuilds the handoff from the
+durable waiting turn and can run the tool when SQS is empty (Lambda still
+holds the nack). `computer/push-computer-image.sh` pushes `:dev` without
+deploying ChatticusComputers. Live ECR `:dev` is still 2026-08-30 (sleep
+infinity). Remaining 8f98f8: rebuild/push that image from a machine with
+Docker, enable the override, and prove a live browser tool completes the
+same turn. A demo CLI (Kanbus epic 35d86b) is starting; it talks to this HTTP
 surface. `exercise_thin_turn.py` stays the pass/fail gate.
 
 | Environment | Web stack | Site | API base (same origin) |

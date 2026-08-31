@@ -871,6 +871,70 @@ class ControlPlane:
             raise TurnNotFoundError(f"Turn {turn_id!r} has no computer handoff.")
         return record
 
+    def ensure_computer_escalation(
+        self, tenant_id: str, turn_id: str
+    ) -> EscalationRecord | None:
+        """Rebuild in-process handoff state from the durable turn and journal.
+
+        A recycled Lambda or Fargate host has an empty ``_escalations`` map.
+        Waiting turns record ``request_computer_capability`` on the turn and
+        ``turn.waiting`` journal event. Structured handoffs also persist a
+        ``tool.call``. Either is enough to restore the record so a host with
+        a real executor can commit ``tool.result``.
+        """
+        existing = self._escalations.get((tenant_id, turn_id))
+        if existing is not None:
+            return existing
+        turn = self.turn(tenant_id, turn_id)
+        events = self.list_turn_events(tenant_id, turn_id)
+        tool_call = None
+        for event in events:
+            if event.kind == TurnEventKind.TOOL_CALL and event.action_id:
+                tool_call = event
+        pending = pending_computer_tool_from_turn(turn)
+        if tool_call is None and pending is None:
+            return None
+        if tool_call is not None:
+            snapshot = tool_call.pending_computer_tool
+            action_id = tool_call.action_id
+            tool_name = (
+                snapshot.tool_name
+                if snapshot is not None
+                else (tool_call.body or "browser_open")
+            )
+            arguments = dict(snapshot.arguments) if snapshot is not None else {}
+        else:
+            action_id = pending.action_id
+            tool_name = pending.tool_name
+            arguments = dict(pending.arguments)
+        bot = self._bot(tenant_id, turn.bot_id)
+        computer = self.ensure_computer(tenant_id, bot.user_id)
+        result_committed = any(
+            event.kind == TurnEventKind.TOOL_RESULT and event.action_id == action_id
+            for event in events
+        )
+        bound = self._job_for_turn(tenant_id, turn_id)
+        record = EscalationRecord(
+            turn_id=turn_id,
+            tenant_id=tenant_id,
+            user_id=bot.user_id,
+            computer_id=computer.computer_id,
+            pending_call=PendingComputerToolCall(
+                action_id=action_id,
+                tool_name=tool_name,
+                arguments=arguments,
+            ),
+            call_committed=tool_call is not None,
+            continuation_enqueued=True,
+            computerless_relinquished=True,
+            result_committed=result_committed,
+            continuation_job_id=bound.job_id if bound is not None else None,
+        )
+        self._escalations[(tenant_id, turn_id)] = record
+        if tool_call is None:
+            self.commit_pending_computer_tool(tenant_id, turn_id)
+        return record
+
     def commit_pending_computer_tool(self, tenant_id: str, turn_id: str) -> None:
         """Make the pending computer tool call a durable typed journal event."""
         record = self.escalation_for(tenant_id, turn_id)

@@ -12,6 +12,7 @@ from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.test_server import start_test_server
+from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.worker.computer import FakeComputerActionExecutor
 
 
@@ -52,9 +53,12 @@ def test_host_worker_boots_then_runs_one_computer_job() -> None:
     boot = ComputerHostBootDriver(
         plane, tenant_id=setup.tenant_id, user_id=setup.user_id
     )
-    with patch.object(boot._xvfb, "start"), patch(
-        "chatticus.computer_host_boot.verify_chromium_available",
-        return_value="Chromium 120.0.0.0",
+    with (
+        patch.object(boot._xvfb, "start"),
+        patch(
+            "chatticus.computer_host_boot.verify_chromium_available",
+            return_value="Chromium 120.0.0.0",
+        ),
     ):
         ran = run_host_worker_once(
             plane=plane,
@@ -70,5 +74,59 @@ def test_host_worker_boots_then_runs_one_computer_job() -> None:
     assert ran.job_id == job.job_id
     assert sqs.deleted == "receipt-1"
     record = plane.escalation_for(setup.tenant_id, setup.turn_id)
+    assert record.result_committed is True
+    api.close()
+
+
+class _EmptySqs:
+    def receive_message(self, **_kwargs: object) -> dict[str, object]:
+        return {}
+
+    def delete_message(self, **_kwargs: object) -> None:
+        raise AssertionError("empty SQS should not delete")
+
+
+def test_host_worker_runs_waiting_turn_when_sqs_is_empty() -> None:
+    store = InMemoryMessagingStore()
+    plane = ControlPlane(messaging_store=store)
+    api = start_test_server(create_app(plane))
+    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": "human",
+            "author_id": "ryan",
+            "body": "open the household browser",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    client = HttpTurnClient(api, channel.tenant_id)
+    client.claim(turn_id, "waiting-worker")
+    client.post_waiting(turn_id, "browser")
+    plane.set_computer_stopped("anthus", "ryan", False)
+    boot = ComputerHostBootDriver(plane, tenant_id=channel.tenant_id, user_id="ryan")
+    with (
+        patch.object(boot._xvfb, "start"),
+        patch(
+            "chatticus.computer_host_boot.verify_chromium_available",
+            return_value="Chromium 120.0.0.0",
+        ),
+    ):
+        ran = run_host_worker_once(
+            plane=plane,
+            turn_client=client,
+            sqs_client=_EmptySqs(),
+            queue_url="https://sqs.example/computer",
+            tenant_id=channel.tenant_id,
+            user_id="ryan",
+            boot_driver=boot,
+            action_executor=FakeComputerActionExecutor(),
+        )
+    assert ran is not None
+    assert ran.turn_id == turn_id
+    record = plane.escalation_for(channel.tenant_id, turn_id)
     assert record.result_committed is True
     api.close()

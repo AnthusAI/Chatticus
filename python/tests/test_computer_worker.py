@@ -13,6 +13,7 @@ from chatticus.http.client import HttpTurnClient
 from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
+    ActorKind,
     ComputerlessCannotExecuteComputerJob,
     ComputerWorkerHostNotReady,
     ComputerWorkerRequiresComputerCapability,
@@ -302,4 +303,42 @@ def test_concurrent_computer_workers_start_host_once() -> None:
         thread.join()
     assert errors == []
     assert len(starter.invocations) == 1
+    api.close()
+
+
+def test_computer_worker_hydrates_waiting_turn_after_process_recycle() -> None:
+    store = InMemoryMessagingStore()
+    plane = ControlPlane(messaging_store=store)
+    api = _client_for(plane)
+    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "open the household browser",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    client = HttpTurnClient(api, channel.tenant_id)
+    client.claim(turn_id, "waiting-worker")
+    client.post_waiting(turn_id, "browser")
+    plane.set_computer_stopped("anthus", "ryan", False)
+    plane.record_computer_capability_ready("anthus", "ryan", BROWSER_CAPABILITY)
+    job = plane.resume_waiting_turn(channel.tenant_id, turn_id)
+    api.close()
+
+    recycled = ControlPlane(messaging_store=store)
+    api = _client_for(recycled)
+    ComputerWorker(
+        recycled,
+        HttpTurnClient(api, channel.tenant_id),
+        action_executor=FakeComputerActionExecutor(),
+    ).run_job(job)
+    record = recycled.escalation_for(channel.tenant_id, turn_id)
+    assert record.result_committed is True
+    assert recycled.unresolved_tool_action_ids(channel.tenant_id, turn_id) == []
     api.close()

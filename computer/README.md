@@ -27,6 +27,12 @@ scale the service back to 0:
 sh computer/test_fargate.sh
 ```
 
+Push a rebuilt image to ECR without changing the Computers service:
+
+```bash
+sh computer/push-computer-image.sh
+```
+
 That packs on a Fargate-named container, hydrates onto a Mac-named
 container, then the reverse. Stale files on the target host are dropped.
 

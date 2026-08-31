@@ -34,6 +34,24 @@ def test_chromium_action_executor_browser_open_returns_opened_url() -> None:
     assert "--headless=new" in command
 
 
+def test_chromium_action_executor_maps_request_computer_capability_to_browser() -> None:
+    executor = ChromiumActionExecutor(display=":99")
+    with (
+        patch(
+            "chatticus.chromium_action_executor.chromium_binary_path",
+            return_value="/usr/bin/chromium-browser",
+        ),
+        patch(
+            "chatticus.chromium_action_executor.subprocess.run",
+        ) as run,
+    ):
+        run.return_value.returncode = 0
+        run.return_value.stdout = "<html></html>"
+        run.return_value.stderr = ""
+        result = executor.execute("request_computer_capability", {"gate": "browser"})
+    assert result == "opened:about:blank"
+
+
 def test_chromium_action_executor_refuses_unsupported_tool() -> None:
     executor = ChromiumActionExecutor(display=":99")
     with pytest.raises(ValueError, match="does not support 'browser_click'"):
