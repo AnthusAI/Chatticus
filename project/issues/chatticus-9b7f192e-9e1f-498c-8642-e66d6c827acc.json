@@ -204,10 +204,16 @@
       "author": "home",
       "text": "Thin-turn Front Door recycle/reconnect HTTP is live on development and specified. Next Phase 1 product work is not more REST: demo CLI 35d86b (human-owned) or computer summon 8f98f8 gated on e747d7. main remains v0.6.0; no staging/production CDK.",
       "created_at": "2026-08-31T07:19:11.464790Z"
+    },
+    {
+      "id": "7a652c52-fd3e-43c5-aaaa-d152b8fb8bab",
+      "author": "home",
+      "text": "Acceptance exercise 2026-08-31: exercise --environment development exit 0. health_environment=1 claim_a=200 claim_b=409. base_url=https://d3gpuuldffe35o.cloudfront.net. README live ThinTurn deploy @ 6baa46a (develop HEAD 469d09d not redeployed). No staging/production deploy.",
+      "created_at": "2026-08-31T07:44:11.958831Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T07:19:11.464790Z",
+  "updated_at": "2026-08-31T07:44:11.958831Z",
   "closed_at": null,
   "custom": {}
 }
