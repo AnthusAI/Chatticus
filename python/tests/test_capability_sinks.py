@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from grant_fixtures import research_grant, send_grant
 
-from chatticus.capability_policy import TaskCapabilityGrant
 from chatticus.capability_sinks import (
     CapabilitySinkDenied,
     attempt_authenticated_browser_action_at_sink,
@@ -25,29 +25,9 @@ def _now() -> datetime:
     return datetime(2026, 8, 31, 20, 0, tzinfo=UTC)
 
 
-def _research_grant() -> TaskCapabilityGrant:
-    return TaskCapabilityGrant(
-        tools=frozenset({"browse", "read_workspace"}),
-        origins=frozenset({"https://docs.example.com"}),
-        recipients=frozenset(),
-        file_scopes=frozenset({"/workspace/research"}),
-        egress_classes=frozenset({"approved_origin_fetch"}),
-    )
-
-
-def _send_grant() -> TaskCapabilityGrant:
-    return TaskCapabilityGrant(
-        tools=frozenset({"send"}),
-        origins=frozenset(),
-        recipients=frozenset({"a@x"}),
-        file_scopes=frozenset(),
-        egress_classes=frozenset({"structured_send"}),
-    )
-
-
 def test_gated_read_workspace_denies_ungranted_path() -> None:
     plane = ControlPlane()
-    plane.set_turn_capability_grant("anthus", "turn-1", _research_grant())
+    plane.set_turn_capability_grant("anthus", "turn-1", research_grant())
     with pytest.raises(CapabilitySinkDenied):
         gated_read_workspace(
             plane.capability_policy_for("anthus", "turn-1"),
@@ -57,7 +37,7 @@ def test_gated_read_workspace_denies_ungranted_path() -> None:
 
 def test_gated_read_workspace_allows_granted_path() -> None:
     plane = ControlPlane()
-    plane.set_turn_capability_grant("anthus", "turn-1", _research_grant())
+    plane.set_turn_capability_grant("anthus", "turn-1", research_grant())
     gated_read_workspace(
         plane.capability_policy_for("anthus", "turn-1"),
         "/workspace/research/notes.txt",
@@ -68,7 +48,7 @@ def test_plane_gated_read_returns_content() -> None:
     plane = ControlPlane()
     plane.ensure_computer("anthus", "ryan")
     plane.write_workspace("anthus", "ryan", "/workspace/research/notes.txt", "weekly")
-    plane.set_turn_capability_grant("anthus", "turn-1", _research_grant())
+    plane.set_turn_capability_grant("anthus", "turn-1", research_grant())
     assert (
         plane.gated_read_workspace(
             "anthus", "turn-1", "ryan", "/workspace/research/notes.txt"
@@ -101,7 +81,7 @@ def test_unattended_send_blocks_without_grant() -> None:
 
 def test_unattended_send_blocks_without_human_rule() -> None:
     plane = ControlPlane()
-    plane.set_turn_capability_grant("anthus", "policy-turn", _send_grant())
+    plane.set_turn_capability_grant("anthus", "policy-turn", send_grant())
     result = plane.resolve_unattended_gated_action(
         "send",
         "anthus",
