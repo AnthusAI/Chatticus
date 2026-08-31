@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-23c93e59-0e27-41b3-9e7f-89e61255ca0f",
+  "title": "Persist host start generation when the computer queue nacks",
+  "description": "ComputerWorker records a durable host_start_generation on the household computer before nacking. Retries share one lease. GET /users/{id}/computer exposes the generation. No Fargate RunTask this slice.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T08:58:06.508893Z",
+  "updated_at": "2026-08-31T08:58:06.508893Z",
+  "closed_at": null,
+  "custom": {}
+}

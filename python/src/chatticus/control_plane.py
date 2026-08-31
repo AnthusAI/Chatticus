@@ -1126,7 +1126,11 @@ class ControlPlane:
             if claim.expires_at is not None and claim.expires_at <= self._now
         ]
         for key in expired_keys:
-            del self._host_starts[key]
+            claim = self._host_starts.pop(key)
+            computer = self._computers_by_id.get(claim.computer_id)
+            if computer is not None:
+                computer.host_start_lease_expires_at = None
+                self._messaging_store.put_computer(computer)
 
     def request_computer_host_start(
         self,
@@ -1138,16 +1142,38 @@ class ControlPlane:
         self.expire_host_start_claims()
         computer = self.ensure_computer(tenant_id, user_id)
         key = (tenant_id, computer.computer_id)
+        if (
+            computer.host_start_lease_expires_at is not None
+            and computer.host_start_lease_expires_at <= self._now
+        ):
+            computer.host_start_lease_expires_at = None
+            self._messaging_store.put_computer(computer)
+            self._host_starts.pop(key, None)
         claim = self._host_starts.get(key)
+        lease_valid = (
+            computer.host_start_lease_expires_at is not None
+            and computer.host_start_lease_expires_at > self._now
+        )
+        if claim is None and lease_valid:
+            claim = HostStartClaim(
+                tenant_id=tenant_id,
+                computer_id=computer.computer_id,
+                host_start_count=computer.host_start_generation,
+                waiting_turn_ids=[turn_id],
+                expires_at=computer.host_start_lease_expires_at,
+            )
+            self._host_starts[key] = claim
+            return claim
         if claim is None:
             computer.host_start_generation += 1
+            computer.host_start_lease_expires_at = self._now + self.attempt_lease
             self._messaging_store.put_computer(computer)
             claim = HostStartClaim(
                 tenant_id=tenant_id,
                 computer_id=computer.computer_id,
                 host_start_count=computer.host_start_generation,
                 waiting_turn_ids=[turn_id],
-                expires_at=self._now + self.attempt_lease,
+                expires_at=computer.host_start_lease_expires_at,
             )
         elif turn_id not in claim.waiting_turn_ids:
             claim.waiting_turn_ids.append(turn_id)

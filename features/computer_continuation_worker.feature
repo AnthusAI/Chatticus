@@ -24,6 +24,9 @@ Feature: Computer-capable continuation worker
     When a computer-capable pull worker without a host executor pulls that continuation job
     Then no tool result is committed for the pending action
     And the computer continuation job remains queued
+    And the household computer has recorded one host start
+    When a computer-capable pull worker without a host executor pulls that continuation job
+    Then the household computer has recorded one host start
 
   Scenario: Orphaned computer ownership expires without a scheduler
     Given a fenced computer handoff with a queued continuation job

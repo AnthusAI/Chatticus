@@ -156,6 +156,13 @@ def then_computer_continuation_job_remains_queued(context: object) -> None:
     assert "computer" in remaining[0].required_capabilities
 
 
+@then("the household computer has recorded one host start")
+def then_one_host_start_recorded(context: object) -> None:
+    setup = context.computer_continuation
+    computer = context.plane.computer_for_user(setup.tenant_id, setup.user_id)
+    assert computer.host_start_generation == 1
+
+
 @then("the computer-capable worker refuses the cpu job")
 def then_computer_worker_refuses_cpu_job(context: object) -> None:
     assert isinstance(

@@ -646,6 +646,7 @@ def _computer_payload(computer: Any) -> dict[str, Any]:
         "user_id": computer.user_id,
         "stopped": computer.stopped,
         "policy": str(computer.policy),
+        "host_start_generation": computer.host_start_generation,
     }
 
 

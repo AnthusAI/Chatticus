@@ -71,6 +71,19 @@ def test_computer_worker_leaves_job_queued_without_host_executor() -> None:
         job for job in plane._jobs if job.job_id == setup.continuation_job.job_id
     ]
     assert len(remaining) == 1
+    assert (
+        plane.computer_for_user(setup.tenant_id, setup.user_id).host_start_generation
+        == 1
+    )
+    with pytest.raises(ComputerWorkerHostNotReady):
+        ComputerWorker(
+            plane,
+            HttpTurnClient(api, setup.tenant_id),
+        ).run_job(setup.continuation_job)
+    assert (
+        plane.computer_for_user(setup.tenant_id, setup.user_id).host_start_generation
+        == 1
+    )
     api.close()
 
 

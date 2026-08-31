@@ -106,6 +106,10 @@ class ComputerWorker:
             return
         tool_name = record.pending_call.tool_name
         if unresolved and not self._host_ready_for_tool(job, tool_name):
+            if job.user_id is not None:
+                self.plane.request_computer_host_start(
+                    job.tenant_id, job.user_id, job.turn_id
+                )
             raise ComputerWorkerHostNotReady(
                 f"Turn {job.turn_id!r} has no ready computer host for {tool_name!r}."
             )

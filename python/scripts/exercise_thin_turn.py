@@ -925,6 +925,15 @@ def main() -> int:
                 )
                 return 1
             print("computer_queue_turn_still_waiting=browser")
+            computer_after = client.get(f"/users/{args.user_id}/computer")
+            generation = computer_after.json().get("host_start_generation")
+            if not isinstance(generation, int) or generation < 1:
+                print(
+                    f"host_start_generation={generation!r}",
+                    file=sys.stderr,
+                )
+                return 1
+            print(f"host_start_generation={generation}")
     return 0
 
 

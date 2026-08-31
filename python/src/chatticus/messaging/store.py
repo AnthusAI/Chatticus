@@ -961,6 +961,14 @@ class DynamoMessagingStore:
                 "computer_id": {"S": computer.computer_id},
                 "stopped": {"BOOL": computer.stopped},
                 "policy": {"S": computer.policy},
+                "host_start_generation": {"N": str(computer.host_start_generation)},
+                "host_start_lease_expires_at": {
+                    "N": str(
+                        int(computer.host_start_lease_expires_at.timestamp())
+                        if computer.host_start_lease_expires_at is not None
+                        else 0
+                    )
+                },
             },
         )
 
@@ -975,12 +983,19 @@ class DynamoMessagingStore:
         item = response.get("Item")
         if item is None:
             return None
+        lease_epoch = int(item.get("host_start_lease_expires_at", {}).get("N", "0"))
         return Computer(
             computer_id=item["computer_id"]["S"],
             tenant_id=item["tenant_id"]["S"],
             user_id=item["user_id"]["S"],
             policy=ComputerPolicy(item["policy"]["S"]),
             stopped=item["stopped"]["BOOL"],
+            host_start_generation=int(
+                item.get("host_start_generation", {}).get("N", "0")
+            ),
+            host_start_lease_expires_at=(
+                datetime.fromtimestamp(lease_epoch, tz=UTC) if lease_epoch else None
+            ),
         )
 
     def record_logical_enqueue(
