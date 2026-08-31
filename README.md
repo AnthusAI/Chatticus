@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `5fb2fc4` (no `--all`).
+from `develop` @ `e7e58a0` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -96,7 +96,8 @@ idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
 (`bots_list=1`: `GET /users/{user_id}/bots` includes that bot_id), a live user channel list
 (`channels_list=1`: `GET /users/{user_id}/channels` includes that channel_id), a live household computer read
 (`computer_get=1`: `GET /users/{user_id}/computer` returns `computer_id` and `stopped=true`), a live channel active-turn read
-(`channel_turn=1`: `GET /channels/{id}/turn` returns the fence-probe turn_id), plus SSE `turn.started` /
+(`channel_turn=1`: `GET /channels/{id}/turn` returns the fence-probe turn_id), a live empty active-turn read
+(`channel_turn_done=1`: after the greeting completes, `GET /channels/{id}/turn` is **404**), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
 `Last-Event-ID` and requires ordered replay through `turn.completed`.
