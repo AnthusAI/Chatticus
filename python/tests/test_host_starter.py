@@ -37,8 +37,9 @@ def test_ecs_host_starter_skips_without_configuration() -> None:
         def __init__(self) -> None:
             self.calls = 0
 
-        def run_task(self, **_kwargs: object) -> None:
+        def run_task(self, **_kwargs: object) -> dict[str, object]:
             self.calls += 1
+            return {"tasks": [{"taskArn": "arn:ecs:task/skip"}], "failures": []}
 
     ecs = FakeEcs()
     EcsHostStarter(
@@ -58,8 +59,9 @@ def test_ecs_host_starter_runs_task_when_configured() -> None:
         def __init__(self) -> None:
             self.kwargs: dict[str, object] | None = None
 
-        def run_task(self, **kwargs: object) -> None:
+        def run_task(self, **kwargs: object) -> dict[str, object]:
             self.kwargs = kwargs
+            return {"tasks": [{"taskArn": "arn:ecs:task/configured"}], "failures": []}
 
     ecs = FakeEcs()
     claim = HostStartClaim(
@@ -77,8 +79,88 @@ def test_ecs_host_starter_runs_task_when_configured() -> None:
     assert ecs.kwargs is not None
     assert ecs.kwargs["cluster"] == "ChatticusComputers"
     assert ecs.kwargs["taskDefinition"] == "computer"
+    assert ecs.kwargs["tags"] == [
+        {"key": "tenant_id", "value": "anthus"},
+        {"key": "computer_id", "value": "household-computer"},
+        {"key": "host_start_generation", "value": "3"},
+    ]
+    assert "overrides" not in ecs.kwargs
+
+
+def test_ecs_host_starter_overrides_host_worker_command(monkeypatch: object) -> None:
+    monkeypatch.setenv(  # type: ignore[attr-defined]
+        "CHATTICUS_ECS_HOST_COMMAND", "python -m chatticus.computer_host_worker"
+    )
+    monkeypatch.setenv("CHATTICUS_ECS_CONTAINER_NAME", "computer")  # type: ignore[attr-defined]
+    monkeypatch.setenv(  # type: ignore[attr-defined]
+        "CHATTICUS_COMPUTER_TURN_QUEUE_URL", "https://sqs.example/computer"
+    )
+
+    class FakeEcs:
+        def __init__(self) -> None:
+            self.kwargs: dict[str, object] | None = None
+
+        def run_task(self, **kwargs: object) -> dict[str, object]:
+            self.kwargs = kwargs
+            return {"tasks": [{"taskArn": "arn:ecs:task/configured"}], "failures": []}
+
+    ecs = FakeEcs()
+    EcsHostStarter(
+        ecs_client=ecs,
+        cluster="ChatticusComputers",
+        task_definition="computer",
+        subnets=["subnet-1"],
+        security_groups=["sg-1"],
+    ).start_host(
+        HostStartClaim(
+            tenant_id="anthus",
+            computer_id="household-computer",
+            host_start_count=1,
+            user_id="ryan",
+        )
+    )
+    assert ecs.kwargs is not None
+    container = ecs.kwargs["overrides"]["containerOverrides"][0]  # type: ignore[index]
+    assert container["command"] == ["python", "-m", "chatticus.computer_host_worker"]
+    names = {item["name"] for item in container["environment"]}
+    assert "CHATTICUS_TENANT_ID" in names
+    assert "CHATTICUS_COMPUTER_TURN_QUEUE_URL" in names
+
+
+def test_ecs_host_starter_raises_when_run_task_returns_failures() -> None:
+    class FakeEcs:
+        def run_task(self, **_kwargs: object) -> dict[str, object]:
+            return {
+                "tasks": [],
+                "failures": [{"reason": "AccessDenied", "arn": "cluster"}],
+            }
+
+    starter = EcsHostStarter(
+        ecs_client=FakeEcs(),
+        cluster="ChatticusComputers",
+        task_definition="computer",
+        subnets=["subnet-1"],
+        security_groups=["sg-1"],
+    )
+    try:
+        starter.start_host(
+            HostStartClaim(
+                tenant_id="anthus",
+                computer_id="household-computer",
+                host_start_count=1,
+            )
+        )
+    except RuntimeError as error:
+        assert "failures" in str(error)
+    else:
+        raise AssertionError("expected RuntimeError")
 
 
 def test_host_starter_from_env_defaults_to_noop(monkeypatch: object) -> None:
     monkeypatch.delenv("CHATTICUS_HOST_STARTER", raising=False)  # type: ignore[attr-defined]
     assert isinstance(host_starter_from_env(), NoOpHostStarter)
+
+
+def test_host_starter_from_env_selects_ecs(monkeypatch: object) -> None:
+    monkeypatch.setenv("CHATTICUS_HOST_STARTER", "ecs")  # type: ignore[attr-defined]
+    assert isinstance(host_starter_from_env(), EcsHostStarter)

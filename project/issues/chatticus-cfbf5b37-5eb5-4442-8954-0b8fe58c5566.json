@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-cfbf5b37-5eb5-4442-8954-0b8fe58c5566",
+  "title": "Create Route 53 hosted zone and delegate chattic.us name servers",
+  "description": "CDK stack (shared, e.g. ChatticusDns): Route 53 public hosted zone for chattic.us.\n\nAt the domain registrar, replace the current name servers with the four NS records Route 53 assigns. This is a one-time manual step outside AWS; document the registrar steps in infra/README.md.\n\nInclude staging/dev subdomains in the zone (e.g. staging.chattic.us, dev.chattic.us) or document that non-production web uses distribution URLs until custom DNS is needed.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "a67440f9-738b-4bda-ba2d-cc2e68389919",
+      "author": "ubuntu",
+      "text": "Blocked on local agent with AWS credentials. Run `infra/deploy-chatticus-dns.sh` after `aws login`. Registrar NS change at GoDaddy is human-only; agent delivers the four NameServers from stack output.\n",
+      "created_at": "2026-08-31T12:19:08.113992Z"
+    },
+    {
+      "id": "01df940a-d57c-4091-8f24-71d732c72aec",
+      "author": "home",
+      "text": "ChatticusDns CREATE_COMPLETE. GoDaddy NS delegated to Route 53 (four aws dns servers). Hosted zone Z0697546UV03OH0TU4KZ.",
+      "created_at": "2026-08-31T15:22:38.407524Z"
+    }
+  ],
+  "created_at": "2026-08-31T11:31:16.384929Z",
+  "updated_at": "2026-08-31T15:22:38.419904Z",
+  "closed_at": "2026-08-31T15:22:38.419904Z",
+  "custom": {}
+}

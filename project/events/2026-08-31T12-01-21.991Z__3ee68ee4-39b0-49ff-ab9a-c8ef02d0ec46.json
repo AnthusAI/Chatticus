@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "3ee68ee4-39b0-49ff-ab9a-c8ef02d0ec46",
+  "issue_id": "chatticus-b6627b37-cefe-48b8-acdf-4d86afdcde0e",
+  "event_type": "field_updated",
+  "occurred_at": "2026-08-31T12:01:21.991Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "assignee": {
+        "from": null,
+        "to": "home"
+      }
+    }
+  }
+}

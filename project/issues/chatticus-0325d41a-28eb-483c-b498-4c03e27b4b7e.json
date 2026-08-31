@@ -7,7 +7,7 @@
   "priority": 3,
   "assignee": null,
   "creator": null,
-  "parent": null,
+  "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
   "labels": [
     "later",
     "ui"
@@ -15,7 +15,8 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-08-30T16:38:14.197974Z",
-  "updated_at": "2026-08-30T16:38:14.197974Z",
+  "updated_at": "2026-08-31T11:31:20.161449Z",
   "closed_at": null,
-  "custom": {}
+  "custom": {},
+  "agent": null
 }

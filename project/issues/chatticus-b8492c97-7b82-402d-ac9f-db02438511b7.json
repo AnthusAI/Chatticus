@@ -1,0 +1,29 @@
+{
+  "id": "chatticus-b8492c97-7b82-402d-ac9f-db02438511b7",
+  "title": "Decide how the browser reaches the thin-turn API",
+  "description": "Resolve docs/MESSAGING.md open question before wiring custom domains.\n\nOptions:\n1. Same origin \u2014 one CloudFront distribution; /api/* behavior proxies to the Lambda function URL (simplest for cookies/CORS; requires unified distribution or web stack owns API alias).\n2. api.chattic.us \u2014 separate subdomain per environment pointing at the existing thin-turn CloudFront distributions (least invasive; add CORS and env-specific API base URL in Next.js).\n3. Keep *.cloudfront.net for API in dev/staging; custom domain only for production web until placement is proven.\n\nDeliverable: decision recorded in docs/MESSAGING.md and docs/DESIGN_CHALLENGES.md; drives the next two tasks.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "ace8f942-3968-4170-9edb-ab34f9c4d0eb",
+      "author": "ubuntu",
+      "text": "**Decision (2026-08-31): same origin.**\n\nEach environment gets one CloudFront distribution on the web hostname (e.g. `chattic.us`, `staging.chattic.us`, `dev.chattic.us`):\n\n- **Default behavior** \u2192 S3 origin (Next.js static assets).\n- **`/api/*` behavior** \u2192 existing thin-turn Lambda function URL origin (caching disabled, same SSE/read-timeout settings as today). A CloudFront Function strips the `/api` prefix before forwarding so FastAPI routes stay at `/channels`, `/turns`, etc.\n\nThe browser calls `/api/...` on the same host \u2014 no CORS, one ACM cert, one TLS context for SSE.\n\n**Infra consequence:** the per-environment web stack owns the public CloudFront distribution; the thin-turn stack keeps Lambda/SQS/DynamoDB but stops publishing a separate viewer-facing CloudFront (or that distribution becomes an internal origin-only detail). Workers and acceptance scripts may keep using the function URL directly or switch to `https://{site}/api/...`.\n\nRecorded in docs/MESSAGING.md and docs/DESIGN_CHALLENGES.md.\n",
+      "created_at": "2026-08-31T11:33:57.622002Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-08-31T11:31:15.774113Z",
+  "updated_at": "2026-08-31T11:33:58.236555Z",
+  "closed_at": "2026-08-31T11:33:58.236555Z",
+  "custom": {},
+  "agent": null
+}

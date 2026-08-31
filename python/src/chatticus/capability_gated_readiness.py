@@ -13,8 +13,6 @@ from dataclasses import dataclass, field
 
 from chatticus.computer_capabilities import (
     BROWSER_CAPABILITY,
-    MODEL_CAPABILITY,
-    WORKSPACE_CAPABILITY,
     ComputerCapabilityReadiness,
 )
 from chatticus.control_plane import ControlPlane

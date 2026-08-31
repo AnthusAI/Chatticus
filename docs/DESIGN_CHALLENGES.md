@@ -202,7 +202,8 @@ bills per request and costs nothing when nobody is working.
 **Tested (2026-08-30).** Test 1 in `spikes/sse-transport/` measured Python Lambda
 response streaming (Lambda Web Adapter) through a function URL and through
 CloudFront. **Pass.** No failure branch applied. Spike stack `ChatticusSseSpike`
-in account 335163751677, region us-east-1.
+in `us-east-1`. Endpoints were stack outputs at measurement time; do not
+commit those URLs.
 
 | Path | TTFB (ms) | Inter-frame gap p50 (ms) | p95 (ms) | Batching | Reconnect (`Last-Event-ID`) |
 | --- | --- | --- | --- | --- | --- |
@@ -416,14 +417,19 @@ must handle high load; see non-requirement 4. One household running a
 handful of concurrent turns is the actual v1 workload, and the design
 should stay boring at that size.
 
+### Decided: same-origin CloudFront front door
+
+**Per-request front door:** Lambda function URL behind CloudFront (as
+today). **How chattic.us reaches it:** same origin — one CloudFront
+distribution per environment hostname serves Next.js from S3 on the
+default behavior and proxies `/api/*` to the function URL (prefix
+stripped at the edge). No separate `api.chattic.us` subdomain.
+
 ### Still open
 
 Placement details, which are configuration rather than architecture:
 
-- Which per-request front door (API Gateway HTTP API against a function
-  URL behind CloudFront).
-- How chattic.us reaches it: same origin, `api.chattic.us`, or a
-  CloudFront behavior. TLS and session handling on the stream request.
+- TLS and session handling on the stream request.
 - How workers authenticate their chunk POSTs.
 - Whether local `docker-compose` runs a single process standing in for
   the front door while developing.

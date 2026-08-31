@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "title": "Publish chattic.us Next.js UI to AWS",
+  "description": "Definition of Done:\n- chattic.us resolves to the production web distribution over HTTPS with a valid ACM certificate.\n- Staging and development have named web origins (subdomains documented in SSM).\n- The browser loads the UI and calls the thin-turn API at /api/* on the same origin (no separate api subdomain).\n- Deploy is repeatable from GitHub Actions (OIDC) or documented manual cdk deploy; no Amplify, no CodePipeline.\n- README What is live today reflects the web surface.\n\nArchitecture: Next.js on S3 behind CloudFront default behavior; /api/* behavior proxies to the thin-turn Lambda function URL with prefix strip. One distribution per environment owns the public hostname.",
+  "type": "epic",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a744a602-b8ad-4428-86d0-04c1099506dd",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "9356a261-2f74-4775-90fd-21e373ae97d0",
+      "author": "ubuntu",
+      "text": "**Handoff to local agent (2026-08-31):** Cloud agent completed implementation on branch `cursor/implement-web-aws-182a` (PR #32) but cannot deploy — this VM has no AWS credentials (`aws sts get-caller-identity` fails; only `OPENAI_API_KEY` is in cloud secrets). Partial `aws login` sessions in `~/.aws/cli/cache/session.db` were never completed.\n\nLocal agent with `aws login` (account `335163751677`, `us-east-1`) should deploy in order:\n1. `cd infra && sh deploy-chatticus-dns.sh` → copy **NameServers** output\n2. User sets those four NS at GoDaddy (only manual step)\n3. Wait for ACM DNS validation after delegation\n4. `sh deploy-chatticus-web-development.sh` (thin-turn + web)\n5. Verify `curl https://dev.chattic.us/api/health` and open `https://dev.chattic.us`\n\nMerge PR #32 to `develop` first if not already merged.\n",
+      "created_at": "2026-08-31T12:19:07.515401Z"
+    },
+    {
+      "id": "5316e658-f2b3-422f-9ee2-38f939ed5581",
+      "author": "home",
+      "text": "Epic complete: all three web+thin-turn stacks live, health OK, exercise exit 0 per environment. Manual cdk deploy proven; GitHub OIDC steps documented in infra/README.md (AWS_DEPLOY_ROLE_ARN per environment secret). README What is live today updated on develop.",
+      "created_at": "2026-08-31T15:22:38.496513Z"
+    }
+  ],
+  "created_at": "2026-08-31T11:30:48.055887Z",
+  "updated_at": "2026-08-31T15:22:38.507497Z",
+  "closed_at": "2026-08-31T15:22:38.507497Z",
+  "custom": {}
+}

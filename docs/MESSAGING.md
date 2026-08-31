@@ -234,8 +234,6 @@ would wait a second for; buffer what you are rendering live.
 
 These are placement and configuration, not architecture:
 
-- Which per-request front door, and how chattic.us reaches it: same
-  origin, `api.chattic.us`, or a CloudFront behavior.
 - TLS and session handling on the stream request.
 - How workers authenticate chunk POSTs.
 - Whether local `docker-compose` runs one process standing in for the
@@ -243,5 +241,17 @@ These are placement and configuration, not architecture:
 - The DynamoDB key structure, and whether chunks share a table with
   messages. See [Design challenges](DESIGN_CHALLENGES.md).
 
-Do not add a CDK control-plane stack until the placement questions
-above are answered.
+## Decided: same-origin front door
+
+The browser reaches the thin-turn API at **`/api/*` on the same host**
+as the Next.js app (e.g. `https://chattic.us/api/channels/...`). Each
+named environment has **one CloudFront distribution** per web hostname:
+
+- **Default behavior** — S3 origin for Next.js static assets.
+- **`/api/*` behavior** — Lambda function URL origin (caching disabled;
+  same SSE settings as the thin-turn spike). CloudFront strips the
+  `/api` prefix before forwarding so FastAPI routes stay at `/channels`,
+  `/turns`, and so on.
+
+Workers and local acceptance may continue to call the function URL
+directly; the public browser surface uses same origin only.

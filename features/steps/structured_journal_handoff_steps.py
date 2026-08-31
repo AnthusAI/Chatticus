@@ -30,7 +30,9 @@ def _structured(context: object) -> StructuredHandoffDriver:
     return driver
 
 
-@when("the computerless attempt records a model request and finishes the fenced handoff")
+@when(
+    "the computerless attempt records a model request and finishes the fenced handoff"
+)
 def when_finish_fenced_handoff(context: object) -> None:
     driver = _structured(context)
     context.structured_outcome = driver.finish_happy_path()
@@ -49,7 +51,8 @@ def when_structured_stops(context: object, boundary: str) -> None:
 
 
 @then(
-    "the turn journal has typed model.request, tool.call, tool.result, and attempt events"
+    "the turn journal has typed model.request, tool.call, "
+    "tool.result, and attempt events"
 )
 def then_typed_journal(context: object) -> None:
     assert journal_has_typed_handoff(context.structured_outcome.journal_kinds)

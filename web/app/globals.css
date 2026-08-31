@@ -1,0 +1,54 @@
+:root {
+  color-scheme: light dark;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #0f1419;
+  color: #e7ecf3;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+p {
+  margin: 0 0 1.25rem;
+  color: #b8c2d0;
+}
+
+.card {
+  border: 1px solid #2a3441;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: #151b24;
+}
+
+.card h2 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.status {
+  font-family: ui-monospace, monospace;
+  font-size: 0.875rem;
+}
+
+.status.ok {
+  color: #7ddea2;
+}
+
+.status.error {
+  color: #f08888;
+}

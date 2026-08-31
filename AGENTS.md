@@ -68,7 +68,24 @@ behave
 pytest
 ```
 
+`black` and `ruff` versions are pinned in `python/pyproject.toml` so a
+local venv matches GitHub CI. Do not upgrade them in one place only.
+
 Do not declare worker-protocol work done if `behave` or `pytest` is failing.
+
+Those gates are in-process. They use in-memory stores and moto. They do
+not prove a CloudFront origin, SQS, or Lambda. After a ThinTurn deploy,
+and when you mean to check the real stack, from a shell that already
+has `aws login`:
+
+```bash
+cd python
+sh scripts/live_aws_thin_turn.sh development
+```
+
+Or `CHATTICUS_LIVE_AWS=1 pytest tests/test_live_aws_thin_turn.py`. That
+hits the named environment only. It does not scale Fargate. GitHub CI
+must not run that path.
 
 ## Computer and Lambda
 
@@ -159,7 +176,8 @@ release, not as the daily integration path.
 
 Chatticus has three named AWS environments for the thin-turn front door:
 **development**, **staging**, and **production**. Acceptance tests always
-pass `--environment` for one of those names.
+pass `--environment` for one of those names. Run them from a logged-in
+developer or agent shell, not from GitHub Actions.
 
 | Git | Cloud environment | CDK stack |
 | --- | --- | --- |
@@ -172,6 +190,17 @@ release. Promoting to `main` updates staging after CI. Production is a
 separate deploy of a staging-proven release. Shared stacks
 `ChatticusSnapshots` and `ChatticusComputers` are not per-environment.
 Never `cdk deploy --all`. Never destroy those two stacks.
+
+## Local desk configuration (`AGENTS.local.md`)
+
+When present at the repo root, agents **must** consult `AGENTS.local.md`
+for machine-specific notes: per-environment API base URLs
+(`CHATTICUS_*_BASE_URL`), CloudFront distribution domains before DNS
+propagates, AWS account id, and similar deploy-local values. Copy
+[`AGENTS.local.md.example`](AGENTS.local.md.example) to `AGENTS.local.md`.
+That file is **gitignored and must never be committed**. If it is missing,
+resolve URLs from SSM or CloudFormation with `aws login`, or ask the
+human — do not paste account-specific URLs into committed docs.
 
 ## Pull request review
 

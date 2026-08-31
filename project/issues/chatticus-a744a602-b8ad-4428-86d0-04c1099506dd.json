@@ -1,0 +1,19 @@
+{
+  "id": "chatticus-a744a602-b8ad-4428-86d0-04c1099506dd",
+  "title": "Phase 3: Ship chattic.us on AWS",
+  "description": "Outcome: the Next.js UI at chattic.us is reachable over HTTPS in named cloud environments and talks to the thin-turn control plane. Not included: product login, Vultus avatars (0325d4), or mid-turn computer preview.",
+  "type": "initiative",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T11:30:44.835457Z",
+  "updated_at": "2026-08-31T11:30:44.835457Z",
+  "closed_at": null,
+  "custom": {},
+  "agent": null
+}

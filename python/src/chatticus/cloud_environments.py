@@ -20,12 +20,6 @@ THIN_TURN_STACK_IDS: Mapping[CloudEnvironment, str] = {
     "production": "ChatticusThinTurnProduction",
 }
 
-THIN_TURN_PUBLISHED_BASE_URLS: Mapping[CloudEnvironment, str] = {
-    "development": "https://d3gpuuldffe35o.cloudfront.net",
-    "staging": "https://dntj3flm2ozck.cloudfront.net",
-    "production": "https://d3lnmalpqx92ls.cloudfront.net",
-}
-
 GIT_BRANCH_CLOUD_ENVIRONMENT: Mapping[str, CloudEnvironment] = {
     "develop": "development",
     "main": "staging",
@@ -72,45 +66,57 @@ def resolve_thin_turn_base_url(
     base_url: str | None = None,
     region: str = "us-east-1",
 ) -> str:
-    """Resolve the CloudFront origin for a named environment.
+    """Resolve the thin-turn API base URL for a named environment.
 
-    Order: explicit URL, process environment, SSM, CloudFormation
-    output, then the published CloudFront origin recorded in README.
+    Order: explicit URL, process environment, SSM, CloudFormation output.
+    When AWS lookup fails, set ``CHATTICUS_{ENV}_BASE_URL`` or pass
+    ``--base-url`` (see repo-root ``AGENTS.local.md``).
     """
     if base_url:
         return base_url.rstrip("/")
     from_env = os.environ.get(base_url_environment_variable(environment))
     if from_env:
         return from_env.rstrip("/")
-    published = THIN_TURN_PUBLISHED_BASE_URLS[environment].rstrip("/")
     parameter_name = f"{thin_turn_parameter_prefix(environment)}/cloudfront-url"
     try:
         import boto3
-    except ImportError:
-        return published
+    except ImportError as exc:
+        raise LookupError(
+            f"No base URL for {environment}. Set "
+            f"{base_url_environment_variable(environment)}, pass --base-url, "
+            "or install boto3 to read SSM / CloudFormation."
+        ) from exc
+    ssm = boto3.client("ssm", region_name=region)
     try:
-        ssm = boto3.client("ssm", region_name=region)
-        try:
-            response = ssm.get_parameter(Name=parameter_name)
-        except ssm.exceptions.ParameterNotFound:
-            response = None
-        if response is not None:
-            value = response["Parameter"]["Value"].rstrip("/")
-            if value:
-                return value
-        stack_name = THIN_TURN_STACK_IDS[environment]
-        cloudformation = boto3.client("cloudformation", region_name=region)
+        response = ssm.get_parameter(Name=parameter_name)
+    except ssm.exceptions.ParameterNotFound:
+        response = None
+    if response is not None:
+        value = response["Parameter"]["Value"].rstrip("/")
+        if value:
+            return value
+    stack_name = THIN_TURN_STACK_IDS[environment]
+    cloudformation = boto3.client("cloudformation", region_name=region)
+    try:
         stack = cloudformation.describe_stacks(StackName=stack_name)
-        outputs = {
-            output["OutputKey"]: output["OutputValue"]
-            for output in stack["Stacks"][0].get("Outputs", [])
-        }
-        cloudfront_url = outputs.get("CloudFrontUrl")
-        if cloudfront_url:
-            return cloudfront_url.rstrip("/")
-    except Exception:
-        return published
-    return published
+    except Exception as error:
+        raise LookupError(
+            f"Could not read CloudFormation stack {stack_name} for "
+            f"{environment}. Set {base_url_environment_variable(environment)} "
+            "or deploy that environment."
+        ) from error
+    outputs = {
+        output["OutputKey"]: output["OutputValue"]
+        for output in stack["Stacks"][0].get("Outputs", [])
+    }
+    resolved = outputs.get("CloudFrontUrl") or outputs.get("FunctionUrl")
+    if not resolved:
+        raise LookupError(
+            f"Stack {stack_name} has no CloudFrontUrl or FunctionUrl output. "
+            f"Set {base_url_environment_variable(environment)} or deploy "
+            f"{environment}."
+        )
+    return resolved.rstrip("/")
 
 
 def thin_turn_stack_output(

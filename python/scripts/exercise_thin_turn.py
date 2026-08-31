@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from uuid import uuid4
@@ -17,6 +18,52 @@ from chatticus.cloud_environments import (
     thin_turn_stack_output,
 )
 from chatticus.models import ActorKind
+from typing import Any
+
+
+class SameOriginApiClient:
+    """httpx wrapper that keeps /api on same-origin site URLs."""
+
+    def __init__(self, api_base: str, **kwargs: Any) -> None:
+        root = api_base.rstrip("/")
+        if root.endswith("/api"):
+            self._client = httpx.Client(base_url=f"{root[:-4]}/", **kwargs)
+            self._prefix = "/api"
+        else:
+            self._client = httpx.Client(base_url=f"{root}/", **kwargs)
+            self._prefix = ""
+
+    def get(self, path: str, **kwargs: Any) -> httpx.Response:
+        return self._client.get(f"{self._prefix}{path}", **kwargs)
+
+    def post(self, path: str, **kwargs: Any) -> httpx.Response:
+        return self._client.post(f"{self._prefix}{path}", **kwargs)
+
+    def stream(self, method: str, path: str, **kwargs: Any) -> Any:
+        return self._client.stream(method, f"{self._prefix}{path}", **kwargs)
+
+    def __enter__(self) -> "SameOriginApiClient":
+        self._client.__enter__()
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self._client.__exit__(*args)
+
+
+def _invoke_key_for_environment(environment: str) -> str:
+    """Read the front-door invoke key from the named stack secret."""
+    import boto3
+
+    arn = thin_turn_stack_output(environment, "InvokeKeySecretArn")
+    region = (
+        os.environ.get("AWS_REGION")
+        or os.environ.get("AWS_DEFAULT_REGION")
+        or "us-east-1"
+    )
+    secret = boto3.client("secretsmanager", region_name=region).get_secret_value(
+        SecretId=arn
+    )
+    return secret["SecretString"]
 
 
 def _frames(buffer: str) -> tuple[list[dict], str]:
@@ -29,10 +76,19 @@ def _frames(buffer: str) -> tuple[list[dict], str]:
     return events, buffer
 
 
-def _sqs_receive_one(queue_url: str, *, wait_seconds: int) -> dict | None:
+def _sqs_client():
     import boto3
 
-    response = boto3.client("sqs").receive_message(
+    region = (
+        os.environ.get("AWS_REGION")
+        or os.environ.get("AWS_DEFAULT_REGION")
+        or "us-east-1"
+    )
+    return boto3.client("sqs", region_name=region)
+
+
+def _sqs_receive_one(queue_url: str, *, wait_seconds: int) -> dict | None:
+    response = _sqs_client().receive_message(
         QueueUrl=queue_url,
         MaxNumberOfMessages=1,
         WaitTimeSeconds=wait_seconds,
@@ -45,9 +101,7 @@ def _sqs_receive_one(queue_url: str, *, wait_seconds: int) -> dict | None:
 
 
 def _sqs_delete(queue_url: str, receipt_handle: str) -> None:
-    import boto3
-
-    boto3.client("sqs").delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
+    _sqs_client().delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
 
 
 def _computer_continuation_matches(body: dict, *, job_id: str, turn_id: str) -> bool:
@@ -127,9 +181,12 @@ def main() -> int:
     if args.environment:
         print(f"environment={args.environment} base_url={base_url}")
     headers = {"X-Tenant-Id": args.tenant_id}
-    if args.invoke_key:
-        headers["X-Chatticus-Invoke-Key"] = args.invoke_key
-    with httpx.Client(base_url=base_url, headers=headers, timeout=120.0) as client:
+    invoke_key = args.invoke_key
+    if not invoke_key and environment is not None:
+        invoke_key = _invoke_key_for_environment(environment)
+    if invoke_key:
+        headers["X-Chatticus-Invoke-Key"] = invoke_key
+    with SameOriginApiClient(base_url, headers=headers, timeout=900.0) as client:
         health = client.get("/health")
         if health.status_code != 200:
             print(f"health {health.status_code} {health.text[:200]}", file=sys.stderr)
@@ -897,9 +954,11 @@ def main() -> int:
             print(f"host_start_generation={generation}")
             try:
                 computer_queue = thin_turn_stack_output(
-                    "development", "ComputerTurnQueueUrl"
+                    environment or "development", "ComputerTurnQueueUrl"
                 )
-                cpu_queue = thin_turn_stack_output("development", "TurnQueueUrl")
+                cpu_queue = thin_turn_stack_output(
+                    environment or "development", "TurnQueueUrl"
+                )
             except Exception as error:
                 print(
                     "computer_queue lookup needs AWS credentials "
@@ -917,10 +976,34 @@ def main() -> int:
                 turn_id=browser_turn_id,
                 wait_seconds=20,
             )
-            still_waiting = client.get(f"/turns/{browser_turn_id}")
-            waiting_for = still_waiting.json().get("waiting_for")
+            waiting_for = "browser"
+            status = None
+            has_tool_result = False
+            host_deadline = time.monotonic() + 180
+            while time.monotonic() < host_deadline:
+                still_waiting = client.get(f"/turns/{browser_turn_id}")
+                payload = still_waiting.json()
+                waiting_for = payload.get("waiting_for")
+                status = payload.get("status")
+                events_response = client.get(f"/turns/{browser_turn_id}/events")
+                has_tool_result = any(
+                    event.get("kind") == "tool.result"
+                    for event in (events_response.json().get("events") or [])
+                )
+                if (
+                    has_tool_result
+                    or status == "completed"
+                    or waiting_for in (None, "")
+                ):
+                    break
+                time.sleep(5)
+            host_completed = (
+                has_tool_result or status == "completed" or waiting_for in (None, "")
+            )
             if computer_body is None:
-                if waiting_for != "browser":
+                if host_completed:
+                    print("computer_queue_job=completed")
+                elif waiting_for != "browser":
                     print(
                         "computer_queue delivered no matching message "
                         f"waiting_for={waiting_for!r}",
@@ -931,7 +1014,8 @@ def main() -> int:
                         json={"user_id": args.user_id, "stopped": True},
                     )
                     return 1
-                print("computer_queue_job=in_flight_nack")
+                else:
+                    print("computer_queue_job=in_flight_nack")
             else:
                 print("computer_queue_job=computer")
             cpu_message = _sqs_receive_one(cpu_queue, wait_seconds=2)
@@ -951,14 +1035,17 @@ def main() -> int:
                 json={"user_id": args.user_id, "stopped": True},
             )
             still = client.get(f"/turns/{browser_turn_id}")
-            if still.json().get("waiting_for") != "browser":
+            if host_completed:
+                print("computer_queue_turn_completed=1")
+            elif still.json().get("waiting_for") != "browser":
                 print(
                     f"after_computer_queue waiting_for="
                     f"{still.json().get('waiting_for')!r}",
                     file=sys.stderr,
                 )
                 return 1
-            print("computer_queue_turn_still_waiting=browser")
+            else:
+                print("computer_queue_turn_still_waiting=browser")
     return 0
 
 

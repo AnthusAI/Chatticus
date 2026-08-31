@@ -18,6 +18,7 @@ class HostStartClaim:
     tenant_id: str
     computer_id: str
     host_start_count: int
+    user_id: str = ""
     waiting_turn_ids: list[str] = field(default_factory=list)
     live_writer_host_id: str | None = None
     expires_at: datetime | None = None

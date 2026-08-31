@@ -18,7 +18,7 @@ aws = [
 ]
 dev = [
     "behave",
-    "black",
+    "black==26.3.1",
     "boto3",
     "botocore[crt]",
     "fastapi",
@@ -27,7 +27,7 @@ dev = [
     "moto",
     "pytest",
     "python-dotenv",
-    "ruff",
+    "ruff==0.15.5",
     "uvicorn",
 ]
 
@@ -44,6 +44,7 @@ target-version = ["py312"]
 [tool.pytest.ini_options]
 markers = [
     "live_openai: calls the live OpenAI API when OPENAI_API_KEY is set",
+    "live_aws: hits a named ThinTurn stack; skipped unless CHATTICUS_LIVE_AWS=1",
 ]
 
 [tool.ruff]

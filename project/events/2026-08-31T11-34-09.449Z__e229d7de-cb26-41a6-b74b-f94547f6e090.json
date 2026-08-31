@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "e229d7de-cb26-41a6-b74b-f94547f6e090",
+  "issue_id": "chatticus-6abbb814-51c1-4dd2-bcd9-10143e03146e",
+  "event_type": "field_updated",
+  "occurred_at": "2026-08-31T11:34:09.449Z",
+  "actor_id": "ubuntu",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "Recommended over AWS CodePipeline: the repo already uses GitHub Actions for CI and manual workflow_dispatch for acceptance; no CodePipeline stacks exist and adding one increases idle AWS cost without matching current practice.\n\nWorkflow (sketch):\n- OIDC role in CDK for GitHub to assume (no long-lived AWS keys in secrets).\n- develop merge -> build web/ -> cdk deploy ChatticusWeb + optional ChatticusThinTurn.\n- main merge -> staging stacks; production remains workflow_dispatch gated (same pattern as thin-turn production).\n\nStart with workflow_dispatch plus documented manual cdk deploy if OIDC setup is a separate chore. Do not block DNS on full automation.",
+        "to": "GitHub Actions only — no AWS CodePipeline (no idle pipeline cost, matches existing CI).\n\nOIDC role in CDK for GitHub to assume. Workflow:\n- develop merge -> npm run build in web/ -> cdk deploy ChatticusWeb (and thin-turn stack if API wiring changed).\n- main merge -> staging stacks.\n- production: workflow_dispatch gated (same as thin-turn production).\n\nPhase 1 can be workflow_dispatch + manual cdk deploy; OIDC can be a sub-task if needed."
+      }
+    }
+  }
+}

@@ -36,6 +36,12 @@ Feature: Computer-capable continuation worker
     When a computer-capable pull worker without a host executor pulls that continuation job
     Then the host start driver was still invoked only once
 
+  Scenario: Concurrent pull workers start at most one host for one generation
+    Given a fenced computer handoff with a queued continuation job
+    And a recording host start driver
+    When two computer-capable pull workers without a host executor pull that continuation concurrently
+    Then the host start driver was invoked once
+
   Scenario: A new host start lease invokes the driver again
     Given a fenced computer handoff with a queued continuation job
     And a recording host start driver

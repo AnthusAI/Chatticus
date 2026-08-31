@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "19337173-1e3b-49c4-80d9-eafcca5682e0",
+  "issue_id": "chatticus-cfbf5b37-5eb5-4442-8954-0b8fe58c5566",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T11:31:16.385Z",
+  "actor_id": "ubuntu",
+  "payload": {
+    "title": "Create Route 53 hosted zone and delegate chattic.us name servers",
+    "description": "CDK stack (shared, e.g. ChatticusDns): Route 53 public hosted zone for chattic.us.\n\nAt the domain registrar, replace the current name servers with the four NS records Route 53 assigns. This is a one-time manual step outside AWS; document the registrar steps in infra/README.md.\n\nInclude staging/dev subdomains in the zone (e.g. staging.chattic.us, dev.chattic.us) or document that non-production web uses distribution URLs until custom DNS is needed.",
+    "issue_type": "task",
+    "status": "open",
+    "priority": 1,
+    "assignee": null,
+    "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+    "labels": []
+  }
+}

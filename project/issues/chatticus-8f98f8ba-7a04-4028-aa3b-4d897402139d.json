@@ -67,10 +67,70 @@
       "author": "home",
       "text": "6f702c live: ComputerTurnJobs has a nack worker without a host. Remaining epic DoD: Chromium-backed executor on Fargate, not a standing desiredCount, not a fake opened.",
       "created_at": "2026-08-31T08:50:59.683527Z"
+    },
+    {
+      "id": "863096f9-d271-422c-a4d5-feb0cf3558b5",
+      "author": "home",
+      "text": "dfec90 landed this tick: development ThinTurn ComputerWorker now calls EcsHostStarter via env/IAM (ecs:RunTask, desiredCount still 0). PR cursor/ecs-host-starter-thinturn-4a21. Remaining DoD: live Chromium executor completes tool.result on summoned Fargate host; readiness gate after RunTask.",
+      "created_at": "2026-08-31T11:40:04.676888Z"
+    },
+    {
+      "id": "f4039946-877a-4804-8439-7b49e4b2c24b",
+      "author": "home",
+      "text": "Cycle tick: development ComputerWorker env is CHATTICUS_HOST_STARTER=ecs (ThinTurn-only update 2026-08-31T11:38:09Z). ChatticusComputers desiredCount still 0. Named exercise still in_flight_nack. README What is live today updated on this branch so it no longer claims a no-op HostStarter. Remaining: Chromium executor + readiness on the summoned task. Do not merge to main as parking; PR 31 is the develop landing.\n",
+      "created_at": "2026-08-31T11:43:59.569467Z"
+    },
+    {
+      "id": "26837276-9cf5-4562-bd76-6dd9a6008553",
+      "author": "home",
+      "text": "45a162 closed: live ecs:RunTask works after TagResource. Extra concurrent hosts stopped; queue purged; desiredCount 0. Do not merge to main. Next: Chromium executor + readiness, and single-flight host start across Lambda instances.\n",
+      "created_at": "2026-08-31T11:56:15.214605Z"
+    },
+    {
+      "id": "abcfa0b9-97c3-4150-9dc4-339bfbf94fdf",
+      "author": "home",
+      "text": "b6627b live: concurrent nacks start one Fargate host per generation. Still nack until Chromium executor + readiness. Do not merge develop to main. PR 31 carries this pin.\n",
+      "created_at": "2026-08-31T12:04:09.927600Z"
+    },
+    {
+      "id": "a5fd7f2a-fc0d-4998-96ef-d482499431ce",
+      "author": "home",
+      "text": "0eef8f closed: kernel ChromiumActionExecutor + ComputerHostBootDriver on cursor/chromium-host-executor-4a21 (PR #33). Lambda still nacks; summoned Fargate still sleep infinity. Next: host SQS pull worker + readiness publish from booted task.",
+      "created_at": "2026-08-31T12:13:01.129171Z"
+    },
+    {
+      "id": "1450a500-9e3d-4877-a1e0-639512f3a362",
+      "author": "home",
+      "text": "4bca15 in progress: host pull-worker kernel on PR 33. Live ThinTurn still nacks; sleep-infinity RunTask until the computer image includes computer_host_worker. Do not merge to main.\n",
+      "created_at": "2026-08-31T12:22:10.399910Z"
+    },
+    {
+      "id": "e9cbf2d7-cd02-44f1-9325-6e9a498c2732",
+      "author": "home",
+      "text": "ThinTurn-only 2026-08-31T12:27:42Z (tsx CDK app). Live exercise exit 0, claim 200/409, one RunTask then stopped, desiredCount 0. HOST_COMMAND still unset. Do not merge to main. PR 33.\n",
+      "created_at": "2026-08-31T12:29:40.469561Z"
+    },
+    {
+      "id": "2bbe4ca6-eca8-4f6e-8065-f1dfdd570156",
+      "author": "home",
+      "text": "Frontier tick 2026-08-31: merged origin/develop into PR #34 (7709170). Conflicts resolved in README (account ids stripped), exercise_thin_turn (SameOriginApiClient + auto invoke-key), cloud_environments (develop LookupError path). Guardian test_committed_tree_does_not_embed_account_origins green. PR #34 now MERGEABLE with develop. ThinTurn-only deploy blocked: infra npm deps missing (aws-cdk-lib); npm ci then retry. Remaining DoD: completed computer turn after real ThinTurn CDK deploy, not CLI-patched env.",
+      "created_at": "2026-08-31T16:02:03.939493Z"
+    },
+    {
+      "id": "6a01f75c-cae8-48bc-ab23-1ca9d88cb25a",
+      "author": "home",
+      "text": "ThinTurn-only CDK deploy succeeded from PR #34 branch after develop merge (7709170). ComputerWorker env verified: CHATTICUS_HOST_STARTER=ecs, CHATTICUS_ECS_HOST_COMMAND=python -m chatticus.computer_host_worker, RunTask IAM present via Computers-stack lookup context. desiredCount still 0. Remaining DoD: completed computer turn (tool.result) after this deploy pin, not CLI patch.",
+      "created_at": "2026-08-31T16:03:53.247969Z"
+    },
+    {
+      "id": "59db8686-9e17-4e4d-b7f9-b7a7e4c96089",
+      "author": "home",
+      "text": "4bca15 closed: live computer continuation completed after ThinTurn-only CDK (16:02:57Z). Remaining 8f98f8 DoD is whatever is still unmeasured (not a Computers scale-up, not 35d86b). README live pin updated on PR #34.",
+      "created_at": "2026-08-31T16:14:07.919689Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T08:50:59.683527Z",
+  "updated_at": "2026-08-31T16:14:07.919689Z",
   "closed_at": null,
   "custom": {}
 }

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "43d890ec-e5c0-45ce-982d-b421f3bc0f8f",
+  "issue_id": "chatticus-c0c273d7-accf-4ceb-8fcf-4bf119125f34",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T11:31:17.613Z",
+  "actor_id": "ubuntu",
+  "payload": {
+    "title": "Add CDK web hosting stacks for Next.js behind CloudFront",
+    "description": "New per-environment stacks (mirror thin-turn naming): ChatticusWeb, ChatticusWebStaging, ChatticusWebProduction — or one stack with environment context.\n\nPattern: S3 bucket (private) + CloudFront origin access control + distribution. Build output from web/ (static export or OpenNext/Lambda@Edge if SSR is required — decide when scaffolding the app).\n\nPublish SSM parameters: /chatticus/{environment}/web/cloudfront-url and site-url.\n\nForbidden: Amplify, ALB, cdk deploy --all.",
+    "issue_type": "task",
+    "status": "open",
+    "priority": 1,
+    "assignee": null,
+    "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+    "labels": []
+  }
+}

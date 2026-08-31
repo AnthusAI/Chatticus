@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "fee55c4b-8fa2-4d7e-8827-57657f9b8270",
+  "issue_id": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "event_type": "field_updated",
+  "occurred_at": "2026-08-31T11:34:06.856Z",
+  "actor_id": "ubuntu",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "Definition of Done:\n- chattic.us resolves to the production web distribution over HTTPS with a valid ACM certificate.\n- Staging and development have named web origins (subdomains or distribution URLs documented in SSM).\n- The browser can load the UI and reach the thin-turn API for the matching environment without manual URL pasting.\n- Deploy is repeatable from CI (GitHub Actions) or a documented one-stack CDK path; no Amplify.\n- README \"What is live today\" reflects the web surface.\n\nArchitecture (from docs/STACK.md): TypeScript Next.js static or SSR output behind CloudFront. No load balancer. DNS and TLS in CDK.\n\nOpen placement (docs/MESSAGING.md): same origin vs api.chattic.us vs CloudFront behavior — decide in first task before custom-domain wiring.",
+        "to": "Definition of Done:\n- chattic.us resolves to the production web distribution over HTTPS with a valid ACM certificate.\n- Staging and development have named web origins (subdomains documented in SSM).\n- The browser loads the UI and calls the thin-turn API at /api/* on the same origin (no separate api subdomain).\n- Deploy is repeatable from GitHub Actions (OIDC) or documented manual cdk deploy; no Amplify, no CodePipeline.\n- README What is live today reflects the web surface.\n\nArchitecture: Next.js on S3 behind CloudFront default behavior; /api/* behavior proxies to the thin-turn Lambda function URL with prefix strip. One distribution per environment owns the public hostname."
+      }
+    }
+  }
+}
