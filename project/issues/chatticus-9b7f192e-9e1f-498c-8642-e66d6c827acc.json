@@ -192,10 +192,16 @@
       "author": "home",
       "text": "Acceptance tick 2026-08-31: exercise --environment development exit 0. claim_a=200 claim_b=409 turns_list=1 channel_turn=1 channel_turn_done=1. base_url=https://d3gpuuldffe35o.cloudfront.net. Live ThinTurn deploy per README develop @ 95964f7 (develop HEAD 45ea203 not redeployed). No staging/production deploy.",
       "created_at": "2026-08-31T06:45:56.949872Z"
+    },
+    {
+      "id": "e1e50d76-41be-4a20-90b1-25f2c91ae3b2",
+      "author": "home",
+      "text": "Acceptance exercise 2026-08-31 (develop @ 21bc6e7):\n\ndevelopment exercise_thin_turn.py exit 0\nhealth_environment=1\nclaim_a=200 claim_b=409\nturns_list=1\nREADME live SHA: 21bc6e7",
+      "created_at": "2026-08-31T07:04:12.734965Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T06:45:56.949872Z",
+  "updated_at": "2026-08-31T07:04:12.734965Z",
   "closed_at": null,
   "custom": {}
 }
