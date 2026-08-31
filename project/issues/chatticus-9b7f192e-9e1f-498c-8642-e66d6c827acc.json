@@ -108,10 +108,16 @@
       "author": "home",
       "text": "Frontier: durable POST /channels Idempotency-Key is live on development ThinTurn (f2f668f). exercise exit 0 with claim_a=200 claim_b=409 channel_idempotent=1 post_idempotent=1 bot_name_dup=1. 2cfcb8 closed. No staging/production. main stays v0.5.0. 387e4f Safari still unmeasured.",
       "created_at": "2026-08-31T04:55:37.504859Z"
+    },
+    {
+      "id": "f120ecc9-e83f-447e-aac3-4f3c7c543261",
+      "author": "home",
+      "text": "Frontier: durable POST /bots Idempotency-Key is live on development ThinTurn (dc8fe0f). exercise exit 0 with claim_a=200 claim_b=409 bot_idempotent=1 bot_name_dup=1 channel_idempotent=1 post_idempotent=1. bda7ff closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T05:01:29.178396Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T04:55:37.504859Z",
+  "updated_at": "2026-08-31T05:01:29.178396Z",
   "closed_at": null,
   "custom": {}
 }

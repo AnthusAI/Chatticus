@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `f2f668f` (no `--all`).
+from `develop` @ `dc8fe0f` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -88,7 +88,9 @@ the same `Idempotency-Key` produce one row), a duplicate bot create
 (`bot_name_dup=1`: a second `POST /bots` with the same name returns
 **400**), a live idempotent channel open (`channel_idempotent=1`: two
 `POST /channels` with the same `Idempotency-Key` return one channel), plus a live bot-memory
-roundtrip (`POST /bots/{id}/memory` then `GET /bots/{id}`), plus SSE `turn.started` /
+roundtrip (`POST /bots/{id}/memory` then `GET /bots/{id}`), a live
+idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
+`Idempotency-Key` return one bot_id), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
 `Last-Event-ID` and requires ordered replay through `turn.completed`.
@@ -139,8 +141,8 @@ What each deployed thin-turn slice does today:
   does not inherit it.
 - DynamoDB is the source of truth for the transcript, in-flight chunks
   (TTL), and the thin roster. SSE **polls the store**. Retrying
-  `POST /channels` or `POST /channels/{id}/messages` with the same
-  `Idempotency-Key` returns the original channel, message, and turn after
+  `POST /channels` or `POST /channels/{id}/messages` or `POST /bots` with the same
+  `Idempotency-Key` returns the original channel, message, turn, or bot after
   Front Door recycle.
 - SQS carries one turn job. A computerless worker Lambda runs
   **gpt-5.6-luna** (OpenAI). A text-only reply still completes. If the
