@@ -3,7 +3,7 @@
   "title": "Add CDK web hosting stacks for Next.js behind CloudFront",
   "description": "Per-environment stacks (ChatticusWeb, ChatticusWebStaging, ChatticusWebProduction): S3 (private) + CloudFront with two behaviors.\n\nDefault: S3 origin for Next.js build output (static export unless SSR is required later).\n/api/*: Lambda function URL origin imported from the matching thin-turn stack (caching disabled, SSE timeouts preserved). CloudFront Function strips /api prefix on viewer request.\n\nPublish SSM: /chatticus/{environment}/web/site-url and cloudfront-url.\n\nRearchitect thin-turn stack: remove or demote the standalone viewer-facing CloudFront; export function URL and invoke-key wiring for the web stack to consume.\n\nForbidden: Amplify, ALB, cdk deploy --all.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -14,16 +14,18 @@
     {
       "id": "9873c4b5-dc9a-419f-a254-c69f0535e62e",
       "author": "ubuntu",
-      "text": "Implementation landed in PR #32 (`infra/lib/web-stack.ts`, `dns-stack.ts`, thin-turn CloudFront removal). Deploy blocked in cloud \u2014 needs local `aws login` then `deploy-chatticus-web-development.sh`.\n",
-      "created_at": "2026-08-31T12:19:08.703088Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "text": "Implementation landed in PR #32 (`infra/lib/web-stack.ts`, `dns-stack.ts`, thin-turn CloudFront removal). Deploy blocked in cloud — needs local `aws login` then `deploy-chatticus-web-development.sh`.\n",
+      "created_at": "2026-08-31T12:19:08.703088Z"
+    },
+    {
+      "id": "ac29085b-d226-4501-bfa9-1ad52948bb4c",
+      "author": "home",
+      "text": "ChatticusWeb, ChatticusWebStaging, ChatticusWebProduction deployed. CloudFront /api* routes nested API paths to thin-turn Lambda. SSM site-url and thin-turn/cloudfront-url published per environment. develop @ 44245ca.",
+      "created_at": "2026-08-31T15:22:38.452700Z"
     }
   ],
   "created_at": "2026-08-31T11:31:17.613238Z",
-  "updated_at": "2026-08-31T12:19:08.703088Z",
-  "closed_at": null,
-  "custom": {},
-  "agent": null
+  "updated_at": "2026-08-31T15:22:38.463226Z",
+  "closed_at": "2026-08-31T15:22:38.463226Z",
+  "custom": {}
 }

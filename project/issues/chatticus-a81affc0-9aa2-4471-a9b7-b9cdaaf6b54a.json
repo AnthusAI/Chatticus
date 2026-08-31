@@ -3,7 +3,7 @@
   "title": "Attach custom domains to unified web CloudFront distributions",
   "description": "Route 53 alias records: chattic.us (prod), staging.chattic.us, dev.chattic.us -> the unified web CloudFront distribution (same origin serves UI and /api/*).\n\nSingle ACM cert per hostname (or SAN cert). No api.chattic.us subdomain.\n\nVerify: HTTPS, Next.js loads, POST /api/channels/... works, GET /api/turns/{id}/stream SSE reconnect with Last-Event-ID through the /api path.\n\nUpdate cloud_environments.py fallbacks and acceptance workflow secrets to site-url not separate API URL.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -15,15 +15,17 @@
       "id": "3d4cdb0f-d09e-4fe4-8f56-38f4a14db738",
       "author": "ubuntu",
       "text": "Route 53 alias records are in the web stack CDK. They apply automatically once ChatticusDns is delegated and web stacks deploy. No separate task work beyond deploy + verify SSE through `https://dev.chattic.us/api/turns/{id}/stream`.\n",
-      "created_at": "2026-08-31T12:19:09.294044Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "created_at": "2026-08-31T12:19:09.294044Z"
+    },
+    {
+      "id": "3e4d8883-6229-44ae-9e2b-eb1e64d49951",
+      "author": "home",
+      "text": "Alias records live: dev.chattic.us, staging.chattic.us, chattic.us, www.chattic.us. exercise_thin_turn.py exit 0 for development, staging, production on 2026-08-31 against same-origin /api bases.",
+      "created_at": "2026-08-31T15:22:38.474513Z"
     }
   ],
   "created_at": "2026-08-31T11:31:18.226182Z",
-  "updated_at": "2026-08-31T12:19:09.294044Z",
-  "closed_at": null,
-  "custom": {},
-  "agent": null
+  "updated_at": "2026-08-31T15:22:38.485785Z",
+  "closed_at": "2026-08-31T15:22:38.485785Z",
+  "custom": {}
 }

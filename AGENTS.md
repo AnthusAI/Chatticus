@@ -191,6 +191,17 @@ separate deploy of a staging-proven release. Shared stacks
 `ChatticusSnapshots` and `ChatticusComputers` are not per-environment.
 Never `cdk deploy --all`. Never destroy those two stacks.
 
+## Local desk configuration (`AGENTS.local.md`)
+
+When present at the repo root, agents **must** consult `AGENTS.local.md`
+for machine-specific notes: per-environment API base URLs
+(`CHATTICUS_*_BASE_URL`), CloudFront distribution domains before DNS
+propagates, AWS account id, and similar deploy-local values. Copy
+[`AGENTS.local.md.example`](AGENTS.local.md.example) to `AGENTS.local.md`.
+That file is **gitignored and must never be committed**. If it is missing,
+resolve URLs from SSM or CloudFormation with `aws login`, or ask the
+human — do not paste account-specific URLs into committed docs.
+
 ## Pull request review
 
 No human GitHub reviewer will show up. Review is done in this session with

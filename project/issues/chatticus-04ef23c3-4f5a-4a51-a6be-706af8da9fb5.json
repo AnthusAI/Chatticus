@@ -1,9 +1,9 @@
 {
   "id": "chatticus-04ef23c3-4f5a-4a51-a6be-706af8da9fb5",
   "title": "Issue ACM certificates for CloudFront custom domains",
-  "description": "ACM certificates in us-east-1. DNS validation via Route 53 hosted zone.\n\nPer environment hostname: chattic.us + www.chattic.us (prod); staging.chattic.us; dev.chattic.us. No separate API cert \u2014 /api is same distribution.\n\nWire cert ARNs into the web stack CloudFront distribution.",
+  "description": "ACM certificates in us-east-1. DNS validation via Route 53 hosted zone.\n\nPer environment hostname: chattic.us + www.chattic.us (prod); staging.chattic.us; dev.chattic.us. No separate API cert — /api is same distribution.\n\nWire cert ARNs into the web stack CloudFront distribution.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -15,15 +15,17 @@
       "id": "fa510146-6a8e-49dc-957d-e03472c8b17c",
       "author": "ubuntu",
       "text": "ACM cert is created in `ChatticusDns` with DNS validation records in the hosted zone. Cert validates after GoDaddy NS delegation propagates.\n",
-      "created_at": "2026-08-31T12:19:09.883692Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "created_at": "2026-08-31T12:19:09.883692Z"
+    },
+    {
+      "id": "782b5288-2945-4c99-bf14-3ca2d9d7920c",
+      "author": "home",
+      "text": "ACM cert arn:aws:acm:us-east-1:335163751677:certificate/3887cf28-2f28-4898-987e-9d822d0db1ee ISSUED for chattic.us, www.chattic.us, *.chattic.us after NS propagation.",
+      "created_at": "2026-08-31T15:22:38.431447Z"
     }
   ],
   "created_at": "2026-08-31T11:31:17.004846Z",
-  "updated_at": "2026-08-31T12:19:09.883692Z",
-  "closed_at": null,
-  "custom": {},
-  "agent": null
+  "updated_at": "2026-08-31T15:22:38.442027Z",
+  "closed_at": "2026-08-31T15:22:38.442027Z",
+  "custom": {}
 }

@@ -18,6 +18,36 @@ from chatticus.cloud_environments import (
     thin_turn_stack_output,
 )
 from chatticus.models import ActorKind
+from typing import Any
+
+
+class SameOriginApiClient:
+    """httpx wrapper that keeps /api on same-origin site URLs."""
+
+    def __init__(self, api_base: str, **kwargs: Any) -> None:
+        root = api_base.rstrip("/")
+        if root.endswith("/api"):
+            self._client = httpx.Client(base_url=f"{root[:-4]}/", **kwargs)
+            self._prefix = "/api"
+        else:
+            self._client = httpx.Client(base_url=f"{root}/", **kwargs)
+            self._prefix = ""
+
+    def get(self, path: str, **kwargs: Any) -> httpx.Response:
+        return self._client.get(f"{self._prefix}{path}", **kwargs)
+
+    def post(self, path: str, **kwargs: Any) -> httpx.Response:
+        return self._client.post(f"{self._prefix}{path}", **kwargs)
+
+    def stream(self, method: str, path: str, **kwargs: Any) -> Any:
+        return self._client.stream(method, f"{self._prefix}{path}", **kwargs)
+
+    def __enter__(self) -> "SameOriginApiClient":
+        self._client.__enter__()
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self._client.__exit__(*args)
 
 
 def _invoke_key_for_environment(environment: str) -> str:
@@ -156,7 +186,7 @@ def main() -> int:
         invoke_key = _invoke_key_for_environment(environment)
     if invoke_key:
         headers["X-Chatticus-Invoke-Key"] = invoke_key
-    with httpx.Client(base_url=base_url, headers=headers, timeout=900.0) as client:
+    with SameOriginApiClient(base_url, headers=headers, timeout=900.0) as client:
         health = client.get("/health")
         if health.status_code != 200:
             print(f"health {health.status_code} {health.text[:200]}", file=sys.stderr)

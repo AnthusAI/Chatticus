@@ -76,8 +76,60 @@ npx cdk deploy ChatticusWebProduction
 ```
 
 GitHub Actions: workflow **Deploy web** (`deploy-web.yml`) with
-`workflow_dispatch`. Requires repository secret `AWS_DEPLOY_ROLE_ARN`
-(OIDC). No CodePipeline.
+`workflow_dispatch`. No CodePipeline. **Not wired yet** until AWS and
+GitHub are configured (below).
+
+### GitHub Actions OIDC (one-time)
+
+The account already has an IAM OIDC provider for
+`token.actions.githubusercontent.com`. You still need a **deploy IAM role**
+and GitHub configuration. Do **not** store long-lived `AWS_ACCESS_KEY_ID`
+secrets for this workflow; OIDC assumes a role per run.
+
+1. **Create an IAM role** (console or CDK) that GitHub Actions can assume.
+   Trust policy (adjust repo/branch as needed):
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
+         },
+         "Action": "sts:AssumeRoleWithWebIdentity",
+         "Condition": {
+           "StringEquals": {
+             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+           },
+           "StringLike": {
+             "token.actions.githubusercontent.com:sub": "repo:AnthusAI/Chattic.us:*"
+           }
+         }
+       }
+     ]
+   }
+   ```
+
+   Attach a policy that allows CDK deploy for the Chatticus stacks (often
+   `AdministratorAccess` for a personal account, or a scoped policy later).
+
+2. **GitHub repository** → Settings → Environments. Create three environments
+   matching the workflow: `development`, `staging`, `production`.
+
+3. In each environment, add secret **`AWS_DEPLOY_ROLE_ARN`** with that role’s
+   ARN (you can use one role for all three, or separate roles with tighter
+   trust conditions). The workflow reads
+   `secrets.AWS_DEPLOY_ROLE_ARN` from the selected environment.
+
+4. Optional but recommended: add **deployment protection rules** on
+   `staging` and `production` (required reviewers) so production is not
+   deployable from a single mis-click.
+
+5. Run **Actions → Deploy web → Run workflow**, pick the environment.
+
+CI (`ci.yml`) does **not** deploy to AWS; only this manual workflow does.
 
 Then:
 

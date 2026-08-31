@@ -1,7 +1,7 @@
 {
   "measured_at": "2026-08-30T17:08:54.666Z",
-  "direct_url": "https://6r537llsebh3kvok37t4vsvldu0mwpdf.lambda-url.us-east-1.on.aws/stream",
-  "cloudfront_url": "https://d1jcaavght8v16.cloudfront.net/stream",
+  "direct_url": "<redacted FunctionUrl output>",
+  "cloudfront_url": "<redacted CloudFrontUrl output>",
   "scenarios": [
     {
       "name": "direct_foreground_short",

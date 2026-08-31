@@ -1,6 +1,6 @@
 {
   "probe": "direct_lambda_boundary",
-  "url": "https://6r537llsebh3kvok37t4vsvldu0mwpdf.lambda-url.us-east-1.on.aws/stream?duration=1200",
+  "url": "<redacted FunctionUrl output>?duration=1200",
   "frame_count": 3596,
   "duration_s": 900.406,
   "last_seq": 3595,

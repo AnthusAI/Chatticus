@@ -64,43 +64,49 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
+**2026-08-31:** `ChatticusDns`, all three `ChatticusWeb*` stacks, and matching
+`ChatticusThinTurn*` stacks are deployed in `us-east-1`. Same-origin HTTPS
+is live at `dev.chattic.us`, `staging.chattic.us`, `chattic.us`, and
+`www.chattic.us`. SSM `/chatticus/{environment}/thin-turn/cloudfront-url`
+is `https://{hostname}/api` for each environment. A development run of
+`exercise_thin_turn.py` against `https://dev.chattic.us/api` exited 0 on
+2026-08-31 after the web stack fix (CloudFront `/api*` routing and API error
+passthrough). GitHub **Deploy web** is manual (`workflow_dispatch`) and
+needs OIDC setup (see `infra/README.md`); it is not wired yet.
+
 GitHub **`main`** is `064a4f0` (PR #28, 2026-08-31): git promotion of
-the nack/reread pin (`50ad1d4`), not a stack redeploy. Three named
-thin-turn environments are live in AWS account `335163751677`
-(`us-east-1`). Production is never implied by a git branch. Staging and
-production were last recorded as deployed from `760915d` (v0.5.0).
+the nack/reread pin (`50ad1d4`), not a stack redeploy. Production is never
+implied by a git branch. Staging and production were last recorded as
+deployed from `760915d` (v0.5.0).
 
 Development **ChatticusThinTurn** last **ThinTurn-only** pin with ECS
-host-start env was **2026-08-31T14:16:49Z**. **ChatticusWeb** then
-restacked ThinTurn at **2026-08-31T14:18:50Z** (Web
-`LastUpdatedTime` **2026-08-31T14:19:48Z**) without Computers lookup
-context, which deleted `ImportedComputerHostTaskRolePolicy`, dropped
-`ecs:RunTask` / `ecs:TagResource` / `iam:PassRole` for ComputerWorker,
-and removed `CHATTICUS_HOST_STARTER` from the live Lambda. After that
-wipe, ComputerWorker env has no host-start keys. **ChatticusComputers**
-was not redeployed (`desiredCount` remains 0). ECR `:dev` was pushed
-`sha256:fdebcf6843547e191e4083d7f3e02f9fbdc7a426f256b54030cbb7a361196914`
-without a Computers stack deploy. **ChatticusWeb** distribution
-`d3gds8al0gg3jl.cloudfront.net`; `dev.chattic.us` does not resolve yet.
-The previous development thin-turn CloudFront origin
-(`d3gpuuldffe35o.cloudfront.net`) is gone. GitHub Actions must not hit
-live AWS. This branch makes development ThinTurn synth look up the live
+host-start env was **2026-08-31T14:16:49Z**. **ChatticusWeb** can restack
+ThinTurn without Computers lookup context, which deletes
+`ImportedComputerHostTaskRolePolicy`, drops `ecs:RunTask` /
+`ecs:TagResource` / `iam:PassRole` for ComputerWorker, and removes
+`CHATTICUS_HOST_STARTER` from the live Lambda. **ChatticusComputers**
+was not redeployed (`desiredCount` remains 0). ECR `:dev` was pushed with
+a Debian Chromium image (no Computers stack deploy). GitHub Actions must
+not hit live AWS. PR #34 makes development ThinTurn synth look up the live
 ChatticusComputers stack so a Web restack cannot drop RunTask.
 
-A Function-URL run of `exercise_thin_turn.py --environment development`
-on 2026-08-31 after the **14:34:58Z** ThinTurn-only pin (ECS env + RunTask
-IAM restored; Web not redeployed) exited 0 with `health_environment=1`,
-`missing_claim=404`, `claim_a=200` then `claim_b=409`,
-`host_start_generation=1`, and `computer_queue_job=in_flight_nack`.
-ComputerWorker `job_nacked` after `ecs.RunTask`. Two Fargate tasks ran
-the host-worker override on ECR `:dev`
-`sha256:fdebcf6843547e191e4083d7f3e02f9fbdc7a426f256b54030cbb7a361196914`
-and exited 1: Ubuntu `chromium-browser` is a snap stub (`requires the
-chromium snap`). Remaining 8f98f8: a Debian Chromium image push to `:dev`
-(no Computers stack deploy) so the summoned host can complete the
-browser tool. The worker does not fake `tool.result`. A demo CLI
-(Kanbus epic 35d86b) is starting; it talks to this HTTP surface.
+A run of `exercise_thin_turn.py --environment development` on 2026-08-31
+after a ThinTurn-only pin (ECS env + RunTask IAM restored; Web not
+redeployed) exited 0 with `health_environment=1`, `missing_claim=404`,
+`claim_a=200` then `claim_b=409`, `host_start_generation=1`, and
+`computer_queue_job=in_flight_nack`. ComputerWorker `job_nacked` after
+`ecs.RunTask`. Fargate tasks ran the host-worker override on ECR `:dev`
+and exited 1 when the image still used Ubuntu `chromium-browser` (a snap
+stub). Remaining 8f98f8: a completed computer turn after a real
+ThinTurn-only CDK deploy with the Debian Chromium image, not a CLI-patched
+env. The worker does not fake `tool.result`. A demo CLI (Kanbus epic
+35d86b) is starting; it talks to this HTTP surface.
 `exercise_thin_turn.py` stays the pass/fail gate.
+
+Per-account CloudFront distribution domains, Lambda function URLs, and
+AWS account ids belong in gitignored `AGENTS.local.md`, not in this
+file. Resolve the front door from SSM, CloudFormation, or
+`CHATTICUS_*_BASE_URL`.
 
 | Environment | Web stack | Site | API base (same origin) |
 | --- | --- | --- | --- |
@@ -110,10 +116,11 @@ browser tool. The worker does not fake `tool.result`. A demo CLI
 
 Deploy DNS once (`infra/deploy-chatticus-dns.sh`), set registrar name servers
 to the stack **NameServers** output, then deploy thin-turn + web per environment.
-Until DNS propagates, use the CloudFront distribution domain from stack outputs.
+Until DNS propagates, pass `--base-url` with the CloudFront distribution domain
+from stack outputs (record it in gitignored `AGENTS.local.md`, not in the repo).
 
-If SSM or CloudFormation credentials are expired, the exercise falls
-back to those published API bases (b4c3d2). SQS queue checks still need
+If SSM or CloudFormation credentials are expired, set
+`CHATTICUS_{ENVIRONMENT}_BASE_URL` or pass `--base-url`. SQS queue checks still need
 `aws login`.
 
 `cd python && sh scripts/live_aws_thin_turn.sh development` (same gate as
@@ -469,9 +476,10 @@ That is the same as
 `python scripts/exercise_thin_turn.py --environment development` plus an
 identity check. It resolves the front door from
 `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
-`/chatticus/development/thin-turn/cloudfront-url`, the
-`CloudFrontUrl` output on stack `ChatticusThinTurn`, or the published
-CloudFront origin in `THIN_TURN_PUBLISHED_BASE_URLS`. SQS queue checks
+`/chatticus/development/thin-turn/cloudfront-url`, or the
+`CloudFrontUrl` output on stack `ChatticusWeb` (or `ChatticusThinTurn`
+before the web stack exists). When AWS lookup fails, pass `--base-url` or
+set the env var (see gitignored `AGENTS.local.md`). SQS queue checks
 need that same AWS identity. Repeat with `staging` or `production` when
 you mean those stacks. It does not scale Fargate. Do not run this from
 GitHub Actions.
@@ -501,11 +509,10 @@ npx cdk deploy ChatticusThinTurnProduction
 
 **ChatticusThinTurn** is development. Staging and production are separate
 stacks with their own DynamoDB, SQS, Lambda, and CloudFront. GitHub
-`main` is `064a4f0`; the ECS host-start pin (including `ecs:TagResource`)
-is live on development AWS and sits on PR #33 until it lands on
-`develop`. Do not merge `develop` to `main` as parking. Staging and
-production stacks were last recorded from `760915d`. Do not destroy the
-snapshot or computer stacks.
+`main` includes the 2026-08-31 development live pin; PR #34 adds
+Computers-stack lookup so Web restacks keep ECS host-start. Do not merge
+`develop` to `main` as parking. Staging and production stacks were last
+recorded from `760915d`. Do not destroy the snapshot or computer stacks.
 
 Postgres in `docker-compose.yml` is unused (it predates DynamoDB).
 

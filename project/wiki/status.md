@@ -22,15 +22,13 @@ v1 LLM is OpenAI. Live model: **gpt-5.6-luna**. Key lives in `.env` (gitignored)
 
 Production is never implied by a git branch.
 
-## Live AWS (account `335163751677`, `us-east-1`)
+## Live AWS (`us-east-1`)
 
-Development ThinTurn last successful redeploy: **`19070b1`**. Live CloudFront exercise still proves `health_environment=1`, `missing_claim=404`, `claim_a=200` then `claim_b=409`. `GET /users/{id}/computer` still omits `host_start_generation`. `origin/develop` is **`669f244`** (23c93e, 60976f, 29f269, 8dbdc1, 74b06d, b4c3d2, 5bcc79). SQS lookup and ThinTurn redeploy need `aws login`.
+Development ThinTurn last successful redeploy: **`19070b1`**. Live exercise still proves `health_environment=1`, `missing_claim=404`, `claim_a=200` then `claim_b=409`. `GET /users/{id}/computer` still omits `host_start_generation`. `origin/develop` is **`669f244`** (23c93e, 60976f, 29f269, 8dbdc1, 74b06d, b4c3d2, 5bcc79). SQS lookup and ThinTurn redeploy need `aws login`.
 
 Staging and production were last recorded from `origin/main` @ `760915d` (v0.5.0). Do not deploy them unless asked.
 
-CloudFront development: https://d3gpuuldffe35o.cloudfront.net
-
-`cd python && pip install -e ".[dev]" && python scripts/exercise_thin_turn.py --environment development --base-url https://d3gpuuldffe35o.cloudfront.net` is the pass/fail gate when SSM is blocked. Unset `AWS_PROFILE` if it is `AdministratorAccess-335163751677`. Full SQS checks still need `aws login`.
+When SSM is blocked, pass `--base-url` or set `CHATTICUS_DEVELOPMENT_BASE_URL` (see gitignored `AGENTS.local.md`). Unset `AWS_PROFILE` before CDK if it is an assumed SSO role. Full SQS checks still need `aws login`.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be destroyed. Computers service desired count stays **0**. Do not `cdk deploy --all`.
 
@@ -66,7 +64,4 @@ CloudFront development: https://d3gpuuldffe35o.cloudfront.net
 - Put secrets in git
 - Treat in-process queue fan-out behind SSE as the deployed architecture
 - Edit `project/` issue JSON; use `kbs` only
-
-## AWS
-
-Account `335163751677`, region `us-east-1`. CDK only in `infra/`. ThinTurn-only for development: `cd infra && npx cdk deploy ChatticusThinTurn --require-approval never`.
+- Paste account-specific CloudFront or Lambda URLs into committed docs
