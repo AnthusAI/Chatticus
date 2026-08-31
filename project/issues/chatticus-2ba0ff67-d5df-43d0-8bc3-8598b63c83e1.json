@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-2ba0ff67-d5df-43d0-8bc3-8598b63c83e1",
+  "title": "CDK OIDC deploy role for GitHub Actions",
+  "description": "",
+  "type": "sub-task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-6abbb814-51c1-4dd2-bcd9-10143e03146e",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T16:34:08.590844Z",
+  "updated_at": "2026-08-31T16:34:08.590844Z",
+  "closed_at": null,
+  "custom": {}
+}

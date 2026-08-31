@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "e094f8b7-2033-4762-9531-299957bf4bc2",
+  "issue_id": "chatticus-b1b7d2f8-2a0a-4c45-ae52-5a6b5702873d",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T16:34:08.603Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "",
+    "issue_type": "sub-task",
+    "labels": [],
+    "parent": "chatticus-6abbb814-51c1-4dd2-bcd9-10143e03146e",
+    "priority": 2,
+    "status": "open",
+    "title": "GitHub Actions deploy workflow for ChatticusWeb"
+  }
+}

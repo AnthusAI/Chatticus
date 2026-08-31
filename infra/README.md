@@ -75,9 +75,16 @@ npx cdk deploy ChatticusThinTurnProduction
 npx cdk deploy ChatticusWebProduction
 ```
 
-GitHub Actions: workflow **Deploy web** (`deploy-web.yml`) with
-`workflow_dispatch`. No CodePipeline. **Not wired yet** until AWS and
+GitHub Actions (phase 1): workflow **Deploy ThinTurn (development)**
+(`deploy-thinturn-development.yml`) with `workflow_dispatch`. It runs
+`deploy-chatticus-thinturn-development.sh` so ECS host-start context
+(`computerHostStart=ecs`, `computerHostCommand=host-worker`) is applied
+when ChatticusComputers exists. It does **not** deploy `ChatticusWeb`,
+staging, or production. No CodePipeline. **Not wired yet** until AWS and
 GitHub are configured (below).
+
+A follow-up workflow will add web deploy and staging/production gates
+after OIDC and the development thin-turn path are proven.
 
 ### GitHub Actions OIDC (one-time)
 
@@ -115,21 +122,17 @@ secrets for this workflow; OIDC assumes a role per run.
    Attach a policy that allows CDK deploy for the Chatticus stacks (often
    `AdministratorAccess` for a personal account, or a scoped policy later).
 
-2. **GitHub repository** → Settings → Environments. Create three environments
-   matching the workflow: `development`, `staging`, `production`.
+2. **GitHub repository** → Settings → Environments. Create a
+   **`development`** environment for the phase-1 workflow (add `staging` and
+   `production` when those workflows exist).
 
-3. In each environment, add secret **`AWS_DEPLOY_ROLE_ARN`** with that role’s
-   ARN (you can use one role for all three, or separate roles with tighter
-   trust conditions). The workflow reads
-   `secrets.AWS_DEPLOY_ROLE_ARN` from the selected environment.
+3. In `development`, add secret **`AWS_DEPLOY_ROLE_ARN`** with that role’s
+   ARN. The workflow reads `secrets.AWS_DEPLOY_ROLE_ARN` from the
+   environment.
 
-4. Optional but recommended: add **deployment protection rules** on
-   `staging` and `production` (required reviewers) so production is not
-   deployable from a single mis-click.
+4. Run **Actions → Deploy ThinTurn (development) → Run workflow**.
 
-5. Run **Actions → Deploy web → Run workflow**, pick the environment.
-
-CI (`ci.yml`) does **not** deploy to AWS; only this manual workflow does.
+CI (`ci.yml`) does **not** deploy to AWS; only manual deploy workflows do.
 
 Then:
 
