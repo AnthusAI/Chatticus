@@ -113,6 +113,26 @@ def _computer_continuation_matches(body: dict, *, job_id: str, turn_id: str) -> 
     )
 
 
+def _tool_result_bodies(events: list[dict]) -> list[str]:
+    """Return durable journal bodies for tool.result events."""
+    bodies: list[str] = []
+    for event in events:
+        if event.get("kind") != "tool.result":
+            continue
+        body = event.get("body")
+        if isinstance(body, str) and body:
+            bodies.append(body)
+    return bodies
+
+
+def _chromium_host_tool_result_body(events: list[dict]) -> str | None:
+    """Return the first tool.result body from ChromiumActionExecutor on the host."""
+    for body in _tool_result_bodies(events):
+        if body.startswith("opened:"):
+            return body
+    return None
+
+
 def _http_detail(response: httpx.Response) -> str:
     """Return a FastAPI or API-gateway error detail string when present."""
     try:
@@ -140,9 +160,10 @@ def _task_http_required(environment: str | None) -> bool:
     """Fail instead of skip when task routes are expected on the named stack."""
     if os.environ.get("CHATTICUS_TASK_HTTP_REQUIRED", "").strip() == "1":
         return True
-    return environment == "development" and os.environ.get(
-        "CHATTICUS_DEVELOPMENT_TASK_HTTP_LIVE", ""
-    ).strip() == "1"
+    return (
+        environment == "development"
+        and os.environ.get("CHATTICUS_DEVELOPMENT_TASK_HTTP_LIVE", "").strip() == "1"
+    )
 
 
 def _exercise_named_task_http(
@@ -193,8 +214,7 @@ def _exercise_named_task_http(
         return 1
     if payload.get("created_by_bot_id") != bot_id:
         print(
-            "task_create bot="
-            f"{payload.get('created_by_bot_id')!r} != {bot_id!r}",
+            "task_create bot=" f"{payload.get('created_by_bot_id')!r} != {bot_id!r}",
             file=sys.stderr,
         )
         return 1
@@ -232,8 +252,7 @@ def _exercise_named_task_http(
     fetched_payload = fetched.json()
     if fetched_payload.get("task_id") != task_id:
         print(
-            "task_get task_id="
-            f"{fetched_payload.get('task_id')!r} != {task_id!r}",
+            "task_get task_id=" f"{fetched_payload.get('task_id')!r} != {task_id!r}",
             file=sys.stderr,
         )
         return 1
@@ -251,8 +270,7 @@ def _exercise_named_task_http(
     )
     if other_listed.status_code != 200:
         print(
-            "task_tenant_list "
-            f"{other_listed.status_code} {other_listed.text[:300]}",
+            "task_tenant_list " f"{other_listed.status_code} {other_listed.text[:300]}",
             file=sys.stderr,
         )
         return 1
@@ -269,8 +287,7 @@ def _exercise_named_task_http(
     )
     if other_get.status_code != 404:
         print(
-            "task_tenant_get "
-            f"{other_get.status_code} {other_get.text[:300]}",
+            "task_tenant_get " f"{other_get.status_code} {other_get.text[:300]}",
             file=sys.stderr,
         )
         return 1
@@ -1154,6 +1171,7 @@ def main() -> int:
             waiting_for = "browser"
             status = None
             has_tool_result = False
+            journal_events: list[dict] = []
             host_deadline = time.monotonic() + 180
             while time.monotonic() < host_deadline:
                 still_waiting = client.get(f"/turns/{browser_turn_id}")
@@ -1161,10 +1179,9 @@ def main() -> int:
                 waiting_for = payload.get("waiting_for")
                 status = payload.get("status")
                 events_response = client.get(f"/turns/{browser_turn_id}/events")
-                has_tool_result = any(
-                    event.get("kind") == "tool.result"
-                    for event in (events_response.json().get("events") or [])
-                )
+                journal_events = events_response.json().get("events") or []
+                tool_result_bodies = _tool_result_bodies(journal_events)
+                has_tool_result = bool(tool_result_bodies)
                 if (
                     has_tool_result
                     or status == "completed"
@@ -1211,6 +1228,18 @@ def main() -> int:
             )
             still = client.get(f"/turns/{browser_turn_id}")
             if host_completed:
+                if not journal_events:
+                    events_response = client.get(f"/turns/{browser_turn_id}/events")
+                    journal_events = events_response.json().get("events") or []
+                chromium_result = _chromium_host_tool_result_body(journal_events)
+                if chromium_result is None:
+                    print(
+                        "computer_tool_result expected opened:<url> from Chromium "
+                        f"host; got {_tool_result_bodies(journal_events)!r}",
+                        file=sys.stderr,
+                    )
+                    return 1
+                print(f"computer_tool_result={chromium_result}")
                 print("computer_queue_turn_completed=1")
             elif still.json().get("waiting_for") != "browser":
                 print(

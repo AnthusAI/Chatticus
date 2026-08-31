@@ -84,8 +84,8 @@ redeploy. Production is never implied by a git branch. Staging and
 production were last recorded as deployed from `760915d` (v0.5.0).
 
 Development **ChatticusThinTurn** last **ThinTurn-only** CDK pin is
-**2026-08-31T16:02:57Z** (PR #34, ECS host-start context). Live
-ComputerWorker has `CHATTICUS_HOST_STARTER=ecs` and
+**2026-08-31T21:56:57Z** (5dad85, ECS host-start context after ECR
+`:dev` refresh). Live ComputerWorker has `CHATTICUS_HOST_STARTER=ecs` and
 `CHATTICUS_ECS_HOST_COMMAND` for the host worker. **ChatticusWeb** can
 still restack ThinTurn; this pin looks up the live ChatticusComputers
 stack at synth so a Web restack cannot drop `ecs:RunTask`.
@@ -94,12 +94,14 @@ GitHub Actions must not hit live AWS.
 
 A named `exercise_thin_turn.py --environment development` run after that
 CDK pin exited 0 with `health_environment=1`, `missing_claim=404`,
-`claim_a=200` then `claim_b=409`, `host_start_generation=1`,
-`computer_queue_job=completed`, and `computer_queue_turn_completed=1`.
-Leftover RunTask was stopped; desiredCount stayed 0. That is a completed
-computer continuation after a real ThinTurn-only CDK deploy, not a
-CLI-patched Lambda env. `dev.chattic.us` DNS may still fail; resolve the
-front door from SSM, CloudFormation, or `CHATTICUS_DEVELOPMENT_BASE_URL`.
+`claim_a=200` then `claim_b=409`, `host_start_generation>=1`,
+`computer_queue_job=completed`, and `computer_queue_turn_completed=1`
+with a durable `tool.result` on the summoned Fargate host. Leftover
+RunTask was stopped; desiredCount stayed 0. That is a completed computer
+continuation after a real ThinTurn-only CDK deploy and ECR image push,
+not a CLI-patched Lambda env. `dev.chattic.us` DNS may still fail;
+resolve the front door from SSM, CloudFormation, or
+`CHATTICUS_DEVELOPMENT_BASE_URL`.
 A demo CLI (Kanbus epic 35d86b) is a separate slice.
 `exercise_thin_turn.py` stays the pass/fail gate.
 
@@ -249,19 +251,22 @@ the live worker loop. Do not merge `develop` to `main` as daily parking.
 destroyed. Development ComputerWorker may `ecs:RunTask` into that cluster
 with desired count still 0. Cold Fargate time to `RUNNING` for the
 current computer image is tens of seconds (Test 2). Chromium is in the
-image and is not wired as the live `ComputerActionExecutor`. The
-chattic.us Next.js UI deploys via `ChatticusWeb*` stacks (infra README);
-it is not on the live turn path until DNS and deploy land. There is no
-pull worker that finishes a browser tool on a running host, and no
-approvals on these slices.
+image; the summoned Fargate host runs `computer_host_worker` with
+`ChromiumActionExecutor` and publishes per-capability readiness. Lambda
+ComputerWorker still has no browser executor and only nacks until the
+host finishes. The chattic.us Next.js UI deploys via `ChatticusWeb*`
+stacks (infra README); it is not on the live turn path until DNS and
+deploy land. Approvals are not on these slices.
 
 Cloud-environment epic 9eef23 is closed: three named stacks, named-env
 acceptance on each. Turn recovery epic 653989 is closed. Cold Fargate
 readiness (e747d7, Test 2) is measured for the current image: tens of
-seconds to RUNNING; Chromium is in the image. Remaining for summoning a
-computer (8f98f8): a Chromium executor and host-readiness gate on the
-ephemeral Fargate task so ComputerTurnJobs can finish instead of nacking
-`ComputerWorkerHostNotReady`; `host_start_generation` is already live.
+seconds to RUNNING; Chromium is in the image. Summoned Fargate host
+readiness and Chromium execution (5dad85 / 8f98f8) are live on
+development: RunTask overrides the container to `computer_host_worker`,
+the host boots through the browser gate, and ComputerTurnJobs complete
+with `tool.result` instead of perpetual `ComputerWorkerHostNotReady`
+nacks.
 Structured handoff (538d28) is
 kernel-only on `develop` — model.request, tool.call, tool.result, and
 attempt claim/relinquish are durable typed journal events; continuation

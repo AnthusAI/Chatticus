@@ -63,3 +63,16 @@ def test_computer_continuation_rejects_a_stale_job() -> None:
     assert not _EXERCISE._computer_continuation_matches(
         body, job_id="job-1", turn_id="turn-1"
     )
+
+
+def test_chromium_host_tool_result_body_requires_opened_prefix() -> None:
+    events = [
+        {"kind": "tool.result", "body": "opened"},
+        {"kind": "tool.result", "body": "opened:about:blank"},
+    ]
+    assert _EXERCISE._chromium_host_tool_result_body(events) == "opened:about:blank"
+
+
+def test_chromium_host_tool_result_body_rejects_fake_opened() -> None:
+    events = [{"kind": "tool.result", "body": "opened"}]
+    assert _EXERCISE._chromium_host_tool_result_body(events) is None

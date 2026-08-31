@@ -162,3 +162,43 @@ def test_docker_computer_image_imports_host_worker() -> None:
     )
     assert chromium.returncode == 0, chromium.stderr + chromium.stdout
     assert "Chromium" in (chromium.stdout + chromium.stderr)
+
+
+@pytest.mark.skipif(not _docker_available(), reason="Docker daemon unavailable")
+def test_docker_computer_image_boots_xvfb_and_probes_chromium() -> None:
+    """Entrypoint starts Xvfb when summoned; Chromium answers on that display."""
+    tag = "chatticus-computer-test:5dad85"
+    build = subprocess.run(
+        [
+            "docker",
+            "build",
+            "-f",
+            str(DOCKERFILE),
+            "-t",
+            tag,
+            str(REPO_ROOT),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert build.returncode == 0, build.stderr
+    probe = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-e",
+            "CHATTICUS_COMPUTER_BOOT=1",
+            tag,
+            "python",
+            "-c",
+            "from chatticus.chromium_action_executor import verify_chromium_available; "
+            "print(verify_chromium_available())",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert probe.returncode == 0, probe.stderr + probe.stdout
+    assert "Chromium" in probe.stdout
