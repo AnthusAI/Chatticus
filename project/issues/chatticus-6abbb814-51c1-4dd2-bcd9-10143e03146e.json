@@ -22,10 +22,16 @@
       "author": "home",
       "text": "OIDC CDK ChatticusGitHubDeploy stacks on PR #40 in follow-up PR; role deployed; set GitHub development AWS_DEPLOY_ROLE_ARN from GithubDeployRoleArn output.",
       "created_at": "2026-08-31T17:08:10.018639Z"
+    },
+    {
+      "id": "bd0f6caa-1804-4d4e-9226-63eaac2ed3a1",
+      "author": "agent@example.com",
+      "text": "Frontier iteration: gh workflow run and REST dispatch both fail — workflow not registered (file only on PR #41 branch cursor/gha-oidc-deploy-role-4a21; absent from default branch main). development env + AWS_DEPLOY_ROLE_ARN present. Blocker: merge deploy-thinturn-development.yml to main (or change default branch) before workflow_dispatch works. OIDC role path ready on PR #41.",
+      "created_at": "2026-08-31T18:40:47.076114Z"
     }
   ],
   "created_at": "2026-08-31T11:31:18.846366Z",
-  "updated_at": "2026-08-31T17:08:10.018639Z",
+  "updated_at": "2026-08-31T18:40:47.076114Z",
   "closed_at": null,
   "custom": {}
 }
