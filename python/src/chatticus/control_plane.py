@@ -1260,6 +1260,10 @@ class ControlPlane:
         turn = self._messaging_store.get_turn(tenant_id, turn_id)
         if turn is None or turn.status != TurnStatus.ACTIVE:
             return
+        if turn.waiting_for is not None:
+            if turn.deadline_at is not None:
+                self._deadline_scheduler.schedule(tenant_id, turn_id, turn.deadline_at)
+            return
         lease_valid = (
             turn.lease_expires_at is not None and turn.lease_expires_at > self._now
         )

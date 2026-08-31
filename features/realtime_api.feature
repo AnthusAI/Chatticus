@@ -52,3 +52,10 @@ Feature: Turn-scoped server-sent events
     Then resume is refused because the computer is not ready
     And the turn remains active
     And the turn is still waiting on the browser gate
+
+  Scenario: A waiting turn exposes its gate over HTTP
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"
+    And user "ryan" of tenant "anthus" has an active turn on the channel
+    When the worker posts a progress chunk and then waits on the browser gate
+    Then user "ryan" can read the turn gate as browser without opening SSE

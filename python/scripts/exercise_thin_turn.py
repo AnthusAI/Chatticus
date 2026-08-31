@@ -161,6 +161,21 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 return 1
+            turn_read = client.get(f"/turns/{fence_turn_id}")
+            if turn_read.status_code != 200:
+                print(
+                    f"turn_read {turn_read.status_code} {turn_read.text[:300]}",
+                    file=sys.stderr,
+                )
+                return 1
+            turn_payload = turn_read.json()
+            if turn_payload.get("waiting_for") != "browser":
+                print(
+                    f"turn_waiting_for={turn_payload.get('waiting_for')!r}",
+                    file=sys.stderr,
+                )
+                return 1
+            print("turn_waiting_for=browser")
             waiting_kinds: list[str] = []
             with client.stream("GET", f"/turns/{fence_turn_id}/stream") as stream:
                 stream.raise_for_status()
@@ -338,6 +353,22 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+        model_turn_read = client.get(f"/turns/{browser_turn_id}")
+        if model_turn_read.status_code != 200:
+            print(
+                f"model_turn_read {model_turn_read.status_code} "
+                f"{model_turn_read.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        if model_turn_read.json().get("waiting_for") != "browser":
+            print(
+                f"model_turn_waiting_for="
+                f"{model_turn_read.json().get('waiting_for')!r}",
+                file=sys.stderr,
+            )
+            return 1
+        print("model_turn_waiting_for=browser")
         model_resume = client.post(f"/turns/{browser_turn_id}/resume")
         if model_resume.status_code != 409:
             print(

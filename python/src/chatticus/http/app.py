@@ -342,6 +342,19 @@ def create_app(
             "gate": turn.waiting_for or "",
         }
 
+    @app.get("/turns/{turn_id}")
+    def get_turn(
+        turn_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            turn = state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot read turn {turn_id!r}."
+            ) from error
+        return _turn_payload(turn)
+
     @app.post("/turns/{turn_id}/chunks")
     def post_chunk(
         turn_id: str,
@@ -459,6 +472,17 @@ def _channel_payload(channel: Any) -> dict[str, Any]:
             for participant in channel.participants
         ],
         "next_seq": channel.next_seq,
+    }
+
+
+def _turn_payload(turn: Any) -> dict[str, Any]:
+    return {
+        "turn_id": turn.turn_id,
+        "tenant_id": turn.tenant_id,
+        "channel_id": turn.channel_id,
+        "bot_id": turn.bot_id,
+        "status": turn.status.value,
+        "waiting_for": turn.waiting_for,
     }
 
 

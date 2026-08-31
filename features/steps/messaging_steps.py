@@ -630,6 +630,22 @@ def then_turn_still_waiting_on_browser(context: object) -> None:
     assert turn.waiting_for == "browser"
 
 
+@then('user "{user_id}" can read the turn gate as {gate} without opening SSE')
+def then_user_reads_turn_gate_without_sse(
+    context: object, user_id: str, gate: str
+) -> None:
+    del user_id
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/turns/{_turn_id(context)}",
+        headers=tenant_headers(channel.tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "active"
+    assert payload["waiting_for"] == gate
+
+
 @when('user "{user_id}" of tenant "{tenant_id}" tries to resume that waiting turn')
 def when_user_tries_to_resume_waiting_turn(
     context: object, user_id: str, tenant_id: str

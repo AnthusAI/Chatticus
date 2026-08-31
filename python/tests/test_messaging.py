@@ -482,6 +482,42 @@ def test_http_waiting_emits_gate_and_releases_claim() -> None:
     api.close()
 
 
+def test_http_get_turn_exposes_waiting_gate() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "open the household browser",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    client = HttpTurnClient(api, channel.tenant_id)
+    client.claim(turn_id, "waiting-worker")
+    client.post_chunk(turn_id, "Here is a draft.")
+    client.post_waiting(turn_id, "browser")
+    response = api.get(
+        f"/turns/{turn_id}",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["turn_id"] == turn_id
+    assert payload["status"] == "active"
+    assert payload["waiting_for"] == "browser"
+    denied = api.get(
+        f"/turns/{turn_id}",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert denied.status_code == 403
+    api.close()
+
+
 def test_resume_enqueues_the_same_turn_when_the_computer_is_running() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
