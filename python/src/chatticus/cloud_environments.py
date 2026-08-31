@@ -114,3 +114,28 @@ def resolve_thin_turn_base_url(
             f"Deploy that environment before accepting against {environment}."
         )
     return cloudfront_url.rstrip("/")
+
+
+def thin_turn_stack_output(
+    environment: CloudEnvironment,
+    output_key: str,
+    *,
+    region: str = "us-east-1",
+) -> str:
+    """Return one CloudFormation output from the named thin-turn stack."""
+    import boto3
+
+    stack_name = THIN_TURN_STACK_IDS[environment]
+    cloudformation = boto3.client("cloudformation", region_name=region)
+    stack = cloudformation.describe_stacks(StackName=stack_name)
+    outputs = {
+        output["OutputKey"]: output["OutputValue"]
+        for output in stack["Stacks"][0].get("Outputs", [])
+    }
+    value = outputs.get(output_key)
+    if not value:
+        raise LookupError(
+            f"Stack {stack_name} has no {output_key} output. "
+            f"Deploy that environment before accepting against {environment}."
+        )
+    return value

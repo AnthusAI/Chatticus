@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "7baf5674-5cb1-43e0-a96a-ee6a230ec06b",
+  "issue_id": "chatticus-10ec555c-6576-4344-abd5-32fcee5a766f",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T03:05:33.188Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a household member, I want the named development exercise to receive the computer continuation from ComputerTurnJobs, so durability is proven on the live queue rather than only in-process hooks.\n\nAcceptance:\n- After luna waits on the browser, the exercise marks the computer running, resumes that turn, and receives one SQS message from ComputerTurnJobs.\n- The payload names computer capability and the same turn and job identifiers as POST /resume.\n- That job is not received from the cpu TurnJobs queue.\n- The household computer is marked stopped again. The turn stays waiting. The received computer message is deleted so the exercise does not leave a pile.\n- Staging and production are not exercised this way (no waiting, no computer queue deploy).",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "Named development exercise receives a computer continuation from SQS"
+  }
+}

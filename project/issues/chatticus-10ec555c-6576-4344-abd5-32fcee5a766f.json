@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-10ec555c-6576-4344-abd5-32fcee5a766f",
+  "title": "Named development exercise receives a computer continuation from SQS",
+  "description": "As a household member, I want the named development exercise to receive the computer continuation from ComputerTurnJobs, so durability is proven on the live queue rather than only in-process hooks.\n\nAcceptance:\n- After luna waits on the browser, the exercise marks the computer running, resumes that turn, and receives one SQS message from ComputerTurnJobs.\n- The payload names computer capability and the same turn and job identifiers as POST /resume.\n- That job is not received from the cpu TurnJobs queue.\n- The household computer is marked stopped again. The turn stays waiting. The received computer message is deleted so the exercise does not leave a pile.\n- Staging and production are not exercised this way (no waiting, no computer queue deploy).",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "b58baa1a-c049-4e73-af9e-440fbf2d468d",
+      "author": "home",
+      "text": "Named exercise --environment development exits 0 on CloudFront d3gpuuldffe35o: after luna wait, resume-while-running received required_capabilities=computer from ComputerTurnJobs; cpu TurnJobs did not carry that job; computer marked stopped again; turn still waiting. Live stack still 55f48d0 (exercise-only). Not staging, not production, not --all.",
+      "created_at": "2026-08-31T03:07:01.666554Z"
+    }
+  ],
+  "created_at": "2026-08-31T03:05:33.188136Z",
+  "updated_at": "2026-08-31T03:07:01.677535Z",
+  "closed_at": "2026-08-31T03:07:01.677535Z",
+  "custom": {}
+}

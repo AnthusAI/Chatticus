@@ -144,3 +144,31 @@ def test_cloudformation_errors_become_lookup_errors(
     monkeypatch.setattr(boto3, "client", client)
     with pytest.raises(LookupError, match="ChatticusThinTurnProduction"):
         resolve_thin_turn_base_url("production")
+
+
+def test_thin_turn_stack_output_reads_cloudformation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import boto3
+
+    class FakeCloudFormation:
+        def describe_stacks(self, StackName: str) -> dict:
+            assert StackName == "ChatticusThinTurn"
+            return {
+                "Stacks": [
+                    {
+                        "Outputs": [
+                            {
+                                "OutputKey": "ComputerTurnQueueUrl",
+                                "OutputValue": "https://sqs.example/computer",
+                            }
+                        ]
+                    }
+                ]
+            }
+
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: FakeCloudFormation())
+    from chatticus.cloud_environments import thin_turn_stack_output
+
+    url = thin_turn_stack_output("development", "ComputerTurnQueueUrl")
+    assert url == "https://sqs.example/computer"

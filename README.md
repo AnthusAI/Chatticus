@@ -93,7 +93,10 @@ The fence probe also requires durable `turn.waiting` journal events to carry
 `pending_computer_tool` with the same `action_id` as `GET /turns/{id}`. The same named exercise then asks luna to open the household browser; the
 worker emits `turn.waiting` instead of completing, `GET /turns/{id}` still
 names `browser` and the pending computer tool, the journal event matches that
-`action_id`, and resume is **409** again. Staging and production do not
+`action_id`, and resume is **409** again. It then marks the computer
+running, resumes that turn, and receives the continuation from
+`ComputerTurnJobs` (not the cpu queue) before marking the computer
+stopped. Staging and production do not
 have waiting, resume, or turn read yet.
 
 The **source** has named cloud environments, turn **claim**, **lease**,
@@ -157,7 +160,8 @@ computer tool on the waiting turn (96c0e8), waiting journal snapshot
 (d04942), computerless skip of a waiting turn (86c75d), computerless
 refuse of a computer continuation (0b30dc), keeping computer
 continuations off the cpu queue (f861ee), and a dedicated computer
-turn queue with no worker attached yet (5c7e77) are live on
+turn queue with no worker attached yet (5c7e77), and a named-exercise
+receive of that computer continuation from SQS (10ec55) are live on
 development. Overnight gated-action
 (5b687a), immutable approval binding (2b293d), unbound browser stops
 (813d8d), computer-seam recovery (b41106), capability-gated readiness

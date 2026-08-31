@@ -14,6 +14,7 @@ from chatticus.cloud_environments import (
     CLOUD_ENVIRONMENTS,
     parse_cloud_environment,
     resolve_thin_turn_base_url,
+    thin_turn_stack_output,
 )
 from chatticus.models import ActorKind
 
@@ -26,6 +27,27 @@ def _frames(buffer: str) -> tuple[list[dict], str]:
             if line.startswith("data:"):
                 events.append(json.loads(line[5:].strip()))
     return events, buffer
+
+
+def _sqs_receive_one(queue_url: str, *, wait_seconds: int) -> dict | None:
+    import boto3
+
+    response = boto3.client("sqs").receive_message(
+        QueueUrl=queue_url,
+        MaxNumberOfMessages=1,
+        WaitTimeSeconds=wait_seconds,
+        VisibilityTimeout=30,
+    )
+    messages = response.get("Messages") or []
+    if not messages:
+        return None
+    return messages[0]
+
+
+def _sqs_delete(queue_url: str, receipt_handle: str) -> None:
+    import boto3
+
+    boto3.client("sqs").delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
 
 
 def main() -> int:
@@ -461,6 +483,83 @@ def main() -> int:
             )
             return 1
         print("model_resume_while_stopped=409")
+        if args.environment == "development":
+            client.post(
+                "/computers/stopped",
+                json={"user_id": args.user_id, "stopped": False},
+            )
+            resumed_running = client.post(f"/turns/{browser_turn_id}/resume")
+            if resumed_running.status_code != 200:
+                print(
+                    f"resume_while_running {resumed_running.status_code} "
+                    f"{resumed_running.text[:300]}",
+                    file=sys.stderr,
+                )
+                client.post(
+                    "/computers/stopped",
+                    json={"user_id": args.user_id, "stopped": True},
+                )
+                return 1
+            resume_payload = resumed_running.json()
+            job_id = resume_payload.get("job_id")
+            if not job_id:
+                print(f"resume_payload={resume_payload!r}", file=sys.stderr)
+                client.post(
+                    "/computers/stopped",
+                    json={"user_id": args.user_id, "stopped": True},
+                )
+                return 1
+            computer_queue = thin_turn_stack_output(
+                "development", "ComputerTurnQueueUrl"
+            )
+            cpu_queue = thin_turn_stack_output("development", "TurnQueueUrl")
+            computer_message = _sqs_receive_one(computer_queue, wait_seconds=20)
+            if computer_message is None:
+                print("computer_queue delivered no message", file=sys.stderr)
+                client.post(
+                    "/computers/stopped",
+                    json={"user_id": args.user_id, "stopped": True},
+                )
+                return 1
+            computer_body = json.loads(computer_message["Body"])
+            _sqs_delete(computer_queue, computer_message["ReceiptHandle"])
+            if (
+                computer_body.get("job_id") != job_id
+                or computer_body.get("turn_id") != browser_turn_id
+                or "computer" not in computer_body.get("required_capabilities", [])
+            ):
+                print(f"computer_queue_body={computer_body!r}", file=sys.stderr)
+                client.post(
+                    "/computers/stopped",
+                    json={"user_id": args.user_id, "stopped": True},
+                )
+                return 1
+            print("computer_queue_job=computer")
+            cpu_message = _sqs_receive_one(cpu_queue, wait_seconds=2)
+            if cpu_message is not None:
+                cpu_body = json.loads(cpu_message["Body"])
+                if cpu_body.get("job_id") == job_id:
+                    print(
+                        "cpu_queue received the computer continuation", file=sys.stderr
+                    )
+                    client.post(
+                        "/computers/stopped",
+                        json={"user_id": args.user_id, "stopped": True},
+                    )
+                    return 1
+            client.post(
+                "/computers/stopped",
+                json={"user_id": args.user_id, "stopped": True},
+            )
+            still = client.get(f"/turns/{browser_turn_id}")
+            if still.json().get("waiting_for") != "browser":
+                print(
+                    f"after_computer_queue waiting_for="
+                    f"{still.json().get('waiting_for')!r}",
+                    file=sys.stderr,
+                )
+                return 1
+            print("computer_queue_turn_still_waiting=browser")
     return 0
 
 
