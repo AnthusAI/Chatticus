@@ -130,7 +130,9 @@ What each deployed thin-turn slice does today:
   the pending `request_computer_capability` call), and
   `GET /turns/{turn_id}/stream` as `text/event-stream`.
 - Channel records and named bots are in DynamoDB, so a different Front Door
-  instance can enqueue a turn for a bot it did not create. Bot memory is
+  instance can enqueue a turn for a bot it did not create. Per-user bot
+  names are reserved on the roster table so a recycled Lambda cannot fork
+  two bots with the same name. Bot memory is
   stored on that roster item; the computerless worker prompt is that
   memory plus the channel transcript. Another bot on the same computer
   does not inherit it.
