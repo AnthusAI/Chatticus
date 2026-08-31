@@ -64,32 +64,24 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-GitHub **`main`** is **v0.6.0** (`2249105`, PR #25). Three named thin-turn
-environments are live in AWS account `335163751677` (`us-east-1`).
-Production is never implied by a git branch; it is an explicit gated
-deploy of a release that already passed staging acceptance. Git promotion
-does not redeploy stacks. Staging and production were last recorded as
-deployed from `origin/main` @ `760915d` (v0.5.0); they have not been
-redeployed from v0.6.0 here. Development was last redeployed ThinTurn-only
-from `develop` @ `19070b1` (no `--all`). That pin attaches a
-`ComputerWorker` Lambda to `ComputerTurnJobs` that nacks without a host
-(`computer_queue_job=in_flight_nack`) and does not fake `tool.result`.
-A CloudFront run of the named exercise on 2026-08-31 proved live
-`health_environment=1`, `missing_claim=404`, and `claim_a=200` then
-`claim_b=409`. After resume, `GET /users/{id}/computer` still has no
-`host_start_generation` (23c93e is git-ahead). SQS queue lookup still
-needs `aws login`. GET computer always including
-`host_start_generation` (0 before any start) is kernel-only on `develop`
-(8dbdc1); the live Front Door still omits the field. Kernel coverage
-that GET computer is `1` after a nack (74b06d) is also git-ahead. A once-per-lease
-`HostStarter` (60976f) and SQS `batchItemFailures` nack (29f269) are
-kernel-only on `develop`: the live ComputerWorker still nacks with a
-no-op starter; CDK does not set `CHATTICUS_HOST_STARTER=ecs` and does
-not grant `ecs:RunTask`. `develop` is ahead of `main`
-(channels list, household computer read, channel active-turn read,
-waiting-turn read, user active-turn list, named `GET /health`
-environment, recycle Gherkin for history/journal/turn-by-id/bot-by-id,
-stale `ComputerTurnJobs` drain in the named exercise). A demo CLI
+GitHub **`main`** is promoted to the 2026-08-31 live development pin
+(`50ad1d4` ThinTurn code, plus this docs commit). That is a git promotion
+only. Three named thin-turn environments are live in AWS account
+`335163751677` (`us-east-1`). Production is never implied by a git
+branch; it is an explicit gated deploy of a release that already passed
+staging acceptance. Git promotion does not redeploy stacks. Staging and
+production were last recorded as deployed from `origin/main` @ `760915d`
+(v0.5.0); they have not been redeployed from this pin. Development was
+redeployed ThinTurn-only from `develop` @ `50ad1d4` (no `--all`). That
+pin attaches a `ComputerWorker` Lambda to `ComputerTurnJobs` that nacks
+without a host (`computer_queue_job=in_flight_nack`) and does not fake
+`tool.result`. A CloudFront run of the named exercise on 2026-08-31
+exited 0 with `health_environment=1`, `missing_claim=404`, `claim_a=200`
+then `claim_b=409`, `host_start_generation=1` after resume (23c93e,
+2a2b64, bf5b02), and `computer_queue_job=in_flight_nack`. GET computer
+includes `host_start_generation` (0 before any start). The live
+ComputerWorker still uses a no-op `HostStarter`; CDK does not set
+`CHATTICUS_HOST_STARTER=ecs` and does not grant `ecs:RunTask`. A demo CLI
 (Kanbus epic 35d86b) is starting; it talks to this HTTP surface.
 `exercise_thin_turn.py` stays the pass/fail gate.
 
@@ -122,7 +114,7 @@ idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
 (`bot_by_name=1`: `GET /bots?user_id=&name=` returns that bot_id), a live user bot list
 (`bots_list=1`: `GET /users/{user_id}/bots` includes that bot_id), a live user channel list
 (`channels_list=1`: `GET /users/{user_id}/channels` includes that channel_id), a live household computer read
-(`computer_get=1`: `GET /users/{user_id}/computer` returns `computer_id` and `stopped=true`), a live channel active-turn read
+(`computer_get=1`: `GET /users/{user_id}/computer` returns `computer_id`, `stopped=true`, and `host_start_generation`), a live channel active-turn read
 (`channel_turn=1`: `GET /channels/{id}/turn` returns the fence-probe turn_id), a live user active-turn list
 (`turns_list=1`: `GET /users/{user_id}/turns` includes that turn_id), a live waiting-turn read
 (`channel_turn_waiting=1`: that path returns `waiting_for=browser` after the fence probe waits), a live empty active-turn read
@@ -145,10 +137,11 @@ worker emits `turn.waiting` instead of completing, `GET /turns/{id}` still
 names `browser` and the pending computer tool, the journal event matches that
 `action_id`, and resume is **409** again. It then marks the computer
 running, resumes that turn, checks `POST /turns/{id}/resume` returns
-`required_capabilities=computer`, and receives the continuation from
-`ComputerTurnJobs` (not the cpu queue), draining leftover messages from
-interrupted runs, before marking the computer stopped. Staging and production
-do not have waiting, resume, or turn read yet.
+`required_capabilities=computer`, polls `GET /users/{id}/computer` until
+`host_start_generation>=1`, and receives the continuation from
+`ComputerTurnJobs` (not the cpu queue) as an in-flight nack, draining leftover
+messages from interrupted runs, before marking the computer stopped. Staging
+and production do not have waiting, resume, or turn read yet.
 
 The **source** has named cloud environments, turn **claim**, **lease**,
 **fence**, durable channel lookup across Lambda invocations, a durable
@@ -213,10 +206,10 @@ EventBridge Scheduler one-shots are on each front door
 (`chatticus-{environment}-turn-deadlines`); `recovery_enabled` is on.
 Warm Front Door containers use a wall clock, so deadlines land in the
 future. A wedged turn has recovered through EventBridge without a
-forced Lambda cold start on development. GitHub **`main`** is **v0.6.0**;
-overnight, approval binding, unbound-browser, and computer-handoff
-kernels still on `develop` are not promoted there until they are on the
-live worker loop. Do not merge `develop` to `main` as daily parking.
+forced Lambda cold start on development. GitHub **`main`** carries the
+2026-08-31 development live pin; overnight, approval binding,
+unbound-browser, and full computer-handoff execution still are not on
+the live worker loop. Do not merge `develop` to `main` as daily parking.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the thin-turn path yet. Cold Fargate time to
@@ -231,7 +224,8 @@ acceptance on each. Turn recovery epic 653989 is closed. Cold Fargate
 readiness (e747d7, Test 2) is measured for the current image: tens of
 seconds to RUNNING; Chromium still missing. Remaining for summoning a
 computer (8f98f8): a live Fargate Chromium executor; development
-ThinTurn already nacks ComputerTurnJobs without a host. Structured handoff (538d28) is
+ThinTurn nacks ComputerTurnJobs without a host and records
+`host_start_generation`. Structured handoff (538d28) is
 kernel-only on `develop` — model.request, tool.call, tool.result, and
 attempt claim/relinquish are durable typed journal events; continuation
 executes only unresolved action ids; failure injection covers handoff
@@ -471,9 +465,9 @@ npx cdk deploy ChatticusThinTurnProduction
 
 **ChatticusThinTurn** is development. Staging and production are separate
 stacks with their own DynamoDB, SQS, Lambda, and CloudFront. GitHub
-`main` is v0.6.0; those stacks were last recorded as deployed from the
-v0.5.0 pin (`760915d`) unless a later gated CDK deploy is proven. Do not
-destroy the snapshot or computer stacks.
+`main` includes the 2026-08-31 development live pin; those stacks were last
+recorded as deployed from the v0.5.0 pin (`760915d`) unless a later gated
+CDK deploy is proven. Do not destroy the snapshot or computer stacks.
 
 Postgres in `docker-compose.yml` is unused (it predates DynamoDB).
 
