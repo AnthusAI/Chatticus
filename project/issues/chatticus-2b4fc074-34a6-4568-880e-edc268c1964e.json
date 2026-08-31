@@ -3,7 +3,7 @@
   "title": "List a user's active turns after Front Door recycle",
   "description": "As a household member, I want to list in-flight turns after a Front Door recycle, so a client can reconnect without remembering every turn_id.\n\nFeature: Channels and the message store\n\nScenario: A user's active turns can be listed after a Front Door recycle\n  Given an empty control plane backed by a durable messaging store with HTTP\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n  When tenant \"anthus\" user \"ryan\" opens a channel with bots:\n    | Researcher |\n  And user \"ryan\" of tenant \"anthus\" posts a fence probe addressed to bot \"Researcher\" without enqueueing a turn job\n  And tenant \"anthus\" user \"ryan\" opens a channel with bots:\n    | Researcher |\n  And user \"ryan\" of tenant \"anthus\" posts a fence probe addressed to bot \"Researcher\" without enqueueing a turn job\n  And a recycled Front Door serves the same messaging store\n  Then tenant \"anthus\" can list active turns for user \"ryan\":\n    | 1 |\n    | 2 |\n\nNot included: demo CLI (35d86b), staging, production, Fargate.",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "3c0bc61b-e3d7-45ea-9e28-66440285e7b9",
+      "author": "home",
+      "text": "Live on development ThinTurn @ 95964f7. Exercise: turns_list=1 claim_a=200 claim_b=409. No --all, no snapshots/computers, no staging/production. Demo CLI 35d86b not started here.",
+      "created_at": "2026-08-31T06:35:17.483851Z"
+    }
+  ],
   "created_at": "2026-08-31T06:30:15.570087Z",
-  "updated_at": "2026-08-31T06:30:15.570087Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T06:35:17.494469Z",
+  "closed_at": "2026-08-31T06:35:17.494469Z",
   "custom": {}
 }

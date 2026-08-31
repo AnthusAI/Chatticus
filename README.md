@@ -71,10 +71,11 @@ deploy of a release that already passed staging acceptance. Git promotion
 does not redeploy stacks. Staging and production were last recorded as
 deployed from `origin/main` @ `760915d` (v0.5.0); they have not been
 redeployed from v0.6.0 here. Development was last redeployed ThinTurn-only
-from `develop` @ `06de2c4` (no `--all`). `develop` is ahead of `main`
+from `develop` @ `95964f7` (no `--all`). `develop` is ahead of `main`
 (channels list, household computer read, channel active-turn read,
-waiting-turn read). A demo CLI (Kanbus epic 35d86b) is starting; it talks
-to this HTTP surface. `exercise_thin_turn.py` stays the pass/fail gate.
+waiting-turn read, user active-turn list). A demo CLI (Kanbus epic 35d86b)
+is starting; it talks to this HTTP surface. `exercise_thin_turn.py` stays
+the pass/fail gate.
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -102,7 +103,7 @@ idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
 (`channels_list=1`: `GET /users/{user_id}/channels` includes that channel_id), a live household computer read
 (`computer_get=1`: `GET /users/{user_id}/computer` returns `computer_id` and `stopped=true`), a live channel active-turn read
 (`channel_turn=1`: `GET /channels/{id}/turn` returns the fence-probe turn_id), a live user active-turn list
-(`turns_list=1`: `GET /users/{user_id}/turns` includes that turn_id; source on this branch, live after the next development ThinTurn deploy), a live waiting-turn read
+(`turns_list=1`: `GET /users/{user_id}/turns` includes that turn_id), a live waiting-turn read
 (`channel_turn_waiting=1`: that path returns `waiting_for=browser` after the fence probe waits), a live empty active-turn read
 (`channel_turn_done=1`: after the greeting completes, `GET /channels/{id}/turn` is **404**), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
@@ -156,7 +157,8 @@ What each deployed thin-turn slice does today:
   two bots with the same name. A recycled Front Door can list a user's
   named bots and channels from that roster. A recycled Front Door can also
   read the household computer id and stopped flag. A recycled Front Door
-  can read the active turn on a channel without a remembered turn_id. Bot memory is
+  can read the active turn on a channel without a remembered turn_id, and
+  list a user's in-flight turns the same way. Bot memory is
   stored on that roster item; a recycled Front Door hydrates the bot from
   Dynamo before writing memory. The computerless worker prompt is that
   memory plus the channel transcript. Another bot on the same computer
