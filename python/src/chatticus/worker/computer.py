@@ -16,6 +16,7 @@ from chatticus.models import (
     ComputerWorkerRequiresComputerCapability,
     TurnJob,
     TurnStatus,
+    pending_computer_tool_from_turn,
 )
 
 
@@ -118,8 +119,20 @@ class ComputerWorker:
         try:
             record = self.plane.escalation_for(job.tenant_id, job.turn_id)
         except Exception:
-            return
+            record = None
         unresolved = self.plane.unresolved_tool_action_ids(job.tenant_id, job.turn_id)
+        if record is None:
+            pending = pending_computer_tool_from_turn(turn)
+            if not unresolved and pending is None:
+                return
+            tool_name = pending.tool_name if pending is not None else "computer"
+            if job.user_id is not None:
+                self._dispatch_host_start_if_needed(
+                    job.tenant_id, job.user_id, job.turn_id
+                )
+            raise ComputerWorkerHostNotReady(
+                f"Turn {job.turn_id!r} has no ready computer host for {tool_name!r}."
+            )
         if not unresolved and record.result_committed:
             self.plane.remove_pending_job(job.job_id)
             return

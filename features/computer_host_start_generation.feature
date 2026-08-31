@@ -31,3 +31,9 @@ Feature: Household computer host start generation on HTTP
     Then tenant "anthus" can read the household computer for user "ryan"
     When a second process sharing the store records a host start for tenant "anthus" user "ryan"
     Then tenant "anthus" household computer for user "ryan" reports host_start_generation 1
+
+  Scenario: GET computer sees a nack host start from a second process
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And a fenced computer handoff with a queued continuation job
+    When a second process sharing the store nacks that continuation without a host
+    Then tenant "anthus" household computer for user "ryan" reports host_start_generation 1

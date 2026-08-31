@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-bf5b0277-6aac-4e74-a740-5d327f317544",
+  "title": "ComputerWorker nacks host-not-ready from the journal without in-process escalation",
+  "description": "",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "53f27d33-7dc9-4aac-8ea0-dadc4ad20ef8",
+      "author": "home",
+      "text": "ComputerWorker no longer returns silently when escalation is missing from this process. It nacks ComputerWorkerHostNotReady from the durable journal and records host_start_generation. Kernel: second-process pytest and Gherkin. Live still needs ThinTurn-only redeploy.",
+      "created_at": "2026-08-31T10:40:17.584114Z"
+    }
+  ],
+  "created_at": "2026-08-31T10:38:31.150867Z",
+  "updated_at": "2026-08-31T10:40:17.584114Z",
+  "closed_at": null,
+  "custom": {}
+}

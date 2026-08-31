@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "79b7b1b2-24f8-4463-b240-2ebc9ce8c310",
+  "issue_id": "chatticus-bf5b0277-6aac-4e74-a740-5d327f317544",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T10:38:31.151Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "",
+    "issue_type": "story",
+    "labels": [],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 2,
+    "status": "open",
+    "title": "ComputerWorker nacks host-not-ready from the journal without in-process escalation"
+  }
+}

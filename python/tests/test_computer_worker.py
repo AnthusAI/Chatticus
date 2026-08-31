@@ -11,6 +11,7 @@ from chatticus.host_starter import RecordingHostStarter
 from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.test_server import start_test_server
+from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
     ComputerlessCannotExecuteComputerJob,
     ComputerWorkerHostNotReady,
@@ -83,6 +84,24 @@ def test_computer_worker_leaves_job_queued_without_host_executor() -> None:
         ).run_job(setup.continuation_job)
     assert (
         plane.computer_for_user(setup.tenant_id, setup.user_id).host_start_generation
+        == 1
+    )
+    api.close()
+
+
+def test_computer_worker_nacks_host_not_ready_on_a_second_process() -> None:
+    store = InMemoryMessagingStore()
+    door = ControlPlane(messaging_store=store)
+    api = _client_for(door)
+    setup = prepare_computer_continuation(door)
+    worker_plane = ControlPlane(messaging_store=store)
+    with pytest.raises(ComputerWorkerHostNotReady):
+        ComputerWorker(
+            worker_plane,
+            HttpTurnClient(api, setup.tenant_id),
+        ).run_job(setup.continuation_job)
+    assert (
+        door.computer_for_user(setup.tenant_id, setup.user_id).host_start_generation
         == 1
     )
     api.close()

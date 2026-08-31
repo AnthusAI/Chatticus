@@ -96,6 +96,21 @@ def when_second_process_records_host_start(
     )
 
 
+@when("a second process sharing the store nacks that continuation without a host")
+def when_second_process_nacks_continuation(context: object) -> None:
+    setup = context.computer_continuation
+    worker_plane = ControlPlane(messaging_store=context.messaging_store)
+    worker = ComputerWorker(
+        worker_plane,
+        HttpTurnClient(context.api_client, setup.tenant_id),
+    )
+    try:
+        worker.run_job(setup.continuation_job)
+    except ComputerWorkerHostNotReady:
+        return
+    raise AssertionError("second process did not nack ComputerWorkerHostNotReady")
+
+
 @when("a computer-capable worker pulls that continuation job after the lease dies")
 def when_computer_worker_pulls_after_lease_dies(context: object) -> None:
     when_computer_worker_pulls_continuation(context)
