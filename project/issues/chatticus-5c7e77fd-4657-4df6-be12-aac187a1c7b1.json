@@ -3,7 +3,7 @@
   "title": "A computer continuation is durable on its own SQS queue",
   "description": "As a household member, I want a computer-required continuation stored on a queue the cpu worker does not consume, so the pending tool survives Front Door Lambda recycling until a computer-capable worker exists.\n\nFeature: Computerless turn\n\nScenario: Resume publishes a computer job to the computer queue\n  Given an empty control plane with cpu and computer enqueue hooks\n  And tenant anthus user ryan has a channel with a named bot Assistant\n  And tenant anthus user ryan household computer is stopped\n  When user ryan posts a browser request addressed to Assistant\n  And a counting computerless worker processes bot Assistant\n  And tenant anthus user ryan household computer is running\n  And user ryan of tenant anthus resumes that waiting turn\n  Then the continuation job requires computer\n  And the cpu enqueue hook was not invoked for that job\n  And the computer enqueue hook received that job\n  And the turn remains active\n\nNot included: attaching a computer worker, Fargate, staging or production.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "dd26a874-47b2-49b3-9505-37ea85c42a68",
+      "author": "home",
+      "text": "ThinTurn-only development deploy from develop @ 55f48d0 created ComputerTurnJobs (output ComputerTurnQueueUrl). Computerless worker still consumes only TurnJobs. Named exercise --environment development exits 0 (claim 404, second claim 409, CloudFront reconnect, waiting, resume-while-stopped 409). No computer worker attached. Not staging, not production, not --all.",
+      "created_at": "2026-08-31T02:56:39.115822Z"
+    }
+  ],
   "created_at": "2026-08-31T02:50:49.802591Z",
-  "updated_at": "2026-08-31T02:51:00.523293Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T02:56:39.135708Z",
+  "closed_at": "2026-08-31T02:56:39.135708Z",
   "custom": {}
 }
