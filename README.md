@@ -74,7 +74,8 @@ redeployed from v0.6.0 here. Development was last redeployed ThinTurn-only
 from `develop` @ `19070b1` (no `--all`). That pin attaches a
 `ComputerWorker` Lambda to `ComputerTurnJobs` that nacks without a host
 (`computer_queue_job=in_flight_nack`) and does not fake `tool.result`.
-`develop` is ahead of `main`
+Durable `host_start_generation` on nack is on `develop` (23c93e) and is
+not on that pin until the next ThinTurn-only redeploy. `develop` is ahead of `main`
 (channels list, household computer read, channel active-turn read,
 waiting-turn read, user active-turn list, named `GET /health`
 environment, recycle Gherkin for history/journal/turn-by-id/bot-by-id,
