@@ -201,6 +201,14 @@ def create_app(
         bots = state.plane.list_bots(tenant_id, user_id)
         return {"bots": [_bot_payload(bot) for bot in bots]}
 
+    @app.get("/users/{user_id}/channels")
+    def list_user_channels(
+        user_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        channels = state.plane.list_channels(tenant_id, user_id)
+        return {"channels": [_channel_payload(channel) for channel in channels]}
+
     @app.get("/bots/{bot_id}")
     def get_bot(
         bot_id: str,

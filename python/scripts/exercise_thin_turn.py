@@ -242,6 +242,23 @@ def main() -> int:
             )
             return 1
         print("channel_get=1")
+        listed_channels = client.get(f"/users/{args.user_id}/channels")
+        if listed_channels.status_code != 200:
+            print(
+                f"channels_list {listed_channels.status_code} {listed_channels.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        channel_ids = {
+            row["channel_id"] for row in listed_channels.json().get("channels", [])
+        }
+        if channel["channel_id"] not in channel_ids:
+            print(
+                f"channels_list missing {channel['channel_id']} in {channel_ids!r}",
+                file=sys.stderr,
+            )
+            return 1
+        print("channels_list=1")
         fence_posted = client.post(
             f"/channels/{channel['channel_id']}/messages",
             json={

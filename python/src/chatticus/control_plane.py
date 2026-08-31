@@ -440,6 +440,12 @@ class ControlPlane:
             self._bots[bot.bot_id] = bot
         return sorted(owned, key=lambda bot: bot.name)
 
+    def list_channels(self, tenant_id: str, user_id: str) -> list[Channel]:
+        """Return channels owned by one household user."""
+        channels = self._messaging_store.list_channels(tenant_id, user_id)
+        owned = [channel for channel in channels if channel.tenant_id == tenant_id]
+        return sorted(owned, key=lambda channel: channel.channel_id)
+
     def ensure_computer(
         self,
         tenant_id: str,

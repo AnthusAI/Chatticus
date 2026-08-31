@@ -460,6 +460,7 @@ def given_durable_messaging_store_with_http(context: object) -> None:
     context.app_state = app.state.chatticus
     context.api_client = start_test_server(app)
     context.bots_by_name = {}
+    context.opened_channel_ids = []
     context.last_channel = None
     context.last_turn_id = None
     context.message_error = None
