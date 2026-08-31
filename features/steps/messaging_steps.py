@@ -190,6 +190,35 @@ def when_human_posts_on_channel(
     context.last_turn_id = payload.get("turn_id")
 
 
+@when(
+    'user "{user_id}" of tenant "{tenant_id}" posts a fence probe '
+    'addressed to bot "{name}" without enqueueing a turn job'
+)
+def when_human_posts_fence_probe_without_enqueue(
+    context: object,
+    user_id: str,
+    tenant_id: str,
+    name: str,
+) -> None:
+    channel = _channel(context)
+    bot = context.bots_by_name[name]
+    response = context.api_client.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": user_id,
+            "body": "Fence probe; do not wait on this turn.",
+            "addressed_to_bot_id": bot.bot_id,
+            "enqueue_turn": False,
+        },
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    context.message_error = None
+    payload = response.json()
+    context.last_turn_id = payload.get("turn_id")
+
+
 @when('bot "{name}" posts "{body}" addressed to bot "{addressee}" on the channel')
 def when_bot_posts_on_channel(
     context: object, name: str, body: str, addressee: str
@@ -288,6 +317,27 @@ def then_bot_pending_turn_with_capabilities(
     assert len(jobs) == count
     expected = _capabilities_from_table(context.table)
     assert jobs[0].required_capabilities == expected
+
+
+@then("the channel has a turn")
+def then_channel_has_a_turn(context: object) -> None:
+    channel = _channel(context)
+    turn_id = context.last_turn_id
+    assert turn_id
+    turn = context.plane.turn(channel.tenant_id, turn_id)
+    assert turn.channel_id == channel.channel_id
+    assert context.plane.job_for_turn(channel.tenant_id, turn_id) is None
+
+
+@then('bot "{name}" has 0 pending turns')
+def then_bot_has_zero_pending_turns(context: object, name: str) -> None:
+    bot = context.bots_by_name[name]
+    assert context.plane.pending_jobs_for_bot(bot.bot_id) == []
+
+
+@then("the cpu enqueue hook was not invoked")
+def then_cpu_enqueue_hook_was_never_invoked(context: object) -> None:
+    assert getattr(context, "cpu_enqueued_jobs", None) == []
 
 
 @then("posting fails because the tenant does not match")

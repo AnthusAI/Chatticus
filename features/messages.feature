@@ -142,3 +142,11 @@ Feature: Channels and the message store
     When tenant "other" tries to post or read on the channel
     Then access is denied
     And the channel is unchanged
+
+  Scenario: A probe message can start a turn without enqueueing cpu work
+    Given an empty control plane with a cpu enqueue hook
+    And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
+    When user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Assistant" without enqueueing a turn job
+    Then the channel has a turn
+    And bot "Assistant" has 0 pending turns
+    And the cpu enqueue hook was not invoked

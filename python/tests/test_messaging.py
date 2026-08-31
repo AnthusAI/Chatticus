@@ -629,6 +629,46 @@ def test_resume_enqueues_the_same_turn_when_the_computer_is_running() -> None:
     api.close()
 
 
+def test_post_message_without_enqueue_creates_turn_without_cpu_job() -> None:
+    captured: list[TurnJob] = []
+    plane = ControlPlane(turn_enqueued=captured.append)
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    posted = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "Fence probe; do not wait on this turn.",
+            "addressed_to_bot_id": bot.bot_id,
+            "enqueue_turn": False,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert posted.status_code == 200
+    turn_id = posted.json()["turn_id"]
+    assert turn_id
+    assert captured == []
+    assert plane.pending_jobs_for_bot(bot.bot_id) == []
+    assert plane.job_for_turn(channel.tenant_id, turn_id) is None
+    turn = plane.turn(channel.tenant_id, turn_id)
+    assert turn.bot_id == bot.bot_id
+    first = api.post(
+        f"/turns/{turn_id}/claim",
+        json={"worker_id": "exercise-fence-a"},
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    second = api.post(
+        f"/turns/{turn_id}/claim",
+        json={"worker_id": "exercise-fence-b"},
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert first.status_code == 200
+    assert first.json().get("acquired") is True
+    assert second.status_code == 409
+    api.close()
+
+
 def test_resume_does_not_publish_computer_job_to_cpu_queue() -> None:
     captured: list[TurnJob] = []
     plane = ControlPlane(turn_enqueued=captured.append)

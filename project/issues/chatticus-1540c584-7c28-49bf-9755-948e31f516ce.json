@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-1540c584-7c28-49bf-9755-948e31f516ce",
+  "title": "A fence probe turn is claimed without a cpu queue race",
+  "description": "As a household member, I want the named fence probe to start a turn without publishing a cpu SQS job, so the exercise can acquire the lease and prove second-claim 409 instead of losing to the computerless worker.\n\nFeature: Channels and the message store\n\nScenario: A probe message can start a turn without enqueueing cpu work\n  Given an empty control plane with a cpu enqueue hook\n  And tenant anthus user ryan has a channel with a named bot Assistant\n  When user ryan posts a fence probe addressed to Assistant without enqueueing a turn job\n  Then the channel has a turn\n  And bot Assistant has 0 pending turns\n  And the cpu enqueue hook was not invoked\n\nNot included: staging, production, Fargate.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T03:23:02.311091Z",
+  "updated_at": "2026-08-31T03:23:27.488587Z",
+  "closed_at": null,
+  "custom": {}
+}

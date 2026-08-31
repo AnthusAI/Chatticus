@@ -1104,7 +1104,13 @@ class ControlPlane:
         enqueue_turn: bool = True,
         idempotency_key: str | None = None,
     ) -> tuple[Message, Turn | None]:
-        """Append a committed message and enqueue a cpu turn when addressed.
+        """Append a committed message and start a cpu turn when addressed.
+
+        When ``enqueue_turn`` is false, the turn is created and
+        ``turn.started`` is recorded, but no job, cpu queue publish, or
+        deadline is scheduled. That is the fence-probe path: a human
+        worker can claim the lease without racing the computerless
+        Lambda.
 
         :raises ChannelNotFoundError: If the channel is unknown.
         :raises ChannelTenantMismatchError: If the tenant does not own the
@@ -1139,8 +1145,10 @@ class ControlPlane:
         self._messaging_store.put_message(message)
         self._fault(TurnBoundary.MESSAGE_COMMIT, CrashWindow.AFTER)
         started: Turn | None = None
-        if enqueue_turn and addressed_to_bot_id is not None:
-            started = self._start_turn_for_bot(channel, addressed_to_bot_id)
+        if addressed_to_bot_id is not None:
+            started = self._start_turn_for_bot(
+                channel, addressed_to_bot_id, enqueue=enqueue_turn
+            )
         if idempotency_key is not None:
             turn_id = started.turn_id if started is not None else None
             self._post_idempotency[(tenant_id, idempotency_key)] = (message, turn_id)
@@ -1548,28 +1556,31 @@ class ControlPlane:
             )
         return self._complete_turn(turn, expected_fence=fence_token)
 
-    def _start_turn_for_bot(self, channel: Channel, bot_id: str) -> Turn:
+    def _start_turn_for_bot(
+        self, channel: Channel, bot_id: str, *, enqueue: bool = True
+    ) -> Turn:
         turn = Turn(
             turn_id=str(uuid4()),
             tenant_id=channel.tenant_id,
             channel_id=channel.channel_id,
             bot_id=bot_id,
         )
-        if self.recovery_enabled:
+        if enqueue and self.recovery_enabled:
             turn.deadline_at = self._now + self.turn_deadline
         self._messaging_store.put_turn(turn)
         self._turn_tenants[turn.turn_id] = channel.tenant_id
         self._append_turn_event(turn, TurnEventKind.TURN_STARTED)
-        job = self.enqueue_turn(
-            channel.tenant_id,
-            frozenset({"cpu"}),
-            bot_id=bot_id,
-        )
-        self._bind_job_to_turn(job.job_id, turn.turn_id)
-        if self.recovery_enabled and turn.deadline_at is not None:
-            self._deadline_scheduler.schedule(
-                channel.tenant_id, turn.turn_id, turn.deadline_at
+        if enqueue:
+            job = self.enqueue_turn(
+                channel.tenant_id,
+                frozenset({"cpu"}),
+                bot_id=bot_id,
             )
+            self._bind_job_to_turn(job.job_id, turn.turn_id)
+            if self.recovery_enabled and turn.deadline_at is not None:
+                self._deadline_scheduler.schedule(
+                    channel.tenant_id, turn.turn_id, turn.deadline_at
+                )
         return turn
 
     def _bind_job_to_turn(self, job_id: str, turn_id: str) -> None:

@@ -129,6 +129,7 @@ def main() -> int:
                 "author_id": args.user_id,
                 "body": "Fence probe; do not wait on this turn.",
                 "addressed_to_bot_id": bot["bot_id"],
+                "enqueue_turn": False,
             },
         ).json()
         fence_turn_id = fence_posted["turn_id"]
@@ -145,15 +146,16 @@ def main() -> int:
             f"claim_a={claim_a.status_code} claim_b={claim_b.status_code}"
         )
         acquired = claim_a.status_code == 200 and claim_a.json().get("acquired") is True
-        if acquired and claim_b.status_code != 409:
+        if not acquired:
             print(
-                "second claim did not get 409 while the lease was held",
+                "fence claim did not acquire "
+                f"claim_a={claim_a.status_code} {claim_a.text[:300]}",
                 file=sys.stderr,
             )
             return 1
-        if not acquired and claim_a.status_code != 409:
+        if claim_b.status_code != 409:
             print(
-                f"fence claim unexpected {claim_a.status_code} {claim_a.text[:300]}",
+                "second claim did not get 409 while the lease was held",
                 file=sys.stderr,
             )
             return 1

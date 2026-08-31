@@ -65,6 +65,10 @@ class PostMessageBody(BaseModel):
     author_id: str
     body: str
     addressed_to_bot_id: str | None = None
+    enqueue_turn: bool = Field(
+        default=True,
+        description="When false, start the addressed turn without a cpu SQS job.",
+    )
 
 
 class PostChunkBody(BaseModel):
@@ -211,6 +215,7 @@ def create_app(
             body.author_id,
             body.body,
             addressed_to_bot_id=body.addressed_to_bot_id,
+            enqueue_turn=body.enqueue_turn,
         )
         turn_id = started.turn_id if started is not None else None
         logger.info(
