@@ -161,6 +161,29 @@ def test_channel_messages_survive_a_new_control_plane_in_dynamo() -> None:
     assert messages[0].body == "hello"
 
 
+@mock_aws
+def test_second_control_plane_enqueues_a_turn_for_a_stored_bot() -> None:
+    table_name = "chatticus-messaging-bot-hydrate-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    bot, channel = _channel_with_bot(first)
+    second = ControlPlane(messaging_store=store)
+    _, started = second.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello again",
+        addressed_to_bot_id=bot.bot_id,
+    )
+    assert started is not None
+    job = second.job_for_turn(channel.tenant_id, started.turn_id)
+    assert job is not None
+    assert job.bot_id == bot.bot_id
+
+
 def test_cross_tenant_channel_post_is_rejected() -> None:
     plane = ControlPlane()
     api = _client_for(plane)

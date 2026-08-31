@@ -190,6 +190,26 @@ def main() -> int:
                 )
                 return 1
             print("stale_waiting=409")
+            finisher = client.post(
+                f"/turns/{fence_turn_id}/claim",
+                json={"worker_id": "exercise-waiting-finisher"},
+            )
+            if finisher.status_code == 200 and finisher.json().get("acquired"):
+                complete = client.post(
+                    f"/turns/{fence_turn_id}/chunks",
+                    json={
+                        "token": "",
+                        "complete": True,
+                        "fence_token": finisher.json()["fence_token"],
+                    },
+                )
+                if complete.status_code >= 400:
+                    print(
+                        f"waiting_complete {complete.status_code} "
+                        f"{complete.text[:300]}",
+                        file=sys.stderr,
+                    )
+                    return 1
         posted_response = client.post(
             f"/channels/{channel['channel_id']}/messages",
             json={

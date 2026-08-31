@@ -289,7 +289,7 @@ class ControlPlane:
         resolved_user_id = user_id
         resolved_tenant_id = tenant_id
         if bot_id is not None:
-            bot = self._bots[bot_id]
+            bot = self._bot(resolved_tenant_id, bot_id)
             resolved_user_id = bot.user_id
             resolved_tenant_id = bot.tenant_id
         needs_computer = "computer" in required_capabilities
