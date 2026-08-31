@@ -27,6 +27,8 @@ from chatticus.models import (
     ChatticusError,
     ComputerNotReadyError,
     StaleAttemptError,
+    TaskAccessDeniedError,
+    TaskNotFoundError,
     TurnAccessDeniedError,
     TurnClaimDeniedError,
     TurnEventKind,
@@ -109,6 +111,14 @@ class WaitTurnBody(BaseModel):
 
     gate: str
     fence_token: int
+
+
+class InvokeTaskToolBody(BaseModel):
+    """Body for POST /bots/{bot_id}/tasks/tool."""
+
+    user_id: str
+    action: str
+    arguments: dict[str, str] = Field(default_factory=dict)
 
 
 @dataclass
@@ -267,6 +277,32 @@ def create_app(
             body.key,
         )
         return _bot_payload(state.plane.bot(tenant_id, bot_id))
+
+    @app.post("/bots/{bot_id}/tasks/tool")
+    def invoke_task_tool(
+        bot_id: str,
+        body: InvokeTaskToolBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            state.plane.bot(tenant_id, bot_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="bot not found") from error
+        task = state.plane.invoke_task_tool(
+            tenant_id,
+            body.user_id,
+            bot_id,
+            body.action,
+            body.arguments,
+        )
+        logger.info(
+            "task_tool_invoked tenant_id=%s bot_id=%s action=%s task_id=%s",
+            tenant_id,
+            bot_id,
+            body.action,
+            task.task_id,
+        )
+        return _task_payload(task)
 
     @app.post("/computers/stopped")
     def set_computer_stopped(
@@ -614,6 +650,10 @@ def _status_for_error(error: ChatticusError) -> int:
         ChannelTenantMismatchError | TurnAccessDeniedError | ActorNotInChannelError,
     ):
         return 403
+    if isinstance(error, TaskAccessDeniedError):
+        return 403
+    if isinstance(error, TaskNotFoundError):
+        return 404
     if isinstance(error, StaleAttemptError | TurnClaimDeniedError):
         return 409
     if isinstance(
@@ -636,6 +676,20 @@ def _bot_payload(bot: Any) -> dict[str, Any]:
         "user_id": bot.user_id,
         "name": bot.name,
         "memory": dict(bot.memory),
+    }
+
+
+def _task_payload(task: Any) -> dict[str, Any]:
+    return {
+        "task_id": task.task_id,
+        "tenant_id": task.tenant_id,
+        "user_id": task.user_id,
+        "title": task.title,
+        "status": str(task.status),
+        "evidence": task.evidence,
+        "close_reason": task.close_reason,
+        "created_by_bot_id": task.created_by_bot_id,
+        "updated_by_bot_id": task.updated_by_bot_id,
     }
 
 

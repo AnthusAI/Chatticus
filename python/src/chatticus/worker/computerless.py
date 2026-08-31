@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -17,11 +18,20 @@ from chatticus.models import (
 
 
 @dataclass(frozen=True)
+class TaskToolCall:
+    """One structured task-tool invocation from the model."""
+
+    action: str
+    arguments: dict[str, str]
+
+
+@dataclass(frozen=True)
 class CompletionOutcome:
-    """One model step: text to stream, and an optional readiness wait."""
+    """One model step: text to stream, and optional tool side effects."""
 
     text: str
     wait_gate: str | None = None
+    task_tool_call: TaskToolCall | None = None
 
 
 class TextCompletionClient(Protocol):
@@ -52,6 +62,36 @@ class FakeTextCompletionClient:
         if user_text:
             return CompletionOutcome(text=f"You said: {user_text}")
         return CompletionOutcome(text="Hello")
+
+
+class TaskAwareFakeTextCompletionClient(FakeTextCompletionClient):
+    """Fake client that can emit task-tool calls for Gherkin and kernel tests."""
+
+    _TASK_TITLE_RE = re.compile(
+        r"create a task titled (.+)$",
+        re.IGNORECASE,
+    )
+
+    def complete(self, prompt: str) -> CompletionOutcome:
+        last_line = prompt.strip().splitlines()[-1] if prompt.strip() else ""
+        lowered = last_line.lower()
+        user_text = last_line
+        for prefix in ("human:", "user:", "bot:"):
+            if lowered.startswith(prefix):
+                user_text = last_line.split(":", 1)[1].strip()
+                lowered = user_text.lower()
+                break
+        match = self._TASK_TITLE_RE.search(user_text)
+        if match is not None:
+            title = match.group(1).strip()
+            return CompletionOutcome(
+                text="I'll create that task for you.",
+                task_tool_call=TaskToolCall(
+                    action="create",
+                    arguments={"title": title},
+                ),
+            )
+        return super().complete(prompt)
 
 
 class CountingTextCompletionClient:
@@ -191,8 +231,15 @@ class ComputerlessWorker:
             outcome = client.complete(prompt)
         else:
             outcome = RenewingTextCompletionClient(client, renew).complete(prompt)
-        if not outcome.text.strip() and outcome.wait_gate is None:
+        if (
+            not outcome.text.strip()
+            and outcome.wait_gate is None
+            and outcome.task_tool_call is None
+        ):
             raise RuntimeError("Model returned an empty completion.")
+        if outcome.task_tool_call is not None:
+            self._handle_task_tool_call(job, outcome)
+            return
         if outcome.wait_gate is not None:
             if outcome.text.strip():
                 self.turn_client.post_chunk(job.turn_id, outcome.text)
@@ -202,6 +249,30 @@ class ComputerlessWorker:
         midpoint = max(1, len(outcome.text) // 2)
         self.turn_client.post_chunk(job.turn_id, outcome.text[:midpoint])
         self.turn_client.post_chunk(job.turn_id, outcome.text[midpoint:], complete=True)
+        self.plane.remove_pending_job(job.job_id)
+
+    def _handle_task_tool_call(self, job: TurnJob, outcome: CompletionOutcome) -> None:
+        """Invoke the structured task tool through ThinTurn HTTP and answer."""
+        if job.turn_id is None or outcome.task_tool_call is None:
+            return
+        turn = self.plane.turn(job.tenant_id, job.turn_id)
+        bot_id = job.bot_id or turn.bot_id
+        if bot_id is None:
+            raise RuntimeError("Task tool requires a bot-addressed turn.")
+        bot = self.plane.bot(job.tenant_id, bot_id)
+        task = self.turn_client.invoke_task_tool(
+            bot_id,
+            bot.user_id,
+            outcome.task_tool_call.action,
+            outcome.task_tool_call.arguments,
+        )
+        answer = (
+            f"{outcome.text.strip()} Task {task['task_id']}: "
+            f"{task['title']} (status: {task['status']})."
+        ).strip()
+        midpoint = max(1, len(answer) // 2)
+        self.turn_client.post_chunk(job.turn_id, answer[:midpoint])
+        self.turn_client.post_chunk(job.turn_id, answer[midpoint:], complete=True)
         self.plane.remove_pending_job(job.job_id)
 
     def _renew_lease(self, job: TurnJob) -> None:

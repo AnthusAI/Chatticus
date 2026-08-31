@@ -97,3 +97,27 @@ class HttpTurnClient:
                 f"waiting POST failed with status {response.status_code}: "
                 f"{response.text}"
             )
+
+    def invoke_task_tool(
+        self,
+        bot_id: str,
+        user_id: str,
+        action: str,
+        arguments: dict[str, str],
+    ) -> dict[str, Any]:
+        """Invoke the structured task tool for one bot at the first readiness gate."""
+        response = self.client.post(
+            f"/bots/{bot_id}/tasks/tool",
+            json={
+                "user_id": user_id,
+                "action": action,
+                "arguments": arguments,
+            },
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"task tool POST failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+        return response.json()

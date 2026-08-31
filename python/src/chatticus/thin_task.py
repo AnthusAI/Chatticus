@@ -173,3 +173,43 @@ def task_tool_schema() -> dict[str, Any]:
         "actions": ["create", "get", "complete", "close"],
         "fields": ["status", "evidence", "close_reason", "bot_provenance"],
     }
+
+
+def openai_task_tool() -> dict[str, Any]:
+    """Return the OpenAI function tool definition for the task tool."""
+    return {
+        "type": "function",
+        "function": {
+            "name": TASK_TOOL_NAME,
+            "description": (
+                "Create, read, complete, or close a durable household task. "
+                "Use for job tracking without summoning the computer."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["create", "get", "complete", "close"],
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Required for create.",
+                    },
+                    "task_id": {
+                        "type": "string",
+                        "description": "Required for get, complete, and close.",
+                    },
+                    "evidence": {
+                        "type": "string",
+                        "description": "Required for complete.",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Required for close.",
+                    },
+                },
+                "required": ["action"],
+            },
+        },
+    }

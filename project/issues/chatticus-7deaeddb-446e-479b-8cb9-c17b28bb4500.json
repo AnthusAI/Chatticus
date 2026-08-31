@@ -12,9 +12,25 @@
     "v1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "8044264e-c50c-4a84-bd5d-c1b9b78f3db8",
+      "author": "agent@example.com",
+      "text": "Next iteration: wire thin Task into worker/HTTP. Stacked on PR #46.",
+      "created_at": "2026-08-31T18:24:31.686509Z"
+    },
+    {
+      "id": "6017af6c-cedc-4a0d-9179-f1d94f8f4860",
+      "author": "agent@example.com",
+      "text": "Wired thin Task into ThinTurn HTTP (POST /bots/{bot_id}/tasks/tool) and computerless worker tool list. Worker invokes task tool via HTTP with tenant isolation. Stacked PR on #46. Kernel-only before: invoke_task_tool direct; now live: HTTP endpoint + worker model tool path. No Kanbus.",
+      "created_at": "2026-08-31T18:29:59.338727Z"
+    }
+  ],
   "created_at": "2026-08-31T18:18:35.049245Z",
-  "updated_at": "2026-08-31T18:18:35.049245Z",
+  "updated_at": "2026-08-31T18:29:59.338727Z",
   "closed_at": null,
-  "custom": {}
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }
