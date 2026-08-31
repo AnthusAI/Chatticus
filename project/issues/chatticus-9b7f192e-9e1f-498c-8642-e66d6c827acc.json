@@ -114,10 +114,16 @@
       "author": "home",
       "text": "Frontier: durable POST /bots Idempotency-Key is live on development ThinTurn (dc8fe0f). exercise exit 0 with claim_a=200 claim_b=409 bot_idempotent=1 bot_name_dup=1 channel_idempotent=1 post_idempotent=1. bda7ff closed. No staging/production. main stays v0.5.0.",
       "created_at": "2026-08-31T05:01:29.178396Z"
+    },
+    {
+      "id": "50f07c9e-9dd5-4a30-a04e-b1e7a974d340",
+      "author": "home",
+      "text": "Frontier tick: GET /channels/{id} live on development ThinTurn (c2f3e55 code, README 3146118). exercise exit 0 with channel_get=1 claim_a=200 claim_b=409. 73aaf6 closed. Safari/background-tab still unmeasured on 387e4f.",
+      "created_at": "2026-08-31T05:08:13.994143Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T05:01:29.178396Z",
+  "updated_at": "2026-08-31T05:08:13.994143Z",
   "closed_at": null,
   "custom": {}
 }
