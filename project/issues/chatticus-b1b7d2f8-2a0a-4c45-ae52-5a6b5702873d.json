@@ -3,7 +3,7 @@
   "title": "GitHub Actions deploy workflow for ChatticusWeb",
   "description": "",
   "type": "sub-task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -22,10 +22,16 @@
       "author": "agent@example.com",
       "text": "Code slice on develop via #62: deploy-web-development.yml + OIDC trust for that workflow. Live remaining: human redeploy ChatticusGitHubDeploy, then one successful Deploy Web (development) run. Do not close b1b7d2 until that. No staging/production/--all.",
       "created_at": "2026-08-31T21:20:31.753023Z"
+    },
+    {
+      "id": "8981b200-db1e-47af-a85c-38c376b1591e",
+      "author": "agent@example.com",
+      "text": "Live development deploy done with the same scripts the new workflow calls: ChatticusGitHubDeploy (OIDC now trusts deploy-web-development.yml) then deploy-chatticus-web-development.sh. ChatticusThinTurn + ChatticusWeb updated. https://dev.chattic.us returned 200. Computers desiredCount 0. Snapshots/Computers/staging/production stacks not updated. Did not run the old main workflow deploy-web.yml.",
+      "created_at": "2026-08-31T21:30:05.080164Z"
     }
   ],
   "created_at": "2026-08-31T16:34:08.603531Z",
-  "updated_at": "2026-08-31T21:20:31.753023Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T21:30:05.091359Z",
+  "closed_at": "2026-08-31T21:30:05.091359Z",
   "custom": {}
 }
