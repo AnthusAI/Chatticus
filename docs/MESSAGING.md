@@ -205,7 +205,7 @@ would wait a second for; buffer what you are rendering live.
 
 | Path | Use |
 | --- | --- |
-| `POST /bots` | Create a named bot |
+| `POST /bots` | Create a named bot. Retry with the same `Idempotency-Key` header returns the original bot |
 | `GET /bots/{id}` | Read a bot, including isolated memory |
 | `POST /bots/{id}/memory` | Persist one bot memory item |
 | `POST /channels` | Open a channel. Retry with the same `Idempotency-Key` header returns the original channel |

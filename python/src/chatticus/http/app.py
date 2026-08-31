@@ -162,8 +162,12 @@ def create_app(
     def create_bot(
         body: CreateBotBody,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, str]:
-        bot = state.plane.create_bot(tenant_id, body.user_id, body.name)
+        key = (idempotency_key or "").strip() or None
+        bot = state.plane.create_bot(
+            tenant_id, body.user_id, body.name, idempotency_key=key
+        )
         logger.info(
             "bot_created tenant_id=%s user_id=%s bot_id=%s",
             tenant_id,

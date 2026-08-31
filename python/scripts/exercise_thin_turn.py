@@ -104,9 +104,12 @@ def main() -> int:
             )
             return 1
         print("missing_claim=404")
+        bot_name = f"ExerciseBot-{uuid4().hex[:8]}"
+        bot_key = str(uuid4())
         bot_response = client.post(
             "/bots",
-            json={"user_id": args.user_id, "name": f"ExerciseBot-{uuid4().hex[:8]}"},
+            json={"user_id": args.user_id, "name": bot_name},
+            headers={"Idempotency-Key": bot_key},
         )
         if bot_response.status_code >= 400:
             print(
@@ -114,7 +117,26 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+        retry_bot = client.post(
+            "/bots",
+            json={"user_id": args.user_id, "name": bot_name},
+            headers={"Idempotency-Key": bot_key},
+        )
+        if retry_bot.status_code >= 400:
+            print(
+                f"bot_idempotent {retry_bot.status_code} {retry_bot.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
         bot = bot_response.json()
+        if bot["bot_id"] != retry_bot.json()["bot_id"]:
+            print(
+                "bot_idempotent duplicated "
+                f"{bot['bot_id']} {retry_bot.json()['bot_id']}",
+                file=sys.stderr,
+            )
+            return 1
+        print("bot_idempotent=1")
         duplicate_bot = client.post(
             "/bots",
             json={"user_id": args.user_id, "name": bot["name"]},

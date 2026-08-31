@@ -376,11 +376,24 @@ class ControlPlane:
         )
         return candidates[0].registration
 
-    def create_bot(self, tenant_id: str, user_id: str, name: str) -> Bot:
+    def create_bot(
+        self,
+        tenant_id: str,
+        user_id: str,
+        name: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> Bot:
         """Create a named bot and ensure the user has a computer.
 
         :raises DuplicateBotNameError: If the user already has this bot name.
         """
+        if idempotency_key is not None:
+            cached = self._messaging_store.get_bot_idempotency(
+                tenant_id, idempotency_key
+            )
+            if cached is not None:
+                return cached
         if self._messaging_store.get_bot_by_name(tenant_id, user_id, name) is not None:
             raise DuplicateBotNameError(
                 f"Bot named {name!r} already exists for user {user_id!r}."
@@ -394,6 +407,8 @@ class ControlPlane:
         )
         self._bots[bot.bot_id] = bot
         self._messaging_store.put_bot(bot, reserve_name=True)
+        if idempotency_key is not None:
+            self._messaging_store.put_bot_idempotency(tenant_id, idempotency_key, bot)
         return bot
 
     def bot(self, tenant_id: str, bot_id: str) -> Bot:

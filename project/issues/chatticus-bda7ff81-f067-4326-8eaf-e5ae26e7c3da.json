@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-bda7ff81-f067-4326-8eaf-e5ae26e7c3da",
+  "title": "Retrying a bot create with one idempotency key does not duplicate",
+  "description": "As a household member, I want retrying POST /bots with the same Idempotency-Key to return the original bot, so a dropped HTTP response does not 400 on the reserved name and lose the bot_id.\n\nFeature: Bot turns pin to the user's computer\n\nScenario: Retrying a bot create with the same idempotency key returns the original bot\n  Given an empty control plane backed by a durable messaging store\n  When tenant \"anthus\" user \"ryan\" creates bot \"Researcher\" using idempotency key \"retry-bot\"\n  And a recycled control plane creates bot \"Researcher\" for tenant \"anthus\" user \"ryan\" using idempotency key \"retry-bot\"\n  Then the created bot identifier is unchanged\n\nThe key is stored on the messaging table so a recycled Front Door Lambda still sees it. Duplicate names without that key still fail.\n\nNot included: staging, production, Fargate, Safari.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T04:56:52.886490Z",
+  "updated_at": "2026-08-31T04:58:55.456382Z",
+  "closed_at": null,
+  "custom": {}
+}

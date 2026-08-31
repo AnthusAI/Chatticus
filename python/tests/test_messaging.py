@@ -1180,6 +1180,43 @@ def test_http_duplicate_bot_name_is_rejected() -> None:
     api.close()
 
 
+def test_http_bot_create_idempotency_key_does_not_duplicate() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    payload = {"user_id": "ryan", "name": "Researcher"}
+    headers = {
+        "X-Tenant-Id": "anthus",
+        "Idempotency-Key": "retry-bot",
+    }
+    first = api.post("/bots", json=payload, headers=headers)
+    second = api.post("/bots", json=payload, headers=headers)
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["bot_id"] == second.json()["bot_id"]
+    duplicate = api.post(
+        "/bots",
+        json=payload,
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert duplicate.status_code == 400
+    api.close()
+
+
+@mock_aws
+def test_dynamo_bot_create_idempotency_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-bot-idempotency-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    bot = first.create_bot("anthus", "ryan", "Researcher", idempotency_key="retry-bot")
+    second = ControlPlane(messaging_store=store)
+    again = second.create_bot(
+        "anthus", "ryan", "Researcher", idempotency_key="retry-bot"
+    )
+    assert again.bot_id == bot.bot_id
+
+
 def test_channel_messages_survive_a_new_control_plane() -> None:
     store = InMemoryMessagingStore()
     first = ControlPlane(messaging_store=store)

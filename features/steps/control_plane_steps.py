@@ -416,6 +416,23 @@ def when_create_bot(context: object, name: str, tenant_id: str, user_id: str) ->
         context.bot_error = error
 
 
+@when(
+    'tenant "{tenant_id}" user "{user_id}" creates bot "{name}" '
+    'using idempotency key "{key}"'
+)
+def when_create_bot_with_idempotency(
+    context: object, name: str, tenant_id: str, user_id: str, key: str
+) -> None:
+    previous = getattr(context, "idempotent_bot_id", None)
+    bot = context.plane.create_bot(tenant_id, user_id, name, idempotency_key=key)
+    context.bots_by_name[name] = bot
+    context.bot_error = None
+    if previous is None:
+        context.idempotent_bot_id = bot.bot_id
+    else:
+        context.repeated_bot_id = bot.bot_id
+
+
 @given("an empty control plane backed by a durable messaging store")
 def given_durable_messaging_store(context: object) -> None:
     context.messaging_store = InMemoryMessagingStore()
@@ -434,9 +451,28 @@ def when_recycled_plane_creates_bot(
     when_create_bot(context, name, tenant_id, user_id)
 
 
+@when(
+    'a recycled control plane creates bot "{name}" for tenant '
+    '"{tenant_id}" user "{user_id}" using idempotency key "{key}"'
+)
+def when_recycled_plane_creates_bot_with_idempotency(
+    context: object, name: str, tenant_id: str, user_id: str, key: str
+) -> None:
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    when_create_bot_with_idempotency(context, name, tenant_id, user_id, key)
+
+
 @then("creating the bot fails because the name is already used")
 def then_duplicate_bot(context: object) -> None:
     assert isinstance(context.bot_error, DuplicateBotNameError)
+
+
+@then("the created bot identifier is unchanged")
+def then_created_bot_identifier_is_unchanged(context: object) -> None:
+    first = getattr(context, "idempotent_bot_id", None)
+    second = getattr(context, "repeated_bot_id", None)
+    assert first is not None
+    assert second == first
 
 
 @when('worker "{worker_id}" publishes a snapshot of computer "{computer_id}"')

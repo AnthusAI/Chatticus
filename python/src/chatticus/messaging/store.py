@@ -151,6 +151,17 @@ class MessagingStore(Protocol):
     ) -> None:
         """Persist the result of one idempotent channel create."""
 
+    def get_bot_idempotency(self, tenant_id: str, idempotency_key: str) -> Bot | None:
+        """Return the bot stored for one create-bot idempotency key."""
+
+    def put_bot_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        bot: Bot,
+    ) -> None:
+        """Persist the result of one idempotent bot create."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -166,6 +177,7 @@ class InMemoryMessagingStore:
         self._logical_enqueue_ids: dict[tuple[str, str], set[str]] = {}
         self._post_idempotency: dict[tuple[str, str], tuple[Message, str | None]] = {}
         self._channel_idempotency: dict[tuple[str, str], str] = {}
+        self._bot_idempotency: dict[tuple[str, str], str] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -354,6 +366,20 @@ class InMemoryMessagingStore:
         channel: Channel,
     ) -> None:
         self._channel_idempotency[(tenant_id, idempotency_key)] = channel.channel_id
+
+    def get_bot_idempotency(self, tenant_id: str, idempotency_key: str) -> Bot | None:
+        bot_id = self._bot_idempotency.get((tenant_id, idempotency_key))
+        if bot_id is None:
+            return None
+        return self.get_bot(tenant_id, bot_id)
+
+    def put_bot_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        bot: Bot,
+    ) -> None:
+        self._bot_idempotency[(tenant_id, idempotency_key)] = bot.bot_id
 
 
 class DynamoMessagingStore:
@@ -904,6 +930,38 @@ class DynamoMessagingStore:
                 "sk": {"S": f"chidem#{idempotency_key}"},
                 "tenant_id": {"S": tenant_id},
                 "channel_id": {"S": channel.channel_id},
+            },
+        )
+
+    def get_bot_idempotency(self, tenant_id: str, idempotency_key: str) -> Bot | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"botidem#{idempotency_key}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        bot_id = item.get("bot_id", {}).get("S")
+        if not bot_id:
+            return None
+        return self.get_bot(tenant_id, bot_id)
+
+    def put_bot_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        bot: Bot,
+    ) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"botidem#{idempotency_key}"},
+                "tenant_id": {"S": tenant_id},
+                "bot_id": {"S": bot.bot_id},
             },
         )
 
