@@ -4,23 +4,21 @@
 # Not a Lambda runtime. Build from the repository root:
 #   docker build -f computer/Dockerfile -t chatticus-computer .
 
-FROM debian:bookworm-slim
+# Debian Chromium is a real deb (Ubuntu's chromium-browser is a snap stub).
+# Official python:3.12 is required: bookworm's python3 is 3.11 and chatticus
+# declares requires-python >=3.12.
+FROM python:3.12-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive \
     CHATTICUS_LIVE_ROOT=/var/lib/chatticus/computer \
     CHATTICUS_SNAPSHOT_STORE=/var/lib/chatticus/store
 
-# Ubuntu's chromium-browser package is a snap stub and fails in Fargate
-# ("requires the chromium snap"). Debian ships a real Chromium deb for ARM64.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
     x11-utils \
     chromium \
     fonts-liberation \
     ca-certificates \
-    python3 \
-    python3-pip \
-    python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 COPY python /opt/chatticus/src

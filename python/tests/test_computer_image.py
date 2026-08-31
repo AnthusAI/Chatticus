@@ -52,9 +52,10 @@ def test_computer_dockerfile_copies_python_and_installs_package() -> None:
 
 def test_computer_dockerfile_installs_real_chromium_deb() -> None:
     text = DOCKERFILE.read_text()
-    assert "debian:bookworm-slim" in text
+    assert "python:3.12-slim-bookworm" in text
     assert "    chromium \\" in text
     assert "    chromium-browser" not in text
+    assert ">=3.12" in text
 
 
 def test_computer_dockerfile_installs_host_worker_runtime_deps() -> None:
