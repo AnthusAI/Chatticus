@@ -72,6 +72,42 @@ def given_empty_control_plane(context: object) -> None:
     context.stream_error = None
 
 
+@given("an empty control plane with a cpu enqueue hook")
+def given_empty_control_plane_with_cpu_enqueue_hook(context: object) -> None:
+    context.cpu_enqueued_jobs = []
+
+    def capture(job: object) -> None:
+        context.cpu_enqueued_jobs.append(job)
+
+    context.plane = ControlPlane(
+        heartbeat_timeout=timedelta(seconds=30),
+        turn_enqueued=capture,
+    )
+    app = create_app(context.plane)
+    context.api_app = app
+    context.app_state = app.state.chatticus
+    context.api_client = start_test_server(app)
+    context.bots_by_name = {}
+    context.last_job = None
+    context.last_assignment = None
+    context.last_decision = None
+    context.registration_error = None
+    context.bot_error = None
+    context.snapshot_error = None
+    context.relocate_error = None
+    context.hydrate_error = None
+    context.write_error = None
+    context.last_channel = None
+    context.last_message = None
+    context.last_turn_id = None
+    context.message_error = None
+    context.other_tenant_id = None
+    context.listed_messages = None
+    context.sse_watcher = None
+    context.access_error = None
+    context.stream_error = None
+
+
 @given("the heartbeat timeout is {seconds:d} seconds")
 def given_heartbeat_timeout(context: object, seconds: int) -> None:
     context.plane.heartbeat_timeout = timedelta(seconds=seconds)

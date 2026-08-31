@@ -1025,6 +1025,14 @@ class ControlPlane:
         self._jobs = [job for job in self._jobs if job.job_id != job_id]
         self._fault(TurnBoundary.ACKNOWLEDGEMENT, CrashWindow.AFTER)
 
+    def _offer_cpu_queue(self, job: TurnJob) -> None:
+        """Publish a job to the cpu worker queue, never a computer continuation."""
+        if self._turn_enqueued is None:
+            return
+        if "computer" in job.required_capabilities:
+            return
+        self._turn_enqueued(job)
+
     def set_computer_stopped(self, tenant_id: str, user_id: str, stopped: bool) -> None:
         """Mark the household computer stopped without deleting it."""
         computer = self.ensure_computer(tenant_id, user_id)
@@ -1253,8 +1261,7 @@ class ControlPlane:
             return False
         self._logical_enqueue_delivery_count += 1
         self._fault(TurnBoundary.LOGICAL_ENQUEUE, CrashWindow.AFTER)
-        if self._turn_enqueued is not None:
-            self._turn_enqueued(job)
+        self._offer_cpu_queue(job)
         return True
 
     def handle_turn_deadline(self, tenant_id: str, turn_id: str) -> None:
@@ -1580,8 +1587,8 @@ class ControlPlane:
                         logical_enqueue_id(turn_id),
                         bound,
                     )
-                elif self._turn_enqueued is not None:
-                    self._turn_enqueued(bound)
+                else:
+                    self._offer_cpu_queue(bound)
                 return
 
     def _complete_turn(

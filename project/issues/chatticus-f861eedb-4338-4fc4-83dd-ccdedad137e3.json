@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-f861eedb-4338-4fc4-83dd-ccdedad137e3",
+  "title": "The cpu turn queue does not receive a computer continuation job",
+  "description": "As a household member, I want computer-required continuations kept off the cpu SQS queue, so that a computerless worker is not invoked until a computer-capable worker exists.\n\nFeature: Computerless turn\n\nScenario: Resume does not publish a computer job to the cpu queue\n  Given an empty control plane with a cpu enqueue hook\n  And tenant anthus user ryan has a channel with a named bot Assistant\n  And tenant anthus user ryan household computer is stopped\n  When user ryan of tenant anthus posts a browser request addressed to Assistant\n  And a counting computerless worker processes bot Assistant\n  And tenant anthus user ryan household computer is running\n  And user ryan of tenant anthus resumes that waiting turn\n  Then the continuation job requires computer\n  And the cpu enqueue hook was not invoked for that job\n  And the turn remains active\n\nNot included: Fargate, a second SQS queue, staging or production.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T02:42:53.750841Z",
+  "updated_at": "2026-08-31T02:43:18.639334Z",
+  "closed_at": null,
+  "custom": {}
+}

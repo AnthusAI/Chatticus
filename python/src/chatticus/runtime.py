@@ -70,6 +70,14 @@ def _sqs_enqueuer(queue_url: str):
 
         if job.turn_id is None:
             return
+        if "computer" in job.required_capabilities:
+            logger.info(
+                "cpu_queue_skipped tenant_id=%s turn_id=%s attempt_id=%s",
+                job.tenant_id,
+                job.turn_id,
+                job.job_id,
+            )
+            return
         body = json.dumps(
             {
                 "job_id": job.job_id,
