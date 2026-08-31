@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `4498c3c` (no `--all`).
+from `develop` @ `7266e93` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -82,10 +82,11 @@ exits 0 for **development**, **staging**, and **production**. Each run
 includes missing-turn claim **404** and a live second-worker claim **409**
 while the lease is held, plus SSE `turn.started` / `turn.token` /
 `turn.completed`. **Development** also proves `POST /turns/{id}/waiting`:
-SSE `turn.waiting` naming `browser`, then a stale fence **409**. The same
-named exercise then asks luna to open the household browser; the worker
-emits `turn.waiting` instead of completing. Staging and production do
-not have that route yet.
+SSE `turn.waiting` naming `browser`, then a stale fence **409**, then
+`POST /turns/{id}/resume` **409** while the household computer is stopped.
+The same named exercise then asks luna to open the household browser; the
+worker emits `turn.waiting` instead of completing, and resume is **409**
+again. Staging and production do not have waiting or resume yet.
 
 The **source** has named cloud environments, turn **claim**, **lease**,
 **fence**, durable channel lookup across Lambda invocations, a durable
@@ -100,7 +101,9 @@ What each deployed thin-turn slice does today:
 - CloudFront in front of a Lambda function URL (no load balancer).
 - FastAPI front door: channels, messages, bots, a stopped-computer roster,
   chunk POST, `POST /turns/{id}/claim`, `POST /turns/{id}/renew`, fenced
-  chunk writes, `POST /turns/{id}/waiting` (development), and
+  chunk writes, `POST /turns/{id}/waiting` (development),
+  `POST /turns/{id}/resume` (development; **409** while the computer is
+  stopped), and
   `GET /turns/{turn_id}/stream` as `text/event-stream`.
 - Channel records and named bots are in DynamoDB, so a different Front Door
   instance can enqueue a turn for a bot it did not create.
@@ -109,8 +112,9 @@ What each deployed thin-turn slice does today:
 - SQS carries one turn job. A computerless worker Lambda runs
   **gpt-5.6-luna** (OpenAI). A text-only reply still completes. If the
   model calls `request_computer_capability`, the worker POSTs
-  `turn.waiting` and leaves the turn active instead of claiming the
-  browser work is done.
+  `turn.waiting`, records `waiting_for` on the turn, and leaves the turn
+  active instead of claiming the browser work is done. Resume of that
+  same turn is refused while the computer is stopped.
 - Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
 
 Worker lease renew during long model calls is live on development.
@@ -126,18 +130,19 @@ are on the live worker loop.
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the turn path yet. The computer stays stopped.
 There is no chattic.us web app, no local pull worker, no mid-turn
-escalation, and no approvals on these slices.
+escalation onto a running computer, and no approvals on these slices.
 
 Cloud-environment epic 9eef23 is closed: three named stacks, named-env
 acceptance on each. Turn recovery epic 653989 is closed. Remaining for
 summoning a computer (8f98f8): cold readiness measurement (e747d7) — not
-a Fargate scale-up this cycle. Overnight gated-action (5b687a), immutable
-approval binding (2b293d), unbound browser stops (813d8d), computer-seam
-recovery (b41106), capability-gated readiness (`turn.waiting`, c0fbf0),
-same-turn first computer tool (d3908f), and single shared computer start
-(b6ab7d) are kernel-only; the unattended-gate decision is in
-[Approval spec](docs/APPROVAL.md) (76d3e2). They are not on the live
-worker loop.
+a Fargate scale-up this cycle. Waiting-turn resume while the computer is
+stopped (66d3c4) is live on development. Overnight gated-action
+(5b687a), immutable approval binding (2b293d), unbound browser stops
+(813d8d), computer-seam recovery (b41106), capability-gated readiness
+(`turn.waiting`, c0fbf0), same-turn first computer tool (d3908f), and
+single shared computer start (b6ab7d) are kernel-only; the
+unattended-gate decision is in [Approval spec](docs/APPROVAL.md)
+(76d3e2). They are not on the live worker loop.
 
 ```mermaid
 flowchart LR

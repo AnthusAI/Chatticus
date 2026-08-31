@@ -24,10 +24,16 @@
       "author": "home",
       "text": "653989 closed. Kernel stories c0fbf0, d3908f, b41106, b6ab7d are on develop. Remaining DoD: e747d7 cold Fargate readiness measurement (not run this cycle; do not scale ChatticusComputers without an explicit measure).",
       "created_at": "2026-08-30T23:54:43.146776Z"
+    },
+    {
+      "id": "67882b3e-d339-4620-9414-ba8fc3ede9a0",
+      "author": "home",
+      "text": "66d3c4 closed: development ThinTurn stores waiting_for and POST /turns/{id}/resume is 409 while the computer is stopped. Remaining DoD: e747d7 cold Fargate measurement (not a Computers scale-up).",
+      "created_at": "2026-08-31T01:40:51.987232Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-30T23:54:43.146776Z",
+  "updated_at": "2026-08-31T01:40:51.987232Z",
   "closed_at": null,
   "custom": {}
 }

@@ -54,10 +54,16 @@
       "author": "home",
       "text": "Timer tick: exercise --environment development exit 0. waiting_stream_kinds turn.started/token/waiting; stale_waiting=409; greeting completed; computer_stopped=True. Worker waiting path is in progress on 1736b3 (Fake client only; no Fargate, no production deploy).",
       "created_at": "2026-08-31T01:07:23.414071Z"
+    },
+    {
+      "id": "c9f17c4c-c698-4235-8096-f68df56f509f",
+      "author": "home",
+      "text": "Timer tick: exercise --environment development exit 0 after ThinTurn-only 7266e93. resume_while_stopped=409 and model_resume_while_stopped=409. 66d3c4 closed. e747d7 still not authorized. No staging/production deploy. main stays v0.5.0.",
+      "created_at": "2026-08-31T01:40:51.999728Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T01:07:23.414071Z",
+  "updated_at": "2026-08-31T01:40:51.999728Z",
   "closed_at": null,
   "custom": {}
 }
