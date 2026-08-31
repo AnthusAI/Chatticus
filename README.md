@@ -453,9 +453,17 @@ AWS resources are CDK only (`infra/`). Do not create them in the console.
 **ChatticusComputers**, and every thin-turn environment; never do that.
 Deploy one named stack:
 
+Deploy development ThinTurn only:
+
 ```bash
 cd infra
-npx cdk deploy ChatticusThinTurn
+sh deploy-chatticus-thinturn-development.sh
+```
+
+That fails closed without AWS identity and never passes `--all`. Staging
+and production, when you mean those stacks:
+
+```bash
 npx cdk deploy ChatticusThinTurnStaging
 npx cdk deploy ChatticusThinTurnProduction
 ```

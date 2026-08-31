@@ -41,12 +41,11 @@ are forbidden (`npm run deploy` exits nonzero). Do not destroy
 
 ```bash
 cd infra
-npm install
-npx cdk bootstrap
-npx cdk deploy ChatticusThinTurn
+sh deploy-chatticus-thinturn-development.sh
 ```
 
-Staging and production, when you mean to:
+That script calls `aws sts get-caller-identity` first and deploys only
+`ChatticusThinTurn`. Staging and production, when you mean to:
 
 ```bash
 npx cdk deploy ChatticusThinTurnStaging
