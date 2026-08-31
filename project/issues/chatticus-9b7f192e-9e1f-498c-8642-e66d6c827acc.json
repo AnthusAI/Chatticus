@@ -168,10 +168,16 @@
       "author": "home",
       "text": "Frontier: GET /channels/{id}/turn is live on development ThinTurn (5fb2fc4). exercise exit 0 with claim_a=200 claim_b=409 channel_turn=1. 206992 closed. No staging/production. main stays v0.5.0.",
       "created_at": "2026-08-31T06:03:20.016710Z"
+    },
+    {
+      "id": "7f7fede0-4a8a-460a-9a0b-bc194e7d16f2",
+      "author": "home",
+      "text": "Acceptance tick 2026-08-31: exercise --environment development exit 0. claim_a=200 claim_b=409 channel_turn=1 bots_list=1 channels_list=1 computer_get=1. base_url=https://d3gpuuldffe35o.cloudfront.net. Live ThinTurn serves GET /channels/{id}/turn (deploy 5fb2fc4 per README da49d8b). No staging/production deploy.",
+      "created_at": "2026-08-31T06:07:09.522953Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T06:03:20.016710Z",
+  "updated_at": "2026-08-31T06:07:09.522953Z",
   "closed_at": null,
   "custom": {}
 }
