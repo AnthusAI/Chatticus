@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-5c7e77fd-4657-4df6-be12-aac187a1c7b1",
+  "title": "A computer continuation is durable on its own SQS queue",
+  "description": "As a household member, I want a computer-required continuation stored on a queue the cpu worker does not consume, so the pending tool survives Front Door Lambda recycling until a computer-capable worker exists.\n\nFeature: Computerless turn\n\nScenario: Resume publishes a computer job to the computer queue\n  Given an empty control plane with cpu and computer enqueue hooks\n  And tenant anthus user ryan has a channel with a named bot Assistant\n  And tenant anthus user ryan household computer is stopped\n  When user ryan posts a browser request addressed to Assistant\n  And a counting computerless worker processes bot Assistant\n  And tenant anthus user ryan household computer is running\n  And user ryan of tenant anthus resumes that waiting turn\n  Then the continuation job requires computer\n  And the cpu enqueue hook was not invoked for that job\n  And the computer enqueue hook received that job\n  And the turn remains active\n\nNot included: attaching a computer worker, Fargate, staging or production.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T02:50:49.802591Z",
+  "updated_at": "2026-08-31T02:51:00.523293Z",
+  "closed_at": null,
+  "custom": {}
+}

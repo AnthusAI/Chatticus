@@ -111,6 +111,19 @@ Feature: Channels and the message store
     And the cpu enqueue hook was not invoked for that job
     And the turn remains active
 
+  Scenario: Resume publishes a computer job to the computer queue
+    Given an empty control plane with cpu and computer enqueue hooks
+    And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
+    And tenant "anthus" user "ryan" household computer is stopped
+    When user "ryan" of tenant "anthus" posts "research this and open the household browser" addressed to bot "Assistant" on the channel
+    And a counting computerless worker processes bot "Assistant"
+    And tenant "anthus" user "ryan" household computer is running
+    And user "ryan" of tenant "anthus" resumes that waiting turn
+    Then the continuation job requires computer
+    And the cpu enqueue hook was not invoked for that job
+    And the computer enqueue hook received that job
+    And the turn remains active
+
   Scenario: Reject a cross-tenant channel access attempt
     Given an empty control plane
     And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"

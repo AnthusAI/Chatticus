@@ -70,6 +70,10 @@ export class ThinTurnStack extends cdk.Stack {
       visibilityTimeout: cdk.Duration.seconds(180),
       removalPolicy: dataRetention,
     });
+    const computerTurnQueue = new sqs.Queue(this, "ComputerTurnJobs", {
+      visibilityTimeout: cdk.Duration.seconds(180),
+      removalPolicy: dataRetention,
+    });
 
     const invokeSecret = new secretsmanager.Secret(this, "InvokeKey", {
       description: `Shared invoke key for the Chatticus ${environmentName} thin-turn front door.`,
@@ -151,6 +155,7 @@ export class ThinTurnStack extends cdk.Stack {
       CHATTICUS_ENVIRONMENT: environmentName,
       CHATTICUS_MESSAGING_TABLE: table.tableName,
       CHATTICUS_TURN_QUEUE_URL: turnQueue.queueUrl,
+      CHATTICUS_COMPUTER_TURN_QUEUE_URL: computerTurnQueue.queueUrl,
       OPENAI_MODEL: "gpt-5.6-luna",
       OPENAI_API_KEY_PARAMETER: OPENAI_PARAMETER_NAME,
     };
@@ -195,6 +200,7 @@ export class ThinTurnStack extends cdk.Stack {
     });
     table.grantReadWriteData(deadlineFunction);
     turnQueue.grantSendMessages(deadlineFunction);
+    computerTurnQueue.grantSendMessages(deadlineFunction);
 
     const schedulerInvokeRole = new iam.Role(this, "TurnDeadlineSchedulerRole", {
       roleName: turnDeadlineSchedulerRoleName,
@@ -224,6 +230,7 @@ export class ThinTurnStack extends cdk.Stack {
 
     table.grantReadWriteData(httpFunction);
     turnQueue.grantSendMessages(httpFunction);
+    computerTurnQueue.grantSendMessages(httpFunction);
     openaiParameter.grantRead(httpFunction);
     httpFunction.addToRolePolicy(
       new iam.PolicyStatement({
@@ -336,6 +343,9 @@ export class ThinTurnStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ChatticusEnvironment", { value: environmentName });
     new cdk.CfnOutput(this, "MessagingTableName", { value: table.tableName });
     new cdk.CfnOutput(this, "TurnQueueUrl", { value: turnQueue.queueUrl });
+    new cdk.CfnOutput(this, "ComputerTurnQueueUrl", {
+      value: computerTurnQueue.queueUrl,
+    });
     new cdk.CfnOutput(this, "TurnDeadlineScheduleGroup", {
       value: turnDeadlineScheduleGroup.name ?? turnDeadlineScheduleGroupName,
     });

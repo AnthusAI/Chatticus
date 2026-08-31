@@ -666,6 +666,46 @@ def test_resume_does_not_publish_computer_job_to_cpu_queue() -> None:
     api.close()
 
 
+def test_resume_publishes_computer_job_to_computer_queue() -> None:
+    cpu_jobs: list[TurnJob] = []
+    computer_jobs: list[TurnJob] = []
+    plane = ControlPlane(
+        turn_enqueued=cpu_jobs.append,
+        computer_enqueued=computer_jobs.append,
+    )
+    api = _client_for(plane)
+    plane.set_computer_stopped("anthus", "ryan", True)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "research this and open the household browser",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    ComputerlessWorker(
+        plane,
+        HttpTurnClient(api, channel.tenant_id),
+        FakeTextCompletionClient(),
+    ).complete_pending_for_bot(bot.bot_id)
+    plane.set_computer_stopped("anthus", "ryan", False)
+    resumed = api.post(
+        f"/turns/{turn_id}/resume",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert resumed.status_code == 200
+    continuation = plane.job_for_turn(channel.tenant_id, turn_id)
+    assert continuation is not None
+    assert "computer" in continuation.required_capabilities
+    assert continuation.job_id not in {job.job_id for job in cpu_jobs}
+    assert [job.job_id for job in computer_jobs] == [continuation.job_id]
+    api.close()
+
+
 def test_computerless_worker_refuses_a_computer_continuation_job() -> None:
     plane = ControlPlane()
     api = _client_for(plane)

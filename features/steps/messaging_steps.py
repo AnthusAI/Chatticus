@@ -832,6 +832,14 @@ def then_cpu_enqueue_hook_skipped_continuation(context: object) -> None:
     assert "computer" not in context.cpu_enqueued_jobs[0].required_capabilities
 
 
+@then("the computer enqueue hook received that job")
+def then_computer_enqueue_hook_received_continuation(context: object) -> None:
+    job = context.continuation_job
+    captured_ids = [item.job_id for item in context.computer_enqueued_jobs]
+    assert captured_ids == [job.job_id]
+    assert "computer" in context.computer_enqueued_jobs[0].required_capabilities
+
+
 @then("resume is refused because the computer is not ready")
 def then_resume_refused_computer_not_ready(context: object) -> None:
     assert context.resume_response.status_code == 409

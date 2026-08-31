@@ -90,6 +90,7 @@ class ControlPlane:
         heartbeat_timeout: timedelta | None = None,
         messaging_store: MessagingStore | None = None,
         turn_enqueued: Callable[[TurnJob], None] | None = None,
+        computer_enqueued: Callable[[TurnJob], None] | None = None,
         attempt_lease: timedelta | None = None,
         turn_deadline: timedelta | None = None,
         max_recovery_attempts: int = 1,
@@ -108,6 +109,9 @@ class ControlPlane:
         :param turn_enqueued: Optional hook that receives each cpu turn job
             after it is bound to a turn (used to publish SQS in Lambda).
         :type turn_enqueued: Callable[[TurnJob], None] | None
+        :param computer_enqueued: Optional hook that receives computer
+            continuation jobs (a queue the cpu worker does not consume).
+        :type computer_enqueued: Callable[[TurnJob], None] | None
         :param attempt_lease: How long a claimed turn stays owned without renew.
         :type attempt_lease: timedelta | None
         :param turn_deadline: How long an active turn may run without renewal.
@@ -151,6 +155,7 @@ class ControlPlane:
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
         self._turn_enqueued = turn_enqueued
+        self._computer_enqueued = computer_enqueued
         self._logical_enqueue_delivery_count = 0
         self._visibility_ledger = visibility_ledger or QueueVisibilityLedger()
         self._visibility_renewer = visibility_renewer
@@ -1025,13 +1030,14 @@ class ControlPlane:
         self._jobs = [job for job in self._jobs if job.job_id != job_id]
         self._fault(TurnBoundary.ACKNOWLEDGEMENT, CrashWindow.AFTER)
 
-    def _offer_cpu_queue(self, job: TurnJob) -> None:
-        """Publish a job to the cpu worker queue, never a computer continuation."""
-        if self._turn_enqueued is None:
-            return
+    def _offer_turn_queues(self, job: TurnJob) -> None:
+        """Publish a cpu job to the cpu queue or a computer job to its queue."""
         if "computer" in job.required_capabilities:
+            if self._computer_enqueued is not None:
+                self._computer_enqueued(job)
             return
-        self._turn_enqueued(job)
+        if self._turn_enqueued is not None:
+            self._turn_enqueued(job)
 
     def set_computer_stopped(self, tenant_id: str, user_id: str, stopped: bool) -> None:
         """Mark the household computer stopped without deleting it."""
@@ -1261,7 +1267,7 @@ class ControlPlane:
             return False
         self._logical_enqueue_delivery_count += 1
         self._fault(TurnBoundary.LOGICAL_ENQUEUE, CrashWindow.AFTER)
-        self._offer_cpu_queue(job)
+        self._offer_turn_queues(job)
         return True
 
     def handle_turn_deadline(self, tenant_id: str, turn_id: str) -> None:
@@ -1588,7 +1594,7 @@ class ControlPlane:
                         bound,
                     )
                 else:
-                    self._offer_cpu_queue(bound)
+                    self._offer_turn_queues(bound)
                 return
 
     def _complete_turn(
