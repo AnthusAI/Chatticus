@@ -3,7 +3,7 @@
   "title": "Chromium host executor kernel for browser_open",
   "description": "Kernel ChromiumActionExecutor and host boot driver so a computer-capable pull worker on the Fargate host can commit tool.result for browser_open when the browser gate is ready. Lambda stays executor-less.",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "computer"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "dddd43ab-93a7-40ee-9f97-30311afeda5c",
+      "author": "home",
+      "text": "Kernel landed on cursor/chromium-host-executor-4a21: ChromiumActionExecutor, ComputerHostBootDriver, Gherkin, entrypoint Xvfb boot hook. Live still nacks until Fargate runs pull worker with executor + readiness.",
+      "created_at": "2026-08-31T12:13:01.116647Z"
+    }
+  ],
   "created_at": "2026-08-31T12:10:12.662669Z",
-  "updated_at": "2026-08-31T12:10:12.662669Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T12:13:01.116647Z",
+  "closed_at": "2026-08-31T12:13:01.104585Z",
   "custom": {}
 }
