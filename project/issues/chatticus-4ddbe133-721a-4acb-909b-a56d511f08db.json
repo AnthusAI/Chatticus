@@ -12,26 +12,23 @@
     "v1",
     "security"
   ],
-  "dependencies": [
-    {
-      "target": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
-      "type": "blocked-by"
-    },
-    {
-      "target": "76d3e2",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "4c920478-2e61-4e3c-b7a9-049e905adad3",
       "author": "agent@example.com",
       "text": "Board currency: not started. Open children 3c5f8d (specify, blocked by 8f98f8), 53d744 (enforce), 1e09b4 (evals). Do not mark in_progress until specify work begins.",
       "created_at": "2026-08-31T19:51:53.821423Z"
+    },
+    {
+      "id": "c5c9186e-4847-4c05-9488-9edc8ce1c9e8",
+      "author": "agent@example.com",
+      "text": "8f98f8 and 76d3e2 blockers removed. Kernel children closed. Next slice 150e07: persist grants on live development ThinTurn.",
+      "created_at": "2026-08-31T23:05:19.760025Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.956699Z",
-  "updated_at": "2026-08-31T20:50:08.839008Z",
+  "updated_at": "2026-08-31T23:05:19.760025Z",
   "closed_at": null,
   "custom": {}
 }

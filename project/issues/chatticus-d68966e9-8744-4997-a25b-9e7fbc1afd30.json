@@ -3,7 +3,7 @@
   "title": "Measure cold Chromium-ready on summoned Fargate",
   "description": "Purpose: finish 8f98f8 / Test 2 now that Chromium is in the computer image. e747d7 measured Fargate RUNNING only; browser-ready was recorded as incomplete.\n\nAcceptance:\n- Repeat about five cold summons with ChatticusComputers desiredCount still 0 (RunTask, then stop leftover tasks).\n- Record distribution for Fargate RUNNING and Chromium-ready (browser gate), plus cache effects vs e747d7.\n- Write results under spikes/computer-cold-start (throwaway spike, not python/src).\n- Update docs/DESIGN_CHALLENGES.md challenge 5 and docs/FEASIBILITY_TESTS.md per the feasibility-test rules.\n- Do not optimize the image or CDK during measurement.\n- No cdk deploy --all, no production, no Snapshots/Computers destroy, no 35d86b / PR #26.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -19,10 +19,16 @@
       "author": "agent@example.com",
       "text": "Planner Composer 2.5 on worktree /tmp/chatticus-d68966-chromium-ready branch cursor/chromium-ready-measure-4a21. Measurement only; desiredCount 0; not 35d86b / #26. Implementation not authorized until plan review.",
       "created_at": "2026-08-31T22:31:38.766916Z"
+    },
+    {
+      "id": "9a190e84-28b6-4df9-8373-afa174d45a09",
+      "author": "agent@example.com",
+      "text": "Landed on develop via #74. Five summoned RunTask: RUNNING median 26.0s, browser_gate median 26.1s. desiredCount 0. Guardian: no account ids in committed fargate.json.",
+      "created_at": "2026-08-31T23:04:26.418945Z"
     }
   ],
   "created_at": "2026-08-31T22:31:30.971675Z",
-  "updated_at": "2026-08-31T22:31:38.766916Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T23:04:26.432569Z",
+  "closed_at": "2026-08-31T23:04:26.432569Z",
   "custom": {}
 }

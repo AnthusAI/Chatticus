@@ -3,7 +3,7 @@
   "title": "Summon one computer and continue the same turn",
   "description": "Purpose: add the household computer without putting browser readiness in front of the model loop.\n\nDefinition of Done:\n- Cold readiness gates are measured and recorded.\n- Concurrent demand starts at most one host for a computer.\n- A bot performs useful computerless work before reporting a truthful capability wait.\n- The first computer tool continues the same durable turn exactly once.\n- Failure at every escalation boundary neither loses the turn nor creates simultaneous actors.\n- Dead or wedged computer ownership expires without an always-on scheduler.",
   "type": "epic",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -151,10 +151,16 @@
       "author": "agent@example.com",
       "text": "cfa9d3 closed on develop via #71 (proof landed in #70). Kernel duplicate waiting_for=browser continuation cannot double-commit tool.result. desiredCount still 0. Remaining epic gap is only unmeasured cold Chromium timing — needs a named child or owner close; not inventing that child here. Not 35d86b / #26.",
       "created_at": "2026-08-31T22:24:08.026936Z"
+    },
+    {
+      "id": "148a7571-c0cf-42e1-90c7-0b98817f0000",
+      "author": "agent@example.com",
+      "text": "d68966 closed: Chromium-ready cold start measured (browser gate median 26.1s). All named children closed. Epic DoD met: cold gates recorded, single host start, computerless wait, same-turn continuation, two-actor fence, lease expiry without a scheduler. Closing this epic. Not 35d86b.",
+      "created_at": "2026-08-31T23:04:26.443956Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T22:24:08.026936Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T23:04:26.455295Z",
+  "closed_at": "2026-08-31T23:04:26.455295Z",
   "custom": {}
 }
