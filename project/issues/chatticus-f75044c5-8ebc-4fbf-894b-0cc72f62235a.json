@@ -3,7 +3,7 @@
   "title": "Retrying a channel post with one idempotency key does not duplicate",
   "description": "As a household member, I want retrying a posted message with the same Idempotency-Key to return the original row and turn, so a dropped HTTP response does not enqueue a second bot turn.\n\nFeature: Channels and the message store\n\nScenario: Retrying a post with the same idempotency key does not duplicate\n  Given an empty control plane\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n  And tenant \"anthus\" user \"ryan\" has opened a channel with bots:\n    | Researcher |\n  When user \"ryan\" of tenant \"anthus\" posts \"hello\" addressed to bot \"Researcher\" on the channel with idempotency key \"retry-1\"\n  And user \"ryan\" of tenant \"anthus\" posts \"hello\" addressed to bot \"Researcher\" on the channel with idempotency key \"retry-1\"\n  Then the channel has 1 message\n  And bot \"Researcher\" has 1 pending turn with required capabilities:\n    | cpu |\n\nThe key is stored on the messaging table so a recycled Front Door Lambda still sees it.\n\nNot included: staging, production, Fargate, Safari.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -15,7 +15,7 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-08-31T04:25:43.191260Z",
-  "updated_at": "2026-08-31T04:25:55.615544Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T04:32:13.471067Z",
+  "closed_at": "2026-08-31T04:32:13.471067Z",
   "custom": {}
 }

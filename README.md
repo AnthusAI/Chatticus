@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `ee34d01` (no `--all`).
+from `develop` @ `ba3465e` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -82,7 +82,9 @@ exits 0 for **development**, **staging**, and **production**. Each run
 includes missing-turn claim **404** and a live second-worker claim **409**
 while the lease is held (`claim_a=200` then `claim_b=409` on development,
 because the fence probe starts the turn with `enqueue_turn=false` so the
-computerless worker does not race the claim), plus a live bot-memory
+computerless worker does not race the claim), plus a live idempotent
+channel post (`post_idempotent=1`: two `POST /channels/{id}/messages` with
+the same `Idempotency-Key` produce one row), plus a live bot-memory
 roundtrip (`POST /bots/{id}/memory` then `GET /bots/{id}`), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
@@ -131,7 +133,9 @@ What each deployed thin-turn slice does today:
   memory plus the channel transcript. Another bot on the same computer
   does not inherit it.
 - DynamoDB is the source of truth for the transcript, in-flight chunks
-  (TTL), and the thin roster. SSE **polls the store**.
+  (TTL), and the thin roster. SSE **polls the store**. Retrying
+  `POST /channels/{id}/messages` with the same `Idempotency-Key` returns
+  the original message and turn after Front Door recycle.
 - SQS carries one turn job. A computerless worker Lambda runs
   **gpt-5.6-luna** (OpenAI). A text-only reply still completes. If the
   model calls `request_computer_capability`, the worker POSTs
