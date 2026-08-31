@@ -205,17 +205,18 @@ def main() -> int:
                 print("fence turn did not emit turn.waiting", file=sys.stderr)
                 return 1
             journal_waiting = [
-                event
-                for event in waiting_events
-                if event.get("kind") == "turn.waiting"
+                event for event in waiting_events if event.get("kind") == "turn.waiting"
             ]
-            journal_pending = (journal_waiting[0].get("pending_computer_tool") or {})
+            journal_pending = journal_waiting[0].get("pending_computer_tool") or {}
             if (
                 journal_pending.get("tool_name") != "request_computer_capability"
                 or journal_pending.get("arguments") != {"gate": "browser"}
                 or journal_pending.get("action_id") != pending.get("action_id")
             ):
-                print(f"journal_pending_computer_tool={journal_pending!r}", file=sys.stderr)
+                print(
+                    f"journal_pending_computer_tool={journal_pending!r}",
+                    file=sys.stderr,
+                )
                 return 1
             print("journal_pending_computer_tool=request_computer_capability")
             stale_waiting = client.post(

@@ -26,6 +26,7 @@ from chatticus.models import (
     ComputerNotReadyError,
     StaleAttemptError,
     TurnEventKind,
+    TurnJob,
     TurnNotWaitingError,
     TurnStatus,
 )
@@ -295,6 +296,52 @@ def test_computerless_worker_waits_when_the_model_needs_the_browser() -> None:
     ).json()["messages"]
     bot_messages = [m for m in messages if m["author_kind"] == ActorKind.BOT]
     assert bot_messages == []
+    api.close()
+
+
+def test_computerless_worker_does_not_recall_model_on_a_waiting_turn() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    plane.set_computer_stopped("anthus", "ryan", True)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "research this and open the household browser",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    counting = CountingTextCompletionClient()
+    worker = ComputerlessWorker(
+        plane,
+        HttpTurnClient(api, channel.tenant_id),
+        counting,
+    )
+    worker.complete_pending_for_bot(bot.bot_id)
+    turn = plane.turn(channel.tenant_id, turn_id)
+    action_id = turn.pending_computer_action_id
+    assert action_id
+    assert counting.calls == 1
+    worker.run_job(
+        TurnJob(
+            job_id=str(uuid4()),
+            tenant_id=channel.tenant_id,
+            required_capabilities=frozenset({"cpu"}),
+            user_id=channel.user_id,
+            bot_id=bot.bot_id,
+            turn_id=turn_id,
+        )
+    )
+    assert counting.calls == 1
+    again = plane.turn(channel.tenant_id, turn_id)
+    assert again.status == TurnStatus.ACTIVE
+    assert again.waiting_for == "browser"
+    assert again.pending_computer_action_id == action_id
+    assert again.claimed_by_worker_id is None
     api.close()
 
 

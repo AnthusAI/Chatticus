@@ -18,6 +18,7 @@ from chatticus.models import (
     ChannelTenantMismatchError,
     TurnAccessDeniedError,
     TurnEventKind,
+    TurnJob,
     TurnStatus,
 )
 from chatticus.worker.computerless import (
@@ -322,6 +323,49 @@ def then_bot_completes_one_turn(context: object, name: str) -> None:
 @when('bot "{name}" runs one computerless worker turn')
 def when_bot_runs_computerless_worker(context: object, name: str) -> None:
     then_bot_completes_one_turn(context, name)
+
+
+@when('a counting computerless worker processes bot "{name}"')
+def when_counting_computerless_worker_processes(context: object, name: str) -> None:
+    channel = _channel(context)
+    bot = context.bots_by_name[name]
+    context.counting_client = CountingTextCompletionClient()
+    worker = ComputerlessWorker(
+        context.plane,
+        HttpTurnClient(context.api_client, channel.tenant_id),
+        context.counting_client,
+    )
+    worker.complete_pending_for_bot(bot.bot_id)
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    context.waiting_action_id = turn.pending_computer_action_id
+
+
+@when("the same waiting turn is delivered to a computerless worker again")
+def when_waiting_turn_redelivered_to_computerless(context: object) -> None:
+    channel = _channel(context)
+    turn_id = _turn_id(context)
+    turn = context.plane.turn(channel.tenant_id, turn_id)
+    job = TurnJob(
+        job_id=str(uuid4()),
+        tenant_id=channel.tenant_id,
+        required_capabilities=frozenset({"cpu"}),
+        user_id=channel.user_id,
+        bot_id=turn.bot_id,
+        turn_id=turn_id,
+    )
+    ComputerlessWorker(
+        context.plane,
+        HttpTurnClient(context.api_client, channel.tenant_id),
+        context.counting_client,
+    ).run_job(job)
+
+
+@then("the pending computer tool action identifier is unchanged")
+def then_pending_tool_action_id_unchanged(context: object) -> None:
+    channel = _channel(context)
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    assert turn.pending_computer_action_id == context.waiting_action_id
+    assert turn.pending_computer_action_id
 
 
 @then("the channel contains one durable bot answer")

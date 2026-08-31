@@ -125,6 +125,9 @@ class ComputerlessWorker:
         turn = self.plane.turn(job.tenant_id, job.turn_id)
         if turn.status != TurnStatus.ACTIVE:
             return
+        if turn.waiting_for is not None:
+            self.plane.remove_pending_job(job.job_id)
+            return
         claimed = self.turn_client.claim(job.turn_id, job.job_id)
         if not claimed.get("acquired"):
             return

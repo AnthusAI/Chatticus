@@ -73,6 +73,18 @@ Feature: Channels and the message store
     And the turn is still waiting on the browser gate
     And tenant "anthus" user "ryan" household computer remains stopped
 
+  Scenario: A computerless worker does not retry the model on a waiting turn
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
+    And tenant "anthus" user "ryan" household computer is stopped
+    When user "ryan" of tenant "anthus" posts "research this and open the household browser" addressed to bot "Assistant" on the channel
+    And a counting computerless worker processes bot "Assistant"
+    And the same waiting turn is delivered to a computerless worker again
+    Then only one worker begins the model attempt
+    And the turn remains active
+    And the pending computer tool action identifier is unchanged
+    And tenant "anthus" user "ryan" household computer remains stopped
+
   Scenario: Reject a cross-tenant channel access attempt
     Given an empty control plane
     And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
