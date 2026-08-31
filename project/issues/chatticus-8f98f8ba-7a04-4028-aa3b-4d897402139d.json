@@ -3,7 +3,7 @@
   "title": "Summon one computer and continue the same turn",
   "description": "Purpose: add the household computer without putting browser readiness in front of the model loop.\n\nDefinition of Done:\n- Cold readiness gates are measured and recorded.\n- Concurrent demand starts at most one host for a computer.\n- A bot performs useful computerless work before reporting a truthful capability wait.\n- The first computer tool continues the same durable turn exactly once.\n- Failure at every escalation boundary neither loses the turn nor creates simultaneous actors.\n- Dead or wedged computer ownership expires without an always-on scheduler.",
   "type": "epic",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -142,7 +142,7 @@
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T19:51:53.798147Z",
+  "updated_at": "2026-08-31T21:39:48.310574Z",
   "closed_at": null,
   "custom": {}
 }

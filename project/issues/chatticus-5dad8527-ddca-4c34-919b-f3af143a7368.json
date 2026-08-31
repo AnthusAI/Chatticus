@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-5dad8527-ddca-4c34-919b-f3af143a7368",
+  "title": "Chromium executor and host-readiness on summoned Fargate",
+  "description": "Purpose: finish 8f98f8 so ComputerTurnJobs complete on an ephemeral Fargate host instead of nacking ComputerWorkerHostNotReady.\n\nAcceptance:\n- Summoned task runs the host pull worker (not sleep infinity as the effective command).\n- ChromiumActionExecutor is the live ComputerActionExecutor on that host.\n- Host publishes readiness so the computer-queue worker can deliver the job.\n- Same durable turn continues exactly once with tool.result.\n- ChatticusComputers desiredCount stays 0. No cdk deploy --all, no production, no Snapshots/Computers destroy.\n- Do not touch 35d86b / PR #26.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "e770220a-122c-4f9e-adf3-39615faae8be",
+      "author": "agent@example.com",
+      "text": "Planner Composer 2.5 will own worktree /tmp/chatticus-5dad85-chromium branch cursor/chromium-host-readiness-4a21. Implementation not authorized until plan review. desiredCount stays 0. Not 35d86b.",
+      "created_at": "2026-08-31T21:39:48.323757Z"
+    }
+  ],
+  "created_at": "2026-08-31T21:39:43.207572Z",
+  "updated_at": "2026-08-31T21:39:48.323757Z",
+  "closed_at": null,
+  "custom": {}
+}
