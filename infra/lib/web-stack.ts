@@ -12,7 +12,7 @@ import * as ssm from "aws-cdk-lib/aws-ssm";
 import { execSync } from "child_process";
 import * as path from "path";
 import { Construct } from "constructs";
-import { API_ORIGIN_VIEWER_REQUEST_FUNCTION } from "./cloudfront-functions";
+import { API_ORIGIN_VIEWER_REQUEST_FUNCTION, SPA_VIEWER_RESPONSE_FUNCTION } from "./cloudfront-functions";
 import {
   ChatticusCloudEnvironment,
   thinTurnParameterPrefix,
@@ -30,7 +30,10 @@ export interface WebStackProps extends cdk.StackProps {
 
 /**
  * Next.js static site on S3 with same-origin /api/* proxy to the thin-turn
- * Lambda function URL.
+ * proxy to the thin-turn Lambda function URL.
+ *
+ * CloudFront path ``/api*`` (not ``/api/*``) so nested routes like
+ * ``/api/turns/{id}/claim`` reach the API origin instead of S3.
  */
 export class WebStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: WebStackProps) {
@@ -59,6 +62,10 @@ export class WebStack extends cdk.Stack {
       code: cloudfront.FunctionCode.fromInline(API_ORIGIN_VIEWER_REQUEST_FUNCTION),
       comment: "Strip /api prefix and Accept-Encoding for the Lambda origin.",
     });
+    const spaViewerResponse = new cloudfront.Function(this, "SpaViewerResponse", {
+      code: cloudfront.FunctionCode.fromInline(SPA_VIEWER_RESPONSE_FUNCTION),
+      comment: "SPA fallback status for S3 paths; never rewrite /api responses.",
+    });
 
     const distribution = new cloudfront.Distribution(this, "SiteDistribution", {
       comment: `Chatticus ${environmentName} web UI and same-origin /api front door.`,
@@ -70,9 +77,15 @@ export class WebStack extends cdk.Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        functionAssociations: [
+          {
+            function: spaViewerResponse,
+            eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE,
+          },
+        ],
       },
       additionalBehaviors: {
-        "/api/*": {
+        "/api*": {
           origin: new origins.FunctionUrlOrigin(frontDoorFunctionUrl, {
             readTimeout: cdk.Duration.seconds(originReadTimeoutSeconds),
             responseCompletionTimeout: cdk.Duration.seconds(900),
@@ -93,20 +106,6 @@ export class WebStack extends cdk.Stack {
           ],
         },
       },
-      errorResponses: [
-        {
-          httpStatus: 403,
-          responseHttpStatus: 200,
-          responsePagePath: "/index.html",
-          ttl: cdk.Duration.seconds(0),
-        },
-        {
-          httpStatus: 404,
-          responseHttpStatus: 200,
-          responsePagePath: "/index.html",
-          ttl: cdk.Duration.seconds(0),
-        },
-      ],
     });
 
     const webRoot = path.join(__dirname, "../../web");
