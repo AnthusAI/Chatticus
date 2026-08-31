@@ -10,6 +10,12 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from chatticus.approval_binding import ApprovalBindingGate
+from chatticus.computer_capabilities import (
+    BROWSER_CAPABILITY,
+    MODEL_CAPABILITY,
+    WORKSPACE_CAPABILITY,
+    ComputerCapabilityReadiness,
+)
 from chatticus.computer_start import HostStartClaim
 from chatticus.escalation_handoff import (
     ComputerOwnershipClaim,
@@ -241,9 +247,14 @@ class ControlPlane:
                 f"{existing.registration.tenant_id!r}, not "
                 f"{registration.tenant_id!r}."
             )
+        previous = self._workers.get(registration.worker_id)
+        hydrated = (
+            previous.hydrated_snapshot_generation if previous is not None else None
+        )
         self._workers[registration.worker_id] = WorkerRecord(
             registration=registration,
             last_heartbeat_at=self._now,
+            hydrated_snapshot_generation=hydrated,
         )
 
     def heartbeat(self, worker_id: str) -> None:
@@ -346,6 +357,12 @@ class ControlPlane:
                 if record.registration.computer_id == job.computer_id
             ]
             computer = self._computers_by_id.get(job.computer_id)
+            if computer is not None:
+                candidates = [
+                    record
+                    for record in candidates
+                    if not self._worker_snapshot_is_stale(record, computer)
+                ]
             if computer is not None and computer.hydrate_required:
                 if computer.intended_host_worker_id is None:
                     return None
@@ -570,7 +587,7 @@ class ControlPlane:
         workspace = dict(computer.workspace)
         browser_sessions = dict(computer.browser_sessions)
         record_checksum = checksum or _disk_checksum(workspace, browser_sessions)
-        record = ComputerSnapshot(
+        snapshot = ComputerSnapshot(
             snapshot_uri=uri,
             checksum=record_checksum,
             workspace=workspace,
@@ -578,11 +595,15 @@ class ControlPlane:
             published_at=self._now,
             published_by_worker_id=worker_id,
         )
-        self._snapshots[uri] = record
+        self._snapshots[uri] = snapshot
         computer.snapshot_uri = uri
         computer.snapshot_checksum = record_checksum
+        computer.snapshot_generation += 1
         computer.disk_dirty = False
-        return record
+        worker = self._workers.get(worker_id)
+        if worker is not None:
+            worker.hydrated_snapshot_generation = computer.snapshot_generation
+        return snapshot
 
     def relocate_computer(self, computer_id: str, target_worker_id: str) -> None:
         """Point the next run at a host. Does not copy a container.
@@ -640,6 +661,9 @@ class ControlPlane:
         computer.disk_dirty = False
         computer.hydrate_required = False
         computer.intended_host_worker_id = None
+        worker = self._workers.get(worker_id)
+        if worker is not None:
+            worker.hydrated_snapshot_generation = computer.snapshot_generation
 
     def _require_host(self, computer: Computer, worker_id: str) -> None:
         record = self._workers[worker_id]
@@ -1012,6 +1036,16 @@ class ControlPlane:
         for computer_id in expired:
             del self._computer_claims[computer_id]
 
+    def expire_host_start_claims(self) -> None:
+        """Drop wedged host-start claims whose lease has expired."""
+        expired_keys = [
+            key
+            for key, claim in self._host_starts.items()
+            if claim.expires_at is not None and claim.expires_at <= self._now
+        ]
+        for key in expired_keys:
+            del self._host_starts[key]
+
     def request_computer_host_start(
         self,
         tenant_id: str,
@@ -1019,19 +1053,17 @@ class ControlPlane:
         turn_id: str,
     ) -> HostStartClaim:
         """Request a host start; concurrent callers share one claim."""
+        self.expire_host_start_claims()
         computer = self.ensure_computer(tenant_id, user_id)
         key = (tenant_id, computer.computer_id)
         claim = self._host_starts.get(key)
-        expired = (
-            claim is not None
-            and claim.expires_at is not None
-            and claim.expires_at <= self._now
-        )
-        if claim is None or expired:
+        if claim is None:
+            computer.host_start_generation += 1
+            self._messaging_store.put_computer(computer)
             claim = HostStartClaim(
                 tenant_id=tenant_id,
                 computer_id=computer.computer_id,
-                host_start_count=1,
+                host_start_count=computer.host_start_generation,
                 waiting_turn_ids=[turn_id],
                 expires_at=self._now + self.attempt_lease,
             )
@@ -1050,6 +1082,7 @@ class ControlPlane:
 
     def acquire_computer_disk_write(self, computer_id: str, host_id: str) -> bool:
         """Grant disk write to at most one live host for this computer."""
+        self.expire_host_start_claims()
         for claim in self._host_starts.values():
             if claim.computer_id != computer_id:
                 continue
@@ -1102,7 +1135,88 @@ class ControlPlane:
         """Mark the household computer stopped without deleting it."""
         computer = self.ensure_computer(tenant_id, user_id)
         computer.stopped = stopped
+        if stopped:
+            computer.model_ready = False
+            computer.workspace_ready = False
+            computer.browser_ready = False
         self._messaging_store.put_computer(computer)
+
+    def computer_capability_readiness(
+        self, tenant_id: str, user_id: str
+    ) -> ComputerCapabilityReadiness:
+        """Return per-capability readiness for one household computer."""
+        computer = self.computer_for_user(tenant_id, user_id)
+        return ComputerCapabilityReadiness(
+            model_ready=computer.model_ready,
+            workspace_ready=computer.workspace_ready,
+            browser_ready=computer.browser_ready,
+        )
+
+    def record_computer_capability_ready(
+        self,
+        tenant_id: str,
+        user_id: str,
+        capability: str,
+    ) -> None:
+        """Record that one capability gate cleared on the computer host."""
+        computer = self.ensure_computer(tenant_id, user_id)
+        if capability == MODEL_CAPABILITY:
+            computer.model_ready = True
+        elif capability == WORKSPACE_CAPABILITY:
+            computer.workspace_ready = True
+        elif capability == BROWSER_CAPABILITY:
+            computer.browser_ready = True
+        else:
+            msg = f"Unknown capability {capability!r}."
+            raise ValueError(msg)
+        self._messaging_store.put_computer(computer)
+
+    def reconcile_worker_snapshot(
+        self,
+        worker_id: str,
+        snapshot_generation: int,
+    ) -> None:
+        """Mark a host as caught up to one published snapshot generation."""
+        worker = self._workers[worker_id]
+        worker.hydrated_snapshot_generation = snapshot_generation
+
+    def _worker_snapshot_is_stale(
+        self,
+        record: WorkerRecord,
+        computer: Computer,
+    ) -> bool:
+        if record.registration.cost_class != CostClass.LOCAL:
+            return False
+        if record.registration.computer_id != computer.computer_id:
+            return False
+        if computer.snapshot_generation == 0:
+            return False
+        hydrated = record.hydrated_snapshot_generation
+        return hydrated is None or hydrated < computer.snapshot_generation
+
+    def select_computer_start_host(
+        self,
+        tenant_id: str,
+        user_id: str,
+    ) -> str | None:
+        """Choose a healthy host to start one stopped computer."""
+        computer = self.ensure_computer(tenant_id, user_id)
+        candidates = [
+            record
+            for record in self.healthy_workers(tenant_id)
+            if record.registration.computer_id == computer.computer_id
+            and "computer" in record.registration.capabilities
+            and not self._worker_snapshot_is_stale(record, computer)
+        ]
+        if not candidates:
+            return None
+        candidates.sort(
+            key=lambda record: (
+                COST_CLASS_RANK[record.registration.cost_class],
+                -record.last_heartbeat_at.timestamp(),
+            )
+        )
+        return candidates[0].registration.worker_id
 
     def computer_is_stopped(self, tenant_id: str, user_id: str) -> bool:
         """Return whether the household computer is stopped."""

@@ -1,0 +1,29 @@
+"""Per-capability readiness gates for one household computer host."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+MODEL_CAPABILITY = "model"
+WORKSPACE_CAPABILITY = "workspace"
+BROWSER_CAPABILITY = "browser"
+
+
+@dataclass
+class ComputerCapabilityReadiness:
+    """Per-capability readiness for one household computer host."""
+
+    model_ready: bool = True
+    workspace_ready: bool = False
+    browser_ready: bool = False
+
+    def is_ready(self, capability: str) -> bool:
+        """Return whether one named capability gate has cleared."""
+        if capability == MODEL_CAPABILITY:
+            return self.model_ready
+        if capability == WORKSPACE_CAPABILITY:
+            return self.workspace_ready
+        if capability == BROWSER_CAPABILITY:
+            return self.browser_ready
+        msg = f"Unknown capability {capability!r}."
+        raise ValueError(msg)

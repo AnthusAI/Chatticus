@@ -186,6 +186,7 @@ class WorkerRecord:
 
     registration: WorkerRegistration
     last_heartbeat_at: datetime
+    hydrated_snapshot_generation: int | None = None
 
 
 @dataclass(frozen=True)
@@ -268,6 +269,11 @@ class Computer:
     browser_sessions: dict[str, str] = field(default_factory=dict)
     snapshot_uri: str | None = None
     snapshot_checksum: str | None = None
+    snapshot_generation: int = 0
+    model_ready: bool = True
+    workspace_ready: bool = False
+    browser_ready: bool = False
+    host_start_generation: int = 0
     disk_dirty: bool = False
     hydrate_required: bool = False
     intended_host_worker_id: str | None = None

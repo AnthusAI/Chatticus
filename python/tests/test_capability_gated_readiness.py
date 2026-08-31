@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from chatticus.capability_gated_readiness import (
+from chatticus.capability_gated_readiness import CapabilityGatedTurnDriver
+from chatticus.computer_capabilities import (
     BROWSER_CAPABILITY,
-    CapabilityGatedTurnDriver,
     ComputerCapabilityReadiness,
 )
 from chatticus.models import TurnEventKind

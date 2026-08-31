@@ -212,8 +212,12 @@ Cloud-environment epic 9eef23 is closed: three named stacks, named-env
 acceptance on each. Turn recovery epic 653989 is closed. Cold Fargate
 readiness (e747d7, Test 2) is measured for the current image: tens of
 seconds to RUNNING; Chromium still missing. Remaining for summoning a
-computer (8f98f8): implement start/readiness (53beb0) and the structured
-handoff (538d28) on that measurement, not another unmeasured wait.
+computer (8f98f8): structured handoff (538d28). Single-owner computer
+start and readiness (53beb0) is kernel-only on `develop`: one
+tenant/computer start claim, lease expiry and reclaim, per-capability
+readiness recording, and stale-local prefer-local gating until snapshot
+reconciliation. Gherkin: `single_computer_start.feature`,
+`computer_host_readiness.feature`, plus `capability_gated_readiness.feature`.
 Waiting-turn resume while the computer is stopped (66d3c4), waiting-turn gate read over HTTP (dfa7a9), pending
 computer tool on the waiting turn (96c0e8), waiting journal snapshot
 (d04942), computerless skip of a waiting turn (86c75d), computerless

@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from behave import given, then, when
 
-from chatticus.capability_gated_readiness import (
-    BROWSER_CAPABILITY,
-    CapabilityGatedTurnDriver,
-)
+from chatticus.capability_gated_readiness import CapabilityGatedTurnDriver
+from chatticus.computer_capabilities import BROWSER_CAPABILITY
 
 
 @given("the household computer is stopped")
