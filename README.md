@@ -76,9 +76,10 @@ from `develop` @ `19070b1` (no `--all`). That pin attaches a
 (`computer_queue_job=in_flight_nack`) and does not fake `tool.result`.
 Durable `host_start_generation` on nack is on `develop` (23c93e) and is
 not on that pin until the next ThinTurn-only redeploy. A once-per-lease
-`HostStarter` (60976f) is kernel-only: the live ComputerWorker still
-nacks with a no-op starter; CDK does not set `CHATTICUS_HOST_STARTER=ecs`
-and does not grant `ecs:RunTask`. `develop` is ahead of `main`
+`HostStarter` (60976f) and SQS `batchItemFailures` nack (29f269) are
+kernel-only on `develop`: the live ComputerWorker still nacks with a
+no-op starter; CDK does not set `CHATTICUS_HOST_STARTER=ecs` and does
+not grant `ecs:RunTask`. `develop` is ahead of `main`
 (channels list, household computer read, channel active-turn read,
 waiting-turn read, user active-turn list, named `GET /health`
 environment, recycle Gherkin for history/journal/turn-by-id/bot-by-id,

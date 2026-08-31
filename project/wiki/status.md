@@ -24,7 +24,7 @@ Production is never implied by a git branch.
 
 ## Live AWS (account `335163751677`, `us-east-1`)
 
-Development ThinTurn last successful redeploy: **`19070b1`** (ComputerWorker Lambda on `ComputerTurnJobs`, nack without host, no FakeComputerActionExecutor). `origin/develop` is ahead at **`c1af5fd`**: durable `host_start_generation` (story **23c93e**) is in git and in the named exercise, **not** on that pin until the next ThinTurn-only deploy.
+Development ThinTurn last successful redeploy: **`19070b1`** (ComputerWorker Lambda on `ComputerTurnJobs`, nack without host, no FakeComputerActionExecutor). `origin/develop` is ahead at **`a9c29b0`**: durable `host_start_generation` (**23c93e**), once-per-lease HostStarter (**60976f**), and SQS `batchItemFailures` nack (**29f269**) are in git, **not** on that pin until the next ThinTurn-only deploy.
 
 Staging and production were last recorded from `origin/main` @ `760915d` (v0.5.0). Do not deploy them unless asked.
 
@@ -39,6 +39,7 @@ CloudFront development: https://d3gpuuldffe35o.cloudfront.net
 - Claim/fence, SSE `id` = seq, Last-Event-ID, household-recovery HTTP, waiting/resume, computer queue nack worker: live on development at `19070b1`.
 - **23c93e** (open): persist `host_start_generation` + lease on Dynamo; worker records a start before nack; GET computer exposes generation. Blocked on `aws login` then `npx cdk deploy ChatticusThinTurn --require-approval never` from develop, then live exercise expecting `host_start_generation >= 1`.
 - **60976f** (closed, kernel): ComputerWorker invokes an injected HostStarter once per host-start generation; retries share the lease. Default no-op. Not live until ThinTurn redeploy; do not enable ECS RunTask in CDK yet (sleep-infinity leak).
+- **29f269** (closed, kernel): computer-queue Lambda returns `batchItemFailures` on `ComputerWorkerHostNotReady` so SQS leaves the job in flight. Not live until ThinTurn redeploy.
 - Epic **8f98f8** (open): summon one computer. Remaining DoD is a Chromium-backed real executor via **ephemeral** Fargate `RunTask` (not standing `desiredCount=1`, not a fake `opened`). Chromium is in `computer/Dockerfile` but that image is not rebuilt/pushed/deployed.
 - **e747d7** closed: Test 2 median ~22s to RUNNING; Chromium was not in the image at measurement time.
 - Demo CLI epic **35d86b** is human-owned. Do not steal it. `exercise_thin_turn.py` stays the gate.
