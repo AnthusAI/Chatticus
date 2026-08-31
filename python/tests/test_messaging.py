@@ -12,6 +12,7 @@ import boto3
 import pytest
 from moto import mock_aws
 
+from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
@@ -26,6 +27,7 @@ from chatticus.models import (
     ActorKind,
     ComputerlessCannotExecuteComputerJob,
     ComputerNotReadyError,
+    ComputerWorkerHostNotReady,
     DuplicateBotNameError,
     StaleAttemptError,
     TurnEventKind,
@@ -34,6 +36,7 @@ from chatticus.models import (
     TurnStatus,
 )
 from chatticus.turn_recovery import logical_enqueue_id
+from chatticus.worker.computer import ComputerWorker
 from chatticus.worker.computerless import (
     ComputerlessWorker,
     CountingTextCompletionClient,
@@ -52,8 +55,16 @@ def _channel_with_bot(plane: ControlPlane, name: str = "Researcher"):
     return bot, channel
 
 
-def _client_for(plane: ControlPlane):
-    return start_test_server(create_app(plane))
+def _client_for(plane: ControlPlane, *, environment: str | None = None):
+    return start_test_server(create_app(plane, environment=environment))
+
+
+def test_http_health_names_environment() -> None:
+    api = _client_for(ControlPlane(), environment="development")
+    health = api.get("/health")
+    assert health.status_code == 200
+    assert health.json() == {"status": "ok", "environment": "development"}
+    api.close()
 
 
 def test_cursor_from_last_event_id() -> None:
@@ -393,6 +404,501 @@ def test_http_list_user_bots_survives_a_new_control_plane() -> None:
     assert [bot["name"] for bot in bots] == ["Researcher", "Writer"]
     assert {bot["bot_id"] for bot in bots} == {researcher.bot_id, writer.bot_id}
     api.close()
+
+
+def test_http_list_user_channels() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    first = api.post(
+        "/channels",
+        json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    second = api.post(
+        "/channels",
+        json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    api.post(
+        "/channels",
+        json={
+            "user_id": "alex",
+            "bot_ids": [plane.create_bot("anthus", "alex", "Ops").bot_id],
+        },
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    listed = api.get(
+        "/users/ryan/channels",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert listed.status_code == 200
+    channels = listed.json()["channels"]
+    assert [channel["channel_id"] for channel in channels] == sorted(
+        [first.json()["channel_id"], second.json()["channel_id"]]
+    )
+    empty = api.get(
+        "/users/ryan/channels",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert empty.status_code == 200
+    assert empty.json()["channels"] == []
+    api.close()
+
+
+@mock_aws
+def test_http_list_user_channels_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-channel-list-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    bot = first.create_bot("anthus", "ryan", "Researcher")
+    first_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
+    second_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
+    first.create_channel(
+        "anthus",
+        "alex",
+        [first.create_bot("anthus", "alex", "Ops").bot_id],
+    )
+    api = _client_for(ControlPlane(messaging_store=store))
+    listed = api.get(
+        "/users/ryan/channels",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert listed.status_code == 200
+    channels = listed.json()["channels"]
+    assert [channel["channel_id"] for channel in channels] == sorted(
+        [first_channel.channel_id, second_channel.channel_id]
+    )
+    api.close()
+
+
+def test_http_list_user_active_turns() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    first = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    second = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    idle = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    other_bot = plane.create_bot("anthus", "alex", "Ops")
+    other_channel = plane.create_channel("anthus", "alex", [other_bot.bot_id])
+    first_turn = plane.post_channel_message(
+        first.channel_id,
+        "anthus",
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    second_turn = plane.post_channel_message(
+        second.channel_id,
+        "anthus",
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    plane.post_channel_message(
+        other_channel.channel_id,
+        "anthus",
+        ActorKind.HUMAN,
+        "alex",
+        "hello",
+        addressed_to_bot_id=other_bot.bot_id,
+        enqueue_turn=False,
+    )
+    assert first_turn is not None
+    assert second_turn is not None
+    listed = api.get(
+        "/users/ryan/turns",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert listed.status_code == 200
+    turn_ids = [turn["turn_id"] for turn in listed.json()["turns"]]
+    assert turn_ids == sorted([first_turn.turn_id, second_turn.turn_id])
+    assert idle.channel_id not in {
+        turn["channel_id"] for turn in listed.json()["turns"]
+    }
+    empty = api.get(
+        "/users/ryan/turns",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert empty.status_code == 200
+    assert empty.json()["turns"] == []
+    api.close()
+
+
+@mock_aws
+def test_http_list_user_active_turns_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-turn-list-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    bot = first.create_bot("anthus", "ryan", "Researcher")
+    first_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
+    second_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
+    first_turn = first.post_channel_message(
+        first_channel.channel_id,
+        "anthus",
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    second_turn = first.post_channel_message(
+        second_channel.channel_id,
+        "anthus",
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    assert first_turn is not None
+    assert second_turn is not None
+    api = _client_for(ControlPlane(messaging_store=store))
+    listed = api.get(
+        "/users/ryan/turns",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert listed.status_code == 200
+    turn_ids = [turn["turn_id"] for turn in listed.json()["turns"]]
+    assert turn_ids == sorted([first_turn.turn_id, second_turn.turn_id])
+    api.close()
+
+
+@mock_aws
+def test_http_list_user_active_turns_omits_completed() -> None:
+    table_name = "chatticus-turn-list-done-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    plane = ControlPlane(messaging_store=store)
+    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    done_channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    live_channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    done_turn = plane.post_channel_message(
+        done_channel.channel_id,
+        "anthus",
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    live_turn = plane.post_channel_message(
+        live_channel.channel_id,
+        "anthus",
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    assert done_turn is not None
+    assert live_turn is not None
+    api = _client_for(plane)
+    claim = api.post(
+        f"/turns/{done_turn.turn_id}/claim",
+        json={"worker_id": "test-worker"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert claim.status_code == 200
+    complete = api.post(
+        f"/turns/{done_turn.turn_id}/chunks",
+        json={
+            "token": "done",
+            "complete": True,
+            "fence_token": claim.json()["fence_token"],
+        },
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert complete.status_code == 200
+    api.close()
+    recycled = _client_for(ControlPlane(messaging_store=store))
+    listed = recycled.get(
+        "/users/ryan/turns",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert listed.status_code == 200
+    turn_ids = [turn["turn_id"] for turn in listed.json()["turns"]]
+    assert turn_ids == [live_turn.turn_id]
+    recycled.close()
+
+
+def test_http_get_user_computer() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    plane.create_bot("anthus", "ryan", "Researcher")
+    plane.set_computer_stopped("anthus", "ryan", True)
+    expected = plane.computer_for_user("anthus", "ryan")
+    fetched = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    payload = fetched.json()
+    assert payload["computer_id"] == expected.computer_id
+    assert payload["stopped"] is True
+    assert payload["user_id"] == "ryan"
+    assert payload["host_start_generation"] == 0
+    missing = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert missing.status_code == 404
+    api.close()
+
+
+@mock_aws
+def test_http_get_user_computer_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-computer-get-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    first.create_bot("anthus", "ryan", "Researcher")
+    first.set_computer_stopped("anthus", "ryan", True)
+    expected = first.computer_for_user("anthus", "ryan")
+    api = _client_for(ControlPlane(messaging_store=store))
+    fetched = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    payload = fetched.json()
+    assert payload["computer_id"] == expected.computer_id
+    assert payload["stopped"] is True
+    assert payload["host_start_generation"] == 0
+    api.close()
+
+
+def test_http_get_user_computer_reports_host_start_generation_after_nack() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+    with pytest.raises(ComputerWorkerHostNotReady):
+        ComputerWorker(
+            plane,
+            HttpTurnClient(api, setup.tenant_id),
+        ).run_job(setup.continuation_job)
+    fetched = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["host_start_generation"] == 1
+    api.close()
+
+
+@mock_aws
+def test_http_get_computer_sees_host_start_from_a_second_process() -> None:
+    table_name = "chatticus-computer-host-start-second-process-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    door = ControlPlane(messaging_store=store)
+    api = _client_for(door)
+    prepare_computer_continuation(door)
+    primed = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert primed.status_code == 200
+    assert primed.json()["host_start_generation"] == 0
+    worker_plane = ControlPlane(messaging_store=store)
+    worker_plane.request_computer_host_start(
+        "anthus", "ryan", "host-start-from-second-process"
+    )
+    fetched = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["host_start_generation"] == 1
+    api.close()
+
+
+@mock_aws
+def test_http_get_user_computer_reports_host_start_generation_after_recycle() -> None:
+    table_name = "chatticus-computer-host-start-generation-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    plane = ControlPlane(messaging_store=store)
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+    with pytest.raises(ComputerWorkerHostNotReady):
+        ComputerWorker(
+            plane,
+            HttpTurnClient(api, setup.tenant_id),
+        ).run_job(setup.continuation_job)
+    api.close()
+    recycled = _client_for(ControlPlane(messaging_store=store))
+    fetched = recycled.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["host_start_generation"] == 1
+    recycled.close()
+
+
+def test_http_get_channel_active_turn() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    posted = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+            "enqueue_turn": False,
+        },
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    turn_id = posted.json()["turn_id"]
+    fetched = api.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["turn_id"] == turn_id
+    missing = api.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert missing.status_code == 404
+    api.close()
+
+
+@mock_aws
+def test_http_get_channel_active_turn_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-channel-turn-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    bot, channel = _channel_with_bot(first)
+    started = first.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    assert started is not None
+    api = _client_for(ControlPlane(messaging_store=store))
+    fetched = api.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["turn_id"] == started.turn_id
+    api.close()
+
+
+@mock_aws
+def test_http_get_channel_active_turn_404_after_completion() -> None:
+    table_name = "chatticus-channel-turn-done-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    plane = ControlPlane(messaging_store=store)
+    bot, channel = _channel_with_bot(plane)
+    started = plane.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    assert started is not None
+    api = _client_for(plane)
+    claim = api.post(
+        f"/turns/{started.turn_id}/claim",
+        json={"worker_id": "test-worker"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert claim.status_code == 200
+    fence_token = claim.json()["fence_token"]
+    complete = api.post(
+        f"/turns/{started.turn_id}/chunks",
+        json={
+            "token": "done",
+            "complete": True,
+            "fence_token": fence_token,
+        },
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert complete.status_code == 200
+    api.close()
+    recycled = _client_for(ControlPlane(messaging_store=store))
+    missing = recycled.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert missing.status_code == 404
+    recycled.close()
+
+
+@mock_aws
+def test_http_get_channel_waiting_turn_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-channel-turn-waiting-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    plane = ControlPlane(messaging_store=store)
+    bot, channel = _channel_with_bot(plane)
+    started = plane.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    assert started is not None
+    api = _client_for(plane)
+    claim = api.post(
+        f"/turns/{started.turn_id}/claim",
+        json={"worker_id": "test-worker"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert claim.status_code == 200
+    fence_token = claim.json()["fence_token"]
+    waiting = api.post(
+        f"/turns/{started.turn_id}/waiting",
+        json={"gate": "browser", "fence_token": fence_token},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert waiting.status_code == 200
+    api.close()
+    recycled = _client_for(ControlPlane(messaging_store=store))
+    fetched = recycled.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    payload = fetched.json()
+    assert payload["turn_id"] == started.turn_id
+    assert payload["waiting_for"] == "browser"
+    pending = payload.get("pending_computer_tool")
+    assert pending is not None
+    assert pending["tool_name"] == "request_computer_capability"
+    recycled.close()
 
 
 def test_http_bot_memory_roundtrip() -> None:

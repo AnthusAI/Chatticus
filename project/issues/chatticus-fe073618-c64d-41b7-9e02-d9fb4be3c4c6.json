@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-fe073618-c64d-41b7-9e02-d9fb4be3c4c6",
+  "title": "Reconnect HTTP survives Front Door recycle",
+  "description": "As a household client, I want channel history, the turn journal, GET /turns/{id}, and GET /bots/{id} to survive Front Door recycle, so reconnect does not depend on an in-process Front Door.\n\nThese routes already work against Dynamo. This story puts recycle on the executable spec.\n\nFeature: Channels and the message store\n  Scenario: Channel history reconnects after a seq and a Front Door recycle\n  Scenario: A turn can be read by identifier after a Front Door recycle\n\nFeature: Turn-scoped server-sent events\n  Scenario: Turn journal reconnects after a seq and a Front Door recycle\n\nFeature: Bot turns pin to the user's computer\n  Scenario: A bot can be read by identifier after a Front Door recycle\n\nNot included: demo CLI, staging/production, merge to main, new routes.",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "55b3683e-b0c2-467f-81f4-59c4f1e566f0",
+      "author": "home",
+      "text": "Recycle Gherkin landed for channel history after=, turn journal after=, GET /turns/{id}, and GET /bots/{id} memory. No new routes. No ThinTurn redeploy (behavior already live). No staging/production. No merge to main.",
+      "created_at": "2026-08-31T06:56:41.075013Z"
+    }
+  ],
+  "created_at": "2026-08-31T06:54:31.618200Z",
+  "updated_at": "2026-08-31T06:56:41.085124Z",
+  "closed_at": "2026-08-31T06:56:41.085124Z",
+  "custom": {}
+}

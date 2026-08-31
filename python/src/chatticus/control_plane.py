@@ -10,6 +10,12 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from chatticus.approval_binding import ApprovalBindingGate
+from chatticus.computer_capabilities import (
+    BROWSER_CAPABILITY,
+    MODEL_CAPABILITY,
+    WORKSPACE_CAPABILITY,
+    ComputerCapabilityReadiness,
+)
 from chatticus.computer_start import HostStartClaim
 from chatticus.escalation_handoff import (
     ComputerOwnershipClaim,
@@ -241,9 +247,14 @@ class ControlPlane:
                 f"{existing.registration.tenant_id!r}, not "
                 f"{registration.tenant_id!r}."
             )
+        previous = self._workers.get(registration.worker_id)
+        hydrated = (
+            previous.hydrated_snapshot_generation if previous is not None else None
+        )
         self._workers[registration.worker_id] = WorkerRecord(
             registration=registration,
             last_heartbeat_at=self._now,
+            hydrated_snapshot_generation=hydrated,
         )
 
     def heartbeat(self, worker_id: str) -> None:
@@ -346,6 +357,12 @@ class ControlPlane:
                 if record.registration.computer_id == job.computer_id
             ]
             computer = self._computers_by_id.get(job.computer_id)
+            if computer is not None:
+                candidates = [
+                    record
+                    for record in candidates
+                    if not self._worker_snapshot_is_stale(record, computer)
+                ]
             if computer is not None and computer.hydrate_required:
                 if computer.intended_host_worker_id is None:
                     return None
@@ -440,6 +457,25 @@ class ControlPlane:
             self._bots[bot.bot_id] = bot
         return sorted(owned, key=lambda bot: bot.name)
 
+    def list_channels(self, tenant_id: str, user_id: str) -> list[Channel]:
+        """Return channels owned by one household user."""
+        channels = self._messaging_store.list_channels(tenant_id, user_id)
+        owned = [channel for channel in channels if channel.tenant_id == tenant_id]
+        return sorted(owned, key=lambda channel: channel.channel_id)
+
+    def list_active_turns(self, tenant_id: str, user_id: str) -> list[Turn]:
+        """Return in-flight turns for one household user.
+
+        Walks the user's channels and reads each durable active-turn
+        pointer. N+1 Dynamo reads are acceptable at household scale.
+        """
+        turns = []
+        for channel in self.list_channels(tenant_id, user_id):
+            turn = self.active_turn_for_channel(tenant_id, channel.channel_id)
+            if turn is not None and turn.tenant_id == tenant_id:
+                turns.append(turn)
+        return sorted(turns, key=lambda turn: turn.turn_id)
+
     def ensure_computer(
         self,
         tenant_id: str,
@@ -452,9 +488,7 @@ class ControlPlane:
         advertise the same workplace.
         """
         key = (tenant_id, user_id)
-        computer = self._computers_by_user.get(key)
-        if computer is None:
-            computer = self._messaging_store.get_computer(tenant_id, user_id)
+        computer = self._messaging_store.get_computer(tenant_id, user_id)
         if computer is None:
             computer = Computer(
                 computer_id=computer_id or str(uuid4()),
@@ -462,8 +496,6 @@ class ControlPlane:
                 user_id=user_id,
             )
             self._messaging_store.put_computer(computer)
-        else:
-            self._computers_by_id[computer.computer_id] = computer
         self._computers_by_user[key] = computer
         self._computers_by_id[computer.computer_id] = computer
         return computer
@@ -472,15 +504,17 @@ class ControlPlane:
         """
         Return the existing computer for a user.
 
+        Always read the messaging store. Front Door and ComputerWorker
+        are separate processes; a cached Computer would hide
+        ``host_start_generation`` written by the worker.
+
         :raises KeyError: If the user has no computer.
         """
-        computer = self._computers_by_user.get((tenant_id, user_id))
+        computer = self._messaging_store.get_computer(tenant_id, user_id)
         if computer is None:
-            computer = self._messaging_store.get_computer(tenant_id, user_id)
-            if computer is None:
-                raise KeyError((tenant_id, user_id))
-            self._computers_by_user[(tenant_id, user_id)] = computer
-            self._computers_by_id[computer.computer_id] = computer
+            raise KeyError((tenant_id, user_id))
+        self._computers_by_user[(tenant_id, user_id)] = computer
+        self._computers_by_id[computer.computer_id] = computer
         return computer
 
     def _bot(self, tenant_id: str, bot_id: str) -> Bot:
@@ -499,6 +533,41 @@ class ControlPlane:
         """Return durable turn events after ``after_seq``."""
         self.turn(tenant_id, turn_id)
         return self._messaging_store.list_turn_events(tenant_id, turn_id, after_seq)
+
+    def record_model_request(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        body: str,
+    ) -> TurnEvent:
+        """Record one durable model.request journal event for the fenced owner."""
+        turn = self.turn(tenant_id, turn_id)
+        return self._append_turn_event(
+            turn,
+            TurnEventKind.MODEL_REQUEST,
+            body=body,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
+
+    def unresolved_tool_action_ids(self, tenant_id: str, turn_id: str) -> list[str]:
+        """Return committed tool.call action ids that have no tool.result yet."""
+        events = self.list_turn_events(tenant_id, turn_id)
+        resolved = {
+            event.action_id
+            for event in events
+            if event.kind == TurnEventKind.TOOL_RESULT and event.action_id
+        }
+        unresolved: list[str] = []
+        seen: set[str] = set()
+        for event in events:
+            if event.kind != TurnEventKind.TOOL_CALL or not event.action_id:
+                continue
+            if event.action_id in resolved or event.action_id in seen:
+                continue
+            seen.add(event.action_id)
+            unresolved.append(event.action_id)
+        return unresolved
 
     def computer_by_id(self, computer_id: str) -> Computer:
         """
@@ -551,7 +620,7 @@ class ControlPlane:
         workspace = dict(computer.workspace)
         browser_sessions = dict(computer.browser_sessions)
         record_checksum = checksum or _disk_checksum(workspace, browser_sessions)
-        record = ComputerSnapshot(
+        snapshot = ComputerSnapshot(
             snapshot_uri=uri,
             checksum=record_checksum,
             workspace=workspace,
@@ -559,11 +628,15 @@ class ControlPlane:
             published_at=self._now,
             published_by_worker_id=worker_id,
         )
-        self._snapshots[uri] = record
+        self._snapshots[uri] = snapshot
         computer.snapshot_uri = uri
         computer.snapshot_checksum = record_checksum
+        computer.snapshot_generation += 1
         computer.disk_dirty = False
-        return record
+        worker = self._workers.get(worker_id)
+        if worker is not None:
+            worker.hydrated_snapshot_generation = computer.snapshot_generation
+        return snapshot
 
     def relocate_computer(self, computer_id: str, target_worker_id: str) -> None:
         """Point the next run at a host. Does not copy a container.
@@ -621,6 +694,9 @@ class ControlPlane:
         computer.disk_dirty = False
         computer.hydrate_required = False
         computer.intended_host_worker_id = None
+        worker = self._workers.get(worker_id)
+        if worker is not None:
+            worker.hydrated_snapshot_generation = computer.snapshot_generation
 
     def _require_host(self, computer: Computer, worker_id: str) -> None:
         record = self._workers[worker_id]
@@ -796,9 +872,26 @@ class ControlPlane:
         return record
 
     def commit_pending_computer_tool(self, tenant_id: str, turn_id: str) -> None:
-        """Make the pending computer tool call durable."""
+        """Make the pending computer tool call a durable typed journal event."""
         record = self.escalation_for(tenant_id, turn_id)
+        if record.call_committed:
+            return
         record.call_committed = True
+        turn = self.turn(tenant_id, turn_id)
+        pending = PendingComputerToolSnapshot(
+            action_id=record.pending_call.action_id,
+            tool_name=record.pending_call.tool_name,
+            arguments=dict(record.pending_call.arguments),
+        )
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TOOL_CALL,
+            body=record.pending_call.tool_name,
+            pending_computer_tool=pending,
+            action_id=record.pending_call.action_id,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
 
     def enqueue_computer_continuation(self, tenant_id: str, turn_id: str) -> None:
         """Enqueue one computer-capable continuation for the same turn."""
@@ -829,12 +922,29 @@ class ControlPlane:
                 f"Turn {turn_id!r} has not enqueued a computer continuation."
             )
         turn = self.turn(tenant_id, turn_id)
+        previous_attempt = turn.attempt_id
         turn.claimed_by_worker_id = None
         turn.attempt_id = None
         turn.lease_expires_at = None
         turn.fence_token += 1
         self._messaging_store.put_turn(turn)
         record.computerless_relinquished = True
+        self._append_turn_event(
+            turn,
+            TurnEventKind.ATTEMPT_RELINQUISHED,
+            attempt_id=previous_attempt,
+            expected_fence=turn.fence_token,
+        )
+
+    def record_attempt_claimed(self, tenant_id: str, turn_id: str) -> TurnEvent:
+        """Record that the current fenced owner claimed this turn."""
+        turn = self.turn(tenant_id, turn_id)
+        return self._append_turn_event(
+            turn,
+            TurnEventKind.ATTEMPT_CLAIMED,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
 
     def claim_computer_for_turn(
         self,
@@ -874,13 +984,16 @@ class ControlPlane:
     def execute_pending_computer_action(self, tenant_id: str, turn_id: str) -> None:
         """Run the pending computer tool at most once."""
         record = self.escalation_for(tenant_id, turn_id)
+        action_id = record.pending_call.action_id
+        if action_id not in self.unresolved_tool_action_ids(tenant_id, turn_id):
+            return
+        if record.computer_action_count:
+            return
         claim = self._computer_claims.get(record.computer_id)
         if claim is None or claim.turn_id != turn_id or claim.expires_at <= self._now:
             raise TurnTerminalError(f"Turn {turn_id!r} does not hold the computer.")
-        if record.computer_action_count:
-            return
         record.computer_action_count += 1
-        record.executed_action_id = record.pending_call.action_id
+        record.executed_action_id = action_id
 
     def commit_computer_tool_result(
         self,
@@ -900,6 +1013,14 @@ class ControlPlane:
         record.result_body = result_body
         record.result_committed = True
         turn = self.turn(tenant_id, turn_id)
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TOOL_RESULT,
+            body=result_body,
+            action_id=record.pending_call.action_id,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
         if turn.claimed_by_worker_id is not None:
             self.post_turn_chunk(
                 turn_id,
@@ -922,6 +1043,8 @@ class ControlPlane:
             raise TurnTerminalError(
                 f"Turn {turn_id!r} could not be claimed for computer continuation."
             )
+        if claimed.acquired:
+            self.record_attempt_claimed(tenant_id, turn_id)
         if not self.claim_computer_for_turn(tenant_id, turn_id, "computer-worker"):
             raise TurnTerminalError(f"Turn {turn_id!r} could not claim the computer.")
         if record.computer_action_count == 0:
@@ -993,6 +1116,20 @@ class ControlPlane:
         for computer_id in expired:
             del self._computer_claims[computer_id]
 
+    def expire_host_start_claims(self) -> None:
+        """Drop wedged host-start claims whose lease has expired."""
+        expired_keys = [
+            key
+            for key, claim in self._host_starts.items()
+            if claim.expires_at is not None and claim.expires_at <= self._now
+        ]
+        for key in expired_keys:
+            claim = self._host_starts.pop(key)
+            computer = self._computers_by_id.get(claim.computer_id)
+            if computer is not None:
+                computer.host_start_lease_expires_at = None
+                self._messaging_store.put_computer(computer)
+
     def request_computer_host_start(
         self,
         tenant_id: str,
@@ -1000,26 +1137,59 @@ class ControlPlane:
         turn_id: str,
     ) -> HostStartClaim:
         """Request a host start; concurrent callers share one claim."""
+        self.expire_host_start_claims()
         computer = self.ensure_computer(tenant_id, user_id)
         key = (tenant_id, computer.computer_id)
+        if (
+            computer.host_start_lease_expires_at is not None
+            and computer.host_start_lease_expires_at <= self._now
+        ):
+            computer.host_start_lease_expires_at = None
+            self._messaging_store.put_computer(computer)
+            self._host_starts.pop(key, None)
         claim = self._host_starts.get(key)
-        expired = (
-            claim is not None
-            and claim.expires_at is not None
-            and claim.expires_at <= self._now
+        lease_valid = (
+            computer.host_start_lease_expires_at is not None
+            and computer.host_start_lease_expires_at > self._now
         )
-        if claim is None or expired:
+        if claim is None and lease_valid:
             claim = HostStartClaim(
                 tenant_id=tenant_id,
                 computer_id=computer.computer_id,
-                host_start_count=1,
+                host_start_count=computer.host_start_generation,
                 waiting_turn_ids=[turn_id],
-                expires_at=self._now + self.attempt_lease,
+                expires_at=computer.host_start_lease_expires_at,
+            )
+            self._host_starts[key] = claim
+            return claim
+        if claim is None:
+            computer.host_start_generation += 1
+            computer.host_start_lease_expires_at = self._now + self.attempt_lease
+            self._messaging_store.put_computer(computer)
+            claim = HostStartClaim(
+                tenant_id=tenant_id,
+                computer_id=computer.computer_id,
+                host_start_count=computer.host_start_generation,
+                waiting_turn_ids=[turn_id],
+                expires_at=computer.host_start_lease_expires_at,
             )
         elif turn_id not in claim.waiting_turn_ids:
             claim.waiting_turn_ids.append(turn_id)
         self._host_starts[key] = claim
         return claim
+
+    def mark_host_start_dispatched(
+        self,
+        tenant_id: str,
+        user_id: str,
+        generation: int,
+    ) -> None:
+        """Record that the host-start driver ran for one generation."""
+        computer = self.computer_for_user(tenant_id, user_id)
+        if generation <= computer.host_start_dispatched_generation:
+            return
+        computer.host_start_dispatched_generation = generation
+        self._messaging_store.put_computer(computer)
 
     def host_start_claim(self, tenant_id: str, user_id: str) -> HostStartClaim:
         """Return the current host-start claim for a user's computer."""
@@ -1031,6 +1201,7 @@ class ControlPlane:
 
     def acquire_computer_disk_write(self, computer_id: str, host_id: str) -> bool:
         """Grant disk write to at most one live host for this computer."""
+        self.expire_host_start_claims()
         for claim in self._host_starts.values():
             if claim.computer_id != computer_id:
                 continue
@@ -1083,7 +1254,88 @@ class ControlPlane:
         """Mark the household computer stopped without deleting it."""
         computer = self.ensure_computer(tenant_id, user_id)
         computer.stopped = stopped
+        if stopped:
+            computer.model_ready = False
+            computer.workspace_ready = False
+            computer.browser_ready = False
         self._messaging_store.put_computer(computer)
+
+    def computer_capability_readiness(
+        self, tenant_id: str, user_id: str
+    ) -> ComputerCapabilityReadiness:
+        """Return per-capability readiness for one household computer."""
+        computer = self.computer_for_user(tenant_id, user_id)
+        return ComputerCapabilityReadiness(
+            model_ready=computer.model_ready,
+            workspace_ready=computer.workspace_ready,
+            browser_ready=computer.browser_ready,
+        )
+
+    def record_computer_capability_ready(
+        self,
+        tenant_id: str,
+        user_id: str,
+        capability: str,
+    ) -> None:
+        """Record that one capability gate cleared on the computer host."""
+        computer = self.ensure_computer(tenant_id, user_id)
+        if capability == MODEL_CAPABILITY:
+            computer.model_ready = True
+        elif capability == WORKSPACE_CAPABILITY:
+            computer.workspace_ready = True
+        elif capability == BROWSER_CAPABILITY:
+            computer.browser_ready = True
+        else:
+            msg = f"Unknown capability {capability!r}."
+            raise ValueError(msg)
+        self._messaging_store.put_computer(computer)
+
+    def reconcile_worker_snapshot(
+        self,
+        worker_id: str,
+        snapshot_generation: int,
+    ) -> None:
+        """Mark a host as caught up to one published snapshot generation."""
+        worker = self._workers[worker_id]
+        worker.hydrated_snapshot_generation = snapshot_generation
+
+    def _worker_snapshot_is_stale(
+        self,
+        record: WorkerRecord,
+        computer: Computer,
+    ) -> bool:
+        if record.registration.cost_class != CostClass.LOCAL:
+            return False
+        if record.registration.computer_id != computer.computer_id:
+            return False
+        if computer.snapshot_generation == 0:
+            return False
+        hydrated = record.hydrated_snapshot_generation
+        return hydrated is None or hydrated < computer.snapshot_generation
+
+    def select_computer_start_host(
+        self,
+        tenant_id: str,
+        user_id: str,
+    ) -> str | None:
+        """Choose a healthy host to start one stopped computer."""
+        computer = self.ensure_computer(tenant_id, user_id)
+        candidates = [
+            record
+            for record in self.healthy_workers(tenant_id)
+            if record.registration.computer_id == computer.computer_id
+            and "computer" in record.registration.capabilities
+            and not self._worker_snapshot_is_stale(record, computer)
+        ]
+        if not candidates:
+            return None
+        candidates.sort(
+            key=lambda record: (
+                COST_CLASS_RANK[record.registration.cost_class],
+                -record.last_heartbeat_at.timestamp(),
+            )
+        )
+        return candidates[0].registration.worker_id
 
     def computer_is_stopped(self, tenant_id: str, user_id: str) -> bool:
         """Return whether the household computer is stopped."""
@@ -1417,20 +1669,7 @@ class ControlPlane:
 
     def active_turn_for_channel(self, tenant_id: str, channel_id: str) -> Turn | None:
         """Return the active turn on a channel, if any."""
-        messages = self._messaging_store.list_messages(tenant_id, channel_id)
-        for message in reversed(messages):
-            if message.addressed_to_bot_id is None:
-                continue
-            for job in self.pending_jobs_for_bot(message.addressed_to_bot_id):
-                if job.turn_id is not None:
-                    turn = self._messaging_store.get_turn(tenant_id, job.turn_id)
-                    if (
-                        turn is not None
-                        and turn.channel_id == channel_id
-                        and turn.status == TurnStatus.ACTIVE
-                    ):
-                        return turn
-        return None
+        return self._messaging_store.get_active_turn(tenant_id, channel_id)
 
     def turn_prompt(self, tenant_id: str, turn_id: str) -> str:
         """Build a text-only prompt from bot memory plus channel messages.
@@ -1771,6 +2010,8 @@ class ControlPlane:
         body: str | None = None,
         pending_computer_tool: PendingComputerToolSnapshot | None = None,
         expected_fence: int | None = None,
+        action_id: str | None = None,
+        attempt_id: str | None = None,
     ) -> TurnEvent:
         event = TurnEvent(
             event_id=str(uuid4()),
@@ -1783,6 +2024,8 @@ class ControlPlane:
             message_seq=message_seq,
             body=body,
             pending_computer_tool=pending_computer_tool,
+            action_id=action_id,
+            attempt_id=attempt_id,
         )
         turn.next_event_seq += 1
         self._messaging_store.put_turn(turn, expected_fence=expected_fence)

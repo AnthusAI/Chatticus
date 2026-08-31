@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "56412a94-0067-4d15-b9a4-415e7258398f",
+  "issue_id": "chatticus-8dbdc130-7501-405a-8046-686aa426d5c0",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T09:47:56.209Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Kernel honesty: GET /users/{user_id}/computer always includes host_start_generation. Default is 0 before any computer-queue nack or host-start lease. No Fargate RunTask; complements durable 23c93e without closing it.",
+    "issue_type": "story",
+    "labels": [],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "GET household computer exposes host_start_generation zero before any start"
+  }
+}

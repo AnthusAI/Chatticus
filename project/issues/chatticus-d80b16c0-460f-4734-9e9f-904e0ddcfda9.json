@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-d80b16c0-460f-4734-9e9f-904e0ddcfda9",
+  "title": "Front door health names the cloud environment",
+  "description": "As a caller targeting a named cloud environment, I want GET /health to name that environment, so I can tell development from staging without inferring it from the URL.\n\nFeature: Channels and the message store\n\nScenario: The front door names its cloud environment\n  Given a front door serving named environment \"development\" with HTTP\n  Then GET /health reports environment \"development\"\n\nLive exercise on development prints health_environment=1 after ThinTurn-only deploy. Staging and production exercise must still pass without this field until those stacks are redeployed (do not redeploy them here).\n\nNot included: demo CLI, staging/production CDK, merge to main.",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "cf92db0f-b05c-4856-913c-b39eed7b4e26",
+      "author": "home",
+      "text": "Live on development ThinTurn @ 6baa46a. Exercise: health_environment=1 claim_a=200 claim_b=409 turns_list=1. Staging/production not redeployed. No --all. No merge to main.",
+      "created_at": "2026-08-31T06:49:44.660091Z"
+    }
+  ],
+  "created_at": "2026-08-31T06:44:28.881519Z",
+  "updated_at": "2026-08-31T06:49:44.670810Z",
+  "closed_at": "2026-08-31T06:49:44.670810Z",
+  "custom": {}
+}

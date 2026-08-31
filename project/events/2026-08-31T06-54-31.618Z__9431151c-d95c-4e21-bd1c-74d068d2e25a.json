@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "9431151c-d95c-4e21-bd1c-74d068d2e25a",
+  "issue_id": "chatticus-fe073618-c64d-41b7-9e02-d9fb4be3c4c6",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T06:54:31.618Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a household client, I want channel history, the turn journal, GET /turns/{id}, and GET /bots/{id} to survive Front Door recycle, so reconnect does not depend on an in-process Front Door.\n\nThese routes already work against Dynamo. This story puts recycle on the executable spec.\n\nFeature: Channels and the message store\n  Scenario: Channel history reconnects after a seq and a Front Door recycle\n  Scenario: A turn can be read by identifier after a Front Door recycle\n\nFeature: Turn-scoped server-sent events\n  Scenario: Turn journal reconnects after a seq and a Front Door recycle\n\nFeature: Bot turns pin to the user's computer\n  Scenario: A bot can be read by identifier after a Front Door recycle\n\nNot included: demo CLI, staging/production, merge to main, new routes.",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+    "priority": 1,
+    "status": "open",
+    "title": "Reconnect HTTP survives Front Door recycle"
+  }
+}

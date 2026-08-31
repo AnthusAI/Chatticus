@@ -110,6 +110,11 @@ class TurnEventKind(StrEnum):
     TURN_COMPLETED = "turn.completed"
     TURN_FAILED = "turn.failed"
     TURN_RECONCILING = "turn.reconciling"
+    MODEL_REQUEST = "model.request"
+    TOOL_CALL = "tool.call"
+    TOOL_RESULT = "tool.result"
+    ATTEMPT_CLAIMED = "attempt.claimed"
+    ATTEMPT_RELINQUISHED = "attempt.relinquished"
 
 
 class TurnStatus(StrEnum):
@@ -169,6 +174,14 @@ class ComputerlessCannotExecuteComputerJob(ChatticusError):
     """A cpu-only worker must not ack a job that requires the computer."""
 
 
+class ComputerWorkerRequiresComputerCapability(ChatticusError):
+    """A computer-capable worker must not ack a job without the computer capability."""
+
+
+class ComputerWorkerHostNotReady(ChatticusError):
+    """Leave the computer SQS job unacked until a real host can run the tool."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""
@@ -186,6 +199,7 @@ class WorkerRecord:
 
     registration: WorkerRegistration
     last_heartbeat_at: datetime
+    hydrated_snapshot_generation: int | None = None
 
 
 @dataclass(frozen=True)
@@ -268,6 +282,13 @@ class Computer:
     browser_sessions: dict[str, str] = field(default_factory=dict)
     snapshot_uri: str | None = None
     snapshot_checksum: str | None = None
+    snapshot_generation: int = 0
+    model_ready: bool = True
+    workspace_ready: bool = False
+    browser_ready: bool = False
+    host_start_generation: int = 0
+    host_start_dispatched_generation: int = 0
+    host_start_lease_expires_at: datetime | None = None
     disk_dirty: bool = False
     hydrate_required: bool = False
     intended_host_worker_id: str | None = None
@@ -379,3 +400,5 @@ class TurnEvent:
     message_seq: int | None = None
     body: str | None = None
     pending_computer_tool: PendingComputerToolSnapshot | None = None
+    action_id: str | None = None
+    attempt_id: str | None = None

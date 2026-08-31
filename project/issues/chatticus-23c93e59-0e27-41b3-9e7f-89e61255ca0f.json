@@ -1,0 +1,49 @@
+{
+  "id": "chatticus-23c93e59-0e27-41b3-9e7f-89e61255ca0f",
+  "title": "Persist host start generation when the computer queue nacks",
+  "description": "ComputerWorker records a durable host_start_generation on the household computer before nacking. Retries share one lease. GET /users/{id}/computer exposes the generation. No Fargate RunTask this slice.",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "497984ee-5c87-417e-ac0e-9756567c16e8",
+      "author": "home",
+      "text": "Code on branch cursor/durable-host-start-4a21: Dynamo host_start_generation+lease, ComputerWorker records a start before nack, GET computer exposes generation. ChatticusThinTurn deploy blocked this tick: AWS session expired (aws login). Live pin remains 19070b1 until the next development ThinTurn deploy.",
+      "created_at": "2026-08-31T08:58:46.177078Z"
+    },
+    {
+      "id": "f6c397fe-6b4f-4ef6-a042-e0f418432eaa",
+      "author": "home",
+      "text": "Wiki status.md refreshed 2026-08-31: live pin remains 19070b1; host_start_generation still git-ahead. This tick AWS session is expired (aws login). Close 23c93e only after ChatticusThinTurn development redeploy and exercise host_start_generation>=1.",
+      "created_at": "2026-08-31T09:04:14.318600Z"
+    },
+    {
+      "id": "009d11a5-5a49-404d-adeb-cff98a163e15",
+      "author": "home",
+      "text": "Live CloudFront exercise 2026-08-31 (--base-url d3gpuuldffe35o): health_environment=1 missing_claim=404 claim_a=200 claim_b=409. After resume, GET computer still omits host_start_generation (None). ThinTurn pin remains 19070b1. Exercise now polls that HTTP field before SQS so aws login is not required to see this gap. Close only after ThinTurn-only redeploy and generation>=1.",
+      "created_at": "2026-08-31T09:25:13.598657Z"
+    },
+    {
+      "id": "7e2628a2-5be4-44f3-9741-7ad1b6760e57",
+      "author": "home",
+      "text": "Local npx cdk synth ChatticusThinTurn succeeded from develop @ bb9c2bc (Lambda asset bundled). Deploy still blocked: aws session expired. Live GET computer omits host_start_generation.",
+      "created_at": "2026-08-31T09:56:19.251280Z"
+    },
+    {
+      "id": "0263b3eb-2d37-4a52-a9e3-4eb4ad71e728",
+      "author": "home",
+      "text": "Live 2026-08-31: ChatticusThinTurn @ 50ad1d4. exercise_thin_turn.py --environment development exited 0 with host_start_generation=1 and computer_queue_job=in_flight_nack. Closing.",
+      "created_at": "2026-08-31T10:43:33.734079Z"
+    }
+  ],
+  "created_at": "2026-08-31T08:58:06.508893Z",
+  "updated_at": "2026-08-31T10:43:33.767817Z",
+  "closed_at": "2026-08-31T10:43:33.767817Z",
+  "custom": {}
+}

@@ -49,3 +49,10 @@ Feature: Bot turns pin to the user's computer
     Then tenant "anthus" can list bots for user "ryan":
       | Researcher |
       | Writer     |
+
+  Scenario: A bot can be read by identifier after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When bot "Researcher" remembers "voice" as "short and direct"
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can read bot "Researcher" by identifier with memory "voice" as "short and direct"

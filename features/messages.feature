@@ -4,6 +4,10 @@ Feature: Channels and the message store
   So that bots can talk to me and to each other on one channel
   And files stay on the shared computer instead of in the transcript
 
+  Scenario: The front door names its cloud environment
+    Given a front door serving named environment "development" with HTTP
+    Then GET /health reports environment "development"
+
   Scenario: A human message addressed to a bot enqueues a turn
     Given an empty control plane
     And tenant "anthus" user "ryan" has a bot named "Researcher"
@@ -40,6 +44,19 @@ Feature: Channels and the message store
       | Writer     |
     When user "ryan" of tenant "anthus" posts "research then draft" addressed to bot "Researcher" on the channel
     And bot "Researcher" posts "notes are in /workspace/accounts.md" addressed to bot "Writer" on the channel
+    And user "ryan" of tenant "anthus" lists channel messages after seq 1
+    Then the listing contains only the message with seq 2
+
+  Scenario: Channel history reconnects after a seq and a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has a bot named "Writer"
+    And tenant "anthus" user "ryan" has opened a channel with bots:
+      | Researcher |
+      | Writer     |
+    When user "ryan" of tenant "anthus" posts "research then draft" addressed to bot "Researcher" on the channel
+    And bot "Researcher" posts "notes are in /workspace/accounts.md" addressed to bot "Writer" on the channel
+    And a recycled Front Door serves the same messaging store
     And user "ryan" of tenant "anthus" lists channel messages after seq 1
     Then the listing contains only the message with seq 2
 
@@ -188,3 +205,72 @@ Feature: Channels and the message store
       | Assistant |
     And a recycled Front Door serves the same messaging store
     Then tenant "anthus" can read the open channel by identifier
+
+  Scenario: A user's channels can be listed after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    And tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    When a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can list channels for user "ryan":
+      | 1 |
+      | 2 |
+
+  Scenario: A user's computer can be read after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" household computer is stopped
+    When a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can read the household computer for user "ryan"
+
+  Scenario: An active turn can be read after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can read the active turn on the open channel
+
+  Scenario: No active turn is reported after completion and a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
+    And the worker claims the fence probe turn and completes it through HTTP
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" cannot read an active turn on the open channel
+
+  Scenario: A waiting turn can be read after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"
+    And user "ryan" of tenant "anthus" has an active turn on the channel
+    When the worker posts a progress chunk and then waits on the browser gate
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can read the waiting turn on the open channel as browser
+
+  Scenario: A user's active turns can be listed after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
+    And tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can list active turns for user "ryan":
+      | 1 |
+      | 2 |
+
+  Scenario: A turn can be read by identifier after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can read the turn by identifier

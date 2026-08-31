@@ -50,7 +50,48 @@ def _sqs_delete(queue_url: str, receipt_handle: str) -> None:
     boto3.client("sqs").delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
 
 
+def _computer_continuation_matches(body: dict, *, job_id: str, turn_id: str) -> bool:
+    """Return True when an SQS body is this exercise's computer continuation."""
+    return (
+        body.get("job_id") == job_id
+        and body.get("turn_id") == turn_id
+        and "computer" in (body.get("required_capabilities") or [])
+    )
+
+
+def _sqs_receive_computer_continuation(
+    queue_url: str,
+    *,
+    job_id: str,
+    turn_id: str,
+    wait_seconds: int,
+) -> dict | None:
+    """Receive until the matching computer job appears, deleting leftovers."""
+    deadline = time.monotonic() + wait_seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        message = _sqs_receive_one(
+            queue_url, wait_seconds=max(1, min(20, int(remaining)))
+        )
+        if message is None:
+            continue
+        body = json.loads(message["Body"])
+        _sqs_delete(queue_url, message["ReceiptHandle"])
+        if _computer_continuation_matches(body, job_id=job_id, turn_id=turn_id):
+            return body
+        print(
+            "computer_queue_stale "
+            f"turn_id={body.get('turn_id')!r} job_id={body.get('job_id')!r}",
+            file=sys.stderr,
+        )
+
+
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+        sys.stderr.reconfigure(line_buffering=True)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--environment",
@@ -93,6 +134,20 @@ def main() -> int:
         if health.status_code != 200:
             print(f"health {health.status_code} {health.text[:200]}", file=sys.stderr)
             return 1
+        reported_environment = health.json().get("environment")
+        expected_environment = environment or "development"
+        if (
+            reported_environment is not None
+            and reported_environment != expected_environment
+        ):
+            print(
+                "health_environment "
+                f"{reported_environment!r} != {expected_environment!r}",
+                file=sys.stderr,
+            )
+            return 1
+        if reported_environment == expected_environment:
+            print("health_environment=1")
         missing = client.post(
             "/turns/missing-turn-id/claim",
             json={"worker_id": "exercise-missing"},
@@ -198,6 +253,18 @@ def main() -> int:
         client.post(
             "/computers/stopped", json={"user_id": args.user_id, "stopped": True}
         )
+        computer = client.get(f"/users/{args.user_id}/computer")
+        if (
+            computer.status_code != 200
+            or computer.json().get("stopped") is not True
+            or not computer.json().get("computer_id")
+        ):
+            print(
+                f"computer_get {computer.status_code} {computer.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("computer_get=1")
         channel_key = str(uuid4())
         channel_body = {"user_id": args.user_id, "bot_ids": [bot["bot_id"]]}
         first_channel = client.post(
@@ -242,6 +309,24 @@ def main() -> int:
             )
             return 1
         print("channel_get=1")
+        listed_channels = client.get(f"/users/{args.user_id}/channels")
+        if listed_channels.status_code != 200:
+            print(
+                "channels_list "
+                f"{listed_channels.status_code} {listed_channels.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        channel_ids = {
+            row["channel_id"] for row in listed_channels.json().get("channels", [])
+        }
+        if channel["channel_id"] not in channel_ids:
+            print(
+                f"channels_list missing {channel['channel_id']} in {channel_ids!r}",
+                file=sys.stderr,
+            )
+            return 1
+        print("channels_list=1")
         fence_posted = client.post(
             f"/channels/{channel['channel_id']}/messages",
             json={
@@ -253,6 +338,28 @@ def main() -> int:
             },
         ).json()
         fence_turn_id = fence_posted["turn_id"]
+        channel_turn = client.get(f"/channels/{channel['channel_id']}/turn")
+        if (
+            channel_turn.status_code != 200
+            or channel_turn.json().get("turn_id") != fence_turn_id
+        ):
+            print(
+                f"channel_turn {channel_turn.status_code} {channel_turn.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("channel_turn=1")
+        listed_turns = client.get(f"/users/{args.user_id}/turns")
+        listed_turn_ids = [
+            row.get("turn_id") for row in (listed_turns.json().get("turns") or [])
+        ]
+        if listed_turns.status_code != 200 or fence_turn_id not in listed_turn_ids:
+            print(
+                f"turns_list {listed_turns.status_code} {listed_turns.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("turns_list=1")
         claim_a = client.post(
             f"/turns/{fence_turn_id}/claim",
             json={"worker_id": "exercise-fence-a"},
@@ -371,6 +478,19 @@ def main() -> int:
                 )
                 return 1
             print("turn_waiting_for=browser")
+            channel_waiting = client.get(f"/channels/{channel['channel_id']}/turn")
+            if (
+                channel_waiting.status_code != 200
+                or channel_waiting.json().get("turn_id") != fence_turn_id
+                or channel_waiting.json().get("waiting_for") != "browser"
+            ):
+                print(
+                    "channel_turn_waiting "
+                    f"{channel_waiting.status_code} {channel_waiting.text[:300]}",
+                    file=sys.stderr,
+                )
+                return 1
+            print("channel_turn_waiting=1")
             pending = turn_payload.get("pending_computer_tool") or {}
             if (
                 pending.get("tool_name") != "request_computer_capability"
@@ -564,6 +684,15 @@ def main() -> int:
         print(f"computer_stopped={stopped['stopped']} bot_messages={len(bot_messages)}")
         if not stopped["stopped"] or not bot_messages:
             return 1
+        channel_turn_done = client.get(f"/channels/{channel['channel_id']}/turn")
+        if channel_turn_done.status_code != 404:
+            print(
+                f"channel_turn_done {channel_turn_done.status_code} "
+                f"{channel_turn_done.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("channel_turn_done=1")
         after = messages[0]["seq"]
         listed_after = client.get(
             f"/channels/{channel['channel_id']}/messages",
@@ -747,32 +876,64 @@ def main() -> int:
                     json={"user_id": args.user_id, "stopped": True},
                 )
                 return 1
-            computer_queue = thin_turn_stack_output(
-                "development", "ComputerTurnQueueUrl"
+            generation = None
+            deadline = time.monotonic() + 25
+            while time.monotonic() < deadline:
+                computer_after = client.get(f"/users/{args.user_id}/computer")
+                generation = computer_after.json().get("host_start_generation")
+                if isinstance(generation, int) and generation >= 1:
+                    break
+                time.sleep(2)
+            if not isinstance(generation, int) or generation < 1:
+                print(
+                    f"host_start_generation={generation!r}",
+                    file=sys.stderr,
+                )
+                client.post(
+                    "/computers/stopped",
+                    json={"user_id": args.user_id, "stopped": True},
+                )
+                return 1
+            print(f"host_start_generation={generation}")
+            try:
+                computer_queue = thin_turn_stack_output(
+                    "development", "ComputerTurnQueueUrl"
+                )
+                cpu_queue = thin_turn_stack_output("development", "TurnQueueUrl")
+            except Exception as error:
+                print(
+                    "computer_queue lookup needs AWS credentials "
+                    f"({error.__class__.__name__}). Reauthenticate with aws login.",
+                    file=sys.stderr,
+                )
+                client.post(
+                    "/computers/stopped",
+                    json={"user_id": args.user_id, "stopped": True},
+                )
+                return 1
+            computer_body = _sqs_receive_computer_continuation(
+                computer_queue,
+                job_id=job_id,
+                turn_id=browser_turn_id,
+                wait_seconds=20,
             )
-            cpu_queue = thin_turn_stack_output("development", "TurnQueueUrl")
-            computer_message = _sqs_receive_one(computer_queue, wait_seconds=20)
-            if computer_message is None:
-                print("computer_queue delivered no message", file=sys.stderr)
-                client.post(
-                    "/computers/stopped",
-                    json={"user_id": args.user_id, "stopped": True},
-                )
-                return 1
-            computer_body = json.loads(computer_message["Body"])
-            _sqs_delete(computer_queue, computer_message["ReceiptHandle"])
-            if (
-                computer_body.get("job_id") != job_id
-                or computer_body.get("turn_id") != browser_turn_id
-                or "computer" not in computer_body.get("required_capabilities", [])
-            ):
-                print(f"computer_queue_body={computer_body!r}", file=sys.stderr)
-                client.post(
-                    "/computers/stopped",
-                    json={"user_id": args.user_id, "stopped": True},
-                )
-                return 1
-            print("computer_queue_job=computer")
+            still_waiting = client.get(f"/turns/{browser_turn_id}")
+            waiting_for = still_waiting.json().get("waiting_for")
+            if computer_body is None:
+                if waiting_for != "browser":
+                    print(
+                        "computer_queue delivered no matching message "
+                        f"waiting_for={waiting_for!r}",
+                        file=sys.stderr,
+                    )
+                    client.post(
+                        "/computers/stopped",
+                        json={"user_id": args.user_id, "stopped": True},
+                    )
+                    return 1
+                print("computer_queue_job=in_flight_nack")
+            else:
+                print("computer_queue_job=computer")
             cpu_message = _sqs_receive_one(cpu_queue, wait_seconds=2)
             if cpu_message is not None:
                 cpu_body = json.loads(cpu_message["Body"])

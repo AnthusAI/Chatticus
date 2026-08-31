@@ -1,5 +1,9 @@
 """Worker processes that pull turn jobs from the control plane."""
 
+from chatticus.worker.computer import (
+    ComputerWorker,
+    FakeComputerActionExecutor,
+)
 from chatticus.worker.computerless import (
     ComputerlessWorker,
     FakeTextCompletionClient,
@@ -12,6 +16,8 @@ from chatticus.worker.openai_completion import (
 )
 
 __all__ = [
+    "ComputerWorker",
+    "FakeComputerActionExecutor",
     "ComputerlessWorker",
     "FakeTextCompletionClient",
     "OpenAITextCompletionClient",

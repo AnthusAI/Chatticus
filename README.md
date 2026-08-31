@@ -64,12 +64,26 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-GitHub **`main`** is **v0.5.0**. Three named thin-turn environments are
-live in AWS account `335163751677` (`us-east-1`). Production is never
-implied by a git branch; it is an explicit gated deploy of a release that
-already passed staging acceptance. Staging and production were deployed
-from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `e320617` (no `--all`).
+GitHub **`main`** is promoted to the 2026-08-31 live development pin
+(`50ad1d4` ThinTurn code, plus this docs commit). That is a git promotion
+only. Three named thin-turn environments are live in AWS account
+`335163751677` (`us-east-1`). Production is never implied by a git
+branch; it is an explicit gated deploy of a release that already passed
+staging acceptance. Git promotion does not redeploy stacks. Staging and
+production were last recorded as deployed from `origin/main` @ `760915d`
+(v0.5.0); they have not been redeployed from this pin. Development was
+redeployed ThinTurn-only from `develop` @ `50ad1d4` (no `--all`). That
+pin attaches a `ComputerWorker` Lambda to `ComputerTurnJobs` that nacks
+without a host (`computer_queue_job=in_flight_nack`) and does not fake
+`tool.result`. A CloudFront run of the named exercise on 2026-08-31
+exited 0 with `health_environment=1`, `missing_claim=404`, `claim_a=200`
+then `claim_b=409`, `host_start_generation=1` after resume (23c93e,
+2a2b64, bf5b02), and `computer_queue_job=in_flight_nack`. GET computer
+includes `host_start_generation` (0 before any start). The live
+ComputerWorker still uses a no-op `HostStarter`; CDK does not set
+`CHATTICUS_HOST_STARTER=ecs` and does not grant `ecs:RunTask`. A demo CLI
+(Kanbus epic 35d86b) is starting; it talks to this HTTP surface.
+`exercise_thin_turn.py` stays the pass/fail gate.
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -77,12 +91,17 @@ from `develop` @ `e320617` (no `--all`).
 | staging | `ChatticusThinTurnStaging` | https://dntj3flm2ozck.cloudfront.net |
 | production | `ChatticusThinTurnProduction` | https://d3lnmalpqx92ls.cloudfront.net |
 
+If SSM or CloudFormation credentials are expired, the exercise falls
+back to those published origins (b4c3d2). SQS queue checks still need
+`aws login`.
+
 `cd python && python scripts/exercise_thin_turn.py --environment <name>`
 exits 0 for **development**, **staging**, and **production**. Each run
 includes missing-turn claim **404** and a live second-worker claim **409**
 while the lease is held (`claim_a=200` then `claim_b=409` on development,
 because the fence probe starts the turn with `enqueue_turn=false` so the
-computerless worker does not race the claim), plus a live idempotent
+computerless worker does not race the claim), plus **development** naming
+itself on `GET /health` (`health_environment=1`), a live idempotent
 channel post (`post_idempotent=1`: two `POST /channels/{id}/messages` with
 the same `Idempotency-Key` produce one row), a duplicate bot create
 (`bot_name_dup=1`: a second `POST /bots` with the same name returns
@@ -93,7 +112,13 @@ roundtrip (`POST /bots/{id}/memory` then `GET /bots/{id}`), a live
 idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
 `Idempotency-Key` return one bot_id), a live named-bot lookup
 (`bot_by_name=1`: `GET /bots?user_id=&name=` returns that bot_id), a live user bot list
-(`bots_list=1`: `GET /users/{user_id}/bots` includes that bot_id), plus SSE `turn.started` /
+(`bots_list=1`: `GET /users/{user_id}/bots` includes that bot_id), a live user channel list
+(`channels_list=1`: `GET /users/{user_id}/channels` includes that channel_id), a live household computer read
+(`computer_get=1`: `GET /users/{user_id}/computer` returns `computer_id`, `stopped=true`, and `host_start_generation`), a live channel active-turn read
+(`channel_turn=1`: `GET /channels/{id}/turn` returns the fence-probe turn_id), a live user active-turn list
+(`turns_list=1`: `GET /users/{user_id}/turns` includes that turn_id), a live waiting-turn read
+(`channel_turn_waiting=1`: that path returns `waiting_for=browser` after the fence probe waits), a live empty active-turn read
+(`channel_turn_done=1`: after the greeting completes, `GET /channels/{id}/turn` is **404**), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
 `Last-Event-ID` and requires ordered replay through `turn.completed`.
@@ -112,10 +137,11 @@ worker emits `turn.waiting` instead of completing, `GET /turns/{id}` still
 names `browser` and the pending computer tool, the journal event matches that
 `action_id`, and resume is **409** again. It then marks the computer
 running, resumes that turn, checks `POST /turns/{id}/resume` returns
-`required_capabilities=computer`, and receives the continuation from
-`ComputerTurnJobs` (not the cpu queue) before marking the computer
-stopped. Staging and production do not
-have waiting, resume, or turn read yet.
+`required_capabilities=computer`, polls `GET /users/{id}/computer` until
+`host_start_generation>=1`, and receives the continuation from
+`ComputerTurnJobs` (not the cpu queue) as an in-flight nack, draining leftover
+messages from interrupted runs, before marking the computer stopped. Staging
+and production do not have waiting, resume, or turn read yet.
 
 The **source** has named cloud environments, turn **claim**, **lease**,
 **fence**, durable channel lookup across Lambda invocations, a durable
@@ -128,8 +154,11 @@ into the live worker HTTP loop).
 What each deployed thin-turn slice does today:
 
 - CloudFront in front of a Lambda function URL (no load balancer).
-- FastAPI front door: channels (`GET /channels/{id}` and `POST /channels`),
+- FastAPI front door: `GET /health` (names the cloud environment on
+  development), channels (`GET /channels/{id}`, `POST /channels`,
+  `GET /users/{user_id}/channels`, `GET /users/{user_id}/turns`, and `GET /channels/{id}/turn`),
   messages, bots (`GET /bots?user_id=&name=` and `GET /users/{user_id}/bots`),
+  the household computer (`GET /users/{user_id}/computer`),
   a stopped-computer roster,
   chunk POST, `POST /turns/{id}/claim`, `POST /turns/{id}/renew`, fenced
   chunk writes, `POST /turns/{id}/waiting` (development),
@@ -141,7 +170,13 @@ What each deployed thin-turn slice does today:
   instance can enqueue a turn for a bot it did not create. Per-user bot
   names are reserved on the roster table so a recycled Lambda cannot fork
   two bots with the same name. A recycled Front Door can list a user's
-  named bots from that roster. Bot memory is
+  named bots and channels from that roster. A recycled Front Door can also
+  read the household computer id and stopped flag. A recycled Front Door
+  can read the active turn on a channel without a remembered turn_id, and
+  list a user's in-flight turns the same way. A recycled Front Door can
+  also read `GET /bots/{id}` (including memory), `GET /turns/{id}`,
+  channel history with `after=`, and the turn journal with `after=`.
+  Bot memory is
   stored on that roster item; a recycled Front Door hydrates the bot from
   Dynamo before writing memory. The computerless worker prompt is that
   memory plus the channel transcript. Another bot on the same computer
@@ -171,21 +206,38 @@ EventBridge Scheduler one-shots are on each front door
 (`chatticus-{environment}-turn-deadlines`); `recovery_enabled` is on.
 Warm Front Door containers use a wall clock, so deadlines land in the
 future. A wedged turn has recovered through EventBridge without a
-forced Lambda cold start on development. GitHub **`main`** stays
-**v0.5.0**; overnight, approval binding, unbound-browser, and
-computer-handoff kernels on `develop` are not promoted there until they
-are on the live worker loop.
+forced Lambda cold start on development. GitHub **`main`** carries the
+2026-08-31 development live pin; overnight, approval binding,
+unbound-browser, and full computer-handoff execution still are not on
+the live worker loop. Do not merge `develop` to `main` as daily parking.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
-destroyed. They are not on the turn path yet. The computer stays stopped.
-There is no chattic.us web app, no local pull worker, no mid-turn
-escalation onto a running computer, and no approvals on these slices.
+destroyed. They are not on the thin-turn path yet. Cold Fargate time to
+`RUNNING` for the current computer image is tens of seconds (Test 2);
+Chromium is not in the image. The computer service stays at desired
+count 0. There is no chattic.us web app, no live Fargate computer pull
+worker, no mid-turn escalation onto a running computer, and no approvals
+on these slices.
 
 Cloud-environment epic 9eef23 is closed: three named stacks, named-env
-acceptance on each. Turn recovery epic 653989 is closed. Remaining for
-summoning a computer (8f98f8): cold readiness measurement (e747d7) — not
-a Fargate scale-up this cycle. Waiting-turn resume while the computer is
-stopped (66d3c4), waiting-turn gate read over HTTP (dfa7a9), pending
+acceptance on each. Turn recovery epic 653989 is closed. Cold Fargate
+readiness (e747d7, Test 2) is measured for the current image: tens of
+seconds to RUNNING; Chromium still missing. Remaining for summoning a
+computer (8f98f8): a live Fargate Chromium executor; development
+ThinTurn nacks ComputerTurnJobs without a host and records
+`host_start_generation`. Structured handoff (538d28) is
+kernel-only on `develop` — model.request, tool.call, tool.result, and
+attempt claim/relinquish are durable typed journal events; continuation
+executes only unresolved action ids; failure injection covers handoff
+boundaries and computer reclamation. Gherkin:
+`structured_journal_handoff.feature` and
+`computer_continuation_worker.feature`. Single-owner computer
+start and readiness (53beb0) is kernel-only on `develop`: one
+tenant/computer start claim, lease expiry and reclaim, per-capability
+readiness recording, and stale-local prefer-local gating until snapshot
+reconciliation. Gherkin: `single_computer_start.feature`,
+`computer_host_readiness.feature`, plus `capability_gated_readiness.feature`.
+Waiting-turn resume while the computer is stopped (66d3c4), waiting-turn gate read over HTTP (dfa7a9), pending
 computer tool on the waiting turn (96c0e8), waiting journal snapshot
 (d04942), computerless skip of a waiting turn (86c75d), computerless
 refuse of a computer continuation (0b30dc), keeping computer
@@ -345,7 +397,7 @@ computers stop (EC2) or scale to 0 (Fargate). The snapshot stays.
 ```
 Chattic.us/
   features/                 Shared Gherkin (product narrative)
-  python/                   Control plane, computerless worker, snapshot packer
+  python/                   Control plane, computerless and computer workers, snapshot packer
   web/                      chattic.us web app (not on the live turn path yet)
   computer/                 Linux computer image
   infra/                    AWS CDK
@@ -396,17 +448,26 @@ AWS resources are CDK only (`infra/`). Do not create them in the console.
 **ChatticusComputers**, and every thin-turn environment; never do that.
 Deploy one named stack:
 
+Deploy development ThinTurn only:
+
 ```bash
 cd infra
-npx cdk deploy ChatticusThinTurn
+sh deploy-chatticus-thinturn-development.sh
+```
+
+That fails closed without AWS identity and never passes `--all`. Staging
+and production, when you mean those stacks:
+
+```bash
 npx cdk deploy ChatticusThinTurnStaging
 npx cdk deploy ChatticusThinTurnProduction
 ```
 
 **ChatticusThinTurn** is development. Staging and production are separate
-stacks with their own DynamoDB, SQS, Lambda, and CloudFront; both are
-deployed from the v0.5.0 release on `main`. Do not destroy the snapshot
-or computer stacks.
+stacks with their own DynamoDB, SQS, Lambda, and CloudFront. GitHub
+`main` includes the 2026-08-31 development live pin; those stacks were last
+recorded as deployed from the v0.5.0 pin (`760915d`) unless a later gated
+CDK deploy is proven. Do not destroy the snapshot or computer stacks.
 
 Postgres in `docker-compose.yml` is unused (it predates DynamoDB).
 

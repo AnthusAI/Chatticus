@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 
 from chatticus.control_plane import ControlPlane
 from chatticus.models import ActorKind
@@ -27,11 +28,100 @@ class SingleComputerStartDriver:
         self.plane = plane or ControlPlane()
         self.tenant_id = "anthus"
         self.user_id = "ryan"
+        self.computer_id: str | None = "household-computer"
         self.outcome: SingleComputerStartOutcome | None = None
+        self._last_turn_id: str | None = None
+        self._selected_host: str | None = None
 
     def given_stopped_computer(self) -> None:
         """Ensure the household computer exists and is stopped."""
+        if self.computer_id is not None:
+            self.plane.ensure_computer(
+                self.tenant_id, self.user_id, computer_id=self.computer_id
+            )
+        else:
+            self.plane.ensure_computer(self.tenant_id, self.user_id)
         self.plane.set_computer_stopped(self.tenant_id, self.user_id, True)
+
+    def _computer_id(self) -> str:
+        return self.plane.computer_for_user(self.tenant_id, self.user_id).computer_id
+
+    def request_host_start(self) -> None:
+        """Request one host start for a single turn."""
+        bot_count = len(self.plane._bots)
+        bot = self.plane.create_bot(
+            self.tenant_id, self.user_id, f"Researcher-{bot_count + 1}"
+        )
+        channel = self.plane.create_channel(
+            self.tenant_id, self.user_id, [bot.bot_id]
+        )
+        _, turn = self.plane.post_channel_message(
+            channel.channel_id,
+            self.tenant_id,
+            ActorKind.HUMAN,
+            self.user_id,
+            "start the computer",
+            addressed_to_bot_id=bot.bot_id,
+        )
+        assert turn is not None
+        self._last_turn_id = turn.turn_id
+        self.plane.request_computer_host_start(
+            self.tenant_id, self.user_id, turn.turn_id
+        )
+
+    def retry_host_start(self) -> None:
+        """Retry the same turn's host start without expiring the claim."""
+        assert self._last_turn_id is not None
+        self.plane.request_computer_host_start(
+            self.tenant_id, self.user_id, self._last_turn_id
+        )
+
+    def expire_host_start_lease(self) -> None:
+        """Advance past the host-start lease without granting a live writer."""
+        self.plane.advance_seconds(
+            self.plane.attempt_lease.total_seconds() + 1
+        )
+        self.plane.expire_host_start_claims()
+
+    def host_start_count(self) -> int:
+        """Return the lifetime host-start count for the household computer."""
+        computer = self.plane.computer_for_user(self.tenant_id, self.user_id)
+        return computer.host_start_generation
+
+    def disk_write_lock_held(self) -> bool:
+        """Return whether any host still holds the disk write lock."""
+        computer = self.plane.computer_for_user(self.tenant_id, self.user_id)
+        key = (self.tenant_id, computer.computer_id)
+        claim = self.plane._host_starts.get(key)
+        if claim is None:
+            return False
+        return claim.live_writer_host_id is not None
+
+    def set_local_reconciled_generation(self, generation: int) -> None:
+        """Record the snapshot generation a local host last hydrated."""
+        self.plane.reconcile_worker_snapshot("garage-mac-1", generation)
+
+    def publish_remote_snapshot_generation(self, generation: int) -> None:
+        """Publish snapshots until the computer reaches one generation."""
+        computer_id = self._computer_id()
+        computer = self.plane.computer_for_user(self.tenant_id, self.user_id)
+        while computer.snapshot_generation < generation:
+            self.plane.write_workspace(
+                self.tenant_id, self.user_id, "notes.md", "published"
+            )
+            self.plane.publish_snapshot(computer_id, "fargate-1")
+            computer = self.plane.computer_for_user(self.tenant_id, self.user_id)
+
+    def select_start_host(self) -> str | None:
+        """Choose which host should start the stopped computer."""
+        self._selected_host = self.plane.select_computer_start_host(
+            self.tenant_id, self.user_id
+        )
+        return self._selected_host
+
+    def reconcile_local_host(self, generation: int) -> None:
+        """Mark the local host caught up to one snapshot generation."""
+        self.plane.reconcile_worker_snapshot("garage-mac-1", generation)
 
     def request_two_turns_concurrently(self) -> SingleComputerStartOutcome:
         """Issue two start requests without an intervening host boot."""

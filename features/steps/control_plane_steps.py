@@ -451,6 +451,26 @@ def given_durable_messaging_store(context: object) -> None:
     context.bots_by_name = {}
 
 
+@given('a front door serving named environment "{environment}" with HTTP')
+def given_named_environment_front_door(context: object, environment: str) -> None:
+    context.messaging_store = InMemoryMessagingStore()
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    app = create_app(context.plane, environment=environment)
+    context.api_app = app
+    context.app_state = app.state.chatticus
+    context.api_client = start_test_server(app)
+    context.bots_by_name = {}
+
+
+@then('GET /health reports environment "{environment}"')
+def then_health_reports_environment(context: object, environment: str) -> None:
+    response = context.api_client.get("/health")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["environment"] == environment
+
+
 @given("an empty control plane backed by a durable messaging store with HTTP")
 def given_durable_messaging_store_with_http(context: object) -> None:
     context.messaging_store = InMemoryMessagingStore()
@@ -460,6 +480,7 @@ def given_durable_messaging_store_with_http(context: object) -> None:
     context.app_state = app.state.chatticus
     context.api_client = start_test_server(app)
     context.bots_by_name = {}
+    context.opened_channel_ids = []
     context.last_channel = None
     context.last_turn_id = None
     context.message_error = None
@@ -528,6 +549,30 @@ def then_lookup_bot_by_name(
     assert payload["bot_id"] == expected.bot_id
     assert payload["name"] == name
     assert payload["user_id"] == user_id
+
+
+@then(
+    'tenant "{tenant_id}" can read bot "{name}" by identifier '
+    'with memory "{key}" as "{value}"'
+)
+def then_read_bot_by_identifier(
+    context: object, tenant_id: str, name: str, key: str, value: str
+) -> None:
+    expected = context.bots_by_name[name]
+    response = context.api_client.get(
+        f"/bots/{expected.bot_id}",
+        headers={"X-Tenant-Id": tenant_id},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["bot_id"] == expected.bot_id
+    assert payload["name"] == name
+    assert (payload.get("memory") or {}).get(key) == value
+    missing = context.api_client.get(
+        f"/bots/{expected.bot_id}",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert missing.status_code == 404
 
 
 @then('tenant "{tenant_id}" can list bots for user "{user_id}":')

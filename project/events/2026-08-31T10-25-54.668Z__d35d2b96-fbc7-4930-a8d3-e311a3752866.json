@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "d35d2b96-fbc7-4930-a8d3-e311a3752866",
+  "issue_id": "chatticus-2a2b64fb-0e11-4ce7-aefc-c247250ede80",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T10:25:54.668Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "",
+    "issue_type": "story",
+    "labels": [],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 0,
+    "status": "open",
+    "title": "Front Door rereads household computer so host_start_generation is live"
+  }
+}

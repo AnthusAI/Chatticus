@@ -3,7 +3,7 @@
   "title": "Implement the structured journal and fenced computer handoff",
   "description": "Implement continuation from durable structured model and tool events.\n\nAcceptance criteria:\n- Model requests, tool calls, tool results, and attempt transitions are durable typed events, not transient token chunks.\n- The old attempt commits the pending call and relinquishes fenced ownership before continuation.\n- The new attempt claims the same turn and executes only unresolved calls.\n- Action identifiers make tool execution retry-aware.\n- Failure-injection scenarios cover every handoff boundary and computer reclamation.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,19 +12,23 @@
     "v1",
     "implementation"
   ],
-  "dependencies": [
+  "dependencies": [],
+  "comments": [
     {
-      "target": "chatticus-53beb006-67ab-4190-ab92-eda3999049ad",
-      "type": "blocked-by"
+      "id": "5b571f7d-87c1-440a-8099-971994caf98c",
+      "author": "home",
+      "text": "Removed stale blocked-by e42008 (closed). Remaining chain is 53beb0, which is blocked by e747d7. No computer-handoff implementation this cycle.",
+      "created_at": "2026-08-31T07:19:11.445402Z"
     },
     {
-      "target": "chatticus-e420080f-a60f-4be5-9bec-ceca14305046",
-      "type": "blocked-by"
+      "id": "a8abc113-03c4-4517-b952-41baf9881f2f",
+      "author": "home",
+      "text": "Kernel DoD for 538d28: typed journal events, fenced relinquish before continuation, new attempt executes only unresolved action ids, retry-aware execute, Gherkin structured_journal_handoff.feature covering handoff boundaries and computer reclamation. Kernel-only; no ThinTurn or Computers deploy.",
+      "created_at": "2026-08-31T08:06:12.988362Z"
     }
   ],
-  "comments": [],
   "created_at": "2026-08-30T15:54:56.864780Z",
-  "updated_at": "2026-08-30T15:54:56.864780Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T08:06:12.997956Z",
+  "closed_at": "2026-08-31T08:06:12.997956Z",
   "custom": {}
 }

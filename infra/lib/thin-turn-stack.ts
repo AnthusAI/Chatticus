@@ -299,6 +299,38 @@ export class ThinTurnStack extends cdk.Stack {
       new lambdaEventSources.SqsEventSource(turnQueue, { batchSize: 1 }),
     );
 
+    const computerWorkerFunction = new lambda.Function(this, "ComputerWorker", {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: "chatticus.worker.lambda_handler.handler",
+      architecture: lambda.Architecture.X86_64,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(60),
+      description:
+        "SQS computer-queue worker: nack without a host; never fake tool.result.",
+      environment: {
+        ...sharedEnv,
+        CHATTICUS_WORKER_KIND: "computer",
+        CHATTICUS_INVOKE_KEY: invokeSecret.secretValue.unsafeUnwrap(),
+      },
+      code: httpCode,
+    });
+    table.grantReadWriteData(computerWorkerFunction);
+    computerTurnQueue.grantConsumeMessages(computerWorkerFunction);
+    computerWorkerFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ssm:GetParameter"],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${cloudFrontUrlParameterName}`,
+        ],
+      }),
+    );
+    computerWorkerFunction.addEventSource(
+      new lambdaEventSources.SqsEventSource(computerTurnQueue, {
+        batchSize: 1,
+        reportBatchItemFailures: true,
+      }),
+    );
+
     const stripAcceptEncoding = new cloudfront.Function(this, "StripAcceptEncoding", {
       code: cloudfront.FunctionCode.fromInline(STRIP_ACCEPT_ENCODING_FUNCTION),
       comment: "Strip Accept-Encoding so the Lambda origin emits identity encoding.",

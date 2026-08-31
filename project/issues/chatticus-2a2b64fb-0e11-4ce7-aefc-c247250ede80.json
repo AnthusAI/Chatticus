@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-2a2b64fb-0e11-4ce7-aefc-c247250ede80",
+  "title": "Front Door rereads household computer so host_start_generation is live",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "10029be5-ca90-4829-a134-f000f262ae8b",
+      "author": "home",
+      "text": "Front Door computer_for_user always get_computer from the messaging store so a ComputerWorker host start is visible on GET. Kernel: Dynamo second-process pytest plus Gherkin. Live proof still needs ThinTurn-only redeploy and exercise_thin_turn --environment development.",
+      "created_at": "2026-08-31T10:30:50.362897Z"
+    },
+    {
+      "id": "1850396a-c75e-45b7-b270-cb34fd5892ca",
+      "author": "home",
+      "text": "Live: Front Door rereads Computer from Dynamo. Same exercise saw host_start_generation=1. Closing.",
+      "created_at": "2026-08-31T10:43:33.745964Z"
+    }
+  ],
+  "created_at": "2026-08-31T10:25:54.668186Z",
+  "updated_at": "2026-08-31T10:43:33.779237Z",
+  "closed_at": "2026-08-31T10:43:33.779237Z",
+  "custom": {}
+}

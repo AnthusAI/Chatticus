@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-d7ae5592-6761-4683-9f17-90a3e71da8eb",
+  "title": "Computer pull worker refuses without host executor",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "3ef418f5-81ca-4623-9bc7-489d0bea2fec",
+      "author": "home",
+      "text": "Kernel+Gherkin: ComputerWorker requires host executor and browser gate; no default FakeComputerActionExecutor. Chromium in computer/Dockerfile.",
+      "created_at": "2026-08-31T08:38:19.439308Z"
+    }
+  ],
+  "created_at": "2026-08-31T08:36:33.713201Z",
+  "updated_at": "2026-08-31T08:38:19.439308Z",
+  "closed_at": "2026-08-31T08:38:19.429553Z",
+  "custom": {}
+}

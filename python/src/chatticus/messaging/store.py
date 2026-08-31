@@ -34,6 +34,9 @@ class MessagingStore(Protocol):
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         """Load one channel."""
 
+    def list_channels(self, tenant_id: str, user_id: str) -> list[Channel]:
+        """Return channels owned by one household user."""
+
     def resolve_channel_tenant(self, channel_id: str) -> str | None:
         """Return the owning tenant for a channel identifier."""
 
@@ -50,6 +53,9 @@ class MessagingStore(Protocol):
 
     def get_turn(self, tenant_id: str, turn_id: str) -> Turn | None:
         """Load one turn."""
+
+    def get_active_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
+        """Return the active turn on a channel, if any."""
 
     def claim_turn_attempt(
         self,
@@ -181,6 +187,7 @@ class InMemoryMessagingStore:
         self._post_idempotency: dict[tuple[str, str], tuple[Message, str | None]] = {}
         self._channel_idempotency: dict[tuple[str, str], str] = {}
         self._bot_idempotency: dict[tuple[str, str], str] = {}
+        self._active_channel_turns: dict[tuple[str, str], str] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -188,6 +195,16 @@ class InMemoryMessagingStore:
 
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         return self._channels.get((tenant_id, channel_id))
+
+    def list_channels(self, tenant_id: str, user_id: str) -> list[Channel]:
+        return sorted(
+            (
+                channel
+                for channel in self._channels.values()
+                if channel.tenant_id == tenant_id and channel.user_id == user_id
+            ),
+            key=lambda channel: channel.channel_id,
+        )
 
     def resolve_channel_tenant(self, channel_id: str) -> str | None:
         for (tenant_id, stored_channel_id), _ in self._channels.items():
@@ -215,6 +232,15 @@ class InMemoryMessagingStore:
                         f"{expected_fence}."
                     )
             self._turns[(turn.tenant_id, turn.turn_id)] = turn
+            self._sync_active_channel_turn(turn)
+
+    def _sync_active_channel_turn(self, turn: Turn) -> None:
+        key = (turn.tenant_id, turn.channel_id)
+        if turn.status == TurnStatus.ACTIVE:
+            self._active_channel_turns[key] = turn.turn_id
+            return
+        if self._active_channel_turns.get(key) == turn.turn_id:
+            del self._active_channel_turns[key]
 
     def claim_turn_attempt(
         self,
@@ -298,6 +324,15 @@ class InMemoryMessagingStore:
 
     def get_turn(self, tenant_id: str, turn_id: str) -> Turn | None:
         return self._turns.get((tenant_id, turn_id))
+
+    def get_active_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
+        turn_id = self._active_channel_turns.get((tenant_id, channel_id))
+        if turn_id is None:
+            return None
+        turn = self.get_turn(tenant_id, turn_id)
+        if turn is None or turn.status != TurnStatus.ACTIVE:
+            return None
+        return turn
 
     def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
         with self._lock:
@@ -433,6 +468,18 @@ class DynamoMessagingStore:
                 "channel_id": {"S": channel.channel_id},
             },
         )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._roster_pk(channel.tenant_id)},
+                "sk": {
+                    "S": self._channel_roster_sk(channel.user_id, channel.channel_id)
+                },
+                "tenant_id": {"S": channel.tenant_id},
+                "user_id": {"S": channel.user_id},
+                "channel_id": {"S": channel.channel_id},
+            },
+        )
 
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         response = self.client.get_item(
@@ -456,6 +503,23 @@ class DynamoMessagingStore:
             participants=participants,
             next_seq=int(item["next_seq"]["N"]),
         )
+
+    def list_channels(self, tenant_id: str, user_id: str) -> list[Channel]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._roster_pk(tenant_id)},
+                ":prefix": {"S": f"channel#{user_id}#"},
+            },
+        )
+        channels: list[Channel] = []
+        for row in response.get("Items", []):
+            channel_id = row["channel_id"]["S"]
+            channel = self.get_channel(tenant_id, channel_id)
+            if channel is not None:
+                channels.append(channel)
+        return sorted(channels, key=lambda channel: channel.channel_id)
 
     def resolve_channel_tenant(self, channel_id: str) -> str | None:
         response = self.client.get_item(
@@ -519,6 +583,8 @@ class DynamoMessagingStore:
                 ) from error
             raise
 
+        self._sync_active_channel_turn(turn)
+
     def get_turn(self, tenant_id: str, turn_id: str) -> Turn | None:
         response = self.client.get_item(
             TableName=self.table_name,
@@ -531,6 +597,51 @@ class DynamoMessagingStore:
         if item is None:
             return None
         return _turn_from_item(item)
+
+    def get_active_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._channel_pk(tenant_id, channel_id)},
+                "sk": {"S": "active_turn"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        turn = self.get_turn(tenant_id, item["turn_id"]["S"])
+        if turn is None or turn.status != TurnStatus.ACTIVE:
+            return None
+        return turn
+
+    def _sync_active_channel_turn(self, turn: Turn) -> None:
+        key = {
+            "pk": {"S": self._channel_pk(turn.tenant_id, turn.channel_id)},
+            "sk": {"S": "active_turn"},
+        }
+        if turn.status == TurnStatus.ACTIVE:
+            self.client.put_item(
+                TableName=self.table_name,
+                Item={
+                    **key,
+                    "tenant_id": {"S": turn.tenant_id},
+                    "channel_id": {"S": turn.channel_id},
+                    "turn_id": {"S": turn.turn_id},
+                },
+            )
+            return
+        try:
+            self.client.delete_item(
+                TableName=self.table_name,
+                Key=key,
+                ConditionExpression="turn_id = :turn_id",
+                ExpressionAttributeValues={":turn_id": {"S": turn.turn_id}},
+            )
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") != (
+                "ConditionalCheckFailedException"
+            ):
+                raise
 
     def claim_turn_attempt(
         self,
@@ -641,6 +752,10 @@ class DynamoMessagingStore:
             "message_seq": {"N": str(event.message_seq or 0)},
             "body": {"S": event.body or ""},
         }
+        if event.action_id is not None:
+            item["action_id"] = {"S": event.action_id}
+        if event.attempt_id is not None:
+            item["attempt_id"] = {"S": event.attempt_id}
         if event.pending_computer_tool is not None:
             item["pending_computer_tool"] = {
                 "S": json.dumps(
@@ -846,6 +961,17 @@ class DynamoMessagingStore:
                 "computer_id": {"S": computer.computer_id},
                 "stopped": {"BOOL": computer.stopped},
                 "policy": {"S": computer.policy},
+                "host_start_generation": {"N": str(computer.host_start_generation)},
+                "host_start_dispatched_generation": {
+                    "N": str(computer.host_start_dispatched_generation)
+                },
+                "host_start_lease_expires_at": {
+                    "N": str(
+                        int(computer.host_start_lease_expires_at.timestamp())
+                        if computer.host_start_lease_expires_at is not None
+                        else 0
+                    )
+                },
             },
         )
 
@@ -860,12 +986,22 @@ class DynamoMessagingStore:
         item = response.get("Item")
         if item is None:
             return None
+        lease_epoch = int(item.get("host_start_lease_expires_at", {}).get("N", "0"))
         return Computer(
             computer_id=item["computer_id"]["S"],
             tenant_id=item["tenant_id"]["S"],
             user_id=item["user_id"]["S"],
             policy=ComputerPolicy(item["policy"]["S"]),
             stopped=item["stopped"]["BOOL"],
+            host_start_generation=int(
+                item.get("host_start_generation", {}).get("N", "0")
+            ),
+            host_start_dispatched_generation=int(
+                item.get("host_start_dispatched_generation", {}).get("N", "0")
+            ),
+            host_start_lease_expires_at=(
+                datetime.fromtimestamp(lease_epoch, tz=UTC) if lease_epoch else None
+            ),
         )
 
     def record_logical_enqueue(
@@ -1008,6 +1144,9 @@ class DynamoMessagingStore:
 
     def _bot_name_sk(self, user_id: str, name: str) -> str:
         return f"bot_name#{user_id}#{name}"
+
+    def _channel_roster_sk(self, user_id: str, channel_id: str) -> str:
+        return f"channel#{user_id}#{channel_id}"
 
     def _bot_from_item(self, item: dict[str, Any]) -> Bot:
         memory_raw = item.get("memory", {}).get("S", "{}")
@@ -1162,6 +1301,8 @@ def _turn_event_from_item(item: dict[str, Any]) -> TurnEvent:
         message_seq=message_seq or None,
         body=body or None,
         pending_computer_tool=pending,
+        action_id=item.get("action_id", {}).get("S") or None,
+        attempt_id=item.get("attempt_id", {}).get("S") or None,
     )
 
 

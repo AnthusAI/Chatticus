@@ -3,7 +3,7 @@
   "title": "Phase 1: Prove the serverless conversation foundation",
   "description": "Outcome: a household user can address a named bot and receive one durable streamed answer while application compute retains no idle floor.\n\nScope: feasibility test 1, the computerless model path, durable channel and turn state, SQS delivery, and turn-scoped SSE.\n\nNot included: computer tools, browser authority, Kanbus task integration, snapshots, and the full web application.\n\nComplete when the transport result is recorded and the thin computerless turn passes its executable specifications end to end.",
   "type": "initiative",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -138,10 +138,106 @@
       "author": "home",
       "text": "Frontier: GET /users/{user_id}/bots is live on development ThinTurn (e320617 code, README pin b7ea9ea). exercise exit 0 with claim_a=200 claim_b=409 bots_list=1. 9b2999 closed. No staging/production. main stays v0.5.0. 387e4f Safari still unmeasured. e747d7 still not authorized.",
       "created_at": "2026-08-31T05:33:06.780101Z"
+    },
+    {
+      "id": "05948e55-1da1-483f-b36c-f24d05d69b3a",
+      "author": "home",
+      "text": "Acceptance tick 2026-08-31: exercise --environment development exit 0. claim_a=200 claim_b=409 bots_list=1 bot_by_name=1 channel_get=1. base_url=https://d3gpuuldffe35o.cloudfront.net. Live ThinTurn still serves GET /users/{user_id}/bots (deploy e320617). No staging/production deploy.",
+      "created_at": "2026-08-31T05:38:43.033809Z"
+    },
+    {
+      "id": "056448a8-6024-4edd-98fb-93301e9b7ba6",
+      "author": "home",
+      "text": "Frontier: GET /users/{user_id}/channels is live on development ThinTurn (81b427b code). exercise exit 0 with claim_a=200 claim_b=409 channels_list=1 bots_list=1. b4c31e closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T05:46:50.713870Z"
+    },
+    {
+      "id": "dff135e0-8a76-45f8-b188-b5030252b0c1",
+      "author": "home",
+      "text": "Frontier: GET /users/{user_id}/computer is live on development ThinTurn (47d0c09). exercise exit 0 with claim_a=200 claim_b=409 computer_get=1. 7fac2f closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T05:54:04.186670Z"
+    },
+    {
+      "id": "3c13706e-0498-4bb8-9cdf-c5a6cdffe279",
+      "author": "home",
+      "text": "Board lag 2026-08-31: this initiative is no longer Discovery. The thin computerless turn is live on development, staging, and production (v0.6.0 on main). Remaining Phase 1 child is 387e4f (Safari/background-tab unmeasured). 5f2ea7 task-tracking is excluded from this phase by its own text; kbs 0.18 cannot clear a parent so it stays linked. Not closing this initiative until 387e4f is measured or waived.",
+      "created_at": "2026-08-31T05:56:28.952713Z"
+    },
+    {
+      "id": "eeffaa95-11f1-4a8a-bf29-a08c7e7333c0",
+      "author": "home",
+      "text": "Frontier: GET /channels/{id}/turn is live on development ThinTurn (5fb2fc4). exercise exit 0 with claim_a=200 claim_b=409 channel_turn=1. 206992 closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T06:03:20.016710Z"
+    },
+    {
+      "id": "7f7fede0-4a8a-460a-9a0b-bc194e7d16f2",
+      "author": "home",
+      "text": "Acceptance tick 2026-08-31: exercise --environment development exit 0. claim_a=200 claim_b=409 channel_turn=1 bots_list=1 channels_list=1 computer_get=1. base_url=https://d3gpuuldffe35o.cloudfront.net. Live ThinTurn serves GET /channels/{id}/turn (deploy 5fb2fc4 per README da49d8b). No staging/production deploy.",
+      "created_at": "2026-08-31T06:07:09.522953Z"
+    },
+    {
+      "id": "d85431d8-fea8-4166-867b-50b374f3cd77",
+      "author": "home",
+      "text": "Frontier: GET /channels/{id}/turn 404 after completion is live on development ThinTurn (e7e58a0). exercise exit 0 with claim_a=200 claim_b=409 channel_turn=1 channel_turn_done=1. c71b69 closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T06:12:49.972277Z"
+    },
+    {
+      "id": "90527552-f1eb-4c67-a309-7fc4162afc7f",
+      "author": "home",
+      "text": "Frontier: GET /channels/{id}/turn waiting_for=browser after recycle is specified and live on development ThinTurn (06de2c4). exercise exit 0 with claim_a=200 claim_b=409 channel_turn_waiting=1. b06c90 closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T06:22:07.598605Z"
+    },
+    {
+      "id": "e27c1a17-250a-4f67-9e9e-7fe9a0761f70",
+      "author": "home",
+      "text": "Acceptance tick 2026-08-31: exercise --environment development exit 0. claim_a=200 claim_b=409 turns_list=1 channel_turn=1 channel_turn_done=1. base_url=https://d3gpuuldffe35o.cloudfront.net. Live ThinTurn deploy per README develop @ 95964f7 (develop HEAD 45ea203 not redeployed). No staging/production deploy.",
+      "created_at": "2026-08-31T06:45:56.949872Z"
+    },
+    {
+      "id": "e1e50d76-41be-4a20-90b1-25f2c91ae3b2",
+      "author": "home",
+      "text": "Acceptance exercise 2026-08-31: exercise --environment development exit 0. health_environment=1 claim_a=200 claim_b=409 turns_list=1. base_url=https://d3gpuuldffe35o.cloudfront.net. README live ThinTurn deploy @ 6baa46a (develop HEAD 21bc6e7 not redeployed). No staging/production deploy.",
+      "created_at": "2026-08-31T07:04:12.734965Z"
+    },
+    {
+      "id": "32dbd356-feba-4622-8f29-750b143ecbed",
+      "author": "home",
+      "text": "Thin-turn Front Door recycle/reconnect HTTP is live on development and specified. Next Phase 1 product work is not more REST: demo CLI 35d86b (human-owned) or computer summon 8f98f8 gated on e747d7. main remains v0.6.0; no staging/production CDK.",
+      "created_at": "2026-08-31T07:19:11.464790Z"
+    },
+    {
+      "id": "7a652c52-fd3e-43c5-aaaa-d152b8fb8bab",
+      "author": "home",
+      "text": "Acceptance exercise 2026-08-31: exercise --environment development exit 0. health_environment=1 claim_a=200 claim_b=409. base_url=https://d3gpuuldffe35o.cloudfront.net. README live ThinTurn deploy @ 6baa46a (develop HEAD 469d09d not redeployed). No staging/production deploy.",
+      "created_at": "2026-08-31T07:44:11.958831Z"
+    },
+    {
+      "id": "5263eda1-9065-49e6-8142-d071814f5f56",
+      "author": "home",
+      "text": "Acceptance tick: exercise --environment development exit 0.\n\nKey lines: health_environment=1; missing_claim=404; claim_a=200 claim_b=409; computer_queue_job=computer; post_idempotent=1; channel_turn_done=1; turn_after=1.\n\nREADME ThinTurn pin still 6baa46a (no redeploy). develop HEAD c0cf3a2. 538d28/53beb0 are kernel-only — not live-redeployed.\n\nStanding: 387e4f Safari/background-tab still unmeasured; no staging/prod deploy.",
+      "created_at": "2026-08-31T08:11:18.130921Z"
+    },
+    {
+      "id": "4814b5b3-fa71-4086-9135-0a5612156262",
+      "author": "home",
+      "text": "Development ChatticusThinTurn redeployed (no --all) from develop @ 018948c. Live exercise exit 0: health_environment=1 missing_claim=404 claim_a=200 claim_b=409 computer_queue_job=computer. Bundle includes 538d28/555ba5 kernel; ComputerTurnJobs still has no attached worker. Staging/prod unchanged. 387e4f Safari still unmeasured.",
+      "created_at": "2026-08-31T08:30:33.900643Z"
+    },
+    {
+      "id": "876cb9d4-a684-45b4-a793-6ab91c0fb1f7",
+      "author": "home",
+      "text": "Acceptance tick 2026-08-31T08:35Z:\n\nexit=0\npin=018948c\ndevelop=f18bf07\n\nKey lines:\nhealth_environment=1 missing_claim=404 claim_a=200 claim_b=409\ncomputer_queue_job=computer computer_queue_turn_still_waiting=browser\nfence_turn_id=e6a8cce1-e01a-488d-b1ab-9ca4652bece8\ntenant_id=anthus channel_id=288fcf0e-5a8e-4ecb-95c2-c64f9be25d7c turn_id=90f19528-d976-4745-90df-b5428a741405\n\nStanding: 387e4f Safari unmeasured; ComputerTurnJobs still has no attached worker; no staging/prod.",
+      "created_at": "2026-08-31T08:34:59.840149Z"
+    },
+    {
+      "id": "38caf370-295a-4746-b540-0906bc5ec6ea",
+      "author": "home",
+      "text": "ThinTurn development @ 19070b1 (no --all). Exercise exit 0: health_environment=1 missing_claim=404 claim_a=200 claim_b=409 computer_queue_job=in_flight_nack. Staging/prod unchanged.",
+      "created_at": "2026-08-31T08:50:59.692696Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T05:33:06.780101Z",
+  "updated_at": "2026-08-31T08:50:59.692696Z",
   "closed_at": null,
   "custom": {}
 }

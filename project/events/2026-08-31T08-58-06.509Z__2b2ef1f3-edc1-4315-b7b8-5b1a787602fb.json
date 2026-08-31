@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "2b2ef1f3-edc1-4315-b7b8-5b1a787602fb",
+  "issue_id": "chatticus-23c93e59-0e27-41b3-9e7f-89e61255ca0f",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T08:58:06.509Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "ComputerWorker records a durable host_start_generation on the household computer before nacking. Retries share one lease. GET /users/{id}/computer exposes the generation. No Fargate RunTask this slice.",
+    "issue_type": "story",
+    "labels": [],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "Persist host start generation when the computer queue nacks"
+  }
+}

@@ -30,6 +30,10 @@ def turn_event_payload(event: TurnEvent) -> dict[str, Any]:
             "tool_name": pending.tool_name,
             "arguments": dict(pending.arguments),
         }
+    if event.action_id is not None:
+        payload["action_id"] = event.action_id
+    if event.attempt_id is not None:
+        payload["attempt_id"] = event.attempt_id
     return payload
 
 

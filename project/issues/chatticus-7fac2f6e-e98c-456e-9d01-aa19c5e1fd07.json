@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-7fac2f6e-e98c-456e-9d01-aa19c5e1fd07",
+  "title": "Read the household computer after Front Door recycle",
+  "description": "As a household member, I want to read my computer record after a Front Door recycle, so I can recover computer_id and stopped state without a remembered handle.\n\nFeature: Channels and the message store\n\nScenario: A user's computer can be read after a Front Door recycle\n  Given an empty control plane backed by a durable messaging store with HTTP\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n  And tenant \"anthus\" user \"ryan\" household computer is stopped\n  When a recycled Front Door serves the same messaging store\n  Then tenant \"anthus\" can read the household computer for user \"ryan\"\n\nNot included: staging, production, Fargate, Safari.",
+  "type": "story",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "16a8f00c-e6da-42eb-be72-6fbc3e2d1d63",
+      "author": "home",
+      "text": "Live on development ThinTurn @ 47d0c09. Exercise: claim_a=200 claim_b=409 computer_get=1. No --all, no snapshots/computers, no staging/production.",
+      "created_at": "2026-08-31T05:54:04.167979Z"
+    }
+  ],
+  "created_at": "2026-08-31T05:50:16.022108Z",
+  "updated_at": "2026-08-31T05:54:04.177265Z",
+  "closed_at": "2026-08-31T05:54:04.177265Z",
+  "custom": {}
+}

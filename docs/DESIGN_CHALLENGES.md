@@ -620,10 +620,17 @@ regardless.
 **Requirement 16 is decided. The approach below is the direction; the
 mechanism is specified and some details are open.**
 
-**Unmeasured.** How long a cold computer actually takes to reach each
-gate below is unknown, and requirement 16 is only compatible with
-non-requirement 3 if that number is tolerable. Run Test 2 in
-[Feasibility tests](FEASIBILITY_TESTS.md).
+**Measured 2026-08-31 (Test 2).** Five sequential cold Fargate ARM64
+`RunTask`s of the current computer image (no Chromium). Time from submit
+to ECS `RUNNING` was **17.7–38.5 s** (median **22 s**). Time until Python
+had written `/workspace` and packed a smoke snapshot to S3 was
+**20.1–40.8 s** (median **22 s**). Later runs were not uniformly faster;
+run 3 was the slowest. Local Docker was not comparable here (daemon
+unavailable). Chromium is not in the image, so browser-ready bands were
+not applied. Requirement 16’s “model-call ready in seconds” holds for
+this image. Recorded in
+[spikes/computer-cold-start/results](../spikes/computer-cold-start/results/README.md).
+Do not optimize on the back of this number (non-requirement 3).
 
 Two problems share one answer. A bot must start talking immediately
 (requirement 16). And the computer, which is the expensive resource,
@@ -676,9 +683,9 @@ and a turn blocks only on the one it needs:
 
 | Gate | Needed for | Ready after |
 | --- | --- | --- |
-| Process and network | Model calls, memory, MCP and connector tools | seconds |
-| `/workspace` hydrated | File actions | snapshot hydrate |
-| Browser profile hydrated, display and Chromium up | Browser actions | display and browser startup |
+| Process and network | Model calls, memory, MCP and connector tools | tens of seconds on cold Fargate for the current image (median ~22 s to RUNNING) |
+| `/workspace` hydrated | File actions | empty workspace + smoke pack in the same tens of seconds; snapshot hydrate from S3 not separately timed |
+| Browser profile hydrated, display and Chromium up | Browser actions | **unmeasured** (Chromium not in the image) |
 | Watch and takeover surface | A human watching or taking over | last |
 
 `chatticus-agent` starts the model loop as soon as the first row is

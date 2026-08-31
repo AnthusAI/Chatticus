@@ -42,10 +42,16 @@
       "author": "home",
       "text": "Foreground reconnect and HTTP turn-journal poll after seq are live on development (555ccff). Background tab and mobile Safari remain unmeasured; epic stays open.",
       "created_at": "2026-08-31T04:11:41.587098Z"
+    },
+    {
+      "id": "3af62a90-806d-4089-bb8c-c80bb66a2151",
+      "author": "home",
+      "text": "Board lag pass 2026-08-31: left open on purpose. Foreground CloudFront reconnect is live; mobile Safari and background-tab are still unmeasured. Owner has not waived.",
+      "created_at": "2026-08-31T05:56:28.987623Z"
     }
   ],
   "created_at": "2026-08-30T15:53:17.431152Z",
-  "updated_at": "2026-08-31T04:11:41.587098Z",
+  "updated_at": "2026-08-31T05:56:28.987623Z",
   "closed_at": null,
   "custom": {}
 }

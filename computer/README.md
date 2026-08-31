@@ -34,7 +34,7 @@ v1 contents:
 
 - Ubuntu
 - Xvfb virtual displays (one screen per bot computer-use task)
-- Chromium (next)
+- Chromium (in image; browser gate still unmeasured on cold start)
 - shell and `/workspace`
 - snapshot pack/hydrate CLI
 - noVNC (or equivalent) for watch and human takeover (next)

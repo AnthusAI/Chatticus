@@ -134,7 +134,13 @@ def when_open_channel(context: object, tenant_id: str, user_id: str) -> None:
         headers=tenant_headers(tenant_id),
     )
     assert response.status_code == 200
-    _load_channel(context, tenant_id, response.json()["channel_id"])
+    channel_id = response.json()["channel_id"]
+    opened = getattr(context, "opened_channel_ids", None)
+    if opened is None:
+        context.opened_channel_ids = [channel_id]
+    else:
+        opened.append(channel_id)
+    _load_channel(context, tenant_id, channel_id)
 
 
 @when(
@@ -271,6 +277,12 @@ def when_human_posts_fence_probe_without_enqueue(
     context.message_error = None
     payload = response.json()
     context.last_turn_id = payload.get("turn_id")
+    if context.last_turn_id:
+        opened_turns = getattr(context, "opened_turn_ids", None)
+        if opened_turns is None:
+            context.opened_turn_ids = [context.last_turn_id]
+        else:
+            opened_turns.append(context.last_turn_id)
 
 
 @when('bot "{name}" posts "{body}" addressed to bot "{addressee}" on the channel')
@@ -353,6 +365,185 @@ def then_tenant_reads_open_channel(context: object, tenant_id: str) -> None:
     participant_ids = {item["actor_id"] for item in payload["participants"]}
     expected_ids = {participant.actor_id for participant in channel.participants}
     assert participant_ids == expected_ids
+
+
+@then('tenant "{tenant_id}" can list channels for user "{user_id}":')
+def then_list_user_channels(context: object, tenant_id: str, user_id: str) -> None:
+    opened_ids: list[str] = getattr(context, "opened_channel_ids", [])
+
+    def resolve_cell(cell: str) -> str:
+        value = cell.strip()
+        if value.isdigit():
+            return opened_ids[int(value) - 1]
+        return value
+
+    expected_ids: list[str] = []
+    if context.table.headings and context.table.headings[0].strip():
+        expected_ids.append(resolve_cell(context.table.headings[0]))
+    expected_ids.extend(resolve_cell(row.cells[0]) for row in context.table)
+    expected_ids = [channel_id for channel_id in expected_ids if channel_id]
+    response = context.api_client.get(
+        f"/users/{user_id}/channels",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    listed_ids = [channel["channel_id"] for channel in response.json()["channels"]]
+    assert listed_ids == sorted(expected_ids)
+    for channel_id in expected_ids:
+        payload = next(
+            channel
+            for channel in response.json()["channels"]
+            if channel["channel_id"] == channel_id
+        )
+        assert payload["tenant_id"] == tenant_id
+        assert payload["user_id"] == user_id
+
+
+@then('tenant "{tenant_id}" can list active turns for user "{user_id}":')
+def then_list_user_active_turns(context: object, tenant_id: str, user_id: str) -> None:
+    opened_ids: list[str] = getattr(context, "opened_turn_ids", [])
+
+    def resolve_cell(cell: str) -> str:
+        value = cell.strip()
+        if value.isdigit():
+            return opened_ids[int(value) - 1]
+        return value
+
+    expected_ids: list[str] = []
+    if context.table.headings and context.table.headings[0].strip():
+        expected_ids.append(resolve_cell(context.table.headings[0]))
+    expected_ids.extend(resolve_cell(row.cells[0]) for row in context.table)
+    expected_ids = [turn_id for turn_id in expected_ids if turn_id]
+    response = context.api_client.get(
+        f"/users/{user_id}/turns",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    listed_ids = [turn["turn_id"] for turn in response.json()["turns"]]
+    assert listed_ids == sorted(expected_ids)
+    for turn_id in expected_ids:
+        payload = next(
+            turn for turn in response.json()["turns"] if turn["turn_id"] == turn_id
+        )
+        assert payload["tenant_id"] == tenant_id
+        assert payload["status"] == "active"
+
+
+@then('tenant "{tenant_id}" can read the household computer for user "{user_id}"')
+def then_read_household_computer(context: object, tenant_id: str, user_id: str) -> None:
+    expected_id = context.household_computer_ids[(tenant_id, user_id)]
+    response = context.api_client.get(
+        f"/users/{user_id}/computer",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["computer_id"] == expected_id
+    assert payload["tenant_id"] == tenant_id
+    assert payload["user_id"] == user_id
+    assert payload["stopped"] is True
+    assert payload["host_start_generation"] == 0
+    missing = context.api_client.get(
+        f"/users/{user_id}/computer",
+        headers=tenant_headers("other"),
+    )
+    assert missing.status_code == 404
+
+
+@then(
+    'tenant "{tenant_id}" household computer for user "{user_id}" '
+    "reports host_start_generation {generation:d}"
+)
+def then_household_computer_host_start_generation(
+    context: object, tenant_id: str, user_id: str, generation: int
+) -> None:
+    response = context.api_client.get(
+        f"/users/{user_id}/computer",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    assert response.json()["host_start_generation"] == generation
+
+
+@then('tenant "{tenant_id}" can read the active turn on the open channel')
+def then_read_active_channel_turn(context: object, tenant_id: str) -> None:
+    channel = _channel(context)
+    expected_turn_id = _turn_id(context)
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["turn_id"] == expected_turn_id
+    assert payload["channel_id"] == channel.channel_id
+    assert payload["status"] == "active"
+
+
+@then('tenant "{tenant_id}" can read the turn by identifier')
+def then_read_turn_by_identifier(context: object, tenant_id: str) -> None:
+    expected_turn_id = _turn_id(context)
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/turns/{expected_turn_id}",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["turn_id"] == expected_turn_id
+    assert payload["channel_id"] == channel.channel_id
+    assert payload["status"] == "active"
+    missing = context.api_client.get(
+        f"/turns/{expected_turn_id}",
+        headers=tenant_headers("other"),
+    )
+    assert missing.status_code == 403
+
+
+@then('tenant "{tenant_id}" can read the waiting turn on the open channel as {gate}')
+def then_read_waiting_channel_turn(context: object, tenant_id: str, gate: str) -> None:
+    channel = _channel(context)
+    expected_turn_id = _turn_id(context)
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["turn_id"] == expected_turn_id
+    assert payload["channel_id"] == channel.channel_id
+    assert payload["status"] == "active"
+    assert payload["waiting_for"] == gate
+    pending = payload.get("pending_computer_tool")
+    assert pending is not None
+    assert pending["tool_name"] == "request_computer_capability"
+    assert pending["arguments"] == {"gate": gate}
+    assert pending["action_id"]
+
+
+@when("the worker claims the fence probe turn and completes it through HTTP")
+def when_worker_claims_fence_probe_and_completes(context: object) -> None:
+    channel = _channel(context)
+    turn_id = _turn_id(context)
+    tenant_id = channel.tenant_id
+    _claim_http(context, turn_id, tenant_id, "fence-probe-worker")
+    _post_chunk_http(
+        context,
+        turn_id,
+        tenant_id,
+        "Fence probe complete.",
+        complete=True,
+    )
+
+
+@then('tenant "{tenant_id}" cannot read an active turn on the open channel')
+def then_no_active_channel_turn(context: object, tenant_id: str) -> None:
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 404
 
 
 @then('the message with seq {seq:d} has body "{body}"')
@@ -452,6 +643,13 @@ def given_household_computer_stopped(
     context: object, tenant_id: str, user_id: str
 ) -> None:
     context.plane.set_computer_stopped(tenant_id, user_id, True)
+    computers = getattr(context, "household_computer_ids", None)
+    if computers is None:
+        computers = {}
+        context.household_computer_ids = computers
+    computers[(tenant_id, user_id)] = context.plane.computer_for_user(
+        tenant_id, user_id
+    ).computer_id
 
 
 @given('tenant "{tenant_id}" user "{user_id}" household computer is running')

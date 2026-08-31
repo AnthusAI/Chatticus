@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-555ba5ae-90aa-4367-b5ac-231d2b413b01",
+  "title": "A computer-capable pull worker continues from the journal",
+  "description": "Kernel ComputerWorker pulls ComputerTurnJobs, claims the same turn, executes unresolved tool.call action ids from the 538d28 journal, and commits tool.result. No Fargate RunTask this slice.",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T08:21:22.428559Z",
+  "updated_at": "2026-08-31T08:21:28.974532Z",
+  "closed_at": "2026-08-31T08:21:28.974532Z",
+  "custom": {}
+}

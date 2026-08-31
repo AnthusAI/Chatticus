@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-60976fc9-5d4b-4c10-b5b2-69020674ba81",
+  "title": "ComputerWorker invokes host start driver once per lease",
+  "description": "ComputerWorker must call an injected HostStarter once per host_start_generation/lease when nacking for a missing host executor. Retries within the same lease share the claim and must not invoke the driver again. Default implementation is no-op; tests use a recording fake. Optional ECS RunTask client may sit behind env but CDK does not grant ecs:RunTask yet.",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "0d9a2f72-c730-4258-a07b-42af9b2d1679",
+      "author": "home",
+      "text": "Landed on develop @ ac884c3: HostStarter protocol, durable host_start_dispatched_generation, Gherkin once-per-lease scenarios, pytest/behave green.",
+      "created_at": "2026-08-31T09:08:19.793357Z"
+    },
+    {
+      "id": "79dcb29b-3d93-4bcb-8cc0-fc8cbdc3c994",
+      "author": "home",
+      "text": "Kernel tests green (pytest computer_worker+host_starter, behave computer_continuation_worker). Kanbus records were missing from the first commit; adding them. Fast-forward to origin/develop next. Not live: pin remains 19070b1; AWS session expired. CDK does not grant ecs:RunTask.",
+      "created_at": "2026-08-31T09:09:57.175094Z"
+    }
+  ],
+  "created_at": "2026-08-31T09:05:19.639091Z",
+  "updated_at": "2026-08-31T09:09:57.175094Z",
+  "closed_at": "2026-08-31T09:08:19.783581Z",
+  "custom": {}
+}

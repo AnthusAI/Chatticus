@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-74b06d55-5734-4bd0-b392-f4ad63485923",
+  "title": "GET computer reports host_start_generation after computer-queue nack",
+  "description": "HTTP honesty after 8dbdc1: when the computer queue worker records a host start before nacking, GET /users/{id}/computer must expose host_start_generation >= 1. Kernel-only; no Fargate RunTask; does not close 23c93e (live deploy still required for CloudFront).",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "05ce76f5-1984-4584-892a-a5a31c14e364",
+      "author": "home",
+      "text": "Kernel on origin/develop @ 3b2adc3. HTTP Gherkin and pytest prove GET /users/{id}/computer reports host_start_generation 1 after computer-queue nack and after Front Door recycle. Live pin 19070b1 still omits the field; 23c93e stays open until ThinTurn redeploy.",
+      "created_at": "2026-08-31T10:11:35.854906Z"
+    }
+  ],
+  "created_at": "2026-08-31T10:06:36.813753Z",
+  "updated_at": "2026-08-31T10:11:35.865525Z",
+  "closed_at": "2026-08-31T10:11:35.865525Z",
+  "custom": {}
+}

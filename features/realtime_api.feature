@@ -32,6 +32,14 @@ Feature: Turn-scoped server-sent events
     When user "ryan" of tenant "anthus" lists turn events after seq 2
     Then the turn listing contains only events 3 and 4 in order
 
+  Scenario: Turn journal reconnects after a seq and a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"
+    And a turn has emitted committed events through sequence 4
+    When a recycled Front Door serves the same messaging store
+    And user "ryan" of tenant "anthus" lists turn events after seq 2
+    Then the turn listing contains only events 3 and 4 in order
+
   Scenario: Another tenant cannot watch a turn stream
     Given an empty control plane
     And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"

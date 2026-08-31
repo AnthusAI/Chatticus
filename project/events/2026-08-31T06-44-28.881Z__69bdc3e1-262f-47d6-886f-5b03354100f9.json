@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "69bdc3e1-262f-47d6-886f-5b03354100f9",
+  "issue_id": "chatticus-d80b16c0-460f-4734-9e9f-904e0ddcfda9",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T06:44:28.881Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a caller targeting a named cloud environment, I want GET /health to name that environment, so I can tell development from staging without inferring it from the URL.\n\nFeature: Channels and the message store\n\nScenario: The front door names its cloud environment\n  Given a front door serving named environment \"development\" with HTTP\n  Then GET /health reports environment \"development\"\n\nLive exercise on development prints health_environment=1 after ThinTurn-only deploy. Staging and production exercise must still pass without this field until those stacks are redeployed (do not redeploy them here).\n\nNot included: demo CLI, staging/production CDK, merge to main.",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+    "priority": 1,
+    "status": "open",
+    "title": "Front door health names the cloud environment"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-8dbdc130-7501-405a-8046-686aa426d5c0",
+  "title": "GET household computer exposes host_start_generation zero before any start",
+  "description": "Kernel honesty: GET /users/{user_id}/computer always includes host_start_generation. Default is 0 before any computer-queue nack or host-start lease. No Fargate RunTask; complements durable 23c93e without closing it.",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "45954e5d-5c6a-4376-84fc-9a289b724f9d",
+      "author": "home",
+      "text": "Kernel on origin/develop @ ba96333. Live GET computer still omits host_start_generation (pin 19070b1). Close as kernel-only; 23c93e stays open until ThinTurn redeploy.",
+      "created_at": "2026-08-31T09:53:17.010969Z"
+    }
+  ],
+  "created_at": "2026-08-31T09:47:56.209091Z",
+  "updated_at": "2026-08-31T09:53:17.021633Z",
+  "closed_at": "2026-08-31T09:53:17.021633Z",
+  "custom": {}
+}

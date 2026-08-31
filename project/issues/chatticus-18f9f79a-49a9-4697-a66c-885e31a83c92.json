@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-18f9f79a-49a9-4697-a66c-885e31a83c92",
+  "title": "Named exercise drains stale computer-queue leftovers",
+  "description": "Purpose: live development exercise must not fail because ComputerTurnJobs still holds a leftover from an interrupted run.\n\nThe exercise already checks job_id and turn_id. A single receive of the wrong message currently exits 1. Drain unmatched messages until the current resume job appears or the wait expires.\n\nNot included: Fargate, staging/production, merge to main, changing queue topology.",
+  "type": "chore",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "4aca24ce-ca75-43a0-a469-8366f11e9bd5",
+      "author": "home",
+      "text": "Live development exercise drained a stale ComputerTurnJobs leftover then matched the current resume job. Exit 0 with computer_queue_job=computer claim_a=200 claim_b=409 health_environment=1. No ThinTurn redeploy (exercise-only). No staging/production. No merge to main.",
+      "created_at": "2026-08-31T07:15:34.321223Z"
+    }
+  ],
+  "created_at": "2026-08-31T07:13:59.488564Z",
+  "updated_at": "2026-08-31T07:15:34.331585Z",
+  "closed_at": "2026-08-31T07:15:34.331585Z",
+  "custom": {}
+}

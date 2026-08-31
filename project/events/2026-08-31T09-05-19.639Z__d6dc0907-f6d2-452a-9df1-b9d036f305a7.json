@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "d6dc0907-f6d2-452a-9df1-b9d036f305a7",
+  "issue_id": "chatticus-60976fc9-5d4b-4c10-b5b2-69020674ba81",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T09:05:19.639Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "ComputerWorker must call an injected HostStarter once per host_start_generation/lease when nacking for a missing host executor. Retries within the same lease share the claim and must not invoke the driver again. Default implementation is no-op; tests use a recording fake. Optional ECS RunTask client may sit behind env but CDK does not grant ecs:RunTask yet.",
+    "issue_type": "story",
+    "labels": [],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "ComputerWorker invokes host start driver once per lease"
+  }
+}

@@ -159,6 +159,11 @@ server-sent events are sufficient and a WebSocket is not needed.
 | `turn.started` | A bot turn begins streaming | no |
 | `turn.waiting` | The turn is blocked on a readiness gate, naming which (for example a computer still booting) | no |
 | `turn.token` | One coalesced chunk | no |
+| `model.request` | A fenced attempt issued a model call | no |
+| `tool.call` | A tool request was committed, keyed by action id | no |
+| `tool.result` | A tool result was committed for that action id | no |
+| `attempt.claimed` | A worker became the fenced owner of the turn | no |
+| `attempt.relinquished` | The previous owner dropped the fence before continuation | no |
 | `turn.completed` | Chunks are joined into one row | yes, one row |
 | `approval.required` | A proposed action is blocked | the proposal, not the action |
 
@@ -205,15 +210,21 @@ would wait a second for; buffer what you are rendering live.
 
 | Path | Use |
 | --- | --- |
+| `GET /health` | Liveness; names the cloud environment (`development`, `staging`, `production`, or `local`) |
 | `POST /bots` | Create a named bot. Retry with the same `Idempotency-Key` header returns the original bot |
 | `GET /bots?user_id=&name=` | Look up a named bot after recycle |
 | `GET /users/{user_id}/bots` | List a household user's named bots after recycle |
+| `GET /users/{user_id}/channels` | List a household user's channels after recycle |
+| `GET /users/{user_id}/computer` | Read the household computer (id, stopped, policy) after recycle |
+| `GET /users/{user_id}/turns` | List a household user's in-flight turns after recycle |
 | `GET /bots/{id}` | Read a bot, including isolated memory |
 | `POST /bots/{id}/memory` | Persist one bot memory item |
 | `POST /channels` | Open a channel. Retry with the same `Idempotency-Key` header returns the original channel |
 | `GET /channels/{id}` | Read a channel record after recycle |
+| `GET /channels/{id}/turn` | Read the active turn on a channel after recycle, including `waiting_for` when gated; **404** when none is active |
 | `POST /channels/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if a turn starts. Retry with the same `Idempotency-Key` header does not duplicate the message or enqueue a second turn |
 | `GET /channels/{id}/messages?after=<seq>` | History and reconnect |
+| `GET /turns/{id}` | Read a turn after recycle, including `waiting_for` when gated |
 | `GET /turns/{id}/events?after=<seq>` | Durable turn journal after a seq |
 | `GET /turns/{id}/stream` | Server-sent events for one turn (`Last-Event-ID`) |
 | `POST /turns/{id}/chunks` | Worker appends coalesced output |
