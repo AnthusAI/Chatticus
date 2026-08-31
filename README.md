@@ -500,7 +500,7 @@ npx cdk deploy ChatticusThinTurnProduction
 **ChatticusThinTurn** is development. Staging and production are separate
 stacks with their own DynamoDB, SQS, Lambda, and CloudFront. GitHub
 `main` is `064a4f0`; the ECS host-start pin (including `ecs:TagResource`)
-is live on development AWS and sits on PR #31 until it lands on
+is live on development AWS and sits on PR #33 until it lands on
 `develop`. Do not merge `develop` to `main` as parking. Staging and
 production stacks were last recorded from `760915d`. Do not destroy the
 snapshot or computer stacks.
