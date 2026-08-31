@@ -4,13 +4,13 @@ This is the recorded decision for epic 4ddbe1: treat prompt/data
 separation as a **mitigation**, and enforce authority at
 system-controlled sinks. The executable cases live in Gherkin. This page
 names the grant, the two browser contexts, the binding controls, and the
-v1 exclusions. It is a kernel contract. It is not live on the thin-turn
-worker HTTP loop; wiring sinks is task 53d744. Adversarial model evals
-are task 1e09b4.
+v1 exclusions. Sink enforcement is wired on the in-process control plane
+through ``capability_sinks`` and ``CapabilityPolicy``. Adversarial model
+evals are task 1e09b4.
 
 Related kernels already on the board:
 
-- Page-content authority: `features/page_content_authority.feature`
+- Page-content containment: `features/page_content_authority.feature`
 - Immutable structured approval: `features/exact_consequential_approval.feature`
 - Unbound authenticated browser stop: `features/unsupported_browser_action.feature`
 - Overnight exact-argument rules: `features/overnight_gated_action.feature`

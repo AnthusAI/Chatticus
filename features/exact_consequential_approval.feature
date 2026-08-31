@@ -5,6 +5,7 @@ Feature: Exact consequential approval
 
   Scenario: Execute the reviewed structured operation
     Given an empty control plane
+    And an exact-approval task grants structured send
     And a bot proposes a structured consequential operation "send" with:
       | destination | alex@example.com |
       | payload     | hello            |

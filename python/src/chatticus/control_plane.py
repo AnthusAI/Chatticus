@@ -9,7 +9,29 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from chatticus.approval_binding import ApprovalBindingGate
+from chatticus.approval_binding import (
+    ApprovalBindingGate,
+    ApprovedOperation,
+    BoundExecutionResult,
+    StructuredConsequentialOperation,
+)
+from chatticus.capability_policy import (
+    CapabilityPolicy,
+    PolicyBrowserContext,
+    TaskCapabilityGrant,
+)
+from chatticus.capability_sinks import (
+    POLICY_KERNEL_TENANT,
+    POLICY_KERNEL_TURN,
+    attempt_authenticated_browser_action_at_sink,
+    execute_approved_operation_at_sink,
+    gated_browse_origin,
+    gated_read_workspace,
+    gated_write_workspace,
+    open_privileged_browser_context,
+    open_untrusted_browser_context,
+    resolve_unattended_gated_action_at_sink,
+)
 from chatticus.computer_capabilities import (
     BROWSER_CAPABILITY,
     MODEL_CAPABILITY,
@@ -77,8 +99,6 @@ from chatticus.models import (
 )
 from chatticus.overnight_gated import (
     OvernightGatedResult,
-    resolve_unattended_gated_action,
-    resolve_unbound_authenticated_browser_action,
 )
 from chatticus.snapshot.uri import snapshot_uri
 from chatticus.turn_fault_hooks import CrashWindow, FaultInjector, TurnBoundary
@@ -161,6 +181,8 @@ class ControlPlane:
         self._auto_review_rules: list[AutoReviewRule] = []
         self._refused_bot_auto_review: list[tuple[str, str]] = []
         self._approval_binding = ApprovalBindingGate()
+        self._capability_policies: dict[tuple[str, str], CapabilityPolicy] = {}
+        self._active_browser_contexts: dict[tuple[str, str], PolicyBrowserContext] = {}
         self._escalations: dict[tuple[str, str], EscalationRecord] = {}
         self._computer_claims: dict[str, ComputerOwnershipClaim] = {}
         self._host_starts: dict[tuple[str, str], HostStartClaim] = {}
@@ -864,6 +886,119 @@ class ControlPlane:
         """Return one bot memory item, if present."""
         return self._bot(tenant_id, bot_id).memory.get(key)
 
+    def capability_policy_for(self, tenant_id: str, turn_id: str) -> CapabilityPolicy:
+        """Return the capability policy for one turn, creating it if needed."""
+        key = (tenant_id, turn_id)
+        policy = self._capability_policies.get(key)
+        if policy is None:
+            policy = CapabilityPolicy(now=self.now)
+            self._capability_policies[key] = policy
+        return policy
+
+    def set_turn_capability_grant(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        grant: TaskCapabilityGrant,
+    ) -> None:
+        """Attach one closed task grant to a turn for sink enforcement."""
+        self.capability_policy_for(tenant_id, turn_id).set_grant(grant)
+
+    def sync_household_credentials(
+        self,
+        tenant_id: str,
+        user_id: str,
+        turn_id: str,
+    ) -> None:
+        """Mirror household browser sessions into one turn's policy state."""
+        from chatticus.capability_policy import HouseholdCredential
+
+        policy = self.capability_policy_for(tenant_id, turn_id)
+        computer = self.computer_for_user(tenant_id, user_id)
+        for service, session in computer.browser_sessions.items():
+            policy.add_credential(
+                HouseholdCredential("browser_session", service, session)
+            )
+
+    def gated_read_workspace(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        user_id: str,
+        path: str,
+    ) -> str | None:
+        """Read a workspace file after the task grant allows it."""
+        policy = self.capability_policy_for(tenant_id, turn_id)
+        gated_read_workspace(policy, path)
+        return self.read_workspace(tenant_id, user_id, path)
+
+    def gated_write_workspace(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        user_id: str,
+        path: str,
+        content: str,
+    ) -> None:
+        """Write a workspace file after the task grant allows it."""
+        policy = self.capability_policy_for(tenant_id, turn_id)
+        gated_write_workspace(policy, path)
+        self.write_workspace(tenant_id, user_id, path, content)
+
+    def gated_browse_origin(self, tenant_id: str, turn_id: str, url: str) -> None:
+        """Authorize browsing one origin before a computer tool opens it."""
+        gated_browse_origin(self.capability_policy_for(tenant_id, turn_id), url)
+
+    def open_untrusted_browser_context(
+        self, tenant_id: str, turn_id: str, page_url: str
+    ) -> PolicyBrowserContext:
+        """Open research browsing in an isolated browser context."""
+        context = open_untrusted_browser_context(
+            self.capability_policy_for(tenant_id, turn_id),
+            page_url,
+        )
+        self._active_browser_contexts[(tenant_id, turn_id)] = context
+        return context
+
+    def open_privileged_browser_context(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        page_url: str,
+        service: str,
+    ) -> PolicyBrowserContext:
+        """Open a named privileged session in its own browser context."""
+        context = open_privileged_browser_context(
+            self.capability_policy_for(tenant_id, turn_id),
+            page_url,
+            service,
+        )
+        self._active_browser_contexts[(tenant_id, turn_id)] = context
+        return context
+
+    def active_browser_context(
+        self, tenant_id: str, turn_id: str
+    ) -> PolicyBrowserContext | None:
+        """Return the active browser context for one turn, if any."""
+        return self._active_browser_contexts.get((tenant_id, turn_id))
+
+    def execute_approved_structured_operation(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        approval: ApprovedOperation,
+        attempted: StructuredConsequentialOperation,
+        completion_evidence: str,
+    ) -> BoundExecutionResult:
+        """Execute one human-approved connector operation at the sink."""
+        return execute_approved_operation_at_sink(
+            self.capability_policy_for(tenant_id, turn_id),
+            self._approval_binding,
+            approval,
+            attempted,
+            completion_evidence,
+        )
+
     def write_workspace(
         self, tenant_id: str, user_id: str, path: str, content: str
     ) -> None:
@@ -959,9 +1094,11 @@ class ControlPlane:
         channel: str,
         user_id: str | None = None,
         completion_evidence: str = "system-accepted",
+        turn_id: str = POLICY_KERNEL_TURN,
     ) -> OvernightGatedResult:
         """Stop or pre-authorize a consequential action with no screen."""
-        return resolve_unattended_gated_action(
+        return resolve_unattended_gated_action_at_sink(
+            self.capability_policy_for(tenant_id, turn_id),
             action_type=action_type,
             arguments=arguments,
             channel=channel,
@@ -975,11 +1112,14 @@ class ControlPlane:
         self,
         action: str,
         *,
+        tenant_id: str = POLICY_KERNEL_TENANT,
+        turn_id: str = POLICY_KERNEL_TURN,
         structured_connector: bool = False,
         takeover_control: bool = False,
     ) -> OvernightGatedResult:
         """Refuse unbound consequential browser actions."""
-        return resolve_unbound_authenticated_browser_action(
+        return attempt_authenticated_browser_action_at_sink(
+            self.capability_policy_for(tenant_id, turn_id),
             action,
             structured_connector=structured_connector,
             takeover_control=takeover_control,
@@ -994,6 +1134,14 @@ class ControlPlane:
         arguments: dict[str, str],
     ) -> EscalationRecord:
         """Record that a computerless turn is ready to request a computer tool."""
+        policy = self.capability_policy_for(tenant_id, turn_id)
+        if policy.grant is not None and tool_name in {
+            "browser_open",
+            "request_computer_capability",
+        }:
+            url = arguments.get("url", "").strip()
+            if url:
+                gated_browse_origin(policy, url)
         turn = self.turn(tenant_id, turn_id)
         bot = self._bot(tenant_id, turn.bot_id)
         computer = self.ensure_computer(tenant_id, bot.user_id)

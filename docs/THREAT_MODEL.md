@@ -1,9 +1,9 @@
 # Threat model
 
-The central risk below is acknowledged and only partly answered in the
-**live** worker. The executable v1 policy is recorded in
-[Browser authority](BROWSER_AUTHORITY.md) and the Gherkin it names.
-Attack those cases before wiring sinks (task 53d744).
+The central risk below is acknowledged. The executable v1 policy is
+recorded in [Browser authority](BROWSER_AUTHORITY.md) and enforced at
+control-plane system sinks through ``capability_sinks`` and
+``CapabilityPolicy``.
 
 ## The premise creates the risk
 
@@ -57,8 +57,9 @@ single primitive covers three, it is usually the right one.
 
 ## Direction
 
-Specified as an in-memory kernel. Not wired into the live worker HTTP
-loop. Stated so it can be argued with.
+Stated so it can be argued with. Control-plane sinks now evaluate model
+requests against the task grant before file, credential, egress,
+connector, or consequential operations proceed.
 
 1. **Page content is data, never instruction.** The agent loop must keep
    a durable separation between the task it was given and the text it
@@ -79,12 +80,9 @@ loop. Stated so it can be argued with.
 
 ## Known gaps
 
-- Direction items 1–3 have an in-memory kernel (page-content authority,
-  overnight gated actions, immutable approval binding, unbound browser
-  stops, and the grant / context / injection cases in
-  [Browser authority](BROWSER_AUTHORITY.md)). They are not wired into
-  the live worker HTTP loop. The agent loop that would enforce them on a
-  computer does not exist yet.
+- Direction items 1–6 are enforced at in-process control-plane sinks.
+  Full Lambda HTTP worker tool dispatch and durable task-grant storage
+  remain incremental.
 - `snapshot_cookie_integrity` is a v1 exclusion: a poisoned cookie or a
   modified page in the profile survives relocation.
 - `bot_to_bot_channel_injection` is a v1 exclusion: content another bot

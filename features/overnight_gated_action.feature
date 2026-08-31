@@ -6,6 +6,7 @@ Feature: Overnight gated action
 
   Scenario: A consequential action is reached with no watcher
     Given an empty control plane
+    And an overnight task grants structured consequential actions
     And the laptop is closed and no human is at a screen
     When the unattended turn reaches structured action "send" with:
       | recipient | alex@example.com |
@@ -18,6 +19,7 @@ Feature: Overnight gated action
 
   Scenario: A pre-authorized rule allows an unattended consequential action
     Given an empty control plane
+    And an overnight task grants structured consequential actions
     And a human created an always-allow rule for structured "send" with:
       | recipient | alex@example.com |
       | body      | hello            |
@@ -35,6 +37,7 @@ Feature: Overnight gated action
 
   Scenario: A generic browser action cannot be pre-authorized overnight
     Given an empty control plane
+    And an overnight task grants structured consequential actions
     And a human created an always-allow rule for structured "purchase" with:
       | destination | store.example |
       | amount      | 12.00         |

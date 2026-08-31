@@ -1,8 +1,5 @@
 """Executable capability, egress, and browser-context policy (kernel).
 
-This module is the specified policy for epic 4ddbe1. It is not wired into
-the live worker HTTP loop. Live sink enforcement is task 53d744.
-
 Page content is data. The model may follow injected instructions; requested
 operations are evaluated only against the human task grant, the active
 browser context, and the binding control the action requires.

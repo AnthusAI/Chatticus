@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from chatticus.capability_policy import TaskCapabilityGrant
 from chatticus.control_plane import ControlPlane
 from chatticus.models import AutoReviewRuleKind
 from chatticus.overnight_gated import (
@@ -10,8 +11,19 @@ from chatticus.overnight_gated import (
 )
 
 
+def _send_grant() -> TaskCapabilityGrant:
+    return TaskCapabilityGrant(
+        tools=frozenset({"send", "purchase"}),
+        origins=frozenset(),
+        recipients=frozenset({"a@x", "b@x", "store", "store.example"}),
+        file_scopes=frozenset(),
+        egress_classes=frozenset({"structured_send", "file_transfer"}),
+    )
+
+
 def test_unattended_send_blocks_without_a_narrow_human_rule() -> None:
     plane = ControlPlane()
+    plane.set_turn_capability_grant("anthus", "policy-turn", _send_grant())
     result = plane.resolve_unattended_gated_action(
         "send",
         "anthus",
@@ -25,6 +37,7 @@ def test_unattended_send_blocks_without_a_narrow_human_rule() -> None:
 
 def test_bot_cannot_loosen_overnight_auto_review() -> None:
     plane = ControlPlane()
+    plane.set_turn_capability_grant("anthus", "policy-turn", _send_grant())
     plane.add_auto_review_rule(
         AutoReviewRuleKind.ALWAYS_ALLOW,
         "send",
@@ -44,6 +57,7 @@ def test_bot_cannot_loosen_overnight_auto_review() -> None:
 
 def test_human_preauth_matches_exact_arguments_only() -> None:
     plane = ControlPlane()
+    plane.set_turn_capability_grant("anthus", "policy-turn", _send_grant())
     plane.add_auto_review_rule(
         AutoReviewRuleKind.ALWAYS_ALLOW,
         "send",
@@ -67,10 +81,12 @@ def test_human_preauth_matches_exact_arguments_only() -> None:
         channel="structured",
     )
     assert changed.executed is False
+    assert changed.reason is not None
 
 
 def test_browser_purchase_cannot_be_preauthorized_overnight() -> None:
     plane = ControlPlane()
+    plane.set_turn_capability_grant("anthus", "policy-turn", _send_grant())
     plane.add_auto_review_rule(
         AutoReviewRuleKind.ALWAYS_ALLOW,
         "purchase",
@@ -91,6 +107,7 @@ def test_browser_purchase_cannot_be_preauthorized_overnight() -> None:
 
 def test_type_only_always_allow_does_not_run_overnight() -> None:
     plane = ControlPlane()
+    plane.set_turn_capability_grant("anthus", "policy-turn", _send_grant())
     plane.add_auto_review_rule(AutoReviewRuleKind.ALWAYS_ALLOW, "send", "anthus")
     result = plane.resolve_unattended_gated_action(
         "send",
