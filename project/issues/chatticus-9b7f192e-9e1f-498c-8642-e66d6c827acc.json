@@ -126,10 +126,16 @@
       "author": "home",
       "text": "Frontier: bot memory writes hydrate from Dynamo after recycle (477209d). exercise exit 0 with claim_a=200 claim_b=409 bot_memory=voice channel_get=1. 3a94d6 closed. No staging/production. main stays v0.5.0.",
       "created_at": "2026-08-31T05:15:12.413832Z"
+    },
+    {
+      "id": "ef44886e-abba-447f-aad6-245a9049103d",
+      "author": "home",
+      "text": "Frontier: GET /bots?user_id=&name= is live on development ThinTurn (b61e5e3). exercise exit 0 with claim_a=200 claim_b=409 bot_by_name=1. 3ce843 closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T05:21:59.234051Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T05:15:12.413832Z",
+  "updated_at": "2026-08-31T05:21:59.234051Z",
   "closed_at": null,
   "custom": {}
 }

@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `477209d` (no `--all`).
+from `develop` @ `b61e5e3` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -91,7 +91,8 @@ the same `Idempotency-Key` produce one row), a duplicate bot create
 `GET /channels/{id}` roundtrip (`channel_get=1`), plus a live bot-memory
 roundtrip (`POST /bots/{id}/memory` then `GET /bots/{id}`), a live
 idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
-`Idempotency-Key` return one bot_id), plus SSE `turn.started` /
+`Idempotency-Key` return one bot_id), a live named-bot lookup
+(`bot_by_name=1`: `GET /bots?user_id=&name=` returns that bot_id), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
 `Last-Event-ID` and requires ordered replay through `turn.completed`.
