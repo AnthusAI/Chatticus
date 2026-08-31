@@ -36,10 +36,16 @@
       "author": "home",
       "text": "Cloud environments are now a Phase 1 epic (9eef23). The live thin turn is development. Staging and production exist in CDK, not yet in AWS.",
       "created_at": "2026-08-30T20:40:15.169104Z"
+    },
+    {
+      "id": "7e0e125a-51a0-4e53-b914-b47d74abe626",
+      "author": "home",
+      "text": "Frontier tick2 2026-08-30: kbs ready P0/P1 is 9eef23 (staging deploy, not authorized) and this initiative. e747d7 Fargate not authorized. Other P0/P1 blocked on Phase 2 chain (8f98f8, 4ddbe1). P3 ready (8527b1, 5f2ea7, 0325d4) deferred. develop @ 6ccee96; pytest 120 passed 2 skipped; behave 96 scenarios passed. No deploy.",
+      "created_at": "2026-08-31T00:07:19.089041Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-30T20:40:15.169104Z",
+  "updated_at": "2026-08-31T00:07:19.089041Z",
   "closed_at": null,
   "custom": {}
 }
