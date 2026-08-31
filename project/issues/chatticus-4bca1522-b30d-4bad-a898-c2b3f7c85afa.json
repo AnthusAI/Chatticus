@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-4bca1522-b30d-4bad-a898-c2b3f7c85afa",
+  "title": "Summoned Fargate host pulls ComputerTurnJobs with ChromiumActionExecutor",
+  "description": "Live ComputerWorker RunTask still starts sleep-infinity. The Chromium executor is kernel-only (0eef8f). The summoned host must boot, record browser readiness, and pull ComputerTurnJobs itself. Lambda must not run Chromium. ChatticusComputers desiredCount stays 0. Do not cdk deploy --all.\n\n```gherkin\nFeature: Host computer pull worker\n  Scenario: ECS RunTask overrides the computer container to the host worker\n    Given CHATTICUS_ECS_HOST_COMMAND is the computer host worker module\n    When the ECS host starter starts a host for a claim\n    Then RunTask overrides that container command\n```",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "d2434cb8-b0fa-4778-b831-933ee3f42b14",
+      "author": "home",
+      "text": "Kernel and ThinTurn IAM for 4bca15: computer_host_worker, RunTask container override when CHATTICUS_ECS_HOST_COMMAND is set, imported Computers task role granted SQS consume and Dynamo. Development Lambda does not set HOST_COMMAND yet — live ECR image still CMD sleep infinity. Story stays open until the image is rebuilt and a live browser tool completes. desiredCount 0. No --all.\n",
+      "created_at": "2026-08-31T12:22:10.379386Z"
+    }
+  ],
+  "created_at": "2026-08-31T12:19:14.039212Z",
+  "updated_at": "2026-08-31T12:22:10.379386Z",
+  "closed_at": null,
+  "custom": {}
+}

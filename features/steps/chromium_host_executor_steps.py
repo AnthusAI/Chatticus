@@ -23,7 +23,7 @@ def given_host_booted_through_browser(context: object) -> None:
 
 
 @when(
-    "a computer-capable pull worker with a chromium executor pulls that continuation job"
+    "a computer-capable pull worker with a chromium executor pulls that continuation job"  # noqa: E501
 )
 def when_worker_pulls_with_chromium_executor(context: object) -> None:
     setup = context.computer_continuation

@@ -340,6 +340,8 @@ export class ThinTurnStack extends cdk.Stack {
         computerWorkerFunction,
         cdk.Stack.of(this),
         computerHostStart,
+        table,
+        computerTurnQueue,
       );
     }
 

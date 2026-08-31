@@ -97,10 +97,16 @@
       "author": "home",
       "text": "0eef8f closed: kernel ChromiumActionExecutor + ComputerHostBootDriver on cursor/chromium-host-executor-4a21 (PR #33). Lambda still nacks; summoned Fargate still sleep infinity. Next: host SQS pull worker + readiness publish from booted task.",
       "created_at": "2026-08-31T12:13:01.129171Z"
+    },
+    {
+      "id": "1450a500-9e3d-4877-a1e0-639512f3a362",
+      "author": "home",
+      "text": "4bca15 in progress: host pull-worker kernel on PR 33. Live ThinTurn still nacks; sleep-infinity RunTask until the computer image includes computer_host_worker. Do not merge to main.\n",
+      "created_at": "2026-08-31T12:22:10.399910Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T12:13:01.129171Z",
+  "updated_at": "2026-08-31T12:22:10.399910Z",
   "closed_at": null,
   "custom": {}
 }

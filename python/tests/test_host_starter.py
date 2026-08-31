@@ -82,6 +82,46 @@ def test_ecs_host_starter_runs_task_when_configured() -> None:
         {"key": "computer_id", "value": "household-computer"},
         {"key": "host_start_generation", "value": "3"},
     ]
+    assert "overrides" not in ecs.kwargs
+
+
+def test_ecs_host_starter_overrides_host_worker_command(monkeypatch: object) -> None:
+    monkeypatch.setenv(  # type: ignore[attr-defined]
+        "CHATTICUS_ECS_HOST_COMMAND", "python -m chatticus.computer_host_worker"
+    )
+    monkeypatch.setenv("CHATTICUS_ECS_CONTAINER_NAME", "computer")  # type: ignore[attr-defined]
+    monkeypatch.setenv(  # type: ignore[attr-defined]
+        "CHATTICUS_COMPUTER_TURN_QUEUE_URL", "https://sqs.example/computer"
+    )
+
+    class FakeEcs:
+        def __init__(self) -> None:
+            self.kwargs: dict[str, object] | None = None
+
+        def run_task(self, **kwargs: object) -> None:
+            self.kwargs = kwargs
+
+    ecs = FakeEcs()
+    EcsHostStarter(
+        ecs_client=ecs,
+        cluster="ChatticusComputers",
+        task_definition="computer",
+        subnets=["subnet-1"],
+        security_groups=["sg-1"],
+    ).start_host(
+        HostStartClaim(
+            tenant_id="anthus",
+            computer_id="household-computer",
+            host_start_count=1,
+            user_id="ryan",
+        )
+    )
+    assert ecs.kwargs is not None
+    container = ecs.kwargs["overrides"]["containerOverrides"][0]  # type: ignore[index]
+    assert container["command"] == ["python", "-m", "chatticus.computer_host_worker"]
+    names = {item["name"] for item in container["environment"]}
+    assert "CHATTICUS_TENANT_ID" in names
+    assert "CHATTICUS_COMPUTER_TURN_QUEUE_URL" in names
 
 
 def test_host_starter_from_env_defaults_to_noop(monkeypatch: object) -> None:

@@ -86,7 +86,42 @@ class EcsHostStarter:
                     "value": str(claim.host_start_count),
                 },
             ],
+            **self._run_task_overrides(claim),
         )
+
+    def _run_task_overrides(self, claim: HostStartClaim) -> dict[str, Any]:
+        command = os.environ.get("CHATTICUS_ECS_HOST_COMMAND", "").strip()
+        if not command:
+            return {}
+        container = os.environ.get("CHATTICUS_ECS_CONTAINER_NAME", "computer").strip()
+        environment = [
+            {"name": "CHATTICUS_TENANT_ID", "value": claim.tenant_id},
+            {"name": "CHATTICUS_USER_ID", "value": claim.user_id},
+            {"name": "CHATTICUS_COMPUTER_BOOT", "value": "1"},
+        ]
+        for key in (
+            "CHATTICUS_COMPUTER_TURN_QUEUE_URL",
+            "CHATTICUS_FRONT_DOOR_URL",
+            "CHATTICUS_INVOKE_KEY",
+            "CHATTICUS_ENVIRONMENT",
+            "CHATTICUS_MESSAGING_TABLE",
+            "AWS_REGION",
+            "AWS_DEFAULT_REGION",
+        ):
+            value = os.environ.get(key, "").strip()
+            if value:
+                environment.append({"name": key, "value": value})
+        return {
+            "overrides": {
+                "containerOverrides": [
+                    {
+                        "name": container,
+                        "command": command.split(),
+                        "environment": environment,
+                    }
+                ]
+            }
+        }
 
 
 def host_starter_from_env() -> HostStarter:

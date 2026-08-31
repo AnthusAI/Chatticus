@@ -1,6 +1,8 @@
 import * as cdk from "aws-cdk-lib";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 import { ChatticusCloudEnvironment } from "./environments";
 
@@ -74,12 +76,15 @@ export function wireComputerWorkerEcsHostStart(
   computerWorkerFunction: lambda.Function,
   stack: cdk.Stack,
   config: ComputerHostStartEcsConfig,
+  table: dynamodb.ITable,
+  computerTurnQueue: sqs.IQueue,
 ): void {
   const environment: Record<string, string> = {
     CHATTICUS_HOST_STARTER: "ecs",
     CHATTICUS_ECS_CLUSTER: config.cluster,
     CHATTICUS_ECS_TASK_DEFINITION: config.taskDefinition,
     CHATTICUS_ECS_SUBNETS: config.subnets.join(","),
+    CHATTICUS_ECS_CONTAINER_NAME: "computer",
   };
   if (config.securityGroups.length > 0) {
     environment.CHATTICUS_ECS_SECURITY_GROUPS = config.securityGroups.join(",");
@@ -124,4 +129,13 @@ export function wireComputerWorkerEcsHostStart(
       },
     }),
   );
+
+  const hostTaskRole = iam.Role.fromRoleArn(
+    stack,
+    "ImportedComputerHostTaskRole",
+    config.taskRoleArn,
+    { mutable: true },
+  );
+  table.grantReadWriteData(hostTaskRole);
+  computerTurnQueue.grantConsumeMessages(hostTaskRole);
 }

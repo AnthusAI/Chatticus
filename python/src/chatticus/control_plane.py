@@ -1157,6 +1157,7 @@ class ControlPlane:
                 tenant_id=tenant_id,
                 computer_id=computer.computer_id,
                 host_start_count=computer.host_start_generation,
+                user_id=user_id,
                 waiting_turn_ids=[turn_id],
                 expires_at=computer.host_start_lease_expires_at,
             )
@@ -1170,6 +1171,7 @@ class ControlPlane:
                 tenant_id=tenant_id,
                 computer_id=computer.computer_id,
                 host_start_count=computer.host_start_generation,
+                user_id=user_id,
                 waiting_turn_ids=[turn_id],
                 expires_at=computer.host_start_lease_expires_at,
             )

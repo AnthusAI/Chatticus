@@ -88,10 +88,16 @@ development` on 2026-08-31 exited 0 with `health_environment=1`,
 `computer_queue_job=in_flight_nack`. GET computer includes
 `host_start_generation` (0 before any start). Concurrent ComputerWorker
 nacks claim one durable dispatch generation before `RunTask` (b6627b).
-Remaining 8f98f8: Chromium executor and readiness on the summoned host so
-a browser tool can complete the same turn. A demo CLI (Kanbus epic
-35d86b) is starting; it talks to this HTTP surface.
-`exercise_thin_turn.py` stays the pass/fail gate.
+Chromium `browser_open` and host boot gates are kernel-only (0eef8f).
+RunTask may override the computer container to
+`python -m chatticus.computer_host_worker` when
+`CHATTICUS_ECS_HOST_COMMAND` is set (4bca15); development Lambda does not
+set that yet because the live computer image is still `sleep infinity`.
+ThinTurn grants the imported Computers task role SQS consume and Dynamo
+access. Remaining 8f98f8: rebuild the computer image with that module,
+enable the override, and prove a live browser tool completes the same
+turn. A demo CLI (Kanbus epic 35d86b) is starting; it talks to this HTTP
+surface. `exercise_thin_turn.py` stays the pass/fail gate.
 
 | Environment | Web stack | Site | API base (same origin) |
 | --- | --- | --- | --- |

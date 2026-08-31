@@ -23,8 +23,10 @@ def test_computer_worker_ecs_host_start_may_tag_tasks() -> None:
         Path(__file__).resolve().parents[2] / "infra" / "lib" / "computer-host-start.ts"
     )
     text = source.read_text()
-    assert '"ecs:TagResource"' in text or "ecs:TagResource" in text
+    assert "ecs:TagResource" in text
     assert "ecs:RunTask" in text
+    assert "grantConsumeMessages" in text
+    assert "ImportedComputerHostTaskRole" in text
 
 
 def test_development_thinturn_deploy_script_reads_computer_stack_outputs() -> None:
