@@ -605,6 +605,15 @@ def main() -> int:
         print(f"computer_stopped={stopped['stopped']} bot_messages={len(bot_messages)}")
         if not stopped["stopped"] or not bot_messages:
             return 1
+        channel_turn_done = client.get(f"/channels/{channel['channel_id']}/turn")
+        if channel_turn_done.status_code != 404:
+            print(
+                f"channel_turn_done {channel_turn_done.status_code} "
+                f"{channel_turn_done.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("channel_turn_done=1")
         after = messages[0]["seq"]
         listed_after = client.get(
             f"/channels/{channel['channel_id']}/messages",

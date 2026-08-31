@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-c71b693b-d033-414e-a761-f95720abc30b",
+  "title": "No active turn after completion and Front Door recycle",
+  "description": "As a household member, I want GET /channels/{id}/turn to return 404 when no turn is active, including after a Front Door recycle, so recycled Front Door instances do not report stale active turns.\n\nFeature: Channels and the message store\n\nScenario: No active turn is reported after completion and a Front Door recycle\n  Given an empty control plane backed by a durable messaging store with HTTP\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n  When tenant \"anthus\" user \"ryan\" opens a channel with bots:\n    | Researcher |\n  And user \"ryan\" of tenant \"anthus\" posts a fence probe addressed to bot \"Researcher\" without enqueueing a turn job\n  And the worker claims the fence probe turn and completes it through HTTP\n  And a recycled Front Door serves the same messaging store\n  Then tenant \"anthus\" cannot read an active turn on the open channel\n\nNot included: staging, production, Fargate, Safari.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T06:07:20.406147Z",
+  "updated_at": "2026-08-31T06:07:24.820580Z",
+  "closed_at": null,
+  "custom": {}
+}

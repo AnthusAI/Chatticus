@@ -566,6 +566,52 @@ def test_http_get_channel_active_turn_survives_a_new_control_plane() -> None:
     api.close()
 
 
+@mock_aws
+def test_http_get_channel_active_turn_404_after_completion() -> None:
+    table_name = "chatticus-channel-turn-done-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    plane = ControlPlane(messaging_store=store)
+    bot, channel = _channel_with_bot(plane)
+    started = plane.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    assert started is not None
+    api = _client_for(plane)
+    claim = api.post(
+        f"/turns/{started.turn_id}/claim",
+        json={"worker_id": "test-worker"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert claim.status_code == 200
+    fence_token = claim.json()["fence_token"]
+    complete = api.post(
+        f"/turns/{started.turn_id}/chunks",
+        json={
+            "token": "done",
+            "complete": True,
+            "fence_token": fence_token,
+        },
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert complete.status_code == 200
+    api.close()
+    recycled = _client_for(ControlPlane(messaging_store=store))
+    missing = recycled.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert missing.status_code == 404
+    recycled.close()
+
+
 def test_http_bot_memory_roundtrip() -> None:
     plane = ControlPlane()
     api = _client_for(plane)

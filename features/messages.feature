@@ -216,3 +216,13 @@ Feature: Channels and the message store
     And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
     And a recycled Front Door serves the same messaging store
     Then tenant "anthus" can read the active turn on the open channel
+
+  Scenario: No active turn is reported after completion and a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
+    And the worker claims the fence probe turn and completes it through HTTP
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" cannot read an active turn on the open channel
