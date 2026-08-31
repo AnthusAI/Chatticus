@@ -143,6 +143,36 @@ def parse_grant_table(rows: dict[str, str]) -> TaskCapabilityGrant:
     )
 
 
+def grant_to_payload(grant: TaskCapabilityGrant) -> dict[str, list[str]]:
+    """Serialize one task grant for durable storage."""
+    return {
+        "tools": sorted(grant.tools),
+        "origins": sorted(grant.origins),
+        "recipients": sorted(grant.recipients),
+        "file_scopes": sorted(grant.file_scopes),
+        "egress_classes": sorted(grant.egress_classes),
+    }
+
+
+def grant_from_payload(payload: dict[str, object]) -> TaskCapabilityGrant:
+    """Rebuild one task grant from durable storage."""
+
+    def _frozenset(field_name: str) -> frozenset[str]:
+        raw = payload.get(field_name) or []
+        if not isinstance(raw, list):
+            msg = f"grant field {field_name!r} must be a list"
+            raise ValueError(msg)
+        return frozenset(str(part) for part in raw)
+
+    return TaskCapabilityGrant(
+        tools=_frozenset("tools"),
+        origins=_frozenset("origins"),
+        recipients=_frozenset("recipients"),
+        file_scopes=_frozenset("file_scopes"),
+        egress_classes=_frozenset("egress_classes"),
+    )
+
+
 def _origin_from_url(url: str) -> str:
     parsed = urlparse(url if "://" in url else f"https://{url}")
     host = parsed.netloc or parsed.path.split("/", 1)[0]

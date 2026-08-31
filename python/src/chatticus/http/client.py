@@ -121,3 +121,51 @@ class HttpTurnClient:
                 f"{response.text}"
             )
         return response.json()
+
+    def put_grant(
+        self,
+        turn_id: str,
+        *,
+        tools: list[str],
+        origins: list[str] | None = None,
+        recipients: list[str] | None = None,
+        file_scopes: list[str] | None = None,
+        egress_classes: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Attach one closed task grant to a turn."""
+        response = self.client.put(
+            f"/turns/{turn_id}/grant",
+            json={
+                "tools": tools,
+                "origins": origins or [],
+                "recipients": recipients or [],
+                "file_scopes": file_scopes or [],
+                "egress_classes": egress_classes or [],
+            },
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"grant PUT failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+        return response.json()
+
+    def read_workspace_gated(
+        self,
+        turn_id: str,
+        user_id: str,
+        path: str,
+    ) -> dict[str, Any]:
+        """Read one workspace path after the task grant allows it."""
+        response = self.client.post(
+            f"/turns/{turn_id}/workspace/read",
+            json={"user_id": user_id, "path": path},
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"workspace read POST failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+        return response.json()

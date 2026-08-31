@@ -7,6 +7,11 @@ import threading
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
+from chatticus.capability_policy import (
+    TaskCapabilityGrant,
+    grant_from_payload,
+    grant_to_payload,
+)
 from chatticus.models import (
     ActorKind,
     Bot,
@@ -192,6 +197,16 @@ class MessagingStore(Protocol):
     def list_tasks(self, tenant_id: str, user_id: str) -> list[Task]:
         """Return tasks owned by one household user."""
 
+    def put_turn_capability_grant(
+        self, tenant_id: str, turn_id: str, grant: TaskCapabilityGrant
+    ) -> None:
+        """Persist the closed task grant for one turn."""
+
+    def get_turn_capability_grant(
+        self, tenant_id: str, turn_id: str
+    ) -> TaskCapabilityGrant | None:
+        """Load the task grant for one turn, if any."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -209,6 +224,7 @@ class InMemoryMessagingStore:
         self._channel_idempotency: dict[tuple[str, str], str] = {}
         self._bot_idempotency: dict[tuple[str, str], str] = {}
         self._tasks: dict[tuple[str, str], Task] = {}
+        self._turn_grants: dict[tuple[str, str], TaskCapabilityGrant] = {}
         self._active_channel_turns: dict[tuple[str, str], str] = {}
         self._lock = threading.Lock()
 
@@ -491,6 +507,16 @@ class InMemoryMessagingStore:
             ),
             key=lambda task: task.task_id,
         )
+
+    def put_turn_capability_grant(
+        self, tenant_id: str, turn_id: str, grant: TaskCapabilityGrant
+    ) -> None:
+        self._turn_grants[(tenant_id, turn_id)] = grant
+
+    def get_turn_capability_grant(
+        self, tenant_id: str, turn_id: str
+    ) -> TaskCapabilityGrant | None:
+        return self._turn_grants.get((tenant_id, turn_id))
 
 
 class DynamoMessagingStore:
@@ -1296,6 +1322,47 @@ class DynamoMessagingStore:
             if task is not None:
                 tasks.append(task)
         return sorted(tasks, key=lambda task: task.task_id)
+
+    def put_turn_capability_grant(
+        self, tenant_id: str, turn_id: str, grant: TaskCapabilityGrant
+    ) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._turn_pk(tenant_id, turn_id)},
+                "sk": {"S": "grant"},
+                "tenant_id": {"S": tenant_id},
+                "turn_id": {"S": turn_id},
+                "grant": {
+                    "S": json.dumps(
+                        grant_to_payload(grant),
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    )
+                },
+            },
+        )
+
+    def get_turn_capability_grant(
+        self, tenant_id: str, turn_id: str
+    ) -> TaskCapabilityGrant | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._turn_pk(tenant_id, turn_id)},
+                "sk": {"S": "grant"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        raw = item.get("grant", {}).get("S")
+        if not raw:
+            return None
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            return None
+        return grant_from_payload(payload)
 
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"

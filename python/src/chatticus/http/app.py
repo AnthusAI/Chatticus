@@ -13,6 +13,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from chatticus.capability_policy import grant_from_payload
+from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.control_plane import ControlPlane
 from chatticus.http.sse import (
     cursor_from_last_event_id,
@@ -119,6 +121,23 @@ class InvokeTaskToolBody(BaseModel):
     user_id: str
     action: str
     arguments: dict[str, str] = Field(default_factory=dict)
+
+
+class PutTurnGrantBody(BaseModel):
+    """Body for PUT /turns/{turn_id}/grant."""
+
+    tools: list[str] = Field(default_factory=list)
+    origins: list[str] = Field(default_factory=list)
+    recipients: list[str] = Field(default_factory=list)
+    file_scopes: list[str] = Field(default_factory=list)
+    egress_classes: list[str] = Field(default_factory=list)
+
+
+class ReadWorkspaceBody(BaseModel):
+    """Body for POST /turns/{turn_id}/workspace/read."""
+
+    user_id: str
+    path: str
 
 
 @dataclass
@@ -554,6 +573,54 @@ def create_app(
             ) from error
         return _turn_payload(turn)
 
+    @app.put("/turns/{turn_id}/grant")
+    def put_turn_grant(
+        turn_id: str,
+        body: PutTurnGrantBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot grant turn {turn_id!r}."
+            ) from error
+        grant = grant_from_payload(body.model_dump())
+        state.plane.set_turn_capability_grant(tenant_id, turn_id, grant)
+        logger.info(
+            "turn_grant_set tenant_id=%s turn_id=%s tools=%s",
+            tenant_id,
+            turn_id,
+            sorted(grant.tools),
+        )
+        return {"turn_id": turn_id, "tools": sorted(grant.tools)}
+
+    @app.post("/turns/{turn_id}/workspace/read")
+    def read_turn_workspace(
+        turn_id: str,
+        body: ReadWorkspaceBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot read workspace for turn {turn_id!r}."
+            ) from error
+        content = state.plane.gated_read_workspace(
+            tenant_id,
+            turn_id,
+            body.user_id,
+            body.path,
+        )
+        logger.info(
+            "gated_workspace_read tenant_id=%s turn_id=%s path=%s",
+            tenant_id,
+            turn_id,
+            body.path,
+        )
+        return {"content": content}
+
     @app.get("/turns/{turn_id}/events")
     def list_turn_events(
         turn_id: str,
@@ -664,6 +731,8 @@ def create_app(
 
 
 def _status_for_error(error: ChatticusError) -> int:
+    if isinstance(error, CapabilitySinkDenied):
+        return 403
     if isinstance(
         error,
         ChannelTenantMismatchError | TurnAccessDeniedError | ActorNotInChannelError,

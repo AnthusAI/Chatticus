@@ -892,6 +892,9 @@ class ControlPlane:
         policy = self._capability_policies.get(key)
         if policy is None:
             policy = CapabilityPolicy(now=self.now)
+            grant = self._messaging_store.get_turn_capability_grant(tenant_id, turn_id)
+            if grant is not None:
+                policy.set_grant(grant)
             self._capability_policies[key] = policy
         return policy
 
@@ -902,7 +905,13 @@ class ControlPlane:
         grant: TaskCapabilityGrant,
     ) -> None:
         """Attach one closed task grant to a turn for sink enforcement."""
-        self.capability_policy_for(tenant_id, turn_id).set_grant(grant)
+        self._messaging_store.put_turn_capability_grant(tenant_id, turn_id, grant)
+        key = (tenant_id, turn_id)
+        policy = self._capability_policies.get(key)
+        if policy is None:
+            policy = CapabilityPolicy(now=self.now)
+            self._capability_policies[key] = policy
+        policy.set_grant(grant)
 
     def sync_household_credentials(
         self,

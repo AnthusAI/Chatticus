@@ -166,6 +166,112 @@ def _task_http_required(environment: str | None) -> bool:
     )
 
 
+def _grant_http_routes_absent(response: httpx.Response) -> bool:
+    """True when the deployed stack has no grant or gated-read handlers."""
+    if response.status_code not in (404, 405):
+        return False
+    detail = _http_detail(response)
+    return detail in ("Not Found", "")
+
+
+def _grant_http_required(environment: str | None) -> bool:
+    """Fail instead of skip when grant routes are expected on development."""
+    if os.environ.get("CHATTICUS_GRANT_HTTP_REQUIRED", "").strip() == "1":
+        return True
+    return (
+        environment == "development"
+        and os.environ.get("CHATTICUS_DEVELOPMENT_GRANT_LIVE", "").strip() == "1"
+    )
+
+
+_RESEARCH_GRANT_BODY = {
+    "tools": ["browse", "read_workspace"],
+    "origins": ["https://docs.example.com"],
+    "recipients": [],
+    "file_scopes": ["/workspace/research"],
+    "egress_classes": ["approved_origin_fetch"],
+}
+
+
+def _exercise_capability_grant_persistence(
+    *,
+    base_url: str,
+    headers: dict[str, str],
+    turn_id: str,
+    user_id: str,
+    environment: str | None,
+) -> int:
+    """Exercise durable grants and gated workspace reads on a named stack."""
+    probe = SameOriginApiClient(base_url, headers=headers, timeout=60.0)
+    try:
+        missing = probe.put(
+            f"/turns/{turn_id}/grant",
+            json=_RESEARCH_GRANT_BODY,
+        )
+        if _grant_http_routes_absent(missing):
+            if _grant_http_required(environment):
+                print(
+                    "capability_grant_persistence_required routes_missing "
+                    f"{missing.status_code} {missing.text[:300]}",
+                    file=sys.stderr,
+                )
+                return 1
+            print("capability_grant_persistence_skip=1")
+            return 0
+        if missing.status_code != 200:
+            print(
+                f"capability_grant_persistence_grant "
+                f"{missing.status_code} {missing.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        forbidden = probe.post(
+            f"/turns/{turn_id}/workspace/read",
+            json={
+                "user_id": user_id,
+                "path": "/workspace/secrets/notes.txt",
+            },
+        )
+        if forbidden.status_code != 403:
+            print(
+                "capability_grant_persistence_forbidden "
+                f"{forbidden.status_code} {forbidden.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        detail = _http_detail(forbidden)
+        if "session" in detail.lower():
+            print(
+                f"capability_grant_persistence_forbidden_detail={detail!r}",
+                file=sys.stderr,
+            )
+            return 1
+        print("capability_grant_persistence_forbidden=403")
+    finally:
+        probe._client.close()
+    recycled = SameOriginApiClient(base_url, headers=headers, timeout=60.0)
+    try:
+        allowed = recycled.post(
+            f"/turns/{turn_id}/workspace/read",
+            json={
+                "user_id": user_id,
+                "path": "/workspace/research/notes.txt",
+            },
+        )
+        if allowed.status_code != 200:
+            print(
+                "capability_grant_persistence_allowed "
+                f"{allowed.status_code} {allowed.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("capability_grant_persistence_allowed=200")
+        print("capability_grant_persistence=1")
+        return 0
+    finally:
+        recycled._client.close()
+
+
 def _exercise_named_task_http(
     client: SameOriginApiClient,
     *,
@@ -609,6 +715,16 @@ def main() -> int:
             )
             return 1
         print("turns_list=1")
+        if args.environment:
+            grant_result = _exercise_capability_grant_persistence(
+                base_url=base_url,
+                headers=dict(headers),
+                turn_id=fence_turn_id,
+                user_id=args.user_id,
+                environment=environment,
+            )
+            if grant_result != 0:
+                return grant_result
         claim_a = client.post(
             f"/turns/{fence_turn_id}/claim",
             json={"worker_id": "exercise-fence-a"},

@@ -76,3 +76,15 @@ def test_chromium_host_tool_result_body_requires_opened_prefix() -> None:
 def test_chromium_host_tool_result_body_rejects_fake_opened() -> None:
     events = [{"kind": "tool.result", "body": "opened"}]
     assert _EXERCISE._chromium_host_tool_result_body(events) is None
+
+
+def test_grant_http_routes_absent_for_unknown_path() -> None:
+    assert _EXERCISE._grant_http_routes_absent(_response(404, {"detail": "Not Found"}))
+
+
+def test_grant_http_required_when_development_live_flag_set(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CHATTICUS_DEVELOPMENT_GRANT_LIVE", "1")
+    assert _EXERCISE._grant_http_required("development")
+    assert not _EXERCISE._grant_http_required("staging")
