@@ -44,6 +44,7 @@ from chatticus.models import (
     CostClass,
     DuplicateBotNameError,
     Message,
+    PendingComputerToolSnapshot,
     SnapshotRequiredError,
     StaleAttemptError,
     Turn,
@@ -60,6 +61,7 @@ from chatticus.models import (
     WorkerRecord,
     WorkerRegistration,
     WorkerTenantMismatchError,
+    pending_computer_tool_from_turn,
 )
 from chatticus.overnight_gated import (
     OvernightGatedResult,
@@ -1385,10 +1387,12 @@ class ControlPlane:
         turn.waiting_for = gate
         turn.pending_computer_action_id = str(uuid4())
         turn.pending_computer_tool_name = "request_computer_capability"
+        pending = pending_computer_tool_from_turn(turn)
         return self._append_turn_event(
             turn,
             TurnEventKind.TURN_WAITING,
             body=gate,
+            pending_computer_tool=pending,
             expected_fence=fence_token,
         )
 
@@ -1678,6 +1682,7 @@ class ControlPlane:
         token: str | None = None,
         message_seq: int | None = None,
         body: str | None = None,
+        pending_computer_tool: PendingComputerToolSnapshot | None = None,
         expected_fence: int | None = None,
     ) -> TurnEvent:
         event = TurnEvent(
@@ -1690,6 +1695,7 @@ class ControlPlane:
             token=token,
             message_seq=message_seq,
             body=body,
+            pending_computer_tool=pending_computer_tool,
         )
         turn.next_event_seq += 1
         self._messaging_store.put_turn(turn, expected_fence=expected_fence)

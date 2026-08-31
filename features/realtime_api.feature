@@ -60,3 +60,13 @@ Feature: Turn-scoped server-sent events
     When the worker posts a progress chunk and then waits on the browser gate
     Then user "ryan" can read the turn gate as browser without opening SSE
     And user "ryan" can read the pending computer tool request_computer_capability for browser
+
+  Scenario: A waiting journal event carries the pending computer tool
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"
+    And user "ryan" of tenant "anthus" has an active turn on the channel
+    And user "ryan" of tenant "anthus" is watching that turn through server-sent events
+    When the worker posts a progress chunk and then waits on the browser gate
+    Then user "ryan" receives a waiting server-sent event naming browser
+    And the waiting journal event names request_computer_capability for browser
+    And user "ryan" reads the same action identifier from GET and the journal

@@ -284,6 +284,11 @@ def test_computerless_worker_waits_when_the_model_needs_the_browser() -> None:
     waiting = [event for event in events if event.kind == TurnEventKind.TURN_WAITING]
     assert len(waiting) == 1
     assert waiting[0].body == "browser"
+    pending = waiting[0].pending_computer_tool
+    assert pending is not None
+    assert pending.tool_name == "request_computer_capability"
+    assert pending.arguments == {"gate": "browser"}
+    assert pending.action_id
     messages = api.get(
         f"/channels/{channel.channel_id}/messages",
         headers={"X-Tenant-Id": channel.tenant_id},
@@ -461,6 +466,11 @@ def test_http_waiting_emits_gate_and_releases_claim() -> None:
     waiting = [event for event in events if event.kind == TurnEventKind.TURN_WAITING]
     assert len(waiting) == 1
     assert waiting[0].body == "browser"
+    pending = waiting[0].pending_computer_tool
+    assert pending is not None
+    assert pending.tool_name == "request_computer_capability"
+    assert pending.arguments == {"gate": "browser"}
+    assert pending.action_id
     stale = api.post(
         f"/turns/{turn_id}/waiting",
         json={"gate": "browser", "fence_token": claimed["fence_token"]},
@@ -514,6 +524,15 @@ def test_http_get_turn_exposes_waiting_gate() -> None:
     assert pending["tool_name"] == "request_computer_capability"
     assert pending["arguments"] == {"gate": "browser"}
     assert pending["action_id"]
+    second = api.get(
+        f"/turns/{turn_id}",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert second.json()["pending_computer_tool"]["action_id"] == pending["action_id"]
+    events = plane.list_turn_events(channel.tenant_id, turn_id)
+    waiting = [event for event in events if event.kind == TurnEventKind.TURN_WAITING]
+    assert waiting[0].pending_computer_tool is not None
+    assert waiting[0].pending_computer_tool.action_id == pending["action_id"]
     denied = api.get(
         f"/turns/{turn_id}",
         headers={"X-Tenant-Id": "other"},

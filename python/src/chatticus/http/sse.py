@@ -23,6 +23,13 @@ def turn_event_payload(event: TurnEvent) -> dict[str, Any]:
         payload["message_seq"] = event.message_seq
     if event.body is not None:
         payload["body"] = event.body
+    if event.pending_computer_tool is not None:
+        pending = event.pending_computer_tool
+        payload["pending_computer_tool"] = {
+            "action_id": pending.action_id,
+            "tool_name": pending.tool_name,
+            "arguments": dict(pending.arguments),
+        }
     return payload
 
 

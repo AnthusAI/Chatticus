@@ -30,6 +30,7 @@ from chatticus.models import (
     TurnNotWaitingError,
     TurnReconcilingError,
     TurnTerminalError,
+    pending_computer_tool_from_turn,
 )
 
 logger = logging.getLogger("chatticus.http")
@@ -477,11 +478,12 @@ def _channel_payload(channel: Any) -> dict[str, Any]:
 
 def _turn_payload(turn: Any) -> dict[str, Any]:
     pending = None
-    if turn.pending_computer_tool_name is not None:
+    snapshot = pending_computer_tool_from_turn(turn)
+    if snapshot is not None:
         pending = {
-            "action_id": turn.pending_computer_action_id,
-            "tool_name": turn.pending_computer_tool_name,
-            "arguments": {"gate": turn.waiting_for} if turn.waiting_for else {},
+            "action_id": snapshot.action_id,
+            "tool_name": snapshot.tool_name,
+            "arguments": dict(snapshot.arguments),
         }
     return {
         "turn_id": turn.turn_id,

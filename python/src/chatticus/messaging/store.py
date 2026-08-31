@@ -15,6 +15,7 @@ from chatticus.models import (
     Computer,
     ComputerPolicy,
     Message,
+    PendingComputerToolSnapshot,
     StaleAttemptError,
     Turn,
     TurnEvent,
@@ -512,21 +513,34 @@ class DynamoMessagingStore:
         return self.get_turn(tenant_id, turn_id)
 
     def put_turn_event(self, event: TurnEvent) -> None:
+        item: dict[str, Any] = {
+            "pk": {"S": self._turn_pk(event.tenant_id, event.turn_id)},
+            "sk": {"S": f"evt#{event.seq:010d}"},
+            "tenant_id": {"S": event.tenant_id},
+            "turn_id": {"S": event.turn_id},
+            "channel_id": {"S": event.channel_id},
+            "event_id": {"S": event.event_id},
+            "seq": {"N": str(event.seq)},
+            "kind": {"S": event.kind},
+            "token": {"S": event.token or ""},
+            "message_seq": {"N": str(event.message_seq or 0)},
+            "body": {"S": event.body or ""},
+        }
+        if event.pending_computer_tool is not None:
+            item["pending_computer_tool"] = {
+                "S": json.dumps(
+                    {
+                        "action_id": event.pending_computer_tool.action_id,
+                        "tool_name": event.pending_computer_tool.tool_name,
+                        "arguments": event.pending_computer_tool.arguments,
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+            }
         self.client.put_item(
             TableName=self.table_name,
-            Item={
-                "pk": {"S": self._turn_pk(event.tenant_id, event.turn_id)},
-                "sk": {"S": f"evt#{event.seq:010d}"},
-                "tenant_id": {"S": event.tenant_id},
-                "turn_id": {"S": event.turn_id},
-                "channel_id": {"S": event.channel_id},
-                "event_id": {"S": event.event_id},
-                "seq": {"N": str(event.seq)},
-                "kind": {"S": event.kind},
-                "token": {"S": event.token or ""},
-                "message_seq": {"N": str(event.message_seq or 0)},
-                "body": {"S": event.body or ""},
-            },
+            Item=item,
         )
 
     def list_turn_events(
@@ -804,6 +818,15 @@ def _turn_event_from_item(item: dict[str, Any]) -> TurnEvent:
     message_seq = int(item["message_seq"]["N"])
     token = item["token"]["S"]
     body = item["body"]["S"]
+    pending_raw = item.get("pending_computer_tool", {}).get("S")
+    pending = None
+    if pending_raw:
+        payload = json.loads(pending_raw)
+        pending = PendingComputerToolSnapshot(
+            action_id=payload["action_id"],
+            tool_name=payload["tool_name"],
+            arguments=dict(payload["arguments"]),
+        )
     return TurnEvent(
         event_id=item["event_id"]["S"],
         tenant_id=item["tenant_id"]["S"],
@@ -814,6 +837,7 @@ def _turn_event_from_item(item: dict[str, Any]) -> TurnEvent:
         token=token or None,
         message_seq=message_seq or None,
         body=body or None,
+        pending_computer_tool=pending,
     )
 
 

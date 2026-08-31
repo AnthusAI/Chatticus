@@ -17,6 +17,7 @@ from chatticus.models import (
     ActorKind,
     ChannelTenantMismatchError,
     TurnAccessDeniedError,
+    TurnEventKind,
     TurnStatus,
 )
 from chatticus.worker.computerless import (
@@ -662,6 +663,48 @@ def then_user_reads_pending_computer_tool(
     assert pending["tool_name"] == tool_name
     assert pending["arguments"] == {"gate": gate}
     assert pending["action_id"]
+
+
+@then("the waiting journal event names {tool_name} for {gate}")
+def then_waiting_journal_names_tool(context: object, tool_name: str, gate: str) -> None:
+    channel = _channel(context)
+    turn_id = _turn_id(context)
+    events = context.plane.list_turn_events(channel.tenant_id, turn_id)
+    waiting = [event for event in events if event.kind == TurnEventKind.TURN_WAITING]
+    assert len(waiting) == 1
+    pending = waiting[0].pending_computer_tool
+    assert pending is not None
+    assert pending.tool_name == tool_name
+    assert pending.arguments == {"gate": gate}
+    assert pending.action_id
+    sse_waiting = [
+        event
+        for event in context.sse_watcher.events
+        if event.get("kind") == TurnEventKind.TURN_WAITING
+    ]
+    assert sse_waiting
+    sse_pending = sse_waiting[0].get("pending_computer_tool")
+    assert sse_pending is not None
+    assert sse_pending["tool_name"] == tool_name
+    assert sse_pending["arguments"] == {"gate": gate}
+    assert sse_pending["action_id"] == pending.action_id
+
+
+@then('user "{user_id}" reads the same action identifier from GET and the journal')
+def then_action_id_stable_across_get_and_journal(context: object, user_id: str) -> None:
+    del user_id
+    channel = _channel(context)
+    turn_id = _turn_id(context)
+    headers = tenant_headers(channel.tenant_id)
+    first = context.api_client.get(f"/turns/{turn_id}", headers=headers).json()
+    second = context.api_client.get(f"/turns/{turn_id}", headers=headers).json()
+    get_action_id = first["pending_computer_tool"]["action_id"]
+    assert get_action_id
+    assert second["pending_computer_tool"]["action_id"] == get_action_id
+    events = context.plane.list_turn_events(channel.tenant_id, turn_id)
+    waiting = [event for event in events if event.kind == TurnEventKind.TURN_WAITING]
+    assert waiting[0].pending_computer_tool is not None
+    assert waiting[0].pending_computer_tool.action_id == get_action_id
 
 
 @when('user "{user_id}" of tenant "{tenant_id}" tries to resume that waiting turn')

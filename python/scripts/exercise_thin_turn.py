@@ -186,6 +186,7 @@ def main() -> int:
                 return 1
             print("pending_computer_tool=request_computer_capability")
             waiting_kinds: list[str] = []
+            waiting_events: list[dict] = []
             with client.stream("GET", f"/turns/{fence_turn_id}/stream") as stream:
                 stream.raise_for_status()
                 buffer = ""
@@ -193,6 +194,7 @@ def main() -> int:
                 for chunk in stream.iter_bytes():
                     buffer += chunk.decode()
                     parsed, buffer = _frames(buffer)
+                    waiting_events.extend(parsed)
                     waiting_kinds.extend(event.get("kind") for event in parsed)
                     if "turn.waiting" in waiting_kinds:
                         break
@@ -202,6 +204,20 @@ def main() -> int:
             if "turn.waiting" not in waiting_kinds:
                 print("fence turn did not emit turn.waiting", file=sys.stderr)
                 return 1
+            journal_waiting = [
+                event
+                for event in waiting_events
+                if event.get("kind") == "turn.waiting"
+            ]
+            journal_pending = (journal_waiting[0].get("pending_computer_tool") or {})
+            if (
+                journal_pending.get("tool_name") != "request_computer_capability"
+                or journal_pending.get("arguments") != {"gate": "browser"}
+                or journal_pending.get("action_id") != pending.get("action_id")
+            ):
+                print(f"journal_pending_computer_tool={journal_pending!r}", file=sys.stderr)
+                return 1
+            print("journal_pending_computer_tool=request_computer_capability")
             stale_waiting = client.post(
                 f"/turns/{fence_turn_id}/waiting",
                 json={"gate": "browser", "fence_token": fence_token},
@@ -341,6 +357,7 @@ def main() -> int:
             return 1
         browser_turn_id = browser_post.json()["turn_id"]
         model_wait_kinds: list[str] = []
+        model_wait_events: list[dict] = []
         with client.stream("GET", f"/turns/{browser_turn_id}/stream") as stream:
             stream.raise_for_status()
             buffer = ""
@@ -348,6 +365,7 @@ def main() -> int:
             for chunk in stream.iter_bytes():
                 buffer += chunk.decode()
                 parsed, buffer = _frames(buffer)
+                model_wait_events.extend(parsed)
                 model_wait_kinds.extend(event.get("kind") for event in parsed)
                 if "turn.waiting" in model_wait_kinds:
                     break
@@ -387,6 +405,23 @@ def main() -> int:
             print(f"model_pending_computer_tool={model_pending!r}", file=sys.stderr)
             return 1
         print("model_pending_computer_tool=request_computer_capability")
+        model_journal_waiting = [
+            event for event in model_wait_events if event.get("kind") == "turn.waiting"
+        ]
+        model_journal_pending = (
+            model_journal_waiting[0].get("pending_computer_tool") or {}
+        )
+        if (
+            model_journal_pending.get("tool_name") != "request_computer_capability"
+            or model_journal_pending.get("arguments") != {"gate": "browser"}
+            or model_journal_pending.get("action_id") != model_pending.get("action_id")
+        ):
+            print(
+                f"model_journal_pending_computer_tool={model_journal_pending!r}",
+                file=sys.stderr,
+            )
+            return 1
+        print("model_journal_pending_computer_tool=request_computer_capability")
         model_resume = client.post(f"/turns/{browser_turn_id}/resume")
         if model_resume.status_code != 409:
             print(

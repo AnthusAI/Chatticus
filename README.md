@@ -69,7 +69,9 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `98d5ded` (no `--all`).
+from `develop` @ `98d5ded` (no `--all`). Pending work in branch
+`cursor/journal-waiting-tool-4a21` adds the pending computer tool to durable
+`turn.waiting` journal events and SSE replay.
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -86,9 +88,11 @@ SSE `turn.waiting` naming `browser`, `GET /turns/{id}` returning
 `waiting_for=browser` and pending tool `request_computer_capability`,
 then a stale fence **409**, then
 `POST /turns/{id}/resume` **409** while the household computer is stopped.
-The same named exercise then asks luna to open the household browser; the
+The fence probe also requires durable `turn.waiting` journal events to carry
+`pending_computer_tool` with the same `action_id` as `GET /turns/{id}`. The same named exercise then asks luna to open the household browser; the
 worker emits `turn.waiting` instead of completing, `GET /turns/{id}` still
-names `browser` and the pending computer tool, and resume is **409** again. Staging and production do not
+names `browser` and the pending computer tool, the journal event matches that
+`action_id`, and resume is **409** again. Staging and production do not
 have waiting, resume, or turn read yet.
 
 The **source** has named cloud environments, turn **claim**, **lease**,
@@ -117,7 +121,7 @@ What each deployed thin-turn slice does today:
   **gpt-5.6-luna** (OpenAI). A text-only reply still completes. If the
   model calls `request_computer_capability`, the worker POSTs
   `turn.waiting`, records `waiting_for` and the pending computer tool on
-  the turn, and leaves the turn active instead of claiming the browser
+  the turn and in the durable journal event, and leaves the turn active instead of claiming the browser
   work is done. Resume of that
   same turn is refused while the computer is stopped. EventBridge deadline
   recovery does not fail a turn that is legitimately waiting on a gate.

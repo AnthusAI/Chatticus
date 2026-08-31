@@ -342,6 +342,26 @@ class TurnAttempt:
 
 
 @dataclass(frozen=True)
+class PendingComputerToolSnapshot:
+    """One pending computer tool call recorded on a waiting turn."""
+
+    action_id: str
+    tool_name: str
+    arguments: dict[str, str]
+
+
+def pending_computer_tool_from_turn(turn: Turn) -> PendingComputerToolSnapshot | None:
+    """Return the pending computer tool on one turn, if any."""
+    if turn.pending_computer_tool_name is None:
+        return None
+    return PendingComputerToolSnapshot(
+        action_id=turn.pending_computer_action_id or "",
+        tool_name=turn.pending_computer_tool_name,
+        arguments={"gate": turn.waiting_for} if turn.waiting_for else {},
+    )
+
+
+@dataclass(frozen=True)
 class TurnEvent:
     """One durable event for turn-scoped server-sent events."""
 
@@ -354,3 +374,4 @@ class TurnEvent:
     token: str | None = None
     message_seq: int | None = None
     body: str | None = None
+    pending_computer_tool: PendingComputerToolSnapshot | None = None
