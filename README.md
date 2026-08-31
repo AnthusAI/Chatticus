@@ -64,12 +64,17 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-GitHub **`main`** is **v0.5.0**. Three named thin-turn environments are
-live in AWS account `335163751677` (`us-east-1`). Production is never
-implied by a git branch; it is an explicit gated deploy of a release that
-already passed staging acceptance. Staging and production were deployed
-from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `06de2c4` (no `--all`).
+GitHub **`main`** is **v0.6.0** (`2249105`, PR #25). Three named thin-turn
+environments are live in AWS account `335163751677` (`us-east-1`).
+Production is never implied by a git branch; it is an explicit gated
+deploy of a release that already passed staging acceptance. Git promotion
+does not redeploy stacks. Staging and production were last recorded as
+deployed from `origin/main` @ `760915d` (v0.5.0); they have not been
+redeployed from v0.6.0 here. Development was last redeployed ThinTurn-only
+from `develop` @ `06de2c4` (no `--all`). `develop` is ahead of `main`
+(channels list, household computer read, channel active-turn read,
+waiting-turn read). A demo CLI (Kanbus epic 35d86b) is starting; it talks
+to this HTTP surface. `exercise_thin_turn.py` stays the pass/fail gate.
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -96,7 +101,8 @@ idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
 (`bots_list=1`: `GET /users/{user_id}/bots` includes that bot_id), a live user channel list
 (`channels_list=1`: `GET /users/{user_id}/channels` includes that channel_id), a live household computer read
 (`computer_get=1`: `GET /users/{user_id}/computer` returns `computer_id` and `stopped=true`), a live channel active-turn read
-(`channel_turn=1`: `GET /channels/{id}/turn` returns the fence-probe turn_id), a live waiting-turn read
+(`channel_turn=1`: `GET /channels/{id}/turn` returns the fence-probe turn_id), a live user active-turn list
+(`turns_list=1`: `GET /users/{user_id}/turns` includes that turn_id; source on this branch, live after the next development ThinTurn deploy), a live waiting-turn read
 (`channel_turn_waiting=1`: that path returns `waiting_for=browser` after the fence probe waits), a live empty active-turn read
 (`channel_turn_done=1`: after the greeting completes, `GET /channels/{id}/turn` is **404**), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
@@ -134,7 +140,7 @@ What each deployed thin-turn slice does today:
 
 - CloudFront in front of a Lambda function URL (no load balancer).
 - FastAPI front door: channels (`GET /channels/{id}`, `POST /channels`,
-  `GET /users/{user_id}/channels`, and `GET /channels/{id}/turn`),
+  `GET /users/{user_id}/channels`, `GET /users/{user_id}/turns`, and `GET /channels/{id}/turn`),
   messages, bots (`GET /bots?user_id=&name=` and `GET /users/{user_id}/bots`),
   the household computer (`GET /users/{user_id}/computer`),
   a stopped-computer roster,
@@ -180,10 +186,10 @@ EventBridge Scheduler one-shots are on each front door
 (`chatticus-{environment}-turn-deadlines`); `recovery_enabled` is on.
 Warm Front Door containers use a wall clock, so deadlines land in the
 future. A wedged turn has recovered through EventBridge without a
-forced Lambda cold start on development. GitHub **`main`** stays
-**v0.5.0**; overnight, approval binding, unbound-browser, and
-computer-handoff kernels on `develop` are not promoted there until they
-are on the live worker loop.
+forced Lambda cold start on development. GitHub **`main`** is **v0.6.0**;
+overnight, approval binding, unbound-browser, and computer-handoff
+kernels still on `develop` are not promoted there until they are on the
+live worker loop. Do not merge `develop` to `main` as daily parking.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the turn path yet. The computer stays stopped.
@@ -413,9 +419,10 @@ npx cdk deploy ChatticusThinTurnProduction
 ```
 
 **ChatticusThinTurn** is development. Staging and production are separate
-stacks with their own DynamoDB, SQS, Lambda, and CloudFront; both are
-deployed from the v0.5.0 release on `main`. Do not destroy the snapshot
-or computer stacks.
+stacks with their own DynamoDB, SQS, Lambda, and CloudFront. GitHub
+`main` is v0.6.0; those stacks were last recorded as deployed from the
+v0.5.0 pin (`760915d`) unless a later gated CDK deploy is proven. Do not
+destroy the snapshot or computer stacks.
 
 Postgres in `docker-compose.yml` is unused (it predates DynamoDB).
 

@@ -234,3 +234,17 @@ Feature: Channels and the message store
     When the worker posts a progress chunk and then waits on the browser gate
     And a recycled Front Door serves the same messaging store
     Then tenant "anthus" can read the waiting turn on the open channel as browser
+
+  Scenario: A user's active turns can be listed after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
+    And tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can list active turns for user "ryan":
+      | 1 |
+      | 2 |

@@ -277,6 +277,12 @@ def when_human_posts_fence_probe_without_enqueue(
     context.message_error = None
     payload = response.json()
     context.last_turn_id = payload.get("turn_id")
+    if context.last_turn_id:
+        opened_turns = getattr(context, "opened_turn_ids", None)
+        if opened_turns is None:
+            context.opened_turn_ids = [context.last_turn_id]
+        else:
+            opened_turns.append(context.last_turn_id)
 
 
 @when('bot "{name}" posts "{body}" addressed to bot "{addressee}" on the channel')
@@ -391,6 +397,36 @@ def then_list_user_channels(context: object, tenant_id: str, user_id: str) -> No
         )
         assert payload["tenant_id"] == tenant_id
         assert payload["user_id"] == user_id
+
+
+@then('tenant "{tenant_id}" can list active turns for user "{user_id}":')
+def then_list_user_active_turns(context: object, tenant_id: str, user_id: str) -> None:
+    opened_ids: list[str] = getattr(context, "opened_turn_ids", [])
+
+    def resolve_cell(cell: str) -> str:
+        value = cell.strip()
+        if value.isdigit():
+            return opened_ids[int(value) - 1]
+        return value
+
+    expected_ids: list[str] = []
+    if context.table.headings and context.table.headings[0].strip():
+        expected_ids.append(resolve_cell(context.table.headings[0]))
+    expected_ids.extend(resolve_cell(row.cells[0]) for row in context.table)
+    expected_ids = [turn_id for turn_id in expected_ids if turn_id]
+    response = context.api_client.get(
+        f"/users/{user_id}/turns",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    listed_ids = [turn["turn_id"] for turn in response.json()["turns"]]
+    assert listed_ids == sorted(expected_ids)
+    for turn_id in expected_ids:
+        payload = next(
+            turn for turn in response.json()["turns"] if turn["turn_id"] == turn_id
+        )
+        assert payload["tenant_id"] == tenant_id
+        assert payload["status"] == "active"
 
 
 @then('tenant "{tenant_id}" can read the household computer for user "{user_id}"')

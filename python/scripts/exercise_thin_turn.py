@@ -294,6 +294,17 @@ def main() -> int:
             )
             return 1
         print("channel_turn=1")
+        listed_turns = client.get(f"/users/{args.user_id}/turns")
+        listed_turn_ids = [
+            row.get("turn_id") for row in (listed_turns.json().get("turns") or [])
+        ]
+        if listed_turns.status_code != 200 or fence_turn_id not in listed_turn_ids:
+            print(
+                f"turns_list {listed_turns.status_code} {listed_turns.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("turns_list=1")
         claim_a = client.post(
             f"/turns/{fence_turn_id}/claim",
             json={"worker_id": "exercise-fence-a"},

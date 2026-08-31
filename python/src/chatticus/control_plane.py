@@ -446,6 +446,19 @@ class ControlPlane:
         owned = [channel for channel in channels if channel.tenant_id == tenant_id]
         return sorted(owned, key=lambda channel: channel.channel_id)
 
+    def list_active_turns(self, tenant_id: str, user_id: str) -> list[Turn]:
+        """Return in-flight turns for one household user.
+
+        Walks the user's channels and reads each durable active-turn
+        pointer. N+1 Dynamo reads are acceptable at household scale.
+        """
+        turns = []
+        for channel in self.list_channels(tenant_id, user_id):
+            turn = self.active_turn_for_channel(tenant_id, channel.channel_id)
+            if turn is not None and turn.tenant_id == tenant_id:
+                turns.append(turn)
+        return sorted(turns, key=lambda turn: turn.turn_id)
+
     def ensure_computer(
         self,
         tenant_id: str,

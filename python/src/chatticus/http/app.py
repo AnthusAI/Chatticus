@@ -209,6 +209,14 @@ def create_app(
         channels = state.plane.list_channels(tenant_id, user_id)
         return {"channels": [_channel_payload(channel) for channel in channels]}
 
+    @app.get("/users/{user_id}/turns")
+    def list_user_turns(
+        user_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        turns = state.plane.list_active_turns(tenant_id, user_id)
+        return {"turns": [_turn_payload(turn) for turn in turns]}
+
     @app.get("/users/{user_id}/computer")
     def get_user_computer(
         user_id: str,

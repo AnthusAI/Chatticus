@@ -13,9 +13,16 @@
     "demo"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "39189bf7-57e7-4ce8-a0c1-c7e8453c3ab5",
+      "author": "home",
+      "text": "Not starting the demo CLI here. exercise_thin_turn.py stays the pass/fail gate. Next HTTP that helps a CLI reconnect: GET /users/{user_id}/turns (list in-flight turns after Front Door recycle).",
+      "created_at": "2026-08-31T06:30:15.579559Z"
+    }
+  ],
   "created_at": "2026-08-31T06:07:24.315584Z",
-  "updated_at": "2026-08-31T06:07:24.315584Z",
+  "updated_at": "2026-08-31T06:30:15.579559Z",
   "closed_at": null,
   "custom": {}
 }
