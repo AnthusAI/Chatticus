@@ -252,6 +252,44 @@ def test_computerless_worker_commits_one_answer_with_fake_openai() -> None:
     api.close()
 
 
+def test_computerless_worker_waits_when_the_model_needs_the_browser() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    plane.set_computer_stopped("anthus", "ryan", True)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "research this and open the household browser",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    worker = ComputerlessWorker(
+        plane,
+        HttpTurnClient(api, channel.tenant_id),
+        FakeTextCompletionClient(),
+    )
+    worker.complete_pending_for_bot(bot.bot_id)
+    turn = plane.turn(channel.tenant_id, turn_id)
+    assert turn.status == TurnStatus.ACTIVE
+    assert turn.claimed_by_worker_id is None
+    events = plane.list_turn_events(channel.tenant_id, turn_id)
+    waiting = [event for event in events if event.kind == TurnEventKind.TURN_WAITING]
+    assert len(waiting) == 1
+    assert waiting[0].body == "browser"
+    messages = api.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    ).json()["messages"]
+    bot_messages = [m for m in messages if m["author_kind"] == ActorKind.BOT]
+    assert bot_messages == []
+    api.close()
+
+
 def test_completion_client_from_env_without_key_is_fake(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

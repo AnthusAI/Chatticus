@@ -48,10 +48,16 @@
       "author": "home",
       "text": "Cloud-environment epic 9eef23 closed. Development, staging, and production thin turns are deployed. Named-env exercise exits 0 on all three (claim 404/200/409 and SSE). Production remains gated, never implied by git. Phase 1 transport slice is live in three named environments; remaining Phase 1 work is whatever is still not on the worker HTTP loop (web app, product login, local pull worker are still out of scope). Next board item is not another environment: e747d7 cold Fargate readiness measurement, still not a Computers scale-up.",
       "created_at": "2026-08-31T00:28:30.889610Z"
+    },
+    {
+      "id": "7f56a2eb-7d20-4e6a-b66b-018fadbcbe37",
+      "author": "home",
+      "text": "Timer tick: exercise --environment development exit 0. waiting_stream_kinds turn.started/token/waiting; stale_waiting=409; greeting completed; computer_stopped=True. Worker waiting path is in progress on 1736b3 (Fake client only; no Fargate, no production deploy).",
+      "created_at": "2026-08-31T01:07:23.414071Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T00:28:30.889610Z",
+  "updated_at": "2026-08-31T01:07:23.414071Z",
   "closed_at": null,
   "custom": {}
 }

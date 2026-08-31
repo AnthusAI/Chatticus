@@ -8,7 +8,11 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
-from chatticus.worker.computerless import FakeTextCompletionClient, TextCompletionClient
+from chatticus.worker.computerless import (
+    CompletionOutcome,
+    FakeTextCompletionClient,
+    TextCompletionClient,
+)
 
 DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
 _OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
@@ -37,7 +41,7 @@ class OpenAITextCompletionClient:
         self.api_key = api_key
         self.model = model
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str) -> CompletionOutcome:
         """Return the model's text answer for a prompt."""
         response = httpx.post(
             _OPENAI_CHAT_URL,
@@ -59,7 +63,7 @@ class OpenAITextCompletionClient:
         stripped = text.strip()
         if not stripped:
             raise RuntimeError("OpenAI returned an empty completion.")
-        return stripped
+        return CompletionOutcome(text=stripped)
 
 
 def _api_key_from_ssm() -> str:

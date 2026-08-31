@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Protocol
 
 from chatticus.control_plane import ControlPlane
@@ -10,26 +11,42 @@ from chatticus.http.client import HttpTurnClient
 from chatticus.models import TurnJob, TurnStatus
 
 
+@dataclass(frozen=True)
+class CompletionOutcome:
+    """One model step: text to stream, and an optional readiness wait."""
+
+    text: str
+    wait_gate: str | None = None
+
+
 class TextCompletionClient(Protocol):
     """Minimal OpenAI-shaped client for one text completion."""
 
-    def complete(self, prompt: str) -> str:
-        """Return the model's text answer for a prompt."""
+    def complete(self, prompt: str) -> CompletionOutcome:
+        """Return the model's text answer and any capability wait."""
 
 
 class FakeTextCompletionClient:
     """Deterministic stand-in so CI never needs a live OpenAI key."""
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str) -> CompletionOutcome:
         """Echo a short answer derived from the last line of the prompt."""
         last_line = prompt.strip().splitlines()[-1] if prompt.strip() else ""
         lowered = last_line.lower()
+        user_text = last_line
         for prefix in ("human:", "user:", "bot:"):
             if lowered.startswith(prefix):
                 user_text = last_line.split(":", 1)[1].strip()
-                if user_text:
-                    return f"You said: {user_text}"
-        return "Hello"
+                lowered = user_text.lower()
+                break
+        if "open the household browser" in lowered:
+            return CompletionOutcome(
+                text="Here is a draft before I open the browser.",
+                wait_gate="browser",
+            )
+        if user_text:
+            return CompletionOutcome(text=f"You said: {user_text}")
+        return CompletionOutcome(text="Hello")
 
 
 class CountingTextCompletionClient:
@@ -39,7 +56,7 @@ class CountingTextCompletionClient:
         self.inner = inner or FakeTextCompletionClient()
         self.calls = 0
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str) -> CompletionOutcome:
         """Count one model call, then delegate."""
         self.calls += 1
         return self.inner.complete(prompt)
@@ -60,7 +77,7 @@ class SlowTextCompletionClient:
         self.advance_seconds = advance_seconds
         self.blocking_hook: Callable[[], None] | None = None
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str) -> CompletionOutcome:
         """Renew during the blocking window, then return the model answer."""
         if self.plane is not None and self.advance_seconds:
             mid = self.advance_seconds // 2
@@ -120,10 +137,18 @@ class ComputerlessWorker:
         if isinstance(client, SlowTextCompletionClient):
             client.blocking_hook = renew
         renew()
-        answer = client.complete(prompt)
-        midpoint = max(1, len(answer) // 2)
-        self.turn_client.post_chunk(job.turn_id, answer[:midpoint])
-        self.turn_client.post_chunk(job.turn_id, answer[midpoint:], complete=True)
+        outcome = client.complete(prompt)
+        if not outcome.text.strip() and outcome.wait_gate is None:
+            raise RuntimeError("Model returned an empty completion.")
+        if outcome.wait_gate is not None:
+            if outcome.text.strip():
+                self.turn_client.post_chunk(job.turn_id, outcome.text)
+            self.turn_client.post_waiting(job.turn_id, outcome.wait_gate)
+            self.plane.remove_pending_job(job.job_id)
+            return
+        midpoint = max(1, len(outcome.text) // 2)
+        self.turn_client.post_chunk(job.turn_id, outcome.text[:midpoint])
+        self.turn_client.post_chunk(job.turn_id, outcome.text[midpoint:], complete=True)
         self.plane.remove_pending_job(job.job_id)
 
     def _renew_lease(self, job: TurnJob) -> None:

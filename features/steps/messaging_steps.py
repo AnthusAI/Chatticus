@@ -22,6 +22,7 @@ from chatticus.models import (
 from chatticus.worker.computerless import (
     ComputerlessWorker,
     CountingTextCompletionClient,
+    FakeTextCompletionClient,
 )
 
 
@@ -313,8 +314,13 @@ def then_bot_completes_one_turn(context: object, name: str) -> None:
     channel = _channel(context)
     bot = context.bots_by_name[name]
     turn_client = HttpTurnClient(context.api_client, channel.tenant_id)
-    worker = ComputerlessWorker(context.plane, turn_client)
+    worker = ComputerlessWorker(context.plane, turn_client, FakeTextCompletionClient())
     worker.complete_pending_for_bot(bot.bot_id)
+
+
+@when('bot "{name}" runs one computerless worker turn')
+def when_bot_runs_computerless_worker(context: object, name: str) -> None:
+    then_bot_completes_one_turn(context, name)
 
 
 @then("the channel contains one durable bot answer")
@@ -408,6 +414,10 @@ def given_bot_producing_turn(context: object, name: str) -> None:
 
 
 @given(
+    'user "{user_id}" of tenant "{tenant_id}" is watching that turn '
+    "through server-sent events"
+)
+@when(
     'user "{user_id}" of tenant "{tenant_id}" is watching that turn '
     "through server-sent events"
 )

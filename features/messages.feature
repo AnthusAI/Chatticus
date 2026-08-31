@@ -61,6 +61,17 @@ Feature: Channels and the message store
     And the channel contains one durable bot answer
     And tenant "anthus" user "ryan" household computer remains stopped
 
+  Scenario: A computerless worker waits when the model needs the browser
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
+    And tenant "anthus" user "ryan" household computer is stopped
+    When user "ryan" of tenant "anthus" posts "research this and open the household browser" addressed to bot "Assistant" on the channel
+    And user "ryan" of tenant "anthus" is watching that turn through server-sent events
+    And bot "Assistant" runs one computerless worker turn
+    Then user "ryan" receives a waiting server-sent event naming browser
+    And the turn remains active
+    And tenant "anthus" user "ryan" household computer remains stopped
+
   Scenario: Reject a cross-tenant channel access attempt
     Given an empty control plane
     And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"

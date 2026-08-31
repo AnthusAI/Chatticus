@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-1736b363-8ff1-44e3-b39f-62f97c4cca8e",
+  "title": "Computerless worker posts turn.waiting when the model needs the computer",
+  "description": "Outcome: the computerless worker POSTs turn.waiting and leaves the turn active when the model requests a computer capability and the household computer is not ready. Text-only turns still complete. Named-env exercise greeting still exits 0. Not included: starting Fargate or executing browser tools.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "d6e8c583-848d-4017-bb82-bafe6b5d56a1",
+      "author": "home",
+      "text": "Computerless worker POSTs turn.waiting when CompletionOutcome.wait_gate is set. FakeTextCompletionClient does that for prompts containing open the household browser. OpenAI still returns text-only, so the live greeting exercise must still complete. Gherkin in messages.feature; pytest covers active turn, waiting event, no bot message.",
+      "created_at": "2026-08-31T01:07:23.400812Z"
+    }
+  ],
+  "created_at": "2026-08-31T01:04:30.320648Z",
+  "updated_at": "2026-08-31T01:07:23.400812Z",
+  "closed_at": null,
+  "custom": {}
+}
