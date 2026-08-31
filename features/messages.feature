@@ -47,6 +47,19 @@ Feature: Channels and the message store
     And user "ryan" of tenant "anthus" lists channel messages after seq 1
     Then the listing contains only the message with seq 2
 
+  Scenario: Channel history reconnects after a seq and a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has a bot named "Writer"
+    And tenant "anthus" user "ryan" has opened a channel with bots:
+      | Researcher |
+      | Writer     |
+    When user "ryan" of tenant "anthus" posts "research then draft" addressed to bot "Researcher" on the channel
+    And bot "Researcher" posts "notes are in /workspace/accounts.md" addressed to bot "Writer" on the channel
+    And a recycled Front Door serves the same messaging store
+    And user "ryan" of tenant "anthus" lists channel messages after seq 1
+    Then the listing contains only the message with seq 2
+
   Scenario: A file handoff is a path in chat and bytes on the computer
     Given an empty control plane
     And tenant "anthus" user "ryan" has a bot named "Researcher"
@@ -252,3 +265,12 @@ Feature: Channels and the message store
     Then tenant "anthus" can list active turns for user "ryan":
       | 1 |
       | 2 |
+
+  Scenario: A turn can be read by identifier after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can read the turn by identifier

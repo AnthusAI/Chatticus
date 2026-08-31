@@ -464,6 +464,26 @@ def then_read_active_channel_turn(context: object, tenant_id: str) -> None:
     assert payload["status"] == "active"
 
 
+@then('tenant "{tenant_id}" can read the turn by identifier')
+def then_read_turn_by_identifier(context: object, tenant_id: str) -> None:
+    expected_turn_id = _turn_id(context)
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/turns/{expected_turn_id}",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["turn_id"] == expected_turn_id
+    assert payload["channel_id"] == channel.channel_id
+    assert payload["status"] == "active"
+    missing = context.api_client.get(
+        f"/turns/{expected_turn_id}",
+        headers=tenant_headers("other"),
+    )
+    assert missing.status_code == 403
+
+
 @then('tenant "{tenant_id}" can read the waiting turn on the open channel as {gate}')
 def then_read_waiting_channel_turn(context: object, tenant_id: str, gate: str) -> None:
     channel = _channel(context)

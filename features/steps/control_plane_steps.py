@@ -551,6 +551,30 @@ def then_lookup_bot_by_name(
     assert payload["user_id"] == user_id
 
 
+@then(
+    'tenant "{tenant_id}" can read bot "{name}" by identifier '
+    'with memory "{key}" as "{value}"'
+)
+def then_read_bot_by_identifier(
+    context: object, tenant_id: str, name: str, key: str, value: str
+) -> None:
+    expected = context.bots_by_name[name]
+    response = context.api_client.get(
+        f"/bots/{expected.bot_id}",
+        headers={"X-Tenant-Id": tenant_id},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["bot_id"] == expected.bot_id
+    assert payload["name"] == name
+    assert (payload.get("memory") or {}).get(key) == value
+    missing = context.api_client.get(
+        f"/bots/{expected.bot_id}",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert missing.status_code == 404
+
+
 @then('tenant "{tenant_id}" can list bots for user "{user_id}":')
 def then_list_user_bots(context: object, tenant_id: str, user_id: str) -> None:
     expected_names: list[str] = []

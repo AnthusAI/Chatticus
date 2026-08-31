@@ -160,7 +160,10 @@ What each deployed thin-turn slice does today:
   named bots and channels from that roster. A recycled Front Door can also
   read the household computer id and stopped flag. A recycled Front Door
   can read the active turn on a channel without a remembered turn_id, and
-  list a user's in-flight turns the same way. Bot memory is
+  list a user's in-flight turns the same way. A recycled Front Door can
+  also read `GET /bots/{id}` (including memory), `GET /turns/{id}`,
+  channel history with `after=`, and the turn journal with `after=`.
+  Bot memory is
   stored on that roster item; a recycled Front Door hydrates the bot from
   Dynamo before writing memory. The computerless worker prompt is that
   memory plus the channel transcript. Another bot on the same computer
