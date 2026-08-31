@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `744dc8b` (no `--all`).
+from `develop` @ `4498c3c` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -82,8 +82,10 @@ exits 0 for **development**, **staging**, and **production**. Each run
 includes missing-turn claim **404** and a live second-worker claim **409**
 while the lease is held, plus SSE `turn.started` / `turn.token` /
 `turn.completed`. **Development** also proves `POST /turns/{id}/waiting`:
-SSE `turn.waiting` naming `browser`, then a stale fence **409**. Staging
-and production do not have that route yet.
+SSE `turn.waiting` naming `browser`, then a stale fence **409**. The same
+named exercise then asks luna to open the household browser; the worker
+emits `turn.waiting` instead of completing. Staging and production do
+not have that route yet.
 
 The **source** has named cloud environments, turn **claim**, **lease**,
 **fence**, durable channel lookup across Lambda invocations, a durable
