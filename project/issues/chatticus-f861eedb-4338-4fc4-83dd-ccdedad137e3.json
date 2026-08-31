@@ -3,7 +3,7 @@
   "title": "The cpu turn queue does not receive a computer continuation job",
   "description": "As a household member, I want computer-required continuations kept off the cpu SQS queue, so that a computerless worker is not invoked until a computer-capable worker exists.\n\nFeature: Computerless turn\n\nScenario: Resume does not publish a computer job to the cpu queue\n  Given an empty control plane with a cpu enqueue hook\n  And tenant anthus user ryan has a channel with a named bot Assistant\n  And tenant anthus user ryan household computer is stopped\n  When user ryan of tenant anthus posts a browser request addressed to Assistant\n  And a counting computerless worker processes bot Assistant\n  And tenant anthus user ryan household computer is running\n  And user ryan of tenant anthus resumes that waiting turn\n  Then the continuation job requires computer\n  And the cpu enqueue hook was not invoked for that job\n  And the turn remains active\n\nNot included: Fargate, a second SQS queue, staging or production.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "3202ade5-7f48-41ef-bab8-816e4c1ef90c",
+      "author": "home",
+      "text": "ThinTurn-only development deploy from develop @ e7d4ba1. Named exercise --environment development exits 0 (claim 404, second claim 409, mid-stream CloudFront reconnect, waiting, resume-while-stopped 409). Computer continuations are not published to the cpu SQS queue; computerless refuse remains defense in depth. Not staging, not production, not --all.",
+      "created_at": "2026-08-31T02:47:51.664927Z"
+    }
+  ],
   "created_at": "2026-08-31T02:42:53.750841Z",
-  "updated_at": "2026-08-31T02:43:18.639334Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T02:47:51.676Z",
+  "closed_at": "2026-08-31T02:47:51.676Z",
   "custom": {}
 }
