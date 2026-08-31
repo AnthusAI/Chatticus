@@ -33,6 +33,18 @@ export type TurnEvent = {
   body?: string;
 };
 
+export type Task = {
+  task_id: string;
+  tenant_id: string;
+  user_id: string;
+  title: string;
+  status: string;
+  evidence: string | null;
+  close_reason: string | null;
+  created_by_bot_id: string | null;
+  updated_by_bot_id: string | null;
+};
+
 function tenantHeaders(): HeadersInit {
   return { "X-Tenant-Id": tenantId };
 }
@@ -93,4 +105,20 @@ export async function postMessage(
     }),
   });
   return readJson<PostMessageResponse>(response);
+}
+
+export async function listTasks(userId: string): Promise<Task[]> {
+  const response = await fetch(
+    `${apiBase}/users/${encodeURIComponent(userId)}/tasks`,
+    { headers: tenantHeaders() },
+  );
+  const body = await readJson<{ tasks: Task[] }>(response);
+  return body.tasks;
+}
+
+export async function getTask(taskId: string): Promise<Task> {
+  const response = await fetch(`${apiBase}/tasks/${encodeURIComponent(taskId)}`, {
+    headers: tenantHeaders(),
+  });
+  return readJson<Task>(response);
 }

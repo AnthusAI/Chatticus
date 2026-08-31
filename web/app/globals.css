@@ -239,3 +239,68 @@ main {
   clip: rect(0, 0, 0, 0);
   border: 0;
 }
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.task {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #2a3441;
+  border-radius: 0.5rem;
+  background: #10161f;
+  color: inherit;
+  padding: 0.75rem;
+  cursor: pointer;
+}
+
+.task:hover,
+.task.selected {
+  border-color: #4c7fe0;
+  background: #172033;
+}
+
+.task-title {
+  display: block;
+  font-weight: 600;
+}
+
+.task-meta {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #9aa8ba;
+  text-transform: capitalize;
+}
+
+.task-detail {
+  margin-top: 1rem;
+  border-top: 1px solid #2a3441;
+  padding-top: 1rem;
+}
+
+.task-detail h3 {
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+
+.task-detail-fields {
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.task-detail-fields dt {
+  font-size: 0.75rem;
+  color: #9aa8ba;
+  margin-bottom: 0.15rem;
+}
+
+.task-detail-fields dd {
+  margin: 0;
+}

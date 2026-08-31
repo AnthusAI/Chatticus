@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BotRoster } from "../components/BotRoster";
 import { ChatPanel } from "../components/ChatPanel";
+import { TaskList } from "../components/TaskList";
 import {
   avatarActivityFromTurn,
   botAvatarAriaLabel,
@@ -234,6 +235,10 @@ export default function HomePage() {
           }}
         />
       </div>
+
+      <section className="card">
+        <TaskList userId={userId} />
+      </section>
     </main>
   );
 }
