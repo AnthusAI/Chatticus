@@ -55,10 +55,16 @@
       "author": "home",
       "text": "555ba5 landed on develop: kernel ComputerWorker pulls computer continuation jobs, claims the same turn, executes only unresolved tool.call action ids from the 538d28 journal, commits tool.result, and expires orphaned computer leases on pull (no scheduler). Gherkin: computer_continuation_worker.feature. Remaining 8f98f8 DoD: live Fargate computer worker + Chromium on ComputerTurnJobs; resume path still waiting on turn after queue receive (no worker deployed).",
       "created_at": "2026-08-31T08:21:28.974256Z"
+    },
+    {
+      "id": "e09dd069-036b-4c92-90e9-c8a5d15dbf70",
+      "author": "home",
+      "text": "d7ae55 closed: ComputerWorker no longer fakes browser_open — pull without host executor leaves ComputerTurnJobs queued. Chromium added to computer/Dockerfile (not deployed). Remaining DoD: live Fargate computer worker on ComputerTurnJobs with real executor.",
+      "created_at": "2026-08-31T08:38:31.649391Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T08:21:28.974256Z",
+  "updated_at": "2026-08-31T08:38:31.649391Z",
   "closed_at": null,
   "custom": {}
 }
