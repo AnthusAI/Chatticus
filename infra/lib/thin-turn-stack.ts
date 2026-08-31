@@ -407,9 +407,8 @@ export class ThinTurnStack extends cdk.Stack {
         {
           StringEquals: {
             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          },
-          StringLike: {
-            "token.actions.githubusercontent.com:sub": "repo:AnthusAI/Chattic.us:*",
+            "token.actions.githubusercontent.com:repository": "AnthusAI/Chattic.us",
+            "token.actions.githubusercontent.com:workflow": "Acceptance",
           },
         },
       ),
