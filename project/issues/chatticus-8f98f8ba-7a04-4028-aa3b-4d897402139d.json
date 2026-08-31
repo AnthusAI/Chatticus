@@ -73,10 +73,16 @@
       "author": "home",
       "text": "dfec90 landed this tick: development ThinTurn ComputerWorker now calls EcsHostStarter via env/IAM (ecs:RunTask, desiredCount still 0). PR cursor/ecs-host-starter-thinturn-4a21. Remaining DoD: live Chromium executor completes tool.result on summoned Fargate host; readiness gate after RunTask.",
       "created_at": "2026-08-31T11:40:04.676888Z"
+    },
+    {
+      "id": "f4039946-877a-4804-8439-7b49e4b2c24b",
+      "author": "home",
+      "text": "Cycle tick: development ComputerWorker env is CHATTICUS_HOST_STARTER=ecs (ThinTurn-only update 2026-08-31T11:38:09Z). ChatticusComputers desiredCount still 0. Named exercise still in_flight_nack. README What is live today updated on this branch so it no longer claims a no-op HostStarter. Remaining: Chromium executor + readiness on the summoned task. Do not merge to main as parking; PR 31 is the develop landing.\n",
+      "created_at": "2026-08-31T11:43:59.569467Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T11:40:04.676888Z",
+  "updated_at": "2026-08-31T11:43:59.569467Z",
   "closed_at": null,
   "custom": {}
 }
