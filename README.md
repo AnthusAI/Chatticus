@@ -65,8 +65,8 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 ## What is live today
 
 **2026-08-31:** `ChatticusDns`, all three `ChatticusWeb*` stacks, and matching
-`ChatticusThinTurn*` stacks are deployed in account `335163751677`
-(`us-east-1`). Same-origin HTTPS is live at `dev.chattic.us`,
+`ChatticusThinTurn*` stacks are deployed in `us-east-1`. Same-origin HTTPS is
+live at `dev.chattic.us`,
 `staging.chattic.us`, `chattic.us`, and `www.chattic.us`. SSM
 `/chatticus/{environment}/thin-turn/cloudfront-url` is
 `https://{hostname}/api` for each environment. A development run of
