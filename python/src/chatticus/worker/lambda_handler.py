@@ -19,6 +19,7 @@ from chatticus.worker.computer import ComputerWorker
 from chatticus.worker.computerless import ComputerlessWorker
 
 logger = logging.getLogger("chatticus.worker")
+logging.getLogger().setLevel(logging.INFO)
 
 _DEFAULT_VISIBILITY_SECONDS = 180
 

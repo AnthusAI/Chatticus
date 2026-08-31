@@ -67,7 +67,7 @@ class EcsHostStarter:
             import boto3
 
             ecs = boto3.client("ecs")
-        ecs.run_task(
+        response = ecs.run_task(
             cluster=self._cluster,
             taskDefinition=self._task_definition,
             launchType="FARGATE",
@@ -88,6 +88,12 @@ class EcsHostStarter:
             ],
             **self._run_task_overrides(claim),
         )
+        failures = (response or {}).get("failures") or []
+        tasks = (response or {}).get("tasks") or []
+        if failures or not tasks:
+            raise RuntimeError(
+                f"ecs.run_task returned no tasks failures={failures!r}"
+            )
 
     def _run_task_overrides(self, claim: HostStartClaim) -> dict[str, Any]:
         command = os.environ.get("CHATTICUS_ECS_HOST_COMMAND", "").strip()

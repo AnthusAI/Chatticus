@@ -269,6 +269,8 @@ def test_computer_worker_nacks_when_host_starter_fails() -> None:
     )
     with pytest.raises(ComputerWorkerHostNotReady, match="host start failed"):
         worker.run_job(setup.continuation_job)
+    with pytest.raises(ComputerWorkerHostNotReady, match="host start failed"):
+        worker.run_job(setup.continuation_job)
     api.close()
 
 

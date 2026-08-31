@@ -14,8 +14,9 @@ class _FakeEcs:
     def __init__(self) -> None:
         self.kwargs: dict[str, object] | None = None
 
-    def run_task(self, **kwargs: object) -> None:
+    def run_task(self, **kwargs: object) -> dict[str, object]:
         self.kwargs = kwargs
+        return {"tasks": [{"taskArn": "arn:ecs:task/gherkin"}], "failures": []}
 
 
 @given("CHATTICUS_ECS_HOST_COMMAND is the computer host worker module")

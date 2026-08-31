@@ -1270,6 +1270,21 @@ class ControlPlane:
             )
         return won
 
+    def release_host_start_dispatch(
+        self,
+        tenant_id: str,
+        user_id: str,
+        generation: int,
+    ) -> None:
+        """Undo a dispatch claim so a failed RunTask can be retried."""
+        self._messaging_store.release_host_start_dispatch(
+            tenant_id, user_id, generation
+        )
+        computer = self.computer_for_user(tenant_id, user_id)
+        if computer.host_start_dispatched_generation == generation:
+            computer.host_start_dispatched_generation = max(generation - 1, 0)
+            self._messaging_store.put_computer(computer)
+
     def host_start_claim(self, tenant_id: str, user_id: str) -> HostStartClaim:
         """Return the current host-start claim for a user's computer."""
         computer = self.computer_for_user(tenant_id, user_id)

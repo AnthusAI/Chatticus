@@ -30,23 +30,9 @@ function contextCsv(scope: Construct, key: string): string[] {
     .filter((part) => part.length > 0);
 }
 
-/**
- * Development-only ECS host start wiring from CDK context.
- *
- * Pass ``-c computerHostStart=ecs`` plus cluster/task/network/role values at
- * deploy time. Staging and production stay on the no-op starter.
- */
-export function computerHostStartEcsConfig(
+function configFromContext(
   scope: Construct,
-  environmentName: ChatticusCloudEnvironment,
 ): ComputerHostStartEcsConfig | undefined {
-  if (environmentName !== "development") {
-    return undefined;
-  }
-  if (contextString(scope, "computerHostStart") !== "ecs") {
-    return undefined;
-  }
-
   const cluster = contextString(scope, "computerEcsCluster");
   const taskDefinition = contextString(scope, "computerEcsTaskDefinition");
   const subnets = contextCsv(scope, "computerEcsSubnets");
@@ -61,7 +47,6 @@ export function computerHostStartEcsConfig(
   ) {
     return undefined;
   }
-
   return {
     cluster,
     taskDefinition,
@@ -70,6 +55,134 @@ export function computerHostStartEcsConfig(
     executionRoleArn,
     taskRoleArn,
   };
+}
+
+function awsJson(args: string[]): unknown {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { execFileSync } = require("child_process") as typeof import("child_process");
+  const raw = execFileSync("aws", args, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return JSON.parse(raw);
+}
+
+/**
+ * Read ChatticusComputers outputs and the Fargate service network at synth
+ * time so ``cdk deploy ChatticusWeb`` cannot restack ThinTurn onto the no-op
+ * starter. Does not deploy Computers. Staging and production stay no-op.
+ */
+function lookupComputersHostStart(
+  scope: Construct,
+): ComputerHostStartEcsConfig | undefined {
+  const region =
+    cdk.Stack.of(scope).region ||
+    process.env.AWS_DEFAULT_REGION ||
+    process.env.AWS_REGION ||
+    "us-east-1";
+  try {
+    const stack = awsJson([
+      "cloudformation",
+      "describe-stacks",
+      "--stack-name",
+      "ChatticusComputers",
+      "--region",
+      region,
+      "--output",
+      "json",
+    ]) as {
+      Stacks?: Array<{
+        Outputs?: Array<{ OutputKey?: string; OutputValue?: string }>;
+      }>;
+    };
+    const outputs: Record<string, string> = {};
+    for (const output of stack.Stacks?.[0]?.Outputs || []) {
+      if (output.OutputKey && output.OutputValue) {
+        outputs[output.OutputKey] = output.OutputValue;
+      }
+    }
+    const cluster = outputs.ComputerClusterName;
+    const taskDefinition = outputs.ComputerTaskDefinitionArn;
+    const service = outputs.ComputerServiceName;
+    if (!cluster || !taskDefinition || !service) {
+      return undefined;
+    }
+    const described = awsJson([
+      "ecs",
+      "describe-services",
+      "--cluster",
+      cluster,
+      "--services",
+      service,
+      "--region",
+      region,
+      "--output",
+      "json",
+    ]) as {
+      services?: Array<{
+        networkConfiguration?: {
+          awsvpcConfiguration?: {
+            subnets?: string[];
+            securityGroups?: string[];
+          };
+        };
+      }>;
+    };
+    const network =
+      described.services?.[0]?.networkConfiguration?.awsvpcConfiguration;
+    const subnets = network?.subnets || [];
+    const securityGroups = network?.securityGroups || [];
+    const roles = awsJson([
+      "ecs",
+      "describe-task-definition",
+      "--task-definition",
+      taskDefinition,
+      "--region",
+      region,
+      "--query",
+      "{executionRoleArn:taskDefinition.executionRoleArn,taskRoleArn:taskDefinition.taskRoleArn}",
+      "--output",
+      "json",
+    ]) as { executionRoleArn?: string; taskRoleArn?: string };
+    if (
+      subnets.length === 0 ||
+      !roles.executionRoleArn ||
+      !roles.taskRoleArn
+    ) {
+      return undefined;
+    }
+    return {
+      cluster,
+      taskDefinition,
+      subnets,
+      securityGroups,
+      executionRoleArn: roles.executionRoleArn,
+      taskRoleArn: roles.taskRoleArn,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Development-only ECS host start wiring.
+ *
+ * Prefer explicit ``-c computerHostStart=ecs`` plus cluster/task/network/role
+ * values. If those are omitted, look up the live ChatticusComputers stack so a
+ * later ChatticusWeb deploy (which restacks ThinTurn) cannot drop RunTask.
+ * Pass ``-c computerHostStart=noop`` to force the no-op starter.
+ */
+export function computerHostStartEcsConfig(
+  scope: Construct,
+  environmentName: ChatticusCloudEnvironment,
+): ComputerHostStartEcsConfig | undefined {
+  if (environmentName !== "development") {
+    return undefined;
+  }
+  if (contextString(scope, "computerHostStart") === "noop") {
+    return undefined;
+  }
+  return configFromContext(scope) || lookupComputersHostStart(scope);
 }
 
 export function wireComputerWorkerEcsHostStart(
@@ -85,11 +198,11 @@ export function wireComputerWorkerEcsHostStart(
     CHATTICUS_ECS_TASK_DEFINITION: config.taskDefinition,
     CHATTICUS_ECS_SUBNETS: config.subnets.join(","),
     CHATTICUS_ECS_CONTAINER_NAME: "computer",
+    CHATTICUS_ECS_HOST_COMMAND: "python -m chatticus.computer_host_worker",
   };
-    if (contextString(stack, "computerHostCommand") === "host-worker") {
-      environment.CHATTICUS_ECS_HOST_COMMAND =
-        "python -m chatticus.computer_host_worker";
-    }
+  if (contextString(stack, "computerHostCommand") === "default") {
+    delete environment.CHATTICUS_ECS_HOST_COMMAND;
+  }
   if (config.securityGroups.length > 0) {
     environment.CHATTICUS_ECS_SECURITY_GROUPS = config.securityGroups.join(",");
   }

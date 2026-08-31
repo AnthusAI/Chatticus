@@ -747,6 +747,11 @@ def test_dynamo_host_start_dispatch_is_claimed_once() -> None:
     assert first is True
     assert second is False
     assert third is False
+    plane.release_host_start_dispatch("anthus", "ryan", computer.host_start_generation)
+    fourth = plane.mark_host_start_dispatched(
+        "anthus", "ryan", computer.host_start_generation
+    )
+    assert fourth is True
 
 
 @mock_aws

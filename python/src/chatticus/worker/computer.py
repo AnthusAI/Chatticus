@@ -73,6 +73,9 @@ class ComputerWorker:
         try:
             self.host_starter.start_host(claim)
         except Exception as exc:
+            self.plane.release_host_start_dispatch(
+                tenant_id, user_id, computer.host_start_generation
+            )
             raise ComputerWorkerHostNotReady(
                 f"Turn {turn_id!r} host start failed: {exc}."
             ) from exc

@@ -30,6 +30,9 @@ def test_computer_worker_ecs_host_start_may_tag_tasks() -> None:
     assert "computerHostCommand" in text
     assert "CHATTICUS_ECS_HOST_COMMAND" in text
     assert "python -m chatticus.computer_host_worker" in text
+    assert "lookupComputersHostStart" in text
+    assert "ChatticusComputers" in text
+    assert "computerHostStart=noop" in text
 
 
 def test_development_thinturn_deploy_script_enables_host_command() -> None:

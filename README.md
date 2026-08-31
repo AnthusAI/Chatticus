@@ -70,31 +70,37 @@ thin-turn environments are live in AWS account `335163751677`
 (`us-east-1`). Production is never implied by a git branch. Staging and
 production were last recorded as deployed from `760915d` (v0.5.0).
 
-Development **ChatticusThinTurn** was last updated ThinTurn-only (no
-`--all`) at **2026-08-31T13:39:35Z**. That pin sets
-`CHATTICUS_HOST_STARTER=ecs`, `CHATTICUS_ECS_HOST_COMMAND=python -m chatticus.computer_host_worker`,
-`CHATTICUS_FRONT_DOOR_URL` to the Lambda function URL, plus `ecs:RunTask`,
-`ecs:TagResource`, `iam:PassRole`, and durable
-`host_start_dispatched_generation` before `RunTask`. **ChatticusComputers**
+Development **ChatticusThinTurn** last **ThinTurn-only** pin with ECS
+host-start env was **2026-08-31T14:16:49Z**. **ChatticusWeb** then
+restacked ThinTurn at **2026-08-31T14:18:50Z** (Web
+`LastUpdatedTime` **2026-08-31T14:19:48Z**) without Computers lookup
+context, which deleted `ImportedComputerHostTaskRolePolicy`, dropped
+`ecs:RunTask` / `ecs:TagResource` / `iam:PassRole` for ComputerWorker,
+and removed `CHATTICUS_HOST_STARTER` from the live Lambda. After that
+wipe, ComputerWorker env has no host-start keys. **ChatticusComputers**
 was not redeployed (`desiredCount` remains 0). ECR `:dev` was pushed
 `sha256:fdebcf6843547e191e4083d7f3e02f9fbdc7a426f256b54030cbb7a361196914`
-without a Computers stack deploy. **ChatticusWeb** was created
-2026-08-31 (distribution `d3gds8al0gg3jl.cloudfront.net`);
-`dev.chattic.us` does not resolve yet. The previous development thin-turn
-CloudFront origin (`d3gpuuldffe35o.cloudfront.net`) is gone because this
-stack no longer owns CloudFront. GitHub Actions must not hit live AWS.
+without a Computers stack deploy. **ChatticusWeb** distribution
+`d3gds8al0gg3jl.cloudfront.net`; `dev.chattic.us` does not resolve yet.
+The previous development thin-turn CloudFront origin
+(`d3gpuuldffe35o.cloudfront.net`) is gone. GitHub Actions must not hit
+live AWS. This branch makes development ThinTurn synth look up the live
+ChatticusComputers stack so a Web restack cannot drop RunTask.
 
 A Function-URL run of `exercise_thin_turn.py --environment development`
-on 2026-08-31 exited 0 with `health_environment=1`, `missing_claim=404`,
-`claim_a=200` then `claim_b=409`, `host_start_generation=25` after resume,
-and `computer_queue_job=in_flight_nack`. The named exercise loads the
-invoke key from Secrets Manager when the origin is the function URL.
-SSE through the function URL needs a long HTTP timeout; CloudFront
-`/api/*` is the public path and does not match exercise routes that
-start with `/turns`. The worker does not fake `tool.result`. Remaining
-8f98f8: a summoned host that actually completes the browser tool on the
-same turn (live still nacks). A demo CLI (Kanbus epic 35d86b) is starting; it talks to this HTTP
-surface. `exercise_thin_turn.py` stays the pass/fail gate.
+on 2026-08-31 (after the Web wipe) exited 0 with `health_environment=1`,
+`missing_claim=404`, `claim_a=200` then `claim_b=409`,
+`host_start_generation=1` after resume, and
+`computer_queue_job=in_flight_nack`. No new Fargate task appeared;
+`host_start_generation` incremented on the no-op starter. The named
+exercise loads the invoke key from Secrets Manager when the origin is
+the function URL. SSE through the function URL needs a long HTTP
+timeout; CloudFront `/api/*` is the public path and does not match
+exercise routes that start with `/turns`. The worker does not fake
+`tool.result`. Remaining 8f98f8: a summoned host that actually completes
+the browser tool on the same turn (live still nacks). A demo CLI
+(Kanbus epic 35d86b) is starting; it talks to this HTTP surface.
+`exercise_thin_turn.py` stays the pass/fail gate.
 
 | Environment | Web stack | Site | API base (same origin) |
 | --- | --- | --- | --- |
@@ -113,7 +119,8 @@ back to those published API bases (b4c3d2). SQS queue checks still need
 `cd python && sh scripts/live_aws_thin_turn.sh development` (same gate as
 `python scripts/exercise_thin_turn.py --environment development`) is the
 named-environment command re-proven on 2026-08-31 (claim **200** then
-**409**, `host_start_generation=1`, in-flight nack). Staging and
+**409**, `host_start_generation=1`, in-flight nack after ChatticusWeb
+wiped ComputerWorker RunTask). Staging and
 production last recorded a passing named exercise on the v0.5.0 pin;
 they were not re-proven on this pass. A development run includes
 missing-turn claim **404** and a live second-worker claim **409**
