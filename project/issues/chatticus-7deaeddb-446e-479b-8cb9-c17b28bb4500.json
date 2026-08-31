@@ -3,7 +3,7 @@
   "title": "Implement thin Task item kernel",
   "description": "Gherkin + Python kernel for v1 Task item in Chatticus DynamoDB: status, evidence, close reason, bot provenance. Structured task tool at first readiness gate without computer. No Kanbus HTTP or table sharing.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,17 @@
       "author": "agent@example.com",
       "text": "Wired thin Task into ThinTurn HTTP (POST /bots/{bot_id}/tasks/tool) and computerless worker tool list. Worker invokes task tool via HTTP with tenant isolation. Stacked PR on #46. Kernel-only before: invoke_task_tool direct; now live: HTTP endpoint + worker model tool path. No Kanbus.",
       "created_at": "2026-08-31T18:29:59.338727Z"
+    },
+    {
+      "id": "3e76f915-6dd4-47f7-b21c-d40bcf88f5f4",
+      "author": "agent@example.com",
+      "text": "Kernel and HTTP wiring are on develop (#46, #47, #48). Closing this implementation task.",
+      "created_at": "2026-08-31T20:07:05.021386Z"
     }
   ],
   "created_at": "2026-08-31T18:18:35.049245Z",
-  "updated_at": "2026-08-31T18:29:59.338727Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T20:07:05.021386Z",
+  "closed_at": "2026-08-31T20:07:05.011290Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
