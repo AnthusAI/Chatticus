@@ -228,10 +228,16 @@
       "author": "home",
       "text": "Acceptance tick 2026-08-31T08:35Z:\n\nexit=0\npin=018948c\ndevelop=f18bf07\n\nKey lines:\nhealth_environment=1 missing_claim=404 claim_a=200 claim_b=409\ncomputer_queue_job=computer computer_queue_turn_still_waiting=browser\nfence_turn_id=e6a8cce1-e01a-488d-b1ab-9ca4652bece8\ntenant_id=anthus channel_id=288fcf0e-5a8e-4ecb-95c2-c64f9be25d7c turn_id=90f19528-d976-4745-90df-b5428a741405\n\nStanding: 387e4f Safari unmeasured; ComputerTurnJobs still has no attached worker; no staging/prod.",
       "created_at": "2026-08-31T08:34:59.840149Z"
+    },
+    {
+      "id": "38caf370-295a-4746-b540-0906bc5ec6ea",
+      "author": "home",
+      "text": "ThinTurn development @ 19070b1 (no --all). Exercise exit 0: health_environment=1 missing_claim=404 claim_a=200 claim_b=409 computer_queue_job=in_flight_nack. Staging/prod unchanged.",
+      "created_at": "2026-08-31T08:50:59.692696Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T08:35:22.266001Z",
+  "updated_at": "2026-08-31T08:50:59.692696Z",
   "closed_at": null,
   "custom": {}
 }

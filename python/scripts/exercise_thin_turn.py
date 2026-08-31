@@ -883,14 +883,23 @@ def main() -> int:
                 turn_id=browser_turn_id,
                 wait_seconds=20,
             )
+            still_waiting = client.get(f"/turns/{browser_turn_id}")
+            waiting_for = still_waiting.json().get("waiting_for")
             if computer_body is None:
-                print("computer_queue delivered no matching message", file=sys.stderr)
-                client.post(
-                    "/computers/stopped",
-                    json={"user_id": args.user_id, "stopped": True},
-                )
-                return 1
-            print("computer_queue_job=computer")
+                if waiting_for != "browser":
+                    print(
+                        "computer_queue delivered no matching message "
+                        f"waiting_for={waiting_for!r}",
+                        file=sys.stderr,
+                    )
+                    client.post(
+                        "/computers/stopped",
+                        json={"user_id": args.user_id, "stopped": True},
+                    )
+                    return 1
+                print("computer_queue_job=in_flight_nack")
+            else:
+                print("computer_queue_job=computer")
             cpu_message = _sqs_receive_one(cpu_queue, wait_seconds=2)
             if cpu_message is not None:
                 cpu_body = json.loads(cpu_message["Body"])

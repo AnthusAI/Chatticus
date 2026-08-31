@@ -71,10 +71,10 @@ deploy of a release that already passed staging acceptance. Git promotion
 does not redeploy stacks. Staging and production were last recorded as
 deployed from `origin/main` @ `760915d` (v0.5.0); they have not been
 redeployed from v0.6.0 here. Development was last redeployed ThinTurn-only
-from `develop` @ `018948c` (no `--all`). That pin ships the Front Door
-bundle that includes typed journal handoff (538d28) and the
-computer-capable pull worker module (555ba5); `ComputerTurnJobs` still
-has no SQS worker attached. `develop` is ahead of `main`
+from `develop` @ `19070b1` (no `--all`). That pin attaches a
+`ComputerWorker` Lambda to `ComputerTurnJobs` that nacks without a host
+(`computer_queue_job=in_flight_nack`) and does not fake `tool.result`.
+`develop` is ahead of `main`
 (channels list, household computer read, channel active-turn read,
 waiting-turn read, user active-turn list, named `GET /health`
 environment, recycle Gherkin for history/journal/turn-by-id/bot-by-id,
@@ -215,9 +215,8 @@ Cloud-environment epic 9eef23 is closed: three named stacks, named-env
 acceptance on each. Turn recovery epic 653989 is closed. Cold Fargate
 readiness (e747d7, Test 2) is measured for the current image: tens of
 seconds to RUNNING; Chromium still missing. Remaining for summoning a
-computer (8f98f8): attach a live Fargate computer worker with Chromium;
-the kernel computer-capable pull worker (journal continuation from
-538d28) is on `develop` but not deployed. Structured handoff (538d28) is
+computer (8f98f8): a live Fargate Chromium executor; development
+ThinTurn already nacks ComputerTurnJobs without a host. Structured handoff (538d28) is
 kernel-only on `develop` — model.request, tool.call, tool.result, and
 attempt claim/relinquish are durable typed journal events; continuation
 executes only unresolved action ids; failure injection covers handoff

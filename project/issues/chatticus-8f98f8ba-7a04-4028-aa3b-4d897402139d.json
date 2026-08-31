@@ -61,10 +61,16 @@
       "author": "home",
       "text": "d7ae55 closed: ComputerWorker no longer fakes browser_open — pull without host executor leaves ComputerTurnJobs queued. Chromium added to computer/Dockerfile (not deployed). Remaining DoD: live Fargate computer worker on ComputerTurnJobs with real executor.",
       "created_at": "2026-08-31T08:38:31.649391Z"
+    },
+    {
+      "id": "9f4bbe9c-864a-43f3-ac7f-1a39cd76d292",
+      "author": "home",
+      "text": "6f702c live: ComputerTurnJobs has a nack worker without a host. Remaining epic DoD: Chromium-backed executor on Fargate, not a standing desiredCount, not a fake opened.",
+      "created_at": "2026-08-31T08:50:59.683527Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T08:38:31.649391Z",
+  "updated_at": "2026-08-31T08:50:59.683527Z",
   "closed_at": null,
   "custom": {}
 }
