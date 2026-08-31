@@ -3,7 +3,7 @@
   "title": "A computerless worker does not ack a computer continuation job",
   "description": "As a household member, I want a cpu-only worker to refuse a computer-required continuation, so that the pending tool is not deleted from the queue before a computer-capable worker exists.\n\nFeature: Computerless turn\n\nScenario: A computerless worker does not take a computer continuation job\n  Given an empty control plane\n  And tenant anthus user ryan has a channel with a named bot Assistant\n  And tenant anthus user ryan household computer is stopped\n  When user ryan posts a browser request addressed to Assistant\n  And a counting computerless worker processes bot Assistant\n  And tenant anthus user ryan household computer is running\n  And user ryan of tenant anthus resumes that waiting turn\n  And a computerless worker is given the continuation job\n  Then the computerless worker refuses the computer job\n  And the continuation job remains queued\n  And only one worker begins the model attempt\n  And the turn remains active\n\nNot included: Fargate, executing the browser tool, staging or production.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "034d823f-88d6-4034-a282-af97a9d98a74",
+      "author": "home",
+      "text": "Kernel and Gherkin: computerless run_job raises ComputerlessCannotExecuteComputerJob before waiting skip, so a computer continuation stays queued. ThinTurn-only development deploy from develop @ d99b028. Named exercise_thin_turn.py --environment development exits 0 (claim 404, second claim 409, waiting, resume-while-stopped 409). Did not live-resume while the computer is running: that would enqueue a computer job the cpu worker must nack until a computer-capable worker exists. Not staging, not production, not --all.",
+      "created_at": "2026-08-31T02:30:21.499906Z"
+    }
+  ],
   "created_at": "2026-08-31T02:20:04.356077Z",
-  "updated_at": "2026-08-31T02:23:02.440545Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T02:30:21.512429Z",
+  "closed_at": "2026-08-31T02:30:21.512429Z",
   "custom": {}
 }

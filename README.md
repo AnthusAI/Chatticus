@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `76c6adb` (no `--all`).
+from `develop` @ `d99b028` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -121,7 +121,9 @@ What each deployed thin-turn slice does today:
   `turn.waiting`, records `waiting_for` and the pending computer tool on
   the turn and in the durable journal event, and leaves the turn active instead of claiming the browser
   work is done. A later computerless delivery of that same turn does not
-  claim it or call the model again. Resume of that
+  claim it or call the model again. A computer continuation job (resume
+  while the computer is marked running) is refused without ack, so SQS
+  does not drop the pending tool. Resume of that
   same turn is refused while the computer is stopped. EventBridge deadline
   recovery does not fail a turn that is legitimately waiting on a gate.
 - Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
@@ -147,7 +149,8 @@ summoning a computer (8f98f8): cold readiness measurement (e747d7) — not
 a Fargate scale-up this cycle. Waiting-turn resume while the computer is
 stopped (66d3c4), waiting-turn gate read over HTTP (dfa7a9), pending
 computer tool on the waiting turn (96c0e8), waiting journal snapshot
-(d04942), and computerless skip of a waiting turn (86c75d) are live on
+(d04942), computerless skip of a waiting turn (86c75d), and computerless
+refuse of a computer continuation (0b30dc) are live on
 development. Overnight gated-action
 (5b687a), immutable approval binding (2b293d), unbound browser stops
 (813d8d), computer-seam recovery (b41106), capability-gated readiness
