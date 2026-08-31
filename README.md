@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `ba3465e` (no `--all`).
+from `develop` @ `4a6a5e0` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -84,7 +84,9 @@ while the lease is held (`claim_a=200` then `claim_b=409` on development,
 because the fence probe starts the turn with `enqueue_turn=false` so the
 computerless worker does not race the claim), plus a live idempotent
 channel post (`post_idempotent=1`: two `POST /channels/{id}/messages` with
-the same `Idempotency-Key` produce one row), plus a live bot-memory
+the same `Idempotency-Key` produce one row), a duplicate bot create
+(`bot_name_dup=1`: a second `POST /bots` with the same name returns
+**400**), plus a live bot-memory
 roundtrip (`POST /bots/{id}/memory` then `GET /bots/{id}`), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
