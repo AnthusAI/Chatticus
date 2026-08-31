@@ -71,14 +71,16 @@ thin-turn environments are live in AWS account `335163751677`
 production were last recorded as deployed from `760915d` (v0.5.0).
 
 Development **ChatticusThinTurn** was last updated ThinTurn-only (no
-`--all`) at **2026-08-31T12:02:11Z**. That pin sets
+`--all`) at **2026-08-31T12:27:42Z**. That pin sets
 `CHATTICUS_HOST_STARTER=ecs`, grants `ecs:RunTask`, `ecs:TagResource`, and
-`iam:PassRole`, and claims one durable `host_start_dispatched_generation`
-before `RunTask` (dfec90, 45a162, b6627b). A live named exercise
-`RunTask`s one sleep-infinity host (not a stampede); that task is stopped
-after the proof. **ChatticusComputers** was not redeployed (`desiredCount`
-remains 0; last stack update 2026-08-30T08:53:08Z). The worker still
-nacks `ComputerWorkerHostNotReady` until capability readiness is true and
+`iam:PassRole`, claims one durable `host_start_dispatched_generation`
+before `RunTask` (dfec90, 45a162, b6627b), and grants the imported
+Computers task role SQS consume plus Dynamo (4bca15). CDK deploy uses
+`tsx` so Node 26 agents can synth. A live named exercise `RunTask`s one
+sleep-infinity host (not a stampede); that task is stopped after the
+proof. **ChatticusComputers** was not redeployed (`desiredCount` remains
+0; last stack update 2026-08-30T08:53:08Z). The worker still nacks
+`ComputerWorkerHostNotReady` until capability readiness is true and
 does not fake `tool.result`. GitHub Actions must not hit live AWS.
 
 A CloudFront run of `cd python && sh scripts/live_aws_thin_turn.sh
