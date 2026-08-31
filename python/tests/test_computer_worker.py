@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from chatticus.computer_capabilities import BROWSER_CAPABILITY
 from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
@@ -34,6 +35,7 @@ def test_computer_worker_executes_unresolved_tool_call_from_journal() -> None:
     ComputerWorker(
         plane,
         HttpTurnClient(api, setup.tenant_id),
+        action_executor=FakeComputerActionExecutor(),
     ).run_job(setup.continuation_job)
     record = plane.escalation_for(setup.tenant_id, setup.turn_id)
     assert record.executed_action_id == setup.pending_action_id
@@ -49,6 +51,24 @@ def test_computer_worker_executes_unresolved_tool_call_from_journal() -> None:
         and event.action_id == setup.pending_action_id
         for event in events
     )
+    api.close()
+
+
+def test_computer_worker_leaves_job_queued_without_host_executor() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+    ComputerWorker(
+        plane,
+        HttpTurnClient(api, setup.tenant_id),
+    ).run_job(setup.continuation_job)
+    record = plane.escalation_for(setup.tenant_id, setup.turn_id)
+    assert record.result_committed is False
+    assert plane.unresolved_tool_action_ids(setup.tenant_id, setup.turn_id) != []
+    remaining = [
+        job for job in plane._jobs if job.job_id == setup.continuation_job.job_id
+    ]
+    assert len(remaining) == 1
     api.close()
 
 
@@ -89,6 +109,7 @@ def test_computer_worker_reclaims_after_lease_expiry_without_scheduler() -> None
     ComputerWorker(
         plane,
         HttpTurnClient(api, setup.tenant_id),
+        action_executor=FakeComputerActionExecutor(),
     ).run_job(setup.continuation_job)
     record = plane.escalation_for(setup.tenant_id, setup.turn_id)
     assert record.computer_action_count == 1
@@ -106,6 +127,9 @@ def test_computer_worker_continues_structured_handoff_journal() -> None:
     driver.plane.enqueue_computer_continuation(driver.tenant_id, driver.turn_id)
     driver.plane.relinquish_computerless_ownership(driver.tenant_id, driver.turn_id)
     driver.plane.set_computer_stopped(driver.tenant_id, driver.user_id, False)
+    driver.plane.record_computer_capability_ready(
+        driver.tenant_id, driver.user_id, BROWSER_CAPABILITY
+    )
     record = driver.plane.escalation_for(driver.tenant_id, driver.turn_id)
     assert record.continuation_job_id is not None
     job = next(

@@ -13,7 +13,7 @@ from chatticus.models import (
     ComputerWorkerRequiresComputerCapability,
     TurnEventKind,
 )
-from chatticus.worker.computer import ComputerWorker
+from chatticus.worker.computer import ComputerWorker, FakeComputerActionExecutor
 
 
 @given("a fenced computer handoff with a queued continuation job")
@@ -46,6 +46,7 @@ def when_computer_worker_pulls_continuation(context: object) -> None:
     worker = ComputerWorker(
         context.plane,
         HttpTurnClient(context.api_client, setup.tenant_id),
+        action_executor=FakeComputerActionExecutor(),
     )
     try:
         worker.run_job(setup.continuation_job)
@@ -70,11 +71,38 @@ def when_computer_worker_given_cpu_job(context: object) -> None:
     worker = ComputerWorker(
         context.plane,
         HttpTurnClient(context.api_client, setup.tenant_id),
+        action_executor=FakeComputerActionExecutor(),
     )
     try:
         worker.run_job(cpu_job)
     except ComputerWorkerRequiresComputerCapability as exc:
         context.computer_worker_error = exc
+
+
+@when("a computer-capable pull worker without a host executor pulls that continuation job")
+def when_computer_worker_pulls_without_host_executor(context: object) -> None:
+    setup = context.computer_continuation
+    context.computer_worker_error = None
+    worker = ComputerWorker(
+        context.plane,
+        HttpTurnClient(context.api_client, setup.tenant_id),
+    )
+    worker.run_job(setup.continuation_job)
+
+
+@then("no tool result is committed for the pending action")
+def then_no_tool_result_committed(context: object) -> None:
+    setup = context.computer_continuation
+    events = context.plane.list_turn_events(setup.tenant_id, setup.turn_id)
+    results = [
+        event
+        for event in events
+        if event.kind == TurnEventKind.TOOL_RESULT
+        and event.action_id == setup.pending_action_id
+    ]
+    assert results == []
+    record = context.plane.escalation_for(setup.tenant_id, setup.turn_id)
+    assert record.result_committed is False
 
 
 @then("the turn journal records tool.result for the pending action id")

@@ -19,6 +19,12 @@ Feature: Computer-capable continuation worker
     Then the computer-capable worker refuses the cpu job
     And the computer continuation job remains queued
 
+  Scenario: A computer-capable pull worker leaves the job queued without a host executor
+    Given a fenced computer handoff with a queued continuation job
+    When a computer-capable pull worker without a host executor pulls that continuation job
+    Then no tool result is committed for the pending action
+    And the computer continuation job remains queued
+
   Scenario: Orphaned computer ownership expires without a scheduler
     Given a fenced computer handoff with a queued continuation job
     And the pending computer action ran before its lease expired

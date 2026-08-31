@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from chatticus.computer_capabilities import BROWSER_CAPABILITY
 from chatticus.control_plane import ControlPlane
 from chatticus.escalation_driver import EscalationHandoffDriver
 from chatticus.models import TurnJob
@@ -38,6 +39,7 @@ def prepare_computer_continuation(
     plane.enqueue_computer_continuation(tenant_id, driver.turn_id)
     plane.relinquish_computerless_ownership(tenant_id, driver.turn_id)
     plane.set_computer_stopped(tenant_id, user_id, False)
+    plane.record_computer_capability_ready(tenant_id, user_id, BROWSER_CAPABILITY)
     record = plane.escalation_for(tenant_id, driver.turn_id)
     assert record.continuation_job_id is not None
     job = next(job for job in plane._jobs if job.job_id == record.continuation_job_id)
