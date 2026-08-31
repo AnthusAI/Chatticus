@@ -23,9 +23,18 @@ class EscalationBoundary(StrEnum):
     AFTER_ACTION_BEFORE_RESULT = (
         "after the computer action but before its result is committed"
     )
+    AFTER_COMPUTER_LEASE_EXPIRED = "after the computer lease expired before reclamation"
 
 
-HANDOFF_BOUNDARIES = tuple(EscalationBoundary)
+HANDOFF_BOUNDARIES = (
+    EscalationBoundary.BEFORE_TOOL_CALL_COMMITTED,
+    EscalationBoundary.AFTER_COMMIT_BEFORE_ENQUEUE,
+    EscalationBoundary.AFTER_ENQUEUE_BEFORE_RELINQUISH,
+    EscalationBoundary.AFTER_ACTION_BEFORE_RESULT,
+)
+STRUCTURED_HANDOFF_BOUNDARIES = HANDOFF_BOUNDARIES + (
+    EscalationBoundary.AFTER_COMPUTER_LEASE_EXPIRED,
+)
 
 
 @dataclass

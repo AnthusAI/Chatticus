@@ -159,6 +159,11 @@ server-sent events are sufficient and a WebSocket is not needed.
 | `turn.started` | A bot turn begins streaming | no |
 | `turn.waiting` | The turn is blocked on a readiness gate, naming which (for example a computer still booting) | no |
 | `turn.token` | One coalesced chunk | no |
+| `model.request` | A fenced attempt issued a model call | no |
+| `tool.call` | A tool request was committed, keyed by action id | no |
+| `tool.result` | A tool result was committed for that action id | no |
+| `attempt.claimed` | A worker became the fenced owner of the turn | no |
+| `attempt.relinquished` | The previous owner dropped the fence before continuation | no |
 | `turn.completed` | Chunks are joined into one row | yes, one row |
 | `approval.required` | A proposed action is blocked | the proposal, not the action |
 

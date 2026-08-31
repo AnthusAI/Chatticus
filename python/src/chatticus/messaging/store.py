@@ -752,6 +752,10 @@ class DynamoMessagingStore:
             "message_seq": {"N": str(event.message_seq or 0)},
             "body": {"S": event.body or ""},
         }
+        if event.action_id is not None:
+            item["action_id"] = {"S": event.action_id}
+        if event.attempt_id is not None:
+            item["attempt_id"] = {"S": event.attempt_id}
         if event.pending_computer_tool is not None:
             item["pending_computer_tool"] = {
                 "S": json.dumps(
@@ -1276,6 +1280,8 @@ def _turn_event_from_item(item: dict[str, Any]) -> TurnEvent:
         message_seq=message_seq or None,
         body=body or None,
         pending_computer_tool=pending,
+        action_id=item.get("action_id", {}).get("S") or None,
+        attempt_id=item.get("attempt_id", {}).get("S") or None,
     )
 
 

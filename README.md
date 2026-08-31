@@ -212,7 +212,13 @@ Cloud-environment epic 9eef23 is closed: three named stacks, named-env
 acceptance on each. Turn recovery epic 653989 is closed. Cold Fargate
 readiness (e747d7, Test 2) is measured for the current image: tens of
 seconds to RUNNING; Chromium still missing. Remaining for summoning a
-computer (8f98f8): structured handoff (538d28). Single-owner computer
+computer (8f98f8) is wiring this kernel onto a live computer worker.
+Structured handoff (538d28) is kernel-only on
+`develop` — model.request, tool.call, tool.result, and attempt
+claim/relinquish are durable typed journal events; continuation
+executes only unresolved action ids; failure injection covers handoff
+boundaries and computer reclamation. Gherkin:
+`structured_journal_handoff.feature`. Single-owner computer
 start and readiness (53beb0) is kernel-only on `develop`: one
 tenant/computer start claim, lease expiry and reclaim, per-capability
 readiness recording, and stale-local prefer-local gating until snapshot

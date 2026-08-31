@@ -110,6 +110,11 @@ class TurnEventKind(StrEnum):
     TURN_COMPLETED = "turn.completed"
     TURN_FAILED = "turn.failed"
     TURN_RECONCILING = "turn.reconciling"
+    MODEL_REQUEST = "model.request"
+    TOOL_CALL = "tool.call"
+    TOOL_RESULT = "tool.result"
+    ATTEMPT_CLAIMED = "attempt.claimed"
+    ATTEMPT_RELINQUISHED = "attempt.relinquished"
 
 
 class TurnStatus(StrEnum):
@@ -385,3 +390,5 @@ class TurnEvent:
     message_seq: int | None = None
     body: str | None = None
     pending_computer_tool: PendingComputerToolSnapshot | None = None
+    action_id: str | None = None
+    attempt_id: str | None = None

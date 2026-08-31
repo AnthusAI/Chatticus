@@ -12,12 +12,7 @@
     "v1",
     "implementation"
   ],
-  "dependencies": [
-    {
-      "target": "chatticus-53beb006-67ab-4190-ab92-eda3999049ad",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "5b571f7d-87c1-440a-8099-971994caf98c",

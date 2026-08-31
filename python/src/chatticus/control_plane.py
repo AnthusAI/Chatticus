@@ -536,6 +536,41 @@ class ControlPlane:
         self.turn(tenant_id, turn_id)
         return self._messaging_store.list_turn_events(tenant_id, turn_id, after_seq)
 
+    def record_model_request(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        body: str,
+    ) -> TurnEvent:
+        """Record one durable model.request journal event for the fenced owner."""
+        turn = self.turn(tenant_id, turn_id)
+        return self._append_turn_event(
+            turn,
+            TurnEventKind.MODEL_REQUEST,
+            body=body,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
+
+    def unresolved_tool_action_ids(self, tenant_id: str, turn_id: str) -> list[str]:
+        """Return committed tool.call action ids that have no tool.result yet."""
+        events = self.list_turn_events(tenant_id, turn_id)
+        resolved = {
+            event.action_id
+            for event in events
+            if event.kind == TurnEventKind.TOOL_RESULT and event.action_id
+        }
+        unresolved: list[str] = []
+        seen: set[str] = set()
+        for event in events:
+            if event.kind != TurnEventKind.TOOL_CALL or not event.action_id:
+                continue
+            if event.action_id in resolved or event.action_id in seen:
+                continue
+            seen.add(event.action_id)
+            unresolved.append(event.action_id)
+        return unresolved
+
     def computer_by_id(self, computer_id: str) -> Computer:
         """
         Return a computer by workplace id.
@@ -839,9 +874,26 @@ class ControlPlane:
         return record
 
     def commit_pending_computer_tool(self, tenant_id: str, turn_id: str) -> None:
-        """Make the pending computer tool call durable."""
+        """Make the pending computer tool call a durable typed journal event."""
         record = self.escalation_for(tenant_id, turn_id)
+        if record.call_committed:
+            return
         record.call_committed = True
+        turn = self.turn(tenant_id, turn_id)
+        pending = PendingComputerToolSnapshot(
+            action_id=record.pending_call.action_id,
+            tool_name=record.pending_call.tool_name,
+            arguments=dict(record.pending_call.arguments),
+        )
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TOOL_CALL,
+            body=record.pending_call.tool_name,
+            pending_computer_tool=pending,
+            action_id=record.pending_call.action_id,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
 
     def enqueue_computer_continuation(self, tenant_id: str, turn_id: str) -> None:
         """Enqueue one computer-capable continuation for the same turn."""
@@ -872,12 +924,29 @@ class ControlPlane:
                 f"Turn {turn_id!r} has not enqueued a computer continuation."
             )
         turn = self.turn(tenant_id, turn_id)
+        previous_attempt = turn.attempt_id
         turn.claimed_by_worker_id = None
         turn.attempt_id = None
         turn.lease_expires_at = None
         turn.fence_token += 1
         self._messaging_store.put_turn(turn)
         record.computerless_relinquished = True
+        self._append_turn_event(
+            turn,
+            TurnEventKind.ATTEMPT_RELINQUISHED,
+            attempt_id=previous_attempt,
+            expected_fence=turn.fence_token,
+        )
+
+    def record_attempt_claimed(self, tenant_id: str, turn_id: str) -> TurnEvent:
+        """Record that the current fenced owner claimed this turn."""
+        turn = self.turn(tenant_id, turn_id)
+        return self._append_turn_event(
+            turn,
+            TurnEventKind.ATTEMPT_CLAIMED,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
 
     def claim_computer_for_turn(
         self,
@@ -917,13 +986,16 @@ class ControlPlane:
     def execute_pending_computer_action(self, tenant_id: str, turn_id: str) -> None:
         """Run the pending computer tool at most once."""
         record = self.escalation_for(tenant_id, turn_id)
+        action_id = record.pending_call.action_id
+        if action_id not in self.unresolved_tool_action_ids(tenant_id, turn_id):
+            return
+        if record.computer_action_count:
+            return
         claim = self._computer_claims.get(record.computer_id)
         if claim is None or claim.turn_id != turn_id or claim.expires_at <= self._now:
             raise TurnTerminalError(f"Turn {turn_id!r} does not hold the computer.")
-        if record.computer_action_count:
-            return
         record.computer_action_count += 1
-        record.executed_action_id = record.pending_call.action_id
+        record.executed_action_id = action_id
 
     def commit_computer_tool_result(
         self,
@@ -943,6 +1015,14 @@ class ControlPlane:
         record.result_body = result_body
         record.result_committed = True
         turn = self.turn(tenant_id, turn_id)
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TOOL_RESULT,
+            body=result_body,
+            action_id=record.pending_call.action_id,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
         if turn.claimed_by_worker_id is not None:
             self.post_turn_chunk(
                 turn_id,
@@ -965,6 +1045,8 @@ class ControlPlane:
             raise TurnTerminalError(
                 f"Turn {turn_id!r} could not be claimed for computer continuation."
             )
+        if claimed.acquired:
+            self.record_attempt_claimed(tenant_id, turn_id)
         if not self.claim_computer_for_turn(tenant_id, turn_id, "computer-worker"):
             raise TurnTerminalError(f"Turn {turn_id!r} could not claim the computer.")
         if record.computer_action_count == 0:
@@ -1891,6 +1973,8 @@ class ControlPlane:
         body: str | None = None,
         pending_computer_tool: PendingComputerToolSnapshot | None = None,
         expected_fence: int | None = None,
+        action_id: str | None = None,
+        attempt_id: str | None = None,
     ) -> TurnEvent:
         event = TurnEvent(
             event_id=str(uuid4()),
@@ -1903,6 +1987,8 @@ class ControlPlane:
             message_seq=message_seq,
             body=body,
             pending_computer_tool=pending_computer_tool,
+            action_id=action_id,
+            attempt_id=attempt_id,
         )
         turn.next_event_seq += 1
         self._messaging_store.put_turn(turn, expected_fence=expected_fence)
