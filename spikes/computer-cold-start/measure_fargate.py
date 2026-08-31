@@ -1,31 +1,36 @@
-"""Throwaway Test 2 measurement: cold Fargate ARM64 computer image gates.
+"""Throwaway Test 2 measurement: cold summoned Fargate ARM64 browser gate.
 
 Does not live in python/src. Does not change the Computers stack. Stops
-each task after the smoke snapshot appears and leaves desired count at 0.
+each task after the browser gate marker appears and leaves desired count at 0.
 """
 
 from __future__ import annotations
 
 import json
+import statistics
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 
 import boto3
-from botocore.exceptions import ClientError
 
 REGION = "us-east-1"
-CLUSTER = "ChatticusComputers-ClusterEB0386A7-KBVRNWeg2bzf"
-TASK_DEFINITION = "ChatticusComputersComputerTask96CD9924:5"
-SUBNETS = ["subnet-0b7f7c7be05091111", "subnet-06c4e78bf06400f26"]
-SECURITY_GROUPS = ["sg-0b02b09326fa45366"]
-BUCKET = "chatticussnapshots-computersnapshotsb892d73f-r8qgykc9zjiq"
-TENANT = "anthus"
-LOG_GROUP = "ChatticusComputers-ComputerLogs3CD929E4-28QzCbANHYCu"
+STACK = "ChatticusComputers"
+CONTAINER = "computer"
 RUNS = 5
 RUNNING_TIMEOUT_S = 480
-MANIFEST_TIMEOUT_S = 480
+BROWSER_GATE_TIMEOUT_S = 480
 STOP_TIMEOUT_S = 180
+BROWSER_GATE_PREFIX = "browser_gate_ready:"
+BOOT_COMMAND = [
+    "python",
+    "-c",
+    (
+        "from chatticus.computer_host_boot import ComputerHostBootDriver; "
+        "r = ComputerHostBootDriver().boot_through_browser(); "
+        "print(f'browser_gate_ready: {r.chromium_version}', flush=True)"
+    ),
+]
 
 
 def _now() -> float:
@@ -36,13 +41,91 @@ def _iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _manifest_key(computer: str) -> str:
-    return f"tenants/{TENANT}/computers/{computer}/manifest.json"
+def _stack_outputs(cfn) -> dict[str, str]:
+    response = cfn.describe_stacks(StackName=STACK)
+    outputs: dict[str, str] = {}
+    for item in response["Stacks"][0].get("Outputs") or []:
+        key = item.get("OutputKey")
+        value = item.get("OutputValue")
+        if key and value:
+            outputs[key] = value
+    return outputs
 
 
-def _wait_running(ecs, task_arn: str, deadline: float) -> tuple[float | None, dict]:
+def _service_network(ecs, cluster: str, service: str) -> tuple[list[str], list[str]]:
+    described = ecs.describe_services(cluster=cluster, services=[service])
+    services = described.get("services") or []
+    if not services:
+        msg = f"ECS service {service!r} was not found on cluster {cluster!r}."
+        raise RuntimeError(msg)
+    network = services[0].get("networkConfiguration", {}).get(
+        "awsvpcConfiguration", {}
+    )
+    subnets = list(network.get("subnets") or [])
+    security_groups = list(network.get("securityGroups") or [])
+    if not subnets or not security_groups:
+        msg = "ECS service network configuration is missing subnets or security groups."
+        raise RuntimeError(msg)
+    return subnets, security_groups
+
+
+def _task_log_group(ecs, task_definition: str) -> str:
+    described = ecs.describe_task_definition(taskDefinition=task_definition)
+    containers = described["taskDefinition"].get("containerDefinitions") or []
+    for container in containers:
+        if container.get("name") != CONTAINER:
+            continue
+        options = (container.get("logConfiguration") or {}).get("options") or {}
+        log_group = options.get("awslogs-group", "").strip()
+        if log_group:
+            return log_group
+    msg = f"Container {CONTAINER!r} has no awslogs-group in {task_definition!r}."
+    raise RuntimeError(msg)
+
+
+def _task_image(ecs, task_definition: str) -> str:
+    described = ecs.describe_task_definition(taskDefinition=task_definition)
+    containers = described["taskDefinition"].get("containerDefinitions") or []
+    for container in containers:
+        if container.get("name") == CONTAINER:
+            return str(container.get("image") or "")
+    return ""
+
+
+def _assert_desired_count_zero(ecs, cluster: str, service: str) -> int:
+    described = ecs.describe_services(cluster=cluster, services=[service])
+    services = described.get("services") or []
+    if not services:
+        msg = f"ECS service {service!r} was not found on cluster {cluster!r}."
+        raise RuntimeError(msg)
+    desired = int(services[0].get("desiredCount") or 0)
+    if desired != 0:
+        msg = (
+            f"Refusing to measure: {service!r} desiredCount={desired}, expected 0."
+        )
+        raise RuntimeError(msg)
+    return desired
+
+
+def _stop_leftover_tasks(ecs, cluster: str) -> list[str]:
+    stopped: list[str] = []
+    paginator = ecs.get_paginator("list_tasks")
+    for page in paginator.paginate(cluster=cluster, desiredStatus="RUNNING"):
+        for task_arn in page.get("taskArns") or []:
+            ecs.stop_task(
+                cluster=cluster,
+                task=task_arn,
+                reason="chatticus-d68966 preflight cleanup",
+            )
+            stopped.append(task_arn)
+    return stopped
+
+
+def _wait_running(
+    ecs, cluster: str, task_arn: str, deadline: float
+) -> tuple[float | None, dict]:
     while _now() < deadline:
-        described = ecs.describe_tasks(cluster=CLUSTER, tasks=[task_arn])
+        described = ecs.describe_tasks(cluster=cluster, tasks=[task_arn])
         task = (described.get("tasks") or [{}])[0]
         status = task.get("lastStatus")
         if status == "RUNNING":
@@ -50,87 +133,126 @@ def _wait_running(ecs, task_arn: str, deadline: float) -> tuple[float | None, di
         if status in {"STOPPED", "DEPROVISIONING"}:
             return None, task
         time.sleep(2)
-    described = ecs.describe_tasks(cluster=CLUSTER, tasks=[task_arn])
+    described = ecs.describe_tasks(cluster=cluster, tasks=[task_arn])
     return None, (described.get("tasks") or [{}])[0]
 
 
-def _wait_manifest(s3, computer: str, deadline: float) -> float | None:
-    while _now() < deadline:
-        try:
-            s3.head_object(Bucket=BUCKET, Key=_manifest_key(computer))
-            return _now()
-        except ClientError:
-            time.sleep(2)
-    return None
-
-
-def _first_log_age_s(logs, task_id: str) -> float | None:
-    stream = f"computer/computer/{task_id}"
-    deadline = _now() + 60
+def _wait_browser_gate(
+    logs, log_group: str, task_id: str, deadline: float
+) -> tuple[float | None, str | None]:
+    stream = f"computer/{CONTAINER}/{task_id}"
     while _now() < deadline:
         try:
             events = logs.get_log_events(
-                logGroupName=LOG_GROUP,
+                logGroupName=log_group,
                 logStreamName=stream,
                 startFromHead=True,
-                limit=10,
+                limit=100,
             )
         except logs.exceptions.ResourceNotFoundException:
             time.sleep(2)
             continue
-        found = events.get("events") or []
-        if found:
-            return found[0]["timestamp"] / 1000.0
+        for event in events.get("events") or []:
+            message = str(event.get("message") or "")
+            if message.startswith(BROWSER_GATE_PREFIX):
+                version = message[len(BROWSER_GATE_PREFIX) :].strip()
+                return event["timestamp"] / 1000.0, version
         time.sleep(2)
-    return None
+    return None, None
 
 
-def _stop(ecs, task_arn: str) -> None:
-    ecs.stop_task(cluster=CLUSTER, task=task_arn, reason="cold-start measurement")
+def _stop(ecs, cluster: str, task_arn: str) -> None:
+    ecs.stop_task(
+        cluster=cluster, task=task_arn, reason="cold-start measurement"
+    )
     deadline = _now() + STOP_TIMEOUT_S
     while _now() < deadline:
-        described = ecs.describe_tasks(cluster=CLUSTER, tasks=[task_arn])
+        described = ecs.describe_tasks(cluster=cluster, tasks=[task_arn])
         task = (described.get("tasks") or [{}])[0]
         if task.get("lastStatus") == "STOPPED":
             return
         time.sleep(2)
 
 
+def _distribution(values: list[float]) -> dict[str, float]:
+    ordered = sorted(values)
+    return {
+        "min": ordered[0],
+        "median": statistics.median(ordered),
+        "max": ordered[-1],
+    }
+
+
+def _task_definition_label(task_definition: str) -> str:
+    """Return a revision label safe to commit (no account id in the ARN)."""
+    if "/" in task_definition:
+        return task_definition.rsplit("/", 1)[-1]
+    return task_definition
+
+
+def _image_label(image: str) -> str:
+    """Return repository:tag safe to commit (no ECR account host)."""
+    if "/" in image:
+        return image.rsplit("/", 1)[-1]
+    return image
+
+
 def main() -> int:
+    cfn = boto3.client("cloudformation", region_name=REGION)
     ecs = boto3.client("ecs", region_name=REGION)
-    s3 = boto3.client("s3", region_name=REGION)
     logs = boto3.client("logs", region_name=REGION)
+    ecr = boto3.client("ecr", region_name=REGION)
+
+    outputs = _stack_outputs(cfn)
+    cluster = outputs["ComputerClusterName"]
+    service = outputs["ComputerServiceName"]
+    task_definition = outputs["ComputerTaskDefinitionArn"]
+    repository_uri = outputs["ComputerRepositoryUri"]
+    subnets, security_groups = _service_network(ecs, cluster, service)
+    log_group = _task_log_group(ecs, task_definition)
+    image = _task_image(ecs, task_definition)
+
+    desired_count = _assert_desired_count_zero(ecs, cluster, service)
+    leftover = _stop_leftover_tasks(ecs, cluster)
+    if leftover:
+        print(f"stopped {len(leftover)} leftover RUNNING task(s)", flush=True)
+
+    repo_name = repository_uri.rsplit("/", 1)[-1]
+    image_meta = ecr.describe_images(
+        repositoryName=repo_name, imageIds=[{"imageTag": "dev"}]
+    )["imageDetails"][0]
+    image_pushed_at = image_meta.get("imagePushedAt")
+    if hasattr(image_pushed_at, "isoformat"):
+        image_pushed_at = image_pushed_at.isoformat()
+
     results = []
     out_dir = Path(__file__).resolve().parent / "results"
     out_dir.mkdir(exist_ok=True)
 
     for index in range(1, RUNS + 1):
-        computer = f"cold-start-{index}-{int(time.time())}"
         submitted = _now()
         wall_start = _iso()
-        print(
-            f"run {index}/{RUNS} submitted={wall_start} computer={computer}",
-            flush=True,
-        )
+        print(f"run {index}/{RUNS} submitted={wall_start}", flush=True)
         response = ecs.run_task(
-            cluster=CLUSTER,
-            taskDefinition=TASK_DEFINITION,
+            cluster=cluster,
+            taskDefinition=task_definition,
             launchType="FARGATE",
             count=1,
             platformVersion="LATEST",
             networkConfiguration={
                 "awsvpcConfiguration": {
-                    "subnets": SUBNETS,
-                    "securityGroups": SECURITY_GROUPS,
+                    "subnets": subnets,
+                    "securityGroups": security_groups,
                     "assignPublicIp": "ENABLED",
                 }
             },
             overrides={
                 "containerOverrides": [
                     {
-                        "name": "computer",
+                        "name": CONTAINER,
+                        "command": BOOT_COMMAND,
                         "environment": [
-                            {"name": "CHATTICUS_SMOKE_COMPUTER", "value": computer},
+                            {"name": "CHATTICUS_COMPUTER_BOOT", "value": "1"},
                         ],
                     }
                 ]
@@ -151,54 +273,76 @@ def main() -> int:
         task_id = task_arn.rsplit("/", 1)[-1]
         try:
             running_at, task = _wait_running(
-                ecs, task_arn, submitted + RUNNING_TIMEOUT_S
+                ecs, cluster, task_arn, submitted + RUNNING_TIMEOUT_S
             )
             t_running = None if running_at is None else running_at - submitted
-            t_manifest = None
+            gate_wall_s: float | None = None
+            chromium_version: str | None = None
+            t_browser_gate: float | None = None
             if running_at is not None:
-                manifest_at = _wait_manifest(
-                    s3, computer, submitted + MANIFEST_TIMEOUT_S
+                gate_wall_s, chromium_version = _wait_browser_gate(
+                    logs,
+                    log_group,
+                    task_id,
+                    submitted + BROWSER_GATE_TIMEOUT_S,
                 )
-                if manifest_at is not None:
-                    t_manifest = manifest_at - submitted
-            first_log = _first_log_age_s(logs, task_id)
-            wall_submitted = datetime.fromisoformat(wall_start).timestamp()
-            t_first_log = None if first_log is None else first_log - wall_submitted
+                if gate_wall_s is not None:
+                    wall_submitted = datetime.fromisoformat(wall_start).timestamp()
+                    t_browser_gate = gate_wall_s - wall_submitted
             row = {
                 "run": index,
-                "computer": computer,
                 "task_id": task_id,
                 "wall_start": wall_start,
                 "seconds_to_running": t_running,
-                "seconds_to_smoke_manifest": t_manifest,
-                "seconds_to_first_log": t_first_log,
+                "seconds_to_browser_gate": t_browser_gate,
+                "chromium_version": chromium_version,
                 "last_status": task.get("lastStatus"),
                 "stop_code": task.get("stopCode"),
                 "stopped_reason": task.get("stoppedReason"),
-                "chromium": "not_in_image",
             }
             print(json.dumps(row), flush=True)
             results.append(row)
         finally:
-            _stop(ecs, task_arn)
+            _stop(ecs, cluster, task_arn)
 
-    (out_dir / "fargate.json").write_text(
-        json.dumps(
-            {
-                "measured_at": _iso(),
-                "task_definition": TASK_DEFINITION,
-                "image": "chatticuscomputers-computerimage67d4263c-h3us7njdifay:dev",
-                "image_pushed_at": "2026-08-30T04:46:03-04:00",
-                "local_docker": "unavailable (docker daemon socket missing)",
-                "chromium": "not in computer/Dockerfile; recorded incomplete",
-                "runs": results,
-            },
-            indent=2,
-        )
-        + "\n"
-    )
+    running_values = [
+        row["seconds_to_running"]
+        for row in results
+        if row.get("seconds_to_running") is not None
+    ]
+    browser_values = [
+        row["seconds_to_browser_gate"]
+        for row in results
+        if row.get("seconds_to_browser_gate") is not None
+    ]
+    summary = {
+        "measured_at": _iso(),
+        "issue": "chatticus-d68966",
+        "mode": "summoned_browser_gate",
+        "cluster": cluster,
+        "service": service,
+        "desired_count_at_start": desired_count,
+        "task_definition": _task_definition_label(task_definition),
+        "image": _image_label(image),
+        "image_pushed_at": image_pushed_at,
+        "image_digest": image_meta.get("imageDigest"),
+        "log_group": log_group,
+        "e747d7_running_baseline_seconds": {
+            "min": 17.7,
+            "median": 22.0,
+            "max": 38.5,
+        },
+        "running_seconds": _distribution(running_values) if running_values else None,
+        "browser_gate_seconds": (
+            _distribution(browser_values) if browser_values else None
+        ),
+        "runs": results,
+    }
+    (out_dir / "fargate.json").write_text(json.dumps(summary, indent=2) + "\n")
     print("wrote", out_dir / "fargate.json", flush=True)
-    return 0 if all("error" not in row for row in results) else 1
+
+    ok = all("error" not in row for row in results) and len(browser_values) == RUNS
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
