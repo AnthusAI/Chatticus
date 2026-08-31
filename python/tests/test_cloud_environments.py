@@ -260,3 +260,25 @@ def test_committed_tree_does_not_embed_account_origins() -> None:
             if token in text:
                 hits.append(f"{rel}: {token}")
     assert hits == []
+
+
+def test_deploy_workflows_are_thinturn_development_only() -> None:
+    """Phase-1 GHA deploy must not restack ChatticusWeb or non-dev stacks."""
+    root = Path(__file__).resolve().parents[2]
+    workflow_dir = root / ".github" / "workflows"
+    forbidden = (
+        "ChatticusWeb",
+        "ChatticusThinTurnStaging",
+        "ChatticusThinTurnProduction",
+        "cdk deploy --all",
+        "npx cdk deploy ChatticusThinTurn",
+    )
+    deploy_workflows = sorted(workflow_dir.glob("deploy*.yml"))
+    assert deploy_workflows, "expected at least one deploy*.yml workflow"
+    hits: list[str] = []
+    for path in deploy_workflows:
+        text = path.read_text(encoding="utf-8")
+        for token in forbidden:
+            if token in text:
+                hits.append(f"{path.name}: {token}")
+    assert hits == []
