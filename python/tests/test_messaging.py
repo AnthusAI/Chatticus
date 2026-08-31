@@ -12,6 +12,7 @@ import boto3
 import pytest
 from moto import mock_aws
 
+from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
@@ -26,6 +27,7 @@ from chatticus.models import (
     ActorKind,
     ComputerlessCannotExecuteComputerJob,
     ComputerNotReadyError,
+    ComputerWorkerHostNotReady,
     DuplicateBotNameError,
     StaleAttemptError,
     TurnEventKind,
@@ -34,6 +36,7 @@ from chatticus.models import (
     TurnStatus,
 )
 from chatticus.turn_recovery import logical_enqueue_id
+from chatticus.worker.computer import ComputerWorker
 from chatticus.worker.computerless import (
     ComputerlessWorker,
     CountingTextCompletionClient,
@@ -673,6 +676,49 @@ def test_http_get_user_computer_survives_a_new_control_plane() -> None:
     assert payload["stopped"] is True
     assert payload["host_start_generation"] == 0
     api.close()
+
+
+def test_http_get_user_computer_reports_host_start_generation_after_nack() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+    with pytest.raises(ComputerWorkerHostNotReady):
+        ComputerWorker(
+            plane,
+            HttpTurnClient(api, setup.tenant_id),
+        ).run_job(setup.continuation_job)
+    fetched = api.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["host_start_generation"] == 1
+    api.close()
+
+
+@mock_aws
+def test_http_get_user_computer_reports_host_start_generation_after_recycle() -> None:
+    table_name = "chatticus-computer-host-start-generation-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    plane = ControlPlane(messaging_store=store)
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+    with pytest.raises(ComputerWorkerHostNotReady):
+        ComputerWorker(
+            plane,
+            HttpTurnClient(api, setup.tenant_id),
+        ).run_job(setup.continuation_job)
+    api.close()
+    recycled = _client_for(ControlPlane(messaging_store=store))
+    fetched = recycled.get(
+        "/users/ryan/computer",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["host_start_generation"] == 1
+    recycled.close()
 
 
 def test_http_get_channel_active_turn() -> None:

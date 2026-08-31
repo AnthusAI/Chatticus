@@ -17,3 +17,16 @@ Feature: Household computer host start generation on HTTP
     When a recycled Front Door serves the same messaging store
     Then tenant "anthus" can read the household computer for user "ryan"
     And tenant "anthus" household computer for user "ryan" reports host_start_generation 0
+
+  Scenario: GET computer reports host_start_generation after a computer-queue nack
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And a fenced computer handoff with a queued continuation job
+    When a computer-capable pull worker without a host executor pulls that continuation job
+    Then tenant "anthus" household computer for user "ryan" reports host_start_generation 1
+
+  Scenario: GET computer still reports host_start_generation after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And a fenced computer handoff with a queued continuation job
+    When a computer-capable pull worker without a host executor pulls that continuation job
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" household computer for user "ryan" reports host_start_generation 1
