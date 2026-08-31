@@ -12,6 +12,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { Construct } from "constructs";
 import {
+  computerHostStartEcsConfig,
+  wireComputerWorkerEcsHostStart,
+} from "./computer-host-start";
+import {
   ChatticusCloudEnvironment,
   thinTurnExportName,
   thinTurnParameterPrefix,
@@ -330,6 +334,14 @@ export class ThinTurnStack extends cdk.Stack {
         reportBatchItemFailures: true,
       }),
     );
+    const computerHostStart = computerHostStartEcsConfig(this, environmentName);
+    if (computerHostStart !== undefined) {
+      wireComputerWorkerEcsHostStart(
+        computerWorkerFunction,
+        cdk.Stack.of(this),
+        computerHostStart,
+      );
+    }
 
     new ssm.StringParameter(this, "FunctionUrlParameter", {
       parameterName: functionUrlParameterName,

@@ -82,3 +82,8 @@ def test_ecs_host_starter_runs_task_when_configured() -> None:
 def test_host_starter_from_env_defaults_to_noop(monkeypatch: object) -> None:
     monkeypatch.delenv("CHATTICUS_HOST_STARTER", raising=False)  # type: ignore[attr-defined]
     assert isinstance(host_starter_from_env(), NoOpHostStarter)
+
+
+def test_host_starter_from_env_selects_ecs(monkeypatch: object) -> None:
+    monkeypatch.setenv("CHATTICUS_HOST_STARTER", "ecs")  # type: ignore[attr-defined]
+    assert isinstance(host_starter_from_env(), EcsHostStarter)
