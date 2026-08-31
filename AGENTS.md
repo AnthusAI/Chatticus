@@ -59,6 +59,15 @@ xAI client. The model vendor is not the product name.
 
 ## Quality gates
 
+### Pudicus Inspection Gate
+To prevent secrets from leaking into the repository, Chatticus uses the `pudicus` pre-commit gate.
+Install it globally (or in your venv) and initialize the repo:
+```bash
+pip install pudicus
+pudicus install
+```
+
+### Local Testing
 From `python/` after `pip install -e ".[dev]"`:
 
 ```bash
