@@ -78,10 +78,22 @@
       "author": "home",
       "text": "Channel history poll GET /channels/{id}/messages?after=seq is live on development (316500, 61c69d9). Turn SSE remains Last-Event-ID. Safari/background-tab still unmeasured on 387e4f.",
       "created_at": "2026-08-31T04:03:44.144508Z"
+    },
+    {
+      "id": "f9b2785a-097c-4c62-bd77-15ff31770eb7",
+      "author": "home",
+      "text": "Frontier tick: GET /turns/{id}/events?after=seq is live on development (9958c56, code 555ccff). exercise --environment development exit 0 with turn_after replay through turn.completed. Channel history after and turn journal after now both match MESSAGING.md poll path. Safari/background-tab still unmeasured on 387e4f. e747d7/53beb0/538d28 still blocked.",
+      "created_at": "2026-08-31T04:11:41.576117Z"
+    },
+    {
+      "id": "0554ed03-ffcb-4bb0-8c00-6e9672dc3fcc",
+      "author": "home",
+      "text": "Named-bot durable memory is on the live roster and in the turn prompt (3f70c0, ee34d01). Compaction still open. Safari/background-tab still unmeasured on 387e4f.",
+      "created_at": "2026-08-31T04:22:31.330074Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T04:03:44.144508Z",
+  "updated_at": "2026-08-31T04:22:31.330074Z",
   "closed_at": null,
   "custom": {}
 }
