@@ -74,10 +74,10 @@ is `https://{hostname}/api` for each environment. A development run of
 passthrough). GitHub **Deploy web** is manual (`workflow_dispatch`) and
 needs OIDC setup (see `infra/README.md`); it is not wired yet.
 
-GitHub **`main`** is `064a4f0` (PR #28, 2026-08-31): git promotion of
-the nack/reread pin (`50ad1d4`), not a stack redeploy. Production is never
-implied by a git branch. Staging and production were last recorded as
-deployed from `760915d` (v0.5.0).
+GitHub **`main`** is `ede89c8` (PR #37, 2026-08-31): git promotion of
+the completed computer-turn pin (`822954b` / PR #34), not a stack
+redeploy. Production is never implied by a git branch. Staging and
+production were last recorded as deployed from `760915d` (v0.5.0).
 
 Development **ChatticusThinTurn** last **ThinTurn-only** CDK pin is
 **2026-08-31T16:02:57Z** (PR #34, ECS host-start context). Live
