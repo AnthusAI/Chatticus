@@ -12,8 +12,8 @@ operations.
 | `ChatticusSnapshots` | S3 bucket for computer packs; IAM role local hosts may assume |
 | `ChatticusComputers` | VPC, ECR, ECS cluster, Fargate ARM64 task definition, service (count 0 by default) |
 | `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE, CloudFront |
-| `ChatticusThinTurnStaging` | Staging thin turn (same shape; not deployed until `main` is promoted here) |
-| `ChatticusThinTurnProduction` | Production thin turn (gated; never implied by a git branch) |
+| `ChatticusThinTurnStaging` | Staging thin turn (same shape; deployed from `main`) |
+| `ChatticusThinTurnProduction` | Production thin turn (gated deploy of a staging-proven release; never implied by a git branch) |
 
 Each thin-turn stack publishes SSM
 `/chatticus/{environment}/thin-turn/cloudfront-url` and

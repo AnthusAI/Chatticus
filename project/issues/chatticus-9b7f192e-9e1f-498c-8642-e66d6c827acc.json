@@ -42,10 +42,16 @@
       "author": "home",
       "text": "Frontier tick2 2026-08-30: kbs ready P0/P1 is 9eef23 (staging deploy, not authorized) and this initiative. e747d7 Fargate not authorized. Other P0/P1 blocked on Phase 2 chain (8f98f8, 4ddbe1). P3 ready (8527b1, 5f2ea7, 0325d4) deferred. develop @ 6ccee96; pytest 120 passed 2 skipped; behave 96 scenarios passed. No deploy.",
       "created_at": "2026-08-31T00:07:19.089041Z"
+    },
+    {
+      "id": "16560cdd-d079-48e9-8fc2-b22e69d2b072",
+      "author": "home",
+      "text": "Cloud-environment epic 9eef23 closed. Development, staging, and production thin turns are deployed. Named-env exercise exits 0 on all three (claim 404/200/409 and SSE). Production remains gated, never implied by git. Phase 1 transport slice is live in three named environments; remaining Phase 1 work is whatever is still not on the worker HTTP loop (web app, product login, local pull worker are still out of scope). Next board item is not another environment: e747d7 cold Fargate readiness measurement, still not a Computers scale-up.",
+      "created_at": "2026-08-31T00:28:30.889610Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T00:07:19.089041Z",
+  "updated_at": "2026-08-31T00:28:30.889610Z",
   "closed_at": null,
   "custom": {}
 }

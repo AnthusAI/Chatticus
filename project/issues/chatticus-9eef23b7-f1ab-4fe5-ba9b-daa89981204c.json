@@ -3,7 +3,7 @@
   "title": "Development, staging, and production cloud environments",
   "description": "Outcome: Chatticus has three named AWS environments from day one: development, staging, and production. Acceptance tests always target a named environment, never a nameless stack.\n\nPromotion: merge to develop deploys or updates development. Promote to main updates staging. Production is an explicit gated deploy of a staging-proven release. Snapshots and computers stay shared account stacks and must not be destroyed.\n\nNot included: custom domains, Amplify hosting, or putting computers on the turn path.",
   "type": "epic",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -54,10 +54,16 @@
       "author": "home",
       "text": "ChatticusThinTurn-only redeploy from develop @ f5bd945 (no --all, no staging/production). CloudFront https://d3gpuuldffe35o.cloudfront.net. exercise_thin_turn.py --environment development exit 0: missing_claim=404 claim_a=200 claim_b=409; SSE turn.started/token/completed; reconnect replay; computer_stopped=True bot_messages=1. Snapshots/computers untouched. main stays v0.5.0.",
       "created_at": "2026-08-31T00:13:04.041916Z"
+    },
+    {
+      "id": "698ccac4-ab95-4349-a482-0dc8d1e5a292",
+      "author": "home",
+      "text": "Staging and production thin-turn stacks are live from origin/main 760915d (v0.5.0). No cdk deploy --all. Snapshots and computers untouched (CREATE_COMPLETE / UPDATE_COMPLETE).\n\nStaging ChatticusThinTurnStaging CloudFront https://dntj3flm2ozck.cloudfront.net. exercise --environment staging exit 0: missing_claim=404 claim_a=200 claim_b=409; SSE turn.started/token/completed; reconnect replay; computer_stopped=True bot_messages=1.\n\nProduction ChatticusThinTurnProduction CloudFront https://d3lnmalpqx92ls.cloudfront.net (gated after staging green). exercise --environment production exit 0: missing_claim=404 claim_a=200 claim_b=409; SSE turn.started/token/completed; reconnect replay; computer_stopped=True bot_messages=1.\n\nDevelopment remains ChatticusThinTurn https://d3gpuuldffe35o.cloudfront.net. Named-env acceptance now covers all three names. DoD met: three named AWS environments; acceptance always --environment; production was an explicit gated deploy of a staging-proven release.",
+      "created_at": "2026-08-31T00:28:30.866778Z"
     }
   ],
   "created_at": "2026-08-30T20:36:57.810194Z",
-  "updated_at": "2026-08-31T00:13:04.041916Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T00:28:30.879977Z",
+  "closed_at": "2026-08-31T00:28:30.879977Z",
   "custom": {}
 }

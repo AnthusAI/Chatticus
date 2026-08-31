@@ -64,13 +64,24 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-GitHub **`main`** is **v0.5.0**. The live thin turn is the **development**
-cloud environment: stack **ChatticusThinTurn** in AWS account
-`335163751677` (`us-east-1`). Staging and production thin-turn stacks are
-defined in CDK (`ChatticusThinTurnStaging`,
-`ChatticusThinTurnProduction`) and are not deployed yet. Production is
-never implied by a git branch; it is an explicit gated deploy of a
-release that already passed staging acceptance.
+GitHub **`main`** is **v0.5.0**. Three named thin-turn environments are
+live in AWS account `335163751677` (`us-east-1`). Production is never
+implied by a git branch; it is an explicit gated deploy of a release that
+already passed staging acceptance. Staging and production were deployed
+from `origin/main` @ `760915d`. Development was last redeployed from
+`develop` @ `f5bd945` (ThinTurn-only; no `--all`).
+
+| Environment | Stack | CloudFront |
+| --- | --- | --- |
+| development | `ChatticusThinTurn` | https://d3gpuuldffe35o.cloudfront.net |
+| staging | `ChatticusThinTurnStaging` | https://dntj3flm2ozck.cloudfront.net |
+| production | `ChatticusThinTurnProduction` | https://d3lnmalpqx92ls.cloudfront.net |
+
+`cd python && python scripts/exercise_thin_turn.py --environment <name>`
+exits 0 for **development**, **staging**, and **production**. Each run
+includes missing-turn claim **404** and a live second-worker claim **409**
+while the lease is held, plus SSE `turn.started` / `turn.token` /
+`turn.completed`.
 
 The **source** has named cloud environments, turn **claim**, **lease**,
 **fence**, durable channel lookup across Lambda invocations, a durable
@@ -80,7 +91,7 @@ scheduler env vars are set). Kernel tests cover turn-boundary fault
 injection and in-memory page-content authority containment (not wired
 into the live worker HTTP loop).
 
-What the deployed **development** slice does today:
+What each deployed thin-turn slice does today:
 
 - CloudFront in front of a Lambda function URL (no load balancer).
 - FastAPI front door: channels, messages, bots, a stopped-computer roster,
@@ -93,36 +104,30 @@ What the deployed **development** slice does today:
 - SQS carries one turn job. A computerless worker Lambda runs
   **gpt-5.6-luna** (OpenAI) and POSTs chunks back through the front door.
 - Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
-- `cd python && python scripts/exercise_thin_turn.py --environment development`
-  exits 0. That run includes missing-turn claim **404** and a live
-  second-worker claim **409** while the lease is held.
 
-Worker lease renew during long model calls is live on this development
-deploy. EventBridge Scheduler one-shots are on the front door
-(`chatticus-development-turn-deadlines`); `recovery_enabled` is on.
+Worker lease renew during long model calls is live on development.
+EventBridge Scheduler one-shots are on each front door
+(`chatticus-{environment}-turn-deadlines`); `recovery_enabled` is on.
 Warm Front Door containers use a wall clock, so deadlines land in the
 future. A wedged turn has recovered through EventBridge without a
-forced Lambda cold start. After a **ChatticusThinTurn**-only redeploy
-from `develop` @ `f5bd945` (no `--all`, no staging or production), live
-claim/fence still holds: missing-turn claim is 404; a second worker on
-an unexpired lease is 409. GitHub **`main`** stays **v0.5.0**; overnight,
-approval binding, unbound-browser, and computer-handoff kernels are not
-promoted there until they are on the live worker loop.
+forced Lambda cold start on development. GitHub **`main`** stays
+**v0.5.0**; overnight, approval binding, unbound-browser, and
+computer-handoff kernels on `develop` are not promoted there until they
+are on the live worker loop.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
 destroyed. They are not on the turn path yet. The computer stays stopped.
 There is no chattic.us web app, no local pull worker, no mid-turn
-escalation, and no approvals on this slice.
+escalation, and no approvals on these slices.
 
-Next on the board: a named **staging** thin-turn deploy (9eef23) when
-`main` is promoted, not as daily parking. Turn recovery epic 653989 is
-closed. Remaining for summoning a computer (8f98f8): cold readiness
-measurement (e747d7) — not a Fargate scale-up this cycle.
-Overnight gated-action (5b687a), immutable approval binding (2b293d),
-unbound browser stops (813d8d), computer-seam recovery (b41106),
-capability-gated readiness (`turn.waiting`, c0fbf0), same-turn first
-computer tool (d3908f), and single shared computer start (b6ab7d) are
-kernel-only; the unattended-gate decision is in
+Cloud-environment epic 9eef23 is closed: three named stacks, named-env
+acceptance on each. Turn recovery epic 653989 is closed. Remaining for
+summoning a computer (8f98f8): cold readiness measurement (e747d7) — not
+a Fargate scale-up this cycle. Overnight gated-action (5b687a), immutable
+approval binding (2b293d), unbound browser stops (813d8d), computer-seam
+recovery (b41106), capability-gated readiness (`turn.waiting`, c0fbf0),
+same-turn first computer tool (d3908f), and single shared computer start
+(b6ab7d) are kernel-only; the unattended-gate decision is in
 [Approval spec](docs/APPROVAL.md) (76d3e2). They are not on the live
 worker loop.
 
@@ -309,11 +314,10 @@ That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
 `/chatticus/development/thin-turn/cloudfront-url`, or the
 `CloudFrontUrl` output on stack `ChatticusThinTurn`. Pass `--base-url`
 only when you already have the origin. Repeat with `--environment staging`
-or `--environment production` when those stacks exist. GitHub workflow
-**Acceptance** (`workflow_dispatch`) runs the same script. It is not run
-on every `develop` push; dispatch it after a deploy, with
-`CHATTICUS_<ENVIRONMENT>_BASE_URL` set. Staging and production choices
-fail closed until those secrets (and stacks) exist.
+or `--environment production`. GitHub workflow **Acceptance**
+(`workflow_dispatch`) runs the same script. It is not run on every
+`develop` push; dispatch it after a deploy, with
+`CHATTICUS_<ENVIRONMENT>_BASE_URL` set.
 
 If Docker Desktop is running, the snapshot packer can be checked with
 `sh computer/test_relocate.sh`.
@@ -331,8 +335,9 @@ npx cdk deploy ChatticusThinTurnProduction
 ```
 
 **ChatticusThinTurn** is development. Staging and production are separate
-stacks with their own DynamoDB, SQS, Lambda, and CloudFront. Do not
-destroy the snapshot or computer stacks.
+stacks with their own DynamoDB, SQS, Lambda, and CloudFront; both are
+deployed from the v0.5.0 release on `main`. Do not destroy the snapshot
+or computer stacks.
 
 Postgres in `docker-compose.yml` is unused (it predates DynamoDB).
 
