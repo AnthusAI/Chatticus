@@ -180,10 +180,16 @@
       "author": "home",
       "text": "Frontier: GET /channels/{id}/turn 404 after completion is live on development ThinTurn (e7e58a0). exercise exit 0 with claim_a=200 claim_b=409 channel_turn=1 channel_turn_done=1. c71b69 closed. No staging/production. main stays v0.5.0.",
       "created_at": "2026-08-31T06:12:49.972277Z"
+    },
+    {
+      "id": "90527552-f1eb-4c67-a309-7fc4162afc7f",
+      "author": "home",
+      "text": "Frontier: GET /channels/{id}/turn waiting_for=browser after recycle is specified and live on development ThinTurn (06de2c4). exercise exit 0 with claim_a=200 claim_b=409 channel_turn_waiting=1. b06c90 closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T06:22:07.598605Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T06:12:49.972277Z",
+  "updated_at": "2026-08-31T06:22:07.598605Z",
   "closed_at": null,
   "custom": {}
 }
