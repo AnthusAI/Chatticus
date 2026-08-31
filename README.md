@@ -88,17 +88,17 @@ live AWS. This branch makes development ThinTurn synth look up the live
 ChatticusComputers stack so a Web restack cannot drop RunTask.
 
 A Function-URL run of `exercise_thin_turn.py --environment development`
-on 2026-08-31 (after the Web wipe) exited 0 with `health_environment=1`,
+on 2026-08-31 after the **14:34:58Z** ThinTurn-only pin (ECS env + RunTask
+IAM restored; Web not redeployed) exited 0 with `health_environment=1`,
 `missing_claim=404`, `claim_a=200` then `claim_b=409`,
-`host_start_generation=1` after resume, and
-`computer_queue_job=in_flight_nack`. No new Fargate task appeared;
-`host_start_generation` incremented on the no-op starter. The named
-exercise loads the invoke key from Secrets Manager when the origin is
-the function URL. SSE through the function URL needs a long HTTP
-timeout; CloudFront `/api/*` is the public path and does not match
-exercise routes that start with `/turns`. The worker does not fake
-`tool.result`. Remaining 8f98f8: a summoned host that actually completes
-the browser tool on the same turn (live still nacks). A demo CLI
+`host_start_generation=1`, and `computer_queue_job=in_flight_nack`.
+ComputerWorker `job_nacked` after `ecs.RunTask`. Two Fargate tasks ran
+the host-worker override on ECR `:dev`
+`sha256:fdebcf6843547e191e4083d7f3e02f9fbdc7a426f256b54030cbb7a361196914`
+and exited 1: Ubuntu `chromium-browser` is a snap stub (`requires the
+chromium snap`). Remaining 8f98f8: a Debian Chromium image push to `:dev`
+(no Computers stack deploy) so the summoned host can complete the
+browser tool. The worker does not fake `tool.result`. A demo CLI
 (Kanbus epic 35d86b) is starting; it talks to this HTTP surface.
 `exercise_thin_turn.py` stays the pass/fail gate.
 
