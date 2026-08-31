@@ -71,7 +71,10 @@ deploy of a release that already passed staging acceptance. Git promotion
 does not redeploy stacks. Staging and production were last recorded as
 deployed from `origin/main` @ `760915d` (v0.5.0); they have not been
 redeployed from v0.6.0 here. Development was last redeployed ThinTurn-only
-from `develop` @ `6baa46a` (no `--all`). `develop` is ahead of `main`
+from `develop` @ `018948c` (no `--all`). That pin ships the Front Door
+bundle that includes typed journal handoff (538d28) and the
+computer-capable pull worker module (555ba5); `ComputerTurnJobs` still
+has no SQS worker attached. `develop` is ahead of `main`
 (channels list, household computer read, channel active-turn read,
 waiting-turn read, user active-turn list, named `GET /health`
 environment, recycle Gherkin for history/journal/turn-by-id/bot-by-id,
