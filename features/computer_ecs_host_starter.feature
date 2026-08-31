@@ -6,3 +6,7 @@ Feature: ECS host starter from environment
   Scenario: CHATTICUS_HOST_STARTER=ecs selects EcsHostStarter
     Given CHATTICUS_HOST_STARTER is ecs
     Then the host starter from environment is an ECS host starter
+
+  Scenario: Development ComputerWorker may tag the summoned task
+    Given development ThinTurn ComputerWorker is wired for ECS host start
+    Then ComputerWorker IAM allows ecs TagResource on summoned tasks

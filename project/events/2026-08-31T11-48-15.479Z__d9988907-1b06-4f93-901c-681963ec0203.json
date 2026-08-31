@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "d9988907-1b06-4f93-901c-681963ec0203",
+  "issue_id": "chatticus-45a1629b-e7a9-4057-9b6c-d2f4af4da25d",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T11:48:15.479Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "",
+    "issue_type": "bug",
+    "labels": [],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "Development ComputerWorker RunTask may tag the summoned Fargate task"
+  }
+}

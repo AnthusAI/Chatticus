@@ -77,6 +77,11 @@ def test_ecs_host_starter_runs_task_when_configured() -> None:
     assert ecs.kwargs is not None
     assert ecs.kwargs["cluster"] == "ChatticusComputers"
     assert ecs.kwargs["taskDefinition"] == "computer"
+    assert ecs.kwargs["tags"] == [
+        {"key": "tenant_id", "value": "anthus"},
+        {"key": "computer_id", "value": "household-computer"},
+        {"key": "host_start_generation", "value": "3"},
+    ]
 
 
 def test_host_starter_from_env_defaults_to_noop(monkeypatch: object) -> None:

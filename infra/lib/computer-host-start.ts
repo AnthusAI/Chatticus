@@ -107,6 +107,14 @@ export function wireComputerWorkerEcsHostStart(
   );
   computerWorkerFunction.addToRolePolicy(
     new iam.PolicyStatement({
+      actions: ["ecs:TagResource"],
+      resources: [
+        `arn:aws:ecs:${stack.region}:${stack.account}:task/${config.cluster}/*`,
+      ],
+    }),
+  );
+  computerWorkerFunction.addToRolePolicy(
+    new iam.PolicyStatement({
       actions: ["iam:PassRole"],
       resources: [config.executionRoleArn, config.taskRoleArn],
       conditions: {

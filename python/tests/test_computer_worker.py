@@ -250,3 +250,22 @@ def test_computerless_and_computer_workers_partition_jobs() -> None:
     ]
     assert len(remaining) == 1
     api.close()
+
+
+def test_computer_worker_nacks_when_host_starter_fails() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+
+    class RaisingHostStarter:
+        def start_host(self, claim: object) -> None:
+            raise RuntimeError("ecs:TagResource denied")
+
+    worker = ComputerWorker(
+        plane,
+        HttpTurnClient(api, setup.tenant_id),
+        host_starter=RaisingHostStarter(),
+    )
+    with pytest.raises(ComputerWorkerHostNotReady, match="host start failed"):
+        worker.run_job(setup.continuation_job)
+    api.close()

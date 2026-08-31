@@ -18,6 +18,15 @@ def test_development_thinturn_deploy_script_is_one_stack() -> None:
     assert "aws sts get-caller-identity" in text
 
 
+def test_computer_worker_ecs_host_start_may_tag_tasks() -> None:
+    source = (
+        Path(__file__).resolve().parents[2] / "infra" / "lib" / "computer-host-start.ts"
+    )
+    text = source.read_text()
+    assert '"ecs:TagResource"' in text or "ecs:TagResource" in text
+    assert "ecs:RunTask" in text
+
+
 def test_development_thinturn_deploy_script_reads_computer_stack_outputs() -> None:
     script = (
         Path(__file__).resolve().parents[2]
