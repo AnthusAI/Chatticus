@@ -181,6 +181,18 @@ def create_app(
             "name": bot.name,
         }
 
+    @app.get("/bots")
+    def lookup_bot(
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        user_id: str = Query(),
+        name: str = Query(),
+    ) -> dict[str, Any]:
+        try:
+            bot = state.plane.bot_by_name(tenant_id, user_id, name)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="bot not found") from error
+        return _bot_payload(bot)
+
     @app.get("/bots/{bot_id}")
     def get_bot(
         bot_id: str,

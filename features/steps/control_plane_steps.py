@@ -513,6 +513,23 @@ def then_created_bot_identifier_is_unchanged(context: object) -> None:
     assert second == first
 
 
+@then('tenant "{tenant_id}" can look up bot "{name}" for user "{user_id}"')
+def then_lookup_bot_by_name(
+    context: object, tenant_id: str, name: str, user_id: str
+) -> None:
+    expected = context.bots_by_name[name]
+    response = context.api_client.get(
+        "/bots",
+        params={"user_id": user_id, "name": name},
+        headers={"X-Tenant-Id": tenant_id},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["bot_id"] == expected.bot_id
+    assert payload["name"] == name
+    assert payload["user_id"] == user_id
+
+
 @when('worker "{worker_id}" publishes a snapshot of computer "{computer_id}"')
 def when_publish_snapshot(context: object, worker_id: str, computer_id: str) -> None:
     try:

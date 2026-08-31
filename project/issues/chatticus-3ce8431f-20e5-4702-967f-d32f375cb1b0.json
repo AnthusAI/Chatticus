@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-3ce8431f-20e5-4702-967f-d32f375cb1b0",
+  "title": "Look up a named bot after Front Door recycle",
+  "description": "As a household member, I want to look up a named bot by user and name after a Front Door recycle, so I can recover bot_id without listing every roster row.\n\nFeature: Bot turns pin to the user's computer\n\nScenario: A named bot can be looked up after a Front Door recycle\n  Given an empty control plane backed by a durable messaging store with HTTP\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n  When a recycled Front Door serves the same messaging store\n  Then tenant \"anthus\" can look up bot \"Researcher\" for user \"ryan\"\n\nNot included: staging, production, Fargate, Safari.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T05:18:04.823635Z",
+  "updated_at": "2026-08-31T05:18:12.988904Z",
+  "closed_at": null,
+  "custom": {}
+}

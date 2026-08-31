@@ -34,3 +34,9 @@ Feature: Bot turns pin to the user's computer
     When tenant "anthus" user "ryan" creates bot "Researcher" using idempotency key "retry-bot"
     And a recycled control plane creates bot "Researcher" for tenant "anthus" user "ryan" using idempotency key "retry-bot"
     Then the created bot identifier is unchanged
+
+  Scenario: A named bot can be looked up after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    When a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can look up bot "Researcher" for user "ryan"

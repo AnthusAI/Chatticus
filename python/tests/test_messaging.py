@@ -285,6 +285,56 @@ def test_http_bot_memory_write_on_a_new_control_plane() -> None:
     api.close()
 
 
+def test_http_lookup_bot_by_name() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    created = api.post(
+        "/bots",
+        json={"user_id": "ryan", "name": "Researcher"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    bot_id = created.json()["bot_id"]
+    fetched = api.get(
+        "/bots",
+        params={"user_id": "ryan", "name": "Researcher"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["bot_id"] == bot_id
+    missing = api.get(
+        "/bots",
+        params={"user_id": "ryan", "name": "Researcher"},
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert missing.status_code == 404
+    unknown = api.get(
+        "/bots",
+        params={"user_id": "ryan", "name": "Missing"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert unknown.status_code == 404
+    api.close()
+
+
+@mock_aws
+def test_http_lookup_bot_by_name_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-bot-lookup-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    bot = first.create_bot("anthus", "ryan", "Researcher")
+    api = _client_for(ControlPlane(messaging_store=store))
+    fetched = api.get(
+        "/bots",
+        params={"user_id": "ryan", "name": "Researcher"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["bot_id"] == bot.bot_id
+    api.close()
+
+
 def test_http_bot_memory_roundtrip() -> None:
     plane = ControlPlane()
     api = _client_for(plane)

@@ -421,6 +421,17 @@ class ControlPlane:
             raise KeyError(bot_id)
         return record
 
+    def bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot:
+        """Return one bot by the household user's chosen name.
+
+        :raises KeyError: If the bot is unknown to this tenant and user.
+        """
+        bot = self._messaging_store.get_bot_by_name(tenant_id, user_id, name)
+        if bot is None or bot.tenant_id != tenant_id or bot.user_id != user_id:
+            raise KeyError(name)
+        self._bots[bot.bot_id] = bot
+        return bot
+
     def ensure_computer(
         self,
         tenant_id: str,

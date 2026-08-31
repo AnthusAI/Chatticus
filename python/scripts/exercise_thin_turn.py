@@ -148,6 +148,20 @@ def main() -> int:
             )
             return 1
         print("bot_name_dup=1")
+        looked_up = client.get(
+            "/bots",
+            params={"user_id": args.user_id, "name": bot["name"]},
+        )
+        if (
+            looked_up.status_code != 200
+            or looked_up.json().get("bot_id") != bot["bot_id"]
+        ):
+            print(
+                f"bot_by_name {looked_up.status_code} {looked_up.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("bot_by_name=1")
         remembered = client.post(
             f"/bots/{bot['bot_id']}/memory",
             json={"key": "voice", "value": "short and direct"},
