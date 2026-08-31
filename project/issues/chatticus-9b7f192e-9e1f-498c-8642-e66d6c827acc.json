@@ -120,10 +120,16 @@
       "author": "home",
       "text": "Frontier tick: GET /channels/{id} live on development ThinTurn (c2f3e55 code, README 3146118). exercise exit 0 with channel_get=1 claim_a=200 claim_b=409. 73aaf6 closed. Safari/background-tab still unmeasured on 387e4f.",
       "created_at": "2026-08-31T05:08:13.994143Z"
+    },
+    {
+      "id": "b3b080b2-de0d-4b19-8f71-4aaf458fbf86",
+      "author": "home",
+      "text": "Frontier: bot memory writes hydrate from Dynamo after recycle (477209d). exercise exit 0 with claim_a=200 claim_b=409 bot_memory=voice channel_get=1. 3a94d6 closed. No staging/production. main stays v0.5.0.",
+      "created_at": "2026-08-31T05:15:12.413832Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T05:08:13.994143Z",
+  "updated_at": "2026-08-31T05:15:12.413832Z",
   "closed_at": null,
   "custom": {}
 }

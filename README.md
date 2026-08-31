@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `c2f3e55` (no `--all`).
+from `develop` @ `477209d` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -138,7 +138,8 @@ What each deployed thin-turn slice does today:
   instance can enqueue a turn for a bot it did not create. Per-user bot
   names are reserved on the roster table so a recycled Lambda cannot fork
   two bots with the same name. Bot memory is
-  stored on that roster item; the computerless worker prompt is that
+  stored on that roster item; a recycled Front Door hydrates the bot from
+  Dynamo before writing memory. The computerless worker prompt is that
   memory plus the channel transcript. Another bot on the same computer
   does not inherit it.
 - DynamoDB is the source of truth for the transcript, in-flight chunks

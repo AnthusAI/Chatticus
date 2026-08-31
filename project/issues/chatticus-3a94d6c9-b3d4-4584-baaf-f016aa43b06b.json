@@ -3,7 +3,7 @@
   "title": "Bot memory writes hydrate from the store after Front Door recycle",
   "description": "As a household member, I want writing bot memory after a Front Door recycle to load the bot from DynamoDB, so the write does not KeyError on an empty in-process roster.\n\nFeature: Shared computer and isolated bot memory\n\nScenario: Bot memory can be written after a recycled control plane\n  Given an empty control plane backed by a durable messaging store\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n  When the control plane is recycled onto the same messaging store\n  And bot \"Researcher\" remembers \"voice\" as \"short and direct\"\n  Then bot \"Researcher\" has memory \"voice\" as \"short and direct\"\n\nNot included: staging, production, Fargate, Safari.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -15,7 +15,7 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-08-31T05:11:59.156060Z",
-  "updated_at": "2026-08-31T05:12:22.084507Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T05:15:12.402590Z",
+  "closed_at": "2026-08-31T05:15:12.402590Z",
   "custom": {}
 }
