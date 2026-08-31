@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `7266e93` (no `--all`).
+from `develop` @ `e4511c3` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -82,11 +82,13 @@ exits 0 for **development**, **staging**, and **production**. Each run
 includes missing-turn claim **404** and a live second-worker claim **409**
 while the lease is held, plus SSE `turn.started` / `turn.token` /
 `turn.completed`. **Development** also proves `POST /turns/{id}/waiting`:
-SSE `turn.waiting` naming `browser`, then a stale fence **409**, then
+SSE `turn.waiting` naming `browser`, `GET /turns/{id}` returning
+`waiting_for=browser`, then a stale fence **409**, then
 `POST /turns/{id}/resume` **409** while the household computer is stopped.
 The same named exercise then asks luna to open the household browser; the
-worker emits `turn.waiting` instead of completing, and resume is **409**
-again. Staging and production do not have waiting or resume yet.
+worker emits `turn.waiting` instead of completing, `GET /turns/{id}` still
+names `browser`, and resume is **409** again. Staging and production do not
+have waiting, resume, or turn read yet.
 
 The **source** has named cloud environments, turn **claim**, **lease**,
 **fence**, durable channel lookup across Lambda invocations, a durable
@@ -103,7 +105,8 @@ What each deployed thin-turn slice does today:
   chunk POST, `POST /turns/{id}/claim`, `POST /turns/{id}/renew`, fenced
   chunk writes, `POST /turns/{id}/waiting` (development),
   `POST /turns/{id}/resume` (development; **409** while the computer is
-  stopped), and
+  stopped), `GET /turns/{id}` (development; exposes `waiting_for` on
+  active turns), and
   `GET /turns/{turn_id}/stream` as `text/event-stream`.
 - Channel records and named bots are in DynamoDB, so a different Front Door
   instance can enqueue a turn for a bot it did not create.
@@ -114,7 +117,8 @@ What each deployed thin-turn slice does today:
   model calls `request_computer_capability`, the worker POSTs
   `turn.waiting`, records `waiting_for` on the turn, and leaves the turn
   active instead of claiming the browser work is done. Resume of that
-  same turn is refused while the computer is stopped.
+  same turn is refused while the computer is stopped. EventBridge deadline
+  recovery does not fail a turn that is legitimately waiting on a gate.
 - Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
 
 Worker lease renew during long model calls is live on development.
