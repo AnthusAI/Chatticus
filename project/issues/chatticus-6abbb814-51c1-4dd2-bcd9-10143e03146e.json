@@ -28,10 +28,16 @@
       "author": "agent@example.com",
       "text": "PR #41 landed on develop (df7419e). ThinTurn-only workflow_dispatch plus ChatticusGitHubDeploy OIDC are in tree. workflow_dispatch still will not appear in Actions until that YAML is on default branch main. AWS_DEPLOY_ROLE_ARN is already on the GitHub development environment. Closed #40 as superseded. Remaining on this task: promote workflow to main when ready; web/staging/production deploy is still out of scope.",
       "created_at": "2026-08-31T19:48:47.739276Z"
+    },
+    {
+      "id": "5b04591d-6ac6-479b-a9c6-e6ace8bc6cc7",
+      "author": "agent@example.com",
+      "text": "Develop code for ThinTurn + ChatticusWeb workflow_dispatch is on develop (#41, #62). Live development OIDC/web already applied. Remaining: YAML on default branch main so Actions UI shows dispatch (human merge to main). Staging/production still out of scope.",
+      "created_at": "2026-08-31T22:24:08.039097Z"
     }
   ],
   "created_at": "2026-08-31T11:31:18.846366Z",
-  "updated_at": "2026-08-31T19:48:47.739276Z",
+  "updated_at": "2026-08-31T22:24:08.039097Z",
   "closed_at": null,
   "custom": {}
 }
