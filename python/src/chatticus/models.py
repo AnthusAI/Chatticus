@@ -174,6 +174,10 @@ class ComputerlessCannotExecuteComputerJob(ChatticusError):
     """A cpu-only worker must not ack a job that requires the computer."""
 
 
+class ComputerWorkerRequiresComputerCapability(ChatticusError):
+    """A computer-capable worker must not ack a job without the computer capability."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""

@@ -12,12 +12,7 @@
     "v1",
     "computer"
   ],
-  "dependencies": [
-    {
-      "target": "chatticus-65398905-db08-4e8c-a4c3-2a8d06daeadd",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "741491ed-aba3-4c17-80c5-fa9f52f62730",
@@ -54,10 +49,16 @@
       "author": "home",
       "text": "e747d7 closed: cold Fargate RUNNING median 22s (17.7–38.5). Chromium still unmeasured. Next is 53beb0 start/readiness implementation, not another measurement cycle.",
       "created_at": "2026-08-31T07:40:00.684705Z"
+    },
+    {
+      "id": "d1f5dbc6-7223-4ea8-a787-8d7ac4c65e3f",
+      "author": "home",
+      "text": "555ba5 landed on develop: kernel ComputerWorker pulls computer continuation jobs, claims the same turn, executes only unresolved tool.call action ids from the 538d28 journal, commits tool.result, and expires orphaned computer leases on pull (no scheduler). Gherkin: computer_continuation_worker.feature. Remaining 8f98f8 DoD: live Fargate computer worker + Chromium on ComputerTurnJobs; resume path still waiting on turn after queue receive (no worker deployed).",
+      "created_at": "2026-08-31T08:21:28.974256Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T07:40:00.684705Z",
+  "updated_at": "2026-08-31T08:21:28.974256Z",
   "closed_at": null,
   "custom": {}
 }

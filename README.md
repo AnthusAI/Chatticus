@@ -204,21 +204,23 @@ live worker loop. Do not merge `develop` to `main` as daily parking.
 destroyed. They are not on the thin-turn path yet. Cold Fargate time to
 `RUNNING` for the current computer image is tens of seconds (Test 2);
 Chromium is not in the image. The computer service stays at desired
-count 0. There is no chattic.us web app, no local pull worker, no
-mid-turn escalation onto a running computer, and no approvals on these
-slices.
+count 0. There is no chattic.us web app, no live Fargate computer pull
+worker, no mid-turn escalation onto a running computer, and no approvals
+on these slices.
 
 Cloud-environment epic 9eef23 is closed: three named stacks, named-env
 acceptance on each. Turn recovery epic 653989 is closed. Cold Fargate
 readiness (e747d7, Test 2) is measured for the current image: tens of
 seconds to RUNNING; Chromium still missing. Remaining for summoning a
-computer (8f98f8) is wiring this kernel onto a live computer worker.
-Structured handoff (538d28) is kernel-only on
-`develop` — model.request, tool.call, tool.result, and attempt
-claim/relinquish are durable typed journal events; continuation
+computer (8f98f8): attach a live Fargate computer worker with Chromium;
+the kernel computer-capable pull worker (journal continuation from
+538d28) is on `develop` but not deployed. Structured handoff (538d28) is
+kernel-only on `develop` — model.request, tool.call, tool.result, and
+attempt claim/relinquish are durable typed journal events; continuation
 executes only unresolved action ids; failure injection covers handoff
 boundaries and computer reclamation. Gherkin:
-`structured_journal_handoff.feature`. Single-owner computer
+`structured_journal_handoff.feature` and
+`computer_continuation_worker.feature`. Single-owner computer
 start and readiness (53beb0) is kernel-only on `develop`: one
 tenant/computer start claim, lease expiry and reclaim, per-capability
 readiness recording, and stale-local prefer-local gating until snapshot
@@ -384,7 +386,7 @@ computers stop (EC2) or scale to 0 (Fargate). The snapshot stays.
 ```
 Chattic.us/
   features/                 Shared Gherkin (product narrative)
-  python/                   Control plane, computerless worker, snapshot packer
+  python/                   Control plane, computerless and computer workers, snapshot packer
   web/                      chattic.us web app (not on the live turn path yet)
   computer/                 Linux computer image
   infra/                    AWS CDK
