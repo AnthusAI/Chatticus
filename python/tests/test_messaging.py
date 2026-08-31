@@ -922,6 +922,41 @@ def test_dynamo_post_idempotency_survives_a_new_control_plane() -> None:
     assert again.turn_id == started.turn_id
 
 
+def test_http_channel_create_idempotency_key_does_not_duplicate() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, _ = _channel_with_bot(plane, "Assistant")
+    payload = {"user_id": "ryan", "bot_ids": [bot.bot_id]}
+    headers = {
+        "X-Tenant-Id": "anthus",
+        "Idempotency-Key": "retry-ch",
+    }
+    first = api.post("/channels", json=payload, headers=headers)
+    second = api.post("/channels", json=payload, headers=headers)
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["channel_id"] == second.json()["channel_id"]
+    api.close()
+
+
+@mock_aws
+def test_dynamo_channel_create_idempotency_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-channel-idempotency-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    bot = ControlPlane(messaging_store=store).create_bot("anthus", "ryan", "Assistant")
+    first = ControlPlane(messaging_store=store)
+    channel = first.create_channel(
+        "anthus", "ryan", [bot.bot_id], idempotency_key="retry-ch"
+    )
+    second = ControlPlane(messaging_store=store)
+    again = second.create_channel(
+        "anthus", "ryan", [bot.bot_id], idempotency_key="retry-ch"
+    )
+    assert again.channel_id == channel.channel_id
+
+
 def test_resume_does_not_publish_computer_job_to_cpu_queue() -> None:
     captured: list[TurnJob] = []
     plane = ControlPlane(turn_enqueued=captured.append)

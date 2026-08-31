@@ -138,6 +138,19 @@ class MessagingStore(Protocol):
     ) -> None:
         """Persist the result of one idempotent channel post."""
 
+    def get_channel_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> Channel | None:
+        """Return the channel stored for one create-channel idempotency key."""
+
+    def put_channel_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        channel: Channel,
+    ) -> None:
+        """Persist the result of one idempotent channel create."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -152,6 +165,7 @@ class InMemoryMessagingStore:
         self._computers: dict[tuple[str, str], Computer] = {}
         self._logical_enqueue_ids: dict[tuple[str, str], set[str]] = {}
         self._post_idempotency: dict[tuple[str, str], tuple[Message, str | None]] = {}
+        self._channel_idempotency: dict[tuple[str, str], str] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -324,6 +338,22 @@ class InMemoryMessagingStore:
         turn_id: str | None,
     ) -> None:
         self._post_idempotency[(tenant_id, idempotency_key)] = (message, turn_id)
+
+    def get_channel_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> Channel | None:
+        channel_id = self._channel_idempotency.get((tenant_id, idempotency_key))
+        if channel_id is None:
+            return None
+        return self.get_channel(tenant_id, channel_id)
+
+    def put_channel_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        channel: Channel,
+    ) -> None:
+        self._channel_idempotency[(tenant_id, idempotency_key)] = channel.channel_id
 
 
 class DynamoMessagingStore:
@@ -842,6 +872,40 @@ class DynamoMessagingStore:
         if turn_id is not None:
             item["turn_id"] = {"S": turn_id}
         self.client.put_item(TableName=self.table_name, Item=item)
+
+    def get_channel_idempotency(
+        self, tenant_id: str, idempotency_key: str
+    ) -> Channel | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"chidem#{idempotency_key}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        channel_id = item.get("channel_id", {}).get("S")
+        if not channel_id:
+            return None
+        return self.get_channel(tenant_id, channel_id)
+
+    def put_channel_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        channel: Channel,
+    ) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"chidem#{idempotency_key}"},
+                "tenant_id": {"S": tenant_id},
+                "channel_id": {"S": channel.channel_id},
+            },
+        )
 
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"

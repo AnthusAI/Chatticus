@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "0816398e-0fa0-43a7-8df2-abaf94fc0106",
+  "issue_id": "chatticus-2cfcb8d9-4ce3-4a30-bad3-26328fdc5df9",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T04:51:30.199Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "",
+    "issue_type": "story",
+    "labels": [
+      "v1",
+      "bdd"
+    ],
+    "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+    "priority": 0,
+    "status": "open",
+    "title": "Retrying a channel open with one idempotency key does not duplicate"
+  }
+}

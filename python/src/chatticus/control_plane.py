@@ -1062,6 +1062,8 @@ class ControlPlane:
         tenant_id: str,
         user_id: str,
         bot_ids: list[str] | None = None,
+        *,
+        idempotency_key: str | None = None,
     ) -> Channel:
         """Open a channel for a user and the given bots.
 
@@ -1071,6 +1073,12 @@ class ControlPlane:
         :raises KeyError: If a bot id is unknown.
         :raises ActorNotInChannelError: If a bot belongs to another user.
         """
+        if idempotency_key is not None:
+            cached = self._messaging_store.get_channel_idempotency(
+                tenant_id, idempotency_key
+            )
+            if cached is not None:
+                return cached
         participants = [ChannelParticipant(kind=ActorKind.HUMAN, actor_id=user_id)]
         for bot_id in bot_ids or []:
             bot = self._bot(tenant_id, bot_id)
@@ -1087,6 +1095,10 @@ class ControlPlane:
             participants=participants,
         )
         self._messaging_store.put_channel(channel)
+        if idempotency_key is not None:
+            self._messaging_store.put_channel_idempotency(
+                tenant_id, idempotency_key, channel
+            )
         return channel
 
     def channel(self, tenant_id: str, channel_id: str) -> Channel:

@@ -151,10 +151,35 @@ def main() -> int:
         client.post(
             "/computers/stopped", json={"user_id": args.user_id, "stopped": True}
         )
-        channel = client.post(
+        channel_key = str(uuid4())
+        channel_body = {"user_id": args.user_id, "bot_ids": [bot["bot_id"]]}
+        first_channel = client.post(
             "/channels",
-            json={"user_id": args.user_id, "bot_ids": [bot["bot_id"]]},
-        ).json()
+            json=channel_body,
+            headers={"Idempotency-Key": channel_key},
+        )
+        second_channel = client.post(
+            "/channels",
+            json=channel_body,
+            headers={"Idempotency-Key": channel_key},
+        )
+        if first_channel.status_code >= 400 or second_channel.status_code >= 400:
+            print(
+                "channel_idempotent failed "
+                f"{first_channel.status_code} {second_channel.status_code} "
+                f"{first_channel.text[:200]} {second_channel.text[:200]}",
+                file=sys.stderr,
+            )
+            return 1
+        channel = first_channel.json()
+        if channel["channel_id"] != second_channel.json()["channel_id"]:
+            print(
+                "channel_idempotent duplicated "
+                f"{channel['channel_id']} {second_channel.json()['channel_id']}",
+                file=sys.stderr,
+            )
+            return 1
+        print("channel_idempotent=1")
         fence_posted = client.post(
             f"/channels/{channel['channel_id']}/messages",
             json={

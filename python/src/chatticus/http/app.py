@@ -233,8 +233,15 @@ def create_app(
     def create_channel(
         body: CreateChannelBody,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, Any]:
-        channel = state.plane.create_channel(tenant_id, body.user_id, body.bot_ids)
+        key = (idempotency_key or "").strip() or None
+        channel = state.plane.create_channel(
+            tenant_id,
+            body.user_id,
+            body.bot_ids,
+            idempotency_key=key,
+        )
         logger.info(
             "channel_created tenant_id=%s channel_id=%s user_id=%s",
             tenant_id,

@@ -171,3 +171,12 @@ Feature: Channels and the message store
     Then the channel has 1 message
     And bot "Assistant" has 1 pending turn with required capabilities:
       | cpu |
+
+  Scenario: Retrying a channel open with the same idempotency key does not duplicate
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a bot named "Assistant"
+    When tenant "anthus" user "ryan" opens a channel with idempotency key "retry-ch" with bots:
+      | Assistant |
+    And tenant "anthus" user "ryan" opens a channel with idempotency key "retry-ch" with bots:
+      | Assistant |
+    Then the opened channel identifier is unchanged

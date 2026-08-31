@@ -137,6 +137,29 @@ def when_open_channel(context: object, tenant_id: str, user_id: str) -> None:
     _load_channel(context, tenant_id, response.json()["channel_id"])
 
 
+@when(
+    'tenant "{tenant_id}" user "{user_id}" opens a channel with '
+    'idempotency key "{key}" with bots:'
+)
+def when_open_channel_with_idempotency(
+    context: object, tenant_id: str, user_id: str, key: str
+) -> None:
+    bot_ids = _bot_ids(context, context.table)
+    previous = getattr(context, "idempotent_channel_id", None)
+    response = context.api_client.post(
+        "/channels",
+        json={"user_id": user_id, "bot_ids": bot_ids},
+        headers={**tenant_headers(tenant_id), "Idempotency-Key": key},
+    )
+    assert response.status_code == 200
+    channel_id = response.json()["channel_id"]
+    if previous is None:
+        context.idempotent_channel_id = channel_id
+    else:
+        context.repeated_channel_id = channel_id
+    _load_channel(context, tenant_id, channel_id)
+
+
 @given('tenant "{tenant_id}" user "{user_id}" has opened a channel with bots:')
 def given_open_channel(context: object, tenant_id: str, user_id: str) -> None:
     when_open_channel(context, tenant_id, user_id)
@@ -305,6 +328,14 @@ def then_channel_message_count(context: object, count: int) -> None:
     )
     assert response.status_code == 200
     assert len(response.json()["messages"]) == count
+
+
+@then("the opened channel identifier is unchanged")
+def then_opened_channel_identifier_is_unchanged(context: object) -> None:
+    first = getattr(context, "idempotent_channel_id", None)
+    second = getattr(context, "repeated_channel_id", None)
+    assert first is not None
+    assert second == first
 
 
 @then('the message with seq {seq:d} has body "{body}"')
