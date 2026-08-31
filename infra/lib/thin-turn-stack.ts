@@ -397,6 +397,8 @@ export class ThinTurnStack extends cdk.Stack {
       "GitHubOidc",
       `arn:aws:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`,
     );
+    const githubOidcSubPrefix =
+      "repo:AnthusAI@152415604/Chattic.us@1350947261";
     const acceptanceRole = new iam.Role(this, "GithubAcceptance", {
       roleName: `chatticus-${environmentName}-github-acceptance`,
       description:
@@ -409,9 +411,9 @@ export class ThinTurnStack extends cdk.Stack {
             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
           },
           StringLike: {
-            "token.actions.githubusercontent.com:job_workflow_ref": [
-              "AnthusAI/Chattic.us/.github/workflows/acceptance.yml@refs/heads/develop",
-              "AnthusAI/Chattic.us/.github/workflows/acceptance.yml@refs/heads/main",
+            "token.actions.githubusercontent.com:sub": [
+              `${githubOidcSubPrefix}:ref:refs/heads/develop`,
+              `${githubOidcSubPrefix}:ref:refs/heads/main`,
             ],
           },
         },
