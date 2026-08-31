@@ -103,10 +103,16 @@
       "author": "home",
       "text": "4bca15 in progress: host pull-worker kernel on PR 33. Live ThinTurn still nacks; sleep-infinity RunTask until the computer image includes computer_host_worker. Do not merge to main.\n",
       "created_at": "2026-08-31T12:22:10.399910Z"
+    },
+    {
+      "id": "e9cbf2d7-cd02-44f1-9325-6e9a498c2732",
+      "author": "home",
+      "text": "ThinTurn-only 2026-08-31T12:27:42Z (tsx CDK app). Live exercise exit 0, claim 200/409, one RunTask then stopped, desiredCount 0. HOST_COMMAND still unset. Do not merge to main. PR 33.\n",
+      "created_at": "2026-08-31T12:29:40.469561Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T12:22:10.399910Z",
+  "updated_at": "2026-08-31T12:29:40.469561Z",
   "closed_at": null,
   "custom": {}
 }
