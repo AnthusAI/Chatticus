@@ -52,8 +52,16 @@ def _channel_with_bot(plane: ControlPlane, name: str = "Researcher"):
     return bot, channel
 
 
-def _client_for(plane: ControlPlane):
-    return start_test_server(create_app(plane))
+def _client_for(plane: ControlPlane, *, environment: str | None = None):
+    return start_test_server(create_app(plane, environment=environment))
+
+
+def test_http_health_names_environment() -> None:
+    api = _client_for(ControlPlane(), environment="development")
+    health = api.get("/health")
+    assert health.status_code == 200
+    assert health.json() == {"status": "ok", "environment": "development"}
+    api.close()
 
 
 def test_cursor_from_last_event_id() -> None:

@@ -4,6 +4,10 @@ Feature: Channels and the message store
   So that bots can talk to me and to each other on one channel
   And files stay on the shared computer instead of in the transcript
 
+  Scenario: The front door names its cloud environment
+    Given a front door serving named environment "development" with HTTP
+    Then GET /health reports environment "development"
+
   Scenario: A human message addressed to a bot enqueues a turn
     Given an empty control plane
     And tenant "anthus" user "ryan" has a bot named "Researcher"

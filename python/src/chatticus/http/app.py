@@ -117,6 +117,7 @@ class AppState:
 
     plane: ControlPlane
     invoke_key: str
+    environment: str
     open_sse_streams: int = 0
 
 
@@ -133,6 +134,7 @@ def create_app(
     plane: ControlPlane,
     *,
     invoke_key: str | None = None,
+    environment: str | None = None,
 ) -> FastAPI:
     """Build a FastAPI app backed by one control plane instance."""
     resolved_key = (
@@ -140,7 +142,16 @@ def create_app(
         if invoke_key is not None
         else os.environ.get("CHATTICUS_INVOKE_KEY", "")
     ).strip()
-    state = AppState(plane=plane, invoke_key=resolved_key)
+    resolved_environment = (
+        environment
+        if environment is not None
+        else os.environ.get("CHATTICUS_ENVIRONMENT", "local")
+    ).strip() or "local"
+    state = AppState(
+        plane=plane,
+        invoke_key=resolved_key,
+        environment=resolved_environment,
+    )
     app = FastAPI(
         title="Chatticus control plane",
         dependencies=[Depends(_verify_invoke_key)],
@@ -156,7 +167,7 @@ def create_app(
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok"}
+        return {"status": "ok", "environment": state.environment}
 
     @app.post("/bots")
     def create_bot(

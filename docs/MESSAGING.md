@@ -205,6 +205,7 @@ would wait a second for; buffer what you are rendering live.
 
 | Path | Use |
 | --- | --- |
+| `GET /health` | Liveness; names the cloud environment (`development`, `staging`, `production`, or `local`) |
 | `POST /bots` | Create a named bot. Retry with the same `Idempotency-Key` header returns the original bot |
 | `GET /bots?user_id=&name=` | Look up a named bot after recycle |
 | `GET /users/{user_id}/bots` | List a household user's named bots after recycle |
@@ -218,6 +219,7 @@ would wait a second for; buffer what you are rendering live.
 | `GET /channels/{id}/turn` | Read the active turn on a channel after recycle, including `waiting_for` when gated; **404** when none is active |
 | `POST /channels/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if a turn starts. Retry with the same `Idempotency-Key` header does not duplicate the message or enqueue a second turn |
 | `GET /channels/{id}/messages?after=<seq>` | History and reconnect |
+| `GET /turns/{id}` | Read a turn after recycle, including `waiting_for` when gated |
 | `GET /turns/{id}/events?after=<seq>` | Durable turn journal after a seq |
 | `GET /turns/{id}/stream` | Server-sent events for one turn (`Last-Event-ID`) |
 | `POST /turns/{id}/chunks` | Worker appends coalesced output |

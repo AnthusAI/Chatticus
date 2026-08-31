@@ -93,6 +93,20 @@ def main() -> int:
         if health.status_code != 200:
             print(f"health {health.status_code} {health.text[:200]}", file=sys.stderr)
             return 1
+        reported_environment = health.json().get("environment")
+        expected_environment = environment or "development"
+        if (
+            reported_environment is not None
+            and reported_environment != expected_environment
+        ):
+            print(
+                "health_environment "
+                f"{reported_environment!r} != {expected_environment!r}",
+                file=sys.stderr,
+            )
+            return 1
+        if reported_environment == expected_environment:
+            print("health_environment=1")
         missing = client.post(
             "/turns/missing-turn-id/claim",
             json={"worker_id": "exercise-missing"},

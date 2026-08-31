@@ -451,6 +451,26 @@ def given_durable_messaging_store(context: object) -> None:
     context.bots_by_name = {}
 
 
+@given('a front door serving named environment "{environment}" with HTTP')
+def given_named_environment_front_door(context: object, environment: str) -> None:
+    context.messaging_store = InMemoryMessagingStore()
+    context.plane = ControlPlane(messaging_store=context.messaging_store)
+    app = create_app(context.plane, environment=environment)
+    context.api_app = app
+    context.app_state = app.state.chatticus
+    context.api_client = start_test_server(app)
+    context.bots_by_name = {}
+
+
+@then('GET /health reports environment "{environment}"')
+def then_health_reports_environment(context: object, environment: str) -> None:
+    response = context.api_client.get("/health")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["environment"] == environment
+
+
 @given("an empty control plane backed by a durable messaging store with HTTP")
 def given_durable_messaging_store_with_http(context: object) -> None:
     context.messaging_store = InMemoryMessagingStore()
