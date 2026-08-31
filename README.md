@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `55f48d0` (no `--all`).
+from `develop` @ `91f3c41` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -94,7 +94,8 @@ The fence probe also requires durable `turn.waiting` journal events to carry
 worker emits `turn.waiting` instead of completing, `GET /turns/{id}` still
 names `browser` and the pending computer tool, the journal event matches that
 `action_id`, and resume is **409** again. It then marks the computer
-running, resumes that turn, and receives the continuation from
+running, resumes that turn, checks `POST /turns/{id}/resume` returns
+`required_capabilities=computer`, and receives the continuation from
 `ComputerTurnJobs` (not the cpu queue) before marking the computer
 stopped. Staging and production do not
 have waiting, resume, or turn read yet.
@@ -114,7 +115,7 @@ What each deployed thin-turn slice does today:
   chunk POST, `POST /turns/{id}/claim`, `POST /turns/{id}/renew`, fenced
   chunk writes, `POST /turns/{id}/waiting` (development),
   `POST /turns/{id}/resume` (development; **409** while the computer is
-  stopped), `GET /turns/{id}` (development; exposes `waiting_for` and
+  stopped; **200** with `required_capabilities` when running), `GET /turns/{id}` (development; exposes `waiting_for` and
   the pending `request_computer_capability` call), and
   `GET /turns/{turn_id}/stream` as `text/event-stream`.
 - Channel records and named bots are in DynamoDB, so a different Front Door

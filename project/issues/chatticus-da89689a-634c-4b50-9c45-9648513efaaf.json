@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-da89689a-634c-4b50-9c45-9648513efaaf",
+  "title": "Resume response names computer capability for queue honesty",
+  "description": "As a household member, I want POST /turns/{id}/resume to name required_capabilities on the HTTP response, so callers know the continuation is computer-required without reading SQS.\n\nFeature: Computerless turn\n\nScenario: Resume names the computer capability on the HTTP response\n  Given an empty control plane\n  And tenant anthus user ryan has a channel with a named bot Assistant\n  And tenant anthus user ryan household computer is stopped\n  When user ryan of tenant anthus posts a browser request addressed to bot Assistant\n  And a counting computerless worker processes bot Assistant\n  And tenant anthus user ryan household computer is running\n  And user ryan of tenant anthus resumes that waiting turn\n  Then the resume response requires computer\n  And the turn remains active\n\nNot included: Fargate, staging or production, attaching a computer worker.",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "563368e2-a0df-40bf-a3fe-a3b68a75c4b3",
+      "author": "home",
+      "text": "ThinTurn-only development deploy from develop @ 91f3c41. POST /turns/{id}/resume returns required_capabilities=[computer]. Named exercise --environment development exits 0 (resume_required_capabilities=computer, computer_queue_job=computer). Not staging, not production, not --all.",
+      "created_at": "2026-08-31T03:18:38.463387Z"
+    }
+  ],
+  "created_at": "2026-08-31T03:15:15.947408Z",
+  "updated_at": "2026-08-31T03:18:38.475607Z",
+  "closed_at": "2026-08-31T03:18:38.475607Z",
+  "custom": {}
+}
