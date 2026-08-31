@@ -39,6 +39,9 @@ class SameOriginApiClient:
     def post(self, path: str, **kwargs: Any) -> httpx.Response:
         return self._client.post(f"{self._prefix}{path}", **kwargs)
 
+    def put(self, path: str, **kwargs: Any) -> httpx.Response:
+        return self._client.put(f"{self._prefix}{path}", **kwargs)
+
     def stream(self, method: str, path: str, **kwargs: Any) -> Any:
         return self._client.stream(method, f"{self._prefix}{path}", **kwargs)
 

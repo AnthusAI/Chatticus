@@ -88,3 +88,20 @@ def test_grant_http_required_when_development_live_flag_set(
     monkeypatch.setenv("CHATTICUS_DEVELOPMENT_GRANT_LIVE", "1")
     assert _EXERCISE._grant_http_required("development")
     assert not _EXERCISE._grant_http_required("staging")
+
+
+def test_same_origin_api_client_put_forwards_path() -> None:
+    client = _EXERCISE.SameOriginApiClient("https://example.test/api")
+    captured: dict[str, str] = {}
+
+    def fake_put(path: str, **kwargs: object) -> httpx.Response:
+        captured["path"] = path
+        return httpx.Response(
+            200,
+            request=httpx.Request("PUT", f"https://example.test{path}"),
+        )
+
+    client._client.put = fake_put  # type: ignore[method-assign]
+    response = client.put("/turns/turn-1/grant", json={"tools": ["read_workspace"]})
+    assert response.status_code == 200
+    assert captured["path"] == "/api/turns/turn-1/grant"
