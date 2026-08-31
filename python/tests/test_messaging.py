@@ -508,6 +508,64 @@ def test_http_get_user_computer_survives_a_new_control_plane() -> None:
     api.close()
 
 
+def test_http_get_channel_active_turn() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    posted = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+            "enqueue_turn": False,
+        },
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    turn_id = posted.json()["turn_id"]
+    fetched = api.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["turn_id"] == turn_id
+    missing = api.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert missing.status_code == 404
+    api.close()
+
+
+@mock_aws
+def test_http_get_channel_active_turn_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-channel-turn-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    bot, channel = _channel_with_bot(first)
+    started = first.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    assert started is not None
+    api = _client_for(ControlPlane(messaging_store=store))
+    fetched = api.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["turn_id"] == started.turn_id
+    api.close()
+
+
 def test_http_bot_memory_roundtrip() -> None:
     plane = ControlPlane()
     api = _client_for(plane)

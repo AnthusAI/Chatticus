@@ -54,6 +54,9 @@ class MessagingStore(Protocol):
     def get_turn(self, tenant_id: str, turn_id: str) -> Turn | None:
         """Load one turn."""
 
+    def get_active_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
+        """Return the active turn on a channel, if any."""
+
     def claim_turn_attempt(
         self,
         tenant_id: str,
@@ -184,6 +187,7 @@ class InMemoryMessagingStore:
         self._post_idempotency: dict[tuple[str, str], tuple[Message, str | None]] = {}
         self._channel_idempotency: dict[tuple[str, str], str] = {}
         self._bot_idempotency: dict[tuple[str, str], str] = {}
+        self._active_channel_turns: dict[tuple[str, str], str] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -228,6 +232,15 @@ class InMemoryMessagingStore:
                         f"{expected_fence}."
                     )
             self._turns[(turn.tenant_id, turn.turn_id)] = turn
+            self._sync_active_channel_turn(turn)
+
+    def _sync_active_channel_turn(self, turn: Turn) -> None:
+        key = (turn.tenant_id, turn.channel_id)
+        if turn.status == TurnStatus.ACTIVE:
+            self._active_channel_turns[key] = turn.turn_id
+            return
+        if self._active_channel_turns.get(key) == turn.turn_id:
+            del self._active_channel_turns[key]
 
     def claim_turn_attempt(
         self,
@@ -311,6 +324,15 @@ class InMemoryMessagingStore:
 
     def get_turn(self, tenant_id: str, turn_id: str) -> Turn | None:
         return self._turns.get((tenant_id, turn_id))
+
+    def get_active_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
+        turn_id = self._active_channel_turns.get((tenant_id, channel_id))
+        if turn_id is None:
+            return None
+        turn = self.get_turn(tenant_id, turn_id)
+        if turn is None or turn.status != TurnStatus.ACTIVE:
+            return None
+        return turn
 
     def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
         with self._lock:
@@ -561,6 +583,8 @@ class DynamoMessagingStore:
                 ) from error
             raise
 
+        self._sync_active_channel_turn(turn)
+
     def get_turn(self, tenant_id: str, turn_id: str) -> Turn | None:
         response = self.client.get_item(
             TableName=self.table_name,
@@ -573,6 +597,51 @@ class DynamoMessagingStore:
         if item is None:
             return None
         return _turn_from_item(item)
+
+    def get_active_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._channel_pk(tenant_id, channel_id)},
+                "sk": {"S": "active_turn"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        turn = self.get_turn(tenant_id, item["turn_id"]["S"])
+        if turn is None or turn.status != TurnStatus.ACTIVE:
+            return None
+        return turn
+
+    def _sync_active_channel_turn(self, turn: Turn) -> None:
+        key = {
+            "pk": {"S": self._channel_pk(turn.tenant_id, turn.channel_id)},
+            "sk": {"S": "active_turn"},
+        }
+        if turn.status == TurnStatus.ACTIVE:
+            self.client.put_item(
+                TableName=self.table_name,
+                Item={
+                    **key,
+                    "tenant_id": {"S": turn.tenant_id},
+                    "channel_id": {"S": turn.channel_id},
+                    "turn_id": {"S": turn.turn_id},
+                },
+            )
+            return
+        try:
+            self.client.delete_item(
+                TableName=self.table_name,
+                Key=key,
+                ConditionExpression="turn_id = :turn_id",
+                ExpressionAttributeValues={":turn_id": {"S": turn.turn_id}},
+            )
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") != (
+                "ConditionalCheckFailedException"
+            ):
+                raise
 
     def claim_turn_attempt(
         self,

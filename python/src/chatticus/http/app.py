@@ -303,6 +303,20 @@ def create_app(
             raise HTTPException(status_code=404, detail="channel not found") from error
         return _channel_payload(channel)
 
+    @app.get("/channels/{channel_id}/turn")
+    def get_channel_turn(
+        channel_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            state.plane.channel(tenant_id, channel_id)
+        except ChannelNotFoundError as error:
+            raise HTTPException(status_code=404, detail="channel not found") from error
+        turn = state.plane.active_turn_for_channel(tenant_id, channel_id)
+        if turn is None:
+            raise HTTPException(status_code=404, detail="turn not found")
+        return _turn_payload(turn)
+
     @app.post("/channels/{channel_id}/messages")
     def post_message(
         channel_id: str,

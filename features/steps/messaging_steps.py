@@ -413,6 +413,21 @@ def then_read_household_computer(context: object, tenant_id: str, user_id: str) 
     assert missing.status_code == 404
 
 
+@then('tenant "{tenant_id}" can read the active turn on the open channel')
+def then_read_active_channel_turn(context: object, tenant_id: str) -> None:
+    channel = _channel(context)
+    expected_turn_id = _turn_id(context)
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["turn_id"] == expected_turn_id
+    assert payload["channel_id"] == channel.channel_id
+    assert payload["status"] == "active"
+
+
 @then('the message with seq {seq:d} has body "{body}"')
 def then_message_body(context: object, seq: int, body: str) -> None:
     message = _message_at_seq(context, seq)

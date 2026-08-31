@@ -283,6 +283,17 @@ def main() -> int:
             },
         ).json()
         fence_turn_id = fence_posted["turn_id"]
+        channel_turn = client.get(f"/channels/{channel['channel_id']}/turn")
+        if (
+            channel_turn.status_code != 200
+            or channel_turn.json().get("turn_id") != fence_turn_id
+        ):
+            print(
+                f"channel_turn {channel_turn.status_code} {channel_turn.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        print("channel_turn=1")
         claim_a = client.post(
             f"/turns/{fence_turn_id}/claim",
             json={"worker_id": "exercise-fence-a"},

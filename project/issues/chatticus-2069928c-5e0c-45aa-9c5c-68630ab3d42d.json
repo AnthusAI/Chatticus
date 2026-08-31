@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-2069928c-5e0c-45aa-9c5c-68630ab3d42d",
+  "title": "Read a channel's active turn after Front Door recycle",
+  "description": "As a household member, I want to read the active turn on a channel after a Front Door recycle, so I can reconnect to the stream without a remembered turn_id.\n\nFeature: Channels and the message store\n\nScenario: An active turn can be read after a Front Door recycle\n  Given an empty control plane backed by a durable messaging store with HTTP\n  And tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n  When tenant \"anthus\" user \"ryan\" opens a channel with bots:\n    | Researcher |\n  And user \"ryan\" of tenant \"anthus\" posts a fence probe addressed to bot \"Researcher\" without enqueueing a turn job\n  And a recycled Front Door serves the same messaging store\n  Then tenant \"anthus\" can read the active turn on the open channel\n\nNot included: staging, production, Fargate, Safari.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T05:57:57.137133Z",
+  "updated_at": "2026-08-31T05:58:00.740675Z",
+  "closed_at": null,
+  "custom": {}
+}

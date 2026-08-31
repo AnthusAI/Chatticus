@@ -1423,20 +1423,7 @@ class ControlPlane:
 
     def active_turn_for_channel(self, tenant_id: str, channel_id: str) -> Turn | None:
         """Return the active turn on a channel, if any."""
-        messages = self._messaging_store.list_messages(tenant_id, channel_id)
-        for message in reversed(messages):
-            if message.addressed_to_bot_id is None:
-                continue
-            for job in self.pending_jobs_for_bot(message.addressed_to_bot_id):
-                if job.turn_id is not None:
-                    turn = self._messaging_store.get_turn(tenant_id, job.turn_id)
-                    if (
-                        turn is not None
-                        and turn.channel_id == channel_id
-                        and turn.status == TurnStatus.ACTIVE
-                    ):
-                        return turn
-        return None
+        return self._messaging_store.get_active_turn(tenant_id, channel_id)
 
     def turn_prompt(self, tenant_id: str, turn_id: str) -> str:
         """Build a text-only prompt from bot memory plus channel messages.
