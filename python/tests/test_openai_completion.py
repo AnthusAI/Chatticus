@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from chatticus.worker.openai_completion import outcome_from_chat_completion
+from chatticus.worker.openai_completion import (
+    WORKER_SYSTEM_PROMPT,
+    outcome_from_chat_completion,
+)
+
+
+def test_worker_system_prompt_tells_the_model_when_to_call_the_gate() -> None:
+    assert "request_computer_capability" in WORKER_SYSTEM_PROMPT
+    assert "browser" in WORKER_SYSTEM_PROMPT
 
 
 def test_outcome_from_chat_completion_is_text_only_without_tools() -> None:

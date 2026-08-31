@@ -290,6 +290,45 @@ def main() -> int:
         if not any(event.get("kind") == "turn.completed" for event in replayed):
             print("reconnect did not replay completion", file=sys.stderr)
             return 1
+        browser_post = client.post(
+            f"/channels/{channel['channel_id']}/messages",
+            json={
+                "author_kind": ActorKind.HUMAN,
+                "author_id": args.user_id,
+                "body": "research this and open the household browser",
+                "addressed_to_bot_id": bot["bot_id"],
+            },
+        )
+        if browser_post.status_code >= 400:
+            print(
+                f"model_waiting_post {browser_post.status_code} "
+                f"{browser_post.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        browser_turn_id = browser_post.json()["turn_id"]
+        model_wait_kinds: list[str] = []
+        with client.stream("GET", f"/turns/{browser_turn_id}/stream") as stream:
+            stream.raise_for_status()
+            buffer = ""
+            deadline = time.time() + 90
+            for chunk in stream.iter_bytes():
+                buffer += chunk.decode()
+                parsed, buffer = _frames(buffer)
+                model_wait_kinds.extend(event.get("kind") for event in parsed)
+                if "turn.waiting" in model_wait_kinds:
+                    break
+                if "turn.completed" in model_wait_kinds:
+                    break
+                if time.time() > deadline:
+                    break
+        print(f"model_waiting_turn={browser_turn_id} kinds={model_wait_kinds}")
+        if "turn.waiting" not in model_wait_kinds:
+            print(
+                "live model did not emit turn.waiting for a browser request",
+                file=sys.stderr,
+            )
+            return 1
     return 0
 
 

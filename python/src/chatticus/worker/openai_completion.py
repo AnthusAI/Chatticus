@@ -19,6 +19,14 @@ from chatticus.worker.computerless import (
 DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
 _OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
 _ALLOWED_GATES = frozenset({"workspace", "browser"})
+WORKER_SYSTEM_PROMPT = (
+    "You are a Chatticus household teammate. "
+    "If the human only wants a spoken or written answer, reply in plain text "
+    "and do not call tools. "
+    "If they ask you to use the household computer, workspace, or browser, "
+    "call request_computer_capability with gate browser or workspace. "
+    "Do not claim you opened a browser or read files you cannot reach."
+)
 COMPUTER_CAPABILITY_TOOL = {
     "type": "function",
     "function": {
@@ -101,7 +109,10 @@ class OpenAITextCompletionClient:
             headers={"Authorization": f"Bearer {self.api_key}"},
             json={
                 "model": self.model,
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": [
+                    {"role": "system", "content": WORKER_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
                 "tools": [COMPUTER_CAPABILITY_TOOL],
                 "tool_choice": "auto",
                 "max_completion_tokens": 256,
