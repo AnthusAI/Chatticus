@@ -10,6 +10,7 @@ from behave import given, then, when
 from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
+    ComputerWorkerHostNotReady,
     ComputerWorkerRequiresComputerCapability,
     TurnEventKind,
 )
@@ -79,7 +80,9 @@ def when_computer_worker_given_cpu_job(context: object) -> None:
         context.computer_worker_error = exc
 
 
-@when("a computer-capable pull worker without a host executor pulls that continuation job")
+@when(
+    "a computer-capable pull worker without a host executor pulls that continuation job"
+)
 def when_computer_worker_pulls_without_host_executor(context: object) -> None:
     setup = context.computer_continuation
     context.computer_worker_error = None
@@ -87,7 +90,10 @@ def when_computer_worker_pulls_without_host_executor(context: object) -> None:
         context.plane,
         HttpTurnClient(context.api_client, setup.tenant_id),
     )
-    worker.run_job(setup.continuation_job)
+    try:
+        worker.run_job(setup.continuation_job)
+    except ComputerWorkerHostNotReady as exc:
+        context.computer_worker_error = exc
 
 
 @then("no tool result is committed for the pending action")

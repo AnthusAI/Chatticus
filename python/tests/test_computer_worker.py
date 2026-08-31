@@ -12,6 +12,7 @@ from chatticus.http.client import HttpTurnClient
 from chatticus.http.test_server import start_test_server
 from chatticus.models import (
     ComputerlessCannotExecuteComputerJob,
+    ComputerWorkerHostNotReady,
     ComputerWorkerRequiresComputerCapability,
     TurnEventKind,
     TurnJob,
@@ -58,10 +59,11 @@ def test_computer_worker_leaves_job_queued_without_host_executor() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     setup = prepare_computer_continuation(plane)
-    ComputerWorker(
-        plane,
-        HttpTurnClient(api, setup.tenant_id),
-    ).run_job(setup.continuation_job)
+    with pytest.raises(ComputerWorkerHostNotReady):
+        ComputerWorker(
+            plane,
+            HttpTurnClient(api, setup.tenant_id),
+        ).run_job(setup.continuation_job)
     record = plane.escalation_for(setup.tenant_id, setup.turn_id)
     assert record.result_committed is False
     assert plane.unresolved_tool_action_ids(setup.tenant_id, setup.turn_id) != []

@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-6f702caa-e441-4303-9b8f-11ae6c931ed2",
+  "title": "Attach ComputerTurnJobs Lambda that nacks without a host",
+  "description": "Wire ChatticusThinTurn ComputerWorker to ComputerTurnJobs. No FakeComputerActionExecutor. Raise ComputerWorkerHostNotReady so SQS does not ack. Turn stays waiting. No Computers scale-up.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T08:46:29.734760Z",
+  "updated_at": "2026-08-31T08:46:29.734760Z",
+  "closed_at": null,
+  "custom": {}
+}

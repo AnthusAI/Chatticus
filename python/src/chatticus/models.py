@@ -178,6 +178,10 @@ class ComputerWorkerRequiresComputerCapability(ChatticusError):
     """A computer-capable worker must not ack a job without the computer capability."""
 
 
+class ComputerWorkerHostNotReady(ChatticusError):
+    """Leave the computer SQS job unacked until a real host can run the tool."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""

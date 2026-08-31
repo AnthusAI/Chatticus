@@ -11,6 +11,7 @@ from chatticus.computer_capabilities import (
 from chatticus.control_plane import ControlPlane
 from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
+    ComputerWorkerHostNotReady,
     ComputerWorkerRequiresComputerCapability,
     TurnJob,
     TurnStatus,
@@ -78,8 +79,9 @@ class ComputerWorker:
         """Claim the turn, execute unresolved tool.call ids, commit tool.result.
 
         Jobs without the ``computer`` capability are refused without ack.
-        When the journal has no escalation handoff or no unresolved tool
-        calls, the job is left queued for a later attempt.
+        When no real host can run the pending tool, ``ComputerWorkerHostNotReady``
+        is raised so SQS does not delete the message. The worker does not
+        claim the turn fence in that case.
         """
         if "computer" not in job.required_capabilities:
             msg = (
@@ -94,13 +96,6 @@ class ComputerWorker:
             self.plane.remove_pending_job(job.job_id)
             return
         self.plane.expire_orphaned_computer_claims()
-        worker_id = job.job_id
-        claimed = self.turn_client.claim(job.turn_id, worker_id)
-        turn = self.plane.turn(job.tenant_id, job.turn_id)
-        if not claimed.get("acquired") and turn.claimed_by_worker_id != worker_id:
-            return
-        if claimed.get("acquired"):
-            self.plane.record_attempt_claimed(job.tenant_id, job.turn_id)
         try:
             record = self.plane.escalation_for(job.tenant_id, job.turn_id)
         except Exception:
@@ -111,7 +106,16 @@ class ComputerWorker:
             return
         tool_name = record.pending_call.tool_name
         if unresolved and not self._host_ready_for_tool(job, tool_name):
+            raise ComputerWorkerHostNotReady(
+                f"Turn {job.turn_id!r} has no ready computer host for {tool_name!r}."
+            )
+        worker_id = job.job_id
+        claimed = self.turn_client.claim(job.turn_id, worker_id)
+        turn = self.plane.turn(job.tenant_id, job.turn_id)
+        if not claimed.get("acquired") and turn.claimed_by_worker_id != worker_id:
             return
+        if claimed.get("acquired"):
+            self.plane.record_attempt_claimed(job.tenant_id, job.turn_id)
         if not self.plane.claim_computer_for_turn(
             job.tenant_id, job.turn_id, worker_id
         ):
