@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
+from typing import Any
 
 import httpx
 from dotenv import load_dotenv
@@ -16,6 +18,27 @@ from chatticus.worker.computerless import (
 
 DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
 _OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
+_ALLOWED_GATES = frozenset({"workspace", "browser"})
+COMPUTER_CAPABILITY_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "request_computer_capability",
+        "description": (
+            "Call only when the next useful step needs the household computer "
+            "(workspace files or a browser). Do not call for a text-only reply."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "gate": {
+                    "type": "string",
+                    "enum": ["workspace", "browser"],
+                }
+            },
+            "required": ["gate"],
+        },
+    },
+}
 
 
 def repository_root() -> Path | None:
@@ -34,6 +57,36 @@ def load_local_env() -> None:
     load_dotenv(root / ".env", override=False)
 
 
+def outcome_from_chat_completion(payload: dict[str, Any]) -> CompletionOutcome:
+    """Map one Chat Completions response into text and an optional wait gate."""
+    choices = payload.get("choices") or []
+    if not choices:
+        raise RuntimeError("OpenAI returned no choices.")
+    message = choices[0].get("message") or {}
+    text = (message.get("content") or "").strip()
+    wait_gate = None
+    for call in message.get("tool_calls") or []:
+        function = call.get("function") or {}
+        if function.get("name") != "request_computer_capability":
+            continue
+        try:
+            arguments = json.loads(function.get("arguments") or "{}")
+        except json.JSONDecodeError:
+            continue
+        gate = arguments.get("gate")
+        if gate in _ALLOWED_GATES:
+            wait_gate = gate
+            break
+    if wait_gate is not None:
+        return CompletionOutcome(
+            text=text or "Here is a draft before I need the computer.",
+            wait_gate=wait_gate,
+        )
+    if not text:
+        raise RuntimeError("OpenAI returned an empty completion.")
+    return CompletionOutcome(text=text)
+
+
 class OpenAITextCompletionClient:
     """One-shot Chat Completions call against OpenAI."""
 
@@ -42,28 +95,22 @@ class OpenAITextCompletionClient:
         self.model = model
 
     def complete(self, prompt: str) -> CompletionOutcome:
-        """Return the model's text answer for a prompt."""
+        """Return the model's text answer and any computer wait gate."""
         response = httpx.post(
             _OPENAI_CHAT_URL,
             headers={"Authorization": f"Bearer {self.api_key}"},
             json={
                 "model": self.model,
                 "messages": [{"role": "user", "content": prompt}],
+                "tools": [COMPUTER_CAPABILITY_TOOL],
+                "tool_choice": "auto",
                 "max_completion_tokens": 256,
                 "reasoning_effort": "none",
             },
             timeout=60.0,
         )
         response.raise_for_status()
-        payload = response.json()
-        choices = payload.get("choices") or []
-        if not choices:
-            raise RuntimeError("OpenAI returned no choices.")
-        text = (choices[0].get("message") or {}).get("content") or ""
-        stripped = text.strip()
-        if not stripped:
-            raise RuntimeError("OpenAI returned an empty completion.")
-        return CompletionOutcome(text=stripped)
+        return outcome_from_chat_completion(response.json())
 
 
 def _api_key_from_ssm() -> str:
