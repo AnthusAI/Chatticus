@@ -85,10 +85,16 @@
       "author": "home",
       "text": "45a162 closed: live ecs:RunTask works after TagResource. Extra concurrent hosts stopped; queue purged; desiredCount 0. Do not merge to main. Next: Chromium executor + readiness, and single-flight host start across Lambda instances.\n",
       "created_at": "2026-08-31T11:56:15.214605Z"
+    },
+    {
+      "id": "abcfa0b9-97c3-4150-9dc4-339bfbf94fdf",
+      "author": "home",
+      "text": "b6627b live: concurrent nacks start one Fargate host per generation. Still nack until Chromium executor + readiness. Do not merge develop to main. PR 31 carries this pin.\n",
+      "created_at": "2026-08-31T12:04:09.927600Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T11:56:15.214605Z",
+  "updated_at": "2026-08-31T12:04:09.927600Z",
   "closed_at": null,
   "custom": {}
 }

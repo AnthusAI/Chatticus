@@ -71,27 +71,27 @@ thin-turn environments are live in AWS account `335163751677`
 production were last recorded as deployed from `760915d` (v0.5.0).
 
 Development **ChatticusThinTurn** was last updated ThinTurn-only (no
-`--all`) at **2026-08-31T11:51:03Z** (ComputerWorker last-modified
-**2026-08-31T11:51:27Z**). That pin sets `CHATTICUS_HOST_STARTER=ecs`,
-grants `ecs:RunTask`, `ecs:TagResource`, and `iam:PassRole` (dfec90,
-45a162). A live named exercise then actually `RunTask`s (sleep-infinity
-image). Concurrent nacks raced several hosts; those tasks were stopped
-and leftover ComputerTurnJobs were purged so the nack loop would not keep
-billing. **ChatticusComputers** was not redeployed (`desiredCount` remains
-0; last stack update 2026-08-30T08:53:08Z). The worker still nacks
-`ComputerWorkerHostNotReady` until capability readiness is true and does
-not fake `tool.result`. GitHub Actions must not hit live AWS.
+`--all`) at **2026-08-31T12:02:11Z**. That pin sets
+`CHATTICUS_HOST_STARTER=ecs`, grants `ecs:RunTask`, `ecs:TagResource`, and
+`iam:PassRole`, and claims one durable `host_start_dispatched_generation`
+before `RunTask` (dfec90, 45a162, b6627b). A live named exercise
+`RunTask`s one sleep-infinity host (not a stampede); that task is stopped
+after the proof. **ChatticusComputers** was not redeployed (`desiredCount`
+remains 0; last stack update 2026-08-30T08:53:08Z). The worker still
+nacks `ComputerWorkerHostNotReady` until capability readiness is true and
+does not fake `tool.result`. GitHub Actions must not hit live AWS.
 
 A CloudFront run of `cd python && sh scripts/live_aws_thin_turn.sh
 development` on 2026-08-31 exited 0 with `health_environment=1`,
 `missing_claim=404`, `claim_a=200` then `claim_b=409`,
 `host_start_generation=1` after resume (23c93e, 2a2b64, bf5b02), and
 `computer_queue_job=in_flight_nack`. GET computer includes
-`host_start_generation` (0 before any start). Remaining 8f98f8: Chromium
-executor and readiness on the summoned host so a browser tool can
-complete the same turn. A demo CLI (Kanbus epic 35d86b) is starting; it
-talks to this HTTP surface. `exercise_thin_turn.py` stays the pass/fail
-gate.
+`host_start_generation` (0 before any start). Concurrent ComputerWorker
+nacks claim one durable dispatch generation before `RunTask` (b6627b).
+Remaining 8f98f8: Chromium executor and readiness on the summoned host so
+a browser tool can complete the same turn. A demo CLI (Kanbus epic
+35d86b) is starting; it talks to this HTTP surface.
+`exercise_thin_turn.py` stays the pass/fail gate.
 
 | Environment | Web stack | Site | API base (same origin) |
 | --- | --- | --- | --- |
