@@ -996,6 +996,9 @@ class DynamoMessagingStore:
                 "computer_id": {"S": computer.computer_id},
                 "stopped": {"BOOL": computer.stopped},
                 "policy": {"S": computer.policy},
+                "model_ready": {"BOOL": computer.model_ready},
+                "workspace_ready": {"BOOL": computer.workspace_ready},
+                "browser_ready": {"BOOL": computer.browser_ready},
                 "host_start_generation": {"N": str(computer.host_start_generation)},
                 "host_start_dispatched_generation": {
                     "N": str(computer.host_start_dispatched_generation)
@@ -1028,6 +1031,9 @@ class DynamoMessagingStore:
             user_id=item["user_id"]["S"],
             policy=ComputerPolicy(item["policy"]["S"]),
             stopped=item["stopped"]["BOOL"],
+            model_ready=item.get("model_ready", {}).get("BOOL", True),
+            workspace_ready=item.get("workspace_ready", {}).get("BOOL", False),
+            browser_ready=item.get("browser_ready", {}).get("BOOL", False),
             host_start_generation=int(
                 item.get("host_start_generation", {}).get("N", "0")
             ),
