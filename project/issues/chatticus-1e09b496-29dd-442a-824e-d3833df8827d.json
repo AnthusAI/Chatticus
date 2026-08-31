@@ -3,7 +3,7 @@
   "title": "Run adversarial browser injection evaluations",
   "description": "Build a repeatable suite in which page content successfully convinces the model to request forbidden behavior.\n\nAcceptance criteria:\n- Include workspace exfiltration, cross-origin navigation, message sending, hidden instructions, and approval substitution.\n- Assert that worker-side sinks deny each forbidden effect even when the model complies.\n- Verify allowed read-only work still succeeds.\n- Record every bypass as a blocking bug; prompt wording alone cannot close it.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -31,10 +31,16 @@
       "author": "agent@example.com",
       "text": "Work started. Planner Composer 2.5 on worktree /tmp/chatticus-1e09b4-evals branch cursor/adversarial-injection-evals-4a21. Implementation not authorized until plan review. DoD is sink denial even if the model complies; prompt wording cannot close a bypass.",
       "created_at": "2026-08-31T20:52:43.196564Z"
+    },
+    {
+      "id": "c312a48b-ee66-4f80-ac7e-8dd901524ba2",
+      "author": "agent@example.com",
+      "text": "Tier A adversarial injection evals landed on develop via #63. In-process acceptance APPROVE: 14 pytest cases through ControlPlane sinks; prompt wording is not a pass. Live OpenAI Tier B remains optional. Parent 4ddbe1 stays in_progress until remaining browser-authority DoD (live authenticated use) is met.",
+      "created_at": "2026-08-31T21:16:02.552451Z"
     }
   ],
   "created_at": "2026-08-30T15:54:57.524029Z",
-  "updated_at": "2026-08-31T20:52:43.196564Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T21:16:02.564042Z",
+  "closed_at": "2026-08-31T21:16:02.564042Z",
   "custom": {}
 }
