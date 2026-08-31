@@ -69,9 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `98d5ded` (no `--all`). Pending work in branch
-`cursor/journal-waiting-tool-4a21` adds the pending computer tool to durable
-`turn.waiting` journal events and SSE replay.
+from `develop` @ `a04c712` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
