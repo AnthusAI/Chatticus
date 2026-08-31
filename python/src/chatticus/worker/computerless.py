@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
@@ -64,6 +65,38 @@ class CountingTextCompletionClient:
         """Count one model call, then delegate."""
         self.calls += 1
         return self.inner.complete(prompt)
+
+
+class RenewingTextCompletionClient:
+    """Renew the turn lease while a blocking completion call runs."""
+
+    def __init__(
+        self,
+        inner: TextCompletionClient,
+        renew: Callable[[], None],
+        *,
+        interval_seconds: float = 30.0,
+    ) -> None:
+        self.inner = inner
+        self._renew = renew
+        self._interval_seconds = interval_seconds
+
+    def complete(self, prompt: str) -> CompletionOutcome:
+        """Call the model while renewing the lease on a fixed interval."""
+        stop = threading.Event()
+
+        def renew_loop() -> None:
+            while not stop.wait(self._interval_seconds):
+                self._renew()
+
+        self._renew()
+        thread = threading.Thread(target=renew_loop, daemon=True)
+        thread.start()
+        try:
+            return self.inner.complete(prompt)
+        finally:
+            stop.set()
+            thread.join(timeout=1.0)
 
 
 class SlowTextCompletionClient:
@@ -154,8 +187,10 @@ class ComputerlessWorker:
         client = self.completion_client
         if isinstance(client, SlowTextCompletionClient):
             client.blocking_hook = renew
-        renew()
-        outcome = client.complete(prompt)
+            renew()
+            outcome = client.complete(prompt)
+        else:
+            outcome = RenewingTextCompletionClient(client, renew).complete(prompt)
         if not outcome.text.strip() and outcome.wait_gate is None:
             raise RuntimeError("Model returned an empty completion.")
         if outcome.wait_gate is not None:

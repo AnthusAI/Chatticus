@@ -48,3 +48,11 @@ Feature: Interrupted turn recovery
     When the computerless worker runs a slow model call
     Then its turn claim is extended
     And its queue visibility is extended
+
+  Scenario: Deadline recovery does not fail a legitimately waiting turn
+    Given tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
+    And a turn is blocked on the browser gate with its worker claim released
+    And recovery has already been attempted once
+    When the turn deadline is reached
+    Then the turn remains waiting on the browser gate
+    And recovery is not attempted again

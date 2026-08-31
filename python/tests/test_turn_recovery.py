@@ -245,3 +245,34 @@ def test_deadline_recovery_skips_legitimately_waiting_turn() -> None:
     assert turn.status == TurnStatus.ACTIVE
     assert turn.waiting_for == "browser"
     assert turn.recovery_attempts == 1
+
+
+def test_renewing_completion_client_renews_during_blocking_call() -> None:
+    import time
+
+    from chatticus.worker.computerless import (
+        CompletionOutcome,
+        FakeTextCompletionClient,
+        RenewingTextCompletionClient,
+    )
+
+    renewals = 0
+
+    def renew() -> None:
+        nonlocal renewals
+        renewals += 1
+
+    class BlockingCompletionClient:
+        def complete(self, prompt: str) -> CompletionOutcome:
+            del prompt
+            time.sleep(0.05)
+            return FakeTextCompletionClient().complete("hello")
+
+    client = RenewingTextCompletionClient(
+        BlockingCompletionClient(),
+        renew,
+        interval_seconds=0.01,
+    )
+    outcome = client.complete("hello")
+    assert outcome.text
+    assert renewals >= 2
