@@ -1,0 +1,19 @@
+{
+  "id": "chatticus-04ef23c3-4f5a-4a51-a6be-706af8da9fb5",
+  "title": "Issue ACM certificates for CloudFront custom domains",
+  "description": "ACM certificates in us-east-1. DNS validation via Route 53 hosted zone.\n\nPer environment hostname: chattic.us + www.chattic.us (prod); staging.chattic.us; dev.chattic.us. No separate API cert \u2014 /api is same distribution.\n\nWire cert ARNs into the web stack CloudFront distribution.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T11:31:17.004846Z",
+  "updated_at": "2026-08-31T11:34:08.801140Z",
+  "closed_at": null,
+  "custom": {},
+  "agent": null
+}

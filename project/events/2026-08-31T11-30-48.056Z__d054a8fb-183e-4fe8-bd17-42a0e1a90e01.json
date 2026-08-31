@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "d054a8fb-183e-4fe8-bd17-42a0e1a90e01",
+  "issue_id": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T11:30:48.056Z",
+  "actor_id": "ubuntu",
+  "payload": {
+    "title": "Publish chattic.us Next.js UI to AWS",
+    "description": "Definition of Done:\n- chattic.us resolves to the production web distribution over HTTPS with a valid ACM certificate.\n- Staging and development have named web origins (subdomains or distribution URLs documented in SSM).\n- The browser can load the UI and reach the thin-turn API for the matching environment without manual URL pasting.\n- Deploy is repeatable from CI (GitHub Actions) or a documented one-stack CDK path; no Amplify.\n- README \"What is live today\" reflects the web surface.\n\nArchitecture (from docs/STACK.md): TypeScript Next.js static or SSR output behind CloudFront. No load balancer. DNS and TLS in CDK.\n\nOpen placement (docs/MESSAGING.md): same origin vs api.chattic.us vs CloudFront behavior — decide in first task before custom-domain wiring.",
+    "issue_type": "epic",
+    "status": "open",
+    "priority": 1,
+    "assignee": null,
+    "parent": "chatticus-a744a602-b8ad-4428-86d0-04c1099506dd",
+    "labels": []
+  }
+}

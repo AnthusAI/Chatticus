@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "8f03f48e-458d-4c96-bb52-08c25c8287f0",
+  "issue_id": "chatticus-a81affc0-9aa2-4471-a9b7-b9cdaaf6b54a",
+  "event_type": "field_updated",
+  "occurred_at": "2026-08-31T11:34:08.157Z",
+  "actor_id": "ubuntu",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "After routing decision and certificates: Route 53 A/AAAA alias records from chattic.us (and env subdomains) to the web distribution; API hostname to the matching thin-turn distribution if using a subdomain.\n\nUpdate python/src/chatticus/cloud_environments.py pinned URLs only as fallbacks; prefer SSM discovery.\n\nVerify HTTPS redirect and that SSE reconnect (Last-Event-ID) works through the chosen path — exercise with scripts/exercise_thin_turn.py or a browser acceptance check.",
+        "to": "Route 53 alias records: chattic.us (prod), staging.chattic.us, dev.chattic.us -> the unified web CloudFront distribution (same origin serves UI and /api/*).\n\nSingle ACM cert per hostname (or SAN cert). No api.chattic.us subdomain.\n\nVerify: HTTPS, Next.js loads, POST /api/channels/... works, GET /api/turns/{id}/stream SSE reconnect with Last-Event-ID through the /api path.\n\nUpdate cloud_environments.py fallbacks and acceptance workflow secrets to site-url not separate API URL."
+      }
+    }
+  }
+}

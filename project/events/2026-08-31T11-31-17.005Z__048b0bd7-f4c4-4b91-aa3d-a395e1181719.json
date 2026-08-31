@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "048b0bd7-f4c4-4b91-aa3d-a395e1181719",
+  "issue_id": "chatticus-04ef23c3-4f5a-4a51-a6be-706af8da9fb5",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T11:31:17.005Z",
+  "actor_id": "ubuntu",
+  "payload": {
+    "title": "Issue ACM certificates for CloudFront custom domains",
+    "description": "ACM certificates in us-east-1 (CloudFront requirement). DNS validation records in the Route 53 hosted zone from the previous task.\n\nAt minimum: chattic.us and www.chattic.us for production web. Add api.chattic.us (or chosen API hostname) if the routing decision uses a subdomain.\n\nWire certificate ARNs into the web and thin-turn CDK stacks as parameters or cross-stack references.",
+    "issue_type": "task",
+    "status": "open",
+    "priority": 1,
+    "assignee": null,
+    "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+    "labels": []
+  }
+}

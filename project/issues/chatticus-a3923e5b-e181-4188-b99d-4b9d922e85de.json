@@ -1,0 +1,19 @@
+{
+  "id": "chatticus-a3923e5b-e181-4188-b99d-4b9d922e85de",
+  "title": "User opens chattic.us and sees the chat UI",
+  "description": "Feature: chattic.us web surface\n\nScenario: Load the production site\n  Given the chattic.us DNS delegation is complete\n  When a user navigates to https://chattic.us\n  Then the Next.js application loads over HTTPS\n  And the page shows the bot roster or chat entry point\n\nScenario: UI reaches the control plane\n  Given the UI is configured for the production environment\n  When the user sends a message in chat\n  Then the request reaches the thin-turn front door\n  And the user sees turn progress via server-sent events",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T11:31:19.464021Z",
+  "updated_at": "2026-08-31T11:31:19.464021Z",
+  "closed_at": null,
+  "custom": {},
+  "agent": null
+}

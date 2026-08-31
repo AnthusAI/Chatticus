@@ -1,0 +1,19 @@
+{
+  "id": "chatticus-a81affc0-9aa2-4471-a9b7-b9cdaaf6b54a",
+  "title": "Attach custom domains to unified web CloudFront distributions",
+  "description": "Route 53 alias records: chattic.us (prod), staging.chattic.us, dev.chattic.us -> the unified web CloudFront distribution (same origin serves UI and /api/*).\n\nSingle ACM cert per hostname (or SAN cert). No api.chattic.us subdomain.\n\nVerify: HTTPS, Next.js loads, POST /api/channels/... works, GET /api/turns/{id}/stream SSE reconnect with Last-Event-ID through the /api path.\n\nUpdate cloud_environments.py fallbacks and acceptance workflow secrets to site-url not separate API URL.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T11:31:18.226182Z",
+  "updated_at": "2026-08-31T11:34:13.454712Z",
+  "closed_at": null,
+  "custom": {},
+  "agent": null
+}

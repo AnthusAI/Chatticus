@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "87cdca3f-fdee-418d-9740-f0e855d1617d",
+  "issue_id": "chatticus-c0c273d7-accf-4ceb-8fcf-4bf119125f34",
+  "event_type": "field_updated",
+  "occurred_at": "2026-08-31T11:34:07.515Z",
+  "actor_id": "ubuntu",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "New per-environment stacks (mirror thin-turn naming): ChatticusWeb, ChatticusWebStaging, ChatticusWebProduction — or one stack with environment context.\n\nPattern: S3 bucket (private) + CloudFront origin access control + distribution. Build output from web/ (static export or OpenNext/Lambda@Edge if SSR is required — decide when scaffolding the app).\n\nPublish SSM parameters: /chatticus/{environment}/web/cloudfront-url and site-url.\n\nForbidden: Amplify, ALB, cdk deploy --all.",
+        "to": "Per-environment stacks (ChatticusWeb, ChatticusWebStaging, ChatticusWebProduction): S3 (private) + CloudFront with two behaviors.\n\nDefault: S3 origin for Next.js build output (static export unless SSR is required later).\n/api/*: Lambda function URL origin imported from the matching thin-turn stack (caching disabled, SSE timeouts preserved). CloudFront Function strips /api prefix on viewer request.\n\nPublish SSM: /chatticus/{environment}/web/site-url and cloudfront-url.\n\nRearchitect thin-turn stack: remove or demote the standalone viewer-facing CloudFront; export function URL and invoke-key wiring for the web stack to consume.\n\nForbidden: Amplify, ALB, cdk deploy --all."
+      }
+    }
+  }
+}

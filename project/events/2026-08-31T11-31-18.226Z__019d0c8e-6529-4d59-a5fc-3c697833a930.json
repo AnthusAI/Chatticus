@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "019d0c8e-6529-4d59-a5fc-3c697833a930",
+  "issue_id": "chatticus-a81affc0-9aa2-4471-a9b7-b9cdaaf6b54a",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T11:31:18.226Z",
+  "actor_id": "ubuntu",
+  "payload": {
+    "title": "Attach custom domains to web and API CloudFront distributions",
+    "description": "After routing decision and certificates: Route 53 A/AAAA alias records from chattic.us (and env subdomains) to the web distribution; API hostname to the matching thin-turn distribution if using a subdomain.\n\nUpdate python/src/chatticus/cloud_environments.py pinned URLs only as fallbacks; prefer SSM discovery.\n\nVerify HTTPS redirect and that SSE reconnect (Last-Event-ID) works through the chosen path — exercise with scripts/exercise_thin_turn.py or a browser acceptance check.",
+    "issue_type": "task",
+    "status": "open",
+    "priority": 1,
+    "assignee": null,
+    "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+    "labels": []
+  }
+}
