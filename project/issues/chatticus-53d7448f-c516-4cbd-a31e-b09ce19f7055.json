@@ -3,7 +3,7 @@
   "title": "Enforce browser capability and approval policy at system sinks",
   "description": "Implement policy checks outside the model.\n\nAcceptance criteria:\n- Every connector, network egress, file transfer, credential use, and consequential action checks the task grant.\n- Browser contexts cannot share forbidden credentials or storage.\n- Approval records bind an operation digest and reject mutation or replay outside their scope.\n- Denials are durable, tenant-scoped, and visible without exposing secrets.\n- The model cannot change policy through tool arguments or page content.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -23,9 +23,16 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f85c0472-7c05-4ad1-8b19-003bfb5675bc",
+      "author": "agent@example.com",
+      "text": "Closed: ControlPlane sink wiring on develop (#58, cc68413). In-process acceptance APPROVE (behave 213, pytest 272). Live worker/HTTP/Dynamo grant persistence is follow-on, not this DoD. 1e09b4 evals still open.",
+      "created_at": "2026-08-31T20:39:09.486461Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:57.427927Z",
-  "updated_at": "2026-08-30T15:54:57.427927Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T20:39:09.486461Z",
+  "closed_at": "2026-08-31T20:39:09.472446Z",
   "custom": {}
 }
