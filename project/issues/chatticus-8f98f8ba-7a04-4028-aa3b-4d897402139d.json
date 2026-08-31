@@ -36,10 +36,16 @@
       "author": "home",
       "text": "96c0e8 closed: waiting turns persist request_computer_capability (action id + gate) on GET /turns/{id}. Remaining DoD: e747d7 cold Fargate measurement (not a Computers scale-up).",
       "created_at": "2026-08-31T01:59:02.237567Z"
+    },
+    {
+      "id": "e238bfc7-c737-451d-804e-d0dc9686b9c6",
+      "author": "home",
+      "text": "86c75d closed: computerless worker does not reclaim a waiting turn or recall the model. Remaining DoD: e747d7 cold Fargate measurement (not a Computers scale-up).",
+      "created_at": "2026-08-31T02:17:29.466697Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T01:59:02.237567Z",
+  "updated_at": "2026-08-31T02:17:29.466697Z",
   "closed_at": null,
   "custom": {}
 }

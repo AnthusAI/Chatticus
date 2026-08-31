@@ -3,7 +3,7 @@
   "title": "A computerless worker does not retry the model on a waiting turn",
   "description": "As a household member, I want a computerless worker to leave a waiting turn alone, so that a later computer-capable attempt can execute the pending tool without a second model call.\n\nFeature: Computerless turn\n\nScenario: A computerless worker does not retry the model on a waiting turn\n  Given an empty control plane\n  And tenant anthus user ryan has a channel with a named bot Assistant\n  And tenant anthus user ryan household computer is stopped\n  When user ryan of tenant anthus posts a browser request addressed to bot Assistant\n  And a counting computerless worker processes bot Assistant\n  And the same waiting turn is delivered to a computerless worker again\n  Then the model is called only once\n  And the turn remains active\n  And the pending computer tool action identifier is unchanged\n\nNot included: Fargate, executing the browser tool, staging or production.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "76d343ec-cd97-4029-b473-69aee3e5cf23",
+      "author": "home",
+      "text": "DoD met on development. ChatticusThinTurn-only from develop @ 76c6adb. exercise --environment development exit 0. Computerless worker skips waiting turns without a second model call. No Fargate. No staging/production.",
+      "created_at": "2026-08-31T02:17:29.423964Z"
+    }
+  ],
   "created_at": "2026-08-31T02:13:08.907614Z",
-  "updated_at": "2026-08-31T02:13:09.007190Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T02:17:29.452156Z",
+  "closed_at": "2026-08-31T02:17:29.452156Z",
   "custom": {}
 }
