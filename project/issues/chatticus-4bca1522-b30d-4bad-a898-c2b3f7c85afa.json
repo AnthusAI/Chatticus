@@ -3,7 +3,7 @@
   "title": "Summoned Fargate host pulls ComputerTurnJobs with ChromiumActionExecutor",
   "description": "Live ComputerWorker RunTask still starts sleep-infinity. The Chromium executor is kernel-only (0eef8f). The summoned host must boot, record browser readiness, and pull ComputerTurnJobs itself. Lambda must not run Chromium. ChatticusComputers desiredCount stays 0. Do not cdk deploy --all.\n\n```gherkin\nFeature: Host computer pull worker\n  Scenario: ECS RunTask overrides the computer container to the host worker\n    Given CHATTICUS_ECS_HOST_COMMAND is the computer host worker module\n    When the ECS host starter starts a host for a claim\n    Then RunTask overrides that container command\n```",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -52,10 +52,22 @@
       "author": "home",
       "text": "Live 2026-08-31T14:34:58Z ThinTurn-only pin restored HOST_STARTER=ecs and RunTask IAM. Named exercise still nacked, but RunTask succeeded: two ARM64 Fargate tasks ran python -m chatticus.computer_host_worker on :dev fdebcf68 and exited 1 because Ubuntu chromium-browser is a snap stub. Next: push a Debian Chromium :dev image without deploying ChatticusComputers. Do not merge develop to main until computer_queue_job=completed.",
       "created_at": "2026-08-31T14:43:41.846479Z"
+    },
+    {
+      "id": "621e7b03-8dd3-4354-b170-1e23753417f5",
+      "author": "home",
+      "text": "PR #34 mergeable after develop merge (7709170). SameOriginApiClient + invoke-key auto-fetch preserved for dev.chattic.us exercises. ThinTurn deploy pending npm ci in infra worktree.",
+      "created_at": "2026-08-31T16:02:03.939152Z"
+    },
+    {
+      "id": "e14089ab-203c-4832-bd91-32ce5c8ad8cc",
+      "author": "home",
+      "text": "DoD met after ThinTurn-only CDK 2026-08-31T16:02:57Z: named development exercise computer_queue_job=completed and computer_queue_turn_completed=1. HOST_STARTER=ecs, host-worker command set, Computers desiredCount 0, leftover RunTask stopped. Closing.",
+      "created_at": "2026-08-31T16:14:07.896084Z"
     }
   ],
   "created_at": "2026-08-31T12:19:14.039212Z",
-  "updated_at": "2026-08-31T14:43:41.846479Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T16:14:07.907030Z",
+  "closed_at": "2026-08-31T16:14:07.907030Z",
   "custom": {}
 }

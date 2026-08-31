@@ -109,10 +109,28 @@
       "author": "home",
       "text": "ThinTurn-only 2026-08-31T12:27:42Z (tsx CDK app). Live exercise exit 0, claim 200/409, one RunTask then stopped, desiredCount 0. HOST_COMMAND still unset. Do not merge to main. PR 33.\n",
       "created_at": "2026-08-31T12:29:40.469561Z"
+    },
+    {
+      "id": "2bbe4ca6-eca8-4f6e-8065-f1dfdd570156",
+      "author": "home",
+      "text": "Frontier tick 2026-08-31: merged origin/develop into PR #34 (7709170). Conflicts resolved in README (account ids stripped), exercise_thin_turn (SameOriginApiClient + auto invoke-key), cloud_environments (develop LookupError path). Guardian test_committed_tree_does_not_embed_account_origins green. PR #34 now MERGEABLE with develop. ThinTurn-only deploy blocked: infra npm deps missing (aws-cdk-lib); npm ci then retry. Remaining DoD: completed computer turn after real ThinTurn CDK deploy, not CLI-patched env.",
+      "created_at": "2026-08-31T16:02:03.939493Z"
+    },
+    {
+      "id": "6a01f75c-cae8-48bc-ab23-1ca9d88cb25a",
+      "author": "home",
+      "text": "ThinTurn-only CDK deploy succeeded from PR #34 branch after develop merge (7709170). ComputerWorker env verified: CHATTICUS_HOST_STARTER=ecs, CHATTICUS_ECS_HOST_COMMAND=python -m chatticus.computer_host_worker, RunTask IAM present via Computers-stack lookup context. desiredCount still 0. Remaining DoD: completed computer turn (tool.result) after this deploy pin, not CLI patch.",
+      "created_at": "2026-08-31T16:03:53.247969Z"
+    },
+    {
+      "id": "59db8686-9e17-4e4d-b7f9-b7a7e4c96089",
+      "author": "home",
+      "text": "4bca15 closed: live computer continuation completed after ThinTurn-only CDK (16:02:57Z). Remaining 8f98f8 DoD is whatever is still unmeasured (not a Computers scale-up, not 35d86b). README live pin updated on PR #34.",
+      "created_at": "2026-08-31T16:14:07.919689Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T12:29:40.469561Z",
+  "updated_at": "2026-08-31T16:14:07.919689Z",
   "closed_at": null,
   "custom": {}
 }

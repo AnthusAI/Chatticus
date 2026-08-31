@@ -79,28 +79,24 @@ the nack/reread pin (`50ad1d4`), not a stack redeploy. Production is never
 implied by a git branch. Staging and production were last recorded as
 deployed from `760915d` (v0.5.0).
 
-Development **ChatticusThinTurn** last **ThinTurn-only** pin with ECS
-host-start env was **2026-08-31T14:16:49Z**. **ChatticusWeb** can restack
-ThinTurn without Computers lookup context, which deletes
-`ImportedComputerHostTaskRolePolicy`, drops `ecs:RunTask` /
-`ecs:TagResource` / `iam:PassRole` for ComputerWorker, and removes
-`CHATTICUS_HOST_STARTER` from the live Lambda. **ChatticusComputers**
-was not redeployed (`desiredCount` remains 0). ECR `:dev` was pushed with
-a Debian Chromium image (no Computers stack deploy). GitHub Actions must
-not hit live AWS. PR #34 makes development ThinTurn synth look up the live
-ChatticusComputers stack so a Web restack cannot drop RunTask.
+Development **ChatticusThinTurn** last **ThinTurn-only** CDK pin is
+**2026-08-31T16:02:57Z** (PR #34, ECS host-start context). Live
+ComputerWorker has `CHATTICUS_HOST_STARTER=ecs` and
+`CHATTICUS_ECS_HOST_COMMAND` for the host worker. **ChatticusWeb** can
+still restack ThinTurn; this pin looks up the live ChatticusComputers
+stack at synth so a Web restack cannot drop `ecs:RunTask`.
+**ChatticusComputers** was not redeployed (`desiredCount` remains 0).
+GitHub Actions must not hit live AWS.
 
-A run of `exercise_thin_turn.py --environment development` on 2026-08-31
-after a ThinTurn-only pin (ECS env + RunTask IAM restored; Web not
-redeployed) exited 0 with `health_environment=1`, `missing_claim=404`,
-`claim_a=200` then `claim_b=409`, `host_start_generation=1`, and
-`computer_queue_job=in_flight_nack`. ComputerWorker `job_nacked` after
-`ecs.RunTask`. Fargate tasks ran the host-worker override on ECR `:dev`
-and exited 1 when the image still used Ubuntu `chromium-browser` (a snap
-stub). Remaining 8f98f8: a completed computer turn after a real
-ThinTurn-only CDK deploy with the Debian Chromium image, not a CLI-patched
-env. The worker does not fake `tool.result`. A demo CLI (Kanbus epic
-35d86b) is starting; it talks to this HTTP surface.
+A named `exercise_thin_turn.py --environment development` run after that
+CDK pin exited 0 with `health_environment=1`, `missing_claim=404`,
+`claim_a=200` then `claim_b=409`, `host_start_generation=1`,
+`computer_queue_job=completed`, and `computer_queue_turn_completed=1`.
+Leftover RunTask was stopped; desiredCount stayed 0. That is a completed
+computer continuation after a real ThinTurn-only CDK deploy, not a
+CLI-patched Lambda env. `dev.chattic.us` DNS may still fail; resolve the
+front door from SSM, CloudFormation, or `CHATTICUS_DEVELOPMENT_BASE_URL`.
+A demo CLI (Kanbus epic 35d86b) is a separate slice.
 `exercise_thin_turn.py` stays the pass/fail gate.
 
 Per-account CloudFront distribution domains, Lambda function URLs, and
