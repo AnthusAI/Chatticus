@@ -3,7 +3,7 @@
   "title": "A waiting turn records the pending computer tool",
   "description": "As a household member, I want a waiting turn to keep the exact computer tool request, so that a later computer-capable attempt can execute that call instead of inventing a new one.\n\nFeature: Turn-scoped server-sent events\n\nScenario: A waiting turn exposes its pending computer tool over HTTP\n  Given an empty control plane\n  And tenant anthus user ryan has a channel with a named bot Researcher\n  And user ryan of tenant anthus has an active turn on the channel\n  When the worker posts a progress chunk and then waits on the browser gate\n  Then user ryan can read the pending computer tool request_computer_capability for browser\n\nNot included: starting Fargate, executing the tool, staging or production deploy.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7b20d828-9feb-4375-877a-9253d326879e",
+      "author": "home",
+      "text": "DoD met on development. ChatticusThinTurn-only from develop @ 98d5ded. exercise --environment development exit 0: pending_computer_tool=request_computer_capability and model_pending_computer_tool=request_computer_capability. No Fargate. No staging/production. No --all.",
+      "created_at": "2026-08-31T01:59:02.209938Z"
+    }
+  ],
   "created_at": "2026-08-31T01:54:05.418122Z",
-  "updated_at": "2026-08-31T01:54:17.740470Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T01:59:02.224864Z",
+  "closed_at": "2026-08-31T01:59:02.224864Z",
   "custom": {}
 }

@@ -30,10 +30,16 @@
       "author": "home",
       "text": "66d3c4 closed: development ThinTurn stores waiting_for and POST /turns/{id}/resume is 409 while the computer is stopped. Remaining DoD: e747d7 cold Fargate measurement (not a Computers scale-up).",
       "created_at": "2026-08-31T01:40:51.987232Z"
+    },
+    {
+      "id": "7f79544d-2d02-4278-a5e7-846ac5af6112",
+      "author": "home",
+      "text": "96c0e8 closed: waiting turns persist request_computer_capability (action id + gate) on GET /turns/{id}. Remaining DoD: e747d7 cold Fargate measurement (not a Computers scale-up).",
+      "created_at": "2026-08-31T01:59:02.237567Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T01:40:51.987232Z",
+  "updated_at": "2026-08-31T01:59:02.237567Z",
   "closed_at": null,
   "custom": {}
 }
