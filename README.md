@@ -71,11 +71,11 @@ deploy of a release that already passed staging acceptance. Git promotion
 does not redeploy stacks. Staging and production were last recorded as
 deployed from `origin/main` @ `760915d` (v0.5.0); they have not been
 redeployed from v0.6.0 here. Development was last redeployed ThinTurn-only
-from `develop` @ `95964f7` (no `--all`). `develop` is ahead of `main`
+from `develop` @ `6baa46a` (no `--all`). `develop` is ahead of `main`
 (channels list, household computer read, channel active-turn read,
-waiting-turn read, user active-turn list). A demo CLI (Kanbus epic 35d86b)
-is starting; it talks to this HTTP surface. `exercise_thin_turn.py` stays
-the pass/fail gate.
+waiting-turn read, user active-turn list, named `GET /health`
+environment). A demo CLI (Kanbus epic 35d86b) is starting; it talks to
+this HTTP surface. `exercise_thin_turn.py` stays the pass/fail gate.
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -88,7 +88,8 @@ exits 0 for **development**, **staging**, and **production**. Each run
 includes missing-turn claim **404** and a live second-worker claim **409**
 while the lease is held (`claim_a=200` then `claim_b=409` on development,
 because the fence probe starts the turn with `enqueue_turn=false` so the
-computerless worker does not race the claim), plus a live idempotent
+computerless worker does not race the claim), plus **development** naming
+itself on `GET /health` (`health_environment=1`), a live idempotent
 channel post (`post_idempotent=1`: two `POST /channels/{id}/messages` with
 the same `Idempotency-Key` produce one row), a duplicate bot create
 (`bot_name_dup=1`: a second `POST /bots` with the same name returns
@@ -140,7 +141,8 @@ into the live worker HTTP loop).
 What each deployed thin-turn slice does today:
 
 - CloudFront in front of a Lambda function URL (no load balancer).
-- FastAPI front door: channels (`GET /channels/{id}`, `POST /channels`,
+- FastAPI front door: `GET /health` (names the cloud environment on
+  development), channels (`GET /channels/{id}`, `POST /channels`,
   `GET /users/{user_id}/channels`, `GET /users/{user_id}/turns`, and `GET /channels/{id}/turn`),
   messages, bots (`GET /bots?user_id=&name=` and `GET /users/{user_id}/bots`),
   the household computer (`GET /users/{user_id}/computer`),
