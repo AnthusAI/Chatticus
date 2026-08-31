@@ -3,7 +3,7 @@
   "title": "Expose turn.waiting on the thin-turn front door",
   "description": "Outcome: a fenced worker can POST turn.waiting through the CloudFront front door. SSE delivers turn.waiting naming a capability gate. The turn stays active. Named-env exercise proves it live on development. Not included: starting Fargate, OpenAI tool loop, completing the wait.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,16 @@
     "v1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "a6c467de-3775-495b-8313-4dbb9fa14d3d",
+      "author": "home",
+      "text": "Live on development after ChatticusThinTurn-only redeploy from develop @ 6f310b2. CloudFront https://d3gpuuldffe35o.cloudfront.net. exercise --environment development exit 0: missing_claim=404 claim 200/409; waiting_stream_kinds turn.started/token/waiting; stale_waiting=409; greeting SSE completed; computer_stopped=True bot_messages=1. SSE now stops on disconnect. enqueue_turn hydrates bots from Dynamo. Staging/production not updated. No --all. Snapshots/computers untouched.",
+      "created_at": "2026-08-31T00:59:30.689456Z"
+    }
+  ],
   "created_at": "2026-08-31T00:46:18.322888Z",
-  "updated_at": "2026-08-31T00:46:33.074909Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T00:59:30.704833Z",
+  "closed_at": "2026-08-31T00:59:30.704833Z",
   "custom": {}
 }

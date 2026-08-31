@@ -68,8 +68,8 @@ GitHub **`main`** is **v0.5.0**. Three named thin-turn environments are
 live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
-from `origin/main` @ `760915d`. Development was last redeployed from
-`develop` @ `f5bd945` (ThinTurn-only; no `--all`).
+from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
+from `develop` @ `6f310b2` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -81,7 +81,9 @@ from `origin/main` @ `760915d`. Development was last redeployed from
 exits 0 for **development**, **staging**, and **production**. Each run
 includes missing-turn claim **404** and a live second-worker claim **409**
 while the lease is held, plus SSE `turn.started` / `turn.token` /
-`turn.completed`.
+`turn.completed`. **Development** also proves `POST /turns/{id}/waiting`:
+SSE `turn.waiting` naming `browser`, then a stale fence **409**. Staging
+and production do not have that route yet.
 
 The **source** has named cloud environments, turn **claim**, **lease**,
 **fence**, durable channel lookup across Lambda invocations, a durable
@@ -96,9 +98,10 @@ What each deployed thin-turn slice does today:
 - CloudFront in front of a Lambda function URL (no load balancer).
 - FastAPI front door: channels, messages, bots, a stopped-computer roster,
   chunk POST, `POST /turns/{id}/claim`, `POST /turns/{id}/renew`, fenced
-  chunk writes, and `GET /turns/{turn_id}/stream` as `text/event-stream`.
-- Channel records are in DynamoDB, so `GET /channels/{id}/messages` works
-  on a different Lambda than the one that created the channel.
+  chunk writes, `POST /turns/{id}/waiting` (development), and
+  `GET /turns/{turn_id}/stream` as `text/event-stream`.
+- Channel records and named bots are in DynamoDB, so a different Front Door
+  instance can enqueue a turn for a bot it did not create.
 - DynamoDB is the source of truth for the transcript, in-flight chunks
   (TTL), and the thin roster. SSE **polls the store**.
 - SQS carries one turn job. A computerless worker Lambda runs
