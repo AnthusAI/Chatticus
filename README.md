@@ -424,26 +424,25 @@ ruff check src ../features tests
 ```
 
 The deployed thin turn is exercised against a **named cloud environment**
-(CloudFront), not against an in-process queue:
+(CloudFront), not against an in-process queue. GitHub CI (`behave`,
+`pytest`) uses in-memory stores and moto. Live AWS is a local command
+after `aws login`:
 
 ```bash
 cd python
-python scripts/exercise_thin_turn.py --environment development
+sh scripts/live_aws_thin_turn.sh development
 ```
 
-That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
+That is the same as
+`python scripts/exercise_thin_turn.py --environment development` plus an
+identity check. It resolves the front door from
+`CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
 `/chatticus/development/thin-turn/cloudfront-url`, the
 `CloudFrontUrl` output on stack `ChatticusThinTurn`, or the published
-CloudFront origin in `THIN_TURN_PUBLISHED_BASE_URLS`. Pass `--base-url`
-only when you already have the origin. Repeat with `--environment staging`
-or `--environment production`. GitHub workflow **Acceptance** runs the
-same script with AWS IAM via GitHub OIDC
-(`chatticus-{environment}-github-acceptance`): on every `develop` push
-against **development**, and on `workflow_dispatch` for a named
-environment. It does not require `CHATTICUS_*_BASE_URL` secrets. SQS
-queue checks use that role. Staging and production roles exist only after
-those stacks are deployed. Production is still an explicit dispatch, never
-a git branch.
+CloudFront origin in `THIN_TURN_PUBLISHED_BASE_URLS`. SQS queue checks
+need that same AWS identity. Repeat with `staging` or `production` when
+you mean those stacks. It does not scale Fargate. Do not run this from
+GitHub Actions.
 
 If Docker Desktop is running, the snapshot packer can be checked with
 `sh computer/test_relocate.sh`.

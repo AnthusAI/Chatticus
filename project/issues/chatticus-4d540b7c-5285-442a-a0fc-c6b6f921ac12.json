@@ -3,7 +3,7 @@
   "title": "GitHub Acceptance assumes AWS to exercise named ThinTurn",
   "description": "",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -16,10 +16,16 @@
       "author": "home",
       "text": "GitHub Acceptance assumes chatticus-{environment}-github-acceptance over OIDC. Kernel CI no longer needs a local AWS region for the computer-queue lambda Gherkin. Development ThinTurn deploy creates the role.",
       "created_at": "2026-08-31T10:51:06.077253Z"
+    },
+    {
+      "id": "5651f1f8-2b77-4f90-a034-cdd5850d52eb",
+      "author": "home",
+      "text": "GitHub CI stays on mocks. Live named ThinTurn is python/scripts/live_aws_thin_turn.sh (and pytest -m live_aws) from a logged-in shell. The GitHub Acceptance workflow and OIDC role are removed so Actions does not hit AWS.",
+      "created_at": "2026-08-31T11:07:50.015829Z"
     }
   ],
   "created_at": "2026-08-31T10:48:28.113598Z",
-  "updated_at": "2026-08-31T10:51:06.077253Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T11:07:58.597050Z",
+  "closed_at": "2026-08-31T11:07:58.597050Z",
   "custom": {}
 }

@@ -18,9 +18,6 @@ operations.
 Each thin-turn stack publishes SSM
 `/chatticus/{environment}/thin-turn/cloudfront-url` and
 `/chatticus/{environment}/thin-turn/invoke-key-secret-arn`.
-It also creates IAM role `chatticus-{environment}-github-acceptance` for
-GitHub Actions OIDC so **Acceptance** can resolve CloudFront and consume
-the turn queues. That role cannot deploy or scale computers.
 
 The snapshot bucket name is a CDK output. Hosts set
 `CHATTICUS_SNAPSHOT_BUCKET` to that value. URIs look like

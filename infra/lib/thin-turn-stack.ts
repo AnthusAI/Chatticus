@@ -391,55 +391,6 @@ export class ThinTurnStack extends cdk.Stack {
     new cdk.CfnOutput(this, "OriginReadTimeoutSeconds", {
       value: String(originReadTimeoutSeconds),
     });
-
-    const githubProvider = iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(
-      this,
-      "GitHubOidc",
-      `arn:aws:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`,
-    );
-    const githubOidcSubPrefix =
-      "repo:AnthusAI@152415604/Chattic.us@1350947261";
-    const acceptanceRole = new iam.Role(this, "GithubAcceptance", {
-      roleName: `chatticus-${environmentName}-github-acceptance`,
-      description:
-        `GitHub Actions named-environment acceptance for ${environmentName}. ` +
-        "Look up the thin-turn origin and consume SQS for the named exercise.",
-      assumedBy: new iam.WebIdentityPrincipal(
-        githubProvider.openIdConnectProviderArn,
-        {
-          StringEquals: {
-            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          },
-          StringLike: {
-            "token.actions.githubusercontent.com:sub": [
-              `${githubOidcSubPrefix}:ref:refs/heads/develop`,
-              `${githubOidcSubPrefix}:ref:refs/heads/main`,
-            ],
-          },
-        },
-      ),
-    });
-    turnQueue.grantConsumeMessages(acceptanceRole);
-    computerTurnQueue.grantConsumeMessages(acceptanceRole);
-    acceptanceRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ["ssm:GetParameter"],
-        resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter${parameterPrefix}/*`,
-        ],
-      }),
-    );
-    acceptanceRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ["cloudformation:DescribeStacks"],
-        resources: [
-          `arn:aws:cloudformation:${this.region}:${this.account}:stack/${this.stackName}/*`,
-        ],
-      }),
-    );
-    new cdk.CfnOutput(this, "GithubAcceptanceRoleArn", {
-      value: acceptanceRole.roleArn,
-    });
   }
 }
 
