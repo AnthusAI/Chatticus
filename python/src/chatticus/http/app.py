@@ -238,6 +238,14 @@ def create_app(
         turns = state.plane.list_active_turns(tenant_id, user_id)
         return {"turns": [_turn_payload(turn) for turn in turns]}
 
+    @app.get("/users/{user_id}/tasks")
+    def list_user_tasks(
+        user_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        tasks = state.plane.list_tasks(tenant_id, user_id)
+        return {"tasks": [_task_payload(task) for task in tasks]}
+
     @app.get("/users/{user_id}/computer")
     def get_user_computer(
         user_id: str,
@@ -302,6 +310,17 @@ def create_app(
             body.action,
             task.task_id,
         )
+        return _task_payload(task)
+
+    @app.get("/tasks/{task_id}")
+    def get_task(
+        task_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            task = state.plane.task(tenant_id, task_id)
+        except TaskNotFoundError as error:
+            raise HTTPException(status_code=404, detail="task not found") from error
         return _task_payload(task)
 
     @app.post("/computers/stopped")

@@ -17,6 +17,19 @@ Feature: Thin task HTTP and worker wiring
     When tenant "other-household" posts the task tool create action for bot "Assistant" with title "sneaky task"
     Then the HTTP task tool call is denied for tenant isolation
 
+  Scenario: A user's tasks can be listed over HTTP with tenant isolation
+    Given tenant "anthus" user "ryan" has a bot named "Assistant"
+    When tenant "anthus" posts the task tool create action for bot "Assistant" with title "Pay the electric bill"
+    Then tenant "anthus" can list tasks for user "ryan":
+      | 1 |
+    And another tenant cannot list tasks for user "ryan"
+
+  Scenario: A stored task can be read over HTTP with tenant isolation
+    Given tenant "anthus" user "ryan" has a bot named "Assistant"
+    When tenant "anthus" posts the task tool create action for bot "Assistant" with title "Pay the electric bill"
+    Then tenant "anthus" can read the HTTP task by identifier
+    And another tenant cannot read the HTTP task by identifier
+
   Scenario: A computerless worker creates a task through the model tool list
     Given tenant "anthus" user "ryan" has a bot named "Assistant"
     And the household computer is stopped for task work

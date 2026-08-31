@@ -94,6 +94,66 @@ def test_http_task_tool_rejects_other_tenant() -> None:
     api.close()
 
 
+def test_http_list_user_tasks_is_tenant_scoped() -> None:
+    plane = ControlPlane()
+    api = start_test_server(create_app(plane))
+    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    created = api.post(
+        f"/bots/{bot.bot_id}/tasks/tool",
+        json={
+            "user_id": "ryan",
+            "action": "create",
+            "arguments": {"title": "Pay the electric bill"},
+        },
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert created.status_code == 200
+    listed = api.get(
+        "/users/ryan/tasks",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert listed.status_code == 200
+    tasks = listed.json()["tasks"]
+    assert len(tasks) == 1
+    assert tasks[0]["task_id"] == created.json()["task_id"]
+    assert tasks[0]["title"] == "Pay the electric bill"
+    empty = api.get(
+        "/users/ryan/tasks",
+        headers={"X-Tenant-Id": "other-household"},
+    )
+    assert empty.status_code == 200
+    assert empty.json()["tasks"] == []
+    api.close()
+
+
+def test_http_get_task_is_tenant_scoped() -> None:
+    plane = ControlPlane()
+    api = start_test_server(create_app(plane))
+    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    created = api.post(
+        f"/bots/{bot.bot_id}/tasks/tool",
+        json={
+            "user_id": "ryan",
+            "action": "create",
+            "arguments": {"title": "Pay the electric bill"},
+        },
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    task_id = created.json()["task_id"]
+    fetched = api.get(
+        f"/tasks/{task_id}",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["task_id"] == task_id
+    denied = api.get(
+        f"/tasks/{task_id}",
+        headers={"X-Tenant-Id": "other-household"},
+    )
+    assert denied.status_code == 404
+    api.close()
+
+
 def test_computerless_worker_creates_task_via_http_tool_call() -> None:
     plane = ControlPlane()
     api = start_test_server(create_app(plane))

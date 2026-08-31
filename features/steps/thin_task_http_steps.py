@@ -52,6 +52,71 @@ def then_http_task_denied(context: object) -> None:
     assert context.http_response.status_code in {403, 404}
 
 
+@then('tenant "{tenant_id}" can list tasks for user "{user_id}":')
+def then_list_user_tasks(context: object, tenant_id: str, user_id: str) -> None:
+    if not hasattr(context, "api_client"):
+        context.api_client = start_test_server(create_app(context.plane))
+    task_ids: list[str] = getattr(context, "http_task_ids", [])
+    if not task_ids and hasattr(context, "http_task"):
+        task_ids = [context.http_task["task_id"]]
+
+    def resolve_cell(cell: str) -> str:
+        value = cell.strip()
+        if value.isdigit():
+            return task_ids[int(value) - 1]
+        return value
+
+    expected_ids: list[str] = []
+    if context.table.headings and context.table.headings[0].strip():
+        expected_ids.append(resolve_cell(context.table.headings[0]))
+    expected_ids.extend(resolve_cell(row.cells[0]) for row in context.table)
+    expected_ids = [task_id for task_id in expected_ids if task_id]
+    response = context.api_client.get(
+        f"/users/{user_id}/tasks",
+        headers={"X-Tenant-Id": tenant_id},
+    )
+    assert response.status_code == 200
+    listed_ids = [task["task_id"] for task in response.json()["tasks"]]
+    assert listed_ids == sorted(expected_ids)
+    for task_id in expected_ids:
+        payload = next(
+            task for task in response.json()["tasks"] if task["task_id"] == task_id
+        )
+        assert payload["tenant_id"] == tenant_id
+        assert payload["user_id"] == user_id
+
+
+@then('another tenant cannot list tasks for user "{user_id}"')
+def then_other_tenant_cannot_list_tasks(context: object, user_id: str) -> None:
+    response = context.api_client.get(
+        f"/users/{user_id}/tasks",
+        headers={"X-Tenant-Id": "other-household"},
+    )
+    assert response.status_code == 200
+    assert response.json()["tasks"] == []
+
+
+@then('tenant "{tenant_id}" can read the HTTP task by identifier')
+def then_read_http_task(context: object, tenant_id: str) -> None:
+    response = context.api_client.get(
+        f"/tasks/{context.http_task['task_id']}",
+        headers={"X-Tenant-Id": tenant_id},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["task_id"] == context.http_task["task_id"]
+    assert payload["tenant_id"] == tenant_id
+
+
+@then("another tenant cannot read the HTTP task by identifier")
+def then_other_tenant_cannot_read_http_task(context: object) -> None:
+    response = context.api_client.get(
+        f"/tasks/{context.http_task['task_id']}",
+        headers={"X-Tenant-Id": "other-household"},
+    )
+    assert response.status_code == 404
+
+
 @when('bot "{bot_name}" receives "{message}"')
 def when_bot_receives_message(context: object, bot_name: str, message: str) -> None:
     bot = context.bots_by_name[bot_name]
