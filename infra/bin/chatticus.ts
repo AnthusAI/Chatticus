@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import * as cdk from "aws-cdk-lib";
 import { ComputerStack } from "../lib/computer-stack";
+import { DnsStack } from "../lib/dns-stack";
 import {
   CHATTICUS_CLOUD_ENVIRONMENTS,
   THIN_TURN_STACK_IDS,
+  WEB_STACK_IDS,
 } from "../lib/environments";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
+import { WebStack } from "../lib/web-stack";
 
 const app = new cdk.App();
 
@@ -26,12 +29,30 @@ new ComputerStack(app, "ChatticusComputers", {
   snapshotBucket: snapshots.bucket,
 });
 
+const dns = new DnsStack(app, "ChatticusDns", {
+  env,
+  description: "Route 53 hosted zone and ACM certificate for chattic.us.",
+});
+
 for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
-  new ThinTurnStack(app, THIN_TURN_STACK_IDS[environmentName], {
+  const thinTurn = new ThinTurnStack(app, THIN_TURN_STACK_IDS[environmentName], {
     env,
     chatticusEnvironment: environmentName,
     description:
       `Zero-idle computerless turn (${environmentName}): DynamoDB, SQS, ` +
-      "Lambda SSE front door, CloudFront.",
+      "Lambda SSE front door.",
   });
+
+  const web = new WebStack(app, WEB_STACK_IDS[environmentName], {
+    env,
+    chatticusEnvironment: environmentName,
+    hostedZone: dns.hostedZone,
+    siteCertificate: dns.siteCertificate,
+    frontDoorFunctionUrl: thinTurn.frontDoorFunctionUrl,
+    invokeSecret: thinTurn.invokeSecret,
+    description:
+      `Next.js UI (${environmentName}) on CloudFront with same-origin /api/* ` +
+      "proxy to the thin-turn function URL.",
+  });
+  web.addDependency(thinTurn);
 }

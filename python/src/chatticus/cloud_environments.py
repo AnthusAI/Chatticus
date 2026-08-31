@@ -21,9 +21,9 @@ THIN_TURN_STACK_IDS: Mapping[CloudEnvironment, str] = {
 }
 
 THIN_TURN_PUBLISHED_BASE_URLS: Mapping[CloudEnvironment, str] = {
-    "development": "https://d3gpuuldffe35o.cloudfront.net",
-    "staging": "https://dntj3flm2ozck.cloudfront.net",
-    "production": "https://d3lnmalpqx92ls.cloudfront.net",
+    "development": "https://dev.chattic.us/api",
+    "staging": "https://staging.chattic.us/api",
+    "production": "https://chattic.us/api",
 }
 
 GIT_BRANCH_CLOUD_ENVIRONMENT: Mapping[str, CloudEnvironment] = {

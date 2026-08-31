@@ -11,13 +11,19 @@ operations.
 | --- | --- |
 | `ChatticusSnapshots` | S3 bucket for computer packs; IAM role local hosts may assume |
 | `ChatticusComputers` | VPC, ECR, ECS cluster, Fargate ARM64 task definition, service (count 0 by default) |
-| `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE, CloudFront |
+| `ChatticusDns` | Route 53 hosted zone for `chattic.us`, ACM certificate (`chattic.us`, `*.chattic.us`, `www.chattic.us`) |
+| `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE function URL |
 | `ChatticusThinTurnStaging` | Staging thin turn (same shape; deployed from `main`) |
 | `ChatticusThinTurnProduction` | Production thin turn (gated deploy of a staging-proven release; never implied by a git branch) |
+| `ChatticusWeb` | **Development** Next.js on S3 + CloudFront at `dev.chattic.us` with same-origin `/api/*` |
+| `ChatticusWebStaging` | Staging web at `staging.chattic.us` |
+| `ChatticusWebProduction` | Production web at `chattic.us` and `www.chattic.us` |
 
-Each thin-turn stack publishes SSM
-`/chatticus/{environment}/thin-turn/cloudfront-url` and
-`/chatticus/{environment}/thin-turn/invoke-key-secret-arn`.
+Each thin-turn stack exports the Lambda **function URL** and invoke-key
+secret ARN for the matching web stack. The web stack publishes:
+
+- `/chatticus/{environment}/web/site-url` — `https://{hostname}`
+- `/chatticus/{environment}/thin-turn/cloudfront-url` — `https://{hostname}/api` (same-origin API base for workers and acceptance)
 
 The snapshot bucket name is a CDK output. Hosts set
 `CHATTICUS_SNAPSHOT_BUCKET` to that value. URIs look like
@@ -33,31 +39,65 @@ A smoke publish from Fargate into S3:
 sh computer/test_fargate.sh
 ```
 
-## Deploy
+## DNS (one-time)
 
-Deploy **one** stack at a time. `cdk deploy --all` and `npm run deploy`
-are forbidden (`npm run deploy` exits nonzero). Do not destroy
-`ChatticusSnapshots` or `ChatticusComputers`.
+Deploy the shared DNS stack first:
+
+```bash
+cd infra
+sh deploy-chatticus-dns.sh
+```
+
+Copy the **NameServers** output (four Route 53 NS hostnames). At the
+**chattic.us domain registrar**, replace the current name servers with
+those four values. Delegation can take up to 48 hours; ACM DNS validation
+for the site certificate usually completes soon after propagation.
+
+Until delegation finishes, do not expect `dev.chattic.us` or
+`chattic.us` to resolve. The web stacks still deploy; CloudFront serves
+the distribution domain name immediately.
+
+## Deploy web + API (development)
+
+Deploy thin-turn, then the unified web stack (builds `web/` during deploy):
+
+```bash
+cd infra
+sh deploy-chatticus-web-development.sh
+```
+
+Staging and production, when you mean to:
+
+```bash
+npx cdk deploy ChatticusThinTurnStaging
+npx cdk deploy ChatticusWebStaging
+npx cdk deploy ChatticusThinTurnProduction
+npx cdk deploy ChatticusWebProduction
+```
+
+GitHub Actions: workflow **Deploy web** (`deploy-web.yml`) with
+`workflow_dispatch`. Requires repository secret `AWS_DEPLOY_ROLE_ARN`
+(OIDC). No CodePipeline.
+
+Then:
+
+```bash
+export CHATTICUS_SNAPSHOT_BUCKET=<SnapshotBucketName output>
+export CHATTICUS_DEVELOPMENT_BASE_URL=https://dev.chattic.us/api
+```
+
+Acceptance and workers use the `/api` base URL on the site hostname.
+
+## Deploy thin-turn only
 
 ```bash
 cd infra
 sh deploy-chatticus-thinturn-development.sh
 ```
 
-That script calls `aws sts get-caller-identity` first and deploys only
-`ChatticusThinTurn`. Staging and production, when you mean to:
-
-```bash
-npx cdk deploy ChatticusThinTurnStaging
-npx cdk deploy ChatticusThinTurnProduction
-```
-
-Then:
-
-```bash
-export CHATTICUS_SNAPSHOT_BUCKET=<SnapshotBucketName output>
-export CHATTICUS_DEVELOPMENT_BASE_URL=<CloudFrontUrl output>
-```
+Deploy **one** stack at a time. `cdk deploy --all` and `npm run deploy`
+are forbidden (`npm run deploy` exits nonzero). Do not destroy
+`ChatticusSnapshots` or `ChatticusComputers`.
 
 A Fargate service exists at count 0 until you deploy
 `-c computerCount=1` after pushing `ComputerRepositoryUri:dev`.
@@ -66,14 +106,20 @@ Publishing a snapshot does not require a running task.
 ## Synth (no AWS credentials required)
 
 Synth validates CloudFormation templates without deploying. CI runs
-`npx cdk synth` for every stack. Before promoting to `main` or a gated
-production deploy, confirm the named thin-turn stacks still synth clean:
+`npx cdk synth` for every stack. Build the web app first so the web
+stack asset path exists:
 
 ```bash
-cd infra
-npm install
+cd web && npm ci && npm run build
+cd ../infra && npm ci && npx cdk synth
+```
+
+Before promoting to `main` or a gated production deploy, confirm the
+named thin-turn and web stacks still synth clean:
+
+```bash
 npx cdk synth ChatticusThinTurnStaging
-npx cdk synth ChatticusThinTurnProduction
+npx cdk synth ChatticusWebStaging
 ```
 
 `ChatticusSnapshots` and `ChatticusComputers` are shared account stacks;

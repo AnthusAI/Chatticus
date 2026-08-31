@@ -3,7 +3,7 @@
   "title": "Add CDK web hosting stacks for Next.js behind CloudFront",
   "description": "Per-environment stacks (ChatticusWeb, ChatticusWebStaging, ChatticusWebProduction): S3 (private) + CloudFront with two behaviors.\n\nDefault: S3 origin for Next.js build output (static export unless SSR is required later).\n/api/*: Lambda function URL origin imported from the matching thin-turn stack (caching disabled, SSE timeouts preserved). CloudFront Function strips /api prefix on viewer request.\n\nPublish SSM: /chatticus/{environment}/web/site-url and cloudfront-url.\n\nRearchitect thin-turn stack: remove or demote the standalone viewer-facing CloudFront; export function URL and invoke-key wiring for the web stack to consume.\n\nForbidden: Amplify, ALB, cdk deploy --all.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,7 +12,7 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-08-31T11:31:17.613238Z",
-  "updated_at": "2026-08-31T11:34:07.515213Z",
+  "updated_at": "2026-08-31T12:10:19.277812Z",
   "closed_at": null,
   "custom": {},
   "agent": null

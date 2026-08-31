@@ -3,7 +3,7 @@
   "title": "Add GitHub Actions deploy workflow for web and infra",
   "description": "GitHub Actions only \u2014 no AWS CodePipeline (no idle pipeline cost, matches existing CI).\n\nOIDC role in CDK for GitHub to assume. Workflow:\n- develop merge -> npm run build in web/ -> cdk deploy ChatticusWeb (and thin-turn stack if API wiring changed).\n- main merge -> staging stacks.\n- production: workflow_dispatch gated (same as thin-turn production).\n\nPhase 1 can be workflow_dispatch + manual cdk deploy; OIDC can be a sub-task if needed.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -12,7 +12,7 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-08-31T11:31:18.846366Z",
-  "updated_at": "2026-08-31T11:34:09.449234Z",
+  "updated_at": "2026-08-31T12:10:19.908311Z",
   "closed_at": null,
   "custom": {},
   "agent": null

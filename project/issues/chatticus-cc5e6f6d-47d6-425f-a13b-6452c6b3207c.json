@@ -3,7 +3,7 @@
   "title": "Publish chattic.us Next.js UI to AWS",
   "description": "Definition of Done:\n- chattic.us resolves to the production web distribution over HTTPS with a valid ACM certificate.\n- Staging and development have named web origins (subdomains documented in SSM).\n- The browser loads the UI and calls the thin-turn API at /api/* on the same origin (no separate api subdomain).\n- Deploy is repeatable from GitHub Actions (OIDC) or documented manual cdk deploy; no Amplify, no CodePipeline.\n- README What is live today reflects the web surface.\n\nArchitecture: Next.js on S3 behind CloudFront default behavior; /api/* behavior proxies to the thin-turn Lambda function URL with prefix strip. One distribution per environment owns the public hostname.",
   "type": "epic",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,7 +12,7 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-08-31T11:30:48.055887Z",
-  "updated_at": "2026-08-31T11:34:06.856643Z",
+  "updated_at": "2026-08-31T12:10:18.643571Z",
   "closed_at": null,
   "custom": {},
   "agent": null

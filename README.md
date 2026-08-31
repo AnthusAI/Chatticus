@@ -85,14 +85,18 @@ ComputerWorker still uses a no-op `HostStarter`; CDK does not set
 (Kanbus epic 35d86b) is starting; it talks to this HTTP surface.
 `exercise_thin_turn.py` stays the pass/fail gate.
 
-| Environment | Stack | CloudFront |
-| --- | --- | --- |
-| development | `ChatticusThinTurn` | https://d3gpuuldffe35o.cloudfront.net |
-| staging | `ChatticusThinTurnStaging` | https://dntj3flm2ozck.cloudfront.net |
-| production | `ChatticusThinTurnProduction` | https://d3lnmalpqx92ls.cloudfront.net |
+| Environment | Web stack | Site | API base (same origin) |
+| --- | --- | --- | --- |
+| development | `ChatticusWeb` | https://dev.chattic.us | https://dev.chattic.us/api |
+| staging | `ChatticusWebStaging` | https://staging.chattic.us | https://staging.chattic.us/api |
+| production | `ChatticusWebProduction` | https://chattic.us | https://chattic.us/api |
+
+Deploy DNS once (`infra/deploy-chatticus-dns.sh`), set registrar name servers
+to the stack **NameServers** output, then deploy thin-turn + web per environment.
+Until DNS propagates, use the CloudFront distribution domain from stack outputs.
 
 If SSM or CloudFormation credentials are expired, the exercise falls
-back to those published origins (b4c3d2). SQS queue checks still need
+back to those published API bases (b4c3d2). SQS queue checks still need
 `aws login`.
 
 `cd python && python scripts/exercise_thin_turn.py --environment <name>`
@@ -215,7 +219,9 @@ the live worker loop. Do not merge `develop` to `main` as daily parking.
 destroyed. They are not on the thin-turn path yet. Cold Fargate time to
 `RUNNING` for the current computer image is tens of seconds (Test 2);
 Chromium is not in the image. The computer service stays at desired
-count 0. There is no chattic.us web app, no live Fargate computer pull
+count 0. The chattic.us Next.js UI deploys via `ChatticusWeb*` stacks
+(infra README); it is not on the live turn path until DNS and deploy land.
+No live Fargate computer pull
 worker, no mid-turn escalation onto a running computer, and no approvals
 on these slices.
 

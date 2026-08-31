@@ -1,6 +1,4 @@
 import * as cdk from "aws-cdk-lib";
-import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
-import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -15,22 +13,18 @@ import * as path from "path";
 import { Construct } from "constructs";
 import {
   ChatticusCloudEnvironment,
+  thinTurnExportName,
   thinTurnParameterPrefix,
 } from "./environments";
-
-const STRIP_ACCEPT_ENCODING_FUNCTION = `function handler(event) {
-  var request = event.request;
-  if (request.headers["accept-encoding"]) {
-    delete request.headers["accept-encoding"];
-  }
-  return request;
-}`;
 
 const LAMBDA_WEB_ADAPTER_LAYER_VERSION = 28;
 const OPENAI_PARAMETER_NAME = "/amplify/shared/papyrus/OPENAI_API_KEY";
 
 /**
- * Zero-idle computerless turn: DynamoDB, SQS, Lambda Web Adapter SSE, CloudFront.
+ * Zero-idle computerless turn: DynamoDB, SQS, Lambda Web Adapter SSE.
+ *
+ * The public CloudFront distribution lives in the web stack; this stack
+ * exports the Lambda function URL for the /api/* origin.
  *
  * Do not put a load balancer in front of this stack.
  */
@@ -39,6 +33,9 @@ export interface ThinTurnStackProps extends cdk.StackProps {
 }
 
 export class ThinTurnStack extends cdk.Stack {
+  readonly frontDoorFunctionUrl: lambda.FunctionUrl;
+  readonly invokeSecret: secretsmanager.ISecret;
+
   constructor(scope: Construct, id: string, props: ThinTurnStackProps) {
     super(scope, id, props);
 
@@ -83,6 +80,7 @@ export class ThinTurnStack extends cdk.Stack {
         excludePunctuation: true,
       },
     });
+    this.invokeSecret = invokeSecret;
 
     const openaiParameter = ssm.StringParameter.fromSecureStringParameterAttributes(
       this,
@@ -267,8 +265,10 @@ export class ThinTurnStack extends cdk.Stack {
         exposedHeaders: ["*"],
       },
     });
+    this.frontDoorFunctionUrl = functionUrl;
 
     const cloudFrontUrlParameterName = `${parameterPrefix}/cloudfront-url`;
+    const functionUrlParameterName = `${parameterPrefix}/function-url`;
 
     const workerFunction = new lambda.Function(this, "ComputerlessWorker", {
       runtime: lambda.Runtime.PYTHON_3_12,
@@ -331,41 +331,10 @@ export class ThinTurnStack extends cdk.Stack {
       }),
     );
 
-    const stripAcceptEncoding = new cloudfront.Function(this, "StripAcceptEncoding", {
-      code: cloudfront.FunctionCode.fromInline(STRIP_ACCEPT_ENCODING_FUNCTION),
-      comment: "Strip Accept-Encoding so the Lambda origin emits identity encoding.",
-    });
-
-    const originReadTimeoutSeconds = 60;
-    const distribution = new cloudfront.Distribution(this, "FrontDoorDistribution", {
-      comment: `Chatticus ${environmentName} thin-turn front door (per-request, no idle floor).`,
-      defaultBehavior: {
-        origin: new origins.FunctionUrlOrigin(functionUrl, {
-          readTimeout: cdk.Duration.seconds(originReadTimeoutSeconds),
-          responseCompletionTimeout: cdk.Duration.seconds(900),
-          customHeaders: {
-            "X-Chatticus-Invoke-Key": invokeSecret.secretValue.unsafeUnwrap(),
-          },
-        }),
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-        functionAssociations: [
-          {
-            function: stripAcceptEncoding,
-            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
-          },
-        ],
-      },
-    });
-
-    const cloudFrontUrl = `https://${distribution.distributionDomainName}`;
-
-    new ssm.StringParameter(this, "CloudFrontUrlParameter", {
-      parameterName: cloudFrontUrlParameterName,
-      stringValue: cloudFrontUrl,
-      description: `CloudFront origin for the ${environmentName} thin-turn front door.`,
+    new ssm.StringParameter(this, "FunctionUrlParameter", {
+      parameterName: functionUrlParameterName,
+      stringValue: functionUrl.url,
+      description: `Lambda function URL for the ${environmentName} thin-turn front door.`,
     });
     new ssm.StringParameter(this, "InvokeKeySecretArnParameter", {
       parameterName: `${parameterPrefix}/invoke-key-secret-arn`,
@@ -385,11 +354,16 @@ export class ThinTurnStack extends cdk.Stack {
     new cdk.CfnOutput(this, "TurnDeadlineFunctionArn", {
       value: deadlineFunction.functionArn,
     });
-    new cdk.CfnOutput(this, "FunctionUrl", { value: functionUrl.url });
-    new cdk.CfnOutput(this, "CloudFrontUrl", { value: cloudFrontUrl });
-    new cdk.CfnOutput(this, "InvokeKeySecretArn", { value: invokeSecret.secretArn });
-    new cdk.CfnOutput(this, "OriginReadTimeoutSeconds", {
-      value: String(originReadTimeoutSeconds),
+    new cdk.CfnOutput(this, "FunctionUrl", {
+      value: functionUrl.url,
+      exportName: thinTurnExportName(environmentName, "function-url"),
+    });
+    new cdk.CfnOutput(this, "InvokeKeySecretArn", {
+      value: invokeSecret.secretArn,
+      exportName: thinTurnExportName(environmentName, "invoke-key-secret-arn"),
+    });
+    new cdk.CfnOutput(this, "InvokeKeySecretArnOutput", {
+      value: invokeSecret.secretArn,
     });
   }
 }

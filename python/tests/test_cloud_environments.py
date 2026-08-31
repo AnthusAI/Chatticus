@@ -7,6 +7,7 @@ import pytest
 from chatticus.cloud_environments import (
     CLOUD_ENVIRONMENTS,
     GIT_BRANCH_CLOUD_ENVIRONMENT,
+    THIN_TURN_PUBLISHED_BASE_URLS,
     THIN_TURN_STACK_IDS,
     environment_for_git_branch,
     parse_cloud_environment,
@@ -100,6 +101,9 @@ def test_python_stack_ids_match_cdk() -> None:
     ).read_text()
     for environment, stack_id in THIN_TURN_STACK_IDS.items():
         assert f'{environment}: "{stack_id}"' in source
+    for environment, api_base in THIN_TURN_PUBLISHED_BASE_URLS.items():
+        assert api_base.endswith("/api")
+        assert environment in source
 
 
 def test_resolve_uses_ssm_parameter(monkeypatch: pytest.MonkeyPatch) -> None:
