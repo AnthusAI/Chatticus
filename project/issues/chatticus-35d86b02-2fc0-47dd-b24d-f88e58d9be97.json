@@ -19,10 +19,16 @@
       "author": "home",
       "text": "Not starting the demo CLI here. exercise_thin_turn.py stays the pass/fail gate. Next HTTP that helps a CLI reconnect: GET /users/{user_id}/turns (list in-flight turns after Front Door recycle).",
       "created_at": "2026-08-31T06:30:15.579559Z"
+    },
+    {
+      "id": "f2831469-3c6f-41fe-b2c9-f107363676a4",
+      "author": "home",
+      "text": "## HTTP now live that a demo CLI can use (not the CLI itself)\n\n`GET /users/{user_id}/turns` is on development ThinTurn @ `95964f7` (`turns_list=1`). It walks durable per-channel `active_turn` pointers. Completed turns are omitted. A recycled Front Door can answer it with no process memory.\n\nThat is the reconnect roster this epic needs. Pair it with the rest of the household-recovery surface already on **development** (ahead of `main` v0.6.0):\n\n| Need | Path |\n| --- | --- |\n| Named bot after recycle | `GET /bots?user_id=&name=` or `GET /users/{user_id}/bots` |\n| Channels after recycle | `GET /users/{user_id}/channels` |\n| In-flight turns after recycle | `GET /users/{user_id}/turns` |\n| One channel's active turn (404 if none) | `GET /channels/{id}/turn` |\n| Post and start a turn | `POST /channels/{id}/messages` (`Idempotency-Key`) |\n| Watch tokens | `GET /turns/{id}/stream` (`Last-Event-ID`) |\n| Journal after a drop | `GET /turns/{id}/events?after=` |\n| Channel history after a drop | `GET /channels/{id}/messages?after=` |\n\n```mermaid\nsequenceDiagram\n  participant CLI\n  participant FD as Front Door\n  CLI->>FD: GET /users/{user_id}/turns\n  FD-->>CLI: in-flight turn_ids\n  CLI->>FD: GET /turns/{id}/stream Last-Event-ID\n  FD-->>CLI: turn.token then turn.completed\n```\n\nTarget **development** (`https://d3gpuuldffe35o.cloudfront.net`). `main` v0.6.0 has bot list, not this turns list. Auth is still invoke key plus `X-Tenant-Id`. `exercise_thin_turn.py` stays the pass/fail gate; this epic should not reimplement claim/fence checks.\n\nStill out of scope here: computer, browser, approvals, Vultus.\n",
+      "created_at": "2026-08-31T06:38:10.262635Z"
     }
   ],
   "created_at": "2026-08-31T06:07:24.315584Z",
-  "updated_at": "2026-08-31T06:30:15.579559Z",
+  "updated_at": "2026-08-31T06:38:10.262635Z",
   "closed_at": null,
   "custom": {}
 }
