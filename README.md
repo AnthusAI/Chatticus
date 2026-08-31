@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `61c69d9` (no `--all`).
+from `develop` @ `555ccff` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
