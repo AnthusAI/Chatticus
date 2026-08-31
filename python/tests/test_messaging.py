@@ -222,6 +222,63 @@ def test_dynamo_store_roundtrip_messages_and_events() -> None:
 
 
 @mock_aws
+def test_dynamo_bot_memory_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-bot-memory-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    first = ControlPlane(messaging_store=store)
+    bot = first.create_bot("anthus", "ryan", "Researcher")
+    first.remember(bot.bot_id, "voice", "short and direct")
+    second = ControlPlane(messaging_store=store)
+    loaded = second.bot("anthus", bot.bot_id)
+    assert loaded.memory["voice"] == "short and direct"
+    channel = second.create_channel("anthus", "ryan", [bot.bot_id])
+    _, started = second.post_channel_message(
+        channel.channel_id,
+        "anthus",
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+    )
+    assert started is not None
+    prompt = second.turn_prompt("anthus", started.turn_id)
+    assert "memory voice: short and direct" in prompt.splitlines()
+    assert prompt.splitlines()[-1].endswith("hello")
+
+
+def test_http_bot_memory_roundtrip() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    created = api.post(
+        "/bots",
+        json={"user_id": "ryan", "name": "Researcher"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    bot_id = created.json()["bot_id"]
+    remembered = api.post(
+        f"/bots/{bot_id}/memory",
+        json={"key": "voice", "value": "short and direct"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert remembered.status_code == 200
+    assert remembered.json()["memory"]["voice"] == "short and direct"
+    fetched = api.get(
+        f"/bots/{bot_id}",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["memory"]["voice"] == "short and direct"
+    missing = api.get(
+        f"/bots/{bot_id}",
+        headers={"X-Tenant-Id": "other"},
+    )
+    assert missing.status_code == 404
+    api.close()
+
+
+@mock_aws
 def test_channel_messages_survive_a_new_control_plane_in_dynamo() -> None:
     table_name = "chatticus-messaging-survival-test"
     client = boto3.client("dynamodb", region_name="us-east-1")

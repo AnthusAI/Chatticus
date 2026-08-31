@@ -115,6 +115,28 @@ def main() -> int:
             )
             return 1
         bot = bot_response.json()
+        remembered = client.post(
+            f"/bots/{bot['bot_id']}/memory",
+            json={"key": "voice", "value": "short and direct"},
+        )
+        if remembered.status_code != 200:
+            print(
+                f"bot_memory {remembered.status_code} {remembered.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        fetched = client.get(f"/bots/{bot['bot_id']}")
+        if fetched.status_code != 200:
+            print(
+                f"bot_get {fetched.status_code} {fetched.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        memory = fetched.json().get("memory") or {}
+        if memory.get("voice") != "short and direct":
+            print(f"bot_memory roundtrip failed {memory!r}", file=sys.stderr)
+            return 1
+        print("bot_memory=voice")
         client.post(
             "/computers/stopped", json={"user_id": args.user_id, "stopped": True}
         )

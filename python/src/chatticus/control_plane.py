@@ -402,6 +402,16 @@ class ControlPlane:
         self._messaging_store.put_bot(bot)
         return bot
 
+    def bot(self, tenant_id: str, bot_id: str) -> Bot:
+        """Return one bot owned by the tenant.
+
+        :raises KeyError: If the bot is unknown to this tenant.
+        """
+        record = self._bot(tenant_id, bot_id)
+        if record.tenant_id != tenant_id:
+            raise KeyError(bot_id)
+        return record
+
     def ensure_computer(
         self,
         tenant_id: str,
@@ -594,8 +604,12 @@ class ControlPlane:
             )
 
     def remember(self, bot_id: str, key: str, value: str) -> None:
-        """Store a memory item on one bot."""
-        self._bots[bot_id].memory[key] = value
+        """Store a memory item on one bot and persist the roster record."""
+        bot = self._bots.get(bot_id)
+        if bot is None:
+            raise KeyError(bot_id)
+        bot.memory[key] = value
+        self._messaging_store.put_bot(bot)
 
     def memory(self, bot_id: str, key: str) -> str | None:
         """Return one bot memory item, if present."""
@@ -1377,10 +1391,17 @@ class ControlPlane:
         return None
 
     def turn_prompt(self, tenant_id: str, turn_id: str) -> str:
-        """Build a text-only prompt from channel messages for the model loop."""
+        """Build a text-only prompt from bot memory plus channel messages.
+
+        Channel compaction is still an open design question; this joins the
+        bot's isolated memory with the full channel transcript, memory first
+        so the latest channel line remains the last line of the prompt.
+        """
         turn = self.turn(tenant_id, turn_id)
+        bot = self._bot(tenant_id, turn.bot_id)
+        lines = [f"memory {key}: {value}" for key, value in sorted(bot.memory.items())]
         messages = self._messaging_store.list_messages(tenant_id, turn.channel_id)
-        lines = [f"{message.author_kind}: {message.body}" for message in messages]
+        lines.extend(f"{message.author_kind}: {message.body}" for message in messages)
         return "\n".join(lines)
 
     def emit_turn_waiting(

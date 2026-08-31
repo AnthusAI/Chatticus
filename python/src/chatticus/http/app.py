@@ -55,6 +55,13 @@ class CreateBotBody(BaseModel):
     name: str
 
 
+class RememberBotBody(BaseModel):
+    """Body for POST /bots/{bot_id}/memory."""
+
+    key: str
+    value: str
+
+
 class SetComputerBody(BaseModel):
     """Body for POST /computers/stopped."""
 
@@ -169,6 +176,36 @@ def create_app(
             "user_id": bot.user_id,
             "name": bot.name,
         }
+
+    @app.get("/bots/{bot_id}")
+    def get_bot(
+        bot_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            bot = state.plane.bot(tenant_id, bot_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="bot not found") from error
+        return _bot_payload(bot)
+
+    @app.post("/bots/{bot_id}/memory")
+    def remember_bot(
+        bot_id: str,
+        body: RememberBotBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            bot = state.plane.bot(tenant_id, bot_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="bot not found") from error
+        state.plane.remember(bot.bot_id, body.key, body.value)
+        logger.info(
+            "bot_memory_written tenant_id=%s bot_id=%s key=%s",
+            tenant_id,
+            bot_id,
+            body.key,
+        )
+        return _bot_payload(state.plane.bot(tenant_id, bot_id))
 
     @app.post("/computers/stopped")
     def set_computer_stopped(
@@ -494,6 +531,16 @@ def _status_for_error(error: ChatticusError) -> int:
     if isinstance(error, ChannelNotFoundError | TurnNotFoundError):
         return 404
     return 400
+
+
+def _bot_payload(bot: Any) -> dict[str, Any]:
+    return {
+        "bot_id": bot.bot_id,
+        "tenant_id": bot.tenant_id,
+        "user_id": bot.user_id,
+        "name": bot.name,
+        "memory": dict(bot.memory),
+    }
 
 
 def _channel_payload(channel: Any) -> dict[str, Any]:

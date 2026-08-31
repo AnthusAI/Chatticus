@@ -205,6 +205,9 @@ would wait a second for; buffer what you are rendering live.
 
 | Path | Use |
 | --- | --- |
+| `POST /bots` | Create a named bot |
+| `GET /bots/{id}` | Read a bot, including isolated memory |
+| `POST /bots/{id}/memory` | Persist one bot memory item |
 | `POST /channels` | Open a channel |
 | `POST /channels/{id}/messages` | Human (or bot) commits a message; returns `turn_id` if it enqueues a turn |
 | `GET /channels/{id}/messages?after=<seq>` | History and reconnect |

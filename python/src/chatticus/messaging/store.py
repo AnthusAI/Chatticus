@@ -623,6 +623,7 @@ class DynamoMessagingStore:
                 "user_id": {"S": bot.user_id},
                 "bot_id": {"S": bot.bot_id},
                 "name": {"S": bot.name},
+                "memory": {"S": json.dumps(bot.memory)},
             },
         )
 
@@ -637,11 +638,19 @@ class DynamoMessagingStore:
         item = response.get("Item")
         if item is None:
             return None
+        memory_raw = item.get("memory", {}).get("S", "{}")
+        try:
+            memory = json.loads(memory_raw)
+        except json.JSONDecodeError:
+            memory = {}
+        if not isinstance(memory, dict):
+            memory = {}
         return Bot(
             bot_id=item["bot_id"]["S"],
             tenant_id=item["tenant_id"]["S"],
             user_id=item["user_id"]["S"],
             name=item["name"]["S"],
+            memory={str(key): str(value) for key, value in memory.items()},
         )
 
     def put_computer(self, computer: Computer) -> None:

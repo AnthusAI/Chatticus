@@ -309,6 +309,20 @@ def then_bot_does_not_remember(context: object, name: str, key: str) -> None:
     assert context.plane.memory(bot.bot_id, key) is None
 
 
+@then('the turn prompt contains memory "{key}" as "{value}"')
+def then_turn_prompt_contains_memory(context: object, key: str, value: str) -> None:
+    channel = context.last_channel
+    prompt = context.plane.turn_prompt(channel.tenant_id, context.last_turn_id)
+    assert f"memory {key}: {value}" in prompt.splitlines()
+
+
+@then('the turn prompt contains channel text "{body}"')
+def then_turn_prompt_contains_channel_text(context: object, body: str) -> None:
+    channel = context.last_channel
+    prompt = context.plane.turn_prompt(channel.tenant_id, context.last_turn_id)
+    assert any(line.endswith(body) for line in prompt.splitlines())
+
+
 @then('bot "{name}" cannot read "{path}" from its computer')
 def then_bot_cannot_read(context: object, name: str, path: str) -> None:
     bot = context.bots_by_name[name]
