@@ -190,7 +190,7 @@ def main() -> int:
                 )
                 return 1
             print("stale_waiting=409")
-        posted = client.post(
+        posted_response = client.post(
             f"/channels/{channel['channel_id']}/messages",
             json={
                 "author_kind": ActorKind.HUMAN,
@@ -198,7 +198,15 @@ def main() -> int:
                 "body": "Reply with a short greeting.",
                 "addressed_to_bot_id": bot["bot_id"],
             },
-        ).json()
+        )
+        if posted_response.status_code >= 400:
+            print(
+                f"greeting {posted_response.status_code} "
+                f"{posted_response.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        posted = posted_response.json()
         turn_id = posted["turn_id"]
         print(
             f"tenant_id={args.tenant_id} "

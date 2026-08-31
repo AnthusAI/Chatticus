@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
-import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any
@@ -341,7 +341,8 @@ def create_app(
         return {"status": "ok"}
 
     @app.get("/turns/{turn_id}/stream")
-    def stream_turn(
+    async def stream_turn(
+        request: Request,
         turn_id: str,
         tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
         after_seq: int = Query(default=0, ge=0),
@@ -353,7 +354,7 @@ def create_app(
                 f"Tenant {tenant_id!r} cannot watch turn {turn_id!r}."
             ) from error
 
-        def event_generator() -> Any:
+        async def event_generator() -> Any:
             state.open_sse_streams += 1
             cursor = after_seq
             logger.info(
@@ -364,9 +365,16 @@ def create_app(
             )
             try:
                 while True:
+                    if await request.is_disconnected():
+                        logger.info(
+                            "sse_disconnect tenant_id=%s turn_id=%s",
+                            tenant_id,
+                            turn_id,
+                        )
+                        return
                     events = state.plane.list_turn_events(tenant_id, turn_id, cursor)
                     if not events:
-                        time.sleep(0.05)
+                        await asyncio.sleep(0.05)
                         continue
                     for event in events:
                         yield format_turn_event_sse(event)
