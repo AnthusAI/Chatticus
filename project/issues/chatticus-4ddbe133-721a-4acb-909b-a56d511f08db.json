@@ -25,10 +25,16 @@
       "author": "agent@example.com",
       "text": "8f98f8 and 76d3e2 blockers removed. Kernel children closed. Next slice 150e07: persist grants on live development ThinTurn.",
       "created_at": "2026-08-31T23:05:19.760025Z"
+    },
+    {
+      "id": "fed618a6-fd4d-404b-906e-500e3ae1ba14",
+      "author": "agent@example.com",
+      "text": "150e07 closed: grants persist on development ThinTurn. Parent stays in_progress for remaining live authenticated-browser / model-loop sink wiring. Not 35d86b.",
+      "created_at": "2026-08-31T23:35:00.080773Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.956699Z",
-  "updated_at": "2026-08-31T23:05:19.760025Z",
+  "updated_at": "2026-08-31T23:35:00.080773Z",
   "closed_at": null,
   "custom": {}
 }
