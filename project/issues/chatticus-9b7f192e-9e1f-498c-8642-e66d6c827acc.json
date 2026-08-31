@@ -186,10 +186,16 @@
       "author": "home",
       "text": "Frontier: GET /channels/{id}/turn waiting_for=browser after recycle is specified and live on development ThinTurn (06de2c4). exercise exit 0 with claim_a=200 claim_b=409 channel_turn_waiting=1. b06c90 closed. No staging/production. main stays v0.5.0.",
       "created_at": "2026-08-31T06:22:07.598605Z"
+    },
+    {
+      "id": "e27c1a17-250a-4f67-9e9e-7fe9a0761f70",
+      "author": "home",
+      "text": "Acceptance tick 2026-08-31: exercise --environment development exit 0. claim_a=200 claim_b=409 turns_list=1 channel_turn=1 channel_turn_done=1. base_url=https://d3gpuuldffe35o.cloudfront.net. Live ThinTurn deploy per README develop @ 95964f7 (develop HEAD 45ea203 not redeployed). No staging/production deploy.",
+      "created_at": "2026-08-31T06:45:56.949872Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T06:22:07.598605Z",
+  "updated_at": "2026-08-31T06:45:56.949872Z",
   "closed_at": null,
   "custom": {}
 }
