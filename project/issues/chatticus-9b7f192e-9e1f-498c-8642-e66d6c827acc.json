@@ -210,10 +210,16 @@
       "author": "home",
       "text": "Acceptance exercise 2026-08-31: exercise --environment development exit 0. health_environment=1 claim_a=200 claim_b=409. base_url=https://d3gpuuldffe35o.cloudfront.net. README live ThinTurn deploy @ 6baa46a (develop HEAD 469d09d not redeployed). No staging/production deploy.",
       "created_at": "2026-08-31T07:44:11.958831Z"
+    },
+    {
+      "id": "5263eda1-9065-49e6-8142-d071814f5f56",
+      "author": "home",
+      "text": "Acceptance tick: exercise --environment development exit 0.\n\nKey lines: health_environment=1; missing_claim=404; claim_a=200 claim_b=409; computer_queue_job=computer; post_idempotent=1; channel_turn_done=1; turn_after=1.\n\nREADME ThinTurn pin still 6baa46a (no redeploy). develop HEAD c0cf3a2. 538d28/53beb0 are kernel-only — not live-redeployed.\n\nStanding: 387e4f Safari/background-tab still unmeasured; no staging/prod deploy.",
+      "created_at": "2026-08-31T08:11:18.130921Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T07:44:11.958831Z",
+  "updated_at": "2026-08-31T08:11:18.130921Z",
   "closed_at": null,
   "custom": {}
 }
