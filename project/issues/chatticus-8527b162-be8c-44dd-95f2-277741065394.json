@@ -3,7 +3,7 @@
   "title": "Decide the v1 task-tracking fallback if Kanbus cloud storage is unavailable",
   "description": "Decide whether v1 ships with task state at all, and on what fallback, before v1 scope is set.\n\ndocs/TASKS.md says Chatticus should not start Kanbus integration until the Kanbus cloud storage backend lands. That backend does not exist yet (Kanbus cloud today is EFS-backed files plus Lambda). Coupling an unbuilt product to an unbuilt rewrite of another product's storage couples their schemas forever and risks v1 shipping with no task object after docs/TASKS.md already established that compaction eats task state.\n\nThe architectural win does not need Kanbus-the-database. It needs a structured tool and a few fields: status, evidence, close reason, bot provenance.\n\nAcceptance criteria:\n- A decision is recorded: either (a) v1 ships a thin Task item in Chatticus DynamoDB with those fields and the tool points at Kanbus HTTP later if its store ever matches, or (b) task state is deferred to v2 and docs/TASKS.md records that compaction risk is accepted in v1.\n- The decision is written into docs/TASKS.md and the v1 scope list, not left as \"wait for Kanbus.\"\n- No Chatticus code depends on Kanbus internals (table sharing or EFS) in v1.\n\nNot included: building the thin Task item (that follows from the decision), Kanbus product integration (later phase).",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 3,
   "assignee": null,
   "creator": null,
@@ -18,10 +18,16 @@
       "author": "agent@example.com",
       "text": "In progress with parent 5f2ea7: fallback decision (a) is the #45 docs slice. Close when that PR lands on develop.",
       "created_at": "2026-08-31T19:51:53.747077Z"
+    },
+    {
+      "id": "b44e49b0-70c5-467f-a15e-197bef765fc3",
+      "author": "agent@example.com",
+      "text": "DoD met: decision (a) thin Task item in Chatticus DynamoDB is recorded. Merged to develop in PR #45 at SHA a21fd35. Kernel/HTTP implementation is separate (PRs #46/#47) and stays open.",
+      "created_at": "2026-08-31T19:58:20.694620Z"
     }
   ],
   "created_at": "2026-08-30T16:14:58.388646Z",
-  "updated_at": "2026-08-31T19:51:53.747077Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T19:58:20.706187Z",
+  "closed_at": "2026-08-31T19:58:20.706187Z",
   "custom": {}
 }
