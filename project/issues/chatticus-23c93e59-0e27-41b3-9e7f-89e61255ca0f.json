@@ -28,10 +28,16 @@
       "author": "home",
       "text": "Live CloudFront exercise 2026-08-31 (--base-url d3gpuuldffe35o): health_environment=1 missing_claim=404 claim_a=200 claim_b=409. After resume, GET computer still omits host_start_generation (None). ThinTurn pin remains 19070b1. Exercise now polls that HTTP field before SQS so aws login is not required to see this gap. Close only after ThinTurn-only redeploy and generation>=1.",
       "created_at": "2026-08-31T09:25:13.598657Z"
+    },
+    {
+      "id": "7e2628a2-5be4-44f3-9741-7ad1b6760e57",
+      "author": "home",
+      "text": "Local npx cdk synth ChatticusThinTurn succeeded from develop @ bb9c2bc (Lambda asset bundled). Deploy still blocked: aws session expired. Live GET computer omits host_start_generation.",
+      "created_at": "2026-08-31T09:56:19.251280Z"
     }
   ],
   "created_at": "2026-08-31T08:58:06.508893Z",
-  "updated_at": "2026-08-31T09:25:13.598657Z",
+  "updated_at": "2026-08-31T09:56:19.251280Z",
   "closed_at": null,
   "custom": {}
 }

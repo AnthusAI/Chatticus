@@ -24,7 +24,7 @@ Production is never implied by a git branch.
 
 ## Live AWS (account `335163751677`, `us-east-1`)
 
-Development ThinTurn last successful redeploy: **`19070b1`**. A 2026-08-31 CloudFront exercise (`--base-url https://d3gpuuldffe35o.cloudfront.net`) proved live `health_environment=1`, `missing_claim=404`, `claim_a=200` then `claim_b=409`. After computer-queue resume, `GET /users/{id}/computer` still omits `host_start_generation` (**23c93e** not live). SQS lookup still needs `aws login`. `origin/develop` is ahead with 23c93e, 60976f, and 29f269.
+Development ThinTurn last successful redeploy: **`19070b1`**. Live CloudFront exercise still proves `health_environment=1`, `missing_claim=404`, `claim_a=200` then `claim_b=409`. `GET /users/{id}/computer` still omits `host_start_generation`. `origin/develop` is **`bb9c2bc`** (23c93e, 60976f, 29f269, 8dbdc1, b4c3d2). SQS lookup and ThinTurn redeploy need `aws login`.
 
 Staging and production were last recorded from `origin/main` @ `760915d` (v0.5.0). Do not deploy them unless asked.
 
