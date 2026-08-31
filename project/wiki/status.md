@@ -24,7 +24,7 @@ Production is never implied by a git branch.
 
 ## Live AWS (account `335163751677`, `us-east-1`)
 
-Development ThinTurn last successful redeploy: **`19070b1`**. Live CloudFront exercise still proves `health_environment=1`, `missing_claim=404`, `claim_a=200` then `claim_b=409`. `GET /users/{id}/computer` still omits `host_start_generation`. `origin/develop` is **`bb9c2bc`** (23c93e, 60976f, 29f269, 8dbdc1, b4c3d2). SQS lookup and ThinTurn redeploy need `aws login`.
+Development ThinTurn last successful redeploy: **`19070b1`**. Live CloudFront exercise still proves `health_environment=1`, `missing_claim=404`, `claim_a=200` then `claim_b=409`. `GET /users/{id}/computer` still omits `host_start_generation`. `origin/develop` is **`669f244`** (23c93e, 60976f, 29f269, 8dbdc1, 74b06d, b4c3d2, 5bcc79). SQS lookup and ThinTurn redeploy need `aws login`.
 
 Staging and production were last recorded from `origin/main` @ `760915d` (v0.5.0). Do not deploy them unless asked.
 
@@ -40,6 +40,7 @@ CloudFront development: https://d3gpuuldffe35o.cloudfront.net
 - **23c93e** (open): persist `host_start_generation` + lease on Dynamo; worker records a start before nack; GET computer exposes generation. Blocked on `aws login` then `npx cdk deploy ChatticusThinTurn --require-approval never` from develop, then live exercise expecting `host_start_generation >= 1`.
 - **60976f** (closed, kernel): ComputerWorker invokes an injected HostStarter once per host-start generation; retries share the lease. Default no-op. Not live until ThinTurn redeploy; do not enable ECS RunTask in CDK yet (sleep-infinity leak).
 - **8dbdc1** (closed, kernel): GET computer always includes `host_start_generation`, default 0. Not live until ThinTurn redeploy (live JSON still omits the field).
+- **74b06d** (closed, kernel): GET computer is `1` after a computer-queue nack. Not live until ThinTurn redeploy.
 - Epic **8f98f8** (open): summon one computer. Remaining DoD is a Chromium-backed real executor via **ephemeral** Fargate `RunTask` (not standing `desiredCount=1`, not a fake `opened`). Chromium is in `computer/Dockerfile` but that image is not rebuilt/pushed/deployed.
 - **e747d7** closed: Test 2 median ~22s to RUNNING; Chromium was not in the image at measurement time.
 - Demo CLI epic **35d86b** is human-owned. Do not steal it. `exercise_thin_turn.py` stays the gate.
