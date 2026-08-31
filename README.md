@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `baed1eb` (no `--all`).
+from `develop` @ `61c69d9` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -86,6 +86,9 @@ computerless worker does not race the claim), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
 `Last-Event-ID` and requires ordered replay through `turn.completed`.
+After the greeting completes, **development** also lists channel history
+with `GET /channels/{id}/messages?after=<seq>` and requires only later
+rows.
 **Development** also proves `POST /turns/{id}/waiting`:
 SSE `turn.waiting` naming `browser`, `GET /turns/{id}` returning
 `waiting_for=browser` and pending tool `request_computer_capability`,

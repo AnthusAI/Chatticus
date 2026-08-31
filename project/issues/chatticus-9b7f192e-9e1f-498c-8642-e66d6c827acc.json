@@ -72,10 +72,16 @@
       "author": "home",
       "text": "Frontier tick: e42008 follow-up on cursor/waiting-deadline-recovery-4a21 @ e3b20c8. Gherkin proves deadline recovery skips legitimately waiting turns; RenewingTextCompletionClient renews lease+SQS visibility during blocking OpenAI calls. ThinTurn-only development deploy; exercise --environment development exit 0. Safari/background-tab still unmeasured (387e4f open). e747d7/53beb0/538d28 still blocked.",
       "created_at": "2026-08-31T03:46:48.690684Z"
+    },
+    {
+      "id": "23307568-5059-43de-b255-01f112462e36",
+      "author": "home",
+      "text": "Channel history poll GET /channels/{id}/messages?after=seq is live on development (316500, 61c69d9). Turn SSE remains Last-Event-ID. Safari/background-tab still unmeasured on 387e4f.",
+      "created_at": "2026-08-31T04:03:44.144508Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T03:46:48.690684Z",
+  "updated_at": "2026-08-31T04:03:44.144508Z",
   "closed_at": null,
   "custom": {}
 }
