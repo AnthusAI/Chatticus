@@ -16,10 +16,16 @@
       "author": "home",
       "text": "Phase-1 slice: replace deploy-web.yml (bare cdk deploy ChatticusWeb+ThinTurn, staging/prod inputs) with deploy-thinturn-development.yml calling deploy-chatticus-thinturn-development.sh (ECS host-start context). Child sub-tasks: 2ba0ff OIDC role in CDK, b1b7d2 ChatticusWeb GHA workflow. PR incoming on cursor/gha-web-deploy-4a21.",
       "created_at": "2026-08-31T16:34:16.572637Z"
+    },
+    {
+      "id": "135e1058-be9a-4f55-aa0b-99b0a4d82fc5",
+      "author": "home",
+      "text": "OIDC CDK ChatticusGitHubDeploy stacks on PR #40 in follow-up PR; role deployed; set GitHub development AWS_DEPLOY_ROLE_ARN from GithubDeployRoleArn output.",
+      "created_at": "2026-08-31T17:08:10.018639Z"
     }
   ],
   "created_at": "2026-08-31T11:31:18.846366Z",
-  "updated_at": "2026-08-31T16:34:16.572637Z",
+  "updated_at": "2026-08-31T17:08:10.018639Z",
   "closed_at": null,
   "custom": {}
 }

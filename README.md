@@ -72,8 +72,9 @@ is `https://{hostname}/api` for each environment. A development run of
 `exercise_thin_turn.py` against `https://dev.chattic.us/api` exited 0 on
 2026-08-31 after the web stack fix (CloudFront `/api*` routing and API error
 passthrough). GitHub **Deploy ThinTurn (development)** is manual
-(`workflow_dispatch`, see `infra/README.md`) and needs OIDC setup; it is
-not wired yet and does not deploy the web stack.
+(`workflow_dispatch`, see `infra/README.md`) and needs the `development`
+environment secret `AWS_DEPLOY_ROLE_ARN` from `ChatticusGitHubDeploy`; it
+does not deploy the web stack.
 
 GitHub **`main`** is `ede89c8` (PR #37, 2026-08-31): git promotion of
 the completed computer-turn pin (`822954b` / PR #34), not a stack

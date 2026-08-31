@@ -71,3 +71,31 @@ def test_cdk_app_uses_tsx_not_ts_node() -> None:
     text = cdk_json.read_text()
     assert "tsx bin/chatticus.ts" in text
     assert "ts-node" not in text
+
+
+def test_github_deploy_stack_trusts_thinturn_development_workflow() -> None:
+    source = (
+        Path(__file__).resolve().parents[2] / "infra" / "lib" / "github-deploy-stack.ts"
+    )
+    text = source.read_text()
+    assert "ChatticusGitHubDeploy" not in text
+    assert "chatticus-github-actions-deploy" in text
+    assert "deploy-thinturn-development.yml" in text
+    assert "token.actions.githubusercontent.com:environment" in text
+    assert "development" in text
+    assert "AdministratorAccess" in text
+    assert "ChatticusWeb" not in text
+    assert "ChatticusThinTurnStaging" not in text
+
+
+def test_github_deploy_script_is_one_stack() -> None:
+    script = (
+        Path(__file__).resolve().parents[2]
+        / "infra"
+        / "deploy-chatticus-github-deploy.sh"
+    )
+    text = script.read_text()
+    assert "cdk deploy ChatticusGitHubDeploy --require-approval never" in text
+    assert "deploy --all" not in text
+    assert "ChatticusSnapshots" not in text
+    assert "ChatticusComputers" not in text
