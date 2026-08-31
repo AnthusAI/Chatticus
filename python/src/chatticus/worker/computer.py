@@ -176,3 +176,6 @@ class ComputerWorker:
         if self.plane.unresolved_tool_action_ids(job.tenant_id, job.turn_id):
             return
         self.plane.remove_pending_job(job.job_id)
+        turn = self.plane.turn(job.tenant_id, job.turn_id)
+        if turn.status == TurnStatus.ACTIVE:
+            self.plane.complete_computer_continuation(job.tenant_id, job.turn_id)

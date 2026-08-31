@@ -341,4 +341,6 @@ def test_computer_worker_hydrates_waiting_turn_after_process_recycle() -> None:
     record = recycled.escalation_for(channel.tenant_id, turn_id)
     assert record.result_committed is True
     assert recycled.unresolved_tool_action_ids(channel.tenant_id, turn_id) == []
+    finished = recycled.turn(channel.tenant_id, turn_id)
+    assert finished.waiting_for is None
     api.close()

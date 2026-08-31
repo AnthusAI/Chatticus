@@ -68,7 +68,8 @@ if CLUSTER="$(read_stack_output ComputerClusterName)" && [ -n "${CLUSTER}" ]; th
 -c computerEcsSubnets=${SUBNETS} \
 -c computerEcsSecurityGroups=${SECURITY_GROUPS} \
 -c computerEcsExecutionRoleArn=${EXECUTION_ROLE_ARN} \
--c computerEcsTaskRoleArn=${TASK_ROLE_ARN}"
+-c computerEcsTaskRoleArn=${TASK_ROLE_ARN} \
+-c computerHostCommand=host-worker"
     fi
   fi
 fi

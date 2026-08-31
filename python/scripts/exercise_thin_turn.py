@@ -927,10 +927,34 @@ def main() -> int:
                 turn_id=browser_turn_id,
                 wait_seconds=20,
             )
-            still_waiting = client.get(f"/turns/{browser_turn_id}")
-            waiting_for = still_waiting.json().get("waiting_for")
+            waiting_for = "browser"
+            status = None
+            has_tool_result = False
+            host_deadline = time.monotonic() + 180
+            while time.monotonic() < host_deadline:
+                still_waiting = client.get(f"/turns/{browser_turn_id}")
+                payload = still_waiting.json()
+                waiting_for = payload.get("waiting_for")
+                status = payload.get("status")
+                events_response = client.get(f"/turns/{browser_turn_id}/events")
+                has_tool_result = any(
+                    event.get("kind") == "tool.result"
+                    for event in (events_response.json().get("events") or [])
+                )
+                if (
+                    has_tool_result
+                    or status == "completed"
+                    or waiting_for in (None, "")
+                ):
+                    break
+                time.sleep(5)
+            host_completed = (
+                has_tool_result or status == "completed" or waiting_for in (None, "")
+            )
             if computer_body is None:
-                if waiting_for != "browser":
+                if host_completed:
+                    print("computer_queue_job=completed")
+                elif waiting_for != "browser":
                     print(
                         "computer_queue delivered no matching message "
                         f"waiting_for={waiting_for!r}",
@@ -941,7 +965,8 @@ def main() -> int:
                         json={"user_id": args.user_id, "stopped": True},
                     )
                     return 1
-                print("computer_queue_job=in_flight_nack")
+                else:
+                    print("computer_queue_job=in_flight_nack")
             else:
                 print("computer_queue_job=computer")
             cpu_message = _sqs_receive_one(cpu_queue, wait_seconds=2)
@@ -961,14 +986,17 @@ def main() -> int:
                 json={"user_id": args.user_id, "stopped": True},
             )
             still = client.get(f"/turns/{browser_turn_id}")
-            if still.json().get("waiting_for") != "browser":
+            if host_completed:
+                print("computer_queue_turn_completed=1")
+            elif still.json().get("waiting_for") != "browser":
                 print(
                     f"after_computer_queue waiting_for="
                     f"{still.json().get('waiting_for')!r}",
                     file=sys.stderr,
                 )
                 return 1
-            print("computer_queue_turn_still_waiting=browser")
+            else:
+                print("computer_queue_turn_still_waiting=browser")
     return 0
 
 

@@ -34,10 +34,16 @@
       "author": "home",
       "text": "Kernel: a recycled host hydrates the waiting-turn handoff and runs the tool when SQS is empty. CDK context computerHostCommand=host-worker is opt-in; deploy-chatticus-thinturn-development.sh does not pass it. Live HOST_COMMAND remains unset. ECR :dev is still 2026-08-30. computer/push-computer-image.sh pushes :dev without deploying ChatticusComputers.",
       "created_at": "2026-08-31T12:56:41.056760Z"
+    },
+    {
+      "id": "7a9b4881-961b-4a04-b140-4ee85de3e218",
+      "author": "home",
+      "text": "Pushed computer image :dev (sha256:fdebcf6843547e191e4083d7f3e02f9fbdc7a426f256b54030cbb7a361196914) without deploying ChatticusComputers. ThinTurn deploy will set computerHostCommand=host-worker. Exercise waits up to 180s for tool.result.",
+      "created_at": "2026-08-31T13:38:40.172193Z"
     }
   ],
   "created_at": "2026-08-31T12:19:14.039212Z",
-  "updated_at": "2026-08-31T12:56:41.056760Z",
+  "updated_at": "2026-08-31T13:38:40.172193Z",
   "closed_at": null,
   "custom": {}
 }

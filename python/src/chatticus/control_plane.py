@@ -1085,6 +1085,10 @@ class ControlPlane:
             attempt_id=turn.attempt_id,
             expected_fence=turn.fence_token if turn.attempt_id else None,
         )
+        turn.waiting_for = None
+        turn.pending_computer_tool_name = None
+        turn.pending_computer_action_id = None
+        self._messaging_store.put_turn(turn)
         if turn.claimed_by_worker_id is not None:
             self.post_turn_chunk(
                 turn_id,
@@ -1092,6 +1096,11 @@ class ControlPlane:
                 f"[tool:{record.pending_call.action_id}]{result_body}",
                 fence_token=turn.fence_token,
             )
+
+    def complete_computer_continuation(self, tenant_id: str, turn_id: str) -> None:
+        """Commit the bot message and close a turn after the computer tool result."""
+        turn = self.turn(tenant_id, turn_id)
+        self._complete_turn(turn, expected_fence=turn.fence_token)
 
     def recover_computer_escalation(self, tenant_id: str, turn_id: str) -> None:
         """Continue a crashed handoff exactly once, then complete the turn."""

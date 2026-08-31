@@ -315,6 +315,7 @@ export class ThinTurnStack extends cdk.Stack {
         ...sharedEnv,
         CHATTICUS_WORKER_KIND: "computer",
         CHATTICUS_INVOKE_KEY: invokeSecret.secretValue.unsafeUnwrap(),
+        CHATTICUS_FRONT_DOOR_URL: functionUrl.url,
       },
       code: httpCode,
     });
