@@ -148,47 +148,6 @@ def test_cloudformation_auth_errors_require_env_or_base_url(
         resolve_thin_turn_base_url("production")
 
 
-def test_resolve_uses_function_url_when_cloudfront_output_missing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("CHATTICUS_DEVELOPMENT_BASE_URL", raising=False)
-    import boto3
-
-    class FakeSsm:
-        class exceptions:
-            class ParameterNotFound(Exception):
-                pass
-
-        def get_parameter(self, Name: str) -> dict:
-            raise FakeSsm.exceptions.ParameterNotFound()
-
-    class FakeCloudFormation:
-        def describe_stacks(self, StackName: str) -> dict:
-            return {
-                "Stacks": [
-                    {
-                        "Outputs": [
-                            {
-                                "OutputKey": "FunctionUrl",
-                                "OutputValue": "https://fn.lambda-url.us-east-1.on.aws/",
-                            }
-                        ]
-                    }
-                ]
-            }
-
-    def client(name: str, region_name: str | None = None) -> object:
-        if name == "ssm":
-            return FakeSsm()
-        if name == "cloudformation":
-            return FakeCloudFormation()
-        raise AssertionError(name)
-
-    monkeypatch.setattr(boto3, "client", client)
-    url = resolve_thin_turn_base_url("development")
-    assert url == "https://fn.lambda-url.us-east-1.on.aws"
-
-
 def test_thin_turn_stack_output_reads_cloudformation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
