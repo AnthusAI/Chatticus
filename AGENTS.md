@@ -68,6 +68,9 @@ behave
 pytest
 ```
 
+`black` and `ruff` versions are pinned in `python/pyproject.toml` so a
+local venv matches GitHub CI. Do not upgrade them in one place only.
+
 Do not declare worker-protocol work done if `behave` or `pytest` is failing.
 
 Those gates are in-process. They use in-memory stores and moto. They do

@@ -423,6 +423,9 @@ black --check src ../features tests
 ruff check src ../features tests
 ```
 
+`black` and `ruff` versions are pinned in `python/pyproject.toml` so local
+`pip install -e ".[dev]"` matches GitHub CI.
+
 The deployed thin turn is exercised against a **named cloud environment**
 (CloudFront), not against an in-process queue. GitHub CI (`behave`,
 `pytest`) uses in-memory stores and moto. Live AWS is a local command

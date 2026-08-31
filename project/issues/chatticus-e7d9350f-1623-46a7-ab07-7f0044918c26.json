@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-e7d9350f-1623-46a7-ab07-7f0044918c26",
+  "title": "Pin black and ruff to the same versions GitHub CI installs",
+  "description": "",
+  "type": "chore",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "e12858ee-ce51-491f-906d-6120909bc136",
+      "author": "home",
+      "text": "Pin black==26.3.1 and ruff==0.15.5 in python extra [dev], matching the last green GitHub CI install. CI now prints those versions after pip install.",
+      "created_at": "2026-08-31T11:17:32.169561Z"
+    }
+  ],
+  "created_at": "2026-08-31T11:17:10.612253Z",
+  "updated_at": "2026-08-31T11:17:32.183195Z",
+  "closed_at": "2026-08-31T11:17:32.183195Z",
+  "custom": {}
+}
