@@ -64,23 +64,37 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-GitHub **`main`** is promoted to the 2026-08-31 live development pin
-(`50ad1d4` ThinTurn code, plus this docs commit). That is a git promotion
-only. Three named thin-turn environments are live in AWS account
-`335163751677` (`us-east-1`). Production is never implied by a git
-branch; it is an explicit gated deploy of a release that already passed
-staging acceptance. Git promotion does not redeploy stacks. Staging and
+GitHub **`main`** is `064a4f0` (PR #28, 2026-08-31): a git promotion of
+the live development ThinTurn pin (`50ad1d4` ComputerWorker nack and
+Front Door computer reread, plus the docs commit that recorded the first
+`host_start_generation=1` proof). That is a git promotion only. Three
+named thin-turn environments are live in AWS account `335163751677`
+(`us-east-1`). Production is never implied by a git branch; it is an
+explicit gated deploy of a release that already passed staging
+acceptance. Git promotion does not redeploy stacks. Staging and
 production were last recorded as deployed from `origin/main` @ `760915d`
-(v0.5.0); they have not been redeployed from this pin. Development was
-redeployed ThinTurn-only from `develop` @ `50ad1d4` (no `--all`). That
-pin attaches a `ComputerWorker` Lambda to `ComputerTurnJobs` that nacks
-without a host (`computer_queue_job=in_flight_nack`) and does not fake
-`tool.result`. A CloudFront run of the named exercise on 2026-08-31
-exited 0 with `health_environment=1`, `missing_claim=404`, `claim_a=200`
-then `claim_b=409`, `host_start_generation=1` after resume (23c93e,
-2a2b64, bf5b02), and `computer_queue_job=in_flight_nack`. GET computer
-includes `host_start_generation` (0 before any start). The live
-ComputerWorker still uses a no-op `HostStarter`; CDK does not set
+(v0.5.0); they have not been redeployed from this pin.
+
+`origin/develop` is ahead of `main` with the local live-AWS helper,
+mock-only GitHub CI, and pinned `black`/`ruff`. That is tooling, not a
+live stack milestone. Do not merge it to `main` as parking.
+
+Development **ChatticusThinTurn** was last updated ThinTurn-only (no
+`--all`) at **2026-08-31T11:08:41Z**. Front Door, ComputerWorker, and
+ComputerlessWorker last-modified **2026-08-31T11:08:48Z**. That update
+removed the short-lived GitHub OIDC acceptance role. Worker behavior is
+still the `50ad1d4` nack without a host
+(`computer_queue_job=in_flight_nack`) and does not fake `tool.result`.
+GitHub Actions must not hit live AWS; CI is `behave`, `pytest`, and
+moto.
+
+A CloudFront run of `cd python && sh scripts/live_aws_thin_turn.sh
+development` on 2026-08-31 exited 0 with `health_environment=1`,
+`missing_claim=404`, `claim_a=200` then `claim_b=409`,
+`host_start_generation=1` after resume (23c93e, 2a2b64, bf5b02), and
+`computer_queue_job=in_flight_nack`. GET computer includes
+`host_start_generation` (0 before any start). The live ComputerWorker
+still uses a no-op `HostStarter`; CDK does not set
 `CHATTICUS_HOST_STARTER=ecs` and does not grant `ecs:RunTask`. A demo CLI
 (Kanbus epic 35d86b) is starting; it talks to this HTTP surface.
 `exercise_thin_turn.py` stays the pass/fail gate.
@@ -95,13 +109,16 @@ If SSM or CloudFormation credentials are expired, the exercise falls
 back to those published origins (b4c3d2). SQS queue checks still need
 `aws login`.
 
-`cd python && python scripts/exercise_thin_turn.py --environment <name>`
-exits 0 for **development**, **staging**, and **production**. Each run
-includes missing-turn claim **404** and a live second-worker claim **409**
-while the lease is held (`claim_a=200` then `claim_b=409` on development,
-because the fence probe starts the turn with `enqueue_turn=false` so the
-computerless worker does not race the claim), plus **development** naming
-itself on `GET /health` (`health_environment=1`), a live idempotent
+`cd python && sh scripts/live_aws_thin_turn.sh development` (same gate as
+`python scripts/exercise_thin_turn.py --environment development`) is the
+command that was re-proven on 2026-08-31. Staging and production last
+recorded a passing named exercise on the v0.5.0 pin; they were not
+re-proven on this pass and must not be treated as redeployed. A
+development run includes missing-turn claim **404** and a live
+second-worker claim **409** while the lease is held (`claim_a=200` then
+`claim_b=409`, because the fence probe starts the turn with
+`enqueue_turn=false` so the computerless worker does not race the claim),
+plus **development** naming itself on `GET /health` (`health_environment=1`), a live idempotent
 channel post (`post_idempotent=1`: two `POST /channels/{id}/messages` with
 the same `Idempotency-Key` produce one row), a duplicate bot create
 (`bot_name_dup=1`: a second `POST /bots` with the same name returns
@@ -206,8 +223,8 @@ EventBridge Scheduler one-shots are on each front door
 (`chatticus-{environment}-turn-deadlines`); `recovery_enabled` is on.
 Warm Front Door containers use a wall clock, so deadlines land in the
 future. A wedged turn has recovered through EventBridge without a
-forced Lambda cold start on development. GitHub **`main`** carries the
-2026-08-31 development live pin; overnight, approval binding,
+forced Lambda cold start on development. GitHub **`main`** is the
+2026-08-31 development live pin (`064a4f0`); overnight, approval binding,
 unbound-browser, and full computer-handoff execution still are not on
 the live worker loop. Do not merge `develop` to `main` as daily parking.
 
@@ -472,9 +489,10 @@ npx cdk deploy ChatticusThinTurnProduction
 
 **ChatticusThinTurn** is development. Staging and production are separate
 stacks with their own DynamoDB, SQS, Lambda, and CloudFront. GitHub
-`main` includes the 2026-08-31 development live pin; those stacks were last
-recorded as deployed from the v0.5.0 pin (`760915d`) unless a later gated
-CDK deploy is proven. Do not destroy the snapshot or computer stacks.
+`main` is the 2026-08-31 development live pin (`064a4f0`); staging and
+production stacks were last recorded as deployed from the v0.5.0 pin
+(`760915d`) unless a later gated CDK deploy is proven. Do not destroy the
+snapshot or computer stacks.
 
 Postgres in `docker-compose.yml` is unused (it predates DynamoDB).
 

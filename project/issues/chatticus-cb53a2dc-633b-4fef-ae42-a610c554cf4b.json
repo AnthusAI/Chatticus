@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-cb53a2dc-633b-4fef-ae42-a610c554cf4b",
+  "title": "Record re-proven development ThinTurn live exercise and local-only live AWS suite",
+  "description": "",
+  "type": "chore",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "4173fd6b-9683-47f7-9acf-22bed6951de7",
+      "author": "home",
+      "text": "Development ChatticusThinTurn was not redeployed this pass. CloudFormation last update remains 2026-08-31T11:08:41Z (ThinTurn-only). Front Door, ComputerWorker, and ComputerlessWorker last-modified 2026-08-31T11:08:48Z. No `--all`. Snapshots and computers untouched. Staging and production not deployed.\n\nLive proof (this pass): `cd python && sh scripts/live_aws_thin_turn.sh development` exited 0 against https://d3gpuuldffe35o.cloudfront.net with `health_environment=1`, `missing_claim=404`, `claim_a=200` then `claim_b=409`, `host_start_generation=1`, `computer_queue_job=in_flight_nack`.\n\nGitHub `main` stays `064a4f0` (PR #28). `origin/develop` tooling (local live AWS, mock CI, pinned black/ruff) is not a live stack milestone; do not merge to `main` as parking. GitHub must not run live AWS.\n\nREADME \"What is live today\" rewritten from that evidence. Staging and production named exercises were not re-proven this pass (`bot_idempotent` 400 on leftover ExerciseBot names against the v0.5.0 stacks).\n",
+      "created_at": "2026-08-31T11:29:05.121228Z"
+    }
+  ],
+  "created_at": "2026-08-31T11:24:51.894172Z",
+  "updated_at": "2026-08-31T11:29:05.132747Z",
+  "closed_at": "2026-08-31T11:29:05.132747Z",
+  "custom": {}
+}

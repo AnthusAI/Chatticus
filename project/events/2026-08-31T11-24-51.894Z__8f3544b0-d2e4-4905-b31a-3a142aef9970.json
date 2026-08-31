@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "8f3544b0-d2e4-4905-b31a-3a142aef9970",
+  "issue_id": "chatticus-cb53a2dc-633b-4fef-ae42-a610c554cf4b",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T11:24:51.894Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "",
+    "issue_type": "chore",
+    "labels": [],
+    "parent": null,
+    "priority": 2,
+    "status": "open",
+    "title": "Record re-proven development ThinTurn live exercise and local-only live AWS suite"
+  }
+}
