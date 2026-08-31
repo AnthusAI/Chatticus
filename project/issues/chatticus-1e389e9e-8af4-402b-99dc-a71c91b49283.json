@@ -3,7 +3,7 @@
   "title": "Reconnect the turn stream with Last-Event-ID",
   "description": "As a household member, I want a dropped turn stream to resume with the Last-Event-ID header EventSource sends, so reconnect matches the measured SSE transport instead of a custom after_seq query.\n\nFeature: Turn-scoped server-sent events\n\nScenario: Resume after a dropped stream\n  Given an empty control plane\n  And tenant \"anthus\" user \"ryan\" has a channel with a named bot \"Researcher\"\n  And a turn has emitted committed events through sequence 4\n  And the watching connection for that turn closes\n  When user \"ryan\" of tenant \"anthus\" reconnects to the turn with Last-Event-ID 2\n  Then committed events 3 and 4 are replayed once in order\n  And later events continue from the same turn\n  And the turn completes whether or not a watcher remains connected\n\nFrames include an SSE id field equal to the durable seq. GET /turns/{id}/stream reads Last-Event-ID, not after_seq.\n\nNot included: mobile Safari, a real background tab, staging, production, Fargate.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,16 @@
     "bdd"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "6fb3ee8c-8952-44cf-85d7-5b1a134af9c6",
+      "author": "home",
+      "text": "Live on development ThinTurn @ baed1eb. Named exercise reconnect_last_event_id through CloudFront, claim_a=200 claim_b=409. Does not close 387e4f: mobile Safari and a real background tab remain unmeasured.",
+      "created_at": "2026-08-31T03:56:24.567635Z"
+    }
+  ],
   "created_at": "2026-08-31T03:52:17.373385Z",
-  "updated_at": "2026-08-31T03:52:27.596607Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T03:56:24.577970Z",
+  "closed_at": "2026-08-31T03:56:24.577970Z",
   "custom": {}
 }

@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `e3b20c8` (no `--all`).
+from `develop` @ `baed1eb` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -85,7 +85,7 @@ because the fence probe starts the turn with `enqueue_turn=false` so the
 computerless worker does not race the claim), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
-`after_seq` and requires ordered replay through `turn.completed`.
+`Last-Event-ID` and requires ordered replay through `turn.completed`.
 **Development** also proves `POST /turns/{id}/waiting`:
 SSE `turn.waiting` naming `browser`, `GET /turns/{id}` returning
 `waiting_for=browser` and pending tool `request_computer_capability`,

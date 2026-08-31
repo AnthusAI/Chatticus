@@ -30,10 +30,16 @@
       "author": "home",
       "text": "Reconnect on the live development ThinTurn front door is now exercised: exercise_thin_turn.py drops mid-stream and reconnects with after_seq through CloudFront (de44cdc on develop). Spike Test 1 already covered foreground desktop reconnect.\n\nStill open on original DoD: real background-tab and mobile Safari were not measured and cannot be faked here. Epic stays open until those are measured or explicitly waived by the owner.",
       "created_at": "2026-08-31T02:37:29.171390Z"
+    },
+    {
+      "id": "222e47cc-3b69-486b-9b4e-02db8287886c",
+      "author": "home",
+      "text": "Product turn SSE now emits id=seq and honors Last-Event-ID through CloudFront (1e389e, baed1eb). Foreground reconnect is live. Background tab and mobile Safari remain unmeasured.",
+      "created_at": "2026-08-31T03:56:24.588086Z"
     }
   ],
   "created_at": "2026-08-30T15:53:17.431152Z",
-  "updated_at": "2026-08-31T02:37:29.171390Z",
+  "updated_at": "2026-08-31T03:56:24.588086Z",
   "closed_at": null,
   "custom": {}
 }
