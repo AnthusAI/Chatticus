@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "9eeb53fd-c431-4335-ba2c-d304a031cef9",
+  "issue_id": "chatticus-cfa9d362-5de9-4651-afae-c2531157b92e",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T22:08:11.470Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "assignee": null,
+    "description": "Purpose: close the 5dad85 acceptance hole that two simultaneous waiting_for=browser turns on one household could double-commit tool.result on the same computer.\n\nAcceptance:\n- Kernel (and live development if claimed) proves two concurrent computer continuations cannot both commit tool.result for the same action_id / turn fence.\n- desiredCount stays 0. No cdk deploy --all, no production, no 35d86b / PR #26.",
+    "issue_type": "task",
+    "labels": [],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "Two waiting browser turns cannot double-commit tool.result"
+  }
+}
