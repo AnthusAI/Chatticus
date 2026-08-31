@@ -4,6 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BotRoster } from "../components/BotRoster";
 import { ChatPanel } from "../components/ChatPanel";
 import {
+  avatarActivityFromTurn,
+  botAvatarAriaLabel,
+  botAvatarStateFromActivity,
+} from "../lib/avatar-state";
+import {
   createChannel,
   fetchHealth,
   listBots,
@@ -167,6 +172,12 @@ export default function HomePage() {
     }
   }
 
+  const avatarActivity = avatarActivityFromTurn(events, turnStatus, sending);
+  const avatarState = botAvatarStateFromActivity(avatarActivity);
+  const avatarAriaLabel = selectedBot
+    ? botAvatarAriaLabel(selectedBot.name, avatarActivity)
+    : "Bot avatar";
+
   return (
     <main>
       <header className="site-header">
@@ -195,6 +206,7 @@ export default function HomePage() {
         <BotRoster
           bots={bots}
           selectedBotId={selectedBot?.bot_id ?? null}
+          selectedBotAvatarState={avatarState}
           loading={botsLoading}
           error={botsError}
           onRetry={() => {
@@ -206,6 +218,8 @@ export default function HomePage() {
         />
         <ChatPanel
           bot={selectedBot}
+          avatarState={avatarState}
+          avatarAriaLabel={avatarAriaLabel}
           draft={draft}
           sending={sending}
           sendError={sendError}

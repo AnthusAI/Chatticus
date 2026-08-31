@@ -1,10 +1,13 @@
 "use client";
 
+import type { BotAvatarState } from "anthus-vultus";
 import type { Bot } from "../lib/api";
+import { BotAvatarView } from "./BotAvatarView";
 
 type BotRosterProps = {
   bots: Bot[];
   selectedBotId: string | null;
+  selectedBotAvatarState: BotAvatarState;
   loading: boolean;
   error: string | null;
   onSelect: (bot: Bot) => void;
@@ -14,6 +17,7 @@ type BotRosterProps = {
 export function BotRoster({
   bots,
   selectedBotId,
+  selectedBotAvatarState,
   loading,
   error,
   onSelect,
@@ -44,6 +48,16 @@ export function BotRoster({
               className={selectedBotId === bot.bot_id ? "bot selected" : "bot"}
               onClick={() => onSelect(bot)}
             >
+              <BotAvatarView
+                botName={bot.name}
+                state={
+                  selectedBotId === bot.bot_id
+                    ? selectedBotAvatarState
+                    : "neutral"
+                }
+                size={40}
+                className="bot-avatar"
+              />
               <span className="bot-name">{bot.name}</span>
               {Object.keys(bot.memory).length > 0 ? (
                 <span className="bot-meta">

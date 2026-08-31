@@ -10,6 +10,7 @@
     "test": "tsx --test lib/**/*.test.ts"
   },
   "dependencies": {
+    "anthus-vultus": "github:AnthusAI/Vultus",
     "next": "^15.5.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

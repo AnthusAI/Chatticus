@@ -1,9 +1,13 @@
 "use client";
 
+import type { BotAvatarState } from "anthus-vultus";
 import type { Bot, TurnEvent } from "../lib/api";
+import { BotAvatarView } from "./BotAvatarView";
 
 type ChatPanelProps = {
   bot: Bot | null;
+  avatarState: BotAvatarState;
+  avatarAriaLabel: string;
   draft: string;
   sending: boolean;
   sendError: string | null;
@@ -18,6 +22,8 @@ type ChatPanelProps = {
 
 export function ChatPanel({
   bot,
+  avatarState,
+  avatarAriaLabel,
   draft,
   sending,
   sendError,
@@ -33,7 +39,18 @@ export function ChatPanel({
 
   return (
     <section className="card chat" aria-label="Chat">
-      <h2>{bot ? `Chat with ${bot.name}` : "Chat"}</h2>
+      <div className="chat-header">
+        {bot ? (
+          <BotAvatarView
+            botName={bot.name}
+            state={avatarState}
+            size={72}
+            ariaLabel={avatarAriaLabel}
+            className="chat-avatar"
+          />
+        ) : null}
+        <h2>{bot ? `Chat with ${bot.name}` : "Chat"}</h2>
+      </div>
       {!bot ? (
         <p className="status">Select a bot from the roster to start chatting.</p>
       ) : (
