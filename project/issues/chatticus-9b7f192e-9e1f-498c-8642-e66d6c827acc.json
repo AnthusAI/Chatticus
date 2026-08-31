@@ -138,10 +138,16 @@
       "author": "home",
       "text": "Frontier: GET /users/{user_id}/bots is live on development ThinTurn (e320617 code, README pin b7ea9ea). exercise exit 0 with claim_a=200 claim_b=409 bots_list=1. 9b2999 closed. No staging/production. main stays v0.5.0. 387e4f Safari still unmeasured. e747d7 still not authorized.",
       "created_at": "2026-08-31T05:33:06.780101Z"
+    },
+    {
+      "id": "05948e55-1da1-483f-b36c-f24d05d69b3a",
+      "author": "home",
+      "text": "Acceptance tick 2026-08-31: exercise --environment development exit 0. claim_a=200 claim_b=409 bots_list=1 bot_by_name=1 channel_get=1. base_url=https://d3gpuuldffe35o.cloudfront.net. Live ThinTurn still serves GET /users/{user_id}/bots (deploy e320617). No staging/production deploy.",
+      "created_at": "2026-08-31T05:38:43.033809Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T05:33:06.780101Z",
+  "updated_at": "2026-08-31T05:38:43.033809Z",
   "closed_at": null,
   "custom": {}
 }
