@@ -86,6 +86,13 @@ class RenewTurnBody(BaseModel):
     job_id: str | None = None
 
 
+class WaitTurnBody(BaseModel):
+    """Body for POST /turns/{turn_id}/waiting."""
+
+    gate: str
+    fence_token: int
+
+
 @dataclass
 class AppState:
     """Mutable front-door state attached to each app instance."""
@@ -286,6 +293,31 @@ def create_app(
             "fence_token": attempt.fence_token,
             "lease_expires_at": attempt.lease_expires_at.isoformat(),
         }
+
+    @app.post("/turns/{turn_id}/waiting")
+    def wait_turn(
+        turn_id: str,
+        body: WaitTurnBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, str]:
+        event = state.plane.emit_turn_waiting(
+            tenant_id,
+            turn_id,
+            body.gate,
+            fence_token=body.fence_token,
+        )
+        state.plane.release_turn_claim_for_waiting(
+            tenant_id,
+            turn_id,
+            fence_token=body.fence_token,
+        )
+        logger.info(
+            "turn_waiting tenant_id=%s turn_id=%s gate=%s",
+            tenant_id,
+            turn_id,
+            body.gate,
+        )
+        return {"status": "ok", "kind": event.kind, "gate": body.gate}
 
     @app.post("/turns/{turn_id}/chunks")
     def post_chunk(

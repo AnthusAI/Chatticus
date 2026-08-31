@@ -581,6 +581,38 @@ def then_turn_stream_tenant_denied(context: object) -> None:
     assert isinstance(context.stream_error, TurnAccessDeniedError)
 
 
+@when("the worker posts a progress chunk and then waits on the browser gate")
+def when_worker_posts_chunk_then_waiting(context: object) -> None:
+    channel = _channel(context)
+    turn_id = _turn_id(context)
+    tenant_id = channel.tenant_id
+    _post_chunk_http(context, turn_id, tenant_id, "Here is a draft.")
+    client = HttpTurnClient(
+        context.api_client, tenant_id, fence_token=context.fence_token
+    )
+    client.post_waiting(turn_id, "browser")
+
+
+@then('user "{user_id}" receives a waiting server-sent event naming {gate}')
+def then_receives_waiting_event(context: object, user_id: str, gate: str) -> None:
+    context.sse_watcher.wait_for_kind("turn.waiting", timeout=5.0)
+    waiting = [
+        event
+        for event in context.sse_watcher.events
+        if event.get("kind") == "turn.waiting"
+    ]
+    assert waiting
+    assert waiting[0].get("body") == gate
+
+
+@then("the turn remains active")
+def then_turn_remains_active(context: object) -> None:
+    channel = _channel(context)
+    turn = context.plane.turn(channel.tenant_id, _turn_id(context))
+    assert turn.status == TurnStatus.ACTIVE
+    assert turn.claimed_by_worker_id is None
+
+
 @given("one unfinished turn job is delivered twice")
 def given_unfinished_job_delivered_twice(context: object) -> None:
     channel = _channel(context)

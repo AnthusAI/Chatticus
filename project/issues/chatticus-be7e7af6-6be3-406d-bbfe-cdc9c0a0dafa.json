@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-be7e7af6-6be3-406d-bbfe-cdc9c0a0dafa",
+  "title": "Expose turn.waiting on the thin-turn front door",
+  "description": "Outcome: a fenced worker can POST turn.waiting through the CloudFront front door. SSE delivers turn.waiting naming a capability gate. The turn stays active. Named-env exercise proves it live on development. Not included: starting Fargate, OpenAI tool loop, completing the wait.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T00:46:18.322888Z",
+  "updated_at": "2026-08-31T00:46:33.074909Z",
+  "closed_at": null,
+  "custom": {}
+}

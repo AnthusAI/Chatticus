@@ -135,6 +135,61 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+        if acquired:
+            fence_token = claim_a.json()["fence_token"]
+            draft = client.post(
+                f"/turns/{fence_turn_id}/chunks",
+                json={
+                    "token": "Here is a draft.",
+                    "complete": False,
+                    "fence_token": fence_token,
+                },
+            )
+            if draft.status_code >= 400:
+                print(
+                    f"waiting_draft {draft.status_code} {draft.text[:300]}",
+                    file=sys.stderr,
+                )
+                return 1
+            waiting = client.post(
+                f"/turns/{fence_turn_id}/waiting",
+                json={"gate": "browser", "fence_token": fence_token},
+            )
+            if waiting.status_code >= 400:
+                print(
+                    f"waiting_post {waiting.status_code} {waiting.text[:300]}",
+                    file=sys.stderr,
+                )
+                return 1
+            waiting_kinds: list[str] = []
+            with client.stream("GET", f"/turns/{fence_turn_id}/stream") as stream:
+                stream.raise_for_status()
+                buffer = ""
+                deadline = time.time() + 30
+                for chunk in stream.iter_bytes():
+                    buffer += chunk.decode()
+                    parsed, buffer = _frames(buffer)
+                    waiting_kinds.extend(event.get("kind") for event in parsed)
+                    if "turn.waiting" in waiting_kinds:
+                        break
+                    if time.time() > deadline:
+                        break
+            print(f"waiting_stream_kinds={waiting_kinds}")
+            if "turn.waiting" not in waiting_kinds:
+                print("fence turn did not emit turn.waiting", file=sys.stderr)
+                return 1
+            stale_waiting = client.post(
+                f"/turns/{fence_turn_id}/waiting",
+                json={"gate": "browser", "fence_token": fence_token},
+            )
+            if stale_waiting.status_code != 409:
+                print(
+                    f"stale_waiting {stale_waiting.status_code} "
+                    f"{stale_waiting.text[:300]}",
+                    file=sys.stderr,
+                )
+                return 1
+            print("stale_waiting=409")
         posted = client.post(
             f"/channels/{channel['channel_id']}/messages",
             json={

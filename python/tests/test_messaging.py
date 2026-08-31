@@ -369,6 +369,42 @@ def test_http_cross_tenant_turn_stream_is_denied() -> None:
     api.close()
 
 
+def test_http_waiting_emits_gate_and_releases_claim() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane)
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "open the household browser",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    client = HttpTurnClient(api, channel.tenant_id)
+    claimed = client.claim(turn_id, "waiting-worker")
+    assert claimed["acquired"] is True
+    client.post_chunk(turn_id, "Here is a draft.")
+    client.post_waiting(turn_id, "browser")
+    turn = plane.turn(channel.tenant_id, turn_id)
+    assert turn.status == TurnStatus.ACTIVE
+    assert turn.claimed_by_worker_id is None
+    events = plane.list_turn_events(channel.tenant_id, turn_id)
+    waiting = [event for event in events if event.kind == TurnEventKind.TURN_WAITING]
+    assert len(waiting) == 1
+    assert waiting[0].body == "browser"
+    stale = api.post(
+        f"/turns/{turn_id}/waiting",
+        json={"gate": "browser", "fence_token": claimed["fence_token"]},
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert stale.status_code == 409
+    api.close()
+
+
 def test_turn_completes_without_sse_watcher() -> None:
     plane = ControlPlane()
     api = _client_for(plane)

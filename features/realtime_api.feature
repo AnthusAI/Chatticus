@@ -31,3 +31,12 @@ Feature: Turn-scoped server-sent events
     And user "ryan" of tenant "anthus" has an active turn on the channel
     When tenant "other" tries to open the turn stream
     Then turn stream access is denied because the tenant does not match
+
+  Scenario: A fenced worker can wait on a capability without completing the turn
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"
+    And user "ryan" of tenant "anthus" has an active turn on the channel
+    And user "ryan" of tenant "anthus" is watching that turn through server-sent events
+    When the worker posts a progress chunk and then waits on the browser gate
+    Then user "ryan" receives a waiting server-sent event naming browser
+    And the turn remains active
