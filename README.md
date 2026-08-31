@@ -69,7 +69,7 @@ live in AWS account `335163751677` (`us-east-1`). Production is never
 implied by a git branch; it is an explicit gated deploy of a release that
 already passed staging acceptance. Staging and production were deployed
 from `origin/main` @ `760915d`. Development was last redeployed ThinTurn-only
-from `develop` @ `91f3c41` (no `--all`).
+from `develop` @ `58f0bcc` (no `--all`).
 
 | Environment | Stack | CloudFront |
 | --- | --- | --- |
@@ -80,8 +80,10 @@ from `develop` @ `91f3c41` (no `--all`).
 `cd python && python scripts/exercise_thin_turn.py --environment <name>`
 exits 0 for **development**, **staging**, and **production**. Each run
 includes missing-turn claim **404** and a live second-worker claim **409**
-while the lease is held, plus SSE `turn.started` / `turn.token` /
-`turn.completed`. **Development** also drops that greeting stream after
+while the lease is held (`claim_a=200` then `claim_b=409` on development,
+because the fence probe starts the turn with `enqueue_turn=false` so the
+computerless worker does not race the claim), plus SSE `turn.started` /
+`turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
 `after_seq` and requires ordered replay through `turn.completed`.
 **Development** also proves `POST /turns/{id}/waiting`:
