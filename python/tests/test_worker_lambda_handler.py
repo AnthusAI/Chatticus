@@ -46,6 +46,8 @@ def test_computer_worker_lambda_nacks_in_flight_without_host_executor(
     setup = prepare_computer_continuation(plane)
     starter = RecordingHostStarter()
     message_id = "computer-turn-job-1"
+    monkeypatch.delenv("AWS_REGION", raising=False)
+    monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
     monkeypatch.setenv("CHATTICUS_WORKER_KIND", "computer")
     monkeypatch.setenv(
         "CHATTICUS_COMPUTER_TURN_QUEUE_URL", "https://sqs.example/computer"

@@ -159,7 +159,9 @@ release, not as the daily integration path.
 
 Chatticus has three named AWS environments for the thin-turn front door:
 **development**, **staging**, and **production**. Acceptance tests always
-pass `--environment` for one of those names.
+pass `--environment` for one of those names. GitHub **Acceptance** assumes
+IAM role `chatticus-{environment}-github-acceptance` over OIDC so it can
+resolve CloudFront and check SQS without repository URL secrets.
 
 | Git | Cloud environment | CDK stack |
 | --- | --- | --- |

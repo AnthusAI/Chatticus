@@ -432,13 +432,18 @@ python scripts/exercise_thin_turn.py --environment development
 ```
 
 That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
-`/chatticus/development/thin-turn/cloudfront-url`, or the
-`CloudFrontUrl` output on stack `ChatticusThinTurn`. Pass `--base-url`
+`/chatticus/development/thin-turn/cloudfront-url`, the
+`CloudFrontUrl` output on stack `ChatticusThinTurn`, or the published
+CloudFront origin in `THIN_TURN_PUBLISHED_BASE_URLS`. Pass `--base-url`
 only when you already have the origin. Repeat with `--environment staging`
-or `--environment production`. GitHub workflow **Acceptance**
-(`workflow_dispatch`) runs the same script. It is not run on every
-`develop` push; dispatch it after a deploy, with
-`CHATTICUS_<ENVIRONMENT>_BASE_URL` set.
+or `--environment production`. GitHub workflow **Acceptance** runs the
+same script with AWS IAM via GitHub OIDC
+(`chatticus-{environment}-github-acceptance`): on every `develop` push
+against **development**, and on `workflow_dispatch` for a named
+environment. It does not require `CHATTICUS_*_BASE_URL` secrets. SQS
+queue checks use that role. Staging and production roles exist only after
+those stacks are deployed. Production is still an explicit dispatch, never
+a git branch.
 
 If Docker Desktop is running, the snapshot packer can be checked with
 `sh computer/test_relocate.sh`.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from uuid import uuid4
@@ -29,10 +30,19 @@ def _frames(buffer: str) -> tuple[list[dict], str]:
     return events, buffer
 
 
-def _sqs_receive_one(queue_url: str, *, wait_seconds: int) -> dict | None:
+def _sqs_client():
     import boto3
 
-    response = boto3.client("sqs").receive_message(
+    region = (
+        os.environ.get("AWS_REGION")
+        or os.environ.get("AWS_DEFAULT_REGION")
+        or "us-east-1"
+    )
+    return boto3.client("sqs", region_name=region)
+
+
+def _sqs_receive_one(queue_url: str, *, wait_seconds: int) -> dict | None:
+    response = _sqs_client().receive_message(
         QueueUrl=queue_url,
         MaxNumberOfMessages=1,
         WaitTimeSeconds=wait_seconds,
@@ -45,9 +55,7 @@ def _sqs_receive_one(queue_url: str, *, wait_seconds: int) -> dict | None:
 
 
 def _sqs_delete(queue_url: str, receipt_handle: str) -> None:
-    import boto3
-
-    boto3.client("sqs").delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
+    _sqs_client().delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
 
 
 def _computer_continuation_matches(body: dict, *, job_id: str, turn_id: str) -> bool:
@@ -897,9 +905,11 @@ def main() -> int:
             print(f"host_start_generation={generation}")
             try:
                 computer_queue = thin_turn_stack_output(
-                    "development", "ComputerTurnQueueUrl"
+                    environment or "development", "ComputerTurnQueueUrl"
                 )
-                cpu_queue = thin_turn_stack_output("development", "TurnQueueUrl")
+                cpu_queue = thin_turn_stack_output(
+                    environment or "development", "TurnQueueUrl"
+                )
             except Exception as error:
                 print(
                     "computer_queue lookup needs AWS credentials "

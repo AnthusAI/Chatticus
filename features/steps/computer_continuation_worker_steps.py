@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import replace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from behave import given, then, when
@@ -156,6 +156,7 @@ def when_computer_lambda_processes_without_host_executor(context: object) -> Non
     }
     with (
         patch.dict(os.environ, env, clear=False),
+        patch("boto3.client", return_value=MagicMock()),
         patch(
             "chatticus.worker.lambda_handler.plane_from_env",
             lambda: context.plane,

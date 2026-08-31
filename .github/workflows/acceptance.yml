@@ -12,13 +12,22 @@ on:
           - development
           - staging
           - production
+  push:
+    branches: [develop]
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   thin-turn:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CHATTICUS_ENVIRONMENT: ${{ inputs.environment || 'development' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,23 +39,11 @@ jobs:
         working-directory: python
         run: pip install -e ".[dev]"
 
-      - name: Require a named-environment origin
-        env:
-          CHATTICUS_ENVIRONMENT: ${{ inputs.environment }}
-          CHATTICUS_DEVELOPMENT_BASE_URL: ${{ secrets.CHATTICUS_DEVELOPMENT_BASE_URL }}
-          CHATTICUS_STAGING_BASE_URL: ${{ secrets.CHATTICUS_STAGING_BASE_URL }}
-          CHATTICUS_PRODUCTION_BASE_URL: ${{ secrets.CHATTICUS_PRODUCTION_BASE_URL }}
-        run: |
-          case "$CHATTICUS_ENVIRONMENT" in
-            development) url="$CHATTICUS_DEVELOPMENT_BASE_URL" ;;
-            staging) url="$CHATTICUS_STAGING_BASE_URL" ;;
-            production) url="$CHATTICUS_PRODUCTION_BASE_URL" ;;
-            *) echo "unknown environment $CHATTICUS_ENVIRONMENT" >&2; exit 1 ;;
-          esac
-          if [ -z "$url" ]; then
-            echo "Set repository secret CHATTICUS_$(echo "$CHATTICUS_ENVIRONMENT" | tr '[:lower:]' '[:upper:]')_BASE_URL before dispatching Acceptance. This workflow does not assume AWS credentials." >&2
-            exit 1
-          fi
+      - name: Assume the named-environment GitHub acceptance role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::335163751677:role/chatticus-${{ env.CHATTICUS_ENVIRONMENT }}-github-acceptance
+          aws-region: us-east-1
 
       - name: Exercise thin turn
         working-directory: python
@@ -54,4 +51,7 @@ jobs:
           CHATTICUS_DEVELOPMENT_BASE_URL: ${{ secrets.CHATTICUS_DEVELOPMENT_BASE_URL }}
           CHATTICUS_STAGING_BASE_URL: ${{ secrets.CHATTICUS_STAGING_BASE_URL }}
           CHATTICUS_PRODUCTION_BASE_URL: ${{ secrets.CHATTICUS_PRODUCTION_BASE_URL }}
-        run: python scripts/exercise_thin_turn.py --environment ${{ inputs.environment }}
+        run: |
+          python scripts/exercise_thin_turn.py \
+            --environment "$CHATTICUS_ENVIRONMENT" \
+            --user-id "gh-${GITHUB_RUN_ID}"

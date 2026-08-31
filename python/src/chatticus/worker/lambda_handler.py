@@ -80,7 +80,12 @@ def handler(event: dict[str, Any], _context: object) -> dict[str, Any] | None:
     if queue_url:
         import boto3
 
-        sqs_client = boto3.client("sqs")
+        region = (
+            os.environ.get("AWS_REGION")
+            or os.environ.get("AWS_DEFAULT_REGION")
+            or "us-east-1"
+        )
+        sqs_client = boto3.client("sqs", region_name=region)
     for record in event.get("Records", []):
         payload = json.loads(record["body"])
         job = job_from_queue_payload(payload)

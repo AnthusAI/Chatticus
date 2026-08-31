@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-4d540b7c-5285-442a-a0fc-c6b6f921ac12",
+  "title": "GitHub Acceptance assumes AWS to exercise named ThinTurn",
+  "description": "",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "6b86e63e-411d-4353-80b1-a0967544ef0a",
+      "author": "home",
+      "text": "GitHub Acceptance assumes chatticus-{environment}-github-acceptance over OIDC. Kernel CI no longer needs a local AWS region for the computer-queue lambda Gherkin. Development ThinTurn deploy creates the role.",
+      "created_at": "2026-08-31T10:51:06.077253Z"
+    }
+  ],
+  "created_at": "2026-08-31T10:48:28.113598Z",
+  "updated_at": "2026-08-31T10:51:06.077253Z",
+  "closed_at": null,
+  "custom": {}
+}
