@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-7deaeddb-446e-479b-8cb9-c17b28bb4500",
+  "title": "Implement thin Task item kernel",
+  "description": "Gherkin + Python kernel for v1 Task item in Chatticus DynamoDB: status, evidence, close reason, bot provenance. Structured task tool at first readiness gate without computer. No Kanbus HTTP or table sharing.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-5f2ea7c8-b3bf-4b2e-9d5d-a192ddc77eef",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T18:18:35.049245Z",
+  "updated_at": "2026-08-31T18:18:35.049245Z",
+  "closed_at": null,
+  "custom": {}
+}

@@ -182,6 +182,31 @@ class ComputerWorkerHostNotReady(ChatticusError):
     """Leave the computer SQS job unacked until a real host can run the tool."""
 
 
+class TaskNotFoundError(ChatticusError):
+    """The task id is unknown to this tenant."""
+
+
+class TaskAccessDeniedError(ChatticusError):
+    """A tenant cannot read or write another tenant's task."""
+
+
+class TaskEvidenceRequiredError(ChatticusError):
+    """A task may not reach completed without durable evidence."""
+
+
+class TaskCloseReasonRequiredError(ChatticusError):
+    """Closing a task requires a recorded reason."""
+
+
+class TaskStatus(StrEnum):
+    """Lifecycle of one durable Task item outside the channel."""
+
+    OPEN = "open"
+    BLOCKED = "blocked"
+    COMPLETED = "completed"
+    CLOSED = "closed"
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""
@@ -384,6 +409,21 @@ def pending_computer_tool_from_turn(turn: Turn) -> PendingComputerToolSnapshot |
         tool_name=turn.pending_computer_tool_name,
         arguments={"gate": turn.waiting_for} if turn.waiting_for else {},
     )
+
+
+@dataclass
+class Task:
+    """Thin v1 task state stored outside the channel transcript."""
+
+    task_id: str
+    tenant_id: str
+    user_id: str
+    title: str
+    status: TaskStatus = TaskStatus.OPEN
+    evidence: str | None = None
+    close_reason: str | None = None
+    created_by_bot_id: str | None = None
+    updated_by_bot_id: str | None = None
 
 
 @dataclass(frozen=True)

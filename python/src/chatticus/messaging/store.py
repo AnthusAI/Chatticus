@@ -18,6 +18,8 @@ from chatticus.models import (
     Message,
     PendingComputerToolSnapshot,
     StaleAttemptError,
+    Task,
+    TaskStatus,
     Turn,
     TurnEvent,
     TurnEventKind,
@@ -181,6 +183,15 @@ class MessagingStore(Protocol):
     ) -> None:
         """Persist the result of one idempotent bot create."""
 
+    def put_task(self, task: Task) -> None:
+        """Persist one Task item."""
+
+    def get_task(self, tenant_id: str, task_id: str) -> Task | None:
+        """Load one Task item."""
+
+    def list_tasks(self, tenant_id: str, user_id: str) -> list[Task]:
+        """Return tasks owned by one household user."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -197,6 +208,7 @@ class InMemoryMessagingStore:
         self._post_idempotency: dict[tuple[str, str], tuple[Message, str | None]] = {}
         self._channel_idempotency: dict[tuple[str, str], str] = {}
         self._bot_idempotency: dict[tuple[str, str], str] = {}
+        self._tasks: dict[tuple[str, str], Task] = {}
         self._active_channel_turns: dict[tuple[str, str], str] = {}
         self._lock = threading.Lock()
 
@@ -463,6 +475,22 @@ class InMemoryMessagingStore:
         bot: Bot,
     ) -> None:
         self._bot_idempotency[(tenant_id, idempotency_key)] = bot.bot_id
+
+    def put_task(self, task: Task) -> None:
+        self._tasks[(task.tenant_id, task.task_id)] = task
+
+    def get_task(self, tenant_id: str, task_id: str) -> Task | None:
+        return self._tasks.get((tenant_id, task_id))
+
+    def list_tasks(self, tenant_id: str, user_id: str) -> list[Task]:
+        return sorted(
+            (
+                task
+                for task in self._tasks.values()
+                if task.tenant_id == tenant_id and task.user_id == user_id
+            ),
+            key=lambda task: task.task_id,
+        )
 
 
 class DynamoMessagingStore:
@@ -1223,6 +1251,52 @@ class DynamoMessagingStore:
             },
         )
 
+    def put_task(self, task: Task) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_task_item(task),
+        )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._roster_pk(task.tenant_id)},
+                "sk": {"S": self._task_roster_sk(task.user_id, task.task_id)},
+                "tenant_id": {"S": task.tenant_id},
+                "user_id": {"S": task.user_id},
+                "task_id": {"S": task.task_id},
+            },
+        )
+
+    def get_task(self, tenant_id: str, task_id: str) -> Task | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._task_pk(tenant_id, task_id)},
+                "sk": {"S": "meta"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _task_from_item(item)
+
+    def list_tasks(self, tenant_id: str, user_id: str) -> list[Task]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._roster_pk(tenant_id)},
+                ":prefix": {"S": f"task#{user_id}#"},
+            },
+        )
+        tasks: list[Task] = []
+        for row in response.get("Items", []):
+            task_id = row["task_id"]["S"]
+            task = self.get_task(tenant_id, task_id)
+            if task is not None:
+                tasks.append(task)
+        return sorted(tasks, key=lambda task: task.task_id)
+
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
 
@@ -1240,6 +1314,12 @@ class DynamoMessagingStore:
 
     def _channel_roster_sk(self, user_id: str, channel_id: str) -> str:
         return f"channel#{user_id}#{channel_id}"
+
+    def _task_pk(self, tenant_id: str, task_id: str) -> str:
+        return f"{tenant_id}#task#{task_id}"
+
+    def _task_roster_sk(self, user_id: str, task_id: str) -> str:
+        return f"task#{user_id}#{task_id}"
 
     def _bot_from_item(self, item: dict[str, Any]) -> Bot:
         memory_raw = item.get("memory", {}).get("S", "{}")
@@ -1367,6 +1447,41 @@ def _turn_from_item(item: dict[str, Any]) -> Turn:
         pending_computer_tool_name=(
             item.get("pending_computer_tool_name", {}).get("S") or None
         ),
+    )
+
+
+def _task_item(task: Task) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "pk": {"S": f"{task.tenant_id}#task#{task.task_id}"},
+        "sk": {"S": "meta"},
+        "tenant_id": {"S": task.tenant_id},
+        "user_id": {"S": task.user_id},
+        "task_id": {"S": task.task_id},
+        "title": {"S": task.title},
+        "status": {"S": task.status},
+    }
+    if task.evidence is not None:
+        item["evidence"] = {"S": task.evidence}
+    if task.close_reason is not None:
+        item["close_reason"] = {"S": task.close_reason}
+    if task.created_by_bot_id is not None:
+        item["created_by_bot_id"] = {"S": task.created_by_bot_id}
+    if task.updated_by_bot_id is not None:
+        item["updated_by_bot_id"] = {"S": task.updated_by_bot_id}
+    return item
+
+
+def _task_from_item(item: dict[str, Any]) -> Task:
+    return Task(
+        task_id=item["task_id"]["S"],
+        tenant_id=item["tenant_id"]["S"],
+        user_id=item["user_id"]["S"],
+        title=item["title"]["S"],
+        status=TaskStatus(item["status"]["S"]),
+        evidence=item.get("evidence", {}).get("S") or None,
+        close_reason=item.get("close_reason", {}).get("S") or None,
+        created_by_bot_id=item.get("created_by_bot_id", {}).get("S") or None,
+        updated_by_bot_id=item.get("updated_by_bot_id", {}).get("S") or None,
     )
 
 

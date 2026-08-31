@@ -53,6 +53,12 @@ from chatticus.models import (
     PendingComputerToolSnapshot,
     SnapshotRequiredError,
     StaleAttemptError,
+    Task,
+    TaskAccessDeniedError,
+    TaskCloseReasonRequiredError,
+    TaskEvidenceRequiredError,
+    TaskNotFoundError,
+    TaskStatus,
     Turn,
     TurnAttempt,
     TurnEvent,
@@ -339,6 +345,10 @@ class ControlPlane:
         """Return turn jobs still queued for a bot."""
         return [job for job in self._jobs if job.bot_id == bot_id]
 
+    def pending_jobs(self) -> list[TurnJob]:
+        """Return all queued turn jobs."""
+        return list(self._jobs)
+
     def job_for_turn(self, tenant_id: str, turn_id: str) -> TurnJob | None:
         """Return the queued job bound to one turn, if any."""
         return self._job_for_turn(tenant_id, turn_id)
@@ -475,6 +485,143 @@ class ControlPlane:
             if turn is not None and turn.tenant_id == tenant_id:
                 turns.append(turn)
         return sorted(turns, key=lambda turn: turn.turn_id)
+
+    def create_task(
+        self,
+        tenant_id: str,
+        user_id: str,
+        title: str,
+        *,
+        created_by_bot_id: str,
+    ) -> Task:
+        """Create one open Task item with bot provenance."""
+        task = Task(
+            task_id=str(uuid4()),
+            tenant_id=tenant_id,
+            user_id=user_id,
+            title=title,
+            status=TaskStatus.OPEN,
+            created_by_bot_id=created_by_bot_id,
+            updated_by_bot_id=created_by_bot_id,
+        )
+        self._messaging_store.put_task(task)
+        return task
+
+    def task(self, tenant_id: str, task_id: str) -> Task:
+        """Return one Task item owned by the tenant.
+
+        :raises TaskNotFoundError: If the task is unknown to this tenant.
+        """
+        record = self._messaging_store.get_task(tenant_id, task_id)
+        if record is None or record.tenant_id != tenant_id:
+            raise TaskNotFoundError(
+                f"Task {task_id!r} is unknown to tenant {tenant_id!r}."
+            )
+        return record
+
+    def list_tasks(self, tenant_id: str, user_id: str) -> list[Task]:
+        """Return tasks owned by one household user."""
+        tasks = self._messaging_store.list_tasks(tenant_id, user_id)
+        return [task for task in tasks if task.tenant_id == tenant_id]
+
+    def complete_task(
+        self,
+        tenant_id: str,
+        task_id: str,
+        *,
+        evidence: str,
+        updated_by_bot_id: str,
+    ) -> Task:
+        """Mark one task completed with durable evidence.
+
+        :raises TaskEvidenceRequiredError: If evidence is empty.
+        """
+        if not evidence.strip():
+            raise TaskEvidenceRequiredError(
+                f"Task {task_id!r} cannot reach completed without evidence."
+            )
+        record = self.task(tenant_id, task_id)
+        record.status = TaskStatus.COMPLETED
+        record.evidence = evidence
+        record.updated_by_bot_id = updated_by_bot_id
+        self._messaging_store.put_task(record)
+        return record
+
+    def close_task(
+        self,
+        tenant_id: str,
+        task_id: str,
+        *,
+        reason: str,
+        updated_by_bot_id: str,
+    ) -> Task:
+        """Close one task with a recorded reason.
+
+        :raises TaskCloseReasonRequiredError: If the reason is empty.
+        """
+        if not reason.strip():
+            raise TaskCloseReasonRequiredError(
+                f"Task {task_id!r} cannot close without a reason."
+            )
+        record = self.task(tenant_id, task_id)
+        record.status = TaskStatus.CLOSED
+        record.close_reason = reason
+        record.updated_by_bot_id = updated_by_bot_id
+        self._messaging_store.put_task(record)
+        return record
+
+    def invoke_task_tool(
+        self,
+        tenant_id: str,
+        user_id: str,
+        bot_id: str,
+        action: str,
+        arguments: dict[str, str],
+    ) -> Task:
+        """Dispatch one structured task-tool call at the first readiness gate.
+
+        The task tool never summons a computer or enqueues computer work.
+        """
+        bot = self.bot(tenant_id, bot_id)
+        if bot.user_id != user_id:
+            raise TaskAccessDeniedError(
+                f"Bot {bot_id!r} cannot act on tasks for user {user_id!r}."
+            )
+        if action == "create":
+            title = arguments.get("title", "").strip()
+            if not title:
+                msg = "Task create requires a title."
+                raise ValueError(msg)
+            return self.create_task(
+                tenant_id,
+                user_id,
+                title,
+                created_by_bot_id=bot_id,
+            )
+        task_id = arguments.get("task_id", "").strip()
+        if not task_id:
+            msg = f"Task action {action!r} requires task_id."
+            raise ValueError(msg)
+        if action == "get":
+            return self.task(tenant_id, task_id)
+        if action == "complete":
+            evidence = arguments.get("evidence", "")
+            return self.complete_task(
+                tenant_id,
+                task_id,
+                evidence=evidence,
+                updated_by_bot_id=bot_id,
+            )
+        if action == "close":
+            reason = arguments.get("reason", "")
+            return self.close_task(
+                tenant_id,
+                task_id,
+                reason=reason,
+                updated_by_bot_id=bot_id,
+            )
+        msg = f"Unsupported task tool action {action!r}."
+        raise ValueError(msg)
 
     def ensure_computer(
         self,

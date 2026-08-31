@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "660d3d1f-476f-4658-a146-00215eaf6772",
+  "issue_id": "chatticus-7deaeddb-446e-479b-8cb9-c17b28bb4500",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T18:18:35.049Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Gherkin + Python kernel for v1 Task item in Chatticus DynamoDB: status, evidence, close reason, bot provenance. Structured task tool at first readiness gate without computer. No Kanbus HTTP or table sharing.",
+    "issue_type": "task",
+    "labels": [
+      "v1"
+    ],
+    "parent": "chatticus-5f2ea7c8-b3bf-4b2e-9d5d-a192ddc77eef",
+    "priority": 2,
+    "status": "open",
+    "title": "Implement thin Task item kernel"
+  }
+}
