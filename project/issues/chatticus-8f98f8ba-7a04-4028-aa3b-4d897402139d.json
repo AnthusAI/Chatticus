@@ -127,10 +127,16 @@
       "author": "home",
       "text": "4bca15 closed: live computer continuation completed after ThinTurn-only CDK (16:02:57Z). Remaining 8f98f8 DoD is whatever is still unmeasured (not a Computers scale-up, not 35d86b). README live pin updated on PR #34.",
       "created_at": "2026-08-31T16:14:07.919689Z"
+    },
+    {
+      "id": "601163e7-bcb0-4624-9771-57f3b021fa87",
+      "author": "home",
+      "text": "Git promotion: develop → main as PR #37 (`ede89c8`). Live milestone is ThinTurn-only CDK 2026-08-31T16:02:57Z plus named development exercise computer_queue_turn_completed=1. Not a staging/production stack deploy. Not parking.",
+      "created_at": "2026-08-31T16:23:15.385347Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T16:14:07.919689Z",
+  "updated_at": "2026-08-31T16:23:15.385347Z",
   "closed_at": null,
   "custom": {}
 }
