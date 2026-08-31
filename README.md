@@ -126,9 +126,9 @@ names `browser` and the pending computer tool, the journal event matches that
 `action_id`, and resume is **409** again. It then marks the computer
 running, resumes that turn, checks `POST /turns/{id}/resume` returns
 `required_capabilities=computer`, and receives the continuation from
-`ComputerTurnJobs` (not the cpu queue) before marking the computer
-stopped. Staging and production do not
-have waiting, resume, or turn read yet.
+`ComputerTurnJobs` (not the cpu queue), draining leftover messages from
+interrupted runs, before marking the computer stopped. Staging and production
+do not have waiting, resume, or turn read yet.
 
 The **source** has named cloud environments, turn **claim**, **lease**,
 **fence**, durable channel lookup across Lambda invocations, a durable

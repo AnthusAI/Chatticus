@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "298d6a77-31b3-4150-a10e-939e0b2015db",
+  "issue_id": "chatticus-18f9f79a-49a9-4697-a66c-885e31a83c92",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T07:13:59.488Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Purpose: live development exercise must not fail because ComputerTurnJobs still holds a leftover from an interrupted run.\n\nThe exercise already checks job_id and turn_id. A single receive of the wrong message currently exits 1. Drain unmatched messages until the current resume job appears or the wait expires.\n\nNot included: Fargate, staging/production, merge to main, changing queue topology.",
+    "issue_type": "chore",
+    "labels": [
+      "v1"
+    ],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "Named exercise drains stale computer-queue leftovers"
+  }
+}

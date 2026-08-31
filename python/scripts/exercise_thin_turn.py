@@ -50,6 +50,44 @@ def _sqs_delete(queue_url: str, receipt_handle: str) -> None:
     boto3.client("sqs").delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
 
 
+def _computer_continuation_matches(body: dict, *, job_id: str, turn_id: str) -> bool:
+    """Return True when an SQS body is this exercise's computer continuation."""
+    return (
+        body.get("job_id") == job_id
+        and body.get("turn_id") == turn_id
+        and "computer" in (body.get("required_capabilities") or [])
+    )
+
+
+def _sqs_receive_computer_continuation(
+    queue_url: str,
+    *,
+    job_id: str,
+    turn_id: str,
+    wait_seconds: int,
+) -> dict | None:
+    """Receive until the matching computer job appears, deleting leftovers."""
+    deadline = time.monotonic() + wait_seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        message = _sqs_receive_one(
+            queue_url, wait_seconds=max(1, min(20, int(remaining)))
+        )
+        if message is None:
+            continue
+        body = json.loads(message["Body"])
+        _sqs_delete(queue_url, message["ReceiptHandle"])
+        if _computer_continuation_matches(body, job_id=job_id, turn_id=turn_id):
+            return body
+        print(
+            "computer_queue_stale "
+            f"turn_id={body.get('turn_id')!r} job_id={body.get('job_id')!r}",
+            file=sys.stderr,
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -839,22 +877,14 @@ def main() -> int:
                 "development", "ComputerTurnQueueUrl"
             )
             cpu_queue = thin_turn_stack_output("development", "TurnQueueUrl")
-            computer_message = _sqs_receive_one(computer_queue, wait_seconds=20)
-            if computer_message is None:
-                print("computer_queue delivered no message", file=sys.stderr)
-                client.post(
-                    "/computers/stopped",
-                    json={"user_id": args.user_id, "stopped": True},
-                )
-                return 1
-            computer_body = json.loads(computer_message["Body"])
-            _sqs_delete(computer_queue, computer_message["ReceiptHandle"])
-            if (
-                computer_body.get("job_id") != job_id
-                or computer_body.get("turn_id") != browser_turn_id
-                or "computer" not in computer_body.get("required_capabilities", [])
-            ):
-                print(f"computer_queue_body={computer_body!r}", file=sys.stderr)
+            computer_body = _sqs_receive_computer_continuation(
+                computer_queue,
+                job_id=job_id,
+                turn_id=browser_turn_id,
+                wait_seconds=20,
+            )
+            if computer_body is None:
+                print("computer_queue delivered no matching message", file=sys.stderr)
                 client.post(
                     "/computers/stopped",
                     json={"user_id": args.user_id, "stopped": True},
