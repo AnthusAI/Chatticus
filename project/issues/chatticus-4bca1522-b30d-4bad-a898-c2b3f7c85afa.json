@@ -16,10 +16,16 @@
       "author": "home",
       "text": "Kernel and ThinTurn IAM for 4bca15: computer_host_worker, RunTask container override when CHATTICUS_ECS_HOST_COMMAND is set, imported Computers task role granted SQS consume and Dynamo. Development Lambda does not set HOST_COMMAND yet — live ECR image still CMD sleep infinity. Story stays open until the image is rebuilt and a live browser tool completes. desiredCount 0. No --all.\n",
       "created_at": "2026-08-31T12:22:10.379386Z"
+    },
+    {
+      "id": "d710e2ce-de22-485d-9427-fd5b87b753d6",
+      "author": "home",
+      "text": "CDK app now uses tsx instead of ts-node so ThinTurn deploy works on Node 26 (local) as well as CI Node 22. HOST_COMMAND still unset on live Lambda.\n",
+      "created_at": "2026-08-31T12:26:59.029251Z"
     }
   ],
   "created_at": "2026-08-31T12:19:14.039212Z",
-  "updated_at": "2026-08-31T12:22:10.379386Z",
+  "updated_at": "2026-08-31T12:26:59.029251Z",
   "closed_at": null,
   "custom": {}
 }
