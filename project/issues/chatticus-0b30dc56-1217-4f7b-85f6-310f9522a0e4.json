@@ -19,10 +19,16 @@
       "author": "home",
       "text": "Kernel and Gherkin: computerless run_job raises ComputerlessCannotExecuteComputerJob before waiting skip, so a computer continuation stays queued. ThinTurn-only development deploy from develop @ d99b028. Named exercise_thin_turn.py --environment development exits 0 (claim 404, second claim 409, waiting, resume-while-stopped 409). Did not live-resume while the computer is running: that would enqueue a computer job the cpu worker must nack until a computer-capable worker exists. Not staging, not production, not --all.",
       "created_at": "2026-08-31T02:30:21.499906Z"
+    },
+    {
+      "id": "376f905f-dd4f-4370-9226-9e967ec03a79",
+      "author": "home",
+      "text": "loop-accept tick 2026-08-31T02:35Z: development exercise_thin_turn.py exits 0 @ 02505ff. base_url=https://d3gpuuldffe35o.cloudfront.net missing_claim=404 fence claim_a=200 claim_b=409 turn_waiting_for=browser pending_computer_tool=request_computer_capability waiting_stream_kinds=[turn.started,turn.token,turn.waiting] stale_waiting=409 resume_while_stopped=409 first_stream_kinds=[turn.started,turn.token,turn.token,turn.completed] reconnect_after=2 computer_stopped=True model_waiting_turn=8711c55e-c093-41ac-8d69-050dc3e0e04c model_turn_waiting_for=browser model_resume_while_stopped=409",
+      "created_at": "2026-08-31T02:35:32.310618Z"
     }
   ],
   "created_at": "2026-08-31T02:20:04.356077Z",
-  "updated_at": "2026-08-31T02:30:21.512429Z",
+  "updated_at": "2026-08-31T02:35:32.310618Z",
   "closed_at": "2026-08-31T02:30:21.512429Z",
   "custom": {}
 }
