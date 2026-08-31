@@ -1,32 +1,12 @@
 import type { TurnEvent } from "./api";
 import { apiBase, tenantId } from "./config";
+import { isTerminalTurnEvent, parseSseFrames } from "./sse-parse";
 
 export type TurnStreamHandlers = {
   onEvent: (event: TurnEvent) => void;
   onError?: (error: Error) => void;
   onClose?: () => void;
 };
-
-function parseSseFrames(
-  buffer: string,
-  onEvent: (event: TurnEvent) => void,
-): string {
-  let remainder = buffer;
-  while (remainder.includes("\n\n")) {
-    const splitAt = remainder.indexOf("\n\n");
-    const frame = remainder.slice(0, splitAt);
-    remainder = remainder.slice(splitAt + 2);
-    const dataLine = frame
-      .split("\n")
-      .find((line) => line.startsWith("data:"));
-    if (!dataLine) {
-      continue;
-    }
-    const event = JSON.parse(dataLine.slice(5).trim()) as TurnEvent;
-    onEvent(event);
-  }
-  return remainder;
-}
 
 /** Open a turn-scoped SSE stream via fetch so X-Tenant-Id reaches the front door. */
 export function openTurnStream(
@@ -71,11 +51,7 @@ export function openTurnStream(
         buffer += decoder.decode(value, { stream: true });
         buffer = parseSseFrames(buffer, (event) => {
           handlers.onEvent(event);
-          if (
-            event.kind === "turn.completed" ||
-            event.kind === "turn.failed" ||
-            event.kind === "turn.reconciling"
-          ) {
+          if (isTerminalTurnEvent(event.kind)) {
             closed = true;
             controller.abort();
             handlers.onClose?.();

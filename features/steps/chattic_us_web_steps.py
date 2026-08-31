@@ -30,6 +30,25 @@ def then_web_ui_bot_roster_shows(context: object) -> None:
     assert context.web_ui_bot_names == expected
 
 
+@then("the web UI bot roster is empty")
+def then_web_ui_bot_roster_is_empty(context: object) -> None:
+    assert context.web_ui_bot_names == []
+
+
+@when("the web UI requests the health endpoint")
+def when_web_ui_requests_health(context: object) -> None:
+    response = context.api_client.get("/health")
+    assert response.status_code == 200, response.text
+    context.web_ui_health = response.json()
+
+
+@then("the web UI health response is ok")
+def then_web_ui_health_response_is_ok(context: object) -> None:
+    payload = context.web_ui_health
+    assert payload.get("status") == "ok"
+    assert payload.get("environment")
+
+
 @when(
     'the web UI sends "{body}" from user "{user_id}" of tenant "{tenant_id}" '
     'addressed to bot "{name}"'
@@ -92,3 +111,36 @@ def then_web_ui_receives_chunks_in_order(context: object) -> None:
     assert tokens == ["Hel", "lo"]
     turn = context.plane.turn(context.last_channel.tenant_id, context.last_turn_id)
     assert turn.status == TurnStatus.ACTIVE
+
+
+@when("the worker completes the turn")
+def when_worker_completes_turn(context: object) -> None:
+    if context.last_turn_id is None:
+        raise AssertionError("No turn is active in this scenario.")
+    channel = context.last_channel
+    response = context.api_client.post(
+        f"/turns/{context.last_turn_id}/chunks",
+        json={
+            "token": "",
+            "complete": True,
+            "fence_token": context.fence_token,
+        },
+        headers=tenant_headers(channel.tenant_id),
+    )
+    assert response.status_code == 200, response.text
+
+
+@then("the web UI receives a turn completed event")
+def then_web_ui_receives_turn_completed(context: object) -> None:
+    context.sse_watcher.wait_for_kind("turn.completed", timeout=5.0)
+    completed = [
+        event
+        for event in context.sse_watcher.events
+        if event.get("kind") == "turn.completed"
+    ]
+    assert len(completed) == 1
+
+
+@then("the web UI turn stream is closed")
+def then_web_ui_turn_stream_closed(context: object) -> None:
+    assert context.sse_watcher.closed

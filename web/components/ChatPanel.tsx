@@ -8,6 +8,7 @@ type ChatPanelProps = {
   sending: boolean;
   sendError: string | null;
   turnId: string | null;
+  turnStatus: "active" | "completed" | "failed" | "reconciling" | null;
   streamError: string | null;
   progress: string;
   events: TurnEvent[];
@@ -21,6 +22,7 @@ export function ChatPanel({
   sending,
   sendError,
   turnId,
+  turnStatus,
   streamError,
   progress,
   events,
@@ -65,6 +67,15 @@ export function ChatPanel({
             <div className="turn-progress">
               <p className="status">
                 Turn <code>{turnId}</code>
+                {turnStatus === "completed" ? (
+                  <span className="turn-badge completed">completed</span>
+                ) : null}
+                {turnStatus === "failed" ? (
+                  <span className="turn-badge failed">failed</span>
+                ) : null}
+                {turnStatus === "reconciling" ? (
+                  <span className="turn-badge reconciling">reconciling</span>
+                ) : null}
               </p>
               {streamError ? <p className="status error">{streamError}</p> : null}
               {progress ? <p className="progress-text">{progress}</p> : null}
@@ -78,9 +89,9 @@ export function ChatPanel({
                     </li>
                   ))}
                 </ul>
-              ) : (
+              ) : turnStatus === "active" ? (
                 <p className="status">Waiting for turn progress…</p>
-              )}
+              ) : null}
             </div>
           ) : null}
         </>

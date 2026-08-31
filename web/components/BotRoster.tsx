@@ -8,6 +8,7 @@ type BotRosterProps = {
   loading: boolean;
   error: string | null;
   onSelect: (bot: Bot) => void;
+  onRetry?: () => void;
 };
 
 export function BotRoster({
@@ -16,12 +17,22 @@ export function BotRoster({
   loading,
   error,
   onSelect,
+  onRetry,
 }: BotRosterProps) {
   return (
     <section className="card roster" aria-label="Bot roster">
       <h2>Bots</h2>
       {loading ? <p className="status">Loading roster…</p> : null}
-      {error ? <p className="status error">{error}</p> : null}
+      {error ? (
+        <div className="status-block">
+          <p className="status error">{error}</p>
+          {onRetry ? (
+            <button type="button" className="retry-button" onClick={onRetry}>
+              Retry roster
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {!loading && !error && bots.length === 0 ? (
         <p className="status">No bots yet. Create one through the control plane.</p>
       ) : null}

@@ -14,6 +14,22 @@ import {
 } from "../lib/api";
 import { userId } from "../lib/config";
 import { openTurnStream } from "../lib/sse";
+import { isTerminalTurnEvent } from "../lib/sse-parse";
+
+type TurnUiStatus = "active" | "completed" | "failed" | "reconciling" | null;
+
+function turnStatusFromKind(kind: string): TurnUiStatus {
+  if (kind === "turn.completed") {
+    return "completed";
+  }
+  if (kind === "turn.failed") {
+    return "failed";
+  }
+  if (kind === "turn.reconciling") {
+    return "reconciling";
+  }
+  return "active";
+}
 
 export default function HomePage() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -27,6 +43,7 @@ export default function HomePage() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [turnId, setTurnId] = useState<string | null>(null);
+  const [turnStatus, setTurnStatus] = useState<TurnUiStatus>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [progress, setProgress] = useState("");
   const [events, setEvents] = useState<TurnEvent[]>([]);
@@ -54,32 +71,23 @@ export default function HomePage() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadBots() {
-      setBotsLoading(true);
-      try {
-        const roster = await listBots(userId);
-        if (!cancelled) {
-          setBots(roster);
-          setBotsError(null);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setBots([]);
-          setBotsError(error instanceof Error ? error.message : "unknown error");
-        }
-      } finally {
-        if (!cancelled) {
-          setBotsLoading(false);
-        }
-      }
+  const loadBots = useCallback(async () => {
+    setBotsLoading(true);
+    try {
+      const roster = await listBots(userId);
+      setBots(roster);
+      setBotsError(null);
+    } catch (error) {
+      setBots([]);
+      setBotsError(error instanceof Error ? error.message : "unknown error");
+    } finally {
+      setBotsLoading(false);
     }
-    void loadBots();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadBots();
+  }, [loadBots]);
 
   const ensureChannel = useCallback(async (bot: Bot): Promise<string> => {
     if (channelId) {
@@ -95,11 +103,15 @@ export default function HomePage() {
     setStreamError(null);
     setProgress("");
     setEvents([]);
+    setTurnStatus("active");
     closeStreamRef.current = openTurnStream(activeTurnId, {
       onEvent: (event) => {
         setEvents((current) => [...current, event]);
         if (event.kind === "turn.token" && event.token) {
           setProgress((current) => current + event.token);
+        }
+        if (isTerminalTurnEvent(event.kind)) {
+          setTurnStatus(turnStatusFromKind(event.kind));
         }
       },
       onError: (error) => {
@@ -118,6 +130,7 @@ export default function HomePage() {
     setSelectedBot(bot);
     setSendError(null);
     setTurnId(null);
+    setTurnStatus(null);
     setProgress("");
     setEvents([]);
     closeStreamRef.current?.();
@@ -184,6 +197,9 @@ export default function HomePage() {
           selectedBotId={selectedBot?.bot_id ?? null}
           loading={botsLoading}
           error={botsError}
+          onRetry={() => {
+            void loadBots();
+          }}
           onSelect={(bot) => {
             void handleSelectBot(bot);
           }}
@@ -194,6 +210,7 @@ export default function HomePage() {
           sending={sending}
           sendError={sendError}
           turnId={turnId}
+          turnStatus={turnStatus}
           streamError={streamError}
           progress={progress}
           events={events}

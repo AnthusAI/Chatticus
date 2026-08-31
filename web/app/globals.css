@@ -66,6 +66,45 @@ main {
   color: #f08888;
 }
 
+.status-block {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.retry-button {
+  justify-self: start;
+  border: 1px solid #2a3441;
+  border-radius: 0.5rem;
+  background: #10161f;
+  color: inherit;
+  font: inherit;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+
+.retry-button:hover {
+  border-color: #4c7fe0;
+}
+
+.turn-badge {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.turn-badge.completed {
+  color: #7ddea2;
+}
+
+.turn-badge.failed {
+  color: #f08888;
+}
+
+.turn-badge.reconciling {
+  color: #e8c468;
+}
+
 .bot-list {
   list-style: none;
   margin: 0;
