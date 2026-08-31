@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-b06c909e-5e91-4740-9076-0c0f2211bed1",
+  "title": "Read a waiting turn after Front Door recycle",
+  "description": "As a household member, I want to recover a waiting turn after a Front Door recycle, so I can see the browser gate without a remembered turn_id.\n\nFeature: Channels and the message store\n\nScenario: A waiting turn can be read after a Front Door recycle\n  Given an empty control plane backed by a durable messaging store with HTTP\n  And tenant \"anthus\" user \"ryan\" has a channel with a named bot \"Researcher\"\n  And user \"ryan\" of tenant \"anthus\" has an active turn on the channel\n  When the worker posts a progress chunk and then waits on the browser gate\n  And a recycled Front Door serves the same messaging store\n  Then tenant \"anthus\" can read the waiting turn on the open channel as browser\n\nNot included: staging, production, Fargate, Safari.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9b7f192e-9e1f-498c-8642-e66d6c827acc",
+  "labels": [
+    "v1",
+    "bdd"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T06:16:46.526690Z",
+  "updated_at": "2026-08-31T06:16:50.404816Z",
+  "closed_at": null,
+  "custom": {}
+}

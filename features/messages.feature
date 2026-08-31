@@ -226,3 +226,11 @@ Feature: Channels and the message store
     And the worker claims the fence probe turn and completes it through HTTP
     And a recycled Front Door serves the same messaging store
     Then tenant "anthus" cannot read an active turn on the open channel
+
+  Scenario: A waiting turn can be read after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"
+    And user "ryan" of tenant "anthus" has an active turn on the channel
+    When the worker posts a progress chunk and then waits on the browser gate
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can read the waiting turn on the open channel as browser

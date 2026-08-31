@@ -428,6 +428,27 @@ def then_read_active_channel_turn(context: object, tenant_id: str) -> None:
     assert payload["status"] == "active"
 
 
+@then('tenant "{tenant_id}" can read the waiting turn on the open channel as {gate}')
+def then_read_waiting_channel_turn(context: object, tenant_id: str, gate: str) -> None:
+    channel = _channel(context)
+    expected_turn_id = _turn_id(context)
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["turn_id"] == expected_turn_id
+    assert payload["channel_id"] == channel.channel_id
+    assert payload["status"] == "active"
+    assert payload["waiting_for"] == gate
+    pending = payload.get("pending_computer_tool")
+    assert pending is not None
+    assert pending["tool_name"] == "request_computer_capability"
+    assert pending["arguments"] == {"gate": gate}
+    assert pending["action_id"]
+
+
 @when("the worker claims the fence probe turn and completes it through HTTP")
 def when_worker_claims_fence_probe_and_completes(context: object) -> None:
     channel = _channel(context)

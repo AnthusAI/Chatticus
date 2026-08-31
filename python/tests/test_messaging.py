@@ -612,6 +612,54 @@ def test_http_get_channel_active_turn_404_after_completion() -> None:
     recycled.close()
 
 
+@mock_aws
+def test_http_get_channel_waiting_turn_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-channel-turn-waiting-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    plane = ControlPlane(messaging_store=store)
+    bot, channel = _channel_with_bot(plane)
+    started = plane.post_channel_message(
+        channel.channel_id,
+        channel.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        "hello",
+        addressed_to_bot_id=bot.bot_id,
+        enqueue_turn=False,
+    )[1]
+    assert started is not None
+    api = _client_for(plane)
+    claim = api.post(
+        f"/turns/{started.turn_id}/claim",
+        json={"worker_id": "test-worker"},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert claim.status_code == 200
+    fence_token = claim.json()["fence_token"]
+    waiting = api.post(
+        f"/turns/{started.turn_id}/waiting",
+        json={"gate": "browser", "fence_token": fence_token},
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert waiting.status_code == 200
+    api.close()
+    recycled = _client_for(ControlPlane(messaging_store=store))
+    fetched = recycled.get(
+        f"/channels/{channel.channel_id}/turn",
+        headers={"X-Tenant-Id": "anthus"},
+    )
+    assert fetched.status_code == 200
+    payload = fetched.json()
+    assert payload["turn_id"] == started.turn_id
+    assert payload["waiting_for"] == "browser"
+    pending = payload.get("pending_computer_tool")
+    assert pending is not None
+    assert pending["tool_name"] == "request_computer_capability"
+    recycled.close()
+
+
 def test_http_bot_memory_roundtrip() -> None:
     plane = ControlPlane()
     api = _client_for(plane)

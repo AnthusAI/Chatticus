@@ -412,6 +412,19 @@ def main() -> int:
                 )
                 return 1
             print("turn_waiting_for=browser")
+            channel_waiting = client.get(f"/channels/{channel['channel_id']}/turn")
+            if (
+                channel_waiting.status_code != 200
+                or channel_waiting.json().get("turn_id") != fence_turn_id
+                or channel_waiting.json().get("waiting_for") != "browser"
+            ):
+                print(
+                    "channel_turn_waiting "
+                    f"{channel_waiting.status_code} {channel_waiting.text[:300]}",
+                    file=sys.stderr,
+                )
+                return 1
+            print("channel_turn_waiting=1")
             pending = turn_payload.get("pending_computer_tool") or {}
             if (
                 pending.get("tool_name") != "request_computer_capability"
