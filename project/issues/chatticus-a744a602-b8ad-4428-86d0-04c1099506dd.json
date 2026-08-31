@@ -3,17 +3,23 @@
   "title": "Phase 3: Ship chattic.us on AWS",
   "description": "Outcome: the Next.js UI at chattic.us is reachable over HTTPS in named cloud environments and talks to the thin-turn control plane. Not included: product login, Vultus avatars (0325d4), or mid-turn computer preview.",
   "type": "initiative",
-  "status": "open",
+  "status": "in_progress",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": null,
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "4e5bcf47-a40a-42ec-b815-d14f4ab2f925",
+      "author": "agent@example.com",
+      "text": "Status aligned with current work: chattic.us UI (a3923e), GHA/OIDC ThinTurn deploy (6abbb8), and web task list are already in flight. Initiative is in_progress.",
+      "created_at": "2026-08-31T19:40:47.416073Z"
+    }
+  ],
   "created_at": "2026-08-31T11:30:44.835457Z",
-  "updated_at": "2026-08-31T11:30:44.835457Z",
+  "updated_at": "2026-08-31T19:40:47.416073Z",
   "closed_at": null,
-  "custom": {},
-  "agent": null
+  "custom": {}
 }
