@@ -16,10 +16,16 @@
       "author": "home",
       "text": "Code on branch cursor/durable-host-start-4a21: Dynamo host_start_generation+lease, ComputerWorker records a start before nack, GET computer exposes generation. ChatticusThinTurn deploy blocked this tick: AWS session expired (aws login). Live pin remains 19070b1 until the next development ThinTurn deploy.",
       "created_at": "2026-08-31T08:58:46.177078Z"
+    },
+    {
+      "id": "f6c397fe-6b4f-4ef6-a042-e0f418432eaa",
+      "author": "home",
+      "text": "Wiki status.md refreshed 2026-08-31: live pin remains 19070b1; host_start_generation still git-ahead. This tick AWS session is expired (aws login). Close 23c93e only after ChatticusThinTurn development redeploy and exercise host_start_generation>=1.",
+      "created_at": "2026-08-31T09:04:14.318600Z"
     }
   ],
   "created_at": "2026-08-31T08:58:06.508893Z",
-  "updated_at": "2026-08-31T08:58:46.177078Z",
+  "updated_at": "2026-08-31T09:04:14.318600Z",
   "closed_at": null,
   "custom": {}
 }
