@@ -15,9 +15,10 @@ operations.
 | `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE function URL |
 | `ChatticusThinTurnStaging` | Staging thin turn (same shape; deployed from `main`) |
 | `ChatticusThinTurnProduction` | Production thin turn (gated deploy of a staging-proven release; never implied by a git branch) |
-| `ChatticusWeb` | **Development** Next.js on S3 + CloudFront at `dev.chattic.us` with same-origin `/api/*` |
-| `ChatticusWebStaging` | Staging web at `staging.chattic.us` |
-| `ChatticusWebProduction` | Production web at `chattic.us` and `www.chattic.us` |
+| `ChatticusWeb` | **Development** product app on S3 + CloudFront at `dev.chattic.us` with same-origin `/api/*` |
+| `ChatticusWebStaging` | Staging product app at `staging.chattic.us` |
+| `ChatticusWebProduction` | Production product app at `app.chattic.us` with same-origin `/api/*` |
+| `ChatticusMarketingWeb` | Public marketing site at `chattic.us`; `www` redirects to apex |
 
 Each thin-turn stack exports the Lambda **function URL** and invoke-key
 secret ARN for the matching web stack. The web stack publishes:
@@ -72,6 +73,7 @@ Staging and production, when you mean to:
 npx cdk deploy ChatticusThinTurnStaging
 npx cdk deploy ChatticusWebStaging
 npx cdk deploy ChatticusThinTurnProduction
+npx cdk deploy ChatticusMarketingWeb
 npx cdk deploy ChatticusWebProduction
 ```
 

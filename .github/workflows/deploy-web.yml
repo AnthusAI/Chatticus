@@ -31,6 +31,17 @@ jobs:
           cache-dependency-path: |
             infra/package-lock.json
             web/package-lock.json
+            marketing/package-lock.json
+
+      - name: Install marketing dependencies
+        if: inputs.environment == 'production'
+        working-directory: marketing
+        run: npm ci
+
+      - name: Build marketing static export
+        if: inputs.environment == 'production'
+        working-directory: marketing
+        run: npm run build
 
       - name: Install infra dependencies
         working-directory: infra
@@ -58,6 +69,11 @@ jobs:
             staging) npx cdk deploy ChatticusThinTurnStaging --require-approval never ;;
             production) npx cdk deploy ChatticusThinTurnProduction --require-approval never ;;
           esac
+
+      - name: Deploy marketing stack
+        if: inputs.environment == 'production'
+        working-directory: infra
+        run: npx cdk deploy ChatticusMarketingWeb --require-approval never
 
       - name: Deploy web stack
         working-directory: infra

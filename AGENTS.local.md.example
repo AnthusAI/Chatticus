@@ -13,6 +13,7 @@
 # aws cloudformation describe-stacks --stack-name ChatticusWeb \
 #   --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionDomainName'].OutputValue"
 
-# export CHATTICUS_DEVELOPMENT_BASE_URL=
-# export CHATTICUS_STAGING_BASE_URL=
-# export CHATTICUS_PRODUCTION_BASE_URL=
+# export CHATTICUS_DEVELOPMENT_BASE_URL=https://dev.chattic.us/api
+# export CHATTICUS_STAGING_BASE_URL=https://staging.chattic.us/api
+# export CHATTICUS_PRODUCTION_BASE_URL=https://app.chattic.us/api
+# Marketing site (no API): https://chattic.us

@@ -1,6 +1,11 @@
 # Web
 
-TypeScript Next.js app for chattic.us.
+TypeScript Next.js app for the Chatticus **product** surface (roster, chat,
+approvals, computer preview). Deployed by `ChatticusWeb*` with same-origin
+`/api/*` to the thin-turn Lambda.
+
+Production product app: **app.chattic.us**. Public marketing landing:
+**chattic.us** (`marketing/` + `ChatticusMarketingWeb`).
 
 v1 surface:
 

@@ -163,23 +163,6 @@ export class WebStack extends cdk.Stack {
       ),
     });
 
-    if (environmentName === "production") {
-      new route53.ARecord(this, "WwwAliasRecord", {
-        zone: props.hostedZone,
-        recordName: "www",
-        target: route53.RecordTarget.fromAlias(
-          new route53Targets.CloudFrontTarget(distribution),
-        ),
-      });
-      new route53.AaaaRecord(this, "WwwAliasRecordV6", {
-        zone: props.hostedZone,
-        recordName: "www",
-        target: route53.RecordTarget.fromAlias(
-          new route53Targets.CloudFrontTarget(distribution),
-        ),
-      });
-    }
-
     const siteUrl = `https://${siteDomain}`;
     const apiBaseUrl = `${siteUrl}/api`;
 

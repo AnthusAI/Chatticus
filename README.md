@@ -64,15 +64,14 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**2026-08-31:** `ChatticusDns`, all three `ChatticusWeb*` stacks, and matching
-`ChatticusThinTurn*` stacks are deployed in `us-east-1`. Same-origin HTTPS
-is live at `dev.chattic.us`, `staging.chattic.us`, `chattic.us`, and
-`www.chattic.us`. SSM `/chatticus/{environment}/thin-turn/cloudfront-url`
-is `https://{hostname}/api` for each environment. A development run of
-`exercise_thin_turn.py` against `https://dev.chattic.us/api` exited 0 on
-2026-08-31 after the web stack fix (CloudFront `/api*` routing and API error
-passthrough). GitHub **Deploy web** is manual (`workflow_dispatch`) and
-needs OIDC setup (see `infra/README.md`); it is not wired yet.
+**2026-08-31:** Production splits **marketing** (`chattic.us`, public landing)
+from the **product app** (`app.chattic.us`, same-origin `/api`). `www.chattic.us`
+301-redirects to `chattic.us` and is not a separate site. Development and staging
+still use one hostname each (`dev.chattic.us`, `staging.chattic.us`). Stacks:
+`ChatticusMarketingWeb`, `ChatticusWeb*`, `ChatticusThinTurn*`, `ChatticusDns`.
+Same-origin API bases are in SSM `/chatticus/{environment}/thin-turn/cloudfront-url`
+(`https://{hostname}/api`). GitHub **Deploy web** is manual (`workflow_dispatch`)
+and needs OIDC setup (see `infra/README.md`); it is not wired yet.
 
 GitHub **`main`** is `ede89c8` (PR #37, 2026-08-31): git promotion of
 the completed computer-turn pin (`822954b` / PR #34), not a stack
@@ -108,7 +107,8 @@ file. Resolve the front door from SSM, CloudFormation, or
 | --- | --- | --- | --- |
 | development | `ChatticusWeb` | https://dev.chattic.us | https://dev.chattic.us/api |
 | staging | `ChatticusWebStaging` | https://staging.chattic.us | https://staging.chattic.us/api |
-| production | `ChatticusWebProduction` | https://chattic.us | https://chattic.us/api |
+| production (app) | `ChatticusWebProduction` | https://app.chattic.us | https://app.chattic.us/api |
+| production (marketing) | `ChatticusMarketingWeb` | https://chattic.us | (none) |
 
 Deploy DNS once (`infra/deploy-chatticus-dns.sh`), set registrar name servers
 to the stack **NameServers** output, then deploy thin-turn + web per environment.

@@ -39,12 +39,16 @@ export default function HomePage() {
 
   return (
     <main>
-      <h1>Chatticus</h1>
-      <p>Named bots, one shared computer, serverless control plane.</p>
+      <h1>Chatticus app</h1>
+      <p>
+        Product surface for roster, chat, approvals, and the shared computer.
+        Public site:{" "}
+        <a href="https://chattic.us">chattic.us</a>
+      </p>
       <section className="card">
         <h2>Control plane</h2>
         <p className="status">
-          API base: <code>/api</code> (same origin)
+          API base: <code>/api</code> (same origin on this host)
         </p>
         {health ? (
           <p className="status ok">
