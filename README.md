@@ -64,25 +64,21 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
+**2026-08-31:** `ChatticusDns`, all three `ChatticusWeb*` stacks, and matching
+`ChatticusThinTurn*` stacks are deployed in account `335163751677`
+(`us-east-1`). Same-origin HTTPS is live at `dev.chattic.us`,
+`staging.chattic.us`, `chattic.us`, and `www.chattic.us`. SSM
+`/chatticus/{environment}/thin-turn/cloudfront-url` is
+`https://{hostname}/api` for each environment. A development run of
+`exercise_thin_turn.py` against `https://dev.chattic.us/api` exited 0 on
+2026-08-31 after the web stack fix (CloudFront `/api*` routing and API error
+passthrough). GitHub **Deploy web** is manual (`workflow_dispatch`) and
+needs OIDC setup (see `infra/README.md`); it is not wired yet.
+
 GitHub **`main`** is a git promotion of the 2026-08-31 development pin,
-not a stack redeploy. Three named thin-turn environments are live in
-`us-east-1`. Production is never implied by a git branch; it is an
-explicit gated deploy of a release that already passed staging
-acceptance. Staging and production were last recorded as deployed from
-`origin/main` @ `760915d` (v0.5.0); they have not been redeployed from
-this pin. Development was redeployed ThinTurn-only from `develop` @
-`50ad1d4` (no `--all`). That pin attaches a `ComputerWorker` Lambda to
-`ComputerTurnJobs` that nacks without a host
-(`computer_queue_job=in_flight_nack`) and does not fake `tool.result`.
-A named-environment run of the exercise on 2026-08-31 exited 0 with
-`health_environment=1`, `missing_claim=404`, `claim_a=200` then
-`claim_b=409`, `host_start_generation=1` after resume (23c93e, 2a2b64,
-bf5b02), and `computer_queue_job=in_flight_nack`. GET computer includes
-`host_start_generation` (0 before any start). The live ComputerWorker
-still uses a no-op `HostStarter`; CDK does not set
-`CHATTICUS_HOST_STARTER=ecs` and does not grant `ecs:RunTask`. A demo CLI
-(Kanbus epic 35d86b) is starting; it talks to this HTTP surface.
-`exercise_thin_turn.py` stays the pass/fail gate.
+not an automatic stack redeploy. Production is never implied by a git
+branch; it is an explicit gated deploy of a release that already passed
+staging acceptance.
 
 Per-account CloudFront distribution domains, Lambda function URLs, and
 AWS account ids belong in gitignored `AGENTS.local.md`, not in this
