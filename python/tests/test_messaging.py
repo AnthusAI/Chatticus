@@ -643,6 +643,7 @@ def test_http_get_user_computer() -> None:
     assert payload["computer_id"] == expected.computer_id
     assert payload["stopped"] is True
     assert payload["user_id"] == "ryan"
+    assert payload["host_start_generation"] == 0
     missing = api.get(
         "/users/ryan/computer",
         headers={"X-Tenant-Id": "other"},
@@ -670,6 +671,7 @@ def test_http_get_user_computer_survives_a_new_control_plane() -> None:
     payload = fetched.json()
     assert payload["computer_id"] == expected.computer_id
     assert payload["stopped"] is True
+    assert payload["host_start_generation"] == 0
     api.close()
 
 

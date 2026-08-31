@@ -442,11 +442,27 @@ def then_read_household_computer(context: object, tenant_id: str, user_id: str) 
     assert payload["tenant_id"] == tenant_id
     assert payload["user_id"] == user_id
     assert payload["stopped"] is True
+    assert payload["host_start_generation"] == 0
     missing = context.api_client.get(
         f"/users/{user_id}/computer",
         headers=tenant_headers("other"),
     )
     assert missing.status_code == 404
+
+
+@then(
+    'tenant "{tenant_id}" household computer for user "{user_id}" '
+    "reports host_start_generation {generation:d}"
+)
+def then_household_computer_host_start_generation(
+    context: object, tenant_id: str, user_id: str, generation: int
+) -> None:
+    response = context.api_client.get(
+        f"/users/{user_id}/computer",
+        headers=tenant_headers(tenant_id),
+    )
+    assert response.status_code == 200
+    assert response.json()["host_start_generation"] == generation
 
 
 @then('tenant "{tenant_id}" can read the active turn on the open channel')

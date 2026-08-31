@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from chatticus.capability_gated_readiness import (
+from chatticus.computer_capabilities import (
     BROWSER_CAPABILITY,
     MODEL_CAPABILITY,
     WORKSPACE_CAPABILITY,
