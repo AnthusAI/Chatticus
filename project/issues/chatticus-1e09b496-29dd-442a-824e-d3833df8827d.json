@@ -31,10 +31,16 @@
       "author": "agent@example.com",
       "text": "Work started. Planner Composer 2.5 on worktree /tmp/chatticus-1e09b4-evals branch cursor/adversarial-injection-evals-4a21. Implementation not authorized until plan review. DoD is sink denial even if the model complies; prompt wording cannot close a bypass.",
       "created_at": "2026-08-31T20:52:43.196564Z"
+    },
+    {
+      "id": "3805095d-4db5-4bd8-ae4b-10008dfb3710",
+      "author": "agent@example.com",
+      "text": "Plan approved. Implementer authorized on /tmp/chatticus-1e09b4-evals (cursor/adversarial-injection-evals-4a21), evals stay under python/tests (not Lambda src). Acceptance on /tmp/chatticus-1e09b4-accept. PR #60 merged to develop.",
+      "created_at": "2026-08-31T20:58:59.755693Z"
     }
   ],
   "created_at": "2026-08-30T15:54:57.524029Z",
-  "updated_at": "2026-08-31T20:52:43.196564Z",
+  "updated_at": "2026-08-31T20:58:59.755693Z",
   "closed_at": null,
   "custom": {}
 }
