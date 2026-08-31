@@ -1,0 +1,75 @@
+{
+  "measured_at": "2026-08-31T07:36:03.813339+00:00",
+  "task_definition": "ChatticusComputersComputerTask96CD9924:5",
+  "image": "chatticuscomputers-computerimage67d4263c-h3us7njdifay:dev",
+  "image_pushed_at": "2026-08-30T04:46:03-04:00",
+  "local_docker": "unavailable (docker daemon socket missing)",
+  "chromium": "not in computer/Dockerfile; recorded incomplete",
+  "runs": [
+    {
+      "run": 1,
+      "computer": "cold-start-1-1788161270",
+      "task_id": "d014967ef9fc4311b2c03be1954a71f9",
+      "wall_start": "2026-08-31T07:27:50.952519+00:00",
+      "seconds_to_running": 19.954965625016484,
+      "seconds_to_smoke_manifest": 20.19349970802432,
+      "seconds_to_first_log": 19.970481157302856,
+      "last_status": "RUNNING",
+      "stop_code": null,
+      "stopped_reason": null,
+      "chromium": "not_in_image"
+    },
+    {
+      "run": 2,
+      "computer": "cold-start-2-1788161363",
+      "task_id": "75704e7724d2478ebec8cc21fd1065b3",
+      "wall_start": "2026-08-31T07:29:23.205704+00:00",
+      "seconds_to_running": 21.96579245798057,
+      "seconds_to_smoke_manifest": 22.21708883298561,
+      "seconds_to_first_log": 22.239295959472656,
+      "last_status": "RUNNING",
+      "stop_code": null,
+      "stopped_reason": null,
+      "chromium": "not_in_image"
+    },
+    {
+      "run": 3,
+      "computer": "cold-start-3-1788161457",
+      "task_id": "82571697e35e4beaa7c1e13fe3195ec9",
+      "wall_start": "2026-08-31T07:30:57.724898+00:00",
+      "seconds_to_running": 38.52072691597277,
+      "seconds_to_smoke_manifest": 40.838667000003625,
+      "seconds_to_first_log": 39.405102014541626,
+      "last_status": "RUNNING",
+      "stop_code": null,
+      "stopped_reason": null,
+      "chromium": "not_in_image"
+    },
+    {
+      "run": 4,
+      "computer": "cold-start-4-1788161570",
+      "task_id": "d2e9b3db73bb49ea8744b7017fb216bb",
+      "wall_start": "2026-08-31T07:32:50.741811+00:00",
+      "seconds_to_running": 17.749807541025802,
+      "seconds_to_smoke_manifest": 20.097926625050604,
+      "seconds_to_first_log": 19.106189012527466,
+      "last_status": "RUNNING",
+      "stop_code": null,
+      "stopped_reason": null,
+      "chromium": "not_in_image"
+    },
+    {
+      "run": 5,
+      "computer": "cold-start-5-1788161662",
+      "task_id": "67908a1c62e14e528ea30bed8af5bd8d",
+      "wall_start": "2026-08-31T07:34:22.836920+00:00",
+      "seconds_to_running": 24.082656707963906,
+      "seconds_to_smoke_manifest": 26.399904249992687,
+      "seconds_to_first_log": 24.49507999420166,
+      "last_status": "RUNNING",
+      "stop_code": null,
+      "stopped_reason": null,
+      "chromium": "not_in_image"
+    }
+  ]
+}

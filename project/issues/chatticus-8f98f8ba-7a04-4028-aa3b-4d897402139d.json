@@ -48,10 +48,16 @@
       "author": "home",
       "text": "Development Front Door household-recovery HTTP is complete (bots/channels/turns/computer/channel turn/history/journal/health environment). Named exercise drains stale ComputerTurnJobs leftovers. Remaining epic DoD is still e747d7 (not a Computers scale-up). Do not merge develop to main as parking.",
       "created_at": "2026-08-31T07:19:11.455204Z"
+    },
+    {
+      "id": "1c50bc48-f01a-44e4-a392-d154aa76d49a",
+      "author": "home",
+      "text": "e747d7 closed: cold Fargate RUNNING median 22s (17.7–38.5). Chromium still unmeasured. Next is 53beb0 start/readiness implementation, not another measurement cycle.",
+      "created_at": "2026-08-31T07:40:00.684705Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.197143Z",
-  "updated_at": "2026-08-31T07:19:11.455204Z",
+  "updated_at": "2026-08-31T07:40:00.684705Z",
   "closed_at": null,
   "custom": {}
 }

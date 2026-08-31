@@ -3,7 +3,7 @@
   "title": "Run the cold computer readiness feasibility test",
   "description": "Run Test 2 from docs/FEASIBILITY_TESTS.md and report the distribution for each readiness gate.\n\nAcceptance criteria:\n- Measure cold Fargate task submission, RUNNING, model-call ready, workspace hydrated, and Chromium ready.\n- Repeat about five times and identify cache effects.\n- Compare warm local Docker.\n- Record Chromium absence as an incomplete component rather than hiding it.\n- Move roadmap priorities according to the documented result bands.\n- Do not optimize during the measurement.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -25,10 +25,16 @@
       "author": "home",
       "text": "Test 2 is unblocked on the board (653989 closed) and still not run.\n\nFargate `RunTask` is not authorized this cycle: do not scale ChatticusComputers.\n\nWarm local Docker comparison was attempted here: Docker is not available in this environment (`docker info` failed). Chromium is still listed as next on the computer image, so any future run must record browser-ready as an incomplete component.\n\nDo not invent timings. Do not optimize. Thin-turn development remains the live path until this measurement exists.",
       "created_at": "2026-08-31T07:22:28.138977Z"
+    },
+    {
+      "id": "c02050b7-694b-43ad-9f2e-3e438ddd0ea1",
+      "author": "home",
+      "text": "Test 2 ran 2026-08-31. Five Fargate ARM64 RunTask (service desired count stayed 0; each task stopped after smoke manifest).\n\nRUNNING seconds: 17.7, 20.0, 22.0, 24.1, 38.5 (min/median/max 17.7 / 22.0 / 38.5).\nSmoke pack to S3: 20.1–40.8 s (median 22.2).\nChromium: not in the image; browser-ready bands not applied.\nLocal Docker: daemon unavailable.\nRequirement 16 model-call-ready-in-seconds: holds for this image.\n\nResults: spikes/computer-cold-start/results and DESIGN_CHALLENGES challenge 5. No optimization. Stacks not destroyed.",
+      "created_at": "2026-08-31T07:40:00.661359Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.678476Z",
-  "updated_at": "2026-08-31T07:22:28.138977Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T07:40:00.674500Z",
+  "closed_at": "2026-08-31T07:40:00.674500Z",
   "custom": {}
 }

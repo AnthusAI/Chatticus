@@ -201,15 +201,20 @@ kernels still on `develop` are not promoted there until they are on the
 live worker loop. Do not merge `develop` to `main` as daily parking.
 
 **ChatticusSnapshots** and **ChatticusComputers** exist and must not be
-destroyed. They are not on the turn path yet. The computer stays stopped.
-There is no chattic.us web app, no local pull worker, no mid-turn
-escalation onto a running computer, and no approvals on these slices.
+destroyed. They are not on the thin-turn path yet. Cold Fargate time to
+`RUNNING` for the current computer image is tens of seconds (Test 2);
+Chromium is not in the image. The computer service stays at desired
+count 0. There is no chattic.us web app, no local pull worker, no
+mid-turn escalation onto a running computer, and no approvals on these
+slices.
 
 Cloud-environment epic 9eef23 is closed: three named stacks, named-env
-acceptance on each. Turn recovery epic 653989 is closed. Remaining for
-summoning a computer (8f98f8): cold readiness measurement (e747d7) — not
-a Fargate scale-up this cycle. Waiting-turn resume while the computer is
-stopped (66d3c4), waiting-turn gate read over HTTP (dfa7a9), pending
+acceptance on each. Turn recovery epic 653989 is closed. Cold Fargate
+readiness (e747d7, Test 2) is measured for the current image: tens of
+seconds to RUNNING; Chromium still missing. Remaining for summoning a
+computer (8f98f8): implement start/readiness (53beb0) and the structured
+handoff (538d28) on that measurement, not another unmeasured wait.
+Waiting-turn resume while the computer is stopped (66d3c4), waiting-turn gate read over HTTP (dfa7a9), pending
 computer tool on the waiting turn (96c0e8), waiting journal snapshot
 (d04942), computerless skip of a waiting turn (86c75d), computerless
 refuse of a computer continuation (0b30dc), keeping computer

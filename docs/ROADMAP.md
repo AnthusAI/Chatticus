@@ -86,10 +86,12 @@ and bot-to-bot addressing are still open, as are parts of compaction.
 The messaging kernel predates these decisions; it is a transport-agnostic
 protocol sketch, not the schema.
 
-Two assumptions underneath v1 are decided but unmeasured: that the
-streaming path works, and how long a cold computer takes. See
-[Feasibility tests](FEASIBILITY_TESTS.md). Run those before building on
-them.
+Two assumptions underneath v1 are decided; the streaming path has a
+recorded spike result, and cold Fargate time-to-RUNNING for the current
+computer image is tens of seconds (Test 2). Browser-ready cold start is
+still unmeasured because Chromium is not in the image. See
+[Feasibility tests](FEASIBILITY_TESTS.md) and challenge 5 in
+[Design challenges](DESIGN_CHALLENGES.md).
 
 ## v2
 
