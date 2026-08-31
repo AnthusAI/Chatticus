@@ -75,6 +75,32 @@ def test_verify_chromium_available_returns_version_line() -> None:
     assert version == "Chromium 120.0.0.0"
 
 
+def test_chromium_binary_path_skips_ubuntu_snap_stub(tmp_path, monkeypatch) -> None:
+    stub = tmp_path / "chromium-browser"
+    stub.write_text(
+        "#!/bin/sh\necho 'Command requires the chromium snap to be installed.'\n"
+        "echo 'snap install chromium'\n"
+    )
+    stub.chmod(0o755)
+    real = tmp_path / "chromium"
+    real.write_text("#!/bin/sh\necho Chromium 120\n")
+    real.chmod(0o755)
+    monkeypatch.delenv("CHATTICUS_CHROMIUM_PATH", raising=False)
+
+    def which(name: str) -> str | None:
+        if name == "chromium-browser":
+            return str(stub)
+        if name == "chromium":
+            return str(real)
+        return None
+
+    with patch(
+        "chatticus.chromium_action_executor.shutil.which",
+        side_effect=which,
+    ):
+        assert chromium_binary_path() == str(real)
+
+
 def test_chromium_binary_path_prefers_env_override() -> None:
     with patch.dict("os.environ", {"CHATTICUS_CHROMIUM_PATH": "/opt/chromium"}):
         with patch(

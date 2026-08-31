@@ -8,6 +8,20 @@ import subprocess
 from collections.abc import Sequence
 
 _SUPPORTED_TOOLS = frozenset({"browser_open", "request_computer_capability"})
+_SNAP_STUB_MARKERS = (
+    "requires the chromium snap",
+    "snap install chromium",
+)
+
+
+def _is_snap_stub(path: str) -> bool:
+    """Return True when *path* is Ubuntu's chromium-browser snap wrapper."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            head = handle.read(800)
+    except OSError:
+        return False
+    return any(marker in head for marker in _SNAP_STUB_MARKERS)
 
 
 def chromium_binary_path() -> str:
@@ -21,7 +35,7 @@ def chromium_binary_path() -> str:
         if not candidate:
             continue
         resolved = shutil.which(candidate)
-        if resolved:
+        if resolved and not _is_snap_stub(resolved):
             return resolved
     msg = "Chromium executable was not found on this host."
     raise FileNotFoundError(msg)

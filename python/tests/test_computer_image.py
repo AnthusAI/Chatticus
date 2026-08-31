@@ -50,6 +50,13 @@ def test_computer_dockerfile_copies_python_and_installs_package() -> None:
     assert 'CMD ["sleep", "infinity"]' in text
 
 
+def test_computer_dockerfile_installs_real_chromium_deb() -> None:
+    text = DOCKERFILE.read_text()
+    assert "debian:bookworm-slim" in text
+    assert "    chromium \\" in text
+    assert "    chromium-browser" not in text
+
+
 def test_computer_dockerfile_installs_host_worker_runtime_deps() -> None:
     text = DOCKERFILE.read_text()
     for dep in ("boto3", "httpx", "fastapi", "pydantic", "python-dotenv"):
@@ -146,3 +153,11 @@ def test_docker_computer_image_imports_host_worker() -> None:
         timeout=120,
     )
     assert run.returncode == 0, run.stderr
+    chromium = subprocess.run(
+        ["docker", "run", "--rm", tag, "chromium", "--version"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert chromium.returncode == 0, chromium.stderr + chromium.stdout
+    assert "Chromium" in (chromium.stdout + chromium.stderr)
