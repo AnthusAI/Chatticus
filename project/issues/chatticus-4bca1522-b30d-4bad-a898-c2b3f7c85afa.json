@@ -40,10 +40,16 @@
       "author": "home",
       "text": "Pushed computer image :dev (sha256:fdebcf6843547e191e4083d7f3e02f9fbdc7a426f256b54030cbb7a361196914) without deploying ChatticusComputers. ThinTurn deploy will set computerHostCommand=host-worker. Exercise waits up to 180s for tool.result.",
       "created_at": "2026-08-31T13:38:40.172193Z"
+    },
+    {
+      "id": "6531828f-4f60-43f0-bbb2-1f993697f2be",
+      "author": "home",
+      "text": "Live 2026-08-31: claim/fence still pass on the Function URL (missing_claim=404, claim_a=200, claim_b=409). ChatticusWeb restacked ThinTurn at 14:18:50Z and wiped ComputerWorker RunTask IAM/env, so the following exercise nacked with host_start_generation=1 and no new Fargate task. 017e465 looks up ChatticusComputers at ThinTurn synth so a Web restack cannot drop ecs host-start. Next: ThinTurn-only redeploy from this pin, then re-run the named exercise. Do not close until computer_queue_job=completed. Do not steal 35d86b.",
+      "created_at": "2026-08-31T14:33:43.913005Z"
     }
   ],
   "created_at": "2026-08-31T12:19:14.039212Z",
-  "updated_at": "2026-08-31T13:38:40.172193Z",
+  "updated_at": "2026-08-31T14:33:43.913005Z",
   "closed_at": null,
   "custom": {}
 }
