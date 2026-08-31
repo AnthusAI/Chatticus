@@ -64,7 +64,9 @@ Deploy and accept against named cloud environments from the start:
 - Worker protocol with `tenant_id` and prefer-local routing
 - Serverless control plane: per-request HTTP, one-turn server-sent events,
   DynamoDB transcript
-- Task tracking through Kanbus, reachable without summoning a computer
+- Task tracking via a thin Task item in DynamoDB (status, evidence, close
+  reason, bot provenance); structured agent tool at the first readiness
+  gate, no computer required; Kanbus HTTP later if its store matches
 - Computer snapshots: publish to S3, administrator relocate, host hydrate
 - docker-compose for local control plane + computer
 - Fargate (and optional EC2) path in AWS
