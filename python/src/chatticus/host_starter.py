@@ -91,9 +91,7 @@ class EcsHostStarter:
         failures = (response or {}).get("failures") or []
         tasks = (response or {}).get("tasks") or []
         if failures or not tasks:
-            raise RuntimeError(
-                f"ecs.run_task returned no tasks failures={failures!r}"
-            )
+            raise RuntimeError(f"ecs.run_task returned no tasks failures={failures!r}")
 
     def _run_task_overrides(self, claim: HostStartClaim) -> dict[str, Any]:
         command = os.environ.get("CHATTICUS_ECS_HOST_COMMAND", "").strip()
