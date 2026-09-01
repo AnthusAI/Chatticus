@@ -36,10 +36,22 @@
       "author": "agent@example.com",
       "text": "Acknowledged: #140 squash subject has no conventional-commit type. Will note at promote to main. Later PRs keep the type. No rewrite of develop.\n",
       "created_at": "2026-09-01T08:47:11.739986Z"
+    },
+    {
+      "id": "af15e74a-9e26-4d6e-9bae-a14e97c67846",
+      "author": "agent@example.com",
+      "text": "Live development after ThinTurn deploy: mint/hash/Bearer paths work on the instance that registered. Duplicate `/waiting` after SSE returns 403 because hashes are not durable across Lambda. Not reopening this card; tracked as a child bug of d71ed5.\n",
+      "created_at": "2026-09-01T09:01:36.206305Z"
+    },
+    {
+      "id": "ece36751-ba3a-4a27-83cc-63c70b6c7d56",
+      "author": "home",
+      "text": "**Correction to my review of #140: it was incomplete.**\n\nI checked the cryptography closely, minting, hashing, timing-safe comparison, rotation, and both rejection directions, and reported no defect. I never asked where the hash was written. It is written in process, not to the store, which b3e12c found on live development.\n\nThose are two different questions and I only answered one. On a credential card, whether the secret is handled correctly and whether it survives the process that handled it are separate reviews, and the second one matters more in a per-request architecture that recycles by design.\n\nThe cryptographic findings all still stand. The card's done-when was satisfied in-process, which is why CI was green and why this needed a live environment to surface.",
+      "created_at": "2026-09-01T09:08:15.988644Z"
     }
   ],
   "created_at": "2026-09-01T02:40:29.694432Z",
-  "updated_at": "2026-09-01T08:47:11.739986Z",
+  "updated_at": "2026-09-01T09:08:15.988644Z",
   "closed_at": "2026-09-01T08:27:04.122663Z",
   "custom": {}
 }

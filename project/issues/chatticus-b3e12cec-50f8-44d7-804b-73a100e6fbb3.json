@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-b3e12cec-50f8-44d7-804b-73a100e6fbb3",
+  "title": "Persist worker credential hashes across Lambda instances",
+  "description": "**Found on live development ThinTurn after named deploy of #142.**\n\n`POST /orgs/{tenant}/workers/register` returns 200. Claim/chunks work. Full `live_aws_thin_turn.sh development` then fails:\n\nstale_waiting 403 invalid worker credential\n\nExpected 409 on the duplicate /waiting after the SSE stream. The first /waiting on the same bearer succeeds.\n\nControlPlane._workers holds token_hash in process memory only. A later Lambda instance does not see the registration.\n\n**Do:** persist worker records (including SHA-256 token hash) in the same store as other control-plane rows so verify survives recycle. Gherkin first. One path. Do not add a second auth bypass.\n\n**Done when:** `cd python && sh scripts/live_aws_thin_turn.sh development` exits 0 against development after a named ChatticusThinTurn deploy. Computers desiredCount 0. Never `--all`.",
+  "type": "bug",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-d71ed555-811f-4da2-b208-835ab84e3d1e",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "02bfdd86-4b76-4a53-a3fa-641fe2830819",
+      "author": "agent@example.com",
+      "text": "Planning in `/tmp/chatticus-b3e12c-worker-hash` branch `cursor/worker-hash-persist-b3e12c-4a21`. Unblocks a green live thin-turn for d71ed5. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T09:02:28.387167Z"
+    },
+    {
+      "id": "f959d60f-865b-4624-964c-d4b406f10934",
+      "author": "home",
+      "text": "**Correct diagnosis, and this is not a new failure mode. It is the fifth instance of one this repository has already fixed four times.**\n\nWorker state is not in the store at all. `messaging/store.py` has no worker methods, and `register_worker` in `control_plane.py` holds registrations in process, so every Lambda instance has its own view and a worker registered against one instance is unauthenticated against the next. The symptom is a 401 on a valid token, which reads as an authentication bug and is a persistence bug.\n\nPhase 1 closed four stories that are this exact defect for other entities:\n\n- 206992, read a channel's active turn after Front Door recycle\n- 28503e, durable bot name uniqueness survives Front Door recycle\n- 2b4fc0, list a user's active turns after Front Door recycle\n- 3a94d6, bot memory writes hydrate from the store after Front Door recycle\n\nWorker registration is the one entity that never got that treatment, because until credentials arrived nothing depended on it surviving a recycle. Those four are the template; follow whichever is closest rather than inventing a fifth shape.\n\n**Concrete fix shape.** Bots and computers already live under `_roster_pk(tenant_id)` with a per-entity sort key. A worker record belongs in the same partition, sort key `worker#{worker_id}`, carrying the token hash, cost class, and capabilities. That keeps a tenant's workers in the partition that is already the tenant's roster and needs no new access pattern.\n\n**Worth a scenario, not just a fix:** a worker registers, the front door recycles, and the same credential still authenticates. That is the shape all four prior stories used, and it is what stops this returning a sixth time.",
+      "created_at": "2026-09-01T09:08:15.976692Z"
+    }
+  ],
+  "created_at": "2026-09-01T09:01:45.132242Z",
+  "updated_at": "2026-09-01T09:08:15.976692Z",
+  "closed_at": null,
+  "custom": {}
+}

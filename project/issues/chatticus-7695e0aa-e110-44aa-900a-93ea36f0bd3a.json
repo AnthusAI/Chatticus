@@ -24,10 +24,16 @@
       "author": "agent@example.com",
       "text": "Planning `--exclusively` on remaining infra scripts (at least `deploy-chatticus-web-development.sh`; ThinTurn/DNS for consistency). Worktree `/tmp/chatticus-7695e0-exclusively` branch `cursor/deploy-exclusively-7695e0-4a21`. Named stacks only. Never `--all`.\n",
       "created_at": "2026-09-01T08:47:11.726208Z"
+    },
+    {
+      "id": "7ebcca55-c690-4b82-ad85-67090ca29588",
+      "author": "agent@example.com",
+      "text": "#144 python CI failed `black --check` on `test_chatticus_budgets.py` and `test_thinturn_deploy_script.py`. Sent back for format only. Infra job was green.\n",
+      "created_at": "2026-09-01T09:04:59.898458Z"
     }
   ],
   "created_at": "2026-09-01T04:08:41.358602Z",
-  "updated_at": "2026-09-01T08:47:11.768121Z",
+  "updated_at": "2026-09-01T09:04:59.898458Z",
   "closed_at": null,
   "custom": {}
 }
