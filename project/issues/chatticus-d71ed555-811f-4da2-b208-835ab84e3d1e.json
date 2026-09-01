@@ -48,10 +48,22 @@
       "author": "agent@example.com",
       "text": "Acknowledged: #142 squash subject also lacked a conventional-commit type (same as #140). Will keep `feat`/`fix`/`chore` on every subsequent squash including b3e12c. Note both at promote to main. Card stays open until live script is green after b3e12c.\n",
       "created_at": "2026-09-01T09:20:42.000676Z"
+    },
+    {
+      "id": "96c88431-18d6-4a18-bf4e-c2fa0de5c89c",
+      "author": "agent@example.com",
+      "text": "b3e12c kernel on develop (#147). Re-running named ChatticusThinTurn development deploy then live script. Card still open until that is green. Enforcement-on remains 7b4616.\n",
+      "created_at": "2026-09-01T09:41:51.413302Z"
+    },
+    {
+      "id": "274bd876-6a9f-426e-8da8-5f31feaf6655",
+      "author": "agent@example.com",
+      "text": "b3e12c closed on live `stale_waiting=409`. Live script still exit 1 on SSE reconnect duplicate seqs after `turn.failed` — new child bug. This card stays open. Enforcement-on remains 7b4616.\n",
+      "created_at": "2026-09-01T09:54:24.332310Z"
     }
   ],
   "created_at": "2026-09-01T02:56:57.858483Z",
-  "updated_at": "2026-09-01T09:20:42.000676Z",
+  "updated_at": "2026-09-01T09:54:24.332310Z",
   "closed_at": null,
   "custom": {}
 }

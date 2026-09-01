@@ -148,10 +148,16 @@
       "author": "agent@example.com",
       "text": "Cadence: **#146** overlay on develop. **#147** (b3e12c) roster persist + scan dropped; waiting python CI after black-format. Named ThinTurn live still blocked on that merge then a named deploy. **0ab02c** still human. Computers desiredCount 0. Never `--all`.\n",
       "created_at": "2026-09-01T09:37:35.803892Z"
+    },
+    {
+      "id": "b2028db8-ead0-4dbf-9183-0a80ee7eb4fb",
+      "author": "agent@example.com",
+      "text": "**b3e12c** closed: live `stale_waiting=409` after #147 named ThinTurn deploy. **d71ed5** stays open; remaining live-script fail is reconnect duplicate seqs, not worker hashes. **0ab02c** still human. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T09:54:24.345502Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T09:37:35.803892Z",
+  "updated_at": "2026-09-01T09:54:24.345502Z",
   "closed_at": null,
   "custom": {}
 }

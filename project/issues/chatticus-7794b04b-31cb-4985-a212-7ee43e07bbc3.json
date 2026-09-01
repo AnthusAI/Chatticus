@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-7794b04b-31cb-4985-a212-7ee43e07bbc3",
+  "title": "Live thin-turn reconnect reports duplicate seqs after turn.failed",
+  "description": "**Found after b3e12c live deploy of #147.**\n\nWorker credential recycle is green: `stale_waiting=409`. The rest of `python/scripts/live_aws_thin_turn.sh development` then exits 1:\n\n```\nfirst_stream_kinds=['turn.started', 'turn.failed'] dropped_mid_stream=False\nreconnect_last_event_id=1\nresumed_stream_kinds=['turn.failed']\nduplicate seqs across drop/reconnect: [1, 2, 2]\n```\n\nLambda URL development ThinTurn. Computers desiredCount 0. Never `--all`.\n\n**Do:** determine whether the greeting turn is failing for a real worker/LLM reason or the reconnect gate is mis-asserting when the first stream never dropped mid-token. One path. Gherkin if it is product.\n\n**Done when:** `cd python && sh scripts/live_aws_thin_turn.sh development` exits 0 against development after a named ChatticusThinTurn deploy.",
+  "type": "bug",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-d71ed555-811f-4da2-b208-835ab84e3d1e",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "fb60887e-3eb8-4bf0-80ba-27e4d1a93582",
+      "author": "agent@example.com",
+      "text": "Planning in `/tmp/chatticus-7794b0-reconnect-seq` branch `cursor/live-reconnect-seq-7794b0-4a21`. Diagnose turn.failed vs reconnect assertion. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T09:55:09.744246Z"
+    }
+  ],
+  "created_at": "2026-09-01T09:54:24.317568Z",
+  "updated_at": "2026-09-01T09:55:09.744246Z",
+  "closed_at": null,
+  "custom": {}
+}
