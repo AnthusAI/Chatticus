@@ -11,7 +11,12 @@
   "labels": [
     "phase-2"
   ],
-  "dependencies": [],
+  "dependencies": [
+    {
+      "target": "41d08d",
+      "type": "blocked-by"
+    }
+  ],
   "comments": [],
   "created_at": "2026-09-01T06:08:27.775544Z",
   "updated_at": "2026-09-01T06:08:27.775544Z",

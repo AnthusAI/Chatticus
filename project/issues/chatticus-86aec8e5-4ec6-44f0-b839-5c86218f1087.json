@@ -100,10 +100,16 @@
       "author": "agent@example.com",
       "text": "Phase 01 cadence:\n\n- **b574a6** closed on the board (#131 / edca177). Control-plane org ops on develop (#130).\n- **41d08d** in progress — #132 members CLI (list/show/enable/suspend/set-role). Enable refuses non-pending (architect enable≠reinstate). CI on the ruff fix still queued; not merged. Card stays open until development-table enable works.\n- **0ab02c** still human (Google OAuth External). Sign-in chain still blocked there.\n- Computers desiredCount 0. Never --all.\n",
       "created_at": "2026-09-01T06:02:21.716252Z"
+    },
+    {
+      "id": "f63634ec-b17c-4d4a-adfe-66e773cff307",
+      "author": "agent@example.com",
+      "text": "**41d08d closed.** Members CLI on develop (#132 / 5ab905e) and accepted against development Dynamo (list pending, enable without a computer). **50b42d** (reinstate) is unblocked but not started. **0ab02c** still human — sign-in chain still waits on Google OAuth clients.\n",
+      "created_at": "2026-09-01T06:25:37.392578Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T06:02:21.716252Z",
+  "updated_at": "2026-09-01T06:25:37.392578Z",
   "closed_at": null,
   "custom": {}
 }
