@@ -152,10 +152,11 @@ AWS account ids belong in gitignored `AGENTS.local.md`, not in this
 file. Resolve the front door from SSM, CloudFormation, or
 `CHATTICUS_*_BASE_URL`.
 
-The table below records the deployed mapping before the brand milestone is
-rolled out. Production remains at the apex until the ordered deployment above.
+The table below records the target mapping after the brand milestone's ordered
+deployment. Until that rollout is complete, the existing production workspace
+may remain at the apex; verify the live aliases before moving either distribution.
 
-| Environment | Web stack | Currently deployed site | Currently deployed API base |
+| Environment | Web stack | Target site | Target API base |
 | --- | --- | --- | --- |
 | development | `ChatticusWeb` | https://dev.chattic.us | https://dev.chattic.us/api |
 | staging | `ChatticusWebStaging` | https://staging.chattic.us | https://staging.chattic.us/api |

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { ArrowRight, Check, MousePointer2 } from "lucide-react";
+import { ArrowRight, Check, MousePointer2, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CreativeCharacter } from "@/components/CreativeCharacter";
 import type { CreativeMotionState, CreativeRole } from "anthus-vultus";
@@ -56,6 +56,8 @@ const scenes: Scene[] = [
 export function LivingOrganization() {
   const [sceneIndex, setSceneIndex] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [autoplay, setAutoplay] = useState(true);
+  const [announceChanges, setAnnounceChanges] = useState(false);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -66,14 +68,21 @@ export function LivingOrganization() {
   }, []);
 
   useEffect(() => {
-    if (reducedMotion) {
+    if (reducedMotion || !autoplay) {
       return;
     }
     const interval = window.setInterval(() => {
+      setAnnounceChanges(false);
       setSceneIndex((current) => (current + 1) % scenes.length);
     }, 3600);
     return () => window.clearInterval(interval);
-  }, [reducedMotion]);
+  }, [autoplay, reducedMotion]);
+
+  const selectScene = (nextScene: number) => {
+    setAutoplay(false);
+    setAnnounceChanges(true);
+    setSceneIndex(nextScene);
+  };
 
   const scene = scenes[sceneIndex];
   const activeTeammate = teammates[scene.activeIndex];
@@ -117,7 +126,7 @@ export function LivingOrganization() {
                   const nextScene = scenes.findIndex(
                     (candidate) => candidate.activeIndex === index,
                   );
-                  setSceneIndex(nextScene >= 0 ? nextScene : 0);
+                  selectScene(nextScene >= 0 ? nextScene : 0);
                 }}
                 className={cn(
                   "group relative min-w-0 rounded-[1.25rem] border p-2 text-left transition duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-signal/35 sm:p-3",
@@ -166,27 +175,56 @@ export function LivingOrganization() {
             <p className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-paper/[0.55]">
               Live handoff
             </p>
-            <p className="mt-1 font-body text-sm font-semibold" aria-live="polite">
+            <p
+              className="mt-1 font-body text-sm font-semibold"
+              aria-live={announceChanges ? "polite" : "off"}
+            >
               {announcement}
             </p>
           </div>
           <ArrowRight className="hidden h-5 w-5 text-signal sm:block" aria-hidden="true" />
         </div>
 
-        <div className="mt-4 flex gap-2" aria-label="Animation scene controls">
-          {scenes.map((candidate, index) => (
-            <button
-              key={`${candidate.activeIndex}-${candidate.state}`}
-              type="button"
-              aria-label={`Show scene ${index + 1}`}
-              aria-current={index === sceneIndex ? "true" : undefined}
-              onClick={() => setSceneIndex(index)}
-              className={cn(
-                "h-1.5 flex-1 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal",
-                index === sceneIndex ? "bg-signal" : "bg-paper/20",
-              )}
-            />
-          ))}
+        <div className="mt-4 flex items-center gap-3">
+          <div
+            className="flex flex-1 gap-2"
+            aria-label="Animation scene controls"
+          >
+            {scenes.map((candidate, index) => (
+              <button
+                key={`${candidate.activeIndex}-${candidate.state}`}
+                type="button"
+                aria-label={`Show scene ${index + 1}`}
+                aria-current={index === sceneIndex ? "true" : undefined}
+                onClick={() => selectScene(index)}
+                className={cn(
+                  "h-1.5 flex-1 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal",
+                  index === sceneIndex ? "bg-signal" : "bg-paper/20",
+                )}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={reducedMotion}
+            onClick={() => {
+              setAnnounceChanges(false);
+              setAutoplay((current) => !current);
+            }}
+            className="inline-flex min-w-[8.5rem] items-center justify-center gap-2 rounded-full border border-paper/25 px-3 py-2 font-mono text-[0.58rem] uppercase tracking-[0.1em] text-paper transition hover:border-signal hover:text-signal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {autoplay && !reducedMotion ? (
+              <>
+                <Pause className="h-3 w-3" aria-hidden="true" />
+                Pause motion
+              </>
+            ) : (
+              <>
+                <Play className="h-3 w-3" aria-hidden="true" />
+                Resume motion
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

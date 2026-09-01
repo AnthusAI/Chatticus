@@ -65,6 +65,7 @@ from chatticus.models import (
     AutoReviewRule,
     AutoReviewRuleKind,
     Bot,
+    BotRole,
     Channel,
     ChannelNotFoundError,
     ChannelParticipant,
@@ -564,6 +565,7 @@ class ControlPlane:
         tenant_id: str,
         user_id: str,
         name: str,
+        role: BotRole | None = None,
         *,
         idempotency_key: str | None = None,
     ) -> Bot:
@@ -587,6 +589,7 @@ class ControlPlane:
             tenant_id=tenant_id,
             user_id=user_id,
             name=name,
+            role=role,
         )
         self._bots[bot.bot_id] = bot
         self._messaging_store.put_bot(bot, reserve_name=True)

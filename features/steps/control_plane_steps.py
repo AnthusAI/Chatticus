@@ -481,6 +481,21 @@ def when_create_bot_with_idempotency(
         context.repeated_bot_id = bot.bot_id
 
 
+@when(
+    'tenant "{tenant_id}" user "{user_id}" creates bot "{name}" '
+    'with role "{role}" through the Front Door'
+)
+def when_create_bot_with_role_through_front_door(
+    context: object, tenant_id: str, user_id: str, name: str, role: str
+) -> None:
+    response = context.api_client.post(
+        org_path(tenant_id, "/bots"),
+        json={"user_id": user_id, "name": name, "role": role},
+    )
+    assert response.status_code == 200
+    context.created_bot_payload = response.json()
+
+
 @given("an empty control plane backed by a durable messaging store")
 def given_durable_messaging_store(context: object) -> None:
     context.messaging_store = InMemoryMessagingStore()
@@ -627,6 +642,37 @@ def then_list_user_bots(context: object, tenant_id: str, user_id: str) -> None:
         payload = next(bot for bot in response.json()["bots"] if bot["name"] == name)
         assert payload["bot_id"] == expected.bot_id
         assert payload["user_id"] == user_id
+
+
+@then(
+    'tenant "{tenant_id}" can list bot "{name}" for user "{user_id}" '
+    'with role "{role}"'
+)
+def then_list_user_bot_with_role(
+    context: object, tenant_id: str, name: str, user_id: str, role: str
+) -> None:
+    response = context.api_client.get(
+        org_path(tenant_id, f"/users/{user_id}/bots"),
+    )
+    assert response.status_code == 200
+    assert response.json()["bots"] == [
+        {
+            "bot_id": context.created_bot_payload["bot_id"],
+            "tenant_id": tenant_id,
+            "user_id": user_id,
+            "name": name,
+            "role": role,
+            "memory": {},
+        }
+    ]
+
+
+@then('tenant "{tenant_id}" cannot read that bot')
+def then_other_tenant_cannot_read_created_bot(context: object, tenant_id: str) -> None:
+    response = context.api_client.get(
+        org_path(tenant_id, f"/bots/{context.created_bot_payload['bot_id']}"),
+    )
+    assert response.status_code == 404
 
 
 @when('worker "{worker_id}" publishes a snapshot of computer "{computer_id}"')

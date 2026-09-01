@@ -29,6 +29,7 @@ from chatticus.http.sse import (
 from chatticus.models import (
     ActorKind,
     ActorNotInChannelError,
+    BotRole,
     ChannelNotFoundError,
     ChannelTenantMismatchError,
     ChatticusError,
@@ -69,6 +70,7 @@ class CreateBotBody(BaseModel):
 
     user_id: str
     name: str
+    role: BotRole | None = None
 
 
 class RememberBotBody(BaseModel):
@@ -310,10 +312,10 @@ def create_app(
         tenant_id: str,
         body: CreateBotBody,
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-    ) -> dict[str, str]:
+    ) -> dict[str, Any]:
         key = (idempotency_key or "").strip() or None
         bot = state.plane.create_bot(
-            tenant_id, body.user_id, body.name, idempotency_key=key
+            tenant_id, body.user_id, body.name, body.role, idempotency_key=key
         )
         logger.info(
             "bot_created tenant_id=%s user_id=%s bot_id=%s",
@@ -326,6 +328,7 @@ def create_app(
             "tenant_id": bot.tenant_id,
             "user_id": bot.user_id,
             "name": bot.name,
+            "role": bot.role,
         }
 
     @user_router.get("/bots")
@@ -918,6 +921,7 @@ def _bot_payload(bot: Any) -> dict[str, Any]:
         "tenant_id": bot.tenant_id,
         "user_id": bot.user_id,
         "name": bot.name,
+        "role": bot.role,
         "memory": dict(bot.memory),
     }
 

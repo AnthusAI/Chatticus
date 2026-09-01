@@ -50,6 +50,20 @@ Feature: Bot turns pin to the user's computer
       | Researcher |
       | Writer     |
 
+  Scenario Outline: A bot's creative role survives a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    When tenant "anthus" user "ryan" creates bot "Teammate" with role "<role>" through the Front Door
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" can list bot "Teammate" for user "ryan" with role "<role>"
+    And tenant "other" cannot read that bot
+
+    Examples:
+      | role        |
+      | Editor      |
+      | Reporter    |
+      | Copy Writer |
+      | Illustrator |
+
   Scenario: A bot can be read by identifier after a Front Door recycle
     Given an empty control plane backed by a durable messaging store with HTTP
     And tenant "anthus" user "ryan" has a bot named "Researcher"

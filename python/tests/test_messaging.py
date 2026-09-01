@@ -27,6 +27,7 @@ from chatticus.messaging.store import (
 )
 from chatticus.models import (
     ActorKind,
+    BotRole,
     ComputerlessCannotExecuteComputerJob,
     ComputerNotReadyError,
     ComputerWorkerHostNotReady,
@@ -1832,6 +1833,35 @@ def test_http_duplicate_bot_name_is_rejected() -> None:
     )
     assert duplicate.status_code == 400
     api.close()
+
+
+def test_http_bot_role_is_validated_and_exposed() -> None:
+    api = _client_for(ControlPlane())
+    created = api.post(
+        org_path("anthus", "/bots"),
+        json={"user_id": "ryan", "name": "Nell", "role": "Reporter"},
+    )
+    assert created.status_code == 200
+    assert created.json()["role"] == "Reporter"
+    invalid = api.post(
+        org_path("anthus", "/bots"),
+        json={"user_id": "ryan", "name": "Scout", "role": "Researcher"},
+    )
+    assert invalid.status_code == 422
+    api.close()
+
+
+@mock_aws
+def test_dynamo_bot_role_survives_a_new_control_plane() -> None:
+    table_name = "chatticus-bot-role-test"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    created = ControlPlane(messaging_store=store).create_bot(
+        "anthus", "ryan", "Sol", BotRole.ILLUSTRATOR
+    )
+    loaded = ControlPlane(messaging_store=store).bot("anthus", created.bot_id)
+    assert loaded.role is BotRole.ILLUSTRATOR
 
 
 def test_http_bot_create_idempotency_key_does_not_duplicate() -> None:

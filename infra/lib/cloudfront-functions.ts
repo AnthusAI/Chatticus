@@ -31,11 +31,24 @@ export const WWW_TO_APEX_REDIRECT_FUNCTION = `function handler(event) {
   var request = event.request;
   var host = request.headers.host.value;
   if (host.indexOf("www.") === 0) {
+    var parts = [];
+    var querystring = request.querystring || {};
+    Object.keys(querystring).forEach(function (key) {
+      var parameter = querystring[key];
+      if (parameter.multiValue) {
+        parameter.multiValue.forEach(function (entry) {
+          parts.push(key + "=" + entry.value);
+        });
+      } else {
+        parts.push(key + "=" + parameter.value);
+      }
+    });
+    var suffix = parts.length ? "?" + parts.join("&") : "";
     return {
       statusCode: 301,
       statusDescription: "Moved Permanently",
       headers: {
-        location: { value: "https://chattic.us" + request.uri }
+        location: { value: "https://chattic.us" + request.uri + suffix }
       }
     };
   }

@@ -22,10 +22,22 @@
       "author": "home",
       "text": "Post-rebase validation against current develop passes: Behave 50 features, 269 scenarios, and 1,661 steps; Pytest 427 passed with eight skipped. The redesigned source and ChatticusMarketingWeb stack remain undeployed, and the work has not landed, so the epic stays in progress.",
       "created_at": "2026-09-01T11:17:31.246532Z"
+    },
+    {
+      "id": "0d34bb63-c683-4061-bd0a-5c9402216129",
+      "author": "home",
+      "text": "Review correction pass started: add explicit motion controls and accessible announcements; persist and expose the four creative bot roles end to end; restore marketing 404 semantics; preserve query strings in the www redirect; and reconcile the production deployment record.",
+      "created_at": "2026-09-01T11:21:18.576181Z"
+    },
+    {
+      "id": "7b484a95-eee2-4a16-97bf-12f37a6f56bc",
+      "author": "home",
+      "text": "Review corrections implemented and verified without committing: manual teammate selection now pauses rotation; visible pause/resume and manual-only live announcements preserve reduced-motion behavior. BotRole persists through control-plane, Dynamo, and HTTP for Editor, Reporter, Copy Writer, and Illustrator, with tenant-isolated Gherkin coverage; workspace model selection now reads only the stored role. Marketing missing paths use exported 404.html with HTTP 404, www redirects retain query strings, and README describes the target production mapping without claiming it is already deployed. Full Behave: 50 features, 273 scenarios, 1681 steps. Full pytest passed. Marketing, workspace, and focused CDK gates passed.",
+      "created_at": "2026-09-01T11:30:11.113130Z"
     }
   ],
   "created_at": "2026-08-31T20:43:39.084042Z",
-  "updated_at": "2026-09-01T11:17:31.246532Z",
+  "updated_at": "2026-09-01T11:30:11.113130Z",
   "closed_at": null,
   "custom": {}
 }

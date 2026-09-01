@@ -56,4 +56,15 @@ describe("Chatticus marketing experience", () => {
     assert.match(styles, /prefers-reduced-motion:reduce/);
     assert.match(styles, /overflow-x:hidden/);
   });
+
+  it("offers explicit motion controls and separates manual announcements", () => {
+    const organizationSource = readFileSync(
+      join(root, "components", "LivingOrganization.tsx"),
+      "utf8",
+    );
+    assert.match(organizationSource, /Pause motion/);
+    assert.match(organizationSource, /Resume motion/);
+    assert.match(organizationSource, /setAutoplay\(false\)/);
+    assert.match(organizationSource, /aria-live=\{announceChanges \? "polite" : "off"\}/);
+  });
 });

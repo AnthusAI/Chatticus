@@ -9,13 +9,9 @@ const creativeRoles: CreativeRole[] = [
 ];
 
 export function creativeRoleForBot(bot: Bot): CreativeRole | null {
-  const candidate = (bot.role ?? bot.memory.role ?? "").trim().toLowerCase();
-  return (
-    creativeRoles.find((role) => role.toLowerCase() === candidate) ??
-    (candidate === "copywriter" ? "Copy Writer" : null)
-  );
+  return creativeRoles.find((role) => role === bot.role) ?? null;
 }
 
 export function botRoleLabel(bot: Bot): string {
-  return creativeRoleForBot(bot) ?? bot.role ?? bot.memory.role ?? "Role not assigned";
+  return creativeRoleForBot(bot) ?? "Role not assigned";
 }

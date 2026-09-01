@@ -11,7 +11,7 @@ export type Bot = {
   tenant_id: string;
   user_id: string;
   name: string;
-  role?: string;
+  role?: "Editor" | "Reporter" | "Copy Writer" | "Illustrator" | null;
   memory: Record<string, string>;
 };
 

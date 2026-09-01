@@ -11,7 +11,6 @@ import { execSync } from "child_process";
 import * as path from "path";
 import { Construct } from "constructs";
 import {
-  SPA_VIEWER_RESPONSE_FUNCTION,
   WWW_TO_APEX_REDIRECT_FUNCTION,
 } from "./cloudfront-functions";
 import {
@@ -43,11 +42,6 @@ export class MarketingWebStack extends cdk.Stack {
       code: cloudfront.FunctionCode.fromInline(WWW_TO_APEX_REDIRECT_FUNCTION),
       comment: "Redirect www.chattic.us to the marketing site apex.",
     });
-    const spaViewerResponse = new cloudfront.Function(this, "SpaViewerResponse", {
-      code: cloudfront.FunctionCode.fromInline(SPA_VIEWER_RESPONSE_FUNCTION),
-      comment: "Return the marketing entry point for static paths.",
-    });
-
     const distribution = new cloudfront.Distribution(this, "MarketingDistribution", {
       comment: "Chatticus public marketing site at chattic.us.",
       domainNames: [siteDomain, MARKETING_WWW_DOMAIN],
@@ -63,12 +57,20 @@ export class MarketingWebStack extends cdk.Stack {
             function: wwwRedirect,
             eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
           },
-          {
-            function: spaViewerResponse,
-            eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE,
-          },
         ],
       },
+      errorResponses: [
+        {
+          httpStatus: 403,
+          responseHttpStatus: 404,
+          responsePagePath: "/404.html",
+        },
+        {
+          httpStatus: 404,
+          responseHttpStatus: 404,
+          responsePagePath: "/404.html",
+        },
+      ],
     });
 
     const marketingRoot = path.join(__dirname, "../../marketing");

@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { botRoleLabel, creativeRoleForBot } from "./bot-role";
 import type { Bot } from "./api";
 
-function bot(role?: string, memoryRole?: string): Bot {
+function bot(role?: Bot["role"], memoryRole?: string): Bot {
   return {
     bot_id: "bot-1",
     tenant_id: "tenant-1",
@@ -17,12 +17,11 @@ function bot(role?: string, memoryRole?: string): Bot {
 describe("bot roles", () => {
   it("uses explicit creative roles to select a Vultus model", () => {
     assert.equal(creativeRoleForBot(bot("Reporter")), "Reporter");
-    assert.equal(creativeRoleForBot(bot(undefined, "Copy Writer")), "Copy Writer");
-    assert.equal(creativeRoleForBot(bot("copywriter")), "Copy Writer");
+    assert.equal(creativeRoleForBot(bot("Copy Writer")), "Copy Writer");
   });
 
-  it("does not invent a role when none is stored", () => {
-    assert.equal(creativeRoleForBot(bot()), null);
+  it("uses only the persisted role and does not infer one from memory", () => {
+    assert.equal(creativeRoleForBot(bot(undefined, "Copy Writer")), null);
     assert.equal(botRoleLabel(bot()), "Role not assigned");
   });
 });

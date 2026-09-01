@@ -77,6 +77,15 @@ class DuplicateBotNameError(ChatticusError):
     """Bot names are unique per tenant user."""
 
 
+class BotRole(StrEnum):
+    """The creative role a named teammate holds in its organization."""
+
+    EDITOR = "Editor"
+    REPORTER = "Reporter"
+    COPY_WRITER = "Copy Writer"
+    ILLUSTRATOR = "Illustrator"
+
+
 class SnapshotRequiredError(ChatticusError):
     """Relocate and hydrate need a published snapshot in object storage."""
 
@@ -353,6 +362,7 @@ class Bot:
     tenant_id: str
     user_id: str
     name: str
+    role: BotRole | None = None
     memory: dict[str, str] = field(default_factory=dict)
 
 

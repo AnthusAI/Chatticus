@@ -15,6 +15,7 @@ from chatticus.capability_policy import (
 from chatticus.models import (
     ActorKind,
     Bot,
+    BotRole,
     Channel,
     ChannelParticipant,
     Computer,
@@ -1105,6 +1106,8 @@ class DynamoMessagingStore:
             "name": {"S": bot.name},
             "memory": {"S": json.dumps(bot.memory)},
         }
+        if bot.role is not None:
+            bot_item["role"] = {"S": bot.role}
         if not reserve_name:
             self.client.put_item(TableName=self.table_name, Item=bot_item)
             return
@@ -1823,6 +1826,9 @@ class DynamoMessagingStore:
             tenant_id=item["tenant_id"]["S"],
             user_id=item["user_id"]["S"],
             name=item["name"]["S"],
+            role=(
+                BotRole(item["role"]["S"]) if item.get("role", {}).get("S") else None
+            ),
             memory={str(key): str(value) for key, value in memory.items()},
         )
 
