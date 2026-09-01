@@ -56,7 +56,8 @@ def test_outcome_from_chat_completion_reads_task_tool_call() -> None:
                     }
                 }
             ]
-        }
+        },
+        model="chatticus-test-model",
     )
     assert outcome.task_tool_call is not None
     assert outcome.task_tool_call.action == "create"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import threading
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any, Protocol
 
 from chatticus.capability_policy import (
@@ -40,6 +41,7 @@ from chatticus.models import (
     WorkerRecord,
     WorkerRegistration,
 )
+from chatticus.vendor_ledger import VendorLedgerRow
 
 
 class MessagingStore(Protocol):
@@ -267,6 +269,25 @@ class MessagingStore(Protocol):
     def list_workers(self, tenant_id: str) -> list[WorkerRecord]:
         """Return every worker registered for one tenant."""
 
+    def get_vendor_ledger_row(
+        self, tenant_id: str, turn_id: str
+    ) -> VendorLedgerRow | None:
+        """Load one vendor spend ledger row for a turn."""
+
+    def insert_vendor_ledger_row(self, row: VendorLedgerRow) -> VendorLedgerRow:
+        """Insert the first vendor spend row for one turn."""
+
+    def accumulate_vendor_ledger_usage(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        input_delta: int,
+        output_delta: int,
+        cost_delta: Decimal | None,
+    ) -> VendorLedgerRow:
+        """Add token and optional cost deltas to an existing ledger row."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -293,6 +314,7 @@ class InMemoryMessagingStore:
         self._user_org_index: dict[tuple[str, str], Membership] = {}
         self._invitations: dict[str, Invitation] = {}
         self._workers: dict[tuple[str, str], WorkerRecord] = {}
+        self._vendor_ledger: dict[tuple[str, str], VendorLedgerRow] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -680,6 +702,54 @@ class InMemoryMessagingStore:
 
     def get_invitation(self, invitation_id: str) -> Invitation | None:
         return self._invitations.get(invitation_id)
+
+    def get_vendor_ledger_row(
+        self, tenant_id: str, turn_id: str
+    ) -> VendorLedgerRow | None:
+        return self._vendor_ledger.get((tenant_id, turn_id))
+
+    def insert_vendor_ledger_row(self, row: VendorLedgerRow) -> VendorLedgerRow:
+        key = (row.tenant_id, row.turn_id)
+        with self._lock:
+            if key in self._vendor_ledger:
+                msg = f"Vendor ledger row for turn {row.turn_id!r} already exists."
+                raise ValueError(msg)
+            self._vendor_ledger[key] = row
+            return row
+
+    def accumulate_vendor_ledger_usage(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        input_delta: int,
+        output_delta: int,
+        cost_delta: Decimal | None,
+    ) -> VendorLedgerRow:
+        key = (tenant_id, turn_id)
+        with self._lock:
+            existing = self._vendor_ledger.get(key)
+            if existing is None:
+                msg = f"Vendor ledger row for turn {turn_id!r} is unknown."
+                raise ValueError(msg)
+            next_cost = existing.cost_usd
+            if cost_delta is not None:
+                next_cost = (next_cost or Decimal("0")) + cost_delta
+            updated = VendorLedgerRow(
+                tenant_id=existing.tenant_id,
+                turn_id=existing.turn_id,
+                vendor=existing.vendor,
+                model=existing.model,
+                input_tokens=existing.input_tokens + input_delta,
+                output_tokens=existing.output_tokens + output_delta,
+                billed_via=existing.billed_via,
+                input_price_per_million_usd=existing.input_price_per_million_usd,
+                output_price_per_million_usd=existing.output_price_per_million_usd,
+                cost_usd=next_cost,
+                recorded_at=existing.recorded_at,
+            )
+            self._vendor_ledger[key] = updated
+            return updated
 
 
 class DynamoMessagingStore:
@@ -1765,6 +1835,74 @@ class DynamoMessagingStore:
             return None
         return _invitation_from_item(canonical_item)
 
+    def get_vendor_ledger_row(
+        self, tenant_id: str, turn_id: str
+    ) -> VendorLedgerRow | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._vendor_ledger_pk(tenant_id)},
+                "sk": {"S": self._vendor_ledger_sk(turn_id)},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _vendor_ledger_from_item(item)
+
+    def insert_vendor_ledger_row(self, row: VendorLedgerRow) -> VendorLedgerRow:
+        try:
+            self.client.put_item(
+                TableName=self.table_name,
+                Item=_vendor_ledger_item(row),
+                ConditionExpression="attribute_not_exists(sk)",
+            )
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") == (
+                "ConditionalCheckFailedException"
+            ):
+                msg = f"Vendor ledger row for turn {row.turn_id!r} already exists."
+                raise ValueError(msg) from error
+            raise
+        stored = self.get_vendor_ledger_row(row.tenant_id, row.turn_id)
+        if stored is None:
+            msg = f"Vendor ledger row for turn {row.turn_id!r} was not persisted."
+            raise RuntimeError(msg)
+        return stored
+
+    def accumulate_vendor_ledger_usage(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        input_delta: int,
+        output_delta: int,
+        cost_delta: Decimal | None,
+    ) -> VendorLedgerRow:
+        update_expression = "ADD input_tokens :input_delta, output_tokens :output_delta"
+        values: dict[str, Any] = {
+            ":input_delta": {"N": str(input_delta)},
+            ":output_delta": {"N": str(output_delta)},
+        }
+        if cost_delta is not None:
+            update_expression += ", cost_usd :cost_delta"
+            values[":cost_delta"] = {"N": str(cost_delta)}
+        self.client.update_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._vendor_ledger_pk(tenant_id)},
+                "sk": {"S": self._vendor_ledger_sk(turn_id)},
+            },
+            UpdateExpression=update_expression,
+            ConditionExpression="attribute_exists(pk)",
+            ExpressionAttributeValues=values,
+        )
+        stored = self.get_vendor_ledger_row(tenant_id, turn_id)
+        if stored is None:
+            msg = f"Vendor ledger row for turn {turn_id!r} is unknown after update."
+            raise RuntimeError(msg)
+        return stored
+
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
 
@@ -1809,6 +1947,12 @@ class DynamoMessagingStore:
 
     def _invite_sk(self, invitation_id: str) -> str:
         return f"invite#{invitation_id}"
+
+    def _vendor_ledger_pk(self, tenant_id: str) -> str:
+        return f"{tenant_id}#vendor_ledger"
+
+    def _vendor_ledger_sk(self, turn_id: str) -> str:
+        return f"turn#{turn_id}"
 
     def _bot_from_item(self, item: dict[str, Any]) -> Bot:
         memory_raw = item.get("memory", {}).get("S", "{}")
@@ -2144,6 +2288,59 @@ def _turn_event_from_item(item: dict[str, Any]) -> TurnEvent:
         pending_computer_tool=pending,
         action_id=item.get("action_id", {}).get("S") or None,
         attempt_id=item.get("attempt_id", {}).get("S") or None,
+    )
+
+
+def _vendor_ledger_item(row: VendorLedgerRow) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "pk": {"S": f"{row.tenant_id}#vendor_ledger"},
+        "sk": {"S": f"turn#{row.turn_id}"},
+        "tenant_id": {"S": row.tenant_id},
+        "turn_id": {"S": row.turn_id},
+        "vendor": {"S": row.vendor},
+        "model": {"S": row.model},
+        "input_tokens": {"N": str(row.input_tokens)},
+        "output_tokens": {"N": str(row.output_tokens)},
+        "billed_via": {"S": row.billed_via},
+        "recorded_at": {"S": row.recorded_at.isoformat()},
+    }
+    if row.input_price_per_million_usd is not None:
+        item["input_price_per_million_usd"] = {
+            "N": str(row.input_price_per_million_usd)
+        }
+    if row.output_price_per_million_usd is not None:
+        item["output_price_per_million_usd"] = {
+            "N": str(row.output_price_per_million_usd)
+        }
+    if row.cost_usd is not None:
+        item["cost_usd"] = {"N": str(row.cost_usd)}
+    return item
+
+
+def _optional_decimal(item: dict[str, Any], key: str) -> Decimal | None:
+    raw = item.get(key, {}).get("N")
+    if raw is None:
+        return None
+    return Decimal(raw)
+
+
+def _vendor_ledger_from_item(item: dict[str, Any]) -> VendorLedgerRow:
+    return VendorLedgerRow(
+        tenant_id=item["tenant_id"]["S"],
+        turn_id=item["turn_id"]["S"],
+        vendor=item["vendor"]["S"],
+        model=item["model"]["S"],
+        input_tokens=int(item["input_tokens"]["N"]),
+        output_tokens=int(item["output_tokens"]["N"]),
+        billed_via=item["billed_via"]["S"],
+        input_price_per_million_usd=_optional_decimal(
+            item, "input_price_per_million_usd"
+        ),
+        output_price_per_million_usd=_optional_decimal(
+            item, "output_price_per_million_usd"
+        ),
+        cost_usd=_optional_decimal(item, "cost_usd"),
+        recorded_at=datetime.fromisoformat(item["recorded_at"]["S"]),
     )
 
 

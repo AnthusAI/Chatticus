@@ -121,6 +121,7 @@ from chatticus.turn_recovery import (
     TurnDeadlineScheduler,
     logical_enqueue_id,
 )
+from chatticus.vendor_ledger import CompletionUsage, VendorLedgerRow
 from chatticus.worker_credentials import (
     hash_worker_token,
     mint_worker_token,
@@ -852,6 +853,30 @@ class ControlPlane:
             attempt_id=turn.attempt_id,
             expected_fence=turn.fence_token if turn.attempt_id else None,
         )
+
+    def record_vendor_spend(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        usage: CompletionUsage,
+        *,
+        billed_via: str,
+    ) -> VendorLedgerRow:
+        """Persist vendor spend for one model call and log the written row."""
+        from chatticus.vendor_ledger import record_vendor_spend
+
+        return record_vendor_spend(
+            self._messaging_store,
+            tenant_id,
+            turn_id,
+            usage,
+            billed_via=billed_via,
+            now=self.now(),
+        )
+
+    def vendor_ledger_row(self, tenant_id: str, turn_id: str) -> VendorLedgerRow | None:
+        """Load one vendor spend ledger row for a turn."""
+        return self._messaging_store.get_vendor_ledger_row(tenant_id, turn_id)
 
     def unresolved_tool_action_ids(self, tenant_id: str, turn_id: str) -> list[str]:
         """Return committed tool.call action ids that have no tool.result yet."""

@@ -15,6 +15,11 @@ from chatticus.models import (
     TurnJob,
     TurnStatus,
 )
+from chatticus.vendor_ledger import (
+    BILLED_VIA_VENDOR,
+    CompletionUsage,
+    fake_openai_completion_usage,
+)
 from chatticus.worker.tool_dispatch import (
     GatedToolCall,
     ToolDispatchResult,
@@ -35,6 +40,7 @@ class CompletionOutcome:
     """One model step: text to stream, and optional tool side effects."""
 
     text: str
+    usage: CompletionUsage
     wait_gate: str | None = None
     task_tool_call: TaskToolCall | None = None
     gated_tool_call: GatedToolCall | None = None
@@ -50,8 +56,12 @@ class TextCompletionClient(Protocol):
 class FakeTextCompletionClient:
     """Deterministic stand-in so CI never needs a live OpenAI key."""
 
+    def __init__(self, *, model: str = "gpt-5.6-luna") -> None:
+        self.model = model
+
     def complete(self, prompt: str) -> CompletionOutcome:
         """Echo a short answer derived from the last line of the prompt."""
+        usage = fake_openai_completion_usage(model=self.model)
         last_line = prompt.strip().splitlines()[-1] if prompt.strip() else ""
         lowered = last_line.lower()
         user_text = last_line
@@ -63,11 +73,15 @@ class FakeTextCompletionClient:
         if "open the household browser" in lowered:
             return CompletionOutcome(
                 text="Here is a draft before I open the browser.",
+                usage=usage,
                 wait_gate="browser",
             )
         if user_text:
-            return CompletionOutcome(text=f"You said: {user_text}")
-        return CompletionOutcome(text="Hello")
+            return CompletionOutcome(
+                text=f"You said: {user_text}",
+                usage=usage,
+            )
+        return CompletionOutcome(text="Hello", usage=usage)
 
 
 class TaskAwareFakeTextCompletionClient(FakeTextCompletionClient):
@@ -92,6 +106,7 @@ class TaskAwareFakeTextCompletionClient(FakeTextCompletionClient):
             title = match.group(1).strip()
             return CompletionOutcome(
                 text="I'll create that task for you.",
+                usage=fake_openai_completion_usage(model=self.model),
                 task_tool_call=TaskToolCall(
                     action="create",
                     arguments={"title": title},
@@ -130,6 +145,7 @@ class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
             path = read_match.group(1).strip()
             return CompletionOutcome(
                 text="I'll read that workspace file.",
+                usage=fake_openai_completion_usage(model=self.model),
                 gated_tool_call=GatedToolCall(
                     tool_name="read_workspace",
                     arguments={"path": path},
@@ -140,6 +156,7 @@ class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
             url = browse_match.group(1).strip()
             return CompletionOutcome(
                 text="I'll check that origin.",
+                usage=fake_openai_completion_usage(model=self.model),
                 gated_tool_call=GatedToolCall(
                     tool_name="browse",
                     arguments={"url": url},
@@ -150,6 +167,7 @@ class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
             recipient = send_match.group(1).strip()
             return CompletionOutcome(
                 text="I'll try to send that message.",
+                usage=fake_openai_completion_usage(model=self.model),
                 gated_tool_call=GatedToolCall(
                     tool_name="send",
                     arguments={"recipient": recipient},
@@ -295,6 +313,12 @@ class ComputerlessWorker:
             outcome = client.complete(prompt)
         else:
             outcome = RenewingTextCompletionClient(client, renew).complete(prompt)
+        self.plane.record_vendor_spend(
+            job.tenant_id,
+            job.turn_id,
+            outcome.usage,
+            billed_via=BILLED_VIA_VENDOR,
+        )
         if (
             not outcome.text.strip()
             and outcome.wait_gate is None
