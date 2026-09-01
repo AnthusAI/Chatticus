@@ -3,7 +3,7 @@
   "title": "Give each deployment its own OpenAI project and key",
   "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing. Start immediately.\n- **Runs in parallel with:** the rest of phase 1\n- **Unblocks:** any deploy into the new dedicated AWS account\n\n---\n**This blocks the dedicated-account deployment outright.**\n\ninfra/lib/thin-turn-stack.ts reads the OpenAI key from `/amplify/shared/papyrus/OPENAI_API_KEY`, a shared SSM parameter belonging to a different product, referenced in five places (lines 25, 92, 162, 241, 297). In a new dedicated AWS account that parameter does not exist and the ThinTurn stack does not deploy.\n\nIt is also why vendor spend is currently unattributable. The AWS account boundary separates AWS spend completely and does nothing for OpenAI, which has no idea what an AWS account is. A deployment sharing a key with another has vendor spend that belongs to neither.\n\n**Do:** a per-deployment parameter under the deployment's own prefix, holding a key from a vendor project dedicated to that deployment. Follow the existing runtime-fetch pattern, not the invoke-key pattern that unwraps a secret into a CloudFormation template.\n\n**Done when:** the ThinTurn stack deploys into an account that has never heard of papyrus, and the OpenAI dashboard attributes that deployment's spend to its own project.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,16 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "95f1b09f-82a3-4c58-bc97-4efbc9d99932",
+      "author": "agent@example.com",
+      "text": "Planning the SSM/runtime-fetch cut off papyrus shared key. Human still creates per-env OpenAI projects. Worktree /tmp/chatticus-8574c7-openai. No secrets in git.",
+      "created_at": "2026-09-01T04:16:13.547607Z"
+    }
+  ],
   "created_at": "2026-09-01T03:21:48.609222Z",
-  "updated_at": "2026-09-01T03:21:48.609222Z",
+  "updated_at": "2026-09-01T04:16:13.547607Z",
   "closed_at": null,
   "custom": {}
 }

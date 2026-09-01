@@ -42,10 +42,16 @@
       "author": "agent@example.com",
       "text": "Still human-owned. Agents will not register Google clients or write secrets. Ruling stands: External, AnthusAI org account, scopes openid email profile. Development can proceed without verification; public signup cannot (ac5453).",
       "created_at": "2026-09-01T03:32:44.609208Z"
+    },
+    {
+      "id": "a918e6d7-aa81-4222-ac92-f5da386665c1",
+      "author": "agent@example.com",
+      "text": "Still waiting on the human: External consent screen, AnthusAI org, three clients, Secrets Manager. Unblocks 0df6cb.",
+      "created_at": "2026-09-01T04:16:13.648930Z"
     }
   ],
   "created_at": "2026-09-01T02:40:05.879591Z",
-  "updated_at": "2026-09-01T03:32:44.609208Z",
+  "updated_at": "2026-09-01T04:16:13.648930Z",
   "closed_at": null,
   "custom": {}
 }

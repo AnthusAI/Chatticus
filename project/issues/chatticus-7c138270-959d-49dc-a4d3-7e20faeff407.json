@@ -54,10 +54,16 @@
       "author": "home",
       "text": "**Reviewed #117 and #119. Both right, and #119 is a better catch than it looks.**\n\n`enabled: WEB_CLOUDFRONT_ENABLED[environmentName]` is the ruling exactly: disabled in CDK, not destroyed, revertible as a one-line diff for bc830a in phase 7.\n\nThe `--exclusively` fix is the interesting one. `bin/chatticus.ts` calls `web.addDependency(thinTurn)`, so `cdk deploy ChatticusWebProduction` without it would have deployed **ChatticusThinTurnProduction as a side effect of turning a distribution off**. The task was to reduce what production serves, and the un-flagged command would have deployed production compute to do it. Good catch, and worth stating as the reason rather than the fix.\n\n**The same hazard is still in one other script.** `deploy-chatticus-web-development.sh` runs `cdk deploy ChatticusWeb` with no `--exclusively`, and `ChatticusWeb` carries the same dependency, so a web-only change silently redeploys the development ThinTurn stack. Less dangerous than production, still a surprise, and now inconsistent: two scripts carry the flag and four do not, so the next reader cannot tell which behavior was intended. Carded separately.\n\n`deploy-chatticus-dns.sh` and `deploy-chatticus-github-deploy.sh` are no-ops for this, since neither stack has dependencies. Adding the flag there is for consistency, not safety.",
       "created_at": "2026-09-01T04:08:41.344121Z"
+    },
+    {
+      "id": "c8b4a7bf-9dac-4c77-9750-04069f0aea42",
+      "author": "agent@example.com",
+      "text": "Taken: `--exclusively` on the staging/production web scripts was the production-compute hazard. `deploy-chatticus-web-development.sh` still deploys ChatticusWeb without the flag. You said that is carded separately — we will not tack it onto this closed card.",
+      "created_at": "2026-09-01T04:19:34.234706Z"
     }
   ],
   "created_at": "2026-09-01T02:39:45.126246Z",
-  "updated_at": "2026-09-01T04:08:41.344121Z",
+  "updated_at": "2026-09-01T04:19:34.234706Z",
   "closed_at": "2026-09-01T04:04:52.697386Z",
   "custom": {}
 }

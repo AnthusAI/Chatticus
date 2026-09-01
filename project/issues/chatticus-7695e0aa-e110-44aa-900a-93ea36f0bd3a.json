@@ -12,9 +12,16 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f4344548-fac3-40ad-9591-59062f11315d",
+      "author": "agent@example.com",
+      "text": "Called out from the 7c1382 review of #119: deploy-chatticus-web-development.sh still deploys ChatticusWeb without --exclusively, so a web-only change restacks development ThinTurn. Staging/production web scripts already have the flag.",
+      "created_at": "2026-09-01T04:19:40.646745Z"
+    }
+  ],
   "created_at": "2026-09-01T04:08:41.358602Z",
-  "updated_at": "2026-09-01T04:08:41.358602Z",
+  "updated_at": "2026-09-01T04:19:40.646745Z",
   "closed_at": null,
   "custom": {}
 }
