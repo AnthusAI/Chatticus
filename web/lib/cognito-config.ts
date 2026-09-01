@@ -55,8 +55,3 @@ export function loadCognitoConfig(): CognitoConfig {
 export function cognitoIssuer(config: CognitoConfig): string {
   return `https://cognito-idp.${config.region}.amazonaws.com/${config.userPoolId}`;
 }
-
-/** OIDC authority URL on the custom auth domain. */
-export function cognitoAuthority(config: CognitoConfig): string {
-  return `https://${config.authDomain}`;
-}

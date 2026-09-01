@@ -6,7 +6,7 @@ import {
 } from "oidc-client-ts";
 
 import {
-  cognitoAuthority,
+  cognitoIssuer,
   loadCognitoConfig,
   type CognitoConfig,
 } from "./cognito-config";
@@ -27,7 +27,7 @@ export function getUserManager(): UserManager {
   if (!userManager) {
     const config = cognitoConfig();
     userManager = new UserManager({
-      authority: cognitoAuthority(config),
+      authority: cognitoIssuer(config),
       client_id: config.clientId,
       redirect_uri: config.redirectUri,
       response_type: "code",
@@ -124,7 +124,7 @@ export function resetAuthForTests(): void {
 /** Test-only UserManager settings builder. */
 export function buildUserManagerSettings(config: CognitoConfig) {
   return {
-    authority: cognitoAuthority(config),
+    authority: cognitoIssuer(config),
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: "code",

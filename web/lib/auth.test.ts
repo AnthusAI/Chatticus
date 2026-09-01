@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
-  cognitoAuthority,
   cognitoIssuer,
   loadCognitoConfig,
   type CognitoConfig,
@@ -48,13 +47,15 @@ describe("loadCognitoConfig", () => {
   });
 });
 
-describe("cognitoAuthority", () => {
-  it("uses the custom auth domain", () => {
-    assert.equal(cognitoAuthority(testConfig), "https://auth-dev.chattic.us");
-  });
-});
-
 describe("buildUserManagerSettings", () => {
+  it("uses the Cognito issuer for OIDC discovery", () => {
+    const settings = buildUserManagerSettings(testConfig);
+    assert.equal(
+      settings.authority,
+      "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_TestPool",
+    );
+  });
+
   it("always sends identity_provider=Google", () => {
     const settings = buildUserManagerSettings(testConfig);
     assert.equal(settings.extraQueryParams?.identity_provider, "Google");
