@@ -52,7 +52,7 @@ python -m chatticus.members show <tenant_id-from-create-output>
 `create` mints a UUID `tenant_id` in `pending` status. `enable` moves it to
 `enabled` without provisioning a computer.
 
-## Anthus backfill (existing messaging rows)
+## Tenant backfill (existing messaging rows)
 
 Development, staging, and production already hold bots, channels, turns, and
 tasks under tenant `anthus` with user `ryan`. Org records live under the
@@ -61,7 +61,8 @@ tasks under tenant `anthus` with user `ryan`. Org records live under the
 ```bash
 export CHATTICUS_MESSAGING_TABLE=<messaging-table-name>
 
-python -m chatticus.members seed-anthus \
+python -m chatticus.members seed \
+  --tenant-id anthus \
   --owner-email <verified-google-email> \
   --yes
 
@@ -70,19 +71,25 @@ python -m chatticus.members show anthus
 
 Behavior:
 
-- Fixed `tenant_id=anthus`.
-- On first sight of the email, identity `user_id=ryan` aligns with existing
-  messaging rows.
+- `--tenant-id` names the organization partition to seed (for example
+  `anthus`).
+- The command reads messaging rows in that tenant and aligns the owner
+  identity with the single `user_id` already present (for `anthus`, that is
+  still `ryan`).
+- If the tenant has **multiple** messaging user ids, the command fails
+  loudly.
+- On first sight of the email, identity uses that legacy `user_id`.
 - If the email already maps to a **different** `user_id`, the command fails
   loudly instead of splitting identity from legacy data.
-- Writes `enabled` directly (or enables an existing pending anthus org).
+- Writes `enabled` directly (or enables an existing pending org).
 - Re-running is idempotent when owner and status already match.
 - Never provisions a computer.
 
-Optional display name (default `Anthus`):
+Optional display name (default: tenant id):
 
 ```bash
-python -m chatticus.members seed-anthus \
+python -m chatticus.members seed \
+  --tenant-id anthus \
   --owner-email <verified-google-email> \
   --name "Anthus Labs" \
   --yes
@@ -97,9 +104,10 @@ python -m chatticus.members show anthus
 python -m chatticus.members list --status enabled
 ```
 
-Confirm `status=enabled`, owner `user_id=ryan`, and no computer row for that
-owner. Existing bots and channels under `anthus` / `ryan` should remain
-readable through the control plane unchanged.
+Confirm `status=enabled`, owner `user_id=ryan` for the `anthus` example, and
+no computer row created by seed for that owner. Existing bots and channels
+under `anthus` / `ryan` should remain readable through the control plane
+unchanged.
 
 ## What not to do
 

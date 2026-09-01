@@ -76,13 +76,15 @@ def when_members_cli_creates(context: object, name: str, email: str) -> None:
     'the members CLI seeds tenant "{tenant_id}" for owner "{email}" '
     "with confirmation again"
 )
-def when_members_cli_seeds_anthus(context: object, tenant_id: str, email: str) -> None:
+def when_members_cli_seeds_tenant(context: object, tenant_id: str, email: str) -> None:
     plane = _plane(context)
     buffer = io.StringIO()
     with _capture_stdout(buffer):
         context.members_cli_exit = members_main(
             [
-                "seed-anthus",
+                "seed",
+                "--tenant-id",
+                tenant_id,
                 "--owner-email",
                 email,
                 "--yes",

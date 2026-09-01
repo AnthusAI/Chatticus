@@ -17,7 +17,6 @@ from chatticus.models import (
     OrganizationStatus,
     OrganizationStatusTransitionError,
 )
-from chatticus.org_records import ANTHUS_TENANT_ID
 from chatticus.worker.openai_completion import load_local_env
 
 PlaneFactory = Callable[[], ControlPlane]
@@ -109,23 +108,25 @@ def main(
         help="Required when stdin is not a TTY",
     )
 
-    seed_anthus_parser = subparsers.add_parser(
-        "seed-anthus",
-        help=(
-            "Seed tenant anthus enabled for one owner without provisioning a computer"
-        ),
+    seed_parser = subparsers.add_parser(
+        "seed",
+        help="Seed one tenant enabled for one owner without provisioning a computer",
     )
-    seed_anthus_parser.add_argument(
+    seed_parser.add_argument(
+        "--tenant-id",
+        required=True,
+        help="tenant_id to seed, for example anthus",
+    )
+    seed_parser.add_argument(
         "--owner-email",
         required=True,
-        help="Verified Google owner email; normalized to lowercase",
+        help="Verified owner email; normalized to lowercase",
     )
-    seed_anthus_parser.add_argument(
+    seed_parser.add_argument(
         "--name",
-        default="Anthus",
-        help="Organization display name (default: Anthus)",
+        help="Organization display name (default: tenant id)",
     )
-    seed_anthus_parser.add_argument(
+    seed_parser.add_argument(
         "--yes",
         action="store_true",
         help="Required when stdin is not a TTY",
@@ -155,11 +156,12 @@ def main(
                 args.name,
                 yes=args.yes,
             )
-        if args.command == "seed-anthus":
-            return _cmd_seed_anthus(
+        if args.command == "seed":
+            return _cmd_seed(
                 plane,
+                args.tenant_id,
                 args.owner_email,
-                name=args.name,
+                name=args.name or args.tenant_id,
                 yes=args.yes,
             )
         return _cmd_set_role(
@@ -265,22 +267,24 @@ def _cmd_create(
     return 0
 
 
-def _cmd_seed_anthus(
+def _cmd_seed(
     plane: ControlPlane,
+    tenant_id: str,
     owner_email: str,
     *,
     name: str,
     yes: bool,
 ) -> int:
-    _require_yes(yes, action="seed-anthus")
+    _require_yes(yes, action="seed")
     now = datetime.now(UTC)
-    organization = plane.admin_seed_anthus_organization(
+    organization = plane.admin_seed_organization(
+        tenant_id,
         owner_email,
         name=name,
         now=now,
     )
     print(
-        f"seeded tenant_id={ANTHUS_TENANT_ID} "
+        f"seeded tenant_id={organization.tenant_id} "
         f"status={organization.status} "
         f"owner={organization.owner_user_id} "
         f"email={owner_email.strip().lower()}"

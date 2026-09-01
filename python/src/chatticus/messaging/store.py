@@ -252,6 +252,9 @@ class MessagingStore(Protocol):
     def get_invitation(self, invitation_id: str) -> Invitation | None:
         """Load one invitation by id."""
 
+    def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
+        """Return distinct user ids referenced by one tenant's messaging rows."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -624,6 +627,22 @@ class InMemoryMessagingStore:
             ),
             key=lambda organization: organization.tenant_id,
         )
+
+    def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
+        user_ids: set[str] = set()
+        for bot in self._bots.values():
+            if bot.tenant_id == tenant_id:
+                user_ids.add(bot.user_id)
+        for channel in self._channels.values():
+            if channel.tenant_id == tenant_id:
+                user_ids.add(channel.user_id)
+        for task in self._tasks.values():
+            if task.tenant_id == tenant_id:
+                user_ids.add(task.user_id)
+        for indexed_tenant_id, user_id in self._computers:
+            if indexed_tenant_id == tenant_id:
+                user_ids.add(user_id)
+        return tuple(sorted(user_ids))
 
     def put_invitation(self, invitation: Invitation) -> None:
         self._invitations[invitation.invitation_id] = invitation
@@ -1623,6 +1642,27 @@ class DynamoMessagingStore:
                 break
             scan_kwargs["ExclusiveStartKey"] = last_key
         return sorted(organizations, key=lambda organization: organization.tenant_id)
+
+    def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
+        user_ids: set[str] = set()
+        query_kwargs: dict[str, Any] = {
+            "TableName": self.table_name,
+            "KeyConditionExpression": "pk = :pk",
+            "ExpressionAttributeValues": {
+                ":pk": {"S": self._roster_pk(tenant_id)},
+            },
+        }
+        while True:
+            response = self.client.query(**query_kwargs)
+            for item in response.get("Items", []):
+                raw_user_id = item.get("user_id", {}).get("S")
+                if raw_user_id:
+                    user_ids.add(raw_user_id)
+            last_key = response.get("LastEvaluatedKey")
+            if last_key is None:
+                break
+            query_kwargs["ExclusiveStartKey"] = last_key
+        return tuple(sorted(user_ids))
 
     def put_invitation(self, invitation: Invitation) -> None:
         self.client.put_item(

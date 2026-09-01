@@ -14,6 +14,7 @@ from chatticus.models import (
     Bot,
     IdentityUserIdMismatchError,
     MemberRole,
+    OrganizationSeedConflictError,
     OrganizationStatus,
     OrganizationStatusTransitionError,
 )
@@ -26,7 +27,7 @@ from chatticus.org_records import (
 NOW = datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC)
 
 
-def test_admin_seed_anthus_creates_enabled_org_with_legacy_user_id() -> None:
+def test_admin_seed_organization_aligns_with_messaging_user_id() -> None:
     store = InMemoryMessagingStore()
     store.put_bot(
         Bot(
@@ -39,7 +40,8 @@ def test_admin_seed_anthus_creates_enabled_org_with_legacy_user_id() -> None:
     )
     plane = ControlPlane(messaging_store=store)
 
-    organization = plane.admin_seed_anthus_organization(
+    organization = plane.admin_seed_organization(
+        ANTHUS_TENANT_ID,
         "owner@example.com",
         name="Anthus",
         now=NOW,
@@ -59,15 +61,17 @@ def test_admin_seed_anthus_creates_enabled_org_with_legacy_user_id() -> None:
     assert loaded.name == "Researcher"
 
 
-def test_admin_seed_anthus_is_idempotent() -> None:
+def test_admin_seed_organization_is_idempotent() -> None:
     store = InMemoryMessagingStore()
     kernel = OrgRecordsKernel(store)
-    first = kernel.admin_seed_anthus_organization(
+    first = kernel.admin_seed_organization(
+        ANTHUS_TENANT_ID,
         "owner@example.com",
         name="Anthus",
         now=NOW,
     )
-    second = kernel.admin_seed_anthus_organization(
+    second = kernel.admin_seed_organization(
+        ANTHUS_TENANT_ID,
         "owner@example.com",
         name="Anthus",
         now=NOW,
@@ -76,10 +80,14 @@ def test_admin_seed_anthus_is_idempotent() -> None:
     assert len(kernel.list_organizations_by_status(OrganizationStatus.ENABLED)) == 1
 
 
-def test_admin_seed_anthus_enables_pending_org() -> None:
+def test_admin_seed_organization_enables_pending_org() -> None:
     store = InMemoryMessagingStore()
     kernel = OrgRecordsKernel(store)
-    owner = kernel._admin_ensure_anthus_owner_identity("owner@example.com", now=NOW)
+    owner = kernel._admin_ensure_seed_owner_identity(
+        ANTHUS_TENANT_ID,
+        "owner@example.com",
+        now=NOW,
+    )
     kernel._put_pending_organization(
         owner,
         "Anthus",
@@ -87,7 +95,8 @@ def test_admin_seed_anthus_enables_pending_org() -> None:
         now=NOW,
     )
 
-    organization = kernel.admin_seed_anthus_organization(
+    organization = kernel.admin_seed_organization(
+        ANTHUS_TENANT_ID,
         "owner@example.com",
         name="Anthus",
         now=NOW,
@@ -96,13 +105,54 @@ def test_admin_seed_anthus_enables_pending_org() -> None:
     assert organization.status == OrganizationStatus.ENABLED
 
 
-def test_admin_seed_anthus_rejects_conflicting_identity_user_id() -> None:
+def test_admin_seed_organization_rejects_conflicting_identity_user_id() -> None:
     store = InMemoryMessagingStore()
     kernel = OrgRecordsKernel(store)
+    store.put_bot(
+        Bot(
+            bot_id="bot-1",
+            tenant_id=ANTHUS_TENANT_ID,
+            user_id=ANTHUS_LEGACY_USER_ID,
+            name="Researcher",
+        ),
+        reserve_name=True,
+    )
     kernel.sign_in("owner@example.com", now=NOW)
 
     with pytest.raises(IdentityUserIdMismatchError):
-        kernel.admin_seed_anthus_organization(
+        kernel.admin_seed_organization(
+            ANTHUS_TENANT_ID,
+            "owner@example.com",
+            name="Anthus",
+            now=NOW,
+        )
+
+
+def test_admin_seed_organization_rejects_multiple_messaging_user_ids() -> None:
+    store = InMemoryMessagingStore()
+    kernel = OrgRecordsKernel(store)
+    store.put_bot(
+        Bot(
+            bot_id="bot-1",
+            tenant_id=ANTHUS_TENANT_ID,
+            user_id="ryan",
+            name="Researcher",
+        ),
+        reserve_name=True,
+    )
+    store.put_bot(
+        Bot(
+            bot_id="bot-2",
+            tenant_id=ANTHUS_TENANT_ID,
+            user_id="alex",
+            name="Ops",
+        ),
+        reserve_name=True,
+    )
+
+    with pytest.raises(OrganizationSeedConflictError):
+        kernel.admin_seed_organization(
+            ANTHUS_TENANT_ID,
             "owner@example.com",
             name="Anthus",
             now=NOW,
@@ -143,7 +193,7 @@ def test_members_cli_create_then_enable_without_computer(
     assert plane._messaging_store.get_computer(tenant_id, owner_id) is None
 
 
-def test_members_cli_seed_anthus_without_computer(
+def test_members_cli_seed_without_computer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = InMemoryMessagingStore()
@@ -162,7 +212,9 @@ def test_members_cli_seed_anthus_without_computer(
 
     first = members_main(
         [
-            "seed-anthus",
+            "seed",
+            "--tenant-id",
+            ANTHUS_TENANT_ID,
             "--owner-email",
             "owner@example.com",
             "--yes",
@@ -171,7 +223,9 @@ def test_members_cli_seed_anthus_without_computer(
     )
     second = members_main(
         [
-            "seed-anthus",
+            "seed",
+            "--tenant-id",
+            ANTHUS_TENANT_ID,
             "--owner-email",
             "owner@example.com",
             "--yes",
@@ -198,7 +252,8 @@ def test_members_cli_enable_still_requires_pending(
     store = InMemoryMessagingStore()
     plane = ControlPlane(messaging_store=store)
     kernel = OrgRecordsKernel(store)
-    org = kernel.admin_seed_anthus_organization(
+    org = kernel.admin_seed_organization(
+        ANTHUS_TENANT_ID,
         "owner@example.com",
         name="Anthus",
         now=NOW,
