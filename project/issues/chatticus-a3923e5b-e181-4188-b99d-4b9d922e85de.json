@@ -22,10 +22,16 @@
       "author": "agent@example.com",
       "text": "Chat UI roster/SSE and follow-up tests landed (#42, #43). Story stays in_progress until https://chattic.us loads over HTTPS and talks to the front door.",
       "created_at": "2026-08-31T20:07:05.042489Z"
+    },
+    {
+      "id": "63c9aad3-e63c-49a6-b5f6-ebcf63b08b07",
+      "author": "agent@example.com",
+      "text": "Live https://chattic.us is the marketing site, not web/ chat. Chat UI with roster is https://dev.chattic.us (health 200). Apex /api/health is AccessDenied. Story stays in_progress until the owner chooses: keep marketing at apex, or replace ChatticusWebProduction with Chattic.us web/. Agents will not deploy production unless asked.\n",
+      "created_at": "2026-09-01T01:06:15.305639Z"
     }
   ],
   "created_at": "2026-08-31T11:31:19.464021Z",
-  "updated_at": "2026-08-31T20:07:05.042489Z",
+  "updated_at": "2026-09-01T01:06:15.305639Z",
   "closed_at": null,
   "custom": {}
 }

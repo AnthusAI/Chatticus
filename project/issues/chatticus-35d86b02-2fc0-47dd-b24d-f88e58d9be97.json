@@ -31,10 +31,16 @@
       "author": "agent@example.com",
       "text": "Board currency: stays open and unclaimed. PR #26 remains draft. exercise_thin_turn.py is the pass/fail gate. Do not start this epic from other slices.",
       "created_at": "2026-08-31T19:51:53.835386Z"
+    },
+    {
+      "id": "b0998384-de07-4fbd-8400-36199bd3c893",
+      "author": "agent@example.com",
+      "text": "Draft PR #26 still unmerged. Manager ran chatticus_chat.py once against development from that branch so the owner could see tokens; epic stays open until the owner authorizes taking #26. exercise_thin_turn.py remains the pass/fail gate. Do not start this from other slices.\n",
+      "created_at": "2026-09-01T01:06:15.293222Z"
     }
   ],
   "created_at": "2026-08-31T06:07:24.315584Z",
-  "updated_at": "2026-08-31T19:51:53.835386Z",
+  "updated_at": "2026-09-01T01:06:15.293222Z",
   "closed_at": null,
   "custom": {}
 }
