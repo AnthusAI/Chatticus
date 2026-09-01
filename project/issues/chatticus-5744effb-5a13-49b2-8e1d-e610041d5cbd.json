@@ -3,7 +3,7 @@
   "title": "Seed the first organization before the door closes",
   "description": "**Phase 3 of 7.**\n\n- **Blocked by:** 272aea, b574a6, 41d08d\n- **Runs in parallel with:** 5f0c4c, fac2ee, 5558db\n- **Unblocks:** 7b4616, which cannot be called done without it\n\n---\n**Found by inversion: how does this initiative lock us out of our own product?**\n\nThe moment enforcement flips in 7b4616, reaching anything requires an enabled membership. Nobody has one. You cannot sign in to enable yourself, and you cannot enable yourself without signing in. The members CLI is the only escape hatch, which is why 41d08d is no longer allowed to slip and its priority is raised to P0.\n\nThere is a second half nobody has owned. Development, staging, and production already hold bots, channels, turns, and tasks under tenant anthus with user ryan. Those rows do not stop existing when Organization records arrive.\n\n**Do both here:**\n\n- Make tenant anthus a real Organization with status enabled, and its existing human the owner, keyed on their verified Google email in lowercase.\n- Prove the cold path an operator uses: the members CLI creates and enables an organization with no web session in existence.\n\n**Done when:** an operator goes from an empty environment to one enabled organization using only the CLI and an AWS identity, and signing in as the seeded owner reaches the app rather than the waitlist.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,16 @@
     "phase-3"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "556c5f0a-2f8f-4517-a7f6-4e32f620fa4b",
+      "author": "agent@example.com",
+      "text": "Unblocked (41d08d + 79578e on develop). Planning in `/tmp/chatticus-5744ef-seed-org` branch `cursor/seed-first-org-5744ef-4a21`. Parallel with fac2ee only. Seed tenant anthus; prove members CLI cold path. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T07:36:11.044089Z"
+    }
+  ],
   "created_at": "2026-09-01T02:56:57.845054Z",
-  "updated_at": "2026-09-01T02:56:57.845054Z",
+  "updated_at": "2026-09-01T07:36:11.044089Z",
   "closed_at": null,
   "custom": {}
 }

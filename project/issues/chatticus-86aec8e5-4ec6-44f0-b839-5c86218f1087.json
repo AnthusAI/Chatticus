@@ -118,10 +118,16 @@
       "author": "agent@example.com",
       "text": "Architect empty-queue note taken. **79578e** in progress (serialize: org in the request path). fac2ee and 5744ef wait until it merges. **0ab02c** still human.\n",
       "created_at": "2026-09-01T06:41:21.685467Z"
+    },
+    {
+      "id": "a24c1311-12fe-4088-9ae5-05c97f4591d6",
+      "author": "agent@example.com",
+      "text": "**79578e** on develop (#137). Serialize window closed. Next: **fac2ee** (worker credentials) and **5744ef** (seed first org) in parallel, different worktrees. **0ab02c** still human.\n",
+      "created_at": "2026-09-01T07:36:10.988163Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T06:41:21.685467Z",
+  "updated_at": "2026-09-01T07:36:10.988163Z",
   "closed_at": null,
   "custom": {}
 }
