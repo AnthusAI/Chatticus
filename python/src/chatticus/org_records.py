@@ -25,6 +25,7 @@ from chatticus.models import (
     OrganizationNotEnabledError,
     OrganizationNotFoundError,
     OrganizationStatus,
+    OrganizationStatusTransitionError,
 )
 
 
@@ -87,6 +88,11 @@ class OrgRecordsKernel:
         organization = self.store.get_organization(tenant_id)
         if organization is None:
             raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")
+        if organization.status != OrganizationStatus.PENDING:
+            raise OrganizationStatusTransitionError(
+                f"Organization {tenant_id!r} has status "
+                f"{organization.status!r}; enable requires pending."
+            )
         enabled = replace(organization, status=OrganizationStatus.ENABLED)
         self.store.put_organization(enabled)
         return enabled
@@ -96,6 +102,11 @@ class OrgRecordsKernel:
         organization = self.store.get_organization(tenant_id)
         if organization is None:
             raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")
+        if organization.status != OrganizationStatus.ENABLED:
+            raise OrganizationStatusTransitionError(
+                f"Organization {tenant_id!r} has status "
+                f"{organization.status!r}; suspend requires enabled."
+            )
         suspended = replace(organization, status=OrganizationStatus.SUSPENDED)
         self.store.put_organization(suspended)
         return suspended
@@ -116,6 +127,35 @@ class OrgRecordsKernel:
             raise NotOrganizationOwnerError(
                 f"User {actor_user_id!r} is not an owner of {tenant_id!r}."
             )
+        membership = self.store.get_membership(tenant_id, member_user_id)
+        if membership is None:
+            raise MembershipNotFoundError(
+                f"User {member_user_id!r} is not a member of {tenant_id!r}."
+            )
+        if membership.role == MemberRole.OWNER and role != MemberRole.OWNER:
+            other_owners = [
+                item
+                for item in self.store.list_memberships(tenant_id)
+                if item.role == MemberRole.OWNER and item.user_id != member_user_id
+            ]
+            if not other_owners:
+                raise LastOwnerCannotBeDemotedError(
+                    f"User {member_user_id!r} is the last owner of {tenant_id!r}."
+                )
+        updated = replace(membership, role=role)
+        self.store.put_membership(updated)
+        return updated
+
+    def admin_set_member_role(
+        self,
+        tenant_id: str,
+        member_user_id: str,
+        role: MemberRole,
+    ) -> Membership:
+        """Change one member's role on the admin path."""
+        organization = self.store.get_organization(tenant_id)
+        if organization is None:
+            raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")
         membership = self.store.get_membership(tenant_id, member_user_id)
         if membership is None:
             raise MembershipNotFoundError(
@@ -216,3 +256,16 @@ class OrgRecordsKernel:
     def list_organizations_for_user(self, user_id: str) -> list[Organization]:
         """Return every organization a user belongs to."""
         return self.store.list_organizations_for_user(user_id)
+
+    def list_organizations_by_status(
+        self, status: OrganizationStatus
+    ) -> list[Organization]:
+        """Return every organization with one lifecycle status."""
+        return self.store.list_organizations_by_status(status)
+
+    def get_organization(self, tenant_id: str) -> Organization:
+        """Load one organization."""
+        organization = self.store.get_organization(tenant_id)
+        if organization is None:
+            raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")
+        return organization

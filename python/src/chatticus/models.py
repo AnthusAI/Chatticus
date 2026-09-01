@@ -242,6 +242,10 @@ class OrganizationNotEnabledError(ChatticusError):
     """The organization is not enabled yet."""
 
 
+class OrganizationStatusTransitionError(ChatticusError):
+    """The organization status does not allow this transition."""
+
+
 class InvitationNotFoundError(ChatticusError):
     """The invitation is unknown."""
 

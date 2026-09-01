@@ -241,6 +241,11 @@ class MessagingStore(Protocol):
     def list_organizations_for_user(self, user_id: str) -> list[Organization]:
         """Return every organization one user belongs to."""
 
+    def list_organizations_by_status(
+        self, status: OrganizationStatus
+    ) -> list[Organization]:
+        """Return every organization with one lifecycle status."""
+
     def put_invitation(self, invitation: Invitation) -> None:
         """Persist one invitation and its lookup item."""
 
@@ -607,6 +612,18 @@ class InMemoryMessagingStore:
             if organization is not None:
                 organizations.append(organization)
         return sorted(organizations, key=lambda organization: organization.tenant_id)
+
+    def list_organizations_by_status(
+        self, status: OrganizationStatus
+    ) -> list[Organization]:
+        return sorted(
+            (
+                organization
+                for organization in self._organizations.values()
+                if organization.status == status
+            ),
+            key=lambda organization: organization.tenant_id,
+        )
 
     def put_invitation(self, invitation: Invitation) -> None:
         self._invitations[invitation.invitation_id] = invitation
@@ -1579,6 +1596,32 @@ class DynamoMessagingStore:
             organization = self.get_organization(tenant_id)
             if organization is not None:
                 organizations.append(organization)
+        return sorted(organizations, key=lambda organization: organization.tenant_id)
+
+    def list_organizations_by_status(
+        self, status: OrganizationStatus
+    ) -> list[Organization]:
+        organizations: list[Organization] = []
+        scan_kwargs: dict[str, Any] = {
+            "TableName": self.table_name,
+            "FilterExpression": (
+                "sk = :meta AND attribute_exists(owner_user_id) AND "
+                "#status = :status"
+            ),
+            "ExpressionAttributeNames": {"#status": "status"},
+            "ExpressionAttributeValues": {
+                ":meta": {"S": "meta"},
+                ":status": {"S": status.value},
+            },
+        }
+        while True:
+            response = self.client.scan(**scan_kwargs)
+            for item in response.get("Items", []):
+                organizations.append(_organization_from_item(item))
+            last_key = response.get("LastEvaluatedKey")
+            if last_key is None:
+                break
+            scan_kwargs["ExclusiveStartKey"] = last_key
         return sorted(organizations, key=lambda organization: organization.tenant_id)
 
     def put_invitation(self, invitation: Invitation) -> None:

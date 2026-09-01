@@ -83,6 +83,7 @@ from chatticus.models import (
     Membership,
     Message,
     Organization,
+    OrganizationStatus,
     PendingComputerToolSnapshot,
     SnapshotRequiredError,
     StaleAttemptError,
@@ -310,6 +311,16 @@ class ControlPlane:
         """Return every organization a user belongs to."""
         return self._org_records.list_organizations_for_user(user_id)
 
+    def list_organizations_by_status(
+        self, status: OrganizationStatus
+    ) -> list[Organization]:
+        """Return every organization with one lifecycle status."""
+        return self._org_records.list_organizations_by_status(status)
+
+    def get_organization(self, tenant_id: str) -> Organization:
+        """Load one organization."""
+        return self._org_records.get_organization(tenant_id)
+
     def set_member_role(
         self,
         tenant_id: str,
@@ -321,6 +332,15 @@ class ControlPlane:
         return self._org_records.set_member_role(
             tenant_id, actor_user_id, member_user_id, role
         )
+
+    def admin_set_member_role(
+        self,
+        tenant_id: str,
+        member_user_id: str,
+        role: MemberRole,
+    ) -> Membership:
+        """Change one member's role on the admin path."""
+        return self._org_records.admin_set_member_role(tenant_id, member_user_id, role)
 
     def _fault(self, boundary: TurnBoundary, window: CrashWindow) -> None:
         if self._fault_injector is not None:
