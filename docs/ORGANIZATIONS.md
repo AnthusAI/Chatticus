@@ -3,50 +3,22 @@
 This is the recorded decision for initiative 86aec8: who may use Chatticus,
 what they share, and what they are allowed to approve or see.
 
-## Three levels, and a name collision
+An **organization** is an organizational unit in the multi-tenant system:
+the isolation boundary that owns a computer, and the thing that has many
+users. `tenant_id` is its identifier in code, keys, and the worker
+protocol. "Organization" is the product name for the same object. One
+identifier, two audiences. Renaming `tenant_id` was considered and
+rejected: it is a partition key prefix on every item, a field on eleven
+dataclasses, a column in most feature files, and part of a worker
+protocol that does not redeploy in lockstep with the control plane.
 
-There are three nested things, and calling two of them "organization" is
-how this design gets misread.
-
-| Level | What it is | Boundary it provides |
-| --- | --- | --- |
-| AWS Organization | Anthus's billing container of member accounts | Consolidated billing |
-| **Deployment** | One AWS account, one customer company, one set of stacks and hostnames | AWS spend, vendor project, blast radius |
-| **Tenant** (`tenant_id`) | A department or team inside a deployment | Data partition, workplace, membership |
-
-A deployment is multi-tenant within itself. Acme buys Chatticus and gets
-an account; Acme's legal team and support team are two tenants inside it.
-Anthus's own deployment at hey.chattic.us is one deployment like any
-other, and is not privileged.
-
-**The word "organization" now means the customer, which is the
-deployment.** So the tenant-level entity this document describes needs a
-different name. Recommended: **Team**. It matches how the levels are
-actually described, it does not collide with AWS Organization or with the
-customer, and it survives the office metaphor intact, where a deployment
-is the company and a tenant is a department.
-
-`tenant_id` stays the identifier in code, keys, and the worker protocol
-regardless. Only the product-facing name is in question. As of this
-writing the entity name appears in about twenty-six places across
-`models.py` and `org_records.py` plus two feature files, and it grows
-with every phase, so the rename is cheap now and expensive later.
-
-The rest of this document says "organization" for the tenant level. Read
-it as the tenant-level entity until the naming call is made.
-
-## The unit of enablement
-
-The tenant is the unit of enablement, isolation, and workplace.
-`tenant_id` is its identifier in code, keys, and the worker protocol.
-
-**Billing is a level up.** It belongs to the deployment, because the AWS
-account is what receives an invoice and what holds a vendor project. Per
-tenant cost is internal chargeback between departments, not customer
-invoicing. See [Budgets](BUDGETS.md). Renaming `tenant_id` was considered and rejected: it is a
-partition key prefix on every item, a field on eleven dataclasses, a
-column in most feature files, and part of a worker protocol that does not
-redeploy in lockstep with the control plane.
+A **deployment** is one AWS account running one set of stacks, and it
+holds many organizations. AWS spend and the vendor project are metered
+per deployment, so per-organization cost is internal chargeback rather
+than an invoice. See [Budgets](BUDGETS.md). Business organizations and
+AWS Organizations are separate things that may map onto Chatticus
+organizations in whatever way a deployment calls for; nothing in this
+design depends on that mapping.
 
 The household case is not special. A household is an organization with
 one member.
@@ -249,9 +221,9 @@ posture as an office, where the filing room is governed by what people are
 supposed to do rather than by a lock on every drawer, and it is only
 defensible because the organization, not the member, is the boundary.
 
-## Connections between tenants
+## Connections between organizations
 
-Departments inside one company will need to work together, so tenants
+Organizations inside one deployment will need to work together, so they
 need a way to reach each other. This is the feature that punches a hole
 in the only hard boundary the design has, so the rules matter more than
 the mechanism.
@@ -262,7 +234,7 @@ that already exists: a **clip**.
 
 Four rules.
 
-- **Grants name a resource, never a tenant.** "Support may read this
+- **Grants name a resource, never an organization.** "Support may read this
   channel" is a connection. "Support may reach Legal" is not a
   connection, it is a merge.
 - **A connection is clipped twice.** By the ceiling of the member who
@@ -271,7 +243,7 @@ Four rules.
   should not be able to export the department, and a department policy
   should not grant what the individual granting it does not hold.
 - **Received authority is borrowed, not owned.** A grant received from
-  another tenant is never part of the receiver's ceiling, which is what
+  another organization is never part of the receiver's ceiling, which is what
   makes connections **non-transitive**: B cannot re-share A's grant with
   C, because B never held it. Without this distinction, re-sharing
   happens by accident and the boundary leaks one hop at a time.
@@ -285,10 +257,10 @@ Revocable and audited follow from the above: a connection is a record
 like any grant, it expires like any delegation, and every use of it is
 attributable to the member who acted.
 
-**Cost note.** One computer per tenant means a deployment's Fargate spend
-scales with departments, not with customers. That is the right shape,
-since a department that does no work costs nothing, but it belongs in the
-deployment's budget expectations.
+**Cost note.** One computer per organization means a deployment's Fargate
+spend scales with the organizations inside it. That is the right shape,
+since an organization that does no work costs nothing, but it belongs in
+the deployment's budget expectations.
 
 ## Non-requirements (v1)
 

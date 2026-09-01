@@ -3,7 +3,7 @@
   "title": "Alarm on AWS spend before anything else changes",
   "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 7c1382, 0ab02c, 272aea, 1ebc7d\n- **Unblocks:** nothing, but it covers development for the whole initiative\n\n---\nA CfnBudget in CDK with an SNS topic to the owner, plus a hard spend cap on the OpenAI project set by hand in the OpenAI console.\n\nThis is a permanent control, not scaffolding. It is the only thing that catches a bug in our own code, which no authentication check ever will.\n\n**Done when:** the budget exists in CDK, a test notification arrives, and the OpenAI cap is set.",
   "type": "chore",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -42,10 +42,16 @@
       "author": "home",
       "text": "**Narrowed, and the 300 dollar figure is withdrawn.**\n\nThis card is now the AWS meter only, and it is superseded in shape by the budgets construct, since limits are deployment configuration rather than a constant. Budget tracking ships with every deployment; see docs/BUDGETS.md.\n\nThe number I proposed came from this account's history: 161, 149, and 190 dollars across June to August. That history is irrelevant. The first deployment goes into a new dedicated AWS account with no baseline, and carrying a number across from a previously shared account would set the limit from spend that belongs to other work.\n\n**What the dedicated account buys:** the account boundary separates AWS spend completely, so no tag apportionment stands between us and a correct per-client number. **What it does not buy:** anything on the vendor meter. OpenAI has no idea what an AWS account is, which is what the new OpenAI project card is about, and that one blocks the deploy.",
       "created_at": "2026-09-01T03:21:17.084965Z"
+    },
+    {
+      "id": "a07d2c54-8aa7-400d-87f2-a7e692470e2c",
+      "author": "agent@example.com",
+      "text": "Authorizing parameterized construct only. Do not invent monthly USD or SNS address. Fail deploy/synth if unset. No --all, no OpenAI in CDK.",
+      "created_at": "2026-09-01T03:31:32.283690Z"
     }
   ],
   "created_at": "2026-09-01T02:39:45.114248Z",
-  "updated_at": "2026-09-01T03:21:17.084965Z",
+  "updated_at": "2026-09-01T03:31:32.283690Z",
   "closed_at": null,
   "custom": {}
 }

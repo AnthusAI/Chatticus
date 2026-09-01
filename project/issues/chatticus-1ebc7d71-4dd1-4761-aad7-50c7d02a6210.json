@@ -3,7 +3,7 @@
   "title": "Define the Principal seam and the waitlist-safe route marker",
   "description": "**Phase 1 of 7.** Keep it small and merge it within a day: three phase-3 tasks fork from it and must agree on the shape first.\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 79ca6a, 7c1382, 0ab02c, 272aea\n- **Unblocks:** 5f0c4c, fac2ee, 79578e\n\n---\nPrincipal is a frozen dataclass with a kind (user or worker), tenant_id, and either user_id with membership status and role, or worker_id. Add the FastAPI dependency that will resolve it and the explicit marker that declares a route reachable by a waitlisted member. No resolver implementations and no enforcement in this task.\n\nRouting is default deny by construction: a route serves an enabled member unless it is explicitly marked otherwise. Do not build a denylist of expensive routes. The next route someone adds would be open by default, and one day that route is the one that calls the model.\n\n**Done when:** the type and the marker are merged so the three dependent tasks can proceed in parallel.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -36,10 +36,16 @@
       "author": "agent@example.com",
       "text": "Ruling recorded: PrincipalKind USER|WORKER only; frozen Principal with tenant_id, user_id, worker_id, membership_status, role. Marker is opt-out (waitlist-safe named explicitly; today GET /me). /health and auth routes take no principal. No resolvers or enforcement in this slice. Authorizing implementation on that shape.",
       "created_at": "2026-09-01T03:13:46.148163Z"
+    },
+    {
+      "id": "69c042a2-fff0-4179-83a9-5b2528dc56f3",
+      "author": "agent@example.com",
+      "text": "Authorizing implementation. Worktree /tmp/chatticus-df80e1-principal branch cursor/principal-seam-4a21, rebase onto origin/develop. Shape as ruled on this issue. No resolvers, no app.py wiring.",
+      "created_at": "2026-09-01T03:31:32.260971Z"
     }
   ],
   "created_at": "2026-09-01T02:40:29.666490Z",
-  "updated_at": "2026-09-01T03:13:46.148163Z",
+  "updated_at": "2026-09-01T03:31:32.260971Z",
   "closed_at": null,
   "custom": {}
 }
