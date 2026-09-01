@@ -2,7 +2,13 @@
 set -eu
 
 LIVE="${CHATTICUS_LIVE_ROOT:-/var/lib/chatticus/computer}"
-mkdir -p "${LIVE}/workspace" "${LIVE}/browser-profile"
+mkdir -p "${LIVE}/workspace"
+
+if [ -d "${LIVE}/browser-profile" ] && [ ! -d "${LIVE}/browser-profiles" ]; then
+  mkdir -p "${LIVE}/browser-profiles/privileged"
+  mv "${LIVE}/browser-profile" "${LIVE}/browser-profiles/privileged/_legacy"
+fi
+mkdir -p "${LIVE}/browser-profiles/untrusted" "${LIVE}/browser-profiles/privileged"
 
 if [ -L /workspace ]; then
   ln -sfn "${LIVE}/workspace" /workspace

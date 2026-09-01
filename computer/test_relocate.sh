@@ -15,7 +15,7 @@ docker compose up -d --build computer-fargate computer-mac
 
 echo "Writing files on the Fargate host..."
 docker compose exec -T computer-fargate sh -c 'printf "%s\n" "from-fargate" > /workspace/notes.md'
-docker compose exec -T computer-fargate sh -c 'mkdir -p /var/lib/chatticus/computer/browser-profile/Default && printf "%s\n" "signed-in" > /var/lib/chatticus/computer/browser-profile/Default/Cookies'
+docker compose exec -T computer-fargate sh -c 'mkdir -p /var/lib/chatticus/computer/browser-profiles/privileged/banking/Default && printf "%s\n" "signed-in" > /var/lib/chatticus/computer/browser-profiles/privileged/banking/Default/Cookies'
 
 echo "Publishing snapshot from Fargate..."
 docker compose exec -T computer-fargate python -m chatticus.snapshot pack \
@@ -33,7 +33,7 @@ docker compose exec -T computer-mac python -m chatticus.snapshot hydrate \
   --computer "${COMPUTER}"
 
 MAC_NOTES="$(docker compose exec -T computer-mac cat /workspace/notes.md)"
-MAC_COOKIES="$(docker compose exec -T computer-mac cat /var/lib/chatticus/computer/browser-profile/Default/Cookies)"
+MAC_COOKIES="$(docker compose exec -T computer-mac cat /var/lib/chatticus/computer/browser-profiles/privileged/banking/Default/Cookies)"
 if [ "${MAC_NOTES}" != "from-fargate" ]; then
   echo "FAIL: Mac workspace is '${MAC_NOTES}', expected from-fargate" >&2
   exit 1

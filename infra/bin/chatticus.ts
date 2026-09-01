@@ -7,6 +7,7 @@ import {
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
 } from "../lib/environments";
+import { GitHubDeployStack } from "../lib/github-deploy-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
 import { WebStack } from "../lib/web-stack";
@@ -32,6 +33,12 @@ new ComputerStack(app, "ChatticusComputers", {
 const dns = new DnsStack(app, "ChatticusDns", {
   env,
   description: "Route 53 hosted zone and ACM certificate for chattic.us.",
+});
+
+new GitHubDeployStack(app, "ChatticusGitHubDeploy", {
+  env,
+  description:
+    "GitHub Actions OIDC IAM role for CDK deploy workflows (phase-1 ThinTurn development).",
 });
 
 for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {

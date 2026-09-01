@@ -17,6 +17,13 @@ Feature: Browser capability containment
 
   Scenario: Research browsing is separate from a privileged session
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
+    And a human task grants:
+      | field          | value                         |
+      | tools          | browse                        |
+      | origins        | https://untrusted.example     |
+      | recipients     |                               |
+      | file_scopes    |                               |
+      | egress_classes | approved_origin_fetch           |
     And the household computer holds a privileged authenticated session
     When the bot opens an untrusted research page
     Then that browsing context cannot use the privileged session or its secrets

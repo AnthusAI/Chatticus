@@ -8,11 +8,25 @@ import shutil
 import tarfile
 from pathlib import Path
 
-WORKSPACE_DIRNAME = "workspace"
-BROWSER_PROFILE_DIRNAME = "browser-profile"
+from chatticus.browser_profiles import (
+    BROWSER_PROFILES_DIRNAME,
+    WORKSPACE_DIRNAME,
+    ensure_browser_profiles_layout,
+)
+
 CACHE_CHECKSUM_FILENAME = ".chatticus-snapshot-checksum"
 
-_ALLOWED_ROOTS = frozenset({WORKSPACE_DIRNAME, BROWSER_PROFILE_DIRNAME})
+_ALLOWED_ROOTS = frozenset({WORKSPACE_DIRNAME, BROWSER_PROFILES_DIRNAME})
+
+__all__ = [
+    "BROWSER_PROFILES_DIRNAME",
+    "CACHE_CHECKSUM_FILENAME",
+    "SnapshotPackError",
+    "WORKSPACE_DIRNAME",
+    "pack_checksum",
+    "pack_live_disk",
+    "unpack_live_disk",
+]
 
 
 class SnapshotPackError(ValueError):
@@ -25,15 +39,16 @@ def pack_checksum(pack: bytes) -> str:
 
 
 def pack_live_disk(live_root: Path) -> bytes:
-    """Create a gzip-compressed tar of workspace and browser profile.
+    """Create a gzip-compressed tar of workspace and browser profiles.
 
     Empty directories are included so hydrate always replaces both trees.
     """
     live_root = live_root.resolve()
     live_root.mkdir(parents=True, exist_ok=True)
+    ensure_browser_profiles_layout(live_root)
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
-        for dirname in (WORKSPACE_DIRNAME, BROWSER_PROFILE_DIRNAME):
+        for dirname in (WORKSPACE_DIRNAME, BROWSER_PROFILES_DIRNAME):
             source = live_root / dirname
             source.mkdir(parents=True, exist_ok=True)
             archive.add(source, arcname=dirname, filter=_safe_tarinfo)
@@ -49,7 +64,7 @@ def unpack_live_disk(pack: bytes, live_root: Path) -> None:
     live_root = live_root.resolve()
     live_root.mkdir(parents=True, exist_ok=True)
     _assert_pack_members_are_safe(pack)
-    for dirname in (WORKSPACE_DIRNAME, BROWSER_PROFILE_DIRNAME):
+    for dirname in (WORKSPACE_DIRNAME, BROWSER_PROFILES_DIRNAME):
         target = live_root / dirname
         if target.is_dir():
             shutil.rmtree(target)

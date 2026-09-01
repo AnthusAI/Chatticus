@@ -41,7 +41,11 @@ def when_user_approves(context: object) -> None:
     'target-system evidence "{evidence}"'
 )
 def when_worker_executes_approved(context: object, evidence: str) -> None:
-    context.last_execution = context.plane.approval_binding.execute_approved_operation(
+    from chatticus.capability_sinks import POLICY_KERNEL_TENANT, POLICY_KERNEL_TURN
+
+    context.last_execution = context.plane.execute_approved_structured_operation(
+        POLICY_KERNEL_TENANT,
+        POLICY_KERNEL_TURN,
         context.approval,
         context.proposal.operation,
         evidence,
@@ -51,13 +55,17 @@ def when_worker_executes_approved(context: object, evidence: str) -> None:
 
 @when('the worker attempts to execute "{action_type}" with:')
 def when_worker_attempts(context: object, action_type: str) -> None:
+    from chatticus.capability_sinks import POLICY_KERNEL_TENANT, POLICY_KERNEL_TURN
+
     args = _table_args(context)
     attempted = StructuredConsequentialOperation(
         action_type=action_type,
         destination=args["destination"],
         payload=args["payload"],
     )
-    context.last_execution = context.plane.approval_binding.execute_approved_operation(
+    context.last_execution = context.plane.execute_approved_structured_operation(
+        POLICY_KERNEL_TENANT,
+        POLICY_KERNEL_TURN,
         context.approval,
         attempted,
         "smtp-250",

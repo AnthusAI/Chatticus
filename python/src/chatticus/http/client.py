@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
 from typing import Any
+
+
+@dataclass(frozen=True)
+class GatedToolHttpError(Exception):
+    """A gated tool HTTP route denied the request with a safe reason."""
+
+    reason: str
+    status_code: int
+
+    def __str__(self) -> str:
+        return self.reason
 
 
 class HttpTurnClient:
@@ -97,3 +110,134 @@ class HttpTurnClient:
                 f"waiting POST failed with status {response.status_code}: "
                 f"{response.text}"
             )
+
+    def invoke_task_tool(
+        self,
+        bot_id: str,
+        user_id: str,
+        action: str,
+        arguments: dict[str, str],
+    ) -> dict[str, Any]:
+        """Invoke the structured task tool for one bot at the first readiness gate."""
+        response = self.client.post(
+            f"/bots/{bot_id}/tasks/tool",
+            json={
+                "user_id": user_id,
+                "action": action,
+                "arguments": arguments,
+            },
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"task tool POST failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+        return response.json()
+
+    def put_grant(
+        self,
+        turn_id: str,
+        *,
+        tools: list[str],
+        origins: list[str] | None = None,
+        recipients: list[str] | None = None,
+        file_scopes: list[str] | None = None,
+        egress_classes: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Attach one closed task grant to a turn."""
+        response = self.client.put(
+            f"/turns/{turn_id}/grant",
+            json={
+                "tools": tools,
+                "origins": origins or [],
+                "recipients": recipients or [],
+                "file_scopes": file_scopes or [],
+                "egress_classes": egress_classes or [],
+            },
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"grant PUT failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+        return response.json()
+
+    def read_workspace_gated(
+        self,
+        turn_id: str,
+        user_id: str,
+        path: str,
+    ) -> dict[str, Any]:
+        """Read one workspace path after the task grant allows it."""
+        response = self.client.post(
+            f"/turns/{turn_id}/workspace/read",
+            json={"user_id": user_id, "path": path},
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code == 403:
+            raise GatedToolHttpError(
+                _safe_http_detail(response),
+                response.status_code,
+            )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"workspace read POST failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+        return response.json()
+
+    def authorize_browse(self, turn_id: str, url: str) -> dict[str, Any]:
+        """Authorize one browse origin after the task grant allows it."""
+        response = self.client.post(
+            f"/turns/{turn_id}/browse/authorize",
+            json={"url": url},
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code == 403:
+            raise GatedToolHttpError(
+                _safe_http_detail(response),
+                response.status_code,
+            )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"browse authorize POST failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+        return response.json()
+
+    def deny_model_tool(
+        self,
+        turn_id: str,
+        tool_name: str,
+        arguments: dict[str, str],
+    ) -> None:
+        """Record one denied model tool through the control plane sink."""
+        response = self.client.post(
+            f"/turns/{turn_id}/tool/denied",
+            json={"tool_name": tool_name, "arguments": arguments},
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code == 403:
+            raise GatedToolHttpError(
+                _safe_http_detail(response),
+                response.status_code,
+            )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"tool denied POST failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+
+
+def _safe_http_detail(response: Any) -> str:
+    """Return a FastAPI error detail string without raising."""
+    try:
+        body = response.json()
+    except json.JSONDecodeError:
+        return response.text or "denied"
+    detail = body.get("detail")
+    if detail is not None:
+        return str(detail)
+    return response.text or "denied"

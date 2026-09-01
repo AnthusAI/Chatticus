@@ -1,0 +1,34 @@
+{
+  "id": "chatticus-1f3bb85f-8e79-4e83-9727-76ec0500e829",
+  "title": "Wire gated capability sinks into the live model tool loop",
+  "description": "Purpose: 150e07 persists grants and HTTP sinks on development ThinTurn. Remaining 4ddbe1 gap: the model/worker tool loop can still request forbidden effects without going through those sinks.\n\nAcceptance:\n- Computerless (and computer continuation if it uses tools) worker enforces the same CapabilityPolicy sinks as PUT grant / POST workspace/read — one path, no dual policy.\n- A model-requested forbidden workspace/browse/egress is denied at the sink; the denial is visible on the turn (journal or HTTP) without leaking secrets.\n- Granted read-only / in-scope tools still succeed.\n- desiredCount stays 0. No cdk deploy --all, no production, no 35d86b / PR #26.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4ddbe133-721a-4acb-909b-a56d511f08db",
+  "labels": [
+    "v1",
+    "security"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "f639a417-6294-4768-8f07-01e9d1a2c45b",
+      "author": "agent@example.com",
+      "text": "Planner Composer 2.5 on worktree /tmp/chatticus-1f3bb8-model-sinks branch cursor/model-loop-sinks-4a21. Not 35d86b. desiredCount 0. Implementation not authorized until plan review.",
+      "created_at": "2026-08-31T23:42:31.906398Z"
+    },
+    {
+      "id": "59ed2bca-e2fb-4714-9d13-12e88ade5580",
+      "author": "agent@example.com",
+      "text": "Landed #80 on develop. ThinTurn-only development: browse/authorize and tool/denied return 403 without grant. Computerless worker HTTP dispatch + ComputerWorker re-gate. desiredCount 0. Closing.",
+      "created_at": "2026-09-01T00:08:29.400438Z"
+    }
+  ],
+  "created_at": "2026-08-31T23:41:50.241214Z",
+  "updated_at": "2026-09-01T00:08:29.434110Z",
+  "closed_at": "2026-09-01T00:08:29.434110Z",
+  "custom": {}
+}

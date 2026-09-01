@@ -3,7 +3,7 @@
   "title": "Prove one-turn SSE transport",
   "description": "Purpose: replace the unmeasured streaming premise with evidence before building the cloud API.\n\nDefinition of Done:\n- Feasibility test 1 runs against the direct Lambda function URL and CloudFront paths.\n- Foreground, background-tab, reconnect, and mobile Safari observations are recorded.\n- The measured front door is selected without weakening scale-to-zero or the one-turn stream boundary.\n- The completed test is removed from FEASIBILITY_TESTS.md and its result is recorded in the document it gates.",
   "type": "epic",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -48,10 +48,22 @@
       "author": "home",
       "text": "Board lag pass 2026-08-31: left open on purpose. Foreground CloudFront reconnect is live; mobile Safari and background-tab are still unmeasured. Owner has not waived.",
       "created_at": "2026-08-31T05:56:28.987623Z"
+    },
+    {
+      "id": "93c25102-f982-4390-935d-4b6726ac2e72",
+      "author": "agent@example.com",
+      "text": "Board currency: all children closed. Epic stays open only for the mobile Safari measurement (or owner waiver). Not in_progress; no SSE spike rebuild.",
+      "created_at": "2026-08-31T19:51:53.809488Z"
+    },
+    {
+      "id": "e4a5c963-4a35-4665-aa8a-8cf85ca00f51",
+      "author": "agent@example.com",
+      "text": "Owner waived remaining DoD: no way to measure mobile Safari or background-tab SSE. Foreground CloudFront reconnect already live. Do not rebuild the spike. Closing epic on that waiver.\n",
+      "created_at": "2026-09-01T00:51:22.520185Z"
     }
   ],
   "created_at": "2026-08-30T15:53:17.431152Z",
-  "updated_at": "2026-08-31T05:56:28.987623Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T00:51:22.535081Z",
+  "closed_at": "2026-09-01T00:51:22.535081Z",
   "custom": {}
 }

@@ -12,19 +12,19 @@ body {
 }
 
 main {
-  max-width: 40rem;
+  max-width: 56rem;
   margin: 0 auto;
-  padding: 3rem 1.5rem;
+  padding: 2rem 1.5rem 3rem;
 }
 
-h1 {
+.site-header h1 {
   font-size: 1.75rem;
   font-weight: 600;
   margin: 0 0 0.5rem;
 }
 
-p {
-  margin: 0 0 1.25rem;
+.site-header p {
+  margin: 0 0 1.5rem;
   color: #b8c2d0;
 }
 
@@ -33,11 +33,24 @@ p {
   border-radius: 0.75rem;
   padding: 1rem 1.25rem;
   background: #151b24;
+  margin-bottom: 1rem;
 }
 
 .card h2 {
   font-size: 1rem;
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.75rem;
+}
+
+.workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 48rem) {
+  .workspace {
+    grid-template-columns: 14rem 1fr;
+    align-items: start;
+  }
 }
 
 .status {
@@ -51,4 +64,243 @@ p {
 
 .status.error {
   color: #f08888;
+}
+
+.status-block {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.retry-button {
+  justify-self: start;
+  border: 1px solid #2a3441;
+  border-radius: 0.5rem;
+  background: #10161f;
+  color: inherit;
+  font: inherit;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+
+.retry-button:hover {
+  border-color: #4c7fe0;
+}
+
+.turn-badge {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.turn-badge.completed {
+  color: #7ddea2;
+}
+
+.turn-badge.failed {
+  color: #f08888;
+}
+
+.turn-badge.reconciling {
+  color: #e8c468;
+}
+
+.bot-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.bot {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #2a3441;
+  border-radius: 0.5rem;
+  background: #10161f;
+  color: inherit;
+  padding: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.bot:hover,
+.bot.selected {
+  border-color: #4c7fe0;
+  background: #172033;
+}
+
+.bot-name {
+  display: block;
+  font-weight: 600;
+}
+
+.bot-meta {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #9aa8ba;
+}
+
+.bot-avatar {
+  flex: 0 0 auto;
+}
+
+.chat-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.chat-header h2 {
+  margin: 0;
+}
+
+.chat-avatar {
+  flex: 0 0 auto;
+}
+
+.chat-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.chat-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 0.5rem;
+  border: 1px solid #2a3441;
+  background: #10161f;
+  color: inherit;
+  padding: 0.75rem;
+  resize: vertical;
+  font: inherit;
+}
+
+.chat-form button {
+  justify-self: start;
+  border: none;
+  border-radius: 0.5rem;
+  background: #4c7fe0;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+}
+
+.chat-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.turn-progress {
+  margin-top: 1rem;
+  border-top: 1px solid #2a3441;
+  padding-top: 1rem;
+}
+
+.progress-text {
+  white-space: pre-wrap;
+  margin: 0.5rem 0 0;
+}
+
+.event-log {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.event-log li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.event-kind {
+  font-family: ui-monospace, monospace;
+  color: #9aa8ba;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.task {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #2a3441;
+  border-radius: 0.5rem;
+  background: #10161f;
+  color: inherit;
+  padding: 0.75rem;
+  cursor: pointer;
+}
+
+.task:hover,
+.task.selected {
+  border-color: #4c7fe0;
+  background: #172033;
+}
+
+.task-title {
+  display: block;
+  font-weight: 600;
+}
+
+.task-meta {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #9aa8ba;
+  text-transform: capitalize;
+}
+
+.task-detail {
+  margin-top: 1rem;
+  border-top: 1px solid #2a3441;
+  padding-top: 1rem;
+}
+
+.task-detail h3 {
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+
+.task-detail-fields {
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.task-detail-fields dt {
+  font-size: 0.75rem;
+  color: #9aa8ba;
+  margin-bottom: 0.15rem;
+}
+
+.task-detail-fields dd {
+  margin: 0;
 }

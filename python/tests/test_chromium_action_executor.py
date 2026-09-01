@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+from chatticus.browser_profiles import browser_profile_dir
 from chatticus.chromium_action_executor import (
     ChromiumActionExecutor,
     chromium_binary_path,
@@ -13,7 +14,11 @@ from chatticus.chromium_action_executor import (
 )
 
 
-def test_chromium_action_executor_browser_open_returns_opened_url() -> None:
+def test_chromium_action_executor_browser_open_returns_opened_url(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CHATTICUS_LIVE_ROOT", str(tmp_path))
     executor = ChromiumActionExecutor(display=":99")
     with (
         patch(
@@ -34,7 +39,64 @@ def test_chromium_action_executor_browser_open_returns_opened_url() -> None:
     assert "--headless=new" in command
 
 
-def test_chromium_action_executor_maps_request_computer_capability_to_browser() -> None:
+def test_chromium_action_executor_uses_partitioned_user_data_dir(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CHATTICUS_LIVE_ROOT", str(tmp_path))
+    executor = ChromiumActionExecutor(display=":99")
+    with (
+        patch(
+            "chatticus.chromium_action_executor.chromium_binary_path",
+            return_value="/usr/bin/chromium-browser",
+        ),
+        patch(
+            "chatticus.chromium_action_executor.subprocess.run",
+        ) as run,
+    ):
+        run.return_value.returncode = 0
+        run.return_value.stdout = "<html></html>"
+        run.return_value.stderr = ""
+        executor.execute(
+            "browser_open",
+            {
+                "url": "https://example.test",
+                "storage_partition": "privileged:banking",
+            },
+        )
+    command = run.call_args.args[0]
+    expected = browser_profile_dir(tmp_path, "privileged:banking")
+    assert f"--user-data-dir={expected}" in command
+
+
+def test_chromium_action_executor_defaults_to_untrusted_profile(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("CHATTICUS_LIVE_ROOT", str(tmp_path))
+    executor = ChromiumActionExecutor(display=":99")
+    with (
+        patch(
+            "chatticus.chromium_action_executor.chromium_binary_path",
+            return_value="/usr/bin/chromium-browser",
+        ),
+        patch(
+            "chatticus.chromium_action_executor.subprocess.run",
+        ) as run,
+    ):
+        run.return_value.returncode = 0
+        run.return_value.stdout = "<html></html>"
+        run.return_value.stderr = ""
+        executor.execute("browser_open", {"url": "https://example.test"})
+    command = run.call_args.args[0]
+    expected = browser_profile_dir(tmp_path, "untrusted")
+    assert f"--user-data-dir={expected}" in command
+
+
+def test_chromium_action_executor_maps_request_computer_capability_to_browser(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CHATTICUS_LIVE_ROOT", str(tmp_path))
     executor = ChromiumActionExecutor(display=":99")
     with (
         patch(

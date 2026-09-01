@@ -12,6 +12,7 @@ operations.
 | `ChatticusSnapshots` | S3 bucket for computer packs; IAM role local hosts may assume |
 | `ChatticusComputers` | VPC, ECR, ECS cluster, Fargate ARM64 task definition, service (count 0 by default) |
 | `ChatticusDns` | Route 53 hosted zone for `chattic.us`, ACM certificate (`chattic.us`, `*.chattic.us`, `www.chattic.us`) |
+| `ChatticusGitHubDeploy` | GitHub Actions OIDC IAM role for CDK deploy workflows (development ThinTurn + Web) |
 | `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE function URL |
 | `ChatticusThinTurnStaging` | Staging thin turn (same shape; deployed from `main`) |
 | `ChatticusThinTurnProduction` | Production thin turn (gated deploy of a staging-proven release; never implied by a git branch) |
@@ -75,61 +76,67 @@ npx cdk deploy ChatticusThinTurnProduction
 npx cdk deploy ChatticusWebProduction
 ```
 
-GitHub Actions: workflow **Deploy web** (`deploy-web.yml`) with
-`workflow_dispatch`. No CodePipeline. **Not wired yet** until AWS and
-GitHub are configured (below).
+GitHub Actions (development): manual `workflow_dispatch` workflows on the
+`development` environment. Wire OIDC once (below), redeploy
+`ChatticusGitHubDeploy` after adding a new trusted workflow path, then set
+the `development` environment secret **`AWS_DEPLOY_ROLE_ARN`**. No
+CodePipeline. Staging and production workflows are not in scope yet.
+
+| Workflow | File | Script | Stacks |
+| --- | --- | --- | --- |
+| **Deploy ThinTurn (development)** | `deploy-thinturn-development.yml` | `deploy-chatticus-thinturn-development.sh` | `ChatticusThinTurn` only |
+| **Deploy Web (development)** | `deploy-web-development.yml` | `deploy-chatticus-web-development.sh` | `ChatticusThinTurn`, then `ChatticusWeb` |
+
+ThinTurn-only deploy applies ECS host-start context (`computerHostStart=ecs`,
+`computerHostCommand=host-worker`) when ChatticusComputers exists. The web
+workflow runs that script first so a Web deploy cannot drop RunTask wiring,
+then deploys `ChatticusWeb` (builds `web/` during CDK deploy). Neither
+workflow touches staging, production, snapshots, or computers stacks.
 
 ### GitHub Actions OIDC (one-time)
 
 The account already has an IAM OIDC provider for
-`token.actions.githubusercontent.com`. You still need a **deploy IAM role**
-and GitHub configuration. Do **not** store long-lived `AWS_ACCESS_KEY_ID`
-secrets for this workflow; OIDC assumes a role per run.
+`token.actions.githubusercontent.com`. Deploy the CDK stack that creates
+the GitHub Actions deploy role:
 
-1. **Create an IAM role** (console or CDK) that GitHub Actions can assume.
-   Trust policy (adjust repo/branch as needed):
+```bash
+cd infra
+sh deploy-chatticus-github-deploy.sh
+```
 
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Principal": {
-           "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
-         },
-         "Action": "sts:AssumeRoleWithWebIdentity",
-         "Condition": {
-           "StringEquals": {
-             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-           },
-           "StringLike": {
-             "token.actions.githubusercontent.com:sub": "repo:AnthusAI/Chattic.us:*"
-           }
-         }
-       }
-     ]
-   }
-   ```
+Copy the **`GithubDeployRoleArn`** output. Do **not** store long-lived
+`AWS_ACCESS_KEY_ID` secrets for this workflow; OIDC assumes a role per run.
 
-   Attach a policy that allows CDK deploy for the Chatticus stacks (often
-   `AdministratorAccess` for a personal account, or a scoped policy later).
+The role **`chatticus-github-actions-deploy`** trusts:
 
-2. **GitHub repository** → Settings → Environments. Create three environments
-   matching the workflow: `development`, `staging`, `production`.
+- GitHub environment **`development`**
+- Workflow ref patterns (explicit list; `workflow_dispatch` from any branch):
+  - `AnthusAI/Chattic.us/.github/workflows/deploy-thinturn-development.yml@*`
+  - `AnthusAI/Chattic.us/.github/workflows/deploy-web-development.yml@*`
+- Audience `sts.amazonaws.com`
 
-3. In each environment, add secret **`AWS_DEPLOY_ROLE_ARN`** with that role’s
-   ARN (you can use one role for all three, or separate roles with tighter
-   trust conditions). The workflow reads
-   `secrets.AWS_DEPLOY_ROLE_ARN` from the selected environment.
+It has `AdministratorAccess` so CDK can deploy `ChatticusThinTurn` /
+`ChatticusWeb` and the development deploy scripts can read
+`ChatticusComputers` outputs for ECS host-start context. It does **not**
+deploy snapshots, computers, staging, or production stacks by itself —
+each workflow runs only its named development script.
 
-4. Optional but recommended: add **deployment protection rules** on
-   `staging` and `production` (required reviewers) so production is not
-   deployable from a single mis-click.
+After merging a change that adds or updates trusted workflow paths, redeploy
+`ChatticusGitHubDeploy` once (`sh deploy-chatticus-github-deploy.sh`) before
+the new workflow can assume the role.
 
-5. Run **Actions → Deploy web → Run workflow**, pick the environment.
+1. **GitHub repository** → Settings → Environments. Create a
+   **`development`** environment for the phase-1 workflow (add `staging` and
+   `production` when those workflows exist).
 
-CI (`ci.yml`) does **not** deploy to AWS; only this manual workflow does.
+2. In `development`, add secret **`AWS_DEPLOY_ROLE_ARN`** with the
+   **`GithubDeployRoleArn`** value from the stack output.
+
+3. Run **Actions → Deploy ThinTurn (development)** or **Deploy Web
+   (development) → Run workflow** (`workflow_dispatch` appears in the Actions
+   UI only after the workflow YAML is on the default branch `main`).
+
+CI (`ci.yml`) does **not** deploy to AWS; only manual deploy workflows do.
 
 Then:
 

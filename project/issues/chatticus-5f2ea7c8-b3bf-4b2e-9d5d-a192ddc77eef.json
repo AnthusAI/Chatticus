@@ -3,7 +3,7 @@
   "title": "Decide the v1 task-tracking approach",
   "description": "Purpose: decide whether v1 ships with task state, and on what fallback, before v1 scope is set.\n\nTask integration is excluded from Phase 1 and Phase 2, which is correct. But docs/TASKS.md makes task state depend on a Kanbus cloud storage backend that does not exist yet, and docs/TASKS.md also says compaction eats task state if it lives only in the channel. That leaves v1 with no recorded answer for whether task state ships at all.\n\nDefinition of Done:\n- A decision is recorded: v1 ships a thin local Task item, or task state is deferred to v2 with the compaction risk accepted in writing.\n- The decision does not depend on Kanbus internals (table sharing or EFS) in v1.\n- docs/TASKS.md and the v1 scope list reflect the decision.\n\nNot included: building the thin Task item, Kanbus product integration (later phase).",
   "type": "epic",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,22 @@
     "v1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "07b8a63d-f31d-4285-aad5-2ab74d69897d",
+      "author": "agent@example.com",
+      "text": "In progress: decision (a) thin Task item in Chatticus DynamoDB is in PR #45; kernel/HTTP follow in #46/#47. DoD is the recorded decision; do not leave this epic looking unstarted.",
+      "created_at": "2026-08-31T19:51:53.722679Z"
+    },
+    {
+      "id": "11cded90-27b7-43bb-865c-399bf95223f7",
+      "author": "agent@example.com",
+      "text": "DoD met: v1 task-tracking decision (a) is recorded on develop (PR #45, SHA a21fd35). Implementation work (kernel/HTTP, PRs #46/#47) is separate and remains open.",
+      "created_at": "2026-08-31T19:58:20.717978Z"
+    }
+  ],
   "created_at": "2026-08-30T16:14:54.836208Z",
-  "updated_at": "2026-08-30T16:14:54.836208Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T19:58:20.728710Z",
+  "closed_at": "2026-08-31T19:58:20.728710Z",
   "custom": {}
 }

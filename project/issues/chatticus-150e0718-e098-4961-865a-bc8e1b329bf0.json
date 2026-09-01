@@ -1,0 +1,34 @@
+{
+  "id": "chatticus-150e0718-e098-4961-865a-bc8e1b329bf0",
+  "title": "Persist capability grants on live development ThinTurn",
+  "description": "Purpose: 53d744 wired sinks in-process; 1e09b4 evals are in-process. Remaining 4ddbe1 DoD is live authenticated-use containment: grants and denials must hold on development ThinTurn (HTTP/Dynamo), not only ControlPlane memory.\n\nAcceptance:\n- Task grants (tools, origins, recipients, file scopes, egress classes) persist across worker invocations on development.\n- Live (or named development exercise) proves a forbidden sink is denied even if the model requests it.\n- Allowed read-only / granted work still succeeds.\n- desiredCount stays 0. No cdk deploy --all, no production, no 35d86b / PR #26.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4ddbe133-721a-4acb-909b-a56d511f08db",
+  "labels": [
+    "v1",
+    "security"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "d04992f0-c4fd-4735-a89f-aab7ac46d9c6",
+      "author": "agent@example.com",
+      "text": "Planner Composer 2.5 on worktree /tmp/chatticus-150e07-live-grants branch cursor/live-grant-persistence-4a21. Not 35d86b. desiredCount 0. Implementation not authorized until plan review.",
+      "created_at": "2026-08-31T23:05:19.748812Z"
+    },
+    {
+      "id": "65465eba-fee2-4886-a4a7-68775878158d",
+      "author": "agent@example.com",
+      "text": "Live development APPROVE after ThinTurn-only deploy: capability_grant_persistence_forbidden=403 allowed=200. desiredCount 0. put() follow-up #77. Closing.",
+      "created_at": "2026-08-31T23:35:00.056151Z"
+    }
+  ],
+  "created_at": "2026-08-31T23:05:05.759227Z",
+  "updated_at": "2026-08-31T23:35:00.068781Z",
+  "closed_at": "2026-08-31T23:35:00.068781Z",
+  "custom": {}
+}

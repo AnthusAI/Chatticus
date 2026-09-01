@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import shutil
+import sys
 import tempfile
 from datetime import timedelta
+from pathlib import Path
 
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.test_server import start_test_server
+
+_TESTS_DIR = Path(__file__).resolve().parents[1] / "python" / "tests"
+if _TESTS_DIR.is_dir() and str(_TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TESTS_DIR))
 
 
 def before_scenario(context: object, scenario: object) -> None:

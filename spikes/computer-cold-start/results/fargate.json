@@ -1,75 +1,85 @@
 {
-  "measured_at": "2026-08-31T07:36:03.813339+00:00",
+  "measured_at": "2026-08-31T22:58:30.014345+00:00",
+  "issue": "chatticus-d68966",
+  "mode": "summoned_browser_gate",
+  "cluster": "ChatticusComputers-ClusterEB0386A7-KBVRNWeg2bzf",
+  "service": "ChatticusComputers-FargateHostService21E870F8-oLIzvLTf5Uhz",
+  "desired_count_at_start": 0,
   "task_definition": "ChatticusComputersComputerTask96CD9924:5",
   "image": "chatticuscomputers-computerimage67d4263c-h3us7njdifay:dev",
-  "image_pushed_at": "2026-08-30T04:46:03-04:00",
-  "local_docker": "unavailable (docker daemon socket missing)",
-  "chromium": "not in computer/Dockerfile; recorded incomplete",
+  "image_pushed_at": "2026-08-31T17:52:57.436000-04:00",
+  "image_digest": "sha256:134b90af02e1ed5f36f6b70c52ee5f2cc621181ba9ed4802b2de0e44bd5a2562",
+  "log_group": "ChatticusComputers-ComputerLogs3CD929E4-28QzCbANHYCu",
+  "e747d7_running_baseline_seconds": {
+    "min": 17.7,
+    "median": 22.0,
+    "max": 38.5
+  },
+  "running_seconds": {
+    "min": 25.862573332968168,
+    "median": 25.98101524997037,
+    "max": 28.40157787501812
+  },
+  "browser_gate_seconds": {
+    "min": 25.949952840805054,
+    "median": 26.095261812210083,
+    "max": 29.788111925125122
+  },
   "runs": [
     {
       "run": 1,
-      "computer": "cold-start-1-1788161270",
-      "task_id": "d014967ef9fc4311b2c03be1954a71f9",
-      "wall_start": "2026-08-31T07:27:50.952519+00:00",
-      "seconds_to_running": 19.954965625016484,
-      "seconds_to_smoke_manifest": 20.19349970802432,
-      "seconds_to_first_log": 19.970481157302856,
+      "task_id": "ac1e3dac92134a75bd7578a7a8a02ffd",
+      "wall_start": "2026-08-31T22:54:03.749047+00:00",
+      "seconds_to_running": 26.027519166993443,
+      "seconds_to_browser_gate": 25.949952840805054,
+      "chromium_version": "Chromium 151.0.7922.173 built on Debian GNU/Linux 12 (bookworm)",
       "last_status": "RUNNING",
       "stop_code": null,
-      "stopped_reason": null,
-      "chromium": "not_in_image"
+      "stopped_reason": null
     },
     {
       "run": 2,
-      "computer": "cold-start-2-1788161363",
-      "task_id": "75704e7724d2478ebec8cc21fd1065b3",
-      "wall_start": "2026-08-31T07:29:23.205704+00:00",
-      "seconds_to_running": 21.96579245798057,
-      "seconds_to_smoke_manifest": 22.21708883298561,
-      "seconds_to_first_log": 22.239295959472656,
+      "task_id": "72a1ec4a649c4d2e989b1217643d37e7",
+      "wall_start": "2026-08-31T22:54:57.916888+00:00",
+      "seconds_to_running": 28.40157787501812,
+      "seconds_to_browser_gate": 29.788111925125122,
+      "chromium_version": "Chromium 151.0.7922.173 built on Debian GNU/Linux 12 (bookworm)",
       "last_status": "RUNNING",
       "stop_code": null,
-      "stopped_reason": null,
-      "chromium": "not_in_image"
+      "stopped_reason": null
     },
     {
       "run": 3,
-      "computer": "cold-start-3-1788161457",
-      "task_id": "82571697e35e4beaa7c1e13fe3195ec9",
-      "wall_start": "2026-08-31T07:30:57.724898+00:00",
-      "seconds_to_running": 38.52072691597277,
-      "seconds_to_smoke_manifest": 40.838667000003625,
-      "seconds_to_first_log": 39.405102014541626,
+      "task_id": "99762a9a955b4b53aa5a0c62adaa117b",
+      "wall_start": "2026-08-31T22:55:52.189681+00:00",
+      "seconds_to_running": 25.862573332968168,
+      "seconds_to_browser_gate": 25.980319023132324,
+      "chromium_version": "Chromium 151.0.7922.173 built on Debian GNU/Linux 12 (bookworm)",
       "last_status": "RUNNING",
       "stop_code": null,
-      "stopped_reason": null,
-      "chromium": "not_in_image"
+      "stopped_reason": null
     },
     {
       "run": 4,
-      "computer": "cold-start-4-1788161570",
-      "task_id": "d2e9b3db73bb49ea8744b7017fb216bb",
-      "wall_start": "2026-08-31T07:32:50.741811+00:00",
-      "seconds_to_running": 17.749807541025802,
-      "seconds_to_smoke_manifest": 20.097926625050604,
-      "seconds_to_first_log": 19.106189012527466,
+      "task_id": "0595e2abf46c4d719494723f3a77fa05",
+      "wall_start": "2026-08-31T22:56:46.069846+00:00",
+      "seconds_to_running": 25.98101524997037,
+      "seconds_to_browser_gate": 26.81715416908264,
+      "chromium_version": "Chromium 151.0.7922.173 built on Debian GNU/Linux 12 (bookworm)",
       "last_status": "RUNNING",
       "stop_code": null,
-      "stopped_reason": null,
-      "chromium": "not_in_image"
+      "stopped_reason": null
     },
     {
       "run": 5,
-      "computer": "cold-start-5-1788161662",
-      "task_id": "67908a1c62e14e528ea30bed8af5bd8d",
-      "wall_start": "2026-08-31T07:34:22.836920+00:00",
-      "seconds_to_running": 24.082656707963906,
-      "seconds_to_smoke_manifest": 26.399904249992687,
-      "seconds_to_first_log": 24.49507999420166,
+      "task_id": "10013e64a8ca4a53a4457342587159f3",
+      "wall_start": "2026-08-31T22:57:38.126738+00:00",
+      "seconds_to_running": 25.86587508302182,
+      "seconds_to_browser_gate": 26.095261812210083,
+      "chromium_version": "Chromium 151.0.7922.173 built on Debian GNU/Linux 12 (bookworm)",
       "last_status": "RUNNING",
       "stop_code": null,
-      "stopped_reason": null,
-      "chromium": "not_in_image"
+      "stopped_reason": null
     }
   ]
 }

@@ -67,13 +67,15 @@ overnight path.
 | Piece | Where it lives | Live on ChatticusThinTurn? |
 | --- | --- | --- |
 | Default require-approval / never-allow | `features/approvals.feature` | No |
-| Overnight stop or exact human rule | `features/overnight_gated_action.feature` | No |
-| Immutable structured approval | `features/exact_consequential_approval.feature` | No |
-| Unbound browser stop | `features/unsupported_browser_action.feature` | No |
-| Page-content cannot expand authority | page-content authority kernel | No |
+| Overnight stop or exact human rule | `features/overnight_gated_action.feature` | In-process kernel |
+| Immutable structured approval | `features/exact_consequential_approval.feature` | In-process kernel |
+| Unbound browser stop | `features/unsupported_browser_action.feature` | In-process kernel |
+| Page-content cannot expand authority | `features/page_content_authority.feature` | In-process kernel |
+| Task grant, contexts, injection, exclusions | [Browser authority](BROWSER_AUTHORITY.md) | In-process kernel |
 
-Wiring these into the worker HTTP loop is a later slice. Do not treat
-kernel tests as a live milestone.
+The control-plane sink adapters in ``capability_sinks`` enforce these
+kernels before file, credential, egress, connector, and consequential
+operations run. Full Lambda and HTTP worker wiring remains incremental.
 
 ## Exclusions (v1)
 
@@ -82,3 +84,5 @@ kernel tests as a live milestone.
 - Loosening auto-review so unattended work finishes by default
 - Pre-authorizing generic browser clicks overnight
 - Bot-created always-allow rules
+- Binding a generic browser click to an immutable operation (see
+  [Browser authority](BROWSER_AUTHORITY.md))

@@ -13,6 +13,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from chatticus.capability_policy import grant_from_payload
+from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.control_plane import ControlPlane
 from chatticus.http.sse import (
     cursor_from_last_event_id,
@@ -27,6 +29,8 @@ from chatticus.models import (
     ChatticusError,
     ComputerNotReadyError,
     StaleAttemptError,
+    TaskAccessDeniedError,
+    TaskNotFoundError,
     TurnAccessDeniedError,
     TurnClaimDeniedError,
     TurnEventKind,
@@ -109,6 +113,44 @@ class WaitTurnBody(BaseModel):
 
     gate: str
     fence_token: int
+
+
+class InvokeTaskToolBody(BaseModel):
+    """Body for POST /bots/{bot_id}/tasks/tool."""
+
+    user_id: str
+    action: str
+    arguments: dict[str, str] = Field(default_factory=dict)
+
+
+class PutTurnGrantBody(BaseModel):
+    """Body for PUT /turns/{turn_id}/grant."""
+
+    tools: list[str] = Field(default_factory=list)
+    origins: list[str] = Field(default_factory=list)
+    recipients: list[str] = Field(default_factory=list)
+    file_scopes: list[str] = Field(default_factory=list)
+    egress_classes: list[str] = Field(default_factory=list)
+
+
+class ReadWorkspaceBody(BaseModel):
+    """Body for POST /turns/{turn_id}/workspace/read."""
+
+    user_id: str
+    path: str
+
+
+class AuthorizeBrowseBody(BaseModel):
+    """Body for POST /turns/{turn_id}/browse/authorize."""
+
+    url: str
+
+
+class DenyModelToolBody(BaseModel):
+    """Body for POST /turns/{turn_id}/tool/denied."""
+
+    tool_name: str
+    arguments: dict[str, str] = Field(default_factory=dict)
 
 
 @dataclass
@@ -228,6 +270,14 @@ def create_app(
         turns = state.plane.list_active_turns(tenant_id, user_id)
         return {"turns": [_turn_payload(turn) for turn in turns]}
 
+    @app.get("/users/{user_id}/tasks")
+    def list_user_tasks(
+        user_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        tasks = state.plane.list_tasks(tenant_id, user_id)
+        return {"tasks": [_task_payload(task) for task in tasks]}
+
     @app.get("/users/{user_id}/computer")
     def get_user_computer(
         user_id: str,
@@ -267,6 +317,43 @@ def create_app(
             body.key,
         )
         return _bot_payload(state.plane.bot(tenant_id, bot_id))
+
+    @app.post("/bots/{bot_id}/tasks/tool")
+    def invoke_task_tool(
+        bot_id: str,
+        body: InvokeTaskToolBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            state.plane.bot(tenant_id, bot_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="bot not found") from error
+        task = state.plane.invoke_task_tool(
+            tenant_id,
+            body.user_id,
+            bot_id,
+            body.action,
+            body.arguments,
+        )
+        logger.info(
+            "task_tool_invoked tenant_id=%s bot_id=%s action=%s task_id=%s",
+            tenant_id,
+            bot_id,
+            body.action,
+            task.task_id,
+        )
+        return _task_payload(task)
+
+    @app.get("/tasks/{task_id}")
+    def get_task(
+        task_id: str,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            task = state.plane.task(tenant_id, task_id)
+        except TaskNotFoundError as error:
+            raise HTTPException(status_code=404, detail="task not found") from error
+        return _task_payload(task)
 
     @app.post("/computers/stopped")
     def set_computer_stopped(
@@ -499,6 +586,94 @@ def create_app(
             ) from error
         return _turn_payload(turn)
 
+    @app.put("/turns/{turn_id}/grant")
+    def put_turn_grant(
+        turn_id: str,
+        body: PutTurnGrantBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot grant turn {turn_id!r}."
+            ) from error
+        grant = grant_from_payload(body.model_dump())
+        state.plane.set_turn_capability_grant(tenant_id, turn_id, grant)
+        logger.info(
+            "turn_grant_set tenant_id=%s turn_id=%s tools=%s",
+            tenant_id,
+            turn_id,
+            sorted(grant.tools),
+        )
+        return {"turn_id": turn_id, "tools": sorted(grant.tools)}
+
+    @app.post("/turns/{turn_id}/workspace/read")
+    def read_turn_workspace(
+        turn_id: str,
+        body: ReadWorkspaceBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot read workspace for turn {turn_id!r}."
+            ) from error
+        content = state.plane.gated_read_workspace_for_model(
+            tenant_id,
+            turn_id,
+            body.user_id,
+            body.path,
+        )
+        logger.info(
+            "gated_workspace_read tenant_id=%s turn_id=%s path=%s",
+            tenant_id,
+            turn_id,
+            body.path,
+        )
+        return {"content": content}
+
+    @app.post("/turns/{turn_id}/browse/authorize")
+    def authorize_turn_browse(
+        turn_id: str,
+        body: AuthorizeBrowseBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot authorize browse for turn {turn_id!r}."
+            ) from error
+        state.plane.gated_browse_origin_for_model(tenant_id, turn_id, body.url)
+        logger.info(
+            "gated_browse_authorized tenant_id=%s turn_id=%s url=%s",
+            tenant_id,
+            turn_id,
+            body.url,
+        )
+        return {"authorized": True, "url": body.url}
+
+    @app.post("/turns/{turn_id}/tool/denied")
+    def deny_turn_model_tool(
+        turn_id: str,
+        body: DenyModelToolBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, str]:
+        try:
+            state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot deny tools for turn {turn_id!r}."
+            ) from error
+        state.plane.deny_model_tool_request(
+            tenant_id,
+            turn_id,
+            body.tool_name,
+            dict(body.arguments),
+        )
+
     @app.get("/turns/{turn_id}/events")
     def list_turn_events(
         turn_id: str,
@@ -609,11 +784,17 @@ def create_app(
 
 
 def _status_for_error(error: ChatticusError) -> int:
+    if isinstance(error, CapabilitySinkDenied):
+        return 403
     if isinstance(
         error,
         ChannelTenantMismatchError | TurnAccessDeniedError | ActorNotInChannelError,
     ):
         return 403
+    if isinstance(error, TaskAccessDeniedError):
+        return 403
+    if isinstance(error, TaskNotFoundError):
+        return 404
     if isinstance(error, StaleAttemptError | TurnClaimDeniedError):
         return 409
     if isinstance(
@@ -636,6 +817,20 @@ def _bot_payload(bot: Any) -> dict[str, Any]:
         "user_id": bot.user_id,
         "name": bot.name,
         "memory": dict(bot.memory),
+    }
+
+
+def _task_payload(task: Any) -> dict[str, Any]:
+    return {
+        "task_id": task.task_id,
+        "tenant_id": task.tenant_id,
+        "user_id": task.user_id,
+        "title": task.title,
+        "status": str(task.status),
+        "evidence": task.evidence,
+        "close_reason": task.close_reason,
+        "created_by_bot_id": task.created_by_bot_id,
+        "updated_by_bot_id": task.updated_by_bot_id,
     }
 
 

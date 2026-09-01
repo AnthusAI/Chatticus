@@ -632,9 +632,23 @@ to ECS `RUNNING` was **17.7–38.5 s** (median **22 s**). Time until Python
 had written `/workspace` and packed a smoke snapshot to S3 was
 **20.1–40.8 s** (median **22 s**). Later runs were not uniformly faster;
 run 3 was the slowest. Local Docker was not comparable here (daemon
-unavailable). Chromium is not in the image, so browser-ready bands were
-not applied. Requirement 16’s “model-call ready in seconds” holds for
-this image. Recorded in
+unavailable). Chromium was not in that image, so browser-ready bands were
+not applied on that pass. Requirement 16’s “model-call ready in seconds”
+holds for the image family. Recorded in
+[spikes/computer-cold-start/results](../spikes/computer-cold-start/results/README.md).
+Do not optimize on the back of this number (non-requirement 3).
+
+**Measured 2026-08-31 (summoned browser gate, chatticus-d68966).** Five
+sequential cold summoned `RunTask`s on the Chromium `:dev` image with
+`CHATTICUS_COMPUTER_BOOT=1` and a one-shot
+`ComputerHostBootDriver().boot_through_browser()` override (in-memory
+`ControlPlane`; no SQS or DynamoDB). Time from submit to ECS `RUNNING`
+was **25.9–28.4 s** (median **26 s**). Time until the first CloudWatch
+`browser_gate_ready:` marker (Chromium version line from
+`verify_chromium_available`) was **25.9–29.8 s** (median **26 s**). Browser
+gate is typically within ~1 s of RUNNING on this path. Compared to the
+pre-Chromium e747d7 RUNNING median (~22 s), the median rose ~4 s with the
+larger image; run 2 was the slowest on browser gate. Recorded in
 [spikes/computer-cold-start/results](../spikes/computer-cold-start/results/README.md).
 Do not optimize on the back of this number (non-requirement 3).
 
@@ -691,7 +705,7 @@ and a turn blocks only on the one it needs:
 | --- | --- | --- |
 | Process and network | Model calls, memory, MCP and connector tools | tens of seconds on cold Fargate for the current image (median ~22 s to RUNNING) |
 | `/workspace` hydrated | File actions | empty workspace + smoke pack in the same tens of seconds; snapshot hydrate from S3 not separately timed |
-| Browser profile hydrated, display and Chromium up | Browser actions | **unmeasured** (Chromium not in the image) |
+| Browser profile hydrated, display and Chromium up | Browser actions | tens of seconds on cold summoned Fargate for the current Chromium image (median ~26 s to `browser_gate_ready:`; typically within ~1 s of RUNNING) |
 | Watch and takeover surface | A human watching or taking over | last |
 
 `chatticus-agent` starts the model loop as soon as the first row is

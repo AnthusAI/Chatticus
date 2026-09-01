@@ -10,7 +10,7 @@ Build from the repository root:
 docker build -f computer/Dockerfile -t chatticus-computer:dev .
 ```
 
-Durable files live under `/var/lib/chatticus/computer/{workspace,browser-profile}`.
+Durable files live under `/var/lib/chatticus/computer/{workspace,browser-profiles}`.
 `/workspace` is a symlink to that workspace directory so bots and the
 snapshot packer see the same tree.
 
@@ -32,6 +32,9 @@ Push a rebuilt image to ECR without changing the Computers service:
 ```bash
 sh computer/push-computer-image.sh
 ```
+
+Development live pin (chatticus-914eb7, partitioned browser profiles): see
+[spikes/computer-browser-profiles/results/dev-image.json](../spikes/computer-browser-profiles/results/dev-image.json).
 
 That packs on a Fargate-named container, hydrates onto a Mac-named
 container, then the reverse. Stale files on the target host are dropped.

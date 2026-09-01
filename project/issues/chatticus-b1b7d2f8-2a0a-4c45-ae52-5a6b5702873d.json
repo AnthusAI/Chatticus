@@ -1,0 +1,37 @@
+{
+  "id": "chatticus-b1b7d2f8-2a0a-4c45-ae52-5a6b5702873d",
+  "title": "GitHub Actions deploy workflow for ChatticusWeb",
+  "description": "",
+  "type": "sub-task",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-6abbb814-51c1-4dd2-bcd9-10143e03146e",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "009179a9-6952-4804-a43c-7cdecdc6d8e5",
+      "author": "agent@example.com",
+      "text": "Still open: #41 removed deploy-web.yml so this ChatticusWeb GHA slice is not done. Parent 6abbb8 stays in_progress. Do not revive a workflow that cdk deploys Web+staging+production in one job.",
+      "created_at": "2026-08-31T19:51:53.784544Z"
+    },
+    {
+      "id": "5979c788-8415-4bdd-a80d-5ec94071d3ba",
+      "author": "agent@example.com",
+      "text": "Code slice on develop via #62: deploy-web-development.yml + OIDC trust for that workflow. Live remaining: human redeploy ChatticusGitHubDeploy, then one successful Deploy Web (development) run. Do not close b1b7d2 until that. No staging/production/--all.",
+      "created_at": "2026-08-31T21:20:31.753023Z"
+    },
+    {
+      "id": "8981b200-db1e-47af-a85c-38c376b1591e",
+      "author": "agent@example.com",
+      "text": "Live development deploy done with the same scripts the new workflow calls: ChatticusGitHubDeploy (OIDC now trusts deploy-web-development.yml) then deploy-chatticus-web-development.sh. ChatticusThinTurn + ChatticusWeb updated. https://dev.chattic.us returned 200. Computers desiredCount 0. Snapshots/Computers/staging/production stacks not updated. Did not run the old main workflow deploy-web.yml.",
+      "created_at": "2026-08-31T21:30:05.080164Z"
+    }
+  ],
+  "created_at": "2026-08-31T16:34:08.603531Z",
+  "updated_at": "2026-08-31T21:30:05.091359Z",
+  "closed_at": "2026-08-31T21:30:05.091359Z",
+  "custom": {}
+}
