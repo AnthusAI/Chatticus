@@ -24,10 +24,16 @@
       "author": "agent@example.com",
       "text": "Plan approved. Live production app is currently app.chattic.us; CDK on develop still said chattic.us (would steal marketing). Implementer rebases onto develop, retargets hey.chattic.us, no apex/www. No deploy until after merge and a ChatticusWebProduction-only diff that does not touch marketing records.\n",
       "created_at": "2026-09-01T01:48:09.874164Z"
+    },
+    {
+      "id": "30e6791e-6201-4bc1-bd13-e81027826aca",
+      "author": "agent@example.com",
+      "text": "#102 merged to develop (609a896). CDK retargets hey.chattic.us; no apex/www. Live hey still NXDOMAIN until ChatticusWebProduction-only deploy.\n",
+      "created_at": "2026-09-01T01:55:11.746976Z"
     }
   ],
   "created_at": "2026-09-01T01:44:27.925703Z",
-  "updated_at": "2026-09-01T01:48:09.874164Z",
+  "updated_at": "2026-09-01T01:55:11.746976Z",
   "closed_at": null,
   "custom": {}
 }
