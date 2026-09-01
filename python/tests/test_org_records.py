@@ -22,6 +22,7 @@ from chatticus.models import (
     NotOrganizationOwnerError,
     OrganizationNotEnabledError,
     OrganizationStatus,
+    OrganizationStatusTransitionError,
 )
 from chatticus.org_records import OrgRecordsKernel, normalize_email
 
@@ -153,6 +154,27 @@ def test_suspend_organization_flips_status() -> None:
     kernel.enable_organization(org.tenant_id)
     suspended = kernel.suspend_organization(org.tenant_id)
     assert suspended.status == OrganizationStatus.SUSPENDED
+
+
+def test_reinstate_organization_flips_status() -> None:
+    kernel = OrgRecordsKernel(InMemoryMessagingStore())
+    owner = kernel.sign_in("ryan@example.com", now=NOW)
+    org = kernel.create_organization(owner, "Anthus Labs", now=NOW)
+    kernel.enable_organization(org.tenant_id)
+    kernel.suspend_organization(org.tenant_id)
+    reinstated = kernel.reinstate_organization(org.tenant_id)
+    assert reinstated.status == OrganizationStatus.ENABLED
+
+
+def test_reinstate_organization_requires_suspended_status() -> None:
+    kernel = OrgRecordsKernel(InMemoryMessagingStore())
+    owner = kernel.sign_in("ryan@example.com", now=NOW)
+    org = kernel.create_organization(owner, "Anthus Labs", now=NOW)
+    with pytest.raises(OrganizationStatusTransitionError):
+        kernel.reinstate_organization(org.tenant_id)
+    kernel.enable_organization(org.tenant_id)
+    with pytest.raises(OrganizationStatusTransitionError):
+        kernel.reinstate_organization(org.tenant_id)
 
 
 def test_accept_on_suspended_org_raises() -> None:

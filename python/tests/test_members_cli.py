@@ -131,6 +131,55 @@ def test_suspend_organization_requires_enabled_status() -> None:
         kernel.suspend_organization(tenant_id)
 
 
+def test_reinstate_organization_requires_suspended_status() -> None:
+    store = InMemoryMessagingStore()
+    tenant_id, _owner_id = _seed_pending_org(store)
+    kernel = OrgRecordsKernel(store)
+    with pytest.raises(OrganizationStatusTransitionError):
+        kernel.reinstate_organization(tenant_id)
+
+
+def test_members_cli_reinstate_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = InMemoryMessagingStore()
+    tenant_id, owner_id = _seed_pending_org(store)
+    plane = ControlPlane(messaging_store=store)
+
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    assert (
+        members_main(["enable", tenant_id, "--yes"], plane_factory=lambda: plane) == 0
+    )
+    assert (
+        members_main(["suspend", tenant_id, "--yes"], plane_factory=lambda: plane) == 0
+    )
+    assert (
+        members_main(["reinstate", tenant_id, "--yes"], plane_factory=lambda: plane)
+        == 0
+    )
+
+    organization = plane.get_organization(tenant_id)
+    assert organization.status == OrganizationStatus.ENABLED
+    assert plane._messaging_store.get_computer(tenant_id, owner_id) is None
+
+
+def test_members_cli_reinstate_requires_suspended(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryMessagingStore()
+    tenant_id, _owner_id = _seed_pending_org(store)
+    plane = ControlPlane(messaging_store=store)
+    plane.enable_organization(tenant_id)
+
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    result = members_main(
+        ["reinstate", tenant_id, "--yes"], plane_factory=lambda: plane
+    )
+    assert result == 1
+
+
 def test_admin_set_member_role_blocks_last_owner_demotion() -> None:
     store = InMemoryMessagingStore()
     tenant_id, owner_id = _seed_pending_org(store)

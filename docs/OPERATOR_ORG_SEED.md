@@ -113,5 +113,6 @@ unchanged.
 
 - Do not edit Dynamo rows by hand except through this CLI.
 - Do not use `enable` to unsuspend; it accepts `pending` only.
+- Use `reinstate` to move a suspended organization back to `enabled`.
 - Do not run `cdk deploy --all`.
 - Do not set `computerCount` above zero for this workflow.

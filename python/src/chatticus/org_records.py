@@ -222,6 +222,20 @@ class OrgRecordsKernel:
         self.store.put_organization(suspended)
         return suspended
 
+    def reinstate_organization(self, tenant_id: str) -> Organization:
+        """Mark one suspended organization enabled again."""
+        organization = self.store.get_organization(tenant_id)
+        if organization is None:
+            raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")
+        if organization.status != OrganizationStatus.SUSPENDED:
+            raise OrganizationStatusTransitionError(
+                f"Organization {tenant_id!r} has status "
+                f"{organization.status!r}; reinstate requires suspended."
+            )
+        reinstated = replace(organization, status=OrganizationStatus.ENABLED)
+        self.store.put_organization(reinstated)
+        return reinstated
+
     def set_member_role(
         self,
         tenant_id: str,

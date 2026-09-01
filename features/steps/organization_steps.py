@@ -15,6 +15,7 @@ from chatticus.models import (
     NotOrganizationOwnerError,
     OrganizationNotEnabledError,
     OrganizationStatus,
+    OrganizationStatusTransitionError,
 )
 from chatticus.org_records import normalize_email
 
@@ -94,6 +95,24 @@ def when_suspend_org(context: object, name: str) -> None:
 @given('organization "{name}" has been suspended')
 def given_org_suspended(context: object, name: str) -> None:
     when_suspend_org(context, name)
+
+
+@when('the organization "{name}" is reinstated')
+def when_reinstate_org(context: object, name: str) -> None:
+    org = _org_by_name(context, name)
+    reinstated = _plane(context).reinstate_organization(org.tenant_id)
+    context.orgs_by_name[name] = reinstated
+
+
+@when('the organization "{name}" tries to be reinstated')
+def when_try_reinstate_org(context: object, name: str) -> None:
+    org = _org_by_name(context, name)
+    context.last_error = None
+    try:
+        reinstated = _plane(context).reinstate_organization(org.tenant_id)
+        context.orgs_by_name[name] = reinstated
+    except OrganizationStatusTransitionError as error:
+        context.last_error = error
 
 
 @when('the owner of "{name}" invites "{email}"')
@@ -277,6 +296,11 @@ def then_list_includes(context: object, name: str) -> None:
 @then("accepting the invitation is refused because the organization is not enabled")
 def then_accept_refused_not_enabled(context: object) -> None:
     assert isinstance(context.last_error, OrganizationNotEnabledError)
+
+
+@then("reinstating the organization is refused because it is not suspended")
+def then_reinstate_refused_not_suspended(context: object) -> None:
+    assert isinstance(context.last_error, OrganizationStatusTransitionError)
 
 
 @then("setting the role is refused because the user is not an owner")

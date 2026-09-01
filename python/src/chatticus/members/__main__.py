@@ -71,6 +71,17 @@ def main(
         help="Required when stdin is not a TTY",
     )
 
+    reinstate_parser = subparsers.add_parser(
+        "reinstate",
+        help="Reinstate one suspended organization without provisioning a computer",
+    )
+    reinstate_parser.add_argument("tenant_id", help="tenant_id")
+    reinstate_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Required when stdin is not a TTY",
+    )
+
     set_role_parser = subparsers.add_parser(
         "set-role",
         help="Set one member role on the admin path",
@@ -149,6 +160,8 @@ def main(
             return _cmd_enable(plane, args.tenant_id, yes=args.yes)
         if args.command == "suspend":
             return _cmd_suspend(plane, args.tenant_id, yes=args.yes)
+        if args.command == "reinstate":
+            return _cmd_reinstate(plane, args.tenant_id, yes=args.yes)
         if args.command == "create":
             return _cmd_create(
                 plane,
@@ -225,6 +238,20 @@ def _cmd_suspend(plane: ControlPlane, tenant_id: str, *, yes: bool) -> int:
         )
     updated = plane.suspend_organization(tenant_id)
     print(f"suspended tenant_id={updated.tenant_id} status={updated.status}")
+    return 0
+
+
+def _cmd_reinstate(plane: ControlPlane, tenant_id: str, *, yes: bool) -> int:
+    organization = plane.get_organization(tenant_id)
+    _require_yes(yes, action="reinstate")
+    _print_org_summary(organization)
+    if organization.status != OrganizationStatus.SUSPENDED:
+        raise OrganizationStatusTransitionError(
+            f"Organization {tenant_id!r} has status "
+            f"{organization.status!r}; reinstate requires suspended."
+        )
+    updated = plane.reinstate_organization(tenant_id)
+    print(f"reinstated tenant_id={updated.tenant_id} status={updated.status}")
     return 0
 
 

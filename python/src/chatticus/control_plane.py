@@ -305,6 +305,10 @@ class ControlPlane:
         """Mark one organization suspended."""
         return self._org_records.suspend_organization(tenant_id)
 
+    def reinstate_organization(self, tenant_id: str) -> Organization:
+        """Mark one suspended organization enabled again."""
+        return self._org_records.reinstate_organization(tenant_id)
+
     def invite_by_email(
         self,
         tenant_id: str,

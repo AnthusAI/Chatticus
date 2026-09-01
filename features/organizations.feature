@@ -92,3 +92,31 @@ Feature: Organization identity and membership records
     And that user has created and enabled organization "Anthus Labs"
     When the owner of "Anthus Labs" tries to set "ryan@example.com" role to "member"
     Then setting the role is refused because this is the last owner
+
+  Scenario: Reinstating a suspended organization returns it to enabled
+    Given "ryan@example.com" has signed in
+    And that user has created and enabled organization "Anthus Labs"
+    And organization "Anthus Labs" has been suspended
+    When the organization "Anthus Labs" is reinstated
+    Then organization "Anthus Labs" has status "enabled"
+
+  Scenario: Reinstating a pending organization is refused
+    Given "ryan@example.com" has signed in
+    And that user has created organization "Anthus Labs"
+    When the organization "Anthus Labs" tries to be reinstated
+    Then reinstating the organization is refused because it is not suspended
+
+  Scenario: Reinstating an enabled organization is refused
+    Given "ryan@example.com" has signed in
+    And that user has created and enabled organization "Anthus Labs"
+    When the organization "Anthus Labs" tries to be reinstated
+    Then reinstating the organization is refused because it is not suspended
+
+  Scenario: Organization lifecycle round trip pending to enabled to suspended to enabled
+    Given "ryan@example.com" has signed in
+    And that user has created organization "Anthus Labs"
+    When the organization "Anthus Labs" is enabled
+    And the organization "Anthus Labs" is suspended
+    And the organization "Anthus Labs" is reinstated
+    Then organization "Anthus Labs" has status "enabled"
+    And no computer exists for "Anthus Labs"

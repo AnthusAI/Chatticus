@@ -35,6 +35,32 @@ def when_members_cli_enables(context: object, name: str) -> None:
     context.members_cli_output = buffer.getvalue()
 
 
+@when('the members CLI suspends organization "{name}" with confirmation')
+def when_members_cli_suspends(context: object, name: str) -> None:
+    org = _org_by_name(context, name)
+    plane = _plane(context)
+    buffer = io.StringIO()
+    with _capture_stdout(buffer):
+        context.members_cli_exit = members_main(
+            ["suspend", org.tenant_id, "--yes"],
+            plane_factory=lambda: plane,
+        )
+    context.members_cli_output = buffer.getvalue()
+
+
+@when('the members CLI reinstates organization "{name}" with confirmation')
+def when_members_cli_reinstates(context: object, name: str) -> None:
+    org = _org_by_name(context, name)
+    plane = _plane(context)
+    buffer = io.StringIO()
+    with _capture_stdout(buffer):
+        context.members_cli_exit = members_main(
+            ["reinstate", org.tenant_id, "--yes"],
+            plane_factory=lambda: plane,
+        )
+    context.members_cli_output = buffer.getvalue()
+
+
 @then('the members CLI output includes organization "{name}"')
 def then_members_cli_includes(context: object, name: str) -> None:
     org = _org_by_name(context, name)
