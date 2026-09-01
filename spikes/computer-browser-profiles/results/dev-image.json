@@ -1,0 +1,23 @@
+{
+  "recorded_at": "2026-09-01T00:40:30+00:00",
+  "issue": "chatticus-914eb7",
+  "parent": "chatticus-4ddbe1",
+  "host_code": "chatticus-120f6e",
+  "cluster": "ChatticusComputers-ClusterEB0386A7-KBVRNWeg2bzf",
+  "service": "ChatticusComputers-FargateHostService21E870F8-oLIzvLTf5Uhz",
+  "task_definition": "ChatticusComputersComputerTask96CD9924:5",
+  "image": "chatticuscomputers-computerimage67d4263c-h3us7njdifay:dev",
+  "image_digest": "sha256:823b4ac02edd53361afb85939549536fe5fd4aca54da0c0318405a45e1e18a3c",
+  "image_pushed_at": "2026-08-31T20:38:10.023000-04:00",
+  "desired_count_before": 0,
+  "desired_count_after": 0,
+  "profile_smoke": {
+    "ran": true,
+    "task_id": "857ed535459a4708bbf0c5deccbdc7fc",
+    "mode": "boot_through_browser_plus_chromium_argv",
+    "chromium_version": "Chromium 151.0.7922.173 built on Debian GNU/Linux 12 (bookworm)",
+    "user_data_dir_proof": "browser-profiles/untrusted in chromium argv",
+    "task_stopped": true,
+    "leftover_running_tasks": 0
+  }
+}

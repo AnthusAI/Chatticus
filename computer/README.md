@@ -33,6 +33,9 @@ Push a rebuilt image to ECR without changing the Computers service:
 sh computer/push-computer-image.sh
 ```
 
+Development live pin (chatticus-914eb7, partitioned browser profiles): see
+[spikes/computer-browser-profiles/results/dev-image.json](../spikes/computer-browser-profiles/results/dev-image.json).
+
 That packs on a Fargate-named container, hydrates onto a Mac-named
 container, then the reverse. Stale files on the target host are dropped.
 
