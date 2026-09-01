@@ -67,4 +67,17 @@ describe("Chatticus marketing experience", () => {
     assert.match(organizationSource, /setAutoplay\(false\)/);
     assert.match(organizationSource, /aria-live=\{announceChanges \? "polite" : "off"\}/);
   });
+
+  it("uses a compact, interactive workspace prototype as the hero product proof", () => {
+    const heroSource = readFileSync(join(root, "components", "Hero.tsx"), "utf8");
+    const prototypeSource = readFileSync(join(root, "components", "WorkspacePrototype.tsx"), "utf8");
+    const wordmarkSource = readFileSync(join(root, "components", "Wordmark.tsx"), "utf8");
+    assert.match(heroSource, /WorkspacePrototype/);
+    assert.match(prototypeSource, /Shared room/);
+    assert.match(prototypeSource, /Work in motion/);
+    assert.match(prototypeSource, /setActiveIndex/);
+    assert.match(prototypeSource, /w-\[85%\]/);
+    assert.match(prototypeSource, /CreativeCharacter/);
+    assert.doesNotMatch(wordmarkSource, /rounded-full border-2/);
+  });
 });

@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, Github } from "lucide-react";
-import { LivingOrganization } from "@/components/LivingOrganization";
+import { WorkspacePrototype } from "@/components/WorkspacePrototype";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -17,7 +17,7 @@ export function Hero() {
       className="relative overflow-hidden border-b-2 border-ink"
     >
       <div className="hero-grid absolute inset-0 -z-10 opacity-60" />
-      <div className="mx-auto grid min-h-[calc(100svh-4.6rem)] max-w-[92rem] items-center gap-16 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1.02fr_0.98fr] lg:px-12 lg:py-24">
+      <div className="mx-auto grid max-w-[92rem] items-center gap-12 px-5 py-14 sm:px-8 sm:py-16 lg:grid-cols-[1.08fr_0.92fr] lg:gap-10 lg:px-12 lg:py-20">
         <div className="max-w-[46rem]">
           <Badge variant="outline" className="animate-rise">
             Named teammates · one shared computer
@@ -78,8 +78,8 @@ export function Hero() {
           </a>
         </div>
 
-        <div className="animate-rise [animation-delay:300ms] lg:pl-4">
-          <LivingOrganization />
+        <div className="animate-rise self-center [animation-delay:300ms] lg:pl-3">
+          <WorkspacePrototype />
         </div>
       </div>
 

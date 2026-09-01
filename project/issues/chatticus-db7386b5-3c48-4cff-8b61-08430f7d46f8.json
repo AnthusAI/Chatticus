@@ -28,10 +28,22 @@
       "author": "home",
       "text": "Post-rebase marketing validation remains green. The new marketing stack is not deployed; its first deployment must resolve existing chattic.us and www.chattic.us CloudFront alias ownership. This story stays in progress until the change lands.",
       "created_at": "2026-09-01T11:17:31.258466Z"
+    },
+    {
+      "id": "353c664a-1324-4915-9b28-b0465fb5df22",
+      "author": "home",
+      "text": "User review after seeing the app: marketing still feels too restrained, the current orbit mark reads as a solar-system logo, and bot/UI motion is not visually prominent. Expanding this story with a large motion showcase, more obvious role activity, kinetic handoffs, and a non-orbital wordmark mark before closing.",
+      "created_at": "2026-09-01T11:31:02.973875Z"
+    },
+    {
+      "id": "de848305-c7f3-4512-b35c-90e2e6d43987",
+      "author": "home",
+      "text": "Hero direction revised from the user review: the primary visual is now a compact, interactive mobile workspace prototype rather than a large roster abstraction. It shows the named Editor, Reporter, Copy Writer, and Illustrator in their actual workspace context, with motion and live handoffs; the former orbital-looking mark is replaced by a conversation-stack mark. Marketing lint, typecheck, production build, and 7 page tests pass.",
+      "created_at": "2026-09-01T16:20:42.461499Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T11:17:31.258466Z",
+  "updated_at": "2026-09-01T16:20:42.461499Z",
   "closed_at": null,
   "custom": {}
 }

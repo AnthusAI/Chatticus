@@ -124,6 +124,55 @@
     linear-gradient(115deg, transparent 45%, rgb(242 239 231 / 0.035) 46%, transparent 47%);
 }
 
+.prototype-halo {
+  position: absolute;
+  z-index: -1;
+  border-radius: 9999px;
+  filter: blur(1px);
+}
+
+.prototype-halo-one {
+  top: 12%;
+  right: -7%;
+  width: 7rem;
+  height: 7rem;
+  background: var(--signal);
+  animation: prototype-float 4.8s var(--ease-out) infinite alternate;
+}
+
+.prototype-halo-two {
+  bottom: 9%;
+  left: -9%;
+  width: 4.5rem;
+  height: 4.5rem;
+  background: var(--clay);
+  animation: prototype-float 5.8s var(--ease-out) -1.4s infinite alternate-reverse;
+}
+
+.prototype-presence {
+  animation: prototype-presence 1.9s ease-in-out infinite;
+}
+
+.prototype-packet {
+  animation: prototype-packet 1.7s var(--ease-out) infinite;
+}
+
+@keyframes prototype-float {
+  from { transform: translate3d(-4px, 7px, 0) rotate(-6deg); }
+  to { transform: translate3d(8px, -9px, 0) rotate(7deg); }
+}
+
+@keyframes prototype-presence {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(184 243 74 / 0.42); }
+  50% { box-shadow: 0 0 0 5px rgb(184 243 74 / 0); }
+}
+
+@keyframes prototype-packet {
+  0% { transform: translateX(0) scale(0.75); opacity: 0.45; }
+  55% { transform: translateX(6px) scale(1.15); opacity: 1; }
+  100% { transform: translateX(12px) scale(0.75); opacity: 0.45; }
+}
+
 .final-cta-orbit {
   animation: orbit-drift 12s ease-in-out infinite alternate;
 }

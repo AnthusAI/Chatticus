@@ -14,20 +14,11 @@ export function Wordmark({ className, inverse = false }: WordmarkProps) {
         className,
       )}
     >
-      <span
-        aria-hidden="true"
-        className={cn(
-          "relative inline-flex h-7 w-7 items-center justify-center rounded-[45%_55%_48%_52%] border-2",
-          inverse ? "border-paper" : "border-ink",
-        )}
-      >
-        <span
-          className={cn(
-            "h-2.5 w-2.5 rounded-full",
-            inverse ? "bg-signal" : "bg-ink",
-          )}
-        />
-        <span className="absolute -top-1 right-0 h-2 w-2 rounded-full border-2 border-ink bg-signal" />
+      <span aria-hidden="true" className="relative inline-flex h-7 w-7 items-center justify-center">
+        <span className={cn("absolute left-0 top-1 h-4 w-5 rounded-[0.65rem_0.65rem_0.65rem_0.15rem]", inverse ? "bg-paper" : "bg-ink")} />
+        <span className={cn("absolute bottom-1 right-0 h-4 w-5 rounded-[0.65rem_0.65rem_0.15rem_0.65rem]", inverse ? "bg-signal" : "bg-clay")} />
+        <span className={cn("relative z-10 h-1 w-1 rounded-full", inverse ? "bg-ink" : "bg-paper")} />
+        <span className={cn("relative z-10 ml-1 h-1 w-1 rounded-full", inverse ? "bg-ink" : "bg-paper")} />
       </span>
       <span>
         chatticus<span className="text-clay">.</span>
