@@ -6,8 +6,7 @@ step.
 
 The product workspace is [hey.chattic.us](https://hey.chattic.us) in
 production. The public marketing site is [chattic.us](https://chattic.us).
-Named bots on the product surface will use
-surface will use [Vultus](https://github.com/AnthusAI/Vultus)
+Named bots on the product surface will use [Vultus](https://github.com/AnthusAI/Vultus)
 (`anthus-vultus`), an animated React avatar, as their face. That is the
 web app. It is not a second realtime transport.
 
