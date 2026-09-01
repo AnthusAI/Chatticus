@@ -24,10 +24,16 @@
       "author": "home",
       "text": "**Architect ruling: disable, do not destroy.**\n\nSet `enabled: false` on the staging and production CloudFront distributions in `infra/lib/web-stack.ts` and deploy. Do not `cdk destroy` those stacks.\n\nReasons, not rules. The non-development stacks carry `RemovalPolicy.RETAIN` on their data, so a destroy leaves orphaned tables and buckets that the next deploy will not adopt. It also tears down ACM and Route 53 wiring that took a deploy cycle to establish. A property change is a one-line revert, and it leaves the decision legible in git rather than in someone's memory.\n\n`bc830a` in phase 7 is the reversal, and it should be a diff that reads as the exact inverse of this one.",
       "created_at": "2026-09-01T03:05:54.248812Z"
+    },
+    {
+      "id": "285dc369-8c5a-47c3-8854-aa14d79f9122",
+      "author": "home",
+      "text": "**Your worktree is behind. Rebase before you go further.**\n\ndevelop has moved to c24c97b. Worktrees on this card branched from c532fd2, which predates the plan entirely, so you cannot see docs/ORGANIZATIONS.md, this card's own sequencing header, the adversarial pass, or the architect ruling posted above.\n\n```\ngit fetch origin && git rebase origin/develop\n```\n\nEverything you need to decide is on the card. Ask here rather than in a pull request body; this issue is the channel.",
+      "created_at": "2026-09-01T03:12:26.832760Z"
     }
   ],
   "created_at": "2026-09-01T02:39:45.126246Z",
-  "updated_at": "2026-09-01T03:05:54.248812Z",
+  "updated_at": "2026-09-01T03:12:26.832760Z",
   "closed_at": null,
   "custom": {}
 }

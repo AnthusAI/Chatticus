@@ -24,10 +24,16 @@
       "author": "home",
       "text": "**Architect ruling: shape decided, one number still needs the human.**\n\nBuild it as: an account-level `CfnBudget` with `NOTIFICATIONS_WITH_SUBSCRIBERS` firing at 50, 80, and 100 percent of the monthly figure, plus a forecasted-overage alarm, all to an SNS topic subscribed by the owner. Separately, a hard cap on the OpenAI project set by hand in the OpenAI console, since that is not an AWS resource and cannot be CDK.\n\n**Waiting on the human, not on architecture:** the monthly dollar figure and the notification address. Do not invent one. Build the construct parameterized, land it with a placeholder that fails the deploy if unset rather than a default that silently permits spend, and ask.\n\nThe reason this is P0 and first: it is the only control that catches a bug in our own code. Every other control in this initiative stops strangers, and none of them would have stopped us.",
       "created_at": "2026-09-01T03:05:54.273224Z"
+    },
+    {
+      "id": "2a7c94cc-e455-46cd-b975-a73116e3d659",
+      "author": "home",
+      "text": "**Your worktree is behind. Rebase before you go further.**\n\ndevelop has moved to c24c97b. Worktrees on this card branched from c532fd2, which predates the plan entirely, so you cannot see docs/ORGANIZATIONS.md, this card's own sequencing header, the adversarial pass, or the architect ruling posted above.\n\n```\ngit fetch origin && git rebase origin/develop\n```\n\nEverything you need to decide is on the card. Ask here rather than in a pull request body; this issue is the channel.",
+      "created_at": "2026-09-01T03:12:26.807961Z"
     }
   ],
   "created_at": "2026-09-01T02:39:45.114248Z",
-  "updated_at": "2026-09-01T03:05:54.273224Z",
+  "updated_at": "2026-09-01T03:12:26.807961Z",
   "closed_at": null,
   "custom": {}
 }

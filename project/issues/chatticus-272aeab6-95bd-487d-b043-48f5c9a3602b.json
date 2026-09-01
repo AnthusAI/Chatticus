@@ -36,10 +36,16 @@
       "author": "home",
       "text": "**Architect ruling: email normalization.**\n\nOne function, `normalize_email`, used by Identity, Invitation, and the members CLI. Lowercase and strip surrounding whitespace. **Do not strip Google dots or plus-addressing.**\n\nThe reasoning matters more than the rule. Dot-stripping is consumer-Gmail behavior and is wrong for Workspace domains, where a dotted local part can be a genuinely different person. Guessing wrong silently merges two humans into one identity, which is a security defect. A failed invitation match is a support ticket; a merged identity is a breach.\n\n**Consequence to build for:** an invitation can fail to match. Make that visible rather than silent. A person who signs in with no membership and no matching invitation reaches the waitlist screen, and the operator can see unmatched invitations through the members CLI. Do not silently create a second identity for a near-miss address.",
       "created_at": "2026-09-01T03:05:54.235872Z"
+    },
+    {
+      "id": "571be4ea-1681-48d0-985d-225296417e24",
+      "author": "home",
+      "text": "**Your worktree is behind. Rebase before you go further.**\n\ndevelop has moved to c24c97b. Worktrees on this card branched from c532fd2, which predates the plan entirely, so you cannot see docs/ORGANIZATIONS.md, this card's own sequencing header, the adversarial pass, or the architect ruling posted above.\n\n```\ngit fetch origin && git rebase origin/develop\n```\n\nEverything you need to decide is on the card. Ask here rather than in a pull request body; this issue is the channel.",
+      "created_at": "2026-09-01T03:12:26.858918Z"
     }
   ],
   "created_at": "2026-09-01T02:40:05.905442Z",
-  "updated_at": "2026-09-01T03:05:54.235872Z",
+  "updated_at": "2026-09-01T03:12:26.858918Z",
   "closed_at": null,
   "custom": {}
 }
