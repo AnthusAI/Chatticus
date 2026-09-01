@@ -76,10 +76,16 @@
       "author": "home",
       "text": "User feedback: the grey shadow plane became too low and opaque. Restore it as a translucent shadow directly under the workspace, retaining only a minimal independently timed transform/scale variation.",
       "created_at": "2026-09-01T18:53:05.545389Z"
+    },
+    {
+      "id": "13e72f6b-18fa-4d70-a4b4-7b2e3c411cd1",
+      "author": "home",
+      "text": "User feedback: translucent grey shadow is still too tall and low. Shrinking its bounds and reducing its vertical offset while retaining the independent subtle motion.",
+      "created_at": "2026-09-01T18:57:48.169964Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T18:53:05.545389Z",
+  "updated_at": "2026-09-01T18:57:48.169964Z",
   "closed_at": null,
   "custom": {}
 }
