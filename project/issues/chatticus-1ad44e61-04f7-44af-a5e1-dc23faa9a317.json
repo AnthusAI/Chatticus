@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-1ad44e61-04f7-44af-a5e1-dc23faa9a317",
+  "title": "Second thin-turn completion reuses the previous bot message instead of this turn's chunks",
+  "description": "## Bug\n\nA second message on a channel that already has a Luna bot row commits the **previous** bot message body, not the joined token chunks from this turn.\n\nLive evidence from demo CLI acceptance on development (develop @ 4250986): tokens streamed `Hello, Ryan—this CLI stream check is working.` then `bot>` printed `Hi! How can I help?` (the household greeting). Same pattern on a second run. `exercise_thin_turn.py` still exited 0; it does not assert committed body equals streamed tokens.\n\n## Cause (read, not a patch)\n\n`ControlPlane._complete_turn` for a non-completed turn walks `list_messages` in reverse and, if **any** bot message for `turn.bot_id` exists on the channel, calls `_finalize_committed_turn` with that row's body and skips joining `list_turn_chunks`. After the first greeting, every later turn re-commits the last bot message.\n\nIdempotent complete should reuse **this turn's** committed row (e.g. via `turn.completed` `message_seq`), not the latest bot author on the channel.\n\n## DoD\n\n- Gherkin: posting a second human message on a channel that already has a bot reply commits the new joined chunks, not the earlier bot body.\n- `turn.completed.body` matches streamed `turn.token` text for that turn_id.\n- Demo CLI `bot>` line matches the streamed tokens.\n- First-turn greeting path still works.\n- No production deploy. ThinTurn-only development if a live pin is required.\n\nNot included: chat UI, production, computer, CLI UX redesign.",
+  "type": "bug",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-46746451-4000-4570-9129-37898a7e119a",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "fd64a43d-3dda-4f34-abb5-42d73beeb5cd",
+      "author": "agent@example.com",
+      "text": "Opened from demo CLI live acceptance. Planner worktree `/tmp/chatticus-1ad44e-complete-turn`, branch `cursor/complete-turn-chunks-4a21` off origin/develop. Plan only until authorized. No production deploy.\n",
+      "created_at": "2026-09-01T01:21:02.598810Z"
+    }
+  ],
+  "created_at": "2026-09-01T01:20:52.310379Z",
+  "updated_at": "2026-09-01T01:21:02.598810Z",
+  "closed_at": null,
+  "custom": {}
+}
