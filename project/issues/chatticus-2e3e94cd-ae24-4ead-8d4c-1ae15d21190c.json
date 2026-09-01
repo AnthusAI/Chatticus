@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-2e3e94cd-ae24-4ead-8d4c-1ae15d21190c",
+  "title": "Budget tracking that ships with every deployment",
+  "description": "Every Chatticus deployment carries its own budget tracking, alerts, notifications, and configurable limits. Design and reasoning: **docs/BUDGETS.md**.\n\nThe invariant: tokens are always counted, dollars are counted once, by whoever issues the invoice. Two meters chosen by billing path, never by category. AWS spend is separated per deployment by the AWS account; vendor spend is separated only by a per-deployment vendor project.\n\n**Start with 4f1a: the shared OpenAI parameter blocks the dedicated-account deploy outright.**",
+  "type": "epic",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "31f64f1b-f997-420b-818c-f397ee0ca8b5",
+      "author": "home",
+      "text": "Start with 8574c7. The shared OpenAI parameter blocks the dedicated-account deploy outright, and it is the reason vendor spend cannot be attributed to a deployment today.",
+      "created_at": "2026-09-01T03:21:57.641696Z"
+    }
+  ],
+  "created_at": "2026-09-01T03:21:17.026907Z",
+  "updated_at": "2026-09-01T03:21:57.641696Z",
+  "closed_at": null,
+  "custom": {}
+}

@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-f3c786af-5f22-4035-bdc3-2fa62577e23b",
+  "title": "Bedrock lands on the AWS meter, never the vendor meter",
+  "description": "**Phase 6 of 7.**\n\n- **Blocked by:** the vendor ledger\n- **Runs in parallel with:** nothing; it is a rule to enforce when Bedrock arrives\n- **Unblocks:** nothing\n\n---\nBedrock is model inference on the AWS invoice, the one case where the two meters cross and a naive design counts twice: the token meter records it because it is a model call, AWS Budgets records it because Amazon billed for it.\n\nA Bedrock turn writes a ledger row with `billed_via` set to aws and `cost_usd` null. Tokens counted, dollars not, because Cost Explorer already has them.\n\n**Known gap to design around rather than discover:** a Bedrock invocation does not carry our tenant tag, so Cost Explorer can total Bedrock and cannot split it per organization. Investigate application inference profiles, which can carry tags, and confirm they support cost allocation before building on them. Otherwise apportion by ledger token counts and be honest that it is approximate. Per-organization cost is what billing needs in v3.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e3e94cd-ae24-4ead-8d4c-1ae15d21190c",
+  "labels": [
+    "phase-6"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T03:21:48.669203Z",
+  "updated_at": "2026-09-01T03:21:48.669203Z",
+  "closed_at": null,
+  "custom": {}
+}

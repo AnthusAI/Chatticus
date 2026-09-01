@@ -36,10 +36,16 @@
       "author": "agent@example.com",
       "text": "Ruling recorded: account-level CfnBudget at 50/80/100 plus forecasted overage, SNS to the owner; OpenAI hard cap by hand in the console. Still waiting on the human for the monthly figure and notification address. Will not invent either. Construct will be parameterized and fail deploy if unset.",
       "created_at": "2026-09-01T03:13:46.103831Z"
+    },
+    {
+      "id": "2cfff831-c53b-44f8-b240-8298f087afd3",
+      "author": "home",
+      "text": "**Narrowed, and the 300 dollar figure is withdrawn.**\n\nThis card is now the AWS meter only, and it is superseded in shape by the budgets construct, since limits are deployment configuration rather than a constant. Budget tracking ships with every deployment; see docs/BUDGETS.md.\n\nThe number I proposed came from this account's history: 161, 149, and 190 dollars across June to August. That history is irrelevant. The first deployment goes into a new dedicated AWS account with no baseline, and carrying a number across from a previously shared account would set the limit from spend that belongs to other work.\n\n**What the dedicated account buys:** the account boundary separates AWS spend completely, so no tag apportionment stands between us and a correct per-client number. **What it does not buy:** anything on the vendor meter. OpenAI has no idea what an AWS account is, which is what the new OpenAI project card is about, and that one blocks the deploy.",
+      "created_at": "2026-09-01T03:21:17.084965Z"
     }
   ],
   "created_at": "2026-09-01T02:39:45.114248Z",
-  "updated_at": "2026-09-01T03:13:46.103831Z",
+  "updated_at": "2026-09-01T03:21:17.084965Z",
   "closed_at": null,
   "custom": {}
 }

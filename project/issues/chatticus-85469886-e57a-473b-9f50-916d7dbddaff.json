@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-85469886-e57a-473b-9f50-916d7dbddaff",
+  "title": "ChatticusBudgets construct with configurable limits",
+  "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the rest of phase 1\n- **Unblocks:** the daily rollup\n\n---\nSupersedes the single-account shape of 79ca6a. A construct in infra/lib/ taking a monthly limit, alert thresholds, and notification targets, with defaults suiting a small deployment and a per-environment override. Every deployment gets one; none gets a hardcoded number.\n\n**On the first limit:** the new account has no history, and that is a feature. Start low enough that any spend is signal, then raise deliberately. Spend from the previously shared account (161, 149, 190 dollars June to August) is not a baseline for a fresh account and must not be used as one.\n\n**Runbook, not code:** cost allocation tags must be activated in the Billing console before any breakdown appears, and activation is not retroactive. A new account also reports nothing for roughly a day while Cost Explorer populates, which reads as a broken alarm unless it is written down.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e3e94cd-ae24-4ead-8d4c-1ae15d21190c",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T03:21:48.625589Z",
+  "updated_at": "2026-09-01T03:21:48.625589Z",
+  "closed_at": null,
+  "custom": {}
+}

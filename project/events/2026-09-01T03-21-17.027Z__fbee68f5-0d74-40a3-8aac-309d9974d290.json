@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "fbee68f5-0d74-40a3-8aac-309d9974d290",
+  "issue_id": "chatticus-2e3e94cd-ae24-4ead-8d4c-1ae15d21190c",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T03:21:17.027Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Every Chatticus deployment carries its own budget tracking, alerts, notifications, and configurable limits. Design and reasoning: **docs/BUDGETS.md**.\n\nThe invariant: tokens are always counted, dollars are counted once, by whoever issues the invoice. Two meters chosen by billing path, never by category. AWS spend is separated per deployment by the AWS account; vendor spend is separated only by a per-deployment vendor project.\n\n**Start with 4f1a: the shared OpenAI parameter blocks the dedicated-account deploy outright.**",
+    "issue_type": "epic",
+    "labels": [],
+    "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+    "priority": 0,
+    "status": "open",
+    "title": "Budget tracking that ships with every deployment"
+  }
+}

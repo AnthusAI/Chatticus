@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-89adc0fe-c7a9-42af-bae5-84b18a0162d7",
+  "title": "Ledger of vendor spend per turn",
+  "description": "**Phase 2 of 7.**\n\n- **Blocked by:** 272aea, for the organization records the ledger attributes to\n- **Runs in parallel with:** the Cognito track\n- **Unblocks:** the daily rollup, and Bedrock arriving safely\n\n---\nOne row per turn in the existing table: tenant_id, vendor, model, input and output tokens, `billed_via`, and `cost_usd`. Price resolved at write time from a price table, because prices change and a historical row must keep the price that applied to it.\n\n**Tokens are always recorded. Dollars only when a vendor bills us directly.** That is what keeps AWS-billed inference out of this meter. See docs/BUDGETS.md.\n\n`billed_via` and a nullable `cost_usd` must exist in the first version. Retrofitting them means reconciling a period where the totals were wrong and nobody could tell.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e3e94cd-ae24-4ead-8d4c-1ae15d21190c",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T03:21:48.639713Z",
+  "updated_at": "2026-09-01T03:21:48.639713Z",
+  "closed_at": null,
+  "custom": {}
+}
