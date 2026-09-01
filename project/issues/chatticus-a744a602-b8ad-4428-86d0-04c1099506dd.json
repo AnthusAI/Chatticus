@@ -16,10 +16,16 @@
       "author": "agent@example.com",
       "text": "Status aligned with current work: chattic.us UI (a3923e), GHA/OIDC ThinTurn deploy (6abbb8), and web task list are already in flight. Initiative is in_progress.",
       "created_at": "2026-08-31T19:40:47.416073Z"
+    },
+    {
+      "id": "b8319d02-ebf2-4880-b507-e082e4f679ef",
+      "author": "agent@example.com",
+      "text": "Phase 3 outcome: marketing at chattic.us; household app at hey.chattic.us plus env subdomains. Not replacing the apex with web/.\n",
+      "created_at": "2026-09-01T01:44:39.568056Z"
     }
   ],
   "created_at": "2026-08-31T11:30:44.835457Z",
-  "updated_at": "2026-08-31T19:40:47.416073Z",
+  "updated_at": "2026-09-01T01:44:39.568056Z",
   "closed_at": null,
   "custom": {}
 }

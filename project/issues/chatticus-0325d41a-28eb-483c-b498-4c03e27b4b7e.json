@@ -25,10 +25,16 @@
       "author": "agent@example.com",
       "text": "Vultus SSE wiring landed on develop (#44, cf50864). Story stays in_progress until named bots appear on the live chattic.us origin.",
       "created_at": "2026-08-31T20:07:05.031826Z"
+    },
+    {
+      "id": "d0b140c8-feb3-4a05-a7ae-00b8f7732ef1",
+      "author": "agent@example.com",
+      "text": "Vultus is on the app origin (hey.chattic.us in production, already on dev.chattic.us), not the marketing apex.\n",
+      "created_at": "2026-09-01T01:44:39.537042Z"
     }
   ],
   "created_at": "2026-08-30T16:38:14.197974Z",
-  "updated_at": "2026-08-31T20:07:05.031826Z",
+  "updated_at": "2026-09-01T01:44:39.537042Z",
   "closed_at": null,
   "custom": {}
 }

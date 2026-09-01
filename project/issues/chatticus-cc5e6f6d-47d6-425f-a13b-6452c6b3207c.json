@@ -28,10 +28,16 @@
       "author": "agent@example.com",
       "text": "Reopened: hosting/DNS stacks may be live, but children are still unfinished (6abbb8 GHA, a3923e chat UI PRs 42/43, 0325d4 Vultus PR 44). Closing this epic while those cards are open made the board stale.",
       "created_at": "2026-08-31T19:51:53.649671Z"
+    },
+    {
+      "id": "1484cc83-5031-4ce4-b276-eaa5be178e5e",
+      "author": "agent@example.com",
+      "text": "DoD change: production web distribution is hey.chattic.us. Apex and www stay marketing. Task f570b9.\n",
+      "created_at": "2026-09-01T01:44:39.552554Z"
     }
   ],
   "created_at": "2026-08-31T11:30:48.055887Z",
-  "updated_at": "2026-08-31T19:51:53.649671Z",
+  "updated_at": "2026-09-01T01:44:39.552554Z",
   "closed_at": null,
   "custom": {}
 }
