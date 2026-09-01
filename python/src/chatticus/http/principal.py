@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Final
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 
 from chatticus.models import OrganizationStatus
 from chatticus.principal import Principal, PrincipalKind
+from chatticus.worker_credentials import parse_bearer_token
 
 if TYPE_CHECKING:
     from chatticus.control_plane import ControlPlane
 
 _PRINCIPAL_POLICY_ATTR: Final = "__chatticus_principal_policy__"
+_WORKER_ROUTE_ATTR: Final = "__chatticus_worker_route__"
 
 # Routes that never participate in principal resolution or the marker system.
 NO_PRINCIPAL_ROUTES: Final[frozenset[str]] = frozenset({"/health"})
@@ -23,11 +26,19 @@ NO_PRINCIPAL_ROUTE_PREFIXES: Final[tuple[str, ...]] = ("/auth/",)
 WAITLIST_SAFE_ROUTE_PATHS: Final[frozenset[str]] = frozenset({"/me"})
 
 
+class PrincipalAudience(StrEnum):
+    """Which caller kind may reach a route."""
+
+    USER = "user"
+    WORKER = "worker"
+
+
 @dataclass(frozen=True)
 class PrincipalRoutePolicy:
     """Access policy for one route that resolves a principal."""
 
     waitlist_safe: bool = False
+    audience: PrincipalAudience = PrincipalAudience.USER
 
     @property
     def requires_enabled_member(self) -> bool:
@@ -52,6 +63,11 @@ def principal_route_policy(route_handler: object) -> PrincipalRoutePolicy:
     return policy
 
 
+def is_worker_route(route_handler: object) -> bool:
+    """Return whether *route_handler* requires a worker bearer credential."""
+    return bool(getattr(route_handler, _WORKER_ROUTE_ATTR, False))
+
+
 def waitlist_safe[T](route_handler: T) -> T:
     """Mark one route reachable by a waitlisted member."""
     setattr(
@@ -60,11 +76,71 @@ def waitlist_safe[T](route_handler: T) -> T:
     return route_handler
 
 
+def worker_route[T](route_handler: T) -> T:
+    """Mark one route as worker-only and requiring a bearer credential."""
+    setattr(route_handler, _WORKER_ROUTE_ATTR, True)
+    setattr(
+        route_handler,
+        _PRINCIPAL_POLICY_ATTR,
+        PrincipalRoutePolicy(audience=PrincipalAudience.WORKER),
+    )
+    return route_handler
+
+
+def resolve_worker_principal_from_token(
+    plane: ControlPlane,
+    tenant_id: str,
+    token: str,
+) -> Principal:
+    """Map one bearer token to a worker principal for *tenant_id*."""
+    worker_id = plane.verify_worker_token(tenant_id, token)
+    if worker_id is None:
+        raise HTTPException(status_code=403, detail="invalid worker credential")
+    return Principal(
+        kind=PrincipalKind.WORKER,
+        tenant_id=tenant_id,
+        worker_id=worker_id,
+    )
+
+
+async def resolve_worker_bearer(request: Request, tenant_id: str) -> Principal:
+    """Resolve a bearer token to a principal for one org-scoped worker route."""
+    token = parse_bearer_token(request.headers.get("Authorization"))
+    if token is None:
+        raise HTTPException(status_code=403, detail="worker credential required")
+    plane: ControlPlane = request.app.state.chatticus.plane
+    return resolve_worker_principal_from_token(plane, tenant_id, token)
+
+
+async def require_worker_principal(request: Request, tenant_id: str) -> Principal:
+    """Require a valid worker bearer credential for one org-scoped route."""
+    principal = await resolve_worker_bearer(request, tenant_id)
+    if principal.kind != PrincipalKind.WORKER:
+        raise HTTPException(status_code=403, detail="worker credential required")
+    return principal
+
+
+async def reject_worker_credential(request: Request, tenant_id: str) -> None:
+    """Reject browser routes that present a valid worker bearer credential."""
+    token = parse_bearer_token(request.headers.get("Authorization"))
+    if token is None:
+        return
+    plane: ControlPlane = request.app.state.chatticus.plane
+    if plane.verify_worker_token(tenant_id, token) is not None:
+        raise HTTPException(
+            status_code=403,
+            detail="worker credential not accepted on this route",
+        )
+
+
+RequireWorkerPrincipal = Annotated[Principal, Depends(require_worker_principal)]
+
+
 async def resolve_principal(request: Request) -> Principal:
     """Resolve the authenticated principal for *request*.
 
-    Resolver implementations land in a later task; this seam defines the
-    dependency shape only.
+    User JWT resolution is implemented in a later task. This seam exists
+    for tests and the phase-4 enforcement join.
     """
     raise NotImplementedError("Principal resolver is not wired yet.")
 
@@ -74,6 +150,24 @@ RequirePrincipal = Annotated[Principal, Depends(resolve_principal)]
 
 class OrgAccessDeniedError(Exception):
     """Raised when a principal may not access the organization in the path."""
+
+
+class PrincipalAudienceDeniedError(Exception):
+    """Raised when the principal kind does not match the route audience."""
+
+
+def verify_principal_audience(
+    principal: Principal,
+    *,
+    audience: PrincipalAudience,
+) -> None:
+    """Check that *principal* matches the declared route *audience*."""
+    if audience == PrincipalAudience.WORKER and principal.kind != PrincipalKind.WORKER:
+        raise PrincipalAudienceDeniedError("This route requires a worker credential.")
+    if audience == PrincipalAudience.USER and principal.kind != PrincipalKind.USER:
+        raise PrincipalAudienceDeniedError(
+            "This route does not accept a worker credential."
+        )
 
 
 def verify_org_access(

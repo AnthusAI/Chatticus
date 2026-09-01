@@ -54,6 +54,31 @@ class SameOriginApiClient:
         self._client.__exit__(*args)
 
 
+def _register_worker_headers(
+    client: SameOriginApiClient,
+    tenant_id: str,
+    worker_id: str,
+    headers: dict[str, str],
+) -> dict[str, str]:
+    """Register one worker and return request headers with its bearer credential."""
+    response = client.post(
+        org_path(tenant_id, "/workers/register"),
+        json={
+            "worker_id": worker_id,
+            "cost_class": "local",
+            "capabilities": ["cpu"],
+        },
+        headers=headers,
+    )
+    if response.status_code >= 400:
+        raise RuntimeError(
+            "worker register failed with status "
+            f"{response.status_code}: {response.text[:300]}"
+        )
+    token = response.json()["token"]
+    return {**headers, "Authorization": f"Bearer {token}"}
+
+
 def _invoke_key_for_environment(environment: str) -> str:
     """Read the front-door invoke key from the named stack secret."""
     import boto3
@@ -214,6 +239,7 @@ def _exercise_capability_grant_persistence(
     *,
     base_url: str,
     headers: dict[str, str],
+    tenant_id: str,
     turn_id: str,
     user_id: str,
     environment: str | None,
@@ -221,9 +247,13 @@ def _exercise_capability_grant_persistence(
     """Exercise durable grants and gated workspace reads on a named stack."""
     probe = SameOriginApiClient(base_url, headers=headers, timeout=60.0)
     try:
+        worker_headers = _register_worker_headers(
+            probe, tenant_id, "exercise-grant-worker", dict(headers)
+        )
         missing = probe.put(
-            f"/turns/{turn_id}/grant",
+            org_path(tenant_id, f"/turns/{turn_id}/grant"),
             json=_RESEARCH_GRANT_BODY,
+            headers=worker_headers,
         )
         if _grant_http_routes_absent(missing):
             if _grant_http_required(environment):
@@ -243,11 +273,12 @@ def _exercise_capability_grant_persistence(
             )
             return 1
         forbidden = probe.post(
-            f"/turns/{turn_id}/workspace/read",
+            org_path(tenant_id, f"/turns/{turn_id}/workspace/read"),
             json={
                 "user_id": user_id,
                 "path": "/workspace/secrets/notes.txt",
             },
+            headers=worker_headers,
         )
         if forbidden.status_code != 403:
             print(
@@ -268,12 +299,16 @@ def _exercise_capability_grant_persistence(
         probe._client.close()
     recycled = SameOriginApiClient(base_url, headers=headers, timeout=60.0)
     try:
+        worker_headers = _register_worker_headers(
+            recycled, tenant_id, "exercise-grant-worker", dict(headers)
+        )
         allowed = recycled.post(
-            f"/turns/{turn_id}/workspace/read",
+            org_path(tenant_id, f"/turns/{turn_id}/workspace/read"),
             json={
                 "user_id": user_id,
                 "path": "/workspace/research/notes.txt",
             },
+            headers=worker_headers,
         )
         if allowed.status_code != 200:
             print(
@@ -508,9 +543,16 @@ def main() -> int:
             return 1
         if reported_environment == expected_environment:
             print("health_environment=1")
+        missing_headers = _register_worker_headers(
+            client,
+            args.tenant_id,
+            "exercise-missing",
+            dict(headers),
+        )
         missing = client.post(
-            "/turns/missing-turn-id/claim",
+            org_path(args.tenant_id, "/turns/missing-turn-id/claim"),
             json={"worker_id": "exercise-missing"},
+            headers=missing_headers,
         )
         if missing.status_code != 404:
             print(
@@ -734,19 +776,28 @@ def main() -> int:
             grant_result = _exercise_capability_grant_persistence(
                 base_url=base_url,
                 headers=dict(headers),
+                tenant_id=args.tenant_id,
                 turn_id=fence_turn_id,
                 user_id=args.user_id,
                 environment=environment,
             )
             if grant_result != 0:
                 return grant_result
+        claim_a_headers = _register_worker_headers(
+            client, args.tenant_id, "exercise-fence-a", dict(headers)
+        )
+        claim_b_headers = _register_worker_headers(
+            client, args.tenant_id, "exercise-fence-b", dict(headers)
+        )
         claim_a = client.post(
-            f"/turns/{fence_turn_id}/claim",
+            org_path(args.tenant_id, f"/turns/{fence_turn_id}/claim"),
             json={"worker_id": "exercise-fence-a"},
+            headers=claim_a_headers,
         )
         claim_b = client.post(
-            f"/turns/{fence_turn_id}/claim",
+            org_path(args.tenant_id, f"/turns/{fence_turn_id}/claim"),
             json={"worker_id": "exercise-fence-b"},
+            headers=claim_b_headers,
         )
         print(
             f"fence_turn_id={fence_turn_id} "
@@ -820,12 +871,13 @@ def main() -> int:
         if acquired:
             fence_token = claim_a.json()["fence_token"]
             draft = client.post(
-                f"/turns/{fence_turn_id}/chunks",
+                org_path(args.tenant_id, f"/turns/{fence_turn_id}/chunks"),
                 json={
                     "token": "Here is a draft.",
                     "complete": False,
                     "fence_token": fence_token,
                 },
+                headers=claim_a_headers,
             )
             if draft.status_code >= 400:
                 print(
@@ -834,8 +886,9 @@ def main() -> int:
                 )
                 return 1
             waiting = client.post(
-                f"/turns/{fence_turn_id}/waiting",
+                org_path(args.tenant_id, f"/turns/{fence_turn_id}/waiting"),
                 json={"gate": "browser", "fence_token": fence_token},
+                headers=claim_a_headers,
             )
             if waiting.status_code >= 400:
                 print(
@@ -915,8 +968,9 @@ def main() -> int:
                 return 1
             print("journal_pending_computer_tool=request_computer_capability")
             stale_waiting = client.post(
-                f"/turns/{fence_turn_id}/waiting",
+                org_path(args.tenant_id, f"/turns/{fence_turn_id}/waiting"),
                 json={"gate": "browser", "fence_token": fence_token},
+                headers=claim_a_headers,
             )
             if stale_waiting.status_code != 409:
                 print(
@@ -926,7 +980,10 @@ def main() -> int:
                 )
                 return 1
             print("stale_waiting=409")
-            resume_stopped = client.post(org_path(args.tenant_id, f"/turns/{fence_turn_id}/resume"))
+            resume_stopped = client.post(
+                org_path(args.tenant_id, f"/turns/{fence_turn_id}/resume"),
+                headers=claim_a_headers,
+            )
             if resume_stopped.status_code != 409:
                 print(
                     f"resume_while_stopped {resume_stopped.status_code} "
@@ -935,18 +992,23 @@ def main() -> int:
                 )
                 return 1
             print("resume_while_stopped=409")
+            finisher_headers = _register_worker_headers(
+                client, args.tenant_id, "exercise-waiting-finisher", dict(headers)
+            )
             finisher = client.post(
-                f"/turns/{fence_turn_id}/claim",
+                org_path(args.tenant_id, f"/turns/{fence_turn_id}/claim"),
                 json={"worker_id": "exercise-waiting-finisher"},
+                headers=finisher_headers,
             )
             if finisher.status_code == 200 and finisher.json().get("acquired"):
                 complete = client.post(
-                    f"/turns/{fence_turn_id}/chunks",
+                    org_path(args.tenant_id, f"/turns/{fence_turn_id}/chunks"),
                     json={
                         "token": "",
                         "complete": True,
                         "fence_token": finisher.json()["fence_token"],
                     },
+                    headers=finisher_headers,
                 )
                 if complete.status_code >= 400:
                     print(
@@ -1268,7 +1330,13 @@ def main() -> int:
             )
             return 1
         print("model_journal_pending_computer_tool=request_computer_capability")
-        model_resume = client.post(org_path(args.tenant_id, f"/turns/{browser_turn_id}/resume"))
+        resume_headers = _register_worker_headers(
+            client, args.tenant_id, "exercise-resume-worker", dict(headers)
+        )
+        model_resume = client.post(
+            org_path(args.tenant_id, f"/turns/{browser_turn_id}/resume"),
+            headers=resume_headers,
+        )
         if model_resume.status_code != 409:
             print(
                 f"model_resume_while_stopped {model_resume.status_code} "
@@ -1282,7 +1350,10 @@ def main() -> int:
                 "/computers/stopped",
                 json={"user_id": args.user_id, "stopped": False},
             )
-            resumed_running = client.post(org_path(args.tenant_id, f"/turns/{browser_turn_id}/resume"))
+            resumed_running = client.post(
+                org_path(args.tenant_id, f"/turns/{browser_turn_id}/resume"),
+                headers=resume_headers,
+            )
             if resumed_running.status_code != 200:
                 print(
                     f"resume_while_running {resumed_running.status_code} "

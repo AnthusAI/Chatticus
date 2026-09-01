@@ -7,6 +7,11 @@ from uuid import uuid4
 
 from behave import given, then, when
 from sse_helpers import SseWatcher, read_sse_until
+from worker_http_helpers import (
+    register_worker_for_http,
+    sync_worker_from_turn_client,
+    worker_auth_headers,
+)
 
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.paths import org_path
@@ -84,14 +89,18 @@ def _message_at_seq(context: object, seq: int) -> object:
 
 
 def _claim_http(context: object, turn_id: str, tenant_id: str, worker_id: str) -> int:
+    if worker_id not in getattr(context, "worker_tokens", {}):
+        register_worker_for_http(context, tenant_id, worker_id)
     response = context.api_client.post(
         org_path(tenant_id, f"/turns/{turn_id}/claim"),
         json={"worker_id": worker_id},
+        headers=worker_auth_headers(context, worker_id),
     )
     assert response.status_code == 200, response.text
     payload = response.json()
     context.fence_token = int(payload["fence_token"])
     context.claim_acquired = payload["acquired"]
+    context.last_claim_worker_id = worker_id
     return context.fence_token
 
 
@@ -104,8 +113,14 @@ def _post_chunk_http(
     complete: bool = False,
     fence_token: int | None = None,
     expect_ok: bool = True,
+    worker_id: str | None = None,
 ) -> int:
     resolved_fence = fence_token if fence_token is not None else context.fence_token
+    resolved_worker = worker_id or getattr(context, "last_claim_worker_id", None)
+    if resolved_worker is None:
+        raise AssertionError("No worker_id is available for chunk POST auth.")
+    if resolved_worker not in getattr(context, "worker_tokens", {}):
+        register_worker_for_http(context, tenant_id, resolved_worker)
     response = context.api_client.post(
         org_path(tenant_id, f"/turns/{turn_id}/chunks"),
         json={
@@ -113,6 +128,7 @@ def _post_chunk_http(
             "complete": complete,
             "fence_token": resolved_fence,
         },
+        headers=worker_auth_headers(context, resolved_worker),
     )
     if expect_ok:
         assert response.status_code == 200, response.text
@@ -661,12 +677,14 @@ def when_counting_computerless_worker_processes(context: object, name: str) -> N
     channel = _channel(context)
     bot = context.bots_by_name[name]
     context.counting_client = CountingTextCompletionClient()
+    turn_client = HttpTurnClient(context.api_client, channel.tenant_id)
     worker = ComputerlessWorker(
         context.plane,
-        HttpTurnClient(context.api_client, channel.tenant_id),
+        turn_client,
         context.counting_client,
     )
     worker.complete_pending_for_bot(bot.bot_id)
+    sync_worker_from_turn_client(context, turn_client)
     turn = context.plane.turn(channel.tenant_id, _turn_id(context))
     context.waiting_action_id = turn.pending_computer_action_id
 
@@ -1013,11 +1031,16 @@ def when_worker_posts_chunk_then_waiting(context: object) -> None:
     channel = _channel(context)
     turn_id = _turn_id(context)
     tenant_id = channel.tenant_id
+    worker_id = getattr(context, "last_claim_worker_id", None)
+    if worker_id is None:
+        raise AssertionError("No worker has claimed the turn.")
     _post_chunk_http(context, turn_id, tenant_id, "Here is a draft.")
-    client = HttpTurnClient(
-        context.api_client, tenant_id, fence_token=context.fence_token
+    response = context.api_client.post(
+        org_path(tenant_id, f"/turns/{turn_id}/waiting"),
+        json={"gate": "browser", "fence_token": context.fence_token},
+        headers=worker_auth_headers(context, worker_id),
     )
-    client.post_waiting(turn_id, "browser")
+    assert response.status_code == 200, response.text
 
 
 @then('user "{user_id}" receives a waiting server-sent event naming {gate}')
@@ -1129,8 +1152,10 @@ def when_user_tries_to_resume_waiting_turn(
     context: object, user_id: str, tenant_id: str
 ) -> None:
     del user_id
+    worker_id = getattr(context, "last_claim_worker_id", "waiting-worker")
     response = context.api_client.post(
         org_path(tenant_id, f"/turns/{_turn_id(context)}/resume"),
+        headers=worker_auth_headers(context, worker_id),
     )
     context.resume_response = response
 
@@ -1140,8 +1165,10 @@ def when_user_resumes_waiting_turn(
     context: object, user_id: str, tenant_id: str
 ) -> None:
     del user_id
+    worker_id = getattr(context, "last_claim_worker_id", "waiting-worker")
     response = context.api_client.post(
         org_path(tenant_id, f"/turns/{_turn_id(context)}/resume"),
+        headers=worker_auth_headers(context, worker_id),
     )
     assert response.status_code == 200
     context.resume_response = response
@@ -1260,6 +1287,7 @@ def then_only_owner_appends(context: object) -> None:
         "extra",
         fence_token=0,
         expect_ok=False,
+        worker_id="worker-a",
     )
     assert stale == 409
 
@@ -1293,6 +1321,7 @@ def when_expired_attempt_appends(context: object) -> None:
         "late",
         fence_token=context.stale_fence,
         expect_ok=False,
+        worker_id="worker-a",
     )
 
 

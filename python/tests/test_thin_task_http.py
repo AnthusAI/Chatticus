@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from conftest import make_test_api, register_worker_headers
+
 from chatticus.control_plane import ControlPlane
-from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.paths import org_path
-from chatticus.http.test_server import start_test_server
 from chatticus.models import ActorKind, TaskStatus
 from chatticus.worker.computerless import (
     ComputerlessWorker,
@@ -64,8 +64,7 @@ def test_outcome_from_chat_completion_reads_task_tool_call() -> None:
 
 
 def test_http_task_tool_create_is_tenant_scoped() -> None:
-    plane = ControlPlane()
-    api = start_test_server(create_app(plane))
+    plane, api = make_test_api()
     bot = plane.create_bot("anthus", "ryan", "Assistant")
     response = api.post(
         org_path("anthus", f"/bots/{bot.bot_id}/tasks/tool"),
@@ -74,6 +73,7 @@ def test_http_task_tool_create_is_tenant_scoped() -> None:
             "action": "create",
             "arguments": {"title": "Pay the electric bill"},
         },
+        headers=register_worker_headers(api, "anthus"),
     )
     assert response.status_code == 200
     payload = response.json()
@@ -83,8 +83,7 @@ def test_http_task_tool_create_is_tenant_scoped() -> None:
 
 
 def test_http_task_tool_rejects_other_tenant() -> None:
-    plane = ControlPlane()
-    api = start_test_server(create_app(plane))
+    plane, api = make_test_api()
     bot = plane.create_bot("anthus", "ryan", "Assistant")
     response = api.post(
         org_path("other-household", f"/bots/{bot.bot_id}/tasks/tool"),
@@ -93,15 +92,16 @@ def test_http_task_tool_rejects_other_tenant() -> None:
             "action": "create",
             "arguments": {"title": "sneaky task"},
         },
+        headers=register_worker_headers(api, "other-household", "other-worker"),
     )
     assert response.status_code == 404
     api.close()
 
 
 def test_http_list_user_tasks_is_tenant_scoped() -> None:
-    plane = ControlPlane()
-    api = start_test_server(create_app(plane))
+    plane, api = make_test_api()
     bot = plane.create_bot("anthus", "ryan", "Assistant")
+    worker_headers = register_worker_headers(api, "anthus")
     created = api.post(
         org_path("anthus", f"/bots/{bot.bot_id}/tasks/tool"),
         json={
@@ -109,6 +109,7 @@ def test_http_list_user_tasks_is_tenant_scoped() -> None:
             "action": "create",
             "arguments": {"title": "Pay the electric bill"},
         },
+        headers=worker_headers,
     )
     assert created.status_code == 200
     listed = api.get(
@@ -128,8 +129,7 @@ def test_http_list_user_tasks_is_tenant_scoped() -> None:
 
 
 def test_http_get_task_is_tenant_scoped() -> None:
-    plane = ControlPlane()
-    api = start_test_server(create_app(plane))
+    plane, api = make_test_api()
     bot = plane.create_bot("anthus", "ryan", "Assistant")
     created = api.post(
         org_path("anthus", f"/bots/{bot.bot_id}/tasks/tool"),
@@ -138,6 +138,7 @@ def test_http_get_task_is_tenant_scoped() -> None:
             "action": "create",
             "arguments": {"title": "Pay the electric bill"},
         },
+        headers=register_worker_headers(api, "anthus"),
     )
     task_id = created.json()["task_id"]
     fetched = api.get(
@@ -153,8 +154,7 @@ def test_http_get_task_is_tenant_scoped() -> None:
 
 
 def test_computerless_worker_creates_task_via_http_tool_call() -> None:
-    plane = ControlPlane()
-    api = start_test_server(create_app(plane))
+    plane, api = make_test_api()
     plane.set_computer_stopped("anthus", "ryan", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     api.post(

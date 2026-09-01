@@ -425,12 +425,19 @@ distribution per environment hostname serves Next.js from S3 on the
 default behavior and proxies `/api/*` to the function URL (prefix
 stripped at the edge). No separate `api.chattic.us` subdomain.
 
+### Decided: worker bearer credentials
+
+Workers register at `POST /orgs/{tenant_id}/workers/register` and receive a
+one-time bearer token. The control plane stores only a SHA-256 hash.
+Worker routes require `Authorization: Bearer <token>`. The shared
+`X-Chatticus-Invoke-Key` remains a CloudFront-to-Lambda gate and is not
+caller identity.
+
 ### Still open
 
 Placement details, which are configuration rather than architecture:
 
 - TLS and session handling on the stream request.
-- How workers authenticate their chunk POSTs.
 - Whether local `docker-compose` runs a single process standing in for
   the front door while developing.
 

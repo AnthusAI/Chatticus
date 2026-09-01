@@ -121,6 +121,11 @@ from chatticus.turn_recovery import (
     TurnDeadlineScheduler,
     logical_enqueue_id,
 )
+from chatticus.worker_credentials import (
+    hash_worker_token,
+    mint_worker_token,
+    verify_worker_token_hash,
+)
 
 
 class ControlPlane:
@@ -366,11 +371,12 @@ class ControlPlane:
         if self._fault_injector is not None:
             self._fault_injector.maybe_crash(boundary, window)
 
-    def register_worker(self, registration: WorkerRegistration) -> None:
+    def register_worker(self, registration: WorkerRegistration) -> str:
         """Register or replace a worker and record a heartbeat.
 
         A ``worker_id`` is owned by the tenant that first registered it.
-        Re-registering under a different tenant is rejected.
+        Re-registering under a different tenant is rejected. Returns a new
+        bearer token on every successful registration.
 
         :raises WorkerTenantMismatchError: If the worker already belongs to
             another tenant.
@@ -389,11 +395,23 @@ class ControlPlane:
         hydrated = (
             previous.hydrated_snapshot_generation if previous is not None else None
         )
+        token = mint_worker_token()
         self._workers[registration.worker_id] = WorkerRecord(
             registration=registration,
             last_heartbeat_at=self._now,
+            token_hash=hash_worker_token(token),
             hydrated_snapshot_generation=hydrated,
         )
+        return token
+
+    def verify_worker_token(self, tenant_id: str, token: str) -> str | None:
+        """Return the worker_id for a valid bearer token in *tenant_id*."""
+        for worker_id, record in self._workers.items():
+            if record.registration.tenant_id != tenant_id:
+                continue
+            if verify_worker_token_hash(token, record.token_hash):
+                return worker_id
+        return None
 
     def heartbeat(self, worker_id: str) -> None:
         """

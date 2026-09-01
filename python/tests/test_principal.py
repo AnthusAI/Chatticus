@@ -97,7 +97,7 @@ def test_health_and_auth_routes_take_no_principal() -> None:
         assert is_no_principal_route(f"{prefix}callback")
 
 
-def test_resolve_principal_is_not_wired_yet() -> None:
+def test_resolve_principal_is_not_wired_for_users() -> None:
     request = Request(
         {"type": "http", "method": "GET", "path": "/sample", "headers": []}
     )

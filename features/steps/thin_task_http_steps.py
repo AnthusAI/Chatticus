@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from behave import then, when
+from worker_http_helpers import register_worker_for_http, worker_auth_headers
 
 from chatticus.http.app import create_app
 from chatticus.http.paths import org_path
@@ -18,10 +19,12 @@ def when_http_task_create(
     context: object, tenant_id: str, bot_name: str, title: str
 ) -> None:
     if not hasattr(context, "api_client"):
-        context.api_client = start_test_server(create_app(context.plane))
+        context.api_client = start_test_server(create_app(context.plane, invoke_key=""))
     bot = context.bots_by_name[bot_name]
     context.user_id = bot.user_id
     context.tenant_id = bot.tenant_id
+    worker_id = f"task-tool-{bot_name}"
+    register_worker_for_http(context, tenant_id, worker_id)
     response = context.api_client.post(
         org_path(tenant_id, f"/bots/{bot.bot_id}/tasks/tool"),
         json={
@@ -29,6 +32,7 @@ def when_http_task_create(
             "action": "create",
             "arguments": {"title": title},
         },
+        headers=worker_auth_headers(context, worker_id),
     )
     context.http_response = response
     if response.status_code < 400:
@@ -55,7 +59,7 @@ def then_http_task_denied(context: object) -> None:
 @then('tenant "{tenant_id}" can list tasks for user "{user_id}":')
 def then_list_user_tasks(context: object, tenant_id: str, user_id: str) -> None:
     if not hasattr(context, "api_client"):
-        context.api_client = start_test_server(create_app(context.plane))
+        context.api_client = start_test_server(create_app(context.plane, invoke_key=""))
     task_ids: list[str] = getattr(context, "http_task_ids", [])
     if not task_ids and hasattr(context, "http_task"):
         task_ids = [context.http_task["task_id"]]
@@ -142,7 +146,7 @@ def when_bot_runs_task_aware_worker_turn(context: object, bot_name: str) -> None
 
     bot = context.bots_by_name[bot_name]
     if not hasattr(context, "api_client"):
-        context.api_client = start_test_server(create_app(context.plane))
+        context.api_client = start_test_server(create_app(context.plane, invoke_key=""))
     worker = ComputerlessWorker(
         context.plane,
         HttpTurnClient(context.api_client, bot.tenant_id),

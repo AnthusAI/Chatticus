@@ -23,8 +23,10 @@ from chatticus.models import (
     ComputerlessCannotExecuteComputerJob,
     ComputerWorkerHostNotReady,
     ComputerWorkerRequiresComputerCapability,
+    CostClass,
     TurnEventKind,
     TurnJob,
+    WorkerRegistration,
 )
 from chatticus.structured_handoff_driver import StructuredHandoffDriver
 from chatticus.worker.computer import ComputerWorker, FakeComputerActionExecutor
@@ -35,7 +37,7 @@ from chatticus.worker.computerless import (
 
 
 def _client_for(plane: ControlPlane):
-    return start_test_server(create_app(plane))
+    return start_test_server(create_app(plane, invoke_key=""))
 
 
 def test_computer_worker_executes_unresolved_tool_call_from_journal() -> None:
@@ -359,6 +361,14 @@ def test_concurrent_browser_waiting_workers_commit_tool_result_once() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     setup = prepare_browser_waiting_continuation(plane)
+    worker_token = plane.register_worker(
+        WorkerRegistration(
+            worker_id=setup.continuation_job.job_id,
+            tenant_id=setup.tenant_id,
+            cost_class=CostClass.LOCAL,
+            capabilities=frozenset({"computer", "browser"}),
+        )
+    )
     executor = CountingComputerActionExecutor()
     duplicate_job = setup.continuation_job
     errors: list[BaseException] = []
@@ -367,7 +377,12 @@ def test_concurrent_browser_waiting_workers_commit_tool_result_once() -> None:
     def pull() -> None:
         worker = ComputerWorker(
             plane,
-            HttpTurnClient(api, setup.tenant_id),
+            HttpTurnClient(
+                api,
+                setup.tenant_id,
+                worker_token=worker_token,
+                worker_id=duplicate_job.job_id,
+            ),
             action_executor=executor,
         )
         barrier.wait()

@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from behave import given, then, when
 from sse_helpers import SseWatcher
+from worker_http_helpers import register_worker_for_http, worker_auth_headers
 
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
@@ -35,9 +36,12 @@ def _turn_id(context: object) -> str:
 
 def _claim(context: object, worker_id: str) -> None:
     channel = _channel(context)
+    if worker_id not in getattr(context, "worker_tokens", {}):
+        register_worker_for_http(context, channel.tenant_id, worker_id)
     response = context.api_client.post(
         org_path(channel.tenant_id, f"/turns/{_turn_id(context)}/claim"),
         json={"worker_id": worker_id},
+        headers=worker_auth_headers(context, worker_id),
     )
     assert response.status_code == 200, response.text
     context.fence_token = int(response.json()["fence_token"])
@@ -53,6 +57,7 @@ def _post_chunk(
 ) -> None:
     channel = _channel(context)
     resolved_fence = fence_token if fence_token is not None else context.fence_token
+    worker_id = context.active_worker_id
     response = context.api_client.post(
         org_path(channel.tenant_id, f"/turns/{_turn_id(context)}/chunks"),
         json={
@@ -60,6 +65,7 @@ def _post_chunk(
             "complete": complete,
             "fence_token": resolved_fence,
         },
+        headers=worker_auth_headers(context, worker_id),
     )
     assert response.status_code == 200, response.text
 
@@ -73,7 +79,7 @@ def given_recovery_control_plane(context: object) -> None:
         max_recovery_attempts=1,
         recovery_enabled=True,
     )
-    app = create_app(context.plane)
+    app = create_app(context.plane, invoke_key="")
     context.api_app = app
     context.app_state = app.state.chatticus
     context.api_client = start_test_server(app)
@@ -371,6 +377,7 @@ def given_turn_blocked_on_browser_gate(context: object) -> None:
     waiting = context.api_client.post(
         org_path(channel.tenant_id, f"/turns/{_turn_id(context)}/waiting"),
         json={"gate": "browser", "fence_token": context.fence_token},
+        headers=worker_auth_headers(context, "waiting-worker"),
     )
     assert waiting.status_code == 200, waiting.text
     turn = context.plane.turn(channel.tenant_id, _turn_id(context))

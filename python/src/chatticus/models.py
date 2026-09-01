@@ -298,11 +298,20 @@ class WorkerRegistration:
 
 
 @dataclass
+class WorkerCredentialMint:
+    """One-time worker bearer credential returned at registration."""
+
+    worker_id: str
+    token: str
+
+
+@dataclass
 class WorkerRecord:
     """Registered worker plus last heartbeat."""
 
     registration: WorkerRegistration
     last_heartbeat_at: datetime
+    token_hash: str
     hydrated_snapshot_generation: int | None = None
 
 

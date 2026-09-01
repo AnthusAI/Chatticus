@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from behave import then, when
 from sse_helpers import SseWatcher
+from worker_http_helpers import register_worker_for_http, worker_auth_headers
 
 from chatticus.http.paths import org_path
 from chatticus.models import TurnStatus
@@ -117,6 +118,9 @@ def when_worker_completes_turn(context: object) -> None:
     if context.last_turn_id is None:
         raise AssertionError("No turn is active in this scenario.")
     channel = context.last_channel
+    worker_id = getattr(context, "last_claim_worker_id", "sse-worker")
+    if worker_id not in getattr(context, "worker_tokens", {}):
+        register_worker_for_http(context, channel.tenant_id, worker_id)
     response = context.api_client.post(
         org_path(channel.tenant_id, f"/turns/{context.last_turn_id}/chunks"),
         json={
@@ -124,6 +128,7 @@ def when_worker_completes_turn(context: object) -> None:
             "complete": True,
             "fence_token": context.fence_token,
         },
+        headers=worker_auth_headers(context, worker_id),
     )
     assert response.status_code == 200, response.text
 

@@ -16,6 +16,11 @@ from pydantic import BaseModel, Field
 from chatticus.capability_policy import grant_from_payload
 from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.control_plane import ControlPlane
+from chatticus.http.principal import (
+    RequireWorkerPrincipal,
+    reject_worker_credential,
+    require_worker_principal,
+)
 from chatticus.http.sse import (
     cursor_from_last_event_id,
     format_turn_event_sse,
@@ -28,6 +33,7 @@ from chatticus.models import (
     ChannelTenantMismatchError,
     ChatticusError,
     ComputerNotReadyError,
+    CostClass,
     StaleAttemptError,
     TaskAccessDeniedError,
     TaskNotFoundError,
@@ -38,8 +44,11 @@ from chatticus.models import (
     TurnNotWaitingError,
     TurnReconcilingError,
     TurnTerminalError,
+    WorkerRegistration,
+    WorkerTenantMismatchError,
     pending_computer_tool_from_turn,
 )
+from chatticus.principal import Principal
 
 logger = logging.getLogger("chatticus.http")
 INVOKE_HEADER = "X-Chatticus-Invoke-Key"
@@ -156,6 +165,35 @@ class DenyModelToolBody(BaseModel):
     arguments: dict[str, str] = Field(default_factory=dict)
 
 
+class RegisterWorkerBody(BaseModel):
+    """Body for POST /workers/register."""
+
+    worker_id: str
+    cost_class: CostClass
+    capabilities: list[str] = Field(default_factory=list)
+    computer_id: str | None = None
+
+
+def _registration_from_body(
+    tenant_id: str, body: RegisterWorkerBody
+) -> WorkerRegistration:
+    return WorkerRegistration(
+        worker_id=body.worker_id,
+        tenant_id=tenant_id,
+        cost_class=body.cost_class,
+        capabilities=frozenset(body.capabilities),
+        computer_id=body.computer_id,
+    )
+
+
+def _assert_worker_id_matches(principal: Principal, worker_id: str) -> None:
+    if principal.worker_id != worker_id:
+        raise HTTPException(
+            status_code=403,
+            detail="worker credential does not match worker_id",
+        )
+
+
 @dataclass
 class AppState:
     """Mutable front-door state attached to each app instance."""
@@ -220,6 +258,8 @@ def create_app(
         return await call_next(request)  # type: ignore[misc, operator]
 
     org_router = APIRouter(prefix="/orgs/{tenant_id}")
+    worker_router = APIRouter(dependencies=[Depends(require_worker_principal)])
+    user_router = APIRouter(dependencies=[Depends(reject_worker_credential)])
 
     @app.exception_handler(ChatticusError)
     async def chatticus_error_handler(
@@ -232,7 +272,40 @@ def create_app(
     def health() -> dict[str, str]:
         return {"status": "ok", "environment": state.environment}
 
-    @org_router.post("/bots")
+    @org_router.post("/workers/register")
+    def register_worker(
+        tenant_id: str,
+        body: RegisterWorkerBody,
+    ) -> dict[str, str]:
+        try:
+            token = state.plane.register_worker(
+                _registration_from_body(tenant_id, body)
+            )
+        except WorkerTenantMismatchError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        logger.info(
+            "worker_registered tenant_id=%s worker_id=%s",
+            tenant_id,
+            body.worker_id,
+        )
+        return {"worker_id": body.worker_id, "token": token}
+
+    @worker_router.post("/workers/{worker_id}/heartbeat")
+    def heartbeat_worker(
+        tenant_id: str,
+        worker_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        _assert_worker_id_matches(principal, worker_id)
+        state.plane.heartbeat(worker_id)
+        logger.info(
+            "worker_heartbeat tenant_id=%s worker_id=%s",
+            tenant_id,
+            worker_id,
+        )
+        return {"status": "ok"}
+
+    @user_router.post("/bots")
     def create_bot(
         tenant_id: str,
         body: CreateBotBody,
@@ -255,7 +328,7 @@ def create_app(
             "name": bot.name,
         }
 
-    @org_router.get("/bots")
+    @user_router.get("/bots")
     def lookup_bot(
         tenant_id: str,
         user_id: str = Query(),
@@ -267,7 +340,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="bot not found") from error
         return _bot_payload(bot)
 
-    @org_router.get("/users/{user_id}/bots")
+    @user_router.get("/users/{user_id}/bots")
     def list_user_bots(
         tenant_id: str,
         user_id: str,
@@ -275,7 +348,7 @@ def create_app(
         bots = state.plane.list_bots(tenant_id, user_id)
         return {"bots": [_bot_payload(bot) for bot in bots]}
 
-    @org_router.get("/users/{user_id}/channels")
+    @user_router.get("/users/{user_id}/channels")
     def list_user_channels(
         tenant_id: str,
         user_id: str,
@@ -283,7 +356,7 @@ def create_app(
         channels = state.plane.list_channels(tenant_id, user_id)
         return {"channels": [_channel_payload(channel) for channel in channels]}
 
-    @org_router.get("/users/{user_id}/turns")
+    @user_router.get("/users/{user_id}/turns")
     def list_user_turns(
         tenant_id: str,
         user_id: str,
@@ -291,7 +364,7 @@ def create_app(
         turns = state.plane.list_active_turns(tenant_id, user_id)
         return {"turns": [_turn_payload(turn) for turn in turns]}
 
-    @org_router.get("/users/{user_id}/tasks")
+    @user_router.get("/users/{user_id}/tasks")
     def list_user_tasks(
         tenant_id: str,
         user_id: str,
@@ -299,7 +372,7 @@ def create_app(
         tasks = state.plane.list_tasks(tenant_id, user_id)
         return {"tasks": [_task_payload(task) for task in tasks]}
 
-    @org_router.get("/users/{user_id}/computer")
+    @user_router.get("/users/{user_id}/computer")
     def get_user_computer(
         tenant_id: str,
         user_id: str,
@@ -310,7 +383,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="computer not found") from error
         return _computer_payload(computer)
 
-    @org_router.get("/bots/{bot_id}")
+    @user_router.get("/bots/{bot_id}")
     def get_bot(
         tenant_id: str,
         bot_id: str,
@@ -321,7 +394,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="bot not found") from error
         return _bot_payload(bot)
 
-    @org_router.post("/bots/{bot_id}/memory")
+    @user_router.post("/bots/{bot_id}/memory")
     def remember_bot(
         tenant_id: str,
         bot_id: str,
@@ -339,7 +412,7 @@ def create_app(
         )
         return _bot_payload(state.plane.bot(tenant_id, bot_id))
 
-    @org_router.post("/bots/{bot_id}/tasks/tool")
+    @worker_router.post("/bots/{bot_id}/tasks/tool")
     def invoke_task_tool(
         tenant_id: str,
         bot_id: str,
@@ -365,7 +438,7 @@ def create_app(
         )
         return _task_payload(task)
 
-    @org_router.get("/tasks/{task_id}")
+    @user_router.get("/tasks/{task_id}")
     def get_task(
         tenant_id: str,
         task_id: str,
@@ -376,7 +449,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="task not found") from error
         return _task_payload(task)
 
-    @org_router.post("/computers/stopped")
+    @user_router.post("/computers/stopped")
     def set_computer_stopped(
         tenant_id: str,
         body: SetComputerBody,
@@ -391,14 +464,14 @@ def create_app(
         )
         return {"stopped": stopped}
 
-    @org_router.get("/computers/stopped")
+    @user_router.get("/computers/stopped")
     def get_computer_stopped(
         tenant_id: str,
         user_id: str = Query(),
     ) -> dict[str, bool]:
         return {"stopped": state.plane.computer_is_stopped(tenant_id, user_id)}
 
-    @org_router.post("/channels")
+    @user_router.post("/channels")
     def create_channel(
         tenant_id: str,
         body: CreateChannelBody,
@@ -419,7 +492,7 @@ def create_app(
         )
         return _channel_payload(channel)
 
-    @org_router.get("/channels/{channel_id}")
+    @user_router.get("/channels/{channel_id}")
     def get_channel(
         tenant_id: str,
         channel_id: str,
@@ -430,7 +503,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="channel not found") from error
         return _channel_payload(channel)
 
-    @org_router.get("/channels/{channel_id}/turn")
+    @user_router.get("/channels/{channel_id}/turn")
     def get_channel_turn(
         tenant_id: str,
         channel_id: str,
@@ -444,7 +517,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="turn not found")
         return _turn_payload(turn)
 
-    @org_router.post("/channels/{channel_id}/messages")
+    @user_router.post("/channels/{channel_id}/messages")
     def post_message(
         tenant_id: str,
         channel_id: str,
@@ -475,7 +548,7 @@ def create_app(
             "turn_id": turn_id,
         }
 
-    @org_router.get("/channels/{channel_id}/messages")
+    @user_router.get("/channels/{channel_id}/messages")
     def list_messages(
         tenant_id: str,
         channel_id: str,
@@ -486,12 +559,14 @@ def create_app(
             "messages": [_message_payload(message) for message in messages],
         }
 
-    @org_router.post("/turns/{turn_id}/claim")
+    @worker_router.post("/turns/{turn_id}/claim")
     def claim_turn(
         tenant_id: str,
         turn_id: str,
         body: ClaimTurnBody,
+        principal: RequireWorkerPrincipal,
     ) -> dict[str, Any]:
+        _assert_worker_id_matches(principal, body.worker_id)
         attempt = state.plane.claim_turn_attempt(tenant_id, turn_id, body.worker_id)
         if attempt is None:
             raise TurnClaimDeniedError(
@@ -512,12 +587,14 @@ def create_app(
             "lease_expires_at": attempt.lease_expires_at.isoformat(),
         }
 
-    @org_router.post("/turns/{turn_id}/renew")
+    @worker_router.post("/turns/{turn_id}/renew")
     def renew_turn(
         tenant_id: str,
         turn_id: str,
         body: RenewTurnBody,
+        principal: RequireWorkerPrincipal,
     ) -> dict[str, Any]:
+        _assert_worker_id_matches(principal, body.worker_id)
         job = None
         if body.job_id is not None:
             job = state.plane.job_for_turn(tenant_id, turn_id)
@@ -547,7 +624,7 @@ def create_app(
             "lease_expires_at": attempt.lease_expires_at.isoformat(),
         }
 
-    @org_router.post("/turns/{turn_id}/waiting")
+    @worker_router.post("/turns/{turn_id}/waiting")
     def wait_turn(
         tenant_id: str,
         turn_id: str,
@@ -572,7 +649,7 @@ def create_app(
         )
         return {"status": "ok", "kind": event.kind, "gate": body.gate}
 
-    @org_router.post("/turns/{turn_id}/resume")
+    @worker_router.post("/turns/{turn_id}/resume")
     def resume_turn(
         tenant_id: str,
         turn_id: str,
@@ -594,7 +671,7 @@ def create_app(
             "required_capabilities": sorted(job.required_capabilities),
         }
 
-    @org_router.get("/turns/{turn_id}")
+    @user_router.get("/turns/{turn_id}")
     def get_turn(
         tenant_id: str,
         turn_id: str,
@@ -607,7 +684,7 @@ def create_app(
             ) from error
         return _turn_payload(turn)
 
-    @org_router.put("/turns/{turn_id}/grant")
+    @worker_router.put("/turns/{turn_id}/grant")
     def put_turn_grant(
         tenant_id: str,
         turn_id: str,
@@ -629,7 +706,7 @@ def create_app(
         )
         return {"turn_id": turn_id, "tools": sorted(grant.tools)}
 
-    @org_router.post("/turns/{turn_id}/workspace/read")
+    @worker_router.post("/turns/{turn_id}/workspace/read")
     def read_turn_workspace(
         tenant_id: str,
         turn_id: str,
@@ -655,7 +732,7 @@ def create_app(
         )
         return {"content": content}
 
-    @org_router.post("/turns/{turn_id}/browse/authorize")
+    @worker_router.post("/turns/{turn_id}/browse/authorize")
     def authorize_turn_browse(
         tenant_id: str,
         turn_id: str,
@@ -676,7 +753,7 @@ def create_app(
         )
         return {"authorized": True, "url": body.url}
 
-    @org_router.post("/turns/{turn_id}/tool/denied")
+    @worker_router.post("/turns/{turn_id}/tool/denied")
     def deny_turn_model_tool(
         tenant_id: str,
         turn_id: str,
@@ -695,7 +772,7 @@ def create_app(
             dict(body.arguments),
         )
 
-    @org_router.get("/turns/{turn_id}/events")
+    @user_router.get("/turns/{turn_id}/events")
     def list_turn_events(
         tenant_id: str,
         turn_id: str,
@@ -712,7 +789,7 @@ def create_app(
             "events": [turn_event_payload(event) for event in events],
         }
 
-    @org_router.post("/turns/{turn_id}/chunks")
+    @worker_router.post("/turns/{turn_id}/chunks")
     def post_chunk(
         tenant_id: str,
         turn_id: str,
@@ -733,7 +810,7 @@ def create_app(
         )
         return {"status": "ok"}
 
-    @org_router.get("/turns/{turn_id}/stream")
+    @user_router.get("/turns/{turn_id}/stream")
     async def stream_turn(
         request: Request,
         tenant_id: str,
@@ -801,6 +878,8 @@ def create_app(
             },
         )
 
+    org_router.include_router(worker_router)
+    org_router.include_router(user_router)
     app.include_router(org_router)
 
     return app

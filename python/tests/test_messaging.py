@@ -10,6 +10,7 @@ from uuid import uuid4
 
 import boto3
 import pytest
+from conftest import register_worker_headers
 from moto import mock_aws
 
 from chatticus.computer_continuation_driver import prepare_computer_continuation
@@ -57,7 +58,15 @@ def _channel_with_bot(plane: ControlPlane, name: str = "Researcher"):
 
 
 def _client_for(plane: ControlPlane, *, environment: str | None = None):
-    return start_test_server(create_app(plane, environment=environment))
+    return start_test_server(create_app(plane, environment=environment, invoke_key=""))
+
+
+def _worker_headers(
+    api: object,
+    tenant_id: str = "anthus",
+    worker_id: str = "test-worker",
+) -> dict[str, str]:
+    return register_worker_headers(api, tenant_id, worker_id)
 
 
 def test_http_health_names_environment() -> None:
@@ -579,6 +588,7 @@ def test_http_list_user_active_turns_omits_completed() -> None:
     claim = api.post(
         org_path("anthus", f"/turns/{done_turn.turn_id}/claim"),
         json={"worker_id": "test-worker"},
+        headers=_worker_headers(api),
     )
     assert claim.status_code == 200
     complete = api.post(
@@ -588,6 +598,7 @@ def test_http_list_user_active_turns_omits_completed() -> None:
             "complete": True,
             "fence_token": claim.json()["fence_token"],
         },
+        headers=_worker_headers(api),
     )
     assert complete.status_code == 200
     api.close()
@@ -818,6 +829,7 @@ def test_http_get_channel_active_turn_404_after_completion() -> None:
     claim = api.post(
         org_path("anthus", f"/turns/{started.turn_id}/claim"),
         json={"worker_id": "test-worker"},
+        headers=_worker_headers(api),
     )
     assert claim.status_code == 200
     fence_token = claim.json()["fence_token"]
@@ -828,6 +840,7 @@ def test_http_get_channel_active_turn_404_after_completion() -> None:
             "complete": True,
             "fence_token": fence_token,
         },
+        headers=_worker_headers(api),
     )
     assert complete.status_code == 200
     api.close()
@@ -861,12 +874,14 @@ def test_http_get_channel_waiting_turn_survives_a_new_control_plane() -> None:
     claim = api.post(
         org_path("anthus", f"/turns/{started.turn_id}/claim"),
         json={"worker_id": "test-worker"},
+        headers=_worker_headers(api),
     )
     assert claim.status_code == 200
     fence_token = claim.json()["fence_token"]
     waiting = api.post(
         org_path("anthus", f"/turns/{started.turn_id}/waiting"),
         json={"gate": "browser", "fence_token": fence_token},
+        headers=_worker_headers(api),
     )
     assert waiting.status_code == 200
     api.close()
@@ -1309,11 +1324,13 @@ def test_http_waiting_emits_gate_and_releases_claim() -> None:
     stale = api.post(
         org_path("anthus", f"/turns/{turn_id}/waiting"),
         json={"gate": "browser", "fence_token": claimed["fence_token"]},
+        headers=_worker_headers(api, worker_id="waiting-worker"),
     )
     assert stale.status_code == 409
     plane.set_computer_stopped("anthus", "ryan", True)
     refused = api.post(
         org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
+        headers=_worker_headers(api, worker_id="waiting-worker"),
     )
     assert refused.status_code == 409
     with pytest.raises(ComputerNotReadyError):
@@ -1391,6 +1408,7 @@ def test_resume_enqueues_the_same_turn_when_the_computer_is_running() -> None:
     plane.set_computer_stopped("anthus", "ryan", False)
     resumed = api.post(
         org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
+        headers=_worker_headers(api, worker_id="resume-worker"),
     )
     assert resumed.status_code == 200
     payload = resumed.json()
@@ -1434,10 +1452,12 @@ def test_post_message_without_enqueue_creates_turn_without_cpu_job() -> None:
     first = api.post(
         org_path("anthus", f"/turns/{turn_id}/claim"),
         json={"worker_id": "exercise-fence-a"},
+        headers=_worker_headers(api, worker_id="exercise-fence-a"),
     )
     second = api.post(
         org_path("anthus", f"/turns/{turn_id}/claim"),
         json={"worker_id": "exercise-fence-b"},
+        headers=_worker_headers(api, worker_id="exercise-fence-b"),
     )
     assert first.status_code == 200
     assert first.json().get("acquired") is True
@@ -1624,6 +1644,7 @@ def test_resume_does_not_publish_computer_job_to_cpu_queue() -> None:
     plane.set_computer_stopped("anthus", "ryan", False)
     resumed = api.post(
         org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
+        headers=_worker_headers(api, worker_id="resume-worker"),
     )
     assert resumed.status_code == 200
     continuation = plane.job_for_turn(channel.tenant_id, turn_id)
@@ -1662,6 +1683,7 @@ def test_resume_publishes_computer_job_to_computer_queue() -> None:
     plane.set_computer_stopped("anthus", "ryan", False)
     resumed = api.post(
         org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
+        headers=_worker_headers(api, worker_id="resume-worker"),
     )
     assert resumed.status_code == 200
     continuation = plane.job_for_turn(channel.tenant_id, turn_id)
@@ -1698,6 +1720,7 @@ def test_computerless_worker_refuses_a_computer_continuation_job() -> None:
     plane.set_computer_stopped("anthus", "ryan", False)
     resumed = api.post(
         org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
+        headers=_worker_headers(api, worker_id="resume-worker"),
     )
     assert resumed.status_code == 200
     job = plane.job_for_turn(channel.tenant_id, turn_id)
@@ -1732,6 +1755,7 @@ def test_resume_without_a_wait_gate_is_refused() -> None:
     turn_id = post.json()["turn_id"]
     refused = api.post(
         org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
+        headers=_worker_headers(api, worker_id="resume-worker"),
     )
     assert refused.status_code == 409
     with pytest.raises(TurnNotWaitingError):

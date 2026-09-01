@@ -20,7 +20,7 @@ if _TESTS_DIR.is_dir() and str(_TESTS_DIR) not in sys.path:
 def before_scenario(context: object, scenario: object) -> None:
     """Start each scenario with a fresh control plane and temp dirs."""
     context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
-    app = create_app(context.plane)
+    app = create_app(context.plane, invoke_key="")
     context.api_app = app
     context.app_state = app.state.chatticus
     context.api_client = start_test_server(app)
