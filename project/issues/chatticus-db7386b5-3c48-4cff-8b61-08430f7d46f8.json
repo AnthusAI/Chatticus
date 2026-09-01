@@ -70,10 +70,16 @@
       "author": "home",
       "text": "User approved the restrained hero motion and requested a slightly more legible treatment: independently modulate the apparent width and height of both the lime backing rectangle and grey shadow rectangle with non-matching periods. Implement with transform scale for smooth composited animation, preserving pause/reduced-motion behavior.",
       "created_at": "2026-09-01T18:51:45.792115Z"
+    },
+    {
+      "id": "b11b4f75-615d-4b0d-8916-ae67c751b24a",
+      "author": "home",
+      "text": "User feedback: the grey shadow plane became too low and opaque. Restore it as a translucent shadow directly under the workspace, retaining only a minimal independently timed transform/scale variation.",
+      "created_at": "2026-09-01T18:53:05.545389Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T18:51:45.792115Z",
+  "updated_at": "2026-09-01T18:53:05.545389Z",
   "closed_at": null,
   "custom": {}
 }

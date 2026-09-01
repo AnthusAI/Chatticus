@@ -136,10 +136,10 @@
 
 .prototype-shadow-plane {
   position: absolute;
-  inset: 0.7rem -0.65rem -0.85rem 0.85rem;
+  inset: 0;
   z-index: 1;
   border-radius: 2rem;
-  background: #b8b6ad;
+  background: rgb(17 19 15 / 0.18);
   will-change: transform;
   animation: prototype-shadow-drift 17.3s var(--ease-out) -4.6s infinite alternate;
 }
@@ -165,8 +165,8 @@
 }
 
 @keyframes prototype-shadow-drift {
-  from { transform: translate3d(3px, 2px, 0) rotate(1.45deg) scale(1.014, 0.992); }
-  to { transform: translate3d(-4px, -3px, 0) rotate(2.2deg) scale(0.988, 1.016); }
+  from { transform: translate3d(12px, 14px, 0) scale(1.007, 0.996); }
+  to { transform: translate3d(15px, 17px, 0) scale(0.996, 1.008); }
 }
 
 @keyframes prototype-presence {
