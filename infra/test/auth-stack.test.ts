@@ -65,6 +65,10 @@ describe("AuthStack", () => {
           ProviderDetails: {
             authorize_scopes: "openid email profile",
           },
+          AttributeMapping: {
+            email: "email",
+            email_verified: "email_verified",
+          },
         });
 
         const providers = template.findResources(

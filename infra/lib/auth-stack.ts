@@ -58,6 +58,7 @@ export class AuthStack extends cdk.Stack {
       scopes: ["openid", "email", "profile"],
       attributeMapping: {
         email: cognito.ProviderAttribute.GOOGLE_EMAIL,
+        emailVerified: cognito.ProviderAttribute.GOOGLE_EMAIL_VERIFIED,
         givenName: cognito.ProviderAttribute.GOOGLE_GIVEN_NAME,
         familyName: cognito.ProviderAttribute.GOOGLE_FAMILY_NAME,
       },
