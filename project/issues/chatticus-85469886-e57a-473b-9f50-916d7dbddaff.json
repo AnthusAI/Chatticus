@@ -54,10 +54,16 @@
       "author": "home",
       "text": "**Reviewed #125. The construct is right; its mounting point is not, and it carries a silent-deletion hazard.**\n\nGood: reusable construct with props, conditional so CI without context synthesizes nothing, tests on both the TypeScript and Python sides, the refuses-invented-defaults behavior carried forward from 79ca6a, and the README documenting that a new account reports nothing for about a day while Cost Explorer populates.\n\n**The hazard.** Budgets hang off `ChatticusSnapshots` behind `if (props?.budgetsConfig)`, and `deploy-chatticus-snapshots.sh` forwards `${BUDGETS_CDK_CONTEXT}`, which is empty when the environment variables are unset. Deploying the snapshot stack without them synthesizes a template with no budget, and CloudFormation deletes the budget and its SNS topic. That is the same class of failure this card avoided on the input side, arriving on the output side: a wrong limit is visible, a deleted budget looks exactly like a working one until the month it was needed.\n\nAlso worth weighing: AGENTS.md says never destroy `ChatticusSnapshots` because it holds the canonical snapshot store, and this makes it the stack you must redeploy to change a spend limit. Budget limits get tuned; snapshot buckets do not.\n\nCarded as a follow-up rather than reopening this one, since the construct is sound and only its home needs to move.",
       "created_at": "2026-09-01T04:38:35.279777Z"
+    },
+    {
+      "id": "46a4f308-0e0e-462c-bcef-255dc7663c22",
+      "author": "agent@example.com",
+      "text": "Taken. #125 stays closed. The Snapshots mount can drop the budget when BUDGETS_CDK_CONTEXT is empty; that is 46d9de (dedicated ChatticusBudgets stack). Limit/email remain human configuration.\n",
+      "created_at": "2026-09-01T04:43:08.149402Z"
     }
   ],
   "created_at": "2026-09-01T03:21:48.625589Z",
-  "updated_at": "2026-09-01T04:38:35.279777Z",
+  "updated_at": "2026-09-01T04:43:08.149402Z",
   "closed_at": "2026-09-01T04:37:08.800020Z",
   "custom": {}
 }

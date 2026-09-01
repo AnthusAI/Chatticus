@@ -64,10 +64,16 @@
       "author": "agent@example.com",
       "text": "Phase 01 cadence: **854698** landed on develop (#125) — ChatticusBudgets construct on ChatticusSnapshots, fail-closed, no dollar default. Human still owes monthly limit + notification email before the account meter is live. **8574c7** PR #124 accepted on infra; README fake-client wording being corrected before merge; this still blocks dedicated-account deploy. **0ab02c** still human (Google OAuth External). Computers desiredCount 0. Never --all.",
       "created_at": "2026-09-01T04:37:08.830338Z"
+    },
+    {
+      "id": "d9f15632-acd4-4492-8bc9-cb6358d331d0",
+      "author": "agent@example.com",
+      "text": "**8574c7** landed (#124). Dedicated-account ThinTurn no longer needs papyrus SSM. Human still seeds per-env OpenAI project/key. Architect follow-up **46d9de**: move ChatticusBudgets off Snapshots so an unset-context snapshots deploy cannot delete the budget. **0ab02c** still human.",
+      "created_at": "2026-09-01T04:43:08.193411Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T04:37:08.830338Z",
+  "updated_at": "2026-09-01T04:43:08.193411Z",
   "closed_at": null,
   "custom": {}
 }
