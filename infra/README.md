@@ -18,7 +18,7 @@ operations.
 | `ChatticusThinTurnProduction` | Production thin turn (gated deploy of a staging-proven release; never implied by a git branch) |
 | `ChatticusWeb` | **Development** Next.js on S3 + CloudFront at `dev.chattic.us` with same-origin `/api/*` |
 | `ChatticusWebStaging` | Staging web at `staging.chattic.us` |
-| `ChatticusWebProduction` | Production web at `chattic.us` and `www.chattic.us` |
+| `ChatticusWebProduction` | Production product workspace at `hey.chattic.us` (marketing stays at `chattic.us` / `www`) |
 
 Each thin-turn stack exports the Lambda **function URL** and invoke-key
 secret ARN for the matching web stack. The web stack publishes:

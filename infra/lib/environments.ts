@@ -21,7 +21,7 @@ export const WEB_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
 export const WEB_SITE_DOMAINS: Record<ChatticusCloudEnvironment, string> = {
   development: "dev.chattic.us",
   staging: "staging.chattic.us",
-  production: "chattic.us",
+  production: "hey.chattic.us",
 };
 
 export function thinTurnParameterPrefix(environment: ChatticusCloudEnvironment): string {

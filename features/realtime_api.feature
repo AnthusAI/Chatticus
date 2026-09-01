@@ -1,5 +1,5 @@
 Feature: Turn-scoped server-sent events
-  As the chattic.us web app
+  As the Chatticus product web app
   I want turn-scoped durable server-sent events
   So that progress reaches the browser without in-process subscriptions
   And without holding a connection that outlives the turn

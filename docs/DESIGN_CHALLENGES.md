@@ -1,7 +1,7 @@
 # Design challenges
 
 Read this before adding a control-plane API, a message store, or a
-streaming path for chattic.us.
+streaming path for the product web app.
 
 It has four parts:
 
@@ -420,7 +420,7 @@ should stay boring at that size.
 ### Decided: same-origin CloudFront front door
 
 **Per-request front door:** Lambda function URL behind CloudFront (as
-today). **How chattic.us reaches it:** same origin — one CloudFront
+today). **How the product app reaches it:** same origin — one CloudFront
 distribution per environment hostname serves Next.js from S3 on the
 default behavior and proxies `/api/*` to the function URL (prefix
 stripped at the edge). No separate `api.chattic.us` subdomain.

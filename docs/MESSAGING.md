@@ -244,7 +244,8 @@ These are placement and configuration, not architecture:
 ## Decided: same-origin front door
 
 The browser reaches the thin-turn API at **`/api/*` on the same host**
-as the Next.js app (e.g. `https://chattic.us/api/channels/...`). Each
+as the Next.js app (e.g. `https://hey.chattic.us/api/channels/...` in
+production). Each
 named environment has **one CloudFront distribution** per web hostname:
 
 - **Default behavior** — S3 origin for Next.js static assets.

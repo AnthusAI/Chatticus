@@ -9,7 +9,7 @@ we are going** (the v1 product architecture); this page is the protocol.
 ## Control plane versus workers
 
 ```
-    User at chattic.us
+    User at hey.chattic.us (production) or dev.chattic.us (development)
         |  POST to a per-request front door
         |  server-sent events for one turn
         v
@@ -215,7 +215,7 @@ rule.
 
 ## Web
 
-The web app at chattic.us is the human surface: bot roster, chat, approval
+The product web app (`hey.chattic.us` in production) is the human surface: bot roster, chat, approval
 cards, and a computer preview. It talks only to the control plane. It
 does not reach workers directly. It POSTs messages and reads one turn at
 a time over server-sent events; it holds nothing open between turns. See

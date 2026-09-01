@@ -1,6 +1,6 @@
 Feature: Household task list in the web UI
   As a household member
-  I want to see my tasks in the chattic.us web UI
+  I want to see my tasks in the Chatticus product web UI
   So that I can track open work over the same-origin API
 
   Scenario: The web UI loads the household task list from the same-origin API

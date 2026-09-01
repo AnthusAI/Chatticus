@@ -16,7 +16,8 @@ Chatticus is a named-teammate product: persistent bots, a user-scoped Linux
 computer, approvals, skills, routines, and a pull-based worker protocol that
 can run the computer on AWS or on local hardware.
 
-The public site and product name is **Chatticus** at **chattic.us**.
+The public marketing site and product name is **Chatticus** at **chattic.us**.
+The production product workspace is at **hey.chattic.us**.
 
 Do not describe this product as a clone, port, or copy of any third-party
 agent product. Do not use third-party product names for Chatticus bots, the
@@ -38,7 +39,7 @@ xAI client. The model vendor is not the product name.
 - `features/` — shared Gherkin. Behavior changes start here.
 - `python/` — control plane, scheduler, roster, approvals, later agent and
   worker processes.
-- `web/` — Next.js app for chattic.us.
+- `web/` — Next.js product workspace (`hey.chattic.us` in production).
 - `computer/` — Docker image for the Linux workplace.
 - `infra/` — AWS CDK.
 

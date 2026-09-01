@@ -1,4 +1,4 @@
-"""Step definitions for the chattic.us web UI API contract."""
+"""Step definitions for the Chatticus product web UI API contract."""
 
 from __future__ import annotations
 

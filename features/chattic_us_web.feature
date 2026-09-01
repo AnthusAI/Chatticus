@@ -1,6 +1,6 @@
-Feature: chattic.us web surface
+Feature: Chatticus product web surface
   As a Chatticus user
-  I want the web UI at chattic.us
+  I want the product web UI on the environment hostname
   So that I can see my bots and chat with them over the same-origin API
 
   Scenario: The web UI loads the bot roster from the same-origin API

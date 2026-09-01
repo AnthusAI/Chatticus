@@ -4,7 +4,8 @@ Chatticus is a roster of named AI teammates that do real work on a computer
 you control. You message a teammate. It uses tools, files, a browser, and a
 shell. It comes back when something needs your approval.
 
-The product lives at [chattic.us](https://chattic.us).
+The public marketing site is [chattic.us](https://chattic.us). The product
+workspace is at [hey.chattic.us](https://hey.chattic.us) in production.
 
 v1 is personal: one household, one AWS account, as many named bots as we
 want. Every record already carries a `tenant_id` so the same system can
@@ -66,7 +67,8 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 **2026-08-31:** `ChatticusDns`, all three `ChatticusWeb*` stacks, and matching
 `ChatticusThinTurn*` stacks are deployed in `us-east-1`. Same-origin HTTPS
-is live at `dev.chattic.us`, `staging.chattic.us`, `chattic.us`, and
+is live at `dev.chattic.us`, `staging.chattic.us`, and `hey.chattic.us`
+(production app). The marketing site is at `chattic.us` and
 `www.chattic.us`. SSM `/chatticus/{environment}/thin-turn/cloudfront-url`
 is `https://{hostname}/api` for each environment. A development run of
 `exercise_thin_turn.py` against `https://dev.chattic.us/api` exited 0 on
@@ -115,7 +117,7 @@ file. Resolve the front door from SSM, CloudFormation, or
 | --- | --- | --- | --- |
 | development | `ChatticusWeb` | https://dev.chattic.us | https://dev.chattic.us/api |
 | staging | `ChatticusWebStaging` | https://staging.chattic.us | https://staging.chattic.us/api |
-| production | `ChatticusWebProduction` | https://chattic.us | https://chattic.us/api |
+| production | `ChatticusWebProduction` | https://hey.chattic.us | https://hey.chattic.us/api |
 
 Deploy DNS once (`infra/deploy-chatticus-dns.sh`), set registrar name servers
 to the stack **NameServers** output, then deploy thin-turn + web per environment.
@@ -255,7 +257,7 @@ current computer image is tens of seconds (Test 2). Chromium is in the
 image; the summoned Fargate host runs `computer_host_worker` with
 `ChromiumActionExecutor` and publishes per-capability readiness. Lambda
 ComputerWorker still has no browser executor and only nacks until the
-host finishes. The chattic.us Next.js UI deploys via `ChatticusWeb*`
+host finishes. The product Next.js UI deploys via `ChatticusWeb*`
 stacks (infra README); it is not on the live turn path until DNS and
 deploy land. Approvals are not on these slices.
 
@@ -343,7 +345,7 @@ sequenceDiagram
 
 ## Where we are going
 
-v1 is the chattic.us Next.js app talking to that same per-request control
+v1 is the product Next.js app at `hey.chattic.us` (production) talking to that same per-request control
 plane, plus pull workers that can stay computerless or host the user's
 Linux computer: local Docker when a Mac is on, Fargate ARM64 that scales
 to zero when it is not. Workplace disk lives in S3 snapshots. EventBridge
@@ -359,7 +361,7 @@ image on Fargate, later stop/start EC2, or Docker on a Mac.
 ```mermaid
 flowchart TB
   Person["Person"]
-  Web["chattic.us<br/>Next.js"]
+  Web["hey.chattic.us<br/>Next.js"]
 
   subgraph control [Control plane per request]
     FD["HTTP front door<br/>POST plus one-turn SSE"]
@@ -441,7 +443,7 @@ computers stop (EC2) or scale to 0 (Fargate). The snapshot stays.
 Chattic.us/
   features/                 Shared Gherkin (product narrative)
   python/                   Control plane, computerless and computer workers, snapshot packer
-  web/                      chattic.us web app (not on the live turn path yet)
+  web/                      Product workspace (`hey.chattic.us` in production)
   computer/                 Linux computer image
   infra/                    AWS CDK
   docs/                     Product, architecture, design challenges, stack
