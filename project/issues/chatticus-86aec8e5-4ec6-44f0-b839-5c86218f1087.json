@@ -136,10 +136,16 @@
       "author": "agent@example.com",
       "text": "Cadence: **d71ed5** code is on develop (#142). Live register still 404 until named `ChatticusThinTurn` development deploy (in flight; never `--all`). **50b42d** reinstate and **7695e0** `--exclusively` are in planning (separate worktrees). **0ab02c** still human; **5744ef** stays open for owner sign-in. Computers desiredCount 0.\n",
       "created_at": "2026-09-01T08:51:26.463894Z"
+    },
+    {
+      "id": "909432f7-587c-441f-ac76-31c9b3a9a0e1",
+      "author": "agent@example.com",
+      "text": "Cadence: **#145** `reinstate` and **#144** `--exclusively` are on develop. **50b42d** and **7695e0** closed. Named ThinTurn deploy made org-path register live; full live script still 403s on recycle — **b3e12c** implementing (`worker#{id}` on roster PK, no lookup). **d71ed5** stays open. **0ab02c** still human. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T09:20:42.013967Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T08:51:26.463894Z",
+  "updated_at": "2026-09-01T09:20:42.013967Z",
   "closed_at": null,
   "custom": {}
 }

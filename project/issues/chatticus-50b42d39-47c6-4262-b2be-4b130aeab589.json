@@ -3,7 +3,7 @@
   "title": "Reinstate a suspended organization",
   "description": "**Phase 2 of 7.**\n\n- **Blocked by:** 41d08d\n- **Runs in parallel with:** anything\n- **Unblocks:** nothing\n\n---\n**Found reviewing #132.** Separating approval from reinstatement was correct. It is currently half-done.\n\n`enable` refuses any organization that is not `PENDING`, `suspend` refuses any that is not `ENABLED`, and no operation moves an organization out of `SUSPENDED`. It is a terminal state reachable in one command and escapable in none.\n\n**Do:** a `reinstate` operation on the kernel and a `reinstate` subcommand on the members CLI, allowed only from `SUSPENDED`, carrying the same confirmation and summary that `enable` does.\n\nKeep it a separate name rather than relaxing `enable`. The whole point is that approving a new organization and reversing a deliberate intervention appear in the record as different acts by different people at different moments. A reinstatement should be as legible after the fact as the suspension was.\n\n**Done when:** an organization can go pending to enabled to suspended to enabled again, every transition is refused from the wrong state, and the scenarios cover the round trip.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -32,7 +32,7 @@
     }
   ],
   "created_at": "2026-09-01T06:08:27.775544Z",
-  "updated_at": "2026-09-01T09:04:59.912993Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T09:20:41.971675Z",
+  "closed_at": "2026-09-01T09:20:41.971675Z",
   "custom": {}
 }

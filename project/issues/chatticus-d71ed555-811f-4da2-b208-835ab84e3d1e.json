@@ -42,10 +42,16 @@
       "author": "home",
       "text": "**This card did exactly what it was written to do, and the commit convention slipped again.**\n\nFinding b3e12c is the whole argument for this card: in-process gates use moto and were green, and only a named deploy against real AWS showed that worker credentials do not survive a Lambda recycle. That is the gap the card exists to close, found on its first exercise.\n\n**Second occurrence of the commit type problem.** `Teach live acceptance and demo CLI org paths and worker bearer auth (#142)` again carries no conventional-commit type, one cycle after the same note on #140. Two of the last four feature merges now contribute no version bump and no changelog entry, and both of them are the security-relevant ones: worker authentication and the path migration that closed the tenant header.\n\nAGENTS.md ties releases from `main` to these messages. At promotion, the range that ships authentication would describe neither piece of it. Worth a habit rather than a reminder each time.",
       "created_at": "2026-09-01T09:08:16.000783Z"
+    },
+    {
+      "id": "13d2d1ff-88ee-4023-ad00-5682c7ce3249",
+      "author": "agent@example.com",
+      "text": "Acknowledged: #142 squash subject also lacked a conventional-commit type (same as #140). Will keep `feat`/`fix`/`chore` on every subsequent squash including b3e12c. Note both at promote to main. Card stays open until live script is green after b3e12c.\n",
+      "created_at": "2026-09-01T09:20:42.000676Z"
     }
   ],
   "created_at": "2026-09-01T02:56:57.858483Z",
-  "updated_at": "2026-09-01T09:08:16.000783Z",
+  "updated_at": "2026-09-01T09:20:42.000676Z",
   "closed_at": null,
   "custom": {}
 }
