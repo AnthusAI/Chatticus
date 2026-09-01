@@ -120,6 +120,17 @@ def test_computer_worker_lambda_forwards_front_door_url() -> None:
     assert "CHATTICUS_FRONT_DOOR_URL: functionUrl.url" in text
 
 
+def test_thin_turn_stack_grants_http_lambda_cognito_ssm_read() -> None:
+    source = (
+        Path(__file__).resolve().parents[2] / "infra" / "lib" / "thin-turn-stack.ts"
+    )
+    text = source.read_text()
+    assert "webParameterPrefix" in text
+    assert "cognito-user-pool-id" in text
+    assert "cognito-app-client-id" in text
+    assert "PyJWT[crypto]" in text
+
+
 def test_thin_turn_stack_uses_per_deployment_openai_parameter() -> None:
     source = (
         Path(__file__).resolve().parents[2] / "infra" / "lib" / "thin-turn-stack.ts"

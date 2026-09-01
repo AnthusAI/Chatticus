@@ -25,7 +25,7 @@ COPY python /opt/chatticus/src
 RUN python3 -m venv /opt/chatticus/venv \
     && /opt/chatticus/venv/bin/pip install --upgrade pip \
     && /opt/chatticus/venv/bin/pip install /opt/chatticus/src \
-        boto3 httpx fastapi 'pydantic>=2' python-dotenv
+        boto3 httpx fastapi 'pydantic>=2' python-dotenv 'PyJWT[crypto]'
 
 ENV PATH="/opt/chatticus/venv/bin:${PATH}"
 

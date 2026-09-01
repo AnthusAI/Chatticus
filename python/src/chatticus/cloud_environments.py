@@ -6,6 +6,8 @@ import os
 from collections.abc import Mapping
 from typing import Literal
 
+from chatticus.cognito_jwt import CognitoConfig
+
 CloudEnvironment = Literal["development", "staging", "production"]
 
 CLOUD_ENVIRONMENTS: tuple[CloudEnvironment, ...] = (
@@ -53,6 +55,64 @@ def environment_for_git_branch(branch: str) -> CloudEnvironment:
 def thin_turn_parameter_prefix(environment: CloudEnvironment) -> str:
     """SSM prefix published by the thin-turn stack for this environment."""
     return f"/chatticus/{environment}/thin-turn"
+
+
+def web_parameter_prefix(environment: CloudEnvironment) -> str:
+    """SSM prefix published by the web/auth stacks for this environment."""
+    return f"/chatticus/{environment}/web"
+
+
+def resolve_cognito_config(
+    environment: CloudEnvironment,
+    *,
+    region: str = "us-east-1",
+) -> CognitoConfig:
+    """Resolve Cognito issuer and SPA client id for JWT verification.
+
+    Order: ``CHATTICUS_COGNITO_*`` env vars, then SSM parameters under
+    ``/chatticus/{environment}/web/cognito-*``.
+    """
+    issuer = os.environ.get("CHATTICUS_COGNITO_ISSUER", "").strip().rstrip("/")
+    client_id = os.environ.get("CHATTICUS_COGNITO_CLIENT_ID", "").strip()
+    jwks_url = os.environ.get("CHATTICUS_COGNITO_JWKS_URL", "").strip()
+    if issuer and client_id:
+        return CognitoConfig(
+            issuer=issuer,
+            client_id=client_id,
+            jwks_url=jwks_url or f"{issuer}/.well-known/jwks.json",
+        )
+
+    try:
+        import boto3
+    except ImportError as exc:
+        raise LookupError(
+            "No Cognito config. Set CHATTICUS_COGNITO_ISSUER and "
+            "CHATTICUS_COGNITO_CLIENT_ID, or install boto3 to read SSM."
+        ) from exc
+
+    prefix = web_parameter_prefix(environment)
+    ssm = boto3.client("ssm", region_name=region)
+    pool_id = _ssm_string_parameter(ssm, f"{prefix}/cognito-user-pool-id")
+    resolved_client_id = _ssm_string_parameter(ssm, f"{prefix}/cognito-app-client-id")
+    resolved_issuer = f"https://cognito-idp.{region}.amazonaws.com/{pool_id}"
+    return CognitoConfig(
+        issuer=resolved_issuer,
+        client_id=resolved_client_id,
+        jwks_url=f"{resolved_issuer}/.well-known/jwks.json",
+    )
+
+
+def _ssm_string_parameter(ssm: object, name: str) -> str:
+    try:
+        response = ssm.get_parameter(Name=name)  # type: ignore[union-attr]
+    except Exception as error:
+        raise LookupError(
+            f"SSM parameter {name!r} is missing or unreadable."
+        ) from error
+    value = response["Parameter"]["Value"].strip()
+    if not value:
+        raise LookupError(f"SSM parameter {name!r} is empty.")
+    return value
 
 
 def base_url_environment_variable(environment: CloudEnvironment) -> str:

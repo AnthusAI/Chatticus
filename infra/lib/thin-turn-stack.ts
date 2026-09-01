@@ -19,6 +19,7 @@ import {
   ChatticusCloudEnvironment,
   thinTurnExportName,
   thinTurnParameterPrefix,
+  webParameterPrefix,
 } from "./environments";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
@@ -45,6 +46,7 @@ export class ThinTurnStack extends cdk.Stack {
 
     const environmentName = props.chatticusEnvironment;
     const parameterPrefix = thinTurnParameterPrefix(environmentName);
+    const webPrefix = webParameterPrefix(environmentName);
     const openAiParameterName = `${parameterPrefix}/openai-api-key`;
     const retainData = environmentName !== "development";
     cdk.Tags.of(this).add("chatticus:environment", environmentName);
@@ -100,7 +102,7 @@ export class ThinTurnStack extends cdk.Stack {
           "bash",
           "-c",
           [
-            "pip install . fastapi uvicorn 'pydantic>=2' httpx python-dotenv -t /asset-output",
+            "pip install . fastapi uvicorn 'pydantic>=2' httpx python-dotenv 'PyJWT[crypto]' -t /asset-output",
             "cp lambda/run.sh /asset-output/run.sh",
             "chmod +x /asset-output/run.sh",
           ].join(" && "),
@@ -115,7 +117,7 @@ export class ThinTurnStack extends cdk.Stack {
                   "--implementation cp",
                   "--python-version 3.12",
                   "--only-binary=:all:",
-                  "fastapi uvicorn 'pydantic>=2' httpx python-dotenv",
+                  "fastapi uvicorn 'pydantic>=2' httpx python-dotenv 'PyJWT[crypto]'",
                   `-t ${outputDir}`,
                 ].join(" "),
                 { cwd: pythonRoot, stdio: "inherit" },
@@ -242,6 +244,8 @@ export class ThinTurnStack extends cdk.Stack {
         actions: ["ssm:GetParameter"],
         resources: [
           `arn:aws:ssm:${this.region}:${this.account}:parameter${openAiParameterName}`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${webPrefix}/cognito-user-pool-id`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${webPrefix}/cognito-app-client-id`,
         ],
       }),
     );

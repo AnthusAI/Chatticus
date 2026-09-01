@@ -346,6 +346,12 @@ class ControlPlane:
         """Load one organization."""
         return self._org_records.get_organization(tenant_id)
 
+    def get_identity_by_email(self, email: str) -> Identity | None:
+        """Return one identity keyed by verified email, never Cognito sub."""
+        from chatticus.org_records import normalize_email
+
+        return self._messaging_store.get_identity_by_email(normalize_email(email))
+
     def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
         """Return one membership row when the user belongs to the organization."""
         return self._messaging_store.get_membership(tenant_id, user_id)

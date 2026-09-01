@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING, Annotated, Final
 
 from fastapi import Depends, HTTPException, Request
 
-from chatticus.models import OrganizationStatus
+from chatticus.cognito_jwt import CognitoJwtVerifier, CognitoTokenError
+from chatticus.models import (
+    IdentityNotFoundError,
+    MemberRole,
+    Membership,
+    MembershipNotFoundError,
+    OrganizationStatus,
+)
 from chatticus.principal import Principal, PrincipalKind
 from chatticus.worker_credentials import parse_bearer_token
 
@@ -101,6 +108,81 @@ def resolve_worker_principal_from_token(
         tenant_id=tenant_id,
         worker_id=worker_id,
     )
+
+
+# Warm-life cache: membership rows for one Lambda container.
+_MEMBERSHIP_CACHE: dict[
+    tuple[str, str], tuple[Membership, OrganizationStatus, MemberRole]
+] = {}
+
+
+def resolve_user_principal_from_token(
+    plane: ControlPlane,
+    tenant_id: str,
+    token: str,
+    *,
+    verifier: CognitoJwtVerifier,
+) -> Principal:
+    """Map one Cognito id_token to a user principal for *tenant_id*.
+
+    Identity is keyed on verified email from the id_token, never Cognito sub.
+    Organization status and role come from DynamoDB membership rows, not token
+    claims.
+
+    SSE (7b4616): validate once when the stream opens; each reconnect is a new
+    HTTP request and must carry a fresh id_token. Do not re-validate mid-stream
+    — a revoked or suspended member may keep receiving until turn completion.
+    """
+    verified = verifier.verify_id_token(token)
+    identity = plane.get_identity_by_email(verified.email)
+    if identity is None:
+        raise IdentityNotFoundError(
+            f"No identity is registered for email {verified.email!r}."
+        )
+
+    cache_key = (tenant_id, identity.user_id)
+    cached = _MEMBERSHIP_CACHE.get(cache_key)
+    if cached is None:
+        membership = plane.get_membership(tenant_id, identity.user_id)
+        if membership is None:
+            raise MembershipNotFoundError(
+                f"User {identity.user_id!r} is not a member of "
+                f"organization {tenant_id!r}."
+            )
+        organization = plane.get_organization(tenant_id)
+        cached = (membership, organization.status, membership.role)
+        _MEMBERSHIP_CACHE[cache_key] = cached
+    membership, organization_status, role = cached
+    return Principal(
+        kind=PrincipalKind.USER,
+        tenant_id=tenant_id,
+        user_id=identity.user_id,
+        organization_status=organization_status,
+        role=role,
+    )
+
+
+async def resolve_user_bearer(
+    request: Request,
+    tenant_id: str,
+    *,
+    verifier: CognitoJwtVerifier,
+) -> Principal:
+    """Resolve a Cognito id_token to a user principal for one org-scoped route."""
+    token = parse_bearer_token(request.headers.get("Authorization"))
+    if token is None:
+        raise HTTPException(status_code=403, detail="user credential required")
+    plane: ControlPlane = request.app.state.chatticus.plane
+    try:
+        return resolve_user_principal_from_token(
+            plane, tenant_id, token, verifier=verifier
+        )
+    except CognitoTokenError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except IdentityNotFoundError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except MembershipNotFoundError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
 
 
 async def resolve_worker_bearer(request: Request, tenant_id: str) -> Principal:
