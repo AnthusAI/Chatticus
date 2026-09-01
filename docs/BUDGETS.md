@@ -95,6 +95,82 @@ someone's memory. And `ChatticusSnapshots` and `ChatticusComputers` are
 deliberately not per-environment, so they are reported as a shared
 remainder rather than apportioned by guesswork.
 
+## Where a turn's tokens and cost are written
+
+Every request's token counts and cost must be recorded somewhere we can
+find, aggregate, and alarm on. Neither Bedrock nor any external API will
+hand us a per-organization breakdown, so this is ours to keep regardless
+of vendor.
+
+**Both, with different jobs.**
+
+| | DynamoDB row | Structured log line |
+| --- | --- | --- |
+| Job | System of record | Observability |
+| Read by | The daily rollup, billing, per-organization attribution | A human asking why Tuesday spiked |
+| Lifetime | As long as the account exists | The log group's retention |
+| Authoritative | Yes | No |
+
+The log line is derived from the row, so the two cannot disagree. The
+rule to hold: **DynamoDB is what you bill from, logs are what you debug
+from.**
+
+### Logging this is effectively free
+
+The cost worry is misplaced, and the numbers say so plainly. At household
+scale, on the order of a thousand turns a day and a few hundred bytes a
+record, the ledger produces roughly **twelve megabytes a month**. Log
+ingestion is free to five gigabytes and fifty cents a gigabyte after,
+storage is three cents a gigabyte-month, and a Logs Insights query is
+charged on the data it scans. A hundredfold increase in traffic still
+lands inside the free tier.
+
+The Lambda already writes to CloudWatch. Adding a structured JSON line
+costs the bytes and nothing else.
+
+### The real cost trap is metrics, not logs
+
+CloudWatch treats **every unique combination of dimensions as a separate
+custom metric**, at thirty cents per metric per month. A metric filter or
+an embedded-metric-format record dimensioned by organization and by model
+does not produce one metric; it produces one per pair. A hundred
+organizations across three models is three hundred metrics, ninety
+dollars a month, which for a small deployment exceeds the infrastructure
+it is measuring.
+
+So: **alerts come from the daily rollup reading DynamoDB, not from
+log-derived metrics.** Keep custom metrics to a small fixed set, such as
+total spend per environment. Never dimension a metric by organization.
+
+### Why not logs alone
+
+Tempting, because Logs Insights is good and the ingestion is free. Three
+reasons it cannot be the only copy.
+
+- **Retention is a cliff, not a slope.** Insights can only query what is
+  still retained, so a year-over-year question is unanswerable the day
+  after retention expires.
+- **An invoice needs an authoritative number.** In v3 this data decides
+  what an organization is charged. Scanning logs is not a defensible
+  basis for a bill, and a log group is not an audit trail.
+- **Scanning is O(data) forever.** A monthly rollup re-scans the whole
+  period every run, where a DynamoDB query reads one partition.
+
+There is also a concrete trap in this repository today.
+`infra/lib/computer-stack.ts` sets fourteen-day retention on the computer
+log group, and the thin-turn Lambda log groups set no retention at all,
+which means they never expire. Ledger events emitted from a worker on the
+computer host would vanish in two weeks; everything else accumulates
+forever by accident rather than by decision. Retention belongs in CDK,
+chosen deliberately, in both places.
+
+### Record shape
+
+Log the ledger event as **JSON**, not the `key=value` style used
+elsewhere in the codebase. Insights parses both, but `stats sum()` over a
+JSON field is direct where the other needs a parse expression, and this
+is the one log line written specifically to be aggregated later.
+
 ## Combining the two meters
 
 No always-on aggregator; that reintroduces the idle floor the whole

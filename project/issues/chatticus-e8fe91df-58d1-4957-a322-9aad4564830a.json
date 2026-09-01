@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-e8fe91df-58d1-4957-a322-9aad4564830a",
+  "title": "Set log retention deliberately in CDK",
+  "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the rest of phase 1\n- **Unblocks:** the ledger's log copy being trustworthy\n\n---\n**Found while deciding where token costs get written.** Retention is currently set in one place by accident of history and nowhere else.\n\n`infra/lib/computer-stack.ts:60` sets fourteen days on the computer log group. The thin-turn Lambda log groups set nothing, which means CloudWatch's default of never expiring.\n\nBoth are wrong for a ledger. Events emitted from a worker on the computer host would vanish after two weeks, and everything else accumulates forever because nobody chose, which is a slow cost leak that grows with every deployment we ship to a client.\n\n**Do:** set retention explicitly on every log group in CDK, long enough that the observability copy outlives the questions people ask of it, and short enough to bound storage. The DynamoDB row is the system of record, so retention here is a debugging window rather than a compliance horizon.\n\n**Done when:** no log group in any stack relies on the default, and the chosen window is written down with its reason.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e3e94cd-ae24-4ead-8d4c-1ae15d21190c",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T03:26:49.575066Z",
+  "updated_at": "2026-09-01T03:26:49.575066Z",
+  "closed_at": null,
+  "custom": {}
+}
