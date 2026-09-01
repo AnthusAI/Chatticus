@@ -77,7 +77,12 @@ from chatticus.models import (
     ComputerSnapshot,
     CostClass,
     DuplicateBotNameError,
+    Identity,
+    Invitation,
+    MemberRole,
+    Membership,
     Message,
+    Organization,
     PendingComputerToolSnapshot,
     SnapshotRequiredError,
     StaleAttemptError,
@@ -103,6 +108,7 @@ from chatticus.models import (
     WorkerTenantMismatchError,
     pending_computer_tool_from_turn,
 )
+from chatticus.org_records import OrgRecordsKernel
 from chatticus.overnight_gated import (
     OvernightGatedResult,
 )
@@ -194,6 +200,7 @@ class ControlPlane:
         self._host_starts: dict[tuple[str, str], HostStartClaim] = {}
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
+        self._org_records = OrgRecordsKernel(self._messaging_store)
         self._turn_enqueued = turn_enqueued
         self._computer_enqueued = computer_enqueued
         self._logical_enqueue_delivery_count = 0
@@ -257,6 +264,63 @@ class ControlPlane:
     def now(self) -> datetime:
         """Return the current control-plane clock."""
         return self._now
+
+    def sign_in(self, email: str, *, now: datetime) -> Identity:
+        """Mint an identity on first sight of an email; idempotent on repeat."""
+        return self._org_records.sign_in(email, now=now)
+
+    def create_organization(
+        self, owner: Identity, name: str, *, now: datetime
+    ) -> Organization:
+        """Create a pending organization and owner membership."""
+        return self._org_records.create_organization(owner, name, now=now)
+
+    def enable_organization(self, tenant_id: str) -> Organization:
+        """Mark one organization enabled without provisioning a computer."""
+        return self._org_records.enable_organization(tenant_id)
+
+    def suspend_organization(self, tenant_id: str) -> Organization:
+        """Mark one organization suspended."""
+        return self._org_records.suspend_organization(tenant_id)
+
+    def invite_by_email(
+        self,
+        tenant_id: str,
+        inviter_user_id: str,
+        email: str,
+        *,
+        now: datetime,
+    ) -> Invitation:
+        """Create a pending invitation from an owner."""
+        return self._org_records.invite_by_email(
+            tenant_id, inviter_user_id, email, now=now
+        )
+
+    def accept_invitation(
+        self,
+        invitation_id: str,
+        acceptor: Identity,
+        *,
+        now: datetime,
+    ) -> Membership:
+        """Accept one invitation when the organization is enabled."""
+        return self._org_records.accept_invitation(invitation_id, acceptor, now=now)
+
+    def list_organizations_for_user(self, user_id: str) -> list[Organization]:
+        """Return every organization a user belongs to."""
+        return self._org_records.list_organizations_for_user(user_id)
+
+    def set_member_role(
+        self,
+        tenant_id: str,
+        actor_user_id: str,
+        member_user_id: str,
+        role: MemberRole,
+    ) -> Membership:
+        """Change one member's role; only an owner may call this."""
+        return self._org_records.set_member_role(
+            tenant_id, actor_user_id, member_user_id, role
+        )
 
     def _fault(self, boundary: TurnBoundary, window: CrashWindow) -> None:
         if self._fault_injector is not None:

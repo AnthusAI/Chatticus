@@ -254,6 +254,10 @@ class DuplicateMembershipError(ChatticusError):
     """The user is already a member of the organization."""
 
 
+class MembershipNotFoundError(ChatticusError):
+    """The user is not a member of the organization."""
+
+
 class InvitationNotPendingError(ChatticusError):
     """The invitation is not pending."""
 
@@ -264,6 +268,10 @@ class InvitationExpiredError(ChatticusError):
 
 class NotOrganizationOwnerError(ChatticusError):
     """Only an owner may perform this action."""
+
+
+class LastOwnerCannotBeDemotedError(ChatticusError):
+    """An organization must keep at least one owner."""
 
 
 @dataclass(frozen=True)

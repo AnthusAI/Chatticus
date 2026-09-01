@@ -45,3 +45,50 @@ Feature: Organization identity and membership records
     And that user has created and enabled organization "Anthus Labs"
     When the store is recycled
     Then listing organizations for that user still includes "Anthus Labs"
+
+  Scenario: Enabling an organization does not provision a computer
+    Given "ryan@example.com" has signed in
+    And that user has created organization "Anthus Labs"
+    When the organization "Anthus Labs" is enabled
+    Then organization "Anthus Labs" has status "enabled"
+    And no computer exists for "Anthus Labs"
+
+  Scenario: Suspending an enabled organization flips its status
+    Given "ryan@example.com" has signed in
+    And that user has created and enabled organization "Anthus Labs"
+    When the organization "Anthus Labs" is suspended
+    Then organization "Anthus Labs" has status "suspended"
+
+  Scenario: Accepting an invitation to a suspended organization is refused
+    Given "ryan@example.com" has signed in
+    And that user has created and enabled organization "Anthus Labs"
+    And the owner of "Anthus Labs" has invited "sam@example.com"
+    And organization "Anthus Labs" has been suspended
+    When "sam@example.com" signs in
+    And that user tries to accept the invitation to "Anthus Labs"
+    Then accepting the invitation is refused because the organization is not enabled
+
+  Scenario: An owner can set a member role
+    Given "ryan@example.com" has signed in
+    And that user has created and enabled organization "Anthus Labs"
+    And the owner of "Anthus Labs" has invited "sam@example.com"
+    When "sam@example.com" signs in
+    And that user accepts the invitation to "Anthus Labs"
+    And "ryan@example.com" signs in
+    When the owner of "Anthus Labs" sets "sam@example.com" role to "owner"
+    Then "sam@example.com" has role "owner" in "Anthus Labs"
+
+  Scenario: A member cannot set roles
+    Given "ryan@example.com" has signed in
+    And that user has created and enabled organization "Anthus Labs"
+    And the owner of "Anthus Labs" has invited "sam@example.com"
+    When "sam@example.com" signs in
+    And that user accepts the invitation to "Anthus Labs"
+    When that user tries to set their role to "owner" in "Anthus Labs"
+    Then setting the role is refused because the user is not an owner
+
+  Scenario: The last owner cannot be demoted to member
+    Given "ryan@example.com" has signed in
+    And that user has created and enabled organization "Anthus Labs"
+    When the owner of "Anthus Labs" tries to set "ryan@example.com" role to "member"
+    Then setting the role is refused because this is the last owner
