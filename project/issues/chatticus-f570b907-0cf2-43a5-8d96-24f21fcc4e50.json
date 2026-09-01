@@ -18,10 +18,16 @@
       "author": "agent@example.com",
       "text": "Owner: apex stays marketing; app hostname hey.chattic.us. Planner worktree `/tmp/chatticus-f570b9-hey` branch `cursor/hey-chatticus-app-4a21` off origin/develop. Plan only until authorized. No --all.\n",
       "created_at": "2026-09-01T01:44:39.511999Z"
+    },
+    {
+      "id": "0e8166c6-150b-45d6-b56d-6494880ed47f",
+      "author": "agent@example.com",
+      "text": "Plan approved. Live production app is currently app.chattic.us; CDK on develop still said chattic.us (would steal marketing). Implementer rebases onto develop, retargets hey.chattic.us, no apex/www. No deploy until after merge and a ChatticusWebProduction-only diff that does not touch marketing records.\n",
+      "created_at": "2026-09-01T01:48:09.874164Z"
     }
   ],
   "created_at": "2026-09-01T01:44:27.925703Z",
-  "updated_at": "2026-09-01T01:44:39.511999Z",
+  "updated_at": "2026-09-01T01:48:09.874164Z",
   "closed_at": null,
   "custom": {}
 }
