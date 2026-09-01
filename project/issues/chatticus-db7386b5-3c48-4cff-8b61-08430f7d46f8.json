@@ -46,10 +46,16 @@
       "author": "home",
       "text": "Milestone update: the marketing hero now leads with a compact interactive mobile workspace prototype (rather than a viewport-filling roster), keeping the named Editor, Reporter, Copy Writer, and Illustrator visible in actual app context. The conversation-stack mark replaces the orbit motif. Seven landing-page tests, lint, typecheck, and production build are green. Source remains unmerged and not deployed, so the story remains in progress for the next design-review session.",
       "created_at": "2026-09-01T16:21:22.950581Z"
+    },
+    {
+      "id": "f62bc5fa-67fa-40b9-a486-c54ebf012136",
+      "author": "home",
+      "text": "Handoff-ready after independent re-review: the hero now presents a responsive mobile workspace prototype, exposes the four explicit roles in context, and offers a labelled pause/resume control that pauses CSS motion and the pinned Vultus Lottie avatars. Reviewer approved. Validation: marketing lint/typecheck/build plus 7 tests; workspace lint/typecheck plus 14 tests; Vultus 14 tests and production build.",
+      "created_at": "2026-09-01T16:27:15.923210Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T16:21:22.950581Z",
+  "updated_at": "2026-09-01T16:27:15.923210Z",
   "closed_at": null,
   "custom": {}
 }
