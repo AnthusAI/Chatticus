@@ -136,10 +136,22 @@
       "author": "home",
       "text": "User feedback: the enlarged grey shadow motion has reintroduced caption overlap. Shortening the lower edge enough to guarantee clearance across the full animation, rather than changing only its offset.",
       "created_at": "2026-09-01T19:41:58.181323Z"
+    },
+    {
+      "id": "3d985c04-c4d4-4e19-9a98-bc721bf72213",
+      "author": "home",
+      "text": "Polish pass: updating the hero prototype to show the shared organization as Acme Corp Magazines and the shared workspace as Newsroom, per design review.",
+      "created_at": "2026-09-01T19:44:59.337150Z"
+    },
+    {
+      "id": "37f3882b-abf5-4f56-a9eb-66819e0c5905",
+      "author": "home",
+      "text": "Verified the Newsroom copy update: the header no longer overflows at the local preview width, and marketing lint, typecheck, build-backed tests (7/7), and whitespace validation pass.",
+      "created_at": "2026-09-01T19:46:29.671159Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T19:41:58.181323Z",
+  "updated_at": "2026-09-01T19:46:29.671159Z",
   "closed_at": null,
   "custom": {}
 }

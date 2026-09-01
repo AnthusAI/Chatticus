@@ -73,7 +73,8 @@ describe("Chatticus marketing experience", () => {
     const prototypeSource = readFileSync(join(root, "components", "WorkspacePrototype.tsx"), "utf8");
     const wordmarkSource = readFileSync(join(root, "components", "Wordmark.tsx"), "utf8");
     assert.match(heroSource, /WorkspacePrototype/);
-    assert.match(prototypeSource, /Shared room/);
+    assert.match(prototypeSource, /Acme Corp Magazines/);
+    assert.match(prototypeSource, /Newsroom/);
     assert.match(prototypeSource, /Work in motion/);
     assert.match(prototypeSource, /One shared computer\. Many teammates\. Your approval when it matters/);
     assert.match(prototypeSource, /Maya K\. · Owner/);

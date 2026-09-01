@@ -42,8 +42,8 @@ export function WorkspacePrototype() {
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             </span>
             <div>
-              <p className="font-mono text-[0.52rem] uppercase tracking-[0.14em] text-paper/55">Chatticus</p>
-              <p className="font-body text-xs font-extrabold">Shared room</p>
+              <p className="font-mono text-[0.52rem] uppercase tracking-[0.14em] text-paper/55">Acme Corp Magazines</p>
+              <p className="font-body text-xs font-extrabold">Newsroom</p>
             </div>
           </div>
           <button
