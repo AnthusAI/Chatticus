@@ -124,46 +124,13 @@
     linear-gradient(115deg, transparent 45%, rgb(242 239 231 / 0.035) 46%, transparent 47%);
 }
 
-.prototype-plane {
+.prototype-backing-plane {
   position: absolute;
+  inset: -0.75rem;
   z-index: -1;
-  border: 2px solid var(--ink);
-  border-radius: 1.5rem;
-  box-shadow: 7px 8px 0 rgb(17 19 15 / 0.22);
-  animation: prototype-plane-drift var(--plane-duration) var(--ease-out) var(--plane-delay) infinite alternate;
-}
-
-.prototype-plane-cobalt {
-  top: 8%;
-  right: -5%;
-  width: 10rem;
-  height: 7.5rem;
-  background: var(--cobalt);
-  --plane-duration: 8.5s;
-  --plane-delay: -2.2s;
-  --plane-rotation: 14deg;
-}
-
-.prototype-plane-clay {
-  bottom: 7%;
-  left: -8%;
-  width: 9rem;
-  height: 6rem;
-  background: var(--clay);
-  --plane-duration: 10s;
-  --plane-delay: -5.1s;
-  --plane-rotation: -12deg;
-}
-
-.prototype-plane-signal {
-  bottom: 19%;
-  right: -8%;
-  width: 6.75rem;
-  height: 4.5rem;
+  border-radius: 2.4rem;
   background: var(--signal);
-  --plane-duration: 7.6s;
-  --plane-delay: -1s;
-  --plane-rotation: -8deg;
+  animation: prototype-backing-drift 11s var(--ease-out) infinite alternate;
 }
 
 .prototype-presence {
@@ -174,15 +141,15 @@
   animation: prototype-packet 1.7s var(--ease-out) infinite;
 }
 
-.workspace-prototype[data-motion-paused="true"] .prototype-plane,
+.workspace-prototype[data-motion-paused="true"] .prototype-backing-plane,
 .workspace-prototype[data-motion-paused="true"] .prototype-presence,
 .workspace-prototype[data-motion-paused="true"] .prototype-packet {
   animation-play-state: paused;
 }
 
-@keyframes prototype-plane-drift {
-  from { transform: translate3d(-5px, 6px, 0) rotate(var(--plane-rotation)); }
-  to { transform: translate3d(6px, -7px, 0) rotate(calc(var(--plane-rotation) + 2deg)); }
+@keyframes prototype-backing-drift {
+  from { transform: translate3d(-2px, 2px, 0) rotate(2deg); }
+  to { transform: translate3d(3px, -3px, 0) rotate(2.7deg); }
 }
 
 @keyframes prototype-presence {
