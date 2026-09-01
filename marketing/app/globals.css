@@ -126,7 +126,7 @@
 
 .prototype-backing-plane {
   position: absolute;
-  inset: -0.75rem;
+  inset: -0.45rem;
   z-index: 0;
   border-radius: 2.4rem;
   background: var(--signal);
