@@ -12,7 +12,7 @@ import * as ssm from "aws-cdk-lib/aws-ssm";
 import { execSync } from "child_process";
 import * as path from "path";
 import { Construct } from "constructs";
-import { API_ORIGIN_VIEWER_REQUEST_FUNCTION, SPA_VIEWER_RESPONSE_FUNCTION } from "./cloudfront-functions";
+import { API_ORIGIN_VIEWER_REQUEST_FUNCTION, SPA_VIEWER_REQUEST_FUNCTION, SPA_VIEWER_RESPONSE_FUNCTION } from "./cloudfront-functions";
 import {
   ChatticusCloudEnvironment,
   thinTurnParameterPrefix,
@@ -24,6 +24,7 @@ import {
   CHATTICUS_LOG_RETENTION,
   CustomResourceProviderLogRetentionAspect,
 } from "./log-retention";
+import { webDockerBundleCommand, webLocalBundleCommand, WEB_BUNDLE_DOCKER_IMAGE, WEB_LOCAL_BUNDLE_AWS_CLI_CHECK } from "./web-build-env";
 
 export interface WebStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
@@ -77,6 +78,10 @@ export class WebStack extends cdk.Stack {
       code: cloudfront.FunctionCode.fromInline(API_ORIGIN_VIEWER_REQUEST_FUNCTION),
       comment: "Strip /api prefix and Accept-Encoding for the Lambda origin.",
     });
+    const spaViewerRequest = new cloudfront.Function(this, "SpaViewerRequest", {
+      code: cloudfront.FunctionCode.fromInline(SPA_VIEWER_REQUEST_FUNCTION),
+      comment: "Rewrite slashless SPA paths (OAuth callback) before S3 lookup.",
+    });
     const spaViewerResponse = new cloudfront.Function(this, "SpaViewerResponse", {
       code: cloudfront.FunctionCode.fromInline(SPA_VIEWER_RESPONSE_FUNCTION),
       comment: "SPA fallback status for S3 paths; never rewrite /api responses.",
@@ -94,6 +99,10 @@ export class WebStack extends cdk.Stack {
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         functionAssociations: [
+          {
+            function: spaViewerRequest,
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          },
           {
             function: spaViewerResponse,
             eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE,
@@ -130,24 +139,19 @@ export class WebStack extends cdk.Stack {
       : [
           s3deploy.Source.asset(webRoot, {
             bundling: {
-              image: cdk.DockerImage.fromRegistry("node:22-bookworm-slim"),
-              command: [
-                "bash",
-                "-c",
-                [
-                  "cd /asset-input",
-                  "npm ci",
-                  "npm run build",
-                  "cp -r out/. /asset-output/",
-                ].join(" && "),
-              ],
+              image: cdk.DockerImage.fromRegistry(WEB_BUNDLE_DOCKER_IMAGE),
+              command: ["bash", "-c", webDockerBundleCommand(environmentName)],
               local: {
                 tryBundle(outputDir: string): boolean {
                   try {
-                    execSync("npm ci && npm run build", {
-                      cwd: webRoot,
-                      stdio: "inherit",
-                    });
+                    execSync(
+                      `${WEB_LOCAL_BUNDLE_AWS_CLI_CHECK} && ${webLocalBundleCommand(environmentName)}`,
+                      {
+                        cwd: webRoot,
+                        stdio: "inherit",
+                        shell: "/bin/bash",
+                      },
+                    );
                     execSync(`cp -r ${webRoot}/out/. ${outputDir}/`, {
                       stdio: "inherit",
                     });

@@ -14,6 +14,7 @@ import { BudgetsStack } from "../lib/budgets-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
+import { websiteDeploySourceForApp } from "../lib/web-bundle-stub";
 import { WebStack } from "../lib/web-stack";
 
 const app = new cdk.App();
@@ -72,6 +73,7 @@ for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
     siteCertificate: dns.siteCertificate,
     frontDoorFunctionUrl: thinTurn.frontDoorFunctionUrl,
     invokeSecret: thinTurn.invokeSecret,
+    websiteDeploySource: websiteDeploySourceForApp(),
     description:
       `Next.js UI (${environmentName}) on CloudFront with same-origin /api/* ` +
       "proxy to the thin-turn function URL.",

@@ -9,6 +9,10 @@ import {
   ChatticusCloudEnvironment,
   WEB_STACK_IDS,
 } from "../lib/environments";
+import {
+  stubWebsiteDeploySource,
+  websiteDeploySourceForApp,
+} from "../lib/web-bundle-stub";
 import { WebStack } from "../lib/web-stack";
 
 const testEnv = {
@@ -17,13 +21,27 @@ const testEnv = {
 };
 
 /** Inline deploy source: no npm ci, no docker, no shared web/node_modules mount. */
-export const testWebsiteDeploySource = s3deploy.Source.data(
-  "index.html",
-  "<!DOCTYPE html><html></html>",
-);
+export const testWebsiteDeploySource = stubWebsiteDeploySource;
 
 export function synthWebStack(
   environmentName: ChatticusCloudEnvironment,
+): Template {
+  return synthWebStackWithDeploySource(environmentName, testWebsiteDeploySource);
+}
+
+/** Mirror the CDK app entrypoint website deploy source selection. */
+export function synthWebStackLikeApp(
+  environmentName: ChatticusCloudEnvironment,
+): Template {
+  return synthWebStackWithDeploySource(
+    environmentName,
+    websiteDeploySourceForApp(),
+  );
+}
+
+function synthWebStackWithDeploySource(
+  environmentName: ChatticusCloudEnvironment,
+  websiteDeploySource: s3deploy.ISource | undefined,
 ): Template {
   const app = new cdk.App();
   const deps = new cdk.Stack(app, "Deps", { env: testEnv });
@@ -53,7 +71,7 @@ export function synthWebStack(
     siteCertificate,
     frontDoorFunctionUrl,
     invokeSecret,
-    websiteDeploySource: testWebsiteDeploySource,
+    websiteDeploySource,
   });
 
   return Template.fromStack(stack);
