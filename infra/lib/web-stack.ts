@@ -16,6 +16,7 @@ import { API_ORIGIN_VIEWER_REQUEST_FUNCTION, SPA_VIEWER_RESPONSE_FUNCTION } from
 import {
   ChatticusCloudEnvironment,
   thinTurnParameterPrefix,
+  WEB_CLOUDFRONT_ENABLED,
   webParameterPrefix,
   WEB_SITE_DOMAINS,
 } from "./environments";
@@ -68,6 +69,7 @@ export class WebStack extends cdk.Stack {
     });
 
     const distribution = new cloudfront.Distribution(this, "SiteDistribution", {
+      enabled: WEB_CLOUDFRONT_ENABLED[environmentName],
       comment: `Chatticus ${environmentName} web UI and same-origin /api front door.`,
       domainNames: [siteDomain],
       certificate: props.siteCertificate,
