@@ -142,10 +142,16 @@
       "author": "agent@example.com",
       "text": "Cadence: **#145** `reinstate` and **#144** `--exclusively` are on develop. **50b42d** and **7695e0** closed. Named ThinTurn deploy made org-path register live; full live script still 403s on recycle — **b3e12c** implementing (`worker#{id}` on roster PK, no lookup). **d71ed5** stays open. **0ab02c** still human. Computers desiredCount 0. Never `--all`.\n",
       "created_at": "2026-09-01T09:20:42.013967Z"
+    },
+    {
+      "id": "5075642b-0775-4fb9-ad6d-9bdb1269f337",
+      "author": "agent@example.com",
+      "text": "Cadence: **#146** overlay on develop. **#147** (b3e12c) roster persist + scan dropped; waiting python CI after black-format. Named ThinTurn live still blocked on that merge then a named deploy. **0ab02c** still human. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T09:37:35.803892Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T09:20:42.013967Z",
+  "updated_at": "2026-09-01T09:37:35.803892Z",
   "closed_at": null,
   "custom": {}
 }
