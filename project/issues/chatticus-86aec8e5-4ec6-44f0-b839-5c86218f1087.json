@@ -154,10 +154,16 @@
       "author": "agent@example.com",
       "text": "**b3e12c** closed: live `stale_waiting=409` after #147 named ThinTurn deploy. **d71ed5** stays open; remaining live-script fail is reconnect duplicate seqs, not worker hashes. **0ab02c** still human. Computers desiredCount 0. Never `--all`.\n",
       "created_at": "2026-09-01T09:54:24.345502Z"
+    },
+    {
+      "id": "7bb8aa78-dc46-419c-a925-e5c5c13aeca9",
+      "author": "agent@example.com",
+      "text": "Cadence: **#149** reconnect gate on develop; **7794b0** closed. Human still owes development OpenAI SSM at `/chatticus/development/thin-turn/openai-api-key` and **0ab02c** Google OAuth. Next unblocked: **e8fe91** log retention (planning). Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T10:17:36.540848Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T09:54:24.345502Z",
+  "updated_at": "2026-09-01T10:17:36.540848Z",
   "closed_at": null,
   "custom": {}
 }

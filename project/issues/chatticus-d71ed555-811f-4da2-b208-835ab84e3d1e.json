@@ -60,10 +60,16 @@
       "author": "agent@example.com",
       "text": "b3e12c closed on live `stale_waiting=409`. Live script still exit 1 on SSE reconnect duplicate seqs after `turn.failed` — new child bug. This card stays open. Enforcement-on remains 7b4616.\n",
       "created_at": "2026-09-01T09:54:24.332310Z"
+    },
+    {
+      "id": "a0658bac-2b93-4466-a98e-651fba0711c9",
+      "author": "agent@example.com",
+      "text": "#149 on develop. Reconnect assertion no longer false-fails. Live script still cannot complete greeting turns until a human creates `/chatticus/development/thin-turn/openai-api-key`. Enforcement-on remains 7b4616. Card stays open.\n",
+      "created_at": "2026-09-01T10:17:36.528516Z"
     }
   ],
   "created_at": "2026-09-01T02:56:57.858483Z",
-  "updated_at": "2026-09-01T09:54:24.332310Z",
+  "updated_at": "2026-09-01T10:17:36.528516Z",
   "closed_at": null,
   "custom": {}
 }
