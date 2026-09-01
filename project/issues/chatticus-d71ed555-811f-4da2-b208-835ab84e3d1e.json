@@ -3,7 +3,7 @@
   "title": "Teach live acceptance and the demo CLI to authenticate",
   "description": "**Phase 3 of 7.**\n\n- **Blocked by:** 1ebc7d, fac2ee\n- **Runs in parallel with:** 5f0c4c, 5558db, 79578e\n- **Unblocks:** 7b4616, which cannot be called done without it\n\n---\n**Found by inversion: what breaks quietly and costs a day before anyone sees why?**\n\nEvery phase in this plan ends with the instruction to run sh scripts/live_aws_thin_turn.sh development. That script, tests/test_live_aws_thin_turn.py, and the thin-turn demo CLI all speak the current contract: X-Tenant-Id in a header, no credential. The moment 79578e reshapes the routes and 7b4616 flips enforcement, all three fail against every environment, and the failure looks like a broken deploy rather than a stale client.\n\nThey are our own tooling, so they authenticate as a worker with a minted credential from fac2ee, not as a person. Do not add a test-only bypass to the front door. That is a second authentication path and the repository does not keep two.\n\n**Done when:** the live script, the pytest live path, and the demo CLI all pass against development with enforcement on, using a real credential.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,16 @@
     "phase-3"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "0af3ac6e-8c31-40e0-94cd-1710cbb136cf",
+      "author": "agent@example.com",
+      "text": "fac2ee and 79578e are on develop. Planning live-script + demo CLI auth/path. Worktree `/tmp/chatticus-d71ed5-live-cli` branch `cursor/live-cli-d71ed5-4a21`. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T08:29:20.677523Z"
+    }
+  ],
   "created_at": "2026-09-01T02:56:57.858483Z",
-  "updated_at": "2026-09-01T02:56:57.858483Z",
+  "updated_at": "2026-09-01T08:29:20.677523Z",
   "closed_at": null,
   "custom": {}
 }

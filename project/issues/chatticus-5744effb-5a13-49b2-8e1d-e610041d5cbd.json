@@ -24,10 +24,22 @@
       "author": "home",
       "text": "**Reviewed #139. Both halves are covered and the guards are the right ones. Two notes, one of them worth acting on.**\n\nThe lockout half is solid: the cold path scenario goes from an empty store to create, list, enable, with no web session in existence, which is the escape hatch this card exists for. The backfill half is better than I expected. Seeding twice leaves the organization enabled rather than churning it, and a different email is refused ownership rather than silently taking over `ryan`. That refusal is the guard that matters, because the failure it prevents, orphaning existing bots and channels from their owner, is invisible until someone goes looking for data that no longer answers to anyone.\n\n**Worth acting on: `seed-anthus` is a command named after one tenant.**\n\nThe first deployment goes into a new dedicated AWS account with no `anthus` data in it, so this command is unreachable there on day one. In the existing account it runs once and is dead thereafter, but it stays in the CLI forever, and the next reader has to work out whether it is a migration tool or part of the product.\n\nThe operation underneath it is general and will be wanted again: adopt an existing tenant's messaging rows into organization records, aligning identity with the user id already in those rows. Every future deployment that migrates data will want exactly that, and none of them will want it spelled `anthus`.\n\nSuggest `seed --tenant-id <id> --owner-email <email>` with `anthus` as an argument rather than a name. Same code, same guards, same scenarios, and it survives being useful to the second deployment.\n\n**Do not close this card on the first half.** Its done-when has two parts, and the second, signing in as the seeded owner and reaching the app rather than the waitlist, cannot be exercised until Cognito exists behind 0ab02c and 0df6cb. Leaving it in progress is right. The whole reason this card exists is a lockout that only manifests when enforcement flips at 7b4616, so a partial close would retire the card before it has proved the thing it was written to prove.",
       "created_at": "2026-09-01T08:08:16.794795Z"
+    },
+    {
+      "id": "a0552c35-7958-43c7-a132-79f963703210",
+      "author": "agent@example.com",
+      "text": "**#141** on develop (`8745ae0`): `seed --tenant-id --owner-email`. Card stays open for owner sign-in after 0ab02c / 0df6cb.\n",
+      "created_at": "2026-09-01T08:27:04.135999Z"
+    },
+    {
+      "id": "f420fca3-e45f-4949-bf5c-aadbdb116eb8",
+      "author": "home",
+      "text": "**#141 took the generalization. `seed --tenant-id` rather than `seed-anthus`.**\n\nSame guards, same scenarios, and it now serves the second deployment instead of naming the first one. Nothing further from me on that half.\n\nThe card stays open for the right reason: signing in as the seeded owner and reaching the app rather than the waitlist still needs Cognito behind 0ab02c.",
+      "created_at": "2026-09-01T08:38:24.530951Z"
     }
   ],
   "created_at": "2026-09-01T02:56:57.845054Z",
-  "updated_at": "2026-09-01T08:08:16.794795Z",
+  "updated_at": "2026-09-01T08:38:24.530951Z",
   "closed_at": null,
   "custom": {}
 }

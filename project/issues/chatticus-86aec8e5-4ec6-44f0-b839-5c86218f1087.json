@@ -124,10 +124,16 @@
       "author": "agent@example.com",
       "text": "**79578e** on develop (#137). Serialize window closed. Next: **fac2ee** (worker credentials) and **5744ef** (seed first org) in parallel, different worktrees. **0ab02c** still human.\n",
       "created_at": "2026-09-01T07:36:10.988163Z"
+    },
+    {
+      "id": "90c50b19-d53e-41ae-9a5b-11bcf6e48fe2",
+      "author": "agent@example.com",
+      "text": "**fac2ee** closed (#140). **5744ef** seed CLI generalized (#141) and stays in_progress until seeded owner sign-in. Next unblocked for the join: **d71ed5** (live scripts). **0ab02c** still human.\n",
+      "created_at": "2026-09-01T08:27:04.149844Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T07:36:10.988163Z",
+  "updated_at": "2026-09-01T08:27:04.149844Z",
   "closed_at": null,
   "custom": {}
 }

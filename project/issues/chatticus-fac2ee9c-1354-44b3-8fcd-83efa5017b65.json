@@ -3,7 +3,7 @@
   "title": "Issue and verify per-worker credentials",
   "description": "**Phase 3 of 7.** Must merge before the phase-4 join or every worker breaks at the same moment.\n\n- **Blocked by:** 1ebc7d, 272aea\n- **Runs in parallel with:** 5f0c4c, 5558db, 41d08d, and 79578e\n- **Unblocks:** 7b4616\n\n---\nWorker registration mints a token stored hashed; the worker presents it and resolves to a worker Principal. This closes the question recorded as still open in docs/DESIGN_CHALLENGES.md, how workers authenticate their chunk POSTs.\n\nBrowser routes must reject a worker principal and worker routes must reject a user principal. The shared X-Chatticus-Invoke-Key stays what it is, a CloudFront-to-Lambda check, and is not a caller identity.\n\n**Done when:** behave and pytest cover both rejections, and a development worker claims and completes a turn using a minted credential.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -18,10 +18,22 @@
       "author": "agent@example.com",
       "text": "Unblocked. Planning in `/tmp/chatticus-fac2ee-worker-creds` branch `cursor/worker-creds-fac2ee-4a21`. Parallel with 5744ef only (not 79578e). Computers desiredCount 0. Never `--all`.\n",
       "created_at": "2026-09-01T07:36:11.028854Z"
+    },
+    {
+      "id": "e20f800a-cf15-42c8-86ac-1b33fab93835",
+      "author": "agent@example.com",
+      "text": "Landed on develop via **#140** (`c19aa56`). Worker Bearer on worker routes; browser routes still invoke-key-only. Gherkin covers mint, 403 without Bearer, audience mismatch. Live named-environment client path is **d71ed5**. Closing.\n",
+      "created_at": "2026-09-01T08:27:04.109422Z"
+    },
+    {
+      "id": "b05d7a01-8bac-41c6-bb28-6202a1d8288e",
+      "author": "home",
+      "text": "**Reviewed #140. The credential design is right in every detail I checked, and there is one process defect that cannot be fixed later.**\n\nChecked deliberately, because this is the card where a shortcut would be least visible and most expensive:\n\n- `secrets.token_urlsafe(32)` for minting. A CSPRNG at 256 bits, not `random`.\n- SHA-256 at rest, plaintext never persisted, token shown once.\n- `hmac.compare_digest` for verification rather than `==`. Timing-safe.\n- Re-registration rotates and the previous token is rejected, so revocation exists rather than being a later card.\n- Both directions covered: worker routes reject a missing bearer, reject a user principal, and reject the invoke key on its own. That last scenario is the one I would have asked for if it were missing, because it proves the shared CloudFront key is not accidentally serving as caller identity.\n\nYou also closed the open question in `docs/DESIGN_CHALLENGES.md` and `docs/MESSAGING.md` rather than leaving the design advertising a question that this card answered. That is the part people skip.\n\n**The defect: the merge commit has no conventional-commit type.**\n\n`Add per-worker bearer credentials for worker HTTP routes (fac2ee) (#140)`\n\nEvery other commit on develop carries `feat`, `fix`, `chore`, `refactor`, or `docs`. AGENTS.md records that semantic-release runs from `main` and derives releases from these messages, so a typeless commit contributes no version bump and no changelog entry. When develop is promoted, this is the range that ships worker authentication, and it would ship without appearing in the release notes at all. A security-relevant feature that is invisible in the changelog is the one people later swear was never released.\n\nIt is already merged, so rewriting develop's history is not worth it. Two things instead: mention it by hand in the release notes when the promotion happens, and keep the type on the next one.",
+      "created_at": "2026-09-01T08:38:24.518093Z"
     }
   ],
   "created_at": "2026-09-01T02:40:29.694432Z",
-  "updated_at": "2026-09-01T07:36:11.028854Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T08:38:24.518093Z",
+  "closed_at": "2026-09-01T08:27:04.122663Z",
   "custom": {}
 }
