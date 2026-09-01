@@ -3,7 +3,7 @@
   "title": "Name the tenant-level entity before it spreads",
   "description": "**Phase 1 of 7. Decide before writing more code against the current name.**\n\n- **Blocked by:** a human naming call\n- **Runs in parallel with:** nothing; everything downstream inherits the answer\n- **Unblocks:** every card that says organization\n\n---\n**Three nested things, two of them currently called organization.**\n\n| Level | What it is |\n| --- | --- |\n| AWS Organization | The billing container of member accounts |\n| Deployment | One AWS account, one customer company, one set of stacks and hostnames |\n| Tenant (`tenant_id`) | A department or team inside a deployment |\n\nA deployment is multi-tenant within itself. The customer company is the deployment. So the tenant-level entity, currently named Organization in models.py and org_records.py, is named after the level above it.\n\n**Recommendation: Team.** It matches how the levels are actually described, collides with neither the AWS Organization nor the customer, and holds the office metaphor together, where a deployment is the company and a tenant is a department. `tenant_id` stays the identifier in code, keys, and the worker protocol either way; only the product-facing entity name is in question.\n\n**Cost of deciding late.** The name is in roughly twenty-six places across models.py and org_records.py plus features/organizations.feature and features/steps/organization_steps.py, all landed in #111. It grows with every phase, and phase 5 spreads it through the channel and bot models. Cheap now, expensive after phase 3.\n\n**Done when:** the name is chosen and docs/ORGANIZATIONS.md, the Kanbus cards, and the code agree.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,16 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "b6ac31c2-036d-4959-9309-eff3b2a86329",
+      "author": "home",
+      "text": "Withdrawn. There was no collision to resolve.\n\nOrganization is a domain entity in the multi-tenant system: the isolation boundary that owns a computer, with many users. AWS Organizations and business organizations are separate things that may map onto Chatticus organizations however a deployment calls for, and nothing in the design depends on that mapping. Renaming to Team would have been churn against a name that was already correct.\n\ndocs/ORGANIZATIONS.md is restored. The one fact worth keeping from this: a deployment is one AWS account holding many organizations, so AWS spend and the vendor project are metered per deployment, and per-organization cost is internal chargeback rather than an invoice.",
+      "created_at": "2026-09-01T03:32:27.514841Z"
+    }
+  ],
   "created_at": "2026-09-01T03:29:19.048664Z",
-  "updated_at": "2026-09-01T03:29:19.048664Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T03:32:27.527009Z",
+  "closed_at": "2026-09-01T03:32:27.527009Z",
   "custom": {}
 }
