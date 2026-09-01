@@ -8,12 +8,12 @@ export type CognitoConfig = {
   region: string;
 };
 
-function requiredEnv(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) {
+function requiredPublicEnv(value: string | undefined, name: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
     throw new Error(`Missing required build-time env var ${name}.`);
   }
-  return value;
+  return trimmed;
 }
 
 function regionFromUserPoolId(userPoolId: string): string {
@@ -26,10 +26,22 @@ function regionFromUserPoolId(userPoolId: string): string {
 
 /** Load Cognito config from NEXT_PUBLIC_* vars (build-time / .env.local for dev). */
 export function loadCognitoConfig(): CognitoConfig {
-  const userPoolId = requiredEnv("NEXT_PUBLIC_COGNITO_USER_POOL_ID");
-  const clientId = requiredEnv("NEXT_PUBLIC_COGNITO_CLIENT_ID");
-  const authDomain = requiredEnv("NEXT_PUBLIC_COGNITO_AUTH_DOMAIN");
-  const redirectUri = requiredEnv("NEXT_PUBLIC_COGNITO_REDIRECT_URI");
+  const userPoolId = requiredPublicEnv(
+    process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID,
+    "NEXT_PUBLIC_COGNITO_USER_POOL_ID",
+  );
+  const clientId = requiredPublicEnv(
+    process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID,
+    "NEXT_PUBLIC_COGNITO_CLIENT_ID",
+  );
+  const authDomain = requiredPublicEnv(
+    process.env.NEXT_PUBLIC_COGNITO_AUTH_DOMAIN,
+    "NEXT_PUBLIC_COGNITO_AUTH_DOMAIN",
+  );
+  const redirectUri = requiredPublicEnv(
+    process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI,
+    "NEXT_PUBLIC_COGNITO_REDIRECT_URI",
+  );
   return {
     userPoolId,
     clientId,
