@@ -18,10 +18,16 @@
       "author": "agent@example.com",
       "text": "fac2ee and 79578e are on develop. Planning live-script + demo CLI auth/path. Worktree `/tmp/chatticus-d71ed5-live-cli` branch `cursor/live-cli-d71ed5-4a21`. Computers desiredCount 0. Never `--all`.\n",
       "created_at": "2026-09-01T08:29:20.677523Z"
+    },
+    {
+      "id": "967f31c3-3c9d-4aa2-a503-15d762c55dc0",
+      "author": "agent@example.com",
+      "text": "#142 is on develop (`1438044`). Live `POST /orgs/{tenant}/workers/register` still 404s on the development Lambda URL because ChatticusThinTurn is behind fac2ee.\n\nAcceptance is running a named deploy only: `cd infra && sh deploy-chatticus-thinturn-development.sh` (never `--all`), then `cd python && sh scripts/live_aws_thin_turn.sh development`. Computers `desiredCount` must stay 0. Staging/prod stay dark. Enforcement-on half remains 7b4616.\n",
+      "created_at": "2026-09-01T08:47:11.697856Z"
     }
   ],
   "created_at": "2026-09-01T02:56:57.858483Z",
-  "updated_at": "2026-09-01T08:29:20.677523Z",
+  "updated_at": "2026-09-01T08:47:11.697856Z",
   "closed_at": null,
   "custom": {}
 }

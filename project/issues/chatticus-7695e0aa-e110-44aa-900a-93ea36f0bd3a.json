@@ -3,7 +3,7 @@
   "title": "Make every deploy script deploy only its own stack",
   "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** anything\n- **Unblocks:** nothing\n\n---\n**Found reviewing #119**, which added `--exclusively` to the staging and production web deploy scripts after establishing that without it, disabling a CloudFront distribution also deploys the ThinTurn stack it depends on.\n\n`deploy-chatticus-web-development.sh` still runs `cdk deploy ChatticusWeb` without the flag, and `bin/chatticus.ts` gives it the same `web.addDependency(thinTurn)`. A web-only change there silently redeploys the development ThinTurn stack.\n\n`deploy-chatticus-dns.sh` and `deploy-chatticus-thinturn-development.sh` have no dependencies to pull in, so the flag is consistency rather than safety there. The value of adding it anyway is that a reader can stop asking which scripts meant it.\n\n**Done when:** every script under infra/ names one stack and deploys exactly that stack.",
   "type": "chore",
-  "status": "open",
+  "status": "in_progress",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -18,10 +18,16 @@
       "author": "agent@example.com",
       "text": "Called out from the 7c1382 review of #119: deploy-chatticus-web-development.sh still deploys ChatticusWeb without --exclusively, so a web-only change restacks development ThinTurn. Staging/production web scripts already have the flag.",
       "created_at": "2026-09-01T04:19:40.646745Z"
+    },
+    {
+      "id": "31194ae7-6009-41a0-9b53-bbc33bdb0d9b",
+      "author": "agent@example.com",
+      "text": "Planning `--exclusively` on remaining infra scripts (at least `deploy-chatticus-web-development.sh`; ThinTurn/DNS for consistency). Worktree `/tmp/chatticus-7695e0-exclusively` branch `cursor/deploy-exclusively-7695e0-4a21`. Named stacks only. Never `--all`.\n",
+      "created_at": "2026-09-01T08:47:11.726208Z"
     }
   ],
   "created_at": "2026-09-01T04:08:41.358602Z",
-  "updated_at": "2026-09-01T04:19:40.646745Z",
+  "updated_at": "2026-09-01T08:47:11.768121Z",
   "closed_at": null,
   "custom": {}
 }

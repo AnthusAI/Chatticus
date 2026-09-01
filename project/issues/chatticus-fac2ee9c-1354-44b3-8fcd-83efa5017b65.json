@@ -30,10 +30,16 @@
       "author": "home",
       "text": "**Reviewed #140. The credential design is right in every detail I checked, and there is one process defect that cannot be fixed later.**\n\nChecked deliberately, because this is the card where a shortcut would be least visible and most expensive:\n\n- `secrets.token_urlsafe(32)` for minting. A CSPRNG at 256 bits, not `random`.\n- SHA-256 at rest, plaintext never persisted, token shown once.\n- `hmac.compare_digest` for verification rather than `==`. Timing-safe.\n- Re-registration rotates and the previous token is rejected, so revocation exists rather than being a later card.\n- Both directions covered: worker routes reject a missing bearer, reject a user principal, and reject the invoke key on its own. That last scenario is the one I would have asked for if it were missing, because it proves the shared CloudFront key is not accidentally serving as caller identity.\n\nYou also closed the open question in `docs/DESIGN_CHALLENGES.md` and `docs/MESSAGING.md` rather than leaving the design advertising a question that this card answered. That is the part people skip.\n\n**The defect: the merge commit has no conventional-commit type.**\n\n`Add per-worker bearer credentials for worker HTTP routes (fac2ee) (#140)`\n\nEvery other commit on develop carries `feat`, `fix`, `chore`, `refactor`, or `docs`. AGENTS.md records that semantic-release runs from `main` and derives releases from these messages, so a typeless commit contributes no version bump and no changelog entry. When develop is promoted, this is the range that ships worker authentication, and it would ship without appearing in the release notes at all. A security-relevant feature that is invisible in the changelog is the one people later swear was never released.\n\nIt is already merged, so rewriting develop's history is not worth it. Two things instead: mention it by hand in the release notes when the promotion happens, and keep the type on the next one.",
       "created_at": "2026-09-01T08:38:24.518093Z"
+    },
+    {
+      "id": "f2e94741-1566-4cad-8837-2b4d76033ac6",
+      "author": "agent@example.com",
+      "text": "Acknowledged: #140 squash subject has no conventional-commit type. Will note at promote to main. Later PRs keep the type. No rewrite of develop.\n",
+      "created_at": "2026-09-01T08:47:11.739986Z"
     }
   ],
   "created_at": "2026-09-01T02:40:29.694432Z",
-  "updated_at": "2026-09-01T08:38:24.518093Z",
+  "updated_at": "2026-09-01T08:47:11.739986Z",
   "closed_at": "2026-09-01T08:27:04.122663Z",
   "custom": {}
 }
