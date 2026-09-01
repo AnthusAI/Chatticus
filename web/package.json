@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "anthus-vultus": "https://github.com/AnthusAI/Vultus/archive/9b1509fa668527b36ce3eac5620e034817f15050.tar.gz",
+    "anthus-vultus": "https://github.com/AnthusAI/Vultus/archive/326277f.tar.gz",
     "next": "^15.5.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

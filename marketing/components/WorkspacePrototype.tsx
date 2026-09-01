@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowUpRight, Check, CircleDot, Send, Sparkles } from "lucide-react";
+import { ArrowUpRight, Check, CircleDot, Pause, Play, Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CreativeCharacter } from "@/components/CreativeCharacter";
 import type { CreativeMotionState, CreativeRole } from "anthus-vultus";
@@ -22,10 +22,14 @@ const teammates: Teammate[] = [
 
 export function WorkspacePrototype() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
   const active = teammates[activeIndex];
 
   return (
-    <div className="workspace-prototype relative mx-auto w-[85%] max-w-[28rem] lg:w-full lg:max-w-[31rem]">
+    <div
+      className="workspace-prototype relative mx-auto w-[85%] max-w-[28rem] lg:w-full lg:max-w-[31rem]"
+      data-motion-paused={paused ? "true" : "false"}
+    >
       <div aria-hidden="true" className="prototype-halo prototype-halo-one" />
       <div aria-hidden="true" className="prototype-halo prototype-halo-two" />
       <section
@@ -42,16 +46,22 @@ export function WorkspacePrototype() {
               <p className="font-body text-xs font-extrabold">Shared room</p>
             </div>
           </div>
-          <span className="flex items-center gap-1.5 font-mono text-[0.52rem] uppercase tracking-[0.1em] text-signal">
+          <button
+            type="button"
+            onClick={() => setPaused((current) => !current)}
+            aria-pressed={paused}
+            className="flex min-h-7 items-center gap-1.5 rounded-full px-1.5 font-mono text-[0.52rem] uppercase tracking-[0.1em] text-signal transition hover:bg-paper/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+          >
             <span className="h-1.5 w-1.5 rounded-full bg-signal prototype-presence" />
-            online
-          </span>
+            {paused ? <Play className="h-3 w-3" aria-hidden="true" /> : <Pause className="h-3 w-3" aria-hidden="true" />}
+            <span className="hidden min-[390px]:inline">{paused ? "resume" : "pause"}</span>
+          </button>
         </div>
 
-        <div className="mt-2 grid grid-cols-[6.1rem_minmax(0,1fr)] gap-2">
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[6.1rem_minmax(0,1fr)]">
           <aside className="rounded-[1.35rem] border border-paper/10 bg-paper/[0.045] p-2" aria-label="Teammates">
             <p className="px-1 pb-2 font-mono text-[0.5rem] uppercase tracking-[0.13em] text-paper/45">Team · 4</p>
-            <div className="space-y-1">
+            <div className="grid grid-cols-4 gap-1 sm:block sm:space-y-1">
               {teammates.map((teammate, index) => {
                 const selected = index === activeIndex;
                 return (
@@ -60,8 +70,9 @@ export function WorkspacePrototype() {
                     type="button"
                     onClick={() => setActiveIndex(index)}
                     aria-pressed={selected}
+                    aria-label={`${teammate.name}, ${teammate.role}${selected ? ", active" : ""}`}
                     className={cn(
-                      "flex w-full items-center gap-1.5 rounded-xl p-1 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal",
+                      "flex w-full items-center justify-center gap-1.5 rounded-xl p-1 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal sm:justify-start",
                       selected ? "bg-paper/15" : "hover:bg-paper/[0.08]",
                     )}
                   >
@@ -69,9 +80,11 @@ export function WorkspacePrototype() {
                       role={teammate.role}
                       state={selected ? teammate.state : "ready"}
                       label={`${teammate.name}, ${teammate.role}`}
+                      paused={paused}
+                      decorative
                       className="h-7 w-7 shrink-0 overflow-hidden rounded-lg bg-paper [&>div]:h-full [&>div]:w-full"
                     />
-                    <span className="min-w-0">
+                    <span className="hidden min-w-0 sm:block">
                       <span className="block truncate font-body text-[0.62rem] font-extrabold">{teammate.name}</span>
                       <span className="block truncate font-mono text-[0.43rem] uppercase tracking-[0.05em] text-paper/50">{teammate.role}</span>
                     </span>
@@ -87,6 +100,7 @@ export function WorkspacePrototype() {
                 role={active.role}
                 state={active.state}
                 label={`${active.name}, ${active.role}, ${active.activity}`}
+                paused={paused}
                 className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-paper [&>div]:h-full [&>div]:w-full"
               />
               <div className="min-w-0 pt-0.5">

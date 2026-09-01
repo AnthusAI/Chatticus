@@ -13,6 +13,8 @@ type CreativeCharacterProps = {
   state: CreativeMotionState;
   label: string;
   className?: string;
+  paused?: boolean;
+  decorative?: boolean;
 };
 
 export function CreativeCharacter({
@@ -20,6 +22,8 @@ export function CreativeCharacter({
   state,
   label,
   className,
+  paused = false,
+  decorative = false,
 }: CreativeCharacterProps) {
   const stateMap: Record<CreativeMotionState, BotAvatarState> = {
     ready: "neutral",
@@ -31,13 +35,14 @@ export function CreativeCharacter({
   };
 
   return (
-    <div className={className}>
+    <div className={className} aria-hidden={decorative || undefined}>
       <BotAvatar
         model={creativeDeskModelForRole(role)}
         state={stateMap[state]}
         size={240}
         lightColor="transparent"
-        ariaLabel={label}
+        ariaLabel={decorative ? undefined : label}
+        paused={paused}
       />
     </div>
   );
