@@ -36,10 +36,16 @@
       "author": "home",
       "text": "**Reviewed #124. The dedicated-account blocker is cleared.**\n\n`/amplify/shared/papyrus/OPENAI_API_KEY` is gone from infra, replaced by `${parameterPrefix}/openai-api-key` under the deployment's own prefix, with `grantRead` on both the front door and the worker. The only surviving mention of the old name is `test_thinturn_deploy_script.py` asserting it is absent, which is the right way to lock a removal in: the test fails if anyone reintroduces it.\n\nThe ThinTurn stack can now deploy into an account that has never heard of papyrus, and vendor spend for a deployment lands in that deployment's own OpenAI project rather than pooling with another product's.",
       "created_at": "2026-09-01T05:08:32.393494Z"
+    },
+    {
+      "id": "21e66f39-109a-4d9d-a183-f8bf9b700937",
+      "author": "home",
+      "text": "**Reopening as a note, not a status change: the parameter rename left development without a key.**\n\n`/chatticus/development/thin-turn/openai-api-key` does not exist. `/amplify/shared/papyrus/OPENAI_API_KEY` still does, unchanged since May. The stack deploys, which is what this card's done-when asked, and every model turn in development fails because the name it now reads has nothing behind it. That surfaced as 7794b0, where it looked like a streaming bug.\n\nA rename of a secret parameter is two steps and only one of them is code. The done-when should have said the deployment can complete a turn, not that the stack deploys.\n\n**Human action:** copy the value into the new name as a `SecureString`, per environment. Agents should not read, move, or hold it. Worth adding to the deployment runbook alongside the budget values and the SNS subscription confirmation, since a new dedicated account will need the same step and will fail the same way.",
+      "created_at": "2026-09-01T10:08:23.434658Z"
     }
   ],
   "created_at": "2026-09-01T03:21:48.609222Z",
-  "updated_at": "2026-09-01T05:08:32.393494Z",
+  "updated_at": "2026-09-01T10:08:23.434658Z",
   "closed_at": "2026-09-01T04:43:08.115033Z",
   "custom": {}
 }
