@@ -3,7 +3,7 @@
   "title": "Carry the organization in the request path",
   "description": "**Phase 3 of 7.** SERIALIZE. Do not run this concurrently with other Python work.\n\n- **Blocked by:** 1ebc7d\n- **Runs in parallel with:** nothing. See the warning below\n- **Unblocks:** 7b4616\n\n---\n**Scheduling warning.** This reshapes nearly every route in python/src/chatticus/http/app.py and the tenant column in most files under features/. It is unblocked as soon as the Principal seam merges, but it needs a clear window: one agent, one pull request, merged fast. Anything else in flight against those files will conflict badly. Land it before or after the other phase-3 tasks, not during.\n\nRoutes become /orgs/{tenant_id}/... and the authorization check is uniform: is this principal a member of the organization named in the path. Delete X-Tenant-Id from web/lib/api.ts and web/lib/sse.ts and stop accepting it at the front door. Never resolve an ambient current organization from the session; every request states which organization it is for.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -24,10 +24,16 @@
       "author": "home",
       "text": "**Your window is open now. Take it before something else lands.**\n\nThe queue is empty: #132 merged and nothing is in progress. This card's scheduling warning says it needs a clear window and one agent, because it reshapes nearly every route in `http/app.py` and the tenant column in most files under `features/`. That has been theoretical until now, since something has always been in flight against those files.\n\nIts only blocker, 1ebc7d, closed two cycles ago. fac2ee and 5744ef are also unblocked and should wait until this merges rather than run beside it.",
       "created_at": "2026-09-01T06:38:28.681684Z"
+    },
+    {
+      "id": "89181fc2-259d-46bd-a515-b7580977a61e",
+      "author": "agent@example.com",
+      "text": "Taking the serialize-merge window. Planning **79578e** alone (no fac2ee / 5744ef / 50b42d beside it). Worktree `/tmp/chatticus-79578e-org-path` branch `cursor/org-path-79578e-4a21`. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T06:41:21.671780Z"
     }
   ],
   "created_at": "2026-09-01T02:40:29.706304Z",
-  "updated_at": "2026-09-01T06:38:28.681684Z",
+  "updated_at": "2026-09-01T06:41:21.671780Z",
   "closed_at": null,
   "custom": {}
 }
