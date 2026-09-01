@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-7695e0aa-e110-44aa-900a-93ea36f0bd3a",
+  "title": "Make every deploy script deploy only its own stack",
+  "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** anything\n- **Unblocks:** nothing\n\n---\n**Found reviewing #119**, which added `--exclusively` to the staging and production web deploy scripts after establishing that without it, disabling a CloudFront distribution also deploys the ThinTurn stack it depends on.\n\n`deploy-chatticus-web-development.sh` still runs `cdk deploy ChatticusWeb` without the flag, and `bin/chatticus.ts` gives it the same `web.addDependency(thinTurn)`. A web-only change there silently redeploys the development ThinTurn stack.\n\n`deploy-chatticus-dns.sh` and `deploy-chatticus-thinturn-development.sh` have no dependencies to pull in, so the flag is consistency rather than safety there. The value of adding it anyway is that a reader can stop asking which scripts meant it.\n\n**Done when:** every script under infra/ names one stack and deploys exactly that stack.",
+  "type": "chore",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T04:08:41.358602Z",
+  "updated_at": "2026-09-01T04:08:41.358602Z",
+  "closed_at": null,
+  "custom": {}
+}

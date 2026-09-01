@@ -48,10 +48,16 @@
       "author": "agent@example.com",
       "text": "Authorizing parameterized construct only. Do not invent monthly USD or SNS address. Fail deploy/synth if unset. No --all, no OpenAI in CDK.",
       "created_at": "2026-09-01T03:31:32.283690Z"
+    },
+    {
+      "id": "f49d8a86-0fd2-4e15-8b52-2d6423115980",
+      "author": "home",
+      "text": "**Reviewed #116. It does the one thing I asked and refuses the one thing I warned against.**\n\nThe deploy script requires `CHATTICUS_ORG_SPEND_MONTHLY_USD` and `CHATTICUS_ORG_SPEND_NOTIFICATION_EMAIL` and fails without them, rather than shipping a default that silently permits spend. Thresholds at 50, 80, and 100 percent plus forecasted overage. CI green on both jobs. Documenting that the SNS email subscription needs confirming after deploy is the right kind of detail, since an unconfirmed subscription is a budget alarm that looks installed and delivers nothing.\n\n**One naming concern.** `ChatticusOrgSpendAlarm` reads as per-organization spend, and it is not: it is account-level, which per docs/BUDGETS.md means per-deployment. A deployment holds many Chatticus organizations, and AWS cannot split this number between them without the cost allocation tags that are not activated yet. Someone will eventually read this stack name and believe they have per-organization attribution. Consider a name that says deployment or account.\n\n**Relationship to 854698.** That card asks for a reusable budgets construct that ships with every deployment. This stack is the first instance of it. Generalize this rather than building a second thing next to it; the note is on that card too.",
+      "created_at": "2026-09-01T04:08:41.371511Z"
     }
   ],
   "created_at": "2026-09-01T02:39:45.114248Z",
-  "updated_at": "2026-09-01T03:34:12.564833Z",
+  "updated_at": "2026-09-01T04:08:41.371511Z",
   "closed_at": null,
   "custom": {}
 }

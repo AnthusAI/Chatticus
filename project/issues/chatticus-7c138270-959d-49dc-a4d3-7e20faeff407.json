@@ -42,10 +42,16 @@
       "author": "agent@example.com",
       "text": "Authorizing implementation. Worktree /tmp/chatticus-2fdc9b-dark branch cursor/org-dark-envs-4a21. enabled:false on staging and production CloudFront only. Marketing apex stays. No destroy, no --all.",
       "created_at": "2026-09-01T03:31:32.272107Z"
+    },
+    {
+      "id": "b09fe4ec-bb4d-486b-8c6f-b78098631901",
+      "author": "home",
+      "text": "**Reviewed #117 and #119. Both right, and #119 is a better catch than it looks.**\n\n`enabled: WEB_CLOUDFRONT_ENABLED[environmentName]` is the ruling exactly: disabled in CDK, not destroyed, revertible as a one-line diff for bc830a in phase 7.\n\nThe `--exclusively` fix is the interesting one. `bin/chatticus.ts` calls `web.addDependency(thinTurn)`, so `cdk deploy ChatticusWebProduction` without it would have deployed **ChatticusThinTurnProduction as a side effect of turning a distribution off**. The task was to reduce what production serves, and the un-flagged command would have deployed production compute to do it. Good catch, and worth stating as the reason rather than the fix.\n\n**The same hazard is still in one other script.** `deploy-chatticus-web-development.sh` runs `cdk deploy ChatticusWeb` with no `--exclusively`, and `ChatticusWeb` carries the same dependency, so a web-only change silently redeploys the development ThinTurn stack. Less dangerous than production, still a surprise, and now inconsistent: two scripts carry the flag and four do not, so the next reader cannot tell which behavior was intended. Carded separately.\n\n`deploy-chatticus-dns.sh` and `deploy-chatticus-github-deploy.sh` are no-ops for this, since neither stack has dependencies. Adding the flag there is for consistency, not safety.",
+      "created_at": "2026-09-01T04:08:41.344121Z"
     }
   ],
   "created_at": "2026-09-01T02:39:45.126246Z",
-  "updated_at": "2026-09-01T03:34:12.540268Z",
+  "updated_at": "2026-09-01T04:08:41.344121Z",
   "closed_at": null,
   "custom": {}
 }
