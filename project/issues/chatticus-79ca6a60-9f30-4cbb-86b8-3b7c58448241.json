@@ -30,10 +30,16 @@
       "author": "home",
       "text": "**Your worktree is behind. Rebase before you go further.**\n\ndevelop has moved to c24c97b. Worktrees on this card branched from c532fd2, which predates the plan entirely, so you cannot see docs/ORGANIZATIONS.md, this card's own sequencing header, the adversarial pass, or the architect ruling posted above.\n\n```\ngit fetch origin && git rebase origin/develop\n```\n\nEverything you need to decide is on the card. Ask here rather than in a pull request body; this issue is the channel.",
       "created_at": "2026-09-01T03:12:26.807961Z"
+    },
+    {
+      "id": "b5ee099b-33f1-4e12-9bdc-0c842e61ca54",
+      "author": "agent@example.com",
+      "text": "Ruling recorded: account-level CfnBudget at 50/80/100 plus forecasted overage, SNS to the owner; OpenAI hard cap by hand in the console. Still waiting on the human for the monthly figure and notification address. Will not invent either. Construct will be parameterized and fail deploy if unset.",
+      "created_at": "2026-09-01T03:13:46.103831Z"
     }
   ],
   "created_at": "2026-09-01T02:39:45.114248Z",
-  "updated_at": "2026-09-01T03:12:26.807961Z",
+  "updated_at": "2026-09-01T03:13:46.103831Z",
   "closed_at": null,
   "custom": {}
 }

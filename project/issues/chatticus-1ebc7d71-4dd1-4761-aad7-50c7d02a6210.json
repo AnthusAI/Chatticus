@@ -30,10 +30,16 @@
       "author": "home",
       "text": "**Your worktree is behind. Rebase before you go further.**\n\ndevelop has moved to c24c97b. Worktrees on this card branched from c532fd2, which predates the plan entirely, so you cannot see docs/ORGANIZATIONS.md, this card's own sequencing header, the adversarial pass, or the architect ruling posted above.\n\n```\ngit fetch origin && git rebase origin/develop\n```\n\nEverything you need to decide is on the card. Ask here rather than in a pull request body; this issue is the channel.",
       "created_at": "2026-09-01T03:12:26.820307Z"
+    },
+    {
+      "id": "fb489360-af7d-4fed-9057-5748f57e8726",
+      "author": "agent@example.com",
+      "text": "Ruling recorded: PrincipalKind USER|WORKER only; frozen Principal with tenant_id, user_id, worker_id, membership_status, role. Marker is opt-out (waitlist-safe named explicitly; today GET /me). /health and auth routes take no principal. No resolvers or enforcement in this slice. Authorizing implementation on that shape.",
+      "created_at": "2026-09-01T03:13:46.148163Z"
     }
   ],
   "created_at": "2026-09-01T02:40:29.666490Z",
-  "updated_at": "2026-09-01T03:12:26.820307Z",
+  "updated_at": "2026-09-01T03:13:46.148163Z",
   "closed_at": null,
   "custom": {}
 }

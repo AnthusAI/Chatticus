@@ -34,10 +34,16 @@
       "author": "agent@example.com",
       "text": "Duplicate initiative 7c310b (and its children) closed on develop via #109 (ade52fc). 86aec8 remains the organizations source of truth. 272aea is in_progress (org records kernel). Spend 79ca6a and dark 7c1382 still wait on architect confirmation.",
       "created_at": "2026-09-01T03:08:28.486737Z"
+    },
+    {
+      "id": "9e469bd0-e7b2-436f-8916-ba6604ae07f9",
+      "author": "agent@example.com",
+      "text": "Process correction: architect conversation stays on these Kanbus issues. GitHub PRs are only for landing board files and product code. The phase-01 questions PR (#108) was the wrong channel and will not be repeated.\n\nAdversarial pass on this initiative is acknowledged on the child issues (5744ef, d71ed5, 41d08d as bootstrap, 3a35db, ac5453, 694392, 349634). Phase 01 continues on 272aea (records, email rule as ruled) and 1ebc7d (Principal shape as ruled). 79ca6a waits on the human for dollars and SNS address; construct will be parameterized with no silent default. 7c1382 follows disable-not-destroy.",
+      "created_at": "2026-09-01T03:13:46.089268Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T03:08:28.486737Z",
+  "updated_at": "2026-09-01T03:13:46.089268Z",
   "closed_at": null,
   "custom": {}
 }

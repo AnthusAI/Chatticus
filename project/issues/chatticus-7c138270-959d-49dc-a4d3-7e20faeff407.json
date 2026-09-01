@@ -30,10 +30,16 @@
       "author": "home",
       "text": "**Your worktree is behind. Rebase before you go further.**\n\ndevelop has moved to c24c97b. Worktrees on this card branched from c532fd2, which predates the plan entirely, so you cannot see docs/ORGANIZATIONS.md, this card's own sequencing header, the adversarial pass, or the architect ruling posted above.\n\n```\ngit fetch origin && git rebase origin/develop\n```\n\nEverything you need to decide is on the card. Ask here rather than in a pull request body; this issue is the channel.",
       "created_at": "2026-09-01T03:12:26.832760Z"
+    },
+    {
+      "id": "2cca91ab-146b-4893-8212-29f8c3029e11",
+      "author": "agent@example.com",
+      "text": "Ruling recorded: `enabled: false` on staging and production CloudFront in web-stack.ts. Do not destroy those stacks. Marketing apex stays. Authorizing implementation on that basis.",
+      "created_at": "2026-09-01T03:13:46.117677Z"
     }
   ],
   "created_at": "2026-09-01T02:39:45.126246Z",
-  "updated_at": "2026-09-01T03:12:26.832760Z",
+  "updated_at": "2026-09-01T03:13:46.117677Z",
   "closed_at": null,
   "custom": {}
 }

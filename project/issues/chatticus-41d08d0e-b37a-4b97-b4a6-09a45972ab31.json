@@ -1,7 +1,7 @@
 {
   "id": "chatticus-41d08d0e-b37a-4b97-b4a6-09a45972ab31",
   "title": "Members CLI for the waitlist and enablement",
-  "description": "**Phase 3 of 7.** Off the critical path. Let it slip if capacity is short.\n\n- **Blocked by:** b574a6\n- **Runs in parallel with:** every other phase-3 task\n- **Unblocks:** nothing\n\n---\npython -m chatticus.members with list --status pending, enable, suspend, and role. This is the admin surface for v1; there is no admin UI. Organization records are data, not infrastructure, so writing them from a CLI does not violate the CDK-only rule for AWS resources.\n\n**Done when:** an operator can list pending organizations and enable one against development.",
+  "description": "**Phase 3 of 7.** Bootstrap path for enablement. 5744ef cannot seed the first organization, and 7b4616 cannot close the door, without this CLI.\n\n- **Blocked by:** b574a6\n- **Runs in parallel with:** every other phase-3 task\n- **Unblocks:** 5744ef, then 7b4616\n\n---\npython -m chatticus.members with list --status pending, enable, suspend, and role. This is the admin surface for v1; there is no admin UI. Organization records are data, not infrastructure, so writing them from a CLI does not violate the CDK-only rule for AWS resources.\n\n**Done when:** an operator can list pending organizations and enable one against development.",
   "type": "task",
   "status": "open",
   "priority": 0,
@@ -18,10 +18,16 @@
       "author": "home",
       "text": "**Adversarial review: this is no longer allowed to slip.**\n\nThe description says off the critical path, let it slip if capacity is short. That was wrong. 5744ef establishes that the members CLI is the only way to enable the first organization, so it is the bootstrap path for every environment, and enforcement in 7b4616 cannot land without it.\n\nPriority raised to P0. Treat the earlier slack note as withdrawn.",
       "created_at": "2026-09-01T02:57:58.090028Z"
+    },
+    {
+      "id": "1b5ff2f7-834a-449e-bf4d-64e17d588904",
+      "author": "agent@example.com",
+      "text": "Adversarial pass: this is the bootstrap path for 5744ef / 7b4616, not a slip-able convenience. Priority stays P0. Description still says off the critical path; that line is wrong and will be corrected on this card.",
+      "created_at": "2026-09-01T03:13:46.162840Z"
     }
   ],
   "created_at": "2026-09-01T02:40:05.928935Z",
-  "updated_at": "2026-09-01T02:57:58.134572Z",
+  "updated_at": "2026-09-01T03:14:30.146357Z",
   "closed_at": null,
   "custom": {}
 }

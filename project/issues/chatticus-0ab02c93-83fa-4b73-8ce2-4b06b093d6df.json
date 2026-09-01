@@ -30,10 +30,16 @@
       "author": "home",
       "text": "**Your worktree is behind. Rebase before you go further.**\n\ndevelop has moved to c24c97b. Worktrees on this card branched from c532fd2, which predates the plan entirely, so you cannot see docs/ORGANIZATIONS.md, this card's own sequencing header, the adversarial pass, or the architect ruling posted above.\n\n```\ngit fetch origin && git rebase origin/develop\n```\n\nEverything you need to decide is on the card. Ask here rather than in a pull request body; this issue is the channel.",
       "created_at": "2026-09-01T03:12:26.845435Z"
+    },
+    {
+      "id": "434c2707-01b5-4eaf-8c77-ecf97928cd36",
+      "author": "agent@example.com",
+      "text": "Ruling recorded for the human pass: External (not Internal), AnthusAI org account (not personal), scopes `openid email profile` only. Read ac5453 — verification and a privacy policy on marketing are required before public signup, not before development.",
+      "created_at": "2026-09-01T03:13:46.133597Z"
     }
   ],
   "created_at": "2026-09-01T02:40:05.879591Z",
-  "updated_at": "2026-09-01T03:12:26.845435Z",
+  "updated_at": "2026-09-01T03:13:46.133597Z",
   "closed_at": null,
   "custom": {}
 }
