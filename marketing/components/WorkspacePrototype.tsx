@@ -115,10 +115,10 @@ export function WorkspacePrototype() {
             </div>
 
             <div className="mt-4 space-y-2 font-body text-[0.67rem] leading-relaxed">
-              <div className="max-w-[88%] rounded-2xl rounded-tl-sm bg-paper/10 px-2.5 py-2 text-paper/80">
+              <div className="ml-auto max-w-[88%] rounded-2xl rounded-tr-sm bg-paper/10 px-2.5 py-2 text-paper/80">
                 Build the launch story. Keep the final call with me.
               </div>
-              <div className="ml-auto max-w-[91%] rounded-2xl rounded-tr-sm bg-signal px-2.5 py-2 font-semibold text-ink">
+              <div className="max-w-[91%] rounded-2xl rounded-tl-sm bg-signal px-2.5 py-2 font-semibold text-ink">
                 I&apos;m assembling the evidence and assigning the next handoff.
               </div>
             </div>

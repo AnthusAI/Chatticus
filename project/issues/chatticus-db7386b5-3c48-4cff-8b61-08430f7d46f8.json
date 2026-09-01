@@ -100,10 +100,16 @@
       "author": "home",
       "text": "User correction: grey shadow geometry is still too tall/long and overlaps the caption. Shortening the shadow plane materially so it clears the caption. Replacing the meaningless 'A working workspace prototype' caption with the product-relevant 'One brief. Four roles. Your approval.' Visual inspection required before handoff.",
       "created_at": "2026-09-01T19:02:37.930493Z"
+    },
+    {
+      "id": "c97c4184-b6c3-488d-8d55-4db0644b8c86",
+      "author": "home",
+      "text": "User feedback: the conversation alignment is reversed. Moving the human brief to the right and the agent's 'I’m assembling…' reply to the left so the workspace prototype correctly communicates speaker ownership.",
+      "created_at": "2026-09-01T19:05:24.196133Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T19:02:37.930493Z",
+  "updated_at": "2026-09-01T19:05:24.196133Z",
   "closed_at": null,
   "custom": {}
 }
