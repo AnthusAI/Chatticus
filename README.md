@@ -80,10 +80,13 @@ Lottie characters for Editor, Reporter, Copy Writer, and Illustrator. Teammate
 presence is shared across both surfaces, with
 textual status and reduced-motion behavior so animation is never the only
 signal.
+The marketing hero now uses a compact interactive mobile workspace prototype
+to show those teammates in their working context; its conversation-stack mark
+and motion are deliberately non-orbital.
 
 Local validation completed on 2026-09-01:
 
-- Marketing: lint, typecheck, five landing-page tests, production static build,
+- Marketing: lint, typecheck, seven landing-page tests, production static build,
   and `npm audit` with zero vulnerabilities.
 - Workspace: lint, typecheck, 14 tests, production build, and production
   dependency audit with zero vulnerabilities.

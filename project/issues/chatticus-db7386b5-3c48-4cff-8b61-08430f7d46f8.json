@@ -40,10 +40,16 @@
       "author": "home",
       "text": "Hero direction revised from the user review: the primary visual is now a compact, interactive mobile workspace prototype rather than a large roster abstraction. It shows the named Editor, Reporter, Copy Writer, and Illustrator in their actual workspace context, with motion and live handoffs; the former orbital-looking mark is replaced by a conversation-stack mark. Marketing lint, typecheck, production build, and 7 page tests pass.",
       "created_at": "2026-09-01T16:20:42.461499Z"
+    },
+    {
+      "id": "f90cb3fb-2845-4e31-a223-880f3f292b16",
+      "author": "home",
+      "text": "Milestone update: the marketing hero now leads with a compact interactive mobile workspace prototype (rather than a viewport-filling roster), keeping the named Editor, Reporter, Copy Writer, and Illustrator visible in actual app context. The conversation-stack mark replaces the orbit motif. Seven landing-page tests, lint, typecheck, and production build are green. Source remains unmerged and not deployed, so the story remains in progress for the next design-review session.",
+      "created_at": "2026-09-01T16:21:22.950581Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T16:20:42.461499Z",
+  "updated_at": "2026-09-01T16:21:22.950581Z",
   "closed_at": null,
   "custom": {}
 }
