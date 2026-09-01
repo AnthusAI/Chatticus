@@ -1,5 +1,6 @@
 #!/bin/sh
-# Deploy ChatticusWebStaging only (CloudFront enabled flag); does not restack ThinTurn.
+# Deploy ChatticusWebStaging only (CloudFront enabled flag). --exclusively skips
+# ChatticusThinTurnStaging and ChatticusDns despite web.addDependency in bin/chatticus.ts.
 set -eu
 
 cd "$(dirname "$0")"
@@ -16,4 +17,4 @@ if ! aws sts get-caller-identity >/dev/null; then
   exit 1
 fi
 
-npx cdk deploy ChatticusWebStaging --require-approval never
+npx cdk deploy ChatticusWebStaging --exclusively --require-approval never
