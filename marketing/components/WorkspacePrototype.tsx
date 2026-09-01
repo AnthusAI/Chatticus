@@ -50,6 +50,7 @@ export function WorkspacePrototype() {
             type="button"
             onClick={() => setPaused((current) => !current)}
             aria-pressed={paused}
+            aria-label={paused ? "Resume workspace preview motion" : "Pause workspace preview motion"}
             className="flex min-h-7 items-center gap-1.5 rounded-full px-1.5 font-mono text-[0.52rem] uppercase tracking-[0.1em] text-signal transition hover:bg-paper/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-signal prototype-presence" />
