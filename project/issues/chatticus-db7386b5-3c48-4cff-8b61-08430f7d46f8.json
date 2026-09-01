@@ -148,10 +148,22 @@
       "author": "home",
       "text": "Verified the Newsroom copy update: the header no longer overflows at the local preview width, and marketing lint, typecheck, build-backed tests (7/7), and whitespace validation pass.",
       "created_at": "2026-09-01T19:46:29.671159Z"
+    },
+    {
+      "id": "01565e9b-e855-46bb-884c-273516b8008d",
+      "author": "home",
+      "text": "UX polish: replacing the prototype footer slogan with a signed-in profile for Jon Appleseed, making the multi-user workspace ownership legible in the mockup.",
+      "created_at": "2026-09-01T19:47:13.407516Z"
+    },
+    {
+      "id": "47e12a5b-3fc4-4b77-9923-8779a70fb981",
+      "author": "home",
+      "text": "Verified the signed-in profile strip for Jon Appleseed: it fits without overflow in the local preview, and marketing lint, typecheck, build-backed tests (7/7), and whitespace validation pass.",
+      "created_at": "2026-09-01T19:48:17.399021Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T19:46:29.671159Z",
+  "updated_at": "2026-09-01T19:48:17.399021Z",
   "closed_at": null,
   "custom": {}
 }

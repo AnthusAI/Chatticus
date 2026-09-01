@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowUpRight, Check, CircleDot, Pause, Play, Send, Sparkles } from "lucide-react";
+import { ArrowUpRight, CircleDot, Pause, Play, Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CreativeCharacter } from "@/components/CreativeCharacter";
 import type { CreativeMotionState, CreativeRole } from "anthus-vultus";
@@ -148,9 +148,15 @@ export function WorkspacePrototype() {
           </div>
         </div>
 
-        <div className="mt-2 flex items-center justify-between rounded-[1.1rem] border border-paper/10 bg-paper/[0.045] px-3 py-2">
-          <span className="font-mono text-[0.49rem] uppercase tracking-[0.1em] text-paper/50">One room. Your call.</span>
-          <span className="flex items-center gap-1 font-mono text-[0.48rem] uppercase tracking-[0.08em] text-paper/70"><Check className="h-3 w-3 text-signal" aria-hidden="true" /> review ready</span>
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-[1.1rem] border border-paper/10 bg-paper/[0.045] px-3 py-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-clay font-mono text-[0.45rem] font-bold text-ink">JA</span>
+            <div className="min-w-0">
+              <p className="truncate font-body text-[0.62rem] font-extrabold text-paper">Jon Appleseed</p>
+              <p className="truncate font-mono text-[0.45rem] uppercase tracking-[0.08em] text-paper/50">Owner · Acme Corp</p>
+            </div>
+          </div>
+          <span className="flex shrink-0 items-center gap-1 font-mono text-[0.48rem] uppercase tracking-[0.08em] text-paper/70"><span className="h-1.5 w-1.5 rounded-full bg-signal" aria-hidden="true" /> Signed in</span>
         </div>
       </section>
       <p className="relative mt-4 text-center font-mono text-[0.6rem] uppercase tracking-[0.13em] text-ink-soft">One shared computer. Many teammates. Your approval when it matters.</p>
