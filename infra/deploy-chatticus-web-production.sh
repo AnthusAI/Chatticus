@@ -17,8 +17,4 @@ if ! aws sts get-caller-identity >/dev/null; then
   exit 1
 fi
 
-# shellcheck source=budgets-deploy-context.sh
-. "$(dirname "$0")/budgets-deploy-context.sh"
-
-# shellcheck disable=SC2086
-npx cdk deploy ChatticusWebProduction --exclusively --require-approval never ${BUDGETS_CDK_CONTEXT}
+npx cdk deploy ChatticusWebProduction --exclusively --require-approval never

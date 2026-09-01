@@ -6,6 +6,7 @@ import {
   BUDGETS_OWNER_STACK_ID,
   readBudgetsConfig,
 } from "../lib/budgets-config";
+import { BudgetsStack } from "../lib/budgets-stack";
 import { ChatticusBudgets } from "../lib/chatticus-budgets";
 import { SnapshotStack } from "../lib/snapshot-stack";
 
@@ -24,15 +25,22 @@ function synthChatticusBudgets(monthlyLimitUsd = 250, email = "owner@example.com
   return Template.fromStack(stack);
 }
 
-function synthSnapshotStack(budgetsConfig?: {
-  monthlyLimitUsd: number;
-  notificationEmails: string[];
-}) {
+function synthBudgetsStack(
+  monthlyLimitUsd = 120,
+  notificationEmails: string[] = ["owner@example.com"],
+) {
   const app = new cdk.App();
-  const stack = new SnapshotStack(app, "TestSnapshots", {
+  const stack = new BudgetsStack(app, "TestBudgets", {
     env: testEnv,
-    budgetsConfig,
+    monthlyLimitUsd,
+    notificationEmails,
   });
+  return Template.fromStack(stack);
+}
+
+function synthSnapshotStack() {
+  const app = new cdk.App();
+  const stack = new SnapshotStack(app, "TestSnapshots", { env: testEnv });
   return Template.fromStack(stack);
 }
 
@@ -120,6 +128,10 @@ describe("ChatticusBudgets", () => {
         },
       ],
     });
+    template.hasResource("AWS::Budgets::Budget", {
+      DeletionPolicy: "Retain",
+      UpdateReplacePolicy: "Retain",
+    });
   });
 
   it("routes budget alerts through SNS to the owner email", () => {
@@ -129,6 +141,10 @@ describe("ChatticusBudgets", () => {
     template.hasResourceProperties("AWS::SNS::Subscription", {
       Endpoint: "alerts@example.com",
       Protocol: "email",
+    });
+    template.hasResource("AWS::SNS::Topic", {
+      DeletionPolicy: "Retain",
+      UpdateReplacePolicy: "Retain",
     });
     template.hasResourceProperties("AWS::SNS::TopicPolicy", {
       PolicyDocument: {
@@ -152,18 +168,11 @@ describe("ChatticusBudgets", () => {
   });
 });
 
-describe("SnapshotStack budgets", () => {
-  it("creates no budget when budgetsConfig is omitted", () => {
-    const template = synthSnapshotStack();
-    template.resourceCountIs("AWS::Budgets::Budget", 0);
-  });
-
-  it("creates one budget when budgetsConfig is provided", () => {
-    const template = synthSnapshotStack({
-      monthlyLimitUsd: 120,
-      notificationEmails: ["owner@example.com"],
-    });
+describe("BudgetsStack", () => {
+  it("creates one budget and stack outputs", () => {
+    const template = synthBudgetsStack();
     template.resourceCountIs("AWS::Budgets::Budget", 1);
+    template.resourceCountIs("AWS::SNS::Topic", 1);
     template.hasResourceProperties("AWS::Budgets::Budget", {
       Budget: {
         BudgetName: "chatticus-monthly-aws",
@@ -173,5 +182,57 @@ describe("SnapshotStack budgets", () => {
         },
       },
     });
+    template.hasOutput("BudgetsAlertsTopicArn", {});
+    template.hasOutput("BudgetsMonthlyLimitUsd", {
+      Value: "120",
+    });
+  });
+});
+
+describe("SnapshotStack", () => {
+  it("creates no budget resources", () => {
+    const template = synthSnapshotStack();
+    template.resourceCountIs("AWS::Budgets::Budget", 0);
+    template.resourceCountIs("AWS::SNS::Topic", 0);
+  });
+});
+
+describe("chatticus app budgets registration", () => {
+  it("omits ChatticusBudgets when budget context is unset", () => {
+    const app = new cdk.App();
+    readBudgetsConfig(app);
+    assert.equal(readBudgetsConfig(app), undefined);
+    if (readBudgetsConfig(app)) {
+      new BudgetsStack(app, "ChatticusBudgets", {
+        env: testEnv,
+        monthlyLimitUsd: 1,
+        notificationEmails: ["owner@example.com"],
+      });
+    }
+    const assembly = app.synth();
+    assert.equal(
+      assembly.stacks.some((stack) => stack.stackName === "ChatticusBudgets"),
+      false,
+    );
+  });
+
+  it("includes ChatticusBudgets when both budget context flags are set", () => {
+    const app = new cdk.App({
+      context: {
+        budgetsMonthlyLimitUsd: "50",
+        budgetsNotificationEmail: "owner@example.com",
+      },
+    });
+    const budgetsConfig = readBudgetsConfig(app);
+    assert.ok(budgetsConfig);
+    new BudgetsStack(app, "ChatticusBudgets", {
+      env: testEnv,
+      monthlyLimitUsd: budgetsConfig.monthlyLimitUsd,
+      notificationEmails: budgetsConfig.notificationEmails,
+    });
+    const assembly = app.synth();
+    assert.ok(
+      assembly.stacks.some((stack) => stack.stackName === "ChatticusBudgets"),
+    );
   });
 });

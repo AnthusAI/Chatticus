@@ -1,6 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 
-export const BUDGETS_OWNER_STACK_ID = "ChatticusSnapshots";
+export const BUDGETS_OWNER_STACK_ID = "ChatticusBudgets";
 
 export interface BudgetsConfig {
   readonly monthlyLimitUsd: number;

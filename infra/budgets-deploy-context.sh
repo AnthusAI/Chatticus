@@ -1,6 +1,6 @@
 #!/bin/sh
 # Set BUDGETS_CDK_CONTEXT for CDK deploy when budget env vars are set.
-# Source from deploy scripts. Refuses partial config and invented defaults.
+# Source only from deploy-chatticus-budgets.sh. Refuses partial config and invented defaults.
 set -eu
 
 MONTHLY_USD="${CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD:-}"

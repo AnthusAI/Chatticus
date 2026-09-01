@@ -8,6 +8,7 @@ import {
   WEB_STACK_IDS,
 } from "../lib/environments";
 import { readBudgetsConfig } from "../lib/budgets-config";
+import { BudgetsStack } from "../lib/budgets-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
@@ -24,9 +25,17 @@ const budgetsConfig = readBudgetsConfig(app);
 
 const snapshots = new SnapshotStack(app, "ChatticusSnapshots", {
   env,
-  budgetsConfig,
   description: "Canonical S3 store for Chatticus computer snapshots.",
 });
+
+if (budgetsConfig) {
+  new BudgetsStack(app, "ChatticusBudgets", {
+    env,
+    monthlyLimitUsd: budgetsConfig.monthlyLimitUsd,
+    notificationEmails: budgetsConfig.notificationEmails,
+    description: "Account-level AWS spend budget and alerts.",
+  });
+}
 
 new ComputerStack(app, "ChatticusComputers", {
   env,

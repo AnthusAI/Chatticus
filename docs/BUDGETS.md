@@ -60,9 +60,17 @@ OpenAI vendor project and key so vendor spend is attributable.
 ## Configurable limits
 
 Limits are deployment configuration, not constants. A `ChatticusBudgets`
-construct takes a monthly limit, alert thresholds, and notification
-targets, with defaults that suit a small deployment and an override per
-environment.
+construct lives in a dedicated `ChatticusBudgets` CDK stack (not
+`ChatticusSnapshots`). Deploy it with `infra/deploy-chatticus-budgets.sh`
+after setting both `CHATTICUS_BUDGETS_*` env vars. The construct takes a
+monthly limit, alert thresholds, and notification targets, with defaults
+that suit a small deployment and an override per environment.
+
+**Cutover:** AWS budget names are unique per account
+(`chatticus-monthly-aws`). An account that already has the budget on
+`ChatticusSnapshots` must deploy snapshots first (which deletes the old
+CFN-managed budget), then immediately deploy `ChatticusBudgets` to
+recreate the same name. See `infra/README.md`.
 
 A new account has no history to derive a limit from, and that is a
 feature. Start low enough that any spend is signal and raise it

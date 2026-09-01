@@ -9,8 +9,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 INFRA = ROOT / "infra"
 BUDGETS_CONTEXT_SCRIPT = INFRA / "budgets-deploy-context.sh"
+BUDGETS_DEPLOY_SCRIPT = INFRA / "deploy-chatticus-budgets.sh"
 SNAPSHOTS_DEPLOY_SCRIPT = INFRA / "deploy-chatticus-snapshots.sh"
 ORG_SPEND_DEPLOY_SCRIPT = INFRA / "deploy-chatticus-org-spend-alarm.sh"
+
+OTHER_DEPLOY_SCRIPTS = (
+    INFRA / "deploy-chatticus-dns.sh",
+    INFRA / "deploy-chatticus-github-deploy.sh",
+    INFRA / "deploy-chatticus-thinturn-development.sh",
+    INFRA / "deploy-chatticus-web-development.sh",
+    INFRA / "deploy-chatticus-web-staging.sh",
+    INFRA / "deploy-chatticus-web-production.sh",
+    SNAPSHOTS_DEPLOY_SCRIPT,
+)
 
 
 def test_budgets_deploy_context_omits_flags_when_unset() -> None:
@@ -70,15 +81,50 @@ def test_budgets_deploy_context_emits_cdk_flags_when_set() -> None:
     assert "budgetsNotificationEmail=owner@example.com" in result.stdout
 
 
+def test_budgets_deploy_script_is_one_stack() -> None:
+    text = BUDGETS_DEPLOY_SCRIPT.read_text()
+    assert "cdk deploy ChatticusBudgets --require-approval never" in text
+    assert "deploy --all" not in text
+    assert "ChatticusSnapshots" not in text
+    assert "ChatticusComputers" not in text
+    assert "ChatticusThinTurn" not in text
+    assert "budgets-deploy-context.sh" in text
+    assert "BUDGETS_CDK_CONTEXT" in text
+    assert "CHATTICUS_BUDGETS_NOTIFICATION_EMAIL" in text
+
+
+def test_budgets_deploy_script_refuses_missing_env() -> None:
+    env = os.environ.copy()
+    env.pop("CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD", None)
+    env.pop("CHATTICUS_BUDGETS_NOTIFICATION_EMAIL", None)
+    result = subprocess.run(
+        ["sh", BUDGETS_DEPLOY_SCRIPT],
+        cwd=INFRA,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD" in result.stderr
+
+
 def test_snapshots_deploy_script_is_one_stack() -> None:
     text = SNAPSHOTS_DEPLOY_SCRIPT.read_text()
     assert "cdk deploy ChatticusSnapshots --require-approval never" in text
     assert "deploy --all" not in text
     assert "ChatticusComputers" not in text
     assert "ChatticusThinTurn" not in text
-    assert "budgets-deploy-context.sh" in text
-    assert "BUDGETS_CDK_CONTEXT" in text
-    assert "CHATTICUS_BUDGETS_NOTIFICATION_EMAIL" in text
+    assert "budgets-deploy-context.sh" not in text
+    assert "BUDGETS_CDK_CONTEXT" not in text
+    assert "CHATTICUS_BUDGETS_NOTIFICATION_EMAIL" not in text
+
+
+def test_other_deploy_scripts_do_not_source_budgets_context() -> None:
+    for script in OTHER_DEPLOY_SCRIPTS:
+        text = script.read_text()
+        assert "budgets-deploy-context.sh" not in text, script.name
+        assert "BUDGETS_CDK_CONTEXT" not in text, script.name
 
 
 def test_org_spend_alarm_deploy_script_not_present() -> None:
@@ -95,4 +141,7 @@ def test_chatticus_budgets_source_shape() -> None:
     assert "AWSBudgetsSNSPublishingPermissions" in construct
     assert "EmailSubscription" in construct
     assert "chatticus-monthly-aws" in construct
+    assert "RemovalPolicy.RETAIN" in construct
+    assert "applyRemovalPolicy" in construct
+    assert 'BUDGETS_OWNER_STACK_ID = "ChatticusBudgets"' in config
     assert "Refusing to synth or deploy with invented defaults" in config

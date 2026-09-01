@@ -213,20 +213,36 @@ Publishing a snapshot does not require a running task.
 
 ## Budgets (account-level AWS meter)
 
-Every deployment account carries one AWS Budget on `ChatticusSnapshots`
-when a human sets the monthly limit and notification address. The CDK
-app refuses invented defaults: unset context omits budget resources (CI
-`synth` path); partial context fails synth.
+Every deployment account carries one AWS Budget in a dedicated
+`ChatticusBudgets` stack when a human sets the monthly limit and
+notification address. The CDK app registers that stack only when both
+`-c` context flags are present; CI `synth` omits it. Partial context
+fails synth. Routine snapshot deploys never touch budget resources.
 
 ```bash
 export CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD=<monthly-limit>
 export CHATTICUS_BUDGETS_NOTIFICATION_EMAIL=<owner-email>
 cd infra
-sh deploy-chatticus-snapshots.sh
+sh deploy-chatticus-budgets.sh
 ```
 
-Named deploy scripts source `budgets-deploy-context.sh` and forward the
-same `-c` flags when those env vars are set. Never `cdk deploy --all`.
+Only `deploy-chatticus-budgets.sh` sources `budgets-deploy-context.sh`.
+That script requires both env vars and never runs `cdk deploy` without
+them. Never `cdk deploy --all`.
+
+**Cutover (account that already had the budget on `ChatticusSnapshots`):**
+
+AWS budget names are unique per account (`chatticus-monthly-aws`). You
+cannot create `ChatticusBudgets` while the old stack still owns that
+name. After this change merges:
+
+1. `sh deploy-chatticus-snapshots.sh` — removes the budget from the
+   Snapshots template; CloudFormation deletes the Snapshots-owned budget
+   and SNS topic (brief alert gap).
+2. Immediately `sh deploy-chatticus-budgets.sh` — recreates the same
+   budget name and a new SNS topic in `ChatticusBudgets`.
+
+Limit changes redeploy only `ChatticusBudgets`, not snapshots.
 
 **Runbook (not code):**
 

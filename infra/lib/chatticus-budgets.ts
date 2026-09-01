@@ -42,6 +42,7 @@ export class ChatticusBudgets extends Construct {
     this.alertsTopic = new sns.Topic(this, "Alerts", {
       displayName,
     });
+    this.alertsTopic.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
     for (const email of notificationEmails) {
       this.alertsTopic.addSubscription(new subscriptions.EmailSubscription(email));
     }
@@ -90,7 +91,7 @@ export class ChatticusBudgets extends Construct {
       });
     }
 
-    new budgets.CfnBudget(this, "MonthlyAccountBudget", {
+    const monthlyAccountBudget = new budgets.CfnBudget(this, "MonthlyAccountBudget", {
       budget: {
         budgetName,
         budgetType: "COST",
@@ -102,5 +103,6 @@ export class ChatticusBudgets extends Construct {
       },
       notificationsWithSubscribers: notifications,
     });
+    monthlyAccountBudget.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
   }
 }
