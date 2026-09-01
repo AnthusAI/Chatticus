@@ -82,10 +82,16 @@
       "author": "home",
       "text": "User feedback: translucent grey shadow is still too tall and low. Shrinking its bounds and reducing its vertical offset while retaining the independent subtle motion.",
       "created_at": "2026-09-01T18:57:48.169964Z"
+    },
+    {
+      "id": "fcda76b5-5a5f-4b82-8d69-8719c85c86db",
+      "author": "home",
+      "text": "User clarified the geometric rule: the shadow must always be at least as wide as the workspace rectangle. Widening its base bounds and constraining animated horizontal scale to values greater than or equal to 1.",
+      "created_at": "2026-09-01T18:59:17.945560Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T18:57:48.169964Z",
+  "updated_at": "2026-09-01T18:59:17.945560Z",
   "closed_at": null,
   "custom": {}
 }
