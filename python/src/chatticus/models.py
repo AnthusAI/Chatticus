@@ -234,6 +234,14 @@ class IdentityNotFoundError(ChatticusError):
     """The user id or email is unknown."""
 
 
+class IdentityUserIdMismatchError(ChatticusError):
+    """An existing identity email maps to a different user_id than required."""
+
+
+class OrganizationSeedConflictError(ChatticusError):
+    """An organization seed would overwrite or contradict existing records."""
+
+
 class OrganizationNotFoundError(ChatticusError):
     """The organization is unknown."""
 

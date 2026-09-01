@@ -10,6 +10,7 @@ from chatticus.messaging.store import MessagingStore
 from chatticus.models import (
     DuplicateMembershipError,
     Identity,
+    IdentityUserIdMismatchError,
     Invitation,
     InvitationEmailMismatchError,
     InvitationExpiredError,
@@ -24,9 +25,13 @@ from chatticus.models import (
     Organization,
     OrganizationNotEnabledError,
     OrganizationNotFoundError,
+    OrganizationSeedConflictError,
     OrganizationStatus,
     OrganizationStatusTransitionError,
 )
+
+ANTHUS_TENANT_ID = "anthus"
+ANTHUS_LEGACY_USER_ID = "ryan"
 
 
 def normalize_email(email: str) -> str:
@@ -65,6 +70,46 @@ class OrgRecordsKernel:
     ) -> Organization:
         """Create a pending organization and owner membership."""
         tenant_id = str(uuid4())
+        return self._put_pending_organization(owner, name, tenant_id=tenant_id, now=now)
+
+    def admin_seed_anthus_organization(
+        self,
+        owner_email: str,
+        *,
+        name: str,
+        now: datetime,
+    ) -> Organization:
+        """Seed tenant anthus enabled for one owner without touching messaging rows."""
+        owner = self._admin_ensure_anthus_owner_identity(owner_email, now=now)
+        existing = self.store.get_organization(ANTHUS_TENANT_ID)
+        if existing is not None:
+            return self._finish_anthus_seed(existing, owner)
+        organization = Organization(
+            tenant_id=ANTHUS_TENANT_ID,
+            name=name,
+            status=OrganizationStatus.ENABLED,
+            owner_user_id=owner.user_id,
+            created_at=now,
+        )
+        self.store.put_organization(organization)
+        self.store.put_membership(
+            Membership(
+                tenant_id=ANTHUS_TENANT_ID,
+                user_id=owner.user_id,
+                role=MemberRole.OWNER,
+                joined_at=now,
+            )
+        )
+        return organization
+
+    def _put_pending_organization(
+        self,
+        owner: Identity,
+        name: str,
+        *,
+        tenant_id: str,
+        now: datetime,
+    ) -> Organization:
         organization = Organization(
             tenant_id=tenant_id,
             name=name,
@@ -82,6 +127,51 @@ class OrgRecordsKernel:
             )
         )
         return organization
+
+    def _admin_ensure_anthus_owner_identity(
+        self, owner_email: str, *, now: datetime
+    ) -> Identity:
+        normalized = normalize_email(owner_email)
+        existing = self.store.get_identity_by_email(normalized)
+        if existing is not None:
+            if existing.user_id != ANTHUS_LEGACY_USER_ID:
+                raise IdentityUserIdMismatchError(
+                    f"Identity for {normalized!r} has user_id "
+                    f"{existing.user_id!r}; anthus seed requires "
+                    f"{ANTHUS_LEGACY_USER_ID!r} for legacy messaging rows."
+                )
+            return existing
+        identity = Identity(
+            user_id=ANTHUS_LEGACY_USER_ID,
+            email=normalized,
+            created_at=now,
+        )
+        self.store.put_identity(identity)
+        return identity
+
+    def _finish_anthus_seed(
+        self, existing: Organization, owner: Identity
+    ) -> Organization:
+        if existing.owner_user_id != owner.user_id:
+            raise OrganizationSeedConflictError(
+                f"Organization {ANTHUS_TENANT_ID!r} already has owner "
+                f"{existing.owner_user_id!r}; seed requested "
+                f"{owner.user_id!r}."
+            )
+        membership = self.store.get_membership(ANTHUS_TENANT_ID, owner.user_id)
+        if membership is None or membership.role != MemberRole.OWNER:
+            raise OrganizationSeedConflictError(
+                f"Organization {ANTHUS_TENANT_ID!r} is missing an owner "
+                f"membership for {owner.user_id!r}."
+            )
+        if existing.status == OrganizationStatus.ENABLED:
+            return existing
+        if existing.status == OrganizationStatus.PENDING:
+            return self.enable_organization(ANTHUS_TENANT_ID)
+        raise OrganizationSeedConflictError(
+            f"Organization {ANTHUS_TENANT_ID!r} has status "
+            f"{existing.status!r}; anthus seed requires pending or enabled."
+        )
 
     def enable_organization(self, tenant_id: str) -> Organization:
         """Mark one organization enabled."""

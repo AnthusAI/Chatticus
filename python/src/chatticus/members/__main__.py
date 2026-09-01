@@ -6,6 +6,7 @@ import argparse
 import os
 import sys
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 from chatticus.control_plane import ControlPlane
 from chatticus.messaging.store import DynamoMessagingStore
@@ -16,6 +17,7 @@ from chatticus.models import (
     OrganizationStatus,
     OrganizationStatusTransitionError,
 )
+from chatticus.org_records import ANTHUS_TENANT_ID
 from chatticus.worker.openai_completion import load_local_env
 
 PlaneFactory = Callable[[], ControlPlane]
@@ -87,6 +89,48 @@ def main(
         help="Required when stdin is not a TTY",
     )
 
+    create_parser = subparsers.add_parser(
+        "create",
+        help="Create one pending organization for a cold bootstrap path",
+    )
+    create_parser.add_argument(
+        "--owner-email",
+        required=True,
+        help="Verified owner email; normalized to lowercase",
+    )
+    create_parser.add_argument(
+        "--name",
+        required=True,
+        help="Organization display name",
+    )
+    create_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Required when stdin is not a TTY",
+    )
+
+    seed_anthus_parser = subparsers.add_parser(
+        "seed-anthus",
+        help=(
+            "Seed tenant anthus enabled for one owner without provisioning a computer"
+        ),
+    )
+    seed_anthus_parser.add_argument(
+        "--owner-email",
+        required=True,
+        help="Verified Google owner email; normalized to lowercase",
+    )
+    seed_anthus_parser.add_argument(
+        "--name",
+        default="Anthus",
+        help="Organization display name (default: Anthus)",
+    )
+    seed_anthus_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Required when stdin is not a TTY",
+    )
+
     args = parser.parse_args(argv)
     build_plane = plane_factory or _plane_from_env
     try:
@@ -104,6 +148,20 @@ def main(
             return _cmd_enable(plane, args.tenant_id, yes=args.yes)
         if args.command == "suspend":
             return _cmd_suspend(plane, args.tenant_id, yes=args.yes)
+        if args.command == "create":
+            return _cmd_create(
+                plane,
+                args.owner_email,
+                args.name,
+                yes=args.yes,
+            )
+        if args.command == "seed-anthus":
+            return _cmd_seed_anthus(
+                plane,
+                args.owner_email,
+                name=args.name,
+                yes=args.yes,
+            )
         return _cmd_set_role(
             plane,
             args.tenant_id,
@@ -183,6 +241,49 @@ def _cmd_set_role(
     print(
         f"set-role tenant_id={membership.tenant_id} "
         f"user_id={membership.user_id} role={membership.role}"
+    )
+    return 0
+
+
+def _cmd_create(
+    plane: ControlPlane,
+    owner_email: str,
+    name: str,
+    *,
+    yes: bool,
+) -> int:
+    _require_yes(yes, action="create")
+    now = datetime.now(UTC)
+    owner = plane.sign_in(owner_email, now=now)
+    organization = plane.create_organization(owner, name, now=now)
+    print(
+        "created "
+        f"tenant_id={organization.tenant_id} "
+        f"status={organization.status} "
+        f"owner={owner.user_id}"
+    )
+    return 0
+
+
+def _cmd_seed_anthus(
+    plane: ControlPlane,
+    owner_email: str,
+    *,
+    name: str,
+    yes: bool,
+) -> int:
+    _require_yes(yes, action="seed-anthus")
+    now = datetime.now(UTC)
+    organization = plane.admin_seed_anthus_organization(
+        owner_email,
+        name=name,
+        now=now,
+    )
+    print(
+        f"seeded tenant_id={ANTHUS_TENANT_ID} "
+        f"status={organization.status} "
+        f"owner={organization.owner_user_id} "
+        f"email={owner_email.strip().lower()}"
     )
     return 0
 

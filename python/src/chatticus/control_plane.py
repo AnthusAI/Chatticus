@@ -276,6 +276,20 @@ class ControlPlane:
         """Create a pending organization and owner membership."""
         return self._org_records.create_organization(owner, name, now=now)
 
+    def admin_seed_anthus_organization(
+        self,
+        owner_email: str,
+        *,
+        name: str,
+        now: datetime,
+    ) -> Organization:
+        """Seed tenant anthus enabled for one owner without provisioning a computer."""
+        return self._org_records.admin_seed_anthus_organization(
+            owner_email,
+            name=name,
+            now=now,
+        )
+
     def enable_organization(self, tenant_id: str) -> Organization:
         """Mark one organization enabled without provisioning a computer."""
         return self._org_records.enable_organization(tenant_id)
