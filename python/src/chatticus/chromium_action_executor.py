@@ -7,6 +7,12 @@ import shutil
 import subprocess
 from collections.abc import Sequence
 
+from chatticus.browser_profiles import (
+    UNTRUSTED_PARTITION,
+    browser_profile_dir,
+    ensure_browser_profiles_layout,
+)
+
 _SUPPORTED_TOOLS = frozenset({"browser_open", "request_computer_capability"})
 _SNAP_STUB_MARKERS = (
     "requires the chromium snap",
@@ -91,12 +97,28 @@ class ChromiumActionExecutor:
                 )
                 raise ValueError(msg)
             url = arguments.get("url", "").strip() or "about:blank"
-            return self._browser_open({"url": url})
+            return self._browser_open(
+                {
+                    "url": url,
+                    "storage_partition": arguments.get(
+                        "storage_partition", UNTRUSTED_PARTITION
+                    ),
+                }
+            )
         msg = f"Unsupported tool {tool_name!r}."
         raise ValueError(msg)
 
     def _browser_open(self, arguments: dict[str, str]) -> str:
         url = arguments.get("url", "about:blank").strip() or "about:blank"
+        storage_partition = (
+            arguments.get("storage_partition", "").strip() or UNTRUSTED_PARTITION
+        )
+        live_root = os.environ.get(
+            "CHATTICUS_LIVE_ROOT", "/var/lib/chatticus/computer"
+        ).rstrip("/")
+        ensure_browser_profiles_layout(live_root)
+        profile_dir = browser_profile_dir(live_root, storage_partition)
+        profile_dir.mkdir(parents=True, exist_ok=True)
         env = os.environ.copy()
         if self._display:
             env["DISPLAY"] = self._display
@@ -106,7 +128,7 @@ class ChromiumActionExecutor:
             "--no-sandbox",
             "--disable-gpu",
             "--disable-dev-shm-usage",
-            f"--user-data-dir={self._browser_profile_dir()}",
+            f"--user-data-dir={profile_dir}",
             "--dump-dom",
             url,
         ]
@@ -123,9 +145,3 @@ class ChromiumActionExecutor:
             msg = f"browser_open failed for {url!r}: {detail or completed.returncode}"
             raise RuntimeError(msg)
         return f"opened:{url}"
-
-    def _browser_profile_dir(self) -> str:
-        live_root = os.environ.get(
-            "CHATTICUS_LIVE_ROOT", "/var/lib/chatticus/computer"
-        ).rstrip("/")
-        return f"{live_root}/browser-profile"

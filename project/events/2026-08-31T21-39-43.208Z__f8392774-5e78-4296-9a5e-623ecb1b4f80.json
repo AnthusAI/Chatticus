@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "f8392774-5e78-4296-9a5e-623ecb1b4f80",
+  "issue_id": "chatticus-5dad8527-ddca-4c34-919b-f3af143a7368",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T21:39:43.208Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "assignee": null,
+    "description": "Purpose: finish 8f98f8 so ComputerTurnJobs complete on an ephemeral Fargate host instead of nacking ComputerWorkerHostNotReady.\n\nAcceptance:\n- Summoned task runs the host pull worker (not sleep infinity as the effective command).\n- ChromiumActionExecutor is the live ComputerActionExecutor on that host.\n- Host publishes readiness so the computer-queue worker can deliver the job.\n- Same durable turn continues exactly once with tool.result.\n- ChatticusComputers desiredCount stays 0. No cdk deploy --all, no production, no Snapshots/Computers destroy.\n- Do not touch 35d86b / PR #26.",
+    "issue_type": "task",
+    "labels": [],
+    "parent": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
+    "priority": 1,
+    "status": "open",
+    "title": "Chromium executor and host-readiness on summoned Fargate"
+  }
+}

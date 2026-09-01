@@ -32,7 +32,13 @@ exposes a decision that blocks the next slice.
    model. Generic authenticated browser actions that can send, publish,
    purchase, delete, or change production wait for a structured connector,
    human takeover, or another control that can describe and bind the exact
-   operation.
+   operation. Kernel:
+   `features/task_authority_grant.feature`,
+   `features/browser_context_policy.feature`,
+   `features/consequential_binding_control.feature`,
+   `features/prompt_injection_containment.feature`,
+   `features/v1_security_policy_exclusions.feature`.
+   Recorded in [Browser authority](BROWSER_AUTHORITY.md).
 7. Overnight consequential actions are gated, not loosened. v1 is a web
    tab; device push is "come back," not "approve this now." Unattended
    send, publish, purchase, delete, or production change **does not
@@ -64,7 +70,9 @@ Deploy and accept against named cloud environments from the start:
 - Worker protocol with `tenant_id` and prefer-local routing
 - Serverless control plane: per-request HTTP, one-turn server-sent events,
   DynamoDB transcript
-- Task tracking through Kanbus, reachable without summoning a computer
+- Task tracking via a thin Task item in DynamoDB (status, evidence, close
+  reason, bot provenance); structured agent tool at the first readiness
+  gate, no computer required; Kanbus HTTP later if its store matches
 - Computer snapshots: publish to S3, administrator relocate, host hydrate
 - docker-compose for local control plane + computer
 - Fargate (and optional EC2) path in AWS

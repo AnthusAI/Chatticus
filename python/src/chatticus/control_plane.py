@@ -9,7 +9,35 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from chatticus.approval_binding import ApprovalBindingGate
+from chatticus.approval_binding import (
+    ApprovalBindingGate,
+    ApprovedOperation,
+    BoundExecutionResult,
+    StructuredConsequentialOperation,
+)
+from chatticus.capability_policy import (
+    CapabilityPolicy,
+    EgressClass,
+    PolicyBrowserContext,
+    RequestedCapability,
+    TaskCapabilityGrant,
+)
+from chatticus.capability_sinks import (
+    POLICY_KERNEL_TENANT,
+    POLICY_KERNEL_TURN,
+    CapabilitySinkApprovalRequired,
+    CapabilitySinkDenied,
+    attempt_authenticated_browser_action_at_sink,
+    execute_approved_operation_at_sink,
+    gated_browse_origin,
+    gated_read_workspace,
+    gated_write_workspace,
+    open_privileged_browser_context,
+    open_untrusted_browser_context,
+    require_allow,
+    resolve_unattended_gated_action_at_sink,
+    structured_action_request,
+)
 from chatticus.computer_capabilities import (
     BROWSER_CAPABILITY,
     MODEL_CAPABILITY,
@@ -53,6 +81,12 @@ from chatticus.models import (
     PendingComputerToolSnapshot,
     SnapshotRequiredError,
     StaleAttemptError,
+    Task,
+    TaskAccessDeniedError,
+    TaskCloseReasonRequiredError,
+    TaskEvidenceRequiredError,
+    TaskNotFoundError,
+    TaskStatus,
     Turn,
     TurnAttempt,
     TurnEvent,
@@ -71,8 +105,6 @@ from chatticus.models import (
 )
 from chatticus.overnight_gated import (
     OvernightGatedResult,
-    resolve_unattended_gated_action,
-    resolve_unbound_authenticated_browser_action,
 )
 from chatticus.snapshot.uri import snapshot_uri
 from chatticus.turn_fault_hooks import CrashWindow, FaultInjector, TurnBoundary
@@ -155,6 +187,8 @@ class ControlPlane:
         self._auto_review_rules: list[AutoReviewRule] = []
         self._refused_bot_auto_review: list[tuple[str, str]] = []
         self._approval_binding = ApprovalBindingGate()
+        self._capability_policies: dict[tuple[str, str], CapabilityPolicy] = {}
+        self._active_browser_contexts: dict[tuple[str, str], PolicyBrowserContext] = {}
         self._escalations: dict[tuple[str, str], EscalationRecord] = {}
         self._computer_claims: dict[str, ComputerOwnershipClaim] = {}
         self._host_starts: dict[tuple[str, str], HostStartClaim] = {}
@@ -339,6 +373,10 @@ class ControlPlane:
         """Return turn jobs still queued for a bot."""
         return [job for job in self._jobs if job.bot_id == bot_id]
 
+    def pending_jobs(self) -> list[TurnJob]:
+        """Return all queued turn jobs."""
+        return list(self._jobs)
+
     def job_for_turn(self, tenant_id: str, turn_id: str) -> TurnJob | None:
         """Return the queued job bound to one turn, if any."""
         return self._job_for_turn(tenant_id, turn_id)
@@ -475,6 +513,143 @@ class ControlPlane:
             if turn is not None and turn.tenant_id == tenant_id:
                 turns.append(turn)
         return sorted(turns, key=lambda turn: turn.turn_id)
+
+    def create_task(
+        self,
+        tenant_id: str,
+        user_id: str,
+        title: str,
+        *,
+        created_by_bot_id: str,
+    ) -> Task:
+        """Create one open Task item with bot provenance."""
+        task = Task(
+            task_id=str(uuid4()),
+            tenant_id=tenant_id,
+            user_id=user_id,
+            title=title,
+            status=TaskStatus.OPEN,
+            created_by_bot_id=created_by_bot_id,
+            updated_by_bot_id=created_by_bot_id,
+        )
+        self._messaging_store.put_task(task)
+        return task
+
+    def task(self, tenant_id: str, task_id: str) -> Task:
+        """Return one Task item owned by the tenant.
+
+        :raises TaskNotFoundError: If the task is unknown to this tenant.
+        """
+        record = self._messaging_store.get_task(tenant_id, task_id)
+        if record is None or record.tenant_id != tenant_id:
+            raise TaskNotFoundError(
+                f"Task {task_id!r} is unknown to tenant {tenant_id!r}."
+            )
+        return record
+
+    def list_tasks(self, tenant_id: str, user_id: str) -> list[Task]:
+        """Return tasks owned by one household user."""
+        tasks = self._messaging_store.list_tasks(tenant_id, user_id)
+        return [task for task in tasks if task.tenant_id == tenant_id]
+
+    def complete_task(
+        self,
+        tenant_id: str,
+        task_id: str,
+        *,
+        evidence: str,
+        updated_by_bot_id: str,
+    ) -> Task:
+        """Mark one task completed with durable evidence.
+
+        :raises TaskEvidenceRequiredError: If evidence is empty.
+        """
+        if not evidence.strip():
+            raise TaskEvidenceRequiredError(
+                f"Task {task_id!r} cannot reach completed without evidence."
+            )
+        record = self.task(tenant_id, task_id)
+        record.status = TaskStatus.COMPLETED
+        record.evidence = evidence
+        record.updated_by_bot_id = updated_by_bot_id
+        self._messaging_store.put_task(record)
+        return record
+
+    def close_task(
+        self,
+        tenant_id: str,
+        task_id: str,
+        *,
+        reason: str,
+        updated_by_bot_id: str,
+    ) -> Task:
+        """Close one task with a recorded reason.
+
+        :raises TaskCloseReasonRequiredError: If the reason is empty.
+        """
+        if not reason.strip():
+            raise TaskCloseReasonRequiredError(
+                f"Task {task_id!r} cannot close without a reason."
+            )
+        record = self.task(tenant_id, task_id)
+        record.status = TaskStatus.CLOSED
+        record.close_reason = reason
+        record.updated_by_bot_id = updated_by_bot_id
+        self._messaging_store.put_task(record)
+        return record
+
+    def invoke_task_tool(
+        self,
+        tenant_id: str,
+        user_id: str,
+        bot_id: str,
+        action: str,
+        arguments: dict[str, str],
+    ) -> Task:
+        """Dispatch one structured task-tool call at the first readiness gate.
+
+        The task tool never summons a computer or enqueues computer work.
+        """
+        bot = self.bot(tenant_id, bot_id)
+        if bot.user_id != user_id:
+            raise TaskAccessDeniedError(
+                f"Bot {bot_id!r} cannot act on tasks for user {user_id!r}."
+            )
+        if action == "create":
+            title = arguments.get("title", "").strip()
+            if not title:
+                msg = "Task create requires a title."
+                raise ValueError(msg)
+            return self.create_task(
+                tenant_id,
+                user_id,
+                title,
+                created_by_bot_id=bot_id,
+            )
+        task_id = arguments.get("task_id", "").strip()
+        if not task_id:
+            msg = f"Task action {action!r} requires task_id."
+            raise ValueError(msg)
+        if action == "get":
+            return self.task(tenant_id, task_id)
+        if action == "complete":
+            evidence = arguments.get("evidence", "")
+            return self.complete_task(
+                tenant_id,
+                task_id,
+                evidence=evidence,
+                updated_by_bot_id=bot_id,
+            )
+        if action == "close":
+            reason = arguments.get("reason", "")
+            return self.close_task(
+                tenant_id,
+                task_id,
+                reason=reason,
+                updated_by_bot_id=bot_id,
+            )
+        msg = f"Unsupported task tool action {action!r}."
+        raise ValueError(msg)
 
     def ensure_computer(
         self,
@@ -717,6 +892,320 @@ class ControlPlane:
         """Return one bot memory item, if present."""
         return self._bot(tenant_id, bot_id).memory.get(key)
 
+    def capability_policy_for(self, tenant_id: str, turn_id: str) -> CapabilityPolicy:
+        """Return the capability policy for one turn, creating it if needed."""
+        key = (tenant_id, turn_id)
+        policy = self._capability_policies.get(key)
+        if policy is None:
+            policy = CapabilityPolicy(now=self.now)
+            grant = self._messaging_store.get_turn_capability_grant(tenant_id, turn_id)
+            if grant is not None:
+                policy.set_grant(grant)
+            self._capability_policies[key] = policy
+        return policy
+
+    def set_turn_capability_grant(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        grant: TaskCapabilityGrant,
+    ) -> None:
+        """Attach one closed task grant to a turn for sink enforcement."""
+        self._messaging_store.put_turn_capability_grant(tenant_id, turn_id, grant)
+        key = (tenant_id, turn_id)
+        policy = self._capability_policies.get(key)
+        if policy is None:
+            policy = CapabilityPolicy(now=self.now)
+            self._capability_policies[key] = policy
+        policy.set_grant(grant)
+
+    def sync_household_credentials(
+        self,
+        tenant_id: str,
+        user_id: str,
+        turn_id: str,
+    ) -> None:
+        """Mirror household browser sessions into one turn's policy state."""
+        from chatticus.capability_policy import HouseholdCredential
+
+        policy = self.capability_policy_for(tenant_id, turn_id)
+        computer = self.computer_for_user(tenant_id, user_id)
+        for service, session in computer.browser_sessions.items():
+            policy.add_credential(
+                HouseholdCredential("browser_session", service, session)
+            )
+
+    def gated_read_workspace(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        user_id: str,
+        path: str,
+    ) -> str | None:
+        """Read a workspace file after the task grant allows it."""
+        policy = self.capability_policy_for(tenant_id, turn_id)
+        gated_read_workspace(policy, path)
+        return self.read_workspace(tenant_id, user_id, path)
+
+    def gated_write_workspace(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        user_id: str,
+        path: str,
+        content: str,
+    ) -> None:
+        """Write a workspace file after the task grant allows it."""
+        policy = self.capability_policy_for(tenant_id, turn_id)
+        gated_write_workspace(policy, path)
+        self.write_workspace(tenant_id, user_id, path, content)
+
+    def gated_browse_origin(self, tenant_id: str, turn_id: str, url: str) -> None:
+        """Authorize browsing one origin before a computer tool opens it."""
+        gated_browse_origin(self.capability_policy_for(tenant_id, turn_id), url)
+
+    def requested_capability_for_model_tool(
+        self, tool_name: str, arguments: dict[str, str]
+    ) -> RequestedCapability:
+        """Map one model tool name and arguments to a capability request."""
+        if tool_name == "read_workspace":
+            return RequestedCapability(
+                tool="read_workspace",
+                file_path=arguments.get("path"),
+                egress_class=EgressClass.APPROVED_ORIGIN_FETCH.value,
+            )
+        if tool_name == "browse":
+            return RequestedCapability(
+                tool="browse",
+                origin=arguments.get("url"),
+                egress_class=EgressClass.APPROVED_ORIGIN_FETCH.value,
+            )
+        if tool_name in CONSEQUENTIAL_ACTION_TYPES:
+            return structured_action_request(tool_name, arguments)
+        return RequestedCapability(tool=tool_name)
+
+    def evaluate_model_tool_request(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        tool_name: str,
+        arguments: dict[str, str],
+    ) -> None:
+        """Raise when a model-requested tool is denied or needs approval."""
+        policy = self.capability_policy_for(tenant_id, turn_id)
+        require_allow(
+            policy,
+            self.requested_capability_for_model_tool(tool_name, arguments),
+        )
+
+    def record_model_gated_tool_call(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        tool_name: str,
+        arguments: dict[str, str],
+    ) -> str:
+        """Append one first-gate tool.call journal event and return its action id."""
+        action_id = str(uuid4())
+        turn = self.turn(tenant_id, turn_id)
+        pending = PendingComputerToolSnapshot(
+            action_id=action_id,
+            tool_name=tool_name,
+            arguments=dict(arguments),
+        )
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TOOL_CALL,
+            body=tool_name,
+            pending_computer_tool=pending,
+            action_id=action_id,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
+        return action_id
+
+    def record_model_gated_tool_result(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        action_id: str,
+        result_body: str,
+    ) -> None:
+        """Append one first-gate tool.result journal event."""
+        turn = self.turn(tenant_id, turn_id)
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TOOL_RESULT,
+            body=result_body,
+            action_id=action_id,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
+
+    def record_model_gated_tool_denied(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        tool_name: str,
+        arguments: dict[str, str],
+        reason: str,
+    ) -> str:
+        """Record tool.call and tool.result with a denied: prefix."""
+        action_id = self.record_model_gated_tool_call(
+            tenant_id, turn_id, tool_name, arguments
+        )
+        self.record_model_gated_tool_result(
+            tenant_id,
+            turn_id,
+            action_id,
+            f"denied: {reason}",
+        )
+        return action_id
+
+    def gated_read_workspace_for_model(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        user_id: str,
+        path: str,
+    ) -> str | None:
+        """Read one workspace file and record first-gate tool journal events."""
+        action_id = self.record_model_gated_tool_call(
+            tenant_id,
+            turn_id,
+            "read_workspace",
+            {"path": path},
+        )
+        try:
+            content = self.gated_read_workspace(tenant_id, turn_id, user_id, path)
+        except CapabilitySinkDenied as error:
+            self.record_model_gated_tool_result(
+                tenant_id,
+                turn_id,
+                action_id,
+                f"denied: {error}",
+            )
+            raise
+        self.record_model_gated_tool_result(
+            tenant_id,
+            turn_id,
+            action_id,
+            f"read_workspace:{path}",
+        )
+        return content
+
+    def gated_browse_origin_for_model(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        url: str,
+    ) -> None:
+        """Authorize one browse origin and record first-gate tool journal events."""
+        action_id = self.record_model_gated_tool_call(
+            tenant_id,
+            turn_id,
+            "browse",
+            {"url": url},
+        )
+        try:
+            self.gated_browse_origin(tenant_id, turn_id, url)
+        except CapabilitySinkDenied as error:
+            self.record_model_gated_tool_result(
+                tenant_id,
+                turn_id,
+                action_id,
+                f"denied: {error}",
+            )
+            raise
+        self.record_model_gated_tool_result(
+            tenant_id,
+            turn_id,
+            action_id,
+            f"browse:authorized:{url}",
+        )
+        self.open_untrusted_browser_context(tenant_id, turn_id, url)
+
+    def deny_model_tool_request(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        tool_name: str,
+        arguments: dict[str, str],
+    ) -> None:
+        """Evaluate and journal one denied model tool without executing it."""
+        try:
+            self.evaluate_model_tool_request(tenant_id, turn_id, tool_name, arguments)
+        except CapabilitySinkApprovalRequired:
+            self.record_model_gated_tool_denied(
+                tenant_id,
+                turn_id,
+                tool_name,
+                arguments,
+                "immutable approval required",
+            )
+            raise CapabilitySinkDenied("immutable approval required") from None
+        except CapabilitySinkDenied as error:
+            self.record_model_gated_tool_denied(
+                tenant_id,
+                turn_id,
+                tool_name,
+                arguments,
+                str(error),
+            )
+            raise
+        msg = f"tool {tool_name!r} is allowed; use a first-gate execute route"
+        raise ValueError(msg)
+
+    def open_untrusted_browser_context(
+        self, tenant_id: str, turn_id: str, page_url: str
+    ) -> PolicyBrowserContext:
+        """Open research browsing in an isolated browser context."""
+        context = open_untrusted_browser_context(
+            self.capability_policy_for(tenant_id, turn_id),
+            page_url,
+        )
+        self._active_browser_contexts[(tenant_id, turn_id)] = context
+        return context
+
+    def open_privileged_browser_context(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        page_url: str,
+        service: str,
+    ) -> PolicyBrowserContext:
+        """Open a named privileged session in its own browser context."""
+        context = open_privileged_browser_context(
+            self.capability_policy_for(tenant_id, turn_id),
+            page_url,
+            service,
+        )
+        self._active_browser_contexts[(tenant_id, turn_id)] = context
+        return context
+
+    def active_browser_context(
+        self, tenant_id: str, turn_id: str
+    ) -> PolicyBrowserContext | None:
+        """Return the active browser context for one turn, if any."""
+        return self._active_browser_contexts.get((tenant_id, turn_id))
+
+    def execute_approved_structured_operation(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        approval: ApprovedOperation,
+        attempted: StructuredConsequentialOperation,
+        completion_evidence: str,
+    ) -> BoundExecutionResult:
+        """Execute one human-approved connector operation at the sink."""
+        return execute_approved_operation_at_sink(
+            self.capability_policy_for(tenant_id, turn_id),
+            self._approval_binding,
+            approval,
+            attempted,
+            completion_evidence,
+        )
+
     def write_workspace(
         self, tenant_id: str, user_id: str, path: str, content: str
     ) -> None:
@@ -812,9 +1301,11 @@ class ControlPlane:
         channel: str,
         user_id: str | None = None,
         completion_evidence: str = "system-accepted",
+        turn_id: str = POLICY_KERNEL_TURN,
     ) -> OvernightGatedResult:
         """Stop or pre-authorize a consequential action with no screen."""
-        return resolve_unattended_gated_action(
+        return resolve_unattended_gated_action_at_sink(
+            self.capability_policy_for(tenant_id, turn_id),
             action_type=action_type,
             arguments=arguments,
             channel=channel,
@@ -828,11 +1319,14 @@ class ControlPlane:
         self,
         action: str,
         *,
+        tenant_id: str = POLICY_KERNEL_TENANT,
+        turn_id: str = POLICY_KERNEL_TURN,
         structured_connector: bool = False,
         takeover_control: bool = False,
     ) -> OvernightGatedResult:
         """Refuse unbound consequential browser actions."""
-        return resolve_unbound_authenticated_browser_action(
+        return attempt_authenticated_browser_action_at_sink(
+            self.capability_policy_for(tenant_id, turn_id),
             action,
             structured_connector=structured_connector,
             takeover_control=takeover_control,
@@ -847,6 +1341,14 @@ class ControlPlane:
         arguments: dict[str, str],
     ) -> EscalationRecord:
         """Record that a computerless turn is ready to request a computer tool."""
+        policy = self.capability_policy_for(tenant_id, turn_id)
+        if policy.grant is not None and tool_name in {
+            "browser_open",
+            "request_computer_capability",
+        }:
+            url = arguments.get("url", "").strip()
+            if url:
+                gated_browse_origin(policy, url)
         turn = self.turn(tenant_id, turn_id)
         bot = self._bot(tenant_id, turn.bot_id)
         computer = self.ensure_computer(tenant_id, bot.user_id)

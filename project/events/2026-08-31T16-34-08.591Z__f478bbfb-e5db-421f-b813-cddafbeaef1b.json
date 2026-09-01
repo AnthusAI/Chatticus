@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "f478bbfb-e5db-421f-b813-cddafbeaef1b",
+  "issue_id": "chatticus-2ba0ff67-d5df-43d0-8bc3-8598b63c83e1",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T16:34:08.591Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "",
+    "issue_type": "sub-task",
+    "labels": [],
+    "parent": "chatticus-6abbb814-51c1-4dd2-bcd9-10143e03146e",
+    "priority": 2,
+    "status": "open",
+    "title": "CDK OIDC deploy role for GitHub Actions"
+  }
+}

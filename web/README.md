@@ -9,10 +9,11 @@ v1 surface:
 - approval cards
 - computer preview (watch / takeover later)
 
-Named bots on this surface will use
+Named bots on this surface use
 [Vultus](https://github.com/AnthusAI/Vultus) (`anthus-vultus`) as their
-avatar. Drive it from control-plane turn state (waiting, streaming,
-idle). Do not give it its own socket. Not Phase 1 or Phase 2.
+avatar. The roster and chat header render `BotAvatar`, driven from the
+existing turn SSE stream (`turn.started`, `turn.waiting`, coalesced
+`turn.token`, completion) with no separate avatar socket.
 
 Talks only to the control plane. Does not reach workers directly.
 

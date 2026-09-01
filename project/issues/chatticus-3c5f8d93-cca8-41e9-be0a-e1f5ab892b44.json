@@ -3,7 +3,7 @@
   "title": "Specify executable capability, egress, and browser-context policy",
   "description": "Turn the security milestone into executable policy cases rather than another prose threat-model section.\n\nAcceptance criteria:\n- Enumerate task-granted tools, origins, recipients, file scopes, and egress classes.\n- Define separate untrusted and privileged browser contexts and their credential rules.\n- Define which actions require a structured connector, immutable approval, or takeover.\n- Add failing scenarios for direct, indirect, encoded, and cross-page prompt injection.\n- State explicit v1 exclusions when no enforceable control exists.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -18,9 +18,28 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "1e089686-8641-498e-80f4-9b1235e4e4c9",
+      "author": "agent@example.com",
+      "text": "Starting specify slice: executable capability, egress classes, untrusted vs privileged browser contexts, binding controls, injection containment Gherkin, and explicit v1 exclusions. Kernel only; not 53d744 live sinks, not 1e09b4 evals, not 35d86b.",
+      "created_at": "2026-08-31T19:59:40.841639Z"
+    },
+    {
+      "id": "6b4a67c4-0292-4261-b7ed-aa518cd2a5e9",
+      "author": "agent@example.com",
+      "text": "Specify slice opened as PR https://github.com/AnthusAI/Chattic.us/pull/56 against develop.\n\nGherkin:\n- features/task_authority_grant.feature\n- features/browser_context_policy.feature\n- features/consequential_binding_control.feature\n- features/prompt_injection_containment.feature\n- features/v1_security_policy_exclusions.feature\n\nKernel stub: python/src/chatticus/capability_policy.py (not 53d744 sinks, not 1e09b4 evals, not 35d86b).\nStatus remains in_progress until the PR merges.",
+      "created_at": "2026-08-31T20:08:34.344839Z"
+    },
+    {
+      "id": "aa02cddc-fb8d-4d5e-8ca7-758ef6bf517b",
+      "author": "agent@example.com",
+      "text": "Specify slice on develop (#56, e673bb8): Gherkin plus in-memory policy kernel. Sink enforcement remains 53d744; evals remain 1e09b4.",
+      "created_at": "2026-08-31T20:11:55.534595Z"
+    }
+  ],
   "created_at": "2026-08-30T15:54:57.331270Z",
-  "updated_at": "2026-08-30T15:54:57.331270Z",
-  "closed_at": null,
+  "updated_at": "2026-08-31T20:11:55.534595Z",
+  "closed_at": "2026-08-31T20:11:55.524074Z",
   "custom": {}
 }

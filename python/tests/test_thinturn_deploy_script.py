@@ -18,6 +18,26 @@ def test_development_thinturn_deploy_script_is_one_stack() -> None:
     assert "aws sts get-caller-identity" in text
 
 
+def test_development_web_deploy_script_is_bounded() -> None:
+    script = (
+        Path(__file__).resolve().parents[2]
+        / "infra"
+        / "deploy-chatticus-web-development.sh"
+    )
+    text = script.read_text()
+    assert "cdk deploy ChatticusWeb --require-approval never" in text
+    assert "ChatticusWeb" in text
+    assert "deploy --all" not in text
+    assert "ChatticusWebStaging" not in text
+    assert "ChatticusWebProduction" not in text
+    assert "ChatticusThinTurnStaging" not in text
+    assert "ChatticusThinTurnProduction" not in text
+    assert "cdk destroy" not in text
+    assert "cdk deploy ChatticusComputers" not in text
+    assert "cdk deploy ChatticusSnapshots" not in text
+    assert "aws sts get-caller-identity" in text
+
+
 def test_computer_worker_ecs_host_start_may_tag_tasks() -> None:
     source = (
         Path(__file__).resolve().parents[2] / "infra" / "lib" / "computer-host-start.ts"
@@ -71,3 +91,39 @@ def test_cdk_app_uses_tsx_not_ts_node() -> None:
     text = cdk_json.read_text()
     assert "tsx bin/chatticus.ts" in text
     assert "ts-node" not in text
+
+
+def test_github_deploy_stack_trusts_thinturn_development_workflow() -> None:
+    source = (
+        Path(__file__).resolve().parents[2] / "infra" / "lib" / "github-deploy-stack.ts"
+    )
+    text = source.read_text()
+    assert "ChatticusGitHubDeploy" not in text
+    assert "chatticus-github-actions-deploy" in text
+    assert "deploy-thinturn-development.yml" in text
+    assert "deploy-web-development.yml" in text
+    assert "token.actions.githubusercontent.com:environment" in text
+    assert '"token.actions.githubusercontent.com:environment": "development"' in text
+    assert "AdministratorAccess" in text
+    assert "ChatticusThinTurnStaging" not in text
+    assert "ChatticusThinTurnProduction" not in text
+    assert "ChatticusWebStaging" not in text
+    assert "ChatticusWebProduction" not in text
+    assert "deploy --all" not in text
+    assert "cdk deploy ChatticusComputers" not in text
+    assert "cdk deploy ChatticusSnapshots" not in text
+    assert 'environment": "staging"' not in text
+    assert 'environment": "production"' not in text
+
+
+def test_github_deploy_script_is_one_stack() -> None:
+    script = (
+        Path(__file__).resolve().parents[2]
+        / "infra"
+        / "deploy-chatticus-github-deploy.sh"
+    )
+    text = script.read_text()
+    assert "cdk deploy ChatticusGitHubDeploy --require-approval never" in text
+    assert "deploy --all" not in text
+    assert "ChatticusSnapshots" not in text
+    assert "ChatticusComputers" not in text

@@ -10,11 +10,14 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 
+from chatticus.thin_task import TASK_TOOL_NAME, openai_task_tool
 from chatticus.worker.computerless import (
     CompletionOutcome,
     FakeTextCompletionClient,
+    TaskToolCall,
     TextCompletionClient,
 )
+from chatticus.worker.tool_dispatch import GatedToolCall
 
 DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
 _OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
@@ -23,10 +26,43 @@ WORKER_SYSTEM_PROMPT = (
     "You are a Chatticus household teammate. "
     "If the human only wants a spoken or written answer, reply in plain text "
     "and do not call tools. "
+    "Use the task tool to create, read, complete, or close durable household "
+    "tasks without summoning the computer. "
     "If they ask you to use the household computer, workspace, or browser, "
     "call request_computer_capability with gate browser or workspace. "
-    "Do not claim you opened a browser or read files you cannot reach."
+    "Do not claim you opened a browser or read files you cannot reach. "
+    "Use read_workspace to read granted files and browse to authorize a granted origin."
 )
+READ_WORKSPACE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "read_workspace",
+        "description": (
+            "Read one household workspace file when the task grant allows it."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+            },
+            "required": ["path"],
+        },
+    },
+}
+BROWSE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "browse",
+        "description": "Authorize fetching one granted web origin.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string"},
+            },
+            "required": ["url"],
+        },
+    },
+}
 COMPUTER_CAPABILITY_TOOL = {
     "type": "function",
     "function": {
@@ -49,6 +85,16 @@ COMPUTER_CAPABILITY_TOOL = {
 }
 
 
+def computerless_worker_tools() -> list[dict[str, Any]]:
+    """Return first-gate tools available to the computerless worker."""
+    return [
+        openai_task_tool(),
+        READ_WORKSPACE_TOOL,
+        BROWSE_TOOL,
+        COMPUTER_CAPABILITY_TOOL,
+    ]
+
+
 def repository_root() -> Path | None:
     """Return the Chattic.us repository root that holds ``.env``, if present."""
     for parent in Path(__file__).resolve().parents:
@@ -66,25 +112,73 @@ def load_local_env() -> None:
 
 
 def outcome_from_chat_completion(payload: dict[str, Any]) -> CompletionOutcome:
-    """Map one Chat Completions response into text and an optional wait gate."""
+    """Map one Chat Completions response into text and optional tool calls."""
     choices = payload.get("choices") or []
     if not choices:
         raise RuntimeError("OpenAI returned no choices.")
     message = choices[0].get("message") or {}
     text = (message.get("content") or "").strip()
     wait_gate = None
+    task_tool_call = None
+    gated_tool_call = None
     for call in message.get("tool_calls") or []:
         function = call.get("function") or {}
-        if function.get("name") != "request_computer_capability":
-            continue
+        name = function.get("name")
         try:
             arguments = json.loads(function.get("arguments") or "{}")
         except json.JSONDecodeError:
+            continue
+        if name == TASK_TOOL_NAME:
+            action = str(arguments.get("action", "")).strip()
+            if not action:
+                continue
+            task_arguments = {
+                key: str(value)
+                for key, value in arguments.items()
+                if key != "action" and value is not None
+            }
+            task_tool_call = TaskToolCall(action=action, arguments=task_arguments)
+            continue
+        if name == "read_workspace":
+            path = str(arguments.get("path", "")).strip()
+            if path:
+                gated_tool_call = GatedToolCall(
+                    tool_name="read_workspace",
+                    arguments={"path": path},
+                )
+            continue
+        if name == "browse":
+            url = str(arguments.get("url", "")).strip()
+            if url:
+                gated_tool_call = GatedToolCall(
+                    tool_name="browse",
+                    arguments={"url": url},
+                )
+            continue
+        if name != "request_computer_capability":
+            gated_tool_call = GatedToolCall(
+                tool_name=str(name),
+                arguments={
+                    key: str(value)
+                    for key, value in arguments.items()
+                    if value is not None
+                },
+            )
             continue
         gate = arguments.get("gate")
         if gate in _ALLOWED_GATES:
             wait_gate = gate
             break
+    if gated_tool_call is not None:
+        return CompletionOutcome(
+            text=text or "I'll use the granted capability.",
+            gated_tool_call=gated_tool_call,
+        )
+    if task_tool_call is not None:
+        return CompletionOutcome(
+            text=text or "I'll update the household task list.",
+            task_tool_call=task_tool_call,
+        )
     if wait_gate is not None:
         return CompletionOutcome(
             text=text or "Here is a draft before I need the computer.",
@@ -113,7 +207,7 @@ class OpenAITextCompletionClient:
                     {"role": "system", "content": WORKER_SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
                 ],
-                "tools": [COMPUTER_CAPABILITY_TOOL],
+                "tools": computerless_worker_tools(),
                 "tool_choice": "auto",
                 "max_completion_tokens": 256,
                 "reasoning_effort": "none",

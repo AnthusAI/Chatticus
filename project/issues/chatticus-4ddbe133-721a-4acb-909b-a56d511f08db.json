@@ -3,7 +3,7 @@
   "title": "Constrain browser authority before authenticated use",
   "description": "Purpose: treat prompt separation as a mitigation and enforce authority at system-controlled sinks.\n\nDefinition of Done:\n- Page content cannot add capabilities, origins, recipients, files, or egress channels to a task.\n- Untrusted browsing cannot use privileged sessions or ambient workspace secrets.\n- A consequential approval is bound to an immutable structured operation.\n- Generic authenticated browser actions stop safely unless a connector, takeover path, or equivalent control can bind the exact operation.\n- Adversarial browser scenarios demonstrate denial and containment even when the model follows injected instructions.",
   "type": "epic",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,19 +12,53 @@
     "v1",
     "security"
   ],
-  "dependencies": [
+  "dependencies": [],
+  "comments": [
     {
-      "target": "chatticus-8f98f8ba-7a04-4028-aa3b-4d897402139d",
-      "type": "blocked-by"
+      "id": "4c920478-2e61-4e3c-b7a9-049e905adad3",
+      "author": "agent@example.com",
+      "text": "Board currency: not started. Open children 3c5f8d (specify, blocked by 8f98f8), 53d744 (enforce), 1e09b4 (evals). Do not mark in_progress until specify work begins.",
+      "created_at": "2026-08-31T19:51:53.821423Z"
     },
     {
-      "target": "76d3e2",
-      "type": "blocked-by"
+      "id": "c5c9186e-4847-4c05-9488-9edc8ce1c9e8",
+      "author": "agent@example.com",
+      "text": "8f98f8 and 76d3e2 blockers removed. Kernel children closed. Next slice 150e07: persist grants on live development ThinTurn.",
+      "created_at": "2026-08-31T23:05:19.760025Z"
+    },
+    {
+      "id": "fed618a6-fd4d-404b-906e-500e3ae1ba14",
+      "author": "agent@example.com",
+      "text": "150e07 closed: grants persist on development ThinTurn. Parent stays in_progress for remaining live authenticated-browser / model-loop sink wiring. Not 35d86b.",
+      "created_at": "2026-08-31T23:35:00.080773Z"
+    },
+    {
+      "id": "8f09a2de-e3d6-4c86-90c9-836059735655",
+      "author": "agent@example.com",
+      "text": "1f3bb8 closed: model-loop sinks on HTTP. Parent stays in_progress if remaining authenticated Chromium/session containment still needs a named child. Not 35d86b.",
+      "created_at": "2026-09-01T00:08:29.465011Z"
+    },
+    {
+      "id": "839f42cf-f9b5-4ae5-bff6-52e15e7bd673",
+      "author": "agent@example.com",
+      "text": "120f6e closed on develop (#83). Remaining for live isolation: rebuild/push development computer image so summoned Fargate uses browser-profiles. Not 35d86b.",
+      "created_at": "2026-09-01T00:27:23.219608Z"
+    },
+    {
+      "id": "5d03b970-ae3e-42be-ba4f-631e161b94e2",
+      "author": "agent@example.com",
+      "text": "Last named child 914eb7 closed: live :dev image carries partitioned Chromium profiles (#87). Parent stays in_progress until owner confirms remaining epic DoD (authenticated-use containment). Not 35d86b.\n",
+      "created_at": "2026-09-01T00:44:08.955416Z"
+    },
+    {
+      "id": "452fa4a8-ce49-463b-8eb1-0b72bec1f35d",
+      "author": "agent@example.com",
+      "text": "Owner signed off remaining epic DoD (authenticated-use containment). All named children closed including live :dev image with partitioned Chromium profiles (#87). No next child. Closing 4ddbe1.\n",
+      "created_at": "2026-09-01T00:52:46.229950Z"
     }
   ],
-  "comments": [],
   "created_at": "2026-08-30T15:54:56.956699Z",
-  "updated_at": "2026-08-30T15:54:56.956699Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T00:52:46.243720Z",
+  "closed_at": "2026-09-01T00:52:46.243720Z",
   "custom": {}
 }

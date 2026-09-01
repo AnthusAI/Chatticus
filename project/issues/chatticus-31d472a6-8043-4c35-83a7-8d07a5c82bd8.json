@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-31d472a6-8043-4c35-83a7-8d07a5c82bd8",
+  "title": "CDK GitHub OIDC deploy role for GHA",
+  "description": "",
+  "type": "chore",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-08-31T17:04:38.359442Z",
+  "updated_at": "2026-08-31T17:08:06.828320Z",
+  "closed_at": "2026-08-31T17:08:06.828320Z",
+  "custom": {}
+}

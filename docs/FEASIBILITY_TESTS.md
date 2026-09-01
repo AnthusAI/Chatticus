@@ -17,12 +17,6 @@ Run these before building on the decisions they gate.
 - Spike code is disposable. Do not productionize it, do not add it to the
   quality gates, do not let it become the implementation.
 
-Test 2 (cold Fargate computer image) ran on 2026-08-31. The result is in
-[Design challenges](DESIGN_CHALLENGES.md) challenge 5 and
-[spikes/computer-cold-start/results](../spikes/computer-cold-start/results/README.md).
-Chromium was not in the image; re-run a browser-ready measurement when it
-is, using the same method.
-
 ## What is not a feasibility test
 
 The thin end-to-end turn -- human message, DynamoDB, model call, streamed

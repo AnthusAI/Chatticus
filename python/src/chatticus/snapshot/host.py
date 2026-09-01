@@ -5,10 +5,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-from chatticus.snapshot.pack import (
-    BROWSER_PROFILE_DIRNAME,
-    CACHE_CHECKSUM_FILENAME,
+from chatticus.browser_profiles import (
+    UNTRUSTED_PARTITION,
     WORKSPACE_DIRNAME,
+    browser_profile_dir,
+    ensure_browser_profiles_layout,
+)
+from chatticus.snapshot.pack import (
+    CACHE_CHECKSUM_FILENAME,
     pack_checksum,
     pack_live_disk,
     unpack_live_disk,
@@ -33,8 +37,8 @@ class ComputerHostDisk:
         self.live_root = Path(live_root)
         self.store = store
         self.live_root.mkdir(parents=True, exist_ok=True)
+        ensure_browser_profiles_layout(self.live_root)
         (self.live_root / WORKSPACE_DIRNAME).mkdir(parents=True, exist_ok=True)
-        (self.live_root / BROWSER_PROFILE_DIRNAME).mkdir(parents=True, exist_ok=True)
 
     def write_workspace_file(self, relative_path: str, content: str) -> None:
         """Write a file under the host's ``workspace`` tree."""
@@ -42,9 +46,16 @@ class ComputerHostDisk:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
 
-    def write_browser_profile_file(self, relative_path: str, content: str) -> None:
-        """Write a file under the host's browser profile tree."""
-        path = _safe_join(self.live_root / BROWSER_PROFILE_DIRNAME, relative_path)
+    def write_browser_profile_file(
+        self,
+        relative_path: str,
+        content: str,
+        *,
+        storage_partition: str = UNTRUSTED_PARTITION,
+    ) -> None:
+        """Write a file under one partitioned Chromium user-data tree."""
+        profile_root = browser_profile_dir(self.live_root, storage_partition)
+        path = _safe_join(profile_root, relative_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
 
@@ -52,11 +63,15 @@ class ComputerHostDisk:
         """Read a workspace file from this host's live disk."""
         return _safe_join(self.live_root / WORKSPACE_DIRNAME, relative_path).read_text()
 
-    def read_browser_profile_file(self, relative_path: str) -> str:
-        """Read a browser-profile file from this host's live disk."""
-        return _safe_join(
-            self.live_root / BROWSER_PROFILE_DIRNAME, relative_path
-        ).read_text()
+    def read_browser_profile_file(
+        self,
+        relative_path: str,
+        *,
+        storage_partition: str = UNTRUSTED_PARTITION,
+    ) -> str:
+        """Read a browser-profile file from one partitioned user-data tree."""
+        profile_root = browser_profile_dir(self.live_root, storage_partition)
+        return _safe_join(profile_root, relative_path).read_text()
 
     def publish(
         self,
@@ -97,6 +112,7 @@ class ComputerHostDisk:
                 f"manifest {manifest.checksum!r}."
             )
         unpack_live_disk(pack, self.live_root)
+        ensure_browser_profiles_layout(self.live_root)
         self._write_cache_checksum(manifest.checksum)
         return manifest
 
