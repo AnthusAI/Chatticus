@@ -79,11 +79,13 @@ describe("Chatticus marketing experience", () => {
     assert.match(prototypeSource, /w-\[85%\]/);
     assert.match(prototypeSource, /grid-cols-1 gap-2 sm:grid-cols/);
     assert.match(prototypeSource, /CreativeCharacter/);
+    assert.match(prototypeSource, /prototype-plane-cobalt/);
     assert.match(prototypeSource, /data-motion-paused/);
     assert.match(prototypeSource, /Pause workspace preview motion/);
     assert.match(prototypeSource, /aria-label=\{`\$\{teammate.name\}, \$\{teammate.role\}/);
     assert.match(prototypeSource, /paused=\{paused\}/);
     assert.match(styles, /data-motion-paused/);
+    assert.match(styles, /prototype-plane-drift/);
     assert.doesNotMatch(wordmarkSource, /rounded-full border-2/);
   });
 });

@@ -30,8 +30,9 @@ export function WorkspacePrototype() {
       className="workspace-prototype relative mx-auto w-[85%] max-w-[28rem] lg:w-full lg:max-w-[31rem]"
       data-motion-paused={paused ? "true" : "false"}
     >
-      <div aria-hidden="true" className="prototype-halo prototype-halo-one" />
-      <div aria-hidden="true" className="prototype-halo prototype-halo-two" />
+      <div aria-hidden="true" className="prototype-plane prototype-plane-cobalt" />
+      <div aria-hidden="true" className="prototype-plane prototype-plane-clay" />
+      <div aria-hidden="true" className="prototype-plane prototype-plane-signal" />
       <section
         aria-label="Chatticus workspace preview"
         className="relative overflow-hidden rounded-[2rem] border-2 border-ink bg-[#20231d] p-2 text-paper shadow-[14px_18px_0_rgba(17,19,15,0.18)] sm:p-3"

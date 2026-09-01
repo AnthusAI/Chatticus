@@ -52,10 +52,16 @@
       "author": "home",
       "text": "Handoff-ready after independent re-review: the hero now presents a responsive mobile workspace prototype, exposes the four explicit roles in context, and offers a labelled pause/resume control that pauses CSS motion and the pinned Vultus Lottie avatars. Reviewer approved. Validation: marketing lint/typecheck/build plus 7 tests; workspace lint/typecheck plus 14 tests; Vultus 14 tests and production build.",
       "created_at": "2026-09-01T16:27:15.923210Z"
+    },
+    {
+      "id": "f2b75a07-1fba-4ea0-b5f8-824706c48fd9",
+      "author": "home",
+      "text": "User refinement: restore the bold tilted rounded color planes behind the hero workspace prototype, replacing the floating-dot treatment. Give the planes only subtle transform-based motion and preserve the existing pause/reduced-motion contract.",
+      "created_at": "2026-09-01T16:36:04.081711Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T16:27:15.923210Z",
+  "updated_at": "2026-09-01T16:36:04.081711Z",
   "closed_at": null,
   "custom": {}
 }
