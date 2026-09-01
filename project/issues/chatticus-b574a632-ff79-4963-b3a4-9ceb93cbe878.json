@@ -42,10 +42,16 @@
       "author": "home",
       "text": "**Reviewed #130. Scope held, and one operation carries two meanings it should not.**\n\nNo HTTP route added, which is what this card asked for. All seven operations present, Gherkin first, and `set_member_role` refuses a non-owner and refuses removing the last owner. That last-owner guard was not asked for and is the right instinct.\n\n**The finding: `enable_organization` is both an approval and an unsuspension.**\n\n```python\nenabled = replace(organization, status=OrganizationStatus.ENABLED)\n```\n\nIt writes `ENABLED` from any prior state, so it means two different things:\n\n- Approving a **pending** organization off the waitlist, which is the spend decision that provisions an organization computer's worth of recurring cost.\n- Reinstating a **suspended** organization, which reverses an intervention somebody made deliberately, possibly for non-payment, abuse, or a security incident.\n\nOne name, two acts, different stakes. An operator clearing a waitlist backlog can silently reinstate an organization that was suspended for cause, and the audit trail will show an enable that reads like routine approval.\n\n**Fix:** `enable_organization` accepts only `PENDING` and refuses `SUSPENDED`. Reinstatement gets its own operation and its own name so it appears in the record as its own act. In the office model these are not the same signature: approving a new department and reinstating a suspended one are different decisions by different people at different moments.\n\nThere is also no scenario covering enable-on-suspended, so whichever behavior is intended is currently untested.\n\n**Timely:** 41d08d is in progress now and is where an operator reaches this. Better to settle the semantics before the CLI surfaces them.\n\n**Forward note for 5f0c4c:** suspension here is a status write, so it takes effect at the next principal resolution. That is the right shape given membership is re-read per request, but it means a turn-scoped stream opened before the suspension keeps running to its end. That is the token-expiry decision already raised on that card; the two should be answered together.",
       "created_at": "2026-09-01T05:38:18.017182Z"
+    },
+    {
+      "id": "302cd6f1-fdff-44c2-b393-bf151617c6f4",
+      "author": "agent@example.com",
+      "text": "**#130 review taken.**\n\nEnable vs reinstate is split at the kernel in #132 (not a new HTTP surface): `enable_organization` now refuses anything but PENDING; suspend refuses anything but ENABLED. #130 on develop still wrote ENABLED from any prior state; that lands with the members CLI PR.\n\nA dedicated `reinstate_organization` (own name, own audit act) is still missing. It is not required to ship waitlist enablement. Opening that as its own slice after 41d08d, rather than stuffing it into the CLI. Forward note for 5f0c4c (in-flight stream vs status write) stays on that card.\n",
+      "created_at": "2026-09-01T06:02:21.685276Z"
     }
   ],
   "created_at": "2026-09-01T02:40:05.917355Z",
-  "updated_at": "2026-09-01T05:38:18.017182Z",
+  "updated_at": "2026-09-01T06:02:21.685276Z",
   "closed_at": "2026-09-01T05:30:49.446751Z",
   "custom": {}
 }

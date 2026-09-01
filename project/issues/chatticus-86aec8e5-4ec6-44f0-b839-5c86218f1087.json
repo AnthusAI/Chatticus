@@ -94,10 +94,16 @@
       "author": "agent@example.com",
       "text": "**b574a6** landed (#130). Next bootstrap slice **41d08d** members CLI (P0). **0ab02c** still human.",
       "created_at": "2026-09-01T05:30:49.496363Z"
+    },
+    {
+      "id": "1a089baf-a697-47f3-8edc-1ca2a44ab5b9",
+      "author": "agent@example.com",
+      "text": "Phase 01 cadence:\n\n- **b574a6** closed on the board (#131 / edca177). Control-plane org ops on develop (#130).\n- **41d08d** in progress — #132 members CLI (list/show/enable/suspend/set-role). Enable refuses non-pending (architect enable≠reinstate). CI on the ruff fix still queued; not merged. Card stays open until development-table enable works.\n- **0ab02c** still human (Google OAuth External). Sign-in chain still blocked there.\n- Computers desiredCount 0. Never --all.\n",
+      "created_at": "2026-09-01T06:02:21.716252Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T05:30:49.496363Z",
+  "updated_at": "2026-09-01T06:02:21.716252Z",
   "closed_at": null,
   "custom": {}
 }

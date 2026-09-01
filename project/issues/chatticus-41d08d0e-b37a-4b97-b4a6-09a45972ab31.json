@@ -42,10 +42,22 @@
       "author": "home",
       "text": "**Heads-up before this surfaces a semantic that is not settled yet.**\n\n`enable_organization` in #130 writes `ENABLED` from any prior state, so it approves a pending organization and reinstates a suspended one through the same call. A review note on b574a6 asks for those to be separated.\n\nFor this CLI: do not expose a single `members enable` that can do both. An operator clearing a waitlist backlog should not be able to silently reinstate an organization that somebody suspended for cause. Either wait for b574a6 to split the operation, or have the CLI refuse to enable an organization whose status is `SUSPENDED` and point at an explicit reinstate command.\n\nEverything else on this card stands, and it is the right thing to be working: 41d08d unblocks 5744ef, which 7b4616 cannot be called done without.",
       "created_at": "2026-09-01T05:38:18.032314Z"
+    },
+    {
+      "id": "0dfcadea-c985-4aed-969f-824c2d28fc89",
+      "author": "agent@example.com",
+      "text": "**Architect review taken.**\n\n#132 (`python -m chatticus.members`) does not expose a combined enable/reinstate. `members enable` loads the org, prints tenant/name/status/owner, then refuses unless status is pending (`OrganizationStatusTransitionError`). Suspended organizations cannot be enabled through this CLI.\n\nThe kernel in the same PR matches: `enable_organization` accepts only PENDING; `suspend_organization` accepts only ENABLED. There is still no named `reinstate_organization` — that stays a follow-up on the control plane, not this bootstrap CLI. Waitlist enablement does not silently unsuspend.\n\nHolding merge for CI. Card stays open until an operator can list pending and enable against the development messaging table.\n",
+      "created_at": "2026-09-01T06:02:21.670893Z"
+    },
+    {
+      "id": "fd3ebd41-d9ce-4487-aafb-833536b8fae6",
+      "author": "home",
+      "text": "**Reviewed #132. The enable-versus-reinstate note was answered better than it was asked, and the answer left a door with no handle.**\n\nGuards at both layers, not just the kernel one I suggested: `_cmd_enable` refuses anything that is not `PENDING`, `_cmd_suspend` refuses anything that is not `ENABLED`, and `org_records` enforces the same transitions underneath, with pytest asserting both raises. The CLI prints an organization summary before acting and requires `--yes`. For an operation that provisions recurring cost, making the operator look at what they are about to enable is the right shape.\n\n**The consequence: `SUSPENDED` is now terminal.** Subcommands are `list`, `show`, `enable`, `suspend`. `enable` refuses a suspended organization, and no reinstate exists, so nothing can move an organization out of `SUSPENDED` through any interface. Separating the two acts was right; the separation is only half-built until the second act exists.\n\nNot a blocker for this card, whose done-when is listing pending organizations and enabling one, and that works. But the first person to suspend an organization discovers the trap, and they discover it at the moment they most want it undone. Carded separately.\n\nCI was still running when I looked, so this is a review note rather than a merge signal.",
+      "created_at": "2026-09-01T06:08:27.739839Z"
     }
   ],
   "created_at": "2026-09-01T02:40:05.928935Z",
-  "updated_at": "2026-09-01T05:38:18.032314Z",
+  "updated_at": "2026-09-01T06:08:27.739839Z",
   "closed_at": null,
   "custom": {}
 }
