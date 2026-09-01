@@ -37,10 +37,16 @@
       "author": "agent@example.com",
       "text": "1f3bb8 closed: model-loop sinks on HTTP. Parent stays in_progress if remaining authenticated Chromium/session containment still needs a named child. Not 35d86b.",
       "created_at": "2026-09-01T00:08:29.465011Z"
+    },
+    {
+      "id": "839f42cf-f9b5-4ae5-bff6-52e15e7bd673",
+      "author": "agent@example.com",
+      "text": "120f6e closed on develop (#83). Remaining for live isolation: rebuild/push development computer image so summoned Fargate uses browser-profiles. Not 35d86b.",
+      "created_at": "2026-09-01T00:27:23.219608Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.956699Z",
-  "updated_at": "2026-09-01T00:08:29.465011Z",
+  "updated_at": "2026-09-01T00:27:23.219608Z",
   "closed_at": null,
   "custom": {}
 }
