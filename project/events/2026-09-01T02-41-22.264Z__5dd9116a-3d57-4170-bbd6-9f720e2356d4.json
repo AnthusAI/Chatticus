@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "5dd9116a-3d57-4170-bbd6-9f720e2356d4",
+  "issue_id": "chatticus-14cf05e9-cb12-4567-966b-128a45df3858",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:41:22.264Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "**Blocked by:** ceilings and the clip rule. Parallel with ingest and with rule identity.\n\nowner is the full ceiling; member excludes purchase and production_change. Roles are presentation over ceilings, never a separate permission matrix, so later granularity is a change to ceiling data rather than a redesign.",
+    "issue_type": "task",
+    "labels": [],
+    "parent": "chatticus-ba3ea4f4-e439-4a2a-9850-57f095c3346b",
+    "priority": 2,
+    "status": "open",
+    "title": "Roles are named ceilings"
+  }
+}

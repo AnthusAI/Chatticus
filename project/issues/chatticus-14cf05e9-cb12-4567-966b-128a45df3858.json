@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-14cf05e9-cb12-4567-966b-128a45df3858",
+  "title": "Roles are named ceilings",
+  "description": "**Phase 6 of 7.**\n\n- **Blocked by:** eef4aa\n- **Runs in parallel with:** ac3b7a and b49a89\n- **Unblocks:** nothing\n\n---\nowner is the full ceiling; member excludes purchase and production_change. Roles are presentation over ceilings, never a separate permission matrix, so later granularity is a change to ceiling data rather than a redesign.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ba3ea4f4-e439-4a2a-9850-57f095c3346b",
+  "labels": [
+    "phase-6"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:41:22.264655Z",
+  "updated_at": "2026-09-01T02:46:21.381384Z",
+  "closed_at": null,
+  "custom": {}
+}

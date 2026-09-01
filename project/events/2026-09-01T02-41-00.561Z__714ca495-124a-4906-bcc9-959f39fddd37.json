@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "714ca495-124a-4906-bcc9-959f39fddd37",
+  "issue_id": "chatticus-6c1a9bfc-e835-490e-b64e-18f870d6d7f8",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:41:00.561Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "**Blocked by:** the shared-channel specification.\n\nBot drops its user scope. Name uniqueness moves from (tenant, user, name) to (tenant, name), because an organization has one Ada the way it has one Ada in payroll, not one per employee.\n\n**Scheduling warning:** this, the channel roster change, and the organization computer all edit models.py and messaging/store.py. They are logically independent and will conflict in the same files. Give all three to one agent, or merge them strictly one at a time.",
+    "issue_type": "task",
+    "labels": [],
+    "parent": "chatticus-818d2075-2141-4307-8913-3b35e5486a38",
+    "priority": 1,
+    "status": "open",
+    "title": "Bots belong to the organization, not to a person"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "50107974-c49d-4787-b516-6441dc39044e",
+  "issue_id": "chatticus-ac3b7a0c-5d45-4acc-bfec-15d86f7a6544",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:41:22.241Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "**Blocked by:** ceilings and the clip rule.\n\nAutoReviewRule.created_by records a kind, human or bot, and rule.user_id is a scope match rather than the author, so a bot cannot write a rule today but a member writing one broader than their own standing is unchecked. Add a creator identity distinct from the scope, add an approver identity to approvals, and validate both against the author's ceiling at write time.",
+    "issue_type": "task",
+    "labels": [],
+    "parent": "chatticus-ba3ea4f4-e439-4a2a-9850-57f095c3346b",
+    "priority": 1,
+    "status": "open",
+    "title": "Rules and approvals record who authorized them"
+  }
+}

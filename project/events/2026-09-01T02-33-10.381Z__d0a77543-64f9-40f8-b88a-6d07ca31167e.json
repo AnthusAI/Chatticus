@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "d0a77543-64f9-40f8-b88a-6d07ca31167e",
+  "issue_id": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:33:10.381Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Outcome: chattic.us serves multi-user organizations. People sign in with Google through Cognito, organizations are the unit of enablement and billing, members share channels, bots, and one organization computer, and what a member may approve or see is governed by a delegated authority ceiling modeled on how an office works. Not included: Apple sign-in, domain-verified auto-join, per-member isolation on the shared computer, billing mechanics.",
+    "issue_type": "initiative",
+    "labels": [],
+    "parent": null,
+    "priority": 1,
+    "status": "open",
+    "title": "Phase 4: Serve organizations with delegated authority"
+  }
+}

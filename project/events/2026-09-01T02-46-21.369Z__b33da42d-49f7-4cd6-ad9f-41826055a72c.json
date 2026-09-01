@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "b33da42d-49f7-4cd6-ad9f-41826055a72c",
+  "issue_id": "chatticus-b49a89fa-a9a0-44b7-915d-2dc225ec6730",
+  "event_type": "field_updated",
+  "occurred_at": "2026-09-01T02:46:21.369Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "**Blocked by:** ceilings and the clip rule. Parallel with the rule and approval identity work.\n\nThe five consequential classes are an egress taxonomy inherited from a household, where the only question was what leaves. In an organization, authorizing the ingestion of a reference is a real standing that some members have and others do not, and it is also the primary attack described in docs/THREAT_MODEL.md. TaskCapabilityGrant.origins and EgressClass.APPROVED_ORIGIN_FETCH carry half of it already. Make ingest a class a ceiling can bound, not only a grant field.",
+        "to": "**Phase 6 of 7.**\n\n- **Blocked by:** eef4aa\n- **Runs in parallel with:** ac3b7a and 14cf05\n- **Unblocks:** nothing\n\n---\nThe five consequential classes are an egress taxonomy inherited from a household, where the only question was what leaves. In an organization, authorizing the ingestion of a reference is a real standing that some members have and others do not, and it is also the primary attack described in docs/THREAT_MODEL.md. TaskCapabilityGrant.origins and EgressClass.APPROVED_ORIGIN_FETCH carry half of it already. Make ingest a class a ceiling can bound, not only a grant field."
+      },
+      "labels": {
+        "from": [],
+        "to": [
+          "phase-6"
+        ]
+      }
+    }
+  }
+}

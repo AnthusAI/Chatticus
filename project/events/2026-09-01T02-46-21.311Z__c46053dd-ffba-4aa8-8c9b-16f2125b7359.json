@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "c46053dd-ffba-4aa8-8c9b-16f2125b7359",
+  "issue_id": "chatticus-0814e63b-36a3-4c6a-8c7f-3d37b53023c9",
+  "event_type": "field_updated",
+  "occurred_at": "2026-09-01T02:46:21.311Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "**Blocked by:** the shared-channel specification.\n\nChannel drops user_id. ChannelParticipant{kind, actor_id} already models multi-actor membership, so the real change is the roster index at messaging/store.py:565, which keys a channel by channel.user_id and becomes one roster item per human participant so that listing a person's channels stays a query rather than a scan.\n\n**Scheduling warning:** conflicts with the bot ownership and organization computer tasks. See that note.",
+        "to": "**Phase 5 of 7.**\n\n- **Blocked by:** 14f692\n- **Runs in parallel with:** 6c1a9b and ddf609 in logic, but NOT in merge order. See the warning\n- **Unblocks:** 24df70\n\n---\n**Scheduling warning.** This, 6c1a9b, and ddf609 all edit models.py and messaging/store.py. They are independent in logic and will collide in the same files. Give all three to one agent, or merge them strictly one at a time and rebase between.\n\nChannel drops user_id. ChannelParticipant{kind, actor_id} already models multi-actor membership, so the real change is the roster index at messaging/store.py:565, which keys a channel by channel.user_id and becomes one roster item per human participant so that listing a person's channels stays a query rather than a scan."
+      },
+      "labels": {
+        "from": [],
+        "to": [
+          "phase-5"
+        ]
+      }
+    }
+  }
+}

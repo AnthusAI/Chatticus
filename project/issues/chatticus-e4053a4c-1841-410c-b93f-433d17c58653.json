@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-e4053a4c-1841-410c-b93f-433d17c58653",
+  "title": "Escalate an approval to someone who can give it",
+  "description": "**Phase 6 of 7.**\n\n- **Blocked by:** eef4aa and ac3b7a\n- **Runs in parallel with:** nothing. Last item in the epic\n- **Unblocks:** nothing\n\n---\nAn action exceeding the requester's ceiling routes to the nearest member whose ceiling covers it. docs/APPROVAL.md records that v1 has no completable path while nobody is at a screen, and that presence is guaranteed only for a human in the web tab. In an organization presence is a team property, so human_takeover and immutable_approval can be satisfied by any member with standing.\n\nRevisit whether approval_fatigue can stay in V1_POLICY_EXCLUSIONS once five people share one bot.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ba3ea4f4-e439-4a2a-9850-57f095c3346b",
+  "labels": [
+    "phase-6"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:41:22.276461Z",
+  "updated_at": "2026-09-01T02:46:21.392644Z",
+  "closed_at": null,
+  "custom": {}
+}

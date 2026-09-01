@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-ddf60974-5dbb-4021-a328-99faa65b8e35",
+  "title": "One computer for the whole organization",
+  "description": "**Phase 5 of 7.**\n\n- **Blocked by:** 14f692\n- **Runs in parallel with:** 6c1a9b and 0814e6 in logic, but NOT in merge order. See the warning\n- **Unblocks:** 24df70, and bc830a in phase 7\n\n---\n**Scheduling warning.** This, 6c1a9b, and 0814e6 all edit models.py and messaging/store.py and will collide. Give all three to one agent or merge one at a time. This one also touches the worker protocol, so workers redeploy with it.\n\nComputer drops user_id and is keyed by organization. computer_for_user becomes computer_for_organization; POST /computers/stopped loses user_id from its body. Update computer_affinity, shared_computer, and single_computer_start in features/.\n\nThe reason is collaboration: a shared file system is what lets a bot continue from files another bot saved, lets a person pick up what a bot left, and lets a bot finish what a person started. Handoff is the product. See docs/ORGANIZATIONS.md.\n\n**Also update here, not before:** docs/PRODUCT.md, docs/THREAT_MODEL.md, and AGENTS.md each say user where they now say organization. They are listed under Documents this supersedes in docs/ORGANIZATIONS.md.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-818d2075-2141-4307-8913-3b35e5486a38",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:41:00.585166Z",
+  "updated_at": "2026-09-01T02:46:21.323050Z",
+  "closed_at": null,
+  "custom": {}
+}

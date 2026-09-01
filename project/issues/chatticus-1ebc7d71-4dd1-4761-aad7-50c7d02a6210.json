@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-1ebc7d71-4dd1-4761-aad7-50c7d02a6210",
+  "title": "Define the Principal seam and the waitlist-safe route marker",
+  "description": "**Phase 1 of 7.** Keep it small and merge it within a day: three phase-3 tasks fork from it and must agree on the shape first.\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 79ca6a, 7c1382, 0ab02c, 272aea\n- **Unblocks:** 5f0c4c, fac2ee, 79578e\n\n---\nPrincipal is a frozen dataclass with a kind (user or worker), tenant_id, and either user_id with membership status and role, or worker_id. Add the FastAPI dependency that will resolve it and the explicit marker that declares a route reachable by a waitlisted member. No resolver implementations and no enforcement in this task.\n\nRouting is default deny by construction: a route serves an enabled member unless it is explicitly marked otherwise. Do not build a denylist of expensive routes. The next route someone adds would be open by default, and one day that route is the one that calls the model.\n\n**Done when:** the type and the marker are merged so the three dependent tasks can proceed in parallel.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:40:29.666490Z",
+  "updated_at": "2026-09-01T02:46:21.124363Z",
+  "closed_at": null,
+  "custom": {}
+}

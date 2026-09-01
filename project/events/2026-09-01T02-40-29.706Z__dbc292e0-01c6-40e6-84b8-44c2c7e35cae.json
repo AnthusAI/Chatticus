@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "dbc292e0-01c6-40e6-84b8-44c2c7e35cae",
+  "issue_id": "chatticus-79578ecb-5fd7-48af-8a38-e018ab6e37d4",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:40:29.706Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "**Blocked by:** the Principal seam.\n\nRoutes become /orgs/{tenant_id}/... and the authorization check is uniform: is this principal a member of the organization named in the path. Delete X-Tenant-Id from web/lib/api.ts and web/lib/sse.ts and stop accepting it at the front door. Never resolve an ambient current organization from the session; every request states which organization it is for.\n\n**Scheduling warning:** this touches nearly every route in http/app.py and the tenant column in most files under features/. Merge it on its own and quickly. Anything else in flight against those files will conflict badly.",
+    "issue_type": "task",
+    "labels": [],
+    "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+    "priority": 0,
+    "status": "open",
+    "title": "Carry the organization in the request path"
+  }
+}

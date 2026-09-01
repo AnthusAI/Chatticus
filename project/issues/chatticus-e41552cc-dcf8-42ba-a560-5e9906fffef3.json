@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-e41552cc-dcf8-42ba-a560-5e9906fffef3",
+  "title": "Create an organization and wait",
+  "description": "**Phase 4 of 7.**\n\n- **Blocked by:** 22f5bb\n- **Runs in parallel with:** 7b4616\n- **Unblocks:** ae51dc\n\n---\nAnyone signing in may create an organization, which lands it pending, and sees the welcome screen. Google sign-in is the waitlist form: the address is verified, there is no form backend and no spam, and enabling later is a flag flip on an account that already exists.\n\nDo not show a queue position. It implies an ordering that will not be honored, because organizations are chosen deliberately. Do not promise an email unless SES is out of the sandbox; at this volume, mail the owner by hand when their organization is enabled.\n\n**Done when:** a new person can sign in, create an organization, and see the welcome screen, and an operator sees it via the members CLI.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:40:45.597787Z",
+  "updated_at": "2026-09-01T02:46:21.263315Z",
+  "closed_at": null,
+  "custom": {}
+}

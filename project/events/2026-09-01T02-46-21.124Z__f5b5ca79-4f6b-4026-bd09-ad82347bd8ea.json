@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "f5b5ca79-4f6b-4026-bd09-ad82347bd8ea",
+  "issue_id": "chatticus-1ebc7d71-4dd1-4761-aad7-50c7d02a6210",
+  "event_type": "field_updated",
+  "occurred_at": "2026-09-01T02:46:21.124Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "**Blocked by:** nothing. Deliberately tiny, because three tasks fork from it and they must agree on the shape before they start.\n\nPrincipal is a frozen dataclass with a kind (user or worker), tenant_id, and either user_id with membership status and role, or worker_id. Add the FastAPI dependency that will resolve it and the explicit marker that declares a route reachable by a waitlisted member. No resolver implementations and no enforcement in this task.\n\nRouting is default deny by construction: a route serves an enabled member unless it is explicitly marked otherwise. Do not build a denylist of expensive routes. The next route someone adds would be open by default, and one day that route is the one that calls the model.\n\n**Done when:** the type and the marker are merged so the JWT, worker credential, and route-reshaping tasks can proceed against them in parallel.",
+        "to": "**Phase 1 of 7.** Keep it small and merge it within a day: three phase-3 tasks fork from it and must agree on the shape first.\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 79ca6a, 7c1382, 0ab02c, 272aea\n- **Unblocks:** 5f0c4c, fac2ee, 79578e\n\n---\nPrincipal is a frozen dataclass with a kind (user or worker), tenant_id, and either user_id with membership status and role, or worker_id. Add the FastAPI dependency that will resolve it and the explicit marker that declares a route reachable by a waitlisted member. No resolver implementations and no enforcement in this task.\n\nRouting is default deny by construction: a route serves an enabled member unless it is explicitly marked otherwise. Do not build a denylist of expensive routes. The next route someone adds would be open by default, and one day that route is the one that calls the model.\n\n**Done when:** the type and the marker are merged so the three dependent tasks can proceed in parallel."
+      },
+      "labels": {
+        "from": [],
+        "to": [
+          "phase-1"
+        ]
+      }
+    }
+  }
+}

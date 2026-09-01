@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-41d08d0e-b37a-4b97-b4a6-09a45972ab31",
+  "title": "Members CLI for the waitlist and enablement",
+  "description": "**Phase 3 of 7.** Off the critical path. Let it slip if capacity is short.\n\n- **Blocked by:** b574a6\n- **Runs in parallel with:** every other phase-3 task\n- **Unblocks:** nothing\n\n---\npython -m chatticus.members with list --status pending, enable, suspend, and role. This is the admin surface for v1; there is no admin UI. Organization records are data, not infrastructure, so writing them from a CLI does not violate the CDK-only rule for AWS resources.\n\n**Done when:** an operator can list pending organizations and enable one against development.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:40:05.928935Z",
+  "updated_at": "2026-09-01T02:46:21.228890Z",
+  "closed_at": null,
+  "custom": {}
+}

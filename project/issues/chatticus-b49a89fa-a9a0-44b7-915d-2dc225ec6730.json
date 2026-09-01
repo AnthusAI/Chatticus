@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-b49a89fa-a9a0-44b7-915d-2dc225ec6730",
+  "title": "Bound what may be ingested",
+  "description": "**Phase 6 of 7.**\n\n- **Blocked by:** eef4aa\n- **Runs in parallel with:** ac3b7a and 14cf05\n- **Unblocks:** nothing\n\n---\nThe five consequential classes are an egress taxonomy inherited from a household, where the only question was what leaves. In an organization, authorizing the ingestion of a reference is a real standing that some members have and others do not, and it is also the primary attack described in docs/THREAT_MODEL.md. TaskCapabilityGrant.origins and EgressClass.APPROVED_ORIGIN_FETCH carry half of it already. Make ingest a class a ceiling can bound, not only a grant field.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ba3ea4f4-e439-4a2a-9850-57f095c3346b",
+  "labels": [
+    "phase-6"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:41:22.252828Z",
+  "updated_at": "2026-09-01T02:46:21.369425Z",
+  "closed_at": null,
+  "custom": {}
+}

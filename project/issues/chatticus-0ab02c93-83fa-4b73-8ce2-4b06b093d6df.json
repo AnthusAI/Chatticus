@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-0ab02c93-83fa-4b73-8ce2-4b06b093d6df",
+  "title": "Register Google OAuth clients for each environment",
+  "description": "**Phase 1 of 7.** First link in the critical path. Human action, not code, so start it even if nothing else starts.\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 79ca6a, 7c1382, 272aea, 1ebc7d\n- **Unblocks:** 0df6cb\n\n---\nOne Google Cloud project, an OAuth consent screen, and one OAuth client per environment. Redirect URIs point at the Cognito custom auth domain, not at the app.\n\nClient secrets go straight into Secrets Manager at chatticus/{environment}/oauth/google. They never enter the repository, a CDK template, or an agent transcript. The pudicus pre-commit gate is the backstop, not the plan.\n\n**Done when:** three clients exist and their ids and secrets are in Secrets Manager.",
+  "type": "chore",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:40:05.879591Z",
+  "updated_at": "2026-09-01T02:46:21.090059Z",
+  "closed_at": null,
+  "custom": {}
+}

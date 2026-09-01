@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "39e961c1-b731-4a71-8a35-17e92b33436d",
+  "issue_id": "chatticus-818d2075-2141-4307-8913-3b35e5486a38",
+  "event_type": "field_updated",
+  "occurred_at": "2026-09-01T02:46:57.823Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "Bots become organization-owned: Bot drops its user scope and name uniqueness moves from (tenant, user, name) to (tenant, name), because an organization has one named teammate, not one per employee. Channels lose their single owner: ChannelParticipant already models multi-actor membership, so the change is the roster index at messaging/store.py, which keys channels by channel.user_id and becomes one roster item per human participant. Computer drops user_id and becomes organization-wide, keeping the property that one bot continues from files another bot saved.",
+        "to": "Phase 5. Blocked entirely by 7b4616; do not start any of it before the door closes.\n\nBots become organization-owned, channels carry participants instead of an owner, and the computer serves the whole organization. Specification 14f692 comes first and gates the other three.\n\n**Warning:** 6c1a9b, 0814e6, and ddf609 all edit models.py and messaging/store.py. Independent in logic, colliding in files. One agent, or strictly sequenced merges."
+      }
+    }
+  }
+}

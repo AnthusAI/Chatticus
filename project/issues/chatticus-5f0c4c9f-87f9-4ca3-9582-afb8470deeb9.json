@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-5f0c4c9f-87f9-4ca3-9582-afb8470deeb9",
+  "title": "Resolve a user principal from a verified Cognito token",
+  "description": "**Phase 3 of 7.**\n\n- **Blocked by:** 1ebc7d, 0df6cb, 272aea\n- **Runs in parallel with:** fac2ee, 5558db, 41d08d, and 79578e\n- **Unblocks:** 22f5bb, 7b4616\n\n---\nVerify the bearer token against the Cognito JWKS, map the verified email to an Identity, load Membership, and build the Principal. Cache the JWKS and the membership read for the warm life of the function; the front door already reads DynamoDB per request, so one more GetItem costs nothing at this scale and buys real revocation.\n\nNothing about organizations, roles, or ceilings travels in the token. The token says who you are; standing is resolved server side, per request.\n\n**Done when:** behave and pytest cover a valid token, an expired token, an unknown email, and a suspended organization, and routes still do not enforce.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:40:29.680727Z",
+  "updated_at": "2026-09-01T02:46:21.182075Z",
+  "closed_at": null,
+  "custom": {}
+}

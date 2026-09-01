@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-79578ecb-5fd7-48af-8a38-e018ab6e37d4",
+  "title": "Carry the organization in the request path",
+  "description": "**Phase 3 of 7.** SERIALIZE. Do not run this concurrently with other Python work.\n\n- **Blocked by:** 1ebc7d\n- **Runs in parallel with:** nothing. See the warning below\n- **Unblocks:** 7b4616\n\n---\n**Scheduling warning.** This reshapes nearly every route in python/src/chatticus/http/app.py and the tenant column in most files under features/. It is unblocked as soon as the Principal seam merges, but it needs a clear window: one agent, one pull request, merged fast. Anything else in flight against those files will conflict badly. Land it before or after the other phase-3 tasks, not during.\n\nRoutes become /orgs/{tenant_id}/... and the authorization check is uniform: is this principal a member of the organization named in the path. Delete X-Tenant-Id from web/lib/api.ts and web/lib/sse.ts and stop accepting it at the front door. Never resolve an ambient current organization from the session; every request states which organization it is for.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:40:29.706304Z",
+  "updated_at": "2026-09-01T02:46:21.205205Z",
+  "closed_at": null,
+  "custom": {}
+}

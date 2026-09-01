@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-bc830aa0-e2d4-47df-b1ac-06987c210e3c",
+  "title": "Return staging to service behind authentication",
+  "description": "**Phase 7 of 7.**\n\n- **Blocked by:** 7b4616 and ddf609\n- **Runs in parallel with:** nothing. Strictly sequential with 89a222\n- **Unblocks:** 89a222\n\n---\nRedeploy staging with the Cognito pool, then run the live acceptance script against staging from a logged-in shell. Never from GitHub Actions.\n\nThis reverses 7c1382, which took staging dark for the duration.",
+  "type": "chore",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b8fe36fd-454a-43d7-92c2-3926818ecddb",
+  "labels": [
+    "phase-7"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:41:22.289474Z",
+  "updated_at": "2026-09-01T02:46:21.404530Z",
+  "closed_at": null,
+  "custom": {}
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "adb5c704-b514-4226-a7e4-0bcc34c926f5",
+  "issue_id": "chatticus-0df6cb14-d542-4e43-8258-b324600729ca",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:40:05.893Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "**Blocked by:** Google OAuth clients.\n\nCDK per environment: UserPool, UserPoolIdentityProviderGoogle, and a public app client using authorization code with PKCE and no client secret. Custom auth domain auth-dev, auth-staging, auth. Use single-label names: the existing certificate in infra/lib/dns-stack.ts covers *.chattic.us, and a wildcard matches one label only, so auth.dev.chattic.us would need a new certificate and auth-dev.chattic.us does not. Publish pool id, client id, and domain to SSM under the existing web parameter prefix.\n\nCognito authenticates and nothing else. Do not model organizations, membership, or roles as Cognito groups: they are global to the pool, they land in the token, and token claims go stale against the records that govern spending.\n\n**Done when:** development is deployed and the authorize URL with identity_provider=Google lands on Google's consent screen and returns a code.",
+    "issue_type": "task",
+    "labels": [],
+    "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+    "priority": 0,
+    "status": "open",
+    "title": "Stand up a Cognito user pool federating Google"
+  }
+}

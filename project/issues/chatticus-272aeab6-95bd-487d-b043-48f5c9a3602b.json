@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-272aeab6-95bd-487d-b043-48f5c9a3602b",
+  "title": "Organizations, membership, invitations, and identity records",
+  "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 79ca6a, 7c1382, 0ab02c, 1ebc7d. Touches no AWS, so it never collides with the Cognito track\n- **Unblocks:** b574a6, 5f0c4c, fac2ee\n\n---\nGherkin first in features/organizations.feature: an identity is minted on first sign-in and keyed by verified email; a created organization starts pending; an owner invites by email; accepting an invitation to an enabled organization grants immediate access; a user lists the organizations they belong to.\n\nThen Organization, Membership, Invitation, and Identity in models.py, and both stores in messaging/store.py. The table has no GSI, so the user-to-organizations direction needs a second item written alongside the first, the same dual-write the store already does for channel lookup at store.py:554. Invitation expiry uses the table's existing TTL attribute.\n\nuser_id is global and minted once per human. Organization data stays partitioned by tenant_id, which the existing key prefixes already express.\n\n**Done when:** behave and pytest pass over the new feature and both store implementations.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:40:05.905442Z",
+  "updated_at": "2026-09-01T02:46:21.103015Z",
+  "closed_at": null,
+  "custom": {}
+}

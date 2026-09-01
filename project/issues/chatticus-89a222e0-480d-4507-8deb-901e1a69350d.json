@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-89a222e0-480d-4507-8deb-901e1a69350d",
+  "title": "Gated production deploy of a staging-proven release",
+  "description": "**Phase 7 of 7.**\n\n- **Blocked by:** bc830a\n- **Runs in parallel with:** nothing. Final item of the initiative\n- **Unblocks:** nothing\n\n---\nProduction is a separate deploy of a release staging has already proven, not a promotion that happens because main moved. Run live acceptance against production afterwards.",
+  "type": "chore",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b8fe36fd-454a-43d7-92c2-3926818ecddb",
+  "labels": [
+    "phase-7"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:41:22.302048Z",
+  "updated_at": "2026-09-01T02:46:21.415787Z",
+  "closed_at": null,
+  "custom": {}
+}

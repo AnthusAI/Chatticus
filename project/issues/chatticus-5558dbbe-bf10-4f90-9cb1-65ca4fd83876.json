@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-5558dbbe-bf10-4f90-9cb1-65ca4fd83876",
+  "title": "Sign in with Google from the web app",
+  "description": "**Phase 3 of 7.**\n\n- **Blocked by:** 0df6cb\n- **Runs in parallel with:** 5f0c4c, fac2ee, 41d08d, and 79578e\n- **Unblocks:** 22f5bb\n\n---\noidc-client-ts doing authorization code with PKCE against the Cognito app client, with identity_provider=Google on the authorize URL so Cognito's own page never renders and the person goes straight to Google. Tokens live in memory with silent renew, not in localStorage.\n\nweb/next.config.ts is output: export, so there is no Node runtime in the web tier and no server-side session. That is why the relying party is Cognito and the token is a bearer, not a cookie. web/lib/sse.ts already uses fetch rather than EventSource so it can send headers, so a bearer token needs no transport change.\n\n**Done when:** a person signs in against development and the app holds a verified token.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:40:45.570118Z",
+  "updated_at": "2026-09-01T02:46:21.216282Z",
+  "closed_at": null,
+  "custom": {}
+}

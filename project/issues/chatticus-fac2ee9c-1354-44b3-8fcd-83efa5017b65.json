@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-fac2ee9c-1354-44b3-8fcd-83efa5017b65",
+  "title": "Issue and verify per-worker credentials",
+  "description": "**Phase 3 of 7.** Must merge before the phase-4 join or every worker breaks at the same moment.\n\n- **Blocked by:** 1ebc7d, 272aea\n- **Runs in parallel with:** 5f0c4c, 5558db, 41d08d, and 79578e\n- **Unblocks:** 7b4616\n\n---\nWorker registration mints a token stored hashed; the worker presents it and resolves to a worker Principal. This closes the question recorded as still open in docs/DESIGN_CHALLENGES.md, how workers authenticate their chunk POSTs.\n\nBrowser routes must reject a worker principal and worker routes must reject a user principal. The shared X-Chatticus-Invoke-Key stays what it is, a CloudFront-to-Lambda check, and is not a caller identity.\n\n**Done when:** behave and pytest cover both rejections, and a development worker claims and completes a turn using a minted credential.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:40:29.694432Z",
+  "updated_at": "2026-09-01T02:46:21.193591Z",
+  "closed_at": null,
+  "custom": {}
+}

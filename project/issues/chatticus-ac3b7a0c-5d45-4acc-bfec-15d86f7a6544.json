@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-ac3b7a0c-5d45-4acc-bfec-15d86f7a6544",
+  "title": "Rules and approvals record who authorized them",
+  "description": "**Phase 6 of 7.**\n\n- **Blocked by:** eef4aa\n- **Runs in parallel with:** b49a89 and 14cf05\n- **Unblocks:** e4053a\n\n---\nAutoReviewRule.created_by records a kind, human or bot, and rule.user_id is a scope match rather than the author, so a bot cannot write a rule today but a member writing one broader than their own standing is unchecked. Add a creator identity distinct from the scope, add an approver identity to approvals, and validate both against the author's ceiling at write time.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ba3ea4f4-e439-4a2a-9850-57f095c3346b",
+  "labels": [
+    "phase-6"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:41:22.241072Z",
+  "updated_at": "2026-09-01T02:46:21.357602Z",
+  "closed_at": null,
+  "custom": {}
+}

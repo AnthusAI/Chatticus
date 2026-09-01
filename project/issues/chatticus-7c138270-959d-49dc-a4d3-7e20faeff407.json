@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-7c138270-959d-49dc-a4d3-7e20faeff407",
+  "title": "Take staging and production dark until authentication lands",
+  "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 79ca6a, 0ab02c, 272aea, 1ebc7d\n- **Unblocks:** bc830a in phase 7, which brings staging back\n\n---\nhey.chattic.us and staging.chattic.us answer unauthenticated requests from the open internet today; ChatticusThinTurnProduction returns environment production on /api/health. Neither environment needs to serve anyone before this initiative ships, so neither should be reachable. Development stays up because the work happens there.\n\nWe are not adding a temporary gate. The correct move is to stop serving what is not ready, and to rely on the spend controls in 79ca6a for development.\n\n**Done when:** the staging and production web stacks no longer serve and the decision is recorded here.",
+  "type": "chore",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:39:45.126246Z",
+  "updated_at": "2026-09-01T02:46:21.077536Z",
+  "closed_at": null,
+  "custom": {}
+}

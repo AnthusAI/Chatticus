@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "1a2334b3-6df9-48b1-8d96-1c01aa82a13c",
+  "issue_id": "chatticus-14f6924a-db89-4832-b57f-200c43ca1e77",
+  "event_type": "field_updated",
+  "occurred_at": "2026-09-01T02:46:21.287Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "**Blocked by:** every route requires a principal.\n\nGherkin first, before any of the three changes below: two members of one organization read and post in one channel; a bot named once in an organization is the same teammate to everyone; a file one bot saves is continued by another bot and by a person.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+        "to": "**Phase 5 of 7.**\n\n- **Blocked by:** 7b4616\n- **Runs in parallel with:** nothing. It gates the three tasks below it\n- **Unblocks:** 6c1a9b, 0814e6, ddf609\n\n---\nGherkin first, before any of the three changes it unblocks: two members of one organization read and post in one channel; a bot named once in an organization is the same teammate to everyone; a file one bot saves is continued by another bot and by a person.\n\n**Done when:** the scenarios exist and fail for the right reason."
+      },
+      "labels": {
+        "from": [],
+        "to": [
+          "phase-5"
+        ]
+      }
+    }
+  }
+}

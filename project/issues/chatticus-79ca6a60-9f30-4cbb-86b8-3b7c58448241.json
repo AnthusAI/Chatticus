@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-79ca6a60-9f30-4cbb-86b8-3b7c58448241",
+  "title": "Alarm on AWS spend before anything else changes",
+  "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 7c1382, 0ab02c, 272aea, 1ebc7d\n- **Unblocks:** nothing, but it covers development for the whole initiative\n\n---\nA CfnBudget in CDK with an SNS topic to the owner, plus a hard spend cap on the OpenAI project set by hand in the OpenAI console.\n\nThis is a permanent control, not scaffolding. It is the only thing that catches a bug in our own code, which no authentication check ever will.\n\n**Done when:** the budget exists in CDK, a test notification arrives, and the OpenAI cap is set.",
+  "type": "chore",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:39:45.114248Z",
+  "updated_at": "2026-09-01T02:46:21.064766Z",
+  "closed_at": null,
+  "custom": {}
+}

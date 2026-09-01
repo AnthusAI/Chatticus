@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-0df6cb14-d542-4e43-8258-b324600729ca",
+  "title": "Stand up a Cognito user pool federating Google",
+  "description": "**Phase 2 of 7.**\n\n- **Blocked by:** 0ab02c\n- **Runs in parallel with:** b574a6, which shares no files with this\n- **Unblocks:** 5f0c4c, 5558db\n\n---\nCDK per environment: UserPool, UserPoolIdentityProviderGoogle, and a public app client using authorization code with PKCE and no client secret. Custom auth domain auth-dev, auth-staging, auth. Publish pool id, client id, and domain to SSM under the existing web parameter prefix.\n\nUse single-label names. The existing certificate in infra/lib/dns-stack.ts covers *.chattic.us, and a wildcard matches one label only, so auth.dev.chattic.us would need a new certificate and auth-dev.chattic.us does not.\n\nCognito authenticates and nothing else. Do not model organizations, membership, or roles as Cognito groups: they are global to the pool, they land in the token, and token claims go stale against the records that govern spending.\n\n**Done when:** development is deployed and the authorize URL with identity_provider=Google lands on Google's consent screen and returns a code.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:40:05.893097Z",
+  "updated_at": "2026-09-01T02:46:21.156317Z",
+  "closed_at": null,
+  "custom": {}
+}

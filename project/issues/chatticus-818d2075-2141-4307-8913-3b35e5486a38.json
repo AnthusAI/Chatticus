@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-818d2075-2141-4307-8913-3b35e5486a38",
+  "title": "Shared channels and organization-owned bots",
+  "description": "Phase 5. Blocked entirely by 7b4616; do not start any of it before the door closes.\n\nBots become organization-owned, channels carry participants instead of an owner, and the computer serves the whole organization. Specification 14f692 comes first and gates the other three.\n\n**Warning:** 6c1a9b, 0814e6, and ddf609 all edit models.py and messaging/store.py. Independent in logic, colliding in files. One agent, or strictly sequenced merges.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:33:39.865112Z",
+  "updated_at": "2026-09-01T02:46:57.823182Z",
+  "closed_at": null,
+  "custom": {}
+}
