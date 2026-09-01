@@ -147,6 +147,55 @@ export CHATTICUS_DEVELOPMENT_BASE_URL=https://dev.chattic.us/api
 
 Acceptance and workers use the `/api` base URL on the site hostname.
 
+## OpenAI API key (per deployment)
+
+Each thin-turn stack reads its OpenAI key at **runtime** from a
+deployment-scoped SSM SecureString. CDK imports the parameter path only;
+it does **not** create the parameter or embed the key in CloudFormation
+(unlike the invoke-key secret, which CDK generates and unwraps into the
+Lambda environment).
+
+| Environment | SSM path |
+| --- | --- |
+| development | `/chatticus/development/thin-turn/openai-api-key` |
+| staging | `/chatticus/staging/thin-turn/openai-api-key` |
+| production | `/chatticus/production/thin-turn/openai-api-key` |
+
+**Human prerequisite** (before live OpenAI turns in a deployment):
+
+1. In the [OpenAI platform](https://platform.openai.com/), create a
+   **project** for this deployment (e.g. `chatticus-development`).
+2. Create an API key scoped to that project. Never commit the key to git.
+3. Store it in SSM:
+
+```bash
+export ENV=development   # or staging | production
+aws ssm put-parameter \
+  --name "/chatticus/${ENV}/thin-turn/openai-api-key" \
+  --type SecureString \
+  --value "sk-..." \
+  --overwrite \
+  --description "OpenAI API key for Chatticus ${ENV} thin-turn"
+```
+
+`npx cdk synth` and thin-turn deploy succeed without the parameter
+existing (import-only reference). Deployed Lambdas always set
+`OPENAI_API_KEY_PARAMETER`, so a live turn that needs OpenAI completion
+raises SSM `ParameterNotFound` until the human seeds the SecureString
+above. The fake client is only used when that env var is unset (for
+example local dev without `.env`).
+
+Deploy **one named thin-turn stack** after seeding SSM for that
+environment, for example:
+
+```bash
+npx cdk deploy ChatticusThinTurn          # development
+npx cdk deploy ChatticusThinTurnStaging   # staging
+npx cdk deploy ChatticusThinTurnProduction  # production (gated)
+```
+
+Never `cdk deploy --all`.
+
 ## Deploy thin-turn only
 
 ```bash

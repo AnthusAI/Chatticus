@@ -52,12 +52,10 @@ is separated only by giving each deployment its own vendor project and
 key, and a deployment that shares a key with another one has vendor spend
 that cannot be attributed to either.
 
-Today `infra/lib/thin-turn-stack.ts` reads the OpenAI key from
-`/amplify/shared/papyrus/OPENAI_API_KEY`, a shared parameter belonging to
-a different product, referenced in five places. In a new dedicated
-account that parameter does not exist and the stack does not deploy. It
-is both the first blocker for a dedicated account and the reason vendor
-spend is currently unattributable.
+`infra/lib/thin-turn-stack.ts` reads the OpenAI key from
+`/chatticus/{environment}/thin-turn/openai-api-key`, a per-deployment
+parameter the human seeds before live turns. Each deployment gets its own
+OpenAI vendor project and key so vendor spend is attributable.
 
 ## Configurable limits
 

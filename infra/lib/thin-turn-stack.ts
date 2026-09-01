@@ -22,7 +22,6 @@ import {
 } from "./environments";
 
 const LAMBDA_WEB_ADAPTER_LAYER_VERSION = 28;
-const OPENAI_PARAMETER_NAME = "/amplify/shared/papyrus/OPENAI_API_KEY";
 
 /**
  * Zero-idle computerless turn: DynamoDB, SQS, Lambda Web Adapter SSE.
@@ -45,6 +44,7 @@ export class ThinTurnStack extends cdk.Stack {
 
     const environmentName = props.chatticusEnvironment;
     const parameterPrefix = thinTurnParameterPrefix(environmentName);
+    const openAiParameterName = `${parameterPrefix}/openai-api-key`;
     const retainData = environmentName !== "development";
     cdk.Tags.of(this).add("chatticus:environment", environmentName);
 
@@ -89,7 +89,7 @@ export class ThinTurnStack extends cdk.Stack {
     const openaiParameter = ssm.StringParameter.fromSecureStringParameterAttributes(
       this,
       "OpenAiKey",
-      { parameterName: OPENAI_PARAMETER_NAME },
+      { parameterName: openAiParameterName },
     );
 
     const httpCode = lambda.Code.fromAsset(pythonRoot, {
@@ -159,7 +159,7 @@ export class ThinTurnStack extends cdk.Stack {
       CHATTICUS_TURN_QUEUE_URL: turnQueue.queueUrl,
       CHATTICUS_COMPUTER_TURN_QUEUE_URL: computerTurnQueue.queueUrl,
       OPENAI_MODEL: "gpt-5.6-luna",
-      OPENAI_API_KEY_PARAMETER: OPENAI_PARAMETER_NAME,
+      OPENAI_API_KEY_PARAMETER: openAiParameterName,
     };
 
     const turnDeadlineSchedulerEnv: Record<string, string> = {
@@ -238,7 +238,7 @@ export class ThinTurnStack extends cdk.Stack {
       new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],
         resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter${OPENAI_PARAMETER_NAME}`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${openAiParameterName}`,
         ],
       }),
     );
@@ -294,7 +294,7 @@ export class ThinTurnStack extends cdk.Stack {
       new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],
         resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter${OPENAI_PARAMETER_NAME}`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${openAiParameterName}`,
           `arn:aws:ssm:${this.region}:${this.account}:parameter${cloudFrontUrlParameterName}`,
         ],
       }),

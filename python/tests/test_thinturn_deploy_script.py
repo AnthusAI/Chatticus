@@ -86,6 +86,22 @@ def test_computer_worker_lambda_forwards_front_door_url() -> None:
     assert "CHATTICUS_FRONT_DOOR_URL: functionUrl.url" in text
 
 
+def test_thin_turn_stack_uses_per_deployment_openai_parameter() -> None:
+    source = (
+        Path(__file__).resolve().parents[2] / "infra" / "lib" / "thin-turn-stack.ts"
+    )
+    text = source.read_text()
+    assert "/amplify/shared/papyrus/OPENAI_API_KEY" not in text
+    assert "OPENAI_PARAMETER_NAME" not in text
+    assert "${parameterPrefix}/openai-api-key" in text
+    assert "openAiParameterName" in text
+    assert "fromSecureStringParameterAttributes" in text
+    assert "OPENAI_API_KEY_PARAMETER: openAiParameterName" in text
+    for line in text.splitlines():
+        if "openAiParameterName" in line:
+            assert "unsafeUnwrap" not in line
+
+
 def test_cdk_app_uses_tsx_not_ts_node() -> None:
     cdk_json = Path(__file__).resolve().parents[2] / "infra" / "cdk.json"
     text = cdk_json.read_text()
