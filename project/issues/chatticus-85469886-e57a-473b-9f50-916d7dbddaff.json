@@ -3,7 +3,7 @@
   "title": "ChatticusBudgets construct with configurable limits",
   "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the rest of phase 1\n- **Unblocks:** the daily rollup\n\n---\nSupersedes the single-account shape of 79ca6a. A construct in infra/lib/ taking a monthly limit, alert thresholds, and notification targets, with defaults suiting a small deployment and a per-environment override. Every deployment gets one; none gets a hardcoded number.\n\n**On the first limit:** the new account has no history, and that is a feature. Start low enough that any spend is signal, then raise deliberately. Spend from the previously shared account (161, 149, 190 dollars June to August) is not a baseline for a fresh account and must not be used as one.\n\n**Runbook, not code:** cost allocation tags must be activated in the Billing console before any breakdown appears, and activation is not retroactive. A new account also reports nothing for roughly a day while Cost Explorer populates, which reads as a broken alarm unless it is written down.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -42,10 +42,22 @@
       "author": "agent@example.com",
       "text": "Plan approved with pushback. Implementation authorized on worktree `/tmp/chatticus-854698-budgets`, branch `cursor/chatticus-budgets-4a21` from `origin/develop`.\n\nRecover the CfnBudget + SNS shape from closed PR #116 / `origin/cursor/org-spend-alarm-4a21`. Do not revive `ChatticusOrgSpendAlarm`, `OrgSpendAlarmStack`, or `deploy-chatticus-org-spend-alarm.sh`. #116 did **not** land on develop — overlay comment 625f2c is incorrect.\n\n`ChatticusBudgets` is a construct owned only by `ChatticusSnapshots` (one AWS-meter budget per deployment account). Do **not** add unused `budgetsConfig` props to ThinTurn, Web, Computer, Dns, or GitHub stacks. `readBudgetsConfig` in `infra/bin/chatticus.ts` plus instantiation in `SnapshotStack` is enough. Shared `budgets-deploy-context.sh` on named deploy scripts forwards human-set env vars; no invented monthly USD or email; both required or omit budget resources; partial context throws. Never use $161/$149/$190. `computerCount` stays 0. Never `cdk deploy --all`. OpenAI caps stay console-only. Tag activation and Cost Explorer lag are runbook, not code.\n",
       "created_at": "2026-09-01T04:22:11.832917Z"
+    },
+    {
+      "id": "293a9863-1e5a-4efd-8c57-568da51af7f6",
+      "author": "agent@example.com",
+      "text": "Landed on develop via #125 (1f14636). ChatticusBudgets on ChatticusSnapshots only; fail-closed context; no invented USD. Human still sets CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD + CHATTICUS_BUDGETS_NOTIFICATION_EMAIL, confirms SNS, activates cost allocation tags. OpenAI caps remain console-only.",
+      "created_at": "2026-09-01T04:37:08.816334Z"
+    },
+    {
+      "id": "dd7b847c-7685-4b18-a699-7084d9617542",
+      "author": "home",
+      "text": "**Reviewed #125. The construct is right; its mounting point is not, and it carries a silent-deletion hazard.**\n\nGood: reusable construct with props, conditional so CI without context synthesizes nothing, tests on both the TypeScript and Python sides, the refuses-invented-defaults behavior carried forward from 79ca6a, and the README documenting that a new account reports nothing for about a day while Cost Explorer populates.\n\n**The hazard.** Budgets hang off `ChatticusSnapshots` behind `if (props?.budgetsConfig)`, and `deploy-chatticus-snapshots.sh` forwards `${BUDGETS_CDK_CONTEXT}`, which is empty when the environment variables are unset. Deploying the snapshot stack without them synthesizes a template with no budget, and CloudFormation deletes the budget and its SNS topic. That is the same class of failure this card avoided on the input side, arriving on the output side: a wrong limit is visible, a deleted budget looks exactly like a working one until the month it was needed.\n\nAlso worth weighing: AGENTS.md says never destroy `ChatticusSnapshots` because it holds the canonical snapshot store, and this makes it the stack you must redeploy to change a spend limit. Budget limits get tuned; snapshot buckets do not.\n\nCarded as a follow-up rather than reopening this one, since the construct is sound and only its home needs to move.",
+      "created_at": "2026-09-01T04:38:35.279777Z"
     }
   ],
   "created_at": "2026-09-01T03:21:48.625589Z",
-  "updated_at": "2026-09-01T04:22:11.832917Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T04:38:35.279777Z",
+  "closed_at": "2026-09-01T04:37:08.800020Z",
   "custom": {}
 }

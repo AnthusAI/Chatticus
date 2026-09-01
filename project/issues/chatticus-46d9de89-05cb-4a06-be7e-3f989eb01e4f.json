@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-46d9de89-05cb-4a06-be7e-3f989eb01e4f",
+  "title": "Budgets belong in their own account-scoped stack",
+  "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** anything\n- **Unblocks:** nothing, but it removes a way to lose the budget silently\n\n---\n**Found reviewing #125.** The construct itself is good: reusable, conditional, tested on both sides, and it refuses invented defaults. The problem is where it is mounted.\n\n**A budget can be deleted by deploying something unrelated.** `ChatticusBudgets` is attached to `ChatticusSnapshots` behind `if (props?.budgetsConfig)`, and `deploy-chatticus-snapshots.sh` passes `${BUDGETS_CDK_CONTEXT}`, which is empty when the environment variables are unset. Anyone deploying the snapshot stack without those variables synthesizes a template with no budget in it, and CloudFormation removes the budget and its SNS topic.\n\nThat is worse than the invented-default failure this card was careful to avoid. A wrong limit is visible; a deleted budget looks exactly like a working one until the month you needed it.\n\n**Second reason to move it.** AGENTS.md says never destroy `ChatticusSnapshots`, because it holds the canonical snapshot store. Mounting budgets there means every limit change or address change redeploys the one stack the repository protects most. Budget limits are tuned; snapshot buckets are not.\n\n**Do:** a dedicated account-scoped `ChatticusBudgets` stack holding the budget and the SNS topic. Cheap, independently deployable, and it makes the deletion hazard structurally impossible rather than a rule someone has to remember.\n\n**While there:** only the snapshots script needs budget context today, yet all seven deploy scripts source `budgets-deploy-context.sh`. Once budgets are their own stack, exactly one script should carry it. `deploy-chatticus-snapshots.sh` also still lacks `--exclusively`, which belongs to 7695e0.\n\n**Done when:** budgets deploy and change without touching the snapshot stack, and a deploy that omits the context cannot remove an existing budget.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e3e94cd-ae24-4ead-8d4c-1ae15d21190c",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T04:38:35.265576Z",
+  "updated_at": "2026-09-01T04:38:35.265576Z",
+  "closed_at": null,
+  "custom": {}
+}

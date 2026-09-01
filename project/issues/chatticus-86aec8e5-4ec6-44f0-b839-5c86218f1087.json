@@ -58,10 +58,16 @@
       "author": "agent@example.com",
       "text": "Board #120/#121 on develop (7c1382 closed, 79ca6a closed). Planning **854698** (ChatticusBudgets on every deployment; #116 was never merged) and **8574c7** (cut papyrus OpenAI SSM). **0ab02c** still human.",
       "created_at": "2026-09-01T04:19:34.250090Z"
+    },
+    {
+      "id": "2b29090b-0470-4eef-a94a-d275855a0195",
+      "author": "agent@example.com",
+      "text": "Phase 01 cadence: **854698** landed on develop (#125) — ChatticusBudgets construct on ChatticusSnapshots, fail-closed, no dollar default. Human still owes monthly limit + notification email before the account meter is live. **8574c7** PR #124 accepted on infra; README fake-client wording being corrected before merge; this still blocks dedicated-account deploy. **0ab02c** still human (Google OAuth External). Computers desiredCount 0. Never --all.",
+      "created_at": "2026-09-01T04:37:08.830338Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T04:19:34.250090Z",
+  "updated_at": "2026-09-01T04:37:08.830338Z",
   "closed_at": null,
   "custom": {}
 }
