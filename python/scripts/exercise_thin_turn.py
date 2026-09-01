@@ -120,6 +120,11 @@ def _computer_continuation_matches(body: dict, *, job_id: str, turn_id: str) -> 
     )
 
 
+def _should_reconnect_first_stream(dropped_mid_stream: bool) -> bool:
+    """Reconnect only after an intentional mid-token drop (178a1f)."""
+    return dropped_mid_stream
+
+
 def _streamed_body_matches_completed(events: list[dict]) -> bool:
     """Return True when turn.completed body equals joined turn.token text."""
     tokens = "".join(
@@ -1046,7 +1051,12 @@ def main() -> int:
                 ):
                     dropped_mid_stream = True
                     break
-                if events and events[-1].get("kind") == "turn.completed":
+                terminal_kind = events[-1].get("kind")
+                if terminal_kind in (
+                    "turn.completed",
+                    "turn.failed",
+                    "turn.reconciling",
+                ):
                     break
                 if time.time() > deadline:
                     break
@@ -1055,30 +1065,36 @@ def main() -> int:
         if not events:
             print("first stream delivered no events", file=sys.stderr)
             return 1
-        if dropped_mid_stream:
-            reconnect_after = events[-1]["seq"]
-        else:
-            reconnect_after = max(1, events[0]["seq"])
-        print(f"reconnect_last_event_id={reconnect_after}")
         resumed: list[dict] = []
-        with client.stream(
-            "GET",
-            org_path(args.tenant_id, f"/turns/{turn_id}/stream"),
-            headers={"Last-Event-ID": str(reconnect_after)},
-        ) as stream:
-            stream.raise_for_status()
-            buffer = ""
-            deadline = time.time() + 90
-            for chunk in stream.iter_bytes():
-                buffer += chunk.decode()
-                parsed, buffer = _frames(buffer)
-                resumed.extend(parsed)
-                combined = events + resumed
-                if combined and combined[-1].get("kind") == "turn.completed":
-                    break
-                if time.time() > deadline:
-                    break
-        print(f"resumed_stream_kinds={[event.get('kind') for event in resumed]}")
+        if _should_reconnect_first_stream(dropped_mid_stream):
+            reconnect_after = events[-1]["seq"]
+            print(f"reconnect_last_event_id={reconnect_after}")
+            with client.stream(
+                "GET",
+                org_path(args.tenant_id, f"/turns/{turn_id}/stream"),
+                headers={"Last-Event-ID": str(reconnect_after)},
+            ) as stream:
+                stream.raise_for_status()
+                buffer = ""
+                deadline = time.time() + 90
+                for chunk in stream.iter_bytes():
+                    buffer += chunk.decode()
+                    parsed, buffer = _frames(buffer)
+                    resumed.extend(parsed)
+                    combined = events + resumed
+                    if combined and combined[-1].get("kind") == "turn.completed":
+                        break
+                    if time.time() > deadline:
+                        break
+            print(f"resumed_stream_kinds={[event.get('kind') for event in resumed]}")
+            if resumed and min(event["seq"] for event in resumed) <= reconnect_after:
+                print(
+                    f"reconnect replayed seq at or before Last-Event-ID={reconnect_after}",
+                    file=sys.stderr,
+                )
+                return 1
+        else:
+            print("reconnect_skip=1")
         all_events = events + resumed
         seqs = [event["seq"] for event in all_events]
         if len(seqs) != len(set(seqs)):
@@ -1087,14 +1103,16 @@ def main() -> int:
         if seqs != sorted(seqs):
             print(f"out-of-order seqs: {seqs}", file=sys.stderr)
             return 1
-        if resumed and min(event["seq"] for event in resumed) <= reconnect_after:
-            print(
-                f"reconnect replayed seq at or before Last-Event-ID={reconnect_after}",
-                file=sys.stderr,
-            )
-            return 1
         if not any(event.get("kind") == "turn.completed" for event in all_events):
-            print("reconnect did not reach turn.completed", file=sys.stderr)
+            failed = [
+                event for event in all_events if event.get("kind") == "turn.failed"
+            ]
+            if failed:
+                print(
+                    f"greeting_turn_failed body={failed[-1].get('body')!r}",
+                    file=sys.stderr,
+                )
+            print("greeting did not reach turn.completed", file=sys.stderr)
             return 1
         stopped_response = client.get(
             org_path(args.tenant_id, "/computers/stopped"),

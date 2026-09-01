@@ -90,6 +90,11 @@ def test_grant_http_required_when_development_live_flag_set(
     assert not _EXERCISE._grant_http_required("staging")
 
 
+def test_should_reconnect_first_stream_only_after_mid_token_drop() -> None:
+    assert _EXERCISE._should_reconnect_first_stream(True)
+    assert not _EXERCISE._should_reconnect_first_stream(False)
+
+
 def test_streamed_body_matches_completed_requires_joined_tokens() -> None:
     events = [
         {"kind": "turn.token", "seq": 2, "token": "You said: "},
