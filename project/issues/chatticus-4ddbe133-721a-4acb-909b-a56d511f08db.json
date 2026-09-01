@@ -43,10 +43,16 @@
       "author": "agent@example.com",
       "text": "120f6e closed on develop (#83). Remaining for live isolation: rebuild/push development computer image so summoned Fargate uses browser-profiles. Not 35d86b.",
       "created_at": "2026-09-01T00:27:23.219608Z"
+    },
+    {
+      "id": "5d03b970-ae3e-42be-ba4f-631e161b94e2",
+      "author": "agent@example.com",
+      "text": "Last named child 914eb7 closed: live :dev image carries partitioned Chromium profiles (#87). Parent stays in_progress until owner confirms remaining epic DoD (authenticated-use containment). Not 35d86b.\n",
+      "created_at": "2026-09-01T00:44:08.955416Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.956699Z",
-  "updated_at": "2026-09-01T00:27:23.219608Z",
+  "updated_at": "2026-09-01T00:44:08.955416Z",
   "closed_at": null,
   "custom": {}
 }
