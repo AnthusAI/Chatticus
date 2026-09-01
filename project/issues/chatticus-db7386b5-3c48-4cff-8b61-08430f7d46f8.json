@@ -94,10 +94,16 @@
       "author": "home",
       "text": "User refinement: lime backing plane is visually a little too large. Tightening its base inset while preserving its existing subtle independent motion.",
       "created_at": "2026-09-01T19:00:30.483959Z"
+    },
+    {
+      "id": "d599ab51-85e3-41de-8e03-52bb18506686",
+      "author": "home",
+      "text": "User correction: grey shadow geometry is still too tall/long and overlaps the caption. Shortening the shadow plane materially so it clears the caption. Replacing the meaningless 'A working workspace prototype' caption with the product-relevant 'One brief. Four roles. Your approval.' Visual inspection required before handoff.",
+      "created_at": "2026-09-01T19:02:37.930493Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T19:00:30.483959Z",
+  "updated_at": "2026-09-01T19:02:37.930493Z",
   "closed_at": null,
   "custom": {}
 }
