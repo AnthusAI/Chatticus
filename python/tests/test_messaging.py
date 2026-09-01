@@ -2029,3 +2029,124 @@ def test_stale_attempt_cannot_append_after_reassignment() -> None:
     turn = plane.turn(channel.tenant_id, turn_id)
     assert turn.status == TurnStatus.COMPLETED
     api.close()
+
+
+def test_complete_turn_second_message_uses_chunks_not_prior_greeting() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    worker = ComputerlessWorker(
+        plane,
+        HttpTurnClient(api, channel.tenant_id),
+        FakeTextCompletionClient(),
+    )
+    first_post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    worker.complete_pending_for_bot(bot.bot_id)
+    second_post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "what is two plus two",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    second_turn_id = second_post.json()["turn_id"]
+    worker.complete_pending_for_bot(bot.bot_id)
+    chunks = plane._messaging_store.list_turn_chunks(channel.tenant_id, second_turn_id)
+    messages = plane.list_channel_messages(channel.channel_id, channel.tenant_id)
+    bot_messages = [
+        message for message in messages if message.author_kind == ActorKind.BOT
+    ]
+    assert len(bot_messages) == 2
+    assert bot_messages[-1].body == "".join(chunks)
+    assert bot_messages[-1].body != bot_messages[0].body
+    assert first_post.json()["turn_id"] != second_turn_id
+    api.close()
+
+
+def test_complete_turn_idempotent_after_completion_append() -> None:
+    from chatticus.models import Message
+
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    turn_client = HttpTurnClient(api, channel.tenant_id)
+    turn_client.claim(turn_id, "worker-a")
+    turn_client.post_chunk(turn_id, "Answer one.")
+    turn = plane.turn(channel.tenant_id, turn_id)
+    body = plane._joined_turn_body(turn)
+    channel_record = plane.channel(channel.tenant_id, channel.channel_id)
+    message = Message(
+        message_id=str(uuid4()),
+        channel_id=channel.channel_id,
+        tenant_id=channel.tenant_id,
+        seq=channel_record.next_seq,
+        author_kind=ActorKind.BOT,
+        author_id=bot.bot_id,
+        body=body,
+        addressed_to_bot_id=None,
+        created_at=plane._now,
+    )
+    channel_record.next_seq += 1
+    plane._messaging_store.put_channel(channel_record)
+    plane._messaging_store.put_message(message)
+    completed = plane._complete_turn(turn, expected_fence=turn.fence_token)
+    assert completed.body == "Answer one."
+    bot_messages = [
+        row
+        for row in plane.list_channel_messages(channel.channel_id, channel.tenant_id)
+        if row.author_kind == ActorKind.BOT
+    ]
+    assert len(bot_messages) == 1
+    assert plane.turn(channel.tenant_id, turn_id).status == TurnStatus.COMPLETED
+    api.close()
+
+
+def test_complete_turn_completed_turn_uses_event_message_seq() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    bot, channel = _channel_with_bot(plane, "Assistant")
+    post = api.post(
+        f"/channels/{channel.channel_id}/messages",
+        json={
+            "author_kind": ActorKind.HUMAN,
+            "author_id": "ryan",
+            "body": "hello",
+            "addressed_to_bot_id": bot.bot_id,
+        },
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    turn_id = post.json()["turn_id"]
+    turn_client = HttpTurnClient(api, channel.tenant_id)
+    turn_client.claim(turn_id, "worker-a")
+    turn_client.post_chunk(turn_id, "Answer one.", complete=True)
+    turn = plane.turn(channel.tenant_id, turn_id)
+    events = plane.list_turn_events(channel.tenant_id, turn_id)
+    completed_event = events[-1]
+    assert completed_event.kind == TurnEventKind.TURN_COMPLETED
+    assert completed_event.message_seq is not None
+    message = plane._complete_turn(turn)
+    assert message.seq == completed_event.message_seq
+    api.close()

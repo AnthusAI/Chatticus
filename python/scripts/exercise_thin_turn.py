@@ -116,6 +116,19 @@ def _computer_continuation_matches(body: dict, *, job_id: str, turn_id: str) -> 
     )
 
 
+def _streamed_body_matches_completed(events: list[dict]) -> bool:
+    """Return True when turn.completed body equals joined turn.token text."""
+    tokens = "".join(
+        str(event["token"])
+        for event in events
+        if event.get("kind") == "turn.token" and event.get("token") is not None
+    )
+    completed = [event for event in events if event.get("kind") == "turn.completed"]
+    if not completed:
+        return False
+    return completed[-1].get("body") == tokens
+
+
 def _tool_result_bodies(events: list[dict]) -> list[str]:
     """Return durable journal bodies for tool.result events."""
     bodies: list[str] = []
@@ -1114,6 +1127,65 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+        first_greeting_body = bot_messages[0]["body"]
+        second_post = client.post(
+            f"/channels/{channel['channel_id']}/messages",
+            json={
+                "author_kind": ActorKind.HUMAN,
+                "author_id": args.user_id,
+                "body": "Reply with exactly: SECOND-TURN-MARKER.",
+                "addressed_to_bot_id": bot["bot_id"],
+            },
+        )
+        if second_post.status_code >= 400:
+            print(
+                f"second_turn_post {second_post.status_code} "
+                f"{second_post.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        second_turn_id = second_post.json()["turn_id"]
+        second_events: list[dict] = []
+        with client.stream("GET", f"/turns/{second_turn_id}/stream") as stream:
+            stream.raise_for_status()
+            buffer = ""
+            deadline = time.time() + 90
+            for chunk in stream.iter_bytes():
+                buffer += chunk.decode()
+                parsed, buffer = _frames(buffer)
+                second_events.extend(parsed)
+                if second_events and second_events[-1].get("kind") == "turn.completed":
+                    break
+                if time.time() > deadline:
+                    break
+        if not _streamed_body_matches_completed(second_events):
+            completed = [
+                event
+                for event in second_events
+                if event.get("kind") == "turn.completed"
+            ]
+            tokens = "".join(
+                str(event["token"])
+                for event in second_events
+                if event.get("kind") == "turn.token" and event.get("token") is not None
+            )
+            body = completed[-1].get("body") if completed else None
+            print(
+                f"second_turn_body_mismatch streamed={tokens!r} completed={body!r}",
+                file=sys.stderr,
+            )
+            return 1
+        second_completed = [
+            event for event in second_events if event.get("kind") == "turn.completed"
+        ]
+        if second_completed[-1].get("body") == first_greeting_body:
+            print(
+                "second_turn_completed_body reused first greeting "
+                f"{first_greeting_body!r}",
+                file=sys.stderr,
+            )
+            return 1
+        print("second_turn_completed_body=1")
         browser_post = client.post(
             f"/channels/{channel['channel_id']}/messages",
             json={

@@ -20,6 +20,17 @@ Feature: Thin-turn demo conversation from the CLI
     Then the demo client saw turn tokens in order without duplicate sequences
     And the demo client saw the committed bot reply
 
+  Scenario: A second turn commits the streamed answer after a prior bot greeting
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
+    When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel
+    Then bot "Assistant" completes one turn
+    When user "ryan" of tenant "anthus" posts "what is two plus two" addressed to bot "Assistant" on the channel
+    And the demo client watches the turn stream for that channel
+    Then the demo client saw turn tokens in order
+    And the committed bot reply matches the streamed tokens
+    And the committed bot reply is not the prior bot greeting on the channel
+
   Scenario: List in-flight turns after a Front Door recycle
     Given an empty control plane backed by a durable messaging store with HTTP
     And tenant "anthus" user "ryan" has a bot named "Assistant"

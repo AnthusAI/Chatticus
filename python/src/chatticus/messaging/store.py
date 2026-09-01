@@ -1475,6 +1475,8 @@ def _turn_item(turn: Turn) -> dict[str, Any]:
         item["pending_computer_action_id"] = {"S": turn.pending_computer_action_id}
     if turn.pending_computer_tool_name is not None:
         item["pending_computer_tool_name"] = {"S": turn.pending_computer_tool_name}
+    if turn.prompt_message_seq is not None:
+        item["prompt_message_seq"] = {"N": str(turn.prompt_message_seq)}
     return item
 
 
@@ -1513,6 +1515,11 @@ def _turn_from_item(item: dict[str, Any]) -> Turn:
         ),
         pending_computer_tool_name=(
             item.get("pending_computer_tool_name", {}).get("S") or None
+        ),
+        prompt_message_seq=(
+            int(item["prompt_message_seq"]["N"])
+            if item.get("prompt_message_seq", {}).get("N") is not None
+            else None
         ),
     )
 

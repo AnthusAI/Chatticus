@@ -2049,7 +2049,10 @@ class ControlPlane:
         started: Turn | None = None
         if addressed_to_bot_id is not None:
             started = self._start_turn_for_bot(
-                channel, addressed_to_bot_id, enqueue=enqueue_turn
+                channel,
+                addressed_to_bot_id,
+                enqueue=enqueue_turn,
+                prompt_message_seq=message.seq,
             )
         if idempotency_key is not None:
             turn_id = started.turn_id if started is not None else None
@@ -2455,13 +2458,19 @@ class ControlPlane:
         return self._complete_turn(turn, expected_fence=fence_token)
 
     def _start_turn_for_bot(
-        self, channel: Channel, bot_id: str, *, enqueue: bool = True
+        self,
+        channel: Channel,
+        bot_id: str,
+        *,
+        enqueue: bool = True,
+        prompt_message_seq: int | None = None,
     ) -> Turn:
         turn = Turn(
             turn_id=str(uuid4()),
             tenant_id=channel.tenant_id,
             channel_id=channel.channel_id,
             bot_id=bot_id,
+            prompt_message_seq=prompt_message_seq,
         )
         if enqueue and self.recovery_enabled:
             turn.deadline_at = self._now + self.turn_deadline
@@ -2506,23 +2515,67 @@ class ControlPlane:
                     self._offer_turn_queues(bound)
                 return
 
+    def _joined_turn_body(self, turn: Turn) -> str:
+        chunks = self._messaging_store.list_turn_chunks(turn.tenant_id, turn.turn_id)
+        return "".join(chunks)
+
+    def _channel_message_at_seq(
+        self, tenant_id: str, channel_id: str, seq: int
+    ) -> Message | None:
+        for message in self._messaging_store.list_messages(tenant_id, channel_id):
+            if message.seq == seq:
+                return message
+        return None
+
+    def _completed_turn_message(self, turn: Turn) -> Message | None:
+        events = self._messaging_store.list_turn_events(turn.tenant_id, turn.turn_id)
+        for event in reversed(events):
+            if event.kind != TurnEventKind.TURN_COMPLETED:
+                continue
+            if event.message_seq is not None:
+                return self._channel_message_at_seq(
+                    turn.tenant_id, turn.channel_id, event.message_seq
+                )
+            if event.body is not None:
+                return Message(
+                    message_id=str(uuid4()),
+                    channel_id=turn.channel_id,
+                    tenant_id=turn.tenant_id,
+                    seq=event.message_seq or 0,
+                    author_kind=ActorKind.BOT,
+                    author_id=turn.bot_id,
+                    body=event.body,
+                    addressed_to_bot_id=None,
+                    created_at=self._now,
+                )
+        return None
+
+    def _idempotent_completion_message(
+        self, turn: Turn, body: str, messages: list[Message]
+    ) -> Message | None:
+        for message in reversed(messages):
+            if message.author_kind != ActorKind.BOT:
+                continue
+            if message.author_id != turn.bot_id:
+                continue
+            if (
+                turn.prompt_message_seq is not None
+                and message.seq <= turn.prompt_message_seq
+            ):
+                continue
+            if message.body != body:
+                continue
+            return message
+        return None
+
     def _complete_turn(
         self, turn: Turn, *, expected_fence: int | None = None
     ) -> Message:
         if turn.status == TurnStatus.COMPLETED:
-            chunks = self._messaging_store.list_turn_chunks(
-                turn.tenant_id, turn.turn_id
-            )
-            messages = self._messaging_store.list_messages(
-                turn.tenant_id, turn.channel_id
-            )
-            for message in reversed(messages):
-                if (
-                    message.author_kind == ActorKind.BOT
-                    and message.author_id == turn.bot_id
-                ):
-                    return message
-            body = "".join(chunks)
+            message = self._completed_turn_message(turn)
+            if message is not None:
+                return message
+            body = self._joined_turn_body(turn)
             return Message(
                 message_id=str(uuid4()),
                 channel_id=turn.channel_id,
@@ -2534,20 +2587,16 @@ class ControlPlane:
                 addressed_to_bot_id=None,
                 created_at=self._now,
             )
+        body = self._joined_turn_body(turn)
         messages = self._messaging_store.list_messages(turn.tenant_id, turn.channel_id)
-        for message in reversed(messages):
-            if (
-                message.author_kind == ActorKind.BOT
-                and message.author_id == turn.bot_id
-            ):
-                return self._finalize_committed_turn(
-                    turn,
-                    message,
-                    body=message.body,
-                    expected_fence=expected_fence,
-                )
-        chunks = self._messaging_store.list_turn_chunks(turn.tenant_id, turn.turn_id)
-        body = "".join(chunks)
+        existing = self._idempotent_completion_message(turn, body, messages)
+        if existing is not None:
+            return self._finalize_committed_turn(
+                turn,
+                existing,
+                body=body,
+                expected_fence=expected_fence,
+            )
         channel = self.channel(turn.tenant_id, turn.channel_id)
         self._fault(TurnBoundary.COMPLETION_APPEND, CrashWindow.BEFORE)
         message = Message(

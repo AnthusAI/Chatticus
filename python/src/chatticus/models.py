@@ -376,6 +376,7 @@ class Turn:
     waiting_for: str | None = None
     pending_computer_action_id: str | None = None
     pending_computer_tool_name: str | None = None
+    prompt_message_seq: int | None = None
 
 
 @dataclass(frozen=True)

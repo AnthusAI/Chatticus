@@ -741,6 +741,26 @@ def then_channel_has_durable_bot_answer(context: object) -> None:
     assert len(bot_messages) == 1
 
 
+@then("the latest bot message body equals the joined chunks for the active turn")
+def then_latest_bot_message_matches_turn_chunks(context: object) -> None:
+    channel = _channel(context)
+    turn_id = _turn_id(context)
+    chunks = context.plane._messaging_store.list_turn_chunks(channel.tenant_id, turn_id)
+    joined = "".join(chunks)
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers=tenant_headers(channel.tenant_id),
+    )
+    assert response.status_code == 200
+    bot_messages = [
+        message
+        for message in response.json()["messages"]
+        if message["author_kind"] == ActorKind.BOT
+    ]
+    assert bot_messages
+    assert bot_messages[-1]["body"] == joined
+
+
 @then('tenant "{tenant_id}" user "{user_id}" household computer remains stopped')
 def then_household_computer_remains_stopped(
     context: object, tenant_id: str, user_id: str

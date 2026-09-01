@@ -8,6 +8,7 @@ from behave import then, when
 from messaging_steps import _channel, _turn_id
 
 from chatticus.http.client import HttpTurnClient
+from chatticus.models import ActorKind
 from chatticus.thin_turn_conversation import (
     ThinTurnConversationClient,
     TurnWatchOutcome,
@@ -104,6 +105,36 @@ def then_demo_saw_committed_reply(context: object) -> None:
     ]
     assert len(completed) == 1
     assert completed[0].get("body") == outcome.committed_body
+
+
+@then("the committed bot reply matches the streamed tokens")
+def then_committed_reply_matches_streamed_tokens(context: object) -> None:
+    outcome = _demo_outcome(context)
+    streamed = "".join(outcome.tokens)
+    assert outcome.committed_body == streamed
+    completed = [
+        event for event in outcome.events if event.get("kind") == "turn.completed"
+    ]
+    assert len(completed) == 1
+    assert completed[0].get("body") == streamed
+
+
+@then("the committed bot reply is not the prior bot greeting on the channel")
+def then_committed_reply_is_not_prior_greeting(context: object) -> None:
+    outcome = _demo_outcome(context)
+    channel = _channel(context)
+    response = context.api_client.get(
+        f"/channels/{channel.channel_id}/messages",
+        headers={"X-Tenant-Id": channel.tenant_id},
+    )
+    assert response.status_code == 200
+    bot_messages = [
+        message
+        for message in response.json()["messages"]
+        if message["author_kind"] == ActorKind.BOT
+    ]
+    assert len(bot_messages) >= 2
+    assert outcome.committed_body != bot_messages[0]["body"]
 
 
 @then("the demo client saw turn tokens in order without duplicate sequences")
