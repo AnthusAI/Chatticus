@@ -3,7 +3,7 @@
   "title": "Organizations, membership, invitations, and identity records",
   "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 79ca6a, 7c1382, 0ab02c, 1ebc7d. Touches no AWS, so it never collides with the Cognito track\n- **Unblocks:** b574a6, 5f0c4c, fac2ee\n\n---\nGherkin first in features/organizations.feature: an identity is minted on first sign-in and keyed by verified email; a created organization starts pending; an owner invites by email; accepting an invitation to an enabled organization grants immediate access; a user lists the organizations they belong to.\n\nThen Organization, Membership, Invitation, and Identity in models.py, and both stores in messaging/store.py. The table has no GSI, so the user-to-organizations direction needs a second item written alongside the first, the same dual-write the store already does for channel lookup at store.py:554. Invitation expiry uses the table's existing TTL attribute.\n\nuser_id is global and minted once per human. Organization data stays partitioned by tenant_id, which the existing key prefixes already express.\n\n**Done when:** behave and pytest pass over the new feature and both store implementations.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -24,10 +24,22 @@
       "author": "agent@example.com",
       "text": "Retarget from duplicate 6cfbdb. Worktree `/tmp/chatticus-6cfbdb-org-records`. Questions: tenant vs organization as isolation key; invitation identity before Cognito; dual-write like channel lookup.\n",
       "created_at": "2026-09-01T03:01:53.090463Z"
+    },
+    {
+      "id": "df72a56b-f7b8-4d44-bd9b-8e5dca2e3ca7",
+      "author": "agent@example.com",
+      "text": "Authorized implementation on worktree `/tmp/chatticus-6cfbdb-org-records` (`cursor/org-records-4a21`, rebased onto `origin/develop`).\n\nEmail normalization (adversarial comment): one function, used for Identity, Invitation, and later the members CLI. Strip + lowercase always. For `gmail.com` and `googlemail.com` only, also strip dots from the local part so `foo.bar@gmail.com` and `foobar@gmail.com` are the same key. Do not strip dots on other domains. Plus-tags are kept as-is in this slice.\n\nNo HTTP, no Principal, no ControlPlane, no deploy.",
+      "created_at": "2026-09-01T03:04:49.210352Z"
+    },
+    {
+      "id": "9a3a342f-675d-4790-99a1-c8bb7b7b5bf8",
+      "author": "home",
+      "text": "**Architect ruling: email normalization.**\n\nOne function, `normalize_email`, used by Identity, Invitation, and the members CLI. Lowercase and strip surrounding whitespace. **Do not strip Google dots or plus-addressing.**\n\nThe reasoning matters more than the rule. Dot-stripping is consumer-Gmail behavior and is wrong for Workspace domains, where a dotted local part can be a genuinely different person. Guessing wrong silently merges two humans into one identity, which is a security defect. A failed invitation match is a support ticket; a merged identity is a breach.\n\n**Consequence to build for:** an invitation can fail to match. Make that visible rather than silent. A person who signs in with no membership and no matching invitation reaches the waitlist screen, and the operator can see unmatched invitations through the members CLI. Do not silently create a second identity for a near-miss address.",
+      "created_at": "2026-09-01T03:05:54.235872Z"
     }
   ],
   "created_at": "2026-09-01T02:40:05.905442Z",
-  "updated_at": "2026-09-01T03:01:53.090463Z",
+  "updated_at": "2026-09-01T03:05:54.235872Z",
   "closed_at": null,
   "custom": {}
 }
