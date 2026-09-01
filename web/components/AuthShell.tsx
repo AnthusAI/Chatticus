@@ -2,8 +2,8 @@
 
 import type { ReactNode } from "react";
 
-import { AuthProvider } from "../lib/auth-context";
+import { MembershipProvider } from "../lib/membership-context";
 
 export function AuthShell({ children }: { children: ReactNode }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return <MembershipProvider>{children}</MembershipProvider>;
 }

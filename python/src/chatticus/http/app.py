@@ -15,11 +15,14 @@ from pydantic import BaseModel, Field
 
 from chatticus.capability_policy import grant_from_payload
 from chatticus.capability_sinks import CapabilitySinkDenied
+from chatticus.cognito_jwt import CognitoJwtVerifier, CognitoTokenError
 from chatticus.control_plane import ControlPlane
 from chatticus.http.principal import (
     RequireWorkerPrincipal,
     reject_worker_credential,
     require_worker_principal,
+    resolve_me_from_token,
+    waitlist_safe,
 )
 from chatticus.http.sse import (
     cursor_from_last_event_id,
@@ -49,6 +52,7 @@ from chatticus.models import (
     pending_computer_tool_from_turn,
 )
 from chatticus.principal import Principal
+from chatticus.worker_credentials import parse_bearer_token
 
 logger = logging.getLogger("chatticus.http")
 INVOKE_HEADER = "X-Chatticus-Invoke-Key"
@@ -194,6 +198,21 @@ def _assert_worker_id_matches(principal: Principal, worker_id: str) -> None:
         )
 
 
+class MeOrganizationBody(BaseModel):
+    """One organization row in GET /me."""
+
+    tenant_id: str
+    status: str
+
+
+class MeResponseBody(BaseModel):
+    """Membership snapshot for the signed-in user."""
+
+    email: str
+    user_id: str | None
+    organizations: list[MeOrganizationBody]
+
+
 @dataclass
 class AppState:
     """Mutable front-door state attached to each app instance."""
@@ -201,6 +220,7 @@ class AppState:
     plane: ControlPlane
     invoke_key: str
     environment: str
+    cognito_verifier: CognitoJwtVerifier | None = None
     open_sse_streams: int = 0
 
 
@@ -218,6 +238,7 @@ def create_app(
     *,
     invoke_key: str | None = None,
     environment: str | None = None,
+    cognito_verifier: CognitoJwtVerifier | None = None,
 ) -> FastAPI:
     """Build a FastAPI app backed by one control plane instance."""
     resolved_key = (
@@ -234,6 +255,7 @@ def create_app(
         plane=plane,
         invoke_key=resolved_key,
         environment=resolved_environment,
+        cognito_verifier=cognito_verifier,
     )
     app = FastAPI(
         title="Chatticus control plane",
@@ -271,6 +293,34 @@ def create_app(
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "environment": state.environment}
+
+    @waitlist_safe
+    @app.get("/me")
+    def get_me(request: Request) -> MeResponseBody:
+        verifier = state.cognito_verifier
+        if verifier is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Cognito verifier is not configured for GET /me.",
+            )
+        token = parse_bearer_token(request.headers.get("Authorization"))
+        if token is None:
+            raise HTTPException(status_code=403, detail="user credential required")
+        try:
+            me = resolve_me_from_token(state.plane, token, verifier=verifier)
+        except CognitoTokenError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        return MeResponseBody(
+            email=me.email,
+            user_id=me.user_id,
+            organizations=[
+                MeOrganizationBody(
+                    tenant_id=organization.tenant_id,
+                    status=organization.status.value,
+                )
+                for organization in me.organizations
+            ],
+        )
 
     @org_router.post("/workers/register")
     def register_worker(

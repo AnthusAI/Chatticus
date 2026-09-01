@@ -1,5 +1,6 @@
 import type { TurnEvent } from "./api";
-import { apiBase, tenantId } from "./config";
+import { apiBase } from "./config";
+import { authorizedHeaders } from "./api-auth";
 import { orgApiPath } from "./paths";
 import { isTerminalTurnEvent, parseSseFrames } from "./sse-parse";
 
@@ -11,6 +12,7 @@ export type TurnStreamHandlers = {
 
 /** Open a turn-scoped SSE stream via fetch against the org-scoped front door. */
 export function openTurnStream(
+  tenantId: string,
   turnId: string,
   handlers: TurnStreamHandlers,
   lastEventId?: number,
@@ -18,14 +20,15 @@ export function openTurnStream(
   const controller = new AbortController();
   let closed = false;
 
-  const headers: Record<string, string> = {
-    Accept: "text/event-stream",
-  };
-  if (lastEventId && lastEventId > 0) {
-    headers["Last-Event-ID"] = String(lastEventId);
-  }
-
   void (async () => {
+    const headers: Record<string, string> = {
+      Accept: "text/event-stream",
+      ...(await authorizedHeaders()),
+    };
+    if (lastEventId && lastEventId > 0) {
+      headers["Last-Event-ID"] = String(lastEventId);
+    }
+
     try {
       const response = await fetch(
         `${apiBase}${orgApiPath(tenantId, `/turns/${encodeURIComponent(turnId)}/stream`)}`,

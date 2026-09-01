@@ -162,6 +162,49 @@ def resolve_user_principal_from_token(
     )
 
 
+@dataclass(frozen=True)
+class MeOrganization:
+    """One organization row returned by GET /me."""
+
+    tenant_id: str
+    status: OrganizationStatus
+
+
+@dataclass(frozen=True)
+class MeResponse:
+    """Tenant-agnostic membership snapshot for the signed-in user."""
+
+    email: str
+    user_id: str | None
+    organizations: tuple[MeOrganization, ...]
+
+
+def resolve_me_from_token(
+    plane: ControlPlane,
+    token: str,
+    *,
+    verifier: CognitoJwtVerifier,
+) -> MeResponse:
+    """Map one Cognito id_token to identity and organizations without path tenant.
+
+    Identity is keyed on verified email from the id_token, never Cognito sub.
+    A valid token with no identity or memberships returns empty orgs (200), not 403.
+    """
+    verified = verifier.verify_id_token(token)
+    identity = plane.get_identity_by_email(verified.email)
+    if identity is None:
+        return MeResponse(email=verified.email, user_id=None, organizations=())
+    organizations = plane.list_organizations_for_user(identity.user_id)
+    return MeResponse(
+        email=verified.email,
+        user_id=identity.user_id,
+        organizations=tuple(
+            MeOrganization(tenant_id=organization.tenant_id, status=organization.status)
+            for organization in organizations
+        ),
+    )
+
+
 async def resolve_user_bearer(
     request: Request,
     tenant_id: str,
