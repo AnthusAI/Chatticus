@@ -207,6 +207,65 @@ class TaskStatus(StrEnum):
     CLOSED = "closed"
 
 
+class OrganizationStatus(StrEnum):
+    """Lifecycle of one organization."""
+
+    PENDING = "pending"
+    ENABLED = "enabled"
+    SUSPENDED = "suspended"
+
+
+class MemberRole(StrEnum):
+    """Role of one member inside an organization."""
+
+    OWNER = "owner"
+    MEMBER = "member"
+
+
+class InvitationStatus(StrEnum):
+    """Lifecycle of one organization invitation."""
+
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    EXPIRED = "expired"
+
+
+class IdentityNotFoundError(ChatticusError):
+    """The user id or email is unknown."""
+
+
+class OrganizationNotFoundError(ChatticusError):
+    """The organization is unknown."""
+
+
+class OrganizationNotEnabledError(ChatticusError):
+    """The organization is not enabled yet."""
+
+
+class InvitationNotFoundError(ChatticusError):
+    """The invitation is unknown."""
+
+
+class InvitationEmailMismatchError(ChatticusError):
+    """The acceptor email does not match the invitation."""
+
+
+class DuplicateMembershipError(ChatticusError):
+    """The user is already a member of the organization."""
+
+
+class InvitationNotPendingError(ChatticusError):
+    """The invitation is not pending."""
+
+
+class InvitationExpiredError(ChatticusError):
+    """The invitation has expired."""
+
+
+class NotOrganizationOwnerError(ChatticusError):
+    """Only an owner may perform this action."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""
@@ -425,6 +484,50 @@ class Task:
     close_reason: str | None = None
     created_by_bot_id: str | None = None
     updated_by_bot_id: str | None = None
+
+
+@dataclass(frozen=True)
+class Identity:
+    """One global human account keyed by verified email."""
+
+    user_id: str
+    email: str
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class Organization:
+    """One organization; tenant_id is its identifier."""
+
+    tenant_id: str
+    name: str
+    status: OrganizationStatus
+    owner_user_id: str
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class Membership:
+    """One user's membership in one organization."""
+
+    tenant_id: str
+    user_id: str
+    role: MemberRole
+    joined_at: datetime
+
+
+@dataclass(frozen=True)
+class Invitation:
+    """One pending or accepted invitation to join an organization."""
+
+    invitation_id: str
+    tenant_id: str
+    email: str
+    invited_by_user_id: str
+    role: MemberRole
+    status: InvitationStatus
+    expires_at: datetime
+    created_at: datetime
 
 
 @dataclass(frozen=True)

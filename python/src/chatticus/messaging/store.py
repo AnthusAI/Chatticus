@@ -20,7 +20,14 @@ from chatticus.models import (
     Computer,
     ComputerPolicy,
     DuplicateBotNameError,
+    Identity,
+    Invitation,
+    InvitationStatus,
+    MemberRole,
+    Membership,
     Message,
+    Organization,
+    OrganizationStatus,
     PendingComputerToolSnapshot,
     StaleAttemptError,
     Task,
@@ -207,6 +214,39 @@ class MessagingStore(Protocol):
     ) -> TaskCapabilityGrant | None:
         """Load the task grant for one turn, if any."""
 
+    def put_identity(self, identity: Identity) -> None:
+        """Persist one global identity."""
+
+    def get_identity_by_email(self, email: str) -> Identity | None:
+        """Load one identity by normalized email."""
+
+    def get_identity(self, user_id: str) -> Identity | None:
+        """Load one identity by user id."""
+
+    def put_organization(self, organization: Organization) -> None:
+        """Persist one organization."""
+
+    def get_organization(self, tenant_id: str) -> Organization | None:
+        """Load one organization."""
+
+    def put_membership(self, membership: Membership) -> None:
+        """Persist one membership and its user-to-organization index."""
+
+    def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
+        """Load one membership."""
+
+    def list_memberships(self, tenant_id: str) -> list[Membership]:
+        """Return every membership in one organization."""
+
+    def list_organizations_for_user(self, user_id: str) -> list[Organization]:
+        """Return every organization one user belongs to."""
+
+    def put_invitation(self, invitation: Invitation) -> None:
+        """Persist one invitation and its lookup item."""
+
+    def get_invitation(self, invitation_id: str) -> Invitation | None:
+        """Load one invitation by id."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -226,6 +266,12 @@ class InMemoryMessagingStore:
         self._tasks: dict[tuple[str, str], Task] = {}
         self._turn_grants: dict[tuple[str, str], TaskCapabilityGrant] = {}
         self._active_channel_turns: dict[tuple[str, str], str] = {}
+        self._identities_by_email: dict[str, Identity] = {}
+        self._identities_by_user: dict[str, Identity] = {}
+        self._organizations: dict[str, Organization] = {}
+        self._memberships: dict[tuple[str, str], Membership] = {}
+        self._user_org_index: dict[tuple[str, str], Membership] = {}
+        self._invitations: dict[str, Invitation] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -517,6 +563,56 @@ class InMemoryMessagingStore:
         self, tenant_id: str, turn_id: str
     ) -> TaskCapabilityGrant | None:
         return self._turn_grants.get((tenant_id, turn_id))
+
+    def put_identity(self, identity: Identity) -> None:
+        self._identities_by_email[identity.email] = identity
+        self._identities_by_user[identity.user_id] = identity
+
+    def get_identity_by_email(self, email: str) -> Identity | None:
+        return self._identities_by_email.get(email)
+
+    def get_identity(self, user_id: str) -> Identity | None:
+        return self._identities_by_user.get(user_id)
+
+    def put_organization(self, organization: Organization) -> None:
+        self._organizations[organization.tenant_id] = organization
+
+    def get_organization(self, tenant_id: str) -> Organization | None:
+        return self._organizations.get(tenant_id)
+
+    def put_membership(self, membership: Membership) -> None:
+        key = (membership.tenant_id, membership.user_id)
+        self._memberships[key] = membership
+        self._user_org_index[(membership.user_id, membership.tenant_id)] = membership
+
+    def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
+        return self._memberships.get((tenant_id, user_id))
+
+    def list_memberships(self, tenant_id: str) -> list[Membership]:
+        return sorted(
+            (
+                membership
+                for membership in self._memberships.values()
+                if membership.tenant_id == tenant_id
+            ),
+            key=lambda membership: membership.user_id,
+        )
+
+    def list_organizations_for_user(self, user_id: str) -> list[Organization]:
+        organizations: list[Organization] = []
+        for (indexed_user_id, tenant_id), _ in self._user_org_index.items():
+            if indexed_user_id != user_id:
+                continue
+            organization = self.get_organization(tenant_id)
+            if organization is not None:
+                organizations.append(organization)
+        return sorted(organizations, key=lambda organization: organization.tenant_id)
+
+    def put_invitation(self, invitation: Invitation) -> None:
+        self._invitations[invitation.invitation_id] = invitation
+
+    def get_invitation(self, invitation_id: str) -> Invitation | None:
+        return self._invitations.get(invitation_id)
 
 
 class DynamoMessagingStore:
@@ -1364,6 +1460,166 @@ class DynamoMessagingStore:
             return None
         return grant_from_payload(payload)
 
+    def put_identity(self, identity: Identity) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_identity_item(identity),
+        )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._identity_lookup_pk(identity.email)},
+                "sk": {"S": "meta"},
+                "user_id": {"S": identity.user_id},
+                "email": {"S": identity.email},
+                "created_at": {"S": identity.created_at.isoformat()},
+            },
+        )
+
+    def get_identity_by_email(self, email: str) -> Identity | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._identity_lookup_pk(email)},
+                "sk": {"S": "meta"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return self.get_identity(item["user_id"]["S"])
+
+    def get_identity(self, user_id: str) -> Identity | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._user_pk(user_id)},
+                "sk": {"S": "identity"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _identity_from_item(item)
+
+    def put_organization(self, organization: Organization) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_organization_item(organization),
+        )
+
+    def get_organization(self, tenant_id: str) -> Organization | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._org_pk(tenant_id)},
+                "sk": {"S": "meta"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _organization_from_item(item)
+
+    def put_membership(self, membership: Membership) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_membership_item(membership),
+        )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._user_pk(membership.user_id)},
+                "sk": {"S": self._user_org_sk(membership.tenant_id)},
+                "tenant_id": {"S": membership.tenant_id},
+                "user_id": {"S": membership.user_id},
+                "role": {"S": membership.role},
+            },
+        )
+
+    def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._org_pk(tenant_id)},
+                "sk": {"S": self._member_sk(user_id)},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _membership_from_item(item)
+
+    def list_memberships(self, tenant_id: str) -> list[Membership]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._org_pk(tenant_id)},
+                ":prefix": {"S": "member#"},
+            },
+        )
+        memberships: list[Membership] = []
+        for row in response.get("Items", []):
+            memberships.append(_membership_from_item(row))
+        return sorted(memberships, key=lambda membership: membership.user_id)
+
+    def list_organizations_for_user(self, user_id: str) -> list[Organization]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._user_pk(user_id)},
+                ":prefix": {"S": "org#"},
+            },
+        )
+        organizations: list[Organization] = []
+        for row in response.get("Items", []):
+            tenant_id = row["tenant_id"]["S"]
+            organization = self.get_organization(tenant_id)
+            if organization is not None:
+                organizations.append(organization)
+        return sorted(organizations, key=lambda organization: organization.tenant_id)
+
+    def put_invitation(self, invitation: Invitation) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_invitation_item(invitation),
+        )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._invitation_lookup_pk(invitation.invitation_id)},
+                "sk": {"S": "meta"},
+                "tenant_id": {"S": invitation.tenant_id},
+                "invitation_id": {"S": invitation.invitation_id},
+            },
+        )
+
+    def get_invitation(self, invitation_id: str) -> Invitation | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._invitation_lookup_pk(invitation_id)},
+                "sk": {"S": "meta"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        tenant_id = item["tenant_id"]["S"]
+        canonical = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._org_pk(tenant_id)},
+                "sk": {"S": self._invite_sk(invitation_id)},
+            },
+        )
+        canonical_item = canonical.get("Item")
+        if canonical_item is None:
+            return None
+        return _invitation_from_item(canonical_item)
+
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
 
@@ -1387,6 +1643,27 @@ class DynamoMessagingStore:
 
     def _task_roster_sk(self, user_id: str, task_id: str) -> str:
         return f"task#{user_id}#{task_id}"
+
+    def _identity_lookup_pk(self, email: str) -> str:
+        return f"identity_lookup#{email}"
+
+    def _user_pk(self, user_id: str) -> str:
+        return f"user#{user_id}"
+
+    def _org_pk(self, tenant_id: str) -> str:
+        return f"{tenant_id}#org"
+
+    def _member_sk(self, user_id: str) -> str:
+        return f"member#{user_id}"
+
+    def _user_org_sk(self, tenant_id: str) -> str:
+        return f"org#{tenant_id}"
+
+    def _invitation_lookup_pk(self, invitation_id: str) -> str:
+        return f"invitation_lookup#{invitation_id}"
+
+    def _invite_sk(self, invitation_id: str) -> str:
+        return f"invite#{invitation_id}"
 
     def _bot_from_item(self, item: dict[str, Any]) -> Bot:
         memory_raw = item.get("memory", {}).get("S", "{}")
@@ -1556,6 +1833,99 @@ def _task_from_item(item: dict[str, Any]) -> Task:
         close_reason=item.get("close_reason", {}).get("S") or None,
         created_by_bot_id=item.get("created_by_bot_id", {}).get("S") or None,
         updated_by_bot_id=item.get("updated_by_bot_id", {}).get("S") or None,
+    )
+
+
+def _identity_item(identity: Identity) -> dict[str, Any]:
+    return {
+        "pk": {"S": f"user#{identity.user_id}"},
+        "sk": {"S": "identity"},
+        "user_id": {"S": identity.user_id},
+        "email": {"S": identity.email},
+        "created_at": {"S": identity.created_at.isoformat()},
+    }
+
+
+def _identity_from_item(item: dict[str, Any]) -> Identity:
+    return Identity(
+        user_id=item["user_id"]["S"],
+        email=item["email"]["S"],
+        created_at=datetime.fromisoformat(item["created_at"]["S"]),
+    )
+
+
+def _organization_item(organization: Organization) -> dict[str, Any]:
+    return {
+        "pk": {"S": f"{organization.tenant_id}#org"},
+        "sk": {"S": "meta"},
+        "tenant_id": {"S": organization.tenant_id},
+        "name": {"S": organization.name},
+        "status": {"S": organization.status},
+        "owner_user_id": {"S": organization.owner_user_id},
+        "created_at": {"S": organization.created_at.isoformat()},
+    }
+
+
+def _organization_from_item(item: dict[str, Any]) -> Organization:
+    return Organization(
+        tenant_id=item["tenant_id"]["S"],
+        name=item["name"]["S"],
+        status=OrganizationStatus(item["status"]["S"]),
+        owner_user_id=item["owner_user_id"]["S"],
+        created_at=datetime.fromisoformat(item["created_at"]["S"]),
+    )
+
+
+def _membership_item(membership: Membership) -> dict[str, Any]:
+    return {
+        "pk": {"S": f"{membership.tenant_id}#org"},
+        "sk": {"S": f"member#{membership.user_id}"},
+        "tenant_id": {"S": membership.tenant_id},
+        "user_id": {"S": membership.user_id},
+        "role": {"S": membership.role},
+        "joined_at": {"S": membership.joined_at.isoformat()},
+    }
+
+
+def _membership_from_item(item: dict[str, Any]) -> Membership:
+    return Membership(
+        tenant_id=item["tenant_id"]["S"],
+        user_id=item["user_id"]["S"],
+        role=MemberRole(item["role"]["S"]),
+        joined_at=datetime.fromisoformat(item["joined_at"]["S"]),
+    )
+
+
+def _invitation_item(invitation: Invitation) -> dict[str, Any]:
+    return {
+        "pk": {"S": f"{invitation.tenant_id}#org"},
+        "sk": {"S": f"invite#{invitation.invitation_id}"},
+        "invitation_id": {"S": invitation.invitation_id},
+        "tenant_id": {"S": invitation.tenant_id},
+        "email": {"S": invitation.email},
+        "invited_by_user_id": {"S": invitation.invited_by_user_id},
+        "role": {"S": invitation.role},
+        "status": {"S": invitation.status},
+        "expires_at": {"N": str(int(invitation.expires_at.timestamp()))},
+        "created_at": {"S": invitation.created_at.isoformat()},
+    }
+
+
+def _invitation_from_item(item: dict[str, Any]) -> Invitation:
+    expires_epoch = item.get("expires_at", {}).get("N")
+    return Invitation(
+        invitation_id=item["invitation_id"]["S"],
+        tenant_id=item["tenant_id"]["S"],
+        email=item["email"]["S"],
+        invited_by_user_id=item["invited_by_user_id"]["S"],
+        role=MemberRole(item["role"]["S"]),
+        status=InvitationStatus(item["status"]["S"]),
+        expires_at=(
+            datetime.fromtimestamp(int(expires_epoch), tz=UTC)
+            if expires_epoch
+            else datetime.fromtimestamp(0, tz=UTC)
+        ),
+        created_at=datetime.fromisoformat(item["created_at"]["S"]),
     )
 
 
