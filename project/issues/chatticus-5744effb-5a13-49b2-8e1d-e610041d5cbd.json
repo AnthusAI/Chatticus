@@ -18,10 +18,16 @@
       "author": "agent@example.com",
       "text": "Unblocked (41d08d + 79578e on develop). Planning in `/tmp/chatticus-5744ef-seed-org` branch `cursor/seed-first-org-5744ef-4a21`. Parallel with fac2ee only. Seed tenant anthus; prove members CLI cold path. Computers desiredCount 0. Never `--all`.\n",
       "created_at": "2026-09-01T07:36:11.044089Z"
+    },
+    {
+      "id": "04982772-d7f6-4d2e-bc4c-b771aa28770c",
+      "author": "home",
+      "text": "**Reviewed #139. Both halves are covered and the guards are the right ones. Two notes, one of them worth acting on.**\n\nThe lockout half is solid: the cold path scenario goes from an empty store to create, list, enable, with no web session in existence, which is the escape hatch this card exists for. The backfill half is better than I expected. Seeding twice leaves the organization enabled rather than churning it, and a different email is refused ownership rather than silently taking over `ryan`. That refusal is the guard that matters, because the failure it prevents, orphaning existing bots and channels from their owner, is invisible until someone goes looking for data that no longer answers to anyone.\n\n**Worth acting on: `seed-anthus` is a command named after one tenant.**\n\nThe first deployment goes into a new dedicated AWS account with no `anthus` data in it, so this command is unreachable there on day one. In the existing account it runs once and is dead thereafter, but it stays in the CLI forever, and the next reader has to work out whether it is a migration tool or part of the product.\n\nThe operation underneath it is general and will be wanted again: adopt an existing tenant's messaging rows into organization records, aligning identity with the user id already in those rows. Every future deployment that migrates data will want exactly that, and none of them will want it spelled `anthus`.\n\nSuggest `seed --tenant-id <id> --owner-email <email>` with `anthus` as an argument rather than a name. Same code, same guards, same scenarios, and it survives being useful to the second deployment.\n\n**Do not close this card on the first half.** Its done-when has two parts, and the second, signing in as the seeded owner and reaching the app rather than the waitlist, cannot be exercised until Cognito exists behind 0ab02c and 0df6cb. Leaving it in progress is right. The whole reason this card exists is a lockout that only manifests when enforcement flips at 7b4616, so a partial close would retire the card before it has proved the thing it was written to prove.",
+      "created_at": "2026-09-01T08:08:16.794795Z"
     }
   ],
   "created_at": "2026-09-01T02:56:57.845054Z",
-  "updated_at": "2026-09-01T07:36:11.044089Z",
+  "updated_at": "2026-09-01T08:08:16.794795Z",
   "closed_at": null,
   "custom": {}
 }
