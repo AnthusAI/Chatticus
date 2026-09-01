@@ -3,7 +3,7 @@
   "title": "Budgets belong in their own account-scoped stack",
   "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** anything\n- **Unblocks:** nothing, but it removes a way to lose the budget silently\n\n---\n**Found reviewing #125.** The construct itself is good: reusable, conditional, tested on both sides, and it refuses invented defaults. The problem is where it is mounted.\n\n**A budget can be deleted by deploying something unrelated.** `ChatticusBudgets` is attached to `ChatticusSnapshots` behind `if (props?.budgetsConfig)`, and `deploy-chatticus-snapshots.sh` passes `${BUDGETS_CDK_CONTEXT}`, which is empty when the environment variables are unset. Anyone deploying the snapshot stack without those variables synthesizes a template with no budget in it, and CloudFormation removes the budget and its SNS topic.\n\nThat is worse than the invented-default failure this card was careful to avoid. A wrong limit is visible; a deleted budget looks exactly like a working one until the month you needed it.\n\n**Second reason to move it.** AGENTS.md says never destroy `ChatticusSnapshots`, because it holds the canonical snapshot store. Mounting budgets there means every limit change or address change redeploys the one stack the repository protects most. Budget limits are tuned; snapshot buckets are not.\n\n**Do:** a dedicated account-scoped `ChatticusBudgets` stack holding the budget and the SNS topic. Cheap, independently deployable, and it makes the deletion hazard structurally impossible rather than a rule someone has to remember.\n\n**While there:** only the snapshots script needs budget context today, yet all seven deploy scripts source `budgets-deploy-context.sh`. Once budgets are their own stack, exactly one script should carry it. `deploy-chatticus-snapshots.sh` also still lacks `--exclusively`, which belongs to 7695e0.\n\n**Done when:** budgets deploy and change without touching the snapshot stack, and a deploy that omits the context cannot remove an existing budget.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -36,10 +36,16 @@
       "author": "home",
       "text": "**Reviewed #128. It fixes the hazard, and it caught one I had not mentioned.**\n\nDedicated `ChatticusBudgets` stack, only `deploy-chatticus-budgets.sh` sources the context, limit changes redeploy budgets rather than snapshots, CI green on both jobs. The deletion path is now structurally impossible rather than a rule to remember, which was the point.\n\nThe catch worth naming: an AWS Budget name is unique per account, so the new stack cannot create the budget while the old stack still owns that name. Documenting the removal-then-create sequence is right.\n\n**One thing that makes the migration easier than it reads: there is no budget to migrate.** `aws budgets describe-budgets` returns nothing for this account. Nobody has set `CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD`, so #125's conditional never created the resources, and `ChatticusSnapshots` has never owned that budget name. The documented sequence is correct defensive procedure and is currently a no-op; keep it for the case where someone deploys snapshots with budget context before this lands, and do not perform a scary migration for a resource that does not exist.\n\nIf a budget ever does need moving between stacks, the window with no budget can be closed entirely by creating the new one under a different name first and removing the old one after. Not needed here.",
       "created_at": "2026-09-01T05:08:32.407419Z"
+    },
+    {
+      "id": "19511a25-bcce-4f9b-aead-2462083edb6a",
+      "author": "agent@example.com",
+      "text": "Landed on develop via #128 (c475562). ChatticusBudgets is its own stack; snapshots deploys cannot delete it. Cutover for accounts that already had the budget on Snapshots: deploy snapshots first (drops unique name), then deploy-chatticus-budgets.sh. Human still sets limit + email and confirms SNS.",
+      "created_at": "2026-09-01T05:16:51.450966Z"
     }
   ],
   "created_at": "2026-09-01T04:38:35.265576Z",
-  "updated_at": "2026-09-01T05:08:32.407419Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T05:16:51.463485Z",
+  "closed_at": "2026-09-01T05:16:51.463485Z",
   "custom": {}
 }

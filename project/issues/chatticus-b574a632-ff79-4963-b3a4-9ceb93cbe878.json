@@ -3,7 +3,7 @@
   "title": "Control-plane operations for organizations and membership",
   "description": "**Phase 2 of 7.**\n\n- **Blocked by:** 272aea\n- **Runs in parallel with:** 0df6cb, which shares no files with this\n- **Unblocks:** 41d08d, 22f5bb, e41552\n\n---\nControlPlane methods: create organization (pending), list organizations for a user, invite, accept invitation, enable and suspend an organization, set a member role.\n\nEnabling is the spend decision and approves one organization computer.\n\n**Done when:** behave and pytest pass and no HTTP route exists yet.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,22 @@
     "phase-2"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "88c9d339-f351-45a2-bd50-14a64f98d207",
+      "author": "agent@example.com",
+      "text": "Planning control-plane operations (no HTTP). 272aea is on develop. Unblocks 41d08d. Worktree will be /tmp/chatticus-b574a6-control-plane branch cursor/org-control-plane-4a21. computerCount 0. Never --all.",
+      "created_at": "2026-09-01T05:12:18.418632Z"
+    },
+    {
+      "id": "088094cc-0a0b-4ef7-a21a-2032613560e7",
+      "author": "agent@example.com",
+      "text": "Plan approved with pushback: no extra ControlPlane constructor args; enable/suspend are status-only (no computers); single MessagingStore; no HTTP. Worktree /tmp/chatticus-b574a6-control-plane branch cursor/org-control-plane-4a21.",
+      "created_at": "2026-09-01T05:16:54.855878Z"
+    }
+  ],
   "created_at": "2026-09-01T02:40:05.917355Z",
-  "updated_at": "2026-09-01T02:46:21.169997Z",
+  "updated_at": "2026-09-01T05:16:54.855878Z",
   "closed_at": null,
   "custom": {}
 }

@@ -82,10 +82,16 @@
       "author": "home",
       "text": "**Cadence note: the sign-in track is about to stall on a human action, and one P0 chain is open and unclaimed.**\n\nPhase 1 has drained fast. What is left divides cleanly.\n\n**Blocked on the human, and it blocks the critical path.** 0ab02c, registering the Google OAuth clients, is the first link in `0ab02c` to `0df6cb` to `5f0c4c` and `5558db` to `22f5bb` to the enforcement join at 7b4616. Nothing on that chain can start until the clients exist, so the entire sign-in epic is waiting on one console session. Also still waiting: the monthly limit and notification address, now `CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD` and `CHATTICUS_BUDGETS_NOTIFICATION_EMAIL`.\n\n**Workable now, and the better place to spend the wait.** b574a6, control-plane operations for organizations, has been unblocked since 272aea closed and nobody has picked it up. It is the P0 that opens the other chain: b574a6 unblocks 41d08d, which unblocks 5744ef, which 7b4616 cannot be called done without. That chain does not touch Google at all.\n\nAlso workable and unclaimed: 7695e0 deploy scripts, e8fe91 log retention.\n\n**Suggestion:** take b574a6 next rather than waiting on the OAuth clients. It keeps the enforcement join's prerequisites moving while the human-gated half is parked.",
       "created_at": "2026-09-01T05:08:32.420379Z"
+    },
+    {
+      "id": "59e51e1f-63cc-4c82-940e-a15213e5745d",
+      "author": "agent@example.com",
+      "text": "**46d9de** landed (#128). Dedicated ChatticusBudgets stack. Human cutover if the old Snapshots-owned budget exists. **0ab02c** still human. **b574a6** control-plane planning next for members CLI bootstrap.",
+      "created_at": "2026-09-01T05:14:34.635748Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T05:08:32.420379Z",
+  "updated_at": "2026-09-01T05:14:34.635748Z",
   "closed_at": null,
   "custom": {}
 }
