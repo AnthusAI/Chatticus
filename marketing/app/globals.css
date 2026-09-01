@@ -131,7 +131,7 @@
   border-radius: 2.4rem;
   background: var(--signal);
   will-change: transform;
-  animation: prototype-backing-drift 12.8s var(--ease-out) infinite alternate;
+  animation: prototype-backing-drift 10.9s var(--ease-out) infinite alternate;
 }
 
 .prototype-shadow-plane {
@@ -141,7 +141,7 @@
   border-radius: 2rem;
   background: rgb(17 19 15 / 0.18);
   will-change: transform;
-  animation: prototype-shadow-drift 17.3s var(--ease-out) -4.6s infinite alternate;
+  animation: prototype-shadow-drift 14.6s var(--ease-out) -4.6s infinite alternate;
 }
 
 .prototype-presence {
@@ -160,13 +160,13 @@
 }
 
 @keyframes prototype-backing-drift {
-  from { transform: translate3d(-3px, 3px, 0) rotate(1.65deg) scale(0.99, 1.012); }
-  to { transform: translate3d(4px, -4px, 0) rotate(2.55deg) scale(1.016, 0.988); }
+  from { transform: translate3d(-4px, 4px, 0) rotate(1.45deg) scale(0.986, 1.016); }
+  to { transform: translate3d(6px, -6px, 0) rotate(2.7deg) scale(1.02, 0.984); }
 }
 
 @keyframes prototype-shadow-drift {
-  from { transform: translate3d(7px, 4px, 0) scale(1.01, 0.998); }
-  to { transform: translate3d(9px, 6px, 0) scale(1.018, 1.007); }
+  from { transform: translate3d(6px, 6px, 0) scale(1.008, 0.995); }
+  to { transform: translate3d(11px, 9px, 0) scale(1.022, 1.01); }
 }
 
 @keyframes prototype-presence {
