@@ -11,6 +11,7 @@ from chatticus.computer_host_worker import run_host_worker_once
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
+from chatticus.http.paths import org_path
 from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.worker.computer import FakeComputerActionExecutor
@@ -93,14 +94,13 @@ def test_host_worker_runs_waiting_turn_when_sqs_is_empty() -> None:
     bot = plane.create_bot("anthus", "ryan", "Researcher")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
             "author_id": "ryan",
             "body": "open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     client = HttpTurnClient(api, channel.tenant_id)

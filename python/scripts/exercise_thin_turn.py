@@ -18,6 +18,7 @@ from chatticus.cloud_environments import (
     thin_turn_stack_output,
 )
 from chatticus.models import ActorKind
+from chatticus.http.paths import org_path
 from typing import Any
 
 
@@ -297,7 +298,7 @@ def _exercise_named_task_http(
     environment: str | None,
 ) -> int:
     """Exercise live task HTTP create, list, and read. Return 0 on pass or skip."""
-    listed = client.get(f"/users/{user_id}/tasks")
+    listed = client.get(org_path(args.tenant_id, f"/users/{user_id}/tasks"))
     if _task_http_routes_absent(listed):
         if _task_http_required(environment):
             print(
@@ -341,7 +342,7 @@ def _exercise_named_task_http(
         )
         return 1
     print(f"task_create=1 task_id={task_id}")
-    listed_after = client.get(f"/users/{user_id}/tasks")
+    listed_after = client.get(org_path(args.tenant_id, f"/users/{user_id}/tasks"))
     if listed_after.status_code != 200:
         print(
             f"tasks_list {listed_after.status_code} {listed_after.text[:300]}",
@@ -364,7 +365,7 @@ def _exercise_named_task_http(
         )
         return 1
     print("tasks_list=1")
-    fetched = client.get(f"/tasks/{task_id}")
+    fetched = client.get(org_path(args.tenant_id, f"/tasks/{task_id}"))
     if fetched.status_code != 200:
         print(
             f"task_get {fetched.status_code} {fetched.text[:300]}",
@@ -387,8 +388,7 @@ def _exercise_named_task_http(
     print("task_get=1")
     other_tenant = f"{tenant_id}-isolation-exercise"
     other_listed = client.get(
-        f"/users/{user_id}/tasks",
-        headers={"X-Tenant-Id": other_tenant},
+        org_path(other_tenant, f"/users/{user_id}/tasks"),
     )
     if other_listed.status_code != 200:
         print(
@@ -404,8 +404,7 @@ def _exercise_named_task_http(
         )
         return 1
     other_get = client.get(
-        f"/tasks/{task_id}",
-        headers={"X-Tenant-Id": other_tenant},
+        org_path(other_tenant, f"/tasks/{task_id}"),
     )
     if other_get.status_code != 404:
         print(
@@ -484,7 +483,7 @@ def main() -> int:
         return 2
     if args.environment:
         print(f"environment={args.environment} base_url={base_url}")
-    headers = {"X-Tenant-Id": args.tenant_id}
+    headers: dict[str, str] = {}
     invoke_key = args.invoke_key
     if not invoke_key and environment is not None:
         invoke_key = _invoke_key_for_environment(environment)
@@ -578,7 +577,7 @@ def main() -> int:
             )
             return 1
         print("bot_by_name=1")
-        listed_bots = client.get(f"/users/{args.user_id}/bots")
+        listed_bots = client.get(org_path(args.tenant_id, f"/users/{args.user_id}/bots"))
         listed_ids = [
             row.get("bot_id") for row in (listed_bots.json().get("bots") or [])
         ]
@@ -609,7 +608,7 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
-        fetched = client.get(f"/bots/{bot['bot_id']}")
+        fetched = client.get(org_path(args.tenant_id, f"/bots/{bot['bot_id']}"))
         if fetched.status_code != 200:
             print(
                 f"bot_get {fetched.status_code} {fetched.text[:300]}",
@@ -624,7 +623,7 @@ def main() -> int:
         client.post(
             "/computers/stopped", json={"user_id": args.user_id, "stopped": True}
         )
-        computer = client.get(f"/users/{args.user_id}/computer")
+        computer = client.get(org_path(args.tenant_id, f"/users/{args.user_id}/computer"))
         if (
             computer.status_code != 200
             or computer.json().get("stopped") is not True
@@ -665,7 +664,7 @@ def main() -> int:
             )
             return 1
         print("channel_idempotent=1")
-        channel_get = client.get(f"/channels/{channel['channel_id']}")
+        channel_get = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}"))
         if channel_get.status_code != 200:
             print(
                 f"channel_get {channel_get.status_code} {channel_get.text[:300]}",
@@ -680,7 +679,7 @@ def main() -> int:
             )
             return 1
         print("channel_get=1")
-        listed_channels = client.get(f"/users/{args.user_id}/channels")
+        listed_channels = client.get(org_path(args.tenant_id, f"/users/{args.user_id}/channels"))
         if listed_channels.status_code != 200:
             print(
                 "channels_list "
@@ -709,7 +708,7 @@ def main() -> int:
             },
         ).json()
         fence_turn_id = fence_posted["turn_id"]
-        channel_turn = client.get(f"/channels/{channel['channel_id']}/turn")
+        channel_turn = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}/turn"))
         if (
             channel_turn.status_code != 200
             or channel_turn.json().get("turn_id") != fence_turn_id
@@ -720,7 +719,7 @@ def main() -> int:
             )
             return 1
         print("channel_turn=1")
-        listed_turns = client.get(f"/users/{args.user_id}/turns")
+        listed_turns = client.get(org_path(args.tenant_id, f"/users/{args.user_id}/turns"))
         listed_turn_ids = [
             row.get("turn_id") for row in (listed_turns.json().get("turns") or [])
         ]
@@ -795,7 +794,7 @@ def main() -> int:
             return 1
         first_message = first_idem.json()["message"]
         second_message = second_idem.json()["message"]
-        listed = client.get(f"/channels/{channel['channel_id']}/messages")
+        listed = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}/messages"))
         if listed.status_code != 200:
             print(
                 f"list_messages {listed.status_code} {listed.text[:300]}",
@@ -844,7 +843,7 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 return 1
-            turn_read = client.get(f"/turns/{fence_turn_id}")
+            turn_read = client.get(org_path(args.tenant_id, f"/turns/{fence_turn_id}"))
             if turn_read.status_code != 200:
                 print(
                     f"turn_read {turn_read.status_code} {turn_read.text[:300]}",
@@ -859,7 +858,7 @@ def main() -> int:
                 )
                 return 1
             print("turn_waiting_for=browser")
-            channel_waiting = client.get(f"/channels/{channel['channel_id']}/turn")
+            channel_waiting = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}/turn"))
             if (
                 channel_waiting.status_code != 200
                 or channel_waiting.json().get("turn_id") != fence_turn_id
@@ -883,7 +882,7 @@ def main() -> int:
             print("pending_computer_tool=request_computer_capability")
             waiting_kinds: list[str] = []
             waiting_events: list[dict] = []
-            with client.stream("GET", f"/turns/{fence_turn_id}/stream") as stream:
+            with client.stream("GET", org_path(args.tenant_id, f"/turns/{fence_turn_id}/stream")) as stream:
                 stream.raise_for_status()
                 buffer = ""
                 deadline = time.time() + 30
@@ -927,7 +926,7 @@ def main() -> int:
                 )
                 return 1
             print("stale_waiting=409")
-            resume_stopped = client.post(f"/turns/{fence_turn_id}/resume")
+            resume_stopped = client.post(org_path(args.tenant_id, f"/turns/{fence_turn_id}/resume"))
             if resume_stopped.status_code != 409:
                 print(
                     f"resume_while_stopped {resume_stopped.status_code} "
@@ -980,7 +979,7 @@ def main() -> int:
         )
         events: list[dict] = []
         dropped_mid_stream = False
-        with client.stream("GET", f"/turns/{turn_id}/stream") as stream:
+        with client.stream("GET", org_path(args.tenant_id, f"/turns/{turn_id}/stream")) as stream:
             stream.raise_for_status()
             buffer = ""
             deadline = time.time() + 90
@@ -1056,7 +1055,7 @@ def main() -> int:
             )
             return 1
         stopped = stopped_response.json()
-        listed = client.get(f"/channels/{channel['channel_id']}/messages")
+        listed = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}/messages"))
         if listed.status_code != 200:
             print(f"messages {listed.status_code} {listed.text[:300]}", file=sys.stderr)
             return 1
@@ -1065,7 +1064,7 @@ def main() -> int:
         print(f"computer_stopped={stopped['stopped']} bot_messages={len(bot_messages)}")
         if not stopped["stopped"] or not bot_messages:
             return 1
-        channel_turn_done = client.get(f"/channels/{channel['channel_id']}/turn")
+        channel_turn_done = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}/turn"))
         if channel_turn_done.status_code != 404:
             print(
                 f"channel_turn_done {channel_turn_done.status_code} "
@@ -1146,7 +1145,7 @@ def main() -> int:
             return 1
         second_turn_id = second_post.json()["turn_id"]
         second_events: list[dict] = []
-        with client.stream("GET", f"/turns/{second_turn_id}/stream") as stream:
+        with client.stream("GET", org_path(args.tenant_id, f"/turns/{second_turn_id}/stream")) as stream:
             stream.raise_for_status()
             buffer = ""
             deadline = time.time() + 90
@@ -1205,7 +1204,7 @@ def main() -> int:
         browser_turn_id = browser_post.json()["turn_id"]
         model_wait_kinds: list[str] = []
         model_wait_events: list[dict] = []
-        with client.stream("GET", f"/turns/{browser_turn_id}/stream") as stream:
+        with client.stream("GET", org_path(args.tenant_id, f"/turns/{browser_turn_id}/stream")) as stream:
             stream.raise_for_status()
             buffer = ""
             deadline = time.time() + 90
@@ -1227,7 +1226,7 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
-        model_turn_read = client.get(f"/turns/{browser_turn_id}")
+        model_turn_read = client.get(org_path(args.tenant_id, f"/turns/{browser_turn_id}"))
         if model_turn_read.status_code != 200:
             print(
                 f"model_turn_read {model_turn_read.status_code} "
@@ -1269,7 +1268,7 @@ def main() -> int:
             )
             return 1
         print("model_journal_pending_computer_tool=request_computer_capability")
-        model_resume = client.post(f"/turns/{browser_turn_id}/resume")
+        model_resume = client.post(org_path(args.tenant_id, f"/turns/{browser_turn_id}/resume"))
         if model_resume.status_code != 409:
             print(
                 f"model_resume_while_stopped {model_resume.status_code} "
@@ -1283,7 +1282,7 @@ def main() -> int:
                 "/computers/stopped",
                 json={"user_id": args.user_id, "stopped": False},
             )
-            resumed_running = client.post(f"/turns/{browser_turn_id}/resume")
+            resumed_running = client.post(org_path(args.tenant_id, f"/turns/{browser_turn_id}/resume"))
             if resumed_running.status_code != 200:
                 print(
                     f"resume_while_running {resumed_running.status_code} "
@@ -1319,7 +1318,7 @@ def main() -> int:
             generation = None
             deadline = time.monotonic() + 25
             while time.monotonic() < deadline:
-                computer_after = client.get(f"/users/{args.user_id}/computer")
+                computer_after = client.get(org_path(args.tenant_id, f"/users/{args.user_id}/computer"))
                 generation = computer_after.json().get("host_start_generation")
                 if isinstance(generation, int) and generation >= 1:
                     break
@@ -1365,11 +1364,11 @@ def main() -> int:
             journal_events: list[dict] = []
             host_deadline = time.monotonic() + 180
             while time.monotonic() < host_deadline:
-                still_waiting = client.get(f"/turns/{browser_turn_id}")
+                still_waiting = client.get(org_path(args.tenant_id, f"/turns/{browser_turn_id}"))
                 payload = still_waiting.json()
                 waiting_for = payload.get("waiting_for")
                 status = payload.get("status")
-                events_response = client.get(f"/turns/{browser_turn_id}/events")
+                events_response = client.get(org_path(args.tenant_id, f"/turns/{browser_turn_id}/events"))
                 journal_events = events_response.json().get("events") or []
                 tool_result_bodies = _tool_result_bodies(journal_events)
                 has_tool_result = bool(tool_result_bodies)
@@ -1417,10 +1416,10 @@ def main() -> int:
                 "/computers/stopped",
                 json={"user_id": args.user_id, "stopped": True},
             )
-            still = client.get(f"/turns/{browser_turn_id}")
+            still = client.get(org_path(args.tenant_id, f"/turns/{browser_turn_id}"))
             if host_completed:
                 if not journal_events:
-                    events_response = client.get(f"/turns/{browser_turn_id}/events")
+                    events_response = client.get(org_path(args.tenant_id, f"/turns/{browser_turn_id}/events"))
                     journal_events = events_response.json().get("events") or []
                 chromium_result = _chromium_host_tool_result_body(journal_events)
                 if chromium_result is None:

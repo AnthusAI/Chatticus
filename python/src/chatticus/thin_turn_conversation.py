@@ -17,17 +17,17 @@ from chatticus.cloud_environments import (
     resolve_thin_turn_base_url,
 )
 from chatticus.http.app import INVOKE_HEADER
+from chatticus.http.paths import org_path
 from chatticus.models import ActorKind
 
 EventCallback = Callable[[dict[str, Any]], None]
 
 
 def front_door_headers(
-    tenant_id: str,
     invoke_key: str | None = None,
 ) -> dict[str, str]:
-    """Return tenant and optional invoke-key headers for the thin-turn API."""
-    headers = {"X-Tenant-Id": tenant_id}
+    """Return optional invoke-key headers for the thin-turn API."""
+    headers: dict[str, str] = {}
     key = (invoke_key or "").strip()
     if key:
         headers[INVOKE_HEADER] = key
@@ -82,7 +82,7 @@ class ThinTurnConversationClient:
     ) -> None:
         self.tenant_id = tenant_id
         self.user_id = user_id
-        self._headers = front_door_headers(tenant_id, invoke_key)
+        self._headers = front_door_headers(invoke_key)
         if client is not None:
             self._client = client
             self._owns_client = False
@@ -95,6 +95,9 @@ class ThinTurnConversationClient:
                 timeout=timeout,
             )
             self._owns_client = True
+
+    def _org(self, suffix: str) -> str:
+        return org_path(self.tenant_id, suffix)
 
     def _merged_headers(self, extra: dict[str, str] | None = None) -> dict[str, str]:
         """Return tenant headers merged with per-request values."""
@@ -111,7 +114,7 @@ class ThinTurnConversationClient:
     def lookup_bot(self, name: str) -> dict[str, Any] | None:
         """Return a named bot or None when GET /bots?user_id=&name= is 404."""
         response = self._client.get(
-            "/bots",
+            self._org("/bots"),
             params={"user_id": self.user_id, "name": name},
             headers=self._merged_headers(),
         )
@@ -126,7 +129,7 @@ class ThinTurnConversationClient:
     def create_bot(self, name: str) -> dict[str, Any]:
         """Create a named bot with POST /bots and a fresh idempotency key."""
         response = self._client.post(
-            "/bots",
+            self._org("/bots"),
             json={"user_id": self.user_id, "name": name},
             headers=self._merged_headers({"Idempotency-Key": str(uuid4())}),
         )
@@ -146,7 +149,7 @@ class ThinTurnConversationClient:
     def list_channels(self) -> list[dict[str, Any]]:
         """Return GET /users/{user_id}/channels rows."""
         response = self._client.get(
-            f"/users/{self.user_id}/channels",
+            self._org(f"/users/{self.user_id}/channels"),
             headers=self._merged_headers(),
         )
         if response.status_code >= 400:
@@ -158,7 +161,7 @@ class ThinTurnConversationClient:
     def list_active_turns(self) -> list[dict[str, Any]]:
         """Return in-flight turns from GET /users/{user_id}/turns."""
         response = self._client.get(
-            f"/users/{self.user_id}/turns",
+            self._org(f"/users/{self.user_id}/turns"),
             headers=self._merged_headers(),
         )
         if response.status_code >= 400:
@@ -170,7 +173,7 @@ class ThinTurnConversationClient:
     def channel_turn(self, channel_id: str) -> dict[str, Any] | None:
         """Return GET /channels/{id}/turn or None when no active turn exists."""
         response = self._client.get(
-            f"/channels/{channel_id}/turn",
+            self._org(f"/channels/{channel_id}/turn"),
             headers=self._merged_headers(),
         )
         if response.status_code == 404:
@@ -184,7 +187,7 @@ class ThinTurnConversationClient:
     def open_channel(self, bot_ids: list[str]) -> dict[str, Any]:
         """Open a channel with POST /channels."""
         response = self._client.post(
-            "/channels",
+            self._org("/channels"),
             json={"user_id": self.user_id, "bot_ids": bot_ids},
             headers=self._merged_headers({"Idempotency-Key": str(uuid4())}),
         )
@@ -246,7 +249,7 @@ class ThinTurnConversationClient:
     ) -> list[dict[str, Any]]:
         """Return GET /turns/{id}/events?after= rows."""
         response = self._client.get(
-            f"/turns/{turn_id}/events",
+            self._org(f"/turns/{turn_id}/events"),
             params={"after": after_seq},
             headers=self._merged_headers(),
         )
@@ -288,7 +291,7 @@ class ThinTurnConversationClient:
         deadline = time.monotonic() + timeout
         with self._client.stream(
             "GET",
-            f"/turns/{turn_id}/stream",
+            self._org(f"/turns/{turn_id}/stream"),
             headers=self._merged_headers(headers),
         ) as response:
             if response.status_code != 200:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from chatticus.http.app import INVOKE_HEADER
 from chatticus.thin_turn_conversation import (
     TurnWatchOutcome,
     front_door_headers,
@@ -10,11 +11,12 @@ from chatticus.thin_turn_conversation import (
 
 
 def test_front_door_headers_include_invoke_key_when_set() -> None:
-    headers = front_door_headers("anthus", "secret")
-    assert headers == {
-        "X-Tenant-Id": "anthus",
-        "X-Chatticus-Invoke-Key": "secret",
-    }
+    headers = front_door_headers("secret")
+    assert headers == {INVOKE_HEADER: "secret"}
+
+
+def test_front_door_headers_omit_invoke_key_when_missing() -> None:
+    assert front_door_headers() == {}
 
 
 def test_parse_sse_data_frames_splits_partial_buffers() -> None:

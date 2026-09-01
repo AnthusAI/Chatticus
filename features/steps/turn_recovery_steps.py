@@ -5,11 +5,12 @@ from __future__ import annotations
 from datetime import timedelta
 
 from behave import given, then, when
-from sse_helpers import SseWatcher, tenant_headers
+from sse_helpers import SseWatcher
 
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
+from chatticus.http.paths import org_path
 from chatticus.http.test_server import start_test_server
 from chatticus.models import TurnEventKind, TurnReconcilingError, TurnStatus
 from chatticus.turn_recovery import logical_enqueue_id
@@ -35,9 +36,8 @@ def _turn_id(context: object) -> str:
 def _claim(context: object, worker_id: str) -> None:
     channel = _channel(context)
     response = context.api_client.post(
-        f"/turns/{_turn_id(context)}/claim",
+        org_path(channel.tenant_id, f"/turns/{_turn_id(context)}/claim"),
         json={"worker_id": worker_id},
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200, response.text
     context.fence_token = int(response.json()["fence_token"])
@@ -54,13 +54,12 @@ def _post_chunk(
     channel = _channel(context)
     resolved_fence = fence_token if fence_token is not None else context.fence_token
     response = context.api_client.post(
-        f"/turns/{_turn_id(context)}/chunks",
+        org_path(channel.tenant_id, f"/turns/{_turn_id(context)}/chunks"),
         json={
             "token": token,
             "complete": complete,
             "fence_token": resolved_fence,
         },
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200, response.text
 
@@ -92,14 +91,13 @@ def given_partial_progress(context: object) -> None:
     channel = _channel(context)
     bot = context.bots_by_name["Assistant"]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
             "author_id": channel.user_id,
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200
     context.last_turn_id = response.json()["turn_id"]
@@ -187,14 +185,13 @@ def given_ambiguous_provider(context: object) -> None:
     channel = _channel(context)
     bot = context.bots_by_name["Assistant"]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
             "author_id": channel.user_id,
             "body": "send the report",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200
     context.last_turn_id = response.json()["turn_id"]
@@ -241,14 +238,13 @@ def when_duplicate_logical_enqueue(context: object) -> None:
     channel = _channel(context)
     bot = context.bots_by_name["Assistant"]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
             "author_id": channel.user_id,
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200
     context.last_turn_id = response.json()["turn_id"]
@@ -273,14 +269,13 @@ def given_worker_owns_turn(context: object) -> None:
     channel = _channel(context)
     bot = context.bots_by_name["Assistant"]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
             "author_id": channel.user_id,
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200
     context.last_turn_id = response.json()["turn_id"]
@@ -295,14 +290,13 @@ def given_turn_waiting_for_worker(context: object) -> None:
     channel = _channel(context)
     bot = context.bots_by_name["Assistant"]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
             "author_id": channel.user_id,
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200
     context.last_turn_id = response.json()["turn_id"]
@@ -359,14 +353,13 @@ def given_turn_blocked_on_browser_gate(context: object) -> None:
     channel = _channel(context)
     bot = context.bots_by_name["Assistant"]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
             "author_id": channel.user_id,
             "body": "open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200
     context.last_turn_id = response.json()["turn_id"]
@@ -376,9 +369,8 @@ def given_turn_blocked_on_browser_gate(context: object) -> None:
     _claim(context, "waiting-worker")
     _post_chunk(context, "Here is a draft.")
     waiting = context.api_client.post(
-        f"/turns/{_turn_id(context)}/waiting",
+        org_path(channel.tenant_id, f"/turns/{_turn_id(context)}/waiting"),
         json={"gate": "browser", "fence_token": context.fence_token},
-        headers=tenant_headers(channel.tenant_id),
     )
     assert waiting.status_code == 200, waiting.text
     turn = context.plane.turn(channel.tenant_id, _turn_id(context))

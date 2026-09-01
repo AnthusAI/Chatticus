@@ -8,6 +8,7 @@ from behave import then, when
 from messaging_steps import _channel, _turn_id
 
 from chatticus.http.client import HttpTurnClient
+from chatticus.http.paths import org_path
 from chatticus.models import ActorKind
 from chatticus.thin_turn_conversation import (
     ThinTurnConversationClient,
@@ -124,8 +125,7 @@ def then_committed_reply_is_not_prior_greeting(context: object) -> None:
     outcome = _demo_outcome(context)
     channel = _channel(context)
     response = context.api_client.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     )
     assert response.status_code == 200
     bot_messages = [

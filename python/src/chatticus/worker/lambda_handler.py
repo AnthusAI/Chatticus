@@ -96,7 +96,7 @@ def handler(event: dict[str, Any], _context: object) -> dict[str, Any] | None:
             job.turn_id,
             job.job_id,
         )
-        headers = {"X-Tenant-Id": job.tenant_id}
+        headers: dict[str, str] = {}
         if invoke_key:
             headers[INVOKE_HEADER] = invoke_key
         queue_visibility_renewer = None

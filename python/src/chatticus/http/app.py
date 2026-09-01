@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -43,6 +43,9 @@ from chatticus.models import (
 
 logger = logging.getLogger("chatticus.http")
 INVOKE_HEADER = "X-Chatticus-Invoke-Key"
+
+
+TENANT_HEADER = "X-Tenant-Id"
 
 
 class CreateChannelBody(BaseModel):
@@ -200,6 +203,24 @@ def create_app(
     )
     app.state.chatticus = state
 
+    @app.middleware("http")
+    async def reject_tenant_header(
+        request: Request, call_next: object
+    ) -> JSONResponse | StreamingResponse:
+        if request.headers.get(TENANT_HEADER):
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "detail": (
+                        f"{TENANT_HEADER} is not accepted; use "
+                        "/orgs/{tenant_id}/... in the request path."
+                    )
+                },
+            )
+        return await call_next(request)  # type: ignore[misc, operator]
+
+    org_router = APIRouter(prefix="/orgs/{tenant_id}")
+
     @app.exception_handler(ChatticusError)
     async def chatticus_error_handler(
         _request: Request, error: ChatticusError
@@ -211,10 +232,10 @@ def create_app(
     def health() -> dict[str, str]:
         return {"status": "ok", "environment": state.environment}
 
-    @app.post("/bots")
+    @org_router.post("/bots")
     def create_bot(
+        tenant_id: str,
         body: CreateBotBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, str]:
         key = (idempotency_key or "").strip() or None
@@ -234,9 +255,9 @@ def create_app(
             "name": bot.name,
         }
 
-    @app.get("/bots")
+    @org_router.get("/bots")
     def lookup_bot(
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        tenant_id: str,
         user_id: str = Query(),
         name: str = Query(),
     ) -> dict[str, Any]:
@@ -246,42 +267,42 @@ def create_app(
             raise HTTPException(status_code=404, detail="bot not found") from error
         return _bot_payload(bot)
 
-    @app.get("/users/{user_id}/bots")
+    @org_router.get("/users/{user_id}/bots")
     def list_user_bots(
+        tenant_id: str,
         user_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         bots = state.plane.list_bots(tenant_id, user_id)
         return {"bots": [_bot_payload(bot) for bot in bots]}
 
-    @app.get("/users/{user_id}/channels")
+    @org_router.get("/users/{user_id}/channels")
     def list_user_channels(
+        tenant_id: str,
         user_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         channels = state.plane.list_channels(tenant_id, user_id)
         return {"channels": [_channel_payload(channel) for channel in channels]}
 
-    @app.get("/users/{user_id}/turns")
+    @org_router.get("/users/{user_id}/turns")
     def list_user_turns(
+        tenant_id: str,
         user_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         turns = state.plane.list_active_turns(tenant_id, user_id)
         return {"turns": [_turn_payload(turn) for turn in turns]}
 
-    @app.get("/users/{user_id}/tasks")
+    @org_router.get("/users/{user_id}/tasks")
     def list_user_tasks(
+        tenant_id: str,
         user_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         tasks = state.plane.list_tasks(tenant_id, user_id)
         return {"tasks": [_task_payload(task) for task in tasks]}
 
-    @app.get("/users/{user_id}/computer")
+    @org_router.get("/users/{user_id}/computer")
     def get_user_computer(
+        tenant_id: str,
         user_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
             computer = state.plane.computer_for_user(tenant_id, user_id)
@@ -289,10 +310,10 @@ def create_app(
             raise HTTPException(status_code=404, detail="computer not found") from error
         return _computer_payload(computer)
 
-    @app.get("/bots/{bot_id}")
+    @org_router.get("/bots/{bot_id}")
     def get_bot(
+        tenant_id: str,
         bot_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
             bot = state.plane.bot(tenant_id, bot_id)
@@ -300,11 +321,11 @@ def create_app(
             raise HTTPException(status_code=404, detail="bot not found") from error
         return _bot_payload(bot)
 
-    @app.post("/bots/{bot_id}/memory")
+    @org_router.post("/bots/{bot_id}/memory")
     def remember_bot(
+        tenant_id: str,
         bot_id: str,
         body: RememberBotBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
             state.plane.remember(tenant_id, bot_id, body.key, body.value)
@@ -318,11 +339,11 @@ def create_app(
         )
         return _bot_payload(state.plane.bot(tenant_id, bot_id))
 
-    @app.post("/bots/{bot_id}/tasks/tool")
+    @org_router.post("/bots/{bot_id}/tasks/tool")
     def invoke_task_tool(
+        tenant_id: str,
         bot_id: str,
         body: InvokeTaskToolBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
             state.plane.bot(tenant_id, bot_id)
@@ -344,10 +365,10 @@ def create_app(
         )
         return _task_payload(task)
 
-    @app.get("/tasks/{task_id}")
+    @org_router.get("/tasks/{task_id}")
     def get_task(
+        tenant_id: str,
         task_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
             task = state.plane.task(tenant_id, task_id)
@@ -355,10 +376,10 @@ def create_app(
             raise HTTPException(status_code=404, detail="task not found") from error
         return _task_payload(task)
 
-    @app.post("/computers/stopped")
+    @org_router.post("/computers/stopped")
     def set_computer_stopped(
+        tenant_id: str,
         body: SetComputerBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, bool]:
         state.plane.set_computer_stopped(tenant_id, body.user_id, body.stopped)
         stopped = state.plane.computer_is_stopped(tenant_id, body.user_id)
@@ -370,17 +391,17 @@ def create_app(
         )
         return {"stopped": stopped}
 
-    @app.get("/computers/stopped")
+    @org_router.get("/computers/stopped")
     def get_computer_stopped(
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+        tenant_id: str,
         user_id: str = Query(),
     ) -> dict[str, bool]:
         return {"stopped": state.plane.computer_is_stopped(tenant_id, user_id)}
 
-    @app.post("/channels")
+    @org_router.post("/channels")
     def create_channel(
+        tenant_id: str,
         body: CreateChannelBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, Any]:
         key = (idempotency_key or "").strip() or None
@@ -398,10 +419,10 @@ def create_app(
         )
         return _channel_payload(channel)
 
-    @app.get("/channels/{channel_id}")
+    @org_router.get("/channels/{channel_id}")
     def get_channel(
+        tenant_id: str,
         channel_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
             channel = state.plane.channel(tenant_id, channel_id)
@@ -409,10 +430,10 @@ def create_app(
             raise HTTPException(status_code=404, detail="channel not found") from error
         return _channel_payload(channel)
 
-    @app.get("/channels/{channel_id}/turn")
+    @org_router.get("/channels/{channel_id}/turn")
     def get_channel_turn(
+        tenant_id: str,
         channel_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
             state.plane.channel(tenant_id, channel_id)
@@ -423,11 +444,11 @@ def create_app(
             raise HTTPException(status_code=404, detail="turn not found")
         return _turn_payload(turn)
 
-    @app.post("/channels/{channel_id}/messages")
+    @org_router.post("/channels/{channel_id}/messages")
     def post_message(
+        tenant_id: str,
         channel_id: str,
         body: PostMessageBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, Any]:
         key = (idempotency_key or "").strip() or None
@@ -454,10 +475,10 @@ def create_app(
             "turn_id": turn_id,
         }
 
-    @app.get("/channels/{channel_id}/messages")
+    @org_router.get("/channels/{channel_id}/messages")
     def list_messages(
+        tenant_id: str,
         channel_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
         after: int = Query(default=0, ge=0),
     ) -> dict[str, Any]:
         messages = state.plane.list_channel_messages(channel_id, tenant_id, after)
@@ -465,11 +486,11 @@ def create_app(
             "messages": [_message_payload(message) for message in messages],
         }
 
-    @app.post("/turns/{turn_id}/claim")
+    @org_router.post("/turns/{turn_id}/claim")
     def claim_turn(
+        tenant_id: str,
         turn_id: str,
         body: ClaimTurnBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         attempt = state.plane.claim_turn_attempt(tenant_id, turn_id, body.worker_id)
         if attempt is None:
@@ -491,11 +512,11 @@ def create_app(
             "lease_expires_at": attempt.lease_expires_at.isoformat(),
         }
 
-    @app.post("/turns/{turn_id}/renew")
+    @org_router.post("/turns/{turn_id}/renew")
     def renew_turn(
+        tenant_id: str,
         turn_id: str,
         body: RenewTurnBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         job = None
         if body.job_id is not None:
@@ -526,11 +547,11 @@ def create_app(
             "lease_expires_at": attempt.lease_expires_at.isoformat(),
         }
 
-    @app.post("/turns/{turn_id}/waiting")
+    @org_router.post("/turns/{turn_id}/waiting")
     def wait_turn(
+        tenant_id: str,
         turn_id: str,
         body: WaitTurnBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, str]:
         event = state.plane.emit_turn_waiting(
             tenant_id,
@@ -551,10 +572,10 @@ def create_app(
         )
         return {"status": "ok", "kind": event.kind, "gate": body.gate}
 
-    @app.post("/turns/{turn_id}/resume")
+    @org_router.post("/turns/{turn_id}/resume")
     def resume_turn(
+        tenant_id: str,
         turn_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         job = state.plane.resume_waiting_turn(tenant_id, turn_id)
         turn = state.plane.turn(tenant_id, turn_id)
@@ -573,10 +594,10 @@ def create_app(
             "required_capabilities": sorted(job.required_capabilities),
         }
 
-    @app.get("/turns/{turn_id}")
+    @org_router.get("/turns/{turn_id}")
     def get_turn(
+        tenant_id: str,
         turn_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
             turn = state.plane.turn(tenant_id, turn_id)
@@ -586,11 +607,11 @@ def create_app(
             ) from error
         return _turn_payload(turn)
 
-    @app.put("/turns/{turn_id}/grant")
+    @org_router.put("/turns/{turn_id}/grant")
     def put_turn_grant(
+        tenant_id: str,
         turn_id: str,
         body: PutTurnGrantBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
             state.plane.turn(tenant_id, turn_id)
@@ -608,11 +629,11 @@ def create_app(
         )
         return {"turn_id": turn_id, "tools": sorted(grant.tools)}
 
-    @app.post("/turns/{turn_id}/workspace/read")
+    @org_router.post("/turns/{turn_id}/workspace/read")
     def read_turn_workspace(
+        tenant_id: str,
         turn_id: str,
         body: ReadWorkspaceBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
             state.plane.turn(tenant_id, turn_id)
@@ -634,11 +655,11 @@ def create_app(
         )
         return {"content": content}
 
-    @app.post("/turns/{turn_id}/browse/authorize")
+    @org_router.post("/turns/{turn_id}/browse/authorize")
     def authorize_turn_browse(
+        tenant_id: str,
         turn_id: str,
         body: AuthorizeBrowseBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, Any]:
         try:
             state.plane.turn(tenant_id, turn_id)
@@ -655,11 +676,11 @@ def create_app(
         )
         return {"authorized": True, "url": body.url}
 
-    @app.post("/turns/{turn_id}/tool/denied")
+    @org_router.post("/turns/{turn_id}/tool/denied")
     def deny_turn_model_tool(
+        tenant_id: str,
         turn_id: str,
         body: DenyModelToolBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, str]:
         try:
             state.plane.turn(tenant_id, turn_id)
@@ -674,10 +695,10 @@ def create_app(
             dict(body.arguments),
         )
 
-    @app.get("/turns/{turn_id}/events")
+    @org_router.get("/turns/{turn_id}/events")
     def list_turn_events(
+        tenant_id: str,
         turn_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
         after: int = Query(default=0, ge=0),
     ) -> dict[str, Any]:
         try:
@@ -691,11 +712,11 @@ def create_app(
             "events": [turn_event_payload(event) for event in events],
         }
 
-    @app.post("/turns/{turn_id}/chunks")
+    @org_router.post("/turns/{turn_id}/chunks")
     def post_chunk(
+        tenant_id: str,
         turn_id: str,
         body: PostChunkBody,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     ) -> dict[str, str]:
         state.plane.post_turn_chunk(
             turn_id,
@@ -712,11 +733,11 @@ def create_app(
         )
         return {"status": "ok"}
 
-    @app.get("/turns/{turn_id}/stream")
+    @org_router.get("/turns/{turn_id}/stream")
     async def stream_turn(
         request: Request,
+        tenant_id: str,
         turn_id: str,
-        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
         last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
     ) -> StreamingResponse:
         try:
@@ -779,6 +800,8 @@ def create_app(
                 "Connection": "keep-alive",
             },
         )
+
+    app.include_router(org_router)
 
     return app
 

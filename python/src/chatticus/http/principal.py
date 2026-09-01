@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Final
+from typing import TYPE_CHECKING, Annotated, Final
 
 from fastapi import Depends, Request
 
-from chatticus.principal import Principal
+from chatticus.models import OrganizationStatus
+from chatticus.principal import Principal, PrincipalKind
+
+if TYPE_CHECKING:
+    from chatticus.control_plane import ControlPlane
 
 _PRINCIPAL_POLICY_ATTR: Final = "__chatticus_principal_policy__"
 
@@ -66,3 +70,42 @@ async def resolve_principal(request: Request) -> Principal:
 
 
 RequirePrincipal = Annotated[Principal, Depends(resolve_principal)]
+
+
+class OrgAccessDeniedError(Exception):
+    """Raised when a principal may not access the organization in the path."""
+
+
+def verify_org_access(
+    principal: Principal,
+    path_tenant_id: str,
+    *,
+    policy: PrincipalRoutePolicy,
+    plane: ControlPlane,
+) -> None:
+    """Check that *principal* may access *path_tenant_id* under *policy*."""
+    if principal.kind == PrincipalKind.WORKER:
+        if principal.tenant_id != path_tenant_id:
+            raise OrgAccessDeniedError(
+                f"Worker {principal.worker_id!r} is not registered for "
+                f"organization {path_tenant_id!r}."
+            )
+        return
+
+    if principal.user_id is None:
+        raise OrgAccessDeniedError("User principal is missing user_id.")
+
+    membership = plane.get_membership(path_tenant_id, principal.user_id)
+    if membership is None:
+        raise OrgAccessDeniedError(
+            f"User {principal.user_id!r} is not a member of "
+            f"organization {path_tenant_id!r}."
+        )
+
+    organization = plane.get_organization(path_tenant_id)
+    if policy.requires_enabled_member:
+        if organization.status != OrganizationStatus.ENABLED:
+            raise OrgAccessDeniedError(
+                f"Organization {path_tenant_id!r} has status "
+                f"{organization.status!r}; enabled membership is required."
+            )

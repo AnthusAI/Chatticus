@@ -8,6 +8,7 @@ from behave import given, then, when
 
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
+from chatticus.http.paths import org_path
 from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
@@ -540,9 +541,8 @@ def then_lookup_bot_by_name(
 ) -> None:
     expected = context.bots_by_name[name]
     response = context.api_client.get(
-        "/bots",
+        org_path(tenant_id, "/bots"),
         params={"user_id": user_id, "name": name},
-        headers={"X-Tenant-Id": tenant_id},
     )
     assert response.status_code == 200
     payload = response.json()
@@ -560,8 +560,7 @@ def then_read_bot_by_identifier(
 ) -> None:
     expected = context.bots_by_name[name]
     response = context.api_client.get(
-        f"/bots/{expected.bot_id}",
-        headers={"X-Tenant-Id": tenant_id},
+        org_path(tenant_id, f"/bots/{expected.bot_id}"),
     )
     assert response.status_code == 200
     payload = response.json()
@@ -569,8 +568,7 @@ def then_read_bot_by_identifier(
     assert payload["name"] == name
     assert (payload.get("memory") or {}).get(key) == value
     missing = context.api_client.get(
-        f"/bots/{expected.bot_id}",
-        headers={"X-Tenant-Id": "other"},
+        org_path("other", f"/bots/{expected.bot_id}"),
     )
     assert missing.status_code == 404
 
@@ -583,8 +581,7 @@ def then_list_user_bots(context: object, tenant_id: str, user_id: str) -> None:
     expected_names.extend(row.cells[0].strip() for row in context.table)
     expected_names = [name for name in expected_names if name]
     response = context.api_client.get(
-        f"/users/{user_id}/bots",
-        headers={"X-Tenant-Id": tenant_id},
+        org_path(tenant_id, f"/users/{user_id}/bots"),
     )
     assert response.status_code == 200
     names = [bot["name"] for bot in response.json()["bots"]]

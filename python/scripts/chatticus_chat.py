@@ -52,7 +52,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Post a message to a named bot and watch one thin-turn SSE stream. "
-            "Auth is invoke key plus X-Tenant-Id, not product login."
+            "Auth is invoke key plus /orgs/{tenant_id}/... paths, not product login."
         )
     )
     parser.add_argument(

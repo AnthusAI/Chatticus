@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from behave import then, when
-from sse_helpers import SseWatcher, tenant_headers
+from sse_helpers import SseWatcher
 
+from chatticus.http.paths import org_path
 from chatticus.models import TurnStatus
 
 
@@ -13,8 +14,7 @@ def when_web_ui_requests_bot_roster(
     context: object, tenant_id: str, user_id: str
 ) -> None:
     response = context.api_client.get(
-        f"/users/{user_id}/bots",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/users/{user_id}/bots"),
     )
     assert response.status_code == 200, response.text
     context.web_ui_bot_names = [bot["name"] for bot in response.json()["bots"]]
@@ -63,14 +63,13 @@ def when_web_ui_sends_message(
     channel = context.last_channel
     bot = context.bots_by_name[name]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
             "author_id": user_id,
             "body": body,
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers=tenant_headers(tenant_id),
     )
     context.web_ui_post_response = response
 
@@ -119,13 +118,12 @@ def when_worker_completes_turn(context: object) -> None:
         raise AssertionError("No turn is active in this scenario.")
     channel = context.last_channel
     response = context.api_client.post(
-        f"/turns/{context.last_turn_id}/chunks",
+        org_path(channel.tenant_id, f"/turns/{context.last_turn_id}/chunks"),
         json={
             "token": "",
             "complete": True,
             "fence_token": context.fence_token,
         },
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200, response.text
 

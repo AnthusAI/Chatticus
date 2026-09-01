@@ -16,6 +16,7 @@ from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
+from chatticus.http.paths import org_path
 from chatticus.http.sse import cursor_from_last_event_id
 from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import (
@@ -82,29 +83,26 @@ def test_list_channel_messages_after_query_skips_earlier_seq() -> None:
     writer = plane.create_bot("anthus", "ryan", "Writer")
     channel = plane.create_channel("anthus", "ryan", [researcher.bot_id, writer.bot_id])
     api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "research then draft",
             "addressed_to_bot_id": researcher.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.BOT,
             "author_id": researcher.bot_id,
             "body": "notes are in /workspace/accounts.md",
             "addressed_to_bot_id": writer.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     listed = api.get(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         params={"after": 1},
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     assert listed.status_code == 200
     payloads = listed.json()["messages"]
@@ -117,14 +115,13 @@ def test_list_turn_events_after_query_skips_earlier_seq() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     client = HttpTurnClient(api, channel.tenant_id)
@@ -133,9 +130,8 @@ def test_list_turn_events_after_query_skips_earlier_seq() -> None:
     client.post_chunk(turn_id, "lo")
     client.post_chunk(turn_id, "!")
     listed = api.get(
-        f"/turns/{turn_id}/events",
+        org_path("anthus", f"/turns/{turn_id}/events"),
         params={"after": 2},
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     assert listed.status_code == 200
     payloads = listed.json()["events"]
@@ -204,14 +200,13 @@ def test_dynamo_store_roundtrip_messages_and_events() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     response = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     assert response.status_code == 200
     turn_id = response.json()["turn_id"]
@@ -223,8 +218,7 @@ def test_dynamo_store_roundtrip_messages_and_events() -> None:
     turn_client.post_chunk(turn_id, "Hel")
     turn_client.post_chunk(turn_id, "", complete=True)
     messages = api.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     ).json()["messages"]
     assert len(messages) == 2
     events = store.list_turn_events(channel.tenant_id, turn_id)
@@ -287,9 +281,8 @@ def test_http_bot_memory_write_on_a_new_control_plane() -> None:
     bot = first.create_bot("anthus", "ryan", "Researcher")
     api = _client_for(ControlPlane(messaging_store=store))
     remembered = api.post(
-        f"/bots/{bot.bot_id}/memory",
+        org_path("anthus", f"/bots/{bot.bot_id}/memory"),
         json={"key": "voice", "value": "short and direct"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert remembered.status_code == 200
     assert remembered.json()["memory"]["voice"] == "short and direct"
@@ -300,28 +293,24 @@ def test_http_lookup_bot_by_name() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     created = api.post(
-        "/bots",
+        org_path("anthus", "/bots"),
         json={"user_id": "ryan", "name": "Researcher"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     bot_id = created.json()["bot_id"]
     fetched = api.get(
-        "/bots",
+        org_path("anthus", "/bots"),
         params={"user_id": "ryan", "name": "Researcher"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert fetched.status_code == 200
     assert fetched.json()["bot_id"] == bot_id
     missing = api.get(
-        "/bots",
+        org_path("other", "/bots"),
         params={"user_id": "ryan", "name": "Researcher"},
-        headers={"X-Tenant-Id": "other"},
     )
     assert missing.status_code == 404
     unknown = api.get(
-        "/bots",
+        org_path("anthus", "/bots"),
         params={"user_id": "ryan", "name": "Missing"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert unknown.status_code == 404
     api.close()
@@ -337,9 +326,8 @@ def test_http_lookup_bot_by_name_survives_a_new_control_plane() -> None:
     bot = first.create_bot("anthus", "ryan", "Researcher")
     api = _client_for(ControlPlane(messaging_store=store))
     fetched = api.get(
-        "/bots",
+        org_path("anthus", "/bots"),
         params={"user_id": "ryan", "name": "Researcher"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert fetched.status_code == 200
     assert fetched.json()["bot_id"] == bot.bot_id
@@ -350,23 +338,19 @@ def test_http_list_user_bots() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     researcher = api.post(
-        "/bots",
+        org_path("anthus", "/bots"),
         json={"user_id": "ryan", "name": "Researcher"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     writer = api.post(
-        "/bots",
+        org_path("anthus", "/bots"),
         json={"user_id": "ryan", "name": "Writer"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     api.post(
-        "/bots",
+        org_path("anthus", "/bots"),
         json={"user_id": "alex", "name": "Ops"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     listed = api.get(
-        "/users/ryan/bots",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/bots"),
     )
     assert listed.status_code == 200
     bots = listed.json()["bots"]
@@ -376,8 +360,7 @@ def test_http_list_user_bots() -> None:
         writer.json()["bot_id"],
     }
     empty = api.get(
-        "/users/ryan/bots",
-        headers={"X-Tenant-Id": "other"},
+        org_path("other", "/users/ryan/bots"),
     )
     assert empty.status_code == 200
     assert empty.json()["bots"] == []
@@ -396,8 +379,7 @@ def test_http_list_user_bots_survives_a_new_control_plane() -> None:
     first.create_bot("anthus", "alex", "Ops")
     api = _client_for(ControlPlane(messaging_store=store))
     listed = api.get(
-        "/users/ryan/bots",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/bots"),
     )
     assert listed.status_code == 200
     bots = listed.json()["bots"]
@@ -411,26 +393,22 @@ def test_http_list_user_channels() -> None:
     api = _client_for(plane)
     bot = plane.create_bot("anthus", "ryan", "Researcher")
     first = api.post(
-        "/channels",
+        org_path("anthus", "/channels"),
         json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
-        headers={"X-Tenant-Id": "anthus"},
     )
     second = api.post(
-        "/channels",
+        org_path("anthus", "/channels"),
         json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
-        headers={"X-Tenant-Id": "anthus"},
     )
     api.post(
-        "/channels",
+        org_path("anthus", "/channels"),
         json={
             "user_id": "alex",
             "bot_ids": [plane.create_bot("anthus", "alex", "Ops").bot_id],
         },
-        headers={"X-Tenant-Id": "anthus"},
     )
     listed = api.get(
-        "/users/ryan/channels",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/channels"),
     )
     assert listed.status_code == 200
     channels = listed.json()["channels"]
@@ -438,8 +416,7 @@ def test_http_list_user_channels() -> None:
         [first.json()["channel_id"], second.json()["channel_id"]]
     )
     empty = api.get(
-        "/users/ryan/channels",
-        headers={"X-Tenant-Id": "other"},
+        org_path("other", "/users/ryan/channels"),
     )
     assert empty.status_code == 200
     assert empty.json()["channels"] == []
@@ -463,8 +440,7 @@ def test_http_list_user_channels_survives_a_new_control_plane() -> None:
     )
     api = _client_for(ControlPlane(messaging_store=store))
     listed = api.get(
-        "/users/ryan/channels",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/channels"),
     )
     assert listed.status_code == 200
     channels = listed.json()["channels"]
@@ -513,8 +489,7 @@ def test_http_list_user_active_turns() -> None:
     assert first_turn is not None
     assert second_turn is not None
     listed = api.get(
-        "/users/ryan/turns",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/turns"),
     )
     assert listed.status_code == 200
     turn_ids = [turn["turn_id"] for turn in listed.json()["turns"]]
@@ -523,8 +498,7 @@ def test_http_list_user_active_turns() -> None:
         turn["channel_id"] for turn in listed.json()["turns"]
     }
     empty = api.get(
-        "/users/ryan/turns",
-        headers={"X-Tenant-Id": "other"},
+        org_path("other", "/users/ryan/turns"),
     )
     assert empty.status_code == 200
     assert empty.json()["turns"] == []
@@ -563,8 +537,7 @@ def test_http_list_user_active_turns_survives_a_new_control_plane() -> None:
     assert second_turn is not None
     api = _client_for(ControlPlane(messaging_store=store))
     listed = api.get(
-        "/users/ryan/turns",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/turns"),
     )
     assert listed.status_code == 200
     turn_ids = [turn["turn_id"] for turn in listed.json()["turns"]]
@@ -604,26 +577,23 @@ def test_http_list_user_active_turns_omits_completed() -> None:
     assert live_turn is not None
     api = _client_for(plane)
     claim = api.post(
-        f"/turns/{done_turn.turn_id}/claim",
+        org_path("anthus", f"/turns/{done_turn.turn_id}/claim"),
         json={"worker_id": "test-worker"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert claim.status_code == 200
     complete = api.post(
-        f"/turns/{done_turn.turn_id}/chunks",
+        org_path("anthus", f"/turns/{done_turn.turn_id}/chunks"),
         json={
             "token": "done",
             "complete": True,
             "fence_token": claim.json()["fence_token"],
         },
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert complete.status_code == 200
     api.close()
     recycled = _client_for(ControlPlane(messaging_store=store))
     listed = recycled.get(
-        "/users/ryan/turns",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/turns"),
     )
     assert listed.status_code == 200
     turn_ids = [turn["turn_id"] for turn in listed.json()["turns"]]
@@ -638,8 +608,7 @@ def test_http_get_user_computer() -> None:
     plane.set_computer_stopped("anthus", "ryan", True)
     expected = plane.computer_for_user("anthus", "ryan")
     fetched = api.get(
-        "/users/ryan/computer",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/computer"),
     )
     assert fetched.status_code == 200
     payload = fetched.json()
@@ -648,8 +617,7 @@ def test_http_get_user_computer() -> None:
     assert payload["user_id"] == "ryan"
     assert payload["host_start_generation"] == 0
     missing = api.get(
-        "/users/ryan/computer",
-        headers={"X-Tenant-Id": "other"},
+        org_path("other", "/users/ryan/computer"),
     )
     assert missing.status_code == 404
     api.close()
@@ -667,8 +635,7 @@ def test_http_get_user_computer_survives_a_new_control_plane() -> None:
     expected = first.computer_for_user("anthus", "ryan")
     api = _client_for(ControlPlane(messaging_store=store))
     fetched = api.get(
-        "/users/ryan/computer",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/computer"),
     )
     assert fetched.status_code == 200
     payload = fetched.json()
@@ -688,8 +655,7 @@ def test_http_get_user_computer_reports_host_start_generation_after_nack() -> No
             HttpTurnClient(api, setup.tenant_id),
         ).run_job(setup.continuation_job)
     fetched = api.get(
-        "/users/ryan/computer",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/computer"),
     )
     assert fetched.status_code == 200
     assert fetched.json()["host_start_generation"] == 1
@@ -706,8 +672,7 @@ def test_http_get_computer_sees_host_start_from_a_second_process() -> None:
     api = _client_for(door)
     prepare_computer_continuation(door)
     primed = api.get(
-        "/users/ryan/computer",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/computer"),
     )
     assert primed.status_code == 200
     assert primed.json()["host_start_generation"] == 0
@@ -716,8 +681,7 @@ def test_http_get_computer_sees_host_start_from_a_second_process() -> None:
         "anthus", "ryan", "host-start-from-second-process"
     )
     fetched = api.get(
-        "/users/ryan/computer",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/computer"),
     )
     assert fetched.status_code == 200
     assert fetched.json()["host_start_generation"] == 1
@@ -771,8 +735,7 @@ def test_http_get_user_computer_reports_host_start_generation_after_recycle() ->
     api.close()
     recycled = _client_for(ControlPlane(messaging_store=store))
     fetched = recycled.get(
-        "/users/ryan/computer",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", "/users/ryan/computer"),
     )
     assert fetched.status_code == 200
     assert fetched.json()["host_start_generation"] == 1
@@ -784,7 +747,7 @@ def test_http_get_channel_active_turn() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     posted = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
@@ -792,18 +755,15 @@ def test_http_get_channel_active_turn() -> None:
             "addressed_to_bot_id": bot.bot_id,
             "enqueue_turn": False,
         },
-        headers={"X-Tenant-Id": "anthus"},
     )
     turn_id = posted.json()["turn_id"]
     fetched = api.get(
-        f"/channels/{channel.channel_id}/turn",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", f"/channels/{channel.channel_id}/turn"),
     )
     assert fetched.status_code == 200
     assert fetched.json()["turn_id"] == turn_id
     missing = api.get(
-        f"/channels/{channel.channel_id}/turn",
-        headers={"X-Tenant-Id": "other"},
+        org_path("other", f"/channels/{channel.channel_id}/turn"),
     )
     assert missing.status_code == 404
     api.close()
@@ -829,8 +789,7 @@ def test_http_get_channel_active_turn_survives_a_new_control_plane() -> None:
     assert started is not None
     api = _client_for(ControlPlane(messaging_store=store))
     fetched = api.get(
-        f"/channels/{channel.channel_id}/turn",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", f"/channels/{channel.channel_id}/turn"),
     )
     assert fetched.status_code == 200
     assert fetched.json()["turn_id"] == started.turn_id
@@ -857,27 +816,24 @@ def test_http_get_channel_active_turn_404_after_completion() -> None:
     assert started is not None
     api = _client_for(plane)
     claim = api.post(
-        f"/turns/{started.turn_id}/claim",
+        org_path("anthus", f"/turns/{started.turn_id}/claim"),
         json={"worker_id": "test-worker"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert claim.status_code == 200
     fence_token = claim.json()["fence_token"]
     complete = api.post(
-        f"/turns/{started.turn_id}/chunks",
+        org_path("anthus", f"/turns/{started.turn_id}/chunks"),
         json={
             "token": "done",
             "complete": True,
             "fence_token": fence_token,
         },
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert complete.status_code == 200
     api.close()
     recycled = _client_for(ControlPlane(messaging_store=store))
     missing = recycled.get(
-        f"/channels/{channel.channel_id}/turn",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", f"/channels/{channel.channel_id}/turn"),
     )
     assert missing.status_code == 404
     recycled.close()
@@ -903,23 +859,20 @@ def test_http_get_channel_waiting_turn_survives_a_new_control_plane() -> None:
     assert started is not None
     api = _client_for(plane)
     claim = api.post(
-        f"/turns/{started.turn_id}/claim",
+        org_path("anthus", f"/turns/{started.turn_id}/claim"),
         json={"worker_id": "test-worker"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert claim.status_code == 200
     fence_token = claim.json()["fence_token"]
     waiting = api.post(
-        f"/turns/{started.turn_id}/waiting",
+        org_path("anthus", f"/turns/{started.turn_id}/waiting"),
         json={"gate": "browser", "fence_token": fence_token},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert waiting.status_code == 200
     api.close()
     recycled = _client_for(ControlPlane(messaging_store=store))
     fetched = recycled.get(
-        f"/channels/{channel.channel_id}/turn",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", f"/channels/{channel.channel_id}/turn"),
     )
     assert fetched.status_code == 200
     payload = fetched.json()
@@ -935,27 +888,23 @@ def test_http_bot_memory_roundtrip() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     created = api.post(
-        "/bots",
+        org_path("anthus", "/bots"),
         json={"user_id": "ryan", "name": "Researcher"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     bot_id = created.json()["bot_id"]
     remembered = api.post(
-        f"/bots/{bot_id}/memory",
+        org_path("anthus", f"/bots/{bot_id}/memory"),
         json={"key": "voice", "value": "short and direct"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert remembered.status_code == 200
     assert remembered.json()["memory"]["voice"] == "short and direct"
     fetched = api.get(
-        f"/bots/{bot_id}",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", f"/bots/{bot_id}"),
     )
     assert fetched.status_code == 200
     assert fetched.json()["memory"]["voice"] == "short and direct"
     missing = api.get(
-        f"/bots/{bot_id}",
-        headers={"X-Tenant-Id": "other"},
+        org_path("other", f"/bots/{bot_id}"),
     )
     assert missing.status_code == 404
     api.close()
@@ -1012,13 +961,12 @@ def test_cross_tenant_channel_post_is_rejected() -> None:
     api = _client_for(plane)
     _, channel = _channel_with_bot(plane)
     response = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "alex",
             "body": "hello",
         },
-        headers={"X-Tenant-Id": "other"},
     )
     assert response.status_code == 403
     api.close()
@@ -1029,14 +977,13 @@ def test_cpu_turn_does_not_pin_computer() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     jobs = plane.pending_jobs_for_bot(bot.bot_id)
     assert jobs[0].computer_id is None
@@ -1049,14 +996,13 @@ def test_computerless_worker_commits_one_answer_with_fake_openai() -> None:
     plane.set_computer_stopped("anthus", "ryan", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "ping",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     worker = ComputerlessWorker(
         plane,
@@ -1066,8 +1012,7 @@ def test_computerless_worker_commits_one_answer_with_fake_openai() -> None:
     worker.complete_pending_for_bot(bot.bot_id)
     assert plane.computer_is_stopped("anthus", "ryan")
     messages = api.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     ).json()["messages"]
     bot_messages = [m for m in messages if m["author_kind"] == ActorKind.BOT]
     assert len(bot_messages) == 1
@@ -1081,14 +1026,13 @@ def test_computerless_worker_waits_when_the_model_needs_the_browser() -> None:
     plane.set_computer_stopped("anthus", "ryan", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "research this and open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     worker = ComputerlessWorker(
@@ -1111,8 +1055,7 @@ def test_computerless_worker_waits_when_the_model_needs_the_browser() -> None:
     assert pending.arguments == {"gate": "browser"}
     assert pending.action_id
     messages = api.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     ).json()["messages"]
     bot_messages = [m for m in messages if m["author_kind"] == ActorKind.BOT]
     assert bot_messages == []
@@ -1125,14 +1068,13 @@ def test_computerless_worker_does_not_recall_model_on_a_waiting_turn() -> None:
     plane.set_computer_stopped("anthus", "ryan", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "research this and open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     counting = CountingTextCompletionClient()
@@ -1189,14 +1131,13 @@ def test_computerless_worker_commits_one_answer_with_live_openai() -> None:
     plane.set_computer_stopped("anthus", "ryan", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "Reply with a short greeting.",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     assert turn_id is not None
@@ -1210,8 +1151,7 @@ def test_computerless_worker_commits_one_answer_with_live_openai() -> None:
     turn = plane.turn(channel.tenant_id, turn_id)
     assert turn.status == TurnStatus.COMPLETED
     messages = api.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     ).json()["messages"]
     bot_messages = [m for m in messages if m["author_kind"] == ActorKind.BOT]
     assert len(bot_messages) == 1
@@ -1219,8 +1159,7 @@ def test_computerless_worker_commits_one_answer_with_live_openai() -> None:
     events: list[dict[str, object]] = []
     with api.stream(
         "GET",
-        f"/turns/{turn_id}/stream",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/turns/{turn_id}/stream"),
     ) as response:
         assert response.headers["content-type"].startswith("text/event-stream")
         buffer = ""
@@ -1242,14 +1181,13 @@ def test_http_sse_replay_from_last_event_id() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     turn_client = HttpTurnClient(api, channel.tenant_id)
@@ -1262,9 +1200,8 @@ def test_http_sse_replay_from_last_event_id() -> None:
     sse_ids: list[str] = []
     with api.stream(
         "GET",
-        f"/turns/{turn_id}/stream",
+        org_path(channel.tenant_id, f"/turns/{turn_id}/stream"),
         headers={
-            "X-Tenant-Id": channel.tenant_id,
             "Last-Event-ID": "2",
         },
     ) as response:
@@ -1297,20 +1234,18 @@ def test_http_sse_rejects_non_numeric_last_event_id() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     response = api.get(
-        f"/turns/{turn_id}/stream",
+        org_path(channel.tenant_id, f"/turns/{turn_id}/stream"),
         headers={
-            "X-Tenant-Id": channel.tenant_id,
             "Last-Event-ID": "not-a-seq",
         },
     )
@@ -1323,19 +1258,17 @@ def test_http_cross_tenant_turn_stream_is_denied() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     response = api.get(
-        f"/turns/{turn_id}/stream",
-        headers={"X-Tenant-Id": "other"},
+        org_path("other", f"/turns/{turn_id}/stream"),
     )
     assert response.status_code == 403
     api.close()
@@ -1346,14 +1279,13 @@ def test_http_waiting_emits_gate_and_releases_claim() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     client = HttpTurnClient(api, channel.tenant_id)
@@ -1375,15 +1307,13 @@ def test_http_waiting_emits_gate_and_releases_claim() -> None:
     assert pending.arguments == {"gate": "browser"}
     assert pending.action_id
     stale = api.post(
-        f"/turns/{turn_id}/waiting",
+        org_path("anthus", f"/turns/{turn_id}/waiting"),
         json={"gate": "browser", "fence_token": claimed["fence_token"]},
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     assert stale.status_code == 409
     plane.set_computer_stopped("anthus", "ryan", True)
     refused = api.post(
-        f"/turns/{turn_id}/resume",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
     )
     assert refused.status_code == 409
     with pytest.raises(ComputerNotReadyError):
@@ -1400,14 +1330,13 @@ def test_http_get_turn_exposes_waiting_gate() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     client = HttpTurnClient(api, channel.tenant_id)
@@ -1415,8 +1344,7 @@ def test_http_get_turn_exposes_waiting_gate() -> None:
     client.post_chunk(turn_id, "Here is a draft.")
     client.post_waiting(turn_id, "browser")
     response = api.get(
-        f"/turns/{turn_id}",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/turns/{turn_id}"),
     )
     assert response.status_code == 200
     payload = response.json()
@@ -1428,8 +1356,7 @@ def test_http_get_turn_exposes_waiting_gate() -> None:
     assert pending["arguments"] == {"gate": "browser"}
     assert pending["action_id"]
     second = api.get(
-        f"/turns/{turn_id}",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/turns/{turn_id}"),
     )
     assert second.json()["pending_computer_tool"]["action_id"] == pending["action_id"]
     events = plane.list_turn_events(channel.tenant_id, turn_id)
@@ -1437,8 +1364,7 @@ def test_http_get_turn_exposes_waiting_gate() -> None:
     assert waiting[0].pending_computer_tool is not None
     assert waiting[0].pending_computer_tool.action_id == pending["action_id"]
     denied = api.get(
-        f"/turns/{turn_id}",
-        headers={"X-Tenant-Id": "other"},
+        org_path("other", f"/turns/{turn_id}"),
     )
     assert denied.status_code == 403
     api.close()
@@ -1449,14 +1375,13 @@ def test_resume_enqueues_the_same_turn_when_the_computer_is_running() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     client = HttpTurnClient(api, channel.tenant_id)
@@ -1465,8 +1390,7 @@ def test_resume_enqueues_the_same_turn_when_the_computer_is_running() -> None:
     client.post_waiting(turn_id, "browser")
     plane.set_computer_stopped("anthus", "ryan", False)
     resumed = api.post(
-        f"/turns/{turn_id}/resume",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
     )
     assert resumed.status_code == 200
     payload = resumed.json()
@@ -1490,7 +1414,7 @@ def test_post_message_without_enqueue_creates_turn_without_cpu_job() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane, "Assistant")
     posted = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
@@ -1498,7 +1422,6 @@ def test_post_message_without_enqueue_creates_turn_without_cpu_job() -> None:
             "addressed_to_bot_id": bot.bot_id,
             "enqueue_turn": False,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     assert posted.status_code == 200
     turn_id = posted.json()["turn_id"]
@@ -1509,14 +1432,12 @@ def test_post_message_without_enqueue_creates_turn_without_cpu_job() -> None:
     turn = plane.turn(channel.tenant_id, turn_id)
     assert turn.bot_id == bot.bot_id
     first = api.post(
-        f"/turns/{turn_id}/claim",
+        org_path("anthus", f"/turns/{turn_id}/claim"),
         json={"worker_id": "exercise-fence-a"},
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     second = api.post(
-        f"/turns/{turn_id}/claim",
+        org_path("anthus", f"/turns/{turn_id}/claim"),
         json={"worker_id": "exercise-fence-b"},
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     assert first.status_code == 200
     assert first.json().get("acquired") is True
@@ -1536,17 +1457,14 @@ def test_http_post_idempotency_key_does_not_duplicate() -> None:
         "addressed_to_bot_id": bot.bot_id,
         "enqueue_turn": False,
     }
-    headers = {
-        "X-Tenant-Id": channel.tenant_id,
-        "Idempotency-Key": "retry-1",
-    }
+    headers = {"Idempotency-Key": "retry-1"}
     first = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json=payload,
         headers=headers,
     )
     second = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json=payload,
         headers=headers,
     )
@@ -1557,8 +1475,7 @@ def test_http_post_idempotency_key_does_not_duplicate() -> None:
     )
     assert first.json()["turn_id"] == second.json()["turn_id"]
     listed = api.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     )
     assert [item["message_id"] for item in listed.json()["messages"]] == [
         first.json()["message"]["message_id"]
@@ -1609,12 +1526,9 @@ def test_http_channel_create_idempotency_key_does_not_duplicate() -> None:
     api = _client_for(plane)
     bot, _ = _channel_with_bot(plane, "Assistant")
     payload = {"user_id": "ryan", "bot_ids": [bot.bot_id]}
-    headers = {
-        "X-Tenant-Id": "anthus",
-        "Idempotency-Key": "retry-ch",
-    }
-    first = api.post("/channels", json=payload, headers=headers)
-    second = api.post("/channels", json=payload, headers=headers)
+    headers = {"Idempotency-Key": "retry-1"}
+    first = api.post(org_path("anthus", "/channels"), json=payload, headers=headers)
+    second = api.post(org_path("anthus", "/channels"), json=payload, headers=headers)
     assert first.status_code == 200
     assert second.status_code == 200
     assert first.json()["channel_id"] == second.json()["channel_id"]
@@ -1626,8 +1540,7 @@ def test_http_get_channel_roundtrip() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane, "Assistant")
     fetched = api.get(
-        f"/channels/{channel.channel_id}",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", f"/channels/{channel.channel_id}"),
     )
     assert fetched.status_code == 200
     payload = fetched.json()
@@ -1635,8 +1548,7 @@ def test_http_get_channel_roundtrip() -> None:
     assert payload["tenant_id"] == channel.tenant_id
     assert payload["user_id"] == channel.user_id
     missing = api.get(
-        f"/channels/{channel.channel_id}",
-        headers={"X-Tenant-Id": "other"},
+        org_path("other", f"/channels/{channel.channel_id}"),
     )
     assert missing.status_code == 404
     api.close()
@@ -1652,9 +1564,8 @@ def test_http_get_channel_survives_a_new_control_plane_in_dynamo() -> None:
     first_api = _client_for(first_plane)
     bot, channel = _channel_with_bot(first_plane, "Assistant")
     created = first_api.post(
-        "/channels",
+        org_path("anthus", "/channels"),
         json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert created.status_code == 200
     channel_id = created.json()["channel_id"]
@@ -1662,8 +1573,7 @@ def test_http_get_channel_survives_a_new_control_plane_in_dynamo() -> None:
     second_plane = ControlPlane(messaging_store=store)
     second_api = _client_for(second_plane)
     fetched = second_api.get(
-        f"/channels/{channel_id}",
-        headers={"X-Tenant-Id": "anthus"},
+        org_path("anthus", f"/channels/{channel_id}"),
     )
     assert fetched.status_code == 200
     assert fetched.json()["channel_id"] == channel_id
@@ -1695,14 +1605,13 @@ def test_resume_does_not_publish_computer_job_to_cpu_queue() -> None:
     plane.set_computer_stopped("anthus", "ryan", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "research this and open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     ComputerlessWorker(
@@ -1714,8 +1623,7 @@ def test_resume_does_not_publish_computer_job_to_cpu_queue() -> None:
     assert cpu_ids
     plane.set_computer_stopped("anthus", "ryan", False)
     resumed = api.post(
-        f"/turns/{turn_id}/resume",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
     )
     assert resumed.status_code == 200
     continuation = plane.job_for_turn(channel.tenant_id, turn_id)
@@ -1737,14 +1645,13 @@ def test_resume_publishes_computer_job_to_computer_queue() -> None:
     plane.set_computer_stopped("anthus", "ryan", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "research this and open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     ComputerlessWorker(
@@ -1754,8 +1661,7 @@ def test_resume_publishes_computer_job_to_computer_queue() -> None:
     ).complete_pending_for_bot(bot.bot_id)
     plane.set_computer_stopped("anthus", "ryan", False)
     resumed = api.post(
-        f"/turns/{turn_id}/resume",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
     )
     assert resumed.status_code == 200
     continuation = plane.job_for_turn(channel.tenant_id, turn_id)
@@ -1772,14 +1678,13 @@ def test_computerless_worker_refuses_a_computer_continuation_job() -> None:
     plane.set_computer_stopped("anthus", "ryan", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "research this and open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     counting = CountingTextCompletionClient()
@@ -1792,8 +1697,7 @@ def test_computerless_worker_refuses_a_computer_continuation_job() -> None:
     assert counting.calls == 1
     plane.set_computer_stopped("anthus", "ryan", False)
     resumed = api.post(
-        f"/turns/{turn_id}/resume",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
     )
     assert resumed.status_code == 200
     job = plane.job_for_turn(channel.tenant_id, turn_id)
@@ -1817,19 +1721,17 @@ def test_resume_without_a_wait_gate_is_refused() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     refused = api.post(
-        f"/turns/{turn_id}/resume",
-        headers={"X-Tenant-Id": channel.tenant_id},
+        org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
     )
     assert refused.status_code == 409
     with pytest.raises(TurnNotWaitingError):
@@ -1842,14 +1744,13 @@ def test_turn_completes_without_sse_watcher() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane)
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     client = HttpTurnClient(api, channel.tenant_id)
@@ -1897,15 +1798,13 @@ def test_http_duplicate_bot_name_is_rejected() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     created = api.post(
-        "/bots",
+        org_path("anthus", "/bots"),
         json={"user_id": "ryan", "name": "Researcher"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert created.status_code == 200
     duplicate = api.post(
-        "/bots",
+        org_path("anthus", "/bots"),
         json={"user_id": "ryan", "name": "Researcher"},
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert duplicate.status_code == 400
     api.close()
@@ -1915,19 +1814,15 @@ def test_http_bot_create_idempotency_key_does_not_duplicate() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     payload = {"user_id": "ryan", "name": "Researcher"}
-    headers = {
-        "X-Tenant-Id": "anthus",
-        "Idempotency-Key": "retry-bot",
-    }
-    first = api.post("/bots", json=payload, headers=headers)
-    second = api.post("/bots", json=payload, headers=headers)
+    headers = {"Idempotency-Key": "retry-1"}
+    first = api.post(org_path("anthus", "/bots"), json=payload, headers=headers)
+    second = api.post(org_path("anthus", "/bots"), json=payload, headers=headers)
     assert first.status_code == 200
     assert second.status_code == 200
     assert first.json()["bot_id"] == second.json()["bot_id"]
     duplicate = api.post(
-        "/bots",
+        org_path("anthus", "/bots"),
         json=payload,
-        headers={"X-Tenant-Id": "anthus"},
     )
     assert duplicate.status_code == 400
     api.close()
@@ -1972,14 +1867,13 @@ def test_duplicate_delivery_calls_the_model_once() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane, "Assistant")
     api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "ping",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     job = plane.pending_jobs_for_bot(bot.bot_id)[0]
     other = replace(job, job_id=str(uuid4()))
@@ -1999,14 +1893,13 @@ def test_stale_attempt_cannot_append_after_reassignment() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "ping",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     first = plane.claim_turn_attempt(channel.tenant_id, turn_id, "worker-a")
@@ -2041,25 +1934,23 @@ def test_complete_turn_second_message_uses_chunks_not_prior_greeting() -> None:
         FakeTextCompletionClient(),
     )
     first_post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     worker.complete_pending_for_bot(bot.bot_id)
     second_post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "what is two plus two",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     second_turn_id = second_post.json()["turn_id"]
     worker.complete_pending_for_bot(bot.bot_id)
@@ -2082,14 +1973,13 @@ def test_complete_turn_idempotent_after_completion_append() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     turn_client = HttpTurnClient(api, channel.tenant_id)
@@ -2129,14 +2019,13 @@ def test_complete_turn_completed_turn_uses_event_message_seq() -> None:
     api = _client_for(plane)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     turn_client = HttpTurnClient(api, channel.tenant_id)

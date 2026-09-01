@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from behave import then, when
-from sse_helpers import tenant_headers
+
+from chatticus.http.paths import org_path
 
 
 @when('the web UI requests the task list for tenant "{tenant_id}" user "{user_id}"')
@@ -11,8 +12,7 @@ def when_web_ui_requests_task_list(
     context: object, tenant_id: str, user_id: str
 ) -> None:
     response = context.api_client.get(
-        f"/users/{user_id}/tasks",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/users/{user_id}/tasks"),
     )
     context.web_ui_task_list_response = response
     if response.status_code == 200:
@@ -44,8 +44,7 @@ def then_web_ui_task_list_is_empty(context: object) -> None:
 def when_web_ui_requests_stored_task_details(context: object, tenant_id: str) -> None:
     task_id = context.http_task["task_id"]
     response = context.api_client.get(
-        f"/tasks/{task_id}",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/tasks/{task_id}"),
     )
     context.web_ui_task_detail_response = response
     if response.status_code == 200:
@@ -55,8 +54,7 @@ def when_web_ui_requests_stored_task_details(context: object, tenant_id: str) ->
 @when('the web UI requests task "{task_id}" as tenant "{tenant_id}"')
 def when_web_ui_requests_task(context: object, task_id: str, tenant_id: str) -> None:
     response = context.api_client.get(
-        f"/tasks/{task_id}",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/tasks/{task_id}"),
     )
     context.web_ui_task_detail_response = response
     context.web_ui_task_detail = (

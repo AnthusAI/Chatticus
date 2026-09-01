@@ -238,7 +238,7 @@ What each deployed thin-turn slice does today:
   worker, it is refused without ack. Resume of that
   same turn is refused while the computer is stopped. EventBridge deadline
   recovery does not fail a turn that is legitimately waiting on a gate.
-- Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
+- Auth on this slice is an invoke key plus `/orgs/{tenant_id}/...` paths, not product login.
 
 Worker lease renew during long model calls is live on development.
 EventBridge Scheduler one-shots are on each front door
@@ -486,7 +486,7 @@ That is the same as
 identity check.
 
 Watch one live conversation as a human (tokens on stdout, committed reply
-at the end). Auth is invoke key plus `X-Tenant-Id`, not product login:
+at the end). Auth is invoke key plus `/orgs/{tenant_id}/...` paths, not product login:
 
 ```bash
 cd python

@@ -5,6 +5,7 @@ from __future__ import annotations
 from behave import then, when
 
 from chatticus.http.app import create_app
+from chatticus.http.paths import org_path
 from chatticus.http.test_server import start_test_server
 from chatticus.thin_task import ThinTaskDriver
 
@@ -22,13 +23,12 @@ def when_http_task_create(
     context.user_id = bot.user_id
     context.tenant_id = bot.tenant_id
     response = context.api_client.post(
-        f"/bots/{bot.bot_id}/tasks/tool",
+        org_path(tenant_id, f"/bots/{bot.bot_id}/tasks/tool"),
         json={
             "user_id": bot.user_id,
             "action": "create",
             "arguments": {"title": title},
         },
-        headers={"X-Tenant-Id": tenant_id},
     )
     context.http_response = response
     if response.status_code < 400:
@@ -72,8 +72,7 @@ def then_list_user_tasks(context: object, tenant_id: str, user_id: str) -> None:
     expected_ids.extend(resolve_cell(row.cells[0]) for row in context.table)
     expected_ids = [task_id for task_id in expected_ids if task_id]
     response = context.api_client.get(
-        f"/users/{user_id}/tasks",
-        headers={"X-Tenant-Id": tenant_id},
+        org_path(tenant_id, f"/users/{user_id}/tasks"),
     )
     assert response.status_code == 200
     listed_ids = [task["task_id"] for task in response.json()["tasks"]]
@@ -89,8 +88,7 @@ def then_list_user_tasks(context: object, tenant_id: str, user_id: str) -> None:
 @then('another tenant cannot list tasks for user "{user_id}"')
 def then_other_tenant_cannot_list_tasks(context: object, user_id: str) -> None:
     response = context.api_client.get(
-        f"/users/{user_id}/tasks",
-        headers={"X-Tenant-Id": "other-household"},
+        org_path("other-household", f"/users/{user_id}/tasks"),
     )
     assert response.status_code == 200
     assert response.json()["tasks"] == []
@@ -99,8 +97,7 @@ def then_other_tenant_cannot_list_tasks(context: object, user_id: str) -> None:
 @then('tenant "{tenant_id}" can read the HTTP task by identifier')
 def then_read_http_task(context: object, tenant_id: str) -> None:
     response = context.api_client.get(
-        f"/tasks/{context.http_task['task_id']}",
-        headers={"X-Tenant-Id": tenant_id},
+        org_path(tenant_id, f"/tasks/{context.http_task['task_id']}"),
     )
     assert response.status_code == 200
     payload = response.json()
@@ -111,8 +108,7 @@ def then_read_http_task(context: object, tenant_id: str) -> None:
 @then("another tenant cannot read the HTTP task by identifier")
 def then_other_tenant_cannot_read_http_task(context: object) -> None:
     response = context.api_client.get(
-        f"/tasks/{context.http_task['task_id']}",
-        headers={"X-Tenant-Id": "other-household"},
+        org_path("other-household", f"/tasks/{context.http_task['task_id']}"),
     )
     assert response.status_code == 404
 
