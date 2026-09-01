@@ -209,10 +209,13 @@ found then costs far more than one designed around now.
 
 ## Still open
 
-- Whether client accounts sit under one AWS Organization with
-  consolidated billing, or stand alone with the client paying AWS
-  directly. This decides who receives budget notifications, whether we
-  can see spend across clients at all, and who holds the payment method.
+- Who receives a deployment's budget notifications, and who holds the
+  payment method. Member accounts sit under one AWS Organization, so
+  consolidated billing means Anthus sees every deployment's spend and can
+  set budgets across member accounts from the management account, with
+  Cost Explorer grouping by linked account. Whether the customer also
+  receives their own deployment's alerts is a product decision, not an
+  infrastructure one.
 - Whether each deployment gets its own vendor account or a project inside
   ours. Separate projects are enough for attribution; separate accounts
   also separate liability and rate limits.
@@ -221,6 +224,6 @@ found then costs far more than one designed around now.
 
 - Charging anyone. The boundary billing needs is built here; the invoice
   is not.
-- Per-user budgets inside an organization. The organization is the unit
-  of spend, as it is the unit of enablement.
+- Per-user budgets inside a tenant. The deployment is the unit of
+  spend and the tenant is the unit of internal chargeback.
 - Reserved capacity, savings plans, or any commitment purchase.

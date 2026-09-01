@@ -12,9 +12,16 @@
     "phase-4"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "0e6a6084-e6a0-4c43-8d71-4758db370c10",
+      "author": "home",
+      "text": "**Signup openness becomes deployment configuration.**\n\nThe three-level model changes what this card means. A deployment is one customer company; tenants are departments inside it. So open signup is right for the Anthus deployment, where anyone may sign in and ask for a tenant, and wrong for a customer deployment, where members are that company's employees and enablement belongs to their own admin.\n\n**Do not hardcode open signup.** The deployment configures whether sign-in creates a pending tenant or refuses anyone without an invitation. Both paths already exist in this epic; this is a switch over which one is reachable, not new machinery.\n\nSame applies to ae51dc: invitation-only is the default posture for a customer deployment, and open signup is the exception the Anthus deployment turns on.",
+      "created_at": "2026-09-01T03:29:19.080763Z"
+    }
+  ],
   "created_at": "2026-09-01T02:40:45.597787Z",
-  "updated_at": "2026-09-01T02:46:21.263315Z",
+  "updated_at": "2026-09-01T03:29:19.080763Z",
   "closed_at": null,
   "custom": {}
 }
