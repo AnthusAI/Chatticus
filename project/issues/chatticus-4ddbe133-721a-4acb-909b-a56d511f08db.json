@@ -31,10 +31,16 @@
       "author": "agent@example.com",
       "text": "150e07 closed: grants persist on development ThinTurn. Parent stays in_progress for remaining live authenticated-browser / model-loop sink wiring. Not 35d86b.",
       "created_at": "2026-08-31T23:35:00.080773Z"
+    },
+    {
+      "id": "8f09a2de-e3d6-4c86-90c9-836059735655",
+      "author": "agent@example.com",
+      "text": "1f3bb8 closed: model-loop sinks on HTTP. Parent stays in_progress if remaining authenticated Chromium/session containment still needs a named child. Not 35d86b.",
+      "created_at": "2026-09-01T00:08:29.465011Z"
     }
   ],
   "created_at": "2026-08-30T15:54:56.956699Z",
-  "updated_at": "2026-08-31T23:35:00.080773Z",
+  "updated_at": "2026-09-01T00:08:29.465011Z",
   "closed_at": null,
   "custom": {}
 }
