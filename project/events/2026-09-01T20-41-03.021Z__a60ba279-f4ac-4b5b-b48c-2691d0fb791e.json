@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "a60ba279-f4ac-4b5b-b48c-2691d0fb791e",
+  "issue_id": "chatticus-70f2d35a-59ff-45c3-bbcf-a21307f2fbb1",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T20:41:03.021Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "",
+    "issue_type": "story",
+    "labels": [],
+    "parent": null,
+    "priority": 2,
+    "status": "open",
+    "title": "Add Lottie support to Vultus and use it in Chatticus"
+  }
+}

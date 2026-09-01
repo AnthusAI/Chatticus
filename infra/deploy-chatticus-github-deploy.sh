@@ -11,4 +11,4 @@ if ! aws sts get-caller-identity >/dev/null; then
   exit 1
 fi
 
-npx cdk deploy ChatticusGitHubDeploy --require-approval never
+npx cdk deploy ChatticusGitHubDeploy --exclusively --require-approval never

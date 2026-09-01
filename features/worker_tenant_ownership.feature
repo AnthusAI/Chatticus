@@ -1,9 +1,9 @@
 Feature: Worker tenant ownership
   As Chatticus preparing to serve more than one household
-  I want a worker_id to stay bound to the tenant that registered it
-  So that a garage Mac cannot be stolen by re-registering under another tenant
+  I want worker_id to be scoped per tenant roster
+  So that the same garage Mac name on two households is two independent workers
 
-  Scenario: Re-registering under another tenant is rejected
+  Scenario: The same worker_id may register on two tenants
     Given an empty control plane
     And a worker registered as:
       | worker_id   | garage-mac-1 |
@@ -15,6 +15,5 @@ Feature: Worker tenant ownership
       | tenant_id   | other-household |
       | cost_class  | local        |
       | capabilities| computer     |
-    Then worker registration fails because the tenant does not match
-    And tenant "anthus" has 1 healthy worker
-    And worker "garage-mac-1" has cost class "local"
+    Then tenant "anthus" has 1 healthy worker
+    And tenant "other-household" has 1 healthy worker

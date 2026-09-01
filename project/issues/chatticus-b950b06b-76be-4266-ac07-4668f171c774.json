@@ -3,7 +3,7 @@
   "title": "Phase 2: Add reliable and constrained computer execution",
   "description": "Outcome: a turn can summon and use the household computer without duplicate actors, silent loss, indefinite billing, or authority granted by untrusted page content.\n\nScope: durable turn ownership, failure recovery, cold-computer readiness, mid-turn escalation, and browser authority controls.\n\nNot included: the complete web experience, Kanbus product integration, routines, or billing.\n\nComplete when every milestone in this initiative passes executable failure and security scenarios without an always-on control-plane component.",
   "type": "initiative",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -29,10 +29,16 @@
       "author": "agent@example.com",
       "text": "Status aligned with current work: computer summon/continuation, ThinTurn ECS host-start, and browser-authority epics are already in flight. Initiative is in_progress (not waiting on Phase 1 to close).",
       "created_at": "2026-08-31T19:40:47.404096Z"
+    },
+    {
+      "id": "2bef9f42-7399-4fe4-a5e7-7f76dfa9153a",
+      "author": "agent@example.com",
+      "text": "All Phase 2 children closed (653989, 76d3e2, 8f98f8, 4ddbe1). Owner signed off browser-authority DoD. Closing the initiative. Not 35d86b. No production deploy.\n",
+      "created_at": "2026-09-01T01:02:27.686592Z"
     }
   ],
   "created_at": "2026-08-30T15:54:55.448709Z",
-  "updated_at": "2026-08-31T19:40:47.404096Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T01:02:27.698413Z",
+  "closed_at": "2026-09-01T01:02:27.698413Z",
   "custom": {}
 }

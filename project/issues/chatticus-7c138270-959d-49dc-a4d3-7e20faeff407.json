@@ -1,0 +1,69 @@
+{
+  "id": "chatticus-7c138270-959d-49dc-a4d3-7e20faeff407",
+  "title": "Take staging and production dark until authentication lands",
+  "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 79ca6a, 0ab02c, 272aea, 1ebc7d\n- **Unblocks:** bc830a in phase 7, which brings staging back\n\n---\nhey.chattic.us and staging.chattic.us answer unauthenticated requests from the open internet today; ChatticusThinTurnProduction returns environment production on /api/health. Neither environment needs to serve anyone before this initiative ships, so neither should be reachable. Development stays up because the work happens there.\n\nWe are not adding a temporary gate. The correct move is to stop serving what is not ready, and to rely on the spend controls in 79ca6a for development.\n\n**Done when:** the staging and production web stacks no longer serve and the decision is recorded here.",
+  "type": "chore",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "518c4ff2-1141-4ed8-bd93-dd4b07a8f97a",
+      "author": "agent@example.com",
+      "text": "Retarget from duplicate 2fdc9b. Plan drafted: CloudFront 403 on staging + hey.chattic.us; marketing apex stays. Confirm hey goes dark and mechanism. Worktree `/tmp/chatticus-2fdc9b-dark`.\n",
+      "created_at": "2026-09-01T03:01:53.064788Z"
+    },
+    {
+      "id": "3a667821-6ce9-44e6-8b80-00dda97b3a3a",
+      "author": "home",
+      "text": "**Architect ruling: disable, do not destroy.**\n\nSet `enabled: false` on the staging and production CloudFront distributions in `infra/lib/web-stack.ts` and deploy. Do not `cdk destroy` those stacks.\n\nReasons, not rules. The non-development stacks carry `RemovalPolicy.RETAIN` on their data, so a destroy leaves orphaned tables and buckets that the next deploy will not adopt. It also tears down ACM and Route 53 wiring that took a deploy cycle to establish. A property change is a one-line revert, and it leaves the decision legible in git rather than in someone's memory.\n\n`bc830a` in phase 7 is the reversal, and it should be a diff that reads as the exact inverse of this one.",
+      "created_at": "2026-09-01T03:05:54.248812Z"
+    },
+    {
+      "id": "285dc369-8c5a-47c3-8854-aa14d79f9122",
+      "author": "home",
+      "text": "**Your worktree is behind. Rebase before you go further.**\n\ndevelop has moved to c24c97b. Worktrees on this card branched from c532fd2, which predates the plan entirely, so you cannot see docs/ORGANIZATIONS.md, this card's own sequencing header, the adversarial pass, or the architect ruling posted above.\n\n```\ngit fetch origin && git rebase origin/develop\n```\n\nEverything you need to decide is on the card. Ask here rather than in a pull request body; this issue is the channel.",
+      "created_at": "2026-09-01T03:12:26.832760Z"
+    },
+    {
+      "id": "2cca91ab-146b-4893-8212-29f8c3029e11",
+      "author": "agent@example.com",
+      "text": "Ruling recorded: `enabled: false` on staging and production CloudFront in web-stack.ts. Do not destroy those stacks. Marketing apex stays. Authorizing implementation on that basis.",
+      "created_at": "2026-09-01T03:13:46.117677Z"
+    },
+    {
+      "id": "86c81eb9-60e1-4ca0-a933-f8965eae4f18",
+      "author": "agent@example.com",
+      "text": "Authorizing implementation. Worktree /tmp/chatticus-2fdc9b-dark branch cursor/org-dark-envs-4a21. enabled:false on staging and production CloudFront only. Marketing apex stays. No destroy, no --all.",
+      "created_at": "2026-09-01T03:31:32.272107Z"
+    },
+    {
+      "id": "5cd972b5-2075-4f96-96d0-a3acd9aeaab5",
+      "author": "agent@example.com",
+      "text": "Follow-up #119 landed: named web scripts use --exclusively. Staging/hey already dark. Closing.",
+      "created_at": "2026-09-01T04:04:52.684036Z"
+    },
+    {
+      "id": "b09fe4ec-bb4d-486b-8c6f-b78098631901",
+      "author": "home",
+      "text": "**Reviewed #117 and #119. Both right, and #119 is a better catch than it looks.**\n\n`enabled: WEB_CLOUDFRONT_ENABLED[environmentName]` is the ruling exactly: disabled in CDK, not destroyed, revertible as a one-line diff for bc830a in phase 7.\n\nThe `--exclusively` fix is the interesting one. `bin/chatticus.ts` calls `web.addDependency(thinTurn)`, so `cdk deploy ChatticusWebProduction` without it would have deployed **ChatticusThinTurnProduction as a side effect of turning a distribution off**. The task was to reduce what production serves, and the un-flagged command would have deployed production compute to do it. Good catch, and worth stating as the reason rather than the fix.\n\n**The same hazard is still in one other script.** `deploy-chatticus-web-development.sh` runs `cdk deploy ChatticusWeb` with no `--exclusively`, and `ChatticusWeb` carries the same dependency, so a web-only change silently redeploys the development ThinTurn stack. Less dangerous than production, still a surprise, and now inconsistent: two scripts carry the flag and four do not, so the next reader cannot tell which behavior was intended. Carded separately.\n\n`deploy-chatticus-dns.sh` and `deploy-chatticus-github-deploy.sh` are no-ops for this, since neither stack has dependencies. Adding the flag there is for consistency, not safety.",
+      "created_at": "2026-09-01T04:08:41.344121Z"
+    },
+    {
+      "id": "c8b4a7bf-9dac-4c77-9750-04069f0aea42",
+      "author": "agent@example.com",
+      "text": "Taken: `--exclusively` on the staging/production web scripts was the production-compute hazard. `deploy-chatticus-web-development.sh` still deploys ChatticusWeb without the flag. You said that is carded separately — we will not tack it onto this closed card.",
+      "created_at": "2026-09-01T04:19:34.234706Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:39:45.126246Z",
+  "updated_at": "2026-09-01T04:19:34.234706Z",
+  "closed_at": "2026-09-01T04:04:52.697386Z",
+  "custom": {}
+}

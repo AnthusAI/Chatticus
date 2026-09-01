@@ -1,0 +1,69 @@
+{
+  "id": "chatticus-0df6cb14-d542-4e43-8258-b324600729ca",
+  "title": "Stand up a Cognito user pool federating Google",
+  "description": "**Phase 2 of 7.**\n\n- **Blocked by:** 0ab02c\n- **Runs in parallel with:** b574a6, which shares no files with this\n- **Unblocks:** 5f0c4c, 5558db\n\n---\nCDK per environment: UserPool, UserPoolIdentityProviderGoogle, and a public app client using authorization code with PKCE and no client secret. Custom auth domain auth-dev, auth-staging, auth. Publish pool id, client id, and domain to SSM under the existing web parameter prefix.\n\nUse single-label names. The existing certificate in infra/lib/dns-stack.ts covers *.chattic.us, and a wildcard matches one label only, so auth.dev.chattic.us would need a new certificate and auth-dev.chattic.us does not.\n\nCognito authenticates and nothing else. Do not model organizations, membership, or roles as Cognito groups: they are global to the pool, they land in the token, and token claims go stale against the records that govern spending.\n\n**Done when:** development is deployed and the authorize URL with identity_provider=Google lands on Google's consent screen and returns a code.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "2e0eddce-3ae5-4bf7-84c3-5b3c8237feef",
+      "author": "home",
+      "text": "**Adversarial review: one-way doors in this task.**\n\nA user pool cannot be reshaped in place, and three of its settings are create-time only. Getting them wrong means replacing the pool, and replacing the pool changes every Cognito sub.\n\n- **Case sensitivity is fixed at creation.** Create the pool case-insensitive. Google can return Email@ and email@ for the same human, and a case-sensitive pool will happily hold both as different users.\n- **Never key anything on the Cognito sub.** Identity is keyed on verified email, deliberately, so that replacing the pool costs nothing. Do not let a sub leak into Membership, Invitation, or any log we later join on.\n- **One pool user per provider.** If Apple is ever added, the same human arrives as a second pool user. Email-keyed identity absorbs that; a sub-keyed one does not.\n\nAlso confirm the app client issues refresh tokens with a lifetime we actually want, since 5558db depends on silent renew and the default is thirty days.",
+      "created_at": "2026-09-01T02:57:58.031260Z"
+    },
+    {
+      "id": "666cfe9e-e7a0-4c45-b360-96dfa72039e7",
+      "author": "home",
+      "text": "0ab02c closed: Google clients in Secrets Manager. Planning Cognito user pool + Google IdP in worktree `/tmp/chatticus-0df6cb-cognito` on `cursor/cognito-google-0df6cb-4a21` from origin/develop. Plan only this turn. Named stacks only. Computers desiredCount 0. Never `cdk deploy --all`.",
+      "created_at": "2026-09-01T16:14:52.926813Z"
+    },
+    {
+      "id": "722c0709-1962-4628-ac96-9287b188abfc",
+      "author": "home",
+      "text": "Plan approved with constraints: Google-only (no Cognito password IdP), selfSignUpEnabled false, no localhost callback (DoD uses https://dev.chattic.us/auth/callback even if 404), never unsafeUnwrap Google secrets. Authorizing implement in /tmp/chatticus-0df6cb-cognito. No deploy until merge.",
+      "created_at": "2026-09-01T16:19:14.502466Z"
+    },
+    {
+      "id": "b2a8a16d-905b-4566-8552-76c16a759af6",
+      "author": "home",
+      "text": "#155 opened from `/tmp/chatticus-0df6cb-cognito` (`aae0267`). Review and CI in flight. No deploy. Not merged.",
+      "created_at": "2026-09-01T16:23:12.508417Z"
+    },
+    {
+      "id": "4896c7be-98ce-4350-b3fc-de567d180c9f",
+      "author": "home",
+      "text": "Review REQUEST CHANGES: add CDK assertion for 30-day refresh (RefreshTokenValidity 43200 minutes). Implementer revising #155. Not merging until that lands.",
+      "created_at": "2026-09-01T16:27:51.284825Z"
+    },
+    {
+      "id": "8164141c-9975-40bc-85b9-ec84f9898666",
+      "author": "home",
+      "text": "#155 squash-merged to develop (`80d368a`). Deploying named ChatticusAuth development next. Card stays open until Google authorize URL returns a code.",
+      "created_at": "2026-09-01T16:38:15.566409Z"
+    },
+    {
+      "id": "ca5fa71a-588e-4ddd-a071-6441ba79f120",
+      "author": "home",
+      "text": "Named ChatticusAuth development CREATE_COMPLETE. Hosted UI at auth-dev.chattic.us; authorize with identity_provider=Google returns 302 to accounts.google.com. Card stays open until a callback `?code=` is observed (human Google consent). Confirm SNS hey@chattic.us separately for budgets.",
+      "created_at": "2026-09-01T17:05:59.519272Z"
+    },
+    {
+      "id": "d6bdf881-2ea2-4cd9-ab44-9893bf7cf527",
+      "author": "home",
+      "text": "Web env-inline fix #160 is on develop. Redeploying ChatticusWeb so the SPA can actually load Cognito config. Google authorize DoD still waits on that plus a live Sign in.",
+      "created_at": "2026-09-01T19:42:33.980203Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:40:05.893097Z",
+  "updated_at": "2026-09-01T19:42:33.980203Z",
+  "closed_at": null,
+  "custom": {}
+}

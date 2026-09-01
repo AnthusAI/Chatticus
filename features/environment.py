@@ -11,6 +11,7 @@ from pathlib import Path
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.test_server import start_test_server
+from chatticus.vendor_prices import clear_vendor_prices
 
 _TESTS_DIR = Path(__file__).resolve().parents[1] / "python" / "tests"
 if _TESTS_DIR.is_dir() and str(_TESTS_DIR) not in sys.path:
@@ -19,8 +20,9 @@ if _TESTS_DIR.is_dir() and str(_TESTS_DIR) not in sys.path:
 
 def before_scenario(context: object, scenario: object) -> None:
     """Start each scenario with a fresh control plane and temp dirs."""
+    clear_vendor_prices()
     context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
-    app = create_app(context.plane)
+    app = create_app(context.plane, invoke_key="")
     context.api_app = app
     context.app_state = app.state.chatticus
     context.api_client = start_test_server(app)
@@ -49,6 +51,7 @@ def before_scenario(context: object, scenario: object) -> None:
 
 def after_scenario(context: object, scenario: object) -> None:
     """Remove per-scenario snapshot directories."""
+    clear_vendor_prices()
     watcher = getattr(context, "sse_watcher", None)
     if watcher is not None:
         watcher.stop()

@@ -1,6 +1,6 @@
 # Web
 
-TypeScript Next.js app for chattic.us.
+TypeScript Next.js product workspace. Production hostname: `hey.chattic.us`.
 
 v1 surface:
 

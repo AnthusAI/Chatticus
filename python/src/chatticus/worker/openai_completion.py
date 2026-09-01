@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ import httpx
 from dotenv import load_dotenv
 
 from chatticus.thin_task import TASK_TOOL_NAME, openai_task_tool
+from chatticus.vendor_ledger import CompletionUsage
 from chatticus.worker.computerless import (
     CompletionOutcome,
     FakeTextCompletionClient,
@@ -18,6 +20,8 @@ from chatticus.worker.computerless import (
     TextCompletionClient,
 )
 from chatticus.worker.tool_dispatch import GatedToolCall
+
+logger = logging.getLogger("chatticus.worker.openai")
 
 DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
 _OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
@@ -111,8 +115,35 @@ def load_local_env() -> None:
     load_dotenv(root / ".env", override=False)
 
 
-def outcome_from_chat_completion(payload: dict[str, Any]) -> CompletionOutcome:
+def usage_from_chat_completion(payload: dict[str, Any], model: str) -> CompletionUsage:
+    """Extract token usage from one Chat Completions response."""
+    usage = payload.get("usage")
+    if not usage:
+        logger.warning(
+            "openai_response_missing_usage model=%s",
+            model,
+        )
+        return CompletionUsage(
+            vendor="openai",
+            model=model,
+            input_tokens=0,
+            output_tokens=0,
+        )
+    return CompletionUsage(
+        vendor="openai",
+        model=model,
+        input_tokens=int(usage.get("prompt_tokens") or 0),
+        output_tokens=int(usage.get("completion_tokens") or 0),
+    )
+
+
+def outcome_from_chat_completion(
+    payload: dict[str, Any],
+    *,
+    model: str,
+) -> CompletionOutcome:
     """Map one Chat Completions response into text and optional tool calls."""
+    usage = usage_from_chat_completion(payload, model)
     choices = payload.get("choices") or []
     if not choices:
         raise RuntimeError("OpenAI returned no choices.")
@@ -172,21 +203,24 @@ def outcome_from_chat_completion(payload: dict[str, Any]) -> CompletionOutcome:
     if gated_tool_call is not None:
         return CompletionOutcome(
             text=text or "I'll use the granted capability.",
+            usage=usage,
             gated_tool_call=gated_tool_call,
         )
     if task_tool_call is not None:
         return CompletionOutcome(
             text=text or "I'll update the household task list.",
+            usage=usage,
             task_tool_call=task_tool_call,
         )
     if wait_gate is not None:
         return CompletionOutcome(
             text=text or "Here is a draft before I need the computer.",
+            usage=usage,
             wait_gate=wait_gate,
         )
     if not text:
         raise RuntimeError("OpenAI returned an empty completion.")
-    return CompletionOutcome(text=text)
+    return CompletionOutcome(text=text, usage=usage)
 
 
 class OpenAITextCompletionClient:
@@ -215,7 +249,7 @@ class OpenAITextCompletionClient:
             timeout=60.0,
         )
         response.raise_for_status()
-        return outcome_from_chat_completion(response.json())
+        return outcome_from_chat_completion(response.json(), model=self.model)
 
 
 def _api_key_from_ssm() -> str:

@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-ae51dc5b-4c15-4fc0-80a8-a54f0f920529",
+  "title": "Invite people into an enabled organization",
+  "description": "**Phase 4 of 7.**\n\n- **Blocked by:** e41552\n- **Runs in parallel with:** nothing\n- **Unblocks:** nothing\n\n---\nAn owner invites by email; the invited person signs in and joins immediately without touching the waitlist, because the organization is already a spend-approved entity. Invitations expire on the table TTL.\n\nDomain-based auto-join stays out of v1. Joining because an email domain matches requires proving the organization owns that domain, or someone claims a public mail domain and harvests every signup.\n\n**Done when:** a second person reaches an enabled organization by invitation only.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "2783d1b1-bd31-4876-8054-a2d31ba4e7ad",
+      "author": "home",
+      "text": "**Adversarial review: two gaps in the invitation rules.**\n\n**Who may invite.** The description says an owner invites, but nothing enforces it. Decide and enforce whether a member may invite, or only an owner. Once the ceiling model exists in phase 6, inviting is an authority like any other and should be clipped the same way, so shape this to be absorbed rather than replaced.\n\n**Matching.** Invitations are matched on email, so they inherit the normalization decision on 272aea. An invitation that silently fails to match is worse than one that errors, because the invited person sees the waitlist and assumes they were not approved.",
+      "created_at": "2026-09-01T02:57:58.100860Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:40:45.611456Z",
+  "updated_at": "2026-09-01T02:57:58.100860Z",
+  "closed_at": null,
+  "custom": {}
+}

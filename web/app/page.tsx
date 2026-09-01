@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BotRoster } from "../components/BotRoster";
 import { ChatPanel } from "../components/ChatPanel";
+import { SignInPanel } from "../components/SignInPanel";
 import { TaskList } from "../components/TaskList";
 import {
   avatarActivityFromTurn,
@@ -185,6 +186,8 @@ export default function HomePage() {
         <h1>Chatticus</h1>
         <p>Named bots, one shared computer, serverless control plane.</p>
       </header>
+
+      <SignInPanel />
 
       <section className="card health">
         <h2>Control plane</h2>

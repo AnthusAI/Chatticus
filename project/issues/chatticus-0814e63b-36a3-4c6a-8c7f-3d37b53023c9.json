@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-0814e63b-36a3-4c6a-8c7f-3d37b53023c9",
+  "title": "Channels carry participants instead of an owner",
+  "description": "**Phase 5 of 7.**\n\n- **Blocked by:** 14f692\n- **Runs in parallel with:** 6c1a9b and ddf609 in logic, but NOT in merge order. See the warning\n- **Unblocks:** 24df70\n\n---\n**Scheduling warning.** This, 6c1a9b, and ddf609 all edit models.py and messaging/store.py. They are independent in logic and will collide in the same files. Give all three to one agent, or merge them strictly one at a time and rebase between.\n\nChannel drops user_id. ChannelParticipant{kind, actor_id} already models multi-actor membership, so the real change is the roster index at messaging/store.py:565, which keys a channel by channel.user_id and becomes one roster item per human participant so that listing a person's channels stays a query rather than a scan.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-818d2075-2141-4307-8913-3b35e5486a38",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:41:00.573158Z",
+  "updated_at": "2026-09-01T02:46:21.311189Z",
+  "closed_at": null,
+  "custom": {}
+}

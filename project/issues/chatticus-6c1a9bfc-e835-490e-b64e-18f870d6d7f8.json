@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-6c1a9bfc-e835-490e-b64e-18f870d6d7f8",
+  "title": "Bots belong to the organization, not to a person",
+  "description": "**Phase 5 of 7.**\n\n- **Blocked by:** 14f692\n- **Runs in parallel with:** 0814e6 and ddf609 in logic, but NOT in merge order. See the warning\n- **Unblocks:** 24df70\n\n---\n**Scheduling warning.** This, 0814e6, and ddf609 all edit models.py and messaging/store.py. They are independent in logic and will collide in the same files. Give all three to one agent, or merge them strictly one at a time and rebase between.\n\nBot drops its user scope. Name uniqueness moves from (tenant, user, name) to (tenant, name), because an organization has one Ada the way it has one Ada in payroll, not one per employee.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-818d2075-2141-4307-8913-3b35e5486a38",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:41:00.561095Z",
+  "updated_at": "2026-09-01T02:46:21.298874Z",
+  "closed_at": null,
+  "custom": {}
+}

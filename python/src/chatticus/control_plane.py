@@ -77,7 +77,13 @@ from chatticus.models import (
     ComputerSnapshot,
     CostClass,
     DuplicateBotNameError,
+    Identity,
+    Invitation,
+    MemberRole,
+    Membership,
     Message,
+    Organization,
+    OrganizationStatus,
     PendingComputerToolSnapshot,
     SnapshotRequiredError,
     StaleAttemptError,
@@ -103,6 +109,7 @@ from chatticus.models import (
     WorkerTenantMismatchError,
     pending_computer_tool_from_turn,
 )
+from chatticus.org_records import OrgRecordsKernel
 from chatticus.overnight_gated import (
     OvernightGatedResult,
 )
@@ -113,6 +120,12 @@ from chatticus.turn_recovery import (
     QueueVisibilityLedger,
     TurnDeadlineScheduler,
     logical_enqueue_id,
+)
+from chatticus.vendor_ledger import CompletionUsage, VendorLedgerRow
+from chatticus.worker_credentials import (
+    hash_worker_token,
+    mint_worker_token,
+    verify_worker_token_hash,
 )
 
 
@@ -179,7 +192,6 @@ class ControlPlane:
         self._wall_clock = wall_clock
         self._fault_injector = fault_injector
         self._frozen_now = datetime.now(UTC)
-        self._workers: dict[str, WorkerRecord] = {}
         self._bots: dict[str, Bot] = {}
         self._computers_by_user: dict[tuple[str, str], Computer] = {}
         self._computers_by_id: dict[str, Computer] = {}
@@ -194,6 +206,7 @@ class ControlPlane:
         self._host_starts: dict[tuple[str, str], HostStartClaim] = {}
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
+        self._org_records = OrgRecordsKernel(self._messaging_store)
         self._turn_enqueued = turn_enqueued
         self._computer_enqueued = computer_enqueued
         self._logical_enqueue_delivery_count = 0
@@ -258,20 +271,129 @@ class ControlPlane:
         """Return the current control-plane clock."""
         return self._now
 
+    def sign_in(self, email: str, *, now: datetime) -> Identity:
+        """Mint an identity on first sight of an email; idempotent on repeat."""
+        return self._org_records.sign_in(email, now=now)
+
+    def create_organization(
+        self, owner: Identity, name: str, *, now: datetime
+    ) -> Organization:
+        """Create a pending organization and owner membership."""
+        return self._org_records.create_organization(owner, name, now=now)
+
+    def admin_seed_organization(
+        self,
+        tenant_id: str,
+        owner_email: str,
+        *,
+        name: str,
+        now: datetime,
+    ) -> Organization:
+        """Seed one tenant enabled for one owner without provisioning a computer."""
+        return self._org_records.admin_seed_organization(
+            tenant_id,
+            owner_email,
+            name=name,
+            now=now,
+        )
+
+    def enable_organization(self, tenant_id: str) -> Organization:
+        """Mark one organization enabled without provisioning a computer."""
+        return self._org_records.enable_organization(tenant_id)
+
+    def suspend_organization(self, tenant_id: str) -> Organization:
+        """Mark one organization suspended."""
+        return self._org_records.suspend_organization(tenant_id)
+
+    def reinstate_organization(self, tenant_id: str) -> Organization:
+        """Mark one suspended organization enabled again."""
+        return self._org_records.reinstate_organization(tenant_id)
+
+    def invite_by_email(
+        self,
+        tenant_id: str,
+        inviter_user_id: str,
+        email: str,
+        *,
+        now: datetime,
+    ) -> Invitation:
+        """Create a pending invitation from an owner."""
+        return self._org_records.invite_by_email(
+            tenant_id, inviter_user_id, email, now=now
+        )
+
+    def accept_invitation(
+        self,
+        invitation_id: str,
+        acceptor: Identity,
+        *,
+        now: datetime,
+    ) -> Membership:
+        """Accept one invitation when the organization is enabled."""
+        return self._org_records.accept_invitation(invitation_id, acceptor, now=now)
+
+    def list_organizations_for_user(self, user_id: str) -> list[Organization]:
+        """Return every organization a user belongs to."""
+        return self._org_records.list_organizations_for_user(user_id)
+
+    def list_organizations_by_status(
+        self, status: OrganizationStatus
+    ) -> list[Organization]:
+        """Return every organization with one lifecycle status."""
+        return self._org_records.list_organizations_by_status(status)
+
+    def get_organization(self, tenant_id: str) -> Organization:
+        """Load one organization."""
+        return self._org_records.get_organization(tenant_id)
+
+    def get_identity_by_email(self, email: str) -> Identity | None:
+        """Return one identity keyed by verified email, never Cognito sub."""
+        from chatticus.org_records import normalize_email
+
+        return self._messaging_store.get_identity_by_email(normalize_email(email))
+
+    def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
+        """Return one membership row when the user belongs to the organization."""
+        return self._messaging_store.get_membership(tenant_id, user_id)
+
+    def set_member_role(
+        self,
+        tenant_id: str,
+        actor_user_id: str,
+        member_user_id: str,
+        role: MemberRole,
+    ) -> Membership:
+        """Change one member's role; only an owner may call this."""
+        return self._org_records.set_member_role(
+            tenant_id, actor_user_id, member_user_id, role
+        )
+
+    def admin_set_member_role(
+        self,
+        tenant_id: str,
+        member_user_id: str,
+        role: MemberRole,
+    ) -> Membership:
+        """Change one member's role on the admin path."""
+        return self._org_records.admin_set_member_role(tenant_id, member_user_id, role)
+
     def _fault(self, boundary: TurnBoundary, window: CrashWindow) -> None:
         if self._fault_injector is not None:
             self._fault_injector.maybe_crash(boundary, window)
 
-    def register_worker(self, registration: WorkerRegistration) -> None:
+    def register_worker(self, registration: WorkerRegistration) -> str:
         """Register or replace a worker and record a heartbeat.
 
-        A ``worker_id`` is owned by the tenant that first registered it.
-        Re-registering under a different tenant is rejected.
+        ``worker_id`` is unique within one tenant roster, like bot names.
+        Re-registering under the same tenant rotates the bearer token.
+        Returns a new bearer token on every successful registration.
 
-        :raises WorkerTenantMismatchError: If the worker already belongs to
-            another tenant.
+        :raises WorkerTenantMismatchError: If the stored roster row's tenant
+            does not match the registration payload.
         """
-        existing = self._workers.get(registration.worker_id)
+        existing = self._messaging_store.get_worker(
+            registration.tenant_id, registration.worker_id
+        )
         if (
             existing is not None
             and existing.registration.tenant_id != registration.tenant_id
@@ -281,43 +403,56 @@ class ControlPlane:
                 f"{existing.registration.tenant_id!r}, not "
                 f"{registration.tenant_id!r}."
             )
-        previous = self._workers.get(registration.worker_id)
+        previous = existing
         hydrated = (
             previous.hydrated_snapshot_generation if previous is not None else None
         )
-        self._workers[registration.worker_id] = WorkerRecord(
+        token = mint_worker_token()
+        record = WorkerRecord(
             registration=registration,
             last_heartbeat_at=self._now,
+            token_hash=hash_worker_token(token),
             hydrated_snapshot_generation=hydrated,
         )
+        self._messaging_store.put_worker(record)
+        return token
 
-    def heartbeat(self, worker_id: str) -> None:
+    def verify_worker_token(self, tenant_id: str, token: str) -> str | None:
+        """Return the worker_id for a valid bearer token in *tenant_id*."""
+        for record in self._messaging_store.list_workers(tenant_id):
+            if verify_worker_token_hash(token, record.token_hash):
+                return record.registration.worker_id
+        return None
+
+    def heartbeat(self, tenant_id: str, worker_id: str) -> None:
         """
         Refresh a worker's heartbeat.
 
         :raises KeyError: If the worker is not registered.
         """
-        record = self._workers[worker_id]
+        record = self.worker(tenant_id, worker_id)
         record.last_heartbeat_at = self._now
+        self._messaging_store.put_worker(record)
 
-    def worker(self, worker_id: str) -> WorkerRecord:
+    def worker(self, tenant_id: str, worker_id: str) -> WorkerRecord:
         """
         Return a registered worker.
 
         :raises KeyError: If the worker is not registered.
         """
-        return self._workers[worker_id]
+        record = self._messaging_store.get_worker(tenant_id, worker_id)
+        if record is None:
+            raise KeyError(worker_id)
+        return record
 
-    def all_workers(self) -> list[WorkerRecord]:
-        """Return every registered worker, including stale ones."""
-        return list(self._workers.values())
+    def list_workers(self, tenant_id: str) -> list[WorkerRecord]:
+        """Return every registered worker for one tenant, including stale ones."""
+        return self._messaging_store.list_workers(tenant_id)
 
     def healthy_workers(self, tenant_id: str) -> list[WorkerRecord]:
         """Return workers for a tenant whose heartbeat is still fresh."""
         healthy: list[WorkerRecord] = []
-        for record in self._workers.values():
-            if record.registration.tenant_id != tenant_id:
-                continue
+        for record in self._messaging_store.list_workers(tenant_id):
             if self._now - record.last_heartbeat_at > self.heartbeat_timeout:
                 continue
             healthy.append(record)
@@ -725,6 +860,30 @@ class ControlPlane:
             expected_fence=turn.fence_token if turn.attempt_id else None,
         )
 
+    def record_vendor_spend(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        usage: CompletionUsage,
+        *,
+        billed_via: str,
+    ) -> VendorLedgerRow:
+        """Persist vendor spend for one model call and log the written row."""
+        from chatticus.vendor_ledger import record_vendor_spend
+
+        return record_vendor_spend(
+            self._messaging_store,
+            tenant_id,
+            turn_id,
+            usage,
+            billed_via=billed_via,
+            now=self.now(),
+        )
+
+    def vendor_ledger_row(self, tenant_id: str, turn_id: str) -> VendorLedgerRow | None:
+        """Load one vendor spend ledger row for a turn."""
+        return self._messaging_store.get_vendor_ledger_row(tenant_id, turn_id)
+
     def unresolved_tool_action_ids(self, tenant_id: str, turn_id: str) -> list[str]:
         """Return committed tool.call action ids that have no tool.result yet."""
         events = self.list_turn_events(tenant_id, turn_id)
@@ -808,9 +967,10 @@ class ControlPlane:
         computer.snapshot_checksum = record_checksum
         computer.snapshot_generation += 1
         computer.disk_dirty = False
-        worker = self._workers.get(worker_id)
+        worker = self._messaging_store.get_worker(computer.tenant_id, worker_id)
         if worker is not None:
             worker.hydrated_snapshot_generation = computer.snapshot_generation
+            self._messaging_store.put_worker(worker)
         return snapshot
 
     def relocate_computer(self, computer_id: str, target_worker_id: str) -> None:
@@ -869,12 +1029,15 @@ class ControlPlane:
         computer.disk_dirty = False
         computer.hydrate_required = False
         computer.intended_host_worker_id = None
-        worker = self._workers.get(worker_id)
+        worker = self._messaging_store.get_worker(computer.tenant_id, worker_id)
         if worker is not None:
             worker.hydrated_snapshot_generation = computer.snapshot_generation
+            self._messaging_store.put_worker(worker)
 
     def _require_host(self, computer: Computer, worker_id: str) -> None:
-        record = self._workers[worker_id]
+        record = self._messaging_store.get_worker(computer.tenant_id, worker_id)
+        if record is None:
+            raise KeyError(worker_id)
         if record.registration.computer_id != computer.computer_id:
             raise WorkerDoesNotHostComputerError(
                 f"Worker {worker_id!r} hosts "
@@ -1888,12 +2051,14 @@ class ControlPlane:
 
     def reconcile_worker_snapshot(
         self,
+        tenant_id: str,
         worker_id: str,
         snapshot_generation: int,
     ) -> None:
         """Mark a host as caught up to one published snapshot generation."""
-        worker = self._workers[worker_id]
+        worker = self.worker(tenant_id, worker_id)
         worker.hydrated_snapshot_generation = snapshot_generation
+        self._messaging_store.put_worker(worker)
 
     def _worker_snapshot_is_stale(
         self,
@@ -2049,7 +2214,10 @@ class ControlPlane:
         started: Turn | None = None
         if addressed_to_bot_id is not None:
             started = self._start_turn_for_bot(
-                channel, addressed_to_bot_id, enqueue=enqueue_turn
+                channel,
+                addressed_to_bot_id,
+                enqueue=enqueue_turn,
+                prompt_message_seq=message.seq,
             )
         if idempotency_key is not None:
             turn_id = started.turn_id if started is not None else None
@@ -2455,13 +2623,19 @@ class ControlPlane:
         return self._complete_turn(turn, expected_fence=fence_token)
 
     def _start_turn_for_bot(
-        self, channel: Channel, bot_id: str, *, enqueue: bool = True
+        self,
+        channel: Channel,
+        bot_id: str,
+        *,
+        enqueue: bool = True,
+        prompt_message_seq: int | None = None,
     ) -> Turn:
         turn = Turn(
             turn_id=str(uuid4()),
             tenant_id=channel.tenant_id,
             channel_id=channel.channel_id,
             bot_id=bot_id,
+            prompt_message_seq=prompt_message_seq,
         )
         if enqueue and self.recovery_enabled:
             turn.deadline_at = self._now + self.turn_deadline
@@ -2506,23 +2680,67 @@ class ControlPlane:
                     self._offer_turn_queues(bound)
                 return
 
+    def _joined_turn_body(self, turn: Turn) -> str:
+        chunks = self._messaging_store.list_turn_chunks(turn.tenant_id, turn.turn_id)
+        return "".join(chunks)
+
+    def _channel_message_at_seq(
+        self, tenant_id: str, channel_id: str, seq: int
+    ) -> Message | None:
+        for message in self._messaging_store.list_messages(tenant_id, channel_id):
+            if message.seq == seq:
+                return message
+        return None
+
+    def _completed_turn_message(self, turn: Turn) -> Message | None:
+        events = self._messaging_store.list_turn_events(turn.tenant_id, turn.turn_id)
+        for event in reversed(events):
+            if event.kind != TurnEventKind.TURN_COMPLETED:
+                continue
+            if event.message_seq is not None:
+                return self._channel_message_at_seq(
+                    turn.tenant_id, turn.channel_id, event.message_seq
+                )
+            if event.body is not None:
+                return Message(
+                    message_id=str(uuid4()),
+                    channel_id=turn.channel_id,
+                    tenant_id=turn.tenant_id,
+                    seq=event.message_seq or 0,
+                    author_kind=ActorKind.BOT,
+                    author_id=turn.bot_id,
+                    body=event.body,
+                    addressed_to_bot_id=None,
+                    created_at=self._now,
+                )
+        return None
+
+    def _idempotent_completion_message(
+        self, turn: Turn, body: str, messages: list[Message]
+    ) -> Message | None:
+        for message in reversed(messages):
+            if message.author_kind != ActorKind.BOT:
+                continue
+            if message.author_id != turn.bot_id:
+                continue
+            if (
+                turn.prompt_message_seq is not None
+                and message.seq <= turn.prompt_message_seq
+            ):
+                continue
+            if message.body != body:
+                continue
+            return message
+        return None
+
     def _complete_turn(
         self, turn: Turn, *, expected_fence: int | None = None
     ) -> Message:
         if turn.status == TurnStatus.COMPLETED:
-            chunks = self._messaging_store.list_turn_chunks(
-                turn.tenant_id, turn.turn_id
-            )
-            messages = self._messaging_store.list_messages(
-                turn.tenant_id, turn.channel_id
-            )
-            for message in reversed(messages):
-                if (
-                    message.author_kind == ActorKind.BOT
-                    and message.author_id == turn.bot_id
-                ):
-                    return message
-            body = "".join(chunks)
+            message = self._completed_turn_message(turn)
+            if message is not None:
+                return message
+            body = self._joined_turn_body(turn)
             return Message(
                 message_id=str(uuid4()),
                 channel_id=turn.channel_id,
@@ -2534,20 +2752,16 @@ class ControlPlane:
                 addressed_to_bot_id=None,
                 created_at=self._now,
             )
+        body = self._joined_turn_body(turn)
         messages = self._messaging_store.list_messages(turn.tenant_id, turn.channel_id)
-        for message in reversed(messages):
-            if (
-                message.author_kind == ActorKind.BOT
-                and message.author_id == turn.bot_id
-            ):
-                return self._finalize_committed_turn(
-                    turn,
-                    message,
-                    body=message.body,
-                    expected_fence=expected_fence,
-                )
-        chunks = self._messaging_store.list_turn_chunks(turn.tenant_id, turn.turn_id)
-        body = "".join(chunks)
+        existing = self._idempotent_completion_message(turn, body, messages)
+        if existing is not None:
+            return self._finalize_committed_turn(
+                turn,
+                existing,
+                body=body,
+                expected_fence=expected_fence,
+            )
         channel = self.channel(turn.tenant_id, turn.channel_id)
         self._fault(TurnBoundary.COMPLETION_APPEND, CrashWindow.BEFORE)
         message = Message(

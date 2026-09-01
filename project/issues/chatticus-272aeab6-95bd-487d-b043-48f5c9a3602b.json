@@ -1,0 +1,75 @@
+{
+  "id": "chatticus-272aeab6-95bd-487d-b043-48f5c9a3602b",
+  "title": "Organizations, membership, invitations, and identity records",
+  "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 79ca6a, 7c1382, 0ab02c, 1ebc7d. Touches no AWS, so it never collides with the Cognito track\n- **Unblocks:** b574a6, 5f0c4c, fac2ee\n\n---\nGherkin first in features/organizations.feature: an identity is minted on first sign-in and keyed by verified email; a created organization starts pending; an owner invites by email; accepting an invitation to an enabled organization grants immediate access; a user lists the organizations they belong to.\n\nThen Organization, Membership, Invitation, and Identity in models.py, and both stores in messaging/store.py. The table has no GSI, so the user-to-organizations direction needs a second item written alongside the first, the same dual-write the store already does for channel lookup at store.py:554. Invitation expiry uses the table's existing TTL attribute.\n\nuser_id is global and minted once per human. Organization data stays partitioned by tenant_id, which the existing key prefixes already express.\n\n**Done when:** behave and pytest pass over the new feature and both store implementations.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "b16c29c0-8744-4dc2-81fa-c5800a53605c",
+      "author": "home",
+      "text": "**Adversarial review: email normalization is load-bearing here.**\n\nIdentity is keyed on verified email and Invitation is matched on email, so normalization is not cosmetic, it decides whether an invitation matches at all.\n\nLowercase before writing and before comparing, everywhere. Decide explicitly what to do about Google addresses that differ by dots, since foo.bar and foobar are the same Google account and an invitation sent to one will not match a sign-in as the other.\n\nWrite the rule once, in one function, and use it for Identity, Invitation, and the members CLI. Two normalizations that disagree is the same bug as none.",
+      "created_at": "2026-09-01T02:57:58.043681Z"
+    },
+    {
+      "id": "2cce3304-789e-4f77-8d6e-3551b675966a",
+      "author": "agent@example.com",
+      "text": "Retarget from duplicate 6cfbdb. Worktree `/tmp/chatticus-6cfbdb-org-records`. Questions: tenant vs organization as isolation key; invitation identity before Cognito; dual-write like channel lookup.\n",
+      "created_at": "2026-09-01T03:01:53.090463Z"
+    },
+    {
+      "id": "df72a56b-f7b8-4d44-bd9b-8e5dca2e3ca7",
+      "author": "agent@example.com",
+      "text": "Authorized implementation on worktree `/tmp/chatticus-6cfbdb-org-records` (`cursor/org-records-4a21`, rebased onto `origin/develop`).\n\nEmail normalization (adversarial comment): one function, used for Identity, Invitation, and later the members CLI. Strip + lowercase always. For `gmail.com` and `googlemail.com` only, also strip dots from the local part so `foo.bar@gmail.com` and `foobar@gmail.com` are the same key. Do not strip dots on other domains. Plus-tags are kept as-is in this slice.\n\nNo HTTP, no Principal, no ControlPlane, no deploy.",
+      "created_at": "2026-09-01T03:04:49.210352Z"
+    },
+    {
+      "id": "9a3a342f-675d-4790-99a1-c8bb7b7b5bf8",
+      "author": "home",
+      "text": "**Architect ruling: email normalization.**\n\nOne function, `normalize_email`, used by Identity, Invitation, and the members CLI. Lowercase and strip surrounding whitespace. **Do not strip Google dots or plus-addressing.**\n\nThe reasoning matters more than the rule. Dot-stripping is consumer-Gmail behavior and is wrong for Workspace domains, where a dotted local part can be a genuinely different person. Guessing wrong silently merges two humans into one identity, which is a security defect. A failed invitation match is a support ticket; a merged identity is a breach.\n\n**Consequence to build for:** an invitation can fail to match. Make that visible rather than silent. A person who signs in with no membership and no matching invitation reaches the waitlist screen, and the operator can see unmatched invitations through the members CLI. Do not silently create a second identity for a near-miss address.",
+      "created_at": "2026-09-01T03:05:54.235872Z"
+    },
+    {
+      "id": "571be4ea-1681-48d0-985d-225296417e24",
+      "author": "home",
+      "text": "**Your worktree is behind. Rebase before you go further.**\n\ndevelop has moved to c24c97b. Worktrees on this card branched from c532fd2, which predates the plan entirely, so you cannot see docs/ORGANIZATIONS.md, this card's own sequencing header, the adversarial pass, or the architect ruling posted above.\n\n```\ngit fetch origin && git rebase origin/develop\n```\n\nEverything you need to decide is on the card. Ask here rather than in a pull request body; this issue is the channel.",
+      "created_at": "2026-09-01T03:12:26.858918Z"
+    },
+    {
+      "id": "26e491fd-99db-4862-9daf-f8c4437ffb8d",
+      "author": "home",
+      "text": "**Architect ruling amended. The implementation is better than the ruling, and the ruling is withdrawn.**\n\nMy earlier comment said do not strip Google dots at all. `normalize_email` gates dot-stripping to `gmail.com` and `googlemail.com` and leaves every other domain alone. That is the correct answer and it dissolves the objection I raised.\n\nThe objection was Workspace domains, where a dotted local part can be a genuinely different person, so stripping dots would silently merge two humans into one identity. Restricting to the two consumer Gmail domains removes that case entirely: Gmail itself treats dots as insignificant, so `foo.bar@gmail.com` and `foobar@gmail.com` are one Google account and cannot be two people. There is no merge to fear, and invitation matching gets more robust rather than less. `test_non_gmail_dots_do_not_collide` is the right test and it is testing the right fear.\n\n**One edge case to be aware of rather than fix here.** Plus-tags are kept, which is correct for identity, because Google's OIDC email claim returns the canonical account address and nobody can sign in as `foo+tag@gmail.com`. It does mean an owner who invites `foo+chatticus@gmail.com` creates an invitation that can never match, since that person signs in as `foo@gmail.com`. Not a defect in this task. It is covered by the standing requirement that a failed invitation match must be visible to the operator rather than silent, which lands with the members CLI in 41d08d and the invitation flow in ae51dc.\n\nNo change requested. Keep going.",
+      "created_at": "2026-09-01T03:13:37.784833Z"
+    },
+    {
+      "id": "01d9fbc7-1861-4b36-a96e-4cde52199e3e",
+      "author": "agent@example.com",
+      "text": "Architect ruling taken: `normalize_email` is lowercase + strip whitespace only. No Google dot-stripping, no plus-stripping. The earlier authorize note that stripped gmail dots is withdrawn. Implementer sent back to match this ruling so an invitation mismatch stays a visible miss, not a merged identity.",
+      "created_at": "2026-09-01T03:13:46.074496Z"
+    },
+    {
+      "id": "82b070cd-8484-49dd-9fa5-ad4f8dbd13f6",
+      "author": "agent@example.com",
+      "text": "Landed on develop via #111 (9e24c7e). Gherkin and pytest on both stores. Email normalize is lowercase and strip only.",
+      "created_at": "2026-09-01T03:25:11.349458Z"
+    },
+    {
+      "id": "d15e4212-7d47-4185-adff-36513e1295f6",
+      "author": "agent@example.com",
+      "text": "Correction on the amended ruling: what landed in #111 is lowercase + strip only. `gmail.com` / `googlemail.com` dots are **not** stripped. We reverted gated Gmail stripping after the earlier ruling, then merged. If gated consumer-Gmail stripping is what you want, that is a follow-up — it is not what develop has today. Plus-tags stay as-is; unmatched invites stay a members-CLI visibility problem (41d08d / ae51dc).",
+      "created_at": "2026-09-01T04:07:21.527821Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:40:05.905442Z",
+  "updated_at": "2026-09-01T04:07:21.527821Z",
+  "closed_at": "2026-09-01T03:25:11.361641Z",
+  "custom": {}
+}

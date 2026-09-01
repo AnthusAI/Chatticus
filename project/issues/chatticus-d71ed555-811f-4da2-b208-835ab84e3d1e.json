@@ -1,0 +1,93 @@
+{
+  "id": "chatticus-d71ed555-811f-4da2-b208-835ab84e3d1e",
+  "title": "Teach live acceptance and the demo CLI to authenticate",
+  "description": "**Phase 3 of 7.**\n\n- **Blocked by:** 1ebc7d, fac2ee\n- **Runs in parallel with:** 5f0c4c, 5558db, 79578e\n- **Unblocks:** 7b4616, which cannot be called done without it\n\n---\n**Found by inversion: what breaks quietly and costs a day before anyone sees why?**\n\nEvery phase in this plan ends with the instruction to run sh scripts/live_aws_thin_turn.sh development. That script, tests/test_live_aws_thin_turn.py, and the thin-turn demo CLI all speak the current contract: X-Tenant-Id in a header, no credential. The moment 79578e reshapes the routes and 7b4616 flips enforcement, all three fail against every environment, and the failure looks like a broken deploy rather than a stale client.\n\nThey are our own tooling, so they authenticate as a worker with a minted credential from fac2ee, not as a person. Do not add a test-only bypass to the front door. That is a second authentication path and the repository does not keep two.\n\n**Done when:** the live script, the pytest live path, and the demo CLI all pass against development with enforcement on, using a real credential.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "0af3ac6e-8c31-40e0-94cd-1710cbb136cf",
+      "author": "agent@example.com",
+      "text": "fac2ee and 79578e are on develop. Planning live-script + demo CLI auth/path. Worktree `/tmp/chatticus-d71ed5-live-cli` branch `cursor/live-cli-d71ed5-4a21`. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T08:29:20.677523Z"
+    },
+    {
+      "id": "967f31c3-3c9d-4aa2-a503-15d762c55dc0",
+      "author": "agent@example.com",
+      "text": "#142 is on develop (`1438044`). Live `POST /orgs/{tenant}/workers/register` still 404s on the development Lambda URL because ChatticusThinTurn is behind fac2ee.\n\nAcceptance is running a named deploy only: `cd infra && sh deploy-chatticus-thinturn-development.sh` (never `--all`), then `cd python && sh scripts/live_aws_thin_turn.sh development`. Computers `desiredCount` must stay 0. Staging/prod stay dark. Enforcement-on half remains 7b4616.\n",
+      "created_at": "2026-09-01T08:47:11.697856Z"
+    },
+    {
+      "id": "56b3d958-1a77-48e5-a47d-bba2109c70e5",
+      "author": "agent@example.com",
+      "text": "Named ThinTurn development deploy `UPDATE_COMPLETE` at 2026-09-01T08:52:38Z. Computers desiredCount stayed 0. `POST /orgs/anthus/workers/register` is **200** (was 404). Claim 200/409 and chunks reached `turn.waiting`. Full live script still exits 1: `stale_waiting 403 invalid worker credential` after SSE — `_workers` is in-process memory. Card stays open; follow-up bug filed against this issue. Enforcement-on remains 7b4616.\n",
+      "created_at": "2026-09-01T09:01:36.193415Z"
+    },
+    {
+      "id": "c9087b2b-15c2-426b-a30a-5b96e0f5809a",
+      "author": "agent@example.com",
+      "text": "Follow-up bug **b3e12c**: persist worker `token_hash` so Lambda recycle does not 403 `/waiting`.\n",
+      "created_at": "2026-09-01T09:02:28.400100Z"
+    },
+    {
+      "id": "288c2195-a58a-4e9a-b1d0-c2595798bd88",
+      "author": "home",
+      "text": "**This card did exactly what it was written to do, and the commit convention slipped again.**\n\nFinding b3e12c is the whole argument for this card: in-process gates use moto and were green, and only a named deploy against real AWS showed that worker credentials do not survive a Lambda recycle. That is the gap the card exists to close, found on its first exercise.\n\n**Second occurrence of the commit type problem.** `Teach live acceptance and demo CLI org paths and worker bearer auth (#142)` again carries no conventional-commit type, one cycle after the same note on #140. Two of the last four feature merges now contribute no version bump and no changelog entry, and both of them are the security-relevant ones: worker authentication and the path migration that closed the tenant header.\n\nAGENTS.md ties releases from `main` to these messages. At promotion, the range that ships authentication would describe neither piece of it. Worth a habit rather than a reminder each time.",
+      "created_at": "2026-09-01T09:08:16.000783Z"
+    },
+    {
+      "id": "13d2d1ff-88ee-4023-ad00-5682c7ce3249",
+      "author": "agent@example.com",
+      "text": "Acknowledged: #142 squash subject also lacked a conventional-commit type (same as #140). Will keep `feat`/`fix`/`chore` on every subsequent squash including b3e12c. Note both at promote to main. Card stays open until live script is green after b3e12c.\n",
+      "created_at": "2026-09-01T09:20:42.000676Z"
+    },
+    {
+      "id": "96c88431-18d6-4a18-bf4e-c2fa0de5c89c",
+      "author": "agent@example.com",
+      "text": "b3e12c kernel on develop (#147). Re-running named ChatticusThinTurn development deploy then live script. Card still open until that is green. Enforcement-on remains 7b4616.\n",
+      "created_at": "2026-09-01T09:41:51.413302Z"
+    },
+    {
+      "id": "274bd876-6a9f-426e-8da8-5f31feaf6655",
+      "author": "agent@example.com",
+      "text": "b3e12c closed on live `stale_waiting=409`. Live script still exit 1 on SSE reconnect duplicate seqs after `turn.failed` — new child bug. This card stays open. Enforcement-on remains 7b4616.\n",
+      "created_at": "2026-09-01T09:54:24.332310Z"
+    },
+    {
+      "id": "a0658bac-2b93-4466-a98e-651fba0711c9",
+      "author": "agent@example.com",
+      "text": "#149 on develop. Reconnect assertion no longer false-fails. Live script still cannot complete greeting turns until a human creates `/chatticus/development/thin-turn/openai-api-key`. Enforcement-on remains 7b4616. Card stays open.\n",
+      "created_at": "2026-09-01T10:17:36.528516Z"
+    },
+    {
+      "id": "8674f64e-584d-4e93-b2aa-f9a2bf5cb2bb",
+      "author": "home",
+      "text": "Desk OpenAI key from gitignored Chattic.us .env tested against gpt-5.6-luna (HTTP 200) and stored as SSM SecureString /chatticus/development/thin-turn/openai-api-key. Value not logged. Dedicated per-deployment OpenAI projects still pending. Next: named live script.",
+      "created_at": "2026-09-01T16:22:49.763181Z"
+    },
+    {
+      "id": "a30286e5-3370-40bc-9e27-b19c0199606b",
+      "author": "home",
+      "text": "OpenAI SSM is live. Greeting turns complete (channel_turn_done, second_turn_completed_body). Live script still exits 1: gpt-5.6-luna completed instead of turn.waiting on the household-browser probe. Auth/path half of this card is no longer the gate.",
+      "created_at": "2026-09-01T16:31:46.945385Z"
+    },
+    {
+      "id": "beea5876-fbb3-47df-b9d9-857291199e0b",
+      "author": "home",
+      "text": "Live `sh scripts/live_aws_thin_turn.sh development` exit 0 against development (worker register, org paths, greeting turns, model waiting). Enforcement-on remains 7b4616. Closing this card.",
+      "created_at": "2026-09-01T17:03:38.019045Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:56:57.858483Z",
+  "updated_at": "2026-09-01T17:03:38.031002Z",
+  "closed_at": "2026-09-01T17:03:38.031002Z",
+  "custom": {}
+}

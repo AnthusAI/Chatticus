@@ -7,6 +7,7 @@
     "build": "tsc",
     "cdk": "cdk",
     "synth": "cdk synth",
+    "test": "tsx --test test/**/*.test.ts",
     "deploy": "echo 'Refuse: cdk deploy --all would touch snapshots, computers, and every thin-turn environment. Deploy one stack, e.g. npx cdk deploy ChatticusThinTurn' >&2; exit 1",
     "diff": "cdk diff"
   },

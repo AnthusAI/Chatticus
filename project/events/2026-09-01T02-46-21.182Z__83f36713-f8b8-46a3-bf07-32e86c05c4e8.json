@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "83f36713-f8b8-46a3-bf07-32e86c05c4e8",
+  "issue_id": "chatticus-5f0c4c9f-87f9-4ca3-9582-afb8470deeb9",
+  "event_type": "field_updated",
+  "occurred_at": "2026-09-01T02:46:21.182Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "**Blocked by:** the Principal seam, the Cognito user pool, and the organization records.\n\nVerify the bearer token against the Cognito JWKS, map the verified email to an Identity, load Membership, and build the Principal. Cache the JWKS and the membership read for the warm life of the function; the front door already reads DynamoDB per request, so one more GetItem costs nothing at this scale and buys real revocation.\n\nNothing about organizations, roles, or ceilings travels in the token. The token says who you are; standing is resolved server side, per request.\n\n**Done when:** behave and pytest cover a valid token, an expired token, an unknown email, and a suspended organization, and routes still do not enforce.",
+        "to": "**Phase 3 of 7.**\n\n- **Blocked by:** 1ebc7d, 0df6cb, 272aea\n- **Runs in parallel with:** fac2ee, 5558db, 41d08d, and 79578e\n- **Unblocks:** 22f5bb, 7b4616\n\n---\nVerify the bearer token against the Cognito JWKS, map the verified email to an Identity, load Membership, and build the Principal. Cache the JWKS and the membership read for the warm life of the function; the front door already reads DynamoDB per request, so one more GetItem costs nothing at this scale and buys real revocation.\n\nNothing about organizations, roles, or ceilings travels in the token. The token says who you are; standing is resolved server side, per request.\n\n**Done when:** behave and pytest cover a valid token, an expired token, an unknown email, and a suspended organization, and routes still do not enforce."
+      },
+      "labels": {
+        "from": [],
+        "to": [
+          "phase-3"
+        ]
+      }
+    }
+  }
+}

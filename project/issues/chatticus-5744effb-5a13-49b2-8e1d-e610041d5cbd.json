@@ -1,0 +1,45 @@
+{
+  "id": "chatticus-5744effb-5a13-49b2-8e1d-e610041d5cbd",
+  "title": "Seed the first organization before the door closes",
+  "description": "**Phase 3 of 7.**\n\n- **Blocked by:** 272aea, b574a6, 41d08d\n- **Runs in parallel with:** 5f0c4c, fac2ee, 5558db\n- **Unblocks:** 7b4616, which cannot be called done without it\n\n---\n**Found by inversion: how does this initiative lock us out of our own product?**\n\nThe moment enforcement flips in 7b4616, reaching anything requires an enabled membership. Nobody has one. You cannot sign in to enable yourself, and you cannot enable yourself without signing in. The members CLI is the only escape hatch, which is why 41d08d is no longer allowed to slip and its priority is raised to P0.\n\nThere is a second half nobody has owned. Development, staging, and production already hold bots, channels, turns, and tasks under tenant anthus with user ryan. Those rows do not stop existing when Organization records arrive.\n\n**Do both here:**\n\n- Make tenant anthus a real Organization with status enabled, and its existing human the owner, keyed on their verified Google email in lowercase.\n- Prove the cold path an operator uses: the members CLI creates and enables an organization with no web session in existence.\n\n**Done when:** an operator goes from an empty environment to one enabled organization using only the CLI and an AWS identity, and signing in as the seeded owner reaches the app rather than the waitlist.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "556c5f0a-2f8f-4517-a7f6-4e32f620fa4b",
+      "author": "agent@example.com",
+      "text": "Unblocked (41d08d + 79578e on develop). Planning in `/tmp/chatticus-5744ef-seed-org` branch `cursor/seed-first-org-5744ef-4a21`. Parallel with fac2ee only. Seed tenant anthus; prove members CLI cold path. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T07:36:11.044089Z"
+    },
+    {
+      "id": "04982772-d7f6-4d2e-bc4c-b771aa28770c",
+      "author": "home",
+      "text": "**Reviewed #139. Both halves are covered and the guards are the right ones. Two notes, one of them worth acting on.**\n\nThe lockout half is solid: the cold path scenario goes from an empty store to create, list, enable, with no web session in existence, which is the escape hatch this card exists for. The backfill half is better than I expected. Seeding twice leaves the organization enabled rather than churning it, and a different email is refused ownership rather than silently taking over `ryan`. That refusal is the guard that matters, because the failure it prevents, orphaning existing bots and channels from their owner, is invisible until someone goes looking for data that no longer answers to anyone.\n\n**Worth acting on: `seed-anthus` is a command named after one tenant.**\n\nThe first deployment goes into a new dedicated AWS account with no `anthus` data in it, so this command is unreachable there on day one. In the existing account it runs once and is dead thereafter, but it stays in the CLI forever, and the next reader has to work out whether it is a migration tool or part of the product.\n\nThe operation underneath it is general and will be wanted again: adopt an existing tenant's messaging rows into organization records, aligning identity with the user id already in those rows. Every future deployment that migrates data will want exactly that, and none of them will want it spelled `anthus`.\n\nSuggest `seed --tenant-id <id> --owner-email <email>` with `anthus` as an argument rather than a name. Same code, same guards, same scenarios, and it survives being useful to the second deployment.\n\n**Do not close this card on the first half.** Its done-when has two parts, and the second, signing in as the seeded owner and reaching the app rather than the waitlist, cannot be exercised until Cognito exists behind 0ab02c and 0df6cb. Leaving it in progress is right. The whole reason this card exists is a lockout that only manifests when enforcement flips at 7b4616, so a partial close would retire the card before it has proved the thing it was written to prove.",
+      "created_at": "2026-09-01T08:08:16.794795Z"
+    },
+    {
+      "id": "a0552c35-7958-43c7-a132-79f963703210",
+      "author": "agent@example.com",
+      "text": "**#141** on develop (`8745ae0`): `seed --tenant-id --owner-email`. Card stays open for owner sign-in after 0ab02c / 0df6cb.\n",
+      "created_at": "2026-09-01T08:27:04.135999Z"
+    },
+    {
+      "id": "f420fca3-e45f-4949-bf5c-aadbdb116eb8",
+      "author": "home",
+      "text": "**#141 took the generalization. `seed --tenant-id` rather than `seed-anthus`.**\n\nSame guards, same scenarios, and it now serves the second deployment instead of naming the first one. Nothing further from me on that half.\n\nThe card stays open for the right reason: signing in as the seeded owner and reaching the app rather than the waitlist still needs Cognito behind 0ab02c.",
+      "created_at": "2026-09-01T08:38:24.530951Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:56:57.845054Z",
+  "updated_at": "2026-09-01T08:38:24.530951Z",
+  "closed_at": null,
+  "custom": {}
+}

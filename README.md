@@ -4,7 +4,9 @@ Chatticus is a roster of named AI teammates that do real work on a computer
 you control. You message a teammate. It uses tools, files, a browser, and a
 shell. It comes back when something needs your approval.
 
-The product lives at [chattic.us](https://chattic.us).
+The public marketing site is [chattic.us](https://chattic.us). The planned
+production product workspace is [hey.chattic.us](https://hey.chattic.us)
+(web CloudFront is disabled today; see What is live today).
 
 v1 is personal: one household, one AWS account, as many named bots as we
 want. Every record already carries a `tenant_id` so the same system can
@@ -64,57 +66,68 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**2026-08-31:** `ChatticusDns`, all three `ChatticusWeb*` stacks, and matching
-`ChatticusThinTurn*` stacks are deployed in `us-east-1`. Same-origin HTTPS
-is live at `dev.chattic.us`, `staging.chattic.us`, `chattic.us`, and
-`www.chattic.us`. SSM `/chatticus/{environment}/thin-turn/cloudfront-url`
-is `https://{hostname}/api` for each environment. A development run of
-`exercise_thin_turn.py` against `https://dev.chattic.us/api` exited 0 on
-2026-08-31 after the web stack fix (CloudFront `/api*` routing and API error
-passthrough). GitHub **Deploy ThinTurn (development)** and **Deploy Web
-(development)** are manual (`workflow_dispatch`, see `infra/README.md`) and
-need the `development` environment secret `AWS_DEPLOY_ROLE_ARN` from
-`ChatticusGitHubDeploy`. After merging OIDC trust updates, redeploy
-`ChatticusGitHubDeploy` once before the web workflow can assume the role;
-live workflow runs remain human-gated.
+**2026-09-01:** Git **`develop`** is `4d139a9` (#151: Chatticus CDK stacks
+set 30-day CloudWatch log retention; #150 closes the reconnect gate after
+#149). `ChatticusDns`, all three `ChatticusWeb*` stacks, and matching
+`ChatticusThinTurn*` stacks exist in `us-east-1`. Only **development**
+`ChatticusWeb` has CloudFront **enabled** (`WEB_CLOUDFRONT_ENABLED` in
+`infra/lib/environments.ts`; issue 7c1382). **Staging and production web
+front doors are dark:** `ChatticusWebStaging` and `ChatticusWebProduction`
+retain stacks but CloudFront is disabled, so `staging.chattic.us` and
+`hey.chattic.us` are not serving HTTPS today. The marketing site remains at
+`chattic.us` and `www.chattic.us`.
 
-GitHub **`main`** is `ede89c8` (PR #37, 2026-08-31): git promotion of
-the completed computer-turn pin (`822954b` / PR #34), not a stack
-redeploy. Production is never implied by a git branch. Staging and
-production were last recorded as deployed from `760915d` (v0.5.0).
+Same-origin HTTPS with `/api*` is **live on development** at
+`https://dev.chattic.us/api`. SSM
+`/chatticus/{environment}/thin-turn/cloudfront-url` records
+`https://{hostname}/api` per environment; that path is reachable only where
+web CloudFront is enabled.
 
-Development **ChatticusThinTurn** last **ThinTurn-only** CDK pin is
-**2026-08-31T21:56:57Z** (5dad85, ECS host-start context after ECR
-`:dev` refresh). Live ComputerWorker has `CHATTICUS_HOST_STARTER=ecs` and
-`CHATTICUS_ECS_HOST_COMMAND` for the host worker. **ChatticusWeb** can
-still restack ThinTurn; this pin looks up the live ChatticusComputers
-stack at synth so a Web restack cannot drop `ecs:RunTask`.
-**ChatticusComputers** was not redeployed (`desiredCount` remains 0).
+**Live acceptance today is blocked** on a human SSM prerequisite: seed
+`/chatticus/development/thin-turn/openai-api-key` before OpenAI turns run
+(see `infra/README.md`). Until then the greeting stream hits `turn.failed`
+after `turn.started`; `cd python && sh scripts/live_aws_thin_turn.sh
+development` does **not** exit 0. Fence, claim, and computer checks may
+still run when the deployed pin matches `develop`.
+
+The last fully proven development gate was **2026-08-31** (ThinTurn-only
+CDK pin after web-stack `/api*` fix): `health_environment=1`,
+`missing_claim=404`, `claim_a=200` then `claim_b=409`,
+`host_start_generation>=1`, computer continuation with `tool.result`.
+That run used a deployed OpenAI key; it is historical, not today's status.
+
+GitHub **Deploy ThinTurn (development)** and **Deploy Web (development)**
+are manual (`workflow_dispatch`, see `infra/README.md`) and need the
+`development` environment secret `AWS_DEPLOY_ROLE_ARN` from
+`ChatticusGitHubDeploy`. Live workflow runs remain human-gated.
 GitHub Actions must not hit live AWS.
 
-A named `exercise_thin_turn.py --environment development` run after that
-CDK pin exited 0 with `health_environment=1`, `missing_claim=404`,
-`claim_a=200` then `claim_b=409`, `host_start_generation>=1`,
-`computer_queue_job=completed`, and `computer_queue_turn_completed=1`
-with a durable `tool.result` on the summoned Fargate host. Leftover
-RunTask was stopped; desiredCount stayed 0. That is a completed computer
-continuation after a real ThinTurn-only CDK deploy and ECR image push,
-not a CLI-patched Lambda env. `dev.chattic.us` DNS may still fail;
-resolve the front door from SSM, CloudFormation, or
-`CHATTICUS_DEVELOPMENT_BASE_URL`.
-A demo CLI (Kanbus epic 35d86b) is a separate slice.
-`exercise_thin_turn.py` stays the pass/fail gate.
+**`develop`** is the continuous-integration branch; **`main`** is
+release-only. Production is never implied by a git branch. Staging and
+production thin-turn stacks may still reflect the v0.5.0 pin (`760915d`);
+their web CloudFront has been disabled since 7c1382 and was not re-proven
+on this pass.
 
-Per-account CloudFront distribution domains, Lambda function URLs, and
-AWS account ids belong in gitignored `AGENTS.local.md`, not in this
-file. Resolve the front door from SSM, CloudFormation, or
-`CHATTICUS_*_BASE_URL`.
+Development **ChatticusThinTurn** last **ThinTurn-only** CDK pin is
+**2026-08-31T21:56:57Z** (ECS host-start context after ECR `:dev` refresh).
+**ChatticusWeb** restacks look up the live **ChatticusComputers** stack at
+synth so a web restack cannot drop `ecs:RunTask`. **ChatticusComputers**
+was not redeployed (`desiredCount` remains 0).
 
-| Environment | Web stack | Site | API base (same origin) |
-| --- | --- | --- | --- |
-| development | `ChatticusWeb` | https://dev.chattic.us | https://dev.chattic.us/api |
-| staging | `ChatticusWebStaging` | https://staging.chattic.us | https://staging.chattic.us/api |
-| production | `ChatticusWebProduction` | https://chattic.us | https://chattic.us/api |
+`dev.chattic.us` DNS may still fail; resolve the front door from SSM,
+CloudFormation, or `CHATTICUS_DEVELOPMENT_BASE_URL`. Per-account CloudFront
+distribution domains, Lambda function URLs, and AWS account ids belong in
+gitignored `AGENTS.local.md`, not in this file.
+
+A demo CLI (`python/scripts/chatticus_chat.py`) talks to that HTTP surface
+so a person can watch tokens. `exercise_thin_turn.py` stays the pass/fail
+gate.
+
+| Environment | Web stack | Planned site | Web CF | API when CF enabled | Current posture |
+| --- | --- | --- | --- | --- | --- |
+| development | `ChatticusWeb` | dev.chattic.us | enabled | https://dev.chattic.us/api | Same-origin live; full exercise blocked on OpenAI SSM key |
+| staging | `ChatticusWebStaging` | staging.chattic.us | **disabled** | would be https://staging.chattic.us/api | Stack exists; **dark** — resolve via SSM, CloudFormation, or `AGENTS.local.md` |
+| production | `ChatticusWebProduction` | hey.chattic.us | **disabled** | would be https://hey.chattic.us/api | Stack exists; **dark** — do not treat hey as a live API front door |
 
 Deploy DNS once (`infra/deploy-chatticus-dns.sh`), set registrar name servers
 to the stack **NameServers** output, then deploy thin-turn + web per environment.
@@ -127,14 +140,11 @@ If SSM or CloudFormation credentials are expired, set
 
 `cd python && sh scripts/live_aws_thin_turn.sh development` (same gate as
 `python scripts/exercise_thin_turn.py --environment development`) is the
-named-environment command re-proven on 2026-08-31 (claim **200** then
-**409**, `host_start_generation=1`, in-flight nack after ChatticusWeb
-wiped ComputerWorker RunTask). Staging and
-production last recorded a passing named exercise on the v0.5.0 pin;
-they were not re-proven on this pass. A development run includes
-missing-turn claim **404** and a live second-worker claim **409**
-while the lease is held (`claim_a=200` then `claim_b=409`, because the
-fence probe starts the turn with `enqueue_turn=false` so the
+named-environment command. Full exit 0 requires the OpenAI SSM key above plus
+a development deploy aligned with `develop`. When the gate passes, a
+development run includes missing-turn claim **404** and a live second-worker
+claim **409** while the lease is held (`claim_a=200` then `claim_b=409`,
+because the fence probe starts the turn with `enqueue_turn=false` so the
 computerless worker does not race the claim), plus **development** naming
 itself on `GET /health` (`health_environment=1`), a live idempotent
 channel post (`post_idempotent=1`: two `POST /channels/{id}/messages` with
@@ -156,7 +166,8 @@ idempotent bot create (`bot_idempotent=1`: two `POST /bots` with the same
 (`channel_turn_done=1`: after the greeting completes, `GET /channels/{id}/turn` is **404**), plus SSE `turn.started` /
 `turn.token` / `turn.completed`. **Development** also drops that greeting stream after
 `turn.started` and a token, then reconnects through CloudFront with
-`Last-Event-ID` and requires ordered replay through `turn.completed`.
+`Last-Event-ID` and requires ordered replay through `turn.completed` (**only**
+after a mid-token drop; terminal streams skip reconnect per #149).
 After the greeting completes, **development** also lists channel history
 with `GET /channels/{id}/messages?after=<seq>` and requires only later
 rows, and lists the durable turn journal with
@@ -176,32 +187,39 @@ running, resumes that turn, checks `POST /turns/{id}/resume` returns
 `host_start_generation>=1`, and receives the continuation from
 `ComputerTurnJobs` (not the cpu queue) as an in-flight nack, draining leftover
 messages from interrupted runs, before marking the computer stopped. Staging
-and production do not have waiting, resume, or turn read yet.
+and production thin-turn pins may lag `develop`; their web CloudFront is
+dark and was not re-proven on this pass.
 
-The **source** has named cloud environments, turn **claim**, **lease**,
-**fence**, durable channel lookup across Lambda invocations, a durable
-logical-enqueue ledger, EventBridge Scheduler one-shot turn deadlines,
-and a recovery kernel (`recovery_enabled` when the messaging table and
-scheduler env vars are set). Kernel tests cover turn-boundary fault
+The **source on `develop`** has org-scoped HTTP (`/orgs/{tenant_id}/...`),
+organization records, a members CLI with suspend and reinstate, per-worker
+bearer credentials, a dedicated `ChatticusBudgets` stack, and turn **claim**,
+**lease**, **fence**, durable channel lookup across Lambda invocations, a
+durable logical-enqueue ledger, EventBridge Scheduler one-shot turn
+deadlines, and a recovery kernel (`recovery_enabled` when the messaging
+table and scheduler env vars are set). Kernel tests cover turn-boundary fault
 injection and in-memory page-content authority containment plus the
 executable capability, egress, and browser-context policy kernel (not
-wired into the live worker HTTP loop).
+wired into the live worker HTTP loop). Product login (Google/Cognito) is
+decided in [Organizations](docs/ORGANIZATIONS.md) but not deployed.
 
-What each deployed thin-turn slice does today:
+What each deployed thin-turn slice does today (when restacked from
+`develop`):
 
-- CloudFront in front of a Lambda function URL (no load balancer).
-- FastAPI front door: `GET /health` (names the cloud environment on
-  development), channels (`GET /channels/{id}`, `POST /channels`,
-  `GET /users/{user_id}/channels`, `GET /users/{user_id}/turns`, and `GET /channels/{id}/turn`),
-  messages, bots (`GET /bots?user_id=&name=` and `GET /users/{user_id}/bots`),
-  the household computer (`GET /users/{user_id}/computer`),
-  a stopped-computer roster,
-  chunk POST, `POST /turns/{id}/claim`, `POST /turns/{id}/renew`, fenced
-  chunk writes, `POST /turns/{id}/waiting` (development),
+- CloudFront in front of a Lambda function URL on **development** web only
+  (no load balancer). Staging and production web CloudFront is disabled.
+- FastAPI front door under `/orgs/{tenant_id}/...`: `GET /health` (names
+  the cloud environment on development), channels (`GET /channels/{id}`,
+  `POST /channels`, `GET /users/{user_id}/channels`,
+  `GET /users/{user_id}/turns`, and `GET /channels/{id}/turn`), messages,
+  bots (`GET /bots?user_id=&name=` and `GET /users/{user_id}/bots`), the
+  household computer (`GET /users/{user_id}/computer`), a stopped-computer
+  roster, chunk POST, `POST /turns/{id}/claim`, `POST /turns/{id}/renew`,
+  fenced chunk writes, `POST /turns/{id}/waiting` (development),
   `POST /turns/{id}/resume` (development; **409** while the computer is
-  stopped; **200** with `required_capabilities` when running), `GET /turns/{id}` (development; exposes `waiting_for` and
-  the pending `request_computer_capability` call), and
-  `GET /turns/{turn_id}/stream` as `text/event-stream`.
+  stopped; **200** with `required_capabilities` when running),
+  `GET /turns/{id}` (development; exposes `waiting_for` and the pending
+  `request_computer_capability` call), and `GET /turns/{turn_id}/stream`
+  as `text/event-stream`.
 - Channel records and named bots are in DynamoDB, so a different Front Door
   instance can enqueue a turn for a bot it did not create. Per-user bot
   names are reserved on the roster table so a recycled Lambda cannot fork
@@ -235,28 +253,34 @@ What each deployed thin-turn slice does today:
   worker, it is refused without ack. Resume of that
   same turn is refused while the computer is stopped. EventBridge deadline
   recovery does not fail a turn that is legitimately waiting on a gate.
-- Auth on this slice is an invoke key plus `X-Tenant-Id`, not product login.
+- Auth: `X-Chatticus-Invoke-Key` is the CloudFront-to-Lambda gate;
+  caller routes use the invoke key plus `/orgs/{tenant_id}/...` paths.
+  Worker routes require `Authorization: Bearer` after
+  `POST /orgs/{tenant_id}/workers/register`. No Google or Cognito login
+  on these slices yet.
 
 Worker lease renew during long model calls is live on development.
 EventBridge Scheduler one-shots are on each front door
 (`chatticus-{environment}-turn-deadlines`); `recovery_enabled` is on.
 Warm Front Door containers use a wall clock, so deadlines land in the
 future. A wedged turn has recovered through EventBridge without a
-forced Lambda cold start on development. GitHub **`main`** carries the
-2026-08-31 development live pin; overnight, approval binding,
-unbound-browser, and full computer-handoff execution still are not on
-the live worker loop. Do not merge `develop` to `main` as daily parking.
+forced Lambda cold start on development. **`develop`** carries org-path
+routing, worker bearer credentials, and reinstate; overnight, approval
+binding, unbound-browser, and full computer-handoff execution still are
+not on the live worker loop. Do not merge `develop` to `main` as daily
+parking.
 
-**ChatticusSnapshots** and **ChatticusComputers** exist and must not be
-destroyed. Development ComputerWorker may `ecs:RunTask` into that cluster
-with desired count still 0. Cold Fargate time to `RUNNING` for the
-current computer image is tens of seconds (Test 2). Chromium is in the
-image; the summoned Fargate host runs `computer_host_worker` with
-`ChromiumActionExecutor` and publishes per-capability readiness. Lambda
-ComputerWorker still has no browser executor and only nacks until the
-host finishes. The chattic.us Next.js UI deploys via `ChatticusWeb*`
-stacks (infra README); it is not on the live turn path until DNS and
-deploy land. Approvals are not on these slices.
+**ChatticusSnapshots**, **ChatticusComputers**, and (when deployed)
+**ChatticusBudgets** exist and must not be destroyed. Chatticus CDK stacks
+set **30-day** CloudWatch log retention (#151). Development ComputerWorker
+may `ecs:RunTask` into that cluster with desired count still 0. Cold
+Fargate time to `RUNNING` for the current computer image is tens of
+seconds (Test 2). Chromium is in the image; the summoned Fargate host
+runs `computer_host_worker` with `ChromiumActionExecutor` and publishes
+per-capability readiness. Lambda ComputerWorker still has no browser
+executor and only nacks until the host finishes. The product Next.js UI
+deploys via `ChatticusWeb*` stacks (infra README); staging and production
+web CloudFront is disabled. Approvals are not on these slices.
 
 Cloud-environment epic 9eef23 is closed: three named stacks, named-env
 acceptance on each. Turn recovery epic 653989 is closed. Cold Fargate
@@ -342,7 +366,7 @@ sequenceDiagram
 
 ## Where we are going
 
-v1 is the chattic.us Next.js app talking to that same per-request control
+v1 is the product Next.js app at `hey.chattic.us` (production) talking to that same per-request control
 plane, plus pull workers that can stay computerless or host the user's
 Linux computer: local Docker when a Mac is on, Fargate ARM64 that scales
 to zero when it is not. Workplace disk lives in S3 snapshots. EventBridge
@@ -358,7 +382,7 @@ image on Fargate, later stop/start EC2, or Docker on a Mac.
 ```mermaid
 flowchart TB
   Person["Person"]
-  Web["chattic.us<br/>Next.js"]
+  Web["hey.chattic.us<br/>Next.js"]
 
   subgraph control [Control plane per request]
     FD["HTTP front door<br/>POST plus one-turn SSE"]
@@ -440,7 +464,7 @@ computers stop (EC2) or scale to 0 (Fargate). The snapshot stays.
 Chattic.us/
   features/                 Shared Gherkin (product narrative)
   python/                   Control plane, computerless and computer workers, snapshot packer
-  web/                      chattic.us web app (not on the live turn path yet)
+  web/                      Product workspace (`hey.chattic.us` in production)
   computer/                 Linux computer image
   infra/                    AWS CDK
   docs/                     Product, architecture, design challenges, stack
@@ -469,9 +493,10 @@ ruff check src ../features tests
 `pip install -e ".[dev]"` matches GitHub CI.
 
 The deployed thin turn is exercised against a **named cloud environment**
-(CloudFront), not against an in-process queue. GitHub CI (`behave`,
-`pytest`) uses in-memory stores and moto. Live AWS is a local command
-after `aws login`:
+(CloudFront on development only today), not against an in-process queue.
+GitHub CI (`behave`, `pytest`) uses in-memory stores and moto. Live AWS is
+a local command after `aws login`. Full exit 0 requires the OpenAI SSM key
+documented in `infra/README.md`:
 
 ```bash
 cd python
@@ -480,14 +505,34 @@ sh scripts/live_aws_thin_turn.sh development
 
 That is the same as
 `python scripts/exercise_thin_turn.py --environment development` plus an
-identity check. It resolves the front door from
-`CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
+identity check.
+
+Watch one live conversation as a human (tokens on stdout, committed reply
+at the end). Auth is invoke key plus `/orgs/{tenant_id}/...` paths for
+caller routes; workers use bearer tokens after registration. No product
+login yet:
+
+```bash
+cd python
+export CHATTICUS_INVOKE_KEY=...   # or pass --invoke-key
+python scripts/chatticus_chat.py --environment development \
+  --tenant-id anthus --user-id ryan --bot Luna --message "hello"
+```
+
+The script resolves the front door like `exercise_thin_turn.py`
+(`CHATTICUS_DEVELOPMENT_BASE_URL`, SSM, or CloudFormation). Omit
+`--message` for an interactive prompt. `--list-turns` calls
+`GET /users/{user_id}/turns`; `--watch-turn` reconnects with
+`Last-Event-ID` on `GET /turns/{id}/stream`.
+
+That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
 `/chatticus/development/thin-turn/cloudfront-url`, or the
 `CloudFrontUrl` output on stack `ChatticusWeb` (or `ChatticusThinTurn`
 before the web stack exists). When AWS lookup fails, pass `--base-url` or
 set the env var (see gitignored `AGENTS.local.md`). SQS queue checks
-need that same AWS identity. Repeat with `staging` or `production` when
-you mean those stacks. It does not scale Fargate. Do not run this from
+need that same AWS identity. Staging and production web CloudFront is
+disabled; use thin-turn stack outputs or `AGENTS.local.md` when you mean
+those environments. It does not scale Fargate. Do not run this from
 GitHub Actions.
 
 If Docker Desktop is running, the snapshot packer can be checked with
@@ -514,11 +559,9 @@ npx cdk deploy ChatticusThinTurnProduction
 ```
 
 **ChatticusThinTurn** is development. Staging and production are separate
-stacks with their own DynamoDB, SQS, Lambda, and CloudFront. GitHub
-`main` includes the 2026-08-31 development live pin; PR #34 adds
-Computers-stack lookup so Web restacks keep ECS host-start. Do not merge
-`develop` to `main` as parking. Staging and production stacks were last
-recorded from `760915d`. Do not destroy the snapshot or computer stacks.
+stacks with their own DynamoDB, SQS, Lambda, and CloudFront (web CF
+disabled on staging and production). Do not merge `develop` to `main` as
+parking. Do not destroy the snapshot, computer, or budgets stacks.
 
 Postgres in `docker-compose.yml` is unused (it predates DynamoDB).
 

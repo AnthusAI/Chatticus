@@ -15,16 +15,19 @@ dependencies = []
 aws = [
     "boto3",
     "botocore[crt]",
+    "PyJWT[crypto]",
 ]
 dev = [
     "behave",
     "black==26.3.1",
     "boto3",
     "botocore[crt]",
+    "cryptography",
     "fastapi",
     "httpx",
     "kanbus",
     "moto",
+    "PyJWT[crypto]",
     "pytest",
     "python-dotenv",
     "ruff==0.15.5",

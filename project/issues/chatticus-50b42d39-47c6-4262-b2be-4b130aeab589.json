@@ -1,0 +1,38 @@
+{
+  "id": "chatticus-50b42d39-47c6-4262-b2be-4b130aeab589",
+  "title": "Reinstate a suspended organization",
+  "description": "**Phase 2 of 7.**\n\n- **Blocked by:** 41d08d\n- **Runs in parallel with:** anything\n- **Unblocks:** nothing\n\n---\n**Found reviewing #132.** Separating approval from reinstatement was correct. It is currently half-done.\n\n`enable` refuses any organization that is not `PENDING`, `suspend` refuses any that is not `ENABLED`, and no operation moves an organization out of `SUSPENDED`. It is a terminal state reachable in one command and escapable in none.\n\n**Do:** a `reinstate` operation on the kernel and a `reinstate` subcommand on the members CLI, allowed only from `SUSPENDED`, carrying the same confirmation and summary that `enable` does.\n\nKeep it a separate name rather than relaxing `enable`. The whole point is that approving a new organization and reversing a deliberate intervention appear in the record as different acts by different people at different moments. A reinstatement should be as legible after the fact as the suspension was.\n\n**Done when:** an organization can go pending to enabled to suspended to enabled again, every transition is refused from the wrong state, and the scenarios cover the round trip.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [
+    {
+      "target": "41d08d",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "eee7eca4-594f-47c5-97f6-7d856909cdac",
+      "author": "agent@example.com",
+      "text": "Unblocked (41d08d on develop). Planning `reinstate` on kernel + members CLI: SUSPENDED only, do not relax `enable`. Worktree `/tmp/chatticus-50b42d-reinstate` branch `cursor/reinstate-org-50b42d-4a21`. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T08:47:11.712605Z"
+    },
+    {
+      "id": "cb7c8476-8cf0-4eb9-9b79-278a8eaa816c",
+      "author": "agent@example.com",
+      "text": "#145 opened: dedicated `reinstate`, enable stays pending-only. Waiting on python CI before merge to develop.\n",
+      "created_at": "2026-09-01T09:04:59.912993Z"
+    }
+  ],
+  "created_at": "2026-09-01T06:08:27.775544Z",
+  "updated_at": "2026-09-01T09:20:41.971675Z",
+  "closed_at": "2026-09-01T09:20:41.971675Z",
+  "custom": {}
+}

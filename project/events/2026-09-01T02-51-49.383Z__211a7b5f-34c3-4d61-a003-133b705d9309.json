@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "211a7b5f-34c3-4d61-a003-133b705d9309",
+  "issue_id": "chatticus-815b3249-335b-4b8f-90ed-aca59b422a83",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:51:49.383Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "assignee": null,
+    "description": "Human action, not code. First link in the critical path.\n\nOne Google Cloud project, one OAuth client per environment, redirect URIs pointing at the Cognito auth domain rather than the app (auth-dev.chattic.us, auth-staging.chattic.us, auth.chattic.us — single-label names so *.chattic.us covers them).\n\nSecrets go directly into Secrets Manager by hand. Never the repository, CDK templates, or agent transcripts.",
+    "issue_type": "chore",
+    "labels": [
+      "v1"
+    ],
+    "parent": "chatticus-145ab2a8-e3f9-42d5-9b76-a1fbad370387",
+    "priority": 0,
+    "status": "open",
+    "title": "Register Google OAuth clients"
+  }
+}

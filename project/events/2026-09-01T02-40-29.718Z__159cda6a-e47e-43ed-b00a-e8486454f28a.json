@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "159cda6a-e47e-43ed-b00a-e8486454f28a",
+  "issue_id": "chatticus-7b46163f-979c-4e5f-9c0e-859ef6e179ed",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:40:29.718Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "**Blocked by:** the Cognito token resolver, per-worker credentials, the organization in the request path, and web sign-in. This is the join point of the whole epic.\n\nGherkin in features/principal_authorization.feature: an unauthenticated request is refused; a waitlisted member reaches only the routes marked reachable and nothing that spends; a member of another organization is refused; only /health and the authentication routes are open.\n\nFlip enforcement on and deploy development in one step, because a half-enforced front door is a second authentication path and this repository does not keep two.\n\n**Done when:** curl against development with no credential is refused on every route, and the live acceptance script still passes.",
+    "issue_type": "story",
+    "labels": [],
+    "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+    "priority": 0,
+    "status": "open",
+    "title": "Every route requires a principal"
+  }
+}

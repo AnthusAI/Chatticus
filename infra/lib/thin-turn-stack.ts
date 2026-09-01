@@ -19,10 +19,11 @@ import {
   ChatticusCloudEnvironment,
   thinTurnExportName,
   thinTurnParameterPrefix,
+  webParameterPrefix,
 } from "./environments";
+import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
 const LAMBDA_WEB_ADAPTER_LAYER_VERSION = 28;
-const OPENAI_PARAMETER_NAME = "/amplify/shared/papyrus/OPENAI_API_KEY";
 
 /**
  * Zero-idle computerless turn: DynamoDB, SQS, Lambda Web Adapter SSE.
@@ -45,6 +46,8 @@ export class ThinTurnStack extends cdk.Stack {
 
     const environmentName = props.chatticusEnvironment;
     const parameterPrefix = thinTurnParameterPrefix(environmentName);
+    const webPrefix = webParameterPrefix(environmentName);
+    const openAiParameterName = `${parameterPrefix}/openai-api-key`;
     const retainData = environmentName !== "development";
     cdk.Tags.of(this).add("chatticus:environment", environmentName);
 
@@ -89,7 +92,7 @@ export class ThinTurnStack extends cdk.Stack {
     const openaiParameter = ssm.StringParameter.fromSecureStringParameterAttributes(
       this,
       "OpenAiKey",
-      { parameterName: OPENAI_PARAMETER_NAME },
+      { parameterName: openAiParameterName },
     );
 
     const httpCode = lambda.Code.fromAsset(pythonRoot, {
@@ -99,7 +102,7 @@ export class ThinTurnStack extends cdk.Stack {
           "bash",
           "-c",
           [
-            "pip install . fastapi uvicorn 'pydantic>=2' httpx python-dotenv -t /asset-output",
+            "pip install . fastapi uvicorn 'pydantic>=2' httpx python-dotenv 'PyJWT[crypto]' -t /asset-output",
             "cp lambda/run.sh /asset-output/run.sh",
             "chmod +x /asset-output/run.sh",
           ].join(" && "),
@@ -114,7 +117,7 @@ export class ThinTurnStack extends cdk.Stack {
                   "--implementation cp",
                   "--python-version 3.12",
                   "--only-binary=:all:",
-                  "fastapi uvicorn 'pydantic>=2' httpx python-dotenv",
+                  "fastapi uvicorn 'pydantic>=2' httpx python-dotenv 'PyJWT[crypto]'",
                   `-t ${outputDir}`,
                 ].join(" "),
                 { cwd: pythonRoot, stdio: "inherit" },
@@ -159,7 +162,7 @@ export class ThinTurnStack extends cdk.Stack {
       CHATTICUS_TURN_QUEUE_URL: turnQueue.queueUrl,
       CHATTICUS_COMPUTER_TURN_QUEUE_URL: computerTurnQueue.queueUrl,
       OPENAI_MODEL: "gpt-5.6-luna",
-      OPENAI_API_KEY_PARAMETER: OPENAI_PARAMETER_NAME,
+      OPENAI_API_KEY_PARAMETER: openAiParameterName,
     };
 
     const turnDeadlineSchedulerEnv: Record<string, string> = {
@@ -173,6 +176,7 @@ export class ThinTurnStack extends cdk.Stack {
       handler: "run.sh",
       architecture: lambda.Architecture.X86_64,
       memorySize: 512,
+      logRetention: CHATTICUS_LOG_RETENTION,
       timeout: cdk.Duration.seconds(900),
       layers: [lambdaWebAdapterLayer],
       description: "Per-request Chatticus HTTP front door with turn-scoped SSE.",
@@ -194,6 +198,7 @@ export class ThinTurnStack extends cdk.Stack {
       handler: "chatticus.deadline.lambda_handler.handler",
       architecture: lambda.Architecture.X86_64,
       memorySize: 256,
+      logRetention: CHATTICUS_LOG_RETENTION,
       timeout: cdk.Duration.seconds(60),
       description:
         "EventBridge Scheduler target: recover wedged turns without an always-on reaper.",
@@ -238,7 +243,9 @@ export class ThinTurnStack extends cdk.Stack {
       new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],
         resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter${OPENAI_PARAMETER_NAME}`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${openAiParameterName}`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${webPrefix}/cognito-user-pool-id`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${webPrefix}/cognito-app-client-id`,
         ],
       }),
     );
@@ -279,6 +286,7 @@ export class ThinTurnStack extends cdk.Stack {
       handler: "chatticus.worker.lambda_handler.handler",
       architecture: lambda.Architecture.X86_64,
       memorySize: 512,
+      logRetention: CHATTICUS_LOG_RETENTION,
       timeout: cdk.Duration.seconds(120),
       description: "SQS computerless worker: one OpenAI text loop per turn job.",
       environment: {
@@ -294,7 +302,7 @@ export class ThinTurnStack extends cdk.Stack {
       new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],
         resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter${OPENAI_PARAMETER_NAME}`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter${openAiParameterName}`,
           `arn:aws:ssm:${this.region}:${this.account}:parameter${cloudFrontUrlParameterName}`,
         ],
       }),
@@ -308,6 +316,7 @@ export class ThinTurnStack extends cdk.Stack {
       handler: "chatticus.worker.lambda_handler.handler",
       architecture: lambda.Architecture.X86_64,
       memorySize: 256,
+      logRetention: CHATTICUS_LOG_RETENTION,
       timeout: cdk.Duration.seconds(60),
       description:
         "SQS computer-queue worker: nack without a host; never fake tool.result.",

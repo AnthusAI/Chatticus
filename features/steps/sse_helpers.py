@@ -7,14 +7,16 @@ import threading
 import time
 from typing import Any
 
-
-def tenant_headers(tenant_id: str) -> dict[str, str]:
-    """Return authenticated tenant headers for the front door."""
-    return {"X-Tenant-Id": tenant_id}
+from chatticus.http.paths import org_path
 
 
-def _stream_headers(tenant_id: str, last_event_id: int = 0) -> dict[str, str]:
-    headers = tenant_headers(tenant_id)
+def org_api_path(tenant_id: str, suffix: str) -> str:
+    """Return one org-scoped front-door path."""
+    return org_path(tenant_id, suffix)
+
+
+def _stream_headers(last_event_id: int = 0) -> dict[str, str]:
+    headers: dict[str, str] = {}
     if last_event_id:
         headers["Last-Event-ID"] = str(last_event_id)
     return headers
@@ -38,7 +40,7 @@ def parse_sse_frames(buffer: str) -> list[dict[str, Any]]:
 
 
 class SseWatcher:
-    """Background reader for GET /turns/{turn_id}/stream."""
+    """Background reader for GET /orgs/{tenant_id}/turns/{turn_id}/stream."""
 
     def __init__(
         self,
@@ -62,12 +64,10 @@ class SseWatcher:
 
         def run() -> None:
             try:
-                headers = tenant_headers(self.tenant_id)
-                if self.after_seq:
-                    headers["Last-Event-ID"] = str(self.after_seq)
+                headers = _stream_headers(self.after_seq)
                 with self.client.stream(
                     "GET",
-                    f"/turns/{self.turn_id}/stream",
+                    org_api_path(self.tenant_id, f"/turns/{self.turn_id}/stream"),
                     headers=headers,
                 ) as response:
                     self._response = response
@@ -149,8 +149,8 @@ def read_sse_until(
     deadline = time.monotonic() + timeout
     with client.stream(
         "GET",
-        f"/turns/{turn_id}/stream",
-        headers=_stream_headers(tenant_id, after_seq),
+        org_api_path(tenant_id, f"/turns/{turn_id}/stream"),
+        headers=_stream_headers(after_seq),
     ) as response:
         if response.status_code != 200:
             return events

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "event_id": "02702eb4-7358-44fa-9fd7-efbb3cbd6f90",
+  "issue_id": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "event_type": "comment_added",
+  "occurred_at": "2026-09-01T01:55:11.734Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "comment_author": "agent@example.com",
+    "comment_id": "e136855f-b3ad-447d-9687-5a959f77f12b"
+  }
+}

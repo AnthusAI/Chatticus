@@ -3,7 +3,7 @@
   "title": "Phase 1: Prove the serverless conversation foundation",
   "description": "Outcome: a household user can address a named bot and receive one durable streamed answer while application compute retains no idle floor.\n\nScope: feasibility test 1, the computerless model path, durable channel and turn state, SQS delivery, and turn-scoped SSE.\n\nNot included: computer tools, browser authority, Kanbus task integration, snapshots, and the full web application.\n\nComplete when the transport result is recorded and the thin computerless turn passes its executable specifications end to end.",
   "type": "initiative",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -234,10 +234,16 @@
       "author": "home",
       "text": "ThinTurn development @ 19070b1 (no --all). Exercise exit 0: health_environment=1 missing_claim=404 claim_a=200 claim_b=409 computer_queue_job=in_flight_nack. Staging/prod unchanged.",
       "created_at": "2026-08-31T08:50:59.692696Z"
+    },
+    {
+      "id": "09862cba-1dae-4d2c-b666-26afc53a0562",
+      "author": "agent@example.com",
+      "text": "Phase 1 children are all closed. Transport DoD is met: durable computerless turn, named-env exercise, SSE (Safari/background-tab waived), household-recovery HTTP, and the demo CLI on develop (#26). Not included remains: computer tools, full web at apex, product login. Phase 3 (a3923e/cc5e6f) stays in_progress pending the owner choosing marketing vs chat UI at https://chattic.us. No production deploy.\n",
+      "created_at": "2026-09-01T01:16:14.690707Z"
     }
   ],
   "created_at": "2026-08-30T15:51:21.834527Z",
-  "updated_at": "2026-08-31T08:50:59.692696Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T01:16:14.704320Z",
+  "closed_at": "2026-09-01T01:16:14.704320Z",
   "custom": {}
 }

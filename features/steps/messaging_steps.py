@@ -6,13 +6,15 @@ from dataclasses import replace
 from uuid import uuid4
 
 from behave import given, then, when
-from sse_helpers import (
-    SseWatcher,
-    read_sse_until,
-    tenant_headers,
+from sse_helpers import SseWatcher, read_sse_until
+from worker_http_helpers import (
+    register_worker_for_http,
+    sync_worker_from_turn_client,
+    worker_auth_headers,
 )
 
 from chatticus.http.client import HttpTurnClient
+from chatticus.http.paths import org_path
 from chatticus.models import (
     ActorKind,
     ChannelTenantMismatchError,
@@ -63,8 +65,7 @@ def _load_channel(context: object, tenant_id: str, channel_id: str) -> object:
 
 def _list_messages_http(context: object, channel: object) -> list[object]:
     response = context.api_client.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers=tenant_headers(channel.tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     )
     assert response.status_code == 200
     payloads = response.json()["messages"]
@@ -88,15 +89,18 @@ def _message_at_seq(context: object, seq: int) -> object:
 
 
 def _claim_http(context: object, turn_id: str, tenant_id: str, worker_id: str) -> int:
+    if worker_id not in getattr(context, "worker_tokens", {}):
+        register_worker_for_http(context, tenant_id, worker_id)
     response = context.api_client.post(
-        f"/turns/{turn_id}/claim",
+        org_path(tenant_id, f"/turns/{turn_id}/claim"),
         json={"worker_id": worker_id},
-        headers=tenant_headers(tenant_id),
+        headers=worker_auth_headers(context, worker_id),
     )
     assert response.status_code == 200, response.text
     payload = response.json()
     context.fence_token = int(payload["fence_token"])
     context.claim_acquired = payload["acquired"]
+    context.last_claim_worker_id = worker_id
     return context.fence_token
 
 
@@ -109,16 +113,22 @@ def _post_chunk_http(
     complete: bool = False,
     fence_token: int | None = None,
     expect_ok: bool = True,
+    worker_id: str | None = None,
 ) -> int:
     resolved_fence = fence_token if fence_token is not None else context.fence_token
+    resolved_worker = worker_id or getattr(context, "last_claim_worker_id", None)
+    if resolved_worker is None:
+        raise AssertionError("No worker_id is available for chunk POST auth.")
+    if resolved_worker not in getattr(context, "worker_tokens", {}):
+        register_worker_for_http(context, tenant_id, resolved_worker)
     response = context.api_client.post(
-        f"/turns/{turn_id}/chunks",
+        org_path(tenant_id, f"/turns/{turn_id}/chunks"),
         json={
             "token": token,
             "complete": complete,
             "fence_token": resolved_fence,
         },
-        headers=tenant_headers(tenant_id),
+        headers=worker_auth_headers(context, resolved_worker),
     )
     if expect_ok:
         assert response.status_code == 200, response.text
@@ -129,9 +139,8 @@ def _post_chunk_http(
 def when_open_channel(context: object, tenant_id: str, user_id: str) -> None:
     bot_ids = _bot_ids(context, context.table)
     response = context.api_client.post(
-        "/channels",
+        org_path(tenant_id, "/channels"),
         json={"user_id": user_id, "bot_ids": bot_ids},
-        headers=tenant_headers(tenant_id),
     )
     assert response.status_code == 200
     channel_id = response.json()["channel_id"]
@@ -153,9 +162,9 @@ def when_open_channel_with_idempotency(
     bot_ids = _bot_ids(context, context.table)
     previous = getattr(context, "idempotent_channel_id", None)
     response = context.api_client.post(
-        "/channels",
+        org_path(tenant_id, "/channels"),
         json={"user_id": user_id, "bot_ids": bot_ids},
-        headers={**tenant_headers(tenant_id), "Idempotency-Key": key},
+        headers={"Idempotency-Key": key},
     )
     assert response.status_code == 200
     channel_id = response.json()["channel_id"]
@@ -179,9 +188,8 @@ def given_channel_with_named_bot(
         context.bots_by_name[name] = context.plane.create_bot(tenant_id, user_id, name)
     bot = context.bots_by_name[name]
     response = context.api_client.post(
-        "/channels",
+        org_path(tenant_id, "/channels"),
         json={"user_id": user_id, "bot_ids": [bot.bot_id]},
-        headers=tenant_headers(tenant_id),
     )
     assert response.status_code == 200
     _load_channel(context, tenant_id, response.json()["channel_id"])
@@ -201,14 +209,13 @@ def when_human_posts_on_channel(
     channel = _channel(context)
     bot = context.bots_by_name[name]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": user_id,
             "body": body,
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers=tenant_headers(tenant_id),
     )
     if response.status_code == 403:
         context.message_error = ChannelTenantMismatchError(response.json()["detail"])
@@ -234,14 +241,14 @@ def when_human_posts_on_channel_with_idempotency_key(
     channel = _channel(context)
     bot = context.bots_by_name[name]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": user_id,
             "body": body,
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={**tenant_headers(tenant_id), "Idempotency-Key": key},
+        headers={"Idempotency-Key": key},
     )
     assert response.status_code == 200
     context.message_error = None
@@ -263,7 +270,7 @@ def when_human_posts_fence_probe_without_enqueue(
     channel = _channel(context)
     bot = context.bots_by_name[name]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": user_id,
@@ -271,7 +278,6 @@ def when_human_posts_fence_probe_without_enqueue(
             "addressed_to_bot_id": bot.bot_id,
             "enqueue_turn": False,
         },
-        headers=tenant_headers(tenant_id),
     )
     assert response.status_code == 200
     context.message_error = None
@@ -293,14 +299,13 @@ def when_bot_posts_on_channel(
     author = context.bots_by_name[name]
     addressee_bot = context.bots_by_name[addressee]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.BOT,
             "author_id": author.bot_id,
             "body": body,
             "addressed_to_bot_id": addressee_bot.bot_id,
         },
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200
     context.last_turn_id = response.json().get("turn_id")
@@ -312,13 +317,12 @@ def when_other_tenant_posts_on_channel(
 ) -> None:
     channel = _channel(context)
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "intruder",
             "body": body,
         },
-        headers=tenant_headers(tenant_id),
     )
     if response.status_code == 403:
         context.message_error = ChannelTenantMismatchError(response.json()["detail"])
@@ -335,8 +339,7 @@ def then_channel_message_count_one(context: object, count: int) -> None:
 def then_channel_message_count(context: object, count: int) -> None:
     channel = _channel(context)
     response = context.api_client.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers=tenant_headers(channel.tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     )
     assert response.status_code == 200
     assert len(response.json()["messages"]) == count
@@ -354,8 +357,7 @@ def then_opened_channel_identifier_is_unchanged(context: object) -> None:
 def then_tenant_reads_open_channel(context: object, tenant_id: str) -> None:
     channel = _channel(context)
     response = context.api_client.get(
-        f"/channels/{channel.channel_id}",
-        headers=tenant_headers(tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}"),
     )
     assert response.status_code == 200
     payload = response.json()
@@ -383,8 +385,7 @@ def then_list_user_channels(context: object, tenant_id: str, user_id: str) -> No
     expected_ids.extend(resolve_cell(row.cells[0]) for row in context.table)
     expected_ids = [channel_id for channel_id in expected_ids if channel_id]
     response = context.api_client.get(
-        f"/users/{user_id}/channels",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/users/{user_id}/channels"),
     )
     assert response.status_code == 200
     listed_ids = [channel["channel_id"] for channel in response.json()["channels"]]
@@ -415,8 +416,7 @@ def then_list_user_active_turns(context: object, tenant_id: str, user_id: str) -
     expected_ids.extend(resolve_cell(row.cells[0]) for row in context.table)
     expected_ids = [turn_id for turn_id in expected_ids if turn_id]
     response = context.api_client.get(
-        f"/users/{user_id}/turns",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/users/{user_id}/turns"),
     )
     assert response.status_code == 200
     listed_ids = [turn["turn_id"] for turn in response.json()["turns"]]
@@ -433,8 +433,7 @@ def then_list_user_active_turns(context: object, tenant_id: str, user_id: str) -
 def then_read_household_computer(context: object, tenant_id: str, user_id: str) -> None:
     expected_id = context.household_computer_ids[(tenant_id, user_id)]
     response = context.api_client.get(
-        f"/users/{user_id}/computer",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/users/{user_id}/computer"),
     )
     assert response.status_code == 200
     payload = response.json()
@@ -444,8 +443,7 @@ def then_read_household_computer(context: object, tenant_id: str, user_id: str) 
     assert payload["stopped"] is True
     assert payload["host_start_generation"] == 0
     missing = context.api_client.get(
-        f"/users/{user_id}/computer",
-        headers=tenant_headers("other"),
+        org_path("other", f"/users/{user_id}/computer"),
     )
     assert missing.status_code == 404
 
@@ -458,8 +456,7 @@ def then_household_computer_host_start_generation(
     context: object, tenant_id: str, user_id: str, generation: int
 ) -> None:
     response = context.api_client.get(
-        f"/users/{user_id}/computer",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/users/{user_id}/computer"),
     )
     assert response.status_code == 200
     assert response.json()["host_start_generation"] == generation
@@ -470,8 +467,7 @@ def then_read_active_channel_turn(context: object, tenant_id: str) -> None:
     channel = _channel(context)
     expected_turn_id = _turn_id(context)
     response = context.api_client.get(
-        f"/channels/{channel.channel_id}/turn",
-        headers=tenant_headers(tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/turn"),
     )
     assert response.status_code == 200
     payload = response.json()
@@ -485,8 +481,7 @@ def then_read_turn_by_identifier(context: object, tenant_id: str) -> None:
     expected_turn_id = _turn_id(context)
     channel = _channel(context)
     response = context.api_client.get(
-        f"/turns/{expected_turn_id}",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/turns/{expected_turn_id}"),
     )
     assert response.status_code == 200
     payload = response.json()
@@ -494,8 +489,7 @@ def then_read_turn_by_identifier(context: object, tenant_id: str) -> None:
     assert payload["channel_id"] == channel.channel_id
     assert payload["status"] == "active"
     missing = context.api_client.get(
-        f"/turns/{expected_turn_id}",
-        headers=tenant_headers("other"),
+        org_path("other", f"/turns/{expected_turn_id}"),
     )
     assert missing.status_code == 403
 
@@ -505,8 +499,7 @@ def then_read_waiting_channel_turn(context: object, tenant_id: str, gate: str) -
     channel = _channel(context)
     expected_turn_id = _turn_id(context)
     response = context.api_client.get(
-        f"/channels/{channel.channel_id}/turn",
-        headers=tenant_headers(tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/turn"),
     )
     assert response.status_code == 200
     payload = response.json()
@@ -540,8 +533,7 @@ def when_worker_claims_fence_probe_and_completes(context: object) -> None:
 def then_no_active_channel_turn(context: object, tenant_id: str) -> None:
     channel = _channel(context)
     response = context.api_client.get(
-        f"/channels/{channel.channel_id}/turn",
-        headers=tenant_headers(tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/turn"),
     )
     assert response.status_code == 404
 
@@ -571,8 +563,7 @@ def then_message_from_bot(context: object, seq: int, name: str) -> None:
 def then_human_reads_channel(context: object) -> None:
     channel = _channel(context)
     response = context.api_client.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers=tenant_headers(channel.tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     )
     assert response.status_code == 200
     assert len(response.json()["messages"]) == 2
@@ -586,9 +577,8 @@ def when_list_channel_messages_after_seq(
 ) -> None:
     channel = _channel(context)
     response = context.api_client.get(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         params={"after": seq},
-        headers=tenant_headers(tenant_id),
     )
     assert response.status_code == 200
     context.listed_messages = response.json()["messages"]
@@ -687,12 +677,14 @@ def when_counting_computerless_worker_processes(context: object, name: str) -> N
     channel = _channel(context)
     bot = context.bots_by_name[name]
     context.counting_client = CountingTextCompletionClient()
+    turn_client = HttpTurnClient(context.api_client, channel.tenant_id)
     worker = ComputerlessWorker(
         context.plane,
-        HttpTurnClient(context.api_client, channel.tenant_id),
+        turn_client,
         context.counting_client,
     )
     worker.complete_pending_for_bot(bot.bot_id)
+    sync_worker_from_turn_client(context, turn_client)
     turn = context.plane.turn(channel.tenant_id, _turn_id(context))
     context.waiting_action_id = turn.pending_computer_action_id
 
@@ -729,8 +721,7 @@ def then_pending_tool_action_id_unchanged(context: object) -> None:
 def then_channel_has_durable_bot_answer(context: object) -> None:
     channel = _channel(context)
     response = context.api_client.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers=tenant_headers(channel.tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     )
     assert response.status_code == 200
     bot_messages = [
@@ -739,6 +730,25 @@ def then_channel_has_durable_bot_answer(context: object) -> None:
         if message["author_kind"] == ActorKind.BOT
     ]
     assert len(bot_messages) == 1
+
+
+@then("the latest bot message body equals the joined chunks for the active turn")
+def then_latest_bot_message_matches_turn_chunks(context: object) -> None:
+    channel = _channel(context)
+    turn_id = _turn_id(context)
+    chunks = context.plane._messaging_store.list_turn_chunks(channel.tenant_id, turn_id)
+    joined = "".join(chunks)
+    response = context.api_client.get(
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
+    )
+    assert response.status_code == 200
+    bot_messages = [
+        message
+        for message in response.json()["messages"]
+        if message["author_kind"] == ActorKind.BOT
+    ]
+    assert bot_messages
+    assert bot_messages[-1]["body"] == joined
 
 
 @then('tenant "{tenant_id}" user "{user_id}" household computer remains stopped')
@@ -759,20 +769,18 @@ def when_other_tenant_post_or_read(context: object, tenant_id: str) -> None:
     channel = _channel(context)
     context.access_error = None
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "intruder",
             "body": "intrusion",
         },
-        headers=tenant_headers(tenant_id),
     )
     if response.status_code == 403:
         context.access_error = ChannelTenantMismatchError(response.json()["detail"])
         return
     channel_response = context.api_client.get(
-        f"/channels/{channel.channel_id}",
-        headers=tenant_headers(tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}"),
     )
     if channel_response.status_code == 403:
         context.access_error = ChannelTenantMismatchError(
@@ -780,8 +788,7 @@ def when_other_tenant_post_or_read(context: object, tenant_id: str) -> None:
         )
         return
     read_response = context.api_client.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers=tenant_headers(tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     )
     if read_response.status_code == 403:
         context.access_error = ChannelTenantMismatchError(
@@ -798,8 +805,7 @@ def then_access_denied(context: object) -> None:
 def then_channel_unchanged(context: object) -> None:
     channel = _channel(context)
     response = context.api_client.get(
-        f"/channels/{channel.channel_id}/messages",
-        headers=tenant_headers(channel.tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     )
     assert response.status_code == 200
     assert response.json()["messages"] == []
@@ -810,14 +816,13 @@ def given_bot_producing_turn(context: object, name: str) -> None:
     channel = _channel(context)
     bot = context.bots_by_name[name]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": channel.user_id,
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200
     context.last_turn_id = response.json()["turn_id"]
@@ -893,14 +898,13 @@ def given_turn_events_through_seq(context: object, seq: int) -> None:
     channel = _channel(context)
     bot = context.bots_by_name["Researcher"]
     response = context.api_client.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": channel.user_id,
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers=tenant_headers(channel.tenant_id),
     )
     assert response.status_code == 200
     context.last_turn_id = response.json()["turn_id"]
@@ -936,9 +940,8 @@ def when_list_turn_events_after_seq(
     context: object, user_id: str, tenant_id: str, seq: int
 ) -> None:
     response = context.api_client.get(
-        f"/turns/{_turn_id(context)}/events",
+        org_path(tenant_id, f"/turns/{_turn_id(context)}/events"),
         params={"after": seq},
-        headers=tenant_headers(tenant_id),
     )
     assert response.status_code == 200
     context.listed_turn_events = response.json()["events"]
@@ -1010,8 +1013,7 @@ def given_active_turn_on_channel(context: object, user_id: str, tenant_id: str) 
 @when('tenant "{tenant_id}" tries to open the turn stream')
 def when_other_opens_turn_stream(context: object, tenant_id: str) -> None:
     response = context.api_client.get(
-        f"/turns/{_turn_id(context)}/stream",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/turns/{_turn_id(context)}/stream"),
     )
     if response.status_code == 403:
         context.stream_error = TurnAccessDeniedError(response.json()["detail"])
@@ -1029,11 +1031,16 @@ def when_worker_posts_chunk_then_waiting(context: object) -> None:
     channel = _channel(context)
     turn_id = _turn_id(context)
     tenant_id = channel.tenant_id
+    worker_id = getattr(context, "last_claim_worker_id", None)
+    if worker_id is None:
+        raise AssertionError("No worker has claimed the turn.")
     _post_chunk_http(context, turn_id, tenant_id, "Here is a draft.")
-    client = HttpTurnClient(
-        context.api_client, tenant_id, fence_token=context.fence_token
+    response = context.api_client.post(
+        org_path(tenant_id, f"/turns/{turn_id}/waiting"),
+        json={"gate": "browser", "fence_token": context.fence_token},
+        headers=worker_auth_headers(context, worker_id),
     )
-    client.post_waiting(turn_id, "browser")
+    assert response.status_code == 200, response.text
 
 
 @then('user "{user_id}" receives a waiting server-sent event naming {gate}')
@@ -1070,8 +1077,7 @@ def then_user_reads_turn_gate_without_sse(
     del user_id
     channel = _channel(context)
     response = context.api_client.get(
-        f"/turns/{_turn_id(context)}",
-        headers=tenant_headers(channel.tenant_id),
+        org_path(channel.tenant_id, f"/turns/{_turn_id(context)}"),
     )
     assert response.status_code == 200
     payload = response.json()
@@ -1086,8 +1092,7 @@ def then_user_reads_pending_computer_tool(
     del user_id
     channel = _channel(context)
     response = context.api_client.get(
-        f"/turns/{_turn_id(context)}",
-        headers=tenant_headers(channel.tenant_id),
+        org_path(channel.tenant_id, f"/turns/{_turn_id(context)}"),
     )
     assert response.status_code == 200
     pending = response.json().get("pending_computer_tool")
@@ -1127,9 +1132,12 @@ def then_action_id_stable_across_get_and_journal(context: object, user_id: str) 
     del user_id
     channel = _channel(context)
     turn_id = _turn_id(context)
-    headers = tenant_headers(channel.tenant_id)
-    first = context.api_client.get(f"/turns/{turn_id}", headers=headers).json()
-    second = context.api_client.get(f"/turns/{turn_id}", headers=headers).json()
+    first = context.api_client.get(
+        org_path(channel.tenant_id, f"/turns/{turn_id}"),
+    ).json()
+    second = context.api_client.get(
+        org_path(channel.tenant_id, f"/turns/{turn_id}"),
+    ).json()
     get_action_id = first["pending_computer_tool"]["action_id"]
     assert get_action_id
     assert second["pending_computer_tool"]["action_id"] == get_action_id
@@ -1144,9 +1152,10 @@ def when_user_tries_to_resume_waiting_turn(
     context: object, user_id: str, tenant_id: str
 ) -> None:
     del user_id
+    worker_id = getattr(context, "last_claim_worker_id", "waiting-worker")
     response = context.api_client.post(
-        f"/turns/{_turn_id(context)}/resume",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/turns/{_turn_id(context)}/resume"),
+        headers=worker_auth_headers(context, worker_id),
     )
     context.resume_response = response
 
@@ -1156,9 +1165,10 @@ def when_user_resumes_waiting_turn(
     context: object, user_id: str, tenant_id: str
 ) -> None:
     del user_id
+    worker_id = getattr(context, "last_claim_worker_id", "waiting-worker")
     response = context.api_client.post(
-        f"/turns/{_turn_id(context)}/resume",
-        headers=tenant_headers(tenant_id),
+        org_path(tenant_id, f"/turns/{_turn_id(context)}/resume"),
+        headers=worker_auth_headers(context, worker_id),
     )
     assert response.status_code == 200
     context.resume_response = response
@@ -1277,6 +1287,7 @@ def then_only_owner_appends(context: object) -> None:
         "extra",
         fence_token=0,
         expect_ok=False,
+        worker_id="worker-a",
     )
     assert stale == 409
 
@@ -1310,6 +1321,7 @@ def when_expired_attempt_appends(context: object) -> None:
         "late",
         fence_token=context.stale_fence,
         expect_ok=False,
+        worker_id="worker-a",
     )
 
 
@@ -1335,9 +1347,9 @@ def then_newer_attempt_writes(context: object) -> None:
 @then("the user sees no duplicate output or action")
 def then_no_duplicate_output(context: object) -> None:
     then_channel_has_durable_bot_answer(context)
+    channel = _channel(context)
     messages = context.api_client.get(
-        f"/channels/{_channel(context).channel_id}/messages",
-        headers=tenant_headers(_channel(context).tenant_id),
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     ).json()["messages"]
     bot_bodies = [
         message["body"]

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "048764d8-0433-410f-8963-b810a36457ba",
+  "issue_id": "chatticus-7b46163f-979c-4e5f-9c0e-859ef6e179ed",
+  "event_type": "field_updated",
+  "occurred_at": "2026-09-01T02:46:21.252Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "**Blocked by:** the Cognito token resolver, per-worker credentials, the organization in the request path, and web sign-in. This is the join point of the whole epic.\n\nGherkin in features/principal_authorization.feature: an unauthenticated request is refused; a waitlisted member reaches only the routes marked reachable and nothing that spends; a member of another organization is refused; only /health and the authentication routes are open.\n\nFlip enforcement on and deploy development in one step, because a half-enforced front door is a second authentication path and this repository does not keep two.\n\n**Done when:** curl against development with no credential is refused on every route, and the live acceptance script still passes.",
+        "to": "**Phase 4 of 7.** THE JOIN. Every phase-1 through phase-3 track converges here and nothing in phases 5 to 7 starts before it.\n\n- **Blocked by:** 5f0c4c, fac2ee, 79578e, 22f5bb\n- **Runs in parallel with:** e41552 may proceed alongside once 22f5bb has merged\n- **Unblocks:** 14f692 and the whole collaboration epic, plus bc830a\n\n---\nGherkin in features/principal_authorization.feature: an unauthenticated request is refused; a waitlisted member reaches only the routes marked reachable and nothing that spends; a member of another organization is refused; only /health and the authentication routes are open.\n\nFlip enforcement on and deploy development in one step, because a half-enforced front door is a second authentication path and this repository does not keep two.\n\n**Done when:** curl against development with no credential is refused on every route, and sh scripts/live_aws_thin_turn.sh development still passes."
+      },
+      "labels": {
+        "from": [],
+        "to": [
+          "phase-4"
+        ]
+      }
+    }
+  }
+}

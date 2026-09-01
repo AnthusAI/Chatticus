@@ -1,0 +1,37 @@
+{
+  "id": "chatticus-e69f3a07-c87c-4ba1-9d6c-592ffd33dc12",
+  "title": "Rewrite README What is live today after phase-4 develop landings",
+  "description": "README on develop is stale vs board and AGENTS.local.md.\n\n**Do:** Update README \\\"What is live today\\\" so it matches git and AWS: staging/hey dark (7c1382), org records/members CLI/org-path/worker bearer/reinstate/budgets stack/reconnect gate/30-day log retention on develop, live exercise blocked on OpenAI SSM, invoke key plus worker bearer.\n\n**Do not:** invent product behavior, merge to main, cdk deploy --all, treat 7c310b as source of truth.\n\n**Done when:** README date pin and live section match origin/develop and AGENTS.local.md without leaking secrets.",
+  "type": "chore",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "7910d3b1-0dc7-4295-9bb3-86f837c635ca",
+      "author": "home",
+      "text": "Planning README rewrite in `/tmp/chatticus-e69f3a-readme` on `cursor/readme-live-e69f3a-4a21` from origin/develop (`4d139a9`, #151). No deploy. No secrets in README.",
+      "created_at": "2026-09-01T14:55:23.598757Z"
+    },
+    {
+      "id": "ef6f4089-3d75-4253-98b5-0b0432bdcd53",
+      "author": "home",
+      "text": "#152 opened from `/tmp/chatticus-e69f3a-readme` (`8843b38`). Review and CI in flight. Not merged.",
+      "created_at": "2026-09-01T14:58:49.570945Z"
+    },
+    {
+      "id": "f1c55c03-dbc1-47e4-8257-9f99b9ac3784",
+      "author": "home",
+      "text": "CI green and #152 squash-merged to develop. README live section matches develop @ 4d139a9: staging/hey dark, OpenAI SSM blocks full live exercise. Closing.",
+      "created_at": "2026-09-01T15:02:20.308680Z"
+    }
+  ],
+  "created_at": "2026-09-01T14:55:08.449489Z",
+  "updated_at": "2026-09-01T15:02:20.320067Z",
+  "closed_at": "2026-09-01T15:02:20.320067Z",
+  "custom": {}
+}

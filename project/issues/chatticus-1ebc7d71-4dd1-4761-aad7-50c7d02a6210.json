@@ -1,0 +1,69 @@
+{
+  "id": "chatticus-1ebc7d71-4dd1-4761-aad7-50c7d02a6210",
+  "title": "Define the Principal seam and the waitlist-safe route marker",
+  "description": "**Phase 1 of 7.** Keep it small and merge it within a day: three phase-3 tasks fork from it and must agree on the shape first.\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 79ca6a, 7c1382, 0ab02c, 272aea\n- **Unblocks:** 5f0c4c, fac2ee, 79578e\n\n---\nPrincipal is a frozen dataclass with a kind (user or worker), tenant_id, and either user_id with membership status and role, or worker_id. Add the FastAPI dependency that will resolve it and the explicit marker that declares a route reachable by a waitlisted member. No resolver implementations and no enforcement in this task.\n\nRouting is default deny by construction: a route serves an enabled member unless it is explicitly marked otherwise. Do not build a denylist of expensive routes. The next route someone adds would be open by default, and one day that route is the one that calls the model.\n\n**Done when:** the type and the marker are merged so the three dependent tasks can proceed in parallel.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "1a353e3e-b732-4635-80ea-ca1b97c09582",
+      "author": "agent@example.com",
+      "text": "Retarget from duplicate df80e1. Worktree `/tmp/chatticus-df80e1-principal`. Plan exists against ORGANIZATIONS.md: Principal type + waitlist_safe marker, no enforcement.\n",
+      "created_at": "2026-09-01T03:01:53.102106Z"
+    },
+    {
+      "id": "38644455-fbe2-424e-b985-dfd7306b8af7",
+      "author": "home",
+      "text": "**Architect ruling: the exact shape, so the three dependent tasks can fork.**\n\n```python\nclass PrincipalKind(StrEnum):\n    USER = \"user\"\n    WORKER = \"worker\"\n\n@dataclass(frozen=True)\nclass Principal:\n    kind: PrincipalKind\n    tenant_id: str\n    user_id: str | None = None\n    worker_id: str | None = None\n    membership_status: MembershipStatus | None = None\n    role: Role | None = None\n```\n\n**Two kinds, and only two.** Do not add a system, service, or test kind. A test-only principal is a second authentication path, and the repository does not keep two; our own tooling authenticates as a worker (see d71ed5).\n\n**The marker is opt-out, not opt-in.** The dependency requires an enabled member by default. A route reachable by a waitlisted member says so explicitly. As of today exactly one route is waitlist-safe: `GET /me`. `/health` and the authentication routes take no principal at all and are not part of the marker system.\n\n**Not in this task:** resolvers, JWT verification, worker credentials, enforcement. Land the type and the marker, nothing else. Three tasks are waiting on the shape rather than the behavior.",
+      "created_at": "2026-09-01T03:05:54.223764Z"
+    },
+    {
+      "id": "f00a0b34-ee00-4364-84d6-7783f26e5fed",
+      "author": "home",
+      "text": "**Your worktree is behind. Rebase before you go further.**\n\ndevelop has moved to c24c97b. Worktrees on this card branched from c532fd2, which predates the plan entirely, so you cannot see docs/ORGANIZATIONS.md, this card's own sequencing header, the adversarial pass, or the architect ruling posted above.\n\n```\ngit fetch origin && git rebase origin/develop\n```\n\nEverything you need to decide is on the card. Ask here rather than in a pull request body; this issue is the channel.",
+      "created_at": "2026-09-01T03:12:26.820307Z"
+    },
+    {
+      "id": "fb489360-af7d-4fed-9057-5748f57e8726",
+      "author": "agent@example.com",
+      "text": "Ruling recorded: PrincipalKind USER|WORKER only; frozen Principal with tenant_id, user_id, worker_id, membership_status, role. Marker is opt-out (waitlist-safe named explicitly; today GET /me). /health and auth routes take no principal. No resolvers or enforcement in this slice. Authorizing implementation on that shape.",
+      "created_at": "2026-09-01T03:13:46.148163Z"
+    },
+    {
+      "id": "69c042a2-fff0-4179-83a9-5b2528dc56f3",
+      "author": "agent@example.com",
+      "text": "Authorizing implementation. Worktree /tmp/chatticus-df80e1-principal branch cursor/principal-seam-4a21, rebase onto origin/develop. Shape as ruled on this issue. No resolvers, no app.py wiring.",
+      "created_at": "2026-09-01T03:31:32.260971Z"
+    },
+    {
+      "id": "8f2f3f79-3c10-4b26-a8ba-7f0d19fce7fe",
+      "author": "agent@example.com",
+      "text": "Implementation PR #115. Shape matches the ruling (USER|WORKER, opt-out waitlist_safe, GET /me only, /health and /auth outside the marker). resolve_principal is a stub, app.py unwired. Holding merge for CI.",
+      "created_at": "2026-09-01T03:38:07.445165Z"
+    },
+    {
+      "id": "e1d351fc-9028-4875-84ef-9df0809fe4bd",
+      "author": "home",
+      "text": "**Review of #115. Shape is right; one type needs to go before this merges.**\n\nThe dataclass matches the ruling, `test_principal_kind_has_user_and_worker_only` encodes the two-kinds constraint as a test rather than a comment, the marker defaults to `requires_enabled_member` so it is genuinely opt-out, and `resolve_principal` is a shape-only seam with the docstring saying resolvers land later. Gherkin is first. Scope held.\n\n**The defect: `MembershipStatus` in principal.py duplicates state that already exists and cannot represent all of it.**\n\n#111 landed `OrganizationStatus` in models.py with `PENDING`, `ENABLED`, `SUSPENDED`. The new enum has `ENABLED` and `WAITLISTED`, which is the same concept with a different word for the same state, and it is missing the third one.\n\nThree consequences, in order of how soon they bite:\n\n- **A suspended organization has no representation.** b574a6 implements suspend, and a member of a suspended organization maps to neither `ENABLED` nor `WAITLISTED`. Whatever the resolver picks in 5f0c4c will be wrong, and the failure will look like an authorization bug rather than a modelling one.\n- **Two words for one state.** `WAITLISTED` and `PENDING` are the same organization lifecycle state. Two vocabularies for one thing drift, and the drift shows up in whichever one a later reader does not know about.\n- **The name is claimed by something else.** `Membership` on develop carries `tenant_id`, `user_id`, `role`, `joined_at` and no status. When ae51dc lands invitations, a genuine per-member status of invited, active, or removed will want exactly this name, and it will collide with a field that actually describes the organization.\n\n**Fix: carry `OrganizationStatus` on the principal and delete the new enum.** That is the same choice already made one line above, where `Role` aliases `MemberRole` from models rather than redefining it. Enablement is an organization property; the principal reports it, it does not define its own.\n\n`PrincipalRoutePolicy.requires_enabled_member` keeps its name and meaning, since it asks a question about the caller rather than naming a state.\n\nNot blocking anything else: the seam's shape is what the three dependent tasks were waiting on, and this change does not move it. Python CI was still running when I looked, so this is a review note rather than a merge signal.",
+      "created_at": "2026-09-01T03:38:39.667231Z"
+    },
+    {
+      "id": "7f4a3d10-37a6-422b-b25f-2fcaa1b490ad",
+      "author": "agent@example.com",
+      "text": "Landed on develop via #115. Principal carries OrganizationStatus; MembershipStatus removed. Marker opt-out; app.py unwired.",
+      "created_at": "2026-09-01T03:46:49.207949Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:40:29.666490Z",
+  "updated_at": "2026-09-01T03:46:49.221467Z",
+  "closed_at": "2026-09-01T03:46:49.221467Z",
+  "custom": {}
+}

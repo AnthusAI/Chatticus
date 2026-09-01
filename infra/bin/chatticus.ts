@@ -2,14 +2,19 @@
 import * as cdk from "aws-cdk-lib";
 import { ComputerStack } from "../lib/computer-stack";
 import { DnsStack } from "../lib/dns-stack";
+import { AuthStack } from "../lib/auth-stack";
 import {
+  AUTH_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
 } from "../lib/environments";
+import { readBudgetsConfig } from "../lib/budgets-config";
+import { BudgetsStack } from "../lib/budgets-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
+import { websiteDeploySourceForApp } from "../lib/web-bundle-stub";
 import { WebStack } from "../lib/web-stack";
 
 const app = new cdk.App();
@@ -19,10 +24,21 @@ const env: cdk.Environment = {
   region: process.env.CDK_DEFAULT_REGION ?? "us-east-1",
 };
 
+const budgetsConfig = readBudgetsConfig(app);
+
 const snapshots = new SnapshotStack(app, "ChatticusSnapshots", {
   env,
   description: "Canonical S3 store for Chatticus computer snapshots.",
 });
+
+if (budgetsConfig) {
+  new BudgetsStack(app, "ChatticusBudgets", {
+    env,
+    monthlyLimitUsd: budgetsConfig.monthlyLimitUsd,
+    notificationEmails: budgetsConfig.notificationEmails,
+    description: "Account-level AWS spend budget and alerts.",
+  });
+}
 
 new ComputerStack(app, "ChatticusComputers", {
   env,
@@ -57,9 +73,20 @@ for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
     siteCertificate: dns.siteCertificate,
     frontDoorFunctionUrl: thinTurn.frontDoorFunctionUrl,
     invokeSecret: thinTurn.invokeSecret,
+    websiteDeploySource: websiteDeploySourceForApp(),
     description:
       `Next.js UI (${environmentName}) on CloudFront with same-origin /api/* ` +
       "proxy to the thin-turn function URL.",
   });
   web.addDependency(thinTurn);
+
+  new AuthStack(app, AUTH_STACK_IDS[environmentName], {
+    env,
+    chatticusEnvironment: environmentName,
+    hostedZone: dns.hostedZone,
+    siteCertificate: dns.siteCertificate,
+    description:
+      `Cognito user pool (${environmentName}) with Google federation and ` +
+      "custom auth domain for SPA authorization code + PKCE.",
+  });
 }

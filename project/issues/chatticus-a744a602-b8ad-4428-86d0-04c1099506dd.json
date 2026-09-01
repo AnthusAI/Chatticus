@@ -3,7 +3,7 @@
   "title": "Phase 3: Ship chattic.us on AWS",
   "description": "Outcome: the Next.js UI at chattic.us is reachable over HTTPS in named cloud environments and talks to the thin-turn control plane. Not included: product login, Vultus avatars (0325d4), or mid-turn computer preview.",
   "type": "initiative",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -16,10 +16,22 @@
       "author": "agent@example.com",
       "text": "Status aligned with current work: chattic.us UI (a3923e), GHA/OIDC ThinTurn deploy (6abbb8), and web task list are already in flight. Initiative is in_progress.",
       "created_at": "2026-08-31T19:40:47.416073Z"
+    },
+    {
+      "id": "b8319d02-ebf2-4880-b507-e082e4f679ef",
+      "author": "agent@example.com",
+      "text": "Phase 3 outcome: marketing at chattic.us; household app at hey.chattic.us plus env subdomains. Not replacing the apex with web/.\n",
+      "created_at": "2026-09-01T01:44:39.568056Z"
+    },
+    {
+      "id": "977ccc82-8337-4250-91ea-b043ec950e87",
+      "author": "agent@example.com",
+      "text": "Phase 3: marketing at chattic.us; household app at hey.chattic.us plus env subdomains. Epic cc5e6f closed. Closing initiative.\n",
+      "created_at": "2026-09-01T02:02:14.017642Z"
     }
   ],
   "created_at": "2026-08-31T11:30:44.835457Z",
-  "updated_at": "2026-08-31T19:40:47.416073Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T02:02:14.032033Z",
+  "closed_at": "2026-09-01T02:02:14.032033Z",
   "custom": {}
 }

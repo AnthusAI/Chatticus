@@ -6,6 +6,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
+import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
 export interface ComputerStackProps extends cdk.StackProps {
   snapshotBucket: s3.IBucket;
@@ -57,7 +58,7 @@ export class ComputerStack extends cdk.Stack {
     props.snapshotBucket.grantReadWrite(taskRole);
 
     const logGroup = new logs.LogGroup(this, "ComputerLogs", {
-      retention: logs.RetentionDays.TWO_WEEKS,
+      retention: CHATTICUS_LOG_RETENTION,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 

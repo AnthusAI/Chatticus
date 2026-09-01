@@ -1,5 +1,6 @@
 import type { TurnEvent } from "./api";
 import { apiBase, tenantId } from "./config";
+import { orgApiPath } from "./paths";
 import { isTerminalTurnEvent, parseSseFrames } from "./sse-parse";
 
 export type TurnStreamHandlers = {
@@ -8,7 +9,7 @@ export type TurnStreamHandlers = {
   onClose?: () => void;
 };
 
-/** Open a turn-scoped SSE stream via fetch so X-Tenant-Id reaches the front door. */
+/** Open a turn-scoped SSE stream via fetch against the org-scoped front door. */
 export function openTurnStream(
   turnId: string,
   handlers: TurnStreamHandlers,
@@ -18,9 +19,12 @@ export function openTurnStream(
   let closed = false;
 
   const headers: Record<string, string> = {
-    "X-Tenant-Id": tenantId,
     Accept: "text/event-stream",
   };
+  const invokeKey = process.env.NEXT_PUBLIC_CHATTICUS_INVOKE_KEY;
+  if (invokeKey) {
+    headers["X-Chatticus-Invoke-Key"] = invokeKey;
+  }
   if (lastEventId && lastEventId > 0) {
     headers["Last-Event-ID"] = String(lastEventId);
   }
@@ -28,7 +32,7 @@ export function openTurnStream(
   void (async () => {
     try {
       const response = await fetch(
-        `${apiBase}/turns/${encodeURIComponent(turnId)}/stream`,
+        `${apiBase}${orgApiPath(tenantId, `/turns/${encodeURIComponent(turnId)}/stream`)}`,
         {
           headers,
           signal: controller.signal,

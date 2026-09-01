@@ -1,0 +1,81 @@
+{
+  "id": "chatticus-41d08d0e-b37a-4b97-b4a6-09a45972ab31",
+  "title": "Members CLI for the waitlist and enablement",
+  "description": "**Phase 3 of 7.** Bootstrap path for enablement. 5744ef cannot seed the first organization, and 7b4616 cannot close the door, without this CLI.\n\n- **Blocked by:** b574a6\n- **Runs in parallel with:** every other phase-3 task\n- **Unblocks:** 5744ef, then 7b4616\n\n---\npython -m chatticus.members with list --status pending, enable, suspend, and role. This is the admin surface for v1; there is no admin UI. Organization records are data, not infrastructure, so writing them from a CLI does not violate the CDK-only rule for AWS resources.\n\n**Done when:** an operator can list pending organizations and enable one against development.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "0e384d73-1ed3-458c-b9f1-7b03af7cbe35",
+      "author": "home",
+      "text": "**Adversarial review: this is no longer allowed to slip.**\n\nThe description says off the critical path, let it slip if capacity is short. That was wrong. 5744ef establishes that the members CLI is the only way to enable the first organization, so it is the bootstrap path for every environment, and enforcement in 7b4616 cannot land without it.\n\nPriority raised to P0. Treat the earlier slack note as withdrawn.",
+      "created_at": "2026-09-01T02:57:58.090028Z"
+    },
+    {
+      "id": "1b5ff2f7-834a-449e-bf4d-64e17d588904",
+      "author": "agent@example.com",
+      "text": "Adversarial pass: this is the bootstrap path for 5744ef / 7b4616, not a slip-able convenience. Priority stays P0. Description still says off the critical path; that line is wrong and will be corrected on this card.",
+      "created_at": "2026-09-01T03:13:46.162840Z"
+    },
+    {
+      "id": "058ed494-fd4c-4671-8121-c72e8dce025f",
+      "author": "agent@example.com",
+      "text": "b574a6 is on develop. Planning members CLI (python -m chatticus.members). No admin UI. Worktree /tmp/chatticus-41d08d-members-cli branch cursor/members-cli-4a21.",
+      "created_at": "2026-09-01T05:30:49.484212Z"
+    },
+    {
+      "id": "134c342b-9306-4e1c-85c4-ebd7d4cf3666",
+      "author": "agent@example.com",
+      "text": "Plan approved with pushback: no org_status dual-write index (filter existing org items so current waitlist rows list without backfill); no decorative --environment flag; ControlPlane only; --yes for non-TTY mutate. Worktree /tmp/chatticus-41d08d-members-cli branch cursor/members-cli-4a21.",
+      "created_at": "2026-09-01T05:37:04.309786Z"
+    },
+    {
+      "id": "bbef36ce-a777-4cd9-9ee6-cc01f6943d9a",
+      "author": "home",
+      "text": "**Heads-up before this surfaces a semantic that is not settled yet.**\n\n`enable_organization` in #130 writes `ENABLED` from any prior state, so it approves a pending organization and reinstates a suspended one through the same call. A review note on b574a6 asks for those to be separated.\n\nFor this CLI: do not expose a single `members enable` that can do both. An operator clearing a waitlist backlog should not be able to silently reinstate an organization that somebody suspended for cause. Either wait for b574a6 to split the operation, or have the CLI refuse to enable an organization whose status is `SUSPENDED` and point at an explicit reinstate command.\n\nEverything else on this card stands, and it is the right thing to be working: 41d08d unblocks 5744ef, which 7b4616 cannot be called done without.",
+      "created_at": "2026-09-01T05:38:18.032314Z"
+    },
+    {
+      "id": "0dfcadea-c985-4aed-969f-824c2d28fc89",
+      "author": "agent@example.com",
+      "text": "**Architect review taken.**\n\n#132 (`python -m chatticus.members`) does not expose a combined enable/reinstate. `members enable` loads the org, prints tenant/name/status/owner, then refuses unless status is pending (`OrganizationStatusTransitionError`). Suspended organizations cannot be enabled through this CLI.\n\nThe kernel in the same PR matches: `enable_organization` accepts only PENDING; `suspend_organization` accepts only ENABLED. There is still no named `reinstate_organization` — that stays a follow-up on the control plane, not this bootstrap CLI. Waitlist enablement does not silently unsuspend.\n\nHolding merge for CI. Card stays open until an operator can list pending and enable against the development messaging table.\n",
+      "created_at": "2026-09-01T06:02:21.670893Z"
+    },
+    {
+      "id": "fd3ebd41-d9ce-4487-aafb-833536b8fae6",
+      "author": "home",
+      "text": "**Reviewed #132. The enable-versus-reinstate note was answered better than it was asked, and the answer left a door with no handle.**\n\nGuards at both layers, not just the kernel one I suggested: `_cmd_enable` refuses anything that is not `PENDING`, `_cmd_suspend` refuses anything that is not `ENABLED`, and `org_records` enforces the same transitions underneath, with pytest asserting both raises. The CLI prints an organization summary before acting and requires `--yes`. For an operation that provisions recurring cost, making the operator look at what they are about to enable is the right shape.\n\n**The consequence: `SUSPENDED` is now terminal.** Subcommands are `list`, `show`, `enable`, `suspend`. `enable` refuses a suspended organization, and no reinstate exists, so nothing can move an organization out of `SUSPENDED` through any interface. Separating the two acts was right; the separation is only half-built until the second act exists.\n\nNot a blocker for this card, whose done-when is listing pending organizations and enabling one, and that works. But the first person to suspend an organization discovers the trap, and they discover it at the moment they most want it undone. Carded separately.\n\nCI was still running when I looked, so this is a review note rather than a merge signal.",
+      "created_at": "2026-09-01T06:08:27.739839Z"
+    },
+    {
+      "id": "5475b0a1-2ebe-4d2d-a812-ca69147482a3",
+      "author": "agent@example.com",
+      "text": "**#132 review taken.**\n\nNot a merge blocker. Waitlist list+enable is the DoD. `SUSPENDED` having no reverse path is **50b42d** (reinstate kernel + `members reinstate`, pending→enabled→suspended→enabled round trip). Blocked by this card; will not start until #132 is on develop and an operator can enable against development.\n\nHolding merge for GitHub CI (infra in progress; python still queued).\n",
+      "created_at": "2026-09-01T06:11:25.346808Z"
+    },
+    {
+      "id": "b7255685-be60-42a2-af92-81a3589e01b9",
+      "author": "agent@example.com",
+      "text": "**#132 on develop** (5ab905e). `python -m chatticus.members` is the operator CLI. Enable is pending-only; no computer provisioning.\n\nCard stays **in_progress** until an operator lists pending organizations and enables one against the development messaging table (`CHATTICUS_MESSAGING_TABLE`). Then close.\n\n**50b42d** (reinstate) stays blocked until this card closes.\n",
+      "created_at": "2026-09-01T06:17:25.788738Z"
+    },
+    {
+      "id": "6f229584-24d1-4460-8bda-e7f09fa9dd46",
+      "author": "agent@example.com",
+      "text": "**Accepted on development.** Messaging table `ChatticusThinTurn-Messaging4C94D7F8-K6G2UNOUE8RB`: listed pending, enabled tenant `e7724414-3952-4d61-a272-989ec1af28e5` (`Kanbus 41d08d acceptance`) with `--yes`, no computer row, re-enable refused. #132 on develop (5ab905e). Closing.\n",
+      "created_at": "2026-09-01T06:24:58.122654Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:40:05.928935Z",
+  "updated_at": "2026-09-01T06:24:58.135469Z",
+  "closed_at": "2026-09-01T06:24:58.135469Z",
+  "custom": {}
+}

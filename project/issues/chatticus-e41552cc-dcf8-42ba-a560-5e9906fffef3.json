@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-e41552cc-dcf8-42ba-a560-5e9906fffef3",
+  "title": "Create an organization and wait",
+  "description": "**Phase 4 of 7.**\n\n- **Blocked by:** 22f5bb\n- **Runs in parallel with:** 7b4616\n- **Unblocks:** ae51dc\n\n---\nAnyone signing in may create an organization, which lands it pending, and sees the welcome screen. Google sign-in is the waitlist form: the address is verified, there is no form backend and no spam, and enabling later is a flag flip on an account that already exists.\n\nDo not show a queue position. It implies an ordering that will not be honored, because organizations are chosen deliberately. Do not promise an email unless SES is out of the sandbox; at this volume, mail the owner by hand when their organization is enabled.\n\n**Done when:** a new person can sign in, create an organization, and see the welcome screen, and an operator sees it via the members CLI.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "0e6a6084-e6a0-4c43-8d71-4758db370c10",
+      "author": "home",
+      "text": "**Signup openness becomes deployment configuration.**\n\nThe three-level model changes what this card means. A deployment is one customer company; tenants are departments inside it. So open signup is right for the Anthus deployment, where anyone may sign in and ask for a tenant, and wrong for a customer deployment, where members are that company's employees and enablement belongs to their own admin.\n\n**Do not hardcode open signup.** The deployment configures whether sign-in creates a pending tenant or refuses anyone without an invitation. Both paths already exist in this epic; this is a switch over which one is reachable, not new machinery.\n\nSame applies to ae51dc: invitation-only is the default posture for a customer deployment, and open signup is the exception the Anthus deployment turns on.",
+      "created_at": "2026-09-01T03:29:19.080763Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:40:45.597787Z",
+  "updated_at": "2026-09-01T03:29:19.080763Z",
+  "closed_at": null,
+  "custom": {}
+}

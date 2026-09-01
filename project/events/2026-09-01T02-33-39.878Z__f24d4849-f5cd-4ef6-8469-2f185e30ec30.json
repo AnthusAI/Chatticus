@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "f24d4849-f5cd-4ef6-8469-2f185e30ec30",
+  "issue_id": "chatticus-ba3ea4f4-e439-4a2a-9850-57f095c3346b",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:33:39.878Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Modeled on an office. Every member holds an authority ceiling over the consequential classes and their arguments. The governing rule: no one can grant, approve, or always-allow beyond their own ceiling. Roles are named ceilings, not a permission matrix. Delegation clips and expires, using the table TTL. Approval routing escalates to the nearest sufficient ceiling, which gives the unattended path in docs/APPROVAL.md a completion route it did not have with one household human. AutoReviewRule gains a creator identity distinct from its user_id scope; approvals gain an approver identity. Visibility is a channel and named-resource property, never a filesystem one.",
+    "issue_type": "epic",
+    "labels": [],
+    "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+    "priority": 1,
+    "status": "open",
+    "title": "Delegated approval authority and need-to-know visibility"
+  }
+}

@@ -94,7 +94,7 @@ class SingleComputerStartDriver:
 
     def set_local_reconciled_generation(self, generation: int) -> None:
         """Record the snapshot generation a local host last hydrated."""
-        self.plane.reconcile_worker_snapshot("garage-mac-1", generation)
+        self.plane.reconcile_worker_snapshot(self.tenant_id, "garage-mac-1", generation)
 
     def publish_remote_snapshot_generation(self, generation: int) -> None:
         """Publish snapshots until the computer reaches one generation."""
@@ -116,7 +116,7 @@ class SingleComputerStartDriver:
 
     def reconcile_local_host(self, generation: int) -> None:
         """Mark the local host caught up to one snapshot generation."""
-        self.plane.reconcile_worker_snapshot("garage-mac-1", generation)
+        self.plane.reconcile_worker_snapshot(self.tenant_id, "garage-mac-1", generation)
 
     def request_two_turns_concurrently(self) -> SingleComputerStartOutcome:
         """Issue two start requests without an intervening host boot."""

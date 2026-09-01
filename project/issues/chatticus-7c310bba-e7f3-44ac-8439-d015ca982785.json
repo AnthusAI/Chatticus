@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-7c310bba-e7f3-44ac-8439-d015ca982785",
+  "title": "Serve organizations with delegated authority",
+  "description": "Outcome: organizations with delegated authority, not a single household tenant pretending to be multi-user.\n\nSource: organizations-build-plan.html (phases 01–07, 24 items). Design reasoning belongs in docs/ORGANIZATIONS.md.\n\nv1 waitlist: Google sign-in, pending organizations, members CLI as the only admin surface. Production marketing stays at chattic.us; app at hey.chattic.us / env hosts.\n\nNot included: bot memory crossing channels, approval_fatigue as a scheduled item, a second organization computer, owner audit pipeline.",
+  "type": "initiative",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "09e76970-02b5-4d18-8840-b6365a1b7358",
+      "author": "agent@example.com",
+      "text": "Duplicate of 86aec8 tree opened because develop was not pulled after #106. Closing. Use 86aec8 / 79ca6a / 7c1382 / 0ab02c / 272aea / 1ebc7d.",
+      "created_at": "2026-09-01T03:01:53.114922Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:51:49.303888Z",
+  "updated_at": "2026-09-01T03:01:53.128636Z",
+  "closed_at": "2026-09-01T03:01:53.128636Z",
+  "custom": {}
+}

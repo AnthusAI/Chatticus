@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "title": "Organizations, membership, and the waitlist",
+  "description": "Spans phases 1 through 4. Its data model, 272aea, is a phase-1 item because the sign-in epic cannot resolve a principal without it.\n\nThe organization is the unit of enablement. tenant_id remains the identifier; Organization is the product object it names. Anyone may sign in and create an organization, which lands it pending. Invited members of an enabled organization skip the waitlist. Enabling an organization is the spend decision: it approves one organization computer.\n\n**Start with:** 272aea, which blocks more of this initiative than any other single item except the Principal seam.",
+  "type": "epic",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:33:30.863093Z",
+  "updated_at": "2026-09-01T02:46:57.811818Z",
+  "closed_at": null,
+  "custom": {}
+}

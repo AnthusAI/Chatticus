@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "title": "Gate the app behind Google sign-in",
+  "description": "Spans phases 1, 2, 3, and 4. Ends at the join, 7b4616, where enforcement flips on.\n\nPeople reach hey.chattic.us only as an authenticated principal. Cognito user pool per environment with Google as the sole social provider; the SPA does authorization code with PKCE; the front door verifies the Cognito JWT and resolves a Principal. X-Tenant-Id is deleted from the client. Routing is default deny: a route serves an enabled member unless it is explicitly marked reachable by a waitlisted one.\n\nAlso holds the two controls that start before anything else: the spend alarm 79ca6a, and taking staging and production dark in 7c1382. Per-worker credentials, fac2ee, close the question left open in docs/DESIGN_CHALLENGES.md.\n\n**Start with:** 79ca6a, 7c1382, 0ab02c, and 1ebc7d, all in parallel, today.",
+  "type": "epic",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:33:30.849306Z",
+  "updated_at": "2026-09-01T02:46:57.800088Z",
+  "closed_at": null,
+  "custom": {}
+}

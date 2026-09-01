@@ -15,6 +15,7 @@ from chatticus.control_plane import ControlPlane
 from chatticus.host_starter import RecordingHostStarter
 from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
+from chatticus.http.paths import org_path
 from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
@@ -22,8 +23,10 @@ from chatticus.models import (
     ComputerlessCannotExecuteComputerJob,
     ComputerWorkerHostNotReady,
     ComputerWorkerRequiresComputerCapability,
+    CostClass,
     TurnEventKind,
     TurnJob,
+    WorkerRegistration,
 )
 from chatticus.structured_handoff_driver import StructuredHandoffDriver
 from chatticus.worker.computer import ComputerWorker, FakeComputerActionExecutor
@@ -34,7 +37,7 @@ from chatticus.worker.computerless import (
 
 
 def _client_for(plane: ControlPlane):
-    return start_test_server(create_app(plane))
+    return start_test_server(create_app(plane, invoke_key=""))
 
 
 def test_computer_worker_executes_unresolved_tool_call_from_journal() -> None:
@@ -320,14 +323,13 @@ def test_computer_worker_hydrates_waiting_turn_after_process_recycle() -> None:
     bot = plane.create_bot("anthus", "ryan", "Researcher")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     post = api.post(
-        f"/channels/{channel.channel_id}/messages",
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
             "author_id": "ryan",
             "body": "open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },
-        headers={"X-Tenant-Id": channel.tenant_id},
     )
     turn_id = post.json()["turn_id"]
     client = HttpTurnClient(api, channel.tenant_id)
@@ -359,6 +361,14 @@ def test_concurrent_browser_waiting_workers_commit_tool_result_once() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     setup = prepare_browser_waiting_continuation(plane)
+    worker_token = plane.register_worker(
+        WorkerRegistration(
+            worker_id=setup.continuation_job.job_id,
+            tenant_id=setup.tenant_id,
+            cost_class=CostClass.LOCAL,
+            capabilities=frozenset({"computer", "browser"}),
+        )
+    )
     executor = CountingComputerActionExecutor()
     duplicate_job = setup.continuation_job
     errors: list[BaseException] = []
@@ -367,7 +377,12 @@ def test_concurrent_browser_waiting_workers_commit_tool_result_once() -> None:
     def pull() -> None:
         worker = ComputerWorker(
             plane,
-            HttpTurnClient(api, setup.tenant_id),
+            HttpTurnClient(
+                api,
+                setup.tenant_id,
+                worker_token=worker_token,
+                worker_id=duplicate_job.job_id,
+            ),
             action_executor=executor,
         )
         barrier.wait()

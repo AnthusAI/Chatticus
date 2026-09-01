@@ -1,0 +1,45 @@
+{
+  "id": "chatticus-f570b907-0cf2-43a5-8d96-24f21fcc4e50",
+  "title": "Serve the Chattic.us app at hey.chattic.us; keep marketing at the apex",
+  "description": "Owner decision 2026-08-31: **https://chattic.us stays the marketing site.** The Chattic.us `web/` app is not the apex. If the app needs a public hostname besides env subdomains (`dev.chattic.us`, `staging.chattic.us`), that hostname is **https://hey.chattic.us**.\n\n## DoD\n\n- CDK `WEB_SITE_DOMAINS.production` is `hey.chattic.us`, not `chattic.us`.\n- `ChatticusWebProduction` does not attach apex or `www` (those remain marketing).\n- ACM already covers `*.chattic.us`; do not mint a new apex cert for this slice.\n- README / infra README / Gherkin say marketing at apex, app at hey / env hosts.\n- Stories a3923e and 0325d4 mean the **app** origin (`hey.chattic.us` in production, `dev.chattic.us` in development), not the marketing apex.\n- Live check after an authorized **ChatticusWebProduction-only** deploy: `https://hey.chattic.us/api/health` is ok; `https://chattic.us` remains marketing (not the chat roster).\n- No `cdk deploy --all`. No Computers/Snapshots. ThinTurn production only if the web stack cannot alias without it.\n\nNot included: replacing the marketing site, product login, `--all`.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "e49f665a-e392-4ab4-b9e8-2dc32442ceb5",
+      "author": "agent@example.com",
+      "text": "Owner: apex stays marketing; app hostname hey.chattic.us. Planner worktree `/tmp/chatticus-f570b9-hey` branch `cursor/hey-chatticus-app-4a21` off origin/develop. Plan only until authorized. No --all.\n",
+      "created_at": "2026-09-01T01:44:39.511999Z"
+    },
+    {
+      "id": "0e8166c6-150b-45d6-b56d-6494880ed47f",
+      "author": "agent@example.com",
+      "text": "Plan approved. Live production app is currently app.chattic.us; CDK on develop still said chattic.us (would steal marketing). Implementer rebases onto develop, retargets hey.chattic.us, no apex/www. No deploy until after merge and a ChatticusWebProduction-only diff that does not touch marketing records.\n",
+      "created_at": "2026-09-01T01:48:09.874164Z"
+    },
+    {
+      "id": "30e6791e-6201-4bc1-bd13-e81027826aca",
+      "author": "agent@example.com",
+      "text": "#102 merged to develop (609a896). CDK retargets hey.chattic.us; no apex/www. Live hey still NXDOMAIN until ChatticusWebProduction-only deploy.\n",
+      "created_at": "2026-09-01T01:55:11.746976Z"
+    },
+    {
+      "id": "b455c1b7-774d-4731-81d4-f5b9719e4b70",
+      "author": "agent@example.com",
+      "text": "Live: https://hey.chattic.us/api/health is production ok. Apex remains marketing. ChatticusWebProduction-only deploy of 609a896. No --all. Computers desiredCount 0. Closing.\n",
+      "created_at": "2026-09-01T02:02:13.928911Z"
+    }
+  ],
+  "created_at": "2026-09-01T01:44:27.925703Z",
+  "updated_at": "2026-09-01T02:02:13.968294Z",
+  "closed_at": "2026-09-01T02:02:13.968294Z",
+  "custom": {}
+}

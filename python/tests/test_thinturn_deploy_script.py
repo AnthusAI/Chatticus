@@ -2,6 +2,39 @@
 
 from pathlib import Path
 
+import pytest
+
+INFRA = Path(__file__).resolve().parents[2] / "infra"
+
+DEPLOY_SCRIPT_STACKS = {
+    "deploy-chatticus-budgets.sh": "ChatticusBudgets",
+    "deploy-chatticus-dns.sh": "ChatticusDns",
+    "deploy-chatticus-github-deploy.sh": "ChatticusGitHubDeploy",
+    "deploy-chatticus-snapshots.sh": "ChatticusSnapshots",
+    "deploy-chatticus-thinturn-development.sh": "ChatticusThinTurn",
+    "deploy-chatticus-web-development.sh": "ChatticusWeb",
+    "deploy-chatticus-web-production.sh": "ChatticusWebProduction",
+    "deploy-chatticus-web-staging.sh": "ChatticusWebStaging",
+}
+
+
+@pytest.mark.parametrize(
+    "script_name,stack_name",
+    sorted(DEPLOY_SCRIPT_STACKS.items()),
+    ids=[name.removesuffix(".sh") for name in sorted(DEPLOY_SCRIPT_STACKS)],
+)
+def test_deploy_script_deploys_one_stack_exclusively(
+    script_name: str,
+    stack_name: str,
+) -> None:
+    text = (INFRA / script_name).read_text()
+    assert "deploy --all" not in text
+    deploy_lines = [line for line in text.splitlines() if "cdk deploy" in line]
+    assert len(deploy_lines) == 1, script_name
+    line = deploy_lines[0]
+    assert f"cdk deploy {stack_name}" in line
+    assert "--exclusively" in line
+
 
 def test_development_thinturn_deploy_script_is_one_stack() -> None:
     script = (
@@ -10,7 +43,7 @@ def test_development_thinturn_deploy_script_is_one_stack() -> None:
         / "deploy-chatticus-thinturn-development.sh"
     )
     text = script.read_text()
-    assert "cdk deploy ChatticusThinTurn --require-approval never" in text
+    assert "cdk deploy ChatticusThinTurn --exclusively --require-approval never" in text
     assert "deploy --all" not in text
     assert "ChatticusThinTurnStaging" not in text
     assert "cdk deploy ChatticusComputers" not in text
@@ -25,8 +58,9 @@ def test_development_web_deploy_script_is_bounded() -> None:
         / "deploy-chatticus-web-development.sh"
     )
     text = script.read_text()
-    assert "cdk deploy ChatticusWeb --require-approval never" in text
+    assert "cdk deploy ChatticusWeb --exclusively --require-approval never" in text
     assert "ChatticusWeb" in text
+    assert "deploy-chatticus-thinturn-development.sh" not in text
     assert "deploy --all" not in text
     assert "ChatticusWebStaging" not in text
     assert "ChatticusWebProduction" not in text
@@ -86,6 +120,33 @@ def test_computer_worker_lambda_forwards_front_door_url() -> None:
     assert "CHATTICUS_FRONT_DOOR_URL: functionUrl.url" in text
 
 
+def test_thin_turn_stack_grants_http_lambda_cognito_ssm_read() -> None:
+    source = (
+        Path(__file__).resolve().parents[2] / "infra" / "lib" / "thin-turn-stack.ts"
+    )
+    text = source.read_text()
+    assert "webParameterPrefix" in text
+    assert "cognito-user-pool-id" in text
+    assert "cognito-app-client-id" in text
+    assert "PyJWT[crypto]" in text
+
+
+def test_thin_turn_stack_uses_per_deployment_openai_parameter() -> None:
+    source = (
+        Path(__file__).resolve().parents[2] / "infra" / "lib" / "thin-turn-stack.ts"
+    )
+    text = source.read_text()
+    assert "/amplify/shared/papyrus/OPENAI_API_KEY" not in text
+    assert "OPENAI_PARAMETER_NAME" not in text
+    assert "${parameterPrefix}/openai-api-key" in text
+    assert "openAiParameterName" in text
+    assert "fromSecureStringParameterAttributes" in text
+    assert "OPENAI_API_KEY_PARAMETER: openAiParameterName" in text
+    for line in text.splitlines():
+        if "openAiParameterName" in line:
+            assert "unsafeUnwrap" not in line
+
+
 def test_cdk_app_uses_tsx_not_ts_node() -> None:
     cdk_json = Path(__file__).resolve().parents[2] / "infra" / "cdk.json"
     text = cdk_json.read_text()
@@ -123,7 +184,10 @@ def test_github_deploy_script_is_one_stack() -> None:
         / "deploy-chatticus-github-deploy.sh"
     )
     text = script.read_text()
-    assert "cdk deploy ChatticusGitHubDeploy --require-approval never" in text
+    assert (
+        "cdk deploy ChatticusGitHubDeploy --exclusively --require-approval never"
+        in text
+    )
     assert "deploy --all" not in text
     assert "ChatticusSnapshots" not in text
     assert "ChatticusComputers" not in text

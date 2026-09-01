@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-89adc0fe-c7a9-42af-bae5-84b18a0162d7",
+  "title": "Ledger of vendor spend per turn",
+  "description": "**Phase 2 of 7.**\n\n- **Blocked by:** 272aea, for the organization records the ledger attributes to\n- **Runs in parallel with:** the Cognito track\n- **Unblocks:** the daily rollup, and Bedrock arriving safely\n\n---\nOne row per turn in the existing table: tenant_id, vendor, model, input and output tokens, `billed_via`, and `cost_usd`. Price resolved at write time from a price table, because prices change and a historical row must keep the price that applied to it.\n\n**Tokens are always recorded. Dollars only when a vendor bills us directly.** That is what keeps AWS-billed inference out of this meter. See docs/BUDGETS.md.\n\n`billed_via` and a nullable `cost_usd` must exist in the first version. Retrofitting them means reconciling a period where the totals were wrong and nobody could tell.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e3e94cd-ae24-4ead-8d4c-1ae15d21190c",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "571e24ed-f781-41b5-bffb-c49ebd557001",
+      "author": "home",
+      "text": "**Decision: write both, and know which one is authoritative.**\n\nThe DynamoDB row is the system of record and a structured JSON log line is the observability copy, derived from the row so the two cannot disagree. **DynamoDB is what you bill from; logs are what you debug from.**\n\n**Logging it is effectively free.** At household scale, roughly a thousand turns a day at a few hundred bytes, the ledger is about twelve megabytes a month. Ingestion is free to five gigabytes. A hundredfold traffic increase still lands inside the free tier, and the Lambda already writes to CloudWatch, so the marginal cost is the bytes.\n\n**The cost trap is metrics, not logs.** CloudWatch bills every unique dimension combination as its own custom metric at thirty cents a month. Dimension by organization and model and a hundred organizations across three models is three hundred metrics, ninety dollars a month, more than the infrastructure it measures. So alerts come from the daily rollup in bcbef7 reading DynamoDB, not from metric filters over these logs. Keep custom metrics to a small fixed set such as total spend per environment, and never dimension one by organization.\n\n**Log it as JSON**, not the key=value style used elsewhere in the codebase. This is the one line written specifically to be aggregated later, and `stats sum()` over a JSON field is direct.\n\nFull reasoning in docs/BUDGETS.md.",
+      "created_at": "2026-09-01T03:26:49.558925Z"
+    },
+    {
+      "id": "f6ab3a0a-c79c-4269-937a-1eae029ca2cc",
+      "author": "home",
+      "text": "CI green. #153 squash-merged to develop. Ledger writes one Messaging-table row per turn with frozen unit prices. Closing.",
+      "created_at": "2026-09-01T15:29:54.081679Z"
+    }
+  ],
+  "created_at": "2026-09-01T03:21:48.639713Z",
+  "updated_at": "2026-09-01T15:29:54.091684Z",
+  "closed_at": "2026-09-01T15:29:54.091684Z",
+  "custom": {}
+}

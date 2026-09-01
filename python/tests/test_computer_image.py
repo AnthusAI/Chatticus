@@ -60,7 +60,7 @@ def test_computer_dockerfile_installs_real_chromium_deb() -> None:
 
 def test_computer_dockerfile_installs_host_worker_runtime_deps() -> None:
     text = DOCKERFILE.read_text()
-    for dep in ("boto3", "httpx", "fastapi", "pydantic", "python-dotenv"):
+    for dep in ("boto3", "httpx", "fastapi", "pydantic", "python-dotenv", "PyJWT"):
         assert dep in text
 
 
@@ -95,6 +95,7 @@ def test_computer_image_pip_layout_exposes_host_worker(tmp_path: Path) -> None:
             "fastapi",
             "pydantic>=2",
             "python-dotenv",
+            "PyJWT[crypto]",
         ],
         check=True,
         capture_output=True,

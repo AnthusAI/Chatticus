@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-6cfbdbf8-094c-46d0-9bf6-aa2e8cecc751",
+  "title": "Organization, membership, invitation, and identity records",
+  "description": "Pure Python against both stores. The user-to-organizations direction needs a second written item, the same dual-write the store already does for channel lookup.\n\nIndependent of all AWS work. Gherkin first. No HTTP yet.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-145ab2a8-e3f9-42d5-9b76-a1fbad370387",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "8e7fa903-d88c-4eb9-acf1-9ab2e2b3b2cb",
+      "author": "agent@example.com",
+      "text": "Phase 01 of 7c310b. Planner worktree `/tmp/chatticus-6cfbdb-org-records` branch `cursor/org-records-4a21` off origin/develop. Plan only until authorized. No AWS. Gherkin first.",
+      "created_at": "2026-09-01T02:52:14.105206Z"
+    },
+    {
+      "id": "fb7fcce3-7723-4bf9-b1f5-66ace6c5d520",
+      "author": "agent@example.com",
+      "text": "Duplicate of 86aec8 tree opened because develop was not pulled after #106. Closing. Use 86aec8 / 79ca6a / 7c1382 / 0ab02c / 272aea / 1ebc7d.",
+      "created_at": "2026-09-01T03:01:53.265984Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:51:49.399704Z",
+  "updated_at": "2026-09-01T03:01:53.281148Z",
+  "closed_at": "2026-09-01T03:01:53.281148Z",
+  "custom": {}
+}

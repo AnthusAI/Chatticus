@@ -51,7 +51,7 @@ def when_capability_aware_worker_turn(context: object, bot_name: str) -> None:
 
     bot = context.bots_by_name[bot_name]
     if not hasattr(context, "api_client"):
-        context.api_client = start_test_server(create_app(context.plane))
+        context.api_client = start_test_server(create_app(context.plane, invoke_key=""))
     worker = ComputerlessWorker(
         context.plane,
         HttpTurnClient(context.api_client, bot.tenant_id),

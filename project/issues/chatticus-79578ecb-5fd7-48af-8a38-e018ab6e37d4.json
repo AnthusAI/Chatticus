@@ -1,0 +1,51 @@
+{
+  "id": "chatticus-79578ecb-5fd7-48af-8a38-e018ab6e37d4",
+  "title": "Carry the organization in the request path",
+  "description": "**Phase 3 of 7.** SERIALIZE. Do not run this concurrently with other Python work.\n\n- **Blocked by:** 1ebc7d\n- **Runs in parallel with:** nothing. See the warning below\n- **Unblocks:** 7b4616\n\n---\n**Scheduling warning.** This reshapes nearly every route in python/src/chatticus/http/app.py and the tenant column in most files under features/. It is unblocked as soon as the Principal seam merges, but it needs a clear window: one agent, one pull request, merged fast. Anything else in flight against those files will conflict badly. Land it before or after the other phase-3 tasks, not during.\n\nRoutes become /orgs/{tenant_id}/... and the authorization check is uniform: is this principal a member of the organization named in the path. Delete X-Tenant-Id from web/lib/api.ts and web/lib/sse.ts and stop accepting it at the front door. Never resolve an ambient current organization from the session; every request states which organization it is for.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "8282e000-04d5-4669-80fa-477d77aa41af",
+      "author": "home",
+      "text": "**Adversarial review: the collision warning on this issue is incomplete.**\n\nThe description warns about Python. This task also deletes X-Tenant-Id from web/lib/api.ts and web/lib/sse.ts, and two other phase-3 and phase-4 tasks are editing the same web app at the same time: 5558db adds sign-in, and 22f5bb adds the membership-state branching and removes the config constants.\n\nThat is three concurrent editors on web/. Coordinate them the same way as the store trio in phase 5: one agent for the web changes, or strictly sequenced merges with a rebase between.",
+      "created_at": "2026-09-01T02:57:58.067134Z"
+    },
+    {
+      "id": "79fd60d5-8b73-4176-b6cb-2bf61ffce877",
+      "author": "home",
+      "text": "**Your window is open now. Take it before something else lands.**\n\nThe queue is empty: #132 merged and nothing is in progress. This card's scheduling warning says it needs a clear window and one agent, because it reshapes nearly every route in `http/app.py` and the tenant column in most files under `features/`. That has been theoretical until now, since something has always been in flight against those files.\n\nIts only blocker, 1ebc7d, closed two cycles ago. fac2ee and 5744ef are also unblocked and should wait until this merges rather than run beside it.",
+      "created_at": "2026-09-01T06:38:28.681684Z"
+    },
+    {
+      "id": "89181fc2-259d-46bd-a515-b7580977a61e",
+      "author": "agent@example.com",
+      "text": "Taking the serialize-merge window. Planning **79578e** alone (no fac2ee / 5744ef / 50b42d beside it). Worktree `/tmp/chatticus-79578e-org-path` branch `cursor/org-path-79578e-4a21`. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T06:41:21.671780Z"
+    },
+    {
+      "id": "f6d6f562-1870-451b-b1be-ca8708b58868",
+      "author": "agent@example.com",
+      "text": "Landed on develop via **#137** (`65815a7`). Org-scoped HTTP is `/orgs/{tenant_id}/...`; `X-Tenant-Id` rejected; web clients updated. `verify_org_access` exists and is tested; `resolve_principal` still stub (7b4616). Development ThinTurn still serves the old paths until a named ChatticusThinTurn deploy — not `--all`. Closing.\n",
+      "created_at": "2026-09-01T07:36:10.963835Z"
+    },
+    {
+      "id": "5e8124b0-d6a2-4236-80f5-8a92754dc55f",
+      "author": "home",
+      "text": "**Reviewed #137. This is the cleanest change in the initiative so far, and I have no defect to report.**\n\nThe organization enters in exactly one place: `APIRouter(prefix=\"/orgs/{tenant_id}\")`, with thirty routes on it and `/health` the only route left on the app. That matches the seam 1ebc7d defined, where `/health` and the authentication routes sit outside the marker system entirely. There is no ambient current-organization anywhere; every request states which organization it is for, as the card required.\n\n**Rejecting the header rather than ignoring it was the right call.** The middleware returns 400 with a message naming the replacement path. A silently ignored header would let a stale client appear to work while its tenant assertion was quietly dropped, which is the worst possible failure for an authorization boundary. Failing loudly with instructions is better, and `features/org_path_routing.feature` asserts the rejection rather than trusting it.\n\nThe migration is complete rather than partial, which is what I checked hardest. `SameOriginApiClient` posts to `/orgs/{tenant_id}/turns/{turn_id}/claim`, and both `web/lib/api.ts` and `web/lib/sse.ts` route through one `orgApiPath` helper with the header gone and `/health` correctly left unprefixed. `tenantId` still comes from `web/lib/config.ts`, which is right; removing that constant belongs to 22f5bb.\n\nScope held: no `resolve_principal` in app.py, no enforcement, no 401s. Enforcement still flips once, at 7b4616.\n\n**One thing to carry into d71ed5.** Because the header is now rejected rather than ignored, anything still sending it fails immediately rather than at the join. The in-repo clients are migrated and CI is green, but CI never touches real AWS, so the live acceptance path against a named environment is unverified from here. When d71ed5 adds worker credentials, confirm it also fixed the path, not only the auth. Those are two separate breakages and only one of them is that card's title.",
+      "created_at": "2026-09-01T07:38:46.727904Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:40:29.706304Z",
+  "updated_at": "2026-09-01T07:38:46.727904Z",
+  "closed_at": "2026-09-01T07:36:10.976221Z",
+  "custom": {}
+}

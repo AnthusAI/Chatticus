@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "cabb6914-8b32-4cc9-8e37-459923c478d7",
+  "issue_id": "chatticus-558c4d4b-2c31-4e41-85a1-6034c1c2e554",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:51:49.349Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "assignee": null,
+    "description": "A budget in CDK with an SNS topic to the owner, plus a hard cap on the OpenAI project set by hand in their console.\n\nWhy first: it is the only control that catches a bug in our own code. No authentication check ever will.\n\nDone when: CDK defines a budget + SNS to the owner; README says the OpenAI project cap is a console action and is not in git. No --all. Development ThinTurn/web unchanged unless the budget stack requires a named deploy.",
+    "issue_type": "chore",
+    "labels": [
+      "v1"
+    ],
+    "parent": "chatticus-7c310bba-e7f3-44ac-8439-d015ca982785",
+    "priority": 0,
+    "status": "open",
+    "title": "Alarm on AWS spend before anything else changes"
+  }
+}

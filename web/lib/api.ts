@@ -1,4 +1,5 @@
 import { apiBase, tenantId } from "./config";
+import { orgApiPath } from "./paths";
 
 export type HealthResponse = {
   environment?: string;
@@ -45,8 +46,13 @@ export type Task = {
   updated_by_bot_id: string | null;
 };
 
-function tenantHeaders(): HeadersInit {
-  return { "X-Tenant-Id": tenantId };
+const invokeKey = process.env.NEXT_PUBLIC_CHATTICUS_INVOKE_KEY;
+async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (invokeKey) {
+    headers.set("X-Chatticus-Invoke-Key", invokeKey);
+  }
+  return fetch(input, { ...init, headers });
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -58,14 +64,14 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${apiBase}/health`);
+  const response = await authFetch(`${apiBase}/health`);
   return readJson<HealthResponse>(response);
 }
 
 export async function listBots(userId: string): Promise<Bot[]> {
-  const response = await fetch(`${apiBase}/users/${encodeURIComponent(userId)}/bots`, {
-    headers: tenantHeaders(),
-  });
+  const response = await authFetch(
+    `${apiBase}${orgApiPath(tenantId, `/users/${encodeURIComponent(userId)}/bots`)}`,
+  );
   const body = await readJson<{ bots: Bot[] }>(response);
   return body.bots;
 }
@@ -74,10 +80,9 @@ export async function createChannel(
   userId: string,
   botIds: string[],
 ): Promise<Channel> {
-  const response = await fetch(`${apiBase}/channels`, {
+  const response = await authFetch(`${apiBase}${orgApiPath(tenantId, "/channels")}`, {
     method: "POST",
     headers: {
-      ...tenantHeaders(),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ user_id: userId, bot_ids: botIds }),
@@ -91,34 +96,35 @@ export async function postMessage(
   body: string,
   addressedToBotId: string,
 ): Promise<PostMessageResponse> {
-  const response = await fetch(`${apiBase}/channels/${encodeURIComponent(channelId)}/messages`, {
-    method: "POST",
-    headers: {
-      ...tenantHeaders(),
-      "Content-Type": "application/json",
+  const response = await authFetch(
+    `${apiBase}${orgApiPath(tenantId, `/channels/${encodeURIComponent(channelId)}/messages`)}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        author_kind: "human",
+        author_id: userId,
+        body,
+        addressed_to_bot_id: addressedToBotId,
+      }),
     },
-    body: JSON.stringify({
-      author_kind: "human",
-      author_id: userId,
-      body,
-      addressed_to_bot_id: addressedToBotId,
-    }),
-  });
+  );
   return readJson<PostMessageResponse>(response);
 }
 
 export async function listTasks(userId: string): Promise<Task[]> {
-  const response = await fetch(
-    `${apiBase}/users/${encodeURIComponent(userId)}/tasks`,
-    { headers: tenantHeaders() },
+  const response = await authFetch(
+    `${apiBase}${orgApiPath(tenantId, `/users/${encodeURIComponent(userId)}/tasks`)}`,
   );
   const body = await readJson<{ tasks: Task[] }>(response);
   return body.tasks;
 }
 
 export async function getTask(taskId: string): Promise<Task> {
-  const response = await fetch(`${apiBase}/tasks/${encodeURIComponent(taskId)}`, {
-    headers: tenantHeaders(),
-  });
+  const response = await authFetch(
+    `${apiBase}${orgApiPath(tenantId, `/tasks/${encodeURIComponent(taskId)}`)}`,
+  );
   return readJson<Task>(response);
 }

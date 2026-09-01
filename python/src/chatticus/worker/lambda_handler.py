@@ -96,7 +96,7 @@ def handler(event: dict[str, Any], _context: object) -> dict[str, Any] | None:
             job.turn_id,
             job.job_id,
         )
-        headers = {"X-Tenant-Id": job.tenant_id}
+        headers: dict[str, str] = {}
         if invoke_key:
             headers[INVOKE_HEADER] = invoke_key
         queue_visibility_renewer = None
@@ -111,7 +111,16 @@ def handler(event: dict[str, Any], _context: object) -> dict[str, Any] | None:
             with httpx.Client(
                 base_url=base_url, headers=headers, timeout=60.0
             ) as client:
-                turn_client = HttpTurnClient(client, job.tenant_id)
+                worker_token = os.environ.get("CHATTICUS_WORKER_TOKEN", "").strip()
+                worker_id = os.environ.get(
+                    "CHATTICUS_WORKER_ID", "lambda-worker"
+                ).strip()
+                turn_client = HttpTurnClient(
+                    client,
+                    job.tenant_id,
+                    worker_token=worker_token or None,
+                    worker_id=worker_id,
+                )
                 if worker_kind == "computer":
                     ComputerWorker(
                         plane,

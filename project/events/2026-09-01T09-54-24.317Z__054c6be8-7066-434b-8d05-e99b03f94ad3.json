@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "054c6be8-7066-434b-8d05-e99b03f94ad3",
+  "issue_id": "chatticus-7794b04b-31cb-4985-a212-7ee43e07bbc3",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T09:54:24.317Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "assignee": null,
+    "description": "**Found after b3e12c live deploy of #147.**\n\nWorker credential recycle is green: `stale_waiting=409`. The rest of `python/scripts/live_aws_thin_turn.sh development` then exits 1:\n\n```\nfirst_stream_kinds=['turn.started', 'turn.failed'] dropped_mid_stream=False\nreconnect_last_event_id=1\nresumed_stream_kinds=['turn.failed']\nduplicate seqs across drop/reconnect: [1, 2, 2]\n```\n\nLambda URL development ThinTurn. Computers desiredCount 0. Never `--all`.\n\n**Do:** determine whether the greeting turn is failing for a real worker/LLM reason or the reconnect gate is mis-asserting when the first stream never dropped mid-token. One path. Gherkin if it is product.\n\n**Done when:** `cd python && sh scripts/live_aws_thin_turn.sh development` exits 0 against development after a named ChatticusThinTurn deploy.",
+    "issue_type": "bug",
+    "labels": [
+      "phase-3"
+    ],
+    "parent": "chatticus-d71ed555-811f-4da2-b208-835ab84e3d1e",
+    "priority": 1,
+    "status": "open",
+    "title": "Live thin-turn reconnect reports duplicate seqs after turn.failed"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-bcbef7d2-a78f-4116-933e-59134f62c023",
+  "title": "Daily rollup and one place alerts arrive",
+  "description": "**Phase 2 of 7.**\n\n- **Blocked by:** the budgets construct and the vendor ledger\n- **Runs in parallel with:** nothing\n- **Unblocks:** nothing\n\n---\nNo always-on aggregator; that reintroduces the idle floor the architecture avoids. EventBridge Scheduler already wakes a Lambda for turn deadlines, and a daily rollup is the same shape: a routine wake-up, not something in the token path, which is what docs/STACK.md permits.\n\nDaily, read Cost Explorer for the AWS side and the ledger for the vendor side, write one rollup row per day per organization and per environment, publish to SNS on a threshold crossing.\n\nAWS Budgets fires its own native alerts on its own schedule. Send them to the same topic and record in the rollup that an alert fired, so a human sees one sequence of events instead of two disconnected emails whose relationship they must reconstruct.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e3e94cd-ae24-4ead-8d4c-1ae15d21190c",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T03:21:48.653791Z",
+  "updated_at": "2026-09-01T03:21:48.653791Z",
+  "closed_at": null,
+  "custom": {}
+}

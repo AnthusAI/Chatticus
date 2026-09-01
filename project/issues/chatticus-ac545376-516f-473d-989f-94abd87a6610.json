@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-ac545376-516f-473d-989f-94abd87a6610",
+  "title": "Verify the Google consent screen before public signup",
+  "description": "**Phase 2 of 7.**\n\n- **Blocked by:** 0ab02c\n- **Runs in parallel with:** 0df6cb, b574a6\n- **Unblocks:** e41552 cannot open to the public without it\n\n---\n**Found by inversion: what makes the waitlist story fail on the day it succeeds?**\n\nAn unverified External Google OAuth app is capped at 100 users and shows an unverified-app warning on the consent screen. The whole point of the waitlist is that anyone may sign up, and marketing on the apex is meant to drive that. We would hit a hard wall at exactly the moment the funnel starts working, and the people who hit it would see a browser security warning first.\n\nVerification also requires a homepage and a privacy policy URL on a domain we own, so the marketing site needs a privacy policy before public signup, not after. That is a dependency on marketing that nothing in this initiative currently names.\n\nRequesting only email and profile scopes keeps this out of the slow restricted-scope review, but it is still a review with a queue.\n\n**Done when:** the consent screen is verified, or the 100-user cap is a recorded and accepted limit with a date by which it stops being acceptable.",
+  "type": "chore",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:57:18.510928Z",
+  "updated_at": "2026-09-01T02:57:18.510928Z",
+  "closed_at": null,
+  "custom": {}
+}

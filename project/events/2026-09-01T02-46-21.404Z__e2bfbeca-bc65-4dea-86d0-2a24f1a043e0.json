@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "e2bfbeca-bc65-4dea-86d0-2a24f1a043e0",
+  "issue_id": "chatticus-bc830aa0-e2d4-47df-b1ac-06987c210e3c",
+  "event_type": "field_updated",
+  "occurred_at": "2026-09-01T02:46:21.404Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "**Blocked by:** every route requires a principal, and the collaboration epic.\n\nRedeploy staging with the Cognito pool, then run the live acceptance script against staging from a logged-in shell. Never from GitHub Actions.",
+        "to": "**Phase 7 of 7.**\n\n- **Blocked by:** 7b4616 and ddf609\n- **Runs in parallel with:** nothing. Strictly sequential with 89a222\n- **Unblocks:** 89a222\n\n---\nRedeploy staging with the Cognito pool, then run the live acceptance script against staging from a logged-in shell. Never from GitHub Actions.\n\nThis reverses 7c1382, which took staging dark for the duration."
+      },
+      "labels": {
+        "from": [],
+        "to": [
+          "phase-7"
+        ]
+      }
+    }
+  }
+}

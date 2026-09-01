@@ -14,10 +14,13 @@ import httpx
 from chatticus.cloud_environments import (
     CLOUD_ENVIRONMENTS,
     parse_cloud_environment,
+    resolve_invoke_key_for_environment,
     resolve_thin_turn_base_url,
     thin_turn_stack_output,
 )
+from chatticus.http.worker_auth import register_worker_bearer
 from chatticus.models import ActorKind
+from chatticus.http.paths import org_path
 from typing import Any
 
 
@@ -53,20 +56,21 @@ class SameOriginApiClient:
         self._client.__exit__(*args)
 
 
+def _register_worker_headers(
+    client: SameOriginApiClient,
+    tenant_id: str,
+    worker_id: str,
+    headers: dict[str, str],
+) -> dict[str, str]:
+    """Register one worker and return request headers with its bearer credential."""
+    return register_worker_bearer(
+        client, tenant_id, worker_id, base_headers=headers
+    )
+
+
 def _invoke_key_for_environment(environment: str) -> str:
     """Read the front-door invoke key from the named stack secret."""
-    import boto3
-
-    arn = thin_turn_stack_output(environment, "InvokeKeySecretArn")
-    region = (
-        os.environ.get("AWS_REGION")
-        or os.environ.get("AWS_DEFAULT_REGION")
-        or "us-east-1"
-    )
-    secret = boto3.client("secretsmanager", region_name=region).get_secret_value(
-        SecretId=arn
-    )
-    return secret["SecretString"]
+    return resolve_invoke_key_for_environment(parse_cloud_environment(environment))
 
 
 def _frames(buffer: str) -> tuple[list[dict], str]:
@@ -114,6 +118,24 @@ def _computer_continuation_matches(body: dict, *, job_id: str, turn_id: str) -> 
         and body.get("turn_id") == turn_id
         and "computer" in (body.get("required_capabilities") or [])
     )
+
+
+def _should_reconnect_first_stream(dropped_mid_stream: bool) -> bool:
+    """Reconnect only after an intentional mid-token drop (178a1f)."""
+    return dropped_mid_stream
+
+
+def _streamed_body_matches_completed(events: list[dict]) -> bool:
+    """Return True when turn.completed body equals joined turn.token text."""
+    tokens = "".join(
+        str(event["token"])
+        for event in events
+        if event.get("kind") == "turn.token" and event.get("token") is not None
+    )
+    completed = [event for event in events if event.get("kind") == "turn.completed"]
+    if not completed:
+        return False
+    return completed[-1].get("body") == tokens
 
 
 def _tool_result_bodies(events: list[dict]) -> list[str]:
@@ -200,6 +222,7 @@ def _exercise_capability_grant_persistence(
     *,
     base_url: str,
     headers: dict[str, str],
+    tenant_id: str,
     turn_id: str,
     user_id: str,
     environment: str | None,
@@ -207,9 +230,13 @@ def _exercise_capability_grant_persistence(
     """Exercise durable grants and gated workspace reads on a named stack."""
     probe = SameOriginApiClient(base_url, headers=headers, timeout=60.0)
     try:
+        worker_headers = _register_worker_headers(
+            probe, tenant_id, "exercise-grant-worker", dict(headers)
+        )
         missing = probe.put(
-            f"/turns/{turn_id}/grant",
+            org_path(tenant_id, f"/turns/{turn_id}/grant"),
             json=_RESEARCH_GRANT_BODY,
+            headers=worker_headers,
         )
         if _grant_http_routes_absent(missing):
             if _grant_http_required(environment):
@@ -229,11 +256,12 @@ def _exercise_capability_grant_persistence(
             )
             return 1
         forbidden = probe.post(
-            f"/turns/{turn_id}/workspace/read",
+            org_path(tenant_id, f"/turns/{turn_id}/workspace/read"),
             json={
                 "user_id": user_id,
                 "path": "/workspace/secrets/notes.txt",
             },
+            headers=worker_headers,
         )
         if forbidden.status_code != 403:
             print(
@@ -254,12 +282,16 @@ def _exercise_capability_grant_persistence(
         probe._client.close()
     recycled = SameOriginApiClient(base_url, headers=headers, timeout=60.0)
     try:
+        worker_headers = _register_worker_headers(
+            recycled, tenant_id, "exercise-grant-worker", dict(headers)
+        )
         allowed = recycled.post(
-            f"/turns/{turn_id}/workspace/read",
+            org_path(tenant_id, f"/turns/{turn_id}/workspace/read"),
             json={
                 "user_id": user_id,
                 "path": "/workspace/research/notes.txt",
             },
+            headers=worker_headers,
         )
         if allowed.status_code != 200:
             print(
@@ -281,10 +313,11 @@ def _exercise_named_task_http(
     bot_id: str,
     user_id: str,
     tenant_id: str,
+    headers: dict[str, str],
     environment: str | None,
 ) -> int:
     """Exercise live task HTTP create, list, and read. Return 0 on pass or skip."""
-    listed = client.get(f"/users/{user_id}/tasks")
+    listed = client.get(org_path(tenant_id, f"/users/{user_id}/tasks"), headers=headers)
     if _task_http_routes_absent(listed):
         if _task_http_required(environment):
             print(
@@ -302,13 +335,17 @@ def _exercise_named_task_http(
         )
         return 1
     task_title = f"Exercise-{uuid4().hex[:8]}"
+    task_worker_headers = _register_worker_headers(
+        client, tenant_id, "exercise-task-worker", dict(headers)
+    )
     created = client.post(
-        f"/bots/{bot_id}/tasks/tool",
+        org_path(tenant_id, f"/bots/{bot_id}/tasks/tool"),
         json={
             "user_id": user_id,
             "action": "create",
             "arguments": {"title": task_title},
         },
+        headers=task_worker_headers,
     )
     if created.status_code != 200:
         print(
@@ -328,7 +365,9 @@ def _exercise_named_task_http(
         )
         return 1
     print(f"task_create=1 task_id={task_id}")
-    listed_after = client.get(f"/users/{user_id}/tasks")
+    listed_after = client.get(
+        org_path(tenant_id, f"/users/{user_id}/tasks"), headers=headers
+    )
     if listed_after.status_code != 200:
         print(
             f"tasks_list {listed_after.status_code} {listed_after.text[:300]}",
@@ -351,7 +390,7 @@ def _exercise_named_task_http(
         )
         return 1
     print("tasks_list=1")
-    fetched = client.get(f"/tasks/{task_id}")
+    fetched = client.get(org_path(tenant_id, f"/tasks/{task_id}"), headers=headers)
     if fetched.status_code != 200:
         print(
             f"task_get {fetched.status_code} {fetched.text[:300]}",
@@ -374,8 +413,8 @@ def _exercise_named_task_http(
     print("task_get=1")
     other_tenant = f"{tenant_id}-isolation-exercise"
     other_listed = client.get(
-        f"/users/{user_id}/tasks",
-        headers={"X-Tenant-Id": other_tenant},
+        org_path(other_tenant, f"/users/{user_id}/tasks"),
+        headers=headers,
     )
     if other_listed.status_code != 200:
         print(
@@ -391,8 +430,8 @@ def _exercise_named_task_http(
         )
         return 1
     other_get = client.get(
-        f"/tasks/{task_id}",
-        headers={"X-Tenant-Id": other_tenant},
+        org_path(other_tenant, f"/tasks/{task_id}"),
+        headers=headers,
     )
     if other_get.status_code != 404:
         print(
@@ -471,7 +510,7 @@ def main() -> int:
         return 2
     if args.environment:
         print(f"environment={args.environment} base_url={base_url}")
-    headers = {"X-Tenant-Id": args.tenant_id}
+    headers: dict[str, str] = {}
     invoke_key = args.invoke_key
     if not invoke_key and environment is not None:
         invoke_key = _invoke_key_for_environment(environment)
@@ -496,9 +535,16 @@ def main() -> int:
             return 1
         if reported_environment == expected_environment:
             print("health_environment=1")
+        missing_headers = _register_worker_headers(
+            client,
+            args.tenant_id,
+            "exercise-missing",
+            dict(headers),
+        )
         missing = client.post(
-            "/turns/missing-turn-id/claim",
+            org_path(args.tenant_id, "/turns/missing-turn-id/claim"),
             json={"worker_id": "exercise-missing"},
+            headers=missing_headers,
         )
         if missing.status_code != 404:
             print(
@@ -510,7 +556,7 @@ def main() -> int:
         bot_name = f"ExerciseBot-{uuid4().hex[:8]}"
         bot_key = str(uuid4())
         bot_response = client.post(
-            "/bots",
+            org_path(args.tenant_id, "/bots"),
             json={"user_id": args.user_id, "name": bot_name},
             headers={"Idempotency-Key": bot_key},
         )
@@ -521,7 +567,7 @@ def main() -> int:
             )
             return 1
         retry_bot = client.post(
-            "/bots",
+            org_path(args.tenant_id, "/bots"),
             json={"user_id": args.user_id, "name": bot_name},
             headers={"Idempotency-Key": bot_key},
         )
@@ -541,7 +587,7 @@ def main() -> int:
             return 1
         print("bot_idempotent=1")
         duplicate_bot = client.post(
-            "/bots",
+            org_path(args.tenant_id, "/bots"),
             json={"user_id": args.user_id, "name": bot["name"]},
         )
         if duplicate_bot.status_code != 400:
@@ -552,7 +598,7 @@ def main() -> int:
             return 1
         print("bot_name_dup=1")
         looked_up = client.get(
-            "/bots",
+            org_path(args.tenant_id, "/bots"),
             params={"user_id": args.user_id, "name": bot["name"]},
         )
         if (
@@ -565,7 +611,7 @@ def main() -> int:
             )
             return 1
         print("bot_by_name=1")
-        listed_bots = client.get(f"/users/{args.user_id}/bots")
+        listed_bots = client.get(org_path(args.tenant_id, f"/users/{args.user_id}/bots"))
         listed_ids = [
             row.get("bot_id") for row in (listed_bots.json().get("bots") or [])
         ]
@@ -582,12 +628,13 @@ def main() -> int:
                 bot_id=bot["bot_id"],
                 user_id=args.user_id,
                 tenant_id=args.tenant_id,
+                headers=dict(headers),
                 environment=environment,
             )
             if task_result != 0:
                 return task_result
         remembered = client.post(
-            f"/bots/{bot['bot_id']}/memory",
+            org_path(args.tenant_id, f"/bots/{bot['bot_id']}/memory"),
             json={"key": "voice", "value": "short and direct"},
         )
         if remembered.status_code != 200:
@@ -596,7 +643,7 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
-        fetched = client.get(f"/bots/{bot['bot_id']}")
+        fetched = client.get(org_path(args.tenant_id, f"/bots/{bot['bot_id']}"))
         if fetched.status_code != 200:
             print(
                 f"bot_get {fetched.status_code} {fetched.text[:300]}",
@@ -609,9 +656,10 @@ def main() -> int:
             return 1
         print("bot_memory=voice")
         client.post(
-            "/computers/stopped", json={"user_id": args.user_id, "stopped": True}
+            org_path(args.tenant_id, "/computers/stopped"),
+            json={"user_id": args.user_id, "stopped": True},
         )
-        computer = client.get(f"/users/{args.user_id}/computer")
+        computer = client.get(org_path(args.tenant_id, f"/users/{args.user_id}/computer"))
         if (
             computer.status_code != 200
             or computer.json().get("stopped") is not True
@@ -626,12 +674,12 @@ def main() -> int:
         channel_key = str(uuid4())
         channel_body = {"user_id": args.user_id, "bot_ids": [bot["bot_id"]]}
         first_channel = client.post(
-            "/channels",
+            org_path(args.tenant_id, "/channels"),
             json=channel_body,
             headers={"Idempotency-Key": channel_key},
         )
         second_channel = client.post(
-            "/channels",
+            org_path(args.tenant_id, "/channels"),
             json=channel_body,
             headers={"Idempotency-Key": channel_key},
         )
@@ -652,7 +700,7 @@ def main() -> int:
             )
             return 1
         print("channel_idempotent=1")
-        channel_get = client.get(f"/channels/{channel['channel_id']}")
+        channel_get = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}"))
         if channel_get.status_code != 200:
             print(
                 f"channel_get {channel_get.status_code} {channel_get.text[:300]}",
@@ -667,7 +715,7 @@ def main() -> int:
             )
             return 1
         print("channel_get=1")
-        listed_channels = client.get(f"/users/{args.user_id}/channels")
+        listed_channels = client.get(org_path(args.tenant_id, f"/users/{args.user_id}/channels"))
         if listed_channels.status_code != 200:
             print(
                 "channels_list "
@@ -686,7 +734,7 @@ def main() -> int:
             return 1
         print("channels_list=1")
         fence_posted = client.post(
-            f"/channels/{channel['channel_id']}/messages",
+            org_path(args.tenant_id, f"/channels/{channel['channel_id']}/messages"),
             json={
                 "author_kind": ActorKind.HUMAN,
                 "author_id": args.user_id,
@@ -696,7 +744,7 @@ def main() -> int:
             },
         ).json()
         fence_turn_id = fence_posted["turn_id"]
-        channel_turn = client.get(f"/channels/{channel['channel_id']}/turn")
+        channel_turn = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}/turn"))
         if (
             channel_turn.status_code != 200
             or channel_turn.json().get("turn_id") != fence_turn_id
@@ -707,7 +755,7 @@ def main() -> int:
             )
             return 1
         print("channel_turn=1")
-        listed_turns = client.get(f"/users/{args.user_id}/turns")
+        listed_turns = client.get(org_path(args.tenant_id, f"/users/{args.user_id}/turns"))
         listed_turn_ids = [
             row.get("turn_id") for row in (listed_turns.json().get("turns") or [])
         ]
@@ -722,19 +770,28 @@ def main() -> int:
             grant_result = _exercise_capability_grant_persistence(
                 base_url=base_url,
                 headers=dict(headers),
+                tenant_id=args.tenant_id,
                 turn_id=fence_turn_id,
                 user_id=args.user_id,
                 environment=environment,
             )
             if grant_result != 0:
                 return grant_result
+        claim_a_headers = _register_worker_headers(
+            client, args.tenant_id, "exercise-fence-a", dict(headers)
+        )
+        claim_b_headers = _register_worker_headers(
+            client, args.tenant_id, "exercise-fence-b", dict(headers)
+        )
         claim_a = client.post(
-            f"/turns/{fence_turn_id}/claim",
+            org_path(args.tenant_id, f"/turns/{fence_turn_id}/claim"),
             json={"worker_id": "exercise-fence-a"},
+            headers=claim_a_headers,
         )
         claim_b = client.post(
-            f"/turns/{fence_turn_id}/claim",
+            org_path(args.tenant_id, f"/turns/{fence_turn_id}/claim"),
             json={"worker_id": "exercise-fence-b"},
+            headers=claim_b_headers,
         )
         print(
             f"fence_turn_id={fence_turn_id} "
@@ -763,12 +820,12 @@ def main() -> int:
             "enqueue_turn": False,
         }
         first_idem = client.post(
-            f"/channels/{channel['channel_id']}/messages",
+            org_path(args.tenant_id, f"/channels/{channel['channel_id']}/messages"),
             json=idem_body,
             headers={"Idempotency-Key": idem_key},
         )
         second_idem = client.post(
-            f"/channels/{channel['channel_id']}/messages",
+            org_path(args.tenant_id, f"/channels/{channel['channel_id']}/messages"),
             json=idem_body,
             headers={"Idempotency-Key": idem_key},
         )
@@ -782,7 +839,7 @@ def main() -> int:
             return 1
         first_message = first_idem.json()["message"]
         second_message = second_idem.json()["message"]
-        listed = client.get(f"/channels/{channel['channel_id']}/messages")
+        listed = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}/messages"))
         if listed.status_code != 200:
             print(
                 f"list_messages {listed.status_code} {listed.text[:300]}",
@@ -808,12 +865,13 @@ def main() -> int:
         if acquired:
             fence_token = claim_a.json()["fence_token"]
             draft = client.post(
-                f"/turns/{fence_turn_id}/chunks",
+                org_path(args.tenant_id, f"/turns/{fence_turn_id}/chunks"),
                 json={
                     "token": "Here is a draft.",
                     "complete": False,
                     "fence_token": fence_token,
                 },
+                headers=claim_a_headers,
             )
             if draft.status_code >= 400:
                 print(
@@ -822,8 +880,9 @@ def main() -> int:
                 )
                 return 1
             waiting = client.post(
-                f"/turns/{fence_turn_id}/waiting",
+                org_path(args.tenant_id, f"/turns/{fence_turn_id}/waiting"),
                 json={"gate": "browser", "fence_token": fence_token},
+                headers=claim_a_headers,
             )
             if waiting.status_code >= 400:
                 print(
@@ -831,7 +890,7 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 return 1
-            turn_read = client.get(f"/turns/{fence_turn_id}")
+            turn_read = client.get(org_path(args.tenant_id, f"/turns/{fence_turn_id}"))
             if turn_read.status_code != 200:
                 print(
                     f"turn_read {turn_read.status_code} {turn_read.text[:300]}",
@@ -846,7 +905,7 @@ def main() -> int:
                 )
                 return 1
             print("turn_waiting_for=browser")
-            channel_waiting = client.get(f"/channels/{channel['channel_id']}/turn")
+            channel_waiting = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}/turn"))
             if (
                 channel_waiting.status_code != 200
                 or channel_waiting.json().get("turn_id") != fence_turn_id
@@ -870,7 +929,7 @@ def main() -> int:
             print("pending_computer_tool=request_computer_capability")
             waiting_kinds: list[str] = []
             waiting_events: list[dict] = []
-            with client.stream("GET", f"/turns/{fence_turn_id}/stream") as stream:
+            with client.stream("GET", org_path(args.tenant_id, f"/turns/{fence_turn_id}/stream")) as stream:
                 stream.raise_for_status()
                 buffer = ""
                 deadline = time.time() + 30
@@ -903,8 +962,9 @@ def main() -> int:
                 return 1
             print("journal_pending_computer_tool=request_computer_capability")
             stale_waiting = client.post(
-                f"/turns/{fence_turn_id}/waiting",
+                org_path(args.tenant_id, f"/turns/{fence_turn_id}/waiting"),
                 json={"gate": "browser", "fence_token": fence_token},
+                headers=claim_a_headers,
             )
             if stale_waiting.status_code != 409:
                 print(
@@ -914,7 +974,10 @@ def main() -> int:
                 )
                 return 1
             print("stale_waiting=409")
-            resume_stopped = client.post(f"/turns/{fence_turn_id}/resume")
+            resume_stopped = client.post(
+                org_path(args.tenant_id, f"/turns/{fence_turn_id}/resume"),
+                headers=claim_a_headers,
+            )
             if resume_stopped.status_code != 409:
                 print(
                     f"resume_while_stopped {resume_stopped.status_code} "
@@ -923,18 +986,23 @@ def main() -> int:
                 )
                 return 1
             print("resume_while_stopped=409")
+            finisher_headers = _register_worker_headers(
+                client, args.tenant_id, "exercise-waiting-finisher", dict(headers)
+            )
             finisher = client.post(
-                f"/turns/{fence_turn_id}/claim",
+                org_path(args.tenant_id, f"/turns/{fence_turn_id}/claim"),
                 json={"worker_id": "exercise-waiting-finisher"},
+                headers=finisher_headers,
             )
             if finisher.status_code == 200 and finisher.json().get("acquired"):
                 complete = client.post(
-                    f"/turns/{fence_turn_id}/chunks",
+                    org_path(args.tenant_id, f"/turns/{fence_turn_id}/chunks"),
                     json={
                         "token": "",
                         "complete": True,
                         "fence_token": finisher.json()["fence_token"],
                     },
+                    headers=finisher_headers,
                 )
                 if complete.status_code >= 400:
                     print(
@@ -944,7 +1012,7 @@ def main() -> int:
                     )
                     return 1
         posted_response = client.post(
-            f"/channels/{channel['channel_id']}/messages",
+            org_path(args.tenant_id, f"/channels/{channel['channel_id']}/messages"),
             json={
                 "author_kind": ActorKind.HUMAN,
                 "author_id": args.user_id,
@@ -967,7 +1035,7 @@ def main() -> int:
         )
         events: list[dict] = []
         dropped_mid_stream = False
-        with client.stream("GET", f"/turns/{turn_id}/stream") as stream:
+        with client.stream("GET", org_path(args.tenant_id, f"/turns/{turn_id}/stream")) as stream:
             stream.raise_for_status()
             buffer = ""
             deadline = time.time() + 90
@@ -983,7 +1051,12 @@ def main() -> int:
                 ):
                     dropped_mid_stream = True
                     break
-                if events and events[-1].get("kind") == "turn.completed":
+                terminal_kind = events[-1].get("kind")
+                if terminal_kind in (
+                    "turn.completed",
+                    "turn.failed",
+                    "turn.reconciling",
+                ):
                     break
                 if time.time() > deadline:
                     break
@@ -992,30 +1065,36 @@ def main() -> int:
         if not events:
             print("first stream delivered no events", file=sys.stderr)
             return 1
-        if dropped_mid_stream:
-            reconnect_after = events[-1]["seq"]
-        else:
-            reconnect_after = max(1, events[0]["seq"])
-        print(f"reconnect_last_event_id={reconnect_after}")
         resumed: list[dict] = []
-        with client.stream(
-            "GET",
-            f"/turns/{turn_id}/stream",
-            headers={"Last-Event-ID": str(reconnect_after)},
-        ) as stream:
-            stream.raise_for_status()
-            buffer = ""
-            deadline = time.time() + 90
-            for chunk in stream.iter_bytes():
-                buffer += chunk.decode()
-                parsed, buffer = _frames(buffer)
-                resumed.extend(parsed)
-                combined = events + resumed
-                if combined and combined[-1].get("kind") == "turn.completed":
-                    break
-                if time.time() > deadline:
-                    break
-        print(f"resumed_stream_kinds={[event.get('kind') for event in resumed]}")
+        if _should_reconnect_first_stream(dropped_mid_stream):
+            reconnect_after = events[-1]["seq"]
+            print(f"reconnect_last_event_id={reconnect_after}")
+            with client.stream(
+                "GET",
+                org_path(args.tenant_id, f"/turns/{turn_id}/stream"),
+                headers={"Last-Event-ID": str(reconnect_after)},
+            ) as stream:
+                stream.raise_for_status()
+                buffer = ""
+                deadline = time.time() + 90
+                for chunk in stream.iter_bytes():
+                    buffer += chunk.decode()
+                    parsed, buffer = _frames(buffer)
+                    resumed.extend(parsed)
+                    combined = events + resumed
+                    if combined and combined[-1].get("kind") == "turn.completed":
+                        break
+                    if time.time() > deadline:
+                        break
+            print(f"resumed_stream_kinds={[event.get('kind') for event in resumed]}")
+            if resumed and min(event["seq"] for event in resumed) <= reconnect_after:
+                print(
+                    f"reconnect replayed seq at or before Last-Event-ID={reconnect_after}",
+                    file=sys.stderr,
+                )
+                return 1
+        else:
+            print("reconnect_skip=1")
         all_events = events + resumed
         seqs = [event["seq"] for event in all_events]
         if len(seqs) != len(set(seqs)):
@@ -1024,17 +1103,20 @@ def main() -> int:
         if seqs != sorted(seqs):
             print(f"out-of-order seqs: {seqs}", file=sys.stderr)
             return 1
-        if resumed and min(event["seq"] for event in resumed) <= reconnect_after:
-            print(
-                f"reconnect replayed seq at or before Last-Event-ID={reconnect_after}",
-                file=sys.stderr,
-            )
-            return 1
         if not any(event.get("kind") == "turn.completed" for event in all_events):
-            print("reconnect did not reach turn.completed", file=sys.stderr)
+            failed = [
+                event for event in all_events if event.get("kind") == "turn.failed"
+            ]
+            if failed:
+                print(
+                    f"greeting_turn_failed body={failed[-1].get('body')!r}",
+                    file=sys.stderr,
+                )
+            print("greeting did not reach turn.completed", file=sys.stderr)
             return 1
         stopped_response = client.get(
-            "/computers/stopped", params={"user_id": args.user_id}
+            org_path(args.tenant_id, "/computers/stopped"),
+            params={"user_id": args.user_id},
         )
         if stopped_response.status_code != 200:
             print(
@@ -1043,7 +1125,7 @@ def main() -> int:
             )
             return 1
         stopped = stopped_response.json()
-        listed = client.get(f"/channels/{channel['channel_id']}/messages")
+        listed = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}/messages"))
         if listed.status_code != 200:
             print(f"messages {listed.status_code} {listed.text[:300]}", file=sys.stderr)
             return 1
@@ -1052,7 +1134,7 @@ def main() -> int:
         print(f"computer_stopped={stopped['stopped']} bot_messages={len(bot_messages)}")
         if not stopped["stopped"] or not bot_messages:
             return 1
-        channel_turn_done = client.get(f"/channels/{channel['channel_id']}/turn")
+        channel_turn_done = client.get(org_path(args.tenant_id, f"/channels/{channel['channel_id']}/turn"))
         if channel_turn_done.status_code != 404:
             print(
                 f"channel_turn_done {channel_turn_done.status_code} "
@@ -1063,7 +1145,7 @@ def main() -> int:
         print("channel_turn_done=1")
         after = messages[0]["seq"]
         listed_after = client.get(
-            f"/channels/{channel['channel_id']}/messages",
+            org_path(args.tenant_id, f"/channels/{channel['channel_id']}/messages"),
             params={"after": after},
         )
         if listed_after.status_code != 200:
@@ -1087,7 +1169,7 @@ def main() -> int:
             return 1
         first_turn_seq = all_events[0]["seq"]
         listed_turn_after = client.get(
-            f"/turns/{turn_id}/events",
+            org_path(args.tenant_id, f"/turns/{turn_id}/events"),
             params={"after": first_turn_seq},
         )
         if listed_turn_after.status_code != 200:
@@ -1114,8 +1196,67 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+        first_greeting_body = bot_messages[0]["body"]
+        second_post = client.post(
+            org_path(args.tenant_id, f"/channels/{channel['channel_id']}/messages"),
+            json={
+                "author_kind": ActorKind.HUMAN,
+                "author_id": args.user_id,
+                "body": "Reply with exactly: SECOND-TURN-MARKER.",
+                "addressed_to_bot_id": bot["bot_id"],
+            },
+        )
+        if second_post.status_code >= 400:
+            print(
+                f"second_turn_post {second_post.status_code} "
+                f"{second_post.text[:300]}",
+                file=sys.stderr,
+            )
+            return 1
+        second_turn_id = second_post.json()["turn_id"]
+        second_events: list[dict] = []
+        with client.stream("GET", org_path(args.tenant_id, f"/turns/{second_turn_id}/stream")) as stream:
+            stream.raise_for_status()
+            buffer = ""
+            deadline = time.time() + 90
+            for chunk in stream.iter_bytes():
+                buffer += chunk.decode()
+                parsed, buffer = _frames(buffer)
+                second_events.extend(parsed)
+                if second_events and second_events[-1].get("kind") == "turn.completed":
+                    break
+                if time.time() > deadline:
+                    break
+        if not _streamed_body_matches_completed(second_events):
+            completed = [
+                event
+                for event in second_events
+                if event.get("kind") == "turn.completed"
+            ]
+            tokens = "".join(
+                str(event["token"])
+                for event in second_events
+                if event.get("kind") == "turn.token" and event.get("token") is not None
+            )
+            body = completed[-1].get("body") if completed else None
+            print(
+                f"second_turn_body_mismatch streamed={tokens!r} completed={body!r}",
+                file=sys.stderr,
+            )
+            return 1
+        second_completed = [
+            event for event in second_events if event.get("kind") == "turn.completed"
+        ]
+        if second_completed[-1].get("body") == first_greeting_body:
+            print(
+                "second_turn_completed_body reused first greeting "
+                f"{first_greeting_body!r}",
+                file=sys.stderr,
+            )
+            return 1
+        print("second_turn_completed_body=1")
         browser_post = client.post(
-            f"/channels/{channel['channel_id']}/messages",
+            org_path(args.tenant_id, f"/channels/{channel['channel_id']}/messages"),
             json={
                 "author_kind": ActorKind.HUMAN,
                 "author_id": args.user_id,
@@ -1133,7 +1274,7 @@ def main() -> int:
         browser_turn_id = browser_post.json()["turn_id"]
         model_wait_kinds: list[str] = []
         model_wait_events: list[dict] = []
-        with client.stream("GET", f"/turns/{browser_turn_id}/stream") as stream:
+        with client.stream("GET", org_path(args.tenant_id, f"/turns/{browser_turn_id}/stream")) as stream:
             stream.raise_for_status()
             buffer = ""
             deadline = time.time() + 90
@@ -1155,7 +1296,7 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
-        model_turn_read = client.get(f"/turns/{browser_turn_id}")
+        model_turn_read = client.get(org_path(args.tenant_id, f"/turns/{browser_turn_id}"))
         if model_turn_read.status_code != 200:
             print(
                 f"model_turn_read {model_turn_read.status_code} "
@@ -1197,7 +1338,13 @@ def main() -> int:
             )
             return 1
         print("model_journal_pending_computer_tool=request_computer_capability")
-        model_resume = client.post(f"/turns/{browser_turn_id}/resume")
+        resume_headers = _register_worker_headers(
+            client, args.tenant_id, "exercise-resume-worker", dict(headers)
+        )
+        model_resume = client.post(
+            org_path(args.tenant_id, f"/turns/{browser_turn_id}/resume"),
+            headers=resume_headers,
+        )
         if model_resume.status_code != 409:
             print(
                 f"model_resume_while_stopped {model_resume.status_code} "
@@ -1208,10 +1355,13 @@ def main() -> int:
         print("model_resume_while_stopped=409")
         if args.environment == "development":
             client.post(
-                "/computers/stopped",
+                org_path(args.tenant_id, "/computers/stopped"),
                 json={"user_id": args.user_id, "stopped": False},
             )
-            resumed_running = client.post(f"/turns/{browser_turn_id}/resume")
+            resumed_running = client.post(
+                org_path(args.tenant_id, f"/turns/{browser_turn_id}/resume"),
+                headers=resume_headers,
+            )
             if resumed_running.status_code != 200:
                 print(
                     f"resume_while_running {resumed_running.status_code} "
@@ -1219,7 +1369,7 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 client.post(
-                    "/computers/stopped",
+                    org_path(args.tenant_id, "/computers/stopped"),
                     json={"user_id": args.user_id, "stopped": True},
                 )
                 return 1
@@ -1232,7 +1382,7 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 client.post(
-                    "/computers/stopped",
+                    org_path(args.tenant_id, "/computers/stopped"),
                     json={"user_id": args.user_id, "stopped": True},
                 )
                 return 1
@@ -1240,14 +1390,14 @@ def main() -> int:
             if not job_id:
                 print(f"resume_payload={resume_payload!r}", file=sys.stderr)
                 client.post(
-                    "/computers/stopped",
+                    org_path(args.tenant_id, "/computers/stopped"),
                     json={"user_id": args.user_id, "stopped": True},
                 )
                 return 1
             generation = None
             deadline = time.monotonic() + 25
             while time.monotonic() < deadline:
-                computer_after = client.get(f"/users/{args.user_id}/computer")
+                computer_after = client.get(org_path(args.tenant_id, f"/users/{args.user_id}/computer"))
                 generation = computer_after.json().get("host_start_generation")
                 if isinstance(generation, int) and generation >= 1:
                     break
@@ -1258,7 +1408,7 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 client.post(
-                    "/computers/stopped",
+                    org_path(args.tenant_id, "/computers/stopped"),
                     json={"user_id": args.user_id, "stopped": True},
                 )
                 return 1
@@ -1277,7 +1427,7 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 client.post(
-                    "/computers/stopped",
+                    org_path(args.tenant_id, "/computers/stopped"),
                     json={"user_id": args.user_id, "stopped": True},
                 )
                 return 1
@@ -1293,11 +1443,11 @@ def main() -> int:
             journal_events: list[dict] = []
             host_deadline = time.monotonic() + 180
             while time.monotonic() < host_deadline:
-                still_waiting = client.get(f"/turns/{browser_turn_id}")
+                still_waiting = client.get(org_path(args.tenant_id, f"/turns/{browser_turn_id}"))
                 payload = still_waiting.json()
                 waiting_for = payload.get("waiting_for")
                 status = payload.get("status")
-                events_response = client.get(f"/turns/{browser_turn_id}/events")
+                events_response = client.get(org_path(args.tenant_id, f"/turns/{browser_turn_id}/events"))
                 journal_events = events_response.json().get("events") or []
                 tool_result_bodies = _tool_result_bodies(journal_events)
                 has_tool_result = bool(tool_result_bodies)
@@ -1321,7 +1471,7 @@ def main() -> int:
                         file=sys.stderr,
                     )
                     client.post(
-                        "/computers/stopped",
+                        org_path(args.tenant_id, "/computers/stopped"),
                         json={"user_id": args.user_id, "stopped": True},
                     )
                     return 1
@@ -1337,18 +1487,18 @@ def main() -> int:
                         "cpu_queue received the computer continuation", file=sys.stderr
                     )
                     client.post(
-                        "/computers/stopped",
+                        org_path(args.tenant_id, "/computers/stopped"),
                         json={"user_id": args.user_id, "stopped": True},
                     )
                     return 1
             client.post(
-                "/computers/stopped",
+                org_path(args.tenant_id, "/computers/stopped"),
                 json={"user_id": args.user_id, "stopped": True},
             )
-            still = client.get(f"/turns/{browser_turn_id}")
+            still = client.get(org_path(args.tenant_id, f"/turns/{browser_turn_id}"))
             if host_completed:
                 if not journal_events:
-                    events_response = client.get(f"/turns/{browser_turn_id}/events")
+                    events_response = client.get(org_path(args.tenant_id, f"/turns/{browser_turn_id}/events"))
                     journal_events = events_response.json().get("events") or []
                 chromium_result = _chromium_host_tool_result_body(journal_events)
                 if chromium_result is None:

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "e893f111-0627-4a68-a2b5-cb3024ba6d6c",
+  "issue_id": "chatticus-41d08d0e-b37a-4b97-b4a6-09a45972ab31",
+  "event_type": "field_updated",
+  "occurred_at": "2026-09-01T02:46:21.229Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "**Blocked by:** control-plane operations for organizations.\n\npython -m chatticus.members with list --status pending, enable, suspend, and role. This is the admin surface for v1; there is no admin UI. Organization records are data, not infrastructure, so writing them from a CLI does not violate the CDK-only rule for AWS resources.\n\n**Done when:** an operator can list pending organizations and enable one against development.",
+        "to": "**Phase 3 of 7.** Off the critical path. Let it slip if capacity is short.\n\n- **Blocked by:** b574a6\n- **Runs in parallel with:** every other phase-3 task\n- **Unblocks:** nothing\n\n---\npython -m chatticus.members with list --status pending, enable, suspend, and role. This is the admin surface for v1; there is no admin UI. Organization records are data, not infrastructure, so writing them from a CLI does not violate the CDK-only rule for AWS resources.\n\n**Done when:** an operator can list pending organizations and enable one against development."
+      },
+      "labels": {
+        "from": [],
+        "to": [
+          "phase-3"
+        ]
+      }
+    }
+  }
+}

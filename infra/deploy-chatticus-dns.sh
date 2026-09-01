@@ -17,7 +17,7 @@ if ! aws sts get-caller-identity >/dev/null; then
   exit 1
 fi
 
-npx cdk deploy ChatticusDns --require-approval never
+npx cdk deploy ChatticusDns --exclusively --require-approval never
 
 echo ""
 echo "Set the chattic.us registrar name servers to the NameServers output above."

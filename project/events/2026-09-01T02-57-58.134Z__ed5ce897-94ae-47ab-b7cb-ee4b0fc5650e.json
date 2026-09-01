@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "ed5ce897-94ae-47ab-b7cb-ee4b0fc5650e",
+  "issue_id": "chatticus-41d08d0e-b37a-4b97-b4a6-09a45972ab31",
+  "event_type": "field_updated",
+  "occurred_at": "2026-09-01T02:57:58.134Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "priority": {
+        "from": 1,
+        "to": 0
+      }
+    }
+  }
+}

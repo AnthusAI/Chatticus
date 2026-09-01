@@ -17,7 +17,7 @@ from chatticus.browser_waiting_continuation_driver import (
 from chatticus.chromium_action_executor import ChromiumActionExecutor
 from chatticus.computer_host_boot import ComputerHostBootDriver
 from chatticus.http.client import HttpTurnClient
-from chatticus.models import TurnEventKind
+from chatticus.models import CostClass, TurnEventKind, WorkerRegistration
 from chatticus.worker.computer import ComputerWorker
 
 
@@ -89,13 +89,26 @@ def given_computer_continuation_job_delivered_twice(context: object) -> None:
 def when_two_workers_pull_browser_waiting_concurrently(context: object) -> None:
     setup = context.browser_waiting_continuation
     job = context.duplicate_continuation_job
+    worker_token = context.plane.register_worker(
+        WorkerRegistration(
+            worker_id=job.job_id,
+            tenant_id=setup.tenant_id,
+            cost_class=CostClass.LOCAL,
+            capabilities=frozenset({"computer", "browser"}),
+        )
+    )
     errors: list[BaseException] = []
     barrier = threading.Barrier(2)
 
     def pull() -> None:
         worker = ComputerWorker(
             context.plane,
-            HttpTurnClient(context.api_client, setup.tenant_id),
+            HttpTurnClient(
+                context.api_client,
+                setup.tenant_id,
+                worker_token=worker_token,
+                worker_id=job.job_id,
+            ),
             action_executor=context.counting_executor,
         )
         barrier.wait()

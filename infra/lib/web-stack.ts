@@ -12,13 +12,19 @@ import * as ssm from "aws-cdk-lib/aws-ssm";
 import { execSync } from "child_process";
 import * as path from "path";
 import { Construct } from "constructs";
-import { API_ORIGIN_VIEWER_REQUEST_FUNCTION, SPA_VIEWER_RESPONSE_FUNCTION } from "./cloudfront-functions";
+import { API_ORIGIN_VIEWER_REQUEST_FUNCTION, SPA_VIEWER_REQUEST_FUNCTION, SPA_VIEWER_RESPONSE_FUNCTION } from "./cloudfront-functions";
 import {
   ChatticusCloudEnvironment,
   thinTurnParameterPrefix,
+  WEB_CLOUDFRONT_ENABLED,
   webParameterPrefix,
   WEB_SITE_DOMAINS,
 } from "./environments";
+import {
+  CHATTICUS_LOG_RETENTION,
+  CustomResourceProviderLogRetentionAspect,
+} from "./log-retention";
+import { webDockerBundleCommand, webLocalBundleCommand, WEB_BUNDLE_DOCKER_IMAGE, WEB_LOCAL_BUNDLE_AWS_CLI_CHECK } from "./web-build-env";
 
 export interface WebStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
@@ -26,6 +32,11 @@ export interface WebStackProps extends cdk.StackProps {
   siteCertificate: acm.ICertificate;
   frontDoorFunctionUrl: lambda.IFunctionUrl;
   invokeSecret: secretsmanager.ISecret;
+  /**
+   * Override the website deploy source (unit tests only). Production deploys
+   * omit this and bundle the Next.js site from ``web/``.
+   */
+  websiteDeploySource?: s3deploy.ISource;
 }
 
 /**
@@ -45,6 +56,11 @@ export class WebStack extends cdk.Stack {
     const thinTurnPrefix = thinTurnParameterPrefix(environmentName);
     const retainData = environmentName !== "development";
     cdk.Tags.of(this).add("chatticus:environment", environmentName);
+    if (!retainData) {
+      cdk.Aspects.of(this).add(
+        new CustomResourceProviderLogRetentionAspect(CHATTICUS_LOG_RETENTION),
+      );
+    }
 
     const invokeSecret = props.invokeSecret;
     const frontDoorFunctionUrl = props.frontDoorFunctionUrl;
@@ -62,12 +78,17 @@ export class WebStack extends cdk.Stack {
       code: cloudfront.FunctionCode.fromInline(API_ORIGIN_VIEWER_REQUEST_FUNCTION),
       comment: "Strip /api prefix and Accept-Encoding for the Lambda origin.",
     });
+    const spaViewerRequest = new cloudfront.Function(this, "SpaViewerRequest", {
+      code: cloudfront.FunctionCode.fromInline(SPA_VIEWER_REQUEST_FUNCTION),
+      comment: "Rewrite slashless SPA paths (OAuth callback) before S3 lookup.",
+    });
     const spaViewerResponse = new cloudfront.Function(this, "SpaViewerResponse", {
       code: cloudfront.FunctionCode.fromInline(SPA_VIEWER_RESPONSE_FUNCTION),
       comment: "SPA fallback status for S3 paths; never rewrite /api responses.",
     });
 
     const distribution = new cloudfront.Distribution(this, "SiteDistribution", {
+      enabled: WEB_CLOUDFRONT_ENABLED[environmentName],
       comment: `Chatticus ${environmentName} web UI and same-origin /api front door.`,
       domainNames: [siteDomain],
       certificate: props.siteCertificate,
@@ -78,6 +99,10 @@ export class WebStack extends cdk.Stack {
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         functionAssociations: [
+          {
+            function: spaViewerRequest,
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          },
           {
             function: spaViewerResponse,
             eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE,
@@ -109,43 +134,40 @@ export class WebStack extends cdk.Stack {
     });
 
     const webRoot = path.join(__dirname, "../../web");
-    new s3deploy.BucketDeployment(this, "DeployWebsite", {
-      sources: [
-        s3deploy.Source.asset(webRoot, {
-          bundling: {
-            image: cdk.DockerImage.fromRegistry("node:22-bookworm-slim"),
-            command: [
-              "bash",
-              "-c",
-              [
-                "cd /asset-input",
-                "npm ci",
-                "npm run build",
-                "cp -r out/. /asset-output/",
-              ].join(" && "),
-            ],
-            local: {
-              tryBundle(outputDir: string): boolean {
-                try {
-                  execSync("npm ci && npm run build", {
-                    cwd: webRoot,
-                    stdio: "inherit",
-                  });
-                  execSync(`cp -r ${webRoot}/out/. ${outputDir}/`, {
-                    stdio: "inherit",
-                  });
-                  return true;
-                } catch {
-                  return false;
-                }
+    const websiteSources = props.websiteDeploySource
+      ? [props.websiteDeploySource]
+      : [
+          s3deploy.Source.asset(webRoot, {
+            bundling: {
+              image: cdk.DockerImage.fromRegistry(WEB_BUNDLE_DOCKER_IMAGE),
+              command: ["bash", "-c", webDockerBundleCommand(environmentName)],
+              local: {
+                tryBundle(outputDir: string): boolean {
+                  try {
+                    execSync(
+                      `${WEB_LOCAL_BUNDLE_AWS_CLI_CHECK} && ${webLocalBundleCommand(environmentName)}`,
+                      {
+                        cwd: webRoot,
+                        stdio: "inherit",
+                        shell: "/bin/bash",
+                      },
+                    );
+                    execSync(`cp -r ${webRoot}/out/. ${outputDir}/`, {
+                      stdio: "inherit",
+                    });
+                    return true;
+                  } catch {
+                    return false;
+                  }
+                },
               },
             },
-          },
-        }),
-      ],
+          }),
+        ];
+    new s3deploy.BucketDeployment(this, "DeployWebsite", {
+      logRetention: CHATTICUS_LOG_RETENTION,
+      sources: websiteSources,
       destinationBucket: siteBucket,
-      distribution,
-      distributionPaths: ["/*"],
     });
 
     new route53.ARecord(this, "SiteAliasRecord", {
@@ -162,23 +184,6 @@ export class WebStack extends cdk.Stack {
         new route53Targets.CloudFrontTarget(distribution),
       ),
     });
-
-    if (environmentName === "production") {
-      new route53.ARecord(this, "WwwAliasRecord", {
-        zone: props.hostedZone,
-        recordName: "www",
-        target: route53.RecordTarget.fromAlias(
-          new route53Targets.CloudFrontTarget(distribution),
-        ),
-      });
-      new route53.AaaaRecord(this, "WwwAliasRecordV6", {
-        zone: props.hostedZone,
-        recordName: "www",
-        target: route53.RecordTarget.fromAlias(
-          new route53Targets.CloudFrontTarget(distribution),
-        ),
-      });
-    }
 
     const siteUrl = `https://${siteDomain}`;
     const apiBaseUrl = `${siteUrl}/api`;

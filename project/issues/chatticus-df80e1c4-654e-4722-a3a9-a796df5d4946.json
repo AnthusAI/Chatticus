@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-df80e1c4-654e-4722-a3a9-a796df5d4946",
+  "title": "Define the Principal seam",
+  "description": "The type and the waitlist-safe route marker only. No resolvers, no enforcement.\n\nKeep it small: later tasks fork from this and must agree on the shape first.\nGherkin first. No dual-path.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-145ab2a8-e3f9-42d5-9b76-a1fbad370387",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "f7f6d53c-b00c-497b-8f91-ca7949d5a0b4",
+      "author": "agent@example.com",
+      "text": "Phase 01 of 7c310b. Planner worktree `/tmp/chatticus-df80e1-principal` branch `cursor/principal-seam-4a21` off origin/develop. Plan only until authorized. Seam only: no resolvers, no enforcement.",
+      "created_at": "2026-09-01T02:52:14.126995Z"
+    },
+    {
+      "id": "5a64f8fd-0013-4456-ad4a-b5ddb7b443d7",
+      "author": "agent@example.com",
+      "text": "Duplicate of 86aec8 tree opened because develop was not pulled after #106. Closing. Use 86aec8 / 79ca6a / 7c1382 / 0ab02c / 272aea / 1ebc7d.",
+      "created_at": "2026-09-01T03:01:53.294457Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:51:49.414806Z",
+  "updated_at": "2026-09-01T03:01:53.306005Z",
+  "closed_at": "2026-09-01T03:01:53.306005Z",
+  "custom": {}
+}

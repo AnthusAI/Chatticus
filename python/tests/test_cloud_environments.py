@@ -10,8 +10,10 @@ from chatticus.cloud_environments import (
     THIN_TURN_STACK_IDS,
     environment_for_git_branch,
     parse_cloud_environment,
+    resolve_cognito_config,
     resolve_thin_turn_base_url,
     thin_turn_parameter_prefix,
+    web_parameter_prefix,
 )
 
 
@@ -45,6 +47,21 @@ def test_ssm_prefix_is_per_environment() -> None:
     assert thin_turn_parameter_prefix("production") == (
         "/chatticus/production/thin-turn"
     )
+    assert web_parameter_prefix("development") == "/chatticus/development/web"
+
+
+def test_resolve_cognito_config_prefers_environment_variables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "CHATTICUS_COGNITO_ISSUER",
+        "https://cognito-idp.us-east-1.amazonaws.com/pool-123",
+    )
+    monkeypatch.setenv("CHATTICUS_COGNITO_CLIENT_ID", "spa-client")
+    config = resolve_cognito_config("development")
+    assert config.client_id == "spa-client"
+    assert config.issuer.endswith("/pool-123")
+    assert config.jwks_url.endswith("/.well-known/jwks.json")
 
 
 def test_resolve_prefers_explicit_base_url(monkeypatch: pytest.MonkeyPatch) -> None:

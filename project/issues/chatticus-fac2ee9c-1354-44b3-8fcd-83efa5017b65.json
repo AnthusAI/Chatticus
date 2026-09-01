@@ -1,0 +1,57 @@
+{
+  "id": "chatticus-fac2ee9c-1354-44b3-8fcd-83efa5017b65",
+  "title": "Issue and verify per-worker credentials",
+  "description": "**Phase 3 of 7.** Must merge before the phase-4 join or every worker breaks at the same moment.\n\n- **Blocked by:** 1ebc7d, 272aea\n- **Runs in parallel with:** 5f0c4c, 5558db, 41d08d, and 79578e\n- **Unblocks:** 7b4616\n\n---\nWorker registration mints a token stored hashed; the worker presents it and resolves to a worker Principal. This closes the question recorded as still open in docs/DESIGN_CHALLENGES.md, how workers authenticate their chunk POSTs.\n\nBrowser routes must reject a worker principal and worker routes must reject a user principal. The shared X-Chatticus-Invoke-Key stays what it is, a CloudFront-to-Lambda check, and is not a caller identity.\n\n**Done when:** behave and pytest cover both rejections, and a development worker claims and completes a turn using a minted credential.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "fbd705fb-d651-45c2-9972-82b3de7c7e9c",
+      "author": "agent@example.com",
+      "text": "Unblocked. Planning in `/tmp/chatticus-fac2ee-worker-creds` branch `cursor/worker-creds-fac2ee-4a21`. Parallel with 5744ef only (not 79578e). Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T07:36:11.028854Z"
+    },
+    {
+      "id": "e20f800a-cf15-42c8-86ac-1b33fab93835",
+      "author": "agent@example.com",
+      "text": "Landed on develop via **#140** (`c19aa56`). Worker Bearer on worker routes; browser routes still invoke-key-only. Gherkin covers mint, 403 without Bearer, audience mismatch. Live named-environment client path is **d71ed5**. Closing.\n",
+      "created_at": "2026-09-01T08:27:04.109422Z"
+    },
+    {
+      "id": "b05d7a01-8bac-41c6-bb28-6202a1d8288e",
+      "author": "home",
+      "text": "**Reviewed #140. The credential design is right in every detail I checked, and there is one process defect that cannot be fixed later.**\n\nChecked deliberately, because this is the card where a shortcut would be least visible and most expensive:\n\n- `secrets.token_urlsafe(32)` for minting. A CSPRNG at 256 bits, not `random`.\n- SHA-256 at rest, plaintext never persisted, token shown once.\n- `hmac.compare_digest` for verification rather than `==`. Timing-safe.\n- Re-registration rotates and the previous token is rejected, so revocation exists rather than being a later card.\n- Both directions covered: worker routes reject a missing bearer, reject a user principal, and reject the invoke key on its own. That last scenario is the one I would have asked for if it were missing, because it proves the shared CloudFront key is not accidentally serving as caller identity.\n\nYou also closed the open question in `docs/DESIGN_CHALLENGES.md` and `docs/MESSAGING.md` rather than leaving the design advertising a question that this card answered. That is the part people skip.\n\n**The defect: the merge commit has no conventional-commit type.**\n\n`Add per-worker bearer credentials for worker HTTP routes (fac2ee) (#140)`\n\nEvery other commit on develop carries `feat`, `fix`, `chore`, `refactor`, or `docs`. AGENTS.md records that semantic-release runs from `main` and derives releases from these messages, so a typeless commit contributes no version bump and no changelog entry. When develop is promoted, this is the range that ships worker authentication, and it would ship without appearing in the release notes at all. A security-relevant feature that is invisible in the changelog is the one people later swear was never released.\n\nIt is already merged, so rewriting develop's history is not worth it. Two things instead: mention it by hand in the release notes when the promotion happens, and keep the type on the next one.",
+      "created_at": "2026-09-01T08:38:24.518093Z"
+    },
+    {
+      "id": "f2e94741-1566-4cad-8837-2b4d76033ac6",
+      "author": "agent@example.com",
+      "text": "Acknowledged: #140 squash subject has no conventional-commit type. Will note at promote to main. Later PRs keep the type. No rewrite of develop.\n",
+      "created_at": "2026-09-01T08:47:11.739986Z"
+    },
+    {
+      "id": "af15e74a-9e26-4d6e-9bae-a14e97c67846",
+      "author": "agent@example.com",
+      "text": "Live development after ThinTurn deploy: mint/hash/Bearer paths work on the instance that registered. Duplicate `/waiting` after SSE returns 403 because hashes are not durable across Lambda. Not reopening this card; tracked as a child bug of d71ed5.\n",
+      "created_at": "2026-09-01T09:01:36.206305Z"
+    },
+    {
+      "id": "ece36751-ba3a-4a27-83cc-63c70b6c7d56",
+      "author": "home",
+      "text": "**Correction to my review of #140: it was incomplete.**\n\nI checked the cryptography closely, minting, hashing, timing-safe comparison, rotation, and both rejection directions, and reported no defect. I never asked where the hash was written. It is written in process, not to the store, which b3e12c found on live development.\n\nThose are two different questions and I only answered one. On a credential card, whether the secret is handled correctly and whether it survives the process that handled it are separate reviews, and the second one matters more in a per-request architecture that recycles by design.\n\nThe cryptographic findings all still stand. The card's done-when was satisfied in-process, which is why CI was green and why this needed a live environment to surface.",
+      "created_at": "2026-09-01T09:08:15.988644Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:40:29.694432Z",
+  "updated_at": "2026-09-01T09:08:15.988644Z",
+  "closed_at": "2026-09-01T08:27:04.122663Z",
+  "custom": {}
+}

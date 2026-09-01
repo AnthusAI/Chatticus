@@ -1,0 +1,39 @@
+{
+  "id": "chatticus-7794b04b-31cb-4985-a212-7ee43e07bbc3",
+  "title": "Live thin-turn reconnect reports duplicate seqs after turn.failed",
+  "description": "**Found after b3e12c live deploy of #147.**\n\nWorker credential recycle is green: `stale_waiting=409`. The rest of `python/scripts/live_aws_thin_turn.sh development` then exits 1:\n\n```\nfirst_stream_kinds=['turn.started', 'turn.failed'] dropped_mid_stream=False\nreconnect_last_event_id=1\nresumed_stream_kinds=['turn.failed']\nduplicate seqs across drop/reconnect: [1, 2, 2]\n```\n\nLambda URL development ThinTurn. Computers desiredCount 0. Never `--all`.\n\n**Do:** determine whether the greeting turn is failing for a real worker/LLM reason or the reconnect gate is mis-asserting when the first stream never dropped mid-token. One path. Gherkin if it is product.\n\n**Done when:** `cd python && sh scripts/live_aws_thin_turn.sh development` exits 0 against development after a named ChatticusThinTurn deploy.",
+  "type": "bug",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-d71ed555-811f-4da2-b208-835ab84e3d1e",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "fb60887e-3eb8-4bf0-80ba-27e4d1a93582",
+      "author": "agent@example.com",
+      "text": "Planning in `/tmp/chatticus-7794b0-reconnect-seq` branch `cursor/live-reconnect-seq-7794b0-4a21`. Diagnose turn.failed vs reconnect assertion. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T09:55:09.744246Z"
+    },
+    {
+      "id": "1e313eee-103a-4a69-a1f9-2e00882e504e",
+      "author": "home",
+      "text": "**Two independent problems, and the first one is not in the streaming layer. Check this before spending the cycle on reconnect.**\n\n**1. The turn is failing because development has no OpenAI key at the new parameter name.**\n\n```\naws ssm get-parameter --name /chatticus/development/thin-turn/openai-api-key\nParameterNotFound\n```\n\nThe old `/amplify/shared/papyrus/OPENAI_API_KEY` still exists, last modified in May. #124 moved the parameter **name** in CDK under 8574c7 and nobody created the parameter at the new location with a value in it. So every model turn in development fails the moment it reaches the provider.\n\nThat is exactly the evidence on this card: `first_stream_kinds=['turn.started', 'turn.failed']` with no token chunks between them. The turn starts, reaches for a key that is not there, and fails. There is no LLM problem and no worker problem to find, because the request never gets far enough to have one.\n\n**This is a human action, not an agent one.** Copy the value from the old parameter into `/chatticus/development/thin-turn/openai-api-key` as a `SecureString`. Agents should not read, move, or hold that value. 8574c7's done-when covered the stack deploying without papyrus; it did not cover the secret being present at the new name, which is the gap.\n\n**2. The reconnect assertion is separately wrong, and would still be wrong after the key is fixed.**\n\n```\ndropped_mid_stream=False\nreconnect_last_event_id=1\nresumed_stream_kinds=['turn.failed']\nduplicate seqs: [1, 2, 2]\n```\n\nThe first stream was not dropped. It ran to a terminal event and ended normally. Reconnecting with `after=1` to a turn that has already reached `turn.failed` correctly re-delivers seq 2, so seq 2 appearing twice is the contract working, not a duplicate.\n\nThe no-duplicate invariant only means anything across an actual mid-stream drop. Gate the assertion on `dropped_mid_stream` rather than running it unconditionally, or the script will keep failing on healthy turns that simply finished before the reconnect.\n\n**One more thing about this card's parentage.** Reconnect with `Last-Event-ID` is 1e389e from Phase 1, not Phase 4 work. This bug is parented to d71ed5, which will keep d71ed5 open for something outside its scope. Once the key is populated, if a real reconnect defect remains, it belongs on its own card rather than holding the live-acceptance card open.",
+      "created_at": "2026-09-01T10:08:23.419844Z"
+    },
+    {
+      "id": "56cc95cc-7f17-4cf2-ba61-c32d6b7e7751",
+      "author": "agent@example.com",
+      "text": "#149 on develop: reconnect only after mid-stream drop. Greeting `turn.failed` remains missing SSM `/chatticus/development/thin-turn/openai-api-key` (human). Closing this card; live exit 0 waits on that key, not on another reconnect store change.\n",
+      "created_at": "2026-09-01T10:16:48.791649Z"
+    }
+  ],
+  "created_at": "2026-09-01T09:54:24.317568Z",
+  "updated_at": "2026-09-01T10:16:48.804278Z",
+  "closed_at": "2026-09-01T10:16:48.804278Z",
+  "custom": {}
+}

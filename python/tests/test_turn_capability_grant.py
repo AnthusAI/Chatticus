@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import boto3
 import pytest
+from conftest import register_worker_headers
 from fastapi.testclient import TestClient
 from grant_fixtures import research_grant
 from moto import mock_aws
@@ -11,6 +12,7 @@ from moto import mock_aws
 from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
+from chatticus.http.paths import org_path
 from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import DynamoMessagingStore, create_messaging_table
 from chatticus.models import ActorKind
@@ -74,9 +76,10 @@ def test_http_grant_and_gated_read_use_durable_store() -> None:
             enqueue_turn=False,
         )
         assert turn is not None
-        api = start_test_server(create_app(plane))
+        api = start_test_server(create_app(plane, invoke_key=""))
+        worker_headers = register_worker_headers(api, "anthus")
         grant = api.put(
-            f"/turns/{turn.turn_id}/grant",
+            org_path("anthus", f"/turns/{turn.turn_id}/grant"),
             json={
                 "tools": ["browse", "read_workspace"],
                 "origins": ["https://docs.example.com"],
@@ -84,28 +87,31 @@ def test_http_grant_and_gated_read_use_durable_store() -> None:
                 "file_scopes": ["/workspace/research"],
                 "egress_classes": ["approved_origin_fetch"],
             },
-            headers={"X-Tenant-Id": "anthus"},
+            headers=worker_headers,
         )
         assert grant.status_code == 200
         denied = api.post(
-            f"/turns/{turn.turn_id}/workspace/read",
+            org_path("anthus", f"/turns/{turn.turn_id}/workspace/read"),
             json={
                 "user_id": "ryan",
                 "path": "/workspace/secrets/notes.txt",
             },
-            headers={"X-Tenant-Id": "anthus"},
+            headers=worker_headers,
         )
         assert denied.status_code == 403
         assert "outside granted scopes" in denied.json()["detail"]
         api.close()
-        recycled_client = TestClient(create_app(ControlPlane(messaging_store=store)))
+        recycled_client = TestClient(
+            create_app(ControlPlane(messaging_store=store), invoke_key="")
+        )
+        recycled_headers = register_worker_headers(recycled_client, "anthus")
         allowed = recycled_client.post(
-            f"/turns/{turn.turn_id}/workspace/read",
+            org_path("anthus", f"/turns/{turn.turn_id}/workspace/read"),
             json={
                 "user_id": "ryan",
                 "path": "/workspace/research/notes.txt",
             },
-            headers={"X-Tenant-Id": "anthus"},
+            headers=recycled_headers,
         )
         assert allowed.status_code == 200
         assert allowed.json()["content"] is None

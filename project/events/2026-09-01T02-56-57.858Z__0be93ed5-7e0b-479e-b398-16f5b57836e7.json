@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "0be93ed5-7e0b-479e-b398-16f5b57836e7",
+  "issue_id": "chatticus-d71ed555-811f-4da2-b208-835ab84e3d1e",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:56:57.858Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "**Phase 3 of 7.**\n\n- **Blocked by:** 1ebc7d, fac2ee\n- **Runs in parallel with:** 5f0c4c, 5558db, 79578e\n- **Unblocks:** 7b4616, which cannot be called done without it\n\n---\n**Found by inversion: what breaks quietly and costs a day before anyone sees why?**\n\nEvery phase in this plan ends with the instruction to run sh scripts/live_aws_thin_turn.sh development. That script, tests/test_live_aws_thin_turn.py, and the thin-turn demo CLI all speak the current contract: X-Tenant-Id in a header, no credential. The moment 79578e reshapes the routes and 7b4616 flips enforcement, all three fail against every environment, and the failure looks like a broken deploy rather than a stale client.\n\nThey are our own tooling, so they authenticate as a worker with a minted credential from fac2ee, not as a person. Do not add a test-only bypass to the front door. That is a second authentication path and the repository does not keep two.\n\n**Done when:** the live script, the pytest live path, and the demo CLI all pass against development with enforcement on, using a real credential.",
+    "issue_type": "task",
+    "labels": [
+      "phase-3"
+    ],
+    "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+    "priority": 0,
+    "status": "open",
+    "title": "Teach live acceptance and the demo CLI to authenticate"
+  }
+}

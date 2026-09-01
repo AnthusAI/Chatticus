@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-eef4aa2c-d8b5-4b99-8710-65f6fcbaf23d",
+  "title": "Ceilings and the clip rule",
+  "description": "**Phase 6 of 7.** Everything else in the epic depends on it, so it must not arrive tangled with anything else.\n\n- **Blocked by:** 24df70\n- **Runs in parallel with:** nothing. Land it alone\n- **Unblocks:** ac3b7a, b49a89, 14cf05, e4053a\n\n---\nA ceiling has the shape TaskCapabilityGrant already uses: action types with argument constraints, origins, recipients, file scopes, egress classes, and a spend limit. A ceiling is a grant a member holds standing rather than one a task receives.\n\nThe rule: no one can grant, approve, or always-allow beyond their own ceiling. Clipping is set intersection on those fields, and it is the same operation for delegation, rules, task grants, and approvals.\n\nCeilings are argument-bound, not class-bound. Approving a copy edit and approving a production publication are both publish; the target separates them.\n\n**Done when:** the type and the clip function are pure, exhaustively unit tested, and merged with no I/O.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ba3ea4f4-e439-4a2a-9850-57f095c3346b",
+  "labels": [
+    "phase-6"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "7fcf8111-236d-4344-bf49-151ed99812de",
+      "author": "home",
+      "text": "**Adversarial review: this task alone changes no behavior.**\n\nA pure type and a clip function with no I/O is the right way to build this, and it is also the exact shape of work that can sit unused forever. 3a35db has been opened to wire the ceiling into the capability_sinks adapters, which is where it becomes real.\n\nThe epic is not shippable when this merges. It is shippable when 3a35db merges. Do not let a green test suite on the pure function read as the authority model being live.",
+      "created_at": "2026-09-01T02:57:58.111270Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:41:22.228605Z",
+  "updated_at": "2026-09-01T02:57:58.111270Z",
+  "closed_at": null,
+  "custom": {}
+}

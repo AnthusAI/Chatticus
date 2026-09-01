@@ -59,6 +59,12 @@ jobs:
         working-directory: infra
         run: npm ci
 
+      - name: Test
+        working-directory: infra
+        run: npm test
+
       - name: Synth
         working-directory: infra
+        env:
+          CHATTICUS_STUB_WEB_BUNDLE: "1"
         run: npx cdk synth

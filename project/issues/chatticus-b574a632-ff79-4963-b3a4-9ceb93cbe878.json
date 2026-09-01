@@ -1,0 +1,57 @@
+{
+  "id": "chatticus-b574a632-ff79-4963-b3a4-9ceb93cbe878",
+  "title": "Control-plane operations for organizations and membership",
+  "description": "**Phase 2 of 7.**\n\n- **Blocked by:** 272aea\n- **Runs in parallel with:** 0df6cb, which shares no files with this\n- **Unblocks:** 41d08d, 22f5bb, e41552\n\n---\nControlPlane methods: create organization (pending), list organizations for a user, invite, accept invitation, enable and suspend an organization, set a member role.\n\nEnabling is the spend decision and approves one organization computer.\n\n**Done when:** behave and pytest pass and no HTTP route exists yet.",
+  "type": "task",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "88c9d339-f351-45a2-bd50-14a64f98d207",
+      "author": "agent@example.com",
+      "text": "Planning control-plane operations (no HTTP). 272aea is on develop. Unblocks 41d08d. Worktree will be /tmp/chatticus-b574a6-control-plane branch cursor/org-control-plane-4a21. computerCount 0. Never --all.",
+      "created_at": "2026-09-01T05:12:18.418632Z"
+    },
+    {
+      "id": "088094cc-0a0b-4ef7-a21a-2032613560e7",
+      "author": "agent@example.com",
+      "text": "Plan approved with pushback: no extra ControlPlane constructor args; enable/suspend are status-only (no computers); single MessagingStore; no HTTP. Worktree /tmp/chatticus-b574a6-control-plane branch cursor/org-control-plane-4a21.",
+      "created_at": "2026-09-01T05:16:54.855878Z"
+    },
+    {
+      "id": "c1dd9345-e17b-48e6-bc52-eed65717b7f8",
+      "author": "agent@example.com",
+      "text": "PR #130: ControlPlane delegates org ops; enable does not provision a computer; no HTTP. Sent back: last-owner demotion guard + MembershipNotFoundError instead of KeyError.",
+      "created_at": "2026-09-01T05:26:08.999322Z"
+    },
+    {
+      "id": "2445218e-eb00-417c-9261-498ea42caa96",
+      "author": "agent@example.com",
+      "text": "Landed on develop via #130 (f91d7ba). ControlPlane is the org API; enable/suspend are status-only; last owner cannot be demoted; no HTTP. Unblocks 41d08d.",
+      "created_at": "2026-09-01T05:30:49.458948Z"
+    },
+    {
+      "id": "66b6e884-43aa-4254-94d0-bd987a7293e1",
+      "author": "home",
+      "text": "**Reviewed #130. Scope held, and one operation carries two meanings it should not.**\n\nNo HTTP route added, which is what this card asked for. All seven operations present, Gherkin first, and `set_member_role` refuses a non-owner and refuses removing the last owner. That last-owner guard was not asked for and is the right instinct.\n\n**The finding: `enable_organization` is both an approval and an unsuspension.**\n\n```python\nenabled = replace(organization, status=OrganizationStatus.ENABLED)\n```\n\nIt writes `ENABLED` from any prior state, so it means two different things:\n\n- Approving a **pending** organization off the waitlist, which is the spend decision that provisions an organization computer's worth of recurring cost.\n- Reinstating a **suspended** organization, which reverses an intervention somebody made deliberately, possibly for non-payment, abuse, or a security incident.\n\nOne name, two acts, different stakes. An operator clearing a waitlist backlog can silently reinstate an organization that was suspended for cause, and the audit trail will show an enable that reads like routine approval.\n\n**Fix:** `enable_organization` accepts only `PENDING` and refuses `SUSPENDED`. Reinstatement gets its own operation and its own name so it appears in the record as its own act. In the office model these are not the same signature: approving a new department and reinstating a suspended one are different decisions by different people at different moments.\n\nThere is also no scenario covering enable-on-suspended, so whichever behavior is intended is currently untested.\n\n**Timely:** 41d08d is in progress now and is where an operator reaches this. Better to settle the semantics before the CLI surfaces them.\n\n**Forward note for 5f0c4c:** suspension here is a status write, so it takes effect at the next principal resolution. That is the right shape given membership is re-read per request, but it means a turn-scoped stream opened before the suspension keeps running to its end. That is the token-expiry decision already raised on that card; the two should be answered together.",
+      "created_at": "2026-09-01T05:38:18.017182Z"
+    },
+    {
+      "id": "302cd6f1-fdff-44c2-b393-bf151617c6f4",
+      "author": "agent@example.com",
+      "text": "**#130 review taken.**\n\nEnable vs reinstate is split at the kernel in #132 (not a new HTTP surface): `enable_organization` now refuses anything but PENDING; suspend refuses anything but ENABLED. #130 on develop still wrote ENABLED from any prior state; that lands with the members CLI PR.\n\nA dedicated `reinstate_organization` (own name, own audit act) is still missing. It is not required to ship waitlist enablement. Opening that as its own slice after 41d08d, rather than stuffing it into the CLI. Forward note for 5f0c4c (in-flight stream vs status write) stays on that card.\n",
+      "created_at": "2026-09-01T06:02:21.685276Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:40:05.917355Z",
+  "updated_at": "2026-09-01T06:02:21.685276Z",
+  "closed_at": "2026-09-01T05:30:49.446751Z",
+  "custom": {}
+}

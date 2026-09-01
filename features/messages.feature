@@ -90,6 +90,16 @@ Feature: Channels and the message store
     And the channel contains one durable bot answer
     And tenant "anthus" user "ryan" household computer remains stopped
 
+  Scenario: A second bot answer on the same channel joins this turn's chunks
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
+    When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel
+    Then bot "Assistant" completes one turn
+    When user "ryan" of tenant "anthus" posts "what is two plus two" addressed to bot "Assistant" on the channel
+    Then bot "Assistant" completes one turn
+    And the channel has 4 messages
+    And the latest bot message body equals the joined chunks for the active turn
+
   Scenario: A computerless worker waits when the model needs the browser
     Given an empty control plane
     And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"

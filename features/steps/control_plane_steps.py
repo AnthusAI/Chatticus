@@ -8,6 +8,7 @@ from behave import given, then, when
 
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
+from chatticus.http.paths import org_path
 from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
@@ -48,7 +49,7 @@ def _registration_from_table(table: object) -> WorkerRegistration:
 @given("an empty control plane")
 def given_empty_control_plane(context: object) -> None:
     context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
-    app = create_app(context.plane)
+    app = create_app(context.plane, invoke_key="")
     context.api_app = app
     context.app_state = app.state.chatticus
     context.api_client = start_test_server(app)
@@ -84,7 +85,7 @@ def given_empty_control_plane_with_cpu_enqueue_hook(context: object) -> None:
         heartbeat_timeout=timedelta(seconds=30),
         turn_enqueued=capture,
     )
-    app = create_app(context.plane)
+    app = create_app(context.plane, invoke_key="")
     context.api_app = app
     context.app_state = app.state.chatticus
     context.api_client = start_test_server(app)
@@ -125,7 +126,7 @@ def given_empty_control_plane_with_cpu_and_computer_hooks(context: object) -> No
         turn_enqueued=capture_cpu,
         computer_enqueued=capture_computer,
     )
-    app = create_app(context.plane)
+    app = create_app(context.plane, invoke_key="")
     context.api_app = app
     context.app_state = app.state.chatticus
     context.api_client = start_test_server(app)
@@ -157,16 +158,48 @@ def given_heartbeat_timeout(context: object, seconds: int) -> None:
 
 @given("a worker registered as:")
 def given_worker_registered(context: object) -> None:
-    context.plane.register_worker(_registration_from_table(context.table))
+    registration = _registration_from_table(context.table)
+    token = context.plane.register_worker(registration)
+    if not hasattr(context, "worker_tokens"):
+        context.worker_tokens = {}
+    context.worker_tokens[registration.worker_id] = token
+    _remember_worker_tenant(context, registration.tenant_id)
 
 
 @when("a worker registers:")
 def when_worker_registers(context: object) -> None:
     try:
-        context.plane.register_worker(_registration_from_table(context.table))
+        registration = _registration_from_table(context.table)
+        token = context.plane.register_worker(registration)
+        if not hasattr(context, "worker_tokens"):
+            context.worker_tokens = {}
+        context.worker_tokens[registration.worker_id] = token
+        _remember_worker_tenant(context, registration.tenant_id)
         context.registration_error = None
     except WorkerTenantMismatchError as error:
         context.registration_error = error
+
+
+def _remember_worker_tenant(context: object, tenant_id: str) -> None:
+    tenant_ids = getattr(context, "worker_tenant_ids", None)
+    if tenant_ids is None:
+        context.worker_tenant_ids = {tenant_id}
+        return
+    tenant_ids.add(tenant_id)
+
+
+def _worker_tenant_ids(context: object) -> set[str]:
+    return getattr(context, "worker_tenant_ids", set())
+
+
+def _resolve_worker_tenant(context: object, worker_id: str) -> str:
+    for tenant_id in _worker_tenant_ids(context):
+        try:
+            context.plane.worker(tenant_id, worker_id)
+        except KeyError:
+            continue
+        return tenant_id
+    raise AssertionError(f"No tenant is registered for worker {worker_id!r}.")
 
 
 @when("{seconds:d} seconds pass")
@@ -184,14 +217,16 @@ def when_seconds_pass_without_heartbeat(
     context: object, seconds: int, worker_id: str
 ) -> None:
     context.plane.advance_seconds(seconds)
-    for record in context.plane.all_workers():
-        if record.registration.worker_id != worker_id:
-            context.plane.heartbeat(record.registration.worker_id)
+    for tenant_id in _worker_tenant_ids(context):
+        for record in context.plane.list_workers(tenant_id):
+            if record.registration.worker_id != worker_id:
+                context.plane.heartbeat(tenant_id, record.registration.worker_id)
 
 
 @when('worker "{worker_id}" sends a heartbeat')
 def when_worker_heartbeats(context: object, worker_id: str) -> None:
-    context.plane.heartbeat(worker_id)
+    tenant_id = _resolve_worker_tenant(context, worker_id)
+    context.plane.heartbeat(tenant_id, worker_id)
 
 
 @then('tenant "{tenant_id}" has {count:d} healthy worker')
@@ -206,7 +241,8 @@ def then_healthy_worker_count(context: object, tenant_id: str, count: int) -> No
 
 @then('worker "{worker_id}" has cost class "{cost_class}"')
 def then_worker_cost_class(context: object, worker_id: str, cost_class: str) -> None:
-    record = context.plane.worker(worker_id)
+    tenant_id = _resolve_worker_tenant(context, worker_id)
+    record = context.plane.worker(tenant_id, worker_id)
     assert record.registration.cost_class == CostClass(cost_class)
 
 
@@ -214,7 +250,8 @@ def then_worker_cost_class(context: object, worker_id: str, cost_class: str) -> 
 def then_worker_computer_affinity(
     context: object, worker_id: str, computer_id: str
 ) -> None:
-    record = context.plane.worker(worker_id)
+    tenant_id = _resolve_worker_tenant(context, worker_id)
+    record = context.plane.worker(tenant_id, worker_id)
     assert record.registration.computer_id == computer_id
 
 
@@ -475,7 +512,7 @@ def then_health_reports_environment(context: object, environment: str) -> None:
 def given_durable_messaging_store_with_http(context: object) -> None:
     context.messaging_store = InMemoryMessagingStore()
     context.plane = ControlPlane(messaging_store=context.messaging_store)
-    app = create_app(context.plane)
+    app = create_app(context.plane, invoke_key="")
     context.api_app = app
     context.app_state = app.state.chatticus
     context.api_client = start_test_server(app)
@@ -493,7 +530,7 @@ def given_durable_messaging_store_with_http(context: object) -> None:
 def when_recycled_front_door(context: object) -> None:
     context.api_client.close()
     context.plane = ControlPlane(messaging_store=context.messaging_store)
-    app = create_app(context.plane)
+    app = create_app(context.plane, invoke_key="")
     context.api_app = app
     context.app_state = app.state.chatticus
     context.api_client = start_test_server(app)
@@ -540,9 +577,8 @@ def then_lookup_bot_by_name(
 ) -> None:
     expected = context.bots_by_name[name]
     response = context.api_client.get(
-        "/bots",
+        org_path(tenant_id, "/bots"),
         params={"user_id": user_id, "name": name},
-        headers={"X-Tenant-Id": tenant_id},
     )
     assert response.status_code == 200
     payload = response.json()
@@ -560,8 +596,7 @@ def then_read_bot_by_identifier(
 ) -> None:
     expected = context.bots_by_name[name]
     response = context.api_client.get(
-        f"/bots/{expected.bot_id}",
-        headers={"X-Tenant-Id": tenant_id},
+        org_path(tenant_id, f"/bots/{expected.bot_id}"),
     )
     assert response.status_code == 200
     payload = response.json()
@@ -569,8 +604,7 @@ def then_read_bot_by_identifier(
     assert payload["name"] == name
     assert (payload.get("memory") or {}).get(key) == value
     missing = context.api_client.get(
-        f"/bots/{expected.bot_id}",
-        headers={"X-Tenant-Id": "other"},
+        org_path("other", f"/bots/{expected.bot_id}"),
     )
     assert missing.status_code == 404
 
@@ -583,8 +617,7 @@ def then_list_user_bots(context: object, tenant_id: str, user_id: str) -> None:
     expected_names.extend(row.cells[0].strip() for row in context.table)
     expected_names = [name for name in expected_names if name]
     response = context.api_client.get(
-        f"/users/{user_id}/bots",
-        headers={"X-Tenant-Id": tenant_id},
+        org_path(tenant_id, f"/users/{user_id}/bots"),
     )
     assert response.status_code == 200
     names = [bot["name"] for bot in response.json()["bots"]]

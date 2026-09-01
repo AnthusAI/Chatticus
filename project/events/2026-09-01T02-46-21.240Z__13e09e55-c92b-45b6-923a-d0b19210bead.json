@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "13e09e55-c92b-45b6-923a-d0b19210bead",
+  "issue_id": "chatticus-22f5bb7d-97fb-4598-9381-3a3ea333a8c3",
+  "event_type": "field_updated",
+  "occurred_at": "2026-09-01T02:46:21.240Z",
+  "actor_id": "example-user",
+  "payload": {
+    "changes": {
+      "description": {
+        "from": "**Blocked by:** web sign-in and the Cognito token resolver.\n\nGET /me returns the person and their organizations with status. The app branches: signed out, signed in with no organization, organization pending, organization enabled. Same hostname, same app, one branch. Delete the build-time tenantId and userId constants from web/lib/config.ts; the organization comes from /me and then travels in the request path.\n\n**Done when:** all four states render against development.",
+        "to": "**Phase 4 of 7.**\n\n- **Blocked by:** 5558db, 5f0c4c, b574a6\n- **Runs in parallel with:** nothing. It is the last piece the join waits on\n- **Unblocks:** 7b4616, e41552\n\n---\nGET /me returns the person and their organizations with status. The app branches: signed out, signed in with no organization, organization pending, organization enabled. Same hostname, same app, one branch.\n\nDelete the build-time tenantId and userId constants from web/lib/config.ts; the organization comes from /me and then travels in the request path.\n\n**Done when:** all four states render against development."
+      },
+      "labels": {
+        "from": [],
+        "to": [
+          "phase-4"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-24df7029-fbd7-4a34-9ba8-2dce4b78f00c",
+  "title": "Specify delegated authority the way an office works",
+  "description": "**Phase 6 of 7.** The design risk of the whole initiative lives in this phase. Do it against a running multi-member organization, not in the abstract.\n\n- **Blocked by:** 6c1a9b, 0814e6, ddf609\n- **Runs in parallel with:** nothing. It gates the rest of the epic\n- **Unblocks:** eef4aa\n\n---\nGherkin first: a member approves within their ceiling and is refused outside it; a member cannot write an always-allow rule broader than their own standing; a delegation expires; an action exceeding the requester's ceiling escalates to a member whose ceiling covers it.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ba3ea4f4-e439-4a2a-9850-57f095c3346b",
+  "labels": [
+    "phase-6"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:41:22.214997Z",
+  "updated_at": "2026-09-01T02:46:21.334358Z",
+  "closed_at": null,
+  "custom": {}
+}

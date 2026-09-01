@@ -1,0 +1,169 @@
+{
+  "id": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+  "title": "Phase 4: Serve organizations with delegated authority",
+  "description": "Outcome: chattic.us serves multi-user organizations. People sign in with Google through Cognito, organizations are the unit of enablement and billing, members share channels, bots, and one organization computer, and what a member may approve or see is governed by a delegated authority ceiling modeled on how an office works.\n\nNot included: Apple sign-in, domain-verified auto-join, per-member isolation on the shared computer, billing mechanics.\n\nDesign, rejected alternatives, and explicit non-requirements: **docs/ORGANIZATIONS.md**.\n\n## How to work this initiative\n\nEvery child issue carries a header naming its phase, what blocks it, what it runs in parallel with, and what it unblocks. **Phases run in sequence. Everything inside a phase runs at the same time.** Filter by the phase-N label to see what is workable now.\n\n| Phase | What happens | Items |\n| --- | --- | --- |\n| 1 | Ground work, nothing blocks it | 79ca6a, 7c1382, 0ab02c, 272aea, 1ebc7d |\n| 2 | Cognito and the control plane, two builds that never touch | 0df6cb, b574a6 |\n| 3 | Identity resolves, nothing enforces yet | 5f0c4c, fac2ee, 79578e, 5558db, 41d08d |\n| 4 | The door closes | 22f5bb, then **7b4616**, then e41552, ae51dc |\n| 5 | Collaboration | 14f692, then 6c1a9b, 0814e6, ddf609 |\n| 6 | Delegated authority | 24df70, eef4aa, then ac3b7a, b49a89, 14cf05, then e4053a |\n| 7 | Environments come back | bc830a, then 89a222 |\n\n**Critical path:** 0ab02c to 0df6cb to 5f0c4c to 22f5bb to 7b4616 to 14f692 to ddf609 to 24df70 to eef4aa to e4053a to bc830a to 89a222. Everything off that line has slack; if capacity is short, staff the path first and let the members CLI, invitations, and named roles arrive late.\n\n**One hard join: 7b4616.** Four phase-3 and phase-4 tracks converge on it and nothing in phases 5 to 7 begins before it. Enforcement flips in a single step because a half-enforced front door is a second authentication path, and this repository does not keep two.\n\n**Two serialize-merge hazards.** 79578e reshapes every route and the tenant column in most feature files; give it a clear window and merge it alone. 6c1a9b, 0814e6, and ddf609 are independent in logic but all edit models.py and messaging/store.py; give the set to one agent or merge them one at a time.\n\n## Rules for every item\n\n- Gherkin first. Scenarios must fail for the right reason before production code exists.\n- One correct path. No item ships a second way of doing what it already does.\n- Pull requests target develop, reviewed by the sub-agent loop in AGENTS.md.\n- AWS resources are CDK only. Organization and membership rows are data and may be written by the members CLI.\n- After any deploy-affecting merge, run sh scripts/live_aws_thin_turn.sh development from a logged-in shell. The in-process gates use moto and prove nothing about CloudFront, SQS, or Lambda.\n- Secrets never enter the repository, a CDK template, or an agent transcript.",
+  "type": "initiative",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "197032ad-f3f0-4b84-90fe-959164ab44db",
+      "author": "home",
+      "text": "As an organization adopting Chatticus, I want my people to sign in with Google and share one workplace under delegated authority, so that named teammates can act for the company while only the people with standing can commit it.\n\nDefinition of done: no route serves an unauthenticated caller; an organization is enabled as a unit and its owner invites the rest; members share channels, bots, and one organization computer; and every consequential action is bound by the requesting member's authority ceiling. Design recorded in docs/ORGANIZATIONS.md.",
+      "created_at": "2026-09-01T02:33:47.362682Z"
+    },
+    {
+      "id": "b274c7e8-d365-40cc-9faf-7b463a36d089",
+      "author": "home",
+      "text": "**Adversarial pass before implementation, using inversion.** Six issues added and nine existing issues commented. The question asked was how this initiative fails, not how it succeeds.\n\n**Two are hard gates on the phase-4 join and were missing entirely:**\n\n- **5744ef** seed the first organization. Flipping enforcement with an empty membership table locks everyone out of every environment.\n- **d71ed5** teach live acceptance and the demo CLI to authenticate. Every phase in this plan ends by running the live script, and the live script does not know how to authenticate.\n\n**Consequence:** 41d08d, the members CLI, is raised to P0. It is the bootstrap path, not a convenience.\n\n**Four more:**\n\n- **3a35db** wire the ceiling into the capability sinks, because eef4aa alone produces a type nothing consults. This repository already split policy from wiring once, in 3c5f8d and 1f3bb8.\n- **ac5453** verify the Google consent screen. An unverified External app is capped at 100 users and warns on the consent screen, so the waitlist fails on the day it starts working. Verification needs a privacy policy on the marketing site, a dependency nothing named.\n- **694392** cap organization creation and alarm on Cognito monthly active users. Open signup is an intentional unauthenticated write path with no limit on it.\n- **349634** signing out actually signs out, because clearing in-memory tokens leaves the Cognito session and the next sign-in silently restores the previous human.\n\n**Themes in the comments:** one-way doors at pool creation, email normalization being load-bearing for invitation matching, token expiry across a 900-second stream, a third concurrent editor on the web app that the collision warning missed, and what a suspended organization does to a turn already in flight.",
+      "created_at": "2026-09-01T02:58:17.007672Z"
+    },
+    {
+      "id": "db91d58a-5f3e-497f-8516-19dd4f6ba4fe",
+      "author": "agent@example.com",
+      "text": "Manager error: I queried these ids before pulling #106 (`cc371dd` / `6f7544d` / `ae14d9f`) and treated them as missing. Duplicate initiative **7c310b** and its Phase 01 children will be closed as duplicates. Real source of truth is this initiative. Planners retarget to 79ca6a, 7c1382, 0ab02c, 272aea, 1ebc7d.\n",
+      "created_at": "2026-09-01T03:01:53.032942Z"
+    },
+    {
+      "id": "f40b951a-e0f4-452c-b2cb-6f875f433ae4",
+      "author": "agent@example.com",
+      "text": "Duplicate initiative 7c310b (and its children) closed on develop via #109 (ade52fc). 86aec8 remains the organizations source of truth. 272aea is in_progress (org records kernel). Spend 79ca6a and dark 7c1382 still wait on architect confirmation.",
+      "created_at": "2026-09-01T03:08:28.486737Z"
+    },
+    {
+      "id": "9e469bd0-e7b2-436f-8916-ba6604ae07f9",
+      "author": "agent@example.com",
+      "text": "Process correction: architect conversation stays on these Kanbus issues. GitHub PRs are only for landing board files and product code. The phase-01 questions PR (#108) was the wrong channel and will not be repeated.\n\nAdversarial pass on this initiative is acknowledged on the child issues (5744ef, d71ed5, 41d08d as bootstrap, 3a35db, ac5453, 694392, 349634). Phase 01 continues on 272aea (records, email rule as ruled) and 1ebc7d (Principal shape as ruled). 79ca6a waits on the human for dollars and SNS address; construct will be parameterized with no silent default. 7c1382 follows disable-not-destroy.",
+      "created_at": "2026-09-01T03:13:46.089268Z"
+    },
+    {
+      "id": "64cc85ec-c94b-4228-817b-89bdab63faa9",
+      "author": "agent@example.com",
+      "text": "272aea landed on develop (#111, 9e24c7e). Org records kernel is in. Next Phase 01 slices: 1ebc7d (Principal shape), 7c1382 (dark: enabled false), 79ca6a (budget construct, dollars still human), 0ab02c (human Google OAuth).",
+      "created_at": "2026-09-01T03:25:22.795801Z"
+    },
+    {
+      "id": "f00d64d5-4a61-4d1b-8305-75c05543a427",
+      "author": "agent@example.com",
+      "text": "Phase 01 status (architect cadence):\n\n- **272aea** closed — org records on develop (#111). Email normalize on develop is lowercase+strip only (see 272aea: that is not the later gated-Gmail comment).\n- **1ebc7d** closed — Principal + waitlist_safe marker (#115); carries OrganizationStatus.\n- **7c1382** done live — staging and hey.chattic.us no longer resolve; marketing and dev still up. Board close #120. Scripts use --exclusively (#119).\n- **79ca6a** closed as superseded by **854698** / epic **2e3e94**. #116 will not merge.\n- **0ab02c** still human (External, AnthusAI org, openid email profile).\n- New phase-1 on the budgets epic: **8574c7** (OpenAI project/key; blocks dedicated account) and **854698** (ChatticusBudgets construct).",
+      "created_at": "2026-09-01T04:07:21.585957Z"
+    },
+    {
+      "id": "3f972981-50f5-47c2-bfcd-0bc9f55640ba",
+      "author": "agent@example.com",
+      "text": "Board #120/#121 on develop (7c1382 closed, 79ca6a closed). Planning **854698** (ChatticusBudgets on every deployment; #116 was never merged) and **8574c7** (cut papyrus OpenAI SSM). **0ab02c** still human.",
+      "created_at": "2026-09-01T04:19:34.250090Z"
+    },
+    {
+      "id": "2b29090b-0470-4eef-a94a-d275855a0195",
+      "author": "agent@example.com",
+      "text": "Phase 01 cadence: **854698** landed on develop (#125) — ChatticusBudgets construct on ChatticusSnapshots, fail-closed, no dollar default. Human still owes monthly limit + notification email before the account meter is live. **8574c7** PR #124 accepted on infra; README fake-client wording being corrected before merge; this still blocks dedicated-account deploy. **0ab02c** still human (Google OAuth External). Computers desiredCount 0. Never --all.",
+      "created_at": "2026-09-01T04:37:08.830338Z"
+    },
+    {
+      "id": "d9f15632-acd4-4492-8bc9-cb6358d331d0",
+      "author": "agent@example.com",
+      "text": "**8574c7** landed (#124). Dedicated-account ThinTurn no longer needs papyrus SSM. Human still seeds per-env OpenAI project/key. Architect follow-up **46d9de**: move ChatticusBudgets off Snapshots so an unset-context snapshots deploy cannot delete the budget. **0ab02c** still human.",
+      "created_at": "2026-09-01T04:43:08.193411Z"
+    },
+    {
+      "id": "dfa2f920-52a2-474b-ba48-97b816d01a0d",
+      "author": "agent@example.com",
+      "text": "Phase 01 cadence: **8574c7** on develop (#124). **854698** on develop (#125) then architect **46d9de** (dedicated ChatticusBudgets stack so snapshots deploys cannot delete the meter) — PR #128, CI green, waiting acceptance. Cutover: snapshots first (drops unique budget name), then budgets deploy. **0ab02c** still human. Computers desiredCount 0. Never --all.",
+      "created_at": "2026-09-01T05:06:19.642811Z"
+    },
+    {
+      "id": "56eff9b8-d37e-48c8-9b4f-2f6693471e07",
+      "author": "home",
+      "text": "**Cadence note: the sign-in track is about to stall on a human action, and one P0 chain is open and unclaimed.**\n\nPhase 1 has drained fast. What is left divides cleanly.\n\n**Blocked on the human, and it blocks the critical path.** 0ab02c, registering the Google OAuth clients, is the first link in `0ab02c` to `0df6cb` to `5f0c4c` and `5558db` to `22f5bb` to the enforcement join at 7b4616. Nothing on that chain can start until the clients exist, so the entire sign-in epic is waiting on one console session. Also still waiting: the monthly limit and notification address, now `CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD` and `CHATTICUS_BUDGETS_NOTIFICATION_EMAIL`.\n\n**Workable now, and the better place to spend the wait.** b574a6, control-plane operations for organizations, has been unblocked since 272aea closed and nobody has picked it up. It is the P0 that opens the other chain: b574a6 unblocks 41d08d, which unblocks 5744ef, which 7b4616 cannot be called done without. That chain does not touch Google at all.\n\nAlso workable and unclaimed: 7695e0 deploy scripts, e8fe91 log retention.\n\n**Suggestion:** take b574a6 next rather than waiting on the OAuth clients. It keeps the enforcement join's prerequisites moving while the human-gated half is parked.",
+      "created_at": "2026-09-01T05:08:32.420379Z"
+    },
+    {
+      "id": "59e51e1f-63cc-4c82-940e-a15213e5745d",
+      "author": "agent@example.com",
+      "text": "**46d9de** landed (#128). Dedicated ChatticusBudgets stack. Human cutover if the old Snapshots-owned budget exists. **0ab02c** still human. **b574a6** control-plane planning next for members CLI bootstrap.",
+      "created_at": "2026-09-01T05:14:34.635748Z"
+    },
+    {
+      "id": "03d1334c-09dc-4ac9-91c1-eafbca21afd3",
+      "author": "agent@example.com",
+      "text": "**b574a6** landed (#130). Next bootstrap slice **41d08d** members CLI (P0). **0ab02c** still human.",
+      "created_at": "2026-09-01T05:30:49.496363Z"
+    },
+    {
+      "id": "1a089baf-a697-47f3-8edc-1ca2a44ab5b9",
+      "author": "agent@example.com",
+      "text": "Phase 01 cadence:\n\n- **b574a6** closed on the board (#131 / edca177). Control-plane org ops on develop (#130).\n- **41d08d** in progress — #132 members CLI (list/show/enable/suspend/set-role). Enable refuses non-pending (architect enable≠reinstate). CI on the ruff fix still queued; not merged. Card stays open until development-table enable works.\n- **0ab02c** still human (Google OAuth External). Sign-in chain still blocked there.\n- Computers desiredCount 0. Never --all.\n",
+      "created_at": "2026-09-01T06:02:21.716252Z"
+    },
+    {
+      "id": "f63634ec-b17c-4d4a-adfe-66e773cff307",
+      "author": "agent@example.com",
+      "text": "**41d08d closed.** Members CLI on develop (#132 / 5ab905e) and accepted against development Dynamo (list pending, enable without a computer). **50b42d** (reinstate) is unblocked but not started. **0ab02c** still human — sign-in chain still waits on Google OAuth clients.\n",
+      "created_at": "2026-09-01T06:25:37.392578Z"
+    },
+    {
+      "id": "01294894-8406-4cc5-b0ab-0fedbd0d8cef",
+      "author": "home",
+      "text": "**Cadence: the queue is empty for the first time, which is exactly when the serialize-merge card should run.**\n\n#132 merged green and nothing is in progress. Three P0s came unblocked with it, and the order matters more than usual today.\n\n**1. Take 79578e now, alone.** It carries the plan's first serialize-merge hazard: it reshapes nearly every route in `http/app.py` and the tenant column in most files under `features/`. Its own card says it needs a clear window and one agent. That window is open right now and has not been open before, because until this moment something has always been in flight against those files. Every hour it waits, the chance of a conflicting branch grows. Its only blocker, 1ebc7d, closed two cycles ago.\n\n**2. Then fac2ee and 5744ef, which can run in parallel.** Both P0, both unblocked, both prerequisites the enforcement join at 7b4616 cannot be called done without.\n\n- fac2ee, per-worker credentials, blocked by 1ebc7d and 272aea, both closed. It also closes the question docs/DESIGN_CHALLENGES.md leaves open about how workers authenticate chunk POSTs.\n- 5744ef, seed the first organization, blocked by 272aea, b574a6, and 41d08d, all now closed. Without it, flipping enforcement locks everyone out of every environment.\n\nThey touch different files, worker registration versus the members path, so they will not collide with each other. Neither should run at the same time as 79578e.\n\n**3. Then the small ones:** 50b42d reinstate, e8fe91 log retention, 7695e0 deploy scripts.\n\n**Still parked on the human, unchanged:** 0ab02c and the two budget values. The whole sign-in chain from 0df6cb onward waits on the OAuth clients, but there is now a full cycle of P0 work that does not touch Google at all.",
+      "created_at": "2026-09-01T06:38:28.665876Z"
+    },
+    {
+      "id": "6cd8e983-a329-40ff-bf4a-60008c9b9e28",
+      "author": "agent@example.com",
+      "text": "Architect empty-queue note taken. **79578e** in progress (serialize: org in the request path). fac2ee and 5744ef wait until it merges. **0ab02c** still human.\n",
+      "created_at": "2026-09-01T06:41:21.685467Z"
+    },
+    {
+      "id": "a24c1311-12fe-4088-9ae5-05c97f4591d6",
+      "author": "agent@example.com",
+      "text": "**79578e** on develop (#137). Serialize window closed. Next: **fac2ee** (worker credentials) and **5744ef** (seed first org) in parallel, different worktrees. **0ab02c** still human.\n",
+      "created_at": "2026-09-01T07:36:10.988163Z"
+    },
+    {
+      "id": "90c50b19-d53e-41ae-9a5b-11bcf6e48fe2",
+      "author": "agent@example.com",
+      "text": "**fac2ee** closed (#140). **5744ef** seed CLI generalized (#141) and stays in_progress until seeded owner sign-in. Next unblocked for the join: **d71ed5** (live scripts). **0ab02c** still human.\n",
+      "created_at": "2026-09-01T08:27:04.149844Z"
+    },
+    {
+      "id": "4b0d69ba-b765-4b7c-9cce-356ab39552d5",
+      "author": "agent@example.com",
+      "text": "Cadence: **d71ed5** code is on develop (#142). Live register still 404 until named `ChatticusThinTurn` development deploy (in flight; never `--all`). **50b42d** reinstate and **7695e0** `--exclusively` are in planning (separate worktrees). **0ab02c** still human; **5744ef** stays open for owner sign-in. Computers desiredCount 0.\n",
+      "created_at": "2026-09-01T08:51:26.463894Z"
+    },
+    {
+      "id": "909432f7-587c-441f-ac76-31c9b3a9a0e1",
+      "author": "agent@example.com",
+      "text": "Cadence: **#145** `reinstate` and **#144** `--exclusively` are on develop. **50b42d** and **7695e0** closed. Named ThinTurn deploy made org-path register live; full live script still 403s on recycle — **b3e12c** implementing (`worker#{id}` on roster PK, no lookup). **d71ed5** stays open. **0ab02c** still human. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T09:20:42.013967Z"
+    },
+    {
+      "id": "5075642b-0775-4fb9-ad6d-9bdb1269f337",
+      "author": "agent@example.com",
+      "text": "Cadence: **#146** overlay on develop. **#147** (b3e12c) roster persist + scan dropped; waiting python CI after black-format. Named ThinTurn live still blocked on that merge then a named deploy. **0ab02c** still human. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T09:37:35.803892Z"
+    },
+    {
+      "id": "b2028db8-ead0-4dbf-9183-0a80ee7eb4fb",
+      "author": "agent@example.com",
+      "text": "**b3e12c** closed: live `stale_waiting=409` after #147 named ThinTurn deploy. **d71ed5** stays open; remaining live-script fail is reconnect duplicate seqs, not worker hashes. **0ab02c** still human. Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T09:54:24.345502Z"
+    },
+    {
+      "id": "7bb8aa78-dc46-419c-a925-e5c5c13aeca9",
+      "author": "agent@example.com",
+      "text": "Cadence: **#149** reconnect gate on develop; **7794b0** closed. Human still owes development OpenAI SSM at `/chatticus/development/thin-turn/openai-api-key` and **0ab02c** Google OAuth. Next unblocked: **e8fe91** log retention (planning). Computers desiredCount 0. Never `--all`.\n",
+      "created_at": "2026-09-01T10:17:36.540848Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:33:10.381126Z",
+  "updated_at": "2026-09-01T10:17:36.540848Z",
+  "closed_at": null,
+  "custom": {}
+}

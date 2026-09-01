@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import threading
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any, Protocol
 
 from chatticus.capability_policy import (
@@ -19,8 +20,16 @@ from chatticus.models import (
     ChannelParticipant,
     Computer,
     ComputerPolicy,
+    CostClass,
     DuplicateBotNameError,
+    Identity,
+    Invitation,
+    InvitationStatus,
+    MemberRole,
+    Membership,
     Message,
+    Organization,
+    OrganizationStatus,
     PendingComputerToolSnapshot,
     StaleAttemptError,
     Task,
@@ -29,7 +38,10 @@ from chatticus.models import (
     TurnEvent,
     TurnEventKind,
     TurnStatus,
+    WorkerRecord,
+    WorkerRegistration,
 )
+from chatticus.vendor_ledger import VendorLedgerRow
 
 
 class MessagingStore(Protocol):
@@ -207,6 +219,75 @@ class MessagingStore(Protocol):
     ) -> TaskCapabilityGrant | None:
         """Load the task grant for one turn, if any."""
 
+    def put_identity(self, identity: Identity) -> None:
+        """Persist one global identity."""
+
+    def get_identity_by_email(self, email: str) -> Identity | None:
+        """Load one identity by normalized email."""
+
+    def get_identity(self, user_id: str) -> Identity | None:
+        """Load one identity by user id."""
+
+    def put_organization(self, organization: Organization) -> None:
+        """Persist one organization."""
+
+    def get_organization(self, tenant_id: str) -> Organization | None:
+        """Load one organization."""
+
+    def put_membership(self, membership: Membership) -> None:
+        """Persist one membership and its user-to-organization index."""
+
+    def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
+        """Load one membership."""
+
+    def list_memberships(self, tenant_id: str) -> list[Membership]:
+        """Return every membership in one organization."""
+
+    def list_organizations_for_user(self, user_id: str) -> list[Organization]:
+        """Return every organization one user belongs to."""
+
+    def list_organizations_by_status(
+        self, status: OrganizationStatus
+    ) -> list[Organization]:
+        """Return every organization with one lifecycle status."""
+
+    def put_invitation(self, invitation: Invitation) -> None:
+        """Persist one invitation and its lookup item."""
+
+    def get_invitation(self, invitation_id: str) -> Invitation | None:
+        """Load one invitation by id."""
+
+    def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
+        """Return distinct user ids referenced by one tenant's messaging rows."""
+
+    def put_worker(self, record: WorkerRecord) -> None:
+        """Persist one registered worker and its credential hash."""
+
+    def get_worker(self, tenant_id: str, worker_id: str) -> WorkerRecord | None:
+        """Load one worker from the tenant roster."""
+
+    def list_workers(self, tenant_id: str) -> list[WorkerRecord]:
+        """Return every worker registered for one tenant."""
+
+    def get_vendor_ledger_row(
+        self, tenant_id: str, turn_id: str
+    ) -> VendorLedgerRow | None:
+        """Load one vendor spend ledger row for a turn."""
+
+    def insert_vendor_ledger_row(self, row: VendorLedgerRow) -> VendorLedgerRow:
+        """Insert the first vendor spend row for one turn."""
+
+    def accumulate_vendor_ledger_usage(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        input_delta: int,
+        output_delta: int,
+        cost_delta: Decimal | None,
+    ) -> VendorLedgerRow:
+        """Add token and optional cost deltas to an existing ledger row."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -226,6 +307,14 @@ class InMemoryMessagingStore:
         self._tasks: dict[tuple[str, str], Task] = {}
         self._turn_grants: dict[tuple[str, str], TaskCapabilityGrant] = {}
         self._active_channel_turns: dict[tuple[str, str], str] = {}
+        self._identities_by_email: dict[str, Identity] = {}
+        self._identities_by_user: dict[str, Identity] = {}
+        self._organizations: dict[str, Organization] = {}
+        self._memberships: dict[tuple[str, str], Membership] = {}
+        self._user_org_index: dict[tuple[str, str], Membership] = {}
+        self._invitations: dict[str, Invitation] = {}
+        self._workers: dict[tuple[str, str], WorkerRecord] = {}
+        self._vendor_ledger: dict[tuple[str, str], VendorLedgerRow] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -517,6 +606,150 @@ class InMemoryMessagingStore:
         self, tenant_id: str, turn_id: str
     ) -> TaskCapabilityGrant | None:
         return self._turn_grants.get((tenant_id, turn_id))
+
+    def put_identity(self, identity: Identity) -> None:
+        self._identities_by_email[identity.email] = identity
+        self._identities_by_user[identity.user_id] = identity
+
+    def get_identity_by_email(self, email: str) -> Identity | None:
+        return self._identities_by_email.get(email)
+
+    def get_identity(self, user_id: str) -> Identity | None:
+        return self._identities_by_user.get(user_id)
+
+    def put_organization(self, organization: Organization) -> None:
+        self._organizations[organization.tenant_id] = organization
+
+    def get_organization(self, tenant_id: str) -> Organization | None:
+        return self._organizations.get(tenant_id)
+
+    def put_membership(self, membership: Membership) -> None:
+        key = (membership.tenant_id, membership.user_id)
+        self._memberships[key] = membership
+        self._user_org_index[(membership.user_id, membership.tenant_id)] = membership
+
+    def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
+        return self._memberships.get((tenant_id, user_id))
+
+    def list_memberships(self, tenant_id: str) -> list[Membership]:
+        return sorted(
+            (
+                membership
+                for membership in self._memberships.values()
+                if membership.tenant_id == tenant_id
+            ),
+            key=lambda membership: membership.user_id,
+        )
+
+    def list_organizations_for_user(self, user_id: str) -> list[Organization]:
+        organizations: list[Organization] = []
+        for (indexed_user_id, tenant_id), _ in self._user_org_index.items():
+            if indexed_user_id != user_id:
+                continue
+            organization = self.get_organization(tenant_id)
+            if organization is not None:
+                organizations.append(organization)
+        return sorted(organizations, key=lambda organization: organization.tenant_id)
+
+    def list_organizations_by_status(
+        self, status: OrganizationStatus
+    ) -> list[Organization]:
+        return sorted(
+            (
+                organization
+                for organization in self._organizations.values()
+                if organization.status == status
+            ),
+            key=lambda organization: organization.tenant_id,
+        )
+
+    def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
+        user_ids: set[str] = set()
+        for bot in self._bots.values():
+            if bot.tenant_id == tenant_id:
+                user_ids.add(bot.user_id)
+        for channel in self._channels.values():
+            if channel.tenant_id == tenant_id:
+                user_ids.add(channel.user_id)
+        for task in self._tasks.values():
+            if task.tenant_id == tenant_id:
+                user_ids.add(task.user_id)
+        for indexed_tenant_id, user_id in self._computers:
+            if indexed_tenant_id == tenant_id:
+                user_ids.add(user_id)
+        return tuple(sorted(user_ids))
+
+    def put_worker(self, record: WorkerRecord) -> None:
+        tenant_id = record.registration.tenant_id
+        worker_id = record.registration.worker_id
+        self._workers[(tenant_id, worker_id)] = record
+
+    def get_worker(self, tenant_id: str, worker_id: str) -> WorkerRecord | None:
+        return self._workers.get((tenant_id, worker_id))
+
+    def list_workers(self, tenant_id: str) -> list[WorkerRecord]:
+        return sorted(
+            (
+                record
+                for (stored_tenant_id, _), record in self._workers.items()
+                if stored_tenant_id == tenant_id
+            ),
+            key=lambda record: record.registration.worker_id,
+        )
+
+    def put_invitation(self, invitation: Invitation) -> None:
+        self._invitations[invitation.invitation_id] = invitation
+
+    def get_invitation(self, invitation_id: str) -> Invitation | None:
+        return self._invitations.get(invitation_id)
+
+    def get_vendor_ledger_row(
+        self, tenant_id: str, turn_id: str
+    ) -> VendorLedgerRow | None:
+        return self._vendor_ledger.get((tenant_id, turn_id))
+
+    def insert_vendor_ledger_row(self, row: VendorLedgerRow) -> VendorLedgerRow:
+        key = (row.tenant_id, row.turn_id)
+        with self._lock:
+            if key in self._vendor_ledger:
+                msg = f"Vendor ledger row for turn {row.turn_id!r} already exists."
+                raise ValueError(msg)
+            self._vendor_ledger[key] = row
+            return row
+
+    def accumulate_vendor_ledger_usage(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        input_delta: int,
+        output_delta: int,
+        cost_delta: Decimal | None,
+    ) -> VendorLedgerRow:
+        key = (tenant_id, turn_id)
+        with self._lock:
+            existing = self._vendor_ledger.get(key)
+            if existing is None:
+                msg = f"Vendor ledger row for turn {turn_id!r} is unknown."
+                raise ValueError(msg)
+            next_cost = existing.cost_usd
+            if cost_delta is not None:
+                next_cost = (next_cost or Decimal("0")) + cost_delta
+            updated = VendorLedgerRow(
+                tenant_id=existing.tenant_id,
+                turn_id=existing.turn_id,
+                vendor=existing.vendor,
+                model=existing.model,
+                input_tokens=existing.input_tokens + input_delta,
+                output_tokens=existing.output_tokens + output_delta,
+                billed_via=existing.billed_via,
+                input_price_per_million_usd=existing.input_price_per_million_usd,
+                output_price_per_million_usd=existing.output_price_per_million_usd,
+                cost_usd=next_cost,
+                recorded_at=existing.recorded_at,
+            )
+            self._vendor_ledger[key] = updated
+            return updated
 
 
 class DynamoMessagingStore:
@@ -1364,6 +1597,312 @@ class DynamoMessagingStore:
             return None
         return grant_from_payload(payload)
 
+    def put_identity(self, identity: Identity) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_identity_item(identity),
+        )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._identity_lookup_pk(identity.email)},
+                "sk": {"S": "meta"},
+                "user_id": {"S": identity.user_id},
+                "email": {"S": identity.email},
+                "created_at": {"S": identity.created_at.isoformat()},
+            },
+        )
+
+    def get_identity_by_email(self, email: str) -> Identity | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._identity_lookup_pk(email)},
+                "sk": {"S": "meta"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return self.get_identity(item["user_id"]["S"])
+
+    def get_identity(self, user_id: str) -> Identity | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._user_pk(user_id)},
+                "sk": {"S": "identity"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _identity_from_item(item)
+
+    def put_organization(self, organization: Organization) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_organization_item(organization),
+        )
+
+    def get_organization(self, tenant_id: str) -> Organization | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._org_pk(tenant_id)},
+                "sk": {"S": "meta"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _organization_from_item(item)
+
+    def put_membership(self, membership: Membership) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_membership_item(membership),
+        )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._user_pk(membership.user_id)},
+                "sk": {"S": self._user_org_sk(membership.tenant_id)},
+                "tenant_id": {"S": membership.tenant_id},
+                "user_id": {"S": membership.user_id},
+                "role": {"S": membership.role},
+            },
+        )
+
+    def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._org_pk(tenant_id)},
+                "sk": {"S": self._member_sk(user_id)},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _membership_from_item(item)
+
+    def list_memberships(self, tenant_id: str) -> list[Membership]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._org_pk(tenant_id)},
+                ":prefix": {"S": "member#"},
+            },
+        )
+        memberships: list[Membership] = []
+        for row in response.get("Items", []):
+            memberships.append(_membership_from_item(row))
+        return sorted(memberships, key=lambda membership: membership.user_id)
+
+    def list_organizations_for_user(self, user_id: str) -> list[Organization]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._user_pk(user_id)},
+                ":prefix": {"S": "org#"},
+            },
+        )
+        organizations: list[Organization] = []
+        for row in response.get("Items", []):
+            tenant_id = row["tenant_id"]["S"]
+            organization = self.get_organization(tenant_id)
+            if organization is not None:
+                organizations.append(organization)
+        return sorted(organizations, key=lambda organization: organization.tenant_id)
+
+    def list_organizations_by_status(
+        self, status: OrganizationStatus
+    ) -> list[Organization]:
+        organizations: list[Organization] = []
+        scan_kwargs: dict[str, Any] = {
+            "TableName": self.table_name,
+            "FilterExpression": (
+                "sk = :meta AND attribute_exists(owner_user_id) AND "
+                "#status = :status"
+            ),
+            "ExpressionAttributeNames": {"#status": "status"},
+            "ExpressionAttributeValues": {
+                ":meta": {"S": "meta"},
+                ":status": {"S": status.value},
+            },
+        }
+        while True:
+            response = self.client.scan(**scan_kwargs)
+            for item in response.get("Items", []):
+                organizations.append(_organization_from_item(item))
+            last_key = response.get("LastEvaluatedKey")
+            if last_key is None:
+                break
+            scan_kwargs["ExclusiveStartKey"] = last_key
+        return sorted(organizations, key=lambda organization: organization.tenant_id)
+
+    def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
+        user_ids: set[str] = set()
+        query_kwargs: dict[str, Any] = {
+            "TableName": self.table_name,
+            "KeyConditionExpression": "pk = :pk",
+            "ExpressionAttributeValues": {
+                ":pk": {"S": self._roster_pk(tenant_id)},
+            },
+        }
+        while True:
+            response = self.client.query(**query_kwargs)
+            for item in response.get("Items", []):
+                raw_user_id = item.get("user_id", {}).get("S")
+                if raw_user_id:
+                    user_ids.add(raw_user_id)
+            last_key = response.get("LastEvaluatedKey")
+            if last_key is None:
+                break
+            query_kwargs["ExclusiveStartKey"] = last_key
+        return tuple(sorted(user_ids))
+
+    def put_worker(self, record: WorkerRecord) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_worker_item(record),
+        )
+
+    def get_worker(self, tenant_id: str, worker_id: str) -> WorkerRecord | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"worker#{worker_id}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _worker_from_item(item)
+
+    def list_workers(self, tenant_id: str) -> list[WorkerRecord]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._roster_pk(tenant_id)},
+                ":prefix": {"S": "worker#"},
+            },
+        )
+        workers = [_worker_from_item(item) for item in response.get("Items", [])]
+        return sorted(workers, key=lambda record: record.registration.worker_id)
+
+    def put_invitation(self, invitation: Invitation) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_invitation_item(invitation),
+        )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._invitation_lookup_pk(invitation.invitation_id)},
+                "sk": {"S": "meta"},
+                "tenant_id": {"S": invitation.tenant_id},
+                "invitation_id": {"S": invitation.invitation_id},
+            },
+        )
+
+    def get_invitation(self, invitation_id: str) -> Invitation | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._invitation_lookup_pk(invitation_id)},
+                "sk": {"S": "meta"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        tenant_id = item["tenant_id"]["S"]
+        canonical = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._org_pk(tenant_id)},
+                "sk": {"S": self._invite_sk(invitation_id)},
+            },
+        )
+        canonical_item = canonical.get("Item")
+        if canonical_item is None:
+            return None
+        return _invitation_from_item(canonical_item)
+
+    def get_vendor_ledger_row(
+        self, tenant_id: str, turn_id: str
+    ) -> VendorLedgerRow | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._vendor_ledger_pk(tenant_id)},
+                "sk": {"S": self._vendor_ledger_sk(turn_id)},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _vendor_ledger_from_item(item)
+
+    def insert_vendor_ledger_row(self, row: VendorLedgerRow) -> VendorLedgerRow:
+        try:
+            self.client.put_item(
+                TableName=self.table_name,
+                Item=_vendor_ledger_item(row),
+                ConditionExpression="attribute_not_exists(sk)",
+            )
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") == (
+                "ConditionalCheckFailedException"
+            ):
+                msg = f"Vendor ledger row for turn {row.turn_id!r} already exists."
+                raise ValueError(msg) from error
+            raise
+        stored = self.get_vendor_ledger_row(row.tenant_id, row.turn_id)
+        if stored is None:
+            msg = f"Vendor ledger row for turn {row.turn_id!r} was not persisted."
+            raise RuntimeError(msg)
+        return stored
+
+    def accumulate_vendor_ledger_usage(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        input_delta: int,
+        output_delta: int,
+        cost_delta: Decimal | None,
+    ) -> VendorLedgerRow:
+        update_expression = "ADD input_tokens :input_delta, output_tokens :output_delta"
+        values: dict[str, Any] = {
+            ":input_delta": {"N": str(input_delta)},
+            ":output_delta": {"N": str(output_delta)},
+        }
+        if cost_delta is not None:
+            update_expression += ", cost_usd :cost_delta"
+            values[":cost_delta"] = {"N": str(cost_delta)}
+        self.client.update_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._vendor_ledger_pk(tenant_id)},
+                "sk": {"S": self._vendor_ledger_sk(turn_id)},
+            },
+            UpdateExpression=update_expression,
+            ConditionExpression="attribute_exists(pk)",
+            ExpressionAttributeValues=values,
+        )
+        stored = self.get_vendor_ledger_row(tenant_id, turn_id)
+        if stored is None:
+            msg = f"Vendor ledger row for turn {turn_id!r} is unknown after update."
+            raise RuntimeError(msg)
+        return stored
+
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
 
@@ -1387,6 +1926,33 @@ class DynamoMessagingStore:
 
     def _task_roster_sk(self, user_id: str, task_id: str) -> str:
         return f"task#{user_id}#{task_id}"
+
+    def _identity_lookup_pk(self, email: str) -> str:
+        return f"identity_lookup#{email}"
+
+    def _user_pk(self, user_id: str) -> str:
+        return f"user#{user_id}"
+
+    def _org_pk(self, tenant_id: str) -> str:
+        return f"{tenant_id}#org"
+
+    def _member_sk(self, user_id: str) -> str:
+        return f"member#{user_id}"
+
+    def _user_org_sk(self, tenant_id: str) -> str:
+        return f"org#{tenant_id}"
+
+    def _invitation_lookup_pk(self, invitation_id: str) -> str:
+        return f"invitation_lookup#{invitation_id}"
+
+    def _invite_sk(self, invitation_id: str) -> str:
+        return f"invite#{invitation_id}"
+
+    def _vendor_ledger_pk(self, tenant_id: str) -> str:
+        return f"{tenant_id}#vendor_ledger"
+
+    def _vendor_ledger_sk(self, turn_id: str) -> str:
+        return f"turn#{turn_id}"
 
     def _bot_from_item(self, item: dict[str, Any]) -> Bot:
         memory_raw = item.get("memory", {}).get("S", "{}")
@@ -1475,6 +2041,8 @@ def _turn_item(turn: Turn) -> dict[str, Any]:
         item["pending_computer_action_id"] = {"S": turn.pending_computer_action_id}
     if turn.pending_computer_tool_name is not None:
         item["pending_computer_tool_name"] = {"S": turn.pending_computer_tool_name}
+    if turn.prompt_message_seq is not None:
+        item["prompt_message_seq"] = {"N": str(turn.prompt_message_seq)}
     return item
 
 
@@ -1514,6 +2082,11 @@ def _turn_from_item(item: dict[str, Any]) -> Turn:
         pending_computer_tool_name=(
             item.get("pending_computer_tool_name", {}).get("S") or None
         ),
+        prompt_message_seq=(
+            int(item["prompt_message_seq"]["N"])
+            if item.get("prompt_message_seq", {}).get("N") is not None
+            else None
+        ),
     )
 
 
@@ -1552,6 +2125,143 @@ def _task_from_item(item: dict[str, Any]) -> Task:
     )
 
 
+def _identity_item(identity: Identity) -> dict[str, Any]:
+    return {
+        "pk": {"S": f"user#{identity.user_id}"},
+        "sk": {"S": "identity"},
+        "user_id": {"S": identity.user_id},
+        "email": {"S": identity.email},
+        "created_at": {"S": identity.created_at.isoformat()},
+    }
+
+
+def _identity_from_item(item: dict[str, Any]) -> Identity:
+    return Identity(
+        user_id=item["user_id"]["S"],
+        email=item["email"]["S"],
+        created_at=datetime.fromisoformat(item["created_at"]["S"]),
+    )
+
+
+def _organization_item(organization: Organization) -> dict[str, Any]:
+    return {
+        "pk": {"S": f"{organization.tenant_id}#org"},
+        "sk": {"S": "meta"},
+        "tenant_id": {"S": organization.tenant_id},
+        "name": {"S": organization.name},
+        "status": {"S": organization.status},
+        "owner_user_id": {"S": organization.owner_user_id},
+        "created_at": {"S": organization.created_at.isoformat()},
+    }
+
+
+def _organization_from_item(item: dict[str, Any]) -> Organization:
+    return Organization(
+        tenant_id=item["tenant_id"]["S"],
+        name=item["name"]["S"],
+        status=OrganizationStatus(item["status"]["S"]),
+        owner_user_id=item["owner_user_id"]["S"],
+        created_at=datetime.fromisoformat(item["created_at"]["S"]),
+    )
+
+
+def _membership_item(membership: Membership) -> dict[str, Any]:
+    return {
+        "pk": {"S": f"{membership.tenant_id}#org"},
+        "sk": {"S": f"member#{membership.user_id}"},
+        "tenant_id": {"S": membership.tenant_id},
+        "user_id": {"S": membership.user_id},
+        "role": {"S": membership.role},
+        "joined_at": {"S": membership.joined_at.isoformat()},
+    }
+
+
+def _membership_from_item(item: dict[str, Any]) -> Membership:
+    return Membership(
+        tenant_id=item["tenant_id"]["S"],
+        user_id=item["user_id"]["S"],
+        role=MemberRole(item["role"]["S"]),
+        joined_at=datetime.fromisoformat(item["joined_at"]["S"]),
+    )
+
+
+def _worker_item(record: WorkerRecord) -> dict[str, Any]:
+    registration = record.registration
+    item: dict[str, Any] = {
+        "pk": {"S": f"{registration.tenant_id}#roster"},
+        "sk": {"S": f"worker#{registration.worker_id}"},
+        "worker_id": {"S": registration.worker_id},
+        "tenant_id": {"S": registration.tenant_id},
+        "cost_class": {"S": registration.cost_class.value},
+        "capabilities": {"S": json.dumps(sorted(registration.capabilities))},
+        "token_hash": {"S": record.token_hash},
+        "last_heartbeat_at": {"S": record.last_heartbeat_at.isoformat()},
+    }
+    if registration.computer_id is not None:
+        item["computer_id"] = {"S": registration.computer_id}
+    if record.hydrated_snapshot_generation is not None:
+        item["hydrated_snapshot_generation"] = {
+            "N": str(record.hydrated_snapshot_generation)
+        }
+    return item
+
+
+def _worker_from_item(item: dict[str, Any]) -> WorkerRecord:
+    capabilities_raw = item.get("capabilities", {}).get("S", "[]")
+    try:
+        capabilities_list = json.loads(capabilities_raw)
+    except json.JSONDecodeError:
+        capabilities_list = []
+    if not isinstance(capabilities_list, list):
+        capabilities_list = []
+    hydrated = item.get("hydrated_snapshot_generation", {}).get("N")
+    return WorkerRecord(
+        registration=WorkerRegistration(
+            worker_id=item["worker_id"]["S"],
+            tenant_id=item["tenant_id"]["S"],
+            cost_class=CostClass(item["cost_class"]["S"]),
+            capabilities=frozenset(str(cap) for cap in capabilities_list),
+            computer_id=item.get("computer_id", {}).get("S") or None,
+        ),
+        last_heartbeat_at=datetime.fromisoformat(item["last_heartbeat_at"]["S"]),
+        token_hash=item["token_hash"]["S"],
+        hydrated_snapshot_generation=int(hydrated) if hydrated is not None else None,
+    )
+
+
+def _invitation_item(invitation: Invitation) -> dict[str, Any]:
+    return {
+        "pk": {"S": f"{invitation.tenant_id}#org"},
+        "sk": {"S": f"invite#{invitation.invitation_id}"},
+        "invitation_id": {"S": invitation.invitation_id},
+        "tenant_id": {"S": invitation.tenant_id},
+        "email": {"S": invitation.email},
+        "invited_by_user_id": {"S": invitation.invited_by_user_id},
+        "role": {"S": invitation.role},
+        "status": {"S": invitation.status},
+        "expires_at": {"N": str(int(invitation.expires_at.timestamp()))},
+        "created_at": {"S": invitation.created_at.isoformat()},
+    }
+
+
+def _invitation_from_item(item: dict[str, Any]) -> Invitation:
+    expires_epoch = item.get("expires_at", {}).get("N")
+    return Invitation(
+        invitation_id=item["invitation_id"]["S"],
+        tenant_id=item["tenant_id"]["S"],
+        email=item["email"]["S"],
+        invited_by_user_id=item["invited_by_user_id"]["S"],
+        role=MemberRole(item["role"]["S"]),
+        status=InvitationStatus(item["status"]["S"]),
+        expires_at=(
+            datetime.fromtimestamp(int(expires_epoch), tz=UTC)
+            if expires_epoch
+            else datetime.fromtimestamp(0, tz=UTC)
+        ),
+        created_at=datetime.fromisoformat(item["created_at"]["S"]),
+    )
+
+
 def _turn_event_from_item(item: dict[str, Any]) -> TurnEvent:
     message_seq = int(item["message_seq"]["N"])
     token = item["token"]["S"]
@@ -1578,6 +2288,59 @@ def _turn_event_from_item(item: dict[str, Any]) -> TurnEvent:
         pending_computer_tool=pending,
         action_id=item.get("action_id", {}).get("S") or None,
         attempt_id=item.get("attempt_id", {}).get("S") or None,
+    )
+
+
+def _vendor_ledger_item(row: VendorLedgerRow) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "pk": {"S": f"{row.tenant_id}#vendor_ledger"},
+        "sk": {"S": f"turn#{row.turn_id}"},
+        "tenant_id": {"S": row.tenant_id},
+        "turn_id": {"S": row.turn_id},
+        "vendor": {"S": row.vendor},
+        "model": {"S": row.model},
+        "input_tokens": {"N": str(row.input_tokens)},
+        "output_tokens": {"N": str(row.output_tokens)},
+        "billed_via": {"S": row.billed_via},
+        "recorded_at": {"S": row.recorded_at.isoformat()},
+    }
+    if row.input_price_per_million_usd is not None:
+        item["input_price_per_million_usd"] = {
+            "N": str(row.input_price_per_million_usd)
+        }
+    if row.output_price_per_million_usd is not None:
+        item["output_price_per_million_usd"] = {
+            "N": str(row.output_price_per_million_usd)
+        }
+    if row.cost_usd is not None:
+        item["cost_usd"] = {"N": str(row.cost_usd)}
+    return item
+
+
+def _optional_decimal(item: dict[str, Any], key: str) -> Decimal | None:
+    raw = item.get(key, {}).get("N")
+    if raw is None:
+        return None
+    return Decimal(raw)
+
+
+def _vendor_ledger_from_item(item: dict[str, Any]) -> VendorLedgerRow:
+    return VendorLedgerRow(
+        tenant_id=item["tenant_id"]["S"],
+        turn_id=item["turn_id"]["S"],
+        vendor=item["vendor"]["S"],
+        model=item["model"]["S"],
+        input_tokens=int(item["input_tokens"]["N"]),
+        output_tokens=int(item["output_tokens"]["N"]),
+        billed_via=item["billed_via"]["S"],
+        input_price_per_million_usd=_optional_decimal(
+            item, "input_price_per_million_usd"
+        ),
+        output_price_per_million_usd=_optional_decimal(
+            item, "output_price_per_million_usd"
+        ),
+        cost_usd=_optional_decimal(item, "cost_usd"),
+        recorded_at=datetime.fromisoformat(item["recorded_at"]["S"]),
     )
 
 

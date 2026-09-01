@@ -3,7 +3,7 @@
   "title": "User opens chattic.us and sees the chat UI",
   "description": "Feature: chattic.us web surface\n\nScenario: Load the production site\n  Given the chattic.us DNS delegation is complete\n  When a user navigates to https://chattic.us\n  Then the Next.js application loads over HTTPS\n  And the page shows the bot roster or chat entry point\n\nScenario: UI reaches the control plane\n  Given the UI is configured for the production environment\n  When the user sends a message in chat\n  Then the request reaches the thin-turn front door\n  And the user sees turn progress via server-sent events",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -22,10 +22,28 @@
       "author": "agent@example.com",
       "text": "Chat UI roster/SSE and follow-up tests landed (#42, #43). Story stays in_progress until https://chattic.us loads over HTTPS and talks to the front door.",
       "created_at": "2026-08-31T20:07:05.042489Z"
+    },
+    {
+      "id": "63c9aad3-e63c-49a6-b5f6-ebcf63b08b07",
+      "author": "agent@example.com",
+      "text": "Live https://chattic.us is the marketing site, not web/ chat. Chat UI with roster is https://dev.chattic.us (health 200). Apex /api/health is AccessDenied. Story stays in_progress until the owner chooses: keep marketing at apex, or replace ChatticusWebProduction with Chattic.us web/. Agents will not deploy production unless asked.\n",
+      "created_at": "2026-09-01T01:06:15.305639Z"
+    },
+    {
+      "id": "c5f94736-9aef-4dab-9224-fca2d325ca2c",
+      "author": "agent@example.com",
+      "text": "Owner decision: https://chattic.us remains marketing. This story is the Chattic.us web app at https://hey.chattic.us (production) / https://dev.chattic.us (development), not the apex. Child task f570b9.\n",
+      "created_at": "2026-09-01T01:44:39.524118Z"
+    },
+    {
+      "id": "2311c07c-f990-433c-9d38-221174fbee32",
+      "author": "agent@example.com",
+      "text": "Owner: apex is marketing. Chat UI is live at https://dev.chattic.us and https://app.chattic.us (production health 200). Remaining rename app → hey is f570b9, not this story. Closing.\n",
+      "created_at": "2026-09-01T01:55:11.688232Z"
     }
   ],
   "created_at": "2026-08-31T11:31:19.464021Z",
-  "updated_at": "2026-08-31T20:07:05.042489Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T01:55:11.699988Z",
+  "closed_at": "2026-09-01T01:55:11.699988Z",
   "custom": {}
 }

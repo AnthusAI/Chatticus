@@ -18,13 +18,27 @@ operations.
 | `ChatticusThinTurnProduction` | Production thin turn (gated deploy of a staging-proven release; never implied by a git branch) |
 | `ChatticusWeb` | **Development** Next.js on S3 + CloudFront at `dev.chattic.us` with same-origin `/api/*` |
 | `ChatticusWebStaging` | Staging web at `staging.chattic.us` |
-| `ChatticusWebProduction` | Production web at `chattic.us` and `www.chattic.us` |
+| `ChatticusWebProduction` | Production product workspace at `hey.chattic.us` (marketing stays at `chattic.us` / `www`) |
+| `ChatticusAuth` | **Development** Cognito user pool with Google federation at `auth-dev.chattic.us` |
+| `ChatticusAuthStaging` | Staging Cognito auth at `auth-staging.chattic.us` |
+| `ChatticusAuthProduction` | Production Cognito auth at `auth.chattic.us` |
 
 Each thin-turn stack exports the Lambda **function URL** and invoke-key
 secret ARN for the matching web stack. The web stack publishes:
 
 - `/chatticus/{environment}/web/site-url` — `https://{hostname}`
 - `/chatticus/{environment}/thin-turn/cloudfront-url` — `https://{hostname}/api` (same-origin API base for workers and acceptance)
+
+Each auth stack publishes (under the same web prefix):
+
+- `/chatticus/{environment}/web/cognito-user-pool-id`
+- `/chatticus/{environment}/web/cognito-app-client-id`
+- `/chatticus/{environment}/web/cognito-auth-domain` — single-label hostname (`auth-dev`, `auth-staging`, `auth`) on the shared `*.chattic.us` certificate from `ChatticusDns`
+
+Google OAuth client id and secret are **not** in CDK or git. Each auth stack
+imports `chatticus/{environment}/oauth/google` from Secrets Manager (seeded
+by the human in Kanbus **0ab02c**). Cognito authenticates only; membership
+and roles are resolved server-side from DynamoDB.
 
 The snapshot bucket name is a CDK output. Hosts set
 `CHATTICUS_SNAPSHOT_BUCKET` to that value. URIs look like
@@ -60,11 +74,15 @@ the distribution domain name immediately.
 
 ## Deploy web + API (development)
 
-Deploy thin-turn, then the unified web stack (builds `web/` during deploy):
+Deploy thin-turn and web as separate one-stack scripts (never chained in one
+script). Each uses `--exclusively` so CDK does not follow `web.addDependency`
+into the other stack:
 
 ```bash
 cd infra
+sh deploy-chatticus-thinturn-development.sh
 sh deploy-chatticus-web-development.sh
+sh deploy-chatticus-auth-development.sh
 ```
 
 Staging and production, when you mean to:
@@ -72,8 +90,10 @@ Staging and production, when you mean to:
 ```bash
 npx cdk deploy ChatticusThinTurnStaging
 npx cdk deploy ChatticusWebStaging
+npx cdk deploy ChatticusAuthStaging
 npx cdk deploy ChatticusThinTurnProduction
 npx cdk deploy ChatticusWebProduction
+npx cdk deploy ChatticusAuthProduction
 ```
 
 GitHub Actions (development): manual `workflow_dispatch` workflows on the
@@ -85,13 +105,13 @@ CodePipeline. Staging and production workflows are not in scope yet.
 | Workflow | File | Script | Stacks |
 | --- | --- | --- | --- |
 | **Deploy ThinTurn (development)** | `deploy-thinturn-development.yml` | `deploy-chatticus-thinturn-development.sh` | `ChatticusThinTurn` only |
-| **Deploy Web (development)** | `deploy-web-development.yml` | `deploy-chatticus-web-development.sh` | `ChatticusThinTurn`, then `ChatticusWeb` |
+| **Deploy Web (development)** | `deploy-web-development.yml` | `deploy-chatticus-web-development.sh` | `ChatticusWeb` only |
 
 ThinTurn-only deploy applies ECS host-start context (`computerHostStart=ecs`,
-`computerHostCommand=host-worker`) when ChatticusComputers exists. The web
-workflow runs that script first so a Web deploy cannot drop RunTask wiring,
-then deploys `ChatticusWeb` (builds `web/` during CDK deploy). Neither
-workflow touches staging, production, snapshots, or computers stacks.
+`computerHostCommand=host-worker`) when ChatticusComputers exists. Run the
+ThinTurn workflow when that wiring changes; the web workflow deploys
+`ChatticusWeb` only (builds `web/` during CDK deploy). Neither workflow
+touches staging, production, snapshots, or computers stacks.
 
 ### GitHub Actions OIDC (one-time)
 
@@ -147,6 +167,55 @@ export CHATTICUS_DEVELOPMENT_BASE_URL=https://dev.chattic.us/api
 
 Acceptance and workers use the `/api` base URL on the site hostname.
 
+## OpenAI API key (per deployment)
+
+Each thin-turn stack reads its OpenAI key at **runtime** from a
+deployment-scoped SSM SecureString. CDK imports the parameter path only;
+it does **not** create the parameter or embed the key in CloudFormation
+(unlike the invoke-key secret, which CDK generates and unwraps into the
+Lambda environment).
+
+| Environment | SSM path |
+| --- | --- |
+| development | `/chatticus/development/thin-turn/openai-api-key` |
+| staging | `/chatticus/staging/thin-turn/openai-api-key` |
+| production | `/chatticus/production/thin-turn/openai-api-key` |
+
+**Human prerequisite** (before live OpenAI turns in a deployment):
+
+1. In the [OpenAI platform](https://platform.openai.com/), create a
+   **project** for this deployment (e.g. `chatticus-development`).
+2. Create an API key scoped to that project. Never commit the key to git.
+3. Store it in SSM:
+
+```bash
+export ENV=development   # or staging | production
+aws ssm put-parameter \
+  --name "/chatticus/${ENV}/thin-turn/openai-api-key" \
+  --type SecureString \
+  --value "sk-..." \
+  --overwrite \
+  --description "OpenAI API key for Chatticus ${ENV} thin-turn"
+```
+
+`npx cdk synth` and thin-turn deploy succeed without the parameter
+existing (import-only reference). Deployed Lambdas always set
+`OPENAI_API_KEY_PARAMETER`, so a live turn that needs OpenAI completion
+raises SSM `ParameterNotFound` until the human seeds the SecureString
+above. The fake client is only used when that env var is unset (for
+example local dev without `.env`).
+
+Deploy **one named thin-turn stack** after seeding SSM for that
+environment, for example:
+
+```bash
+npx cdk deploy ChatticusThinTurn          # development
+npx cdk deploy ChatticusThinTurnStaging   # staging
+npx cdk deploy ChatticusThinTurnProduction  # production (gated)
+```
+
+Never `cdk deploy --all`.
+
 ## Deploy thin-turn only
 
 ```bash
@@ -161,6 +230,49 @@ are forbidden (`npm run deploy` exits nonzero). Do not destroy
 A Fargate service exists at count 0 until you deploy
 `-c computerCount=1` after pushing `ComputerRepositoryUri:dev`.
 Publishing a snapshot does not require a running task.
+
+## Budgets (account-level AWS meter)
+
+Every deployment account carries one AWS Budget in a dedicated
+`ChatticusBudgets` stack when a human sets the monthly limit and
+notification address. The CDK app registers that stack only when both
+`-c` context flags are present; CI `synth` omits it. Partial context
+fails synth. Routine snapshot deploys never touch budget resources.
+
+```bash
+export CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD=<monthly-limit>
+export CHATTICUS_BUDGETS_NOTIFICATION_EMAIL=<owner-email>
+cd infra
+sh deploy-chatticus-budgets.sh
+```
+
+Only `deploy-chatticus-budgets.sh` sources `budgets-deploy-context.sh`.
+That script requires both env vars and never runs `cdk deploy` without
+them. Never `cdk deploy --all`.
+
+**Cutover (account that already had the budget on `ChatticusSnapshots`):**
+
+AWS budget names are unique per account (`chatticus-monthly-aws`). You
+cannot create `ChatticusBudgets` while the old stack still owns that
+name. After this change merges:
+
+1. `sh deploy-chatticus-snapshots.sh` — removes the budget from the
+   Snapshots template; CloudFormation deletes the Snapshots-owned budget
+   and SNS topic (brief alert gap).
+2. Immediately `sh deploy-chatticus-budgets.sh` — recreates the same
+   budget name and a new SNS topic in `ChatticusBudgets`.
+
+Limit changes redeploy only `ChatticusBudgets`, not snapshots.
+
+**Runbook (not code):**
+
+- Confirm the SNS email subscription after deploy.
+- Activate cost allocation tags (`chatticus:environment`, `chatticus:component`,
+  `chatticus:tenant`) in the AWS Billing console before Cost Explorer
+  breakdowns appear. Activation is not retroactive.
+- A new account may report nothing for roughly a day while Cost Explorer
+  populates; a quiet first day is normal, not a broken alarm.
+- OpenAI hard spend caps are **console-only** on the vendor project.
 
 ## Synth (no AWS credentials required)
 

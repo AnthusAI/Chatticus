@@ -1,0 +1,147 @@
+{
+  "id": "chatticus-5558dbbe-bf10-4f90-9cb1-65ca4fd83876",
+  "title": "Sign in with Google from the web app",
+  "description": "**Phase 3 of 7.**\n\n- **Blocked by:** 0df6cb\n- **Runs in parallel with:** 5f0c4c, fac2ee, 41d08d, and 79578e\n- **Unblocks:** 22f5bb\n\n---\noidc-client-ts doing authorization code with PKCE against the Cognito app client, with identity_provider=Google on the authorize URL so Cognito's own page never renders and the person goes straight to Google. Tokens live in memory with silent renew, not in localStorage.\n\nweb/next.config.ts is output: export, so there is no Node runtime in the web tier and no server-side session. That is why the relying party is Cognito and the token is a bearer, not a cookie. web/lib/sse.ts already uses fetch rather than EventSource so it can send headers, so a bearer token needs no transport change.\n\n**Done when:** a person signs in against development and the app holds a verified token.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "0bf8d62d-2fff-45cd-8a8d-0250d27ab807",
+      "author": "home",
+      "text": "Planning in `/tmp/chatticus-5558db-web-google` on `cursor/web-google-5558db-4a21` from origin/develop. ChatticusAuth development is live (auth-dev.chattic.us → Google). Tokens in memory, PKCE, identity_provider=Google. Never `cdk deploy --all`.",
+      "created_at": "2026-09-01T17:05:59.478398Z"
+    },
+    {
+      "id": "89da445c-533b-466a-9e39-7e0a9cef9813",
+      "author": "home",
+      "text": "Plan approved with constraints: SPA holds verified **id_token**; Cognito public config via aws ssm at bundle time (not CFN tokens); `/auth/callback` must load callback JS despite trailingSlash. Authorizing `/tmp/chatticus-5558db-web-google`.",
+      "created_at": "2026-09-01T17:10:18.359841Z"
+    },
+    {
+      "id": "738baea0-a1d5-43eb-b411-c3d27fcbed66",
+      "author": "home",
+      "text": "#157 opened (`12121a9`). Review + CI + acceptance in flight. Not merged. No web deploy yet.",
+      "created_at": "2026-09-01T17:14:09.617282Z"
+    },
+    {
+      "id": "2d857838-2e86-406a-8493-9ef906299f8d",
+      "author": "home",
+      "text": "Infra CI: tests passed, `cdk synth` failed — bundling requires SSM and CI has no AWS. Sending back a CI stub for synth only. Not merging.",
+      "created_at": "2026-09-01T17:18:38.092082Z"
+    },
+    {
+      "id": "03dd082e-bcae-408e-a4bc-38ff10bb5b56",
+      "author": "home",
+      "text": "Review REQUEST CHANGES: useRefreshToken is not a UserManagerSettings key (`npm run build` fails); Docker apt-get awscli as uid 1001 fails. CI synth stub is not enough. Sending back.",
+      "created_at": "2026-09-01T17:20:40.943771Z"
+    },
+    {
+      "id": "0c13dcbf-4dbe-46f6-b2ad-07dc6db2c860",
+      "author": "home",
+      "text": "#157 squash-merged to develop (`6b248e3`). Next: named ChatticusWeb development deploy, then Sign in on https://dev.chattic.us. Card stays open until a person holds a verified id_token.",
+      "created_at": "2026-09-01T17:32:08.075991Z"
+    },
+    {
+      "id": "aefbabf7-458d-4a07-a5af-de7b938813e1",
+      "author": "home",
+      "text": "Named ChatticusWeb deploy failed on CDK BucketDeployment CloudFront invalidation confirm (known CDK issue). Stack rolling back. Will retry named deploy only after rollback completes. Card stays open.",
+      "created_at": "2026-09-01T17:50:27.475220Z"
+    },
+    {
+      "id": "e2fe9ed1-34f4-402d-8878-5234c3252422",
+      "author": "home",
+      "text": "ChatticusWeb ended UPDATE_ROLLBACK_FAILED on the same CloudFront invalidation confirm. Continue-update-rollback skipped the bucket custom resource; waiting for a stable stack then retrying named deploy.",
+      "created_at": "2026-09-01T18:05:34.516452Z"
+    },
+    {
+      "id": "b3df4f14-ffa9-437d-b2a7-839590334ffa",
+      "author": "home",
+      "text": "#159 opened: BucketDeployment no longer waits on CloudFront invalidation; deploy script issues a non-blocking invalidation. CI green. Merging so the next named ChatticusWeb deploy is not blocked by CDK issue 15891.",
+      "created_at": "2026-09-01T18:56:37.694677Z"
+    },
+    {
+      "id": "ea52a709-b055-46b2-89e5-71416c9e053e",
+      "author": "home",
+      "text": "Named ChatticusWeb development deploy succeeded after #159. Sign-in is on https://dev.chattic.us. Card stays open until a Google sign-in holds a verified id_token.",
+      "created_at": "2026-09-01T19:00:04.248564Z"
+    },
+    {
+      "id": "63d7a5e3-6047-4360-a0ea-266637c6d361",
+      "author": "home",
+      "text": "Live https://dev.chattic.us throws Missing NEXT_PUBLIC_COGNITO_USER_POOL_ID. Root cause: loadCognitoConfig uses process.env[name] which Next does not inline. Fixing static env access then named ChatticusWeb redeploy.",
+      "created_at": "2026-09-01T19:36:31.225720Z"
+    },
+    {
+      "id": "bb7a1c2d-87d6-4961-bf7d-eff062052ef5",
+      "author": "home",
+      "text": "Live site threw Missing required build-time env var NEXT_PUBLIC_COGNITO_USER_POOL_ID because Next.js does not inline dynamic process.env[name]. #160 (static NEXT_PUBLIC_* access) is squash-merged to develop as 8742de2. Redeploying named ChatticusWeb development next; DoD still needs a person signed in with an id_token.",
+      "created_at": "2026-09-01T19:42:33.969803Z"
+    },
+    {
+      "id": "713681fb-77ff-48d9-8007-f06430073e40",
+      "author": "home",
+      "text": "Named ChatticusWeb development redeployed after #160. Live homepage HTML is the new bundle and the client chunk inlines Cognito pool id, auth-dev.chattic.us, and https://dev.chattic.us/auth/callback. Hard-refresh https://dev.chattic.us — Sign in is the remaining human gate for this card.",
+      "created_at": "2026-09-01T19:45:27.375851Z"
+    },
+    {
+      "id": "9e2b27e9-4cdb-405c-b7e0-ad51d7bbb202",
+      "author": "home",
+      "text": "Code acceptance APPROVE for the Google SPA slice (PKCE, identity_provider=Google, in-memory id_token, viewer-request /auth/callback rewrite). Live ChatticusWeb already has the env-inline bundle. Card stays open until a person signs in and the app holds a verified id_token. Accept worktree /tmp/chatticus-5558db-accept retained until close.",
+      "created_at": "2026-09-01T19:48:34.185316Z"
+    },
+    {
+      "id": "af8e1d38-44be-49ac-b36e-4ac7a0723f0a",
+      "author": "home",
+      "text": "Live Sign in fails: SPA uses custom domain as OIDC authority, so the browser GETs https://auth-dev.chattic.us/.well-known/openid-configuration and Cognito returns 404 (CORS is the browser wrapping that). Discovery lives at cognito-idp/{userPoolId}; authorize/token stay on auth-dev. Planning a fix from origin/develop. Card stays open. Unauthenticated app chrome is 22f5bb / 7b4616, not this slice.",
+      "created_at": "2026-09-01T19:54:22.599850Z"
+    },
+    {
+      "id": "55b142a2-d046-490a-bd4b-f09f1cefd485",
+      "author": "home",
+      "text": "Planning OIDC authority fix in /tmp/chatticus-5558db-oidc-authority on cursor/web-oidc-authority-5558db-4a21 from origin/develop. Use cognito-idp issuer as oidc-client-ts authority (discovery already exists as cognitoIssuer). Named ChatticusWeb redeploy after merge. Not 22f5bb/7b4616.",
+      "created_at": "2026-09-01T19:54:53.959881Z"
+    },
+    {
+      "id": "81852a0a-9ec5-4866-9d15-00e6c8a3c363",
+      "author": "home",
+      "text": "Plan approved: delete cognitoAuthority; oidc-client-ts authority is cognitoIssuer (cognito-idp). Authorizing /tmp/chatticus-5558db-oidc-authority. Named ChatticusWeb after merge. Not 22f5bb/7b4616.",
+      "created_at": "2026-09-01T19:56:16.492823Z"
+    },
+    {
+      "id": "d1c0a71d-fa82-468e-ac20-9c5bd58fed74",
+      "author": "home",
+      "text": "#161 opened (OIDC authority = cognitoIssuer). Review + acceptance in flight. Not merged. No ChatticusWeb deploy yet.",
+      "created_at": "2026-09-01T20:06:50.484922Z"
+    },
+    {
+      "id": "6f3f058d-06c5-4c9e-ae4c-02d0b92fca5c",
+      "author": "home",
+      "text": "#161 squash-merged to develop. Redeploying named ChatticusWeb development so Sign in uses cognito-idp discovery. Card stays open until a person holds a verified id_token.",
+      "created_at": "2026-09-01T20:10:49.481310Z"
+    },
+    {
+      "id": "f7c00bce-ecd5-4366-a779-803d8827bb2a",
+      "author": "home",
+      "text": "Named ChatticusWeb development redeployed after #161. Hard-refresh https://dev.chattic.us and Sign in with Google. Discovery should hit cognito-idp, then Google. Card stays open until a verified id_token is held.",
+      "created_at": "2026-09-01T20:19:59.668308Z"
+    },
+    {
+      "id": "1bfd862a-2c99-45c7-be5e-4ad73ea097d1",
+      "author": "home",
+      "text": "Review and acceptance APPROVE for the OIDC authority slice (#161). Already on develop and named ChatticusWeb. Remaining DoD is a person signed in holding a verified id_token. Accept worktree /tmp/chatticus-5558db-oidc-accept retained until close.",
+      "created_at": "2026-09-01T20:20:38.890144Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:40:45.570118Z",
+  "updated_at": "2026-09-01T20:20:38.890144Z",
+  "closed_at": null,
+  "custom": {}
+}
