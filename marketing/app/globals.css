@@ -136,7 +136,7 @@
 
 .prototype-shadow-plane {
   position: absolute;
-  inset: 0.25rem -0.3rem 2rem -0.3rem;
+  inset: 0.25rem -0.3rem 3.25rem -0.3rem;
   z-index: 1;
   border-radius: 2rem;
   background: rgb(17 19 15 / 0.18);
