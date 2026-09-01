@@ -19,6 +19,7 @@ operations.
 | `ChatticusWeb` | **Development** Next.js on S3 + CloudFront at `dev.chattic.us` with same-origin `/api/*` |
 | `ChatticusWebStaging` | Staging web at `staging.chattic.us` |
 | `ChatticusWebProduction` | Production product workspace at `hey.chattic.us` (marketing stays at `chattic.us` / `www`) |
+| `ChatticusMarketingWeb` | Static public marketing site at `chattic.us`; `www.chattic.us` redirects to the apex |
 
 Each thin-turn stack exports the Lambda **function URL** and invoke-key
 secret ARN for the matching web stack. The web stack publishes:
@@ -70,14 +71,36 @@ sh deploy-chatticus-thinturn-development.sh
 sh deploy-chatticus-web-development.sh
 ```
 
-Staging and production, when you mean to:
+Staging, when you mean to:
 
 ```bash
 npx cdk deploy ChatticusThinTurnStaging
 npx cdk deploy ChatticusWebStaging
-npx cdk deploy ChatticusThinTurnProduction
-npx cdk deploy ChatticusWebProduction
 ```
+
+Development and staging keep their existing hostnames. Production separates
+the product workspace from the public site: `ChatticusWebProduction` serves
+`hey.chattic.us`, while `ChatticusMarketingWeb` publishes the static
+`marketing/` export at `chattic.us` and redirects `www.chattic.us` to the apex.
+The marketing surface and workspace share the Vultus renderer and avatar model
+zoo, including original Lottie models for Editor, Reporter, Copy Writer, and
+Illustrator, but remain independently deployable.
+
+### First marketing-stack deployment
+
+`hey.chattic.us` is already the recorded production workspace hostname. The
+new `ChatticusMarketingWeb` stack has not been deployed. Before its first
+deployment, inspect the live CloudFront distributions and verify that the
+existing `chattic.us` and `www.chattic.us` aliases can be moved to this stack.
+CloudFront does not permit one alternate domain name on two distributions.
+
+After alias ownership is resolved, deploy only the marketing stack:
+
+```bash
+npx cdk deploy ChatticusMarketingWeb
+```
+
+No command in this section was run as part of the brand milestone.
 
 GitHub Actions (development): manual `workflow_dispatch` workflows on the
 `development` environment. Wire OIDC once (below), redeploy
@@ -260,11 +283,12 @@ Limit changes redeploy only `ChatticusBudgets`, not snapshots.
 ## Synth (no AWS credentials required)
 
 Synth validates CloudFormation templates without deploying. CI runs
-`npx cdk synth` for every stack. Build the web app first so the web
-stack asset path exists:
+`npx cdk synth` for every stack. Build both web surfaces first so their stack
+asset paths exist:
 
 ```bash
 cd web && npm ci && npm run build
+cd ../marketing && npm ci && npm run build
 cd ../infra && npm ci && npx cdk synth
 ```
 
@@ -274,7 +298,13 @@ named thin-turn and web stacks still synth clean:
 ```bash
 npx cdk synth ChatticusThinTurnStaging
 npx cdk synth ChatticusWebStaging
+npx cdk synth ChatticusMarketingWeb ChatticusWebProduction
 ```
+
+For the brand milestone, `npm run build` passed in `infra/`, and
+`npx cdk synth ChatticusMarketingWeb ChatticusWebProduction --quiet`
+succeeded. Those checks created no AWS resources and do not indicate that the
+redesigned source or new marketing stack is live.
 
 `ChatticusSnapshots` and `ChatticusComputers` are shared account stacks;
 synth them only when those definitions change. Never `cdk deploy --all`.

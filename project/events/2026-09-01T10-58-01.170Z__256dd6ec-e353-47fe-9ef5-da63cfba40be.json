@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "256dd6ec-e353-47fe-9ef5-da63cfba40be",
+  "issue_id": "chatticus-0ddcccb1-383a-4933-8d22-69e2058dd679",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T10:58:01.170Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "Turn Vultus into a renderer-neutral avatar model host with procedural and Lottie models. Add original, distinct Editor, Reporter, Copy Writer, and Illustrator characters for Chatticus and integrate them into the marketing site and workspace.",
+    "issue_type": "story",
+    "labels": [],
+    "parent": "chatticus-f2ec5165-d8fa-4863-b4de-45b08c505e6d",
+    "priority": 1,
+    "status": "open",
+    "title": "Add Lottie renderer and creative-desk model zoo to Vultus"
+  }
+}

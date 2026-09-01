@@ -1,0 +1,37 @@
+{
+  "id": "chatticus-0ddcccb1-383a-4933-8d22-69e2058dd679",
+  "title": "Add Lottie renderer and creative-desk model zoo to Vultus",
+  "description": "Turn Vultus into a renderer-neutral avatar model host with procedural and Lottie models. Add original, distinct Editor, Reporter, Copy Writer, and Illustrator characters for Chatticus and integrate them into the marketing site and workspace.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-f2ec5165-d8fa-4863-b4de-45b08c505e6d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "093730c1-c4a4-4bb2-b235-a10a08333498",
+      "author": "home",
+      "text": "Implemented on Vultus branch codex/vultus-model-zoo through commit b209b4341753b3eb4e42e32d1e1d3b0fb8af17d5. Chatticus integration and visual verification remain in progress.",
+      "created_at": "2026-09-01T10:58:05.136957Z"
+    },
+    {
+      "id": "63ac6a02-efac-4c9f-b66d-7b59c1c42dcf",
+      "author": "home",
+      "text": "The Vultus renderer/model zoo is integrated into both Chatticus surfaces with original Editor, Reporter, Copy Writer, and Illustrator Lottie models. All four models were inspected at multiple animation frames, and marketing/workspace builds and tests pass against the pinned Vultus commit. Integration has not landed, so this story stays in progress.",
+      "created_at": "2026-09-01T11:12:09.579610Z"
+    },
+    {
+      "id": "adbb322a-f6fb-41e8-b6e3-94da16dbe28f",
+      "author": "home",
+      "text": "Post-rebase integration validation remains green for the Vultus renderer/model zoo and four original Lottie role models. The integration has not landed, so the story stays in progress.",
+      "created_at": "2026-09-01T11:17:31.280772Z"
+    }
+  ],
+  "created_at": "2026-09-01T10:58:01.170074Z",
+  "updated_at": "2026-09-01T11:17:31.280772Z",
+  "closed_at": null,
+  "custom": {}
+}

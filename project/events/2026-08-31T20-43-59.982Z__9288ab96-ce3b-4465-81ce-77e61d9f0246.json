@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "9288ab96-ce3b-4465-81ce-77e61d9f0246",
+  "issue_id": "chatticus-db7386b5-3c48-4cff-8b61-08430f7d46f8",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T20:43:59.982Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "As a technical leader evaluating Chatticus, I want the marketing site to make the product and its named teammates immediately understandable, so that I can decide whether this controlled agent organization fits my work.\n\nFeature: Living Chatticus marketing experience\n\n  Scenario: A visitor understands the promise above the fold\n    Given a visitor opens chattic.us\n    When the marketing page finishes loading\n    Then the hero says that Chatticus is an AI organization the visitor controls\n    And it introduces persistent named teammates as visible characters\n    And it offers a clear path to explore the product and source\n\n  Scenario: A visitor understands how the organization works\n    Given a visitor continues through the marketing page\n    When they explore the product story\n    Then they see one shared computer inside a boundary they control\n    And they see skills, routines, review, and approval as distinct capabilities\n    And they see that teammate motion reflects meaningful work states\n\n  Scenario: A visitor can evaluate trust without invented proof\n    Given the product is under active development\n    When the visitor reviews evidence and comparisons\n    Then shipped capabilities are distinguished from intended capabilities\n    And no fabricated customer testimonial or adoption metric is presented\n    And referenced third-party facts include source links\n\n  Scenario: A visitor uses a narrow or reduced-motion display\n    Given the visitor uses a phone or prefers reduced motion\n    When the marketing page finishes loading\n    Then all primary content remains readable without horizontal scrolling\n    And essential meaning does not depend on animation\n    And motion that is not essential is reduced or removed.",
+    "issue_type": "story",
+    "labels": [],
+    "parent": "chatticus-f2ec5165-d8fa-4863-b4de-45b08c505e6d",
+    "priority": 1,
+    "status": "open",
+    "title": "Meet a living Chatticus organization on the marketing site"
+  }
+}

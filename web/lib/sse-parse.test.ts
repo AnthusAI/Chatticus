@@ -26,7 +26,7 @@ describe("parseSseFrames", () => {
       'data: {"kind":"turn.token","seq":1,"turn_id":"t1","token":"He"}\n';
     buffer = parseSseFrames(buffer, (event) => events.push(event.kind));
     assert.equal(buffer.endsWith("\n"), true);
-    assert.deepEqual(events, []);
+    assert.equal(events.length, 0);
 
     buffer += "\n";
     buffer = parseSseFrames(buffer, (event) => events.push(event.kind));

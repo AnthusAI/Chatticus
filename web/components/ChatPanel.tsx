@@ -1,13 +1,16 @@
 "use client";
 
 import type { BotAvatarState } from "anthus-vultus";
+import type { AvatarActivity } from "../lib/avatar-state";
 import type { Bot, TurnEvent } from "../lib/api";
+import { botRoleLabel, creativeRoleForBot } from "../lib/bot-role";
 import { BotAvatarView } from "./BotAvatarView";
 
 type ChatPanelProps = {
   bot: Bot | null;
   avatarState: BotAvatarState;
   avatarAriaLabel: string;
+  avatarActivity: AvatarActivity;
   draft: string;
   sending: boolean;
   sendError: string | null;
@@ -24,6 +27,7 @@ export function ChatPanel({
   bot,
   avatarState,
   avatarAriaLabel,
+  avatarActivity,
   draft,
   sending,
   sendError,
@@ -38,7 +42,7 @@ export function ChatPanel({
   const disabled = !bot || sending || draft.trim().length === 0;
 
   return (
-    <section className="card chat" aria-label="Chat">
+    <section className="chat panel" aria-label="Chat">
       <div className="chat-header">
         {bot ? (
           <BotAvatarView
@@ -47,12 +51,26 @@ export function ChatPanel({
             size={72}
             ariaLabel={avatarAriaLabel}
             className="chat-avatar"
+            modelRole={creativeRoleForBot(bot)}
           />
         ) : null}
-        <h2>{bot ? `Chat with ${bot.name}` : "Chat"}</h2>
+        <div className="chat-heading-copy">
+          <p className="eyebrow">Shared room</p>
+          <h2>{bot ? bot.name : "Choose a teammate"}</h2>
+          {bot ? <p className="chat-role">{botRoleLabel(bot)}</p> : null}
+          {bot ? (
+            <p className="activity-label" aria-live="polite">
+              <span className={`activity-dot ${avatarActivity}`} />
+              {avatarActivity === "idle" ? "Ready" : avatarActivity}
+            </p>
+          ) : null}
+        </div>
       </div>
       {!bot ? (
-        <p className="status">Select a bot from the roster to start chatting.</p>
+        <div className="empty-room">
+          <p className="empty-room-kicker">The room is quiet.</p>
+          <p>Select a named teammate to start a channel and put work in motion.</p>
+        </div>
       ) : (
         <>
           <form
@@ -76,14 +94,14 @@ export function ChatPanel({
               disabled={sending}
             />
             <button type="submit" disabled={disabled}>
-              {sending ? "Sending…" : "Send"}
+              {sending ? "Handing off…" : "Hand off"}
             </button>
           </form>
           {sendError ? <p className="status error">{sendError}</p> : null}
           {turnId ? (
-            <div className="turn-progress">
-              <p className="status">
-                Turn <code>{turnId}</code>
+            <div className="turn-progress" aria-live="polite">
+              <div className="turn-heading">
+                <p className="eyebrow">Work in motion</p>
                 {turnStatus === "completed" ? (
                   <span className="turn-badge completed">completed</span>
                 ) : null}
@@ -93,19 +111,23 @@ export function ChatPanel({
                 {turnStatus === "reconciling" ? (
                   <span className="turn-badge reconciling">reconciling</span>
                 ) : null}
-              </p>
+              </div>
               {streamError ? <p className="status error">{streamError}</p> : null}
               {progress ? <p className="progress-text">{progress}</p> : null}
               {events.length > 0 ? (
-                <ul className="event-log" aria-label="Turn events">
-                  {events.map((event) => (
-                    <li key={`${event.kind}-${event.seq}`}>
-                      <span className="event-kind">{event.kind}</span>
-                      {event.token ? <span>{event.token}</span> : null}
-                      {event.body ? <span>{event.body}</span> : null}
-                    </li>
-                  ))}
-                </ul>
+                <details className="diagnostics">
+                  <summary>Turn details</summary>
+                  <p className="diagnostic-id">{turnId}</p>
+                  <ul className="event-log" aria-label="Turn events">
+                    {events.map((event) => (
+                      <li key={`${event.kind}-${event.seq}`}>
+                        <span className="event-kind">{event.kind}</span>
+                        {event.token ? <span>{event.token}</span> : null}
+                        {event.body ? <span>{event.body}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               ) : turnStatus === "active" ? (
                 <p className="status">Waiting for turn progress…</p>
               ) : null}

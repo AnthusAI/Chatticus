@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-f2ec5165-d8fa-4863-b4de-45b08c505e6d",
+  "title": "Reimagine the Chatticus brand and web experience",
+  "description": "## Intent\n\nCreate one distinctive Chatticus identity across the public marketing site and the product workspace. Lead with the existing control-first position, make named teammates feel present through Vultus-rendered stateful motion, and establish a reusable visual system that is original rather than derivative of any third-party avatar design.\n\n## Definition of Done\n\n- The marketing site runs as its own Next.js surface at chattic.us and the product workspace runs at hey.chattic.us.\n- The public site clearly explains named teammates, the shared user-controlled computer, approvals, skills, routines, and work that can continue while the user is away.\n- Vultus provides the renderer and mixed model zoo, with meaningful motion states and original role-specific Lottie models.\n- The visual identity, typography, color, layout, and motion system are responsive, accessible, and shared with the workspace.\n- No third-party character asset or imitated silhouette is shipped without verified reuse rights and attribution.\n- Marketing and workspace tests, lint, builds, visual checks, and reduced-motion behavior pass.\n- The work is reviewed and integrated into develop before the epic closes.",
+  "type": "epic",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "e69e00c8-4e5c-4a8a-9974-16665dd5f738",
+      "author": "home",
+      "text": "Milestone source now unifies the static marketing site at chattic.us with the product workspace at hey.chattic.us. The Vultus renderer/model-zoo integration, original role-specific Lottie models, responsive browser QA, and repository gates are complete locally. No AWS deploy has occurred; review, landing in develop, and the ordered production rollout remain, so the epic stays in progress.",
+      "created_at": "2026-09-01T11:12:09.543945Z"
+    },
+    {
+      "id": "3ea222a2-4040-4781-9ea7-e0cd00866b49",
+      "author": "home",
+      "text": "Post-rebase validation against current develop passes: Behave 50 features, 269 scenarios, and 1,661 steps; Pytest 427 passed with eight skipped. The redesigned source and ChatticusMarketingWeb stack remain undeployed, and the work has not landed, so the epic stays in progress.",
+      "created_at": "2026-09-01T11:17:31.246532Z"
+    }
+  ],
+  "created_at": "2026-08-31T20:43:39.084042Z",
+  "updated_at": "2026-09-01T11:17:31.246532Z",
+  "closed_at": null,
+  "custom": {}
+}

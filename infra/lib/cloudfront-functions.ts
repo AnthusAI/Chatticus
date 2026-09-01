@@ -26,3 +26,18 @@ export const SPA_VIEWER_RESPONSE_FUNCTION = `function handler(event) {
   }
   return response;
 }`;
+
+export const WWW_TO_APEX_REDIRECT_FUNCTION = `function handler(event) {
+  var request = event.request;
+  var host = request.headers.host.value;
+  if (host.indexOf("www.") === 0) {
+    return {
+      statusCode: 301,
+      statusDescription: "Moved Permanently",
+      headers: {
+        location: { value: "https://chattic.us" + request.uri }
+      }
+    };
+  }
+  return request;
+}`;

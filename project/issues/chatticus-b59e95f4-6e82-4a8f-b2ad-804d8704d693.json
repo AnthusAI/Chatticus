@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-b59e95f4-6e82-4a8f-b2ad-804d8704d693",
+  "title": "Carry the Chatticus identity into the teammate workspace",
+  "description": "As a Chatticus user, I want the product workspace to feel like the same living organization introduced on the marketing site, so that named teammates, current work, and approval boundaries are easy to understand at a glance.\n\nFeature: Branded teammate workspace\n\n  Scenario: A user recognizes teammate presence and state\n    Given the user opens hey.chattic.us\n    When the roster and workspace load\n    Then each named teammate has a Vultus-rendered avatar model\n    And the selected teammate has a clear role and presence\n    And thinking, tool use, speaking, completion, and failure remain distinguishable in text and motion\n\n  Scenario: A user focuses on conversation and work\n    Given the app has loaded a roster\n    When the user selects a teammate\n    Then chat is the primary work surface\n    And household tasks remain available without competing with the active conversation\n    And control-plane diagnostics are presented as secondary status\n\n  Scenario: A user accesses the workspace on a small or reduced-motion display\n    Given the user uses a phone or prefers reduced motion\n    When the workspace loads\n    Then all interactive controls remain reachable and legible\n    And focus states are visible\n    And no essential state is communicated only by color or animation.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-f2ec5165-d8fa-4863-b4de-45b08c505e6d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "26b9e30d-666f-4a16-8fe4-bdee705b6b59",
+      "author": "home",
+      "text": "Workspace source now targets hey.chattic.us, keeps chat primary, labels teammate roles explicitly, and selects role-specific Vultus Lottie models with a procedural compatibility fallback for unassigned roles. Fourteen workspace tests, build, audits, and desktop/mobile QA passed locally. The change is not deployed or landed, so this story stays in progress.",
+      "created_at": "2026-09-01T11:12:09.567653Z"
+    },
+    {
+      "id": "10d21cc8-8871-4626-989a-8dacefe12c65",
+      "author": "home",
+      "text": "Post-rebase workspace validation remains green. hey.chattic.us is already the recorded production workspace, but this redesigned workspace source has not been deployed or landed, so the story stays in progress.",
+      "created_at": "2026-09-01T11:17:31.269941Z"
+    }
+  ],
+  "created_at": "2026-08-31T20:44:16.434255Z",
+  "updated_at": "2026-09-01T11:17:31.269941Z",
+  "closed_at": null,
+  "custom": {}
+}

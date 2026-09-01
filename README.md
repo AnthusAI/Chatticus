@@ -7,6 +7,11 @@ shell. It comes back when something needs your approval.
 The public marketing site is [chattic.us](https://chattic.us). The product
 workspace is at [hey.chattic.us](https://hey.chattic.us) in production.
 
+The redesigned source gives those two surfaces one Chatticus identity: warm
+editorial type, high-contrast control signals, and living named teammates whose
+distinct Vultus-rendered characters express meaningful work states. `marketing/`
+is the static public story. `web/` is the conversation-first teammate workspace.
+
 v1 is personal: one household, one AWS account, as many named bots as we
 want. Every record already carries a `tenant_id` so the same system can
 later serve other people without a rewrite.
@@ -65,6 +70,40 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
+### Brand and web milestone in source, not deployed
+
+The repository now contains the new static `marketing/` site for
+`chattic.us` and `www.chattic.us`, plus a redesigned `web/` workspace whose
+production hostname is `hey.chattic.us`. Development and staging hostnames are
+unchanged. Vultus now hosts a mixed avatar model zoo, including four original
+Lottie characters for Editor, Reporter, Copy Writer, and Illustrator. Teammate
+presence is shared across both surfaces, with
+textual status and reduced-motion behavior so animation is never the only
+signal.
+
+Local validation completed on 2026-09-01:
+
+- Marketing: lint, typecheck, five landing-page tests, production static build,
+  and `npm audit` with zero vulnerabilities.
+- Workspace: lint, typecheck, 14 tests, production build, and production
+  dependency audit with zero vulnerabilities.
+- Infrastructure: TypeScript build and quiet synth of
+  `ChatticusMarketingWeb` plus `ChatticusWebProduction`.
+- Repository gates: Black and Ruff passed; Behave passed 50 features,
+  269 scenarios, and 1,661 steps; Pytest passed 427 tests with eight skipped.
+- Browser QA: marketing and workspace at 1280 px and 390 px, including
+  frame-level inspection of all four original Lottie role models, with no
+  document overflow and no console warnings or errors.
+
+No AWS deploy of the redesigned marketing or workspace source was performed for
+this milestone. The recorded production workspace remains at `hey.chattic.us`.
+Before the first `ChatticusMarketingWeb` deploy, resolve the current CloudFront
+ownership of the existing `chattic.us` and `www.chattic.us` aliases; CloudFront
+will not allow the new distribution to claim an alias that is still attached
+elsewhere.
+
+### Recorded AWS state
+
 **2026-08-31:** `ChatticusDns`, all three `ChatticusWeb*` stacks, and matching
 `ChatticusThinTurn*` stacks are deployed in `us-east-1`. Same-origin HTTPS
 is live at `dev.chattic.us`, `staging.chattic.us`, and `hey.chattic.us`
@@ -113,7 +152,10 @@ AWS account ids belong in gitignored `AGENTS.local.md`, not in this
 file. Resolve the front door from SSM, CloudFormation, or
 `CHATTICUS_*_BASE_URL`.
 
-| Environment | Web stack | Site | API base (same origin) |
+The table below records the deployed mapping before the brand milestone is
+rolled out. Production remains at the apex until the ordered deployment above.
+
+| Environment | Web stack | Currently deployed site | Currently deployed API base |
 | --- | --- | --- | --- |
 | development | `ChatticusWeb` | https://dev.chattic.us | https://dev.chattic.us/api |
 | staging | `ChatticusWebStaging` | https://staging.chattic.us | https://staging.chattic.us/api |
@@ -443,6 +485,7 @@ computers stop (EC2) or scale to 0 (Fargate). The snapshot stays.
 Chattic.us/
   features/                 Shared Gherkin (product narrative)
   python/                   Control plane, computerless and computer workers, snapshot packer
+  marketing/                Static public site for chattic.us and www.chattic.us
   web/                      Product workspace (`hey.chattic.us` in production)
   computer/                 Linux computer image
   infra/                    AWS CDK

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BotRoster } from "../components/BotRoster";
 import { ChatPanel } from "../components/ChatPanel";
 import { TaskList } from "../components/TaskList";
+import { Wordmark } from "../components/Wordmark";
 import {
   avatarActivityFromTurn,
   botAvatarAriaLabel,
@@ -180,30 +181,20 @@ export default function HomePage() {
     : "Bot avatar";
 
   return (
-    <main>
+    <main id="workspace-main">
       <header className="site-header">
-        <h1>Chatticus</h1>
-        <p>Named bots, one shared computer, serverless control plane.</p>
+        <Wordmark />
+        <div className="header-promise">
+          <span className="header-rule" />
+          <p>Named teammates. One shared computer. Your call.</p>
+        </div>
+        <div className="system-presence">
+          <span className={`presence-dot ${health ? "ok" : healthError ? "error" : "pending"}`} />
+          <span>{health ? `${health.environment ?? "system"} online` : healthError ? "control plane unavailable" : "checking system"}</span>
+        </div>
       </header>
 
-      <section className="card health">
-        <h2>Control plane</h2>
-        <p className="status">
-          API base: <code>/api</code> (same origin)
-        </p>
-        {health ? (
-          <p className="status ok">
-            Health: {health.status ?? "ok"}
-            {health.environment ? ` (${health.environment})` : ""}
-          </p>
-        ) : (
-          <p className="status error">
-            Health check pending{healthError ? `: ${healthError}` : ""}
-          </p>
-        )}
-      </section>
-
-      <div className="workspace">
+      <div className="workspace-shell">
         <BotRoster
           bots={bots}
           selectedBotId={selectedBot?.bot_id ?? null}
@@ -221,6 +212,7 @@ export default function HomePage() {
           bot={selectedBot}
           avatarState={avatarState}
           avatarAriaLabel={avatarAriaLabel}
+          avatarActivity={avatarActivity}
           draft={draft}
           sending={sending}
           sendError={sendError}
@@ -234,11 +226,17 @@ export default function HomePage() {
             void handleSend();
           }}
         />
+        <TaskList userId={userId} />
       </div>
 
-      <section className="card">
-        <TaskList userId={userId} />
-      </section>
+      <footer className="workspace-footer">
+        <p>One room for the work. One human consequence boundary.</p>
+        <details className="system-details">
+          <summary>System details</summary>
+          <span>API <code>/api</code></span>
+          <span>{health ? `Health ${health.status ?? "ok"}` : healthError ?? "Health pending"}</span>
+        </details>
+      </footer>
     </main>
   );
 }

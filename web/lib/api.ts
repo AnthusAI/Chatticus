@@ -11,6 +11,7 @@ export type Bot = {
   tenant_id: string;
   user_id: string;
   name: string;
+  role?: string;
   memory: Record<string, string>;
 };
 
@@ -48,7 +49,11 @@ export type Task = {
 
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const detail = await response.text();
+    const contentType = response.headers.get("content-type") ?? "";
+    const rawDetail = await response.text();
+    const detail = contentType.includes("text/html")
+      ? response.statusText || "request failed"
+      : rawDetail.trim().slice(0, 240) || response.statusText || "request failed";
     throw new Error(`HTTP ${response.status}: ${detail}`);
   }
   return (await response.json()) as T;

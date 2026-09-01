@@ -1,0 +1,37 @@
+{
+  "id": "chatticus-db7386b5-3c48-4cff-8b61-08430f7d46f8",
+  "title": "Meet a living Chatticus organization on the marketing site",
+  "description": "As a technical leader evaluating Chatticus, I want the marketing site to make the product and its named teammates immediately understandable, so that I can decide whether this controlled agent organization fits my work.\n\nFeature: Living Chatticus marketing experience\n\n  Scenario: A visitor understands the promise above the fold\n    Given a visitor opens chattic.us\n    When the marketing page finishes loading\n    Then the hero says that Chatticus is an AI organization the visitor controls\n    And it introduces persistent named teammates as visible characters\n    And it offers a clear path to explore the product and source\n\n  Scenario: A visitor understands how the organization works\n    Given a visitor continues through the marketing page\n    When they explore the product story\n    Then they see one shared computer inside a boundary they control\n    And they see skills, routines, review, and approval as distinct capabilities\n    And they see that teammate motion reflects meaningful work states\n\n  Scenario: A visitor can evaluate trust without invented proof\n    Given the product is under active development\n    When the visitor reviews evidence and comparisons\n    Then shipped capabilities are distinguished from intended capabilities\n    And no fabricated customer testimonial or adoption metric is presented\n    And referenced third-party facts include source links\n\n  Scenario: A visitor uses a narrow or reduced-motion display\n    Given the visitor uses a phone or prefers reduced motion\n    When the marketing page finishes loading\n    Then all primary content remains readable without horizontal scrolling\n    And essential meaning does not depend on animation\n    And motion that is not essential is reduced or removed.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-f2ec5165-d8fa-4863-b4de-45b08c505e6d",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "c3f660c5-d4b0-4bfc-a07f-1ce0b4e61ced",
+      "author": "home",
+      "text": "Specification milestone: added features/chatticus_brand_experience.feature and ran the focused Behave feature before production changes. It is red for the intended reason: five scenarios and twenty-five steps are undefined. The implementation will make these observable marketing and workspace behaviors pass.",
+      "created_at": "2026-08-31T20:47:35.095474Z"
+    },
+    {
+      "id": "d911009c-385a-451d-9832-609e8b88ed97",
+      "author": "home",
+      "text": "Marketing implementation now presents Editor, Reporter, Copy Writer, and Illustrator as visibly distinct original Lottie characters through Vultus. Five marketing tests, production build, audits, desktop/mobile QA, reduced-motion checks, and frame-level model inspection passed locally. The site is not deployed and the change has not landed, so this story stays in progress.",
+      "created_at": "2026-09-01T11:12:09.556383Z"
+    },
+    {
+      "id": "f9131e1a-da0c-4024-bc16-e1a4caf88d0c",
+      "author": "home",
+      "text": "Post-rebase marketing validation remains green. The new marketing stack is not deployed; its first deployment must resolve existing chattic.us and www.chattic.us CloudFront alias ownership. This story stays in progress until the change lands.",
+      "created_at": "2026-09-01T11:17:31.258466Z"
+    }
+  ],
+  "created_at": "2026-08-31T20:43:59.982532Z",
+  "updated_at": "2026-09-01T11:17:31.258466Z",
+  "closed_at": null,
+  "custom": {}
+}

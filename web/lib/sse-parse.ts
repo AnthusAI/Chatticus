@@ -22,7 +22,7 @@ export function parseSseFrames(
   return remainder;
 }
 
-export const TERMINAL_TURN_KINDS = new Set([
+export const TERMINAL_TURN_KINDS = new Set<string>([
   "turn.completed",
   "turn.failed",
   "turn.reconciling",

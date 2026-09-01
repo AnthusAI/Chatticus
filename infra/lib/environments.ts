@@ -31,6 +31,12 @@ export const WEB_CLOUDFRONT_ENABLED: Record<ChatticusCloudEnvironment, boolean> 
   production: false,
 };
 
+export const MARKETING_SITE_DOMAIN = "chattic.us";
+
+export const MARKETING_WWW_DOMAIN = "www.chattic.us";
+
+export const MARKETING_STACK_ID = "ChatticusMarketingWeb";
+
 export function thinTurnParameterPrefix(environment: ChatticusCloudEnvironment): string {
   return `/chatticus/${environment}/thin-turn`;
 }

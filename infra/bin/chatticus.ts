@@ -4,12 +4,14 @@ import { ComputerStack } from "../lib/computer-stack";
 import { DnsStack } from "../lib/dns-stack";
 import {
   CHATTICUS_CLOUD_ENVIRONMENTS,
+  MARKETING_STACK_ID,
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
 } from "../lib/environments";
 import { readBudgetsConfig } from "../lib/budgets-config";
 import { BudgetsStack } from "../lib/budgets-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
+import { MarketingWebStack } from "../lib/marketing-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
 import { WebStack } from "../lib/web-stack";
@@ -76,3 +78,10 @@ for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
   });
   web.addDependency(thinTurn);
 }
+
+new MarketingWebStack(app, MARKETING_STACK_ID, {
+  env,
+  hostedZone: dns.hostedZone,
+  siteCertificate: dns.siteCertificate,
+  description: "Public marketing site at chattic.us; www redirects to apex.",
+});

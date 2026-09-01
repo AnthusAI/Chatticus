@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "6dd43a2b-8652-4bb8-85d5-e2c9dc2c3b5b",
+  "issue_id": "chatticus-f2ec5165-d8fa-4863-b4de-45b08c505e6d",
+  "event_type": "issue_created",
+  "occurred_at": "2026-08-31T20:43:39.084Z",
+  "actor_id": "example-user",
+  "payload": {
+    "assignee": null,
+    "description": "## Intent\n\nCreate one distinctive Chatticus identity across the public marketing site and the product workspace. Lead with the existing control-first position, make named teammates feel present through Vultus-driven stateful motion, and establish a reusable visual system that is original rather than derivative of any third-party avatar design.\n\n## Definition of Done\n\n- The marketing site runs as its own Next.js surface at chattic.us and the product app remains at app.chattic.us.\n- The public site clearly explains named teammates, the shared user-controlled computer, approvals, skills, routines, and work that can continue while the user is away.\n- Vultus is used as a primary brand expression with motion tied to meaningful teammate states.\n- The visual identity, typography, color, layout, and motion system are responsive, accessible, and shared with the app.\n- No third-party character asset or imitated silhouette is shipped without verified reuse rights and attribution.\n- Marketing and app tests, lint, builds, visual checks, and reduced-motion behavior pass.\n- The work is reviewed and integrated into develop before the epic closes.",
+    "issue_type": "epic",
+    "labels": [],
+    "parent": null,
+    "priority": 1,
+    "status": "open",
+    "title": "Reimagine the Chatticus brand and web experience"
+  }
+}

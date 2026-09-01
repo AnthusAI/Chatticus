@@ -59,14 +59,20 @@ export function TaskList({ userId }: TaskListProps) {
   }, []);
 
   return (
-    <section className="task-panel" aria-labelledby="task-list-heading">
-      <h2 id="task-list-heading">Tasks</h2>
+    <section className="task-panel panel" aria-labelledby="task-list-heading">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Household record</p>
+          <h2 id="task-list-heading">Open work</h2>
+        </div>
+        <span className="count-badge">{tasks.length}</span>
+      </div>
       {loading ? (
         <p className="status">Loading tasks...</p>
       ) : listError ? (
         <p className="status error">Could not load tasks: {listError}</p>
       ) : tasks.length === 0 ? (
-        <p className="status">No tasks yet. Ask a bot to track something.</p>
+        <p className="status">No tracked work yet. Ask a teammate to keep the thread.</p>
       ) : (
         <ul className="task-list">
           {tasks.map((task) => (
@@ -85,7 +91,7 @@ export function TaskList({ userId }: TaskListProps) {
       )}
       {selectedId ? (
         <div className="task-detail">
-          <h3>Task detail</h3>
+          <h3>Evidence and status</h3>
           {detailLoading ? (
             <p className="status">Loading task...</p>
           ) : detailError ? (

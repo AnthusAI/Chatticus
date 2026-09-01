@@ -2,6 +2,7 @@
 
 import type { BotAvatarState } from "anthus-vultus";
 import type { Bot } from "../lib/api";
+import { botRoleLabel, creativeRoleForBot } from "../lib/bot-role";
 import { BotAvatarView } from "./BotAvatarView";
 
 type BotRosterProps = {
@@ -24,8 +25,14 @@ export function BotRoster({
   onRetry,
 }: BotRosterProps) {
   return (
-    <section className="card roster" aria-label="Bot roster">
-      <h2>Bots</h2>
+    <section className="roster panel" aria-label="Teammate roster">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Your organization</p>
+          <h2>Teammates</h2>
+        </div>
+        <span className="count-badge">{bots.length}</span>
+      </div>
       {loading ? <p className="status">Loading roster…</p> : null}
       {error ? (
         <div className="status-block">
@@ -38,7 +45,7 @@ export function BotRoster({
         </div>
       ) : null}
       {!loading && !error && bots.length === 0 ? (
-        <p className="status">No bots yet. Create one through the control plane.</p>
+        <p className="status">No teammates yet. Create one through the control plane.</p>
       ) : null}
       <ul className="bot-list">
         {bots.map((bot) => (
@@ -57,13 +64,18 @@ export function BotRoster({
                 }
                 size={40}
                 className="bot-avatar"
+                modelRole={creativeRoleForBot(bot)}
               />
-              <span className="bot-name">{bot.name}</span>
-              {Object.keys(bot.memory).length > 0 ? (
+              <span className="bot-copy">
+                <span className="bot-name">{bot.name}</span>
+                <span className="bot-role">{botRoleLabel(bot)}</span>
                 <span className="bot-meta">
-                  {Object.keys(bot.memory).length} memory keys
+                  {Object.keys(bot.memory).length > 0
+                    ? `${Object.keys(bot.memory).length} memories`
+                    : "Ready"}
                 </span>
-              ) : null}
+              </span>
+              <span className="bot-arrow" aria-hidden="true">&#8599;</span>
             </button>
           </li>
         ))}

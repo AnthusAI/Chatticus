@@ -6,20 +6,28 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "tsx --test lib/**/*.test.ts"
+    "lint": "eslint .",
+    "test": "tsx --test lib/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "anthus-vultus": "github:AnthusAI/Vultus",
+    "anthus-vultus": "https://github.com/AnthusAI/Vultus/archive/9b1509fa668527b36ce3eac5620e034817f15050.tar.gz",
     "next": "^15.5.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
     "@types/node": "^22.13.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
+    "eslint": "^9.39.3",
+    "eslint-config-next": "^15.5.2",
+    "postcss": "8.5.23",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3"
+  },
+  "overrides": {
+    "postcss": "8.5.23"
   }
 }
