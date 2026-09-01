@@ -13,6 +13,6 @@
     "rootDir": ".",
     "resolveJsonModule": true
   },
-  "include": ["bin/**/*.ts", "lib/**/*.ts"],
+  "include": ["bin/**/*.ts", "lib/**/*.ts", "test/**/*.ts"],
   "exclude": ["cdk.out", "dist", "node_modules"]
 }
