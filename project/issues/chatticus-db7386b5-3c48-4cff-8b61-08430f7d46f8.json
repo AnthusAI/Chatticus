@@ -160,10 +160,22 @@
       "author": "home",
       "text": "Verified the signed-in profile strip for Jon Appleseed: it fits without overflow in the local preview, and marketing lint, typecheck, build-backed tests (7/7), and whitespace validation pass.",
       "created_at": "2026-09-01T19:48:17.399021Z"
+    },
+    {
+      "id": "e7bfa200-168b-4494-9b76-6014f66b8b56",
+      "author": "home",
+      "text": "Copy refinement: changing the activity-card label in the hero prototype from generic motion language to the more concrete operational state, Running procedure…",
+      "created_at": "2026-09-01T19:48:51.876352Z"
+    },
+    {
+      "id": "4648e469-542c-4c02-b41c-515f4654fe73",
+      "author": "home",
+      "text": "Verified the activity-card label now reads Running procedure…. Marketing lint, typecheck, build-backed tests (7/7), and whitespace validation pass.",
+      "created_at": "2026-09-01T19:49:25.309891Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T19:48:17.399021Z",
+  "updated_at": "2026-09-01T19:49:25.309891Z",
   "closed_at": null,
   "custom": {}
 }

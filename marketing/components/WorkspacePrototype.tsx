@@ -129,7 +129,7 @@ export function WorkspacePrototype() {
 
             <div className="mt-3 rounded-xl border border-signal/35 bg-signal/[0.08] p-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="font-mono text-[0.48rem] uppercase tracking-[0.11em] text-signal">Work in motion</p>
+                <p className="font-mono text-[0.48rem] uppercase tracking-[0.11em] text-signal">Running procedure…</p>
                 <span className="rounded-full bg-signal px-1.5 py-0.5 font-mono text-[0.43rem] uppercase tracking-[0.07em] text-ink">Active</span>
               </div>
               <div className="mt-1.5 flex items-center gap-1.5 text-[0.6rem] text-paper/80">
