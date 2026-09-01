@@ -115,7 +115,7 @@ export function WorkspacePrototype() {
             </div>
 
             <div className="mt-4 space-y-2 font-body text-[0.67rem] leading-relaxed">
-              <div className="ml-auto flex max-w-[94%] items-end justify-end gap-1.5">
+              <div className="ml-auto flex max-w-[94%] items-start justify-end gap-1.5">
                 <div className="max-w-[88%] rounded-2xl rounded-tr-sm border border-clay/45 bg-clay/15 px-2.5 py-2 text-paper">
                   <p className="font-mono text-[0.46rem] uppercase tracking-[0.1em] text-clay">Maya K. · Owner</p>
                   <p className="mt-1">Build the launch story. Keep the final call with me.</p>

@@ -124,10 +124,16 @@
       "author": "home",
       "text": "User refinement: lower the grey decorative shadow rectangle by a tiny amount, and make the independent motion of both lime backing and grey shadow rectangles slightly larger and faster while preserving caption clearance and non-matching periods.",
       "created_at": "2026-09-01T19:10:11.387392Z"
+    },
+    {
+      "id": "07c8c910-418c-4876-9d0f-ec9641418ad0",
+      "author": "home",
+      "text": "User refinement: top-align the MK human avatar with its authored message bubble in the shared-room prototype.",
+      "created_at": "2026-09-01T19:11:34.448616Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T19:10:11.387392Z",
+  "updated_at": "2026-09-01T19:11:34.448616Z",
   "closed_at": null,
   "custom": {}
 }
