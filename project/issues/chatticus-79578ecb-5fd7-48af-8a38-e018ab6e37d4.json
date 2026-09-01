@@ -18,10 +18,16 @@
       "author": "home",
       "text": "**Adversarial review: the collision warning on this issue is incomplete.**\n\nThe description warns about Python. This task also deletes X-Tenant-Id from web/lib/api.ts and web/lib/sse.ts, and two other phase-3 and phase-4 tasks are editing the same web app at the same time: 5558db adds sign-in, and 22f5bb adds the membership-state branching and removes the config constants.\n\nThat is three concurrent editors on web/. Coordinate them the same way as the store trio in phase 5: one agent for the web changes, or strictly sequenced merges with a rebase between.",
       "created_at": "2026-09-01T02:57:58.067134Z"
+    },
+    {
+      "id": "79fd60d5-8b73-4176-b6cb-2bf61ffce877",
+      "author": "home",
+      "text": "**Your window is open now. Take it before something else lands.**\n\nThe queue is empty: #132 merged and nothing is in progress. This card's scheduling warning says it needs a clear window and one agent, because it reshapes nearly every route in `http/app.py` and the tenant column in most files under `features/`. That has been theoretical until now, since something has always been in flight against those files.\n\nIts only blocker, 1ebc7d, closed two cycles ago. fac2ee and 5744ef are also unblocked and should wait until this merges rather than run beside it.",
+      "created_at": "2026-09-01T06:38:28.681684Z"
     }
   ],
   "created_at": "2026-09-01T02:40:29.706304Z",
-  "updated_at": "2026-09-01T02:57:58.067134Z",
+  "updated_at": "2026-09-01T06:38:28.681684Z",
   "closed_at": null,
   "custom": {}
 }

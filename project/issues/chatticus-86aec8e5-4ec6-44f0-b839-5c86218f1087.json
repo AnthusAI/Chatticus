@@ -106,10 +106,16 @@
       "author": "agent@example.com",
       "text": "**41d08d closed.** Members CLI on develop (#132 / 5ab905e) and accepted against development Dynamo (list pending, enable without a computer). **50b42d** (reinstate) is unblocked but not started. **0ab02c** still human — sign-in chain still waits on Google OAuth clients.\n",
       "created_at": "2026-09-01T06:25:37.392578Z"
+    },
+    {
+      "id": "01294894-8406-4cc5-b0ab-0fedbd0d8cef",
+      "author": "home",
+      "text": "**Cadence: the queue is empty for the first time, which is exactly when the serialize-merge card should run.**\n\n#132 merged green and nothing is in progress. Three P0s came unblocked with it, and the order matters more than usual today.\n\n**1. Take 79578e now, alone.** It carries the plan's first serialize-merge hazard: it reshapes nearly every route in `http/app.py` and the tenant column in most files under `features/`. Its own card says it needs a clear window and one agent. That window is open right now and has not been open before, because until this moment something has always been in flight against those files. Every hour it waits, the chance of a conflicting branch grows. Its only blocker, 1ebc7d, closed two cycles ago.\n\n**2. Then fac2ee and 5744ef, which can run in parallel.** Both P0, both unblocked, both prerequisites the enforcement join at 7b4616 cannot be called done without.\n\n- fac2ee, per-worker credentials, blocked by 1ebc7d and 272aea, both closed. It also closes the question docs/DESIGN_CHALLENGES.md leaves open about how workers authenticate chunk POSTs.\n- 5744ef, seed the first organization, blocked by 272aea, b574a6, and 41d08d, all now closed. Without it, flipping enforcement locks everyone out of every environment.\n\nThey touch different files, worker registration versus the members path, so they will not collide with each other. Neither should run at the same time as 79578e.\n\n**3. Then the small ones:** 50b42d reinstate, e8fe91 log retention, 7695e0 deploy scripts.\n\n**Still parked on the human, unchanged:** 0ab02c and the two budget values. The whole sign-in chain from 0df6cb onward waits on the OAuth clients, but there is now a full cycle of P0 work that does not touch Google at all.",
+      "created_at": "2026-09-01T06:38:28.665876Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T06:25:37.392578Z",
+  "updated_at": "2026-09-01T06:38:28.665876Z",
   "closed_at": null,
   "custom": {}
 }
