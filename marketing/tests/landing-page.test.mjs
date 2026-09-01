@@ -76,6 +76,7 @@ describe("Chatticus marketing experience", () => {
     assert.match(prototypeSource, /Shared room/);
     assert.match(prototypeSource, /Work in motion/);
     assert.match(prototypeSource, /One shared computer\. Many teammates\. Your approval when it matters/);
+    assert.match(prototypeSource, /Maya K\. · Owner/);
     assert.match(prototypeSource, /setActiveIndex/);
     assert.match(prototypeSource, /w-\[85%\]/);
     assert.match(prototypeSource, /grid-cols-1 gap-2 sm:grid-cols/);

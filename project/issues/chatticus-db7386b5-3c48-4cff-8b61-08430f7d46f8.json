@@ -112,10 +112,16 @@
       "author": "home",
       "text": "User selected caption option 2: 'One shared computer. Many teammates. Your approval when it matters.' Updating the workspace caption accordingly.",
       "created_at": "2026-09-01T19:07:34.600126Z"
+    },
+    {
+      "id": "3b225454-6a1b-440e-9e80-bb42ce73b362",
+      "author": "home",
+      "text": "User wants the initial launch-story request to read unambiguously as a user message and to expose the multi-user opportunity. Adding a named owner identity, human avatar, and a visually distinct human bubble in the shared-room prototype; preserving the agent reply on the left.",
+      "created_at": "2026-09-01T19:08:48.134504Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T19:07:34.600126Z",
+  "updated_at": "2026-09-01T19:08:48.134504Z",
   "closed_at": null,
   "custom": {}
 }

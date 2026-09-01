@@ -115,8 +115,12 @@ export function WorkspacePrototype() {
             </div>
 
             <div className="mt-4 space-y-2 font-body text-[0.67rem] leading-relaxed">
-              <div className="ml-auto max-w-[88%] rounded-2xl rounded-tr-sm bg-paper/10 px-2.5 py-2 text-paper/80">
-                Build the launch story. Keep the final call with me.
+              <div className="ml-auto flex max-w-[94%] items-end justify-end gap-1.5">
+                <div className="max-w-[88%] rounded-2xl rounded-tr-sm border border-clay/45 bg-clay/15 px-2.5 py-2 text-paper">
+                  <p className="font-mono text-[0.46rem] uppercase tracking-[0.1em] text-clay">Maya K. · Owner</p>
+                  <p className="mt-1">Build the launch story. Keep the final call with me.</p>
+                </div>
+                <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-clay font-mono text-[0.45rem] font-bold text-ink">MK</span>
               </div>
               <div className="max-w-[91%] rounded-2xl rounded-tl-sm bg-signal px-2.5 py-2 font-semibold text-ink">
                 I&apos;m assembling the evidence and assigning the next handoff.
