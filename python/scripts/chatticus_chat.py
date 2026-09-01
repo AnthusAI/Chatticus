@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 
 from chatticus.thin_turn_conversation import (
     ThinTurnConversationClient,
     cloud_environment_choices,
     resolve_demo_base_url,
+    resolve_demo_invoke_key,
 )
 
 
@@ -104,7 +104,11 @@ def main() -> int:
         help="Last-Event-ID cursor when using --watch-turn.",
     )
     args = parser.parse_args()
-    invoke_key = (args.invoke_key or os.environ.get("CHATTICUS_INVOKE_KEY", "")).strip()
+    try:
+        invoke_key = resolve_demo_invoke_key(args.environment, args.invoke_key)
+    except (LookupError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
     try:
         base_url = resolve_demo_base_url(
             args.environment or None, args.base_url or None

@@ -14,6 +14,7 @@ import httpx
 from chatticus.cloud_environments import (
     CLOUD_ENVIRONMENTS,
     parse_cloud_environment,
+    resolve_invoke_key_for_environment,
     resolve_thin_turn_base_url,
 )
 from chatticus.http.app import INVOKE_HEADER
@@ -224,7 +225,7 @@ class ThinTurnConversationClient:
         if key:
             headers["Idempotency-Key"] = key
         response = self._client.post(
-            f"/channels/{channel_id}/messages",
+            self._org(f"/channels/{channel_id}/messages"),
             json={
                 "author_kind": ActorKind.HUMAN,
                 "author_id": self.user_id,
@@ -264,7 +265,7 @@ class ThinTurnConversationClient:
     ) -> list[dict[str, Any]]:
         """Return GET /channels/{id}/messages?after= rows."""
         response = self._client.get(
-            f"/channels/{channel_id}/messages",
+            self._org(f"/channels/{channel_id}/messages"),
             params={"after": after_seq},
             headers=self._merged_headers(),
         )
@@ -363,6 +364,19 @@ class ThinTurnConversationClient:
         )
         combined.absorb(second.events)
         return combined
+
+
+def resolve_demo_invoke_key(
+    environment: str | None,
+    invoke_key: str | None,
+) -> str | None:
+    """Resolve invoke key for the demo CLI when targeting a named environment."""
+    explicit = (invoke_key or "").strip()
+    if explicit:
+        return explicit
+    if not environment:
+        return None
+    return resolve_invoke_key_for_environment(parse_cloud_environment(environment))
 
 
 def resolve_demo_base_url(

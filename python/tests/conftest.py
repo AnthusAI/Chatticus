@@ -9,8 +9,8 @@ import pytest
 
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
-from chatticus.http.paths import org_path
 from chatticus.http.test_server import start_test_server
+from chatticus.http.worker_auth import register_worker_bearer
 
 _TESTS_DIR = Path(__file__).resolve().parent
 if str(_TESTS_DIR) not in sys.path:
@@ -35,13 +35,4 @@ def register_worker_headers(
     worker_id: str = "test-worker",
 ) -> dict[str, str]:
     """Register one worker and return Authorization headers for worker routes."""
-    response = api.post(
-        org_path(tenant_id, "/workers/register"),
-        json={
-            "worker_id": worker_id,
-            "cost_class": "local",
-            "capabilities": ["cpu"],
-        },
-    )
-    assert response.status_code == 200, response.text
-    return {"Authorization": f"Bearer {response.json()['token']}"}
+    return register_worker_bearer(api, tenant_id, worker_id)

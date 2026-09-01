@@ -142,3 +142,34 @@ def thin_turn_stack_output(
             f"Deploy that environment before accepting against {environment}."
         )
     return value
+
+
+def resolve_invoke_key_for_environment(
+    environment: CloudEnvironment,
+    *,
+    invoke_key: str | None = None,
+    region: str | None = None,
+) -> str:
+    """Return the thin-turn front-door invoke key for a named environment.
+
+    Order: explicit value, ``CHATTICUS_INVOKE_KEY``, Secrets Manager
+    ``InvokeKeySecretArn`` from the thin-turn stack.
+    """
+    explicit = (invoke_key or os.environ.get("CHATTICUS_INVOKE_KEY", "")).strip()
+    if explicit:
+        return explicit
+    resolved_region = (
+        region
+        or os.environ.get("AWS_REGION")
+        or os.environ.get("AWS_DEFAULT_REGION")
+        or "us-east-1"
+    )
+    arn = thin_turn_stack_output(
+        environment, "InvokeKeySecretArn", region=resolved_region
+    )
+    import boto3
+
+    secret = boto3.client(
+        "secretsmanager", region_name=resolved_region
+    ).get_secret_value(SecretId=arn)
+    return secret["SecretString"]
