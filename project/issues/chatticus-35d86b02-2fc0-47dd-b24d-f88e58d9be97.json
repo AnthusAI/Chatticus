@@ -3,7 +3,7 @@
   "title": "Show a live thin-turn conversation from the CLI",
   "description": "Purpose: let a person see the live thin turn without reading exercise_thin_turn.py exit codes.\n\nexercise_thin_turn.py is an acceptance harness. It prints claim_a=200 and bots_list=1. It is not a demo. The product surface is still the web app (Vultus), which is not Phase 1. Until that exists, a CLI is how a human addresses a named bot and watches one durable streamed answer.\n\nDefinition of Done:\n- A documented command talks to a named cloud environment (development first).\n- The person types a message, sees tokens as they arrive, and sees the committed reply.\n- Reconnect after a drop still shows the same turn from stored chunks.\n- Auth is the existing invoke key plus tenant, not product login.\n- exercise_thin_turn.py stays the pass/fail gate; this CLI does not replace it.\n\nNot included: chattic.us, Vultus, product login, computer, browser, approvals.",
   "type": "epic",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -37,10 +37,16 @@
       "author": "agent@example.com",
       "text": "Draft PR #26 still unmerged. Manager ran chatticus_chat.py once against development from that branch so the owner could see tokens; epic stays open until the owner authorizes taking #26. exercise_thin_turn.py remains the pass/fail gate. Do not start this from other slices.\n",
       "created_at": "2026-09-01T01:06:15.293222Z"
+    },
+    {
+      "id": "f1659e4e-f390-4e63-96c0-9d83f1d67186",
+      "author": "agent@example.com",
+      "text": "Owner authorized merging draft #26 onto develop so the CLI can be tested from the integration branch. Closing 35d86b after chatticus_chat.py lands. exercise_thin_turn.py remains the pass/fail gate.\n",
+      "created_at": "2026-09-01T01:10:04.324088Z"
     }
   ],
   "created_at": "2026-08-31T06:07:24.315584Z",
-  "updated_at": "2026-09-01T01:06:15.293222Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T01:10:04.336149Z",
+  "closed_at": "2026-09-01T01:10:04.336149Z",
   "custom": {}
 }

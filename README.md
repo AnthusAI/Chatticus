@@ -102,8 +102,9 @@ continuation after a real ThinTurn-only CDK deploy and ECR image push,
 not a CLI-patched Lambda env. `dev.chattic.us` DNS may still fail;
 resolve the front door from SSM, CloudFormation, or
 `CHATTICUS_DEVELOPMENT_BASE_URL`.
-A demo CLI (Kanbus epic 35d86b) is a separate slice.
-`exercise_thin_turn.py` stays the pass/fail gate.
+A demo CLI (`python/scripts/chatticus_chat.py`) talks to that HTTP
+surface so a person can watch tokens. `exercise_thin_turn.py` stays the
+pass/fail gate.
 
 Per-account CloudFront distribution domains, Lambda function URLs, and
 AWS account ids belong in gitignored `AGENTS.local.md`, not in this
@@ -480,8 +481,25 @@ sh scripts/live_aws_thin_turn.sh development
 
 That is the same as
 `python scripts/exercise_thin_turn.py --environment development` plus an
-identity check. It resolves the front door from
-`CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
+identity check.
+
+Watch one live conversation as a human (tokens on stdout, committed reply
+at the end). Auth is invoke key plus `X-Tenant-Id`, not product login:
+
+```bash
+cd python
+export CHATTICUS_INVOKE_KEY=...   # or pass --invoke-key
+python scripts/chatticus_chat.py --environment development \
+  --tenant-id anthus --user-id ryan --bot Luna --message "hello"
+```
+
+The script resolves the front door like `exercise_thin_turn.py`
+(`CHATTICUS_DEVELOPMENT_BASE_URL`, SSM, or CloudFormation). Omit
+`--message` for an interactive prompt. `--list-turns` calls
+`GET /users/{user_id}/turns`; `--watch-turn` reconnects with
+`Last-Event-ID` on `GET /turns/{id}/stream`.
+
+That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
 `/chatticus/development/thin-turn/cloudfront-url`, or the
 `CloudFrontUrl` output on stack `ChatticusWeb` (or `ChatticusThinTurn`
 before the web stack exists). When AWS lookup fails, pass `--base-url` or
