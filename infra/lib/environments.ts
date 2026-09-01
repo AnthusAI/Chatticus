@@ -18,6 +18,18 @@ export const WEB_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   production: "ChatticusWebProduction",
 };
 
+export const AUTH_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
+  development: "ChatticusAuth",
+  staging: "ChatticusAuthStaging",
+  production: "ChatticusAuthProduction",
+};
+
+export const AUTH_DOMAIN_NAMES: Record<ChatticusCloudEnvironment, string> = {
+  development: "auth-dev.chattic.us",
+  staging: "auth-staging.chattic.us",
+  production: "auth.chattic.us",
+};
+
 export const WEB_SITE_DOMAINS: Record<ChatticusCloudEnvironment, string> = {
   development: "dev.chattic.us",
   staging: "staging.chattic.us",

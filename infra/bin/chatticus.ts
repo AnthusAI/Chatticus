@@ -2,7 +2,9 @@
 import * as cdk from "aws-cdk-lib";
 import { ComputerStack } from "../lib/computer-stack";
 import { DnsStack } from "../lib/dns-stack";
+import { AuthStack } from "../lib/auth-stack";
 import {
+  AUTH_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
@@ -75,4 +77,14 @@ for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
       "proxy to the thin-turn function URL.",
   });
   web.addDependency(thinTurn);
+
+  new AuthStack(app, AUTH_STACK_IDS[environmentName], {
+    env,
+    chatticusEnvironment: environmentName,
+    hostedZone: dns.hostedZone,
+    siteCertificate: dns.siteCertificate,
+    description:
+      `Cognito user pool (${environmentName}) with Google federation and ` +
+      "custom auth domain for SPA authorization code + PKCE.",
+  });
 }

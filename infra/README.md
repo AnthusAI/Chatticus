@@ -19,12 +19,26 @@ operations.
 | `ChatticusWeb` | **Development** Next.js on S3 + CloudFront at `dev.chattic.us` with same-origin `/api/*` |
 | `ChatticusWebStaging` | Staging web at `staging.chattic.us` |
 | `ChatticusWebProduction` | Production product workspace at `hey.chattic.us` (marketing stays at `chattic.us` / `www`) |
+| `ChatticusAuth` | **Development** Cognito user pool with Google federation at `auth-dev.chattic.us` |
+| `ChatticusAuthStaging` | Staging Cognito auth at `auth-staging.chattic.us` |
+| `ChatticusAuthProduction` | Production Cognito auth at `auth.chattic.us` |
 
 Each thin-turn stack exports the Lambda **function URL** and invoke-key
 secret ARN for the matching web stack. The web stack publishes:
 
 - `/chatticus/{environment}/web/site-url` — `https://{hostname}`
 - `/chatticus/{environment}/thin-turn/cloudfront-url` — `https://{hostname}/api` (same-origin API base for workers and acceptance)
+
+Each auth stack publishes (under the same web prefix):
+
+- `/chatticus/{environment}/web/cognito-user-pool-id`
+- `/chatticus/{environment}/web/cognito-app-client-id`
+- `/chatticus/{environment}/web/cognito-auth-domain` — single-label hostname (`auth-dev`, `auth-staging`, `auth`) on the shared `*.chattic.us` certificate from `ChatticusDns`
+
+Google OAuth client id and secret are **not** in CDK or git. Each auth stack
+imports `chatticus/{environment}/oauth/google` from Secrets Manager (seeded
+by the human in Kanbus **0ab02c**). Cognito authenticates only; membership
+and roles are resolved server-side from DynamoDB.
 
 The snapshot bucket name is a CDK output. Hosts set
 `CHATTICUS_SNAPSHOT_BUCKET` to that value. URIs look like
@@ -68,6 +82,7 @@ into the other stack:
 cd infra
 sh deploy-chatticus-thinturn-development.sh
 sh deploy-chatticus-web-development.sh
+sh deploy-chatticus-auth-development.sh
 ```
 
 Staging and production, when you mean to:
@@ -75,8 +90,10 @@ Staging and production, when you mean to:
 ```bash
 npx cdk deploy ChatticusThinTurnStaging
 npx cdk deploy ChatticusWebStaging
+npx cdk deploy ChatticusAuthStaging
 npx cdk deploy ChatticusThinTurnProduction
 npx cdk deploy ChatticusWebProduction
+npx cdk deploy ChatticusAuthProduction
 ```
 
 GitHub Actions (development): manual `workflow_dispatch` workflows on the
