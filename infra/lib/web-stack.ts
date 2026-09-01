@@ -20,6 +20,10 @@ import {
   webParameterPrefix,
   WEB_SITE_DOMAINS,
 } from "./environments";
+import {
+  CHATTICUS_LOG_RETENTION,
+  CustomResourceProviderLogRetentionAspect,
+} from "./log-retention";
 
 export interface WebStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
@@ -27,6 +31,11 @@ export interface WebStackProps extends cdk.StackProps {
   siteCertificate: acm.ICertificate;
   frontDoorFunctionUrl: lambda.IFunctionUrl;
   invokeSecret: secretsmanager.ISecret;
+  /**
+   * Override the website deploy source (unit tests only). Production deploys
+   * omit this and bundle the Next.js site from ``web/``.
+   */
+  websiteDeploySource?: s3deploy.ISource;
 }
 
 /**
@@ -46,6 +55,11 @@ export class WebStack extends cdk.Stack {
     const thinTurnPrefix = thinTurnParameterPrefix(environmentName);
     const retainData = environmentName !== "development";
     cdk.Tags.of(this).add("chatticus:environment", environmentName);
+    if (!retainData) {
+      cdk.Aspects.of(this).add(
+        new CustomResourceProviderLogRetentionAspect(CHATTICUS_LOG_RETENTION),
+      );
+    }
 
     const invokeSecret = props.invokeSecret;
     const frontDoorFunctionUrl = props.frontDoorFunctionUrl;
@@ -111,40 +125,44 @@ export class WebStack extends cdk.Stack {
     });
 
     const webRoot = path.join(__dirname, "../../web");
-    new s3deploy.BucketDeployment(this, "DeployWebsite", {
-      sources: [
-        s3deploy.Source.asset(webRoot, {
-          bundling: {
-            image: cdk.DockerImage.fromRegistry("node:22-bookworm-slim"),
-            command: [
-              "bash",
-              "-c",
-              [
-                "cd /asset-input",
-                "npm ci",
-                "npm run build",
-                "cp -r out/. /asset-output/",
-              ].join(" && "),
-            ],
-            local: {
-              tryBundle(outputDir: string): boolean {
-                try {
-                  execSync("npm ci && npm run build", {
-                    cwd: webRoot,
-                    stdio: "inherit",
-                  });
-                  execSync(`cp -r ${webRoot}/out/. ${outputDir}/`, {
-                    stdio: "inherit",
-                  });
-                  return true;
-                } catch {
-                  return false;
-                }
+    const websiteSources = props.websiteDeploySource
+      ? [props.websiteDeploySource]
+      : [
+          s3deploy.Source.asset(webRoot, {
+            bundling: {
+              image: cdk.DockerImage.fromRegistry("node:22-bookworm-slim"),
+              command: [
+                "bash",
+                "-c",
+                [
+                  "cd /asset-input",
+                  "npm ci",
+                  "npm run build",
+                  "cp -r out/. /asset-output/",
+                ].join(" && "),
+              ],
+              local: {
+                tryBundle(outputDir: string): boolean {
+                  try {
+                    execSync("npm ci && npm run build", {
+                      cwd: webRoot,
+                      stdio: "inherit",
+                    });
+                    execSync(`cp -r ${webRoot}/out/. ${outputDir}/`, {
+                      stdio: "inherit",
+                    });
+                    return true;
+                  } catch {
+                    return false;
+                  }
+                },
               },
             },
-          },
-        }),
-      ],
+          }),
+        ];
+    new s3deploy.BucketDeployment(this, "DeployWebsite", {
+      logRetention: CHATTICUS_LOG_RETENTION,
+      sources: websiteSources,
       destinationBucket: siteBucket,
       distribution,
       distributionPaths: ["/*"],

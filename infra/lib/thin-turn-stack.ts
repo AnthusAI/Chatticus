@@ -20,6 +20,7 @@ import {
   thinTurnExportName,
   thinTurnParameterPrefix,
 } from "./environments";
+import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
 const LAMBDA_WEB_ADAPTER_LAYER_VERSION = 28;
 
@@ -173,6 +174,7 @@ export class ThinTurnStack extends cdk.Stack {
       handler: "run.sh",
       architecture: lambda.Architecture.X86_64,
       memorySize: 512,
+      logRetention: CHATTICUS_LOG_RETENTION,
       timeout: cdk.Duration.seconds(900),
       layers: [lambdaWebAdapterLayer],
       description: "Per-request Chatticus HTTP front door with turn-scoped SSE.",
@@ -194,6 +196,7 @@ export class ThinTurnStack extends cdk.Stack {
       handler: "chatticus.deadline.lambda_handler.handler",
       architecture: lambda.Architecture.X86_64,
       memorySize: 256,
+      logRetention: CHATTICUS_LOG_RETENTION,
       timeout: cdk.Duration.seconds(60),
       description:
         "EventBridge Scheduler target: recover wedged turns without an always-on reaper.",
@@ -279,6 +282,7 @@ export class ThinTurnStack extends cdk.Stack {
       handler: "chatticus.worker.lambda_handler.handler",
       architecture: lambda.Architecture.X86_64,
       memorySize: 512,
+      logRetention: CHATTICUS_LOG_RETENTION,
       timeout: cdk.Duration.seconds(120),
       description: "SQS computerless worker: one OpenAI text loop per turn job.",
       environment: {
@@ -308,6 +312,7 @@ export class ThinTurnStack extends cdk.Stack {
       handler: "chatticus.worker.lambda_handler.handler",
       architecture: lambda.Architecture.X86_64,
       memorySize: 256,
+      logRetention: CHATTICUS_LOG_RETENTION,
       timeout: cdk.Duration.seconds(60),
       description:
         "SQS computer-queue worker: nack without a host; never fake tool.result.",

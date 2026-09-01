@@ -162,13 +162,12 @@ reasons it cannot be the only copy.
 - **Scanning is O(data) forever.** A monthly rollup re-scans the whole
   period every run, where a DynamoDB query reads one partition.
 
-There is also a concrete trap in this repository today.
-`infra/lib/computer-stack.ts` sets fourteen-day retention on the computer
-log group, and the thin-turn Lambda log groups set no retention at all,
-which means they never expire. Ledger events emitted from a worker on the
-computer host would vanish in two weeks; everything else accumulates
-forever by accident rather than by decision. Retention belongs in CDK,
-chosen deliberately, in both places.
+All Chatticus CDK log groups use **30-day** retention (`CHATTICUS_LOG_RETENTION`
+in `infra/lib/log-retention.ts`), including WebStack BucketDeployment and
+development auto-delete custom-resource handlers. DynamoDB is the system of record;
+CloudWatch logs are a debug window only, long enough for incident lookback and
+short enough to bound storage cost. Retention is set explicitly on every log group
+in CDK so nothing relies on the never-expire default.
 
 ### Record shape
 

@@ -6,6 +6,7 @@ import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { Construct } from "constructs";
+import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
 const STRIP_ACCEPT_ENCODING_FUNCTION = `function handler(event) {
   var request = event.request;
@@ -42,6 +43,7 @@ export class SseSpikeStack extends cdk.Stack {
       handler: "run.sh",
       architecture: lambda.Architecture.X86_64,
       memorySize: 256,
+      logRetention: CHATTICUS_LOG_RETENTION,
       timeout: cdk.Duration.seconds(900),
       layers: [lambdaWebAdapterLayer],
       description:
