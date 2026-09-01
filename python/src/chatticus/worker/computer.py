@@ -5,10 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol
 
+from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.computer_capabilities import (
     capability_for_computer_tool,
 )
 from chatticus.control_plane import ControlPlane
+from chatticus.escalation_handoff import EscalationRecord
 from chatticus.host_starter import HostStarter, NoOpHostStarter
 from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
@@ -162,6 +164,18 @@ class ComputerWorker:
             job.tenant_id, job.turn_id, worker_id
         ):
             return
+        denied_body = self._regate_committed_browse_url(job, record)
+        if denied_body is not None:
+            self.plane.commit_computer_tool_result(
+                job.tenant_id, job.turn_id, denied_body
+            )
+            if self.plane.unresolved_tool_action_ids(job.tenant_id, job.turn_id):
+                return
+            self.plane.remove_pending_job(job.job_id)
+            turn = self.plane.turn(job.tenant_id, job.turn_id)
+            if turn.status == TurnStatus.ACTIVE:
+                self.plane.complete_computer_continuation(job.tenant_id, job.turn_id)
+            return
         if unresolved:
             self.plane.execute_pending_computer_action(job.tenant_id, job.turn_id)
         if not record.result_committed:
@@ -182,3 +196,27 @@ class ComputerWorker:
         turn = self.plane.turn(job.tenant_id, job.turn_id)
         if turn.status == TurnStatus.ACTIVE:
             self.plane.complete_computer_continuation(job.tenant_id, job.turn_id)
+
+    def _regate_committed_browse_url(
+        self,
+        job: TurnJob,
+        record: EscalationRecord,
+    ) -> str | None:
+        """Re-check browse grants on committed journal args before host execute."""
+        if job.turn_id is None:
+            return None
+        tool_name = record.pending_call.tool_name
+        arguments = dict(record.pending_call.arguments)
+        if tool_name not in {"browser_open", "request_computer_capability"}:
+            return None
+        url = arguments.get("url", "").strip()
+        if not url or url == "about:blank":
+            return None
+        policy = self.plane.capability_policy_for(job.tenant_id, job.turn_id)
+        if policy.grant is None:
+            return None
+        try:
+            self.plane.gated_browse_origin(job.tenant_id, job.turn_id, url)
+        except CapabilitySinkDenied as error:
+            return f"denied: {error}"
+        return None

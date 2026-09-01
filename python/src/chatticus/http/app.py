@@ -140,6 +140,19 @@ class ReadWorkspaceBody(BaseModel):
     path: str
 
 
+class AuthorizeBrowseBody(BaseModel):
+    """Body for POST /turns/{turn_id}/browse/authorize."""
+
+    url: str
+
+
+class DenyModelToolBody(BaseModel):
+    """Body for POST /turns/{turn_id}/tool/denied."""
+
+    tool_name: str
+    arguments: dict[str, str] = Field(default_factory=dict)
+
+
 @dataclass
 class AppState:
     """Mutable front-door state attached to each app instance."""
@@ -607,7 +620,7 @@ def create_app(
             raise TurnAccessDeniedError(
                 f"Tenant {tenant_id!r} cannot read workspace for turn {turn_id!r}."
             ) from error
-        content = state.plane.gated_read_workspace(
+        content = state.plane.gated_read_workspace_for_model(
             tenant_id,
             turn_id,
             body.user_id,
@@ -620,6 +633,46 @@ def create_app(
             body.path,
         )
         return {"content": content}
+
+    @app.post("/turns/{turn_id}/browse/authorize")
+    def authorize_turn_browse(
+        turn_id: str,
+        body: AuthorizeBrowseBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, Any]:
+        try:
+            state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot authorize browse for turn {turn_id!r}."
+            ) from error
+        state.plane.gated_browse_origin_for_model(tenant_id, turn_id, body.url)
+        logger.info(
+            "gated_browse_authorized tenant_id=%s turn_id=%s url=%s",
+            tenant_id,
+            turn_id,
+            body.url,
+        )
+        return {"authorized": True, "url": body.url}
+
+    @app.post("/turns/{turn_id}/tool/denied")
+    def deny_turn_model_tool(
+        turn_id: str,
+        body: DenyModelToolBody,
+        tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
+    ) -> dict[str, str]:
+        try:
+            state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot deny tools for turn {turn_id!r}."
+            ) from error
+        state.plane.deny_model_tool_request(
+            tenant_id,
+            turn_id,
+            body.tool_name,
+            dict(body.arguments),
+        )
 
     @app.get("/turns/{turn_id}/events")
     def list_turn_events(

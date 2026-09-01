@@ -26,7 +26,12 @@ def _channel_with_bot(plane: ControlPlane, name: str = "Assistant"):
 
 def test_computerless_worker_tools_include_task_and_computer_gate() -> None:
     names = {tool["function"]["name"] for tool in computerless_worker_tools()}
-    assert names == {"task", "request_computer_capability"}
+    assert names == {
+        "task",
+        "read_workspace",
+        "browse",
+        "request_computer_capability",
+    }
     assert "task tool" in WORKER_SYSTEM_PROMPT
 
 

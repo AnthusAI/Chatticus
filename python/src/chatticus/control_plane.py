@@ -17,12 +17,16 @@ from chatticus.approval_binding import (
 )
 from chatticus.capability_policy import (
     CapabilityPolicy,
+    EgressClass,
     PolicyBrowserContext,
+    RequestedCapability,
     TaskCapabilityGrant,
 )
 from chatticus.capability_sinks import (
     POLICY_KERNEL_TENANT,
     POLICY_KERNEL_TURN,
+    CapabilitySinkApprovalRequired,
+    CapabilitySinkDenied,
     attempt_authenticated_browser_action_at_sink,
     execute_approved_operation_at_sink,
     gated_browse_origin,
@@ -30,7 +34,9 @@ from chatticus.capability_sinks import (
     gated_write_workspace,
     open_privileged_browser_context,
     open_untrusted_browser_context,
+    require_allow,
     resolve_unattended_gated_action_at_sink,
+    structured_action_request,
 )
 from chatticus.computer_capabilities import (
     BROWSER_CAPABILITY,
@@ -957,6 +963,197 @@ class ControlPlane:
     def gated_browse_origin(self, tenant_id: str, turn_id: str, url: str) -> None:
         """Authorize browsing one origin before a computer tool opens it."""
         gated_browse_origin(self.capability_policy_for(tenant_id, turn_id), url)
+
+    def requested_capability_for_model_tool(
+        self, tool_name: str, arguments: dict[str, str]
+    ) -> RequestedCapability:
+        """Map one model tool name and arguments to a capability request."""
+        if tool_name == "read_workspace":
+            return RequestedCapability(
+                tool="read_workspace",
+                file_path=arguments.get("path"),
+                egress_class=EgressClass.APPROVED_ORIGIN_FETCH.value,
+            )
+        if tool_name == "browse":
+            return RequestedCapability(
+                tool="browse",
+                origin=arguments.get("url"),
+                egress_class=EgressClass.APPROVED_ORIGIN_FETCH.value,
+            )
+        if tool_name in CONSEQUENTIAL_ACTION_TYPES:
+            return structured_action_request(tool_name, arguments)
+        return RequestedCapability(tool=tool_name)
+
+    def evaluate_model_tool_request(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        tool_name: str,
+        arguments: dict[str, str],
+    ) -> None:
+        """Raise when a model-requested tool is denied or needs approval."""
+        policy = self.capability_policy_for(tenant_id, turn_id)
+        require_allow(
+            policy,
+            self.requested_capability_for_model_tool(tool_name, arguments),
+        )
+
+    def record_model_gated_tool_call(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        tool_name: str,
+        arguments: dict[str, str],
+    ) -> str:
+        """Append one first-gate tool.call journal event and return its action id."""
+        action_id = str(uuid4())
+        turn = self.turn(tenant_id, turn_id)
+        pending = PendingComputerToolSnapshot(
+            action_id=action_id,
+            tool_name=tool_name,
+            arguments=dict(arguments),
+        )
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TOOL_CALL,
+            body=tool_name,
+            pending_computer_tool=pending,
+            action_id=action_id,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
+        return action_id
+
+    def record_model_gated_tool_result(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        action_id: str,
+        result_body: str,
+    ) -> None:
+        """Append one first-gate tool.result journal event."""
+        turn = self.turn(tenant_id, turn_id)
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TOOL_RESULT,
+            body=result_body,
+            action_id=action_id,
+            attempt_id=turn.attempt_id,
+            expected_fence=turn.fence_token if turn.attempt_id else None,
+        )
+
+    def record_model_gated_tool_denied(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        tool_name: str,
+        arguments: dict[str, str],
+        reason: str,
+    ) -> str:
+        """Record tool.call and tool.result with a denied: prefix."""
+        action_id = self.record_model_gated_tool_call(
+            tenant_id, turn_id, tool_name, arguments
+        )
+        self.record_model_gated_tool_result(
+            tenant_id,
+            turn_id,
+            action_id,
+            f"denied: {reason}",
+        )
+        return action_id
+
+    def gated_read_workspace_for_model(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        user_id: str,
+        path: str,
+    ) -> str | None:
+        """Read one workspace file and record first-gate tool journal events."""
+        action_id = self.record_model_gated_tool_call(
+            tenant_id,
+            turn_id,
+            "read_workspace",
+            {"path": path},
+        )
+        try:
+            content = self.gated_read_workspace(tenant_id, turn_id, user_id, path)
+        except CapabilitySinkDenied as error:
+            self.record_model_gated_tool_result(
+                tenant_id,
+                turn_id,
+                action_id,
+                f"denied: {error}",
+            )
+            raise
+        self.record_model_gated_tool_result(
+            tenant_id,
+            turn_id,
+            action_id,
+            f"read_workspace:{path}",
+        )
+        return content
+
+    def gated_browse_origin_for_model(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        url: str,
+    ) -> None:
+        """Authorize one browse origin and record first-gate tool journal events."""
+        action_id = self.record_model_gated_tool_call(
+            tenant_id,
+            turn_id,
+            "browse",
+            {"url": url},
+        )
+        try:
+            self.gated_browse_origin(tenant_id, turn_id, url)
+        except CapabilitySinkDenied as error:
+            self.record_model_gated_tool_result(
+                tenant_id,
+                turn_id,
+                action_id,
+                f"denied: {error}",
+            )
+            raise
+        self.record_model_gated_tool_result(
+            tenant_id,
+            turn_id,
+            action_id,
+            f"browse:authorized:{url}",
+        )
+
+    def deny_model_tool_request(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        tool_name: str,
+        arguments: dict[str, str],
+    ) -> None:
+        """Evaluate and journal one denied model tool without executing it."""
+        try:
+            self.evaluate_model_tool_request(tenant_id, turn_id, tool_name, arguments)
+        except CapabilitySinkApprovalRequired:
+            self.record_model_gated_tool_denied(
+                tenant_id,
+                turn_id,
+                tool_name,
+                arguments,
+                "immutable approval required",
+            )
+            raise CapabilitySinkDenied("immutable approval required") from None
+        except CapabilitySinkDenied as error:
+            self.record_model_gated_tool_denied(
+                tenant_id,
+                turn_id,
+                tool_name,
+                arguments,
+                str(error),
+            )
+            raise
+        msg = f"tool {tool_name!r} is allowed; use a first-gate execute route"
+        raise ValueError(msg)
 
     def open_untrusted_browser_context(
         self, tenant_id: str, turn_id: str, page_url: str

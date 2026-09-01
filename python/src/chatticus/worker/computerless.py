@@ -15,6 +15,11 @@ from chatticus.models import (
     TurnJob,
     TurnStatus,
 )
+from chatticus.worker.tool_dispatch import (
+    GatedToolCall,
+    ToolDispatchResult,
+    dispatch_gated_tool,
+)
 
 
 @dataclass(frozen=True)
@@ -32,6 +37,7 @@ class CompletionOutcome:
     text: str
     wait_gate: str | None = None
     task_tool_call: TaskToolCall | None = None
+    gated_tool_call: GatedToolCall | None = None
 
 
 class TextCompletionClient(Protocol):
@@ -89,6 +95,64 @@ class TaskAwareFakeTextCompletionClient(FakeTextCompletionClient):
                 task_tool_call=TaskToolCall(
                     action="create",
                     arguments={"title": title},
+                ),
+            )
+        return super().complete(prompt)
+
+
+class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
+    """Fake client that emits first-gate tool calls for Gherkin sink specs."""
+
+    _READ_WORKSPACE_RE = re.compile(
+        r"read workspace file (.+)$",
+        re.IGNORECASE,
+    )
+    _BROWSE_RE = re.compile(
+        r"browse (https?://\S+)",
+        re.IGNORECASE,
+    )
+    _SEND_RE = re.compile(
+        r"send (\S+)",
+        re.IGNORECASE,
+    )
+
+    def complete(self, prompt: str) -> CompletionOutcome:
+        last_line = prompt.strip().splitlines()[-1] if prompt.strip() else ""
+        lowered = last_line.lower()
+        user_text = last_line
+        for prefix in ("human:", "user:", "bot:"):
+            if lowered.startswith(prefix):
+                user_text = last_line.split(":", 1)[1].strip()
+                lowered = user_text.lower()
+                break
+        read_match = self._READ_WORKSPACE_RE.search(user_text)
+        if read_match is not None:
+            path = read_match.group(1).strip()
+            return CompletionOutcome(
+                text="I'll read that workspace file.",
+                gated_tool_call=GatedToolCall(
+                    tool_name="read_workspace",
+                    arguments={"path": path},
+                ),
+            )
+        browse_match = self._BROWSE_RE.search(user_text)
+        if browse_match is not None:
+            url = browse_match.group(1).strip()
+            return CompletionOutcome(
+                text="I'll check that origin.",
+                gated_tool_call=GatedToolCall(
+                    tool_name="browse",
+                    arguments={"url": url},
+                ),
+            )
+        send_match = self._SEND_RE.search(user_text)
+        if send_match is not None:
+            recipient = send_match.group(1).strip()
+            return CompletionOutcome(
+                text="I'll try to send that message.",
+                gated_tool_call=GatedToolCall(
+                    tool_name="send",
+                    arguments={"recipient": recipient},
                 ),
             )
         return super().complete(prompt)
@@ -235,8 +299,12 @@ class ComputerlessWorker:
             not outcome.text.strip()
             and outcome.wait_gate is None
             and outcome.task_tool_call is None
+            and outcome.gated_tool_call is None
         ):
             raise RuntimeError("Model returned an empty completion.")
+        if outcome.gated_tool_call is not None:
+            self._handle_gated_tool_call(job, outcome)
+            return
         if outcome.task_tool_call is not None:
             self._handle_task_tool_call(job, outcome)
             return
@@ -250,6 +318,37 @@ class ComputerlessWorker:
         self.turn_client.post_chunk(job.turn_id, outcome.text[:midpoint])
         self.turn_client.post_chunk(job.turn_id, outcome.text[midpoint:], complete=True)
         self.plane.remove_pending_job(job.job_id)
+
+    def _handle_gated_tool_call(self, job: TurnJob, outcome: CompletionOutcome) -> None:
+        """Invoke one first-gate tool through ThinTurn HTTP sinks."""
+        if job.turn_id is None or outcome.gated_tool_call is None:
+            return
+        turn = self.plane.turn(job.tenant_id, job.turn_id)
+        bot_id = job.bot_id or turn.bot_id
+        if bot_id is None:
+            raise RuntimeError("Gated tool requires a bot-addressed turn.")
+        bot = self.plane.bot(job.tenant_id, bot_id)
+        result = dispatch_gated_tool(
+            self.turn_client,
+            turn_id=job.turn_id,
+            user_id=bot.user_id,
+            call=outcome.gated_tool_call,
+        )
+        answer = self._answer_for_gated_tool(outcome.text, result)
+        midpoint = max(1, len(answer) // 2)
+        self.turn_client.post_chunk(job.turn_id, answer[:midpoint])
+        self.turn_client.post_chunk(job.turn_id, answer[midpoint:], complete=True)
+        self.plane.remove_pending_job(job.job_id)
+
+    def _answer_for_gated_tool(self, draft: str, result: ToolDispatchResult) -> str:
+        """Build one bot answer from a gated tool dispatch outcome."""
+        prefix = draft.strip()
+        if result.denied:
+            detail = f"denied: {result.reason}"
+            return f"{prefix} {detail}".strip()
+        if result.content is not None and result.content:
+            return f"{prefix} {result.content}".strip()
+        return prefix or "Done."
 
     def _handle_task_tool_call(self, job: TurnJob, outcome: CompletionOutcome) -> None:
         """Invoke the structured task tool through ThinTurn HTTP and answer."""

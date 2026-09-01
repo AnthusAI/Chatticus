@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
 from typing import Any
+
+
+@dataclass(frozen=True)
+class GatedToolHttpError(Exception):
+    """A gated tool HTTP route denied the request with a safe reason."""
+
+    reason: str
+    status_code: int
+
+    def __str__(self) -> str:
+        return self.reason
 
 
 class HttpTurnClient:
@@ -163,9 +176,68 @@ class HttpTurnClient:
             json={"user_id": user_id, "path": path},
             headers={"X-Tenant-Id": self.tenant_id},
         )
+        if response.status_code == 403:
+            raise GatedToolHttpError(
+                _safe_http_detail(response),
+                response.status_code,
+            )
         if response.status_code >= 400:
             raise RuntimeError(
                 f"workspace read POST failed with status {response.status_code}: "
                 f"{response.text}"
             )
         return response.json()
+
+    def authorize_browse(self, turn_id: str, url: str) -> dict[str, Any]:
+        """Authorize one browse origin after the task grant allows it."""
+        response = self.client.post(
+            f"/turns/{turn_id}/browse/authorize",
+            json={"url": url},
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code == 403:
+            raise GatedToolHttpError(
+                _safe_http_detail(response),
+                response.status_code,
+            )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"browse authorize POST failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+        return response.json()
+
+    def deny_model_tool(
+        self,
+        turn_id: str,
+        tool_name: str,
+        arguments: dict[str, str],
+    ) -> None:
+        """Record one denied model tool through the control plane sink."""
+        response = self.client.post(
+            f"/turns/{turn_id}/tool/denied",
+            json={"tool_name": tool_name, "arguments": arguments},
+            headers={"X-Tenant-Id": self.tenant_id},
+        )
+        if response.status_code == 403:
+            raise GatedToolHttpError(
+                _safe_http_detail(response),
+                response.status_code,
+            )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"tool denied POST failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+
+
+def _safe_http_detail(response: Any) -> str:
+    """Return a FastAPI error detail string without raising."""
+    try:
+        body = response.json()
+    except json.JSONDecodeError:
+        return response.text or "denied"
+    detail = body.get("detail")
+    if detail is not None:
+        return str(detail)
+    return response.text or "denied"
