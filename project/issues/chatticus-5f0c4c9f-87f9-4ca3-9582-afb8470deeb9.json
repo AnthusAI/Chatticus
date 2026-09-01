@@ -12,9 +12,16 @@
     "phase-3"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f4676d95-4781-4901-a52c-c7698fead0f2",
+      "author": "home",
+      "text": "**Adversarial review: a turn stream outlives the check.**\n\nA turn-scoped SSE stream is held for up to 900 seconds, and the measurements in docs/DESIGN_CHALLENGES.md show reconnects with Last-Event-ID. The token is validated when the stream opens. Decide now whether it is validated again during the stream.\n\nIf it is validated once, a member whose membership is revoked mid-turn keeps receiving output for the rest of that turn. That may be perfectly acceptable at this scale, but it should be a recorded decision rather than something discovered later during an incident.\n\nAlso confirm the reconnect path carries a fresh token. A client that reconnects after fifteen minutes with the original token will fail in a way that looks like a stream bug.",
+      "created_at": "2026-09-01T02:57:58.055539Z"
+    }
+  ],
   "created_at": "2026-09-01T02:40:29.680727Z",
-  "updated_at": "2026-09-01T02:46:21.182075Z",
+  "updated_at": "2026-09-01T02:57:58.055539Z",
   "closed_at": null,
   "custom": {}
 }

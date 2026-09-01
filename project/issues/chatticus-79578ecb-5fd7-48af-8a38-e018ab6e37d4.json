@@ -12,9 +12,16 @@
     "phase-3"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "8282e000-04d5-4669-80fa-477d77aa41af",
+      "author": "home",
+      "text": "**Adversarial review: the collision warning on this issue is incomplete.**\n\nThe description warns about Python. This task also deletes X-Tenant-Id from web/lib/api.ts and web/lib/sse.ts, and two other phase-3 and phase-4 tasks are editing the same web app at the same time: 5558db adds sign-in, and 22f5bb adds the membership-state branching and removes the config constants.\n\nThat is three concurrent editors on web/. Coordinate them the same way as the store trio in phase 5: one agent for the web changes, or strictly sequenced merges with a rebase between.",
+      "created_at": "2026-09-01T02:57:58.067134Z"
+    }
+  ],
   "created_at": "2026-09-01T02:40:29.706304Z",
-  "updated_at": "2026-09-01T02:46:21.205205Z",
+  "updated_at": "2026-09-01T02:57:58.067134Z",
   "closed_at": null,
   "custom": {}
 }

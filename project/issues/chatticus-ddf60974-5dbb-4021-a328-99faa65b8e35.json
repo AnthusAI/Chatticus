@@ -12,9 +12,16 @@
     "phase-5"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "1c5b3039-4d13-467d-8978-6f5e87bb40d9",
+      "author": "home",
+      "text": "**Adversarial review: what happens to a turn already running?**\n\nSuspending an organization is now possible, and a suspended organization may have a turn in flight holding a worker lease and a computer. Decide the behavior rather than discovering it: existing turns run to completion and no new turns are accepted is the obvious answer, but silent mid-turn termination would strand a fenced computer handoff and leave the snapshot dirty.\n\nThe same question applies to the EventBridge turn-deadline scheduler and any routine wake-up, which act on behalf of an organization without a person present.",
+      "created_at": "2026-09-01T02:57:58.122458Z"
+    }
+  ],
   "created_at": "2026-09-01T02:41:00.585166Z",
-  "updated_at": "2026-09-01T02:46:21.323050Z",
+  "updated_at": "2026-09-01T02:57:58.122458Z",
   "closed_at": null,
   "custom": {}
 }

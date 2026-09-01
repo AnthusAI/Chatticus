@@ -12,9 +12,16 @@
     "phase-2"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "2e0eddce-3ae5-4bf7-84c3-5b3c8237feef",
+      "author": "home",
+      "text": "**Adversarial review: one-way doors in this task.**\n\nA user pool cannot be reshaped in place, and three of its settings are create-time only. Getting them wrong means replacing the pool, and replacing the pool changes every Cognito sub.\n\n- **Case sensitivity is fixed at creation.** Create the pool case-insensitive. Google can return Email@ and email@ for the same human, and a case-sensitive pool will happily hold both as different users.\n- **Never key anything on the Cognito sub.** Identity is keyed on verified email, deliberately, so that replacing the pool costs nothing. Do not let a sub leak into Membership, Invitation, or any log we later join on.\n- **One pool user per provider.** If Apple is ever added, the same human arrives as a second pool user. Email-keyed identity absorbs that; a sub-keyed one does not.\n\nAlso confirm the app client issues refresh tokens with a lifetime we actually want, since 5558db depends on silent renew and the default is thirty days.",
+      "created_at": "2026-09-01T02:57:58.031260Z"
+    }
+  ],
   "created_at": "2026-09-01T02:40:05.893097Z",
-  "updated_at": "2026-09-01T02:46:21.156317Z",
+  "updated_at": "2026-09-01T02:57:58.031260Z",
   "closed_at": null,
   "custom": {}
 }

@@ -12,9 +12,16 @@
     "phase-6"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7fcf8111-236d-4344-bf49-151ed99812de",
+      "author": "home",
+      "text": "**Adversarial review: this task alone changes no behavior.**\n\nA pure type and a clip function with no I/O is the right way to build this, and it is also the exact shape of work that can sit unused forever. 3a35db has been opened to wire the ceiling into the capability_sinks adapters, which is where it becomes real.\n\nThe epic is not shippable when this merges. It is shippable when 3a35db merges. Do not let a green test suite on the pure function read as the authority model being live.",
+      "created_at": "2026-09-01T02:57:58.111270Z"
+    }
+  ],
   "created_at": "2026-09-01T02:41:22.228605Z",
-  "updated_at": "2026-09-01T02:46:21.345805Z",
+  "updated_at": "2026-09-01T02:57:58.111270Z",
   "closed_at": null,
   "custom": {}
 }

@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-34963408-94e2-40b8-8b39-6885bab15d5e",
+  "title": "Signing out actually signs out",
+  "description": "**Phase 4 of 7.**\n\n- **Blocked by:** 22f5bb\n- **Runs in parallel with:** e41552, ae51dc\n- **Unblocks:** nothing\n\n---\n**Found by inversion: what does the second person to use a laptop see?**\n\nTokens live in memory, so a naive sign-out clears them and looks correct. It is not. Cognito keeps its own session on the auth domain, so the next sign-in silently re-authenticates as the same person with no prompt. On any shared machine, sign out then sign in returns the previous human's session, and the app has no way to tell.\n\nCall the Cognito logout endpoint and clear local state. Also decide what a signed-out person sees on return: the marketing apex, or the app's signed-out state.\n\n**Done when:** signing out and signing back in on the same browser presents Google's account chooser rather than silently restoring the previous person.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:57:18.539784Z",
+  "updated_at": "2026-09-01T02:57:18.539784Z",
+  "closed_at": null,
+  "custom": {}
+}

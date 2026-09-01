@@ -16,10 +16,16 @@
       "author": "home",
       "text": "As an organization adopting Chatticus, I want my people to sign in with Google and share one workplace under delegated authority, so that named teammates can act for the company while only the people with standing can commit it.\n\nDefinition of done: no route serves an unauthenticated caller; an organization is enabled as a unit and its owner invites the rest; members share channels, bots, and one organization computer; and every consequential action is bound by the requesting member's authority ceiling. Design recorded in docs/ORGANIZATIONS.md.",
       "created_at": "2026-09-01T02:33:47.362682Z"
+    },
+    {
+      "id": "b274c7e8-d365-40cc-9faf-7b463a36d089",
+      "author": "home",
+      "text": "**Adversarial pass before implementation, using inversion.** Six issues added and nine existing issues commented. The question asked was how this initiative fails, not how it succeeds.\n\n**Two are hard gates on the phase-4 join and were missing entirely:**\n\n- **5744ef** seed the first organization. Flipping enforcement with an empty membership table locks everyone out of every environment.\n- **d71ed5** teach live acceptance and the demo CLI to authenticate. Every phase in this plan ends by running the live script, and the live script does not know how to authenticate.\n\n**Consequence:** 41d08d, the members CLI, is raised to P0. It is the bootstrap path, not a convenience.\n\n**Four more:**\n\n- **3a35db** wire the ceiling into the capability sinks, because eef4aa alone produces a type nothing consults. This repository already split policy from wiring once, in 3c5f8d and 1f3bb8.\n- **ac5453** verify the Google consent screen. An unverified External app is capped at 100 users and warns on the consent screen, so the waitlist fails on the day it starts working. Verification needs a privacy policy on the marketing site, a dependency nothing named.\n- **694392** cap organization creation and alarm on Cognito monthly active users. Open signup is an intentional unauthenticated write path with no limit on it.\n- **349634** signing out actually signs out, because clearing in-memory tokens leaves the Cognito session and the next sign-in silently restores the previous human.\n\n**Themes in the comments:** one-way doors at pool creation, email normalization being load-bearing for invitation matching, token expiry across a 900-second stream, a third concurrent editor on the web app that the collision warning missed, and what a suspended organization does to a turn already in flight.",
+      "created_at": "2026-09-01T02:58:17.007672Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T02:46:57.787808Z",
+  "updated_at": "2026-09-01T02:58:17.007672Z",
   "closed_at": null,
   "custom": {}
 }

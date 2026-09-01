@@ -12,9 +12,16 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "b16c29c0-8744-4dc2-81fa-c5800a53605c",
+      "author": "home",
+      "text": "**Adversarial review: email normalization is load-bearing here.**\n\nIdentity is keyed on verified email and Invitation is matched on email, so normalization is not cosmetic, it decides whether an invitation matches at all.\n\nLowercase before writing and before comparing, everywhere. Decide explicitly what to do about Google addresses that differ by dots, since foo.bar and foobar are the same Google account and an invitation sent to one will not match a sign-in as the other.\n\nWrite the rule once, in one function, and use it for Identity, Invitation, and the members CLI. Two normalizations that disagree is the same bug as none.",
+      "created_at": "2026-09-01T02:57:58.043681Z"
+    }
+  ],
   "created_at": "2026-09-01T02:40:05.905442Z",
-  "updated_at": "2026-09-01T02:46:21.103015Z",
+  "updated_at": "2026-09-01T02:57:58.043681Z",
   "closed_at": null,
   "custom": {}
 }

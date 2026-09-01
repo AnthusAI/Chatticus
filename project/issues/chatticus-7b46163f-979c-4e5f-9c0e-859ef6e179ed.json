@@ -12,9 +12,16 @@
     "phase-4"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "b379badf-ae07-4cc5-8500-f4661359cb62",
+      "author": "home",
+      "text": "**Adversarial review: two new blockers, and a constraint on how this lands.**\n\nTwo issues were opened after this one and both are prerequisites, not niceties:\n\n- **5744ef, seed the first organization.** Without it, flipping enforcement locks everyone out of every environment. There is no way to sign in to enable yourself and no way to enable yourself without signing in.\n- **d71ed5, teach live acceptance and the demo CLI to authenticate.** This issue's own done-when says the live script still passes. It will not, unless that lands first, and the failure will read as a broken deploy.\n\n**How it lands:** one revertible pull request. This is the only step in the initiative that changes the reachability of a running environment in a single move, so the rollback has to be a single revert rather than an archaeology exercise.\n\nVerify the lockout path deliberately before merging: sign in as a person who is not a member and confirm they reach the waitlist rather than an error, and confirm the seeded owner reaches the app.",
+      "created_at": "2026-09-01T02:57:58.078434Z"
+    }
+  ],
   "created_at": "2026-09-01T02:40:29.718075Z",
-  "updated_at": "2026-09-01T02:46:21.252195Z",
+  "updated_at": "2026-09-01T02:57:58.078434Z",
   "closed_at": null,
   "custom": {}
 }

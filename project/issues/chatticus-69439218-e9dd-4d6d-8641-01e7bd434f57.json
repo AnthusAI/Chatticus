@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-69439218-e9dd-4d6d-8641-01e7bd434f57",
+  "title": "Cap organization creation and alarm on Cognito users",
+  "description": "**Phase 4 of 7.**\n\n- **Blocked by:** e41552\n- **Runs in parallel with:** ae51dc\n- **Unblocks:** nothing\n\n---\n**Found by inversion: the waitlist was supposed to be the cost gate. How does it become a cost hole?**\n\nSign-up is now open by design, so the create-organization endpoint is an unauthenticated-by-intent write path. Nothing in the plan caps it. One person can create unlimited organizations, and every new Google account that signs in is a Cognito monthly active user. The free tier is 10,000 MAU and then it is 0.015 per user, which is small until someone points a script at it.\n\nReal Google accounts are a barrier, not a wall.\n\n**Do:** one organization per person unless an operator lifts it, a rate limit on creation, and a CloudWatch alarm on Cognito monthly active users well below the free tier boundary so we learn about a flood from an alarm rather than an invoice.\n\n**Note:** a waitlisted principal already costs only one DynamoDB read per request, so this is about the write path and the MAU count, not about serving them.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-07f53bb9-e30f-43b7-be5c-9951c6a668b3",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:57:18.525663Z",
+  "updated_at": "2026-09-01T02:57:18.525663Z",
+  "closed_at": null,
+  "custom": {}
+}

@@ -12,9 +12,16 @@
     "phase-4"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "2783d1b1-bd31-4876-8054-a2d31ba4e7ad",
+      "author": "home",
+      "text": "**Adversarial review: two gaps in the invitation rules.**\n\n**Who may invite.** The description says an owner invites, but nothing enforces it. Decide and enforce whether a member may invite, or only an owner. Once the ceiling model exists in phase 6, inviting is an authority like any other and should be clipped the same way, so shape this to be absorbed rather than replaced.\n\n**Matching.** Invitations are matched on email, so they inherit the normalization decision on 272aea. An invitation that silently fails to match is worse than one that errors, because the invited person sees the waitlist and assumes they were not approved.",
+      "created_at": "2026-09-01T02:57:58.100860Z"
+    }
+  ],
   "created_at": "2026-09-01T02:40:45.611456Z",
-  "updated_at": "2026-09-01T02:46:21.275181Z",
+  "updated_at": "2026-09-01T02:57:58.100860Z",
   "closed_at": null,
   "custom": {}
 }
