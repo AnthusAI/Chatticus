@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "e3f20e43-5da0-4bbd-8651-9e5318285294",
+  "issue_id": "chatticus-7c310bba-e7f3-44ac-8439-d015ca982785",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:51:49.304Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "assignee": null,
+    "description": "Outcome: organizations with delegated authority, not a single household tenant pretending to be multi-user.\n\nSource: organizations-build-plan.html (phases 01–07, 24 items). Design reasoning belongs in docs/ORGANIZATIONS.md.\n\nv1 waitlist: Google sign-in, pending organizations, members CLI as the only admin surface. Production marketing stays at chattic.us; app at hey.chattic.us / env hosts.\n\nNot included: bot memory crossing channels, approval_fatigue as a scheduled item, a second organization computer, owner audit pipeline.",
+    "issue_type": "initiative",
+    "labels": [
+      "v1"
+    ],
+    "parent": null,
+    "priority": 0,
+    "status": "open",
+    "title": "Serve organizations with delegated authority"
+  }
+}

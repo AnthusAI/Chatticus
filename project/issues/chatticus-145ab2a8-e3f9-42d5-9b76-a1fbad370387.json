@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-145ab2a8-e3f9-42d5-9b76-a1fbad370387",
+  "title": "Organization identity and waitlist ground work",
+  "description": "Phase 01–02: spend alarm, dark non-dev, Google OAuth, organization records, Principal seam, Cognito pool, control-plane org operations.",
+  "type": "epic",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-7c310bba-e7f3-44ac-8439-d015ca982785",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:51:49.318349Z",
+  "updated_at": "2026-09-01T02:52:00.578644Z",
+  "closed_at": null,
+  "custom": {}
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "f9cb722d-3292-403d-b578-afa947f6f2f1",
+  "issue_id": "chatticus-6cfbdbf8-094c-46d0-9bf6-aa2e8cecc751",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:51:49.399Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "assignee": null,
+    "description": "Pure Python against both stores. The user-to-organizations direction needs a second written item, the same dual-write the store already does for channel lookup.\n\nIndependent of all AWS work. Gherkin first. No HTTP yet.",
+    "issue_type": "task",
+    "labels": [
+      "v1"
+    ],
+    "parent": "chatticus-145ab2a8-e3f9-42d5-9b76-a1fbad370387",
+    "priority": 0,
+    "status": "open",
+    "title": "Organization, membership, invitation, and identity records"
+  }
+}

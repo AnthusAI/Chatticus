@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-815b3249-335b-4b8f-90ed-aca59b422a83",
+  "title": "Register Google OAuth clients",
+  "description": "Human action, not code. First link in the critical path.\n\nOne Google Cloud project, one OAuth client per environment, redirect URIs pointing at the Cognito auth domain rather than the app (auth-dev.chattic.us, auth-staging.chattic.us, auth.chattic.us — single-label names so *.chattic.us covers them).\n\nSecrets go directly into Secrets Manager by hand. Never the repository, CDK templates, or agent transcripts.",
+  "type": "chore",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-145ab2a8-e3f9-42d5-9b76-a1fbad370387",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "d10da228-b4c1-49e7-83e0-f7c7d0d11609",
+      "author": "agent@example.com",
+      "text": "Human-owned. Agents will not put Google client secrets in git. One GCP project, three OAuth clients, redirects to Cognito auth-dev / auth-staging / auth.chattic.us. Secrets Manager by hand.",
+      "created_at": "2026-09-01T02:52:14.138071Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:51:49.383350Z",
+  "updated_at": "2026-09-01T02:52:14.138071Z",
+  "closed_at": null,
+  "custom": {}
+}

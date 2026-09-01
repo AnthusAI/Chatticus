@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-558c4d4b-2c31-4e41-85a1-6034c1c2e554",
+  "title": "Alarm on AWS spend before anything else changes",
+  "description": "A budget in CDK with an SNS topic to the owner, plus a hard cap on the OpenAI project set by hand in their console.\n\nWhy first: it is the only control that catches a bug in our own code. No authentication check ever will.\n\nDone when: CDK defines a budget + SNS to the owner; README says the OpenAI project cap is a console action and is not in git. No --all. Development ThinTurn/web unchanged unless the budget stack requires a named deploy.",
+  "type": "chore",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-7c310bba-e7f3-44ac-8439-d015ca982785",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "91adbd23-ce56-49a0-91d3-4dfc29c3898e",
+      "author": "agent@example.com",
+      "text": "Phase 01 of 7c310b. Planner worktree `/tmp/chatticus-558c4d-spend` branch `cursor/org-spend-alarm-4a21` off origin/develop. Plan only until authorized. No cdk deploy --all.",
+      "created_at": "2026-09-01T02:52:14.058300Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:51:49.349541Z",
+  "updated_at": "2026-09-01T02:52:14.058300Z",
+  "closed_at": null,
+  "custom": {}
+}

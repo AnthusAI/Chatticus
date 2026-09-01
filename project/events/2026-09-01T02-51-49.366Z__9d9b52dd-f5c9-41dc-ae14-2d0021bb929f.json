@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "9d9b52dd-f5c9-41dc-ae14-2d0021bb929f",
+  "issue_id": "chatticus-2fdc9bb9-be7c-4eb5-b07b-d6ecd8c2b0c2",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:51:49.366Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "assignee": null,
+    "description": "Both answer unauthenticated requests from the open internet today. Neither needs to serve anyone before this initiative ships.\n\nDone when: only development (and marketing apex) is reachable as a Chattic.us app; staging and production thin-turn/web app hosts refuse unauthenticated public use. Redeploy tracked under this dark-environments epic. Never cdk deploy --all. Do not destroy Computers/Snapshots. Marketing at chattic.us stays up.",
+    "issue_type": "chore",
+    "labels": [
+      "v1"
+    ],
+    "parent": "chatticus-d5b96ae0-1521-4450-8762-096d055c17e0",
+    "priority": 0,
+    "status": "open",
+    "title": "Take staging and production dark"
+  }
+}

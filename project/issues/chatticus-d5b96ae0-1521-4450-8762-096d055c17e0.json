@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-d5b96ae0-1521-4450-8762-096d055c17e0",
+  "title": "Keep staging and production dark until authentication ships",
+  "description": "Track taking staging and production off the open internet, then returning them behind auth (plan items 7c1382, bc830a, 89a222).",
+  "type": "epic",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-7c310bba-e7f3-44ac-8439-d015ca982785",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T02:51:49.332170Z",
+  "updated_at": "2026-09-01T02:52:00.591267Z",
+  "closed_at": null,
+  "custom": {}
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "1164c655-510e-4277-bb7d-01396c312d85",
+  "issue_id": "chatticus-d5b96ae0-1521-4450-8762-096d055c17e0",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:51:49.332Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "assignee": null,
+    "description": "Track taking staging and production off the open internet, then returning them behind auth (plan items 7c1382, bc830a, 89a222).",
+    "issue_type": "epic",
+    "labels": [
+      "v1"
+    ],
+    "parent": "chatticus-7c310bba-e7f3-44ac-8439-d015ca982785",
+    "priority": 0,
+    "status": "open",
+    "title": "Keep staging and production dark until authentication ships"
+  }
+}

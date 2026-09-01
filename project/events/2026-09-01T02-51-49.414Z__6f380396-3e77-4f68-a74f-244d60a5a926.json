@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "6f380396-3e77-4f68-a74f-244d60a5a926",
+  "issue_id": "chatticus-df80e1c4-654e-4722-a3a9-a796df5d4946",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T02:51:49.414Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "assignee": null,
+    "description": "The type and the waitlist-safe route marker only. No resolvers, no enforcement.\n\nKeep it small: later tasks fork from this and must agree on the shape first.\nGherkin first. No dual-path.",
+    "issue_type": "task",
+    "labels": [
+      "v1"
+    ],
+    "parent": "chatticus-145ab2a8-e3f9-42d5-9b76-a1fbad370387",
+    "priority": 0,
+    "status": "open",
+    "title": "Define the Principal seam"
+  }
+}

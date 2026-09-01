@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-2fdc9bb9-be7c-4eb5-b07b-d6ecd8c2b0c2",
+  "title": "Take staging and production dark",
+  "description": "Both answer unauthenticated requests from the open internet today. Neither needs to serve anyone before this initiative ships.\n\nDone when: only development (and marketing apex) is reachable as a Chattic.us app; staging and production thin-turn/web app hosts refuse unauthenticated public use. Redeploy tracked under this dark-environments epic. Never cdk deploy --all. Do not destroy Computers/Snapshots. Marketing at chattic.us stays up.",
+  "type": "chore",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-d5b96ae0-1521-4450-8762-096d055c17e0",
+  "labels": [
+    "v1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "40598e5a-fc6e-42ff-b63c-56e612ed9da6",
+      "author": "agent@example.com",
+      "text": "Phase 01 of 7c310b. Planner worktree `/tmp/chatticus-2fdc9b-dark` branch `cursor/org-dark-envs-4a21` off origin/develop. Plan only until authorized. No cdk deploy --all. Marketing apex stays up.",
+      "created_at": "2026-09-01T02:52:14.082577Z"
+    }
+  ],
+  "created_at": "2026-09-01T02:51:49.366292Z",
+  "updated_at": "2026-09-01T02:52:14.082577Z",
+  "closed_at": null,
+  "custom": {}
+}
