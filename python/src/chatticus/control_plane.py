@@ -1123,6 +1123,7 @@ class ControlPlane:
             action_id,
             f"browse:authorized:{url}",
         )
+        self.open_untrusted_browser_context(tenant_id, turn_id, url)
 
     def deny_model_tool_request(
         self,

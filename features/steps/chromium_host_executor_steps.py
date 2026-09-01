@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import os
 import threading
+from pathlib import Path
 from unittest.mock import patch
 
 from behave import given, then, when
 from computer_worker_helpers import CountingComputerActionExecutor
 
+from chatticus.browser_profiles import browser_profile_dir
 from chatticus.browser_waiting_continuation_driver import (
     prepare_browser_waiting_continuation,
 )
@@ -21,9 +24,12 @@ from chatticus.worker.computer import ComputerWorker
 @given("the computer host has booted through the browser gate")
 def given_host_booted_through_browser(context: object) -> None:
     driver = ComputerHostBootDriver(context.plane)
-    with patch.object(driver._xvfb, "start"), patch(
-        "chatticus.computer_host_boot.verify_chromium_available",
-        return_value="Chromium 120.0.0.0",
+    with (
+        patch.object(driver._xvfb, "start"),
+        patch(
+            "chatticus.computer_host_boot.verify_chromium_available",
+            return_value="Chromium 120.0.0.0",
+        ),
     ):
         context.host_boot = driver.boot_through_browser()
 
@@ -123,3 +129,65 @@ def then_journal_records_exactly_one_tool_result(context: object) -> None:
 @then("the host executor ran the pending action once")
 def then_host_executor_ran_once(context: object) -> None:
     assert context.counting_executor.calls == 1
+
+
+@given(
+    "the household computer holds privileged cookies only under the banking browser profile"  # noqa: E501
+)
+def given_privileged_banking_profile_on_disk(context: object) -> None:
+    live_root = Path(context.snapshot_tmpdir) / "computer-live"
+    live_root.mkdir(parents=True, exist_ok=True)
+    context.chromium_live_root = live_root
+    banking_profile = browser_profile_dir(live_root, "privileged:banking")
+    cookies = banking_profile / "Default" / "Cookies"
+    cookies.parent.mkdir(parents=True, exist_ok=True)
+    cookies.write_text("signed-in\n", encoding="utf-8")
+
+
+@when("a chromium executor opens an untrusted browser page")
+def when_chromium_executor_opens_untrusted_page(context: object) -> None:
+    live_root = context.chromium_live_root
+    executor = ChromiumActionExecutor(display=":99")
+    with (
+        patch.dict(os.environ, {"CHATTICUS_LIVE_ROOT": str(live_root)}),
+        patch(
+            "chatticus.chromium_action_executor.chromium_binary_path",
+            return_value="/usr/bin/chromium",
+        ),
+        patch(
+            "chatticus.chromium_action_executor.subprocess.run",
+        ) as run,
+    ):
+        run.return_value.returncode = 0
+        run.return_value.stdout = "<html></html>"
+        run.return_value.stderr = ""
+        executor.execute(
+            "browser_open",
+            {
+                "url": "https://untrusted.example/article",
+                "storage_partition": "untrusted",
+            },
+        )
+        context.chromium_command = run.call_args.args[0]
+
+
+@then("the chromium executor used the untrusted browser profile directory")
+def then_chromium_used_untrusted_profile(context: object) -> None:
+    live_root = context.chromium_live_root
+    expected = browser_profile_dir(live_root, "untrusted")
+    user_data = next(
+        arg for arg in context.chromium_command if arg.startswith("--user-data-dir=")
+    )
+    assert user_data == f"--user-data-dir={expected}"
+
+
+@then(
+    "the chromium executor did not use the privileged banking browser profile directory"
+)  # noqa: E501
+def then_chromium_did_not_use_privileged_profile(context: object) -> None:
+    live_root = context.chromium_live_root
+    privileged = browser_profile_dir(live_root, "privileged:banking")
+    user_data = next(
+        arg for arg in context.chromium_command if arg.startswith("--user-data-dir=")
+    )
+    assert str(privileged) not in user_data

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol
 
+from chatticus.browser_profiles import UNTRUSTED_PARTITION
 from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.computer_capabilities import (
     capability_for_computer_tool,
@@ -185,7 +186,7 @@ class ComputerWorker:
                 return
             result_body = self.action_executor.execute(
                 record.pending_call.tool_name,
-                dict(record.pending_call.arguments),
+                self._browser_tool_arguments(job, record),
             )
             self.plane.commit_computer_tool_result(
                 job.tenant_id, job.turn_id, result_body
@@ -196,6 +197,27 @@ class ComputerWorker:
         turn = self.plane.turn(job.tenant_id, job.turn_id)
         if turn.status == TurnStatus.ACTIVE:
             self.plane.complete_computer_continuation(job.tenant_id, job.turn_id)
+
+    def _browser_tool_arguments(
+        self,
+        job: TurnJob,
+        record: EscalationRecord,
+    ) -> dict[str, str]:
+        """Attach the active browser storage partition before host execution."""
+        arguments = dict(record.pending_call.arguments)
+        if record.pending_call.tool_name not in {
+            "browser_open",
+            "request_computer_capability",
+        }:
+            return arguments
+        if job.turn_id is None:
+            arguments.setdefault("storage_partition", UNTRUSTED_PARTITION)
+            return arguments
+        context = self.plane.active_browser_context(job.tenant_id, job.turn_id)
+        arguments["storage_partition"] = (
+            context.storage_partition if context is not None else UNTRUSTED_PARTITION
+        )
+        return arguments
 
     def _regate_committed_browse_url(
         self,

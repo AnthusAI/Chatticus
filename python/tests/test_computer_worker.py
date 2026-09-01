@@ -8,6 +8,7 @@ from computer_worker_helpers import CountingComputerActionExecutor
 from chatticus.browser_waiting_continuation_driver import (
     prepare_browser_waiting_continuation,
 )
+from chatticus.capability_policy import EgressClass, TaskCapabilityGrant
 from chatticus.computer_capabilities import BROWSER_CAPABILITY
 from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.control_plane import ControlPlane
@@ -396,4 +397,51 @@ def test_concurrent_browser_waiting_workers_commit_tool_result_once() -> None:
         job for job in plane._jobs if job.job_id == setup.continuation_job.job_id
     ]
     assert remaining == []
+    api.close()
+
+
+def test_computer_worker_passes_active_browser_storage_partition() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+    plane.set_turn_capability_grant(
+        setup.tenant_id,
+        setup.turn_id,
+        TaskCapabilityGrant(
+            tools=frozenset({"browse"}),
+            origins=frozenset({"https://bank.example", "https://mail.example"}),
+            recipients=frozenset(),
+            file_scopes=frozenset(),
+            egress_classes=frozenset({EgressClass.APPROVED_ORIGIN_FETCH.value}),
+        ),
+    )
+    plane.open_privileged_browser_context(
+        setup.tenant_id,
+        setup.turn_id,
+        "https://bank.example/app",
+        "banking",
+    )
+    executor = CountingComputerActionExecutor()
+    ComputerWorker(
+        plane,
+        HttpTurnClient(api, setup.tenant_id),
+        action_executor=executor,
+    ).run_job(setup.continuation_job)
+    assert executor.last_arguments is not None
+    assert executor.last_arguments["storage_partition"] == "privileged:banking"
+    api.close()
+
+
+def test_computer_worker_defaults_browser_storage_partition_to_untrusted() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+    executor = CountingComputerActionExecutor()
+    ComputerWorker(
+        plane,
+        HttpTurnClient(api, setup.tenant_id),
+        action_executor=executor,
+    ).run_job(setup.continuation_job)
+    assert executor.last_arguments is not None
+    assert executor.last_arguments["storage_partition"] == "untrusted"
     api.close()

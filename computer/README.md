@@ -10,7 +10,7 @@ Build from the repository root:
 docker build -f computer/Dockerfile -t chatticus-computer:dev .
 ```
 
-Durable files live under `/var/lib/chatticus/computer/{workspace,browser-profile}`.
+Durable files live under `/var/lib/chatticus/computer/{workspace,browser-profiles}`.
 `/workspace` is a symlink to that workspace directory so bots and the
 snapshot packer see the same tree.
 

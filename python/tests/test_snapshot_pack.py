@@ -198,3 +198,35 @@ def test_control_plane_records_pack_checksum(tmp_path: Path) -> None:
     computer = plane.computer_by_id("household-computer")
     assert computer.snapshot_checksum == manifest.checksum
     assert computer.disk_dirty is False
+
+
+def test_partitioned_browser_profiles_relocate_independently(tmp_path: Path) -> None:
+    store = FilesystemSnapshotStore(tmp_path / "store")
+    fargate = ComputerHostDisk(tmp_path / "fargate", store)
+    mac = ComputerHostDisk(tmp_path / "mac", store)
+    fargate.write_browser_profile_file(
+        "Default/Cookies",
+        "from-untrusted",
+        storage_partition="untrusted",
+    )
+    fargate.write_browser_profile_file(
+        "Default/Cookies",
+        "from-bank",
+        storage_partition="privileged:banking",
+    )
+    fargate.publish(
+        tenant_id="anthus",
+        computer_id="household-computer",
+        worker_id="fargate-1",
+    )
+    mac.hydrate(tenant_id="anthus", computer_id="household-computer")
+    assert (
+        mac.read_browser_profile_file("Default/Cookies", storage_partition="untrusted")
+        == "from-untrusted"
+    )
+    assert (
+        mac.read_browser_profile_file(
+            "Default/Cookies", storage_partition="privileged:banking"
+        )
+        == "from-bank"
+    )

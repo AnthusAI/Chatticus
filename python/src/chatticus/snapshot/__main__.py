@@ -64,7 +64,7 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--live-root",
         required=True,
-        help="Host directory containing workspace/ and browser-profile/",
+        help="Host directory containing workspace/ and browser-profiles/",
     )
     parser.add_argument(
         "--store",

@@ -28,3 +28,11 @@ Feature: Chromium host executor
     Then the turn journal records exactly one tool.result for the pending action id
     And the host executor ran the pending action once
     And the computer continuation job is removed from the queue
+
+  Scenario: Untrusted browser_open uses a distinct Chromium user-data directory
+    Given a fenced computer handoff with a queued continuation job
+    And the computer host has booted through the browser gate
+    And the household computer holds privileged cookies only under the banking browser profile
+    When a chromium executor opens an untrusted browser page
+    Then the chromium executor used the untrusted browser profile directory
+    And the chromium executor did not use the privileged banking browser profile directory

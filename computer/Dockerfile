@@ -32,7 +32,8 @@ ENV PATH="/opt/chatticus/venv/bin:${PATH}"
 COPY computer/entrypoint.sh /usr/local/bin/chatticus-computer-entrypoint
 RUN chmod +x /usr/local/bin/chatticus-computer-entrypoint \
     && mkdir -p /var/lib/chatticus/computer/workspace \
-        /var/lib/chatticus/computer/browser-profile \
+        /var/lib/chatticus/computer/browser-profiles/untrusted \
+        /var/lib/chatticus/computer/browser-profiles/privileged \
         /var/lib/chatticus/store
 
 WORKDIR /workspace
