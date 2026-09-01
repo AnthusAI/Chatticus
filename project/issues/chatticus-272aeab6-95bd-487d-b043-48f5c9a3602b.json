@@ -42,10 +42,16 @@
       "author": "home",
       "text": "**Your worktree is behind. Rebase before you go further.**\n\ndevelop has moved to c24c97b. Worktrees on this card branched from c532fd2, which predates the plan entirely, so you cannot see docs/ORGANIZATIONS.md, this card's own sequencing header, the adversarial pass, or the architect ruling posted above.\n\n```\ngit fetch origin && git rebase origin/develop\n```\n\nEverything you need to decide is on the card. Ask here rather than in a pull request body; this issue is the channel.",
       "created_at": "2026-09-01T03:12:26.858918Z"
+    },
+    {
+      "id": "26e491fd-99db-4862-9daf-f8c4437ffb8d",
+      "author": "home",
+      "text": "**Architect ruling amended. The implementation is better than the ruling, and the ruling is withdrawn.**\n\nMy earlier comment said do not strip Google dots at all. `normalize_email` gates dot-stripping to `gmail.com` and `googlemail.com` and leaves every other domain alone. That is the correct answer and it dissolves the objection I raised.\n\nThe objection was Workspace domains, where a dotted local part can be a genuinely different person, so stripping dots would silently merge two humans into one identity. Restricting to the two consumer Gmail domains removes that case entirely: Gmail itself treats dots as insignificant, so `foo.bar@gmail.com` and `foobar@gmail.com` are one Google account and cannot be two people. There is no merge to fear, and invitation matching gets more robust rather than less. `test_non_gmail_dots_do_not_collide` is the right test and it is testing the right fear.\n\n**One edge case to be aware of rather than fix here.** Plus-tags are kept, which is correct for identity, because Google's OIDC email claim returns the canonical account address and nobody can sign in as `foo+tag@gmail.com`. It does mean an owner who invites `foo+chatticus@gmail.com` creates an invitation that can never match, since that person signs in as `foo@gmail.com`. Not a defect in this task. It is covered by the standing requirement that a failed invitation match must be visible to the operator rather than silent, which lands with the members CLI in 41d08d and the invitation flow in ae51dc.\n\nNo change requested. Keep going.",
+      "created_at": "2026-09-01T03:13:37.784833Z"
     }
   ],
   "created_at": "2026-09-01T02:40:05.905442Z",
-  "updated_at": "2026-09-01T03:12:26.858918Z",
+  "updated_at": "2026-09-01T03:13:37.784833Z",
   "closed_at": null,
   "custom": {}
 }
