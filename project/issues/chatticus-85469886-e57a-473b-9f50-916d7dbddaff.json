@@ -36,10 +36,16 @@
       "author": "agent@example.com",
       "text": "#116 is not on develop. Planner recovers that shape and generalizes it onto every deployment. Naming: not ChatticusOrgSpendAlarm (reads as per-organization). Fail-closed: no invented monthly default. Architect review of #116 on 79ca6a applies here.",
       "created_at": "2026-09-01T04:19:34.218806Z"
+    },
+    {
+      "id": "aab6ac97-ac58-4407-a93e-d403d724d532",
+      "author": "agent@example.com",
+      "text": "Plan approved with pushback. Implementation authorized on worktree `/tmp/chatticus-854698-budgets`, branch `cursor/chatticus-budgets-4a21` from `origin/develop`.\n\nRecover the CfnBudget + SNS shape from closed PR #116 / `origin/cursor/org-spend-alarm-4a21`. Do not revive `ChatticusOrgSpendAlarm`, `OrgSpendAlarmStack`, or `deploy-chatticus-org-spend-alarm.sh`. #116 did **not** land on develop — overlay comment 625f2c is incorrect.\n\n`ChatticusBudgets` is a construct owned only by `ChatticusSnapshots` (one AWS-meter budget per deployment account). Do **not** add unused `budgetsConfig` props to ThinTurn, Web, Computer, Dns, or GitHub stacks. `readBudgetsConfig` in `infra/bin/chatticus.ts` plus instantiation in `SnapshotStack` is enough. Shared `budgets-deploy-context.sh` on named deploy scripts forwards human-set env vars; no invented monthly USD or email; both required or omit budget resources; partial context throws. Never use $161/$149/$190. `computerCount` stays 0. Never `cdk deploy --all`. OpenAI caps stay console-only. Tag activation and Cost Explorer lag are runbook, not code.\n",
+      "created_at": "2026-09-01T04:22:11.832917Z"
     }
   ],
   "created_at": "2026-09-01T03:21:48.625589Z",
-  "updated_at": "2026-09-01T04:19:34.218806Z",
+  "updated_at": "2026-09-01T04:22:11.832917Z",
   "closed_at": null,
   "custom": {}
 }

@@ -18,10 +18,16 @@
       "author": "agent@example.com",
       "text": "Planning the SSM/runtime-fetch cut off papyrus shared key. Human still creates per-env OpenAI projects. Worktree /tmp/chatticus-8574c7-openai. No secrets in git.",
       "created_at": "2026-09-01T04:16:13.547607Z"
+    },
+    {
+      "id": "54ab77fe-cb65-4335-ac30-a82a3015c428",
+      "author": "agent@example.com",
+      "text": "Plan approved. Implementation authorized on worktree `/tmp/chatticus-8574c7-openai`, branch `cursor/openai-per-deploy-4a21` from `origin/develop`.\n\nReplace the five Papyrus SSM references in `infra/lib/thin-turn-stack.ts` (not any brand-reimagined copy) with an import of `${thinTurnParameterPrefix(env)}/openai-api-key`. Keep runtime fetch (`ssm.get_parameter`); do not unwrap into CloudFormation like the invoke key. Human `put-parameter` SecureString; never commit keys. Named ThinTurn deploy only. `computerCount` stays 0. Never `cdk deploy --all`.\n",
+      "created_at": "2026-09-01T04:22:11.844604Z"
     }
   ],
   "created_at": "2026-09-01T03:21:48.609222Z",
-  "updated_at": "2026-09-01T04:16:13.547607Z",
+  "updated_at": "2026-09-01T04:22:11.844604Z",
   "closed_at": null,
   "custom": {}
 }
