@@ -106,10 +106,16 @@
       "author": "home",
       "text": "User feedback: the conversation alignment is reversed. Moving the human brief to the right and the agent's 'I’m assembling…' reply to the left so the workspace prototype correctly communicates speaker ownership.",
       "created_at": "2026-09-01T19:05:24.196133Z"
+    },
+    {
+      "id": "19196850-b768-4059-a80e-69b04be538f6",
+      "author": "home",
+      "text": "User selected caption option 2: 'One shared computer. Many teammates. Your approval when it matters.' Updating the workspace caption accordingly.",
+      "created_at": "2026-09-01T19:07:34.600126Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T19:05:24.196133Z",
+  "updated_at": "2026-09-01T19:07:34.600126Z",
   "closed_at": null,
   "custom": {}
 }

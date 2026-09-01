@@ -149,7 +149,7 @@ export function WorkspacePrototype() {
           <span className="flex items-center gap-1 font-mono text-[0.48rem] uppercase tracking-[0.08em] text-paper/70"><Check className="h-3 w-3 text-signal" aria-hidden="true" /> review ready</span>
         </div>
       </section>
-      <p className="relative mt-4 text-center font-mono text-[0.6rem] uppercase tracking-[0.13em] text-ink-soft">A shared room where a brief becomes work you approve.</p>
+      <p className="relative mt-4 text-center font-mono text-[0.6rem] uppercase tracking-[0.13em] text-ink-soft">One shared computer. Many teammates. Your approval when it matters.</p>
     </div>
   );
 }
