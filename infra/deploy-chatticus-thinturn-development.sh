@@ -74,4 +74,4 @@ if CLUSTER="$(read_stack_output ComputerClusterName)" && [ -n "${CLUSTER}" ]; th
   fi
 fi
 
-npx cdk deploy ChatticusThinTurn --require-approval never ${CDK_CONTEXT}
+npx cdk deploy ChatticusThinTurn --exclusively --require-approval never ${CDK_CONTEXT}

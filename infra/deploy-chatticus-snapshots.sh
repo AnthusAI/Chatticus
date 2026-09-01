@@ -16,7 +16,7 @@ if ! aws sts get-caller-identity >/dev/null; then
   exit 1
 fi
 
-npx cdk deploy ChatticusSnapshots --require-approval never
+npx cdk deploy ChatticusSnapshots --exclusively --require-approval never
 
 echo ""
 echo "OpenAI hard spend caps are console-only; set them by hand on the vendor project."

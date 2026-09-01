@@ -1,5 +1,6 @@
 #!/bin/sh
-# Deploy development thin-turn then the unified web stack for dev.chattic.us.
+# Deploy ChatticusWeb only (dev.chattic.us). --exclusively skips ChatticusThinTurn
+# and ChatticusDns despite web.addDependency in bin/chatticus.ts.
 set -eu
 
 cd "$(dirname "$0")"
@@ -16,6 +17,4 @@ if ! aws sts get-caller-identity >/dev/null; then
   exit 1
 fi
 
-sh deploy-chatticus-thinturn-development.sh
-
-npx cdk deploy ChatticusWeb --require-approval never
+npx cdk deploy ChatticusWeb --exclusively --require-approval never

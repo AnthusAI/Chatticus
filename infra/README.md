@@ -60,10 +60,13 @@ the distribution domain name immediately.
 
 ## Deploy web + API (development)
 
-Deploy thin-turn, then the unified web stack (builds `web/` during deploy):
+Deploy thin-turn and web as separate one-stack scripts (never chained in one
+script). Each uses `--exclusively` so CDK does not follow `web.addDependency`
+into the other stack:
 
 ```bash
 cd infra
+sh deploy-chatticus-thinturn-development.sh
 sh deploy-chatticus-web-development.sh
 ```
 
@@ -85,13 +88,13 @@ CodePipeline. Staging and production workflows are not in scope yet.
 | Workflow | File | Script | Stacks |
 | --- | --- | --- | --- |
 | **Deploy ThinTurn (development)** | `deploy-thinturn-development.yml` | `deploy-chatticus-thinturn-development.sh` | `ChatticusThinTurn` only |
-| **Deploy Web (development)** | `deploy-web-development.yml` | `deploy-chatticus-web-development.sh` | `ChatticusThinTurn`, then `ChatticusWeb` |
+| **Deploy Web (development)** | `deploy-web-development.yml` | `deploy-chatticus-web-development.sh` | `ChatticusWeb` only |
 
 ThinTurn-only deploy applies ECS host-start context (`computerHostStart=ecs`,
-`computerHostCommand=host-worker`) when ChatticusComputers exists. The web
-workflow runs that script first so a Web deploy cannot drop RunTask wiring,
-then deploys `ChatticusWeb` (builds `web/` during CDK deploy). Neither
-workflow touches staging, production, snapshots, or computers stacks.
+`computerHostCommand=host-worker`) when ChatticusComputers exists. Run the
+ThinTurn workflow when that wiring changes; the web workflow deploys
+`ChatticusWeb` only (builds `web/` during CDK deploy). Neither workflow
+touches staging, production, snapshots, or computers stacks.
 
 ### GitHub Actions OIDC (one-time)
 

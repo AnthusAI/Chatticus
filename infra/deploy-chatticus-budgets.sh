@@ -28,7 +28,7 @@ fi
 . "$(dirname "$0")/budgets-deploy-context.sh"
 
 # shellcheck disable=SC2086
-npx cdk deploy ChatticusBudgets --require-approval never ${BUDGETS_CDK_CONTEXT}
+npx cdk deploy ChatticusBudgets --exclusively --require-approval never ${BUDGETS_CDK_CONTEXT}
 
 echo ""
 echo "OpenAI hard spend caps are console-only; set them by hand on the vendor project."

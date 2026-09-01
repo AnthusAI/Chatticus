@@ -83,7 +83,7 @@ def test_budgets_deploy_context_emits_cdk_flags_when_set() -> None:
 
 def test_budgets_deploy_script_is_one_stack() -> None:
     text = BUDGETS_DEPLOY_SCRIPT.read_text()
-    assert "cdk deploy ChatticusBudgets --require-approval never" in text
+    assert "cdk deploy ChatticusBudgets --exclusively --require-approval never" in text
     assert "deploy --all" not in text
     assert "ChatticusSnapshots" not in text
     assert "ChatticusComputers" not in text
@@ -111,7 +111,9 @@ def test_budgets_deploy_script_refuses_missing_env() -> None:
 
 def test_snapshots_deploy_script_is_one_stack() -> None:
     text = SNAPSHOTS_DEPLOY_SCRIPT.read_text()
-    assert "cdk deploy ChatticusSnapshots --require-approval never" in text
+    assert (
+        "cdk deploy ChatticusSnapshots --exclusively --require-approval never" in text
+    )
     assert "deploy --all" not in text
     assert "ChatticusComputers" not in text
     assert "ChatticusThinTurn" not in text
