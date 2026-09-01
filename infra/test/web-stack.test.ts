@@ -16,6 +16,18 @@ describe("WebStack CloudFront enabled flag", () => {
     });
   }
 
+  it("does not tie BucketDeployment to CloudFront invalidation", () => {
+    const template = synthWebStack("development");
+    const deployments = template.findResources("Custom::CDKBucketDeployment");
+    assert.equal(Object.keys(deployments).length, 1);
+    const properties = Object.values(deployments)[0].Properties as {
+      DistributionId?: string;
+      DistributionPaths?: string[];
+    };
+    assert.equal(properties.DistributionId, undefined);
+    assert.equal(properties.DistributionPaths, undefined);
+  });
+
   it("associates SPA viewer-request rewrite on the default behavior", () => {
     const template = synthWebStack("development");
     template.hasResourceProperties("AWS::CloudFront::Function", {
