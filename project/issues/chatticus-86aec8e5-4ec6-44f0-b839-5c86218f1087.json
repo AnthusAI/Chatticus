@@ -40,10 +40,16 @@
       "author": "agent@example.com",
       "text": "Process correction: architect conversation stays on these Kanbus issues. GitHub PRs are only for landing board files and product code. The phase-01 questions PR (#108) was the wrong channel and will not be repeated.\n\nAdversarial pass on this initiative is acknowledged on the child issues (5744ef, d71ed5, 41d08d as bootstrap, 3a35db, ac5453, 694392, 349634). Phase 01 continues on 272aea (records, email rule as ruled) and 1ebc7d (Principal shape as ruled). 79ca6a waits on the human for dollars and SNS address; construct will be parameterized with no silent default. 7c1382 follows disable-not-destroy.",
       "created_at": "2026-09-01T03:13:46.089268Z"
+    },
+    {
+      "id": "64cc85ec-c94b-4228-817b-89bdab63faa9",
+      "author": "agent@example.com",
+      "text": "272aea landed on develop (#111, 9e24c7e). Org records kernel is in. Next Phase 01 slices: 1ebc7d (Principal shape), 7c1382 (dark: enabled false), 79ca6a (budget construct, dollars still human), 0ab02c (human Google OAuth).",
+      "created_at": "2026-09-01T03:25:22.795801Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T03:13:46.089268Z",
+  "updated_at": "2026-09-01T03:25:22.795801Z",
   "closed_at": null,
   "custom": {}
 }
