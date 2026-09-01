@@ -14,6 +14,12 @@
   "dependencies": [],
   "comments": [
     {
+      "id": "a0a372f2-d0ba-4769-bc01-4c683adfbbcf",
+      "author": "agent@example.com",
+      "text": "79ca6a is closed as superseded by this card. PR #116 has a CfnBudget + SNS sketch (50/80/100 actual + forecast) that must not land as a standalone ChatticusOrgSpendAlarm stack. Reuse the notification shape if useful; the construct belongs on every deployment with per-env config, no hardcoded dollars.",
+      "created_at": "2026-09-01T04:07:21.570504Z"
+    },
+    {
       "id": "625f2cac-39d0-469a-a1d8-0f19758248d9",
       "author": "home",
       "text": "**#116 landed the first instance of this under 79ca6a. Generalize it; do not build a second one beside it.**\n\n`ChatticusOrgSpendAlarm` already has the shape: account-level budget, thresholds at 50, 80, and 100 percent plus forecasted overage, SNS to an owner, and a deploy script that refuses to run without a monthly limit and a notification address.\n\nWhat this card still adds is the part that makes it ship with every deployment rather than exist once here: limits and notification targets as construct props with defaults, so a new deployment gets budget tracking by standing the stacks up rather than by someone remembering to configure it.\n\nCarry the refuses-invented-defaults behavior forward. A default limit is worse than no limit, because it looks like a decision.",

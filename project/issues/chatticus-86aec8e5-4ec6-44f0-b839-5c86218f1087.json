@@ -46,10 +46,16 @@
       "author": "agent@example.com",
       "text": "272aea landed on develop (#111, 9e24c7e). Org records kernel is in. Next Phase 01 slices: 1ebc7d (Principal shape), 7c1382 (dark: enabled false), 79ca6a (budget construct, dollars still human), 0ab02c (human Google OAuth).",
       "created_at": "2026-09-01T03:25:22.795801Z"
+    },
+    {
+      "id": "f00d64d5-4a61-4d1b-8305-75c05543a427",
+      "author": "agent@example.com",
+      "text": "Phase 01 status (architect cadence):\n\n- **272aea** closed — org records on develop (#111). Email normalize on develop is lowercase+strip only (see 272aea: that is not the later gated-Gmail comment).\n- **1ebc7d** closed — Principal + waitlist_safe marker (#115); carries OrganizationStatus.\n- **7c1382** done live — staging and hey.chattic.us no longer resolve; marketing and dev still up. Board close #120. Scripts use --exclusively (#119).\n- **79ca6a** closed as superseded by **854698** / epic **2e3e94**. #116 will not merge.\n- **0ab02c** still human (External, AnthusAI org, openid email profile).\n- New phase-1 on the budgets epic: **8574c7** (OpenAI project/key; blocks dedicated account) and **854698** (ChatticusBudgets construct).",
+      "created_at": "2026-09-01T04:07:21.585957Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T03:25:22.795801Z",
+  "updated_at": "2026-09-01T04:07:21.585957Z",
   "closed_at": null,
   "custom": {}
 }

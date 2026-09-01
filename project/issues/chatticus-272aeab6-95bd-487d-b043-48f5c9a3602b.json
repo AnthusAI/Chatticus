@@ -60,10 +60,16 @@
       "author": "agent@example.com",
       "text": "Landed on develop via #111 (9e24c7e). Gherkin and pytest on both stores. Email normalize is lowercase and strip only.",
       "created_at": "2026-09-01T03:25:11.349458Z"
+    },
+    {
+      "id": "d15e4212-7d47-4185-adff-36513e1295f6",
+      "author": "agent@example.com",
+      "text": "Correction on the amended ruling: what landed in #111 is lowercase + strip only. `gmail.com` / `googlemail.com` dots are **not** stripped. We reverted gated Gmail stripping after the earlier ruling, then merged. If gated consumer-Gmail stripping is what you want, that is a follow-up — it is not what develop has today. Plus-tags stay as-is; unmatched invites stay a members-CLI visibility problem (41d08d / ae51dc).",
+      "created_at": "2026-09-01T04:07:21.527821Z"
     }
   ],
   "created_at": "2026-09-01T02:40:05.905442Z",
-  "updated_at": "2026-09-01T03:25:11.361641Z",
+  "updated_at": "2026-09-01T04:07:21.527821Z",
   "closed_at": "2026-09-01T03:25:11.361641Z",
   "custom": {}
 }

@@ -3,7 +3,7 @@
   "title": "Alarm on AWS spend before anything else changes",
   "description": "**Phase 1 of 7.**\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 7c1382, 0ab02c, 272aea, 1ebc7d\n- **Unblocks:** nothing, but it covers development for the whole initiative\n\n---\nA CfnBudget in CDK with an SNS topic to the owner, plus a hard spend cap on the OpenAI project set by hand in the OpenAI console.\n\nThis is a permanent control, not scaffolding. It is the only thing that catches a bug in our own code, which no authentication check ever will.\n\n**Done when:** the budget exists in CDK, a test notification arrives, and the OpenAI cap is set.",
   "type": "chore",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -50,6 +50,12 @@
       "created_at": "2026-09-01T03:31:32.283690Z"
     },
     {
+      "id": "7bf4694c-6054-4d02-820c-270314616084",
+      "author": "agent@example.com",
+      "text": "Taken: this card is the AWS meter only and is superseded in shape by **854698** (`ChatticusBudgets` on every deployment, docs/BUDGETS.md). The $300 figure stays withdrawn. #116 (`ChatticusOrgSpendAlarm` as a one-off stack) will not merge. OpenAI stays off this card; **8574c7** blocks dedicated-account deploy.\n\nClosing this card. Limits and alerts continue on 2e3e94 / 854698. Human still owes a monthly limit and notification target, as construct *configuration*, not as a constant in 79ca6a.",
+      "created_at": "2026-09-01T04:07:21.543846Z"
+    },
+    {
       "id": "f49d8a86-0fd2-4e15-8b52-2d6423115980",
       "author": "home",
       "text": "**Reviewed #116. It does the one thing I asked and refuses the one thing I warned against.**\n\nThe deploy script requires `CHATTICUS_ORG_SPEND_MONTHLY_USD` and `CHATTICUS_ORG_SPEND_NOTIFICATION_EMAIL` and fails without them, rather than shipping a default that silently permits spend. Thresholds at 50, 80, and 100 percent plus forecasted overage. CI green on both jobs. Documenting that the SNS email subscription needs confirming after deploy is the right kind of detail, since an unconfirmed subscription is a budget alarm that looks installed and delivers nothing.\n\n**One naming concern.** `ChatticusOrgSpendAlarm` reads as per-organization spend, and it is not: it is account-level, which per docs/BUDGETS.md means per-deployment. A deployment holds many Chatticus organizations, and AWS cannot split this number between them without the cost allocation tags that are not activated yet. Someone will eventually read this stack name and believe they have per-organization attribution. Consider a name that says deployment or account.\n\n**Relationship to 854698.** That card asks for a reusable budgets construct that ships with every deployment. This stack is the first instance of it. Generalize this rather than building a second thing next to it; the note is on that card too.",
@@ -58,6 +64,6 @@
   ],
   "created_at": "2026-09-01T02:39:45.114248Z",
   "updated_at": "2026-09-01T04:08:41.371511Z",
-  "closed_at": null,
+  "closed_at": "2026-09-01T04:07:21.555039Z",
   "custom": {}
 }
