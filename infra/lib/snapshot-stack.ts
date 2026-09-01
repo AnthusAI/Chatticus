@@ -2,6 +2,12 @@ import * as cdk from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
+import { BudgetsConfig } from "./budgets-config";
+import { ChatticusBudgets } from "./chatticus-budgets";
+
+export interface SnapshotStackProps extends cdk.StackProps {
+  readonly budgetsConfig?: BudgetsConfig;
+}
 
 /**
  * Canonical object store for computer workplace snapshots.
@@ -12,7 +18,7 @@ import { Construct } from "constructs";
 export class SnapshotStack extends cdk.Stack {
   public readonly bucket: s3.Bucket;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: SnapshotStackProps) {
     super(scope, id, props);
 
     this.bucket = new s3.Bucket(this, "ComputerSnapshots", {
@@ -34,6 +40,21 @@ export class SnapshotStack extends cdk.Stack {
         "Garage Mac and other local hosts: publish and hydrate computer snapshots.",
     });
     this.bucket.grantReadWrite(localWorkerRole);
+
+    if (props?.budgetsConfig) {
+      const budgets = new ChatticusBudgets(this, "Budgets", {
+        monthlyLimitUsd: props.budgetsConfig.monthlyLimitUsd,
+        notificationEmails: props.budgetsConfig.notificationEmails,
+      });
+      new cdk.CfnOutput(this, "BudgetsAlertsTopicArn", {
+        value: budgets.alertsTopic.topicArn,
+        description: "SNS topic for account-level AWS spend budget alerts.",
+      });
+      new cdk.CfnOutput(this, "BudgetsMonthlyLimitUsd", {
+        value: String(props.budgetsConfig.monthlyLimitUsd),
+        description: "Configured monthly AWS spend budget limit (USD).",
+      });
+    }
 
     new cdk.CfnOutput(this, "SnapshotBucketName", {
       value: this.bucket.bucketName,

@@ -74,5 +74,8 @@ if CLUSTER="$(read_stack_output ComputerClusterName)" && [ -n "${CLUSTER}" ]; th
   fi
 fi
 
+# shellcheck source=budgets-deploy-context.sh
+. "$(dirname "$0")/budgets-deploy-context.sh"
+
 # shellcheck disable=SC2086
-npx cdk deploy ChatticusThinTurn --require-approval never ${CDK_CONTEXT}
+npx cdk deploy ChatticusThinTurn --require-approval never ${CDK_CONTEXT} ${BUDGETS_CDK_CONTEXT}

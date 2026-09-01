@@ -162,6 +162,33 @@ A Fargate service exists at count 0 until you deploy
 `-c computerCount=1` after pushing `ComputerRepositoryUri:dev`.
 Publishing a snapshot does not require a running task.
 
+## Budgets (account-level AWS meter)
+
+Every deployment account carries one AWS Budget on `ChatticusSnapshots`
+when a human sets the monthly limit and notification address. The CDK
+app refuses invented defaults: unset context omits budget resources (CI
+`synth` path); partial context fails synth.
+
+```bash
+export CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD=<monthly-limit>
+export CHATTICUS_BUDGETS_NOTIFICATION_EMAIL=<owner-email>
+cd infra
+sh deploy-chatticus-snapshots.sh
+```
+
+Named deploy scripts source `budgets-deploy-context.sh` and forward the
+same `-c` flags when those env vars are set. Never `cdk deploy --all`.
+
+**Runbook (not code):**
+
+- Confirm the SNS email subscription after deploy.
+- Activate cost allocation tags (`chatticus:environment`, `chatticus:component`,
+  `chatticus:tenant`) in the AWS Billing console before Cost Explorer
+  breakdowns appear. Activation is not retroactive.
+- A new account may report nothing for roughly a day while Cost Explorer
+  populates; a quiet first day is normal, not a broken alarm.
+- OpenAI hard spend caps are **console-only** on the vendor project.
+
 ## Synth (no AWS credentials required)
 
 Synth validates CloudFormation templates without deploying. CI runs

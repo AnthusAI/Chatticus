@@ -7,6 +7,7 @@ import {
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
 } from "../lib/environments";
+import { readBudgetsConfig } from "../lib/budgets-config";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
@@ -19,8 +20,11 @@ const env: cdk.Environment = {
   region: process.env.CDK_DEFAULT_REGION ?? "us-east-1",
 };
 
+const budgetsConfig = readBudgetsConfig(app);
+
 const snapshots = new SnapshotStack(app, "ChatticusSnapshots", {
   env,
+  budgetsConfig,
   description: "Canonical S3 store for Chatticus computer snapshots.",
 });
 

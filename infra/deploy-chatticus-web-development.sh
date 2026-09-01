@@ -17,4 +17,9 @@ if ! aws sts get-caller-identity >/dev/null; then
 fi
 
 sh deploy-chatticus-thinturn-development.sh
-npx cdk deploy ChatticusWeb --require-approval never
+
+# shellcheck source=budgets-deploy-context.sh
+. "$(dirname "$0")/budgets-deploy-context.sh"
+
+# shellcheck disable=SC2086
+npx cdk deploy ChatticusWeb --require-approval never ${BUDGETS_CDK_CONTEXT}
