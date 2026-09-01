@@ -58,10 +58,16 @@
       "author": "home",
       "text": "User refinement: restore the bold tilted rounded color planes behind the hero workspace prototype, replacing the floating-dot treatment. Give the planes only subtle transform-based motion and preserve the existing pause/reduced-motion contract.",
       "created_at": "2026-09-01T16:36:04.081711Z"
+    },
+    {
+      "id": "18478bda-e330-4880-8da1-4c17cd06ddfc",
+      "author": "home",
+      "text": "User confirmed the restored historical hero backing plane and asked for motion that is perceptible but very subtle. Refining only the transform animation; no layout or visual-language change.",
+      "created_at": "2026-09-01T18:48:36.446754Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T16:36:04.081711Z",
+  "updated_at": "2026-09-01T18:48:36.446754Z",
   "closed_at": null,
   "custom": {}
 }

@@ -33,7 +33,7 @@ export function WorkspacePrototype() {
       <div aria-hidden="true" className="prototype-backing-plane" />
       <section
         aria-label="Chatticus workspace preview"
-        className="relative overflow-hidden rounded-[2rem] border-2 border-ink bg-[#20231d] p-2 text-paper shadow-[14px_18px_0_rgba(17,19,15,0.18)] sm:p-3"
+        className="relative z-10 overflow-hidden rounded-[2rem] border-2 border-ink bg-[#20231d] p-2 text-paper shadow-[14px_18px_0_rgba(17,19,15,0.18)] sm:p-3"
       >
         <div className="flex items-center justify-between rounded-[1.35rem] border border-paper/15 bg-paper/[0.06] px-3 py-2.5">
           <div className="flex items-center gap-2">
