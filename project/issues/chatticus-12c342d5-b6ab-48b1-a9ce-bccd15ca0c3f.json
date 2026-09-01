@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-12c342d5-b6ab-48b1-a9ce-bccd15ca0c3f",
+  "title": "Dedicated OpenAI project and key per Chatticus environment",
+  "description": "Development currently shares the desk OpenAI key in `/chatticus/development/thin-turn/openai-api-key`. That unblocks live turns; it does not attribute vendor spend per deployment.\n\n**Do:** Create a separate OpenAI project and key for each Chatticus environment (development, staging, production). Put each in `/chatticus/{environment}/thin-turn/openai-api-key`. Do not commit keys.\n\n**Do not:** reuse one key across deployments once this lands; put keys in git or transcripts.\n\n**Done when:** each environment SSM path has its own project-scoped key and the shared desk key is no longer the development runtime credential.",
+  "type": "chore",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e3e94cd-ae24-4ead-8d4c-1ae15d21190c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-01T16:22:49.781221Z",
+  "updated_at": "2026-09-01T16:22:49.781221Z",
+  "closed_at": null,
+  "custom": {}
+}

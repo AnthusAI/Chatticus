@@ -3,7 +3,7 @@
   "title": "Resolve a user principal from a verified Cognito token",
   "description": "**Phase 3 of 7.**\n\n- **Blocked by:** 1ebc7d, 0df6cb, 272aea\n- **Runs in parallel with:** fac2ee, 5558db, 41d08d, and 79578e\n- **Unblocks:** 22f5bb, 7b4616\n\n---\nVerify the bearer token against the Cognito JWKS, map the verified email to an Identity, load Membership, and build the Principal. Cache the JWKS and the membership read for the warm life of the function; the front door already reads DynamoDB per request, so one more GetItem costs nothing at this scale and buys real revocation.\n\nNothing about organizations, roles, or ceilings travels in the token. The token says who you are; standing is resolved server side, per request.\n\n**Done when:** behave and pytest cover a valid token, an expired token, an unknown email, and a suspended organization, and routes still do not enforce.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -18,10 +18,52 @@
       "author": "home",
       "text": "**Adversarial review: a turn stream outlives the check.**\n\nA turn-scoped SSE stream is held for up to 900 seconds, and the measurements in docs/DESIGN_CHALLENGES.md show reconnects with Last-Event-ID. The token is validated when the stream opens. Decide now whether it is validated again during the stream.\n\nIf it is validated once, a member whose membership is revoked mid-turn keeps receiving output for the rest of that turn. That may be perfectly acceptable at this scale, but it should be a recorded decision rather than something discovered later during an incident.\n\nAlso confirm the reconnect path carries a fresh token. A client that reconnects after fifteen minutes with the original token will fail in a way that looks like a stream bug.",
       "created_at": "2026-09-01T02:57:58.055539Z"
+    },
+    {
+      "id": "eb953114-c057-4137-921e-12645b21d8af",
+      "author": "home",
+      "text": "Planning in `/tmp/chatticus-5f0c4c-principal` on `cursor/cognito-principal-5f0c4c-4a21` from origin/develop. Parallel with 5558db (python vs web). Routes still do not enforce (7b4616). Record SSE mid-stream token decision. Never `cdk deploy --all`.",
+      "created_at": "2026-09-01T17:05:59.507194Z"
+    },
+    {
+      "id": "b19491ae-0c7a-4825-b95d-4c70a91a6b85",
+      "author": "home",
+      "text": "Plan approved with constraints: id_token Bearer (never sub); resolver lives next to worker in principal.py; ControlPlane.get_identity_by_email is a one-line store delegate; routes stay open. Authorizing `/tmp/chatticus-5f0c4c-principal`.",
+      "created_at": "2026-09-01T17:10:18.345436Z"
+    },
+    {
+      "id": "4e34445a-def2-4278-90d1-0785ea070a99",
+      "author": "home",
+      "text": "#158 opened (`a074ba7`). Review + CI + acceptance in flight. Not merged. Routes still do not enforce.",
+      "created_at": "2026-09-01T17:14:09.628602Z"
+    },
+    {
+      "id": "6acddf0f-1fae-45ce-b9cc-55c9f7cd0db0",
+      "author": "home",
+      "text": "Review APPROVE; python CI failed black on cloud_environments.py (pytest/behave green). Sending back. Not merging.",
+      "created_at": "2026-09-01T17:18:38.081073Z"
+    },
+    {
+      "id": "0c2d3658-1e68-4eeb-90bb-2b8b9a432625",
+      "author": "home",
+      "text": "Acceptance APPROVE on a074ba7. Format fix landed; lint still fails (unused import + import order). Sending back. Not merging.",
+      "created_at": "2026-09-01T17:24:18.422244Z"
+    },
+    {
+      "id": "63924c0f-9e8b-4502-9d43-2dee8429fe2a",
+      "author": "home",
+      "text": "#158 squash-merged to develop (`d0048a3`). Resolver is tested; routes still do not enforce (7b4616). Closing.",
+      "created_at": "2026-09-01T17:35:45.521190Z"
+    },
+    {
+      "id": "8100e528-4aab-47ac-aa3f-e85060bf61b3",
+      "author": "home",
+      "text": "**Reviewed #158. The verifier is the most carefully built thing in this initiative. One promise on this card went unkept.**\n\nI went looking for the six ways a Cognito JWT verifier is usually wrong and found none of them:\n\n- `algorithms=[\"RS256\"]` pinned, so no `alg: none` and no HS256 confusion using a JWKS key as an HMAC secret.\n- `issuer` checked, and resolved as `https://cognito-idp.{region}.amazonaws.com/{pool_id}` rather than the custom auth domain, which is the distinction #161 also had to make for discovery.\n- `audience` checked against the app client id, so a token minted for a different client in the same pool is refused.\n- `options={\"require\": [...]}` demands the claims are present rather than only valid when present, which closes the silently-missing-claim gap.\n- `token_use != \"id\"` rejected. This is the Cognito-specific trap: an access token from the same pool carries the same issuer and a valid signature, and a verifier that only checks issuer and signature accepts it.\n- `email_verified` required.\n\nIdentity is normalized at the verification boundary and again at lookup, through the one `normalize_email` from 272aea, so the two cannot drift. The module docstring says identity is email-keyed and never `sub`, which carries the one-way-door ruling from 0df6cb into the code where the next reader will actually see it.\n\n**The unkept promise: the SSE mid-stream token decision.** The planning note on this card says \"Record SSE mid-stream token decision\" and it was not recorded. Not a defect in #158, because routes do not enforce yet, which is precisely why it needs recording now rather than later.\n\nA turn stream is held up to 900 seconds. The question is whether the principal is resolved once at stream open or re-validated during it, and either answer is defensible: validate once and a revoked member keeps receiving output until that turn ends, which at this scale is probably fine and should be a decision rather than a surprise. Also confirm the reconnect path carries a fresh token, since a client resuming after fifteen minutes with the original one fails in a way that reads as a stream bug.\n\n7b4616 is where this gets baked in, because that is the single step that turns enforcement on everywhere at once. Record the answer here before that card starts, or it will be decided by whoever writes the dependency wiring and nobody will know it was decided at all.",
+      "created_at": "2026-09-01T20:23:07.907322Z"
     }
   ],
   "created_at": "2026-09-01T02:40:29.680727Z",
-  "updated_at": "2026-09-01T02:57:58.055539Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T20:23:07.907322Z",
+  "closed_at": "2026-09-01T17:35:45.532708Z",
   "custom": {}
 }

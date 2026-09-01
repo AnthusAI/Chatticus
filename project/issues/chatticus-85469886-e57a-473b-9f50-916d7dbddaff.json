@@ -60,10 +60,28 @@
       "author": "agent@example.com",
       "text": "Taken. #125 stays closed. The Snapshots mount can drop the budget when BUDGETS_CDK_CONTEXT is empty; that is 46d9de (dedicated ChatticusBudgets stack). Limit/email remain human configuration.\n",
       "created_at": "2026-09-01T04:43:08.149402Z"
+    },
+    {
+      "id": "15f3920c-318a-4a22-a3c3-f79dabf84657",
+      "author": "home",
+      "text": "Human set monthly AWS budget $100 and notification hey@chattic.us. Deploying ChatticusBudgets. SNS is the spend-alert topic (50/80/100 actual + forecast), not product user mail.",
+      "created_at": "2026-09-01T16:26:17.896219Z"
+    },
+    {
+      "id": "a814e350-edc6-403b-9b4e-c821d4ad1801",
+      "author": "home",
+      "text": "ChatticusBudgets deployed: monthly AWS meter $100, SNS email hey@chattic.us. Confirm the SNS subscription in that inbox. OpenAI spend cap remains console-only.",
+      "created_at": "2026-09-01T16:27:51.361610Z"
+    },
+    {
+      "id": "fb331944-a2c4-4118-95bb-c20a65dfc4c6",
+      "author": "home",
+      "text": "SNS destination changed from hey@chattic.us (no MX) to ryan@anth.us. Confirm the AWS subscription email. Monthly AWS meter still $100.",
+      "created_at": "2026-09-01T19:23:39.982466Z"
     }
   ],
   "created_at": "2026-09-01T03:21:48.625589Z",
-  "updated_at": "2026-09-01T04:43:08.149402Z",
+  "updated_at": "2026-09-01T19:23:39.982466Z",
   "closed_at": "2026-09-01T04:37:08.800020Z",
   "custom": {}
 }

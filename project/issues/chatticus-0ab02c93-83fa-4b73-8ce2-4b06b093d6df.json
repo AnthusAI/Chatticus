@@ -3,7 +3,7 @@
   "title": "Register Google OAuth clients for each environment",
   "description": "**Phase 1 of 7.** First link in the critical path. Human action, not code, so start it even if nothing else starts.\n\n- **Blocked by:** nothing, start today\n- **Runs in parallel with:** 79ca6a, 7c1382, 272aea, 1ebc7d\n- **Unblocks:** 0df6cb\n\n---\nOne Google Cloud project, an OAuth consent screen, and one OAuth client per environment. Redirect URIs point at the Cognito custom auth domain, not at the app.\n\nClient secrets go straight into Secrets Manager at chatticus/{environment}/oauth/google. They never enter the repository, a CDK template, or an agent transcript. The pudicus pre-commit gate is the backstop, not the plan.\n\n**Done when:** three clients exist and their ids and secrets are in Secrets Manager.",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -48,10 +48,52 @@
       "author": "agent@example.com",
       "text": "Still waiting on the human: External consent screen, AnthusAI org, three clients, Secrets Manager. Unblocks 0df6cb.",
       "created_at": "2026-09-01T04:16:13.648930Z"
+    },
+    {
+      "id": "2e9316a6-8476-4a34-8b92-f20d286a8d68",
+      "author": "home",
+      "text": "Correction: there is no evidence an AnthusAI Google Cloud organization resource exists. The earlier ruling meant company-owned OAuth clients, not that a GCP org is already standing. Human cannot find an org in Resource Manager. Next is a decision: create Cloud Identity/Workspace on a domain Anthus controls, or temporarily allow a non-org Google account for development clients (migration risk already named on this card).",
+      "created_at": "2026-09-01T15:28:19.984689Z"
+    },
+    {
+      "id": "9ade9bb9-e15a-41fc-987b-15039429e269",
+      "author": "home",
+      "text": "Human confirmed Anthus controls `anth.us` (marketing site on S3/CloudFront). Path: Cloud Identity Free on that domain, TXT verification only — do not change website A/CNAME/MX unless they want Google mail. That creates the GCP organization. Then OAuth clients. Not started until the human completes Cloud Identity signup.",
+      "created_at": "2026-09-01T15:29:33.760419Z"
+    },
+    {
+      "id": "bf410ffd-dda8-4565-bb9a-4ad48516ea05",
+      "author": "home",
+      "text": "Human completed Cloud Identity domain confirm for anth.us and is on Cloud Resource Manager. Next: one GCP project under that org, then External consent screen (openid email profile) and three web clients with Cognito redirects auth-dev / auth-staging / auth.chattic.us. Authorized domains must include chattic.us (product), not only anth.us.",
+      "created_at": "2026-09-01T15:46:14.367895Z"
+    },
+    {
+      "id": "091b8ee9-1f82-4c1d-9c11-d9866a7e8b59",
+      "author": "home",
+      "text": "GCP organization `anth.us` now exists. Organization Admin is `google-workspace@anth.us` (granted 2026-09-01 11:53). Next: create project `chatticus` under that org, External consent screen, three web clients with Cognito redirects, Secrets Manager. Do not paste secrets into chat.",
+      "created_at": "2026-09-01T15:54:52.501766Z"
+    },
+    {
+      "id": "d33c4182-368c-4ab9-a1b7-e30c5bdc4c85",
+      "author": "home",
+      "text": "Human created GCP project Chatticus under org anth.us as google-workspace@anth.us. Walking External consent screen and three Cognito redirect clients next. Secrets stay out of chat.",
+      "created_at": "2026-09-01T15:56:36.465925Z"
+    },
+    {
+      "id": "620bed2e-544f-453f-bf8f-c65ab95b41f5",
+      "author": "home",
+      "text": "Human finished Google Auth Platform consent: External, non-sensitive scopes openid / userinfo.email / userinfo.profile. Next: three web clients (Cognito redirects) then Secrets Manager `chatticus/{environment}/oauth/google`. Secrets must not enter chat.",
+      "created_at": "2026-09-01T16:10:34.939400Z"
+    },
+    {
+      "id": "66763c94-afc5-4848-9ab6-41bba5588853",
+      "author": "home",
+      "text": "Three Google OAuth web clients are in Secrets Manager as `chatticus/{development,staging,production}/oauth/google` (client_id + client_secret JSON). Values never entered chat. Closing.",
+      "created_at": "2026-09-01T16:14:52.874532Z"
     }
   ],
   "created_at": "2026-09-01T02:40:05.879591Z",
-  "updated_at": "2026-09-01T04:16:13.648930Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T16:14:52.886236Z",
+  "closed_at": "2026-09-01T16:14:52.886236Z",
   "custom": {}
 }
