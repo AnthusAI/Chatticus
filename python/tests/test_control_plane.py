@@ -23,7 +23,6 @@ from chatticus.models import (
     SnapshotRequiredError,
     WorkerDoesNotHostComputerError,
     WorkerRegistration,
-    WorkerTenantMismatchError,
 )
 
 NOW = datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC)
@@ -91,7 +90,7 @@ def _worker(
 def test_heartbeat_on_unknown_worker_raises() -> None:
     plane = ControlPlane()
     with pytest.raises(KeyError):
-        plane.heartbeat("missing")
+        plane.heartbeat("anthus", "missing")
 
 
 def test_wall_clock_plane_does_not_freeze() -> None:
@@ -180,12 +179,15 @@ def test_auto_review_rules_are_tenant_scoped() -> None:
     assert plane.evaluate_action("send", "other-household") == ApprovalDecision.DENY
 
 
-def test_worker_cannot_change_tenant_by_re_registering() -> None:
+def test_worker_id_may_repeat_across_tenants() -> None:
     plane = ControlPlane()
     plane.register_worker(_worker("garage-mac-1", tenant_id="anthus"))
-    with pytest.raises(WorkerTenantMismatchError):
-        plane.register_worker(_worker("garage-mac-1", tenant_id="other-household"))
-    assert plane.worker("garage-mac-1").registration.tenant_id == "anthus"
+    plane.register_worker(_worker("garage-mac-1", tenant_id="other-household"))
+    assert plane.worker("anthus", "garage-mac-1").registration.tenant_id == "anthus"
+    assert (
+        plane.worker("other-household", "garage-mac-1").registration.tenant_id
+        == "other-household"
+    )
 
 
 def test_duplicate_bot_name_for_one_user_is_rejected() -> None:

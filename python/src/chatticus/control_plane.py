@@ -191,7 +191,6 @@ class ControlPlane:
         self._wall_clock = wall_clock
         self._fault_injector = fault_injector
         self._frozen_now = datetime.now(UTC)
-        self._workers: dict[str, WorkerRecord] = {}
         self._bots: dict[str, Bot] = {}
         self._computers_by_user: dict[tuple[str, str], Computer] = {}
         self._computers_by_id: dict[str, Computer] = {}
@@ -378,14 +377,16 @@ class ControlPlane:
     def register_worker(self, registration: WorkerRegistration) -> str:
         """Register or replace a worker and record a heartbeat.
 
-        A ``worker_id`` is owned by the tenant that first registered it.
-        Re-registering under a different tenant is rejected. Returns a new
-        bearer token on every successful registration.
+        ``worker_id`` is unique within one tenant roster, like bot names.
+        Re-registering under the same tenant rotates the bearer token.
+        Returns a new bearer token on every successful registration.
 
-        :raises WorkerTenantMismatchError: If the worker already belongs to
-            another tenant.
+        :raises WorkerTenantMismatchError: If the stored roster row's tenant
+            does not match the registration payload.
         """
-        existing = self._workers.get(registration.worker_id)
+        existing = self._messaging_store.get_worker(
+            registration.tenant_id, registration.worker_id
+        )
         if (
             existing is not None
             and existing.registration.tenant_id != registration.tenant_id
@@ -395,55 +396,56 @@ class ControlPlane:
                 f"{existing.registration.tenant_id!r}, not "
                 f"{registration.tenant_id!r}."
             )
-        previous = self._workers.get(registration.worker_id)
+        previous = existing
         hydrated = (
             previous.hydrated_snapshot_generation if previous is not None else None
         )
         token = mint_worker_token()
-        self._workers[registration.worker_id] = WorkerRecord(
+        record = WorkerRecord(
             registration=registration,
             last_heartbeat_at=self._now,
             token_hash=hash_worker_token(token),
             hydrated_snapshot_generation=hydrated,
         )
+        self._messaging_store.put_worker(record)
         return token
 
     def verify_worker_token(self, tenant_id: str, token: str) -> str | None:
         """Return the worker_id for a valid bearer token in *tenant_id*."""
-        for worker_id, record in self._workers.items():
-            if record.registration.tenant_id != tenant_id:
-                continue
+        for record in self._messaging_store.list_workers(tenant_id):
             if verify_worker_token_hash(token, record.token_hash):
-                return worker_id
+                return record.registration.worker_id
         return None
 
-    def heartbeat(self, worker_id: str) -> None:
+    def heartbeat(self, tenant_id: str, worker_id: str) -> None:
         """
         Refresh a worker's heartbeat.
 
         :raises KeyError: If the worker is not registered.
         """
-        record = self._workers[worker_id]
+        record = self.worker(tenant_id, worker_id)
         record.last_heartbeat_at = self._now
+        self._messaging_store.put_worker(record)
 
-    def worker(self, worker_id: str) -> WorkerRecord:
+    def worker(self, tenant_id: str, worker_id: str) -> WorkerRecord:
         """
         Return a registered worker.
 
         :raises KeyError: If the worker is not registered.
         """
-        return self._workers[worker_id]
+        record = self._messaging_store.get_worker(tenant_id, worker_id)
+        if record is None:
+            raise KeyError(worker_id)
+        return record
 
-    def all_workers(self) -> list[WorkerRecord]:
-        """Return every registered worker, including stale ones."""
-        return list(self._workers.values())
+    def list_workers(self, tenant_id: str) -> list[WorkerRecord]:
+        """Return every registered worker for one tenant, including stale ones."""
+        return self._messaging_store.list_workers(tenant_id)
 
     def healthy_workers(self, tenant_id: str) -> list[WorkerRecord]:
         """Return workers for a tenant whose heartbeat is still fresh."""
         healthy: list[WorkerRecord] = []
-        for record in self._workers.values():
-            if record.registration.tenant_id != tenant_id:
-                continue
+        for record in self._messaging_store.list_workers(tenant_id):
             if self._now - record.last_heartbeat_at > self.heartbeat_timeout:
                 continue
             healthy.append(record)
@@ -934,9 +936,10 @@ class ControlPlane:
         computer.snapshot_checksum = record_checksum
         computer.snapshot_generation += 1
         computer.disk_dirty = False
-        worker = self._workers.get(worker_id)
+        worker = self._messaging_store.get_worker(computer.tenant_id, worker_id)
         if worker is not None:
             worker.hydrated_snapshot_generation = computer.snapshot_generation
+            self._messaging_store.put_worker(worker)
         return snapshot
 
     def relocate_computer(self, computer_id: str, target_worker_id: str) -> None:
@@ -995,12 +998,15 @@ class ControlPlane:
         computer.disk_dirty = False
         computer.hydrate_required = False
         computer.intended_host_worker_id = None
-        worker = self._workers.get(worker_id)
+        worker = self._messaging_store.get_worker(computer.tenant_id, worker_id)
         if worker is not None:
             worker.hydrated_snapshot_generation = computer.snapshot_generation
+            self._messaging_store.put_worker(worker)
 
     def _require_host(self, computer: Computer, worker_id: str) -> None:
-        record = self._workers[worker_id]
+        record = self._messaging_store.get_worker(computer.tenant_id, worker_id)
+        if record is None:
+            raise KeyError(worker_id)
         if record.registration.computer_id != computer.computer_id:
             raise WorkerDoesNotHostComputerError(
                 f"Worker {worker_id!r} hosts "
@@ -2014,12 +2020,14 @@ class ControlPlane:
 
     def reconcile_worker_snapshot(
         self,
+        tenant_id: str,
         worker_id: str,
         snapshot_generation: int,
     ) -> None:
         """Mark a host as caught up to one published snapshot generation."""
-        worker = self._workers[worker_id]
+        worker = self.worker(tenant_id, worker_id)
         worker.hydrated_snapshot_generation = snapshot_generation
+        self._messaging_store.put_worker(worker)
 
     def _worker_snapshot_is_stale(
         self,

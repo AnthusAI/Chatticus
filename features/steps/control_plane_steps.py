@@ -163,6 +163,7 @@ def given_worker_registered(context: object) -> None:
     if not hasattr(context, "worker_tokens"):
         context.worker_tokens = {}
     context.worker_tokens[registration.worker_id] = token
+    _remember_worker_tenant(context, registration.tenant_id)
 
 
 @when("a worker registers:")
@@ -173,9 +174,32 @@ def when_worker_registers(context: object) -> None:
         if not hasattr(context, "worker_tokens"):
             context.worker_tokens = {}
         context.worker_tokens[registration.worker_id] = token
+        _remember_worker_tenant(context, registration.tenant_id)
         context.registration_error = None
     except WorkerTenantMismatchError as error:
         context.registration_error = error
+
+
+def _remember_worker_tenant(context: object, tenant_id: str) -> None:
+    tenant_ids = getattr(context, "worker_tenant_ids", None)
+    if tenant_ids is None:
+        context.worker_tenant_ids = {tenant_id}
+        return
+    tenant_ids.add(tenant_id)
+
+
+def _worker_tenant_ids(context: object) -> set[str]:
+    return getattr(context, "worker_tenant_ids", set())
+
+
+def _resolve_worker_tenant(context: object, worker_id: str) -> str:
+    for tenant_id in _worker_tenant_ids(context):
+        try:
+            context.plane.worker(tenant_id, worker_id)
+        except KeyError:
+            continue
+        return tenant_id
+    raise AssertionError(f"No tenant is registered for worker {worker_id!r}.")
 
 
 @when("{seconds:d} seconds pass")
@@ -193,14 +217,16 @@ def when_seconds_pass_without_heartbeat(
     context: object, seconds: int, worker_id: str
 ) -> None:
     context.plane.advance_seconds(seconds)
-    for record in context.plane.all_workers():
-        if record.registration.worker_id != worker_id:
-            context.plane.heartbeat(record.registration.worker_id)
+    for tenant_id in _worker_tenant_ids(context):
+        for record in context.plane.list_workers(tenant_id):
+            if record.registration.worker_id != worker_id:
+                context.plane.heartbeat(tenant_id, record.registration.worker_id)
 
 
 @when('worker "{worker_id}" sends a heartbeat')
 def when_worker_heartbeats(context: object, worker_id: str) -> None:
-    context.plane.heartbeat(worker_id)
+    tenant_id = _resolve_worker_tenant(context, worker_id)
+    context.plane.heartbeat(tenant_id, worker_id)
 
 
 @then('tenant "{tenant_id}" has {count:d} healthy worker')
@@ -215,7 +241,8 @@ def then_healthy_worker_count(context: object, tenant_id: str, count: int) -> No
 
 @then('worker "{worker_id}" has cost class "{cost_class}"')
 def then_worker_cost_class(context: object, worker_id: str, cost_class: str) -> None:
-    record = context.plane.worker(worker_id)
+    tenant_id = _resolve_worker_tenant(context, worker_id)
+    record = context.plane.worker(tenant_id, worker_id)
     assert record.registration.cost_class == CostClass(cost_class)
 
 
@@ -223,7 +250,8 @@ def then_worker_cost_class(context: object, worker_id: str, cost_class: str) -> 
 def then_worker_computer_affinity(
     context: object, worker_id: str, computer_id: str
 ) -> None:
-    record = context.plane.worker(worker_id)
+    tenant_id = _resolve_worker_tenant(context, worker_id)
+    record = context.plane.worker(tenant_id, worker_id)
     assert record.registration.computer_id == computer_id
 
 

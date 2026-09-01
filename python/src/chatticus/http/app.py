@@ -297,7 +297,7 @@ def create_app(
         principal: RequireWorkerPrincipal,
     ) -> dict[str, str]:
         _assert_worker_id_matches(principal, worker_id)
-        state.plane.heartbeat(worker_id)
+        state.plane.heartbeat(tenant_id, worker_id)
         logger.info(
             "worker_heartbeat tenant_id=%s worker_id=%s",
             tenant_id,

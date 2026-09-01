@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import logging
 
+import boto3
 import pytest
 from fastapi.testclient import TestClient
+from moto import mock_aws
 
 from chatticus.control_plane import ControlPlane
 from chatticus.http.app import INVOKE_HEADER, create_app
@@ -15,6 +17,7 @@ from chatticus.http.principal import (
     PrincipalAudienceDeniedError,
     verify_principal_audience,
 )
+from chatticus.messaging.store import DynamoMessagingStore, create_messaging_table
 from chatticus.models import CostClass, WorkerRegistration
 from chatticus.principal import Principal, PrincipalKind
 from chatticus.worker_credentials import (
@@ -36,7 +39,7 @@ def _worker_registration(worker_id: str = "worker-1") -> WorkerRegistration:
 def test_register_worker_mints_token_and_stores_hash() -> None:
     plane = ControlPlane()
     token = plane.register_worker(_worker_registration())
-    record = plane.worker("worker-1")
+    record = plane.worker("anthus", "worker-1")
     assert verify_worker_token_hash(token, record.token_hash)
     assert plane.verify_worker_token("anthus", token) == "worker-1"
 
@@ -128,3 +131,32 @@ def test_verify_principal_audience_rejects_user_on_worker_route() -> None:
 def test_hash_worker_token_is_deterministic() -> None:
     token = mint_worker_token()
     assert hash_worker_token(token) == hash_worker_token(token)
+
+
+def test_worker_credential_survives_recycled_control_plane() -> None:
+    plane = ControlPlane()
+    token = plane.register_worker(_worker_registration())
+    recycled = ControlPlane(messaging_store=plane._messaging_store)
+    assert recycled.verify_worker_token("anthus", token) == "worker-1"
+
+
+def test_worker_credential_persists_in_dynamo_across_recycled_plane() -> None:
+    with mock_aws():
+        client = boto3.client("dynamodb", region_name="us-east-1")
+        table_name = "chatticus-worker-credential-test"
+        create_messaging_table(client, table_name)
+        store = DynamoMessagingStore(table_name, client=client)
+        first = ControlPlane(messaging_store=store)
+        token = first.register_worker(_worker_registration())
+        second = ControlPlane(messaging_store=store)
+        assert second.verify_worker_token("anthus", token) == "worker-1"
+        stored = store.get_worker("anthus", "worker-1")
+        assert stored is not None
+        assert stored.token_hash == hash_worker_token(token)
+        assert "token" not in client.get_item(
+            TableName=table_name,
+            Key={
+                "pk": {"S": "anthus#roster"},
+                "sk": {"S": "worker#worker-1"},
+            },
+        ).get("Item", {})

@@ -19,6 +19,7 @@ from chatticus.models import (
     ChannelParticipant,
     Computer,
     ComputerPolicy,
+    CostClass,
     DuplicateBotNameError,
     Identity,
     Invitation,
@@ -36,6 +37,8 @@ from chatticus.models import (
     TurnEvent,
     TurnEventKind,
     TurnStatus,
+    WorkerRecord,
+    WorkerRegistration,
 )
 
 
@@ -255,6 +258,15 @@ class MessagingStore(Protocol):
     def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
         """Return distinct user ids referenced by one tenant's messaging rows."""
 
+    def put_worker(self, record: WorkerRecord) -> None:
+        """Persist one registered worker and its credential hash."""
+
+    def get_worker(self, tenant_id: str, worker_id: str) -> WorkerRecord | None:
+        """Load one worker from the tenant roster."""
+
+    def list_workers(self, tenant_id: str) -> list[WorkerRecord]:
+        """Return every worker registered for one tenant."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -280,6 +292,7 @@ class InMemoryMessagingStore:
         self._memberships: dict[tuple[str, str], Membership] = {}
         self._user_org_index: dict[tuple[str, str], Membership] = {}
         self._invitations: dict[str, Invitation] = {}
+        self._workers: dict[tuple[str, str], WorkerRecord] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -643,6 +656,24 @@ class InMemoryMessagingStore:
             if indexed_tenant_id == tenant_id:
                 user_ids.add(user_id)
         return tuple(sorted(user_ids))
+
+    def put_worker(self, record: WorkerRecord) -> None:
+        tenant_id = record.registration.tenant_id
+        worker_id = record.registration.worker_id
+        self._workers[(tenant_id, worker_id)] = record
+
+    def get_worker(self, tenant_id: str, worker_id: str) -> WorkerRecord | None:
+        return self._workers.get((tenant_id, worker_id))
+
+    def list_workers(self, tenant_id: str) -> list[WorkerRecord]:
+        return sorted(
+            (
+                record
+                for (stored_tenant_id, _), record in self._workers.items()
+                if stored_tenant_id == tenant_id
+            ),
+            key=lambda record: record.registration.worker_id,
+        )
 
     def put_invitation(self, invitation: Invitation) -> None:
         self._invitations[invitation.invitation_id] = invitation
@@ -1664,6 +1695,37 @@ class DynamoMessagingStore:
             query_kwargs["ExclusiveStartKey"] = last_key
         return tuple(sorted(user_ids))
 
+    def put_worker(self, record: WorkerRecord) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_worker_item(record),
+        )
+
+    def get_worker(self, tenant_id: str, worker_id: str) -> WorkerRecord | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._roster_pk(tenant_id)},
+                "sk": {"S": f"worker#{worker_id}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _worker_from_item(item)
+
+    def list_workers(self, tenant_id: str) -> list[WorkerRecord]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._roster_pk(tenant_id)},
+                ":prefix": {"S": "worker#"},
+            },
+        )
+        workers = [_worker_from_item(item) for item in response.get("Items", [])]
+        return sorted(workers, key=lambda record: record.registration.worker_id)
+
     def put_invitation(self, invitation: Invitation) -> None:
         self.client.put_item(
             TableName=self.table_name,
@@ -1976,6 +2038,50 @@ def _membership_from_item(item: dict[str, Any]) -> Membership:
         user_id=item["user_id"]["S"],
         role=MemberRole(item["role"]["S"]),
         joined_at=datetime.fromisoformat(item["joined_at"]["S"]),
+    )
+
+
+def _worker_item(record: WorkerRecord) -> dict[str, Any]:
+    registration = record.registration
+    item: dict[str, Any] = {
+        "pk": {"S": f"{registration.tenant_id}#roster"},
+        "sk": {"S": f"worker#{registration.worker_id}"},
+        "worker_id": {"S": registration.worker_id},
+        "tenant_id": {"S": registration.tenant_id},
+        "cost_class": {"S": registration.cost_class.value},
+        "capabilities": {"S": json.dumps(sorted(registration.capabilities))},
+        "token_hash": {"S": record.token_hash},
+        "last_heartbeat_at": {"S": record.last_heartbeat_at.isoformat()},
+    }
+    if registration.computer_id is not None:
+        item["computer_id"] = {"S": registration.computer_id}
+    if record.hydrated_snapshot_generation is not None:
+        item["hydrated_snapshot_generation"] = {
+            "N": str(record.hydrated_snapshot_generation)
+        }
+    return item
+
+
+def _worker_from_item(item: dict[str, Any]) -> WorkerRecord:
+    capabilities_raw = item.get("capabilities", {}).get("S", "[]")
+    try:
+        capabilities_list = json.loads(capabilities_raw)
+    except json.JSONDecodeError:
+        capabilities_list = []
+    if not isinstance(capabilities_list, list):
+        capabilities_list = []
+    hydrated = item.get("hydrated_snapshot_generation", {}).get("N")
+    return WorkerRecord(
+        registration=WorkerRegistration(
+            worker_id=item["worker_id"]["S"],
+            tenant_id=item["tenant_id"]["S"],
+            cost_class=CostClass(item["cost_class"]["S"]),
+            capabilities=frozenset(str(cap) for cap in capabilities_list),
+            computer_id=item.get("computer_id", {}).get("S") or None,
+        ),
+        last_heartbeat_at=datetime.fromisoformat(item["last_heartbeat_at"]["S"]),
+        token_hash=item["token_hash"]["S"],
+        hydrated_snapshot_generation=int(hydrated) if hydrated is not None else None,
     )
 
 

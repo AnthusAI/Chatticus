@@ -71,3 +71,14 @@ Feature: Per-worker credentials
     When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Helper" on the channel
     And a user principal calls a worker route
     Then the worker route responds with status 403
+
+  Scenario: A worker credential still authenticates after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And a worker registered over HTTP as:
+      | worker_id    | garage-mac-1 |
+      | tenant_id    | anthus       |
+      | cost_class   | local        |
+      | capabilities | cpu          |
+    When a recycled Front Door serves the same messaging store
+    And the worker bearer credential is used on a worker route
+    Then the worker route responds with status 200

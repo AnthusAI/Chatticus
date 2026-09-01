@@ -156,3 +156,13 @@ def when_user_principal_calls_worker_route(context: object) -> None:
         headers={"Authorization": "Bearer not-a-worker-token"},
     )
     context.api_app.dependency_overrides.pop(resolve_worker_bearer, None)
+
+
+@when("the worker bearer credential is used on a worker route")
+def when_worker_credential_on_worker_route(context: object) -> None:
+    tenant_id = getattr(context, "last_worker_tenant_id", "anthus")
+    headers = worker_auth_headers(context, context.last_worker_id)
+    context.worker_route_response = context.api_client.post(
+        org_path(tenant_id, f"/workers/{context.last_worker_id}/heartbeat"),
+        headers=headers,
+    )

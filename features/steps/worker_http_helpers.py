@@ -62,6 +62,7 @@ def register_worker_http(context: object, table: object) -> str:
     ensure_worker_tokens(context)[body["worker_id"]] = token
     context.last_worker_token = token
     context.last_worker_id = body["worker_id"]
+    context.last_worker_tenant_id = tenant_id
     return token
 
 
