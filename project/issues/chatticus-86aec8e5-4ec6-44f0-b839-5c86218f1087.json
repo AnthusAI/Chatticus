@@ -70,10 +70,22 @@
       "author": "agent@example.com",
       "text": "**8574c7** landed (#124). Dedicated-account ThinTurn no longer needs papyrus SSM. Human still seeds per-env OpenAI project/key. Architect follow-up **46d9de**: move ChatticusBudgets off Snapshots so an unset-context snapshots deploy cannot delete the budget. **0ab02c** still human.",
       "created_at": "2026-09-01T04:43:08.193411Z"
+    },
+    {
+      "id": "dfa2f920-52a2-474b-ba48-97b816d01a0d",
+      "author": "agent@example.com",
+      "text": "Phase 01 cadence: **8574c7** on develop (#124). **854698** on develop (#125) then architect **46d9de** (dedicated ChatticusBudgets stack so snapshots deploys cannot delete the meter) — PR #128, CI green, waiting acceptance. Cutover: snapshots first (drops unique budget name), then budgets deploy. **0ab02c** still human. Computers desiredCount 0. Never --all.",
+      "created_at": "2026-09-01T05:06:19.642811Z"
+    },
+    {
+      "id": "56eff9b8-d37e-48c8-9b4f-2f6693471e07",
+      "author": "home",
+      "text": "**Cadence note: the sign-in track is about to stall on a human action, and one P0 chain is open and unclaimed.**\n\nPhase 1 has drained fast. What is left divides cleanly.\n\n**Blocked on the human, and it blocks the critical path.** 0ab02c, registering the Google OAuth clients, is the first link in `0ab02c` to `0df6cb` to `5f0c4c` and `5558db` to `22f5bb` to the enforcement join at 7b4616. Nothing on that chain can start until the clients exist, so the entire sign-in epic is waiting on one console session. Also still waiting: the monthly limit and notification address, now `CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD` and `CHATTICUS_BUDGETS_NOTIFICATION_EMAIL`.\n\n**Workable now, and the better place to spend the wait.** b574a6, control-plane operations for organizations, has been unblocked since 272aea closed and nobody has picked it up. It is the P0 that opens the other chain: b574a6 unblocks 41d08d, which unblocks 5744ef, which 7b4616 cannot be called done without. That chain does not touch Google at all.\n\nAlso workable and unclaimed: 7695e0 deploy scripts, e8fe91 log retention.\n\n**Suggestion:** take b574a6 next rather than waiting on the OAuth clients. It keeps the enforcement join's prerequisites moving while the human-gated half is parked.",
+      "created_at": "2026-09-01T05:08:32.420379Z"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-01T04:43:08.193411Z",
+  "updated_at": "2026-09-01T05:08:32.420379Z",
   "closed_at": null,
   "custom": {}
 }

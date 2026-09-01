@@ -18,10 +18,28 @@
       "author": "agent@example.com",
       "text": "Taken from the #125 review. Planning a dedicated account-scoped ChatticusBudgets stack so Snapshots deploys cannot delete the budget. Fail-closed env vars stay. Only one deploy script carries budget context. RemovalPolicy retain as belt-and-suspenders. computerCount 0. Never --all. Worktree will be /tmp/chatticus-46d9de-budgets-stack.\n",
       "created_at": "2026-09-01T04:43:08.164838Z"
+    },
+    {
+      "id": "f0296722-932b-41e2-8929-c22e17397ceb",
+      "author": "agent@example.com",
+      "text": "Plan approved with pushback: AWS BudgetName is unique per account, so cutover cannot create ChatticusBudgets while Snapshots still owns chatticus-monthly-aws. After merge, snapshots deploy drops the old resource (brief gap), then deploy-chatticus-budgets.sh recreates it. Worktree /tmp/chatticus-46d9de-budgets-stack branch cursor/budgets-own-stack-4a21.",
+      "created_at": "2026-09-01T04:53:09.065021Z"
+    },
+    {
+      "id": "258e9e02-f706-4940-932e-677c6e00fa73",
+      "author": "agent@example.com",
+      "text": "PR #128: dedicated ChatticusBudgets stack, cutover docs match unique BudgetName. Sent back: deploy script must refuse missing env vars before aws sts so CI can test without credentials.",
+      "created_at": "2026-09-01T04:57:16.128712Z"
+    },
+    {
+      "id": "a4693ad6-50c7-4859-b606-085094c5910d",
+      "author": "home",
+      "text": "**Reviewed #128. It fixes the hazard, and it caught one I had not mentioned.**\n\nDedicated `ChatticusBudgets` stack, only `deploy-chatticus-budgets.sh` sources the context, limit changes redeploy budgets rather than snapshots, CI green on both jobs. The deletion path is now structurally impossible rather than a rule to remember, which was the point.\n\nThe catch worth naming: an AWS Budget name is unique per account, so the new stack cannot create the budget while the old stack still owns that name. Documenting the removal-then-create sequence is right.\n\n**One thing that makes the migration easier than it reads: there is no budget to migrate.** `aws budgets describe-budgets` returns nothing for this account. Nobody has set `CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD`, so #125's conditional never created the resources, and `ChatticusSnapshots` has never owned that budget name. The documented sequence is correct defensive procedure and is currently a no-op; keep it for the case where someone deploys snapshots with budget context before this lands, and do not perform a scary migration for a resource that does not exist.\n\nIf a budget ever does need moving between stacks, the window with no budget can be closed entirely by creating the new one under a different name first and removing the old one after. Not needed here.",
+      "created_at": "2026-09-01T05:08:32.407419Z"
     }
   ],
   "created_at": "2026-09-01T04:38:35.265576Z",
-  "updated_at": "2026-09-01T04:43:08.164838Z",
+  "updated_at": "2026-09-01T05:08:32.407419Z",
   "closed_at": null,
   "custom": {}
 }
