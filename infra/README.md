@@ -13,6 +13,7 @@ operations.
 | `ChatticusComputers` | VPC, ECR, ECS cluster, Fargate ARM64 task definition, service (count 0 by default) |
 | `ChatticusDns` | Route 53 hosted zone for `chattic.us`, ACM certificate (`chattic.us`, `*.chattic.us`, `www.chattic.us`) |
 | `ChatticusGitHubDeploy` | GitHub Actions OIDC IAM role for CDK deploy workflows (development ThinTurn + Web) |
+| `ChatticusOrgSpendAlarm` | Account-level AWS spend budget (50/80/100% actual + forecasted overage) with SNS to the owner; deploy only after setting monthly USD and notification email |
 | `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE function URL |
 | `ChatticusThinTurnStaging` | Staging thin turn (same shape; deployed from `main`) |
 | `ChatticusThinTurnProduction` | Production thin turn (gated deploy of a staging-proven release; never implied by a git branch) |
@@ -161,6 +162,22 @@ are forbidden (`npm run deploy` exits nonzero). Do not destroy
 A Fargate service exists at count 0 until you deploy
 `-c computerCount=1` after pushing `ComputerRepositoryUri:dev`.
 Publishing a snapshot does not require a running task.
+
+## Org spend alarm (account-level)
+
+Deploy the AWS meter alarm after a human sets the monthly limit and
+notification address. The script refuses invented defaults and never
+touches computers, snapshots, or thin-turn stacks.
+
+```bash
+export CHATTICUS_ORG_SPEND_MONTHLY_USD=<monthly-limit>
+export CHATTICUS_ORG_SPEND_NOTIFICATION_EMAIL=<owner-email>
+cd infra
+sh deploy-chatticus-org-spend-alarm.sh
+```
+
+OpenAI hard spend caps are **console-only** on the vendor project; they
+are not CDK resources. Confirm the SNS email subscription after deploy.
 
 ## Synth (no AWS credentials required)
 

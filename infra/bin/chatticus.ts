@@ -8,6 +8,8 @@ import {
   WEB_STACK_IDS,
 } from "../lib/environments";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
+import { readOrgSpendAlarmConfig } from "../lib/org-spend-alarm-config";
+import { OrgSpendAlarmStack } from "../lib/org-spend-alarm-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
 import { WebStack } from "../lib/web-stack";
@@ -40,6 +42,16 @@ new GitHubDeployStack(app, "ChatticusGitHubDeploy", {
   description:
     "GitHub Actions OIDC IAM role for CDK deploy workflows (phase-1 ThinTurn development).",
 });
+
+const orgSpendAlarmConfig = readOrgSpendAlarmConfig(app);
+if (orgSpendAlarmConfig) {
+  new OrgSpendAlarmStack(app, "ChatticusOrgSpendAlarm", {
+    env,
+    config: orgSpendAlarmConfig,
+    description:
+      "Account-level AWS spend budget with SNS alerts at 50/80/100% and forecasted overage.",
+  });
+}
 
 for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
   const thinTurn = new ThinTurnStack(app, THIN_TURN_STACK_IDS[environmentName], {
