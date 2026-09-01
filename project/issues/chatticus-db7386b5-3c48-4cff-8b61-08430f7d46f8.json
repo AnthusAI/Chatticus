@@ -64,10 +64,16 @@
       "author": "home",
       "text": "User confirmed the restored historical hero backing plane and asked for motion that is perceptible but very subtle. Refining only the transform animation; no layout or visual-language change.",
       "created_at": "2026-09-01T18:48:36.446754Z"
+    },
+    {
+      "id": "1e9331cb-6a60-4a94-b4dc-4626a3996b81",
+      "author": "home",
+      "text": "User approved the restrained hero motion and requested a slightly more legible treatment: independently modulate the apparent width and height of both the lime backing rectangle and grey shadow rectangle with non-matching periods. Implement with transform scale for smooth composited animation, preserving pause/reduced-motion behavior.",
+      "created_at": "2026-09-01T18:51:45.792115Z"
     }
   ],
   "created_at": "2026-08-31T20:43:59.982532Z",
-  "updated_at": "2026-09-01T18:48:36.446754Z",
+  "updated_at": "2026-09-01T18:51:45.792115Z",
   "closed_at": null,
   "custom": {}
 }

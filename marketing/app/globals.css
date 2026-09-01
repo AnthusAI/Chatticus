@@ -131,7 +131,17 @@
   border-radius: 2.4rem;
   background: var(--signal);
   will-change: transform;
-  animation: prototype-backing-drift 14s var(--ease-out) infinite alternate;
+  animation: prototype-backing-drift 12.8s var(--ease-out) infinite alternate;
+}
+
+.prototype-shadow-plane {
+  position: absolute;
+  inset: 0.7rem -0.65rem -0.85rem 0.85rem;
+  z-index: 1;
+  border-radius: 2rem;
+  background: #b8b6ad;
+  will-change: transform;
+  animation: prototype-shadow-drift 17.3s var(--ease-out) -4.6s infinite alternate;
 }
 
 .prototype-presence {
@@ -143,14 +153,20 @@
 }
 
 .workspace-prototype[data-motion-paused="true"] .prototype-backing-plane,
+.workspace-prototype[data-motion-paused="true"] .prototype-shadow-plane,
 .workspace-prototype[data-motion-paused="true"] .prototype-presence,
 .workspace-prototype[data-motion-paused="true"] .prototype-packet {
   animation-play-state: paused;
 }
 
 @keyframes prototype-backing-drift {
-  from { transform: translate3d(-2px, 2px, 0) rotate(1.8deg); }
-  to { transform: translate3d(2px, -2px, 0) rotate(2.35deg); }
+  from { transform: translate3d(-3px, 3px, 0) rotate(1.65deg) scale(0.99, 1.012); }
+  to { transform: translate3d(4px, -4px, 0) rotate(2.55deg) scale(1.016, 0.988); }
+}
+
+@keyframes prototype-shadow-drift {
+  from { transform: translate3d(3px, 2px, 0) rotate(1.45deg) scale(1.014, 0.992); }
+  to { transform: translate3d(-4px, -3px, 0) rotate(2.2deg) scale(0.988, 1.016); }
 }
 
 @keyframes prototype-presence {
