@@ -19,10 +19,16 @@
       "author": "agent@example.com",
       "text": "Composer 2.5 plan-then-implement. Worktree /tmp/chatticus-914eb7-computer-image branch cursor/computer-image-profiles-4a21. Scope: computer/push-computer-image.sh only; no ChatticusComputers CDK, no desiredCount change, no --all, no production, no 35d86b/#26. Guardian: no account IDs in committed digest notes.\n",
       "created_at": "2026-09-01T00:31:39.058628Z"
+    },
+    {
+      "id": "29f4bb17-90fa-4926-ac12-a760a4f7cc3a",
+      "author": "agent@example.com",
+      "text": "Plan reviewed and implementation authorized with amendments: Chromium --user-data-dir smoke (not helper-only); network config from existing task def / measure_fargate.py; guardian-safe digest pin; desiredCount stays 0.\n",
+      "created_at": "2026-09-01T00:36:26.358507Z"
     }
   ],
   "created_at": "2026-09-01T00:30:26.837120Z",
-  "updated_at": "2026-09-01T00:31:39.058628Z",
+  "updated_at": "2026-09-01T00:36:26.358507Z",
   "closed_at": null,
   "custom": {}
 }
