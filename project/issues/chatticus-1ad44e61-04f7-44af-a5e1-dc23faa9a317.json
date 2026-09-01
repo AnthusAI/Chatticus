@@ -18,10 +18,16 @@
       "author": "agent@example.com",
       "text": "Opened from demo CLI live acceptance. Planner worktree `/tmp/chatticus-1ad44e-complete-turn`, branch `cursor/complete-turn-chunks-4a21` off origin/develop. Plan only until authorized. No production deploy.\n",
       "created_at": "2026-09-01T01:21:02.598810Z"
+    },
+    {
+      "id": "6ec8fb42-0cd8-4e14-be6a-4eb2d64b93b9",
+      "author": "agent@example.com",
+      "text": "Plan approved. Worktree `/tmp/chatticus-1ad44e-complete-turn` verified on `cursor/complete-turn-chunks-4a21`. Implementer authorized: rebase onto origin/develop, Gherkin Then for first complete, no deploy until after merge.\n",
+      "created_at": "2026-09-01T01:24:58.139090Z"
     }
   ],
   "created_at": "2026-09-01T01:20:52.310379Z",
-  "updated_at": "2026-09-01T01:21:02.598810Z",
+  "updated_at": "2026-09-01T01:24:58.139090Z",
   "closed_at": null,
   "custom": {}
 }
