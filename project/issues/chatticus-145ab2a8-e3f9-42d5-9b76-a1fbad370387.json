@@ -3,7 +3,7 @@
   "title": "Organization identity and waitlist ground work",
   "description": "Phase 01–02: spend alarm, dark non-dev, Google OAuth, organization records, Principal seam, Cognito pool, control-plane org operations.",
   "type": "epic",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,16 @@
     "v1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "5e906810-33f3-4f59-92d5-2397f951f7f5",
+      "author": "agent@example.com",
+      "text": "Duplicate of 86aec8 tree opened because develop was not pulled after #106. Closing. Use 86aec8 / 79ca6a / 7c1382 / 0ab02c / 272aea / 1ebc7d.",
+      "created_at": "2026-09-01T03:01:53.141266Z"
+    }
+  ],
   "created_at": "2026-09-01T02:51:49.318349Z",
-  "updated_at": "2026-09-01T02:52:00.578644Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T03:01:53.153962Z",
+  "closed_at": "2026-09-01T03:01:53.153962Z",
   "custom": {}
 }

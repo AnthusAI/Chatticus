@@ -12,9 +12,16 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "1a353e3e-b732-4635-80ea-ca1b97c09582",
+      "author": "agent@example.com",
+      "text": "Retarget from duplicate df80e1. Worktree `/tmp/chatticus-df80e1-principal`. Plan exists against ORGANIZATIONS.md: Principal type + waitlist_safe marker, no enforcement.\n",
+      "created_at": "2026-09-01T03:01:53.102106Z"
+    }
+  ],
   "created_at": "2026-09-01T02:40:29.666490Z",
-  "updated_at": "2026-09-01T02:46:21.124363Z",
+  "updated_at": "2026-09-01T03:01:53.102106Z",
   "closed_at": null,
   "custom": {}
 }

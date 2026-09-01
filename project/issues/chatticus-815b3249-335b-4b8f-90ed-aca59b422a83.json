@@ -3,7 +3,7 @@
   "title": "Register Google OAuth clients",
   "description": "Human action, not code. First link in the critical path.\n\nOne Google Cloud project, one OAuth client per environment, redirect URIs pointing at the Cognito auth domain rather than the app (auth-dev.chattic.us, auth-staging.chattic.us, auth.chattic.us — single-label names so *.chattic.us covers them).\n\nSecrets go directly into Secrets Manager by hand. Never the repository, CDK templates, or agent transcripts.",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -18,10 +18,16 @@
       "author": "agent@example.com",
       "text": "Human-owned. Agents will not put Google client secrets in git. One GCP project, three OAuth clients, redirects to Cognito auth-dev / auth-staging / auth.chattic.us. Secrets Manager by hand.",
       "created_at": "2026-09-01T02:52:14.138071Z"
+    },
+    {
+      "id": "8be1f633-3fb1-43c3-ab18-29a3335ef750",
+      "author": "agent@example.com",
+      "text": "Duplicate of 86aec8 tree opened because develop was not pulled after #106. Closing. Use 86aec8 / 79ca6a / 7c1382 / 0ab02c / 272aea / 1ebc7d.",
+      "created_at": "2026-09-01T03:01:53.240702Z"
     }
   ],
   "created_at": "2026-09-01T02:51:49.383350Z",
-  "updated_at": "2026-09-01T02:52:14.138071Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T03:01:53.251647Z",
+  "closed_at": "2026-09-01T03:01:53.251647Z",
   "custom": {}
 }

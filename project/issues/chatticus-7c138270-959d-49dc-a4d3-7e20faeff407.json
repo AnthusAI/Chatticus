@@ -12,9 +12,16 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "518c4ff2-1141-4ed8-bd93-dd4b07a8f97a",
+      "author": "agent@example.com",
+      "text": "Retarget from duplicate 2fdc9b. Plan drafted: CloudFront 403 on staging + hey.chattic.us; marketing apex stays. Confirm hey goes dark and mechanism. Worktree `/tmp/chatticus-2fdc9b-dark`.\n",
+      "created_at": "2026-09-01T03:01:53.064788Z"
+    }
+  ],
   "created_at": "2026-09-01T02:39:45.126246Z",
-  "updated_at": "2026-09-01T02:46:21.077536Z",
+  "updated_at": "2026-09-01T03:01:53.064788Z",
   "closed_at": null,
   "custom": {}
 }

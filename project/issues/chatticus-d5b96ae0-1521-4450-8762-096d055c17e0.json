@@ -3,7 +3,7 @@
   "title": "Keep staging and production dark until authentication ships",
   "description": "Track taking staging and production off the open internet, then returning them behind auth (plan items 7c1382, bc830a, 89a222).",
   "type": "epic",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,16 @@
     "v1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "8ac95b55-92fa-4101-a6e4-d1949ce64042",
+      "author": "agent@example.com",
+      "text": "Duplicate of 86aec8 tree opened because develop was not pulled after #106. Closing. Use 86aec8 / 79ca6a / 7c1382 / 0ab02c / 272aea / 1ebc7d.",
+      "created_at": "2026-09-01T03:01:53.166021Z"
+    }
+  ],
   "created_at": "2026-09-01T02:51:49.332170Z",
-  "updated_at": "2026-09-01T02:52:00.591267Z",
-  "closed_at": null,
+  "updated_at": "2026-09-01T03:01:53.177681Z",
+  "closed_at": "2026-09-01T03:01:53.177681Z",
   "custom": {}
 }

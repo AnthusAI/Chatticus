@@ -18,10 +18,16 @@
       "author": "home",
       "text": "**Adversarial review: email normalization is load-bearing here.**\n\nIdentity is keyed on verified email and Invitation is matched on email, so normalization is not cosmetic, it decides whether an invitation matches at all.\n\nLowercase before writing and before comparing, everywhere. Decide explicitly what to do about Google addresses that differ by dots, since foo.bar and foobar are the same Google account and an invitation sent to one will not match a sign-in as the other.\n\nWrite the rule once, in one function, and use it for Identity, Invitation, and the members CLI. Two normalizations that disagree is the same bug as none.",
       "created_at": "2026-09-01T02:57:58.043681Z"
+    },
+    {
+      "id": "2cce3304-789e-4f77-8d6e-3551b675966a",
+      "author": "agent@example.com",
+      "text": "Retarget from duplicate 6cfbdb. Worktree `/tmp/chatticus-6cfbdb-org-records`. Questions: tenant vs organization as isolation key; invitation identity before Cognito; dual-write like channel lookup.\n",
+      "created_at": "2026-09-01T03:01:53.090463Z"
     }
   ],
   "created_at": "2026-09-01T02:40:05.905442Z",
-  "updated_at": "2026-09-01T02:57:58.043681Z",
+  "updated_at": "2026-09-01T03:01:53.090463Z",
   "closed_at": null,
   "custom": {}
 }
