@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-914eb750-286d-42c5-af3e-b3a4c02ee469",
+  "title": "Push development computer image with partitioned Chromium profiles",
+  "description": "Purpose: 120f6e landed host code for browser-profiles. Live Fargate still runs the previous :dev image until it is rebuilt and pushed.\n\nAcceptance:\n- Run computer/push-computer-image.sh (build linux/arm64, push ChatticusComputers ECR :dev).\n- Do not deploy ChatticusComputers, do not change desiredCount, no cdk deploy --all, no production, no 35d86b / PR #26.\n- Confirm desiredCount stays 0 after push.\n- Record image digest/tag in a spike or README live pin without embedding account IDs (guardian).\n- Optional: one RunTask smoke that --user-data-dir is under browser-profiles/untrusted, then StopTask.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-4ddbe133-721a-4acb-909b-a56d511f08db",
+  "labels": [
+    "v1",
+    "security"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "d172ed48-aa1c-4a80-902e-9627132089d2",
+      "author": "agent@example.com",
+      "text": "Composer 2.5 plan-then-implement. Worktree /tmp/chatticus-914eb7-computer-image branch cursor/computer-image-profiles-4a21. Scope: computer/push-computer-image.sh only; no ChatticusComputers CDK, no desiredCount change, no --all, no production, no 35d86b/#26. Guardian: no account IDs in committed digest notes.\n",
+      "created_at": "2026-09-01T00:31:39.058628Z"
+    }
+  ],
+  "created_at": "2026-09-01T00:30:26.837120Z",
+  "updated_at": "2026-09-01T00:31:39.058628Z",
+  "closed_at": null,
+  "custom": {}
+}
