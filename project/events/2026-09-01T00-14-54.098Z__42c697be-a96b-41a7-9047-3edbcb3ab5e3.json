@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "42c697be-a96b-41a7-9047-3edbcb3ab5e3",
+  "issue_id": "chatticus-120f6ed1-aa83-4b60-98ea-fef3b9f19a34",
+  "event_type": "issue_created",
+  "occurred_at": "2026-09-01T00:14:54.098Z",
+  "actor_id": "agent@example.com",
+  "payload": {
+    "assignee": null,
+    "description": "Purpose: kernel Gherkin (browser_context_policy.feature) already separates untrusted vs privileged contexts. Remaining 4ddbe1 DoD: live Chromium on the computer host must not spend privileged cookies or ambient workspace secrets from an untrusted browse.\n\nAcceptance:\n- Untrusted browse uses a distinct Chromium user-data/profile from privileged sessions; cookies and storage do not cross.\n- Untrusted context cannot read workspace secret paths (e.g. /workspace/.env) via the browser.\n- Generic authenticated browser_open without a bound privileged session stops at the existing sink (no cookie jar reuse).\n- Kernel Gherkin stays the authority; host executor implements it. desiredCount 0. No cdk deploy --all, no production, no 35d86b / PR #26.\n- snapshot_cookie_integrity remains a v1 exclusion (do not pretend relocate sanitizes cookies).",
+    "issue_type": "task",
+    "labels": [
+      "v1",
+      "security"
+    ],
+    "parent": "chatticus-4ddbe133-721a-4acb-909b-a56d511f08db",
+    "priority": 0,
+    "status": "open",
+    "title": "Separate untrusted and privileged Chromium profiles on the host"
+  }
+}
