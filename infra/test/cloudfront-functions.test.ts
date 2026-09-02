@@ -60,6 +60,31 @@ describe("SPA viewer-request rewrite", () => {
   it("does not rewrite /api paths", () => {
     assert.match(SPA_VIEWER_REQUEST_FUNCTION, /uri\.indexOf\("\/api"\) === 0/);
   });
+
+  it("rewrites /chat to /chat/index.html on every host", () => {
+    for (const host of [
+      "dev.chattic.us",
+      "staging.chattic.us",
+      "chattic.us",
+      "hey.chattic.us",
+    ]) {
+      const request = runViewerRequest(
+        SPA_VIEWER_REQUEST_FUNCTION,
+        viewerRequestEvent("/chat", host),
+      );
+      assert.equal(request.uri, "/chat/index.html", host);
+    }
+  });
+
+  it("leaves marketing / unchanged on dev, staging, and apex", () => {
+    for (const host of ["dev.chattic.us", "staging.chattic.us", "chattic.us"]) {
+      const request = runViewerRequest(
+        productionSpaViewerRequest,
+        viewerRequestEvent("/", host),
+      );
+      assert.equal(request.uri, "/", host);
+    }
+  });
 });
 
 describe("production Host-based viewer-request routing", () => {
@@ -67,6 +92,14 @@ describe("production Host-based viewer-request routing", () => {
     const request = runViewerRequest(
       productionSpaViewerRequest,
       viewerRequestEvent("/", "hey.chattic.us"),
+    );
+    assert.equal(request.uri, "/chat/index.html");
+  });
+
+  it("rewrites hey.chattic.us /chat to /chat/index.html", () => {
+    const request = runViewerRequest(
+      productionSpaViewerRequest,
+      viewerRequestEvent("/chat", "hey.chattic.us"),
     );
     assert.equal(request.uri, "/chat/index.html");
   });

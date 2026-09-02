@@ -23,7 +23,7 @@ export function FinalCta() {
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
-              <a href="https://hey.chattic.us">
+              <a href="/chat">
                 Open the product
                 <ArrowUpRight className="h-5 w-5" aria-hidden="true" />
               </a>

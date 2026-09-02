@@ -64,7 +64,7 @@ export function Hero() {
           </p>
           <div className="mt-9 flex animate-rise flex-col gap-3 [animation-delay:430ms] sm:flex-row">
             <Button asChild size="lg">
-              <a href="https://hey.chattic.us">
+              <a href="/chat">
                 Explore the workspace
                 <ArrowUpRight className="h-5 w-5" aria-hidden="true" />
               </a>

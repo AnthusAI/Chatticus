@@ -6,7 +6,7 @@ const groups = [
   {
     title: "Product",
     links: [
-      ["Hey, Chatticus...", "https://hey.chattic.us"],
+      ["Hey, Chatticus...", "/chat"],
       ["Product model", "https://github.com/AnthusAI/Chattic.us/blob/develop/docs/PRODUCT.md"],
       ["Roadmap", "https://github.com/AnthusAI/Chattic.us/blob/develop/docs/ROADMAP.md"],
     ],
