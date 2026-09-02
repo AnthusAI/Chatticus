@@ -74,7 +74,9 @@ must pass. Neither is a substitute for the other.
 - `features/` — shared Gherkin. Behavior changes start here.
 - `python/` — control plane, scheduler, roster, approvals, later agent and
   worker processes.
-- `web/` — Next.js product workspace (`hey.chattic.us` in production).
+- `web/` — Next.js app: marketing at `/` and product workspace at `/chat`
+  (`chattic.us` marketing, `hey.chattic.us` product in production). One web
+  project, not a separate marketing repo. Avatars are Lottie via `anthus-vultus`.
 - `computer/` — Docker image for the Linux workplace.
 - `infra/` — AWS CDK.
 
