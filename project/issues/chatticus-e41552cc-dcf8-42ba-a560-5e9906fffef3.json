@@ -33,10 +33,17 @@
       "text": "Plan accepted with two corrections: (1) Anthus development/staging/production are all CHATTICUS_SIGNUP_MODE=open; invitation_only is the customer-deployment default. (2) Update ORGANIZATIONS.md so open signup is recorded as deployment config, not a global law. Specs red first, then minimum code. Worktree /tmp/chatticus-e41552-create-org.",
       "created_at": "2026-09-02T16:08:22.961445Z",
       "comment_type": "default"
+    },
+    {
+      "id": "5dc4b81f-9505-43aa-9500-11a1ea4d54f8",
+      "author": "home",
+      "text": "Acceptance APPROVE: 6/6 new scenarios + 29 nearby regressions green. Residuals: multi-org create and name length go to 694392; Anthus CDK signupMode=open is correct. Implementer to commit, gitignore harness state, open PR.",
+      "created_at": "2026-09-02T16:15:11.005699Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:40:45.597787Z",
-  "updated_at": "2026-09-02T16:08:22.961445Z",
+  "updated_at": "2026-09-02T16:15:11.005699Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
