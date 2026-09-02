@@ -17,16 +17,16 @@ describe("WebStack CloudFront enabled flag", () => {
     });
   }
 
-  it("does not tie BucketDeployment to CloudFront invalidation", () => {
+  it("invalidates CloudFront on every BucketDeployment (CachingOptimized defaults to a 24h edge TTL)", () => {
     const template = synthWebStack("development");
     const deployments = template.findResources("Custom::CDKBucketDeployment");
     assert.equal(Object.keys(deployments).length, 1);
     const properties = Object.values(deployments)[0].Properties as {
-      DistributionId?: string;
+      DistributionId?: { Ref?: string };
       DistributionPaths?: string[];
     };
-    assert.equal(properties.DistributionId, undefined);
-    assert.equal(properties.DistributionPaths, undefined);
+    assert.ok(properties.DistributionId, "expected DistributionId to be set");
+    assert.deepEqual(properties.DistributionPaths, ["/*"]);
   });
 
   it("associates SPA viewer-request rewrite on the default behavior", () => {
