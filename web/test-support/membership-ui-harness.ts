@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { MeResponse } from "../lib/me";
+import type { VerifiedSession } from "../lib/auth";
 import {
   membershipViewText,
   resolveMembershipView,
@@ -61,11 +62,11 @@ function clearStateFile(): void {
   }
 }
 
-function sessionPresent(email: string) {
+function sessionPresent(email: string): VerifiedSession {
   return {
     email,
-    id_token: "harness-token",
-    expires_at: 4_000_000_000,
+    idToken: "harness-token",
+    claims: {},
   };
 }
 
