@@ -26,10 +26,17 @@
       "text": "Plan accepted with corrections: Gherkin first; rollup Lambda lives on ThinTurn (existing python bundle + scheduler), not a second asset pipeline in ChatticusBudgets; SNS recorder must ignore rollup publishes; vendor threshold uses existing monthlyLimitUsd bands. Worktree /tmp/chatticus-bcbef7-daily-rollup.",
       "created_at": "2026-09-02T17:45:08.037506Z",
       "comment_type": "default"
+    },
+    {
+      "id": "e9e574ab-04ce-4c9f-9afb-7b83cfcad66f",
+      "author": "home",
+      "text": "REJECT https://github.com/AnthusAI/Chattic.us/pull/192: CE TimePeriod End is exclusive (same-day start/end would stay pending); AWS Budgets live payload uses BudgetName not budgetName; rebase onto develop without reverting #189 GitHubDeploy description.",
+      "created_at": "2026-09-02T18:02:05.226472Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T03:21:48.653791Z",
-  "updated_at": "2026-09-02T17:45:08.037506Z",
+  "updated_at": "2026-09-02T18:02:05.226472Z",
   "closed_at": null,
   "custom": {}
 }
