@@ -346,6 +346,15 @@ class ControlPlane:
         """Accept one invitation when the organization is enabled."""
         return self._org_records.accept_invitation(invitation_id, acceptor, now=now)
 
+    def reconcile_pending_invitations(
+        self,
+        acceptor: Identity,
+        *,
+        now: datetime,
+    ) -> None:
+        """Accept eligible pending invitations for one verified email."""
+        self._org_records.reconcile_pending_invitations(acceptor, now=now)
+
     def list_organizations_for_user(self, user_id: str) -> list[Organization]:
         """Return every organization a user belongs to."""
         return self._org_records.list_organizations_for_user(user_id)

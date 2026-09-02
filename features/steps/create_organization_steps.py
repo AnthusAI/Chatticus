@@ -25,6 +25,7 @@ def _wire_front_door(context: object, *, signup_mode: SignupMode) -> None:
     context.identities_by_email = getattr(context, "identities_by_email", {}) or {}
     context.current_identity = None
     context.now = NOW
+    context.plane.set_now(context.now)
     client = getattr(context, "api_client", None)
     if client is not None:
         client.close()

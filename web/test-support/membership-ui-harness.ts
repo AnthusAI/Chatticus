@@ -10,6 +10,7 @@ import {
 } from "../lib/membership-view";
 import { deriveMembershipBranch } from "../lib/membership-state";
 import { parseSignupMode } from "../lib/signup-mode";
+import { inviteConfirmationText } from "../lib/invitations";
 
 const statePath =
   process.env.CHATTICUS_MEMBERSHIP_UI_HARNESS_STATE ??
@@ -23,6 +24,7 @@ type HarnessState = {
   apiBase: string | null;
   view: string | null;
   visibleText: string | null;
+  inviteConfirmation: string | null;
 };
 
 function emptyState(): HarnessState {
@@ -34,6 +36,7 @@ function emptyState(): HarnessState {
     apiBase: null,
     view: null,
     visibleText: null,
+    inviteConfirmation: null,
   };
 }
 
@@ -148,7 +151,75 @@ async function submitOrganization(payload: {
   };
   state.view = "welcome";
   state.visibleText = welcomeScreenText();
+  return saveState(renderFromMe(state));
+}
+
+function setMeEnabled(payload: { tenant_id: string }): HarnessState {
+  const state = loadState();
+  if (!state.email) {
+    throw new Error("seed a session before setting enabled membership");
+  }
+  state.me = {
+    email: state.email,
+    user_id: "user-1",
+    organizations: [{ tenant_id: payload.tenant_id, status: "enabled" }],
+  };
+  return saveState(renderFromMe(state));
+}
+
+async function submitInvitation(payload: {
+  api_base?: string;
+  id_token?: string;
+  tenant_id: string;
+  email: string;
+}): Promise<HarnessState> {
+  const state = loadState();
+  const apiBase = payload.api_base ?? state.apiBase;
+  const idToken = payload.id_token ?? state.idToken;
+  if (!apiBase || !idToken) {
+    throw new Error("api_base and id_token are required to submit an invitation");
+  }
+  const response = await fetch(`${apiBase}/orgs/${payload.tenant_id}/invitations`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email: payload.email }),
+  });
+  if (!response.ok) {
+    throw new Error(`invite member failed: ${response.status} ${await response.text()}`);
+  }
+  const created = (await response.json()) as { email: string };
+  state.apiBase = apiBase;
+  state.idToken = idToken;
+  state.inviteConfirmation = inviteConfirmationText(created.email);
+  state.visibleText = state.inviteConfirmation;
   return saveState(state);
+}
+
+async function refreshMeFromApi(payload: {
+  api_base?: string;
+  id_token?: string;
+  email?: string;
+}): Promise<HarnessState> {
+  const state = loadState();
+  const apiBase = payload.api_base ?? state.apiBase;
+  const idToken = payload.id_token ?? state.idToken;
+  if (!apiBase || !idToken) {
+    throw new Error("api_base and id_token are required to refresh membership");
+  }
+  const response = await fetch(`${apiBase}/me`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!response.ok) {
+    throw new Error(`GET /me failed: ${response.status} ${await response.text()}`);
+  }
+  state.me = (await response.json()) as MeResponse;
+  state.email = payload.email ?? state.me.email;
+  state.apiBase = apiBase;
+  state.idToken = idToken;
+  return saveState(renderFromMe(state));
 }
 
 async function main(): Promise<void> {
@@ -171,6 +242,22 @@ async function main(): Promise<void> {
       break;
     case "submit-organization":
       result = await submitOrganization(payload);
+      break;
+    case "set-me-enabled":
+      result = setMeEnabled(payload as { tenant_id: string });
+      break;
+    case "submit-invitation":
+      result = await submitInvitation(
+        payload as {
+          api_base?: string;
+          id_token?: string;
+          tenant_id: string;
+          email: string;
+        },
+      );
+      break;
+    case "refresh-me-from-api":
+      result = await refreshMeFromApi(payload);
       break;
     default:
       throw new Error(`Unknown membership UI harness command: ${command}`);

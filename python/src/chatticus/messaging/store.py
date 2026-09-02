@@ -248,10 +248,13 @@ class MessagingStore(Protocol):
         """Return every organization with one lifecycle status."""
 
     def put_invitation(self, invitation: Invitation) -> None:
-        """Persist one invitation and its lookup item."""
+        """Persist one invitation and its lookup items."""
 
     def get_invitation(self, invitation_id: str) -> Invitation | None:
         """Load one invitation by id."""
+
+    def list_pending_invitations_for_email(self, email: str) -> list[Invitation]:
+        """Return pending invitations addressed to one normalized email."""
 
     def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
         """Return distinct user ids referenced by one tenant's messaging rows."""
@@ -689,6 +692,17 @@ class InMemoryMessagingStore:
 
     def get_invitation(self, invitation_id: str) -> Invitation | None:
         return self._invitations.get(invitation_id)
+
+    def list_pending_invitations_for_email(self, email: str) -> list[Invitation]:
+        return sorted(
+            (
+                invitation
+                for invitation in self._invitations.values()
+                if invitation.email == email
+                and invitation.status == InvitationStatus.PENDING
+            ),
+            key=lambda invitation: invitation.created_at,
+        )
 
     def get_vendor_ledger_row(
         self, tenant_id: str, turn_id: str
@@ -1790,6 +1804,16 @@ class DynamoMessagingStore:
                 "invitation_id": {"S": invitation.invitation_id},
             },
         )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._invitation_email_pk(invitation.email)},
+                "sk": {"S": self._invitation_email_sk(invitation.invitation_id)},
+                "invitation_id": {"S": invitation.invitation_id},
+                "tenant_id": {"S": invitation.tenant_id},
+                "expires_at": {"N": str(int(invitation.expires_at.timestamp()))},
+            },
+        )
 
     def get_invitation(self, invitation_id: str) -> Invitation | None:
         response = self.client.get_item(
@@ -1814,6 +1838,26 @@ class DynamoMessagingStore:
         if canonical_item is None:
             return None
         return _invitation_from_item(canonical_item)
+
+    def list_pending_invitations_for_email(self, email: str) -> list[Invitation]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._invitation_email_pk(email)},
+                ":prefix": {"S": "pending#"},
+            },
+        )
+        invitations: list[Invitation] = []
+        for item in response.get("Items", []):
+            invitation_id = item["invitation_id"]["S"]
+            invitation = self.get_invitation(invitation_id)
+            if invitation is None:
+                continue
+            if invitation.status != InvitationStatus.PENDING:
+                continue
+            invitations.append(invitation)
+        return sorted(invitations, key=lambda invitation: invitation.created_at)
 
     def get_vendor_ledger_row(
         self, tenant_id: str, turn_id: str
@@ -1924,6 +1968,12 @@ class DynamoMessagingStore:
 
     def _invitation_lookup_pk(self, invitation_id: str) -> str:
         return f"invitation_lookup#{invitation_id}"
+
+    def _invitation_email_pk(self, email: str) -> str:
+        return f"invitation_email#{email}"
+
+    def _invitation_email_sk(self, invitation_id: str) -> str:
+        return f"pending#{invitation_id}"
 
     def _invite_sk(self, invitation_id: str) -> str:
         return f"invite#{invitation_id}"

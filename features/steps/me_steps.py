@@ -30,6 +30,7 @@ def given_me_front_door_enabled_tenant(
     context.identities_by_email = {}
     context.current_identity = None
     context.now = NOW
+    context.plane.set_now(context.now)
     _wire_me_app(context)
 
 
@@ -55,6 +56,7 @@ def given_cognito_verified_front_door(context: object) -> None:
     context.identities_by_email = {}
     context.current_identity = None
     context.now = NOW
+    context.plane.set_now(context.now)
     _wire_me_app(context)
 
 

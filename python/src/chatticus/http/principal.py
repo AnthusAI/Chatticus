@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Final
 
@@ -246,16 +247,17 @@ def resolve_me_from_token(
     token: str,
     *,
     verifier: CognitoJwtVerifier,
+    now: datetime,
 ) -> MeResponse:
     """Map one Cognito id_token to identity and organizations without path tenant.
 
     Identity is keyed on verified email from the id_token, never Cognito sub.
-    A valid token with no identity or memberships returns empty orgs (200), not 403.
+    A valid token mints an identity on first sight, reconciles pending invitations,
+    and returns empty orgs when none apply (200), not 403.
     """
     verified = verifier.verify_id_token(token)
-    identity = plane.get_identity_by_email(verified.email)
-    if identity is None:
-        return MeResponse(email=verified.email, user_id=None, organizations=())
+    identity = plane.sign_in(verified.email, now=now)
+    plane.reconcile_pending_invitations(identity, now=now)
     organizations = plane.list_organizations_for_user(identity.user_id)
     return MeResponse(
         email=verified.email,
@@ -386,14 +388,9 @@ async def resolve_principal(request: Request) -> Principal:
         verifier = _cognito_verifier_from_request(request)
         plane: ControlPlane = request.app.state.chatticus.plane
         try:
-            me = resolve_me_from_token(plane, token, verifier=verifier)
+            me = resolve_me_from_token(plane, token, verifier=verifier, now=plane.now())
         except CognitoTokenError as error:
             raise HTTPException(status_code=403, detail=str(error)) from error
-        if me.user_id is None:
-            raise HTTPException(
-                status_code=403,
-                detail="No identity is registered for the signed-in email.",
-            )
         principal = Principal(
             kind=PrincipalKind.USER,
             tenant_id="",

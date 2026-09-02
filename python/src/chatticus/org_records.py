@@ -312,11 +312,7 @@ class OrgRecordsKernel:
         organization = self.store.get_organization(tenant_id)
         if organization is None:
             raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")
-        membership = self.store.get_membership(tenant_id, inviter_user_id)
-        if membership is None or membership.role != MemberRole.OWNER:
-            raise NotOrganizationOwnerError(
-                f"User {inviter_user_id!r} is not an owner of {tenant_id!r}."
-            )
+        self.assert_may_invite_members(tenant_id, inviter_user_id)
         normalized = normalize_email(email)
         invitation = Invitation(
             invitation_id=str(uuid4()),
@@ -330,6 +326,49 @@ class OrgRecordsKernel:
         )
         self.store.put_invitation(invitation)
         return invitation
+
+    def assert_may_invite_members(
+        self, tenant_id: str, actor_user_id: str
+    ) -> Membership:
+        """Return membership when the actor may invite; owner-only for now."""
+        membership = self.store.get_membership(tenant_id, actor_user_id)
+        if membership is None or membership.role != MemberRole.OWNER:
+            raise NotOrganizationOwnerError(
+                f"User {actor_user_id!r} is not an owner of {tenant_id!r}."
+            )
+        return membership
+
+    def reconcile_pending_invitations(
+        self,
+        acceptor: Identity,
+        *,
+        now: datetime,
+    ) -> None:
+        """Accept eligible pending invitations for one verified email.
+
+        Expired invitations and invitations to non-enabled organizations are
+        skipped without failing the caller.
+        """
+        for invitation in self.store.list_pending_invitations_for_email(acceptor.email):
+            if invitation.expires_at <= now:
+                continue
+            organization = self.store.get_organization(invitation.tenant_id)
+            if organization is None:
+                continue
+            if organization.status != OrganizationStatus.ENABLED:
+                continue
+            try:
+                self.accept_invitation(invitation.invitation_id, acceptor, now=now)
+            except (
+                DuplicateMembershipError,
+                InvitationEmailMismatchError,
+                InvitationExpiredError,
+                InvitationNotFoundError,
+                InvitationNotPendingError,
+                OrganizationNotEnabledError,
+                OrganizationNotFoundError,
+            ):
+                continue
 
     def accept_invitation(
         self,

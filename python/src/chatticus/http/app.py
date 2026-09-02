@@ -38,6 +38,8 @@ from chatticus.models import (
     ChatticusError,
     ComputerNotReadyError,
     CostClass,
+    NotOrganizationOwnerError,
+    OrganizationNotFoundError,
     StaleAttemptError,
     TaskAccessDeniedError,
     TaskNotFoundError,
@@ -229,6 +231,20 @@ class CreateOrganizationResponseBody(BaseModel):
     status: str
 
 
+class CreateInvitationBody(BaseModel):
+    """Body for POST /orgs/{tenant_id}/invitations."""
+
+    email: str
+
+
+class CreateInvitationResponseBody(BaseModel):
+    """Response for POST /orgs/{tenant_id}/invitations."""
+
+    invitation_id: str
+    email: str
+    expires_at: str
+
+
 @dataclass
 class AppState:
     """Mutable front-door state attached to each app instance."""
@@ -329,7 +345,9 @@ def create_app(
         if token is None:
             raise HTTPException(status_code=403, detail="user credential required")
         try:
-            me = resolve_me_from_token(state.plane, token, verifier=verifier)
+            me = resolve_me_from_token(
+                state.plane, token, verifier=verifier, now=state.plane.now()
+            )
         except CognitoTokenError as error:
             raise HTTPException(status_code=403, detail=str(error)) from error
         return MeResponseBody(
@@ -411,6 +429,34 @@ def create_app(
             worker_id,
         )
         return {"status": "ok"}
+
+    @user_router.post("/invitations", status_code=201)
+    def create_invitation(
+        tenant_id: str,
+        body: CreateInvitationBody,
+        principal: RequireUserPrincipal,
+    ) -> CreateInvitationResponseBody:
+        if principal.user_id is None:
+            raise HTTPException(status_code=403, detail="user credential required")
+        email = body.email.strip()
+        if not email:
+            raise HTTPException(status_code=400, detail="email is required")
+        try:
+            invitation = state.plane.invite_by_email(
+                tenant_id,
+                principal.user_id,
+                email,
+                now=state.plane.now(),
+            )
+        except OrganizationNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except NotOrganizationOwnerError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        return CreateInvitationResponseBody(
+            invitation_id=invitation.invitation_id,
+            email=invitation.email,
+            expires_at=invitation.expires_at.isoformat(),
+        )
 
     @user_router.post("/bots")
     def create_bot(
@@ -1026,6 +1072,10 @@ def _status_for_error(error: ChatticusError) -> int:
         return 409
     if isinstance(error, ChannelNotFoundError | TurnNotFoundError):
         return 404
+    if isinstance(error, OrganizationNotFoundError):
+        return 404
+    if isinstance(error, NotOrganizationOwnerError):
+        return 403
     return 400
 
 
