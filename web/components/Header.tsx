@@ -30,7 +30,8 @@ export function Header() {
             FAQ
           </a>
         </div>
-        <Button asChild size="sm" variant="dark">
+        {/* Shaped like the logo mark's black message bubble (CHATTICUS_MARK_MODEL's ink bubble: 8/8/1.85/8 corner radii). */}
+        <Button asChild size="sm" variant="dark" className="rounded-[22px_22px_5px_22px]">
           <a href="https://hey.chattic.us">
             Hey, Chatticus...
             <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
