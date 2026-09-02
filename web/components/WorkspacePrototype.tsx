@@ -83,7 +83,7 @@ export function WorkspacePrototype() {
                       label={`${teammate.name}, ${teammate.role}`}
                       paused={paused}
                       decorative
-                      className="h-7 w-7 shrink-0 overflow-hidden rounded-lg bg-paper [&>div]:h-full [&>div]:w-full"
+                      className="h-7 w-7 shrink-0 overflow-hidden rounded-lg bg-paper [&_svg]:h-full [&_svg]:w-full"
                     />
                     <span className="hidden min-w-0 sm:block">
                       <span className="block truncate font-body text-[0.62rem] font-extrabold">{teammate.name}</span>
@@ -102,7 +102,7 @@ export function WorkspacePrototype() {
                 state={active.state}
                 label={`${active.name}, ${active.role}, ${active.activity}`}
                 paused={paused}
-                className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-paper [&>div]:h-full [&>div]:w-full"
+                className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-paper [&_svg]:h-full [&_svg]:w-full"
               />
               <div className="min-w-0 pt-0.5">
                 <p className="font-mono text-[0.49rem] uppercase tracking-[0.13em] text-paper/50">{active.role}</p>
