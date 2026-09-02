@@ -19,13 +19,22 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "1d5765d9-927d-4483-a9b5-78f9c1ee4274",
+      "author": "home",
+      "text": "Plan in (Composer 2.5 planner). Recommends option (b): dev-only SigV4 session exchange \u2014 new POST /integration-test/session trusts an IAM-role SigV4 signature, mints a short-lived HMAC bearer bound to a fixed test user/tenant; enforce_user_principal accepts it only when CHATTICUS_INTEGRATION_TEST_ENABLED=1 and not production. Runner = Lambda (not Fargate, ~$0 idle) in new named stack ChatticusIntegrationTest, EventBridge daily smoke + on-demand full tier. Gherkin for auth behavior, pytest for SigV4/token/SSE helpers. Rejected: worker-seeded (workers cant post user msgs), ROPC (stored password), worker-only (doesnt prove user path). PENDING HUMAN: auth-surface approval, Lambda-vs-Fargate, test-user identity, computer tier on schedule vs on-demand.",
+      "created_at": "2026-09-02T22:05:45.442371Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-02T22:02:48.151403Z",
-  "updated_at": "2026-09-02T22:02:53.666807Z",
+  "updated_at": "2026-09-02T22:05:45.442456Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "A planner is resolving how an IAM-role container can authenticate and test the live ThinTurn stack.",
+  "right_now_updated_at": "2026-09-02T22:03:54.115483Z",
   "custom": {},
   "agent": null
 }
