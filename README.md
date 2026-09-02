@@ -66,10 +66,10 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-09-01.** Git **`develop`** carries Google sign-in, membership branching,
-and (after merging `main`) the marketing site at `/` plus the product workspace at
-`/chat` with Lottie avatars via Vultus 0.1.1. **`main`** catches up when `develop` is
-promoted for release.
+**Last updated: 2026-09-02.** Git **`main`** and **`develop`** are aligned at the same
+commit after [#166](https://github.com/AnthusAI/Chattic.us/pull/166): Google sign-in,
+membership branching, marketing at `/`, product workspace at `/chat`, and Lottie avatars
+via Vultus 0.1.1. Future work lands on `develop` and promotes to `main` for release.
 
 ### Deployed on development (`https://dev.chattic.us`)
 
@@ -79,13 +79,13 @@ promoted for release.
 | Google sign-in | Live — Cognito PKCE, `id_token` as SPA credential (#157–#161, #165) |
 | Membership UI | Live — signed-out, no-org, pending, enabled branches via `GET /me` (#162) |
 | Route enforcement | **Not yet** — org routes still accept invoke key without Cognito (#7b4616 in flight) |
-| Web bundle | **Behind git** — deployed SPA is still the pre-merge product-at-`/`` bundle; redeploy `ChatticusWeb` to get marketing `/` + `/chat` |
+| Web bundle | **Behind git** — redeploy `ChatticusWeb` to get marketing `/` + `/chat` on dev |
 
 A seeded owner (`ryan@anth.us` → org `anthus`, enabled) can sign in with Google and
 reach the workspace (roster, health, chat shell). Operator org records are DynamoDB
 data, not CDK; see [Operator org seed](docs/OPERATOR_ORG_SEED.md).
 
-### In git `develop` but not necessarily deployed
+### In git but not necessarily deployed on development
 
 - Marketing landing at `/` and product workspace at `/chat` (#164, merged from `main`)
 - Lottie creative-desk avatars in marketing and product UI (#163, Vultus 0.1.1)
