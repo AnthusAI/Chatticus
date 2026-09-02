@@ -3,7 +3,8 @@
 A ceiling is the standing analogue of
 :class:`~chatticus.capability_policy.TaskCapabilityGrant`:
 action types with argument constraints, origins, recipients, file scopes, egress
-classes, and a spend limit. Clipping is set intersection on those fields; no one
+classes, ingest classes, and a spend limit. Clipping is set intersection on those
+fields; no one
 may grant, approve, or always-allow beyond their own ceiling.
 """
 
@@ -25,6 +26,7 @@ class Ceiling:
     recipients: frozenset[str]
     file_scopes: frozenset[str]
     egress_classes: frozenset[str]
+    ingest_classes: frozenset[str]
     spend_limit: Decimal | None = None
 
 
@@ -59,6 +61,7 @@ def clip(
             recipients=grant.recipients & ceiling.recipients,
             file_scopes=grant.file_scopes & ceiling.file_scopes,
             egress_classes=grant.egress_classes & ceiling.egress_classes,
+            ingest_classes=grant.ingest_classes & ceiling.ingest_classes,
             spend_limit=_clip_spend_limit(grant.spend_limit, ceiling.spend_limit),
         )
     return TaskCapabilityGrant(
@@ -67,6 +70,7 @@ def clip(
         recipients=grant.recipients & ceiling.recipients,
         file_scopes=grant.file_scopes & ceiling.file_scopes,
         egress_classes=grant.egress_classes & ceiling.egress_classes,
+        ingest_classes=grant.ingest_classes & ceiling.ingest_classes,
     )
 
 

@@ -179,6 +179,7 @@ class HttpTurnClient:
         recipients: list[str] | None = None,
         file_scopes: list[str] | None = None,
         egress_classes: list[str] | None = None,
+        ingest_classes: list[str] | None = None,
     ) -> dict[str, Any]:
         """Attach one closed task grant to a turn."""
         worker_id = self.worker_id or "grant-worker"
@@ -190,6 +191,7 @@ class HttpTurnClient:
                 "recipients": recipients or [],
                 "file_scopes": file_scopes or [],
                 "egress_classes": egress_classes or [],
+                "ingest_classes": ingest_classes or [],
             },
             headers=self._auth_headers(worker_id),
         )

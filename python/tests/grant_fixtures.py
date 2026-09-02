@@ -13,6 +13,7 @@ def research_grant() -> TaskCapabilityGrant:
         recipients=frozenset(),
         file_scopes=frozenset({"/workspace/research"}),
         egress_classes=frozenset({"approved_origin_fetch"}),
+        ingest_classes=frozenset({"approved_origin_reference"}),
     )
 
 
@@ -24,6 +25,7 @@ def send_grant() -> TaskCapabilityGrant:
         recipients=frozenset({"a@x"}),
         file_scopes=frozenset(),
         egress_classes=frozenset({"structured_send"}),
+        ingest_classes=frozenset(),
     )
 
 
@@ -35,4 +37,5 @@ def exact_approval_send_grant() -> TaskCapabilityGrant:
         recipients=frozenset({"alex@example.com", "other@example.com"}),
         file_scopes=frozenset(),
         egress_classes=frozenset({"structured_send"}),
+        ingest_classes=frozenset(),
     )

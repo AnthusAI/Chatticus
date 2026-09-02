@@ -566,6 +566,7 @@ def _structured_send_grant() -> TaskCapabilityGrant:
         ),
         file_scopes=frozenset(),
         egress_classes=frozenset({"structured_send", "file_transfer"}),
+        ingest_classes=frozenset(),
     )
 
 
@@ -599,6 +600,7 @@ def given_exact_approval_grant(context: object) -> None:
         recipients=frozenset({"alex@example.com", "other@example.com"}),
         file_scopes=frozenset(),
         egress_classes=frozenset({"structured_send"}),
+        ingest_classes=frozenset(),
     )
     context.plane.set_turn_capability_grant(
         POLICY_KERNEL_TENANT, POLICY_KERNEL_TURN, grant

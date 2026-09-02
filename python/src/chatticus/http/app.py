@@ -147,6 +147,7 @@ class PutTurnGrantBody(BaseModel):
     recipients: list[str] = Field(default_factory=list)
     file_scopes: list[str] = Field(default_factory=list)
     egress_classes: list[str] = Field(default_factory=list)
+    ingest_classes: list[str] = Field(default_factory=list)
 
 
 class ReadWorkspaceBody(BaseModel):

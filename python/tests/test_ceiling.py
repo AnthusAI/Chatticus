@@ -17,6 +17,7 @@ def _grant(
     recipients: frozenset[str] | None = None,
     file_scopes: frozenset[str] | None = None,
     egress_classes: frozenset[str] | None = None,
+    ingest_classes: frozenset[str] | None = None,
 ) -> TaskCapabilityGrant:
     return TaskCapabilityGrant(
         tools=tools or frozenset(),
@@ -24,6 +25,7 @@ def _grant(
         recipients=recipients or frozenset(),
         file_scopes=file_scopes or frozenset(),
         egress_classes=egress_classes or frozenset(),
+        ingest_classes=ingest_classes or frozenset(),
     )
 
 
@@ -34,6 +36,7 @@ def _ceiling(
     recipients: frozenset[str] | None = None,
     file_scopes: frozenset[str] | None = None,
     egress_classes: frozenset[str] | None = None,
+    ingest_classes: frozenset[str] | None = None,
     spend_limit: Decimal | None = None,
 ) -> Ceiling:
     return Ceiling(
@@ -42,6 +45,7 @@ def _ceiling(
         recipients=recipients or frozenset(),
         file_scopes=file_scopes or frozenset(),
         egress_classes=egress_classes or frozenset(),
+        ingest_classes=ingest_classes or frozenset(),
         spend_limit=spend_limit,
     )
 
@@ -53,6 +57,7 @@ def test_ceiling_stores_all_fields() -> None:
         recipients=frozenset({"alex@example.com"}),
         file_scopes=frozenset({"/workspace/research"}),
         egress_classes=frozenset({"structured_send"}),
+        ingest_classes=frozenset({"approved_origin_reference"}),
         spend_limit=Decimal("500.00"),
     )
 
@@ -61,6 +66,7 @@ def test_ceiling_stores_all_fields() -> None:
     assert ceiling.recipients == frozenset({"alex@example.com"})
     assert ceiling.file_scopes == frozenset({"/workspace/research"})
     assert ceiling.egress_classes == frozenset({"structured_send"})
+    assert ceiling.ingest_classes == frozenset({"approved_origin_reference"})
     assert ceiling.spend_limit == Decimal("500.00")
 
 
@@ -222,6 +228,35 @@ def test_clip_intersects_egress_classes(
     assert clipped.egress_classes == expected_egress
 
 
+@pytest.mark.parametrize(
+    ("grant_ingest", "ceiling_ingest", "expected_ingest"),
+    [
+        (
+            frozenset({"approved_origin_reference"}),
+            frozenset({"approved_origin_reference"}),
+            frozenset({"approved_origin_reference"}),
+        ),
+        (
+            frozenset({"approved_origin_reference"}),
+            frozenset(),
+            frozenset(),
+        ),
+        (frozenset(), frozenset({"approved_origin_reference"}), frozenset()),
+    ],
+)
+def test_clip_intersects_ingest_classes(
+    grant_ingest: frozenset[str],
+    ceiling_ingest: frozenset[str],
+    expected_ingest: frozenset[str],
+) -> None:
+    grant = _grant(ingest_classes=grant_ingest)
+    ceiling = _ceiling(ingest_classes=ceiling_ingest)
+
+    clipped = clip(grant, ceiling)
+
+    assert clipped.ingest_classes == expected_ingest
+
+
 def test_clip_grant_subset_of_ceiling_is_unchanged() -> None:
     grant = _grant(
         tools=frozenset({"send"}),
@@ -229,6 +264,7 @@ def test_clip_grant_subset_of_ceiling_is_unchanged() -> None:
         recipients=frozenset({"alex@example.com"}),
         file_scopes=frozenset({"/workspace/research"}),
         egress_classes=frozenset({"structured_send"}),
+        ingest_classes=frozenset({"approved_origin_reference"}),
     )
     ceiling = _ceiling(
         action_types=frozenset({"send", "publish"}),
@@ -236,6 +272,7 @@ def test_clip_grant_subset_of_ceiling_is_unchanged() -> None:
         recipients=frozenset({"alex@example.com", "other@example.com"}),
         file_scopes=frozenset({"/workspace/research", "/workspace/shared"}),
         egress_classes=frozenset({"structured_send", "file_transfer"}),
+        ingest_classes=frozenset({"approved_origin_reference"}),
         spend_limit=Decimal("1000"),
     )
 
@@ -284,6 +321,7 @@ def test_clip_all_fields_together() -> None:
         recipients=frozenset({"alex@example.com", "other@example.com"}),
         file_scopes=frozenset({"/workspace/a", "/workspace/b"}),
         egress_classes=frozenset({"structured_send", "file_transfer"}),
+        ingest_classes=frozenset({"approved_origin_reference"}),
     )
     ceiling = _ceiling(
         action_types=frozenset({"send", "delete"}),
@@ -291,6 +329,7 @@ def test_clip_all_fields_together() -> None:
         recipients=frozenset({"alex@example.com"}),
         file_scopes=frozenset({"/workspace/a"}),
         egress_classes=frozenset({"structured_send"}),
+        ingest_classes=frozenset({"approved_origin_reference"}),
     )
 
     clipped = clip(grant, ceiling)
@@ -301,6 +340,7 @@ def test_clip_all_fields_together() -> None:
         recipients=frozenset({"alex@example.com"}),
         file_scopes=frozenset({"/workspace/a"}),
         egress_classes=frozenset({"structured_send"}),
+        ingest_classes=frozenset({"approved_origin_reference"}),
     )
 
 
@@ -311,6 +351,7 @@ def test_clip_ceiling_to_ceiling_intersects_all_fields() -> None:
         recipients=frozenset({"alex@example.com", "other@example.com"}),
         file_scopes=frozenset({"/workspace/a", "/workspace/b"}),
         egress_classes=frozenset({"structured_send", "file_transfer"}),
+        ingest_classes=frozenset({"approved_origin_reference"}),
         spend_limit=Decimal("250"),
     )
     delegator = _ceiling(
@@ -319,6 +360,7 @@ def test_clip_ceiling_to_ceiling_intersects_all_fields() -> None:
         recipients=frozenset({"alex@example.com"}),
         file_scopes=frozenset({"/workspace/a"}),
         egress_classes=frozenset({"structured_send"}),
+        ingest_classes=frozenset(),
         spend_limit=Decimal("100"),
     )
 
@@ -330,6 +372,7 @@ def test_clip_ceiling_to_ceiling_intersects_all_fields() -> None:
         recipients=frozenset({"alex@example.com"}),
         file_scopes=frozenset({"/workspace/a"}),
         egress_classes=frozenset({"structured_send"}),
+        ingest_classes=frozenset(),
         spend_limit=Decimal("100"),
     )
 
@@ -387,3 +430,25 @@ def test_argument_bound_action_types_share_class_but_differ_by_recipient() -> No
     assert clip(production_grant, production_ceiling) == production_grant
     assert clip(copy_edit_grant, production_ceiling).recipients == frozenset()
     assert clip(production_grant, copy_edit_ceiling).recipients == frozenset()
+
+
+def test_reference_ingest_members_differ_by_ingest_class_ceiling() -> None:
+    reference_ingest_ceiling = _ceiling(
+        action_types=frozenset({"browse"}),
+        origins=frozenset({"https://docs.example.com"}),
+        ingest_classes=frozenset({"approved_origin_reference"}),
+    )
+    copy_edit_only_ceiling = _ceiling(
+        action_types=frozenset({"browse"}),
+        recipients=frozenset({"alex@example.com"}),
+        ingest_classes=frozenset(),
+    )
+    reference_grant = _grant(
+        tools=frozenset({"browse"}),
+        origins=frozenset({"https://docs.example.com"}),
+        ingest_classes=frozenset({"approved_origin_reference"}),
+    )
+
+    assert clip(reference_grant, reference_ingest_ceiling) == reference_grant
+    assert clip(reference_grant, copy_edit_only_ceiling).ingest_classes == frozenset()
+    assert grant_exceeds_ceiling(reference_grant, copy_edit_only_ceiling) is True

@@ -29,6 +29,13 @@ class EgressClass(StrEnum):
     FILE_TRANSFER = "file_transfer"
 
 
+class IngestClass(StrEnum):
+    """Inbound data classes a task may grant."""
+
+    NONE = "none"
+    APPROVED_ORIGIN_REFERENCE = "approved_origin_reference"
+
+
 class BindingControl(StrEnum):
     """How a consequential or identity-gated action may proceed."""
 
@@ -75,6 +82,7 @@ class TaskCapabilityGrant:
     recipients: frozenset[str]
     file_scopes: frozenset[str]
     egress_classes: frozenset[str]
+    ingest_classes: frozenset[str]
 
 
 @dataclass(frozen=True)
@@ -140,6 +148,7 @@ def parse_grant_table(rows: dict[str, str]) -> TaskCapabilityGrant:
         recipients=_split("recipients"),
         file_scopes=_split("file_scopes"),
         egress_classes=_split("egress_classes"),
+        ingest_classes=_split("ingest_classes"),
     )
 
 
@@ -151,6 +160,7 @@ def grant_to_payload(grant: TaskCapabilityGrant) -> dict[str, list[str]]:
         "recipients": sorted(grant.recipients),
         "file_scopes": sorted(grant.file_scopes),
         "egress_classes": sorted(grant.egress_classes),
+        "ingest_classes": sorted(grant.ingest_classes),
     }
 
 
@@ -170,6 +180,7 @@ def grant_from_payload(payload: dict[str, object]) -> TaskCapabilityGrant:
         recipients=_frozenset("recipients"),
         file_scopes=_frozenset("file_scopes"),
         egress_classes=_frozenset("egress_classes"),
+        ingest_classes=_frozenset("ingest_classes"),
     )
 
 
