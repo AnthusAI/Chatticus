@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import boto3
 import pytest
-from conftest import register_worker_headers
 from fastapi.testclient import TestClient
 from grant_fixtures import research_grant
 from moto import mock_aws
@@ -16,6 +15,7 @@ from chatticus.http.paths import org_path
 from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import DynamoMessagingStore, create_messaging_table
 from chatticus.models import ActorKind
+from conftest import register_worker_headers
 
 
 def test_grant_persists_across_recycled_control_plane() -> None:

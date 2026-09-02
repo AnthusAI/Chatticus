@@ -3,7 +3,7 @@
   "title": "Bound what may be ingested",
   "description": "**Phase 6 of 7.**\n\n- **Blocked by:** eef4aa\n- **Runs in parallel with:** ac3b7a and 14cf05\n- **Unblocks:** nothing\n\n---\nThe five consequential classes are an egress taxonomy inherited from a household, where the only question was what leaves. In an organization, authorizing the ingestion of a reference is a real standing that some members have and others do not, and it is also the primary attack described in docs/THREAT_MODEL.md. TaskCapabilityGrant.origins and EgressClass.APPROVED_ORIGIN_FETCH carry half of it already. Make ingest a class a ceiling can bound, not only a grant field.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,29 @@
     "phase-6"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "c1ebf4a9-6871-40f7-9e75-33d7c102d2ec",
+      "author": "home",
+      "text": "Starting: eef4aa ceiling type landed. Dispatching Composer 2.5 (parallel Phase 6 task, independent concern).",
+      "created_at": "2026-09-02T11:04:11.192021Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "8ade5941-e54a-4fca-aacd-e76180f8691e",
+      "author": "home",
+      "text": "summary: Implemented in PR #178 (squash-merged to develop). IngestClass enum + ingest_classes field on TaskCapabilityGrant and Ceiling; clip() intersects ingest_classes so a member whose ceiling excludes approved_origin_reference cannot grant/delegate that ingest class. Serialization via parse_grant_table/grant_to_payload/grant_from_payload + HTTP PutTurnGrantBody. 4 new pytest (506 total). Pure pytest, no Gherkin (per AGENTS.md BDD rule). Gates: black, ruff, pytest (506), behave (307); PR #178 CI green. The 3 web_google_sign_out behave errors were a local-env issue (missing web/node_modules), not a regression \u2014 fixed by npm install; CI runs npm ci. Done-when met: ingest class is a ceiling-bound field, with tests. Closing. Unblocks nothing.",
+      "created_at": "2026-09-02T11:17:28.807955Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-01T02:41:22.252828Z",
-  "updated_at": "2026-09-01T02:46:21.369425Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T11:17:29.080560Z",
+  "closed_at": "2026-09-02T11:17:29.080560Z",
+  "custom": {},
+  "agent": null
 }

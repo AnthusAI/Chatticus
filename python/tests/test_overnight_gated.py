@@ -18,6 +18,7 @@ def _send_grant() -> TaskCapabilityGrant:
         recipients=frozenset({"a@x", "b@x", "store", "store.example"}),
         file_scopes=frozenset(),
         egress_classes=frozenset({"structured_send", "file_transfer"}),
+        ingest_classes=frozenset(),
     )
 
 

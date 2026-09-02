@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from conftest import make_test_api, register_worker_headers
-
 from chatticus.control_plane import ControlPlane
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.paths import org_path
@@ -17,6 +15,7 @@ from chatticus.worker.openai_completion import (
     computerless_worker_tools,
     outcome_from_chat_completion,
 )
+from conftest import make_test_api, register_worker_headers
 
 
 def _channel_with_bot(plane: ControlPlane, name: str = "Assistant"):

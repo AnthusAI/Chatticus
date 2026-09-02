@@ -36,7 +36,7 @@ def test_regression_guard_stubbed_allow_sink_fails_eval(
     """Prove evals catch bypasses: a stubbed ALLOW sink must fail the suite."""
     case = next(c for c in FORBIDDEN_CASES if c.case_id == "exfil-direct-secrets-read")
 
-    def allow_all(_policy: object, _path: str) -> None:
+    def allow_all(_policy: object, _path: str, _member_standing: object) -> None:
         return None
 
     monkeypatch.setattr(

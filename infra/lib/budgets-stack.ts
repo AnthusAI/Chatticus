@@ -1,4 +1,5 @@
 import * as cdk from "aws-cdk-lib";
+import * as sns from "aws-cdk-lib/aws-sns";
 import { Construct } from "constructs";
 import { BudgetsConfig } from "./budgets-config";
 import { ChatticusBudgets } from "./chatticus-budgets";
@@ -11,6 +12,8 @@ export interface BudgetsStackProps extends cdk.StackProps, BudgetsConfig {}
  * vars set.
  */
 export class BudgetsStack extends cdk.Stack {
+  readonly alertsTopic: sns.Topic;
+
   constructor(scope: Construct, id: string, props: BudgetsStackProps) {
     super(scope, id, props);
 
@@ -18,6 +21,7 @@ export class BudgetsStack extends cdk.Stack {
       monthlyLimitUsd: props.monthlyLimitUsd,
       notificationEmails: props.notificationEmails,
     });
+    this.alertsTopic = budgets.alertsTopic;
 
     new cdk.CfnOutput(this, "BudgetsAlertsTopicArn", {
       value: budgets.alertsTopic.topicArn,

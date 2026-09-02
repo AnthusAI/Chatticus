@@ -28,6 +28,29 @@ def prepare_computer_continuation(
     user_id: str = "ryan",
 ) -> ComputerContinuationSetup:
     """Commit tool.call, enqueue continuation, and relinquish the computerless fence."""
+    from http_test_support import DEFAULT_OWNER_EMAIL, _seed_org_for_user
+
+    from chatticus.models import MemberRole, Membership, OrganizationNotFoundError
+
+    try:
+        plane.get_organization(tenant_id)
+    except OrganizationNotFoundError:
+        _seed_org_for_user(
+            plane,
+            tenant_id,
+            user_id,
+            owner_email=DEFAULT_OWNER_EMAIL,
+        )
+    else:
+        if plane.get_membership(tenant_id, user_id) is None:
+            plane._messaging_store.put_membership(
+                Membership(
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    role=MemberRole.OWNER,
+                    joined_at=plane.now(),
+                )
+            )
     driver = EscalationHandoffDriver(plane)
     driver.tenant_id = tenant_id
     driver.user_id = user_id

@@ -1,0 +1,19 @@
+{
+  "id": "chatticus-ecf0ca6c-d3bc-4b2e-8492-b45b1801b2ea",
+  "title": "Confirm operator run of live_aws_thin_turn.sh development with CHATTICUS_LIVE_ID_TOKEN set",
+  "description": "",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-02T00:50:47.263378Z",
+  "updated_at": "2026-09-02T00:50:47.263378Z",
+  "closed_at": null,
+  "custom": {},
+  "agent": null
+}

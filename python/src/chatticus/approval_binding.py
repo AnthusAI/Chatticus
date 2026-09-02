@@ -8,10 +8,14 @@ target system, not from the agent.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import uuid4
 
-from chatticus.models import CONSEQUENTIAL_ACTION_TYPES
+from chatticus.models import (
+    CONSEQUENTIAL_ACTION_TYPES,
+    KERNEL_HUMAN_AUTHOR,
+    AuthorizationIdentity,
+)
 
 DESTINATION_CHANGED = "destination_changed"
 PAYLOAD_CHANGED = "payload_changed"
@@ -41,6 +45,9 @@ class ApprovedOperation:
 
     approval_id: str
     operation: StructuredConsequentialOperation
+    approver: AuthorizationIdentity = field(
+        default_factory=lambda: AuthorizationIdentity.human(KERNEL_HUMAN_AUTHOR)
+    )
 
 
 @dataclass(frozen=True)
@@ -85,14 +92,24 @@ class ApprovalBindingGate:
         self._proposals[proposal_id] = operation
         return OperationProposal(proposal_id=proposal_id, operation=operation)
 
-    def approve_operation(self, proposal: OperationProposal) -> ApprovedOperation:
+    def approve_operation(
+        self,
+        proposal: OperationProposal,
+        *,
+        approver: AuthorizationIdentity | None = None,
+    ) -> ApprovedOperation:
         """Bind human approval to the reviewed proposal."""
         stored = self._proposals.get(proposal.proposal_id)
         if stored is None or stored != proposal.operation:
             raise ValueError(f"Unknown or stale proposal {proposal.proposal_id!r}.")
         approval_id = uuid4().hex
         self._approvals[approval_id] = stored
-        return ApprovedOperation(approval_id=approval_id, operation=stored)
+        resolved_approver = approver or AuthorizationIdentity.human(KERNEL_HUMAN_AUTHOR)
+        return ApprovedOperation(
+            approval_id=approval_id,
+            operation=stored,
+            approver=resolved_approver,
+        )
 
     def execute_approved_operation(
         self,

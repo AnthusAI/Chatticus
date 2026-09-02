@@ -3,16 +3,54 @@
   "title": "Authorized connections between organizations",
   "description": "Organizations inside one deployment will need to work together, so they need a way to reach each other. This is the feature that punches a hole in the only hard boundary the design has, so it is specified now and built after the authority epic.\n\n`{tenant_id}#channel#{id}` is a physical partition. A connection is a deliberate, narrow exception built from the clip primitive that already exists.\n\n**Four rules, from docs/ORGANIZATIONS.md:**\n\n- Grants name a resource, never an organization. Support may read this channel is a connection; support may reach Legal is a merge.\n- A connection is clipped twice: by the granting member's ceiling, and by what the granting organization's owner permits to leave it at all.\n- Received authority is borrowed, not owned, which is what makes connections non-transitive. B cannot re-share A's grant with C because B never held it. Without that distinction the boundary leaks one hop at a time.\n- Never at the workplace level. A connection reaches a channel or a named resource, never the computer. A shared workplace across organizations collapses the boundary rather than opening a door in it.\n\n**Blocked by the authority epic ba3ea4.** A connection is a clip, and the clip has to exist first.",
   "type": "epic",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "dea566b4-11e3-4853-a86b-19e2d90877e4",
+      "author": "home",
+      "text": "Starting: blocker (the clip has to exist first) is satisfied \u2014 eef4aa ceiling+clip landed. Dispatching Composer 2.5 to write the Gherkin scenarios (a connection between orgs is a clip; routing escalates to the nearest member whose ceiling covers it; stays blocked if no member covers it) so they exist and fail for the right reason. Pure spec, no implementation.",
+      "created_at": "2026-09-02T12:09:49.273880Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "3141344d-f6d6-407a-b7f5-024d0e1a9424",
+      "author": "home",
+      "text": "summary: Specified in PR #182 (squash-merged to develop). features/authorized_connections.feature with 4 @wip scenarios \u2014 (1) member proposes within ceiling (authorized), (2) refused outside ceiling, (3) escalates to nearest covering member, (4) stays blocked if no member covers. Reused ceiling setup from delegated_authority_steps, org/channel setup from shared_channels_steps, escalation routing from escalation_approval. New When/Then steps raise StepNotImplementedError (pending_warn, exit 0). Gates: black, ruff, pytest (522), behave (311 scenarios + 29 pending_warn); PR #182 CI green. Done-when met: scenarios exist and fail for the right reason. Closing. Unblocks nothing (last item of the authority epic ba3ea4).",
+      "created_at": "2026-09-02T12:30:44.857375Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "211df6d1-8acc-4be9-9b58-cddd4d198212",
+      "author": "home",
+      "text": "summary: Specified in PR #182 (squash-merged to develop as 4de9b31). features/authorized_connections.feature with 4 @wip scenarios \u2014 (1) member proposes within ceiling (authorized), (2) refused outside ceiling, (3) escalates to nearest covering member, (4) stays blocked if no member covers. Reused ceiling setup from delegated_authority_steps, org/channel setup from shared_channels_steps, escalation routing from escalation_approval. New When/Then steps raise StepNotImplementedError (pending_warn, exit 0). Gates: black, ruff, pytest (522), behave (311 scenarios + 29 pending_warn); PR #182 CI green. Done-when met: scenarios exist and fail for the right reason. Closing. Unblocks nothing (last item of the authority epic ba3ea4).",
+      "created_at": "2026-09-02T12:34:58.674851Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "391ece1f-be21-4d49-a6f9-c6e876e80028",
+      "author": "home",
+      "text": "summary: Specified in PR #182 (squash-merged to develop as 4de9b31). features/authorized_connections.feature with 4 @wip scenarios \u2014 (1) member proposes within ceiling (authorized), (2) refused outside ceiling, (3) escalates to nearest covering member, (4) stays blocked if no member covers. Reused ceiling setup from delegated_authority_steps, org/channel setup from shared_channels_steps, escalation routing from escalation_approval. New When/Then steps raise StepNotImplementedError (pending_warn, exit 0). Gates: black, ruff, pytest (522), behave (311 scenarios + 29 pending_warn); PR #182 CI green. Done-when met: scenarios exist and fail for the right reason. Closing. Unblocks nothing (last item of the authority epic ba3ea4).",
+      "created_at": "2026-09-02T14:27:38.786134Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-01T03:29:19.067194Z",
-  "updated_at": "2026-09-01T03:32:34.333554Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T14:27:38.786134Z",
+  "closed_at": "2026-09-02T12:30:45.192427Z",
+  "custom": {},
+  "agent": null
 }

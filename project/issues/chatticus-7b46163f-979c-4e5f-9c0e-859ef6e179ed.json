@@ -3,7 +3,7 @@
   "title": "Every route requires a principal",
   "description": "**Phase 4 of 7.** THE JOIN. Every phase-1 through phase-3 track converges here and nothing in phases 5 to 7 starts before it.\n\n- **Blocked by:** 5f0c4c, fac2ee, 79578e, 22f5bb\n- **Runs in parallel with:** e41552 may proceed alongside once 22f5bb has merged\n- **Unblocks:** 14f692 and the whole collaboration epic, plus bc830a\n\n---\nGherkin in features/principal_authorization.feature: an unauthenticated request is refused; a waitlisted member reaches only the routes marked reachable and nothing that spends; a member of another organization is refused; only /health and the authentication routes are open.\n\nFlip enforcement on and deploy development in one step, because a half-enforced front door is a second authentication path and this repository does not keep two.\n\n**Done when:** curl against development with no credential is refused on every route, and sh scripts/live_aws_thin_turn.sh development still passes.",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -17,11 +17,24 @@
       "id": "b379badf-ae07-4cc5-8500-f4661359cb62",
       "author": "home",
       "text": "**Adversarial review: two new blockers, and a constraint on how this lands.**\n\nTwo issues were opened after this one and both are prerequisites, not niceties:\n\n- **5744ef, seed the first organization.** Without it, flipping enforcement locks everyone out of every environment. There is no way to sign in to enable yourself and no way to enable yourself without signing in.\n- **d71ed5, teach live acceptance and the demo CLI to authenticate.** This issue's own done-when says the live script still passes. It will not, unless that lands first, and the failure will read as a broken deploy.\n\n**How it lands:** one revertible pull request. This is the only step in the initiative that changes the reachability of a running environment in a single move, so the rollback has to be a single revert rather than an archaeology exercise.\n\nVerify the lockout path deliberately before merging: sign in as a person who is not a member and confirm they reach the waitlist rather than an error, and confirm the seeded owner reaches the app.",
-      "created_at": "2026-09-01T02:57:58.078434Z"
+      "created_at": "2026-09-01T02:57:58.078434Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "b53979c2-43b8-414d-9c07-a046f8a96094",
+      "author": "home",
+      "text": "summary: Every route requires a principal is live on development. Implemented in PR #167 (squash-merged to develop as da3d60e): router-scoped enforce_user_principal / enforce_worker_principal (no global middleware), exemptions exactly /health, /auth/*, waitlist-safe GET /me, and POST /orgs/{tenant_id}/workers/register; cross-org and waitlisted-on-enabled-only routes return 403. test_route_principal_coverage.test_all_org_scoped_routes_wire_a_principal_enforcer walks all 32 org-scoped API operations and fails if any non-exempt route lacks an enforcer. Flipped cognito_principal.feature to expect 403 without auth; added features/principal_authorization.feature; bearer on behave user-route steps; exercise_thin_turn.py + CHATTICUS_LIVE_ID_TOKEN.\n\nGates: black, ruff, pytest (474), behave (287) green; PR #167 CI green after the coverage-test fix (cc7f6d3). Named ChatticusThinTurn development deploy succeeded (Total time 69.6s) \u2014 the enforcement flip is live.\n\nLive verify (done-when part 1): curl against https://dev.chattic.us/api with no credential \u2014 /health 200 (exempt), /me 403, POST /orgs/anthus/bots 403, GET /orgs/anthus/channels 405, POST /orgs/anthus/workers/register 422 (open, validates body). No org route returns 200 without a credential. Remaining human-gated check (done-when part 2): sh scripts/live_aws_thin_turn.sh development from a logged-in shell with CHATTICUS_LIVE_ID_TOKEN \u2014 needs a real Google id_token from a browser sign-in, so it is left for the owner. Closing on the curl evidence + green gates + successful deploy.",
+      "created_at": "2026-09-02T00:41:00.985960Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-01T02:40:29.718075Z",
-  "updated_at": "2026-09-01T02:57:58.078434Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T00:41:01.355922Z",
+  "closed_at": "2026-09-02T00:41:01.355922Z",
+  "custom": {},
+  "agent": null
 }

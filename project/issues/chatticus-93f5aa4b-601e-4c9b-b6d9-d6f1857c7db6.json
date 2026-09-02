@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-93f5aa4b-601e-4c9b-b6d9-d6f1857c7db6",
+  "title": "Add workflow_dispatch deploy workflows for Auth and staging/production stacks",
+  "description": "Development already has workflow_dispatch workflows for Web and ThinTurn. Auth and the staging/production named stacks still require a laptop CDK deploy.\n\n**Do:** Add workflow_dispatch GitHub Actions workflows (same OIDC pattern as `.github/workflows/deploy-web-development.yml` and `deploy-thinturn-development.yml`) so an operator can dispatch named-stack deploys for Auth and for staging/production without a local CDK session. Add any missing `infra/deploy-chatticus-*.sh` wrappers the workflows need.\n\n**Do not:** auto-deploy on push to develop/main; run the workflows from the implementing PR; `cdk deploy --all`; merge to main.\n\n**Done when:** Auth and staging/production named stacks can be deployed from GitHub Actions `workflow_dispatch`, matching the existing development Web/ThinTurn pattern.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "9c894e57-a768-4f26-9653-5233464360ca",
+      "author": "home",
+      "text": "Planning: Composer 2.5. Mirror existing development Web/ThinTurn workflow_dispatch + OIDC. No auto-deploy on push. Do not run the new workflows from the PR.",
+      "created_at": "2026-09-02T17:40:24.308244Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-02T01:26:39.218285Z",
+  "updated_at": "2026-09-02T17:40:24.308244Z",
+  "closed_at": null,
+  "custom": {}
+}

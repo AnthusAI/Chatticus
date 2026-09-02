@@ -26,19 +26,22 @@ const env: cdk.Environment = {
 
 const budgetsConfig = readBudgetsConfig(app);
 
-const snapshots = new SnapshotStack(app, "ChatticusSnapshots", {
-  env,
-  description: "Canonical S3 store for Chatticus computer snapshots.",
-});
-
+let budgetsStack: BudgetsStack | undefined;
 if (budgetsConfig) {
-  new BudgetsStack(app, "ChatticusBudgets", {
+  budgetsStack = new BudgetsStack(app, "ChatticusBudgets", {
     env,
     monthlyLimitUsd: budgetsConfig.monthlyLimitUsd,
     notificationEmails: budgetsConfig.notificationEmails,
     description: "Account-level AWS spend budget and alerts.",
   });
 }
+
+const snapshots = new SnapshotStack(app, "ChatticusSnapshots", {
+  env,
+  description: "Canonical S3 store for Chatticus computer snapshots.",
+});
+
+const budgetsAlertsTopicArn = budgetsStack?.alertsTopic.topicArn;
 
 new ComputerStack(app, "ChatticusComputers", {
   env,
@@ -85,6 +88,7 @@ for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
     chatticusEnvironment: environmentName,
     hostedZone: dns.hostedZone,
     siteCertificate: dns.siteCertificate,
+    budgetsAlertsTopicArn,
     description:
       `Cognito user pool (${environmentName}) with Google federation and ` +
       "custom auth domain for SPA authorization code + PKCE.",

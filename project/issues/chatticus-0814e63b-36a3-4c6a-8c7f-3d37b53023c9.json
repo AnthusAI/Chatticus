@@ -3,7 +3,7 @@
   "title": "Channels carry participants instead of an owner",
   "description": "**Phase 5 of 7.**\n\n- **Blocked by:** 14f692\n- **Runs in parallel with:** 6c1a9b and ddf609 in logic, but NOT in merge order. See the warning\n- **Unblocks:** 24df70\n\n---\n**Scheduling warning.** This, 6c1a9b, and ddf609 all edit models.py and messaging/store.py. They are independent in logic and will collide in the same files. Give all three to one agent, or merge them strictly one at a time and rebase between.\n\nChannel drops user_id. ChannelParticipant{kind, actor_id} already models multi-actor membership, so the real change is the roster index at messaging/store.py:565, which keys a channel by channel.user_id and becomes one roster item per human participant so that listing a person's channels stays a query rather than a scan.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,29 @@
     "phase-5"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "8c051f0b-4a8f-47db-904c-248c89755c22",
+      "author": "home",
+      "text": "Starting: 14f692 spec landed. One Composer 2.5 agent owns 6c1a9b + 0814e6 + ddf609 together (scheduling warning: all three edit models.py and messaging/store.py, so one agent, sequential, one worktree). BDD-first: make the 14f692 @wip scenarios pass.",
+      "created_at": "2026-09-02T00:55:47.499834Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "2a28656b-e1b6-4131-80d5-84ed28a5b3c8",
+      "author": "home",
+      "text": "summary: Implemented in PR #173 (squash-merged to develop as 55c93b8) as part of Phase 5 org-scoping. Bots drop user_id (name uniqueness (tenant,name)); channels drop user_id (roster keyed per human participant); computer drops user_id (computer_for_user -> computer_for_organization, POST /computers/stopped body {stopped} only). All 3 shared_channels.feature scenarios from 14f692 now pass. Worker protocol changed \u2014 workers redeploy with the org computer_id. Docs (PRODUCT.md, THREAT_MODEL.md, AGENTS.md) aligned to organization-scoped computer. Gates: black, ruff, pytest (470), behave (shared_channels 3/3); PR #173 CI green. Closing.",
+      "created_at": "2026-09-02T02:37:40.906015Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-01T02:41:00.573158Z",
-  "updated_at": "2026-09-01T02:46:21.311189Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T02:37:41.173537Z",
+  "closed_at": "2026-09-02T02:37:41.173537Z",
+  "custom": {},
+  "agent": null
 }

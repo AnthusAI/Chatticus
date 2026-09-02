@@ -3,7 +3,7 @@
   "title": "Rules and approvals record who authorized them",
   "description": "**Phase 6 of 7.**\n\n- **Blocked by:** eef4aa\n- **Runs in parallel with:** b49a89 and 14cf05\n- **Unblocks:** e4053a\n\n---\nAutoReviewRule.created_by records a kind, human or bot, and rule.user_id is a scope match rather than the author, so a bot cannot write a rule today but a member writing one broader than their own standing is unchecked. Add a creator identity distinct from the scope, add an approver identity to approvals, and validate both against the author's ceiling at write time.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,29 @@
     "phase-6"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "3dfae88c-c86f-4d01-899d-3f6fd8b42cca",
+      "author": "home",
+      "text": "Starting: eef4aa ceiling type landed. Dispatching Composer 2.5 (parallel Phase 6 task, independent concern).",
+      "created_at": "2026-09-02T11:04:10.638259Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "7a6d372d-e16e-4d92-912b-b7b437838d3c",
+      "author": "home",
+      "text": "summary: Implemented in PR #179 (squash-merged to develop). AuthorizationIdentity (human/bot + actor_id) distinct from rule scope; AutoReviewRule.creator + ApprovedOperation.approver; write-time ceiling validation via authorization_ceiling.py + grant_exceeds_ceiling (from eef4aa). Bots cannot author always-allow rules; members cannot write rules/approvals beyond standing. 12 new pytest (514 total). Pure pytest, no new Gherkin (delegated_authority.feature stays @wip; ceiling setup step wired). Gates: black, ruff, pytest (514), behave (307); PR #179 CI green. The 3 web sign-out behave errors are the local node_modules issue (not a regression). Done-when met: rules and approvals record who authorized them (creator distinct from scope, approver on approvals, both validated against author's ceiling at write time). Closing. Unblocks e4053a.",
+      "created_at": "2026-09-02T11:22:11.387556Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-01T02:41:22.241072Z",
-  "updated_at": "2026-09-01T02:46:21.357602Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T11:22:11.647626Z",
+  "closed_at": "2026-09-02T11:22:11.647626Z",
+  "custom": {},
+  "agent": null
 }

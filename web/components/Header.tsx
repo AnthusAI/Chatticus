@@ -32,7 +32,7 @@ export function Header() {
         </div>
         <Button asChild size="sm" variant="dark">
           <a href="https://hey.chattic.us">
-            Open the app
+            Hey, Chatticus...
             <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
           </a>
         </Button>

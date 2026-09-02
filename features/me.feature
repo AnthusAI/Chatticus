@@ -19,11 +19,11 @@ Feature: GET /me membership snapshot
     When GET /me is called with an expired id token for "owner@example.com"
     Then GET /me responds with status 403
 
-  Scenario: GET /me with a valid token for an unknown email returns empty membership
+  Scenario: GET /me with a valid token for an unknown email mints identity with empty membership
     When GET /me is called with a valid id token for "unknown@example.com"
     Then GET /me responds with status 200
     And GET /me email is "unknown@example.com"
-    And GET /me user id is empty
+    And GET /me user id is present
     And GET /me organizations are empty
 
   Scenario: GET /me with a valid token for a signed-in user with no organizations

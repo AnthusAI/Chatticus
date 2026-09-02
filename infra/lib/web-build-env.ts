@@ -1,6 +1,7 @@
 import {
   ChatticusCloudEnvironment,
   WEB_SITE_DOMAINS,
+  signupModeForEnvironment,
   webParameterPrefix,
 } from "./environments";
 
@@ -20,6 +21,7 @@ export function webBuildEnvExports(environmentName: ChatticusCloudEnvironment): 
     `[ -n "$NEXT_PUBLIC_COGNITO_CLIENT_ID" ]`,
     `[ -n "$NEXT_PUBLIC_COGNITO_AUTH_DOMAIN" ]`,
     `export NEXT_PUBLIC_COGNITO_REDIRECT_URI='https://${siteDomain}/auth/callback'`,
+    `export NEXT_PUBLIC_CHATTICUS_SIGNUP_MODE='${signupModeForEnvironment(environmentName)}'`,
     `export CHATTICUS_ENV='${environmentName}'`,
   ].join(" && ");
 }

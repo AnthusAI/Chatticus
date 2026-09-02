@@ -14,7 +14,15 @@ from chatticus.approval_binding import (
     ApprovalBindingGate,
     ApprovedOperation,
     BoundExecutionResult,
+    OperationProposal,
     StructuredConsequentialOperation,
+)
+from chatticus.authorization_ceiling import (
+    MemberAuthorityCeiling,
+    MemberStanding,
+    auto_review_rule_exceeds_member_authority_ceiling,
+    member_authority_ceiling_from_structured_arguments,
+    structured_operation_exceeds_member_authority_ceiling,
 )
 from chatticus.capability_policy import (
     CapabilityPolicy,
@@ -60,9 +68,11 @@ from chatticus.models import (
     AWS_COST_CLASSES,
     CONSEQUENTIAL_ACTION_TYPES,
     COST_CLASS_RANK,
+    KERNEL_HUMAN_AUTHOR,
     ActorKind,
     ActorNotInChannelError,
     ApprovalDecision,
+    AuthorizationIdentity,
     AutoReviewRule,
     AutoReviewRuleKind,
     Bot,
@@ -82,8 +92,11 @@ from chatticus.models import (
     Invitation,
     MemberRole,
     Membership,
+    MemberStandingRequiredError,
     Message,
     Organization,
+    OrganizationNotFoundError,
+    OrganizationOwnerCapError,
     OrganizationStatus,
     PendingComputerToolSnapshot,
     SnapshotRequiredError,
@@ -109,6 +122,11 @@ from chatticus.models import (
     WorkerTenantMismatchError,
     pending_computer_tool_from_turn,
     primary_human_participant,
+)
+from chatticus.org_creation_limits import (
+    ORGANIZATION_CREATION_RATE_LIMIT,
+    ORGANIZATION_CREATION_RATE_WINDOW,
+    validate_organization_name,
 )
 from chatticus.org_records import OrgRecordsKernel
 from chatticus.overnight_gated import (
@@ -152,6 +170,7 @@ class ControlPlane:
         recovery_enabled: bool = False,
         wall_clock: bool = False,
         fault_injector: FaultInjector | None = None,
+        organization_creation_rate_limit: int | None = None,
     ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
@@ -199,6 +218,10 @@ class ControlPlane:
         self._snapshots: dict[str, ComputerSnapshot] = {}
         self._auto_review_rules: list[AutoReviewRule] = []
         self._refused_bot_auto_review: list[tuple[str, str]] = []
+        self._refused_authority_ceiling: list[tuple[str, str, str]] = []
+        self._member_authority_ceilings: dict[
+            tuple[str, str, str], MemberAuthorityCeiling
+        ] = {}
         self._approval_binding = ApprovalBindingGate()
         self._capability_policies: dict[tuple[str, str], CapabilityPolicy] = {}
         self._active_browser_contexts: dict[tuple[str, str], PolicyBrowserContext] = {}
@@ -208,6 +231,11 @@ class ControlPlane:
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
         self._org_records = OrgRecordsKernel(self._messaging_store)
+        self._org_creation_rate_limit = (
+            organization_creation_rate_limit
+            if organization_creation_rate_limit is not None
+            else ORGANIZATION_CREATION_RATE_LIMIT
+        )
         self._turn_enqueued = turn_enqueued
         self._computer_enqueued = computer_enqueued
         self._logical_enqueue_delivery_count = 0
@@ -280,7 +308,33 @@ class ControlPlane:
         self, owner: Identity, name: str, *, now: datetime
     ) -> Organization:
         """Create a pending organization and owner membership."""
-        return self._org_records.create_organization(owner, name, now=now)
+        self._messaging_store.record_organization_creation_attempt(
+            owner.user_id,
+            now=now,
+            limit=self._org_creation_rate_limit,
+            window=ORGANIZATION_CREATION_RATE_WINDOW,
+        )
+        stripped_name = validate_organization_name(name)
+        if self._user_owns_organization(owner.user_id):
+            raise OrganizationOwnerCapError(
+                f"User {owner.user_id!r} already owns an organization."
+            )
+        return self._org_records.create_organization(owner, stripped_name, now=now)
+
+    def admin_create_organization(
+        self, owner: Identity, name: str, *, now: datetime
+    ) -> Organization:
+        """Create a pending organization without product-path caps."""
+        stripped_name = validate_organization_name(name)
+        return self._org_records.admin_create_organization(
+            owner, stripped_name, now=now
+        )
+
+    def _user_owns_organization(self, user_id: str) -> bool:
+        return any(
+            organization.owner_user_id == user_id
+            for organization in self.list_organizations_for_user(user_id)
+        )
 
     def admin_seed_organization(
         self,
@@ -332,6 +386,15 @@ class ControlPlane:
     ) -> Membership:
         """Accept one invitation when the organization is enabled."""
         return self._org_records.accept_invitation(invitation_id, acceptor, now=now)
+
+    def reconcile_pending_invitations(
+        self,
+        acceptor: Identity,
+        *,
+        now: datetime,
+    ) -> None:
+        """Accept eligible pending invitations for one verified email."""
+        self._org_records.reconcile_pending_invitations(acceptor, now=now)
 
     def list_organizations_for_user(self, user_id: str) -> list[Organization]:
         """Return every organization a user belongs to."""
@@ -1108,6 +1171,109 @@ class ControlPlane:
                 HouseholdCredential("browser_session", service, session)
             )
 
+    def acting_member_user_id_for_turn(self, tenant_id: str, turn_id: str) -> str:
+        """Return the human who posted the turn prompt, not another channel member."""
+        turn = self.turn(tenant_id, turn_id)
+        if turn.prompt_message_seq is None:
+            msg = f"Turn {turn_id!r} has no prompt message."
+            raise ValueError(msg)
+        message = self._channel_message_at_seq(
+            tenant_id,
+            turn.channel_id,
+            turn.prompt_message_seq,
+        )
+        if message is None:
+            msg = (
+                f"Turn {turn_id!r} prompt message seq "
+                f"{turn.prompt_message_seq} was not found."
+            )
+            raise ValueError(msg)
+        if message.author_kind is not ActorKind.HUMAN:
+            msg = f"Turn {turn_id!r} prompt was not authored by a human."
+            raise ValueError(msg)
+        return message.author_id
+
+    def ensure_sink_turn(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        acting_user_id: str,
+        bot_id: str,
+    ) -> Turn:
+        """Create one durable turn for direct sink specs when none exists yet."""
+        try:
+            return self.turn(tenant_id, turn_id)
+        except TurnNotFoundError:
+            pass
+        channel = self.create_channel(tenant_id, acting_user_id, [bot_id])
+        message = Message(
+            message_id=str(uuid4()),
+            channel_id=channel.channel_id,
+            tenant_id=tenant_id,
+            seq=channel.next_seq,
+            author_kind=ActorKind.HUMAN,
+            author_id=acting_user_id,
+            body="sink policy turn",
+            addressed_to_bot_id=bot_id,
+            created_at=self._now,
+        )
+        channel.next_seq += 1
+        self._messaging_store.put_channel(channel)
+        self._messaging_store.put_message(message)
+        turn = Turn(
+            turn_id=turn_id,
+            tenant_id=tenant_id,
+            channel_id=channel.channel_id,
+            bot_id=bot_id,
+            prompt_message_seq=message.seq,
+        )
+        self._messaging_store.put_turn(turn)
+        self._turn_tenants[turn_id] = tenant_id
+        return turn
+
+    def _member_standing_for_user(
+        self,
+        tenant_id: str,
+        user_id: str,
+        *,
+        action_type: str | None = None,
+    ) -> MemberStanding:
+        try:
+            self.get_organization(tenant_id)
+        except OrganizationNotFoundError:
+            return MemberStanding.owner()
+        membership = self.get_membership(tenant_id, user_id)
+        if membership is None:
+            raise MemberStandingRequiredError(
+                f"Member {user_id!r} has no standing in tenant {tenant_id!r}."
+            )
+        per_action = None
+        if action_type is not None:
+            per_action = self.member_authority_ceiling(tenant_id, user_id, action_type)
+        return MemberStanding(
+            role_ceiling=membership.ceiling,
+            per_action_ceiling=per_action,
+        )
+
+    def _member_standing_for_turn(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        action_type: str | None = None,
+    ) -> MemberStanding:
+        try:
+            self.get_organization(tenant_id)
+        except OrganizationNotFoundError:
+            return MemberStanding.owner()
+        user_id = self.acting_member_user_id_for_turn(tenant_id, turn_id)
+        return self._member_standing_for_user(
+            tenant_id,
+            user_id,
+            action_type=action_type,
+        )
+
     def gated_read_workspace(
         self,
         tenant_id: str,
@@ -1116,7 +1282,8 @@ class ControlPlane:
     ) -> str | None:
         """Read a workspace file after the task grant allows it."""
         policy = self.capability_policy_for(tenant_id, turn_id)
-        gated_read_workspace(policy, path)
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
+        gated_read_workspace(policy, path, member_standing)
         return self.read_workspace(tenant_id, path)
 
     def gated_write_workspace(
@@ -1128,12 +1295,18 @@ class ControlPlane:
     ) -> None:
         """Write a workspace file after the task grant allows it."""
         policy = self.capability_policy_for(tenant_id, turn_id)
-        gated_write_workspace(policy, path)
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
+        gated_write_workspace(policy, path, member_standing)
         self.write_workspace(tenant_id, path, content)
 
     def gated_browse_origin(self, tenant_id: str, turn_id: str, url: str) -> None:
         """Authorize browsing one origin before a computer tool opens it."""
-        gated_browse_origin(self.capability_policy_for(tenant_id, turn_id), url)
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
+        gated_browse_origin(
+            self.capability_policy_for(tenant_id, turn_id),
+            url,
+            member_standing,
+        )
 
     def requested_capability_for_model_tool(
         self, tool_name: str, arguments: dict[str, str]
@@ -1164,9 +1337,17 @@ class ControlPlane:
     ) -> None:
         """Raise when a model-requested tool is denied or needs approval."""
         policy = self.capability_policy_for(tenant_id, turn_id)
+        action_type = tool_name if tool_name in CONSEQUENTIAL_ACTION_TYPES else None
+        member_standing = self._member_standing_for_turn(
+            tenant_id,
+            turn_id,
+            action_type=action_type,
+        )
         require_allow(
             policy,
             self.requested_capability_for_model_tool(tool_name, arguments),
+            member_standing,
+            structured_arguments=arguments if action_type is not None else None,
         )
 
     def record_model_gated_tool_call(
@@ -1331,9 +1512,11 @@ class ControlPlane:
         self, tenant_id: str, turn_id: str, page_url: str
     ) -> PolicyBrowserContext:
         """Open research browsing in an isolated browser context."""
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
         context = open_untrusted_browser_context(
             self.capability_policy_for(tenant_id, turn_id),
             page_url,
+            member_standing,
         )
         self._active_browser_contexts[(tenant_id, turn_id)] = context
         return context
@@ -1346,10 +1529,12 @@ class ControlPlane:
         service: str,
     ) -> PolicyBrowserContext:
         """Open a named privileged session in its own browser context."""
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
         context = open_privileged_browser_context(
             self.capability_policy_for(tenant_id, turn_id),
             page_url,
             service,
+            member_standing,
         )
         self._active_browser_contexts[(tenant_id, turn_id)] = context
         return context
@@ -1369,12 +1554,18 @@ class ControlPlane:
         completion_evidence: str,
     ) -> BoundExecutionResult:
         """Execute one human-approved connector operation at the sink."""
+        member_standing = self._member_standing_for_turn(
+            tenant_id,
+            turn_id,
+            action_type=attempted.action_type,
+        )
         return execute_approved_operation_at_sink(
             self.capability_policy_for(tenant_id, turn_id),
             self._approval_binding,
             approval,
             attempted,
             completion_evidence,
+            member_standing,
         )
 
     def write_workspace(self, tenant_id: str, path: str, content: str) -> None:
@@ -1429,30 +1620,126 @@ class ControlPlane:
         *,
         arguments: dict[str, str] | None = None,
         created_by: str = "human",
-    ) -> None:
+        creator: AuthorizationIdentity | None = None,
+        creator_bot_id: str | None = None,
+    ) -> bool:
         """Add an auto-review rule scoped to a tenant, optionally one user.
 
         A bot cannot create an always-allow that loosens a consequential
-        action; that attempt is recorded and discarded.
+        action. A human cannot write a rule broader than their standing
+        ceiling. Returns whether the rule was recorded.
         """
-        if created_by == "bot" and kind == AutoReviewRuleKind.ALWAYS_ALLOW:
+        resolved_creator = creator
+        if resolved_creator is None:
+            if created_by == "bot":
+                resolved_creator = AuthorizationIdentity.bot(creator_bot_id or "bot")
+            else:
+                resolved_creator = AuthorizationIdentity.human(KERNEL_HUMAN_AUTHOR)
+        if (
+            resolved_creator.kind == ActorKind.BOT
+            and kind == AutoReviewRuleKind.ALWAYS_ALLOW
+        ):
             self._refused_bot_auto_review.append((tenant_id, action_type))
-            return
-        bindings = tuple(sorted((arguments or {}).items()))
+            return False
+        bindings = arguments or {}
+        member_ceiling = self._member_authority_ceiling(
+            tenant_id,
+            resolved_creator.actor_id,
+            action_type,
+        )
+        if auto_review_rule_exceeds_member_authority_ceiling(
+            action_type,
+            bindings,
+            member_ceiling,
+        ):
+            self._refused_authority_ceiling.append(
+                (tenant_id, action_type, resolved_creator.actor_id)
+            )
+            return False
         self._auto_review_rules.append(
             AutoReviewRule(
                 kind=kind,
                 action_type=action_type,
                 tenant_id=tenant_id,
                 user_id=user_id,
-                argument_bindings=bindings,
-                created_by=created_by,
+                argument_bindings=tuple(sorted(bindings.items())),
+                creator=resolved_creator,
             )
+        )
+        return True
+
+    def set_member_authority_ceiling(
+        self,
+        tenant_id: str,
+        member_user_id: str,
+        action_type: str,
+        *,
+        arguments: dict[str, str],
+    ) -> None:
+        """Record one member's standing authority for a structured action."""
+        self._member_authority_ceilings[(tenant_id, member_user_id, action_type)] = (
+            member_authority_ceiling_from_structured_arguments(action_type, arguments)
+        )
+
+    def member_authority_ceiling(
+        self,
+        tenant_id: str,
+        member_user_id: str,
+        action_type: str,
+    ) -> MemberAuthorityCeiling | None:
+        """Return the recorded standing ceiling for one member and action."""
+        return self._member_authority_ceilings.get(
+            (tenant_id, member_user_id, action_type)
+        )
+
+    def approve_structured_operation(
+        self,
+        tenant_id: str,
+        proposal: OperationProposal,
+        *,
+        approver: AuthorizationIdentity,
+    ) -> ApprovedOperation | None:
+        """Approve one structured operation when the approver is within standing."""
+        if approver.kind != ActorKind.HUMAN:
+            self._refused_authority_ceiling.append(
+                (tenant_id, proposal.operation.action_type, approver.actor_id)
+            )
+            return None
+        member_ceiling = self._member_authority_ceiling(
+            tenant_id,
+            approver.actor_id,
+            proposal.operation.action_type,
+        )
+        if structured_operation_exceeds_member_authority_ceiling(
+            proposal.operation,
+            member_ceiling,
+        ):
+            self._refused_authority_ceiling.append(
+                (tenant_id, proposal.operation.action_type, approver.actor_id)
+            )
+            return None
+        return self._approval_binding.approve_operation(
+            proposal,
+            approver=approver,
+        )
+
+    def _member_authority_ceiling(
+        self,
+        tenant_id: str,
+        member_user_id: str,
+        action_type: str,
+    ) -> MemberAuthorityCeiling | None:
+        return self._member_authority_ceilings.get(
+            (tenant_id, member_user_id, action_type)
         )
 
     def refused_bot_auto_review(self) -> list[tuple[str, str]]:
         """Return always-allow attempts the kernel rejected from a bot."""
         return list(self._refused_bot_auto_review)
+
+    def refused_authority_ceiling(self) -> list[tuple[str, str, str]]:
+        """Return rule or approval attempts refused outside standing."""
+        return list(self._refused_authority_ceiling)
 
     @property
     def approval_binding(self) -> ApprovalBindingGate:
@@ -1471,6 +1758,18 @@ class ControlPlane:
         turn_id: str = POLICY_KERNEL_TURN,
     ) -> OvernightGatedResult:
         """Stop or pre-authorize a consequential action with no screen."""
+        if user_id is not None:
+            member_standing = self._member_standing_for_user(
+                tenant_id,
+                user_id,
+                action_type=action_type,
+            )
+        else:
+            member_standing = self._member_standing_for_turn(
+                tenant_id,
+                turn_id,
+                action_type=action_type,
+            )
         return resolve_unattended_gated_action_at_sink(
             self.capability_policy_for(tenant_id, turn_id),
             action_type=action_type,
@@ -1478,6 +1777,7 @@ class ControlPlane:
             channel=channel,
             rules=self._auto_review_rules,
             tenant_id=tenant_id,
+            member_standing=member_standing,
             user_id=user_id,
             completion_evidence=completion_evidence,
         )
@@ -1515,7 +1815,8 @@ class ControlPlane:
         }:
             url = arguments.get("url", "").strip()
             if url:
-                gated_browse_origin(policy, url)
+                member_standing = self._member_standing_for_turn(tenant_id, turn_id)
+                gated_browse_origin(policy, url, member_standing)
         self.turn(tenant_id, turn_id)
         computer = self.ensure_computer(tenant_id)
         record = EscalationRecord(

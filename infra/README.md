@@ -170,10 +170,11 @@ Acceptance and workers use the `/api` base URL on the site hostname.
 ## OpenAI API key (per deployment)
 
 Each thin-turn stack reads its OpenAI key at **runtime** from a
-deployment-scoped SSM SecureString. CDK imports the parameter path only;
-it does **not** create the parameter or embed the key in CloudFormation
-(unlike the invoke-key secret, which CDK generates and unwraps into the
-Lambda environment).
+deployment-scoped SSM SecureString (one path per environment; the same
+vendor key may be seeded in all three until dedicated projects exist).
+CDK imports the parameter path only; it does **not** create the
+parameter or embed the key in CloudFormation (unlike the invoke-key
+secret, which CDK generates and unwraps into the Lambda environment).
 
 | Environment | SSM path |
 | --- | --- |

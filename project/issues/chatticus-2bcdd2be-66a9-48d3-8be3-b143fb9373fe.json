@@ -1,0 +1,19 @@
+{
+  "id": "chatticus-2bcdd2be-66a9-48d3-8be3-b143fb9373fe",
+  "title": "pytest from repo root fails on infra/cdk.out (collect_ignore gap)",
+  "description": "",
+  "type": "bug",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-02T00:50:46.866906Z",
+  "updated_at": "2026-09-02T12:09:32.231538Z",
+  "closed_at": "2026-09-02T12:09:32.231538Z",
+  "custom": {},
+  "agent": null
+}

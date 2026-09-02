@@ -284,7 +284,7 @@ def _cmd_create(
     _require_yes(yes, action="create")
     now = datetime.now(UTC)
     owner = plane.sign_in(owner_email, now=now)
-    organization = plane.create_organization(owner, name, now=now)
+    organization = plane.admin_create_organization(owner, name, now=now)
     print(
         "created "
         f"tenant_id={organization.tenant_id} "
