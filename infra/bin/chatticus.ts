@@ -57,7 +57,7 @@ const dns = new DnsStack(app, "ChatticusDns", {
 new GitHubDeployStack(app, "ChatticusGitHubDeploy", {
   env,
   description:
-    "GitHub Actions OIDC IAM role for CDK deploy workflows (phase-1 ThinTurn development).",
+    "GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production).",
 });
 
 for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
