@@ -56,6 +56,15 @@ class SameOriginApiClient:
         self._client.__exit__(*args)
 
 
+def _user_route_headers(base_headers: dict[str, str]) -> dict[str, str]:
+    """Return headers for org user routes, optionally with CHATTICUS_LIVE_ID_TOKEN."""
+    merged = dict(base_headers)
+    id_token = os.environ.get("CHATTICUS_LIVE_ID_TOKEN", "").strip()
+    if id_token:
+        merged["Authorization"] = f"Bearer {id_token}"
+    return merged
+
+
 def _register_worker_headers(
     client: SameOriginApiClient,
     tenant_id: str,
@@ -516,7 +525,8 @@ def main() -> int:
         invoke_key = _invoke_key_for_environment(environment)
     if invoke_key:
         headers["X-Chatticus-Invoke-Key"] = invoke_key
-    with SameOriginApiClient(base_url, headers=headers, timeout=900.0) as client:
+    user_headers = _user_route_headers(headers)
+    with SameOriginApiClient(base_url, headers=user_headers, timeout=900.0) as client:
         health = client.get("/health")
         if health.status_code != 200:
             print(f"health {health.status_code} {health.text[:200]}", file=sys.stderr)
@@ -628,7 +638,7 @@ def main() -> int:
                 bot_id=bot["bot_id"],
                 user_id=args.user_id,
                 tenant_id=args.tenant_id,
-                headers=dict(headers),
+                headers=dict(user_headers),
                 environment=environment,
             )
             if task_result != 0:
@@ -769,7 +779,7 @@ def main() -> int:
         if args.environment:
             grant_result = _exercise_capability_grant_persistence(
                 base_url=base_url,
-                headers=dict(headers),
+                headers=dict(user_headers),
                 tenant_id=args.tenant_id,
                 turn_id=fence_turn_id,
                 user_id=args.user_id,

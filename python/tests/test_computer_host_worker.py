@@ -5,16 +5,20 @@ from __future__ import annotations
 import json
 from unittest.mock import patch
 
+from http_test_support import start_authed_test_server
+
 from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.computer_host_boot import ComputerHostBootDriver
 from chatticus.computer_host_worker import run_host_worker_once
 from chatticus.control_plane import ControlPlane
-from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.paths import org_path
-from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.worker.computer import FakeComputerActionExecutor
+
+
+def _client_for(plane: ControlPlane):
+    return start_authed_test_server(plane, invoke_key="")
 
 
 class _FakeSqs:
@@ -35,7 +39,7 @@ class _FakeSqs:
 
 def test_host_worker_boots_then_runs_one_computer_job() -> None:
     plane = ControlPlane()
-    api = start_test_server(create_app(plane))
+    api = _client_for(plane)
     setup = prepare_computer_continuation(plane)
     job = setup.continuation_job
     body = json.dumps(
@@ -90,7 +94,7 @@ class _EmptySqs:
 def test_host_worker_runs_waiting_turn_when_sqs_is_empty() -> None:
     store = InMemoryMessagingStore()
     plane = ControlPlane(messaging_store=store)
-    api = start_test_server(create_app(plane))
+    api = _client_for(plane)
     bot = plane.create_bot("anthus", "ryan", "Researcher")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     post = api.post(

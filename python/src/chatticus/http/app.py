@@ -19,8 +19,8 @@ from chatticus.cognito_jwt import CognitoJwtVerifier, CognitoTokenError
 from chatticus.control_plane import ControlPlane
 from chatticus.http.principal import (
     RequireWorkerPrincipal,
-    reject_worker_credential,
-    require_worker_principal,
+    enforce_user_principal,
+    enforce_worker_principal,
     resolve_me_from_token,
     waitlist_safe,
 )
@@ -280,8 +280,8 @@ def create_app(
         return await call_next(request)  # type: ignore[misc, operator]
 
     org_router = APIRouter(prefix="/orgs/{tenant_id}")
-    worker_router = APIRouter(dependencies=[Depends(require_worker_principal)])
-    user_router = APIRouter(dependencies=[Depends(reject_worker_credential)])
+    worker_router = APIRouter(dependencies=[Depends(enforce_worker_principal)])
+    user_router = APIRouter(dependencies=[Depends(enforce_user_principal)])
 
     @app.exception_handler(ChatticusError)
     async def chatticus_error_handler(

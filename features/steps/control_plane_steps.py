@@ -5,11 +5,10 @@ from __future__ import annotations
 from datetime import timedelta
 
 from behave import given, then, when
+from browser_auth_helpers import ensure_org_membership, wire_test_http_front_door
 
 from chatticus.control_plane import ControlPlane
-from chatticus.http.app import create_app
 from chatticus.http.paths import org_path
-from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
     AutoReviewRuleKind,
@@ -49,10 +48,7 @@ def _registration_from_table(table: object) -> WorkerRegistration:
 @given("an empty control plane")
 def given_empty_control_plane(context: object) -> None:
     context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
-    app = create_app(context.plane, invoke_key="")
-    context.api_app = app
-    context.app_state = app.state.chatticus
-    context.api_client = start_test_server(app)
+    wire_test_http_front_door(context, context.plane, invoke_key="")
     context.bots_by_name = {}
     context.last_job = None
     context.last_assignment = None
@@ -85,10 +81,7 @@ def given_empty_control_plane_with_cpu_enqueue_hook(context: object) -> None:
         heartbeat_timeout=timedelta(seconds=30),
         turn_enqueued=capture,
     )
-    app = create_app(context.plane, invoke_key="")
-    context.api_app = app
-    context.app_state = app.state.chatticus
-    context.api_client = start_test_server(app)
+    wire_test_http_front_door(context, context.plane, invoke_key="")
     context.bots_by_name = {}
     context.last_job = None
     context.last_assignment = None
@@ -126,10 +119,7 @@ def given_empty_control_plane_with_cpu_and_computer_hooks(context: object) -> No
         turn_enqueued=capture_cpu,
         computer_enqueued=capture_computer,
     )
-    app = create_app(context.plane, invoke_key="")
-    context.api_app = app
-    context.app_state = app.state.chatticus
-    context.api_client = start_test_server(app)
+    wire_test_http_front_door(context, context.plane, invoke_key="")
     context.bots_by_name = {}
     context.last_job = None
     context.last_assignment = None
@@ -291,6 +281,7 @@ def then_not_assigned(context: object) -> None:
 def given_bot(context: object, tenant_id: str, user_id: str, name: str) -> None:
     bot = context.plane.create_bot(tenant_id, user_id, name)
     context.bots_by_name[name] = bot
+    ensure_org_membership(context, tenant_id)
 
 
 @when('bot "{name}" writes "{path}" containing "{content}" on the computer')
@@ -492,10 +483,7 @@ def given_durable_messaging_store(context: object) -> None:
 def given_named_environment_front_door(context: object, environment: str) -> None:
     context.messaging_store = InMemoryMessagingStore()
     context.plane = ControlPlane(messaging_store=context.messaging_store)
-    app = create_app(context.plane, environment=environment)
-    context.api_app = app
-    context.app_state = app.state.chatticus
-    context.api_client = start_test_server(app)
+    wire_test_http_front_door(context, context.plane, environment=environment)
     context.bots_by_name = {}
 
 
@@ -512,10 +500,7 @@ def then_health_reports_environment(context: object, environment: str) -> None:
 def given_durable_messaging_store_with_http(context: object) -> None:
     context.messaging_store = InMemoryMessagingStore()
     context.plane = ControlPlane(messaging_store=context.messaging_store)
-    app = create_app(context.plane, invoke_key="")
-    context.api_app = app
-    context.app_state = app.state.chatticus
-    context.api_client = start_test_server(app)
+    wire_test_http_front_door(context, context.plane, invoke_key="")
     context.bots_by_name = {}
     context.opened_channel_ids = []
     context.last_channel = None
@@ -530,10 +515,7 @@ def given_durable_messaging_store_with_http(context: object) -> None:
 def when_recycled_front_door(context: object) -> None:
     context.api_client.close()
     context.plane = ControlPlane(messaging_store=context.messaging_store)
-    app = create_app(context.plane, invoke_key="")
-    context.api_app = app
-    context.app_state = app.state.chatticus
-    context.api_client = start_test_server(app)
+    wire_test_http_front_door(context, context.plane, invoke_key="")
 
 
 @when(

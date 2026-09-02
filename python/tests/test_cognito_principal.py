@@ -135,11 +135,13 @@ def test_identity_is_email_keyed_not_cognito_sub(
     assert principal.user_id == identity.user_id
 
 
-def test_user_route_does_not_require_cognito_token() -> None:
+def test_user_route_requires_cognito_token(keys: object) -> None:
     plane = ControlPlane()
-    client = TestClient(create_app(plane, invoke_key=""))
+    client = TestClient(
+        create_app(plane, invoke_key="", cognito_verifier=keys.verifier())
+    )
     response = client.post(
         org_path("anthus", "/bots"),
         json={"user_id": "ryan", "name": "Helper"},
     )
-    assert response.status_code == 200
+    assert response.status_code == 403

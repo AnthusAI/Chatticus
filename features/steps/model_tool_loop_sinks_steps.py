@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from behave import then, when
+from browser_auth_helpers import wire_test_http_front_door
 
-from chatticus.http.app import create_app
-from chatticus.http.test_server import start_test_server
 from chatticus.models import TurnEventKind
 
 _SECRET_MARKERS = ("session", "cookie", "token", "password", "secret")
@@ -51,7 +50,7 @@ def when_capability_aware_worker_turn(context: object, bot_name: str) -> None:
 
     bot = context.bots_by_name[bot_name]
     if not hasattr(context, "api_client"):
-        context.api_client = start_test_server(create_app(context.plane, invoke_key=""))
+        wire_test_http_front_door(context, context.plane, invoke_key="")
     worker = ComputerlessWorker(
         context.plane,
         HttpTurnClient(context.api_client, bot.tenant_id),

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from computer_worker_helpers import CountingComputerActionExecutor
+from http_test_support import start_authed_test_server
 
 from chatticus.browser_waiting_continuation_driver import (
     prepare_browser_waiting_continuation,
@@ -13,10 +14,8 @@ from chatticus.computer_capabilities import BROWSER_CAPABILITY
 from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.control_plane import ControlPlane
 from chatticus.host_starter import RecordingHostStarter
-from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.paths import org_path
-from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
     ActorKind,
@@ -37,7 +36,7 @@ from chatticus.worker.computerless import (
 
 
 def _client_for(plane: ControlPlane):
-    return start_test_server(create_app(plane, invoke_key=""))
+    return start_authed_test_server(plane, invoke_key="")
 
 
 def test_computer_worker_executes_unresolved_tool_call_from_journal() -> None:

@@ -30,21 +30,29 @@ def _keys(context: object) -> object:
 
 @given('tenant "{tenant_id}" has an enabled organization for "{email}"')
 def given_enabled_org(context: object, tenant_id: str, email: str) -> None:
+    from browser_auth_helpers import wire_test_http_front_door
+
     _MEMBERSHIP_CACHE.clear()
     context.resolver_tenant_id = tenant_id
     plane = ControlPlane()
     plane.admin_seed_organization(tenant_id, email, name="Test Org", now=NOW)
     context.plane = plane
+    context.seeded_org_emails = {tenant_id: email}
+    wire_test_http_front_door(context, plane, invoke_key="")
 
 
 @given('tenant "{tenant_id}" has a suspended organization for "{email}"')
 def given_suspended_org(context: object, tenant_id: str, email: str) -> None:
+    from browser_auth_helpers import wire_test_http_front_door
+
     _MEMBERSHIP_CACHE.clear()
     context.resolver_tenant_id = tenant_id
     plane = ControlPlane()
     plane.admin_seed_organization(tenant_id, email, name="Test Org", now=NOW)
     plane.suspend_organization(tenant_id)
     context.plane = plane
+    context.seeded_org_emails = {tenant_id: email}
+    wire_test_http_front_door(context, plane, invoke_key="")
 
 
 @when('the Cognito resolver receives a valid id token for "{email}"')
@@ -121,13 +129,10 @@ def then_identity_resolution_fails(context: object) -> None:
 
 @when("a browser route is called without Authorization")
 def when_browser_route_without_auth(context: object) -> None:
-    response = context.api_client.post(
+    client = getattr(context, "raw_api_client", context.api_client)
+    response = client.post(
         org_path("anthus", "/bots"),
         json={"user_id": "ryan", "name": "Helper"},
     )
+    context.browser_route_response = response
     context.browser_route_status = response.status_code
-
-
-@then("the browser route succeeds without a principal")
-def then_browser_route_succeeds(context: object) -> None:
-    assert context.browser_route_status == 200

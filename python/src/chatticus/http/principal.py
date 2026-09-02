@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Final
@@ -32,6 +33,17 @@ NO_PRINCIPAL_ROUTE_PREFIXES: Final[tuple[str, ...]] = ("/auth/",)
 # Waitlist-safe routes are opt-out: each path must be named explicitly.
 WAITLIST_SAFE_ROUTE_PATHS: Final[frozenset[str]] = frozenset({"/me"})
 
+_ORG_PATH_RE: Final = re.compile(r"^/orgs/(?P<tenant_id>[^/]+)(?:/|$)")
+_WORKER_ROUTE_PATH_RE: Final = re.compile(
+    r"^/orgs/[^/]+/(?:"
+    r"workers/(?!register)|"
+    r"bots/[^/]+/tasks/tool|"
+    r"turns/[^/]+/(?:claim|renew|waiting|resume|grant|"
+    r"workspace/read|browse/authorize|tool/denied|chunks)"
+    r")"
+)
+_WORKER_REGISTER_PATH_RE: Final = re.compile(r"^/orgs/[^/]+/workers/register$")
+
 
 class PrincipalAudience(StrEnum):
     """Which caller kind may reach a route."""
@@ -56,6 +68,56 @@ class PrincipalRoutePolicy:
 def is_no_principal_route(path: str) -> bool:
     """Return whether *path* is outside the principal marker system."""
     return path in NO_PRINCIPAL_ROUTES or path.startswith(NO_PRINCIPAL_ROUTE_PREFIXES)
+
+
+def is_worker_bootstrap_route(path: str, *, method: str) -> bool:
+    """Return whether *path* is the unauthenticated worker registration bootstrap."""
+    return method.upper() == "POST" and _WORKER_REGISTER_PATH_RE.match(path) is not None
+
+
+def is_worker_route_path(path: str) -> bool:
+    """Return whether *path* targets a worker-audience org route."""
+    return _WORKER_ROUTE_PATH_RE.match(path) is not None
+
+
+def org_tenant_id_from_path(path: str) -> str | None:
+    """Return the tenant id embedded in one /orgs/{tenant_id}/... path."""
+    match = _ORG_PATH_RE.match(path)
+    if match is None:
+        return None
+    return match.group("tenant_id")
+
+
+def _route_endpoint(request: Request) -> object | None:
+    route = request.scope.get("route")
+    if route is None:
+        return None
+    return getattr(route, "endpoint", None)
+
+
+def _route_policy_for_request(request: Request) -> PrincipalRoutePolicy:
+    endpoint = _route_endpoint(request)
+    if endpoint is None:
+        return PrincipalRoutePolicy()
+    return principal_route_policy(endpoint)
+
+
+def _cognito_verifier_from_request(request: Request) -> CognitoJwtVerifier:
+    verifier = request.app.state.chatticus.cognito_verifier
+    if verifier is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Cognito verifier is not configured for user routes.",
+        )
+    return verifier
+
+
+def _store_principal(request: Request, principal: Principal) -> None:
+    request.state.principal = principal
+
+
+def _http_forbidden_from_principal_error(error: Exception) -> HTTPException:
+    return HTTPException(status_code=403, detail=str(error))
 
 
 def principal_route_policy(route_handler: object) -> PrincipalRoutePolicy:
@@ -237,37 +299,118 @@ async def resolve_worker_bearer(request: Request, tenant_id: str) -> Principal:
     return resolve_worker_principal_from_token(plane, tenant_id, token)
 
 
-async def require_worker_principal(request: Request, tenant_id: str) -> Principal:
+async def enforce_worker_principal(request: Request, tenant_id: str) -> Principal:
     """Require a valid worker bearer credential for one org-scoped route."""
     principal = await resolve_worker_bearer(request, tenant_id)
     if principal.kind != PrincipalKind.WORKER:
         raise HTTPException(status_code=403, detail="worker credential required")
+    route_policy = _route_policy_for_request(request)
+    policy = PrincipalRoutePolicy(
+        waitlist_safe=route_policy.waitlist_safe,
+        audience=PrincipalAudience.WORKER,
+    )
+    try:
+        verify_principal_audience(principal, audience=policy.audience)
+        verify_org_access(
+            principal,
+            tenant_id,
+            policy=policy,
+            plane=request.app.state.chatticus.plane,
+        )
+    except (OrgAccessDeniedError, PrincipalAudienceDeniedError) as error:
+        raise _http_forbidden_from_principal_error(error) from error
+    _store_principal(request, principal)
     return principal
 
 
-async def reject_worker_credential(request: Request, tenant_id: str) -> None:
-    """Reject browser routes that present a valid worker bearer credential."""
+async def enforce_user_principal(request: Request, tenant_id: str) -> Principal:
+    """Require a Cognito id_token for one org-scoped user route."""
     token = parse_bearer_token(request.headers.get("Authorization"))
     if token is None:
-        return
+        raise HTTPException(status_code=403, detail="user credential required")
     plane: ControlPlane = request.app.state.chatticus.plane
     if plane.verify_worker_token(tenant_id, token) is not None:
         raise HTTPException(
             status_code=403,
             detail="worker credential not accepted on this route",
         )
+    verifier = _cognito_verifier_from_request(request)
+    try:
+        principal = resolve_user_principal_from_token(
+            plane, tenant_id, token, verifier=verifier
+        )
+    except CognitoTokenError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except IdentityNotFoundError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except MembershipNotFoundError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    route_policy = _route_policy_for_request(request)
+    policy = PrincipalRoutePolicy(
+        waitlist_safe=route_policy.waitlist_safe,
+        audience=PrincipalAudience.USER,
+    )
+    try:
+        verify_principal_audience(principal, audience=policy.audience)
+        verify_org_access(principal, tenant_id, policy=policy, plane=plane)
+    except (OrgAccessDeniedError, PrincipalAudienceDeniedError) as error:
+        raise _http_forbidden_from_principal_error(error) from error
+    _store_principal(request, principal)
+    return principal
 
 
-RequireWorkerPrincipal = Annotated[Principal, Depends(require_worker_principal)]
+RequireWorkerPrincipal = Annotated[Principal, Depends(enforce_worker_principal)]
+RequireUserPrincipal = Annotated[Principal, Depends(enforce_user_principal)]
+
+require_worker_principal = enforce_worker_principal
+require_user_principal = enforce_user_principal
 
 
 async def resolve_principal(request: Request) -> Principal:
-    """Resolve the authenticated principal for *request*.
-
-    User JWT resolution is implemented in a later task. This seam exists
-    for tests and the phase-4 enforcement join.
-    """
-    raise NotImplementedError("Principal resolver is not wired yet.")
+    """Resolve the authenticated principal for *request*."""
+    path = request.url.path
+    if is_no_principal_route(path):
+        raise HTTPException(
+            status_code=500,
+            detail="resolve_principal called for a no-principal route.",
+        )
+    if is_worker_bootstrap_route(path, method=request.method):
+        raise HTTPException(
+            status_code=500,
+            detail="resolve_principal called for worker registration bootstrap.",
+        )
+    if path == "/me":
+        token = parse_bearer_token(request.headers.get("Authorization"))
+        if token is None:
+            raise HTTPException(status_code=403, detail="user credential required")
+        verifier = _cognito_verifier_from_request(request)
+        plane: ControlPlane = request.app.state.chatticus.plane
+        try:
+            me = resolve_me_from_token(plane, token, verifier=verifier)
+        except CognitoTokenError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        if me.user_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="No identity is registered for the signed-in email.",
+            )
+        principal = Principal(
+            kind=PrincipalKind.USER,
+            tenant_id="",
+            user_id=me.user_id,
+        )
+        _store_principal(request, principal)
+        return principal
+    tenant_id = org_tenant_id_from_path(path)
+    if tenant_id is None:
+        raise HTTPException(status_code=403, detail="user credential required")
+    token = parse_bearer_token(request.headers.get("Authorization"))
+    if token is None:
+        raise HTTPException(status_code=403, detail="user credential required")
+    plane: ControlPlane = request.app.state.chatticus.plane
+    if plane.verify_worker_token(tenant_id, token) is not None:
+        return await enforce_worker_principal(request, tenant_id)
+    return await enforce_user_principal(request, tenant_id)
 
 
 RequirePrincipal = Annotated[Principal, Depends(resolve_principal)]

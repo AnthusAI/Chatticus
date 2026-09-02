@@ -5,14 +5,13 @@ from __future__ import annotations
 from datetime import timedelta
 
 from behave import given, then, when
+from browser_auth_helpers import wire_test_http_front_door
 from sse_helpers import SseWatcher
 from worker_http_helpers import register_worker_for_http, worker_auth_headers
 
 from chatticus.control_plane import ControlPlane
-from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.paths import org_path
-from chatticus.http.test_server import start_test_server
 from chatticus.models import TurnEventKind, TurnReconcilingError, TurnStatus
 from chatticus.turn_recovery import logical_enqueue_id
 from chatticus.worker.computerless import (
@@ -79,10 +78,7 @@ def given_recovery_control_plane(context: object) -> None:
         max_recovery_attempts=1,
         recovery_enabled=True,
     )
-    app = create_app(context.plane, invoke_key="")
-    context.api_app = app
-    context.app_state = app.state.chatticus
-    context.api_client = start_test_server(app)
+    wire_test_http_front_door(context, context.plane, invoke_key="")
     context.bots_by_name = {}
     context.last_channel = None
     context.last_turn_id = None

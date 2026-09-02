@@ -5,16 +5,16 @@ from __future__ import annotations
 from datetime import timedelta
 
 from behave import given, then, when
+from browser_auth_helpers import wire_test_http_front_door
 from worker_http_helpers import (
     register_worker_http,
     worker_auth_headers,
 )
 
 from chatticus.control_plane import ControlPlane
-from chatticus.http.app import INVOKE_HEADER, create_app
+from chatticus.http.app import INVOKE_HEADER
 from chatticus.http.paths import org_path
 from chatticus.http.principal import resolve_worker_bearer
-from chatticus.http.test_server import start_test_server
 from chatticus.models import MemberRole, OrganizationStatus
 from chatticus.principal import Principal, PrincipalKind
 
@@ -22,8 +22,7 @@ from chatticus.principal import Principal, PrincipalKind
 @given('an empty control plane with invoke key "{invoke_key}"')
 def given_empty_control_plane_with_invoke_key(context: object, invoke_key: str) -> None:
     context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
-    context.api_app = create_app(context.plane, invoke_key=invoke_key)
-    context.api_client = start_test_server(context.api_app)
+    wire_test_http_front_door(context, context.plane, invoke_key=invoke_key)
     context.api_client.headers[INVOKE_HEADER] = invoke_key
     context.bots_by_name = {}
     context.worker_tokens = {}

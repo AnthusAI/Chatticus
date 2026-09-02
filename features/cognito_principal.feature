@@ -28,6 +28,7 @@ Feature: Cognito user principal resolution
     When the Cognito resolver receives a valid id token for "owner@example.com"
     Then the resolved principal has organization status "suspended"
 
-  Scenario: Browser routes do not require a Cognito token yet
+  Scenario: Browser routes require a Cognito token
+    Given tenant "anthus" has an enabled organization for "owner@example.com"
     When a browser route is called without Authorization
-    Then the browser route succeeds without a principal
+    Then the browser route responds with status 403

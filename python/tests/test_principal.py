@@ -3,25 +3,38 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 
 import pytest
+from cognito_test_support import make_cognito_test_keys, mint_id_token
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 from starlette.requests import Request
 
+from chatticus.control_plane import ControlPlane
+from chatticus.http.app import create_app
+from chatticus.http.paths import org_path
 from chatticus.http.principal import (
     NO_PRINCIPAL_ROUTE_PREFIXES,
     NO_PRINCIPAL_ROUTES,
     WAITLIST_SAFE_ROUTE_PATHS,
+    OrgAccessDeniedError,
+    PrincipalRoutePolicy,
     is_no_principal_route,
     principal_route_policy,
     resolve_principal,
+    verify_org_access,
     waitlist_safe,
 )
 from chatticus.models import MemberRole, OrganizationStatus
+from chatticus.org_records import ANTHUS_TENANT_ID
 from chatticus.principal import (
     Principal,
     PrincipalKind,
     Role,
 )
+
+NOW = datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC)
 
 
 def test_principal_kind_has_user_and_worker_only() -> None:
@@ -97,10 +110,92 @@ def test_health_and_auth_routes_take_no_principal() -> None:
         assert is_no_principal_route(f"{prefix}callback")
 
 
-def test_resolve_principal_is_not_wired_for_users() -> None:
+def test_verify_org_access_rejects_pending_member_on_enabled_only_route() -> None:
+    plane = ControlPlane()
+    owner = plane.sign_in("owner@example.com", now=NOW)
+    plane._org_records._put_pending_organization(
+        owner,
+        ANTHUS_TENANT_ID,
+        tenant_id=ANTHUS_TENANT_ID,
+        now=NOW,
+    )
+    principal = Principal(
+        kind=PrincipalKind.USER,
+        tenant_id=ANTHUS_TENANT_ID,
+        user_id=owner.user_id,
+        organization_status=OrganizationStatus.PENDING,
+        role=MemberRole.OWNER,
+    )
+    with pytest.raises(OrgAccessDeniedError, match="enabled membership is required"):
+        verify_org_access(
+            principal,
+            ANTHUS_TENANT_ID,
+            policy=PrincipalRoutePolicy(),
+            plane=plane,
+        )
+
+
+def test_resolve_principal_is_wired_for_org_user_routes() -> None:
+    keys = make_cognito_test_keys()
+    plane = ControlPlane()
+    plane.admin_seed_organization(
+        ANTHUS_TENANT_ID,
+        "owner@example.com",
+        name="Anthus",
+        now=NOW,
+    )
+    app = create_app(plane, invoke_key="", cognito_verifier=keys.verifier())
+    client = TestClient(app)
+    response = client.post(
+        org_path(ANTHUS_TENANT_ID, "/bots"),
+        json={"user_id": "ryan", "name": "Helper"},
+    )
+    assert response.status_code == 403
+    token = mint_id_token(keys, email="owner@example.com")
+    response = client.post(
+        org_path(ANTHUS_TENANT_ID, "/bots"),
+        json={"user_id": "ryan", "name": "Helper"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+
+
+def test_resolve_principal_rejects_cross_org_membership() -> None:
+    keys = make_cognito_test_keys()
+    plane = ControlPlane()
+    plane.admin_seed_organization(
+        ANTHUS_TENANT_ID,
+        "owner@example.com",
+        name="Anthus",
+        now=NOW,
+    )
+    app = create_app(plane, invoke_key="", cognito_verifier=keys.verifier())
+    client = TestClient(app)
+    token = mint_id_token(keys, email="owner@example.com")
+    response = client.post(
+        org_path("other-household", "/bots"),
+        json={"user_id": "ryan", "name": "Helper"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_resolve_principal_raises_on_no_principal_route() -> None:
+    app = FastAPI()
+
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
     request = Request(
-        {"type": "http", "method": "GET", "path": "/sample", "headers": []}
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/health",
+            "headers": [],
+            "app": app,
+        }
     )
 
-    with pytest.raises(NotImplementedError, match="not wired"):
+    with pytest.raises(HTTPException, match="no-principal route"):
         asyncio.run(resolve_principal(request))
