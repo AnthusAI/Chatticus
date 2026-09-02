@@ -39,8 +39,8 @@ export const WEB_SITE_DOMAINS: Record<ChatticusCloudEnvironment, string> = {
 /** CloudFront ``enabled`` on ChatticusWeb* stacks (disable staging/prod without destroy). */
 export const WEB_CLOUDFRONT_ENABLED: Record<ChatticusCloudEnvironment, boolean> = {
   development: true,
-  staging: false,
-  production: false,
+  staging: true,
+  production: true,
 };
 
 export function thinTurnParameterPrefix(environment: ChatticusCloudEnvironment): string {
