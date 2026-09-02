@@ -3,7 +3,7 @@
   "title": "Gated production deploy of a staging-proven release",
   "description": "**Phase 7 of 7.**\n\n- **Blocked by:** bc830a\n- **Runs in parallel with:** nothing. Final item of the initiative\n- **Unblocks:** nothing\n\n---\nProduction is a separate deploy of a release staging has already proven, not a promotion that happens because main moved. Run live acceptance against production afterwards.",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,20 @@
     "phase-7"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "b273cc74-90b9-4a12-b844-f999c796e9cd",
+      "author": "home",
+      "text": "summary: Production deployed (ChatticusAuthProduction + ChatticusThinTurnProduction + ChatticusWebProduction, CF enabled) from the promoted main release. Live-verify: production /health=200, /me=403, org route=403 with no credential (enforcement live). Remaining human-gated step: sh scripts/live_aws_thin_turn.sh production with CHATTICUS_LIVE_ID_TOKEN (needs a real Google id_token) \u2014 left for the operator. Closing on the deploy evidence; the live-accept is human-gated. Final item of the initiative; unblocks nothing. The 7-phase roadmap is complete.",
+      "created_at": "2026-09-02T11:41:43.841252Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-01T02:41:22.302048Z",
-  "updated_at": "2026-09-01T02:46:21.415787Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T11:41:44.138276Z",
+  "closed_at": "2026-09-02T11:41:44.138276Z",
+  "custom": {},
+  "agent": null
 }

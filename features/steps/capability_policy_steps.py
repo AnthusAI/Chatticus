@@ -15,7 +15,7 @@ from chatticus.capability_policy import (
     parse_grant_table,
 )
 from chatticus.capability_sinks import POLICY_KERNEL_TENANT, POLICY_KERNEL_TURN
-from chatticus.models import ApprovalDecision
+from chatticus.models import ApprovalDecision, OrganizationNotFoundError
 from chatticus.overnight_gated import USER_CONTROLLED_COMPLETION_REQUIRED
 
 
@@ -33,6 +33,26 @@ def _policy_tenant(context: object) -> str:
 
 def _policy_turn(context: object) -> str:
     return getattr(context, "policy_turn_id", POLICY_KERNEL_TURN)
+
+
+def _ensure_durable_policy_turn(context: object, turn_id: str) -> None:
+    """Seed one turn for org-tenant sink specs; kernel tenants stay org-less."""
+    if not hasattr(context, "plane"):
+        return
+    tenant_id = _policy_tenant(context)
+    try:
+        context.plane.get_organization(tenant_id)
+    except OrganizationNotFoundError:
+        return
+    bot = next(iter(getattr(context, "bots_by_name", {}).values()), None)
+    acting_user_id = getattr(context, "last_acting_user_id", None)
+    if bot is not None and acting_user_id is not None:
+        context.plane.ensure_sink_turn(
+            tenant_id,
+            turn_id,
+            acting_user_id=acting_user_id,
+            bot_id=bot.bot_id,
+        )
 
 
 def _policy(context: object) -> CapabilityPolicy:
@@ -542,9 +562,11 @@ def given_privileged_session(context: object) -> None:
 @when("the bot opens an untrusted research page")
 def when_bot_opens_research_page(context: object) -> None:
     tenant_id = context.bots_by_name["Researcher"].tenant_id
+    turn_id = _policy_turn(context)
+    _ensure_durable_policy_turn(context, turn_id)
     context.active_browser_context = context.plane.open_untrusted_browser_context(
         tenant_id,
-        _policy_turn(context),
+        turn_id,
         "https://untrusted.example/article",
     )
 
@@ -566,6 +588,7 @@ def _structured_send_grant() -> TaskCapabilityGrant:
         ),
         file_scopes=frozenset(),
         egress_classes=frozenset({"structured_send", "file_transfer"}),
+        ingest_classes=frozenset(),
     )
 
 
@@ -573,8 +596,10 @@ def _structured_send_grant() -> TaskCapabilityGrant:
 def given_turn_carries_grant(context: object, turn_id: str) -> None:
     grant = _policy(context).grant
     assert grant is not None
+    tenant_id = _policy_tenant(context)
     context.policy_turn_id = turn_id
-    context.plane.set_turn_capability_grant(_policy_tenant(context), turn_id, grant)
+    _ensure_durable_policy_turn(context, turn_id)
+    context.plane.set_turn_capability_grant(tenant_id, turn_id, grant)
 
 
 @given('the household computer workspace file "{path}" contains "{content}"')
@@ -599,6 +624,7 @@ def given_exact_approval_grant(context: object) -> None:
         recipients=frozenset({"alex@example.com", "other@example.com"}),
         file_scopes=frozenset(),
         egress_classes=frozenset({"structured_send"}),
+        ingest_classes=frozenset(),
     )
     context.plane.set_turn_capability_grant(
         POLICY_KERNEL_TENANT, POLICY_KERNEL_TURN, grant

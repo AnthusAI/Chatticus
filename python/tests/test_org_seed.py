@@ -228,6 +228,42 @@ def test_members_cli_seed_without_computer(
     assert plane._messaging_store.get_computer(ANTHUS_TENANT_ID) is None
 
 
+def test_members_cli_seed_anthus_cold_path_empty_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Seed anthus enabled on an empty store with Anthus AI Solutions display name."""
+    store = InMemoryMessagingStore()
+    plane = ControlPlane(messaging_store=store)
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    result = members_main(
+        [
+            "seed",
+            "--tenant-id",
+            ANTHUS_TENANT_ID,
+            "--owner-email",
+            "ryan@anth.us",
+            "--name",
+            "Anthus AI Solutions",
+            "--yes",
+        ],
+        plane_factory=lambda: plane,
+    )
+    assert result == 0
+
+    organization = plane.get_organization(ANTHUS_TENANT_ID)
+    assert organization.status == OrganizationStatus.ENABLED
+    assert organization.name == "Anthus AI Solutions"
+    identity = store.get_identity_by_email("ryan@anth.us")
+    assert identity is not None
+    assert identity.email == "ryan@anth.us"
+    membership = store.get_membership(ANTHUS_TENANT_ID, identity.user_id)
+    assert membership is not None
+    assert membership.role == MemberRole.OWNER
+    assert plane._messaging_store.get_computer(ANTHUS_TENANT_ID) is None
+
+
 def test_members_cli_enable_still_requires_pending(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

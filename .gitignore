@@ -32,5 +32,10 @@ var/
 .idea/
 .vscode/
 *.swp
+# Web auth behavior harness state (test artifact, never commit)
+.auth-harness-state.json
+.membership-ui-harness-state.json
+# Kanbus event logs (LLM usage transcripts, local operational data)
+project/events/
 project/.overlay/
 project/.cache/

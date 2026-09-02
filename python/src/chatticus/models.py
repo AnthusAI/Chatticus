@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from chatticus.ceiling import Ceiling
 
 
 class CostClass(StrEnum):
@@ -98,6 +102,27 @@ class ActorKind(StrEnum):
 
     HUMAN = "human"
     BOT = "bot"
+
+
+KERNEL_HUMAN_AUTHOR = "kernel"
+
+
+@dataclass(frozen=True)
+class AuthorizationIdentity:
+    """A human member or bot that authored a rule or approval."""
+
+    kind: ActorKind
+    actor_id: str
+
+    @classmethod
+    def human(cls, user_id: str) -> AuthorizationIdentity:
+        """Return the identity of a human member."""
+        return cls(kind=ActorKind.HUMAN, actor_id=user_id)
+
+    @classmethod
+    def bot(cls, bot_id: str) -> AuthorizationIdentity:
+        """Return the identity of a bot."""
+        return cls(kind=ActorKind.BOT, actor_id=bot_id)
 
 
 class TurnEventKind(StrEnum):
@@ -242,6 +267,10 @@ class OrganizationSeedConflictError(ChatticusError):
     """An organization seed would overwrite or contradict existing records."""
 
 
+class MemberStandingRequiredError(ChatticusError):
+    """An org-scoped sink could not resolve the acting member's standing."""
+
+
 class OrganizationNotFoundError(ChatticusError):
     """The organization is unknown."""
 
@@ -284,6 +313,18 @@ class NotOrganizationOwnerError(ChatticusError):
 
 class LastOwnerCannotBeDemotedError(ChatticusError):
     """An organization must keep at least one owner."""
+
+
+class OrganizationOwnerCapError(ChatticusError):
+    """One person may own at most one organization unless an operator lifts it."""
+
+
+class OrganizationNameTooLongError(ChatticusError):
+    """The organization name exceeds the allowed length after trimming."""
+
+
+class OrganizationCreationRateLimitedError(ChatticusError):
+    """Too many organization creation attempts in the current window."""
 
 
 @dataclass(frozen=True)
@@ -333,8 +374,10 @@ class TurnJob:
 class AutoReviewRule:
     """A narrow auto-review rule matching an action type for one tenant.
 
-    Overnight pre-authorization requires ``created_by="human"`` and
-    ``argument_bindings`` that equal the concrete operation.
+    ``creator`` records who authorized the rule. ``user_id`` scopes which
+    member the rule matches at evaluation time. Overnight pre-authorization
+    requires a human creator and ``argument_bindings`` that equal the
+    concrete operation.
     """
 
     kind: AutoReviewRuleKind
@@ -342,7 +385,14 @@ class AutoReviewRule:
     tenant_id: str
     user_id: str | None = None
     argument_bindings: tuple[tuple[str, str], ...] = ()
-    created_by: str = "human"
+    creator: AuthorizationIdentity = field(
+        default_factory=lambda: AuthorizationIdentity.human(KERNEL_HUMAN_AUTHOR)
+    )
+
+    @property
+    def created_by(self) -> str:
+        """Return the creator kind for callers that only need human vs bot."""
+        return self.creator.kind.value
 
 
 @dataclass
@@ -549,6 +599,13 @@ class Membership:
     user_id: str
     role: MemberRole
     joined_at: datetime
+
+    @property
+    def ceiling(self) -> Ceiling:
+        """Standing authority preset for this membership's role."""
+        from chatticus.roles import ceiling_for_member_role
+
+        return ceiling_for_member_role(self.role)
 
 
 @dataclass(frozen=True)

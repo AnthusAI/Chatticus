@@ -418,6 +418,7 @@ def test_computer_worker_passes_active_browser_storage_partition() -> None:
             recipients=frozenset(),
             file_scopes=frozenset(),
             egress_classes=frozenset({EgressClass.APPROVED_ORIGIN_FETCH.value}),
+            ingest_classes=frozenset({"approved_origin_reference"}),
         ),
     )
     plane.open_privileged_browser_context(

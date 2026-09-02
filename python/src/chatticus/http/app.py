@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request
@@ -38,6 +38,12 @@ from chatticus.models import (
     ChatticusError,
     ComputerNotReadyError,
     CostClass,
+    MemberStandingRequiredError,
+    NotOrganizationOwnerError,
+    OrganizationCreationRateLimitedError,
+    OrganizationNameTooLongError,
+    OrganizationNotFoundError,
+    OrganizationOwnerCapError,
     StaleAttemptError,
     TaskAccessDeniedError,
     TaskNotFoundError,
@@ -54,6 +60,7 @@ from chatticus.models import (
     primary_human_participant,
 )
 from chatticus.principal import Principal
+from chatticus.signup_mode import SignupMode, signup_mode_from_env
 from chatticus.worker_credentials import parse_bearer_token
 
 logger = logging.getLogger("chatticus.http")
@@ -147,6 +154,7 @@ class PutTurnGrantBody(BaseModel):
     recipients: list[str] = Field(default_factory=list)
     file_scopes: list[str] = Field(default_factory=list)
     egress_classes: list[str] = Field(default_factory=list)
+    ingest_classes: list[str] = Field(default_factory=list)
 
 
 class ReadWorkspaceBody(BaseModel):
@@ -213,6 +221,34 @@ class MeResponseBody(BaseModel):
     organizations: list[MeOrganizationBody]
 
 
+class CreateOrganizationBody(BaseModel):
+    """Body for POST /organizations."""
+
+    name: str
+
+
+class CreateOrganizationResponseBody(BaseModel):
+    """Response for POST /organizations."""
+
+    tenant_id: str
+    name: str
+    status: str
+
+
+class CreateInvitationBody(BaseModel):
+    """Body for POST /orgs/{tenant_id}/invitations."""
+
+    email: str
+
+
+class CreateInvitationResponseBody(BaseModel):
+    """Response for POST /orgs/{tenant_id}/invitations."""
+
+    invitation_id: str
+    email: str
+    expires_at: str
+
+
 @dataclass
 class AppState:
     """Mutable front-door state attached to each app instance."""
@@ -221,6 +257,7 @@ class AppState:
     invoke_key: str
     environment: str
     cognito_verifier: CognitoJwtVerifier | None = None
+    signup_mode: SignupMode = SignupMode.INVITATION_ONLY
     open_sse_streams: int = 0
 
 
@@ -239,6 +276,7 @@ def create_app(
     invoke_key: str | None = None,
     environment: str | None = None,
     cognito_verifier: CognitoJwtVerifier | None = None,
+    signup_mode: SignupMode | None = None,
 ) -> FastAPI:
     """Build a FastAPI app backed by one control plane instance."""
     resolved_key = (
@@ -251,11 +289,15 @@ def create_app(
         if environment is not None
         else os.environ.get("CHATTICUS_ENVIRONMENT", "local")
     ).strip() or "local"
+    resolved_signup_mode = (
+        signup_mode if signup_mode is not None else signup_mode_from_env()
+    )
     state = AppState(
         plane=plane,
         invoke_key=resolved_key,
         environment=resolved_environment,
         cognito_verifier=cognito_verifier,
+        signup_mode=resolved_signup_mode,
     )
     app = FastAPI(
         title="Chatticus control plane",
@@ -307,7 +349,9 @@ def create_app(
         if token is None:
             raise HTTPException(status_code=403, detail="user credential required")
         try:
-            me = resolve_me_from_token(state.plane, token, verifier=verifier)
+            me = resolve_me_from_token(
+                state.plane, token, verifier=verifier, now=state.plane.now()
+            )
         except CognitoTokenError as error:
             raise HTTPException(status_code=403, detail=str(error)) from error
         return MeResponseBody(
@@ -320,6 +364,41 @@ def create_app(
                 )
                 for organization in me.organizations
             ],
+        )
+
+    @waitlist_safe
+    @app.post("/organizations", status_code=201)
+    def create_organization_route(
+        request: Request, body: CreateOrganizationBody
+    ) -> CreateOrganizationResponseBody:
+        if state.signup_mode is not SignupMode.OPEN:
+            raise HTTPException(
+                status_code=403,
+                detail="organization creation is not enabled on this deployment",
+            )
+        verifier = state.cognito_verifier
+        if verifier is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Cognito verifier is not configured for POST /organizations.",
+            )
+        token = parse_bearer_token(request.headers.get("Authorization"))
+        if token is None:
+            raise HTTPException(status_code=403, detail="user credential required")
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="organization name is required")
+        try:
+            verified = verifier.verify_id_token(token)
+        except CognitoTokenError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        now = datetime.now(tz=UTC)
+        owner = state.plane.sign_in(verified.email, now=now)
+        organization = state.plane.create_organization(owner, name, now=now)
+        return CreateOrganizationResponseBody(
+            tenant_id=organization.tenant_id,
+            name=organization.name,
+            status=organization.status.value,
         )
 
     @org_router.post("/workers/register")
@@ -354,6 +433,34 @@ def create_app(
             worker_id,
         )
         return {"status": "ok"}
+
+    @user_router.post("/invitations", status_code=201)
+    def create_invitation(
+        tenant_id: str,
+        body: CreateInvitationBody,
+        principal: RequireUserPrincipal,
+    ) -> CreateInvitationResponseBody:
+        if principal.user_id is None:
+            raise HTTPException(status_code=403, detail="user credential required")
+        email = body.email.strip()
+        if not email:
+            raise HTTPException(status_code=400, detail="email is required")
+        try:
+            invitation = state.plane.invite_by_email(
+                tenant_id,
+                principal.user_id,
+                email,
+                now=state.plane.now(),
+            )
+        except OrganizationNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except NotOrganizationOwnerError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        return CreateInvitationResponseBody(
+            invitation_id=invitation.invitation_id,
+            email=invitation.email,
+            expires_at=invitation.expires_at.isoformat(),
+        )
 
     @user_router.post("/bots")
     def create_bot(
@@ -955,6 +1062,8 @@ def _status_for_error(error: ChatticusError) -> int:
         return 403
     if isinstance(error, TaskAccessDeniedError):
         return 403
+    if isinstance(error, MemberStandingRequiredError):
+        return 403
     if isinstance(error, TaskNotFoundError):
         return 404
     if isinstance(error, StaleAttemptError | TurnClaimDeniedError):
@@ -969,6 +1078,16 @@ def _status_for_error(error: ChatticusError) -> int:
         return 409
     if isinstance(error, ChannelNotFoundError | TurnNotFoundError):
         return 404
+    if isinstance(error, OrganizationNotFoundError):
+        return 404
+    if isinstance(error, OrganizationOwnerCapError):
+        return 409
+    if isinstance(error, OrganizationCreationRateLimitedError):
+        return 429
+    if isinstance(error, OrganizationNameTooLongError):
+        return 400
+    if isinstance(error, NotOrganizationOwnerError):
+        return 403
     return 400
 
 

@@ -138,12 +138,15 @@ def _post_chunk_http(
 
 @when('tenant "{tenant_id}" user "{user_id}" opens a channel with bots:')
 def when_open_channel(context: object, tenant_id: str, user_id: str) -> None:
+    from membership_helpers import ensure_messaging_user_membership
+
     bot_ids = _bot_ids(context, context.table)
     response = context.api_client.post(
         org_path(tenant_id, "/channels"),
         json={"user_id": user_id, "bot_ids": bot_ids},
     )
     assert response.status_code == 200
+    ensure_messaging_user_membership(context.plane, tenant_id, user_id)
     channel_id = response.json()["channel_id"]
     opened = getattr(context, "opened_channel_ids", None)
     if opened is None:
@@ -185,6 +188,8 @@ def given_open_channel(context: object, tenant_id: str, user_id: str) -> None:
 def given_channel_with_named_bot(
     context: object, tenant_id: str, user_id: str, name: str
 ) -> None:
+    from membership_helpers import ensure_messaging_user_membership
+
     if name not in context.bots_by_name:
         context.bots_by_name[name] = context.plane.create_bot(
             tenant_id, name, creator_user_id=user_id
@@ -195,6 +200,7 @@ def given_channel_with_named_bot(
         json={"user_id": user_id, "bot_ids": [bot.bot_id]},
     )
     assert response.status_code == 200
+    ensure_messaging_user_membership(context.plane, tenant_id, user_id)
     _load_channel(context, tenant_id, response.json()["channel_id"])
 
 

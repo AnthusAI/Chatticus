@@ -132,8 +132,32 @@ describe("AuthStack", () => {
           Value: authDomainName,
         });
       });
+
+      it("creates a FederationSuccesses flood alarm without actions in CI synth", () => {
+        template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+          AlarmName: `chatticus-${environmentName}-cognito-federation-flood`,
+          MetricName: "FederationSuccesses",
+          Namespace: "AWS/Cognito",
+          Statistic: "Sum",
+          Period: 86400,
+          EvaluationPeriods: 1,
+          DatapointsToAlarm: 1,
+          Threshold: 2000,
+          ComparisonOperator: "GreaterThanOrEqualToThreshold",
+          TreatMissingData: "notBreaching",
+        });
+        template.resourceCountIs("AWS::CloudWatch::Alarm", 1);
+      });
     });
   }
+
+  it("wires FederationSuccesses alarm actions when a budgets topic ARN is provided", () => {
+    const topicArn = "arn:aws:sns:us-east-1:111111111111:chatticus-budgets-alerts";
+    const template = synthAuthStack("development", topicArn);
+    template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+      AlarmActions: [topicArn],
+    });
+  });
 
   it("maps auth domains to single-label hostnames covered by *.chattic.us", () => {
     assert.equal(AUTH_DOMAIN_NAMES.development, "auth-dev.chattic.us");

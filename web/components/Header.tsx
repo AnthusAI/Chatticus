@@ -14,7 +14,7 @@ export function Header() {
           aria-label="Chatticus home"
           className="rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/30"
         >
-          <Wordmark />
+          <Wordmark animated="auto" />
         </a>
         <div className="hidden items-center gap-7 font-body text-sm font-semibold lg:flex">
           <a className="nav-link" href="#organization">
@@ -32,7 +32,7 @@ export function Header() {
         </div>
         <Button asChild size="sm" variant="dark">
           <a href="https://hey.chattic.us">
-            Open the app
+            Hey, Chatticus...
             <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
           </a>
         </Button>

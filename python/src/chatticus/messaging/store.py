@@ -29,6 +29,8 @@ from chatticus.models import (
     Membership,
     Message,
     Organization,
+    OrganizationCreationRateLimitedError,
+    OrganizationOwnerCapError,
     OrganizationStatus,
     PendingComputerToolSnapshot,
     StaleAttemptError,
@@ -247,11 +249,35 @@ class MessagingStore(Protocol):
     ) -> list[Organization]:
         """Return every organization with one lifecycle status."""
 
+    def record_organization_creation_attempt(
+        self,
+        user_id: str,
+        *,
+        now: datetime,
+        limit: int,
+        window: timedelta,
+    ) -> None:
+        """Increment one creation attempt and refuse when over the limit."""
+
+    def create_pending_organization(
+        self,
+        owner: Identity,
+        name: str,
+        *,
+        tenant_id: str,
+        now: datetime,
+        enforce_owner_cap: bool,
+    ) -> Organization:
+        """Create one pending organization, owner membership, and indexes."""
+
     def put_invitation(self, invitation: Invitation) -> None:
-        """Persist one invitation and its lookup item."""
+        """Persist one invitation and its lookup items."""
 
     def get_invitation(self, invitation_id: str) -> Invitation | None:
         """Load one invitation by id."""
+
+    def list_pending_invitations_for_email(self, email: str) -> list[Invitation]:
+        """Return pending invitations addressed to one normalized email."""
 
     def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
         """Return distinct user ids referenced by one tenant's messaging rows."""
@@ -306,6 +332,8 @@ class InMemoryMessagingStore:
         self._identities_by_email: dict[str, Identity] = {}
         self._identities_by_user: dict[str, Identity] = {}
         self._organizations: dict[str, Organization] = {}
+        self._org_creation_attempts: dict[str, list[datetime]] = {}
+        self._owned_org_caps: dict[str, str] = {}
         self._memberships: dict[tuple[str, str], Membership] = {}
         self._user_org_index: dict[tuple[str, str], Membership] = {}
         self._invitations: dict[str, Invitation] = {}
@@ -650,6 +678,60 @@ class InMemoryMessagingStore:
             key=lambda organization: organization.tenant_id,
         )
 
+    def record_organization_creation_attempt(
+        self,
+        user_id: str,
+        *,
+        now: datetime,
+        limit: int,
+        window: timedelta,
+    ) -> None:
+        cutoff = now - window
+        attempts = [
+            timestamp
+            for timestamp in self._org_creation_attempts.get(user_id, [])
+            if timestamp > cutoff
+        ]
+        attempts.append(now)
+        self._org_creation_attempts[user_id] = attempts
+        if len(attempts) > limit:
+            raise OrganizationCreationRateLimitedError(
+                f"User {user_id!r} exceeded the organization creation rate limit "
+                f"of {limit} attempts per {window}."
+            )
+
+    def create_pending_organization(
+        self,
+        owner: Identity,
+        name: str,
+        *,
+        tenant_id: str,
+        now: datetime,
+        enforce_owner_cap: bool,
+    ) -> Organization:
+        if enforce_owner_cap and owner.user_id in self._owned_org_caps:
+            raise OrganizationOwnerCapError(
+                f"User {owner.user_id!r} already owns an organization."
+            )
+        organization = Organization(
+            tenant_id=tenant_id,
+            name=name,
+            status=OrganizationStatus.PENDING,
+            owner_user_id=owner.user_id,
+            created_at=now,
+        )
+        membership = Membership(
+            tenant_id=tenant_id,
+            user_id=owner.user_id,
+            role=MemberRole.OWNER,
+            joined_at=now,
+        )
+        self.put_organization(organization)
+        self.put_membership(membership)
+        if enforce_owner_cap:
+            self._owned_org_caps[owner.user_id] = tenant_id
+        return organization
+
     def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
         user_ids: set[str] = set()
         for channel in self._channels.values():
@@ -689,6 +771,17 @@ class InMemoryMessagingStore:
 
     def get_invitation(self, invitation_id: str) -> Invitation | None:
         return self._invitations.get(invitation_id)
+
+    def list_pending_invitations_for_email(self, email: str) -> list[Invitation]:
+        return sorted(
+            (
+                invitation
+                for invitation in self._invitations.values()
+                if invitation.email == email
+                and invitation.status == InvitationStatus.PENDING
+            ),
+            key=lambda invitation: invitation.created_at,
+        )
 
     def get_vendor_ledger_row(
         self, tenant_id: str, turn_id: str
@@ -1724,6 +1817,115 @@ class DynamoMessagingStore:
             scan_kwargs["ExclusiveStartKey"] = last_key
         return sorted(organizations, key=lambda organization: organization.tenant_id)
 
+    def record_organization_creation_attempt(
+        self,
+        user_id: str,
+        *,
+        now: datetime,
+        limit: int,
+        window: timedelta,
+    ) -> None:
+        window_seconds = max(int(window.total_seconds()), 1)
+        bucket = int(now.timestamp()) // window_seconds
+        expires_at = int((now + window + timedelta(hours=1)).timestamp())
+        response = self.client.update_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._user_pk(user_id)},
+                "sk": {"S": self._org_create_rate_sk(bucket)},
+            },
+            UpdateExpression=(
+                "SET attempt_count = if_not_exists(attempt_count, :zero) + :one, "
+                "expires_at = :expires"
+            ),
+            ExpressionAttributeValues={
+                ":zero": {"N": "0"},
+                ":one": {"N": "1"},
+                ":expires": {"N": str(expires_at)},
+            },
+            ReturnValues="ALL_NEW",
+        )
+        count = int(response["Attributes"]["attempt_count"]["N"])
+        if count > limit:
+            raise OrganizationCreationRateLimitedError(
+                f"User {user_id!r} exceeded the organization creation rate limit "
+                f"of {limit} attempts per {window}."
+            )
+
+    def create_pending_organization(
+        self,
+        owner: Identity,
+        name: str,
+        *,
+        tenant_id: str,
+        now: datetime,
+        enforce_owner_cap: bool,
+    ) -> Organization:
+        organization = Organization(
+            tenant_id=tenant_id,
+            name=name,
+            status=OrganizationStatus.PENDING,
+            owner_user_id=owner.user_id,
+            created_at=now,
+        )
+        membership = Membership(
+            tenant_id=tenant_id,
+            user_id=owner.user_id,
+            role=MemberRole.OWNER,
+            joined_at=now,
+        )
+        transact_items: list[dict[str, Any]] = [
+            {
+                "Put": {
+                    "TableName": self.table_name,
+                    "Item": _organization_item(organization),
+                }
+            },
+            {
+                "Put": {
+                    "TableName": self.table_name,
+                    "Item": _membership_item(membership),
+                }
+            },
+            {
+                "Put": {
+                    "TableName": self.table_name,
+                    "Item": {
+                        "pk": {"S": self._user_pk(owner.user_id)},
+                        "sk": {"S": self._user_org_sk(tenant_id)},
+                        "tenant_id": {"S": tenant_id},
+                        "user_id": {"S": owner.user_id},
+                        "role": {"S": membership.role},
+                    },
+                }
+            },
+        ]
+        if enforce_owner_cap:
+            transact_items.insert(
+                0,
+                {
+                    "Put": {
+                        "TableName": self.table_name,
+                        "Item": {
+                            "pk": {"S": self._user_pk(owner.user_id)},
+                            "sk": {"S": self._owned_org_cap_sk()},
+                            "user_id": {"S": owner.user_id},
+                            "tenant_id": {"S": tenant_id},
+                        },
+                        "ConditionExpression": "attribute_not_exists(pk)",
+                    }
+                },
+            )
+        try:
+            self.client.transact_write_items(TransactItems=transact_items)
+        except self.client.exceptions.TransactionCanceledException as error:
+            if enforce_owner_cap and _transaction_has_conditional_failure(error):
+                raise OrganizationOwnerCapError(
+                    f"User {owner.user_id!r} already owns an organization."
+                ) from error
+            raise
+        return organization
+
     def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
         user_ids: set[str] = set()
         query_kwargs: dict[str, Any] = {
@@ -1790,6 +1992,16 @@ class DynamoMessagingStore:
                 "invitation_id": {"S": invitation.invitation_id},
             },
         )
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._invitation_email_pk(invitation.email)},
+                "sk": {"S": self._invitation_email_sk(invitation.invitation_id)},
+                "invitation_id": {"S": invitation.invitation_id},
+                "tenant_id": {"S": invitation.tenant_id},
+                "expires_at": {"N": str(int(invitation.expires_at.timestamp()))},
+            },
+        )
 
     def get_invitation(self, invitation_id: str) -> Invitation | None:
         response = self.client.get_item(
@@ -1814,6 +2026,26 @@ class DynamoMessagingStore:
         if canonical_item is None:
             return None
         return _invitation_from_item(canonical_item)
+
+    def list_pending_invitations_for_email(self, email: str) -> list[Invitation]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._invitation_email_pk(email)},
+                ":prefix": {"S": "pending#"},
+            },
+        )
+        invitations: list[Invitation] = []
+        for item in response.get("Items", []):
+            invitation_id = item["invitation_id"]["S"]
+            invitation = self.get_invitation(invitation_id)
+            if invitation is None:
+                continue
+            if invitation.status != InvitationStatus.PENDING:
+                continue
+            invitations.append(invitation)
+        return sorted(invitations, key=lambda invitation: invitation.created_at)
 
     def get_vendor_ledger_row(
         self, tenant_id: str, turn_id: str
@@ -1922,8 +2154,20 @@ class DynamoMessagingStore:
     def _user_org_sk(self, tenant_id: str) -> str:
         return f"org#{tenant_id}"
 
+    def _owned_org_cap_sk(self) -> str:
+        return "owned_org#cap"
+
+    def _org_create_rate_sk(self, bucket: int) -> str:
+        return f"org_create_rate#{bucket}"
+
     def _invitation_lookup_pk(self, invitation_id: str) -> str:
         return f"invitation_lookup#{invitation_id}"
+
+    def _invitation_email_pk(self, email: str) -> str:
+        return f"invitation_email#{email}"
+
+    def _invitation_email_sk(self, invitation_id: str) -> str:
+        return f"pending#{invitation_id}"
 
     def _invite_sk(self, invitation_id: str) -> str:
         return f"invite#{invitation_id}"
@@ -2101,6 +2345,14 @@ def _task_from_item(item: dict[str, Any]) -> Task:
         close_reason=item.get("close_reason", {}).get("S") or None,
         created_by_bot_id=item.get("created_by_bot_id", {}).get("S") or None,
         updated_by_bot_id=item.get("updated_by_bot_id", {}).get("S") or None,
+    )
+
+
+def _transaction_has_conditional_failure(error: Any) -> bool:
+    reasons = error.response.get("CancellationReasons", ())
+    return any(
+        isinstance(reason, dict) and reason.get("Code") == "ConditionalCheckFailed"
+        for reason in reasons
     )
 
 

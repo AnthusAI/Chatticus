@@ -1,8 +1,11 @@
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+import * as cloudwatchActions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as route53Targets from "aws-cdk-lib/aws-route53-targets";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import * as sns from "aws-cdk-lib/aws-sns";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
@@ -17,6 +20,8 @@ export interface AuthStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
   hostedZone: route53.IHostedZone;
   siteCertificate: acm.ICertificate;
+  /** When set, Cognito flood alarms notify this SNS topic (ChatticusBudgets). */
+  budgetsAlertsTopicArn?: string;
 }
 
 /**
@@ -127,6 +132,36 @@ export class AuthStack extends cdk.Stack {
       stringValue: authDomainName,
       description: `Cognito custom auth hostname for ${environmentName}.`,
     });
+
+    const federationFloodAlarm = new cloudwatch.Alarm(this, "CognitoFederationFlood", {
+      alarmName: `chatticus-${environmentName}-cognito-federation-flood`,
+      alarmDescription:
+        "Leading indicator only: counts all successful Google federated auths " +
+        "in this user pool, not billed MAU and not first-time sign-ins alone. " +
+        "True MAU is billing-sourced. Threshold is well below the 10,000 MAU " +
+        "free tier so operators learn about a flood from an alarm, not an invoice.",
+      metric: new cloudwatch.Metric({
+        namespace: "AWS/Cognito",
+        metricName: "FederationSuccesses",
+        statistic: "Sum",
+        period: cdk.Duration.days(1),
+        dimensionsMap: {
+          UserPool: userPool.userPoolId,
+        },
+      }),
+      threshold: 2000,
+      evaluationPeriods: 1,
+      datapointsToAlarm: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    if (props.budgetsAlertsTopicArn) {
+      federationFloodAlarm.addAlarmAction(
+        new cloudwatchActions.SnsAction(
+          sns.Topic.fromTopicArn(this, "BudgetsAlertsTopic", props.budgetsAlertsTopicArn),
+        ),
+      );
+    }
 
     new cdk.CfnOutput(this, "ChatticusEnvironment", { value: environmentName });
     new cdk.CfnOutput(this, "CognitoUserPoolId", { value: userPool.userPoolId });

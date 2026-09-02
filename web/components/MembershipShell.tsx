@@ -1,13 +1,16 @@
 "use client";
 
 import { EnabledWorkspace } from "./EnabledWorkspace";
+import { CreateOrganizationPanel } from "./CreateOrganizationPanel";
 import { NoOrganizationPanel } from "./NoOrganizationPanel";
-import { PendingOrganizationPanel } from "./PendingOrganizationPanel";
+import { WelcomeOrganizationPanel } from "./WelcomeOrganizationPanel";
 import { SignInPanel, SignedInHeader } from "./SignInPanel";
 import { useMembership } from "../lib/membership-context";
+import { readSignupModeFromEnv } from "../lib/signup-mode";
 
 export function MembershipShell() {
   const { authLoading, meLoading, branch, activeOrg, error } = useMembership();
+  const signupMode = readSignupModeFromEnv();
 
   if (authLoading || (branch !== "signed-out" && meLoading)) {
     return (
@@ -47,8 +50,11 @@ export function MembershipShell() {
         </section>
       ) : null}
 
-      {branch === "no-org" ? <NoOrganizationPanel /> : null}
-      {branch === "pending" ? <PendingOrganizationPanel /> : null}
+      {branch === "no-org" && signupMode === "open" ? <CreateOrganizationPanel /> : null}
+      {branch === "no-org" && signupMode === "invitation_only" ? (
+        <NoOrganizationPanel />
+      ) : null}
+      {branch === "pending" ? <WelcomeOrganizationPanel /> : null}
       {branch === "enabled" && activeOrg ? (
         <EnabledWorkspace activeOrg={activeOrg} />
       ) : null}

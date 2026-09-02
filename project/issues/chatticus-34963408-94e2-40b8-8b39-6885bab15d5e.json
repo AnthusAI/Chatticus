@@ -3,7 +3,7 @@
   "title": "Signing out actually signs out",
   "description": "**Phase 4 of 7.**\n\n- **Blocked by:** 22f5bb\n- **Runs in parallel with:** e41552, ae51dc\n- **Unblocks:** nothing\n\n---\n**Found by inversion: what does the second person to use a laptop see?**\n\nTokens live in memory, so a naive sign-out clears them and looks correct. It is not. Cognito keeps its own session on the auth domain, so the next sign-in silently re-authenticates as the same person with no prompt. On any shared machine, sign out then sign in returns the previous human's session, and the app has no way to tell.\n\nCall the Cognito logout endpoint and clear local state. Also decide what a signed-out person sees on return: the marketing apex, or the app's signed-out state.\n\n**Done when:** signing out and signing back in on the same browser presents Google's account chooser rather than silently restoring the previous person.",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,20 @@
     "phase-4"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "863be08c-d377-4a98-88e5-8803150892f9",
+      "author": "home",
+      "text": "summary: Signing out now ends the Cognito/Google SSO session. Implemented in PR #169 (squash-merged to develop as 2ce9c77): web/lib/auth.ts signOut() calls userManager.signoutRedirect({id_token_hint}) then removeUser(); sign-in extraQueryParams adds prompt=select_account so Google shows the account chooser; new /auth/signout-callback page calls completeSignOutRedirect() + removeUser() to clear in-memory state; infra/lib/auth-stack.ts logoutUrls extended with /auth/signout-callback; cloudfront-functions.ts adds a viewer-request rewrite for the trailingSlash export; cognito-config.ts postLogoutRedirectUri() -> /auth/signout-callback. Tokens stay in-memory only (InMemoryWebStorage) \u2014 no localStorage/cookie/session regression. BDD-first: features/web_google_sign_out.feature (3 scenarios) + features/steps/web_auth_steps.py backed by web/test-support/auth-behavior-harness.ts; CI installs web deps for the harness. Gates: black, ruff, pytest (459), behave (283 incl 3 new), npm test/lint/typecheck/build all green; PR #169 CI green.\n\nRemaining step before live on dev: the Cognito logoutUrls + CloudFront rewrite changes require a named ChatticusAuth + ChatticusWeb development deploy. Manual verification on dev after deploy is the final acceptance step. Closing on green code + CI; deploy is operator-gated.",
+      "created_at": "2026-09-02T00:51:19.726251Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-01T02:57:18.539784Z",
-  "updated_at": "2026-09-01T02:57:18.539784Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T00:51:20.151627Z",
+  "closed_at": "2026-09-02T00:51:20.151627Z",
+  "custom": {},
+  "agent": null
 }

@@ -3,7 +3,7 @@
   "title": "Branch the app on membership state",
   "description": "**Phase 4 of 7.**\n\n- **Blocked by:** 5558db, 5f0c4c, b574a6\n- **Runs in parallel with:** nothing. It is the last piece the join waits on\n- **Unblocks:** 7b4616, e41552\n\n---\nGET /me returns the person and their organizations with status. The app branches: signed out, signed in with no organization, organization pending, organization enabled. Same hostname, same app, one branch.\n\nDelete the build-time tenantId and userId constants from web/lib/config.ts; the organization comes from /me and then travels in the request path.\n\n**Done when:** all four states render against development.",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,16 @@
     "phase-4"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "c77a28cd-532e-43d7-990a-0fdb4489773c",
+      "author": "home",
+      "text": "Independent audit pass: closing as genuinely done. 22f5bb (branch web UI on GET /me membership state) merged to develop as #162 (52cd083). The four membership states (signed-out, no-org, pending, enabled) are live on dev.chattic.us per README 'Membership UI' row. 7b4616, which was blocked by 22f5bb, is now closed and deployed on development (squash da3d60e). The card was open in both 'kanbus list' and 'kanbus show' with zero comments, so this is a stale status, not the list/show cap bug. Closing to align the board with reality.",
+      "created_at": "2026-09-02T00:46:15.712856Z"
+    }
+  ],
   "created_at": "2026-09-01T02:40:45.584428Z",
-  "updated_at": "2026-09-01T02:46:21.240556Z",
-  "closed_at": null,
+  "updated_at": "2026-09-02T00:46:16.098725Z",
+  "closed_at": "2026-09-02T00:46:16.098725Z",
   "custom": {}
 }

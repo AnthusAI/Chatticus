@@ -1,5 +1,6 @@
 import { ArrowDownRight, ArrowUpRight, Github } from "lucide-react";
 import { WorkspacePrototype } from "@/components/WorkspacePrototype";
+import { Wordmark } from "@/components/Wordmark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +20,12 @@ export function Hero() {
       <div className="hero-grid absolute inset-0 -z-10 opacity-60" />
       <div className="mx-auto grid max-w-[92rem] items-center gap-12 px-5 py-14 sm:px-8 sm:py-16 lg:grid-cols-[1.08fr_0.92fr] lg:gap-10 lg:px-12 lg:py-20">
         <div className="max-w-[46rem]">
+          <Wordmark
+            reportsPresenceAsHero
+            showText={false}
+            size={72}
+            className="animate-rise mb-6"
+          />
           <Badge variant="outline" className="animate-rise">
             Named teammates · one shared computer
           </Badge>

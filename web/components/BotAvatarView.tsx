@@ -1,6 +1,14 @@
 "use client";
 
-import { BotAvatar, type BotAvatarState, creativeDeskModelForRole, type CreativeRole } from "anthus-vultus";
+import {
+  type BotAvatarState,
+  characterColorProps,
+  characterGazeConfig,
+  creativeCharacterModelForRole,
+  creativeCharacterSpecForRole,
+  type CreativeRole,
+  BotAvatar,
+} from "anthus-vultus";
 
 type BotAvatarViewProps = {
   botName: string;
@@ -25,7 +33,9 @@ export function BotAvatarView({
   ariaLabel,
   className,
 }: BotAvatarViewProps) {
-  const model = creativeDeskModelForRole(getRoleForBotName(botName));
+  const role = getRoleForBotName(botName);
+  const spec = creativeCharacterSpecForRole(role);
+  const model = creativeCharacterModelForRole(role);
 
   return (
     <div className={className}>
@@ -34,8 +44,9 @@ export function BotAvatarView({
         state={state}
         size={size}
         neutralIdleMode="static"
-        shadowColor="#2a3441"
-        lightColor="#e7ecf3"
+        gaze="pointer"
+        gazeConfig={characterGazeConfig(spec)}
+        {...characterColorProps(spec)}
         ariaLabel={ariaLabel ?? `${botName} avatar`}
       />
     </div>

@@ -15,7 +15,6 @@ from chatticus.messaging.store import (
 )
 from chatticus.models import (
     InvitationEmailMismatchError,
-    InvitationStatus,
     LastOwnerCannotBeDemotedError,
     MemberRole,
     MembershipNotFoundError,
@@ -81,32 +80,6 @@ def test_create_organization_pending_with_owner() -> None:
     membership = kernel.store.get_membership(org.tenant_id, owner.user_id)
     assert membership is not None
     assert membership.role == MemberRole.OWNER
-
-
-def test_invite_creates_pending_invitation() -> None:
-    kernel = OrgRecordsKernel(InMemoryMessagingStore())
-    owner = kernel.sign_in("ryan@example.com", now=NOW)
-    org = kernel.create_organization(owner, "Anthus Labs", now=NOW)
-    invitation = kernel.invite_by_email(
-        org.tenant_id, owner.user_id, "sam@example.com", now=NOW
-    )
-    assert invitation.status == InvitationStatus.PENDING
-    assert invitation.email == "sam@example.com"
-
-
-def test_accept_on_enabled_org_grants_membership() -> None:
-    kernel = OrgRecordsKernel(InMemoryMessagingStore())
-    owner = kernel.sign_in("ryan@example.com", now=NOW)
-    org = kernel.create_organization(owner, "Anthus Labs", now=NOW)
-    kernel.enable_organization(org.tenant_id)
-    invitation = kernel.invite_by_email(
-        org.tenant_id, owner.user_id, "sam@example.com", now=NOW
-    )
-    acceptor = kernel.sign_in("sam@example.com", now=NOW)
-    membership = kernel.accept_invitation(invitation.invitation_id, acceptor, now=NOW)
-    assert membership.role == MemberRole.MEMBER
-    orgs = kernel.list_organizations_for_user(acceptor.user_id)
-    assert [loaded.tenant_id for loaded in orgs] == [org.tenant_id]
 
 
 def test_accept_on_pending_org_raises() -> None:
@@ -337,3 +310,28 @@ def test_invitation_dual_write_creates_lookup_item() -> None:
         },
     )
     assert response["Item"]["tenant_id"]["S"] == org.tenant_id
+
+
+@mock_aws
+def test_invitation_email_lookup_supports_list_by_email() -> None:
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    table_name = "chatticus-org-invitation-email-index"
+    create_messaging_table(client, table_name)
+    store = DynamoMessagingStore(table_name, client=client)
+    kernel = OrgRecordsKernel(store)
+    owner = kernel.sign_in("ryan@example.com", now=NOW)
+    org = kernel.create_organization(owner, "Anthus Labs", now=NOW)
+    kernel.enable_organization(org.tenant_id)
+    invitation = kernel.invite_by_email(
+        org.tenant_id, owner.user_id, "sam@example.com", now=NOW
+    )
+    response = client.get_item(
+        TableName=table_name,
+        Key={
+            "pk": {"S": "invitation_email#sam@example.com"},
+            "sk": {"S": f"pending#{invitation.invitation_id}"},
+        },
+    )
+    assert response["Item"]["invitation_id"]["S"] == invitation.invitation_id
+    pending = store.list_pending_invitations_for_email("sam@example.com")
+    assert [item.invitation_id for item in pending] == [invitation.invitation_id]

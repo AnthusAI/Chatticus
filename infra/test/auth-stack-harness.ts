@@ -18,6 +18,7 @@ const testEnv = {
 
 export function synthAuthStack(
   environmentName: ChatticusCloudEnvironment,
+  budgetsAlertsTopicArn?: string,
 ): Template {
   const app = new cdk.App();
   const deps = new cdk.Stack(app, "Deps", { env: testEnv });
@@ -36,6 +37,7 @@ export function synthAuthStack(
     chatticusEnvironment: environmentName,
     hostedZone,
     siteCertificate,
+    budgetsAlertsTopicArn,
   });
 
   return Template.fromStack(stack);

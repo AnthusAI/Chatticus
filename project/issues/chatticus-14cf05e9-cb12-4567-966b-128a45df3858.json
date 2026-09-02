@@ -3,7 +3,7 @@
   "title": "Roles are named ceilings",
   "description": "**Phase 6 of 7.**\n\n- **Blocked by:** eef4aa\n- **Runs in parallel with:** ac3b7a and b49a89\n- **Unblocks:** nothing\n\n---\nowner is the full ceiling; member excludes purchase and production_change. Roles are presentation over ceilings, never a separate permission matrix, so later granularity is a change to ceiling data rather than a redesign.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,29 @@
     "phase-6"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "9695ce13-1943-4a2b-a1ef-07caf2bd4008",
+      "author": "home",
+      "text": "Starting: eef4aa ceiling type landed. Dispatching Composer 2.5 (parallel Phase 6 task, independent concern).",
+      "created_at": "2026-09-02T11:04:10.090334Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "b1c91eb9-07ca-4fb0-a68a-bfda620c20f7",
+      "author": "home",
+      "text": "summary: Implemented in PR #177 (squash-merged to develop). python/src/chatticus/roles.py: ROLE_CEILINGS map + ceiling_for_member_role() (owner = full consequential standing; member excludes purchase and production_change). Membership.ceiling derives from role via models.py. 4 pytest (506 total). Pure pytest, no Gherkin (roles are presentation over Ceiling, not behavior). Gates: black, ruff, pytest (506), behave (310); PR #177 CI green. Done-when met: roles are named ceilings (presentation over ceiling data). Closing. Unblocks nothing.",
+      "created_at": "2026-09-02T11:17:58.633264Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-01T02:41:22.264655Z",
-  "updated_at": "2026-09-01T02:46:21.381384Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T11:17:58.959810Z",
+  "closed_at": "2026-09-02T11:17:58.959810Z",
+  "custom": {},
+  "agent": null
 }

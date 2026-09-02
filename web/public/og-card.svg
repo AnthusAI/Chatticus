@@ -9,7 +9,7 @@
   <rect x="64" y="66" width="52" height="52" rx="18" fill="#11130f"/>
   <circle cx="90" cy="92" r="9" fill="#f2efe7"/>
   <circle cx="111" cy="70" r="10" fill="#b8f34a" stroke="#11130f" stroke-width="4"/>
-  <text x="132" y="103" fill="#11130f" font-family="Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="-2">chatticus<tspan fill="#ef6a47">.</tspan></text>
+  <text x="132" y="103" fill="#11130f" font-family="Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="-2">Chatticus<tspan fill="#ef6a47">.</tspan></text>
   <text x="64" y="252" fill="#11130f" font-family="Georgia, serif" font-size="92" letter-spacing="-5">Build the AI organization</text>
   <text x="64" y="352" fill="#ef6a47" font-family="Georgia, serif" font-size="104" font-style="italic" letter-spacing="-6">you control.</text>
   <path d="M69 379c160-18 368 19 690-7" fill="none" stroke="#b8f34a" stroke-width="12" stroke-linecap="round"/>

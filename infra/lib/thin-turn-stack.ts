@@ -17,6 +17,8 @@ import {
 } from "./computer-host-start";
 import {
   ChatticusCloudEnvironment,
+  openAiApiKeyParameterName,
+  signupModeForEnvironment,
   thinTurnExportName,
   thinTurnParameterPrefix,
   webParameterPrefix,
@@ -47,7 +49,7 @@ export class ThinTurnStack extends cdk.Stack {
     const environmentName = props.chatticusEnvironment;
     const parameterPrefix = thinTurnParameterPrefix(environmentName);
     const webPrefix = webParameterPrefix(environmentName);
-    const openAiParameterName = `${parameterPrefix}/openai-api-key`;
+    const openAiParameterName = openAiApiKeyParameterName(environmentName);
     const retainData = environmentName !== "development";
     cdk.Tags.of(this).add("chatticus:environment", environmentName);
 
@@ -161,6 +163,7 @@ export class ThinTurnStack extends cdk.Stack {
       CHATTICUS_MESSAGING_TABLE: table.tableName,
       CHATTICUS_TURN_QUEUE_URL: turnQueue.queueUrl,
       CHATTICUS_COMPUTER_TURN_QUEUE_URL: computerTurnQueue.queueUrl,
+      CHATTICUS_SIGNUP_MODE: signupModeForEnvironment(environmentName),
       OPENAI_MODEL: "gpt-5.6-luna",
       OPENAI_API_KEY_PARAMETER: openAiParameterName,
     };

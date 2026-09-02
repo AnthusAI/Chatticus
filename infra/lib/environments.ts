@@ -54,6 +54,12 @@ export function thinTurnParameterPrefix(environment: ChatticusCloudEnvironment):
   return `/chatticus/${environment}/thin-turn`;
 }
 
+export function openAiApiKeyParameterName(
+  environment: ChatticusCloudEnvironment,
+): string {
+  return `${thinTurnParameterPrefix(environment)}/openai-api-key`;
+}
+
 export function webParameterPrefix(environment: ChatticusCloudEnvironment): string {
   return `/chatticus/${environment}/web`;
 }
@@ -63,4 +69,11 @@ export function thinTurnExportName(
   suffix: string,
 ): string {
   return `Chatticus-${environment}-thin-turn-${suffix}`;
+}
+
+/** Anthus deployments allow product signup; customer deployments use invitation_only. */
+export function signupModeForEnvironment(
+  _environment: ChatticusCloudEnvironment,
+): "open" | "invitation_only" {
+  return "open";
 }

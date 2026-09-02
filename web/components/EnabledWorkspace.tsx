@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { BotRoster } from "./BotRoster";
 import { ChatPanel } from "./ChatPanel";
+import { InviteMemberPanel } from "./InviteMemberPanel";
 import { TaskList } from "./TaskList";
 import {
   avatarActivityFromTurn,
@@ -212,6 +213,8 @@ export function EnabledWorkspace({ activeOrg }: EnabledWorkspaceProps) {
           </p>
         )}
       </section>
+
+      <InviteMemberPanel tenantId={activeOrg.tenantId} />
 
       <div className="workspace">
         <BotRoster

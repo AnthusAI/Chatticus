@@ -3,7 +3,7 @@
   "title": "Create an organization and wait",
   "description": "**Phase 4 of 7.**\n\n- **Blocked by:** 22f5bb\n- **Runs in parallel with:** 7b4616\n- **Unblocks:** ae51dc\n\n---\nAnyone signing in may create an organization, which lands it pending, and sees the welcome screen. Google sign-in is the waitlist form: the address is verified, there is no form backend and no spam, and enabling later is a flag flip on an account that already exists.\n\nDo not show a queue position. It implies an ordering that will not be honored, because organizations are chosen deliberately. Do not promise an email unless SES is out of the sandbox; at this volume, mail the owner by hand when their organization is enabled.\n\n**Done when:** a new person can sign in, create an organization, and see the welcome screen, and an operator sees it via the members CLI.",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -17,11 +17,43 @@
       "id": "0e6a6084-e6a0-4c43-8d71-4758db370c10",
       "author": "home",
       "text": "**Signup openness becomes deployment configuration.**\n\nThe three-level model changes what this card means. A deployment is one customer company; tenants are departments inside it. So open signup is right for the Anthus deployment, where anyone may sign in and ask for a tenant, and wrong for a customer deployment, where members are that company's employees and enablement belongs to their own admin.\n\n**Do not hardcode open signup.** The deployment configures whether sign-in creates a pending tenant or refuses anyone without an invitation. Both paths already exist in this epic; this is a switch over which one is reachable, not new machinery.\n\nSame applies to ae51dc: invitation-only is the default posture for a customer deployment, and open signup is the exception the Anthus deployment turns on.",
-      "created_at": "2026-09-01T03:29:19.080763Z"
+      "created_at": "2026-09-01T03:29:19.080763Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "1834c6d3-d0aa-46a2-bbbe-0f3fd297149e",
+      "author": "home",
+      "text": "Planning: Composer 2.5 on worktree /tmp/chatticus-e41552-create-org branch cursor/create-org-wait-e41552-4a21. Story is Gherkin-first: signed-in create -> pending + welcome screen; signup mode is deployment config, not hardcoded open. Members CLI already lists pending orgs.",
+      "created_at": "2026-09-02T16:04:33.966641Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "3edaf3ca-187e-44dd-bb42-494359a67bdc",
+      "author": "home",
+      "text": "Plan accepted with two corrections: (1) Anthus development/staging/production are all CHATTICUS_SIGNUP_MODE=open; invitation_only is the customer-deployment default. (2) Update ORGANIZATIONS.md so open signup is recorded as deployment config, not a global law. Specs red first, then minimum code. Worktree /tmp/chatticus-e41552-create-org.",
+      "created_at": "2026-09-02T16:08:22.961445Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "5dc4b81f-9505-43aa-9500-11a1ea4d54f8",
+      "author": "home",
+      "text": "Acceptance APPROVE: 6/6 new scenarios + 29 nearby regressions green. Residuals: multi-org create and name length go to 694392; Anthus CDK signupMode=open is correct. Implementer to commit, gitignore harness state, open PR.",
+      "created_at": "2026-09-02T16:15:11.005699Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "0115f037-d338-4620-9dc6-8814c74feda0",
+      "author": "home",
+      "text": "Merged #184 to develop (8ac2505). Product path: POST /organizations, welcome screen, signup-mode switch. Caps stay on 694392. Worktree /tmp/chatticus-e41552-create-org can be removed.",
+      "created_at": "2026-09-02T16:21:48.859429Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:40:45.597787Z",
-  "updated_at": "2026-09-01T03:29:19.080763Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T16:21:48.859429Z",
+  "closed_at": "2026-09-02T16:21:48.836437Z",
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }

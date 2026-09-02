@@ -7,11 +7,16 @@ import pytest
 INFRA = Path(__file__).resolve().parents[2] / "infra"
 
 DEPLOY_SCRIPT_STACKS = {
+    "deploy-chatticus-auth-development.sh": "ChatticusAuth",
+    "deploy-chatticus-auth-production.sh": "ChatticusAuthProduction",
+    "deploy-chatticus-auth-staging.sh": "ChatticusAuthStaging",
     "deploy-chatticus-budgets.sh": "ChatticusBudgets",
     "deploy-chatticus-dns.sh": "ChatticusDns",
     "deploy-chatticus-github-deploy.sh": "ChatticusGitHubDeploy",
     "deploy-chatticus-snapshots.sh": "ChatticusSnapshots",
     "deploy-chatticus-thinturn-development.sh": "ChatticusThinTurn",
+    "deploy-chatticus-thinturn-production.sh": "ChatticusThinTurnProduction",
+    "deploy-chatticus-thinturn-staging.sh": "ChatticusThinTurnStaging",
     "deploy-chatticus-web-development.sh": "ChatticusWeb",
     "deploy-chatticus-web-production.sh": "ChatticusWebProduction",
     "deploy-chatticus-web-staging.sh": "ChatticusWebStaging",
@@ -135,16 +140,21 @@ def test_thin_turn_stack_uses_per_deployment_openai_parameter() -> None:
     source = (
         Path(__file__).resolve().parents[2] / "infra" / "lib" / "thin-turn-stack.ts"
     )
+    environments_source = (
+        Path(__file__).resolve().parents[2] / "infra" / "lib" / "environments.ts"
+    )
     text = source.read_text()
+    environments_text = environments_source.read_text()
     assert "/amplify/shared/papyrus/OPENAI_API_KEY" not in text
     assert "OPENAI_PARAMETER_NAME" not in text
-    assert "${parameterPrefix}/openai-api-key" in text
-    assert "openAiParameterName" in text
+    assert "openAiApiKeyParameterName" in text
     assert "fromSecureStringParameterAttributes" in text
     assert "OPENAI_API_KEY_PARAMETER: openAiParameterName" in text
     for line in text.splitlines():
         if "openAiParameterName" in line:
             assert "unsafeUnwrap" not in line
+    assert "export function openAiApiKeyParameterName" in environments_text
+    assert "/openai-api-key" in environments_text
 
 
 def test_cdk_app_uses_tsx_not_ts_node() -> None:
@@ -160,12 +170,6 @@ def test_github_deploy_stack_trusts_thinturn_development_workflow() -> None:
     )
     text = source.read_text()
     assert "ChatticusGitHubDeploy" not in text
-    assert "chatticus-github-actions-deploy" in text
-    assert "deploy-thinturn-development.yml" in text
-    assert "deploy-web-development.yml" in text
-    assert "token.actions.githubusercontent.com:environment" in text
-    assert '"token.actions.githubusercontent.com:environment": "development"' in text
-    assert "AdministratorAccess" in text
     assert "ChatticusThinTurnStaging" not in text
     assert "ChatticusThinTurnProduction" not in text
     assert "ChatticusWebStaging" not in text
@@ -173,8 +177,39 @@ def test_github_deploy_stack_trusts_thinturn_development_workflow() -> None:
     assert "deploy --all" not in text
     assert "cdk deploy ChatticusComputers" not in text
     assert "cdk deploy ChatticusSnapshots" not in text
-    assert 'environment": "staging"' not in text
-    assert 'environment": "production"' not in text
+
+    for role_name in (
+        "chatticus-github-actions-deploy",
+        "chatticus-github-actions-deploy-staging",
+        "chatticus-github-actions-deploy-production",
+    ):
+        assert role_name in text
+    assert "AdministratorAccess" in text
+    assert (
+        '"token.actions.githubusercontent.com:environment": githubEnvironment' in text
+    )
+
+    trusted_workflows_by_environment = {
+        "development": (
+            "deploy-thinturn-development.yml",
+            "deploy-web-development.yml",
+            "deploy-auth-development.yml",
+        ),
+        "staging": (
+            "deploy-thinturn-staging.yml",
+            "deploy-web-staging.yml",
+            "deploy-auth-staging.yml",
+        ),
+        "production": (
+            "deploy-thinturn-production.yml",
+            "deploy-web-production.yml",
+            "deploy-auth-production.yml",
+        ),
+    }
+    for github_environment, workflow_files in trusted_workflows_by_environment.items():
+        assert github_environment in text
+        for workflow_file in workflow_files:
+            assert workflow_file in text
 
 
 def test_github_deploy_script_is_one_stack() -> None:

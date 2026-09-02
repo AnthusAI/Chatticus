@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from chatticus.models import (
     CONSEQUENTIAL_ACTION_TYPES,
+    ActorKind,
     AutoReviewRule,
     AutoReviewRuleKind,
 )
@@ -74,7 +75,7 @@ def resolve_unattended_gated_action(
         rule
         for rule in rules
         if rule.kind == AutoReviewRuleKind.ALWAYS_ALLOW
-        and rule.created_by == "human"
+        and rule.creator.kind == ActorKind.HUMAN
         and rule.action_type == action_type
         and rule.tenant_id == tenant_id
         and (rule.user_id is None or rule.user_id == user_id)
