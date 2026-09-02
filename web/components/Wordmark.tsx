@@ -31,7 +31,7 @@ type WordmarkProps = {
    * off-screen, so this doesn't need to track that separately).
    */
   reportsPresenceAsHero?: boolean;
-  /** Set to false to render just the mark, without the "chatticus." text. */
+  /** Set to false to render just the mark, without the "Chatticus" text. */
   showText?: boolean;
 };
 

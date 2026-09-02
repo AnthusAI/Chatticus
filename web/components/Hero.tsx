@@ -23,44 +23,49 @@ export function Hero() {
           <Wordmark
             reportsPresenceAsHero
             showText={false}
-            size={72}
-            className="animate-rise mb-6"
+            size={176}
+            className="animate-rise mb-4"
           />
           <Badge variant="outline" className="animate-rise">
             Named teammates · one shared computer
           </Badge>
           <h1
             id="hero-title"
-            className="mt-7 font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em]"
+            className="mt-5 font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em]"
           >
             <span className="block animate-rise [animation-delay:80ms]">
-              Build the AI
+              One shared
             </span>
             <span className="block animate-rise [animation-delay:160ms]">
-              organization
+              space for
             </span>
-            <span className="relative inline-block animate-rise italic text-clay [animation-delay:240ms]">
-              you control.
-              <svg
-                aria-hidden="true"
-                className="absolute -bottom-3 left-0 h-4 w-full text-signal"
-                viewBox="0 0 560 24"
-                preserveAspectRatio="none"
-              >
-                <path
-                  d="M4 14C123 2 274 23 556 8"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                />
-              </svg>
+            <span className="block animate-rise italic text-clay [animation-delay:240ms]">
+              people and{" "}
+              <span className="relative inline-block">
+                bots.
+                <svg
+                  aria-hidden="true"
+                  className="absolute -bottom-3 left-0 h-4 w-full text-signal"
+                  viewBox="0 0 560 24"
+                  preserveAspectRatio="none"
+                >
+                  <path
+                    d="M4 14C123 2 274 23 556 8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
             </span>
           </h1>
           <p className="mt-10 max-w-[42rem] animate-rise font-body text-lg leading-relaxed text-ink-soft [animation-delay:340ms] sm:text-xl">
-            Chatticus gives persistent, named AI teammates a computer, memory,
-            skills, and routines inside a boundary you own. They work together.
-            You set direction and keep the consequential decisions.
+            Chatticus is a shared, collaborative space where people and bots
+            work together around common files, tools, and a system of
+            authority and approvals — like an office, not a chat window.
+            It&rsquo;s a 24/7 agent farm you can use to grow whatever you want, around
+            the clock.
           </p>
           <div className="mt-9 flex animate-rise flex-col gap-3 [animation-delay:430ms] sm:flex-row">
             <Button asChild size="lg">
