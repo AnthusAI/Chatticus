@@ -7,6 +7,11 @@ from datetime import UTC, datetime
 from behave import given, then, when
 
 from chatticus.control_plane import ControlPlane
+from chatticus.http.principal import (
+    OrgAccessDeniedError,
+    PrincipalRoutePolicy,
+    verify_org_access,
+)
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
     InvitationStatus,
@@ -18,6 +23,7 @@ from chatticus.models import (
     OrganizationStatusTransitionError,
 )
 from chatticus.org_records import normalize_email
+from chatticus.principal import Principal, PrincipalKind
 
 
 def _plane(context: object) -> ControlPlane:
@@ -207,6 +213,61 @@ def when_try_set_own_role(context: object, role: str, name: str) -> None:
         context.last_error = error
 
 
+def _enabled_user_principal(tenant_id: str, user_id: str) -> Principal:
+    return Principal(
+        kind=PrincipalKind.USER,
+        tenant_id=tenant_id,
+        user_id=user_id,
+        organization_status=OrganizationStatus.ENABLED,
+        role=MemberRole.OWNER,
+    )
+
+
+def _check_org_access(
+    context: object, principal: Principal, path_tenant_id: str
+) -> None:
+    context.last_error = None
+    try:
+        verify_org_access(
+            principal,
+            path_tenant_id,
+            policy=PrincipalRoutePolicy(),
+            plane=_plane(context),
+        )
+    except OrgAccessDeniedError as error:
+        context.last_error = error
+
+
+@when('that user is checked for access to "{name}"')
+def when_user_checked_for_access(context: object, name: str) -> None:
+    org = _org_by_name(context, name)
+    assert context.current_identity is not None
+    principal = _enabled_user_principal(org.tenant_id, context.current_identity.user_id)
+    _check_org_access(context, principal, org.tenant_id)
+
+
+@when('a stranger principal is checked for access to "{name}"')
+def when_stranger_checked_for_access(context: object, name: str) -> None:
+    org = _org_by_name(context, name)
+    principal = _enabled_user_principal(org.tenant_id, "stranger")
+    _check_org_access(context, principal, org.tenant_id)
+
+
+@when(
+    'a worker principal for tenant "{worker_tenant}" is checked for access '
+    'to tenant "{path_tenant}"'
+)
+def when_worker_checked_for_access(
+    context: object, worker_tenant: str, path_tenant: str
+) -> None:
+    worker = Principal(
+        kind=PrincipalKind.WORKER,
+        tenant_id=worker_tenant,
+        worker_id="worker-1",
+    )
+    _check_org_access(context, worker, path_tenant)
+
+
 @when("the store is recycled")
 def when_store_recycled(context: object) -> None:
     recycled = InMemoryMessagingStore()
@@ -327,3 +388,20 @@ def then_no_computer_for_org(context: object, name: str) -> None:
 @then('listing organizations for that user still includes "{name}"')
 def then_list_still_includes(context: object, name: str) -> None:
     then_list_includes(context, name)
+
+
+@then("organization access is allowed")
+def then_org_access_allowed(context: object) -> None:
+    assert context.last_error is None
+
+
+@then("organization access is refused because the user is not a member")
+def then_org_access_refused_not_member(context: object) -> None:
+    assert isinstance(context.last_error, OrgAccessDeniedError)
+    assert "not a member" in str(context.last_error)
+
+
+@then("organization access is refused because the worker is not registered")
+def then_org_access_refused_worker_not_registered(context: object) -> None:
+    assert isinstance(context.last_error, OrgAccessDeniedError)
+    assert "not registered" in str(context.last_error)

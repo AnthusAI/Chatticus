@@ -15,6 +15,14 @@ describe("SPA viewer-request rewrite", () => {
     );
   });
 
+  it("rewrites slashless /auth/signout-callback to the Next export index", () => {
+    assert.match(SPA_VIEWER_REQUEST_FUNCTION, /uri === "\/auth\/signout-callback"/);
+    assert.match(
+      SPA_VIEWER_REQUEST_FUNCTION,
+      /request\.uri = "\/auth\/signout-callback\/index\.html"/,
+    );
+  });
+
   it("does not rewrite /api paths", () => {
     assert.match(SPA_VIEWER_REQUEST_FUNCTION, /uri\.indexOf\("\/api"\) === 0/);
   });

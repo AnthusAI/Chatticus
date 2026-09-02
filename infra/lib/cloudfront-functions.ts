@@ -23,6 +23,9 @@ export const SPA_VIEWER_REQUEST_FUNCTION = `function handler(event) {
   if (uri === "/auth/callback") {
     request.uri = "/auth/callback/index.html";
   }
+  if (uri === "/auth/signout-callback") {
+    request.uri = "/auth/signout-callback/index.html";
+  }
   return request;
 }`;
 

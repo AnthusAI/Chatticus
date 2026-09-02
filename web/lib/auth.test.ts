@@ -56,11 +56,16 @@ describe("buildUserManagerSettings", () => {
     );
   });
 
-  it("always sends identity_provider=Google", () => {
+  it("always sends identity_provider=Google and prompt=select_account", () => {
     const settings = buildUserManagerSettings(testConfig);
     assert.equal(settings.extraQueryParams?.identity_provider, "Google");
+    assert.equal(settings.extraQueryParams?.prompt, "select_account");
     assert.equal(settings.response_type, "code");
     assert.equal(settings.redirect_uri, testConfig.redirectUri);
+    assert.equal(
+      settings.post_logout_redirect_uri,
+      "https://dev.chattic.us/auth/signout-callback",
+    );
   });
 });
 

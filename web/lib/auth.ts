@@ -8,12 +8,14 @@ import {
 import {
   cognitoIssuer,
   loadCognitoConfig,
+  postLogoutRedirectUri,
   type CognitoConfig,
 } from "./cognito-config";
 import { verifyIdTokenClaims, type IdTokenClaims } from "./id-token";
 
 let userManager: UserManager | null = null;
 let cachedConfig: CognitoConfig | null = null;
+let userManagerFactory: ((config: CognitoConfig) => UserManager) | null = null;
 
 function cognitoConfig(): CognitoConfig {
   if (!cachedConfig) {
@@ -22,21 +24,17 @@ function cognitoConfig(): CognitoConfig {
   return cachedConfig;
 }
 
+function createUserManager(config: CognitoConfig): UserManager {
+  if (userManagerFactory) {
+    return userManagerFactory(config);
+  }
+  return new UserManager(buildUserManagerSettings(config));
+}
+
 /** Single in-memory UserManager for the SPA session. */
 export function getUserManager(): UserManager {
   if (!userManager) {
-    const config = cognitoConfig();
-    userManager = new UserManager({
-      authority: cognitoIssuer(config),
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      response_type: "code",
-      scope: "openid email profile",
-      extraQueryParams: { identity_provider: "Google" },
-      userStore: new WebStorageStateStore({ store: new InMemoryWebStorage() }),
-      automaticSilentRenew: true,
-      accessTokenExpiringNotificationTimeInSeconds: 60,
-    });
+    userManager = createUserManager(cognitoConfig());
   }
   return userManager;
 }
@@ -89,9 +87,26 @@ export async function completeSignInRedirect(): Promise<VerifiedSession> {
   return session;
 }
 
-/** Clear the in-memory session. */
+/** End the Cognito and Google SSO session, then redirect back to the SPA. */
 export async function signOut(): Promise<void> {
+  const user = await getUserManager().getUser();
+  if (user?.id_token) {
+    await getUserManager().signoutRedirect({ id_token_hint: user.id_token });
+    return;
+  }
   await getUserManager().removeUser();
+}
+
+/** Complete the post-logout redirect and clear any remaining in-memory state. */
+export async function completeSignOutRedirect(): Promise<void> {
+  try {
+    await getUserManager().signoutRedirectCallback();
+  } finally {
+    await getUserManager().removeUser();
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
 }
 
 /** Subscribe to auth lifecycle events (silent renew, sign-out, errors). */
@@ -119,6 +134,15 @@ export function bindAuthEvents(handlers: {
 export function resetAuthForTests(): void {
   userManager = null;
   cachedConfig = null;
+  userManagerFactory = null;
+}
+
+/** Test-only hook to inject a UserManager factory. */
+export function setUserManagerFactoryForTests(
+  factory: ((config: CognitoConfig) => UserManager) | null,
+): void {
+  userManagerFactory = factory;
+  userManager = null;
 }
 
 /** Test-only UserManager settings builder. */
@@ -127,8 +151,12 @@ export function buildUserManagerSettings(config: CognitoConfig) {
     authority: cognitoIssuer(config),
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
+    post_logout_redirect_uri: postLogoutRedirectUri(config),
     response_type: "code",
     scope: "openid email profile",
-    extraQueryParams: { identity_provider: "Google" },
+    extraQueryParams: { identity_provider: "Google", prompt: "select_account" },
+    userStore: new WebStorageStateStore({ store: new InMemoryWebStorage() }),
+    automaticSilentRenew: true,
+    accessTokenExpiringNotificationTimeInSeconds: 60,
   };
 }

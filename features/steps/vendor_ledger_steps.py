@@ -39,19 +39,16 @@ def given_vendor_price(
     'with model "{model}"'
 )
 def when_vendor_ledger_worker_turn(context: object, bot_name: str, model: str) -> None:
-    from chatticus.http.app import create_app
+    from browser_auth_helpers import wire_test_http_front_door
+
     from chatticus.http.client import HttpTurnClient
-    from chatticus.http.test_server import start_test_server
     from chatticus.worker.computerless import (
         ComputerlessWorker,
         FakeTextCompletionClient,
     )
 
     bot = context.bots_by_name[bot_name]
-    client = getattr(context, "api_client", None)
-    if client is not None:
-        client.close()
-    context.api_client = start_test_server(create_app(context.plane, invoke_key=""))
+    wire_test_http_front_door(context, context.plane, invoke_key="")
     worker = ComputerlessWorker(
         context.plane,
         HttpTurnClient(context.api_client, bot.tenant_id),

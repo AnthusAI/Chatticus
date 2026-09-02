@@ -69,6 +69,15 @@ def _wire_me_app(context: object) -> None:
     context.api_client = start_test_server(app)
 
 
+@given("an HTTP front door without a Cognito verifier")
+def given_front_door_without_cognito_verifier(context: object) -> None:
+    _close_client(context)
+    context.plane = ControlPlane()
+    app = create_app(context.plane, invoke_key="")
+    context.api_app = app
+    context.api_client = start_test_server(app)
+
+
 @given('"{email}" has signed in on the me front door')
 def given_signed_in_on_me_front_door(context: object, email: str) -> None:
     identity = context.plane.sign_in(email, now=context.now)

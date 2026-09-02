@@ -5,16 +5,16 @@ from __future__ import annotations
 from datetime import timedelta
 
 from behave import given, then, when
+from browser_auth_helpers import wire_test_http_front_door
 from worker_http_helpers import (
     register_worker_http,
     worker_auth_headers,
 )
 
 from chatticus.control_plane import ControlPlane
-from chatticus.http.app import INVOKE_HEADER, create_app
+from chatticus.http.app import INVOKE_HEADER
 from chatticus.http.paths import org_path
 from chatticus.http.principal import resolve_worker_bearer
-from chatticus.http.test_server import start_test_server
 from chatticus.models import MemberRole, OrganizationStatus
 from chatticus.principal import Principal, PrincipalKind
 
@@ -22,8 +22,7 @@ from chatticus.principal import Principal, PrincipalKind
 @given('an empty control plane with invoke key "{invoke_key}"')
 def given_empty_control_plane_with_invoke_key(context: object, invoke_key: str) -> None:
     context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
-    context.api_app = create_app(context.plane, invoke_key=invoke_key)
-    context.api_client = start_test_server(context.api_app)
+    wire_test_http_front_door(context, context.plane, invoke_key=invoke_key)
     context.api_client.headers[INVOKE_HEADER] = invoke_key
     context.bots_by_name = {}
     context.worker_tokens = {}
@@ -61,6 +60,30 @@ def then_previous_token_rejected(context: object) -> None:
         headers={"Authorization": f"Bearer {context.previous_worker_token}"},
     )
     assert response.status_code == 403
+
+
+@when("the worker claims a missing turn over HTTP")
+def when_worker_claims_missing_turn_over_http(context: object) -> None:
+    tenant_id = getattr(context, "last_worker_tenant_id", "anthus")
+    headers = worker_auth_headers(context, context.last_worker_id)
+    context.worker_route_response = context.api_client.post(
+        org_path(tenant_id, "/turns/missing-turn/claim"),
+        json={"worker_id": context.last_worker_id},
+        headers=headers,
+    )
+
+
+@when('the worker claims a missing turn over HTTP with worker id "{other_worker_id}"')
+def when_worker_claims_missing_turn_with_other_id(
+    context: object, other_worker_id: str
+) -> None:
+    tenant_id = getattr(context, "last_worker_tenant_id", "anthus")
+    headers = worker_auth_headers(context, context.last_worker_id)
+    context.worker_route_response = context.api_client.post(
+        org_path(tenant_id, "/turns/missing-turn/claim"),
+        json={"worker_id": other_worker_id},
+        headers=headers,
+    )
 
 
 @when("the worker claims the turn over HTTP")

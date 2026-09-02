@@ -41,6 +41,26 @@ Feature: Per-worker credentials
     And the worker posts chunk "done" completing the turn over HTTP
     Then the latest bot message body equals the joined chunks for the active turn
 
+  Scenario: A worker credential can reach a missing turn and is told it is not found
+    Given an empty control plane
+    And a worker registered over HTTP as:
+      | worker_id    | garage-mac-1 |
+      | tenant_id    | anthus       |
+      | cost_class   | local        |
+      | capabilities | cpu          |
+    When the worker claims a missing turn over HTTP
+    Then the worker route responds with status 404
+
+  Scenario: A worker cannot claim using another worker's id
+    Given an empty control plane
+    And a worker registered over HTTP as:
+      | worker_id    | worker-a |
+      | tenant_id    | anthus   |
+      | cost_class   | local    |
+      | capabilities | cpu      |
+    When the worker claims a missing turn over HTTP with worker id "worker-b"
+    Then the worker route responds with status 403
+
   Scenario: Worker routes reject a missing bearer credential
     Given an empty control plane
     And tenant "anthus" user "ryan" has a channel with a named bot "Helper"

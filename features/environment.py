@@ -8,24 +8,27 @@ import tempfile
 from datetime import timedelta
 from pathlib import Path
 
-from chatticus.control_plane import ControlPlane
-from chatticus.http.app import create_app
-from chatticus.http.test_server import start_test_server
-from chatticus.vendor_prices import clear_vendor_prices
-
 _TESTS_DIR = Path(__file__).resolve().parents[1] / "python" / "tests"
+_STEPS_DIR = Path(__file__).resolve().parent / "steps"
+if _STEPS_DIR.is_dir() and str(_STEPS_DIR) not in sys.path:
+    sys.path.insert(0, str(_STEPS_DIR))
 if _TESTS_DIR.is_dir() and str(_TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(_TESTS_DIR))
+
+from cognito_test_support import make_cognito_test_keys  # noqa: E402
+
+from chatticus.control_plane import ControlPlane  # noqa: E402
+from chatticus.vendor_prices import clear_vendor_prices  # noqa: E402
 
 
 def before_scenario(context: object, scenario: object) -> None:
     """Start each scenario with a fresh control plane and temp dirs."""
+    from browser_auth_helpers import wire_test_http_front_door
+
     clear_vendor_prices()
     context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
-    app = create_app(context.plane, invoke_key="")
-    context.api_app = app
-    context.app_state = app.state.chatticus
-    context.api_client = start_test_server(app)
+    context.cognito_test_keys = make_cognito_test_keys()
+    wire_test_http_front_door(context, context.plane, invoke_key="")
     context.bots_by_name = {}
     context.last_job = None
     context.last_assignment = None
@@ -47,6 +50,7 @@ def before_scenario(context: object, scenario: object) -> None:
     context.access_error = None
     context.stream_error = None
     context.snapshot_tmpdir = tempfile.mkdtemp(prefix="chatticus-snapshot-")
+    context.seeded_org_emails = {}
 
 
 def after_scenario(context: object, scenario: object) -> None:

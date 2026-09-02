@@ -50,3 +50,8 @@ Feature: GET /me membership snapshot
     And GET /me organizations include:
       | tenant_id | status  |
       | anthus    | enabled |
+
+  Scenario: GET /me without a Cognito verifier is unavailable
+    Given an HTTP front door without a Cognito verifier
+    When GET /me is called with bearer token "token"
+    Then GET /me responds with status 503

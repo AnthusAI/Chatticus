@@ -11,15 +11,14 @@ from uuid import uuid4
 import boto3
 import pytest
 from conftest import register_worker_headers
+from http_test_support import ensure_test_org, start_authed_test_server
 from moto import mock_aws
 
 from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.control_plane import ControlPlane
-from chatticus.http.app import create_app
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.paths import org_path
 from chatticus.http.sse import cursor_from_last_event_id
-from chatticus.http.test_server import start_test_server
 from chatticus.messaging.store import (
     DynamoMessagingStore,
     InMemoryMessagingStore,
@@ -58,7 +57,7 @@ def _channel_with_bot(plane: ControlPlane, name: str = "Researcher"):
 
 
 def _client_for(plane: ControlPlane, *, environment: str | None = None):
-    return start_test_server(create_app(plane, environment=environment, invoke_key=""))
+    return start_authed_test_server(plane, environment=environment, invoke_key="")
 
 
 def _worker_headers(
@@ -383,6 +382,7 @@ def test_http_list_user_bots_survives_a_new_control_plane() -> None:
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
+    ensure_test_org(first)
     researcher = first.create_bot("anthus", "ryan", "Researcher")
     writer = first.create_bot("anthus", "ryan", "Writer")
     first.create_bot("anthus", "alex", "Ops")
@@ -439,6 +439,7 @@ def test_http_list_user_channels_survives_a_new_control_plane() -> None:
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
+    ensure_test_org(first)
     bot = first.create_bot("anthus", "ryan", "Researcher")
     first_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
     second_channel = first.create_channel("anthus", "ryan", [bot.bot_id])

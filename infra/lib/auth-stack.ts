@@ -77,7 +77,10 @@ export class AuthStack extends cdk.Stack {
           cognito.OAuthScope.PROFILE,
         ],
         callbackUrls: [`https://${siteDomain}/auth/callback`],
-        logoutUrls: [`https://${siteDomain}/`],
+        logoutUrls: [
+          `https://${siteDomain}/`,
+          `https://${siteDomain}/auth/signout-callback`,
+        ],
       },
       authSessionValidity: cdk.Duration.minutes(3),
       accessTokenValidity: cdk.Duration.hours(1),

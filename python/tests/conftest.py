@@ -6,10 +6,9 @@ import sys
 from pathlib import Path
 
 import pytest
+from http_test_support import start_authed_test_server
 
 from chatticus.control_plane import ControlPlane
-from chatticus.http.app import create_app
-from chatticus.http.test_server import start_test_server
 from chatticus.http.worker_auth import register_worker_bearer
 
 _TESTS_DIR = Path(__file__).resolve().parent
@@ -25,7 +24,7 @@ def _clear_invoke_key_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def make_test_api(plane: ControlPlane | None = None) -> tuple[ControlPlane, object]:
     """Return a control plane and in-process HTTP client without invoke-key gating."""
     resolved_plane = plane or ControlPlane()
-    api = start_test_server(create_app(resolved_plane, invoke_key=""))
+    api = start_authed_test_server(resolved_plane, invoke_key="")
     return resolved_plane, api
 
 

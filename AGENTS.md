@@ -26,6 +26,41 @@ computer, skills, routines, or the worker protocol.
 v1's LLM is **OpenAI**. Amazon Bedrock may follow. Do not assume or add an
 xAI client. The model vendor is not the product name.
 
+## Behavior-driven design (outside-in, for real)
+
+Chatticus is a **behavior-driven** project. Gherkin features in `features/`
+are the product narrative: they tell the story of what the system is, how it
+works, and how to use it. They are the primary documentation for both humans
+and future agents. A new reader (person or agent) should be able to read the
+`.feature` files in order and understand the system.
+
+- **Behavior changes start in `features/`.** Write or change the Gherkin
+  scenario first (Given/When/Then), then implement the Python steps in
+  `features/steps/`, then the production code. This is outside-in. Do not
+  write production code first and back-fill a scenario.
+- **The features should read as a coherent narrative**, not a pile of
+  isolated scenarios. Group related scenarios under one feature with a
+  `Feature:` line that states the capability. Order scenarios within a
+  feature so they tell a story (happy path, then variations, then errors).
+  When a feature grows large, split by capability, not arbitrarily.
+- **`pytest` is the exception, not the default.** Use it only for cases
+  that genuinely cannot be expressed as behavior: pure unit tests of
+  internal helpers, pure functions, serializers, parsers, data transforms,
+  and structural/coverage guards (e.g. the account-origin scan). If a test
+  describes user-observable behavior — an HTTP response, a route guard, a
+  membership branch, a turn/stream event, a worker dispatch, an org-scoped
+  access decision, a recovery or approval flow — it belongs in Gherkin, not
+  pytest.
+- **Regressions go to Gherkin.** When fixing a bug, add or extend a
+  `.feature` scenario that fails before the fix and passes after. Do not
+  add a pytest regression for behavior that has a Gherkin home.
+- **Do not split one behavior across both.** A behavior lives in exactly
+  one place: Gherkin. A pure helper lives in exactly one place: pytest.
+  Two sources of truth for the same behavior is a defect.
+
+`behave` from `python/` is the behavior gate. `pytest` is the unit gate. Both
+must pass. Neither is a substitute for the other.
+
 ## Layout
 
 - `docs/` — product, architecture, stack, roadmap, messaging, tasks,
@@ -39,7 +74,9 @@ xAI client. The model vendor is not the product name.
 - `features/` — shared Gherkin. Behavior changes start here.
 - `python/` — control plane, scheduler, roster, approvals, later agent and
   worker processes.
-- `web/` — Next.js product workspace (`hey.chattic.us` in production).
+- `web/` — Next.js app: marketing at `/` and product workspace at `/chat`
+  (`chattic.us` marketing, `hey.chattic.us` product in production). One web
+  project, not a separate marketing repo. Avatars are Lottie via `anthus-vultus`.
 - `computer/` — Docker image for the Linux workplace.
 - `infra/` — AWS CDK.
 
@@ -50,8 +87,9 @@ xAI client. The model vendor is not the product name.
   correct path. Migrate data; do not keep dual readers.
 - Long, clear names. No line-level comments. Sphinx docstrings on public
   Python. Rustdoc later if a Rust worker appears.
-- Gherkin in `features/` is the product narrative. Implement Python steps in
-  `features/steps/` so `behave` from `python/` passes.
+- Gherkin in `features/` is the product narrative (see **Behavior-driven design**
+  above). Implement Python steps in `features/steps/` so `behave` from
+  `python/` passes.
 - `tenant_id` is required in worker registration, jobs, bots, computers,
   channels, and messages even while v1 has a single household tenant.
 - A **channel** is the conversation object. There is no separate thread.

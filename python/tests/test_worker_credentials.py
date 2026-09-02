@@ -6,6 +6,7 @@ import logging
 
 import boto3
 import pytest
+from cognito_test_support import make_cognito_test_keys
 from fastapi.testclient import TestClient
 from moto import mock_aws
 
@@ -77,11 +78,27 @@ def test_invoke_key_does_not_satisfy_worker_route() -> None:
 def test_browser_route_rejects_worker_bearer() -> None:
     plane = ControlPlane()
     token = plane.register_worker(_worker_registration())
-    client = TestClient(create_app(plane, invoke_key=""))
+    keys = make_cognito_test_keys()
+    client = TestClient(
+        create_app(plane, invoke_key="", cognito_verifier=keys.verifier())
+    )
     response = client.post(
         org_path("anthus", "/channels"),
         json={"user_id": "ryan", "bot_ids": []},
         headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_browser_route_requires_user_credential() -> None:
+    plane = ControlPlane()
+    keys = make_cognito_test_keys()
+    client = TestClient(
+        create_app(plane, invoke_key="", cognito_verifier=keys.verifier())
+    )
+    response = client.post(
+        org_path("anthus", "/bots"),
+        json={"user_id": "ryan", "name": "Helper"},
     )
     assert response.status_code == 403
 

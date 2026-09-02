@@ -55,3 +55,8 @@ export function loadCognitoConfig(): CognitoConfig {
 export function cognitoIssuer(config: CognitoConfig): string {
   return `https://cognito-idp.${config.region}.amazonaws.com/${config.userPoolId}`;
 }
+
+/** Post-logout redirect registered on the Cognito SPA client. */
+export function postLogoutRedirectUri(config: CognitoConfig): string {
+  return new URL("/auth/signout-callback", new URL(config.redirectUri).origin).href;
+}
