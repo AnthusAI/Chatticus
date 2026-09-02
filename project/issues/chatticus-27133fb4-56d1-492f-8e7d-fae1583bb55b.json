@@ -17,10 +17,17 @@
       "text": "Planning: Composer 2.5. Convention is same-origin /chat, not env config. Worktree /tmp/chatticus-27133f-same-origin-chat from origin/develop, branch cursor/same-origin-chat-27133f-4a21. Plan only this turn.",
       "created_at": "2026-09-02T18:57:16.054060Z",
       "comment_type": "default"
+    },
+    {
+      "id": "22e92171-a1f5-4f65-b2df-1f7f98ba9ff7",
+      "author": "home",
+      "text": "Plan accepted. Same-origin /chat; global CF /chat rewrite; do not rewrite marketing /. Rebase onto current origin/develop before coding. Worktree /tmp/chatticus-27133f-same-origin-chat.",
+      "created_at": "2026-09-02T19:20:01.559353Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-02T18:57:03.201907Z",
-  "updated_at": "2026-09-02T18:57:16.054060Z",
+  "updated_at": "2026-09-02T19:20:01.559353Z",
   "closed_at": null,
   "custom": {}
 }
