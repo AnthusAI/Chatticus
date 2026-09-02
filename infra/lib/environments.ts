@@ -54,6 +54,12 @@ export function thinTurnParameterPrefix(environment: ChatticusCloudEnvironment):
   return `/chatticus/${environment}/thin-turn`;
 }
 
+export function openAiApiKeyParameterName(
+  environment: ChatticusCloudEnvironment,
+): string {
+  return `${thinTurnParameterPrefix(environment)}/openai-api-key`;
+}
+
 export function webParameterPrefix(environment: ChatticusCloudEnvironment): string {
   return `/chatticus/${environment}/web`;
 }

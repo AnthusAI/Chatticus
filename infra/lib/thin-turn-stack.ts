@@ -17,6 +17,7 @@ import {
 } from "./computer-host-start";
 import {
   ChatticusCloudEnvironment,
+  openAiApiKeyParameterName,
   thinTurnExportName,
   thinTurnParameterPrefix,
   webParameterPrefix,
@@ -47,7 +48,7 @@ export class ThinTurnStack extends cdk.Stack {
     const environmentName = props.chatticusEnvironment;
     const parameterPrefix = thinTurnParameterPrefix(environmentName);
     const webPrefix = webParameterPrefix(environmentName);
-    const openAiParameterName = `${parameterPrefix}/openai-api-key`;
+    const openAiParameterName = openAiApiKeyParameterName(environmentName);
     const retainData = environmentName !== "development";
     cdk.Tags.of(this).add("chatticus:environment", environmentName);
 
