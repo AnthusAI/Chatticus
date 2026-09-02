@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-f42d0c0f-4deb-4f2c-ae3d-e7124f108da7",
+  "title": "Implement authorized connections between organizations",
+  "description": "Gherkin already exists in features/authorized_connections.feature (4 @wip scenarios) with StepNotImplementedError in authorized_connections_steps.py. Spec landed in PR 182.\n\nImplement the product: a connection is a clip (borrowed standing on a named channel, never the computer). Four scenarios must pass and drop @wip:\n1. Propose within ceiling -> authorized and clipped\n2. Propose outside ceiling -> refused\n3. Exceed requester ceiling -> escalate to nearest covering member\n4. Exceed every member ceiling -> stay blocked\n\nReuse ceiling/escalation/org channel setup already in steps. Gherkin-first (scenarios exist). Dual path not applicable (Python control plane). PR to develop. Do not touch web/ Footer or da7f95 brand work.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-06b0426d-933c-4b14-8135-fecbe561ba64",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "79adaa02-5422-4486-99a9-a0dddae7ac2b",
+      "author": "home",
+      "text": "Planning: Composer 2.5. Worktree /tmp/chatticus-f42d0c-connections from origin/develop, branch cursor/authorized-connections-f42d0c-4a21. Plan only this turn. Gherkin already written; do not rewrite the four scenarios unless a hole is found.",
+      "created_at": "2026-09-02T20:41:30.082862Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-02T20:41:02.259710Z",
+  "updated_at": "2026-09-02T20:41:30.082959Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
