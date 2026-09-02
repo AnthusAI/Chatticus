@@ -3,7 +3,7 @@
   "title": "Wire the ceiling into the capability sinks",
   "description": "**Phase 6 of 7.**\n\n- **Blocked by:** eef4aa, ac3b7a\n- **Runs in parallel with:** nothing. It is what makes the epic real\n- **Unblocks:** e4053a\n\n---\n**Found by inversion: how do we build the whole authority model and still ship nothing?**\n\nBy building a ceiling that nothing consults. eef4aa lands a pure type and a clip function with no I/O, which is the right way to build it and also the exact shape of work that sits unused indefinitely. Every other task in this epic writes or reads ceiling data. None of them puts the check in the path of a real operation.\n\nThis repository has already learned this once. Specifying the policy in 3c5f8d and wiring it into the live model tool loop in 1f3bb8 were separate stories, and the wiring is where the truth showed up.\n\nEvaluate the ceiling inside the existing capability_sinks adapters, before file, credential, egress, connector, and consequential operations run, so a member acting beyond their standing is stopped at the sink rather than merely refused at an API route.\n\n**Done when:** a member whose ceiling excludes purchase cannot complete a purchase through the model tool loop on live development, and the denial is recorded without exposing secrets.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,20 @@
     "phase-6"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "e690e3b7-f9b8-4f37-9b5e-20bee0d2fea0",
+      "author": "home",
+      "text": "Planning: Composer 2.5 on worktree /tmp/chatticus-3a35db-ceiling-sinks branch cursor/ceiling-sinks-3a35db-4a21. Ceiling check in capability_sinks before file/credential/egress/connector/consequential ops. Parallel with e41552 (different slice).",
+      "created_at": "2026-09-02T16:04:34.000288Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-01T02:56:57.871883Z",
-  "updated_at": "2026-09-01T02:56:57.871883Z",
+  "updated_at": "2026-09-02T16:04:34.000288Z",
   "closed_at": null,
-  "custom": {}
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }

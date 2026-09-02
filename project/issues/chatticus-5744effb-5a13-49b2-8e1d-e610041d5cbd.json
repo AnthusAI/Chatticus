@@ -3,7 +3,7 @@
   "title": "Seed the first organization before the door closes",
   "description": "**Phase 3 of 7.**\n\n- **Blocked by:** 272aea, b574a6, 41d08d\n- **Runs in parallel with:** 5f0c4c, fac2ee, 5558db\n- **Unblocks:** 7b4616, which cannot be called done without it\n\n---\n**Found by inversion: how does this initiative lock us out of our own product?**\n\nThe moment enforcement flips in 7b4616, reaching anything requires an enabled membership. Nobody has one. You cannot sign in to enable yourself, and you cannot enable yourself without signing in. The members CLI is the only escape hatch, which is why 41d08d is no longer allowed to slip and its priority is raised to P0.\n\nThere is a second half nobody has owned. Development, staging, and production already hold bots, channels, turns, and tasks under tenant anthus with user ryan. Those rows do not stop existing when Organization records arrive.\n\n**Do both here:**\n\n- Make tenant anthus a real Organization with status enabled, and its existing human the owner, keyed on their verified Google email in lowercase.\n- Prove the cold path an operator uses: the members CLI creates and enables an organization with no web session in existence.\n\n**Done when:** an operator goes from an empty environment to one enabled organization using only the CLI and an AWS identity, and signing in as the seeded owner reaches the app rather than the waitlist.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -36,10 +36,19 @@
       "author": "home",
       "text": "**#141 took the generalization. `seed --tenant-id` rather than `seed-anthus`.**\n\nSame guards, same scenarios, and it now serves the second deployment instead of naming the first one. Nothing further from me on that half.\n\nThe card stays open for the right reason: signing in as the seeded owner and reaching the app rather than the waitlist still needs Cognito behind 0ab02c.",
       "created_at": "2026-09-01T08:38:24.530951Z"
+    },
+    {
+      "id": "ec7a08e9-3ae0-4e9d-a869-ec7a5d336495",
+      "author": "home",
+      "text": "Starting: dispatching Composer 2.5 to create + enable the first Chatticus organization via the members CLI, with the owner (ryan@anth.us) keyed on verified Google email. Unblocks the waitlist (the door closes).",
+      "created_at": "2026-09-02T14:29:08.324016Z"
     }
   ],
   "created_at": "2026-09-01T02:56:57.845054Z",
-  "updated_at": "2026-09-01T08:38:24.530951Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T14:49:34.014490Z",
+  "closed_at": "2026-09-02T14:49:34.014490Z",
+  "custom": {
+    "source": "shared",
+    "project_label": "chatticus"
+  }
 }
