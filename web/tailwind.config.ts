@@ -18,6 +18,9 @@ const config: Config = {
         sea: "var(--sea)",
         amber: "var(--amber)",
         line: "var(--line)",
+        surface: "var(--surface-0)",
+        "surface-raised": "var(--surface-1)",
+        "surface-high": "var(--surface-2)",
       },
       fontFamily: {
         display: ["var(--font-display)"],
