@@ -46,7 +46,7 @@ export function WorkspaceRoster({
       {!loading && !error && members.length === 0 ? (
         <p className="px-1 pb-2 font-mono text-[0.6rem] text-surface-foreground/60">No teammates yet.</p>
       ) : null}
-      <div className="grid grid-cols-4 gap-1 sm:block sm:space-y-1">
+      <div className="grid grid-cols-4 gap-1 sm:grid-cols-1 sm:gap-1.5">
         {members.map((member) => {
           const selected = member.id === selectedMemberId;
           return (
@@ -57,7 +57,7 @@ export function WorkspaceRoster({
               aria-pressed={selected}
               aria-label={`${member.name}${selected ? ", active" : ""}`}
               className={cn(
-                "flex w-full items-center justify-center gap-1.5 rounded-xl p-1 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal sm:justify-start",
+                "flex w-full flex-col items-center gap-1 rounded-xl p-1.5 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal",
                 selected ? "bg-surface-high" : "hover:bg-surface-high/60",
               )}
             >
@@ -68,10 +68,10 @@ export function WorkspaceRoster({
                 size={40}
                 className="shrink-0"
               />
-              <span className="hidden min-w-0 sm:block">
-                <span className="block truncate font-body text-[0.62rem] font-extrabold">{member.name}</span>
+              <span className="hidden w-full min-w-0 sm:block">
+                <span className="block truncate font-body text-[0.6rem] font-extrabold">{member.name}</span>
                 {member.meta ? (
-                  <span className="block truncate font-mono text-[0.43rem] uppercase tracking-[0.05em] text-surface-foreground/60">
+                  <span className="block break-words font-mono text-[0.4rem] uppercase leading-tight tracking-[0.04em] text-surface-foreground/60">
                     {member.meta}
                   </span>
                 ) : null}
