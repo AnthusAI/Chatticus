@@ -70,7 +70,26 @@ class OrgRecordsKernel:
     ) -> Organization:
         """Create a pending organization and owner membership."""
         tenant_id = str(uuid4())
-        return self._put_pending_organization(owner, name, tenant_id=tenant_id, now=now)
+        return self.store.create_pending_organization(
+            owner,
+            name,
+            tenant_id=tenant_id,
+            now=now,
+            enforce_owner_cap=True,
+        )
+
+    def admin_create_organization(
+        self, owner: Identity, name: str, *, now: datetime
+    ) -> Organization:
+        """Create a pending organization without the product owner cap."""
+        tenant_id = str(uuid4())
+        return self.store.create_pending_organization(
+            owner,
+            name,
+            tenant_id=tenant_id,
+            now=now,
+            enforce_owner_cap=False,
+        )
 
     def admin_seed_organization(
         self,

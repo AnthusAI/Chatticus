@@ -315,6 +315,18 @@ class LastOwnerCannotBeDemotedError(ChatticusError):
     """An organization must keep at least one owner."""
 
 
+class OrganizationOwnerCapError(ChatticusError):
+    """One person may own at most one organization unless an operator lifts it."""
+
+
+class OrganizationNameTooLongError(ChatticusError):
+    """The organization name exceeds the allowed length after trimming."""
+
+
+class OrganizationCreationRateLimitedError(ChatticusError):
+    """Too many organization creation attempts in the current window."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""

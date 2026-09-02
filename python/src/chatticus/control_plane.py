@@ -96,6 +96,7 @@ from chatticus.models import (
     Message,
     Organization,
     OrganizationNotFoundError,
+    OrganizationOwnerCapError,
     OrganizationStatus,
     PendingComputerToolSnapshot,
     SnapshotRequiredError,
@@ -121,6 +122,11 @@ from chatticus.models import (
     WorkerTenantMismatchError,
     pending_computer_tool_from_turn,
     primary_human_participant,
+)
+from chatticus.org_creation_limits import (
+    ORGANIZATION_CREATION_RATE_LIMIT,
+    ORGANIZATION_CREATION_RATE_WINDOW,
+    validate_organization_name,
 )
 from chatticus.org_records import OrgRecordsKernel
 from chatticus.overnight_gated import (
@@ -164,6 +170,7 @@ class ControlPlane:
         recovery_enabled: bool = False,
         wall_clock: bool = False,
         fault_injector: FaultInjector | None = None,
+        organization_creation_rate_limit: int | None = None,
     ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
@@ -224,6 +231,11 @@ class ControlPlane:
         self._jobs: list[TurnJob] = []
         self._messaging_store = messaging_store or InMemoryMessagingStore()
         self._org_records = OrgRecordsKernel(self._messaging_store)
+        self._org_creation_rate_limit = (
+            organization_creation_rate_limit
+            if organization_creation_rate_limit is not None
+            else ORGANIZATION_CREATION_RATE_LIMIT
+        )
         self._turn_enqueued = turn_enqueued
         self._computer_enqueued = computer_enqueued
         self._logical_enqueue_delivery_count = 0
@@ -296,7 +308,33 @@ class ControlPlane:
         self, owner: Identity, name: str, *, now: datetime
     ) -> Organization:
         """Create a pending organization and owner membership."""
-        return self._org_records.create_organization(owner, name, now=now)
+        self._messaging_store.record_organization_creation_attempt(
+            owner.user_id,
+            now=now,
+            limit=self._org_creation_rate_limit,
+            window=ORGANIZATION_CREATION_RATE_WINDOW,
+        )
+        stripped_name = validate_organization_name(name)
+        if self._user_owns_organization(owner.user_id):
+            raise OrganizationOwnerCapError(
+                f"User {owner.user_id!r} already owns an organization."
+            )
+        return self._org_records.create_organization(owner, stripped_name, now=now)
+
+    def admin_create_organization(
+        self, owner: Identity, name: str, *, now: datetime
+    ) -> Organization:
+        """Create a pending organization without product-path caps."""
+        stripped_name = validate_organization_name(name)
+        return self._org_records.admin_create_organization(
+            owner, stripped_name, now=now
+        )
+
+    def _user_owns_organization(self, user_id: str) -> bool:
+        return any(
+            organization.owner_user_id == user_id
+            for organization in self.list_organizations_for_user(user_id)
+        )
 
     def admin_seed_organization(
         self,
