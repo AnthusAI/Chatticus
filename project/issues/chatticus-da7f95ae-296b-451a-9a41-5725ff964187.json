@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-da7f95ae-296b-451a-9a41-5725ff964187",
+  "title": "Unify workspace UI and redesign on flat, borderless surfaces",
+  "description": "",
+  "type": "chore",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "afd1e85e-ef81-44a6-8f45-4afae53b24f4",
+      "author": "home",
+      "text": "Directly briefed by the user in chat (Claude Code session), not the Cursor-agent Gherkin ritual. Frontend/visual redesign, no backend behavior change.\n\nTwo goals:\n1. DRY the workspace UI: build one real shared component (web/components/workspace/) used by both the marketing hero (Hero.tsx, fed by scripted demo data) and the real authenticated app (EnabledWorkspace.tsx, fed by live API/SSE data), replacing WorkspacePrototype.tsx (a disconnected mockup) and the /chat app's separate chat.css dark theme.\n2. Redesign the brand on flat, borderless surfaces: no borders/outlines/gradients anywhere; regions are rounded rects with flat background-color steps only (3 steps per mode: base/raised/highlighted), neither pure black nor pure white, light and dark symmetric via real prefers-color-scheme support (new — currently marketing is light-only and /chat is dark-only, disconnected).\n\nPhased: 0) docs/BRAND_GUIDELINES.md + surface token system, 1) shared Workspace component, 2) restyle /chat onto shared tokens, 3) remove borders across ~14 marketing components, 4) verification. Each phase its own PR to develop. Plan: /Users/example/.claude/plans/yes-let-s-plan-this-atomic-river.md",
+      "created_at": "2026-09-02T18:40:36.314164Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-02T18:40:27.506745Z",
+  "updated_at": "2026-09-02T18:40:39.191543Z",
+  "closed_at": null,
+  "custom": {}
+}

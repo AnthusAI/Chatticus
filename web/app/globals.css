@@ -17,6 +17,24 @@
   --duration-medium: 320ms;
   --duration-slow: 700ms;
   --ease-out: cubic-bezier(0.22, 0.75, 0.18, 1);
+
+  /*
+   * Three flat background steps (see docs/BRAND_GUIDELINES.md): page base,
+   * a raised region, and the region getting the most attention. Light mode
+   * steps down from --paper; dark mode steps up from --ink by the same
+   * kind of offset, mirrored.
+   */
+  --surface-0: var(--paper);
+  --surface-1: #e7e2d5;
+  --surface-2: #d9d3c1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-0: var(--ink);
+    --surface-1: #1d2018;
+    --surface-2: #2a2e22;
+  }
 }
 
 @layer base {
