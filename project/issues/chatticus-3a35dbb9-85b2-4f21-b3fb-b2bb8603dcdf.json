@@ -19,10 +19,17 @@
       "text": "Planning: Composer 2.5 on worktree /tmp/chatticus-3a35db-ceiling-sinks branch cursor/ceiling-sinks-3a35db-4a21. Ceiling check in capability_sinks before file/credential/egress/connector/consequential ops. Parallel with e41552 (different slice).",
       "created_at": "2026-09-02T16:04:34.000288Z",
       "comment_type": "default"
+    },
+    {
+      "id": "2bddcddd-e0ce-406b-b916-1adb65e64272",
+      "author": "home",
+      "text": "Plan accepted with corrections: ship scenarios A+B only (no red @wip C); member_standing=None must not skip the sink check; acting member is the turn requester, not primary_human if they differ. Live token checklist is post-merge human, not a PR gate. Worktree /tmp/chatticus-3a35db-ceiling-sinks.",
+      "created_at": "2026-09-02T16:09:22.104311Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:56:57.871883Z",
-  "updated_at": "2026-09-02T16:04:34.000288Z",
+  "updated_at": "2026-09-02T16:09:22.104311Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
