@@ -29,7 +29,32 @@ here.
 After **0ab02c** lands, the same normalized email used in `--owner-email`
 must resolve to the seeded identity so membership checks succeed.
 
-## Cold bootstrap (empty org records)
+## First organization (anthus)
+
+Chatticus v1's first enabled organization is tenant `anthus` with display name
+**Anthus AI Solutions**. The seeded owner is keyed on verified Google email in
+lowercase (`ryan@anth.us`). Use `seed`, not `create`, so the tenant id is
+`anthus` rather than a minted UUID. On an empty environment `seed` writes
+`enabled` directly; on environments with legacy messaging rows it aligns the
+owner identity with the existing `ryan` user id.
+
+```bash
+export CHATTICUS_MESSAGING_TABLE=<messaging-table-name>
+
+python -m chatticus.members seed \
+  --tenant-id anthus \
+  --owner-email ryan@anth.us \
+  --name "Anthus AI Solutions" \
+  --yes
+
+python -m chatticus.members show anthus
+python -m chatticus.members list --status enabled
+```
+
+Confirm `status=enabled`, `name=Anthus AI Solutions`, and owner email keyed
+as `ryan@anth.us`. No computer row is created.
+
+## Cold bootstrap (empty org records, arbitrary tenant)
 
 Use this on a fresh environment or to prove the escape hatch with no web
 session:
@@ -91,7 +116,7 @@ Optional display name (default: tenant id):
 python -m chatticus.members seed \
   --tenant-id anthus \
   --owner-email <verified-google-email> \
-  --name "Anthus Labs" \
+  --name "Anthus AI Solutions" \
   --yes
 ```
 

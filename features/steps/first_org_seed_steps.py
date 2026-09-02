@@ -75,19 +75,31 @@ def when_members_cli_creates(context: object, name: str, email: str) -> None:
     'the members CLI seeds tenant "{tenant_id}" for owner "{email}" '
     "with confirmation again"
 )
-def when_members_cli_seeds_tenant(context: object, tenant_id: str, email: str) -> None:
+@when(
+    'the members CLI seeds tenant "{tenant_id}" for owner "{email}" '
+    'named "{name}" with confirmation'
+)
+def when_members_cli_seeds_tenant(
+    context: object,
+    tenant_id: str,
+    email: str,
+    name: str | None = None,
+) -> None:
     plane = _plane(context)
+    argv = [
+        "seed",
+        "--tenant-id",
+        tenant_id,
+        "--owner-email",
+        email,
+        "--yes",
+    ]
+    if name is not None:
+        argv.extend(["--name", name])
     buffer = io.StringIO()
     with _capture_stdout(buffer):
         context.members_cli_exit = members_main(
-            [
-                "seed",
-                "--tenant-id",
-                tenant_id,
-                "--owner-email",
-                email,
-                "--yes",
-            ],
+            argv,
             plane_factory=lambda: plane,
         )
     context.members_cli_output = buffer.getvalue()
@@ -100,6 +112,21 @@ def when_members_cli_seeds_tenant(context: object, tenant_id: str, email: str) -
 def then_tenant_org_status(context: object, tenant_id: str, status: str) -> None:
     organization = _plane(context).get_organization(tenant_id)
     assert organization.status == OrganizationStatus(status)
+
+
+@then('organization tenant "{tenant_id}" has display name "{name}"')
+def then_tenant_org_display_name(context: object, tenant_id: str, name: str) -> None:
+    organization = _plane(context).get_organization(tenant_id)
+    assert organization.name == name
+
+
+@then('the identity for "{email}" is keyed in lowercase')
+def then_identity_keyed_lowercase(context: object, email: str) -> None:
+    store = _plane(context)._messaging_store
+    normalized = email.strip().lower()
+    identity = store.get_identity_by_email(normalized)
+    assert identity is not None
+    assert identity.email == normalized
 
 
 @then('"{email}" is an owner member of tenant "{tenant_id}"')

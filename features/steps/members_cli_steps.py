@@ -69,6 +69,12 @@ def then_members_cli_includes(context: object, name: str) -> None:
     assert context.members_cli_exit == 0
 
 
+@then('the members CLI output includes tenant "{tenant_id}"')
+def then_members_cli_includes_tenant(context: object, tenant_id: str) -> None:
+    assert tenant_id in context.members_cli_output
+    assert context.members_cli_exit == 0
+
+
 class _capture_stdout:
     def __init__(self, buffer: io.StringIO) -> None:
         self.buffer = buffer

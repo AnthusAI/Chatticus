@@ -85,9 +85,10 @@ environments; only `/health` and `POST …/workers/register` (invoke-key gated)
 are open. Live-verified on each environment: `/health` 200, `/me` 403, org
 route 403 with no credential.
 
-A seeded owner (`ryan@anth.us` → org `anthus`, enabled) can sign in with Google
-on development and reach the workspace. Operator org records are DynamoDB
-data, not CDK; see [Operator org seed](docs/OPERATOR_ORG_SEED.md).
+A seeded owner (`ryan@anth.us` → org `anthus`, display name Anthus AI
+Solutions, enabled) can sign in with Google on development and reach the
+workspace. Operator org records are DynamoDB data, not CDK; see
+[Operator org seed](docs/OPERATOR_ORG_SEED.md).
 
 ### In git `develop` but not necessarily deployed
 
