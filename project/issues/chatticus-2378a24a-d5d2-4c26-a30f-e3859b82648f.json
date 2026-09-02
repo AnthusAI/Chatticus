@@ -10,10 +10,22 @@
   "parent": "chatticus-ffac024e-78e7-4c48-bc3b-0d136e81d890",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "5f9f1072-dfb4-4f61-b843-730655c38c63",
+      "author": "home",
+      "text": "Parked: da7f95 Phase 3 still owns marketing Footer.tsx. This card also waits on the feature-page writing brief named in the description. Do not start until Footer is free and that brief exists.",
+      "created_at": "2026-09-02T20:57:25.041826Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-02T12:00:25.089689Z",
-  "updated_at": "2026-09-02T12:00:31.936304Z",
+  "updated_at": "2026-09-02T20:57:25.041908Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
   "custom": {},
   "agent": null
 }

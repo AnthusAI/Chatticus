@@ -14,20 +14,36 @@
     {
       "id": "afd1e85e-ef81-44a6-8f45-4afae53b24f4",
       "author": "home",
-      "text": "Directly briefed by the user in chat (Claude Code session), not the Cursor-agent Gherkin ritual. Frontend/visual redesign, no backend behavior change.\n\nTwo goals:\n1. DRY the workspace UI: build one real shared component (web/components/workspace/) used by both the marketing hero (Hero.tsx, fed by scripted demo data) and the real authenticated app (EnabledWorkspace.tsx, fed by live API/SSE data), replacing WorkspacePrototype.tsx (a disconnected mockup) and the /chat app's separate chat.css dark theme.\n2. Redesign the brand on flat, borderless surfaces: no borders/outlines/gradients anywhere; regions are rounded rects with flat background-color steps only (3 steps per mode: base/raised/highlighted), neither pure black nor pure white, light and dark symmetric via real prefers-color-scheme support (new — currently marketing is light-only and /chat is dark-only, disconnected).\n\nPhased: 0) docs/BRAND_GUIDELINES.md + surface token system, 1) shared Workspace component, 2) restyle /chat onto shared tokens, 3) remove borders across ~14 marketing components, 4) verification. Each phase its own PR to develop. Plan: /Users/example/.claude/plans/yes-let-s-plan-this-atomic-river.md",
+      "text": "Directly briefed by the user in chat (Claude Code session), not the Cursor-agent Gherkin ritual. Frontend/visual redesign, no backend behavior change.\n\nTwo goals:\n1. DRY the workspace UI: build one real shared component (web/components/workspace/) used by both the marketing hero (Hero.tsx, fed by scripted demo data) and the real authenticated app (EnabledWorkspace.tsx, fed by live API/SSE data), replacing WorkspacePrototype.tsx (a disconnected mockup) and the /chat app's separate chat.css dark theme.\n2. Redesign the brand on flat, borderless surfaces: no borders/outlines/gradients anywhere; regions are rounded rects with flat background-color steps only (3 steps per mode: base/raised/highlighted), neither pure black nor pure white, light and dark symmetric via real prefers-color-scheme support (new \u2014 currently marketing is light-only and /chat is dark-only, disconnected).\n\nPhased: 0) docs/BRAND_GUIDELINES.md + surface token system, 1) shared Workspace component, 2) restyle /chat onto shared tokens, 3) remove borders across ~14 marketing components, 4) verification. Each phase its own PR to develop. Plan: /Users/example/.claude/plans/yes-let-s-plan-this-atomic-river.md",
       "created_at": "2026-09-02T18:40:36.314164Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     },
     {
       "id": "5891548b-a9ff-459b-8abc-6bcfd2854c0b",
       "author": "home",
       "text": "Phase 0 (brand guidelines + surface tokens, #197) and Phase 1 (shared WorkspacePanel component used by both the marketing hero demo and the real /chat app, #198) landed on develop. Also shipped along the way: message-bubble CTA shape (#196), and found+fixed a real pre-existing bug while deploying to production -- CloudFront was never invalidated on deploy (24h stale-cache window), fixed in #195.\n\nRemaining: Phase 2 (restyle the rest of /chat -- MembershipShell and its panels -- onto the shared surface tokens, retire chat.css) and Phase 3 (remove borders across the ~14 marketing components still using them). Checking in with the user before continuing into that larger remaining scope.",
       "created_at": "2026-09-02T19:14:16.601257Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "2fc1dedb-acc7-4fac-8e14-a74d2d5ec3ba",
+      "author": "home",
+      "text": "Phase 2 landed on develop as #200 (restyle /chat onto shared tokens, retire chat.css). Remaining: Phase 3 marketing borderless. #202 (Workspace Send justify-self-end) is this session's PR against develop; manager will merge when CI is green. Live ChatticusWeb development verified: https://dev.chattic.us CTAs are same-origin /chat and /chat serves Sign in with Google.",
+      "created_at": "2026-09-02T20:57:24.520979Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-02T18:40:27.506745Z",
-  "updated_at": "2026-09-02T19:14:16.601257Z",
+  "updated_at": "2026-09-02T20:57:24.521063Z",
   "closed_at": null,
-  "custom": {}
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
 }
