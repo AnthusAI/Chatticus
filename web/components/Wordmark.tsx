@@ -21,7 +21,7 @@ export function Wordmark({ className, inverse = false }: WordmarkProps) {
         <span className={cn("relative z-10 ml-1 h-1 w-1 rounded-full", inverse ? "bg-ink" : "bg-paper")} />
       </span>
       <span>
-        chatticus<span className="text-clay">.</span>
+        Chatticus<span className="text-clay"></span>
       </span>
     </span>
   );
