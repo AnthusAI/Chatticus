@@ -3,7 +3,7 @@
   "title": "Create an organization and wait",
   "description": "**Phase 4 of 7.**\n\n- **Blocked by:** 22f5bb\n- **Runs in parallel with:** 7b4616\n- **Unblocks:** ae51dc\n\n---\nAnyone signing in may create an organization, which lands it pending, and sees the welcome screen. Google sign-in is the waitlist form: the address is verified, there is no form backend and no spam, and enabling later is a flag flip on an account that already exists.\n\nDo not show a queue position. It implies an ordering that will not be honored, because organizations are chosen deliberately. Do not promise an email unless SES is out of the sandbox; at this volume, mail the owner by hand when their organization is enabled.\n\n**Done when:** a new person can sign in, create an organization, and see the welcome screen, and an operator sees it via the members CLI.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -40,11 +40,18 @@
       "text": "Acceptance APPROVE: 6/6 new scenarios + 29 nearby regressions green. Residuals: multi-org create and name length go to 694392; Anthus CDK signupMode=open is correct. Implementer to commit, gitignore harness state, open PR.",
       "created_at": "2026-09-02T16:15:11.005699Z",
       "comment_type": "default"
+    },
+    {
+      "id": "0115f037-d338-4620-9dc6-8814c74feda0",
+      "author": "home",
+      "text": "Merged #184 to develop (8ac2505). Product path: POST /organizations, welcome screen, signup-mode switch. Caps stay on 694392. Worktree /tmp/chatticus-e41552-create-org can be removed.",
+      "created_at": "2026-09-02T16:21:48.859429Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:40:45.597787Z",
-  "updated_at": "2026-09-02T16:15:11.005699Z",
-  "closed_at": null,
+  "updated_at": "2026-09-02T16:21:48.859429Z",
+  "closed_at": "2026-09-02T16:21:48.836437Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
