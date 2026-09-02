@@ -3,7 +3,7 @@
   "title": "Marketing CTAs send every environment to hey.chattic.us",
   "description": "## Problem\ndev.chattic.us and staging.chattic.us serve marketing at `/`. Header, hero, footer, and final CTA hardcode `https://hey.chattic.us`. Signing in from development lands on production.\n\n## Convention (not configuration)\nThe product app is always at **`/chat` on the current host**. Marketing CTAs are same-origin `/chat`. Do not bake `NEXT_PUBLIC_*` workspace URLs, env switches, or hostname lists.\n\nProduction already rewrites `hey.chattic.us/` to `/chat`. Named-env hosts (`dev.`, `staging.`) keep marketing at `/` and the app at `/chat`. CloudFront must rewrite `/chat` → `/chat/index.html` on every host, not only `hey.`.\n\nApex `chattic.us` CTAs become `https://chattic.us/chat` (same convention). `hey.chattic.us/` remains the product-only hostname.\n\n## Gherkin\n\n```gherkin\nFeature: Marketing links to this host's app\n  As a visitor on any Chatticus marketing host\n  I want workspace CTAs to open the app on this same host\n  So that development never signs me into production\n\n  Scenario: Development marketing CTA is same-origin /chat\n    Given the marketing page is served from \"dev.chattic.us\"\n    Then the workspace CTA href is \"/chat\"\n    And the workspace CTA href is not \"https://hey.chattic.us\"\n\n  Scenario: CloudFront rewrites /chat on development\n    Given the CloudFront viewer-request function for development\n    When the request host is \"dev.chattic.us\" and the uri is \"/chat\"\n    Then the rewritten uri is \"/chat/index.html\"\n```\n\n## Out of scope\nSeeding production orgs. Cognito callback URLs (already per Auth stack). Merge to main. `cdk deploy --all`.",
   "type": "bug",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -31,10 +31,17 @@
       "text": "PR #199 against develop. Same-origin /chat CTAs + global CloudFront /chat rewrite. Awaiting CI and acceptance.",
       "created_at": "2026-09-02T19:22:06.379792Z",
       "comment_type": "default"
+    },
+    {
+      "id": "1a90c94b-0721-4ad7-86d2-0c42d9644468",
+      "author": "home",
+      "text": "Squash-merged #199 to develop. Same-origin /chat CTAs + global CF /chat rewrite. Live after named ChatticusWeb* deploy (not --all). Sign in at https://dev.chattic.us/chat until then.",
+      "created_at": "2026-09-02T19:27:32.617335Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-02T18:57:03.201907Z",
-  "updated_at": "2026-09-02T19:22:06.379792Z",
-  "closed_at": null,
+  "updated_at": "2026-09-02T19:27:32.630551Z",
+  "closed_at": "2026-09-02T19:27:32.630551Z",
   "custom": {}
 }
