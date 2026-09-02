@@ -10,7 +10,6 @@ from uuid import uuid4
 
 import boto3
 import pytest
-from conftest import register_worker_headers
 from http_test_support import ensure_test_org, start_authed_test_server
 from moto import mock_aws
 
@@ -49,6 +48,7 @@ from chatticus.worker.openai_completion import (
     completion_client_from_env,
     load_local_env,
 )
+from conftest import register_worker_headers
 
 
 def _channel_with_bot(plane: ControlPlane, name: str = "Researcher"):
