@@ -103,7 +103,7 @@ export function WorkspaceThread({
             <button
               type="submit"
               disabled={composerDisabled}
-              className="flex min-h-9 w-fit items-center gap-1.5 rounded-[18px_18px_4px_18px] bg-ink px-3 font-body text-xs font-bold text-paper transition disabled:opacity-40"
+              className="flex min-h-9 w-fit items-center justify-self-end gap-1.5 rounded-[18px_18px_4px_18px] bg-ink px-3 font-body text-xs font-bold text-paper transition disabled:opacity-40"
             >
               {sending ? "Sending…" : "Send"}
               <Send className="h-3.5 w-3.5" aria-hidden="true" />

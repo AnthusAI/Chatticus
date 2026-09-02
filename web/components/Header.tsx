@@ -4,7 +4,7 @@ import { Wordmark } from "@/components/Wordmark";
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 bg-surface/90 backdrop-blur-xl">
       <nav
         aria-label="Primary navigation"
         className="mx-auto flex h-[4.6rem] max-w-[92rem] items-center justify-between px-5 sm:px-8 lg:px-12"
