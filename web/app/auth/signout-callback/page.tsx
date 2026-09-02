@@ -15,7 +15,7 @@ export default function SignOutCallbackPage() {
       try {
         await completeSignOutRedirect();
         if (!cancelled) {
-          router.replace("/chat");
+          router.replace("/");
         }
       } catch (caught) {
         if (!cancelled) {

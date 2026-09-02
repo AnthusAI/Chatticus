@@ -15,7 +15,7 @@ export default function AuthCallbackPage() {
       try {
         await completeSignInRedirect();
         if (!cancelled) {
-          router.replace("/");
+          router.replace("/chat");
         }
       } catch (caught) {
         if (!cancelled) {
