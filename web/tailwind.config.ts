@@ -21,6 +21,7 @@ const config: Config = {
         surface: "var(--surface-0)",
         "surface-raised": "var(--surface-1)",
         "surface-high": "var(--surface-2)",
+        "surface-foreground": "var(--surface-foreground)",
       },
       fontFamily: {
         display: ["var(--font-display)"],
