@@ -5,8 +5,20 @@ import { CreateOrganizationPanel } from "./CreateOrganizationPanel";
 import { NoOrganizationPanel } from "./NoOrganizationPanel";
 import { WelcomeOrganizationPanel } from "./WelcomeOrganizationPanel";
 import { SignInPanel, SignedInHeader } from "./SignInPanel";
+import { authErrorClassName, authStatusClassName } from "./AuthCard";
 import { useMembership } from "../lib/membership-context";
 import { readSignupModeFromEnv } from "../lib/signup-mode";
+
+function ShellHeader() {
+  return (
+    <header className="grid gap-1 py-6 text-surface-foreground">
+      <p className="font-body text-lg font-extrabold">
+        chatticus<span className="text-clay">.</span>
+      </p>
+      <p className={authStatusClassName}>Named bots, one shared computer, serverless control plane.</p>
+    </header>
+  );
+}
 
 export function MembershipShell() {
   const { authLoading, meLoading, branch, activeOrg, error } = useMembership();
@@ -14,39 +26,31 @@ export function MembershipShell() {
 
   if (authLoading || (branch !== "signed-out" && meLoading)) {
     return (
-      <main>
-        <header className="site-header">
-          <h1>Chatticus</h1>
-          <p className="status">Loading membership…</p>
-        </header>
+      <main className="mx-auto max-w-2xl bg-surface px-5">
+        <ShellHeader />
+        <p className={authStatusClassName}>Loading membership…</p>
       </main>
     );
   }
 
   if (branch === "signed-out") {
     return (
-      <main>
-        <header className="site-header">
-          <h1>Chatticus</h1>
-          <p>Named bots, one shared computer, serverless control plane.</p>
-        </header>
+      <main className="mx-auto max-w-2xl bg-surface px-5">
+        <ShellHeader />
         <SignInPanel />
       </main>
     );
   }
 
   return (
-    <main>
-      <header className="site-header">
-        <h1>Chatticus</h1>
-        <p>Named bots, one shared computer, serverless control plane.</p>
-      </header>
+    <main className="mx-auto grid max-w-2xl gap-3 bg-surface px-5 pb-10">
+      <ShellHeader />
 
       <SignedInHeader />
 
       {error ? (
-        <section className="card membership">
-          <p className="status error">{error}</p>
+        <section className="rounded-2xl bg-surface-raised p-4">
+          <p className={authErrorClassName}>{error}</p>
         </section>
       ) : null}
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { AuthCard, authButtonClassName, authErrorClassName, authFieldClassName, authOkClassName, authStatusClassName } from "./AuthCard";
 import { inviteConfirmationText, inviteMember } from "../lib/invitations";
 
 type InviteMemberPanelProps = {
@@ -15,13 +16,13 @@ export function InviteMemberPanel({ tenantId }: InviteMemberPanelProps) {
   const [confirmation, setConfirmation] = useState<string | null>(null);
 
   return (
-    <section className="card membership">
-      <h2>Invite a teammate</h2>
-      <p className="status">
+    <AuthCard title="Invite a teammate">
+      <p className={authStatusClassName}>
         Send an invitation by email. They join when they sign in with that Google
         account.
       </p>
       <form
+        className="grid gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           const trimmed = email.trim();
@@ -44,23 +45,23 @@ export function InviteMemberPanel({ tenantId }: InviteMemberPanelProps) {
             });
         }}
       >
-        <label className="status" htmlFor="invite-email">
+        <label className="sr-only" htmlFor="invite-email">
           Email address
         </label>
         <input
           id="invite-email"
           type="email"
-          className="retry-button"
+          className={authFieldClassName}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           disabled={submitting}
         />
-        {error ? <p className="status error">{error}</p> : null}
-        {confirmation ? <p className="status ok">{confirmation}</p> : null}
-        <button type="submit" className="retry-button" disabled={submitting || !email.trim()}>
+        {error ? <p className={authErrorClassName}>{error}</p> : null}
+        {confirmation ? <p className={authOkClassName}>{confirmation}</p> : null}
+        <button type="submit" className={authButtonClassName} disabled={submitting || !email.trim()}>
           Send invitation
         </button>
       </form>
-    </section>
+    </AuthCard>
   );
 }

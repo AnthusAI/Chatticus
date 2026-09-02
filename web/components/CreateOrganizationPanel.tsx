@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { AuthCard, authButtonClassName, authErrorClassName, authFieldClassName, authStatusClassName } from "./AuthCard";
 import { createOrganization } from "../lib/organizations";
 import { useMembership } from "../lib/membership-context";
 
@@ -12,13 +13,13 @@ export function CreateOrganizationPanel() {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <section className="card membership">
-      <h2>Create your organization</h2>
-      <p className="status">
+    <AuthCard title="Create your organization">
+      <p className={authStatusClassName}>
         Name the organization you want to use on Chatticus. An operator enables it
         before the workspace unlocks.
       </p>
       <form
+        className="grid gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           const trimmed = name.trim();
@@ -37,21 +38,21 @@ export function CreateOrganizationPanel() {
             });
         }}
       >
-        <label className="status" htmlFor="organization-name">
+        <label className="sr-only" htmlFor="organization-name">
           Organization name
         </label>
         <input
           id="organization-name"
-          className="retry-button"
+          className={authFieldClassName}
           value={name}
           onChange={(event) => setName(event.target.value)}
           disabled={submitting}
         />
-        {error ? <p className="status error">{error}</p> : null}
-        <button type="submit" className="retry-button" disabled={submitting || !name.trim()}>
+        {error ? <p className={authErrorClassName}>{error}</p> : null}
+        <button type="submit" className={authButtonClassName} disabled={submitting || !name.trim()}>
           Create organization
         </button>
       </form>
-    </section>
+    </AuthCard>
   );
 }
