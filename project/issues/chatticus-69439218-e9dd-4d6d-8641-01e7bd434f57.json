@@ -3,7 +3,7 @@
   "title": "Cap organization creation and alarm on Cognito users",
   "description": "**Phase 4 of 7.**\n\n- **Blocked by:** e41552\n- **Runs in parallel with:** ae51dc\n- **Unblocks:** nothing\n\n---\n**Found by inversion: the waitlist was supposed to be the cost gate. How does it become a cost hole?**\n\nSign-up is now open by design, so the create-organization endpoint is an unauthenticated-by-intent write path. Nothing in the plan caps it. One person can create unlimited organizations, and every new Google account that signs in is a Cognito monthly active user. The free tier is 10,000 MAU and then it is 0.015 per user, which is small until someone points a script at it.\n\nReal Google accounts are a barrier, not a wall.\n\n**Do:** one organization per person unless an operator lifts it, a rate limit on creation, and a CloudWatch alarm on Cognito monthly active users well below the free tier boundary so we learn about a flood from an alarm rather than an invoice.\n\n**Note:** a waitlisted principal already costs only one DynamoDB read per request, so this is about the write path and the MAU count, not about serving them.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -40,11 +40,25 @@
       "text": "Plan accepted with correction: alarm on FederationSuccesses (Google federation), not SignUpSuccesses. Worktree /tmp/chatticus-694392-org-caps branch cursor/org-caps-694392-4a21 — create tree first, then implement.",
       "created_at": "2026-09-02T17:15:14.023181Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f9fa6de3-6864-48f6-b8d4-3d05ec0cfd17",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chattic.us/pull/187 opened against develop. Write-path order and FederationSuccesses alarm match the accepted plan. CI + acceptance in flight. Not merged.",
+      "created_at": "2026-09-02T17:30:05.005943Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "224605ec-7754-4268-85b0-87f2cc6c499e",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chattic.us/pull/187 (bd2e505b5044883d0427a371688eda5b0a8e1a71) to develop. Owner cap, name bound, rate limit, FederationSuccesses alarm. Auth-stack deploy is operator-gated.",
+      "created_at": "2026-09-02T17:35:08.202627Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:57:18.525663Z",
-  "updated_at": "2026-09-02T17:15:14.023181Z",
-  "closed_at": null,
+  "updated_at": "2026-09-02T17:35:08.202627Z",
+  "closed_at": "2026-09-02T17:35:08.191514Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
