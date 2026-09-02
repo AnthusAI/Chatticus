@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from chatticus.ceiling import Ceiling
 
 
 class CostClass(StrEnum):
@@ -549,6 +553,13 @@ class Membership:
     user_id: str
     role: MemberRole
     joined_at: datetime
+
+    @property
+    def ceiling(self) -> Ceiling:
+        """Standing authority preset for this membership's role."""
+        from chatticus.roles import ceiling_for_member_role
+
+        return ceiling_for_member_role(self.role)
 
 
 @dataclass(frozen=True)
