@@ -6,6 +6,7 @@ import hashlib
 import json
 import queue
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -88,7 +89,6 @@ from chatticus.models import (
     SnapshotRequiredError,
     StaleAttemptError,
     Task,
-    TaskAccessDeniedError,
     TaskCloseReasonRequiredError,
     TaskEvidenceRequiredError,
     TaskNotFoundError,
@@ -108,6 +108,7 @@ from chatticus.models import (
     WorkerRegistration,
     WorkerTenantMismatchError,
     pending_computer_tool_from_turn,
+    primary_human_participant,
 )
 from chatticus.org_records import OrgRecordsKernel
 from chatticus.overnight_gated import (
@@ -193,7 +194,7 @@ class ControlPlane:
         self._fault_injector = fault_injector
         self._frozen_now = datetime.now(UTC)
         self._bots: dict[str, Bot] = {}
-        self._computers_by_user: dict[tuple[str, str], Computer] = {}
+        self._computers_by_tenant: dict[str, Computer] = {}
         self._computers_by_id: dict[str, Computer] = {}
         self._snapshots: dict[str, ComputerSnapshot] = {}
         self._auto_review_rules: list[AutoReviewRule] = []
@@ -407,6 +408,22 @@ class ControlPlane:
         hydrated = (
             previous.hydrated_snapshot_generation if previous is not None else None
         )
+        if "computer" in registration.capabilities:
+            org_computer = self._messaging_store.get_computer(registration.tenant_id)
+            if org_computer is None:
+                org_computer = self.ensure_computer(
+                    registration.tenant_id,
+                    computer_id=registration.computer_id,
+                )
+            if registration.computer_id is None:
+                registration = replace(
+                    registration, computer_id=org_computer.computer_id
+                )
+            elif registration.computer_id != org_computer.computer_id:
+                self.ensure_computer(
+                    registration.tenant_id,
+                    computer_id=registration.computer_id,
+                )
         token = mint_worker_token()
         record = WorkerRecord(
             registration=registration,
@@ -470,21 +487,19 @@ class ControlPlane:
     ) -> TurnJob:
         """Create a turn job. Assignment happens in ``assign_turn``.
 
-        If ``bot_id`` is set, the job belongs to that bot's user and, unless a
-        pin is supplied, is pinned to that user's computer with that
-        computer's policy.
+        If ``bot_id`` is set, the job is pinned to that bot's tenant and,
+        when ``user_id`` is supplied, to that household computer.
         """
         resolved_user_id = user_id
         resolved_tenant_id = tenant_id
         if bot_id is not None:
             bot = self._bot(resolved_tenant_id, bot_id)
-            resolved_user_id = bot.user_id
             resolved_tenant_id = bot.tenant_id
         needs_computer = "computer" in required_capabilities
         resolved_computer_id = computer_id
         resolved_policy = computer_policy
-        if needs_computer and resolved_user_id is not None:
-            computer = self.ensure_computer(resolved_tenant_id, resolved_user_id)
+        if needs_computer:
+            computer = self.ensure_computer(resolved_tenant_id)
             if resolved_computer_id is None:
                 resolved_computer_id = computer.computer_id
             if resolved_policy is None:
@@ -569,14 +584,14 @@ class ControlPlane:
     def create_bot(
         self,
         tenant_id: str,
-        user_id: str,
         name: str,
         *,
+        creator_user_id: str,
         idempotency_key: str | None = None,
     ) -> Bot:
-        """Create a named bot and ensure the user has a computer.
+        """Create a named bot and ensure the organization has a computer.
 
-        :raises DuplicateBotNameError: If the user already has this bot name.
+        :raises DuplicateBotNameError: If the organization already has this bot name.
         """
         if idempotency_key is not None:
             cached = self._messaging_store.get_bot_idempotency(
@@ -584,15 +599,14 @@ class ControlPlane:
             )
             if cached is not None:
                 return cached
-        if self._messaging_store.get_bot_by_name(tenant_id, user_id, name) is not None:
+        if self._messaging_store.get_bot_by_name(tenant_id, name) is not None:
             raise DuplicateBotNameError(
-                f"Bot named {name!r} already exists for user {user_id!r}."
+                f"Bot named {name!r} already exists for tenant {tenant_id!r}."
             )
-        self.ensure_computer(tenant_id, user_id)
+        self.ensure_computer(tenant_id)
         bot = Bot(
             bot_id=str(uuid4()),
             tenant_id=tenant_id,
-            user_id=user_id,
             name=name,
         )
         self._bots[bot.bot_id] = bot
@@ -611,20 +625,20 @@ class ControlPlane:
             raise KeyError(bot_id)
         return record
 
-    def bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot:
-        """Return one bot by the household user's chosen name.
+    def bot_by_name(self, tenant_id: str, name: str) -> Bot:
+        """Return one bot by the organization's chosen name.
 
-        :raises KeyError: If the bot is unknown to this tenant and user.
+        :raises KeyError: If the bot is unknown to this tenant.
         """
-        bot = self._messaging_store.get_bot_by_name(tenant_id, user_id, name)
-        if bot is None or bot.tenant_id != tenant_id or bot.user_id != user_id:
+        bot = self._messaging_store.get_bot_by_name(tenant_id, name)
+        if bot is None or bot.tenant_id != tenant_id:
             raise KeyError(name)
         self._bots[bot.bot_id] = bot
         return bot
 
-    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
-        """Return named bots owned by one household user."""
-        bots = self._messaging_store.list_bots(tenant_id, user_id)
+    def list_bots(self, tenant_id: str) -> list[Bot]:
+        """Return named bots in one organization."""
+        bots = self._messaging_store.list_bots(tenant_id)
         owned = [bot for bot in bots if bot.tenant_id == tenant_id]
         for bot in owned:
             self._bots[bot.bot_id] = bot
@@ -745,11 +759,7 @@ class ControlPlane:
 
         The task tool never summons a computer or enqueues computer work.
         """
-        bot = self.bot(tenant_id, bot_id)
-        if bot.user_id != user_id:
-            raise TaskAccessDeniedError(
-                f"Bot {bot_id!r} cannot act on tasks for user {user_id!r}."
-            )
+        self.bot(tenant_id, bot_id)
         if action == "create":
             title = arguments.get("title", "").strip()
             if not title:
@@ -789,43 +799,44 @@ class ControlPlane:
     def ensure_computer(
         self,
         tenant_id: str,
-        user_id: str,
         computer_id: str | None = None,
     ) -> Computer:
-        """Return the user's computer, creating it if needed.
+        """Return the organization computer, creating it if needed.
 
         The first call may set a stable ``computer_id`` so workers can
         advertise the same workplace.
         """
-        key = (tenant_id, user_id)
-        computer = self._messaging_store.get_computer(tenant_id, user_id)
+        computer = self._messaging_store.get_computer(tenant_id)
         if computer is None:
             computer = Computer(
                 computer_id=computer_id or str(uuid4()),
                 tenant_id=tenant_id,
-                user_id=user_id,
             )
             self._messaging_store.put_computer(computer)
-        self._computers_by_user[key] = computer
+        self._computers_by_tenant[tenant_id] = computer
         self._computers_by_id[computer.computer_id] = computer
         return computer
 
-    def computer_for_user(self, tenant_id: str, user_id: str) -> Computer:
-        """
-        Return the existing computer for a user.
+    def computer_for_organization(self, tenant_id: str) -> Computer:
+        """Return the existing computer for one organization.
 
         Always read the messaging store. Front Door and ComputerWorker
         are separate processes; a cached Computer would hide
         ``host_start_generation`` written by the worker.
 
-        :raises KeyError: If the user has no computer.
+        :raises KeyError: If the organization has no computer.
         """
-        computer = self._messaging_store.get_computer(tenant_id, user_id)
+        computer = self._messaging_store.get_computer(tenant_id)
         if computer is None:
-            raise KeyError((tenant_id, user_id))
-        self._computers_by_user[(tenant_id, user_id)] = computer
+            raise KeyError(tenant_id)
+        self._computers_by_tenant[tenant_id] = computer
         self._computers_by_id[computer.computer_id] = computer
         return computer
+
+    def computer_for_user(self, tenant_id: str, user_id: str) -> Computer:
+        """Deprecated alias for the organization computer."""
+        del user_id
+        return self.computer_for_organization(tenant_id)
 
     def _bot(self, tenant_id: str, bot_id: str) -> Bot:
         """Return a bot from memory or the messaging store."""
@@ -1085,14 +1096,13 @@ class ControlPlane:
     def sync_household_credentials(
         self,
         tenant_id: str,
-        user_id: str,
         turn_id: str,
     ) -> None:
-        """Mirror household browser sessions into one turn's policy state."""
+        """Mirror organization browser sessions into one turn's policy state."""
         from chatticus.capability_policy import HouseholdCredential
 
         policy = self.capability_policy_for(tenant_id, turn_id)
-        computer = self.computer_for_user(tenant_id, user_id)
+        computer = self.computer_for_organization(tenant_id)
         for service, session in computer.browser_sessions.items():
             policy.add_credential(
                 HouseholdCredential("browser_session", service, session)
@@ -1102,26 +1112,24 @@ class ControlPlane:
         self,
         tenant_id: str,
         turn_id: str,
-        user_id: str,
         path: str,
     ) -> str | None:
         """Read a workspace file after the task grant allows it."""
         policy = self.capability_policy_for(tenant_id, turn_id)
         gated_read_workspace(policy, path)
-        return self.read_workspace(tenant_id, user_id, path)
+        return self.read_workspace(tenant_id, path)
 
     def gated_write_workspace(
         self,
         tenant_id: str,
         turn_id: str,
-        user_id: str,
         path: str,
         content: str,
     ) -> None:
         """Write a workspace file after the task grant allows it."""
         policy = self.capability_policy_for(tenant_id, turn_id)
         gated_write_workspace(policy, path)
-        self.write_workspace(tenant_id, user_id, path, content)
+        self.write_workspace(tenant_id, path, content)
 
     def gated_browse_origin(self, tenant_id: str, turn_id: str, url: str) -> None:
         """Authorize browsing one origin before a computer tool opens it."""
@@ -1240,7 +1248,7 @@ class ControlPlane:
             {"path": path},
         )
         try:
-            content = self.gated_read_workspace(tenant_id, turn_id, user_id, path)
+            content = self.gated_read_workspace(tenant_id, turn_id, path)
         except CapabilitySinkDenied as error:
             self.record_model_gated_tool_result(
                 tenant_id,
@@ -1369,11 +1377,9 @@ class ControlPlane:
             completion_evidence,
         )
 
-    def write_workspace(
-        self, tenant_id: str, user_id: str, path: str, content: str
-    ) -> None:
-        """Write a file on the user's shared computer."""
-        computer = self.computer_for_user(tenant_id, user_id)
+    def write_workspace(self, tenant_id: str, path: str, content: str) -> None:
+        """Write a file on the organization computer."""
+        computer = self.computer_for_organization(tenant_id)
         if computer.hydrate_required:
             raise ComputerNotHydratedError(
                 f"Computer {computer.computer_id!r} must be hydrated before "
@@ -1382,22 +1388,20 @@ class ControlPlane:
         computer.workspace[path] = content
         computer.disk_dirty = True
 
-    def read_workspace(self, tenant_id: str, user_id: str, path: str) -> str | None:
+    def read_workspace(self, tenant_id: str, path: str) -> str | None:
         """Read a file from the user's shared computer.
 
         While hydrate is required, reads come from the published snapshot
         (the object every host can see), not from a host's stale overlay.
         """
-        computer = self.computer_for_user(tenant_id, user_id)
+        computer = self.computer_for_organization(tenant_id)
         if computer.hydrate_required and computer.snapshot_uri is not None:
             return self._snapshots[computer.snapshot_uri].workspace.get(path)
         return computer.workspace.get(path)
 
-    def save_browser_session(
-        self, tenant_id: str, user_id: str, service: str, session: str
-    ) -> None:
-        """Persist a browser session on the user's computer."""
-        computer = self.computer_for_user(tenant_id, user_id)
+    def save_browser_session(self, tenant_id: str, service: str, session: str) -> None:
+        """Persist a browser session on the organization computer."""
+        computer = self.computer_for_organization(tenant_id)
         if computer.hydrate_required:
             raise ComputerNotHydratedError(
                 f"Computer {computer.computer_id!r} must be hydrated before "
@@ -1406,12 +1410,12 @@ class ControlPlane:
         computer.browser_sessions[service] = session
         computer.disk_dirty = True
 
-    def browser_session(self, tenant_id: str, user_id: str, service: str) -> str | None:
+    def browser_session(self, tenant_id: str, service: str) -> str | None:
         """Return a saved browser session, if present.
 
         While hydrate is required, reads come from the published snapshot.
         """
-        computer = self.computer_for_user(tenant_id, user_id)
+        computer = self.computer_for_organization(tenant_id)
         if computer.hydrate_required and computer.snapshot_uri is not None:
             return self._snapshots[computer.snapshot_uri].browser_sessions.get(service)
         return computer.browser_sessions.get(service)
@@ -1512,13 +1516,12 @@ class ControlPlane:
             url = arguments.get("url", "").strip()
             if url:
                 gated_browse_origin(policy, url)
-        turn = self.turn(tenant_id, turn_id)
-        bot = self._bot(tenant_id, turn.bot_id)
-        computer = self.ensure_computer(tenant_id, bot.user_id)
+        self.turn(tenant_id, turn_id)
+        computer = self.ensure_computer(tenant_id)
         record = EscalationRecord(
             turn_id=turn_id,
             tenant_id=tenant_id,
-            user_id=bot.user_id,
+            user_id=None,
             computer_id=computer.computer_id,
             pending_call=PendingComputerToolCall(
                 action_id=str(uuid4()),
@@ -1572,8 +1575,8 @@ class ControlPlane:
             action_id = pending.action_id
             tool_name = pending.tool_name
             arguments = dict(pending.arguments)
-        bot = self._bot(tenant_id, turn.bot_id)
-        computer = self.ensure_computer(tenant_id, bot.user_id)
+        channel = self.channel(tenant_id, turn.channel_id)
+        computer = self.ensure_computer(tenant_id)
         result_committed = any(
             event.kind == TurnEventKind.TOOL_RESULT and event.action_id == action_id
             for event in events
@@ -1582,7 +1585,7 @@ class ControlPlane:
         record = EscalationRecord(
             turn_id=turn_id,
             tenant_id=tenant_id,
-            user_id=bot.user_id,
+            user_id=primary_human_participant(channel),
             computer_id=computer.computer_id,
             pending_call=PendingComputerToolCall(
                 action_id=action_id,
@@ -1871,12 +1874,13 @@ class ControlPlane:
     def request_computer_host_start(
         self,
         tenant_id: str,
-        user_id: str,
         turn_id: str,
+        *,
+        user_id: str | None = None,
     ) -> HostStartClaim:
         """Request a host start; concurrent callers share one claim."""
         self.expire_host_start_claims()
-        computer = self.ensure_computer(tenant_id, user_id)
+        computer = self.ensure_computer(tenant_id)
         key = (tenant_id, computer.computer_id)
         if (
             computer.host_start_lease_expires_at is not None
@@ -1921,15 +1925,12 @@ class ControlPlane:
     def mark_host_start_dispatched(
         self,
         tenant_id: str,
-        user_id: str,
         generation: int,
     ) -> bool:
         """Claim host-start dispatch for one generation. True if this caller won."""
-        won = self._messaging_store.claim_host_start_dispatch(
-            tenant_id, user_id, generation
-        )
+        won = self._messaging_store.claim_host_start_dispatch(tenant_id, generation)
         if won:
-            computer = self.computer_for_user(tenant_id, user_id)
+            computer = self.computer_for_organization(tenant_id)
             computer.host_start_dispatched_generation = max(
                 computer.host_start_dispatched_generation, generation
             )
@@ -1938,21 +1939,18 @@ class ControlPlane:
     def release_host_start_dispatch(
         self,
         tenant_id: str,
-        user_id: str,
         generation: int,
     ) -> None:
         """Undo a dispatch claim so a failed RunTask can be retried."""
-        self._messaging_store.release_host_start_dispatch(
-            tenant_id, user_id, generation
-        )
-        computer = self.computer_for_user(tenant_id, user_id)
+        self._messaging_store.release_host_start_dispatch(tenant_id, generation)
+        computer = self.computer_for_organization(tenant_id)
         if computer.host_start_dispatched_generation == generation:
             computer.host_start_dispatched_generation = max(generation - 1, 0)
             self._messaging_store.put_computer(computer)
 
-    def host_start_claim(self, tenant_id: str, user_id: str) -> HostStartClaim:
-        """Return the current host-start claim for a user's computer."""
-        computer = self.computer_for_user(tenant_id, user_id)
+    def host_start_claim(self, tenant_id: str) -> HostStartClaim:
+        """Return the current host-start claim for the organization computer."""
+        computer = self.computer_for_organization(tenant_id)
         claim = self._host_starts.get((tenant_id, computer.computer_id))
         if claim is None:
             raise KeyError((tenant_id, computer.computer_id))
@@ -2009,9 +2007,9 @@ class ControlPlane:
         if self._turn_enqueued is not None:
             self._turn_enqueued(job)
 
-    def set_computer_stopped(self, tenant_id: str, user_id: str, stopped: bool) -> None:
-        """Mark the household computer stopped without deleting it."""
-        computer = self.ensure_computer(tenant_id, user_id)
+    def set_computer_stopped(self, tenant_id: str, stopped: bool) -> None:
+        """Mark the organization computer stopped without deleting it."""
+        computer = self.ensure_computer(tenant_id)
         computer.stopped = stopped
         if stopped:
             computer.model_ready = False
@@ -2020,10 +2018,10 @@ class ControlPlane:
         self._messaging_store.put_computer(computer)
 
     def computer_capability_readiness(
-        self, tenant_id: str, user_id: str
+        self, tenant_id: str
     ) -> ComputerCapabilityReadiness:
         """Return per-capability readiness for one household computer."""
-        computer = self.computer_for_user(tenant_id, user_id)
+        computer = self.computer_for_organization(tenant_id)
         return ComputerCapabilityReadiness(
             model_ready=computer.model_ready,
             workspace_ready=computer.workspace_ready,
@@ -2037,7 +2035,7 @@ class ControlPlane:
         capability: str,
     ) -> None:
         """Record that one capability gate cleared on the computer host."""
-        computer = self.ensure_computer(tenant_id, user_id)
+        computer = self.ensure_computer(tenant_id)
         if capability == MODEL_CAPABILITY:
             computer.model_ready = True
         elif capability == WORKSPACE_CAPABILITY:
@@ -2080,7 +2078,7 @@ class ControlPlane:
         user_id: str,
     ) -> str | None:
         """Choose a healthy host to start one stopped computer."""
-        computer = self.ensure_computer(tenant_id, user_id)
+        computer = self.ensure_computer(tenant_id)
         candidates = [
             record
             for record in self.healthy_workers(tenant_id)
@@ -2098,9 +2096,9 @@ class ControlPlane:
         )
         return candidates[0].registration.worker_id
 
-    def computer_is_stopped(self, tenant_id: str, user_id: str) -> bool:
-        """Return whether the household computer is stopped."""
-        return self.computer_for_user(tenant_id, user_id).stopped
+    def computer_is_stopped(self, tenant_id: str) -> bool:
+        """Return whether the organization computer is stopped."""
+        return self.computer_for_organization(tenant_id).stopped
 
     def create_channel(
         self,
@@ -2127,16 +2125,14 @@ class ControlPlane:
         participants = [ChannelParticipant(kind=ActorKind.HUMAN, actor_id=user_id)]
         for bot_id in bot_ids or []:
             bot = self._bot(tenant_id, bot_id)
-            if bot.tenant_id != tenant_id or bot.user_id != user_id:
+            if bot.tenant_id != tenant_id:
                 raise ActorNotInChannelError(
-                    f"Bot {bot_id!r} does not belong to tenant {tenant_id!r} "
-                    f"user {user_id!r}."
+                    f"Bot {bot_id!r} does not belong to tenant {tenant_id!r}."
                 )
             participants.append(ChannelParticipant(kind=ActorKind.BOT, actor_id=bot_id))
         channel = Channel(
             channel_id=str(uuid4()),
             tenant_id=tenant_id,
-            user_id=user_id,
             participants=participants,
         )
         self._messaging_store.put_channel(channel)
@@ -2501,10 +2497,9 @@ class ControlPlane:
         if not turn.waiting_for:
             msg = f"Turn {turn_id!r} is not waiting on a readiness gate."
             raise TurnNotWaitingError(msg)
-        channel = self.channel(tenant_id, turn.channel_id)
-        if self.computer_is_stopped(tenant_id, channel.user_id):
+        if self.computer_is_stopped(tenant_id):
             msg = (
-                f"Household computer for user {channel.user_id!r} is still "
+                f"Organization computer for tenant {tenant_id!r} is still "
                 f"stopped; turn {turn_id!r} remains waiting on "
                 f"{turn.waiting_for!r}."
             )

@@ -171,7 +171,7 @@ def test_pack_checksum_is_sha256_of_bytes() -> None:
 
 def test_control_plane_records_pack_checksum(tmp_path: Path) -> None:
     plane = ControlPlane()
-    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(
         WorkerRegistration(
             worker_id="fargate-1",

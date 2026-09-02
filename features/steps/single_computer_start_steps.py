@@ -16,6 +16,14 @@ def _driver(context: object) -> SingleComputerStartDriver:
     return driver
 
 
+@given("the organization computer is stopped")
+def given_organization_computer_stopped(context: object) -> None:
+    driver = SingleComputerStartDriver(context.plane)
+    driver.computer_id = None
+    driver.given_stopped_computer()
+    context.single_start = driver
+
+
 @given('the household computer "{computer_id}" is stopped')
 def given_named_computer_stopped(context: object, computer_id: str) -> None:
     driver = SingleComputerStartDriver(context.plane)

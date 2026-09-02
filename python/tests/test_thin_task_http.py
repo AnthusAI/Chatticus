@@ -20,7 +20,7 @@ from chatticus.worker.openai_completion import (
 
 
 def _channel_with_bot(plane: ControlPlane, name: str = "Assistant"):
-    bot = plane.create_bot("anthus", "ryan", name)
+    bot = plane.create_bot("anthus", name, creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     return bot, channel
 
@@ -66,7 +66,7 @@ def test_outcome_from_chat_completion_reads_task_tool_call() -> None:
 
 def test_http_task_tool_create_is_tenant_scoped() -> None:
     plane, api = make_test_api()
-    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
     response = api.post(
         org_path("anthus", f"/bots/{bot.bot_id}/tasks/tool"),
         json={
@@ -85,7 +85,7 @@ def test_http_task_tool_create_is_tenant_scoped() -> None:
 
 def test_http_task_tool_rejects_other_tenant() -> None:
     plane, api = make_test_api()
-    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
     response = api.post(
         org_path("other-household", f"/bots/{bot.bot_id}/tasks/tool"),
         json={
@@ -101,7 +101,7 @@ def test_http_task_tool_rejects_other_tenant() -> None:
 
 def test_http_list_user_tasks_is_tenant_scoped() -> None:
     plane, api = make_test_api()
-    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
     worker_headers = register_worker_headers(api, "anthus")
     created = api.post(
         org_path("anthus", f"/bots/{bot.bot_id}/tasks/tool"),
@@ -131,7 +131,7 @@ def test_http_list_user_tasks_is_tenant_scoped() -> None:
 
 def test_http_get_task_is_tenant_scoped() -> None:
     plane, api = make_test_api()
-    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
     created = api.post(
         org_path("anthus", f"/bots/{bot.bot_id}/tasks/tool"),
         json={
@@ -156,7 +156,7 @@ def test_http_get_task_is_tenant_scoped() -> None:
 
 def test_computerless_worker_creates_task_via_http_tool_call() -> None:
     plane, api = make_test_api()
-    plane.set_computer_stopped("anthus", "ryan", True)
+    plane.set_computer_stopped("anthus", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     api.post(
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),

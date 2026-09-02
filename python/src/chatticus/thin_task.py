@@ -49,15 +49,17 @@ class ThinTaskDriver:
 
     def given_stopped_computer(self) -> None:
         """Mark the household computer stopped."""
-        self.plane.set_computer_stopped(self.tenant_id, self.user_id, True)
+        self.plane.set_computer_stopped(self.tenant_id, True)
 
     def ensure_bot(self, name: str | None = None) -> str:
         """Return the named bot id, creating it if needed."""
         bot_name = name or self.bot_name
         try:
-            bot = self.plane.bot_by_name(self.tenant_id, self.user_id, bot_name)
+            bot = self.plane.bot_by_name(self.tenant_id, bot_name)
         except KeyError:
-            bot = self.plane.create_bot(self.tenant_id, self.user_id, bot_name)
+            bot = self.plane.create_bot(
+                self.tenant_id, bot_name, creator_user_id=self.user_id
+            )
         self.bot_name = bot_name
         return bot.bot_id
 

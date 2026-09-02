@@ -113,10 +113,10 @@ class ThinTurnConversationClient:
             self._client.close()
 
     def lookup_bot(self, name: str) -> dict[str, Any] | None:
-        """Return a named bot or None when GET /bots?user_id=&name= is 404."""
+        """Return a named bot or None when GET /bots?name= is 404."""
         response = self._client.get(
             self._org("/bots"),
-            params={"user_id": self.user_id, "name": name},
+            params={"name": name},
             headers=self._merged_headers(),
         )
         if response.status_code == 404:
@@ -131,7 +131,7 @@ class ThinTurnConversationClient:
         """Create a named bot with POST /bots and a fresh idempotency key."""
         response = self._client.post(
             self._org("/bots"),
-            json={"user_id": self.user_id, "name": name},
+            json={"name": name},
             headers=self._merged_headers({"Idempotency-Key": str(uuid4())}),
         )
         if response.status_code >= 400:

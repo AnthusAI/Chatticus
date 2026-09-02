@@ -71,7 +71,7 @@ def test_task_persists_in_dynamo_store() -> None:
         from chatticus.control_plane import ControlPlane
 
         plane = ControlPlane(messaging_store=store)
-        bot = plane.create_bot("anthus", "ryan", "Assistant")
+        bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
         task = invoke_task_tool(
             plane,
             tenant_id="anthus",

@@ -12,7 +12,12 @@ from worker_http_helpers import register_worker_for_http, worker_auth_headers
 from chatticus.control_plane import ControlPlane
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.paths import org_path
-from chatticus.models import TurnEventKind, TurnReconcilingError, TurnStatus
+from chatticus.models import (
+    TurnEventKind,
+    TurnReconcilingError,
+    TurnStatus,
+    primary_human_participant,
+)
 from chatticus.turn_recovery import logical_enqueue_id
 from chatticus.worker.computerless import (
     ComputerlessWorker,
@@ -96,7 +101,7 @@ def given_partial_progress(context: object) -> None:
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
-            "author_id": channel.user_id,
+            "author_id": primary_human_participant(channel),
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
@@ -190,7 +195,7 @@ def given_ambiguous_provider(context: object) -> None:
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
-            "author_id": channel.user_id,
+            "author_id": primary_human_participant(channel),
             "body": "send the report",
             "addressed_to_bot_id": bot.bot_id,
         },
@@ -243,7 +248,7 @@ def when_duplicate_logical_enqueue(context: object) -> None:
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
-            "author_id": channel.user_id,
+            "author_id": primary_human_participant(channel),
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
@@ -274,7 +279,7 @@ def given_worker_owns_turn(context: object) -> None:
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
-            "author_id": channel.user_id,
+            "author_id": primary_human_participant(channel),
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
@@ -295,7 +300,7 @@ def given_turn_waiting_for_worker(context: object) -> None:
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
-            "author_id": channel.user_id,
+            "author_id": primary_human_participant(channel),
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
@@ -358,7 +363,7 @@ def given_turn_blocked_on_browser_gate(context: object) -> None:
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": "human",
-            "author_id": channel.user_id,
+            "author_id": primary_human_participant(channel),
             "body": "open the household browser",
             "addressed_to_bot_id": bot.bot_id,
         },

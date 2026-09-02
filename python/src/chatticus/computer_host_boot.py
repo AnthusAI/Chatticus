@@ -102,7 +102,7 @@ class ComputerHostBootDriver:
 
     def boot_through_browser(self) -> ComputerHostBootResult:
         """Start display, verify Chromium, and record all capability gates."""
-        self.plane.set_computer_stopped(self.tenant_id, self.user_id, False)
+        self.plane.set_computer_stopped(self.tenant_id, False)
         self._xvfb.start()
         for capability in (MODEL_CAPABILITY, WORKSPACE_CAPABILITY):
             self.plane.record_computer_capability_ready(

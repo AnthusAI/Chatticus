@@ -27,7 +27,7 @@ def _recovery_plane() -> ControlPlane:
 
 def test_logical_enqueue_is_idempotent() -> None:
     plane = _recovery_plane()
-    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     from chatticus.models import ActorKind
 
@@ -50,7 +50,7 @@ def test_logical_enqueue_is_idempotent() -> None:
 
 def test_deadline_recovery_enqueues_once() -> None:
     plane = _recovery_plane()
-    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     from chatticus.models import ActorKind
 
@@ -87,7 +87,7 @@ def test_deadline_recovery_enqueues_once() -> None:
 
 def test_deadline_failure_after_recovery_exhausted() -> None:
     plane = _recovery_plane()
-    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     from chatticus.models import ActorKind
 
@@ -114,7 +114,7 @@ def test_deadline_failure_after_recovery_exhausted() -> None:
 
 def test_ambiguous_provider_enters_reconciliation() -> None:
     plane = _recovery_plane()
-    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     from chatticus.models import ActorKind
 
@@ -139,7 +139,7 @@ def test_ambiguous_provider_enters_reconciliation() -> None:
 
 def test_renew_extends_lease_and_records_visibility() -> None:
     plane = _recovery_plane()
-    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     from chatticus.models import ActorKind
 
@@ -183,7 +183,7 @@ def test_computerless_worker_renews_during_slow_model_call() -> None:
     plane = _recovery_plane()
     app = create_app(plane)
     api = start_test_server(app)
-    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     from chatticus.models import ActorKind
 
@@ -219,7 +219,7 @@ def test_computerless_worker_renews_during_slow_model_call() -> None:
 
 def test_deadline_recovery_skips_legitimately_waiting_turn() -> None:
     plane = _recovery_plane()
-    bot = plane.create_bot("anthus", "ryan", "Assistant")
+    bot = plane.create_bot("anthus", "Assistant", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     from chatticus.models import ActorKind
 

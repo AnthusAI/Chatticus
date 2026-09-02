@@ -27,7 +27,7 @@ def prepare_browser_waiting_continuation(
     user_id: str = "ryan",
 ) -> BrowserWaitingContinuationSetup:
     """Block one turn on the browser gate and enqueue its continuation job."""
-    bot = plane.create_bot(tenant_id, user_id, "Researcher")
+    bot = plane.create_bot(tenant_id, "Researcher", creator_user_id=user_id)
     channel = plane.create_channel(tenant_id, user_id, [bot.bot_id])
     _, turn = plane.post_channel_message(
         channel.channel_id,
@@ -50,7 +50,7 @@ def prepare_browser_waiting_continuation(
     )
     plane.emit_turn_waiting(tenant_id, turn_id, "browser", fence_token=fence_token)
     plane.release_turn_claim_for_waiting(tenant_id, turn_id, fence_token=fence_token)
-    plane.set_computer_stopped(tenant_id, user_id, False)
+    plane.set_computer_stopped(tenant_id, False)
     plane.record_computer_capability_ready(tenant_id, user_id, BROWSER_CAPABILITY)
     job = plane.resume_waiting_turn(tenant_id, turn_id)
     turn = plane.turn(tenant_id, turn_id)

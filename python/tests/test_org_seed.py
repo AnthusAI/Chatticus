@@ -11,7 +11,10 @@ from chatticus.control_plane import ControlPlane
 from chatticus.members.__main__ import main as members_main
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
+    ActorKind,
     Bot,
+    Channel,
+    ChannelParticipant,
     IdentityUserIdMismatchError,
     MemberRole,
     OrganizationSeedConflictError,
@@ -27,13 +30,23 @@ from chatticus.org_records import (
 NOW = datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC)
 
 
+def _legacy_channel(
+    tenant_id: str, user_id: str, *, channel_id: str = "ch-1"
+) -> Channel:
+    return Channel(
+        channel_id=channel_id,
+        tenant_id=tenant_id,
+        participants=[ChannelParticipant(kind=ActorKind.HUMAN, actor_id=user_id)],
+    )
+
+
 def test_admin_seed_organization_aligns_with_messaging_user_id() -> None:
     store = InMemoryMessagingStore()
+    store.put_channel(_legacy_channel(ANTHUS_TENANT_ID, ANTHUS_LEGACY_USER_ID))
     store.put_bot(
         Bot(
             bot_id="bot-1",
             tenant_id=ANTHUS_TENANT_ID,
-            user_id=ANTHUS_LEGACY_USER_ID,
             name="Researcher",
         ),
         reserve_name=True,
@@ -55,7 +68,7 @@ def test_admin_seed_organization_aligns_with_messaging_user_id() -> None:
     membership = store.get_membership(ANTHUS_TENANT_ID, ANTHUS_LEGACY_USER_ID)
     assert membership is not None
     assert membership.role == MemberRole.OWNER
-    assert store.get_computer(ANTHUS_TENANT_ID, ANTHUS_LEGACY_USER_ID) is None
+    assert store.get_computer(ANTHUS_TENANT_ID) is None
     loaded = store.get_bot(ANTHUS_TENANT_ID, "bot-1")
     assert loaded is not None
     assert loaded.name == "Researcher"
@@ -108,15 +121,7 @@ def test_admin_seed_organization_enables_pending_org() -> None:
 def test_admin_seed_organization_rejects_conflicting_identity_user_id() -> None:
     store = InMemoryMessagingStore()
     kernel = OrgRecordsKernel(store)
-    store.put_bot(
-        Bot(
-            bot_id="bot-1",
-            tenant_id=ANTHUS_TENANT_ID,
-            user_id=ANTHUS_LEGACY_USER_ID,
-            name="Researcher",
-        ),
-        reserve_name=True,
-    )
+    store.put_channel(_legacy_channel(ANTHUS_TENANT_ID, ANTHUS_LEGACY_USER_ID))
     kernel.sign_in("owner@example.com", now=NOW)
 
     with pytest.raises(IdentityUserIdMismatchError):
@@ -131,24 +136,8 @@ def test_admin_seed_organization_rejects_conflicting_identity_user_id() -> None:
 def test_admin_seed_organization_rejects_multiple_messaging_user_ids() -> None:
     store = InMemoryMessagingStore()
     kernel = OrgRecordsKernel(store)
-    store.put_bot(
-        Bot(
-            bot_id="bot-1",
-            tenant_id=ANTHUS_TENANT_ID,
-            user_id="ryan",
-            name="Researcher",
-        ),
-        reserve_name=True,
-    )
-    store.put_bot(
-        Bot(
-            bot_id="bot-2",
-            tenant_id=ANTHUS_TENANT_ID,
-            user_id="alex",
-            name="Ops",
-        ),
-        reserve_name=True,
-    )
+    store.put_channel(_legacy_channel(ANTHUS_TENANT_ID, "ryan", channel_id="ch-1"))
+    store.put_channel(_legacy_channel(ANTHUS_TENANT_ID, "alex", channel_id="ch-2"))
 
     with pytest.raises(OrganizationSeedConflictError):
         kernel.admin_seed_organization(
@@ -189,19 +178,18 @@ def test_members_cli_create_then_enable_without_computer(
 
     organization = plane.get_organization(tenant_id)
     assert organization.status == OrganizationStatus.ENABLED
-    owner_id = organization.owner_user_id
-    assert plane._messaging_store.get_computer(tenant_id, owner_id) is None
+    assert plane._messaging_store.get_computer(tenant_id) is None
 
 
 def test_members_cli_seed_without_computer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = InMemoryMessagingStore()
+    store.put_channel(_legacy_channel(ANTHUS_TENANT_ID, ANTHUS_LEGACY_USER_ID))
     store.put_bot(
         Bot(
             bot_id="bot-1",
             tenant_id=ANTHUS_TENANT_ID,
-            user_id=ANTHUS_LEGACY_USER_ID,
             name="Researcher",
         ),
         reserve_name=True,
@@ -237,13 +225,7 @@ def test_members_cli_seed_without_computer(
     assert second == 0
     organization = plane.get_organization(ANTHUS_TENANT_ID)
     assert organization.status == OrganizationStatus.ENABLED
-    assert (
-        plane._messaging_store.get_computer(
-            ANTHUS_TENANT_ID,
-            ANTHUS_LEGACY_USER_ID,
-        )
-        is None
-    )
+    assert plane._messaging_store.get_computer(ANTHUS_TENANT_ID) is None
 
 
 def test_members_cli_enable_still_requires_pending(

@@ -23,7 +23,7 @@ def waiting_computer_job(
     plane: ControlPlane, tenant_id: str, user_id: str
 ) -> TurnJob | None:
     """Rebuild one computer job from a durable waiting turn for this user."""
-    computer = plane.computer_for_user(tenant_id, user_id)
+    computer = plane.computer_for_organization(tenant_id)
     for turn in plane.list_active_turns(tenant_id, user_id):
         if not turn.waiting_for:
             continue

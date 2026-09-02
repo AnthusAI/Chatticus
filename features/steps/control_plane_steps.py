@@ -279,7 +279,7 @@ def then_not_assigned(context: object) -> None:
 
 @given('tenant "{tenant_id}" user "{user_id}" has a bot named "{name}"')
 def given_bot(context: object, tenant_id: str, user_id: str, name: str) -> None:
-    bot = context.plane.create_bot(tenant_id, user_id, name)
+    bot = context.plane.create_bot(tenant_id, name, creator_user_id=user_id)
     context.bots_by_name[name] = bot
     ensure_org_membership(context, tenant_id)
 
@@ -290,7 +290,7 @@ def when_bot_writes_workspace(
 ) -> None:
     bot = context.bots_by_name[name]
     try:
-        context.plane.write_workspace(bot.tenant_id, bot.user_id, path, content)
+        context.plane.write_workspace(bot.tenant_id, path, content)
         context.write_error = None
     except ComputerNotHydratedError as error:
         context.write_error = error
@@ -301,14 +301,14 @@ def then_bot_reads_workspace(
     context: object, name: str, path: str, content: str
 ) -> None:
     bot = context.bots_by_name[name]
-    assert context.plane.read_workspace(bot.tenant_id, bot.user_id, path) == content
+    assert context.plane.read_workspace(bot.tenant_id, path) == content
 
 
 @then("both bots use the same computer")
 def then_same_computer(context: object) -> None:
     bots = list(context.bots_by_name.values())
     computers = {
-        context.plane.computer_for_user(bot.tenant_id, bot.user_id).computer_id
+        context.plane.computer_for_organization(bot.tenant_id).computer_id
         for bot in bots
     }
     assert len(computers) == 1
@@ -317,13 +317,13 @@ def then_same_computer(context: object) -> None:
 @when('bot "{name}" saves a browser session "{service}" as "{session}"')
 def when_save_session(context: object, name: str, service: str, session: str) -> None:
     bot = context.bots_by_name[name]
-    context.plane.save_browser_session(bot.tenant_id, bot.user_id, service, session)
+    context.plane.save_browser_session(bot.tenant_id, service, session)
 
 
 @then('bot "{name}" sees browser session "{service}" as "{session}"')
 def then_sees_session(context: object, name: str, service: str, session: str) -> None:
     bot = context.bots_by_name[name]
-    assert context.plane.browser_session(bot.tenant_id, bot.user_id, service) == session
+    assert context.plane.browser_session(bot.tenant_id, service) == session
 
 
 @when('bot "{name}" remembers "{key}" as "{value}"')
@@ -366,7 +366,7 @@ def then_turn_prompt_contains_channel_text(context: object, body: str) -> None:
 @then('bot "{name}" cannot read "{path}" from its computer')
 def then_bot_cannot_read(context: object, name: str, path: str) -> None:
     bot = context.bots_by_name[name]
-    assert context.plane.read_workspace(bot.tenant_id, bot.user_id, path) is None
+    assert context.plane.read_workspace(bot.tenant_id, path) is None
 
 
 @when('a bot proposes action type "{action_type}"')
@@ -423,7 +423,7 @@ def then_registration_tenant_mismatch(context: object) -> None:
 def given_computer(
     context: object, tenant_id: str, user_id: str, computer_id: str
 ) -> None:
-    context.plane.ensure_computer(tenant_id, user_id, computer_id=computer_id)
+    context.plane.ensure_computer(tenant_id, computer_id=computer_id)
 
 
 @when('bot "{name}" enqueues a turn:')
@@ -448,7 +448,7 @@ def when_bot_enqueues(context: object, name: str) -> None:
 @when('I create a bot named "{name}" for tenant "{tenant_id}" user "{user_id}"')
 def when_create_bot(context: object, name: str, tenant_id: str, user_id: str) -> None:
     try:
-        bot = context.plane.create_bot(tenant_id, user_id, name)
+        bot = context.plane.create_bot(tenant_id, name, creator_user_id=user_id)
         context.bots_by_name[name] = bot
         context.bot_error = None
     except DuplicateBotNameError as error:
@@ -463,7 +463,9 @@ def when_create_bot_with_idempotency(
     context: object, name: str, tenant_id: str, user_id: str, key: str
 ) -> None:
     previous = getattr(context, "idempotent_bot_id", None)
-    bot = context.plane.create_bot(tenant_id, user_id, name, idempotency_key=key)
+    bot = context.plane.create_bot(
+        tenant_id, name, creator_user_id=user_id, idempotency_key=key
+    )
     context.bots_by_name[name] = bot
     context.bot_error = None
     if previous is None:
@@ -560,13 +562,12 @@ def then_lookup_bot_by_name(
     expected = context.bots_by_name[name]
     response = context.api_client.get(
         org_path(tenant_id, "/bots"),
-        params={"user_id": user_id, "name": name},
+        params={"name": name},
     )
     assert response.status_code == 200
     payload = response.json()
     assert payload["bot_id"] == expected.bot_id
     assert payload["name"] == name
-    assert payload["user_id"] == user_id
 
 
 @then(
@@ -608,7 +609,6 @@ def then_list_user_bots(context: object, tenant_id: str, user_id: str) -> None:
         expected = context.bots_by_name[name]
         payload = next(bot for bot in response.json()["bots"] if bot["name"] == name)
         assert payload["bot_id"] == expected.bot_id
-        assert payload["user_id"] == user_id
 
 
 @when('worker "{worker_id}" publishes a snapshot of computer "{computer_id}"')

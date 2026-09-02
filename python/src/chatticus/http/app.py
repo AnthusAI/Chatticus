@@ -18,6 +18,7 @@ from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.cognito_jwt import CognitoJwtVerifier, CognitoTokenError
 from chatticus.control_plane import ControlPlane
 from chatticus.http.principal import (
+    RequireUserPrincipal,
     RequireWorkerPrincipal,
     enforce_user_principal,
     enforce_worker_principal,
@@ -50,6 +51,7 @@ from chatticus.models import (
     WorkerRegistration,
     WorkerTenantMismatchError,
     pending_computer_tool_from_turn,
+    primary_human_participant,
 )
 from chatticus.principal import Principal
 from chatticus.worker_credentials import parse_bearer_token
@@ -71,7 +73,6 @@ class CreateChannelBody(BaseModel):
 class CreateBotBody(BaseModel):
     """Body for POST /bots."""
 
-    user_id: str
     name: str
 
 
@@ -85,7 +86,6 @@ class RememberBotBody(BaseModel):
 class SetComputerBody(BaseModel):
     """Body for POST /computers/stopped."""
 
-    user_id: str
     stopped: bool = True
 
 
@@ -359,33 +359,33 @@ def create_app(
     def create_bot(
         tenant_id: str,
         body: CreateBotBody,
+        principal: RequireUserPrincipal,
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-    ) -> dict[str, str]:
+    ) -> dict[str, Any]:
+        if principal.user_id is None:
+            raise HTTPException(status_code=403, detail="user credential required")
         key = (idempotency_key or "").strip() or None
         bot = state.plane.create_bot(
-            tenant_id, body.user_id, body.name, idempotency_key=key
+            tenant_id,
+            body.name,
+            creator_user_id=principal.user_id,
+            idempotency_key=key,
         )
         logger.info(
-            "bot_created tenant_id=%s user_id=%s bot_id=%s",
+            "bot_created tenant_id=%s creator_user_id=%s bot_id=%s",
             tenant_id,
-            body.user_id,
+            principal.user_id,
             bot.bot_id,
         )
-        return {
-            "bot_id": bot.bot_id,
-            "tenant_id": bot.tenant_id,
-            "user_id": bot.user_id,
-            "name": bot.name,
-        }
+        return _bot_payload(bot)
 
     @user_router.get("/bots")
     def lookup_bot(
         tenant_id: str,
-        user_id: str = Query(),
         name: str = Query(),
     ) -> dict[str, Any]:
         try:
-            bot = state.plane.bot_by_name(tenant_id, user_id, name)
+            bot = state.plane.bot_by_name(tenant_id, name)
         except KeyError as error:
             raise HTTPException(status_code=404, detail="bot not found") from error
         return _bot_payload(bot)
@@ -395,7 +395,8 @@ def create_app(
         tenant_id: str,
         user_id: str,
     ) -> dict[str, Any]:
-        bots = state.plane.list_bots(tenant_id, user_id)
+        del user_id
+        bots = state.plane.list_bots(tenant_id)
         return {"bots": [_bot_payload(bot) for bot in bots]}
 
     @user_router.get("/users/{user_id}/channels")
@@ -427,8 +428,19 @@ def create_app(
         tenant_id: str,
         user_id: str,
     ) -> dict[str, Any]:
+        del user_id
         try:
-            computer = state.plane.computer_for_user(tenant_id, user_id)
+            computer = state.plane.computer_for_organization(tenant_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="computer not found") from error
+        return _computer_payload(computer)
+
+    @user_router.get("/computer")
+    def get_organization_computer(
+        tenant_id: str,
+    ) -> dict[str, Any]:
+        try:
+            computer = state.plane.computer_for_organization(tenant_id)
         except KeyError as error:
             raise HTTPException(status_code=404, detail="computer not found") from error
         return _computer_payload(computer)
@@ -504,12 +516,11 @@ def create_app(
         tenant_id: str,
         body: SetComputerBody,
     ) -> dict[str, bool]:
-        state.plane.set_computer_stopped(tenant_id, body.user_id, body.stopped)
-        stopped = state.plane.computer_is_stopped(tenant_id, body.user_id)
+        state.plane.set_computer_stopped(tenant_id, body.stopped)
+        stopped = state.plane.computer_is_stopped(tenant_id)
         logger.info(
-            "computer_stopped tenant_id=%s user_id=%s stopped=%s",
+            "computer_stopped tenant_id=%s stopped=%s",
             tenant_id,
-            body.user_id,
             stopped,
         )
         return {"stopped": stopped}
@@ -517,9 +528,8 @@ def create_app(
     @user_router.get("/computers/stopped")
     def get_computer_stopped(
         tenant_id: str,
-        user_id: str = Query(),
     ) -> dict[str, bool]:
-        return {"stopped": state.plane.computer_is_stopped(tenant_id, user_id)}
+        return {"stopped": state.plane.computer_is_stopped(tenant_id)}
 
     @user_router.post("/channels")
     def create_channel(
@@ -966,7 +976,6 @@ def _bot_payload(bot: Any) -> dict[str, Any]:
     return {
         "bot_id": bot.bot_id,
         "tenant_id": bot.tenant_id,
-        "user_id": bot.user_id,
         "name": bot.name,
         "memory": dict(bot.memory),
     }
@@ -990,7 +999,6 @@ def _computer_payload(computer: Any) -> dict[str, Any]:
     return {
         "computer_id": computer.computer_id,
         "tenant_id": computer.tenant_id,
-        "user_id": computer.user_id,
         "stopped": computer.stopped,
         "policy": str(computer.policy),
         "host_start_generation": computer.host_start_generation,
@@ -1001,7 +1009,7 @@ def _channel_payload(channel: Any) -> dict[str, Any]:
     return {
         "channel_id": channel.channel_id,
         "tenant_id": channel.tenant_id,
-        "user_id": channel.user_id,
+        "user_id": primary_human_participant(channel),
         "participants": [
             {"kind": participant.kind, "actor_id": participant.actor_id}
             for participant in channel.participants

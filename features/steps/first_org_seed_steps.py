@@ -34,7 +34,6 @@ def given_messaging_without_org_records(
     bot = Bot(
         bot_id=str(uuid4()),
         tenant_id=tenant_id,
-        user_id=user_id,
         name="Researcher",
     )
     store.put_bot(bot, reserve_name=True)
@@ -121,17 +120,15 @@ def then_not_member_of_tenant(context: object, email: str, tenant_id: str) -> No
 
 @then('tenant "{tenant_id}" user "{user_id}" bot data still exists')
 def then_bot_data_still_exists(context: object, tenant_id: str, user_id: str) -> None:
+    del user_id
     bot = _plane(context).bot(tenant_id, context.seed_bot_id)
-    assert bot.user_id == user_id
+    assert bot.name == "Researcher"
 
 
 @then('no computer exists for tenant "{tenant_id}"')
 def then_no_computer_for_tenant(context: object, tenant_id: str) -> None:
     plane = _plane(context)
-    organization = plane.get_organization(tenant_id)
-    computer = plane._messaging_store.get_computer(
-        tenant_id, organization.owner_user_id
-    )
+    computer = plane._messaging_store.get_computer(tenant_id)
     assert computer is None
 
 

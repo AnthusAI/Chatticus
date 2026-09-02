@@ -10,7 +10,6 @@ Feature: Shared organization channels and teammates
       | ryan@example.com |
       | sam@example.com  |
 
-  @wip
   Scenario: Two organization members read and post in one shared channel
     Given organization "Anthus Labs" has shared channel "general"
     When "ryan@example.com" posts "hello from ryan" in shared channel "general"
@@ -20,14 +19,12 @@ Feature: Shared organization channels and teammates
     And the shared channel message with seq 1 has body "hello from ryan"
     And the shared channel message with seq 2 has body "hello from sam"
 
-  @wip
   Scenario: A bot named once in an organization is the same teammate to every member
     When "ryan@example.com" creates organization bot "Researcher"
     Then "sam@example.com" lists organization bot "Researcher"
     And organization bot "Researcher" belongs to organization "Anthus Labs"
     And "sam@example.com" cannot create a second organization bot named "Researcher"
 
-  @wip
   Scenario: A file one organization bot saves is continued by another bot and by a person
     Given organization "Anthus Labs" has organization bots:
       | Researcher |

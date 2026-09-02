@@ -119,26 +119,22 @@ class MessagingStore(Protocol):
     def get_bot(self, tenant_id: str, bot_id: str) -> Bot | None:
         """Load one bot."""
 
-    def get_bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot | None:
-        """Load one bot by the household user's chosen name."""
+    def get_bot_by_name(self, tenant_id: str, name: str) -> Bot | None:
+        """Load one bot by the organization's chosen name."""
 
-    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
-        """Return named bots owned by one household user."""
+    def list_bots(self, tenant_id: str) -> list[Bot]:
+        """Return named bots in one organization."""
 
     def put_computer(self, computer: Computer) -> None:
         """Persist the household computer record."""
 
-    def get_computer(self, tenant_id: str, user_id: str) -> Computer | None:
-        """Load the household computer for a user."""
+    def get_computer(self, tenant_id: str) -> Computer | None:
+        """Load the organization computer."""
 
-    def claim_host_start_dispatch(
-        self, tenant_id: str, user_id: str, generation: int
-    ) -> bool:
+    def claim_host_start_dispatch(self, tenant_id: str, generation: int) -> bool:
         """Return True when this caller first claims host start for generation."""
 
-    def release_host_start_dispatch(
-        self, tenant_id: str, user_id: str, generation: int
-    ) -> None:
+    def release_host_start_dispatch(self, generation: int) -> None:
         """Allow another worker to dispatch the same generation after RunTask failed."""
 
     def put_turn_chunk(
@@ -328,7 +324,12 @@ class InMemoryMessagingStore:
             (
                 channel
                 for channel in self._channels.values()
-                if channel.tenant_id == tenant_id and channel.user_id == user_id
+                if channel.tenant_id == tenant_id
+                and any(
+                    participant.kind == ActorKind.HUMAN
+                    and participant.actor_id == user_id
+                    for participant in channel.participants
+                )
             ),
             key=lambda channel: channel.channel_id,
         )
@@ -463,68 +464,54 @@ class InMemoryMessagingStore:
 
     def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
         with self._lock:
-            if reserve_name and self.get_bot_by_name(
-                bot.tenant_id, bot.user_id, bot.name
-            ):
+            if reserve_name and self.get_bot_by_name(bot.tenant_id, bot.name):
                 raise DuplicateBotNameError(
-                    f"Bot named {bot.name!r} already exists for user "
-                    f"{bot.user_id!r}."
+                    f"Bot named {bot.name!r} already exists for tenant "
+                    f"{bot.tenant_id!r}."
                 )
             self._bots[(bot.tenant_id, bot.bot_id)] = bot
 
     def get_bot(self, tenant_id: str, bot_id: str) -> Bot | None:
         return self._bots.get((tenant_id, bot_id))
 
-    def get_bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot | None:
+    def get_bot_by_name(self, tenant_id: str, name: str) -> Bot | None:
         for bot in self._bots.values():
-            if (
-                bot.tenant_id == tenant_id
-                and bot.user_id == user_id
-                and bot.name == name
-            ):
+            if bot.tenant_id == tenant_id and bot.name == name:
                 return bot
         return None
 
-    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
+    def list_bots(self, tenant_id: str) -> list[Bot]:
         return sorted(
-            (
-                bot
-                for bot in self._bots.values()
-                if bot.tenant_id == tenant_id and bot.user_id == user_id
-            ),
+            (bot for bot in self._bots.values() if bot.tenant_id == tenant_id),
             key=lambda bot: bot.name,
         )
 
     def put_computer(self, computer: Computer) -> None:
-        self._computers[(computer.tenant_id, computer.user_id)] = computer
+        self._computers[computer.tenant_id] = computer
 
-    def get_computer(self, tenant_id: str, user_id: str) -> Computer | None:
-        return self._computers.get((tenant_id, user_id))
+    def get_computer(self, tenant_id: str) -> Computer | None:
+        return self._computers.get(tenant_id)
 
-    def claim_host_start_dispatch(
-        self, tenant_id: str, user_id: str, generation: int
-    ) -> bool:
+    def claim_host_start_dispatch(self, tenant_id: str, generation: int) -> bool:
         with self._lock:
-            computer = self._computers.get((tenant_id, user_id))
+            computer = self._computers.get(tenant_id)
             if computer is None:
                 return False
             if computer.host_start_dispatched_generation >= generation:
                 return False
             computer.host_start_dispatched_generation = generation
-            self._computers[(tenant_id, user_id)] = computer
+            self._computers[tenant_id] = computer
             return True
 
-    def release_host_start_dispatch(
-        self, tenant_id: str, user_id: str, generation: int
-    ) -> None:
+    def release_host_start_dispatch(self, tenant_id: str, generation: int) -> None:
         with self._lock:
-            computer = self._computers.get((tenant_id, user_id))
+            computer = self._computers.get(tenant_id)
             if computer is None:
                 return
             if computer.host_start_dispatched_generation != generation:
                 return
             computer.host_start_dispatched_generation = generation - 1
-            self._computers[(tenant_id, user_id)] = computer
+            self._computers[tenant_id] = computer
 
     def record_logical_enqueue(
         self, tenant_id: str, turn_id: str, enqueue_id: str
@@ -665,18 +652,18 @@ class InMemoryMessagingStore:
 
     def list_messaging_user_ids(self, tenant_id: str) -> tuple[str, ...]:
         user_ids: set[str] = set()
-        for bot in self._bots.values():
-            if bot.tenant_id == tenant_id:
-                user_ids.add(bot.user_id)
         for channel in self._channels.values():
             if channel.tenant_id == tenant_id:
-                user_ids.add(channel.user_id)
+                for participant in channel.participants:
+                    if participant.kind == ActorKind.HUMAN:
+                        user_ids.add(participant.actor_id)
         for task in self._tasks.values():
             if task.tenant_id == tenant_id:
                 user_ids.add(task.user_id)
-        for indexed_tenant_id, user_id in self._computers:
+        for indexed_tenant_id in self._computers:
             if indexed_tenant_id == tenant_id:
-                user_ids.add(user_id)
+                # Legacy org computers no longer carry a user id.
+                pass
         return tuple(sorted(user_ids))
 
     def put_worker(self, record: WorkerRecord) -> None:
@@ -776,7 +763,6 @@ class DynamoMessagingStore:
                 "sk": {"S": "meta"},
                 "tenant_id": {"S": channel.tenant_id},
                 "channel_id": {"S": channel.channel_id},
-                "user_id": {"S": channel.user_id},
                 "next_seq": {"N": str(channel.next_seq)},
                 "participants": {"S": json.dumps(_participants_payload(channel))},
             },
@@ -790,18 +776,23 @@ class DynamoMessagingStore:
                 "channel_id": {"S": channel.channel_id},
             },
         )
-        self.client.put_item(
-            TableName=self.table_name,
-            Item={
-                "pk": {"S": self._roster_pk(channel.tenant_id)},
-                "sk": {
-                    "S": self._channel_roster_sk(channel.user_id, channel.channel_id)
+        for participant in channel.participants:
+            if participant.kind != ActorKind.HUMAN:
+                continue
+            self.client.put_item(
+                TableName=self.table_name,
+                Item={
+                    "pk": {"S": self._roster_pk(channel.tenant_id)},
+                    "sk": {
+                        "S": self._channel_roster_sk(
+                            participant.actor_id, channel.channel_id
+                        )
+                    },
+                    "tenant_id": {"S": channel.tenant_id},
+                    "user_id": {"S": participant.actor_id},
+                    "channel_id": {"S": channel.channel_id},
                 },
-                "tenant_id": {"S": channel.tenant_id},
-                "user_id": {"S": channel.user_id},
-                "channel_id": {"S": channel.channel_id},
-            },
-        )
+            )
 
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         response = self.client.get_item(
@@ -821,7 +812,6 @@ class DynamoMessagingStore:
         return Channel(
             channel_id=item["channel_id"]["S"],
             tenant_id=item["tenant_id"]["S"],
-            user_id=item["user_id"]["S"],
             participants=participants,
             next_seq=int(item["next_seq"]["N"]),
         )
@@ -1170,7 +1160,6 @@ class DynamoMessagingStore:
             "pk": {"S": self._roster_pk(bot.tenant_id)},
             "sk": {"S": f"bot#{bot.bot_id}"},
             "tenant_id": {"S": bot.tenant_id},
-            "user_id": {"S": bot.user_id},
             "bot_id": {"S": bot.bot_id},
             "name": {"S": bot.name},
             "memory": {"S": json.dumps(bot.memory)},
@@ -1180,9 +1169,8 @@ class DynamoMessagingStore:
             return
         name_item = {
             "pk": {"S": self._roster_pk(bot.tenant_id)},
-            "sk": {"S": self._bot_name_sk(bot.user_id, bot.name)},
+            "sk": {"S": self._bot_name_sk(bot.name)},
             "tenant_id": {"S": bot.tenant_id},
-            "user_id": {"S": bot.user_id},
             "bot_id": {"S": bot.bot_id},
             "name": {"S": bot.name},
         }
@@ -1207,8 +1195,8 @@ class DynamoMessagingStore:
                 if isinstance(reason, dict)
             ):
                 raise DuplicateBotNameError(
-                    f"Bot named {bot.name!r} already exists for user "
-                    f"{bot.user_id!r}."
+                    f"Bot named {bot.name!r} already exists for tenant "
+                    f"{bot.tenant_id!r}."
                 ) from error
             raise
 
@@ -1232,12 +1220,12 @@ class DynamoMessagingStore:
             memory = {}
         return self._bot_from_item(item)
 
-    def get_bot_by_name(self, tenant_id: str, user_id: str, name: str) -> Bot | None:
+    def get_bot_by_name(self, tenant_id: str, name: str) -> Bot | None:
         response = self.client.get_item(
             TableName=self.table_name,
             Key={
                 "pk": {"S": self._roster_pk(tenant_id)},
-                "sk": {"S": self._bot_name_sk(user_id, name)},
+                "sk": {"S": self._bot_name_sk(name)},
             },
         )
         item = response.get("Item")
@@ -1252,11 +1240,11 @@ class DynamoMessagingStore:
             },
         )
         for row in response.get("Items", []):
-            if row["user_id"]["S"] == user_id and row["name"]["S"] == name:
+            if row["name"]["S"] == name:
                 return self._bot_from_item(row)
         return None
 
-    def list_bots(self, tenant_id: str, user_id: str) -> list[Bot]:
+    def list_bots(self, tenant_id: str) -> list[Bot]:
         response = self.client.query(
             TableName=self.table_name,
             KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
@@ -1267,8 +1255,6 @@ class DynamoMessagingStore:
         )
         bots: list[Bot] = []
         for row in response.get("Items", []):
-            if row.get("user_id", {}).get("S") != user_id:
-                continue
             bots.append(self._bot_from_item(row))
         return sorted(bots, key=lambda bot: bot.name)
 
@@ -1277,9 +1263,8 @@ class DynamoMessagingStore:
             TableName=self.table_name,
             Item={
                 "pk": {"S": self._roster_pk(computer.tenant_id)},
-                "sk": {"S": f"computer#{computer.user_id}"},
+                "sk": {"S": "computer"},
                 "tenant_id": {"S": computer.tenant_id},
-                "user_id": {"S": computer.user_id},
                 "computer_id": {"S": computer.computer_id},
                 "stopped": {"BOOL": computer.stopped},
                 "policy": {"S": computer.policy},
@@ -1300,12 +1285,12 @@ class DynamoMessagingStore:
             },
         )
 
-    def get_computer(self, tenant_id: str, user_id: str) -> Computer | None:
+    def get_computer(self, tenant_id: str) -> Computer | None:
         response = self.client.get_item(
             TableName=self.table_name,
             Key={
                 "pk": {"S": self._roster_pk(tenant_id)},
-                "sk": {"S": f"computer#{user_id}"},
+                "sk": {"S": "computer"},
             },
         )
         item = response.get("Item")
@@ -1315,7 +1300,6 @@ class DynamoMessagingStore:
         return Computer(
             computer_id=item["computer_id"]["S"],
             tenant_id=item["tenant_id"]["S"],
-            user_id=item["user_id"]["S"],
             policy=ComputerPolicy(item["policy"]["S"]),
             stopped=item["stopped"]["BOOL"],
             model_ready=item.get("model_ready", {}).get("BOOL", True),
@@ -1332,15 +1316,13 @@ class DynamoMessagingStore:
             ),
         )
 
-    def claim_host_start_dispatch(
-        self, tenant_id: str, user_id: str, generation: int
-    ) -> bool:
+    def claim_host_start_dispatch(self, tenant_id: str, generation: int) -> bool:
         try:
             self.client.update_item(
                 TableName=self.table_name,
                 Key={
                     "pk": {"S": self._roster_pk(tenant_id)},
-                    "sk": {"S": f"computer#{user_id}"},
+                    "sk": {"S": "computer"},
                 },
                 UpdateExpression="SET host_start_dispatched_generation = :gen",
                 ConditionExpression=(
@@ -1358,15 +1340,13 @@ class DynamoMessagingStore:
             raise
         return True
 
-    def release_host_start_dispatch(
-        self, tenant_id: str, user_id: str, generation: int
-    ) -> None:
+    def release_host_start_dispatch(self, tenant_id: str, generation: int) -> None:
         try:
             self.client.update_item(
                 TableName=self.table_name,
                 Key={
                     "pk": {"S": self._roster_pk(tenant_id)},
-                    "sk": {"S": f"computer#{user_id}"},
+                    "sk": {"S": "computer"},
                 },
                 UpdateExpression="SET host_start_dispatched_generation = :prev",
                 ConditionExpression=(
@@ -1915,8 +1895,8 @@ class DynamoMessagingStore:
     def _roster_pk(self, tenant_id: str) -> str:
         return f"{tenant_id}#roster"
 
-    def _bot_name_sk(self, user_id: str, name: str) -> str:
-        return f"bot_name#{user_id}#{name}"
+    def _bot_name_sk(self, name: str) -> str:
+        return f"bot_name#{name}"
 
     def _channel_roster_sk(self, user_id: str, channel_id: str) -> str:
         return f"channel#{user_id}#{channel_id}"
@@ -1965,7 +1945,6 @@ class DynamoMessagingStore:
         return Bot(
             bot_id=item["bot_id"]["S"],
             tenant_id=item["tenant_id"]["S"],
-            user_id=item["user_id"]["S"],
             name=item["name"]["S"],
             memory={str(key): str(value) for key, value in memory.items()},
         )

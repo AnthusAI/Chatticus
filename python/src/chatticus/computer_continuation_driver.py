@@ -38,7 +38,7 @@ def prepare_computer_continuation(
     plane.commit_pending_computer_tool(tenant_id, driver.turn_id)
     plane.enqueue_computer_continuation(tenant_id, driver.turn_id)
     plane.relinquish_computerless_ownership(tenant_id, driver.turn_id)
-    plane.set_computer_stopped(tenant_id, user_id, False)
+    plane.set_computer_stopped(tenant_id, False)
     plane.record_computer_capability_ready(tenant_id, user_id, BROWSER_CAPABILITY)
     record = plane.escalation_for(tenant_id, driver.turn_id)
     assert record.continuation_job_id is not None

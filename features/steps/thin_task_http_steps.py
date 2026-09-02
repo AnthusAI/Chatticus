@@ -20,14 +20,14 @@ def when_http_task_create(
     if not hasattr(context, "api_client"):
         wire_test_http_front_door(context, context.plane, invoke_key="")
     bot = context.bots_by_name[bot_name]
-    context.user_id = bot.user_id
+    context.user_id = "ryan"
     context.tenant_id = bot.tenant_id
     worker_id = f"task-tool-{bot_name}"
     register_worker_for_http(context, tenant_id, worker_id)
     response = context.api_client.post(
         org_path(tenant_id, f"/bots/{bot.bot_id}/tasks/tool"),
         json={
-            "user_id": bot.user_id,
+            "user_id": context.user_id,
             "action": "create",
             "arguments": {"title": title},
         },
@@ -46,7 +46,7 @@ def then_http_task_status(context: object, status: str) -> None:
 
 @then('the HTTP task response records bot "{bot_name}" as provenance')
 def then_http_task_provenance(context: object, bot_name: str) -> None:
-    bot = context.plane.bot_by_name(context.tenant_id, context.user_id, bot_name)
+    bot = context.plane.bot_by_name(context.tenant_id, bot_name)
     assert context.http_task["created_by_bot_id"] == bot.bot_id
 
 
@@ -121,14 +121,14 @@ def when_bot_receives_message(context: object, bot_name: str, message: str) -> N
     bot = context.bots_by_name[bot_name]
     if not hasattr(context, "task_driver"):
         context.task_driver = ThinTaskDriver(
-            context.plane, tenant_id=bot.tenant_id, user_id=bot.user_id
+            context.plane, tenant_id=bot.tenant_id, user_id="ryan"
         )
-    channel = context.plane.create_channel(bot.tenant_id, bot.user_id, [bot.bot_id])
+    channel = context.plane.create_channel(bot.tenant_id, "ryan", [bot.bot_id])
     context.plane.post_channel_message(
         channel.channel_id,
         bot.tenant_id,
         author_kind="human",
-        author_id=bot.user_id,
+        author_id="ryan",
         body=message,
         addressed_to_bot_id=bot.bot_id,
     )
@@ -152,5 +152,5 @@ def when_bot_runs_task_aware_worker_turn(context: object, bot_name: str) -> None
         TaskAwareFakeTextCompletionClient(),
     )
     worker.complete_pending_for_bot(bot.bot_id)
-    tasks = context.plane.list_tasks(bot.tenant_id, bot.user_id)
+    tasks = context.plane.list_tasks(bot.tenant_id, "ryan")
     context.last_task = tasks[-1] if tasks else None

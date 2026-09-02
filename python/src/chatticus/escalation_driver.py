@@ -33,7 +33,9 @@ class EscalationHandoffDriver:
 
     def given_ready_to_request_computer_tool(self) -> None:
         """Start an active computerless turn that has a prepared computer tool."""
-        bot = self.plane.create_bot(self.tenant_id, self.user_id, "Assistant")
+        bot = self.plane.create_bot(
+            self.tenant_id, "Assistant", creator_user_id=self.user_id
+        )
         channel = self.plane.create_channel(self.tenant_id, self.user_id, [bot.bot_id])
         _, started = self.plane.post_channel_message(
             channel.channel_id,
@@ -49,7 +51,7 @@ class EscalationHandoffDriver:
             self.tenant_id, started.turn_id, "computerless-worker"
         )
         assert claimed is not None and claimed.acquired
-        computer = self.plane.ensure_computer(self.tenant_id, self.user_id)
+        computer = self.plane.ensure_computer(self.tenant_id)
         self.computer_id = computer.computer_id
         self.plane.register_worker(
             WorkerRegistration(
@@ -149,14 +151,14 @@ class MidTurnEscalationDriver:
             self.tenant_id, self.turn_id, "I will open household mail."
         )
         self.plane.commit_pending_computer_tool(self.tenant_id, self.turn_id)
-        self.plane.set_computer_stopped(self.tenant_id, self.user_id, True)
+        self.plane.set_computer_stopped(self.tenant_id, True)
 
     def when_computer_becomes_ready(self) -> MidTurnEscalationOutcome:
         """Handoff to one computer-capable attempt and continue the model."""
         assert self.turn_id is not None
         assert self.pending_action_id is not None
         turn_id = self.turn_id
-        self.plane.set_computer_stopped(self.tenant_id, self.user_id, False)
+        self.plane.set_computer_stopped(self.tenant_id, False)
         self.plane.enqueue_computer_continuation(self.tenant_id, turn_id)
         self.plane.relinquish_computerless_ownership(self.tenant_id, turn_id)
         claimed = self.plane.claim_turn_attempt(

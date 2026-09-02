@@ -12,7 +12,7 @@ Warning: Editing project/ directly violates The Way. Do not read or write anythi
 
 ## What this project is
 
-Chatticus is a named-teammate product: persistent bots, a user-scoped Linux
+Chatticus is a named-teammate product: persistent bots, an organization-scoped Linux
 computer, approvals, skills, routines, and a pull-based worker protocol that
 can run the computer on AWS or on local hardware.
 
@@ -182,7 +182,7 @@ both before arguing for a change. Two that are misread most often:
   agent may call `start_computer` early, and a caller may declare
   `computer` at enqueue, but correctness must never depend on either:
   touching a computer tool escalates on its own. There is no
-  `stop_computer` -- the computer is shared by all of a user's bots.
+  `stop_computer` -- the computer is shared by the whole organization.
 
 See `docs/MESSAGING.md` for the design and `docs/DESIGN_CHALLENGES.md`
 for the reasoning. Do not add a CDK control-plane stack until the

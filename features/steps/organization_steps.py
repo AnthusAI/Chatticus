@@ -379,9 +379,7 @@ def then_no_computer_for_org(context: object, name: str) -> None:
     org = _org_by_name(context, name)
     owner = context.current_identity
     assert owner is not None
-    computer = _plane(context)._messaging_store.get_computer(
-        org.tenant_id, owner.user_id
-    )
+    computer = _plane(context)._messaging_store.get_computer(org.tenant_id)
     assert computer is None
 
 

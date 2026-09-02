@@ -46,25 +46,21 @@ def test_gated_read_workspace_allows_granted_path() -> None:
 
 def test_plane_gated_read_returns_content() -> None:
     plane = ControlPlane()
-    plane.ensure_computer("anthus", "ryan")
-    plane.write_workspace("anthus", "ryan", "/workspace/research/notes.txt", "weekly")
+    plane.ensure_computer("anthus")
+    plane.write_workspace("anthus", "/workspace/research/notes.txt", "weekly")
     plane.set_turn_capability_grant("anthus", "turn-1", research_grant())
     assert (
-        plane.gated_read_workspace(
-            "anthus", "turn-1", "ryan", "/workspace/research/notes.txt"
-        )
+        plane.gated_read_workspace("anthus", "turn-1", "/workspace/research/notes.txt")
         == "weekly"
     )
 
 
 def test_plane_gated_read_denies_without_grant() -> None:
     plane = ControlPlane()
-    plane.ensure_computer("anthus", "ryan")
-    plane.write_workspace("anthus", "ryan", "/workspace/research/notes.txt", "weekly")
+    plane.ensure_computer("anthus")
+    plane.write_workspace("anthus", "/workspace/research/notes.txt", "weekly")
     with pytest.raises(CapabilitySinkDenied):
-        plane.gated_read_workspace(
-            "anthus", "turn-1", "ryan", "/workspace/research/notes.txt"
-        )
+        plane.gated_read_workspace("anthus", "turn-1", "/workspace/research/notes.txt")
 
 
 def test_unattended_send_blocks_without_grant() -> None:

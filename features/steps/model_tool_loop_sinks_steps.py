@@ -17,12 +17,12 @@ def when_bot_is_asked_for_model_sink(
     from chatticus.models import ActorKind
 
     bot = context.bots_by_name[bot_name]
-    channel = context.plane.create_channel(bot.tenant_id, bot.user_id, [bot.bot_id])
+    channel = context.plane.create_channel(bot.tenant_id, "ryan", [bot.bot_id])
     _, turn = context.plane.post_channel_message(
         channel.channel_id,
         bot.tenant_id,
         ActorKind.HUMAN,
-        bot.user_id,
+        "ryan",
         body=message,
         addressed_to_bot_id=bot.bot_id,
     )

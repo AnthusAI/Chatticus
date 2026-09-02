@@ -164,7 +164,7 @@ class TurnFaultDriver:
         self.injector = FaultInjector()
         self.plane = recovery_plane(fault_injector=self.injector)
         self.counting_client = CountingTextCompletionClient()
-        bot = self.plane.create_bot(tenant_id, user_id, "Assistant")
+        bot = self.plane.create_bot(tenant_id, "Assistant", creator_user_id=user_id)
         self.bot_id = bot.bot_id
         channel = self.plane.create_channel(tenant_id, user_id, [bot.bot_id])
         self.channel_id = channel.channel_id

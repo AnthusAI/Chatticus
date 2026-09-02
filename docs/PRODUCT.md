@@ -27,18 +27,19 @@ decided (a channel is the thread; `addressed_to_bot_id` enqueues a turn;
 there is no second bus). How conversations compact over time has open
 sub-questions; see [Design challenges](DESIGN_CHALLENGES.md).
 
-## One computer per user
+## One computer per organization
 
-Every bot on a user account uses the **same** computer:
+Every bot in an organization uses the **same** computer:
 
 - Browser cookies and signed-in sessions are shared.
-- Files under `/workspace` are visible to every bot on that user.
+- Files under `/workspace` are visible to every bot in that organization.
 - Command-line credentials on that computer are shared.
 - One bot can continue from files another bot saved.
 
-The computer is isolated to the **user**, not to an individual bot. A login
-or file placed on the computer is available to all of that user's bots. Do
-not treat separate bots as a security boundary.
+The computer is isolated to the **organization**, not to an individual bot or
+member. A login or file placed on the computer is available to every bot and
+member in that organization. Do not treat separate bots as a security
+boundary.
 
 The computer is not tied to one physical box. A garage Mac, a Fargate
 task, and a stop/start EC2 instance are **hosts**. They all run the same

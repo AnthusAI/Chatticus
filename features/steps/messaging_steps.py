@@ -23,6 +23,7 @@ from chatticus.models import (
     TurnEventKind,
     TurnJob,
     TurnStatus,
+    primary_human_participant,
 )
 from chatticus.worker.computerless import (
     ComputerlessWorker,
@@ -185,7 +186,9 @@ def given_channel_with_named_bot(
     context: object, tenant_id: str, user_id: str, name: str
 ) -> None:
     if name not in context.bots_by_name:
-        context.bots_by_name[name] = context.plane.create_bot(tenant_id, user_id, name)
+        context.bots_by_name[name] = context.plane.create_bot(
+            tenant_id, name, creator_user_id=user_id
+        )
     bot = context.bots_by_name[name]
     response = context.api_client.post(
         org_path(tenant_id, "/channels"),
@@ -363,7 +366,7 @@ def then_tenant_reads_open_channel(context: object, tenant_id: str) -> None:
     payload = response.json()
     assert payload["channel_id"] == channel.channel_id
     assert payload["tenant_id"] == tenant_id
-    assert payload["user_id"] == channel.user_id
+    assert payload["user_id"] == primary_human_participant(channel)
     participant_ids = {item["actor_id"] for item in payload["participants"]}
     expected_ids = {participant.actor_id for participant in channel.participants}
     assert participant_ids == expected_ids
@@ -439,7 +442,6 @@ def then_read_household_computer(context: object, tenant_id: str, user_id: str) 
     payload = response.json()
     assert payload["computer_id"] == expected_id
     assert payload["tenant_id"] == tenant_id
-    assert payload["user_id"] == user_id
     assert payload["stopped"] is True
     assert payload["host_start_generation"] == 0
     missing = context.api_client.get(
@@ -632,20 +634,21 @@ def then_post_tenant_mismatch(context: object) -> None:
 def given_household_computer_stopped(
     context: object, tenant_id: str, user_id: str
 ) -> None:
-    context.plane.set_computer_stopped(tenant_id, user_id, True)
+    context.plane.ensure_computer(tenant_id)
+    context.plane.set_computer_stopped(tenant_id, True)
     computers = getattr(context, "household_computer_ids", None)
     if computers is None:
         computers = {}
         context.household_computer_ids = computers
-    computers[(tenant_id, user_id)] = context.plane.computer_for_user(
-        tenant_id, user_id
+    computers[(tenant_id, user_id)] = context.plane.computer_for_organization(
+        tenant_id
     ).computer_id
 
 
 @given('tenant "{tenant_id}" user "{user_id}" household computer is running')
 @when('tenant "{tenant_id}" user "{user_id}" household computer is running')
 def household_computer_running(context: object, tenant_id: str, user_id: str) -> None:
-    context.plane.set_computer_stopped(tenant_id, user_id, False)
+    context.plane.set_computer_stopped(tenant_id, False)
 
 
 @when(
@@ -698,7 +701,7 @@ def when_waiting_turn_redelivered_to_computerless(context: object) -> None:
         job_id=str(uuid4()),
         tenant_id=channel.tenant_id,
         required_capabilities=frozenset({"cpu"}),
-        user_id=channel.user_id,
+        user_id=primary_human_participant(channel),
         bot_id=turn.bot_id,
         turn_id=turn_id,
     )
@@ -755,7 +758,7 @@ def then_latest_bot_message_matches_turn_chunks(context: object) -> None:
 def then_household_computer_remains_stopped(
     context: object, tenant_id: str, user_id: str
 ) -> None:
-    assert context.plane.computer_is_stopped(tenant_id, user_id)
+    assert context.plane.computer_is_stopped(tenant_id)
 
 
 @given('another tenant "{tenant_id}" knows the channel identifier')
@@ -819,7 +822,7 @@ def given_bot_producing_turn(context: object, name: str) -> None:
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
-            "author_id": channel.user_id,
+            "author_id": primary_human_participant(channel),
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
@@ -901,7 +904,7 @@ def given_turn_events_through_seq(context: object, seq: int) -> None:
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
         json={
             "author_kind": ActorKind.HUMAN,
-            "author_id": channel.user_id,
+            "author_id": primary_human_participant(channel),
             "body": "hello",
             "addressed_to_bot_id": bot.bot_id,
         },
@@ -1249,7 +1252,11 @@ def given_unfinished_job_delivered_twice(context: object) -> None:
     channel = _channel(context)
     bot = context.bots_by_name["Assistant"]
     when_human_posts_on_channel(
-        context, channel.user_id, channel.tenant_id, "ping", "Assistant"
+        context,
+        primary_human_participant(channel),
+        channel.tenant_id,
+        "ping",
+        "Assistant",
     )
     jobs = context.plane.pending_jobs_for_bot(bot.bot_id)
     assert len(jobs) == 1
@@ -1301,7 +1308,11 @@ def then_at_most_one_answer(context: object) -> None:
 def given_turn_reassigned(context: object) -> None:
     channel = _channel(context)
     when_human_posts_on_channel(
-        context, channel.user_id, channel.tenant_id, "ping", "Assistant"
+        context,
+        primary_human_participant(channel),
+        channel.tenant_id,
+        "ping",
+        "Assistant",
     )
     turn_id = _turn_id(context)
     _claim_http(context, turn_id, channel.tenant_id, "worker-a")

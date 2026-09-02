@@ -530,7 +530,6 @@ def given_privileged_session(context: object) -> None:
     bot = context.bots_by_name["Researcher"]
     context.plane.save_browser_session(
         bot.tenant_id,
-        bot.user_id,
         "banking",
         "signed-in-cookie-jar",
     )
@@ -581,8 +580,8 @@ def given_turn_carries_grant(context: object, turn_id: str) -> None:
 @given('the household computer workspace file "{path}" contains "{content}"')
 def given_household_workspace_file(context: object, path: str, content: str) -> None:
     bot = next(iter(context.bots_by_name.values()))
-    context.plane.ensure_computer(bot.tenant_id, bot.user_id)
-    context.plane.write_workspace(bot.tenant_id, bot.user_id, path, content)
+    context.plane.ensure_computer(bot.tenant_id)
+    context.plane.write_workspace(bot.tenant_id, path, content)
 
 
 @given("an overnight task grants structured consequential actions")
@@ -612,13 +611,11 @@ def given_exact_approval_grant(context: object) -> None:
 def when_gated_read_workspace(
     context: object, path: str, tenant_id: str, turn_id: str
 ) -> None:
-    bot = next(iter(context.bots_by_name.values()), None)
-    user_id = bot.user_id if bot is not None else "ryan"
     context.gated_read_error = None
     context.gated_read_result = None
     try:
         context.gated_read_result = context.plane.gated_read_workspace(
-            tenant_id, turn_id, user_id, path
+            tenant_id, turn_id, path
         )
     except Exception as exc:
         context.gated_read_error = exc

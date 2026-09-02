@@ -91,7 +91,6 @@ def when_second_process_records_host_start(
     worker_plane = ControlPlane(messaging_store=context.messaging_store)
     worker_plane.request_computer_host_start(
         tenant_id,
-        user_id,
         "host-start-from-second-process",
     )
 
@@ -317,7 +316,7 @@ def then_host_start_driver_invoked_twice(context: object) -> None:
 @then("the household computer has recorded one host start")
 def then_one_host_start_recorded(context: object) -> None:
     setup = context.computer_continuation
-    computer = context.plane.computer_for_user(setup.tenant_id, setup.user_id)
+    computer = context.plane.computer_for_organization(setup.tenant_id)
     assert computer.host_start_generation == 1
 
 
