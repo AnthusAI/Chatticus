@@ -62,6 +62,30 @@ def then_previous_token_rejected(context: object) -> None:
     assert response.status_code == 403
 
 
+@when("the worker claims a missing turn over HTTP")
+def when_worker_claims_missing_turn_over_http(context: object) -> None:
+    tenant_id = getattr(context, "last_worker_tenant_id", "anthus")
+    headers = worker_auth_headers(context, context.last_worker_id)
+    context.worker_route_response = context.api_client.post(
+        org_path(tenant_id, "/turns/missing-turn/claim"),
+        json={"worker_id": context.last_worker_id},
+        headers=headers,
+    )
+
+
+@when('the worker claims a missing turn over HTTP with worker id "{other_worker_id}"')
+def when_worker_claims_missing_turn_with_other_id(
+    context: object, other_worker_id: str
+) -> None:
+    tenant_id = getattr(context, "last_worker_tenant_id", "anthus")
+    headers = worker_auth_headers(context, context.last_worker_id)
+    context.worker_route_response = context.api_client.post(
+        org_path(tenant_id, "/turns/missing-turn/claim"),
+        json={"worker_id": other_worker_id},
+        headers=headers,
+    )
+
+
 @when("the worker claims the turn over HTTP")
 def when_worker_claims_turn_over_http(context: object) -> None:
     channel = context.last_channel

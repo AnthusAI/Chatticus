@@ -120,3 +120,19 @@ Feature: Organization identity and membership records
     And the organization "Anthus Labs" is reinstated
     Then organization "Anthus Labs" has status "enabled"
     And no computer exists for "Anthus Labs"
+
+  Scenario: An enabled owner may access the organization
+    Given "owner@example.com" has signed in
+    And that user has created and enabled organization "Anthus Labs"
+    When that user is checked for access to "Anthus Labs"
+    Then organization access is allowed
+
+  Scenario: A non-member cannot access the organization
+    Given "owner@example.com" has signed in
+    And that user has created and enabled organization "Anthus Labs"
+    When a stranger principal is checked for access to "Anthus Labs"
+    Then organization access is refused because the user is not a member
+
+  Scenario: A worker cannot access a different organization
+    When a worker principal for tenant "anthus" is checked for access to tenant "other-household"
+    Then organization access is refused because the worker is not registered
