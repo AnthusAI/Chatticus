@@ -3,16 +3,24 @@
   "title": "Shared channels and organization-owned bots",
   "description": "Phase 5. Blocked entirely by 7b4616; do not start any of it before the door closes.\n\nBots become organization-owned, channels carry participants instead of an owner, and the computer serves the whole organization. Specification 14f692 comes first and gates the other three.\n\n**Warning:** 6c1a9b, 0814e6, and ddf609 all edit models.py and messaging/store.py. Independent in logic, colliding in files. One agent, or strictly sequenced merges.",
   "type": "epic",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "ad1f66f7-a9bd-4269-a63c-ce22624a4b3d",
+      "author": "home",
+      "text": "All children closed (14f692 spec, 6c1a9b bots, 0814e6 channels, ddf609 one computer). Shared channels and org-owned bots are on develop.",
+      "created_at": "2026-09-02T17:40:24.238652Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-01T02:33:39.865112Z",
-  "updated_at": "2026-09-01T02:46:57.823182Z",
-  "closed_at": null,
+  "updated_at": "2026-09-02T17:40:24.238652Z",
+  "closed_at": "2026-09-02T17:40:24.226205Z",
   "custom": {}
 }
