@@ -14,12 +14,12 @@ export function FinalCta() {
             id="final-cta-title"
             className="mt-14 max-w-6xl font-display text-[clamp(4.2rem,9vw,9rem)] leading-[0.8] tracking-[-0.075em]"
           >
-            Give your AI team
-            <span className="block italic text-signal">a room of its own.</span>
+            Give people and bots
+            <span className="block italic text-signal">a room of their own.</span>
           </h2>
           <p className="mt-9 max-w-2xl font-body text-lg leading-relaxed text-paper/[0.68] sm:text-xl">
             Meet the current product workspace, or inspect the source and help
-            shape the controlled agent organization Chatticus is becoming.
+            shape what Chatticus becomes.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">

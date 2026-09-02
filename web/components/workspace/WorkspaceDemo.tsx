@@ -17,8 +17,8 @@ const MOTION_STATE_TO_AVATAR_STATE: Record<CreativeMotionState, BotAvatarState> 
 
 /** How long each teammate holds focus before the next beat (or the next scenario) starts. */
 const BEAT_MS = 2200;
-/** Duration of the exit/enter slide when one scenario swaps for the next. */
-const TRANSITION_MS = 450;
+/** Duration of the exit/enter push when one scenario swaps for the next. */
+const TRANSITION_MS = 550;
 
 type TransitionPhase = "idle" | "exiting" | "entering";
 
@@ -99,18 +99,21 @@ export function WorkspaceDemo() {
 
   return (
     <div>
-      <p className="mb-3 animate-rise text-center font-mono text-[0.7rem] uppercase tracking-[0.12em] text-ink-soft [animation-delay:300ms] lg:text-left">
-        A team of bots and people working on{" "}
+      <p className="mb-4 flex animate-rise flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[0.7rem] uppercase tracking-[0.12em] text-ink-soft [animation-delay:300ms] lg:justify-start">
+        <span>A team of bots and people working on</span>
         <span
           key={scenario.id}
           className={cn(
-            "inline-block text-clay transition-all duration-300",
-            phase === "exiting" ? "-translate-y-1 opacity-0" : "translate-y-0 opacity-100",
+            "inline-flex items-center rounded-full bg-clay px-3 py-1 text-paper transition-all duration-500 ease-[cubic-bezier(0.65,0,0.35,1)]",
+            phase === "exiting"
+              ? "-translate-x-8 opacity-0"
+              : phase === "entering"
+                ? "translate-x-8 opacity-0"
+                : "translate-x-0 opacity-100",
           )}
         >
           {scenario.useCase}
         </span>
-        .
       </p>
       <div
         className="workspace-prototype relative mx-auto w-[70%] max-w-[19rem] lg:w-full lg:max-w-[21rem]"
@@ -118,39 +121,42 @@ export function WorkspaceDemo() {
       >
         <div aria-hidden="true" className="prototype-backing-plane" />
         <div aria-hidden="true" className="prototype-shadow-plane" />
-        <div
-          className={cn(
-            "relative z-10 transition-all duration-300 ease-out",
-            phase === "exiting"
-              ? "-translate-y-3 opacity-0"
-              : phase === "entering"
-                ? "translate-y-3 opacity-0"
-                : "translate-y-0 opacity-100",
-          )}
-        >
-          <WorkspacePanel
-            orgLabel={scenario.orgLabel}
-            workspaceLabel={scenario.workspaceLabel}
-            members={scenario.members}
-            selectedMemberId={active.id}
-            selectedMemberState={paused ? "neutral" : MOTION_STATE_TO_AVATAR_STATE[active.motionState]}
-            selectedMemberActivity={active.activity}
-            messages={active.messages}
-            draft=""
-            sending={false}
-            disabled
-            composerPlaceholder={`Message ${active.name}…`}
-            onSelectMember={(member) => {
-              const index = scenario.members.findIndex((candidate) => candidate.id === member.id);
-              if (index >= 0) {
-                setBeatIndex(index);
-              }
-            }}
-            onDraftChange={() => {}}
-            onSend={() => {}}
-            paused={paused}
-            onTogglePaused={() => setPaused((current) => !current)}
-          />
+        {/* Clips only the sliding panel itself, not the sibling decorative planes above (their negative insets need to stay unclipped). */}
+        <div className="relative z-10 overflow-hidden rounded-[2rem]">
+          <div
+            className={cn(
+              "transition-all duration-500 ease-[cubic-bezier(0.65,0,0.35,1)]",
+              phase === "exiting"
+                ? "-translate-x-[120%] opacity-0"
+                : phase === "entering"
+                  ? "translate-x-[120%] opacity-0"
+                  : "translate-x-0 opacity-100",
+            )}
+          >
+            <WorkspacePanel
+              orgLabel={scenario.orgLabel}
+              workspaceLabel={scenario.workspaceLabel}
+              members={scenario.members}
+              selectedMemberId={active.id}
+              selectedMemberState={paused ? "neutral" : MOTION_STATE_TO_AVATAR_STATE[active.motionState]}
+              selectedMemberActivity={active.activity}
+              messages={active.messages}
+              draft=""
+              sending={false}
+              disabled
+              composerPlaceholder={`Message ${active.name}…`}
+              onSelectMember={(member) => {
+                const index = scenario.members.findIndex((candidate) => candidate.id === member.id);
+                if (index >= 0) {
+                  setBeatIndex(index);
+                }
+              }}
+              onDraftChange={() => {}}
+              onSend={() => {}}
+              paused={paused}
+              onTogglePaused={() => setPaused((current) => !current)}
+            />
+          </div>
         </div>
       </div>
     </div>

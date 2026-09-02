@@ -19,7 +19,7 @@ const foundation = [
     icon: BrainCircuit,
     number: "01",
     eyebrow: "Identity",
-    title: "A teammate, not a blank chat.",
+    title: "Remembers the last time you talked.",
     description:
       "Each bot has a name, durable memory, and a role in the work. Context compounds instead of disappearing at the end of a prompt.",
     status: "Live foundation",

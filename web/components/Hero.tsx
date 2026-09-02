@@ -21,24 +21,17 @@ export function Hero() {
         <div className="max-w-[46rem]">
           <h1
             id="hero-title"
-            className="font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em]"
+            className="animate-rise font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em]"
           >
-            {/* Mark sits beside the first line only, baseline-aligned like a drop cap; the rest of the headline flows full-width below it. */}
-            <span className="flex flex-wrap items-end gap-3 sm:gap-5">
-              <Wordmark
-                reportsPresenceAsHero
-                showText={false}
-                size={140}
-                className="animate-rise shrink-0"
-              />
-              <span className="block animate-rise [animation-delay:80ms]">
-                One shared
-              </span>
-            </span>
-            <span className="block animate-rise [animation-delay:160ms]">
-              space for
-            </span>
-            <span className="block animate-rise italic text-clay [animation-delay:240ms]">
+            {/* Floated like a print drop cap so the headline liquid-wraps around it and continues wrapping naturally at whatever width is available, instead of forcing manual line breaks. */}
+            <Wordmark
+              reportsPresenceAsHero
+              showText={false}
+              size={140}
+              className="float-left mr-4 mt-1"
+            />
+            Shared space for{" "}
+            <span className="italic text-clay">
               people <span className="text-surface-foreground">and</span>{" "}
               <span className="relative inline-block">
                 bots.
@@ -60,11 +53,17 @@ export function Hero() {
             </span>
           </h1>
           <p className="mt-10 max-w-[42rem] animate-rise font-body text-lg leading-relaxed text-ink-soft [animation-delay:340ms] sm:text-xl">
-            Chatticus is a shared, collaborative space where people and bots
-            work together around common files, tools, and a system of
-            authority and approvals — like an office, not a chat window.
-            It&rsquo;s a 24/7 agent farm you can use to grow whatever you want, around
-            the clock.
+            Chatticus is{" "}
+            <span className="animate-highlight-sweep bg-[image:linear-gradient(var(--signal),var(--signal))] bg-[position:0_88%] bg-no-repeat px-0.5 [animation-delay:2200ms]">
+              a shared, collaborative space
+            </span>{" "}
+            where people and bots work together around common files, tools,
+            and a system of authority and approvals —{" "}
+            <span className="animate-highlight-sweep bg-[image:linear-gradient(var(--signal),var(--signal))] bg-[position:0_88%] bg-no-repeat px-0.5 [animation-delay:4200ms]">
+              like an office, not a chat window
+            </span>
+            . It&rsquo;s a 24/7 agent farm you can use to grow whatever you want,
+            around the clock.
           </p>
           <div className="mt-9 flex animate-rise flex-col gap-3 [animation-delay:430ms] sm:flex-row">
             <Button asChild size="lg">
