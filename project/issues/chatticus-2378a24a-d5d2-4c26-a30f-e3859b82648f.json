@@ -19,10 +19,19 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "47779c47-37c1-4587-a14e-f56c7e2872b7",
+      "author": "home",
+      "text": "Phase 3 borderless Footer collision is over (#203 on develop). Still parked: the feature-page writing brief named in this card has not been filed, and da7f95 remains in_progress on hero copy. Do not start until that brief exists. Chattic.us PR 205 is develop-to-main and waits on a human merge.",
+      "created_at": "2026-09-02T21:34:53.623298Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-02T12:00:25.089689Z",
-  "updated_at": "2026-09-02T20:57:25.041908Z",
+  "updated_at": "2026-09-02T21:34:53.623391Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
