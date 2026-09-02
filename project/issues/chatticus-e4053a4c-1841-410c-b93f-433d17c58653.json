@@ -3,7 +3,7 @@
   "title": "Escalate an approval to someone who can give it",
   "description": "**Phase 6 of 7.**\n\n- **Blocked by:** eef4aa and ac3b7a\n- **Runs in parallel with:** nothing. Last item in the epic\n- **Unblocks:** nothing\n\n---\nAn action exceeding the requester's ceiling routes to the nearest member whose ceiling covers it. docs/APPROVAL.md records that v1 has no completable path while nobody is at a screen, and that presence is guaranteed only for a human in the web tab. In an organization presence is a team property, so human_takeover and immutable_approval can be satisfied by any member with standing.\n\nRevisit whether approval_fatigue can stay in V1_POLICY_EXCLUSIONS once five people share one bot.",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,20 @@
     "phase-6"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "06af0ad4-9cd7-4e13-b941-e7cb1b4222be",
+      "author": "home",
+      "text": "Starting: eef4aa ceiling + ac3b7a creator/approver landed. Dispatching Composer 2.5 to write the Gherkin scenario (action exceeding requester's ceiling routes to nearest member whose ceiling covers it) so it exists and fails for the right reason. The 'revisit approval_fatigue' note is a manager decision, not a scenario \u2014 flagging it, not implementing it.",
+      "created_at": "2026-09-02T11:22:29.500320Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-01T02:41:22.276461Z",
-  "updated_at": "2026-09-01T02:46:21.392644Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T11:41:16.206118Z",
+  "closed_at": "2026-09-02T11:41:16.206118Z",
+  "custom": {},
+  "agent": null
 }

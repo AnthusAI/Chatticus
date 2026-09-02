@@ -1,0 +1,19 @@
+{
+  "id": "chatticus-93f5aa4b-601e-4c9b-b6d9-d6f1857c7db6",
+  "title": "Add workflow_dispatch deploy workflows for Auth and staging/production stacks",
+  "description": "",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-02T01:26:39.218285Z",
+  "updated_at": "2026-09-02T01:26:39.218285Z",
+  "closed_at": null,
+  "custom": {},
+  "agent": null
+}

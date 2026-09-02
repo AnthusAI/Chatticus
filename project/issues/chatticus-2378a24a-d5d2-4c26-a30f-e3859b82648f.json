@@ -1,0 +1,19 @@
+{
+  "id": "chatticus-2378a24a-d5d2-4c26-a30f-e3859b82648f",
+  "title": "Marketing site: remove 'Project' footer, add product feature pages, link them in",
+  "description": "**Phase: marketing website.**\n\nRemove the 'Project' part of the footer \u2014 it's not appropriate for this site because we're trying to create a product site for a bot-farm SaaS in the spirit of Grok Bot and PostHog.\n\nReplace that with a growing list of pages about features. One of the features will be **AI model flexibility**, including the ability to run your own models yourself on local hardware or something like AWS SageMaker. Another will be features for running background bot tasks that are already asynchronous as **'batch' jobs** against the OpenAI or Anthropic or other AI vendor APIs, saving as much as 50% depending on the vendor. (A detailed brief for the page-writing task will be provided separately and filed with that task.)\n\nOverall, we need an epic for adding product feature pages and for adjusting the site to link to them and to talk about them when appropriate.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ffac024e-78e7-4c48-bc3b-0d136e81d890",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-02T12:00:25.089689Z",
+  "updated_at": "2026-09-02T12:00:31.936304Z",
+  "closed_at": null,
+  "custom": {},
+  "agent": null
+}

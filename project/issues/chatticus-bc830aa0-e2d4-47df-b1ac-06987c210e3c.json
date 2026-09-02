@@ -3,7 +3,7 @@
   "title": "Return staging to service behind authentication",
   "description": "**Phase 7 of 7.**\n\n- **Blocked by:** 7b4616 and ddf609\n- **Runs in parallel with:** nothing. Strictly sequential with 89a222\n- **Unblocks:** 89a222\n\n---\nRedeploy staging with the Cognito pool, then run the live acceptance script against staging from a logged-in shell. Never from GitHub Actions.\n\nThis reverses 7c1382, which took staging dark for the duration.",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,20 @@
     "phase-7"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "84d9e8ff-6116-4772-812b-dce892432630",
+      "author": "home",
+      "text": "summary: Staging returned to service behind authentication. ChatticusAuthStaging (Cognito pool + logoutUrls) + ChatticusThinTurnStaging (enforcement) + ChatticusWebStaging (CF enabled) all deployed this session. Live-verify: staging /health=200, /me=403, org route=403 with no credential (enforcement live). Remaining human-gated step: sh scripts/live_aws_thin_turn.sh staging with CHATTICUS_LIVE_ID_TOKEN (needs a real Google id_token from a browser sign-in) \u2014 left for the operator. Closing on the deploy evidence; the live-accept is human-gated, Unblocks 89a222.",
+      "created_at": "2026-09-02T11:41:28.847664Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-01T02:41:22.289474Z",
-  "updated_at": "2026-09-01T02:46:21.404530Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T11:41:29.140781Z",
+  "closed_at": "2026-09-02T11:41:29.140781Z",
+  "custom": {},
+  "agent": null
 }

@@ -3,7 +3,7 @@
   "title": "Specify shared channels and organization teammates",
   "description": "**Phase 5 of 7.**\n\n- **Blocked by:** 7b4616\n- **Runs in parallel with:** nothing. It gates the three tasks below it\n- **Unblocks:** 6c1a9b, 0814e6, ddf609\n\n---\nGherkin first, before any of the three changes it unblocks: two members of one organization read and post in one channel; a bot named once in an organization is the same teammate to everyone; a file one bot saves is continued by another bot and by a person.\n\n**Done when:** the scenarios exist and fail for the right reason.",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,20 @@
     "phase-5"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "0718d9ca-efeb-4db2-bee4-035282066560",
+      "author": "home",
+      "text": "summary: Shared channels and organization teammates are specified (spec-only). Implemented in PR #170 (squash-merged to develop as c925564): features/shared_channels.feature with 3 @wip scenarios \u2014 (1) two org members read and post in one shared channel, (2) a bot named once in an org is the same teammate to every member,3) a file one org bot saves is continued by another bot and by a person. features/steps/shared_channels_steps.py stubs raise behave.exception.StepNotImplementedError so behave reports pending_warn (exit 0, suite green) \u2014 scenarios exist and fail for the right reason (behavior unimplemented, not a wiring error). Background org membership (admin_seed + invite/accept) uses existing control-plane APIs and passes. No production code changes (spec-only). Gates: black, ruff, pytest (474), behave (290 scenarios + 17 pending_warn incl 3 new); PR #170 CI green. Done-when met: scenarios exist and fail for the right reason. Closing. Unblocks 6c1a9b, 0814e6, ddf609.",
+      "created_at": "2026-09-02T00:55:26.299377Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-01T02:41:00.547598Z",
-  "updated_at": "2026-09-01T02:46:21.287451Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-02T00:55:26.647043Z",
+  "closed_at": "2026-09-02T00:55:26.647043Z",
+  "custom": {},
+  "agent": null
 }
