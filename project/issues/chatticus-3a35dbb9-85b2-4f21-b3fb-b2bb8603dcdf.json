@@ -40,10 +40,17 @@
       "text": "CI python failed on PR #185: given_bot seeds an org for every tenant, so cross-tenant computer/task GETs are 403 instead of 404/empty-200. page_content_authority errors on missing policy-turn. Sent back; do not merge; do not weaken isolation assertions.",
       "created_at": "2026-09-02T16:54:54.462183Z",
       "comment_type": "default"
+    },
+    {
+      "id": "a66354ca-3860-4561-ab52-a0d04eabb3ad",
+      "author": "home",
+      "text": "PR #185 is CONFLICTING with develop after #186. Fixture fix is on e6c5fe8 but CI did not re-run. Sent back to rebase onto origin/develop (control_plane.py + http/app.py). Do not merge.",
+      "created_at": "2026-09-02T17:13:52.629032Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:56:57.871883Z",
-  "updated_at": "2026-09-02T16:54:54.462183Z",
+  "updated_at": "2026-09-02T17:13:52.629032Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

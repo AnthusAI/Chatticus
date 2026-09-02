@@ -26,10 +26,17 @@
       "text": "Planning: Composer 2.5. Unblocked by e41552; parallel with ae51dc (now merged). One org per person, name bound, creation rate limit, Cognito MAU alarm below free tier.",
       "created_at": "2026-09-02T16:55:28.125318Z",
       "comment_type": "default"
+    },
+    {
+      "id": "ff0c7cb0-1987-4e1a-b14c-8d066ab34257",
+      "author": "home",
+      "text": "Plan not accepted yet. Rate-limit scenario is off-by-one and would be masked by 409 if cap is checked first. Cognito alarm with 30 eval periods and empty AlarmActions would not detect a flood. Planner revising; worktree not created.",
+      "created_at": "2026-09-02T17:13:52.648276Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:57:18.525663Z",
-  "updated_at": "2026-09-02T16:55:28.125318Z",
+  "updated_at": "2026-09-02T17:13:52.648276Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
