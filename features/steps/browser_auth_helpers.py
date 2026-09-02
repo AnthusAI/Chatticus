@@ -117,9 +117,11 @@ def wire_test_http_front_door(context: object, plane: Any, **kwargs: Any) -> Non
     if client is not None:
         client.close()
     keys = cognito_test_keys(context)
+    integration_test_auth = kwargs.pop("integration_test_auth", None)
     context.api_app = create_app(
         plane,
         cognito_verifier=keys.verifier(),
+        integration_test_auth=integration_test_auth,
         **kwargs,
     )
     context.app_state = context.api_app.state.chatticus
