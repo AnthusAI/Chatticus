@@ -66,10 +66,11 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-09-02.** Git **`main`** and **`develop`** are aligned at the same
-commit after [#166](https://github.com/AnthusAI/Chattic.us/pull/166): Google sign-in,
-membership branching, marketing at `/`, product workspace at `/chat`, and Lottie avatars
-via Vultus 0.1.1. Future work lands on `develop` and promotes to `main` for release.
+**Last updated: 2026-09-02.** Git **`main`** is at release `v0.9.0` (Google sign-in,
+membership branching, marketing at `/`, product workspace at `/chat`, Lottie avatars
+via Vultus 0.1.1). **`develop`** is ahead of `main`: it adds principal enforcement
+(#7b4616, deployed to development). Future work lands on `develop` and promotes
+to `main` for release.
 
 ### Deployed on development (`https://dev.chattic.us`)
 
@@ -78,28 +79,26 @@ via Vultus 0.1.1. Future work lands on `develop` and promotes to `main` for rele
 | ThinTurn API | Live at `https://dev.chattic.us/api` (CloudFront → Lambda) |
 | Google sign-in | Live — Cognito PKCE, `id_token` as SPA credential (#157–#161, #165) |
 | Membership UI | Live — signed-out, no-org, pending, enabled branches via `GET /me` (#162) |
-| Route enforcement | **Not yet** — org routes still accept invoke key without Cognito (#7b4616 in flight) |
-| Web bundle | **Behind git** — redeploy `ChatticusWeb` to get marketing `/` + `/chat` on dev |
+| Route enforcement | Live — every org route requires a Cognito `id_token` or worker bearer; only `/health` and `POST …/workers/register` are open (#7b4616, deployed) |
+| Web bundle | Live — marketing `/` and product `/chat` deployed (ChatticusWeb) |
 
 A seeded owner (`ryan@anth.us` → org `anthus`, enabled) can sign in with Google and
 reach the workspace (roster, health, chat shell). Operator org records are DynamoDB
 data, not CDK; see [Operator org seed](docs/OPERATOR_ORG_SEED.md).
 
-### In git but not necessarily deployed on development
+### In git `develop` but not necessarily deployed on development
 
-- Marketing landing at `/` and product workspace at `/chat` (#164, merged from `main`)
-- Lottie creative-desk avatars in marketing and product UI (#163, Vultus 0.1.1)
+- Sign-out ends the Cognito/Google SSO session (#169, PR open) — needs a
+  `ChatticusAuth` + `ChatticusWeb` deploy before it is live on dev
 - Org-scoped HTTP, worker bearer credentials, members CLI, budgets stack, turn
   recovery kernel — same as before
-- Principal enforcement join (#7b4616) — planned next; will refuse unauthenticated
-  callers on org routes in one revertible deploy
 
 ### Public sites
 
 | Host | Role | Notes |
 | --- | --- | --- |
 | [chattic.us](https://chattic.us) | Marketing | Separate deploy from this repo's `web/` export today |
-| [dev.chattic.us](https://dev.chattic.us) | Development product + API | Same-origin `/api`; web redeploy pending for `/` + `/chat` split |
+| [dev.chattic.us](https://dev.chattic.us) | Development product + API | Same-origin `/api`; marketing `/` + product `/chat` live |
 | [hey.chattic.us](https://hey.chattic.us) | Production product (planned) | Web CloudFront **disabled** (stack exists, dark) |
 | [staging.chattic.us](https://staging.chattic.us) | Staging (planned) | Web CloudFront **disabled** |
 
@@ -109,9 +108,10 @@ stay dark until explicitly re-enabled and re-proven.
 ### Live acceptance gate
 
 `cd python && sh scripts/live_aws_thin_turn.sh development` exercises the named
-development stack (invoke key + worker bearer on org paths today). Full exit 0
-still requires the OpenAI SSM key documented in `infra/README.md`. After #7b4616,
-the script will also require `CHATTICUS_LIVE_ID_TOKEN` for user routes.
+development stack (Cognito `id_token` on user routes + worker bearer on worker
+routes). Full exit 0 still requires the OpenAI SSM key documented in
+`infra/README.md`. The script now requires `CHATTICUS_LIVE_ID_TOKEN` for user
+routes (per #7b4616 enforcement).
 
 GitHub **Deploy ThinTurn (development)** and **Deploy Web (development)** are
 manual (`workflow_dispatch`). GitHub Actions must not hit live AWS.
