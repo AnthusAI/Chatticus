@@ -47,6 +47,13 @@ def _pending_behavior(step_name: str) -> None:
     )
 
 
+def _member_user_id(context: object, email: str) -> str:
+    identity = getattr(context, "identities_by_email", {}).get(email)
+    if identity is not None:
+        return identity.user_id
+    return email
+
+
 @given(
     'organization "{org_name}" member "{email}" has authority ceiling for '
     'structured "{action_type}" with:'
@@ -57,7 +64,7 @@ def given_member_authority_ceiling(
     org = _org(context, org_name)
     context.plane.set_member_authority_ceiling(
         org.tenant_id,
-        email,
+        _member_user_id(context, email),
         action_type,
         arguments=_table_args(context),
     )

@@ -13,6 +13,10 @@ from chatticus.approval_binding import (
     BoundExecutionResult,
     StructuredConsequentialOperation,
 )
+from chatticus.authorization_ceiling import (
+    MemberStanding,
+    request_exceeds_member_standing,
+)
 from chatticus.capability_policy import (
     CapabilityPolicy,
     EgressClass,
@@ -32,6 +36,8 @@ from chatticus.overnight_gated import (
 
 POLICY_KERNEL_TENANT = "policy-tenant"
 POLICY_KERNEL_TURN = "policy-turn"
+
+MEMBER_STANDING_DENIAL = "exceeds member authority standing"
 
 
 class CapabilitySinkDenied(ChatticusError):
@@ -61,8 +67,37 @@ def structured_action_request(
     )
 
 
-def require_allow(policy: CapabilityPolicy, request: RequestedCapability) -> None:
-    """Raise when the policy denies or requires approval for one request."""
+def deny_if_exceeds_member_standing(
+    policy: CapabilityPolicy,
+    request: RequestedCapability,
+    member_standing: MemberStanding,
+    *,
+    structured_arguments: dict[str, str] | None = None,
+) -> None:
+    """Record and raise when a request exceeds the acting member's standing."""
+    if request_exceeds_member_standing(
+        request,
+        member_standing,
+        structured_arguments=structured_arguments,
+    ):
+        policy._deny(MEMBER_STANDING_DENIAL, request)
+        raise CapabilitySinkDenied(MEMBER_STANDING_DENIAL)
+
+
+def require_allow(
+    policy: CapabilityPolicy,
+    request: RequestedCapability,
+    member_standing: MemberStanding,
+    *,
+    structured_arguments: dict[str, str] | None = None,
+) -> None:
+    """Raise when standing, the policy, or approval requirements block a request."""
+    deny_if_exceeds_member_standing(
+        policy,
+        request,
+        member_standing,
+        structured_arguments=structured_arguments,
+    )
     decision = policy.evaluate(request)
     if decision == ApprovalDecision.DENY:
         reason = policy.denials[-1].reason if policy.denials else "denied"
@@ -71,15 +106,29 @@ def require_allow(policy: CapabilityPolicy, request: RequestedCapability) -> Non
         raise CapabilitySinkApprovalRequired("immutable approval required")
 
 
-def require_granted(policy: CapabilityPolicy, request: RequestedCapability) -> None:
-    """Raise only when the task grant denies the request."""
+def require_granted(
+    policy: CapabilityPolicy,
+    request: RequestedCapability,
+    member_standing: MemberStanding,
+    *,
+    structured_arguments: dict[str, str] | None = None,
+) -> None:
+    """Raise when standing or the task grant denies the request."""
+    deny_if_exceeds_member_standing(
+        policy,
+        request,
+        member_standing,
+        structured_arguments=structured_arguments,
+    )
     decision = policy.evaluate(request)
     if decision == ApprovalDecision.DENY:
         reason = policy.denials[-1].reason if policy.denials else "denied"
         raise CapabilitySinkDenied(reason)
 
 
-def gated_read_workspace(policy: CapabilityPolicy, path: str) -> None:
+def gated_read_workspace(
+    policy: CapabilityPolicy, path: str, member_standing: MemberStanding
+) -> None:
     """Authorize a workspace read at the file sink."""
     require_allow(
         policy,
@@ -88,10 +137,13 @@ def gated_read_workspace(policy: CapabilityPolicy, path: str) -> None:
             file_path=path,
             egress_class=EgressClass.APPROVED_ORIGIN_FETCH.value,
         ),
+        member_standing,
     )
 
 
-def gated_write_workspace(policy: CapabilityPolicy, path: str) -> None:
+def gated_write_workspace(
+    policy: CapabilityPolicy, path: str, member_standing: MemberStanding
+) -> None:
     """Authorize a workspace write at the file sink."""
     require_allow(
         policy,
@@ -100,10 +152,13 @@ def gated_write_workspace(policy: CapabilityPolicy, path: str) -> None:
             file_path=path,
             egress_class=EgressClass.FILE_TRANSFER.value,
         ),
+        member_standing,
     )
 
 
-def gated_browse_origin(policy: CapabilityPolicy, url: str) -> None:
+def gated_browse_origin(
+    policy: CapabilityPolicy, url: str, member_standing: MemberStanding
+) -> None:
     """Authorize opening or fetching one origin."""
     require_allow(
         policy,
@@ -112,11 +167,15 @@ def gated_browse_origin(policy: CapabilityPolicy, url: str) -> None:
             origin=url,
             egress_class=EgressClass.APPROVED_ORIGIN_FETCH.value,
         ),
+        member_standing,
     )
 
 
 def gated_structured_send(
-    policy: CapabilityPolicy, recipient: str, payload: str
+    policy: CapabilityPolicy,
+    recipient: str,
+    payload: str,
+    member_standing: MemberStanding,
 ) -> None:
     """Authorize binding one structured send at the connector sink."""
     require_granted(
@@ -126,23 +185,28 @@ def gated_structured_send(
             recipient=recipient,
             egress_class=EgressClass.STRUCTURED_SEND.value,
         ),
+        member_standing,
+        structured_arguments={"recipient": recipient, "body": payload},
     )
     policy.bind_connector("send", recipient, payload)
 
 
 def open_untrusted_browser_context(
-    policy: CapabilityPolicy, page_url: str
+    policy: CapabilityPolicy, page_url: str, member_standing: MemberStanding
 ) -> PolicyBrowserContext:
     """Open research browsing in an isolated context."""
-    gated_browse_origin(policy, page_url)
+    gated_browse_origin(policy, page_url, member_standing)
     return policy.open_untrusted(page_url)
 
 
 def open_privileged_browser_context(
-    policy: CapabilityPolicy, page_url: str, service: str
+    policy: CapabilityPolicy,
+    page_url: str,
+    service: str,
+    member_standing: MemberStanding,
 ) -> PolicyBrowserContext:
     """Open a named privileged session in its own partition."""
-    gated_browse_origin(policy, page_url)
+    gated_browse_origin(policy, page_url, member_standing)
     return policy.open_privileged(page_url, service)
 
 
@@ -204,13 +268,29 @@ def resolve_unattended_gated_action_at_sink(
     channel: str,
     rules: list,
     tenant_id: str,
+    member_standing: MemberStanding,
     user_id: str | None = None,
     completion_evidence: str = "system-accepted",
 ) -> OvernightGatedResult:
     """Stop or pre-authorize a consequential action with no screen."""
+    request = structured_action_request(action_type, arguments)
+    try:
+        deny_if_exceeds_member_standing(
+            policy,
+            request,
+            member_standing,
+            structured_arguments=arguments,
+        )
+    except CapabilitySinkDenied as error:
+        return OvernightGatedResult(
+            executed=False,
+            turn_status="blocked",
+            reason=str(error),
+            completion_evidence=None,
+        )
     if policy.grant is None:
         if action_type in CONSEQUENTIAL_ACTION_TYPES:
-            policy.evaluate(structured_action_request(action_type, arguments))
+            policy.evaluate(request)
             return OvernightGatedResult(
                 executed=False,
                 turn_status="blocked",
@@ -218,7 +298,7 @@ def resolve_unattended_gated_action_at_sink(
                 completion_evidence=None,
             )
     else:
-        decision = policy.evaluate(structured_action_request(action_type, arguments))
+        decision = policy.evaluate(request)
         if decision == ApprovalDecision.DENY:
             reason = policy.denials[-1].reason if policy.denials else "denied"
             return OvernightGatedResult(
@@ -246,6 +326,7 @@ def execute_approved_operation_at_sink(
     approval: ApprovedOperation,
     attempted: StructuredConsequentialOperation,
     completion_evidence: str,
+    member_standing: MemberStanding,
 ) -> BoundExecutionResult:
     """Execute one approved connector operation after grant and binding checks."""
     request = RequestedCapability(
@@ -253,8 +334,17 @@ def execute_approved_operation_at_sink(
         recipient=attempted.destination,
         egress_class=EgressClass.STRUCTURED_SEND.value,
     )
+    structured_arguments = {
+        "destination": attempted.destination,
+        "payload": attempted.payload,
+    }
     try:
-        require_granted(policy, request)
+        require_granted(
+            policy,
+            request,
+            member_standing,
+            structured_arguments=structured_arguments,
+        )
     except CapabilitySinkDenied as exc:
         return BoundExecutionResult(
             executed=False,

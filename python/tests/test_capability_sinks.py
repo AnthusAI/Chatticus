@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import pytest
 from grant_fixtures import research_grant, send_grant
 
+from chatticus.authorization_ceiling import MemberStanding
 from chatticus.capability_sinks import (
     CapabilitySinkDenied,
     attempt_authenticated_browser_action_at_sink,
@@ -25,6 +26,9 @@ def _now() -> datetime:
     return datetime(2026, 8, 31, 20, 0, tzinfo=UTC)
 
 
+_OWNER_STANDING = MemberStanding.owner()
+
+
 def test_gated_read_workspace_denies_ungranted_path() -> None:
     plane = ControlPlane()
     plane.set_turn_capability_grant("anthus", "turn-1", research_grant())
@@ -32,6 +36,7 @@ def test_gated_read_workspace_denies_ungranted_path() -> None:
         gated_read_workspace(
             plane.capability_policy_for("anthus", "turn-1"),
             "/workspace/secrets/notes.txt",
+            _OWNER_STANDING,
         )
 
 
@@ -41,6 +46,7 @@ def test_gated_read_workspace_allows_granted_path() -> None:
     gated_read_workspace(
         plane.capability_policy_for("anthus", "turn-1"),
         "/workspace/research/notes.txt",
+        _OWNER_STANDING,
     )
 
 
@@ -114,6 +120,7 @@ def test_human_preauth_still_requires_grant() -> None:
         channel="structured",
         rules=plane._auto_review_rules,
         tenant_id="anthus",
+        member_standing=_OWNER_STANDING,
     )
     assert result.executed is False
     assert result.reason == "no task grant"

@@ -131,6 +131,10 @@ class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
         r"send (\S+)",
         re.IGNORECASE,
     )
+    _PURCHASE_RE = re.compile(
+        r"purchase item (\S+) from (\S+)",
+        re.IGNORECASE,
+    )
 
     def complete(self, prompt: str) -> CompletionOutcome:
         last_line = prompt.strip().splitlines()[-1] if prompt.strip() else ""
@@ -172,6 +176,18 @@ class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
                 gated_tool_call=GatedToolCall(
                     tool_name="send",
                     arguments={"recipient": recipient},
+                ),
+            )
+        purchase_match = self._PURCHASE_RE.search(user_text)
+        if purchase_match is not None:
+            sku = purchase_match.group(1).strip()
+            destination = purchase_match.group(2).strip()
+            return CompletionOutcome(
+                text="I'll try to complete that purchase.",
+                usage=fake_openai_completion_usage(model=self.model),
+                gated_tool_call=GatedToolCall(
+                    tool_name="purchase",
+                    arguments={"destination": destination, "sku": sku},
                 ),
             )
         return super().complete(prompt)
@@ -352,11 +368,11 @@ class ComputerlessWorker:
         bot_id = job.bot_id or turn.bot_id
         if bot_id is None:
             raise RuntimeError("Gated tool requires a bot-addressed turn.")
-        channel = self.plane.channel(job.tenant_id, turn.channel_id)
+        user_id = self.plane.acting_member_user_id_for_turn(job.tenant_id, job.turn_id)
         result = dispatch_gated_tool(
             self.turn_client,
             turn_id=job.turn_id,
-            user_id=primary_human_participant(channel),
+            user_id=user_id,
             call=outcome.gated_tool_call,
         )
         answer = self._answer_for_gated_tool(outcome.text, result)

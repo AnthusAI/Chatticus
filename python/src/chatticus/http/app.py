@@ -38,6 +38,7 @@ from chatticus.models import (
     ChatticusError,
     ComputerNotReadyError,
     CostClass,
+    MemberStandingRequiredError,
     NotOrganizationOwnerError,
     OrganizationNotFoundError,
     StaleAttemptError,
@@ -1057,6 +1058,8 @@ def _status_for_error(error: ChatticusError) -> int:
     ):
         return 403
     if isinstance(error, TaskAccessDeniedError):
+        return 403
+    if isinstance(error, MemberStandingRequiredError):
         return 403
     if isinstance(error, TaskNotFoundError):
         return 404

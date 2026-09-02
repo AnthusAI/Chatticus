@@ -5,9 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from chatticus.approval_binding import StructuredConsequentialOperation
-from chatticus.capability_policy import EgressClass, TaskCapabilityGrant
+from chatticus.capability_policy import (
+    EgressClass,
+    RequestedCapability,
+    TaskCapabilityGrant,
+)
 from chatticus.ceiling import Ceiling, grant_exceeds_ceiling
-from chatticus.models import CONSEQUENTIAL_ACTION_TYPES
+from chatticus.models import CONSEQUENTIAL_ACTION_TYPES, MemberRole
 
 STRUCTURED_ARGUMENT_ALIASES = {
     "recipient": "destination",
@@ -23,6 +27,67 @@ class MemberAuthorityCeiling:
 
     grant_ceiling: Ceiling
     structured_argument_bindings: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True)
+class MemberStanding:
+    """Resolved standing for one member at a capability sink."""
+
+    role_ceiling: Ceiling
+    per_action_ceiling: MemberAuthorityCeiling | None = None
+
+    @classmethod
+    def owner(cls) -> MemberStanding:
+        """Return unrestricted owner standing for kernel-only sink tests."""
+        from chatticus.roles import ceiling_for_member_role
+
+        return cls(role_ceiling=ceiling_for_member_role(MemberRole.OWNER))
+
+
+def task_grant_for_requested_capability(
+    request: RequestedCapability,
+) -> TaskCapabilityGrant:
+    """Build the task grant one sink request represents."""
+    tools = frozenset({request.tool}) if request.tool else frozenset()
+    origins = frozenset({request.origin}) if request.origin else frozenset()
+    recipients = frozenset({request.recipient}) if request.recipient else frozenset()
+    file_scopes = frozenset({request.file_path}) if request.file_path else frozenset()
+    egress_classes = (
+        frozenset({request.egress_class}) if request.egress_class else frozenset()
+    )
+    return TaskCapabilityGrant(
+        tools=tools,
+        origins=origins,
+        recipients=recipients,
+        file_scopes=file_scopes,
+        egress_classes=egress_classes,
+        ingest_classes=frozenset(),
+    )
+
+
+def request_exceeds_member_standing(
+    request: RequestedCapability,
+    standing: MemberStanding,
+    *,
+    structured_arguments: dict[str, str] | None = None,
+) -> bool:
+    """Return whether one sink request exceeds the member's standing."""
+    if request.tool in CONSEQUENTIAL_ACTION_TYPES:
+        if request.tool not in standing.role_ceiling.action_types:
+            return True
+    per_action = standing.per_action_ceiling
+    if per_action is None:
+        return False
+    grant = task_grant_for_requested_capability(request)
+    if grant_exceeds_member_authority_ceiling(grant, per_action):
+        return True
+    if per_action.structured_argument_bindings and structured_arguments:
+        ceiling_bindings = dict(per_action.structured_argument_bindings)
+        return not structured_bindings_within_ceiling_bindings(
+            structured_arguments,
+            ceiling_bindings,
+        )
+    return False
 
 
 def normalize_structured_arguments(arguments: dict[str, str]) -> dict[str, str]:

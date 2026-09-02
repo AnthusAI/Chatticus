@@ -267,6 +267,10 @@ class OrganizationSeedConflictError(ChatticusError):
     """An organization seed would overwrite or contradict existing records."""
 
 
+class MemberStandingRequiredError(ChatticusError):
+    """An org-scoped sink could not resolve the acting member's standing."""
+
+
 class OrganizationNotFoundError(ChatticusError):
     """The organization is unknown."""
 

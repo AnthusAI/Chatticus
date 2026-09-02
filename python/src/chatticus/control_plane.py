@@ -19,6 +19,7 @@ from chatticus.approval_binding import (
 )
 from chatticus.authorization_ceiling import (
     MemberAuthorityCeiling,
+    MemberStanding,
     auto_review_rule_exceeds_member_authority_ceiling,
     member_authority_ceiling_from_structured_arguments,
     structured_operation_exceeds_member_authority_ceiling,
@@ -91,8 +92,10 @@ from chatticus.models import (
     Invitation,
     MemberRole,
     Membership,
+    MemberStandingRequiredError,
     Message,
     Organization,
+    OrganizationNotFoundError,
     OrganizationStatus,
     PendingComputerToolSnapshot,
     SnapshotRequiredError,
@@ -1130,6 +1133,109 @@ class ControlPlane:
                 HouseholdCredential("browser_session", service, session)
             )
 
+    def acting_member_user_id_for_turn(self, tenant_id: str, turn_id: str) -> str:
+        """Return the human who posted the turn prompt, not another channel member."""
+        turn = self.turn(tenant_id, turn_id)
+        if turn.prompt_message_seq is None:
+            msg = f"Turn {turn_id!r} has no prompt message."
+            raise ValueError(msg)
+        message = self._channel_message_at_seq(
+            tenant_id,
+            turn.channel_id,
+            turn.prompt_message_seq,
+        )
+        if message is None:
+            msg = (
+                f"Turn {turn_id!r} prompt message seq "
+                f"{turn.prompt_message_seq} was not found."
+            )
+            raise ValueError(msg)
+        if message.author_kind is not ActorKind.HUMAN:
+            msg = f"Turn {turn_id!r} prompt was not authored by a human."
+            raise ValueError(msg)
+        return message.author_id
+
+    def ensure_sink_turn(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        acting_user_id: str,
+        bot_id: str,
+    ) -> Turn:
+        """Create one durable turn for direct sink specs when none exists yet."""
+        try:
+            return self.turn(tenant_id, turn_id)
+        except TurnNotFoundError:
+            pass
+        channel = self.create_channel(tenant_id, acting_user_id, [bot_id])
+        message = Message(
+            message_id=str(uuid4()),
+            channel_id=channel.channel_id,
+            tenant_id=tenant_id,
+            seq=channel.next_seq,
+            author_kind=ActorKind.HUMAN,
+            author_id=acting_user_id,
+            body="sink policy turn",
+            addressed_to_bot_id=bot_id,
+            created_at=self._now,
+        )
+        channel.next_seq += 1
+        self._messaging_store.put_channel(channel)
+        self._messaging_store.put_message(message)
+        turn = Turn(
+            turn_id=turn_id,
+            tenant_id=tenant_id,
+            channel_id=channel.channel_id,
+            bot_id=bot_id,
+            prompt_message_seq=message.seq,
+        )
+        self._messaging_store.put_turn(turn)
+        self._turn_tenants[turn_id] = tenant_id
+        return turn
+
+    def _member_standing_for_user(
+        self,
+        tenant_id: str,
+        user_id: str,
+        *,
+        action_type: str | None = None,
+    ) -> MemberStanding:
+        try:
+            self.get_organization(tenant_id)
+        except OrganizationNotFoundError:
+            return MemberStanding.owner()
+        membership = self.get_membership(tenant_id, user_id)
+        if membership is None:
+            raise MemberStandingRequiredError(
+                f"Member {user_id!r} has no standing in tenant {tenant_id!r}."
+            )
+        per_action = None
+        if action_type is not None:
+            per_action = self.member_authority_ceiling(tenant_id, user_id, action_type)
+        return MemberStanding(
+            role_ceiling=membership.ceiling,
+            per_action_ceiling=per_action,
+        )
+
+    def _member_standing_for_turn(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        *,
+        action_type: str | None = None,
+    ) -> MemberStanding:
+        try:
+            self.get_organization(tenant_id)
+        except OrganizationNotFoundError:
+            return MemberStanding.owner()
+        user_id = self.acting_member_user_id_for_turn(tenant_id, turn_id)
+        return self._member_standing_for_user(
+            tenant_id,
+            user_id,
+            action_type=action_type,
+        )
+
     def gated_read_workspace(
         self,
         tenant_id: str,
@@ -1138,7 +1244,8 @@ class ControlPlane:
     ) -> str | None:
         """Read a workspace file after the task grant allows it."""
         policy = self.capability_policy_for(tenant_id, turn_id)
-        gated_read_workspace(policy, path)
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
+        gated_read_workspace(policy, path, member_standing)
         return self.read_workspace(tenant_id, path)
 
     def gated_write_workspace(
@@ -1150,12 +1257,18 @@ class ControlPlane:
     ) -> None:
         """Write a workspace file after the task grant allows it."""
         policy = self.capability_policy_for(tenant_id, turn_id)
-        gated_write_workspace(policy, path)
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
+        gated_write_workspace(policy, path, member_standing)
         self.write_workspace(tenant_id, path, content)
 
     def gated_browse_origin(self, tenant_id: str, turn_id: str, url: str) -> None:
         """Authorize browsing one origin before a computer tool opens it."""
-        gated_browse_origin(self.capability_policy_for(tenant_id, turn_id), url)
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
+        gated_browse_origin(
+            self.capability_policy_for(tenant_id, turn_id),
+            url,
+            member_standing,
+        )
 
     def requested_capability_for_model_tool(
         self, tool_name: str, arguments: dict[str, str]
@@ -1186,9 +1299,17 @@ class ControlPlane:
     ) -> None:
         """Raise when a model-requested tool is denied or needs approval."""
         policy = self.capability_policy_for(tenant_id, turn_id)
+        action_type = tool_name if tool_name in CONSEQUENTIAL_ACTION_TYPES else None
+        member_standing = self._member_standing_for_turn(
+            tenant_id,
+            turn_id,
+            action_type=action_type,
+        )
         require_allow(
             policy,
             self.requested_capability_for_model_tool(tool_name, arguments),
+            member_standing,
+            structured_arguments=arguments if action_type is not None else None,
         )
 
     def record_model_gated_tool_call(
@@ -1353,9 +1474,11 @@ class ControlPlane:
         self, tenant_id: str, turn_id: str, page_url: str
     ) -> PolicyBrowserContext:
         """Open research browsing in an isolated browser context."""
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
         context = open_untrusted_browser_context(
             self.capability_policy_for(tenant_id, turn_id),
             page_url,
+            member_standing,
         )
         self._active_browser_contexts[(tenant_id, turn_id)] = context
         return context
@@ -1368,10 +1491,12 @@ class ControlPlane:
         service: str,
     ) -> PolicyBrowserContext:
         """Open a named privileged session in its own browser context."""
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
         context = open_privileged_browser_context(
             self.capability_policy_for(tenant_id, turn_id),
             page_url,
             service,
+            member_standing,
         )
         self._active_browser_contexts[(tenant_id, turn_id)] = context
         return context
@@ -1391,12 +1516,18 @@ class ControlPlane:
         completion_evidence: str,
     ) -> BoundExecutionResult:
         """Execute one human-approved connector operation at the sink."""
+        member_standing = self._member_standing_for_turn(
+            tenant_id,
+            turn_id,
+            action_type=attempted.action_type,
+        )
         return execute_approved_operation_at_sink(
             self.capability_policy_for(tenant_id, turn_id),
             self._approval_binding,
             approval,
             attempted,
             completion_evidence,
+            member_standing,
         )
 
     def write_workspace(self, tenant_id: str, path: str, content: str) -> None:
@@ -1589,6 +1720,18 @@ class ControlPlane:
         turn_id: str = POLICY_KERNEL_TURN,
     ) -> OvernightGatedResult:
         """Stop or pre-authorize a consequential action with no screen."""
+        if user_id is not None:
+            member_standing = self._member_standing_for_user(
+                tenant_id,
+                user_id,
+                action_type=action_type,
+            )
+        else:
+            member_standing = self._member_standing_for_turn(
+                tenant_id,
+                turn_id,
+                action_type=action_type,
+            )
         return resolve_unattended_gated_action_at_sink(
             self.capability_policy_for(tenant_id, turn_id),
             action_type=action_type,
@@ -1596,6 +1739,7 @@ class ControlPlane:
             channel=channel,
             rules=self._auto_review_rules,
             tenant_id=tenant_id,
+            member_standing=member_standing,
             user_id=user_id,
             completion_evidence=completion_evidence,
         )
@@ -1633,7 +1777,8 @@ class ControlPlane:
         }:
             url = arguments.get("url", "").strip()
             if url:
-                gated_browse_origin(policy, url)
+                member_standing = self._member_standing_for_turn(tenant_id, turn_id)
+                gated_browse_origin(policy, url, member_standing)
         self.turn(tenant_id, turn_id)
         computer = self.ensure_computer(tenant_id)
         record = EscalationRecord(
