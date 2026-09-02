@@ -15,11 +15,19 @@
       "id": "31f64f1b-f997-420b-818c-f397ee0ca8b5",
       "author": "home",
       "text": "Start with 8574c7. The shared OpenAI parameter blocks the dedicated-account deploy outright, and it is the reason vendor spend cannot be attributed to a deployment today.",
-      "created_at": "2026-09-01T03:21:57.641696Z"
+      "created_at": "2026-09-01T03:21:57.641696Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "1b15748a-5c7f-400c-a0a9-fd3a69e7937a",
+      "author": "home",
+      "text": "bcbef7 closed (#192 on develop). Remaining child f3c786 Bedrock meter stays parked until Bedrock exists; this epic stays open.",
+      "created_at": "2026-09-02T18:16:50.506059Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T03:21:17.026907Z",
-  "updated_at": "2026-09-01T03:21:57.641696Z",
+  "updated_at": "2026-09-02T18:16:50.506059Z",
   "closed_at": null,
   "custom": {}
 }

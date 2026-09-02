@@ -3,7 +3,7 @@
   "title": "Daily rollup and one place alerts arrive",
   "description": "**Phase 2 of 7.**\n\n- **Blocked by:** the budgets construct and the vendor ledger\n- **Runs in parallel with:** nothing\n- **Unblocks:** nothing\n\n---\nNo always-on aggregator; that reintroduces the idle floor the architecture avoids. EventBridge Scheduler already wakes a Lambda for turn deadlines, and a daily rollup is the same shape: a routine wake-up, not something in the token path, which is what docs/STACK.md permits.\n\nDaily, read Cost Explorer for the AWS side and the ledger for the vendor side, write one rollup row per day per organization and per environment, publish to SNS on a threshold crossing.\n\nAWS Budgets fires its own native alerts on its own schedule. Send them to the same topic and record in the rollup that an alert fired, so a human sees one sequence of events instead of two disconnected emails whose relationship they must reconstruct.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -33,10 +33,24 @@
       "text": "REJECT https://github.com/AnthusAI/Chattic.us/pull/192: CE TimePeriod End is exclusive (same-day start/end would stay pending); AWS Budgets live payload uses BudgetName not budgetName; rebase onto develop without reverting #189 GitHubDeploy description.",
       "created_at": "2026-09-02T18:02:05.226472Z",
       "comment_type": "default"
+    },
+    {
+      "id": "03a90c92-9db5-47c7-bd24-19deafe6020e",
+      "author": "home",
+      "text": "CI python red on #192: branch missed #191 pytest rewrite. Product CE/BudgetName fixes look right. Rebase onto origin/develop; do not rewrite the OIDC scan again.",
+      "created_at": "2026-09-02T18:09:36.155018Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "2db1bd1f-6d12-4b5a-96f3-0018d915a485",
+      "author": "home",
+      "text": "Accepted and closed. #192 squash-merged to develop (`efaef99`). Daily ThinTurn rollup Lambda + EventBridge Scheduler (06:00 UTC) writes org×env×day rows, vendor dollars from billed_via=vendor, AWS dollars from Cost Explorer, alerts on the existing budgets SNS topic with band dedup. Alert recorder accepts BudgetName and ignores source chatticus.daily_rollup. Named ChatticusThinTurn deploy still required to go live. Tear down /tmp/chatticus-bcbef7-daily-rollup.",
+      "created_at": "2026-09-02T18:16:50.494548Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T03:21:48.653791Z",
-  "updated_at": "2026-09-02T18:02:05.226472Z",
-  "closed_at": null,
+  "updated_at": "2026-09-02T18:16:50.494548Z",
+  "closed_at": "2026-09-02T18:16:50.478299Z",
   "custom": {}
 }
