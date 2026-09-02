@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-27133fb4-56d1-492f-8e7d-fae1583bb55b",
+  "title": "Marketing CTAs send every environment to hey.chattic.us",
+  "description": "## Problem\ndev.chattic.us and staging.chattic.us serve marketing at `/`. Header, hero, footer, and final CTA hardcode `https://hey.chattic.us`. Signing in from development lands on production.\n\n## Convention (not configuration)\nThe product app is always at **`/chat` on the current host**. Marketing CTAs are same-origin `/chat`. Do not bake `NEXT_PUBLIC_*` workspace URLs, env switches, or hostname lists.\n\nProduction already rewrites `hey.chattic.us/` to `/chat`. Named-env hosts (`dev.`, `staging.`) keep marketing at `/` and the app at `/chat`. CloudFront must rewrite `/chat` → `/chat/index.html` on every host, not only `hey.`.\n\nApex `chattic.us` CTAs become `https://chattic.us/chat` (same convention). `hey.chattic.us/` remains the product-only hostname.\n\n## Gherkin\n\n```gherkin\nFeature: Marketing links to this host's app\n  As a visitor on any Chatticus marketing host\n  I want workspace CTAs to open the app on this same host\n  So that development never signs me into production\n\n  Scenario: Development marketing CTA is same-origin /chat\n    Given the marketing page is served from \"dev.chattic.us\"\n    Then the workspace CTA href is \"/chat\"\n    And the workspace CTA href is not \"https://hey.chattic.us\"\n\n  Scenario: CloudFront rewrites /chat on development\n    Given the CloudFront viewer-request function for development\n    When the request host is \"dev.chattic.us\" and the uri is \"/chat\"\n    Then the rewritten uri is \"/chat/index.html\"\n```\n\n## Out of scope\nSeeding production orgs. Cognito callback URLs (already per Auth stack). Merge to main. `cdk deploy --all`.",
+  "type": "bug",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "ccfe3436-754e-4d89-ab5f-d78548db10bb",
+      "author": "home",
+      "text": "Planning: Composer 2.5. Convention is same-origin /chat, not env config. Worktree /tmp/chatticus-27133f-same-origin-chat from origin/develop, branch cursor/same-origin-chat-27133f-4a21. Plan only this turn.",
+      "created_at": "2026-09-02T18:57:16.054060Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-02T18:57:03.201907Z",
+  "updated_at": "2026-09-02T18:57:16.054060Z",
+  "closed_at": null,
+  "custom": {}
+}
