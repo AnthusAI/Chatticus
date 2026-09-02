@@ -33,10 +33,17 @@
       "text": "Acceptance REJECT: member_ceiling_sinks 2/2 green; model_tool_loop_sinks 0/4 and two HTTP sink scenarios red. Cause: given_bot seeds owner@chatticus.test while steps post as ryan. Fix fixtures; keep fail-closed; no owner fallback on missing turn; standing miss is 403.",
       "created_at": "2026-09-02T16:23:07.655922Z",
       "comment_type": "default"
+    },
+    {
+      "id": "6d52a5bc-d4c6-40af-ad28-5b713c0c4575",
+      "author": "home",
+      "text": "CI python failed on PR #185: given_bot seeds an org for every tenant, so cross-tenant computer/task GETs are 403 instead of 404/empty-200. page_content_authority errors on missing policy-turn. Sent back; do not merge; do not weaken isolation assertions.",
+      "created_at": "2026-09-02T16:54:54.462183Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:56:57.871883Z",
-  "updated_at": "2026-09-02T16:23:07.655922Z",
+  "updated_at": "2026-09-02T16:54:54.462183Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

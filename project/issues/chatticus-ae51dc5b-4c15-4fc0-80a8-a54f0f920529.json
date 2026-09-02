@@ -3,7 +3,7 @@
   "title": "Invite people into an enabled organization",
   "description": "**Phase 4 of 7.**\n\n- **Blocked by:** e41552\n- **Runs in parallel with:** nothing\n- **Unblocks:** nothing\n\n---\nAn owner invites by email; the invited person signs in and joins immediately without touching the waitlist, because the organization is already a spend-approved entity. Invitations expire on the table TTL.\n\nDomain-based auto-join stays out of v1. Joining because an email domain matches requires proving the organization owns that domain, or someone claims a public mail domain and harvests every signup.\n\n**Done when:** a second person reaches an enabled organization by invitation only.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -40,11 +40,25 @@
       "text": "Acceptance APPROVE on HTTP join path. Sent back for missing owner invite UI on EnabledWorkspace before PR.",
       "created_at": "2026-09-02T16:31:40.612509Z",
       "comment_type": "default"
+    },
+    {
+      "id": "ac6b8d82-c9b7-4666-9946-5c45a068b1bc",
+      "author": "home",
+      "text": "Teardown: remove worktree /tmp/chatticus-ae51dc-invite and local branch cursor/invite-org-ae51dc-4a21.",
+      "created_at": "2026-09-02T16:55:28.099690Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d0b02db9-8792-4925-bd8e-1b63761e5a81",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chattic.us/pull/186 (cd09cd8) to develop. Owner invite UI + HTTP join path. Domain auto-join still out.",
+      "created_at": "2026-09-02T16:55:40.927647Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:40:45.611456Z",
-  "updated_at": "2026-09-02T16:31:40.612509Z",
-  "closed_at": null,
+  "updated_at": "2026-09-02T16:55:40.927647Z",
+  "closed_at": "2026-09-02T16:55:40.913395Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
