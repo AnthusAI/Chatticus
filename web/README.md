@@ -1,22 +1,14 @@
-# Web
+# Chatticus marketing
 
-TypeScript Next.js product workspace. Production hostname: `hey.chattic.us`.
+Public static Next.js site for `chattic.us`. The product workspace remains in
+`../web` and is hosted at `hey.chattic.us` in production.
 
-v1 surface:
+```bash
+npm install
+npm test
+npm run lint
+npm run typecheck
+npm run build
+```
 
-- bot roster
-- chat
-- approval cards
-- computer preview (watch / takeover later)
-
-Named bots on this surface use
-[Vultus](https://github.com/AnthusAI/Vultus) (`anthus-vultus`) as their
-avatar. The roster and chat header render `BotAvatar`, driven from the
-existing turn SSE stream (`turn.started`, `turn.waiting`, coalesced
-`turn.token`, completion) with no separate avatar socket.
-
-Talks only to the control plane. Does not reach workers directly.
-
-History and live tokens are decided: server-sent events scoped to one
-turn, DynamoDB transcript, reconnect with `after=seq`. See
-[Messaging](../docs/MESSAGING.md).
+The production build is exported to `out/` for the marketing CloudFront stack.

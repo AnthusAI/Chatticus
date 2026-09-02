@@ -24,12 +24,12 @@ describe("parseSseFrames", () => {
     const events: string[] = [];
     let buffer =
       'data: {"kind":"turn.token","seq":1,"turn_id":"t1","token":"He"}\n';
-    buffer = parseSseFrames(buffer, (event) => events.push(event.kind));
+    buffer = parseSseFrames(buffer, (event) => events.push(event.kind as never));
     assert.equal(buffer.endsWith("\n"), true);
     assert.deepEqual(events, []);
 
     buffer += "\n";
-    buffer = parseSseFrames(buffer, (event) => events.push(event.kind));
+    buffer = parseSseFrames(buffer, (event) => events.push(event.kind as never));
     assert.equal(buffer, "");
     assert.deepEqual(events, ["turn.token"]);
   });
