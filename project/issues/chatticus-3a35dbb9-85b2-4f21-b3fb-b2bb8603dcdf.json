@@ -47,10 +47,17 @@
       "text": "PR #185 is CONFLICTING with develop after #186. Fixture fix is on e6c5fe8 but CI did not re-run. Sent back to rebase onto origin/develop (control_plane.py + http/app.py). Do not merge.",
       "created_at": "2026-09-02T17:13:52.629032Z",
       "comment_type": "default"
+    },
+    {
+      "id": "fc31740a-80e0-4dac-b811-a81e8071c6e5",
+      "author": "home",
+      "text": "Rebased onto develop (e0d3b00). PR #185 mergeable. CI in flight. Acceptance started.",
+      "created_at": "2026-09-02T17:18:56.063094Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:56:57.871883Z",
-  "updated_at": "2026-09-02T17:13:52.629032Z",
+  "updated_at": "2026-09-02T17:18:56.063094Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
