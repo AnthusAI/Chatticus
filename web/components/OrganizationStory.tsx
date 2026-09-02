@@ -65,7 +65,7 @@ export function OrganizationStory() {
       className="bg-ink text-paper"
     >
       <div className="mx-auto max-w-[92rem] px-5 py-24 sm:px-8 sm:py-32 lg:px-12">
-        <div className="grid gap-12 border-b border-paper/20 pb-16 lg:grid-cols-[0.82fr_1.18fr] lg:items-end">
+        <div className="grid gap-12 pb-16 lg:grid-cols-[0.82fr_1.18fr] lg:items-end">
           <div>
             <Badge variant="signal">From assistant to organization</Badge>
             <p className="mt-8 max-w-md font-mono text-[0.7rem] uppercase leading-relaxed tracking-[0.15em] text-paper/[0.55]">
@@ -89,7 +89,7 @@ export function OrganizationStory() {
             return (
               <Card
                 key={item.number}
-                className={`group overflow-hidden border-paper/[0.15] bg-paper/[0.04] text-paper transition duration-300 hover:-translate-y-1 hover:border-paper/[0.35] ${index === 0 || index === 3 ? "md:min-h-[27rem]" : "md:translate-y-12"}`}
+                className={`group overflow-hidden bg-paper/[0.06] text-paper transition duration-300 hover:-translate-y-1 hover:bg-paper/[0.1] ${index === 0 || index === 3 ? "md:min-h-[27rem]" : "md:translate-y-12"}`}
               >
                 <CardHeader className="flex-row items-start justify-between gap-8 p-7 sm:p-9">
                   <div>
@@ -120,7 +120,7 @@ export function OrganizationStory() {
           })}
         </div>
 
-        <div className="mt-28 grid gap-8 border-t border-paper/20 pt-12 lg:grid-cols-[1fr_1.4fr]">
+        <div className="mt-28 grid gap-8 rounded-2xl bg-paper/[0.04] p-8 pt-12 lg:grid-cols-[1fr_1.4fr]">
           <div className="flex items-center gap-4">
             <UsersRound className="h-8 w-8 text-signal" aria-hidden="true" />
             <p className="font-display text-3xl tracking-[-0.04em]">

@@ -15,7 +15,7 @@ export function Hero() {
     <section
       id="top"
       aria-labelledby="hero-title"
-      className="relative overflow-hidden border-b-2 border-ink"
+      className="relative overflow-hidden"
     >
       <div className="hero-grid absolute inset-0 -z-10 opacity-60" />
       <div className="mx-auto grid max-w-[92rem] items-center gap-12 px-5 py-14 sm:px-8 sm:py-16 lg:grid-cols-[1.08fr_0.92fr] lg:gap-10 lg:px-12 lg:py-20">
@@ -31,7 +31,7 @@ export function Hero() {
           </Badge>
           <h1
             id="hero-title"
-            className="mt-7 font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em] text-ink"
+            className="mt-7 font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em]"
           >
             <span className="block animate-rise [animation-delay:80ms]">
               Build the AI
@@ -78,7 +78,7 @@ export function Hero() {
           </div>
           <a
             href="#organization"
-            className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-full font-mono text-[0.7rem] uppercase tracking-[0.14em] text-ink-soft transition hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
+            className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-full font-mono text-[0.7rem] uppercase tracking-[0.14em] text-ink-soft transition hover:text-surface-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
           >
             See how the team works
             <ArrowDownRight className="h-4 w-4" aria-hidden="true" />
@@ -90,10 +90,10 @@ export function Hero() {
         </div>
       </div>
 
-      <div className="border-t border-ink/20 bg-paper-raised">
-        <div className="mx-auto grid max-w-[92rem] divide-y divide-ink/[0.15] px-5 sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:px-8 lg:px-12">
+      <div className="bg-surface-raised">
+        <div className="mx-auto grid max-w-[92rem] gap-2 px-5 py-3 sm:grid-cols-3 sm:px-8 lg:px-12">
           {proof.map(([value, label]) => (
-            <div key={value} className="flex items-center gap-4 py-5 sm:px-6 sm:first:pl-0">
+            <div key={value} className="flex items-center gap-4 rounded-2xl bg-surface-high px-4 py-4 sm:px-6">
               <span className="font-display text-2xl font-semibold tracking-[-0.04em]">
                 {value}
               </span>
