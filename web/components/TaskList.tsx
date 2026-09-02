@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { authErrorClassName, authStatusClassName } from "./AuthCard";
 import { listTasks, type Task } from "../lib/api";
 import type { ActiveOrg } from "../lib/membership-state";
 
@@ -43,18 +44,23 @@ export function TaskList({ activeOrg }: TaskListProps) {
 
   return (
     <>
-      <h2>Tasks</h2>
-      {loading ? <p className="status">Loading tasks…</p> : null}
-      {error ? <p className="status error">{error}</p> : null}
+      <h2 className="font-body text-sm font-extrabold">Tasks</h2>
+      {loading ? <p className={authStatusClassName}>Loading tasks…</p> : null}
+      {error ? <p className={authErrorClassName}>{error}</p> : null}
       {!loading && tasks.length === 0 ? (
-        <p className="status">No tasks yet.</p>
+        <p className={authStatusClassName}>No tasks yet.</p>
       ) : null}
       {!loading && tasks.length > 0 ? (
-        <ul className="task-list">
+        <ul className="mt-2 grid gap-1.5">
           {tasks.map((task) => (
-            <li key={task.task_id}>
-              <strong>{task.title}</strong>
-              <span className="task-status">{task.status}</span>
+            <li
+              key={task.task_id}
+              className="flex items-center justify-between gap-3 rounded-xl bg-surface px-3 py-2"
+            >
+              <strong className="font-body text-sm font-semibold">{task.title}</strong>
+              <span className="font-mono text-[0.6rem] uppercase tracking-[0.08em] text-surface-foreground/60">
+                {task.status}
+              </span>
             </li>
           ))}
         </ul>

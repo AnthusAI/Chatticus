@@ -70,13 +70,16 @@ must pass. Neither is a substitute for the other.
   the non-requirements, why the design is shaped this way, and what is
   still open. `docs/FEASIBILITY_TESTS.md` holds the assumptions that are
   decided but unmeasured; run the test before building on the decision
-  it gates. Spike code is throwaway and does not go in `python/src`.
+  it gates. Read `docs/BRAND_GUIDELINES.md` before touching backgrounds,
+  regions, or borders on any `web/` surface. Spike code is throwaway and
+  does not go in `python/src`.
 - `features/` — shared Gherkin. Behavior changes start here.
 - `python/` — control plane, scheduler, roster, approvals, later agent and
   worker processes.
 - `web/` — Next.js app: marketing at `/` and product workspace at `/chat`
   (`chattic.us` marketing, `hey.chattic.us` product in production). One web
-  project, not a separate marketing repo. Avatars are Lottie via `anthus-vultus`.
+  project, not a separate marketing repo. Avatars are procedural Vultus
+  models (`anthus-vultus`), not Lottie.
 - `computer/` — Docker image for the Linux workplace.
 - `infra/` — AWS CDK.
 

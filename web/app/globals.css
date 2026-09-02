@@ -4,7 +4,6 @@
 
 :root {
   --paper: #f2efe7;
-  --paper-raised: #faf8f2;
   --ink: #11130f;
   --ink-soft: #3f463d;
   --signal: #b8f34a;
@@ -12,18 +11,38 @@
   --cobalt: #4f71ff;
   --sea: #73d7c5;
   --amber: #f0bc4d;
-  --line: #c8c6bd;
   --duration-fast: 160ms;
   --duration-medium: 320ms;
   --duration-slow: 700ms;
   --ease-out: cubic-bezier(0.22, 0.75, 0.18, 1);
+
+  /*
+   * Three flat background steps (see docs/BRAND_GUIDELINES.md): page base,
+   * a raised region, and the region getting the most attention. Light mode
+   * steps down from --paper; dark mode steps up from --ink by the same
+   * kind of offset, mirrored.
+   */
+  --surface-0: var(--paper);
+  --surface-1: #e7e2d5;
+  --surface-2: #d9d3c1;
+  /* Legible text color on a --surface-*: ink in light mode, paper in dark. */
+  --surface-foreground: var(--ink);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-0: var(--ink);
+    --surface-1: #1d2018;
+    --surface-2: #2a2e22;
+    --surface-foreground: var(--paper);
+    /* --ink-soft is the muted/secondary text color throughout the site; it
+       needs a dark-mode value too so text-ink-soft stays legible once its
+       surface flips (a static dark-green reads as invisible on a dark page). */
+    --ink-soft: #b9c0b6;
+  }
 }
 
 @layer base {
-  * {
-    border-color: var(--line);
-  }
-
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 5rem;
@@ -33,8 +52,8 @@
     min-width: 320px;
     margin: 0;
     overflow-x: hidden;
-    background: var(--paper);
-    color: var(--ink);
+    background: var(--surface-0);
+    color: var(--surface-foreground);
     font-family: var(--font-body), sans-serif;
     text-rendering: optimizeLegibility;
   }
@@ -91,9 +110,9 @@
   left: 0.75rem;
   z-index: 100;
   transform: translateY(-180%);
-  border: 2px solid var(--ink);
   border-radius: 9999px;
   background: var(--signal);
+  box-shadow: 4px 4px 0 var(--ink);
   padding: 0.75rem 1rem;
   color: var(--ink);
   font-family: var(--font-body), sans-serif;

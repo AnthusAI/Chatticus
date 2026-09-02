@@ -24,6 +24,17 @@ from chatticus.authorization_ceiling import (
     member_authority_ceiling_from_structured_arguments,
     structured_operation_exceeds_member_authority_ceiling,
 )
+from chatticus.authorized_connections import (
+    AuthorizedConnection,
+    ConnectionProposal,
+    ConnectionProposalResult,
+    ConnectionProposalRoute,
+    ConnectionProposalStatus,
+    authorize_connection_from_proposal,
+    find_escalation_target_user_id,
+    new_connection_proposal,
+    proposer_may_authorize_immediately,
+)
 from chatticus.capability_policy import (
     CapabilityPolicy,
     EgressClass,
@@ -66,6 +77,7 @@ from chatticus.messaging.store import (
 )
 from chatticus.models import (
     AWS_COST_CLASSES,
+    CONNECTION_STANDING_ACTION_TYPE,
     CONSEQUENTIAL_ACTION_TYPES,
     COST_CLASS_RANK,
     KERNEL_HUMAN_AUTHOR,
@@ -222,6 +234,11 @@ class ControlPlane:
         self._member_authority_ceilings: dict[
             tuple[str, str, str], MemberAuthorityCeiling
         ] = {}
+        self._connection_proposals: dict[str, ConnectionProposal] = {}
+        self._connection_routes: dict[str, ConnectionProposalRoute] = {}
+        self._authorized_connections: list[AuthorizedConnection] = []
+        self._refused_connections: list[tuple[str, str, str, str]] = []
+        self._tenant_connection_egress: dict[str, MemberAuthorityCeiling] = {}
         self._approval_binding = ApprovalBindingGate()
         self._capability_policies: dict[tuple[str, str], CapabilityPolicy] = {}
         self._active_browser_contexts: dict[tuple[str, str], PolicyBrowserContext] = {}
@@ -1740,6 +1757,191 @@ class ControlPlane:
     def refused_authority_ceiling(self) -> list[tuple[str, str, str]]:
         """Return rule or approval attempts refused outside standing."""
         return list(self._refused_authority_ceiling)
+
+    def propose_connection(
+        self,
+        granting_tenant_id: str,
+        proposer_user_id: str,
+        receiving_tenant_id: str,
+        channel_id: str,
+        channel_name: str,
+        *,
+        permission: str = "read",
+    ) -> ConnectionProposalResult:
+        """Propose one connection; authorize when the proposer is within standing."""
+        proposal = new_connection_proposal(
+            granting_tenant_id=granting_tenant_id,
+            receiving_tenant_id=receiving_tenant_id,
+            channel_id=channel_id,
+            channel_name=channel_name,
+            permission=permission,
+            proposer_user_id=proposer_user_id,
+        )
+        proposer_ceiling = self._member_authority_ceiling(
+            granting_tenant_id,
+            proposer_user_id,
+            CONNECTION_STANDING_ACTION_TYPE,
+        )
+        org_egress = self._tenant_connection_egress.get(granting_tenant_id)
+        if proposer_may_authorize_immediately(
+            proposal,
+            proposer_ceiling,
+            org_egress,
+        ):
+            authorized = authorize_connection_from_proposal(
+                proposal,
+                clipped_by_user_id=proposer_user_id,
+                created_at=self._now,
+            )
+            self._authorized_connections.append(authorized)
+            route = ConnectionProposalRoute(
+                proposal_id=proposal.proposal_id,
+                status=ConnectionProposalStatus.AUTHORIZED,
+            )
+            self._connection_proposals[proposal.proposal_id] = proposal
+            self._connection_routes[proposal.proposal_id] = route
+            return ConnectionProposalResult(
+                proposal=proposal,
+                route=route,
+                authorized=authorized,
+            )
+        self._connection_proposals[proposal.proposal_id] = proposal
+        return ConnectionProposalResult(
+            proposal=proposal,
+            route=None,
+            authorized=None,
+        )
+
+    def try_propose_connection(
+        self,
+        granting_tenant_id: str,
+        proposer_user_id: str,
+        receiving_tenant_id: str,
+        channel_id: str,
+        channel_name: str,
+        *,
+        permission: str = "read",
+    ) -> ConnectionProposalResult:
+        """Try to propose one connection; refuse synchronously when outside standing."""
+        proposal = new_connection_proposal(
+            granting_tenant_id=granting_tenant_id,
+            receiving_tenant_id=receiving_tenant_id,
+            channel_id=channel_id,
+            channel_name=channel_name,
+            permission=permission,
+            proposer_user_id=proposer_user_id,
+        )
+        proposer_ceiling = self._member_authority_ceiling(
+            granting_tenant_id,
+            proposer_user_id,
+            CONNECTION_STANDING_ACTION_TYPE,
+        )
+        org_egress = self._tenant_connection_egress.get(granting_tenant_id)
+        if not proposer_may_authorize_immediately(
+            proposal,
+            proposer_ceiling,
+            org_egress,
+        ):
+            self._refused_connections.append(
+                (
+                    granting_tenant_id,
+                    proposer_user_id,
+                    channel_name,
+                    receiving_tenant_id,
+                )
+            )
+            route = ConnectionProposalRoute(
+                proposal_id=proposal.proposal_id,
+                status=ConnectionProposalStatus.REFUSED,
+            )
+            self._connection_proposals[proposal.proposal_id] = proposal
+            self._connection_routes[proposal.proposal_id] = route
+            return ConnectionProposalResult(
+                proposal=proposal,
+                route=route,
+                authorized=None,
+                refused=True,
+            )
+        authorized = authorize_connection_from_proposal(
+            proposal,
+            clipped_by_user_id=proposer_user_id,
+            created_at=self._now,
+        )
+        self._authorized_connections.append(authorized)
+        route = ConnectionProposalRoute(
+            proposal_id=proposal.proposal_id,
+            status=ConnectionProposalStatus.AUTHORIZED,
+        )
+        self._connection_proposals[proposal.proposal_id] = proposal
+        self._connection_routes[proposal.proposal_id] = route
+        return ConnectionProposalResult(
+            proposal=proposal,
+            route=route,
+            authorized=authorized,
+        )
+
+    def route_connection_proposal(self, proposal_id: str) -> ConnectionProposalRoute:
+        """Escalate or block one pending connection proposal."""
+        proposal = self._connection_proposals.get(proposal_id)
+        if proposal is None:
+            msg = f"Unknown connection proposal {proposal_id!r}."
+            raise ValueError(msg)
+        memberships = self._messaging_store.list_memberships(
+            proposal.granting_tenant_id
+        )
+        member_user_ids = [membership.user_id for membership in memberships]
+
+        def ceiling_for_member(user_id: str) -> MemberAuthorityCeiling | None:
+            return self._member_authority_ceiling(
+                proposal.granting_tenant_id,
+                user_id,
+                CONNECTION_STANDING_ACTION_TYPE,
+            )
+
+        target_user_id = find_escalation_target_user_id(
+            proposal,
+            member_user_ids=member_user_ids,
+            ceiling_for_member=ceiling_for_member,
+        )
+        if target_user_id is None:
+            route = ConnectionProposalRoute(
+                proposal_id=proposal_id,
+                status=ConnectionProposalStatus.BLOCKED,
+            )
+        else:
+            route = ConnectionProposalRoute(
+                proposal_id=proposal_id,
+                status=ConnectionProposalStatus.PENDING_ESCALATION,
+                escalation_target_user_id=target_user_id,
+            )
+        self._connection_routes[proposal_id] = route
+        return route
+
+    def authorized_connections(self) -> list[AuthorizedConnection]:
+        """Return every authorized connection clip."""
+        return list(self._authorized_connections)
+
+    def connection_route(self, proposal_id: str) -> ConnectionProposalRoute | None:
+        """Return the routing outcome for one connection proposal."""
+        return self._connection_routes.get(proposal_id)
+
+    def refused_connections(self) -> list[tuple[str, str, str, str]]:
+        """Return connection proposals refused outside standing."""
+        return list(self._refused_connections)
+
+    def set_tenant_connection_egress(
+        self,
+        tenant_id: str,
+        *,
+        arguments: dict[str, str],
+    ) -> None:
+        """Record what one granting tenant permits to leave via connections."""
+        self._tenant_connection_egress[tenant_id] = (
+            member_authority_ceiling_from_structured_arguments(
+                CONNECTION_STANDING_ACTION_TYPE,
+                arguments,
+            )
+        )
 
     @property
     def approval_binding(self) -> ApprovalBindingGate:

@@ -7,6 +7,13 @@ import { reportHeroWordmarkVisibility, subscribeToHeroWordmarkVisibility } from 
 
 type WordmarkProps = {
   className?: string;
+  /**
+   * Force a colorway regardless of the system color scheme -- for a mark
+   * placed on a deliberately fixed-dark block (e.g. FinalCta's bg-ink
+   * card) that should always render inverse even in light mode. Omit this
+   * on a normal page surface: the mark then follows prefers-color-scheme
+   * automatically, matching the surface tokens it sits on.
+   */
   inverse?: boolean;
   size?: number;
   /**
@@ -24,7 +31,7 @@ type WordmarkProps = {
    * off-screen, so this doesn't need to track that separately).
    */
   reportsPresenceAsHero?: boolean;
-  /** Set to false to render just the mark, without the "chatticus." text. */
+  /** Set to false to render just the mark, without the "Chatticus" text. */
   showText?: boolean;
 };
 
@@ -33,9 +40,24 @@ const PAPER = "#f2efe7";
 const CLAY = "#ef6a47";
 const SIGNAL = "#b8f34a";
 
+function useSystemPrefersDark(): boolean {
+  const [prefersDark, setPrefersDark] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return undefined;
+    }
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    setPrefersDark(query.matches);
+    const onChange = (event: MediaQueryListEvent) => setPrefersDark(event.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return prefersDark;
+}
+
 export function Wordmark({
   className,
-  inverse = false,
+  inverse,
   size = 28,
   animated = false,
   reportsPresenceAsHero = false,
@@ -43,6 +65,8 @@ export function Wordmark({
 }: WordmarkProps) {
   const rootElementRef = useRef<HTMLSpanElement>(null);
   const [heroIsVisible, setHeroIsVisible] = useState(false);
+  const systemPrefersDark = useSystemPrefersDark();
+  const resolvedInverse = inverse ?? systemPrefersDark;
 
   useEffect(() => {
     if (animated !== "auto") {
@@ -78,7 +102,7 @@ export function Wordmark({
       ref={rootElementRef}
       className={cn(
         "inline-flex items-center gap-2 font-body text-[1.05rem] font-extrabold tracking-[-0.055em]",
-        inverse ? "text-paper" : "text-ink",
+        resolvedInverse ? "text-paper" : "text-ink",
         className,
       )}
     >
@@ -86,18 +110,14 @@ export function Wordmark({
         <BotAvatar
           model={CHATTICUS_MARK_MODEL}
           size={size}
-          shadowColor={inverse ? PAPER : INK}
-          accentColor={inverse ? SIGNAL : CLAY}
-          lightColor={inverse ? INK : PAPER}
+          shadowColor={resolvedInverse ? PAPER : INK}
+          accentColor={resolvedInverse ? SIGNAL : CLAY}
+          lightColor={resolvedInverse ? INK : PAPER}
           neutralIdleMode="static"
           gaze={isAnimated ? "pointer" : "none"}
         />
       </span>
-      {showText ? (
-        <span>
-          chatticus<span className="text-clay">.</span>
-        </span>
-      ) : null}
+      {showText ? <span>Chatticus</span> : null}
     </span>
   );
 }

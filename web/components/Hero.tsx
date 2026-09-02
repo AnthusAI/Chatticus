@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, Github } from "lucide-react";
-import { WorkspacePrototype } from "@/components/WorkspacePrototype";
+import { WorkspaceDemo } from "@/components/workspace/WorkspaceDemo";
 import { Wordmark } from "@/components/Wordmark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ export function Hero() {
     <section
       id="top"
       aria-labelledby="hero-title"
-      className="relative overflow-hidden border-b-2 border-ink"
+      className="relative overflow-hidden"
     >
       <div className="hero-grid absolute inset-0 -z-10 opacity-60" />
       <div className="mx-auto grid max-w-[92rem] items-center gap-12 px-5 py-14 sm:px-8 sm:py-16 lg:grid-cols-[1.08fr_0.92fr] lg:gap-10 lg:px-12 lg:py-20">
@@ -23,48 +23,53 @@ export function Hero() {
           <Wordmark
             reportsPresenceAsHero
             showText={false}
-            size={72}
-            className="animate-rise mb-6"
+            size={176}
+            className="animate-rise mb-4"
           />
           <Badge variant="outline" className="animate-rise">
             Named teammates · one shared computer
           </Badge>
           <h1
             id="hero-title"
-            className="mt-7 font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em] text-ink"
+            className="mt-5 font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em]"
           >
             <span className="block animate-rise [animation-delay:80ms]">
-              Build the AI
+              One shared
             </span>
             <span className="block animate-rise [animation-delay:160ms]">
-              organization
+              space for
             </span>
-            <span className="relative inline-block animate-rise italic text-clay [animation-delay:240ms]">
-              you control.
-              <svg
-                aria-hidden="true"
-                className="absolute -bottom-3 left-0 h-4 w-full text-signal"
-                viewBox="0 0 560 24"
-                preserveAspectRatio="none"
-              >
-                <path
-                  d="M4 14C123 2 274 23 556 8"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                />
-              </svg>
+            <span className="block animate-rise italic text-clay [animation-delay:240ms]">
+              people and{" "}
+              <span className="relative inline-block">
+                bots.
+                <svg
+                  aria-hidden="true"
+                  className="absolute -bottom-3 left-0 h-4 w-full text-signal"
+                  viewBox="0 0 560 24"
+                  preserveAspectRatio="none"
+                >
+                  <path
+                    d="M4 14C123 2 274 23 556 8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
             </span>
           </h1>
           <p className="mt-10 max-w-[42rem] animate-rise font-body text-lg leading-relaxed text-ink-soft [animation-delay:340ms] sm:text-xl">
-            Chatticus gives persistent, named AI teammates a computer, memory,
-            skills, and routines inside a boundary you own. They work together.
-            You set direction and keep the consequential decisions.
+            Chatticus is a shared, collaborative space where people and bots
+            work together around common files, tools, and a system of
+            authority and approvals — like an office, not a chat window.
+            It&rsquo;s a 24/7 agent farm you can use to grow whatever you want, around
+            the clock.
           </p>
           <div className="mt-9 flex animate-rise flex-col gap-3 [animation-delay:430ms] sm:flex-row">
             <Button asChild size="lg">
-              <a href="https://hey.chattic.us">
+              <a href="/chat">
                 Explore the workspace
                 <ArrowUpRight className="h-5 w-5" aria-hidden="true" />
               </a>
@@ -78,7 +83,7 @@ export function Hero() {
           </div>
           <a
             href="#organization"
-            className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-full font-mono text-[0.7rem] uppercase tracking-[0.14em] text-ink-soft transition hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
+            className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-full font-mono text-[0.7rem] uppercase tracking-[0.14em] text-ink-soft transition hover:text-surface-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
           >
             See how the team works
             <ArrowDownRight className="h-4 w-4" aria-hidden="true" />
@@ -86,14 +91,14 @@ export function Hero() {
         </div>
 
         <div className="animate-rise self-center [animation-delay:300ms] lg:pl-3">
-          <WorkspacePrototype />
+          <WorkspaceDemo />
         </div>
       </div>
 
-      <div className="border-t border-ink/20 bg-paper-raised">
-        <div className="mx-auto grid max-w-[92rem] divide-y divide-ink/[0.15] px-5 sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:px-8 lg:px-12">
+      <div className="bg-surface-raised">
+        <div className="mx-auto grid max-w-[92rem] gap-2 px-5 py-3 sm:grid-cols-3 sm:px-8 lg:px-12">
           {proof.map(([value, label]) => (
-            <div key={value} className="flex items-center gap-4 py-5 sm:px-6 sm:first:pl-0">
+            <div key={value} className="flex items-center gap-4 rounded-2xl bg-surface-high px-4 py-4 sm:px-6">
               <span className="font-display text-2xl font-semibold tracking-[-0.04em]">
                 {value}
               </span>

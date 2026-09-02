@@ -184,6 +184,8 @@ export class WebStack extends cdk.Stack {
       logRetention: CHATTICUS_LOG_RETENTION,
       sources: websiteSources,
       destinationBucket: siteBucket,
+      distribution,
+      distributionPaths: ["/*"],
     });
 
     new route53.ARecord(this, "SiteAliasRecord", {

@@ -58,7 +58,7 @@ const reading = [
 
 export function RealityLedger() {
   return (
-    <section aria-labelledby="ledger-title" className="bg-paper-raised">
+    <section aria-labelledby="ledger-title" className="bg-surface-raised">
       <div className="mx-auto max-w-[92rem] px-5 py-24 sm:px-8 sm:py-32 lg:px-12">
         <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
           <div>
@@ -77,30 +77,24 @@ export function RealityLedger() {
           </p>
         </div>
 
-        <div className="mt-16 grid border-l-2 border-t-2 border-ink lg:grid-cols-3">
+        <div className="mt-16 grid gap-3 lg:grid-cols-3">
           {columns.map((column) => {
             const Icon = column.icon;
             return (
-              <article
-                key={column.label}
-                className="border-b-2 border-r-2 border-ink bg-paper p-6 sm:p-8"
-              >
+              <article key={column.label} className="rounded-2xl bg-surface p-6 sm:p-8">
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-mono text-[0.67rem] uppercase tracking-[0.13em]">
                     {column.label}
                   </span>
                   <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-full border border-ink ${column.color}`}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full text-ink ${column.color}`}
                   >
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
                 </div>
-                <ul className="mt-16 space-y-0">
+                <ul className="mt-16 grid gap-3">
                   {column.items.map((item) => (
-                    <li
-                      key={item}
-                      className="border-t border-ink/20 py-4 font-body text-sm leading-relaxed text-ink-soft first:border-t-2 first:border-ink"
-                    >
+                    <li key={item} className="font-body text-sm leading-relaxed text-ink-soft">
                       {item}
                     </li>
                   ))}
@@ -110,7 +104,7 @@ export function RealityLedger() {
           })}
         </div>
 
-        <div className="mt-20 grid gap-10 border-t-2 border-ink pt-10 lg:grid-cols-[0.7fr_1.3fr]">
+        <div className="mt-20 grid gap-10 rounded-2xl bg-surface p-6 sm:p-8 lg:grid-cols-[0.7fr_1.3fr]">
           <div>
             <p className="font-mono text-[0.68rem] uppercase tracking-[0.14em] text-ink-soft">
               The thinking behind Chatticus
@@ -120,11 +114,11 @@ export function RealityLedger() {
               more model benchmark.
             </p>
           </div>
-          <div className="border-t border-ink">
+          <div className="grid gap-1.5">
             {reading.map((item) => (
               <a
                 key={item.title}
-                className="group flex min-h-16 items-center justify-between gap-5 border-b border-ink py-4 font-display text-xl tracking-[-0.025em] transition hover:bg-signal/30 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25 sm:text-2xl"
+                className="group flex min-h-16 items-center justify-between gap-5 rounded-xl px-3 py-4 font-display text-xl tracking-[-0.025em] transition hover:bg-signal/30 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25 sm:text-2xl"
                 href={item.href}
               >
                 {item.title}

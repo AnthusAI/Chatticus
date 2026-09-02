@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 export function FinalCta() {
   return (
     <section aria-labelledby="final-cta-title" className="bg-signal p-3 sm:p-5">
-      <div className="relative overflow-hidden rounded-[1.8rem] border-2 border-ink bg-ink px-5 py-20 text-paper sm:px-10 sm:py-24 lg:px-16 lg:py-28">
+      <div className="relative overflow-hidden rounded-[1.8rem] bg-ink px-5 py-20 text-paper sm:px-10 sm:py-24 lg:px-16 lg:py-28">
         <div className="final-cta-orbit absolute -right-16 -top-20 h-80 w-80 rounded-full border border-signal/30" />
         <div className="final-cta-orbit absolute -bottom-44 -left-20 h-96 w-96 rounded-full border border-clay/40 [animation-delay:-2s]" />
         <div className="relative mx-auto max-w-[82rem]">
@@ -23,7 +23,7 @@ export function FinalCta() {
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
-              <a href="https://hey.chattic.us">
+              <a href="/chat">
                 Open the product
                 <ArrowUpRight className="h-5 w-5" aria-hidden="true" />
               </a>
@@ -32,7 +32,7 @@ export function FinalCta() {
               asChild
               size="lg"
               variant="outline"
-              className="border-paper text-paper hover:bg-paper hover:text-ink"
+              className="bg-paper/[0.12] text-paper hover:bg-paper hover:text-ink"
             >
               <a href="https://github.com/AnthusAI/Chattic.us">
                 <Github className="h-5 w-5" aria-hidden="true" />
@@ -40,7 +40,7 @@ export function FinalCta() {
               </a>
             </Button>
           </div>
-          <div className="mt-16 flex flex-wrap gap-x-8 gap-y-3 border-t border-paper/20 pt-6 font-mono text-[0.64rem] uppercase tracking-[0.12em] text-paper/[0.55]">
+          <div className="mt-16 flex flex-wrap gap-x-8 gap-y-3 rounded-2xl bg-paper/[0.06] px-5 py-4 font-mono text-[0.64rem] uppercase tracking-[0.12em] text-paper/[0.55]">
             <span>Open source</span>
             <span>Your infrastructure</span>
             <span>Human approval boundaries</span>

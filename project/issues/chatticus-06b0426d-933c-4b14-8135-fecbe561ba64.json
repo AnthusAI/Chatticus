@@ -46,11 +46,22 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "a61c75a5-d7c4-41d7-80ca-152c5f038ac8",
+      "author": "home",
+      "text": "Implementation child f42d0c landed. Closing epic.",
+      "created_at": "2026-09-02T20:47:14.732737Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-01T03:29:19.067194Z",
-  "updated_at": "2026-09-02T14:27:38.786134Z",
-  "closed_at": "2026-09-02T12:30:45.192427Z",
+  "updated_at": "2026-09-02T20:47:15.363656Z",
+  "closed_at": "2026-09-02T20:47:15.363543Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
   "custom": {},
   "agent": null
 }

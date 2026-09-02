@@ -21,8 +21,8 @@ export interface SpaViewerRequestOptions {
 }
 
 /**
- * Viewer-request rewrite: production Host-based routing (app domain -> /chat), then
- * slashless SPA paths before S3 lookup (OAuth callbacks have no trailing slash).
+ * Viewer-request rewrite: global /chat SPA path, production app-domain root -> /chat,
+ * then slashless SPA paths before S3 lookup (OAuth callbacks have no trailing slash).
  */
 export function buildSpaViewerRequestFunction(
   options: SpaViewerRequestOptions = {},
@@ -34,12 +34,8 @@ export function buildSpaViewerRequestFunction(
   var host = request.headers.host && request.headers.host.value;
   if (host === "${appDomain}") {
     var isAuthPath = uri === "/auth/callback" || uri === "/auth/signout-callback";
-    if (!isAuthPath) {
-      if (uri === "/" || uri === "/index.html") {
-        request.uri = "/chat/index.html";
-      } else if (uri === "/chat") {
-        request.uri = "/chat/index.html";
-      }
+    if (!isAuthPath && (uri === "/" || uri === "/index.html")) {
+      request.uri = "/chat/index.html";
     }
     uri = request.uri;
   }`
@@ -50,6 +46,10 @@ export function buildSpaViewerRequestFunction(
   var uri = request.uri;
   if (uri.indexOf("/api") === 0) {
     return request;
+  }
+  if (uri === "/chat") {
+    request.uri = "/chat/index.html";
+    uri = request.uri;
   }${hostRouting}
   if (uri === "/auth/callback") {
     request.uri = "/auth/callback/index.html";

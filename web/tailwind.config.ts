@@ -9,7 +9,6 @@ const config: Config = {
     extend: {
       colors: {
         paper: "var(--paper)",
-        "paper-raised": "var(--paper-raised)",
         ink: "var(--ink)",
         "ink-soft": "var(--ink-soft)",
         signal: "var(--signal)",
@@ -17,7 +16,10 @@ const config: Config = {
         cobalt: "var(--cobalt)",
         sea: "var(--sea)",
         amber: "var(--amber)",
-        line: "var(--line)",
+        surface: "var(--surface-0)",
+        "surface-raised": "var(--surface-1)",
+        "surface-high": "var(--surface-2)",
+        "surface-foreground": "var(--surface-foreground)",
       },
       fontFamily: {
         display: ["var(--font-display)"],

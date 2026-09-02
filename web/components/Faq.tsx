@@ -41,7 +41,7 @@ const questions = [
 
 export function Faq() {
   return (
-    <section id="faq" aria-labelledby="faq-title" className="bg-paper">
+    <section id="faq" aria-labelledby="faq-title" className="bg-surface">
       <div className="mx-auto grid max-w-[92rem] gap-12 px-5 py-24 sm:px-8 sm:py-32 lg:grid-cols-[0.7fr_1.3fr] lg:px-12">
         <div>
           <Badge variant="outline">Straight answers</Badge>
@@ -57,7 +57,7 @@ export function Faq() {
             every capability is already shipped.
           </p>
         </div>
-        <Accordion type="single" collapsible className="border-t-2 border-ink">
+        <Accordion type="single" collapsible className="grid gap-2">
           {questions.map((item, index) => (
             <AccordionItem key={item.question} value={`question-${index}`}>
               <AccordionTrigger>{item.question}</AccordionTrigger>

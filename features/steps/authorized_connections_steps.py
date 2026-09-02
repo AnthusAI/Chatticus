@@ -5,8 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from behave import given, then, when
-from behave.exception import StepNotImplementedError
 from browser_auth_helpers import ensure_org_membership, wire_test_http_front_door
+
+from chatticus.authorized_connections import ConnectionProposalStatus
 
 NOW = datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC)
 
@@ -18,10 +19,52 @@ def _org(context: object, name: str) -> object:
     return org
 
 
-def _pending_behavior(step_name: str) -> None:
-    raise StepNotImplementedError(
-        f"Authorized connection behavior is not implemented yet: {step_name}"
-    )
+def _user_id(context: object, email: str) -> str:
+    identity = getattr(context, "identities_by_email", {}).get(email)
+    if identity is None:
+        raise AssertionError(f"Unknown member {email!r}.")
+    return identity.user_id
+
+
+def _shared_channel(context: object, channel_name: str) -> object:
+    channel = getattr(context, "shared_channels_by_name", {}).get(channel_name)
+    if channel is None:
+        raise AssertionError(f"Unknown shared channel {channel_name!r}.")
+    return channel
+
+
+def _propose_connection(
+    context: object,
+    *,
+    email: str,
+    receiving_org: str,
+    channel_name: str,
+    granting_org: str,
+    try_only: bool,
+) -> None:
+    granting = _org(context, granting_org)
+    receiving = _org(context, receiving_org)
+    channel = _shared_channel(context, channel_name)
+    proposer_user_id = _user_id(context, email)
+    if try_only:
+        result = context.plane.try_propose_connection(
+            granting.tenant_id,
+            proposer_user_id,
+            receiving.tenant_id,
+            channel.channel_id,
+            channel_name,
+        )
+    else:
+        result = context.plane.propose_connection(
+            granting.tenant_id,
+            proposer_user_id,
+            receiving.tenant_id,
+            channel.channel_id,
+            channel_name,
+        )
+    context.connection_proposal_result = result
+    context.connection_proposal = result.proposal
+    context.connection_route = result.route
 
 
 @given('organization "{name}" with tenant "{tenant_id}" also has enabled members:')
@@ -77,13 +120,14 @@ def when_member_proposes_connection(
     channel_name: str,
     granting_org: str,
 ) -> None:
-    _org(context, receiving_org)
-    _org(context, granting_org)
-    context.authorized_connection_proposer = email
-    context.authorized_connection_receiving_org = receiving_org
-    context.authorized_connection_channel = channel_name
-    context.authorized_connection_granting_org = granting_org
-    _pending_behavior("member proposes connection within authority ceiling")
+    _propose_connection(
+        context,
+        email=email,
+        receiving_org=receiving_org,
+        channel_name=channel_name,
+        granting_org=granting_org,
+        try_only=False,
+    )
 
 
 @when(
@@ -97,40 +141,64 @@ def when_member_tries_propose_connection(
     channel_name: str,
     granting_org: str,
 ) -> None:
-    _org(context, receiving_org)
-    _org(context, granting_org)
-    context.authorized_connection_proposer = email
-    context.authorized_connection_receiving_org = receiving_org
-    context.authorized_connection_channel = channel_name
-    context.authorized_connection_granting_org = granting_org
-    _pending_behavior("member refused connection outside authority ceiling")
+    _propose_connection(
+        context,
+        email=email,
+        receiving_org=receiving_org,
+        channel_name=channel_name,
+        granting_org=granting_org,
+        try_only=True,
+    )
 
 
 @when("the connection proposal is routed for approval")
 def when_connection_proposal_routed_for_approval(context: object) -> None:
-    _pending_behavior("route connection proposal for approval")
+    proposal = context.connection_proposal
+    assert proposal is not None
+    context.connection_route = context.plane.route_connection_proposal(
+        proposal.proposal_id
+    )
 
 
 @then('the connection is authorized and clipped to "{email}" ceiling')
 def then_connection_authorized_and_clipped(context: object, email: str) -> None:
-    context.authorized_connection_clip_member = email
-    _pending_behavior("connection authorized and clipped to proposer ceiling")
+    result = context.connection_proposal_result
+    assert result is not None
+    assert result.authorized is not None
+    assert result.route is not None
+    assert result.route.status == ConnectionProposalStatus.AUTHORIZED
+    assert result.authorized.clipped_by_user_id == _user_id(context, email)
+    proposal = result.proposal
+    assert proposal is not None
+    assert result.authorized.channel_name == proposal.channel_name
+    assert result.authorized.receiving_tenant_id == proposal.receiving_tenant_id
 
 
 @then("proposing a connection outside the member authority ceiling is refused")
 def then_propose_connection_outside_ceiling_refused(context: object) -> None:
-    _pending_behavior("connection proposal refused outside ceiling")
+    result = context.connection_proposal_result
+    assert result is not None
+    assert result.refused is True
+    assert result.authorized is None
+    assert result.route is not None
+    assert result.route.status == ConnectionProposalStatus.REFUSED
+    assert context.plane.refused_connections()
 
 
 @then('the connection proposal escalates to "{email}"')
 def then_connection_proposal_escalates_to(context: object, email: str) -> None:
-    context.authorized_connection_escalation_target = email
-    _pending_behavior("escalate connection proposal to nearest covering member")
+    route = context.connection_route
+    assert route is not None
+    assert route.status == ConnectionProposalStatus.PENDING_ESCALATION
+    assert route.escalation_target_user_id == _user_id(context, email)
 
 
 @then("no organization member ceiling covers the connection")
 def then_no_member_ceiling_covers_connection(context: object) -> None:
-    _pending_behavior("detect uncovered connection proposal")
+    route = context.connection_route
+    assert route is not None
+    assert route.status == ConnectionProposalStatus.BLOCKED
+    assert route.escalation_target_user_id is None
 
 
 @then(
@@ -138,4 +206,4 @@ def then_no_member_ceiling_covers_connection(context: object) -> None:
     "standing approves it"
 )
 def then_connection_proposal_stays_blocked(context: object) -> None:
-    _pending_behavior("block connection proposal until sufficient standing")
+    assert context.plane.authorized_connections() == []

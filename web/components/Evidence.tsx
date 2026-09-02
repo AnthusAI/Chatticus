@@ -67,11 +67,11 @@ export function Evidence() {
             return (
               <Card
                 key={item.title}
-                className="group border-2 border-ink bg-paper text-ink shadow-[5px_5px_0_var(--ink)] transition hover:-translate-y-1 hover:shadow-[8px_8px_0_var(--ink)]"
+                className="group bg-paper text-ink shadow-[5px_5px_0_var(--ink)] transition hover:-translate-y-1 hover:shadow-[8px_8px_0_var(--ink)]"
               >
                 <CardContent className="flex h-full flex-col p-7 sm:p-8">
                   <div className="flex items-center justify-between">
-                    <Avatar className="h-11 w-11 border-2 border-ink">
+                    <Avatar className="h-11 w-11">
                       <AvatarFallback className="bg-signal font-bold text-ink">
                         {item.initials}
                       </AvatarFallback>
@@ -81,11 +81,12 @@ export function Evidence() {
                   <h3 className="mt-12 font-display text-3xl leading-none tracking-[-0.045em]">
                     {item.title}
                   </h3>
-                  <p className="mt-5 flex-1 font-body text-base leading-relaxed text-ink-soft">
+                  {/* text-[#3f463d]: this card is a fixed bg-paper/text-ink island regardless of site theme, so its muted text must not follow --ink-soft's dark-mode swap. */}
+                  <p className="mt-5 flex-1 font-body text-base leading-relaxed text-[#3f463d]">
                     {item.body}
                   </p>
                   <a
-                    className="mt-8 inline-flex min-h-11 items-center gap-2 border-t border-ink/20 pt-4 font-mono text-[0.65rem] uppercase tracking-[0.12em] transition hover:text-cobalt focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
+                    className="mt-8 inline-flex min-h-11 items-center gap-2 pt-4 font-mono text-[0.65rem] uppercase tracking-[0.12em] transition hover:text-cobalt focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
                     href={item.href}
                   >
                     {item.link}

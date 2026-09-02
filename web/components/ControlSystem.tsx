@@ -44,7 +44,7 @@ export function ControlSystem() {
     <section
       id="control"
       aria-labelledby="control-title"
-      className="relative overflow-hidden border-b-2 border-ink bg-paper"
+      className="relative overflow-hidden bg-surface"
     >
       <div className="mx-auto max-w-[92rem] px-5 py-24 sm:px-8 sm:py-32 lg:px-12">
         <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
@@ -65,13 +65,13 @@ export function ControlSystem() {
           </h2>
         </div>
 
-        <div className="mt-16 border-l-2 border-t-2 border-ink">
+        <div className="mt-16 grid gap-3">
           {concepts.map((concept, index) => {
             const Icon = concept.icon;
             return (
               <article
                 key={concept.label}
-                className="group grid gap-7 border-b-2 border-r-2 border-ink bg-paper-raised p-6 transition-colors hover:bg-signal/20 sm:p-8 lg:grid-cols-[7rem_1fr_1.1fr_auto] lg:items-center"
+                className="group grid gap-7 rounded-2xl bg-surface-raised p-6 transition-colors hover:bg-signal/20 sm:p-8 lg:grid-cols-[7rem_1fr_1.1fr_auto] lg:items-center"
               >
                 <div className="flex items-center justify-between lg:block">
                   <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-clay">
@@ -90,7 +90,7 @@ export function ControlSystem() {
                 <p className="max-w-xl font-body text-base leading-relaxed text-ink-soft">
                   {concept.body}
                 </p>
-                <span className="inline-flex w-fit items-center gap-2 rounded-full border border-ink/20 px-3 py-2 font-mono text-[0.58rem] uppercase tracking-[0.1em]">
+                <span className="inline-flex w-fit items-center gap-2 rounded-full bg-surface-high px-3 py-2 font-mono text-[0.58rem] uppercase tracking-[0.1em]">
                   {index === 3 ? (
                     <CircleCheckBig className="h-3.5 w-3.5 text-clay" aria-hidden="true" />
                   ) : (

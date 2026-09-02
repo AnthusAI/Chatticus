@@ -4,7 +4,7 @@ import { Wordmark } from "@/components/Wordmark";
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 bg-surface/90 backdrop-blur-xl">
       <nav
         aria-label="Primary navigation"
         className="mx-auto flex h-[4.6rem] max-w-[92rem] items-center justify-between px-5 sm:px-8 lg:px-12"
@@ -30,8 +30,9 @@ export function Header() {
             FAQ
           </a>
         </div>
-        <Button asChild size="sm" variant="dark">
-          <a href="https://hey.chattic.us">
+        {/* Shaped like the logo mark's black message bubble (CHATTICUS_MARK_MODEL's ink bubble: 8/8/1.85/8 corner radii). */}
+        <Button asChild size="sm" variant="dark" className="rounded-[22px_22px_5px_22px]">
+          <a href="/chat">
             Hey, Chatticus...
             <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
           </a>

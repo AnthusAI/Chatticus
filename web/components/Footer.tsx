@@ -1,12 +1,11 @@
 import { ArrowUpRight } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
 import { Wordmark } from "@/components/Wordmark";
 
 const groups = [
   {
     title: "Product",
     links: [
-      ["Hey, Chatticus...", "https://hey.chattic.us"],
+      ["Hey, Chatticus...", "/chat"],
       ["Product model", "https://github.com/AnthusAI/Chattic.us/blob/develop/docs/PRODUCT.md"],
       ["Roadmap", "https://github.com/AnthusAI/Chattic.us/blob/develop/docs/ROADMAP.md"],
     ],
@@ -31,7 +30,7 @@ const groups = [
 
 export function Footer() {
   return (
-    <footer className="bg-paper-raised">
+    <footer className="bg-surface-raised">
       <div className="mx-auto max-w-[92rem] px-5 py-14 sm:px-8 lg:px-12">
         <div className="grid gap-12 lg:grid-cols-[1.25fr_1.75fr]">
           <div>
@@ -74,8 +73,7 @@ export function Footer() {
             ))}
           </div>
         </div>
-        <Separator className="my-10 bg-ink/20" />
-        <div className="flex flex-col gap-3 font-mono text-[0.62rem] uppercase tracking-[0.11em] text-ink-soft sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-10 flex flex-col gap-3 rounded-2xl bg-surface-high px-5 py-4 font-mono text-[0.62rem] uppercase tracking-[0.11em] text-ink-soft sm:flex-row sm:items-center sm:justify-between">
           <p>Chatticus · Active development</p>
           <p>Your teammates. Your computer. Your call.</p>
         </div>
