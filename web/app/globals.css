@@ -27,6 +27,8 @@
   --surface-0: var(--paper);
   --surface-1: #e7e2d5;
   --surface-2: #d9d3c1;
+  /* Legible text color on a --surface-*: ink in light mode, paper in dark. */
+  --surface-foreground: var(--ink);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,6 +36,7 @@
     --surface-0: var(--ink);
     --surface-1: #1d2018;
     --surface-2: #2a2e22;
+    --surface-foreground: var(--paper);
   }
 }
 

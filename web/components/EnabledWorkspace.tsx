@@ -2,15 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { BotRoster } from "./BotRoster";
-import { ChatPanel } from "./ChatPanel";
+import { WorkspacePanel } from "./workspace/WorkspacePanel";
+import type { WorkspaceMember, WorkspaceMessage } from "./workspace/types";
 import { InviteMemberPanel } from "./InviteMemberPanel";
 import { TaskList } from "./TaskList";
-import {
-  avatarActivityFromTurn,
-  botAvatarAriaLabel,
-  botAvatarStateFromActivity,
-} from "../lib/avatar-state";
+import { avatarActivityFromTurn, botAvatarStateFromActivity } from "../lib/avatar-state";
 import {
   createChannel,
   fetchHealth,
@@ -51,6 +47,7 @@ export function EnabledWorkspace({ activeOrg }: EnabledWorkspaceProps) {
   const [botsError, setBotsError] = useState<string | null>(null);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
   const [channelId, setChannelId] = useState<string | null>(null);
+  const [sentBody, setSentBody] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -155,6 +152,7 @@ export function EnabledWorkspace({ activeOrg }: EnabledWorkspaceProps) {
     setTurnStatus(null);
     setProgress("");
     setEvents([]);
+    setSentBody(null);
     closeStreamRef.current?.();
     setChannelId(null);
   }
@@ -178,6 +176,7 @@ export function EnabledWorkspace({ activeOrg }: EnabledWorkspaceProps) {
         selectedBot.bot_id,
       );
       setDraft("");
+      setSentBody(body);
       if (response.turn_id) {
         setTurnId(response.turn_id);
         startTurnStream(response.turn_id);
@@ -191,9 +190,47 @@ export function EnabledWorkspace({ activeOrg }: EnabledWorkspaceProps) {
 
   const avatarActivity = avatarActivityFromTurn(events, turnStatus, sending);
   const avatarState = botAvatarStateFromActivity(avatarActivity);
-  const avatarAriaLabel = selectedBot
-    ? botAvatarAriaLabel(selectedBot.name, avatarActivity)
-    : "Bot avatar";
+
+  const messages: WorkspaceMessage[] = [];
+  if (sentBody) {
+    messages.push({ id: "operator", author: "operator", authorLabel: "You", body: sentBody });
+  }
+  if (progress) {
+    messages.push({
+      id: "bot-response",
+      author: "bot",
+      authorLabel: selectedBot?.name ?? "Bot",
+      body: progress,
+    });
+  } else if (turnId && turnStatus === "active") {
+    messages.push({
+      id: "bot-response",
+      author: "bot",
+      authorLabel: selectedBot?.name ?? "Bot",
+      body: "…",
+    });
+  }
+
+  const memberActivity =
+    turnStatus === "failed"
+      ? "Turn failed"
+      : turnStatus === "reconciling"
+        ? "Reconciling"
+        : avatarActivity === "thinking"
+          ? "Thinking…"
+          : avatarActivity === "waiting"
+            ? "Waiting…"
+            : avatarActivity === "speaking"
+              ? "Responding…"
+              : avatarActivity === "completed"
+                ? "Done"
+                : undefined;
+
+  const members: WorkspaceMember[] = bots.map((bot) => ({
+    id: bot.bot_id,
+    name: bot.name,
+    meta: Object.keys(bot.memory).length > 0 ? `${Object.keys(bot.memory).length} memory keys` : undefined,
+  }));
 
   return (
     <>
@@ -216,38 +253,33 @@ export function EnabledWorkspace({ activeOrg }: EnabledWorkspaceProps) {
 
       <InviteMemberPanel tenantId={activeOrg.tenantId} />
 
-      <div className="workspace">
-        <BotRoster
-          bots={bots}
-          selectedBotId={selectedBot?.bot_id ?? null}
-          selectedBotAvatarState={avatarState}
-          loading={botsLoading}
-          error={botsError}
-          onRetry={() => {
-            void loadBots();
-          }}
-          onSelect={(bot) => {
+      <WorkspacePanel
+        orgLabel={`Organization: ${activeOrg.tenantId}`}
+        workspaceLabel="Workspace"
+        members={members}
+        selectedMemberId={selectedBot?.bot_id ?? null}
+        selectedMemberState={avatarState}
+        selectedMemberActivity={memberActivity}
+        messages={messages}
+        draft={draft}
+        sending={sending}
+        sendError={sendError ?? streamError}
+        rosterLoading={botsLoading}
+        rosterError={botsError}
+        onSelectMember={(member) => {
+          const bot = bots.find((candidate) => candidate.bot_id === member.id);
+          if (bot) {
             void handleSelectBot(bot);
-          }}
-        />
-        <ChatPanel
-          bot={selectedBot}
-          avatarState={avatarState}
-          avatarAriaLabel={avatarAriaLabel}
-          draft={draft}
-          sending={sending}
-          sendError={sendError}
-          turnId={turnId}
-          turnStatus={turnStatus}
-          streamError={streamError}
-          progress={progress}
-          events={events}
-          onDraftChange={setDraft}
-          onSend={() => {
-            void handleSend();
-          }}
-        />
-      </div>
+          }
+        }}
+        onRetryRoster={() => {
+          void loadBots();
+        }}
+        onDraftChange={setDraft}
+        onSend={() => {
+          void handleSend();
+        }}
+      />
 
       <section className="card">
         <TaskList activeOrg={activeOrg} />

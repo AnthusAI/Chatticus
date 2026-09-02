@@ -16,6 +16,8 @@ type BotAvatarViewProps = {
   size?: number;
   ariaLabel?: string;
   className?: string;
+  /** Skip name-based role inference and use this role directly (e.g. scripted demo data that wants a specific character regardless of name). */
+  role?: CreativeRole;
 };
 
 function getRoleForBotName(name: string): CreativeRole {
@@ -32,8 +34,9 @@ export function BotAvatarView({
   size = 56,
   ariaLabel,
   className,
+  role: roleOverride,
 }: BotAvatarViewProps) {
-  const role = getRoleForBotName(botName);
+  const role = roleOverride ?? getRoleForBotName(botName);
   const spec = creativeCharacterSpecForRole(role);
   const model = creativeCharacterModelForRole(role);
 

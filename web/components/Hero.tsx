@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, Github } from "lucide-react";
-import { WorkspacePrototype } from "@/components/WorkspacePrototype";
+import { WorkspaceDemo } from "@/components/workspace/WorkspaceDemo";
 import { Wordmark } from "@/components/Wordmark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,7 +86,7 @@ export function Hero() {
         </div>
 
         <div className="animate-rise self-center [animation-delay:300ms] lg:pl-3">
-          <WorkspacePrototype />
+          <WorkspaceDemo />
         </div>
       </div>
 
