@@ -13,11 +13,17 @@ const testEnv = {
 
 export function synthThinTurnStack(
   environmentName: ChatticusCloudEnvironment,
+  options?: {
+    budgetsAlertsTopicArn?: string;
+    budgetsMonthlyLimitUsd?: number;
+  },
 ): Template {
   const app = new cdk.App();
   const stack = new ThinTurnStack(app, THIN_TURN_STACK_IDS[environmentName], {
     env: testEnv,
     chatticusEnvironment: environmentName,
+    budgetsAlertsTopicArn: options?.budgetsAlertsTopicArn,
+    budgetsMonthlyLimitUsd: options?.budgetsMonthlyLimitUsd,
   });
   return Template.fromStack(stack);
 }

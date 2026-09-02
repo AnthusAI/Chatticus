@@ -283,6 +283,13 @@ Limit changes redeploy only `ChatticusBudgets`, not snapshots.
   breakdowns appear. Activation is not retroactive.
 - A new account may report nothing for roughly a day while Cost Explorer
   populates; a quiet first day is normal, not a broken alarm.
+- After `ChatticusBudgets` is deployed, redeploy each named ThinTurn stack
+  so the daily rollup Lambda and AWS Budgets alert recorder subscribe to
+  the same SNS topic. Rollup runs on a UTC schedule and writes org x env x
+  day rows in the environment messaging table. Vendor threshold alerts use
+  the same 50/80/100% bands as the account AWS budget limit; rollup
+  threshold messages are distinct from native AWS Budgets payloads so the
+  alert recorder does not loop.
 - OpenAI hard spend caps are **console-only** on the vendor project.
 
 ## Synth (no AWS credentials required)
