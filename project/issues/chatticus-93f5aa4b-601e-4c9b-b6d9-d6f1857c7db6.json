@@ -3,7 +3,7 @@
   "title": "Add workflow_dispatch deploy workflows for Auth and staging/production stacks",
   "description": "Development already has workflow_dispatch workflows for Web and ThinTurn. Auth and the staging/production named stacks still require a laptop CDK deploy.\n\n**Do:** Add workflow_dispatch GitHub Actions workflows (same OIDC pattern as `.github/workflows/deploy-web-development.yml` and `deploy-thinturn-development.yml`) so an operator can dispatch named-stack deploys for Auth and for staging/production without a local CDK session. Add any missing `infra/deploy-chatticus-*.sh` wrappers the workflows need.\n\n**Do not:** auto-deploy on push to develop/main; run the workflows from the implementing PR; `cdk deploy --all`; merge to main.\n\n**Done when:** Auth and staging/production named stacks can be deployed from GitHub Actions `workflow_dispatch`, matching the existing development Web/ThinTurn pattern.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -17,10 +17,31 @@
       "text": "Planning: Composer 2.5. Mirror existing development Web/ThinTurn workflow_dispatch + OIDC. No auto-deploy on push. Do not run the new workflows from the PR.",
       "created_at": "2026-09-02T17:40:24.308244Z",
       "comment_type": "default"
+    },
+    {
+      "id": "120eb5b0-6b0c-4ea5-843a-72507b755f75",
+      "author": "home",
+      "text": "Plan accepted: 7 workflow_dispatch workflows, 4 deploy scripts, OIDC roles per GitHub environment. Implementer creating /tmp/chatticus-93f5aa-gha-deploys. Do not dispatch workflows from the PR.",
+      "created_at": "2026-09-02T17:45:08.023241Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c0cf5a9a-9fc9-4f40-8b91-a20e97dcc448",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chattic.us/pull/189 is up. Infra tests already green on CI. Review: 7 workflow_dispatch workflows, 4 scripts, 3 OIDC roles, no --all, ci.yml untouched. Holding merge for python CI. Do not dispatch workflows from the PR. Post-merge: redeploy ChatticusGitHubDeploy and set staging/production AWS_DEPLOY_ROLE_ARN.",
+      "created_at": "2026-09-02T17:49:13.799095Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d2bb9d39-c599-47f4-97f8-e6b4e86175c6",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chattic.us/pull/189 (acf72f5) to develop. Seven workflow_dispatch workflows + OIDC roles are on develop. Do not dispatch from a PR. Operator next: redeploy ChatticusGitHubDeploy, set staging/production AWS_DEPLOY_ROLE_ARN, add production required reviewers. Tear down /tmp/chatticus-93f5aa-gha-deploys.",
+      "created_at": "2026-09-02T17:50:02.165711Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-02T01:26:39.218285Z",
-  "updated_at": "2026-09-02T17:40:24.308244Z",
-  "closed_at": null,
+  "updated_at": "2026-09-02T17:50:02.165711Z",
+  "closed_at": "2026-09-02T17:50:02.153757Z",
   "custom": {}
 }

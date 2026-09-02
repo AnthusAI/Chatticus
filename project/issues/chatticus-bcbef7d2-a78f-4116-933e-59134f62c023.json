@@ -19,10 +19,17 @@
       "text": "Planning: Composer 2.5. Blockers (854698 budgets construct, 89adc0 vendor ledger) are closed. Daily rollup Lambda via EventBridge Scheduler — Cost Explorer + ledger, one row per day per org and env, SNS on threshold. No always-on aggregator.",
       "created_at": "2026-09-02T17:40:24.283810Z",
       "comment_type": "default"
+    },
+    {
+      "id": "6c86ff99-f0df-4630-b20a-cb3daf6caee2",
+      "author": "home",
+      "text": "Plan accepted with corrections: Gherkin first; rollup Lambda lives on ThinTurn (existing python bundle + scheduler), not a second asset pipeline in ChatticusBudgets; SNS recorder must ignore rollup publishes; vendor threshold uses existing monthlyLimitUsd bands. Worktree /tmp/chatticus-bcbef7-daily-rollup.",
+      "created_at": "2026-09-02T17:45:08.037506Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T03:21:48.653791Z",
-  "updated_at": "2026-09-02T17:40:24.283810Z",
+  "updated_at": "2026-09-02T17:45:08.037506Z",
   "closed_at": null,
   "custom": {}
 }
