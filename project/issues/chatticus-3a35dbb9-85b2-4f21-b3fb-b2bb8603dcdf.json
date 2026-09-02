@@ -26,10 +26,17 @@
       "text": "Plan accepted with corrections: ship scenarios A+B only (no red @wip C); member_standing=None must not skip the sink check; acting member is the turn requester, not primary_human if they differ. Live token checklist is post-merge human, not a PR gate. Worktree /tmp/chatticus-3a35db-ceiling-sinks.",
       "created_at": "2026-09-02T16:09:22.104311Z",
       "comment_type": "default"
+    },
+    {
+      "id": "378f643f-7ddf-47ad-9039-794f2d013e9e",
+      "author": "home",
+      "text": "Acceptance REJECT: member_ceiling_sinks 2/2 green; model_tool_loop_sinks 0/4 and two HTTP sink scenarios red. Cause: given_bot seeds owner@chatticus.test while steps post as ryan. Fix fixtures; keep fail-closed; no owner fallback on missing turn; standing miss is 403.",
+      "created_at": "2026-09-02T16:23:07.655922Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:56:57.871883Z",
-  "updated_at": "2026-09-02T16:09:22.104311Z",
+  "updated_at": "2026-09-02T16:23:07.655922Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
