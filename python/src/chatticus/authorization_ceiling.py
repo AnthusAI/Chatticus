@@ -61,6 +61,7 @@ def task_grant_for_structured_arguments(
         recipients=frozenset({recipient}) if recipient else frozenset(),
         file_scopes=frozenset(),
         egress_classes=frozenset({egress}) if egress else frozenset(),
+        ingest_classes=frozenset(),
     )
 
 
@@ -104,6 +105,7 @@ def member_authority_ceiling_from_structured_arguments(
             recipients=frozenset({recipient}) if recipient else frozenset(),
             file_scopes=frozenset(),
             egress_classes=frozenset({egress}) if egress else frozenset(),
+            ingest_classes=frozenset(),
         ),
         structured_argument_bindings=tuple(sorted(arguments.items())),
     )

@@ -203,6 +203,7 @@ def test_structured_operation_exceeds_member_ceiling_when_action_type_differs() 
             recipients=frozenset(),
             file_scopes=frozenset(),
             egress_classes=frozenset(),
+            ingest_classes=frozenset(),
         ),
     )
     operation = StructuredConsequentialOperation(

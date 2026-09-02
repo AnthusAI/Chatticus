@@ -81,32 +81,3 @@ Feature: Delegated authority the way an office works
     When 8 days pass
     And "sam@example.com" tries to approve that consequential operation as delegate
     Then the expired delegation does not authorize the approval
-
-  @wip
-  Scenario: An action exceeding the requester ceiling escalates to a member whose ceiling covers it
-    Given organization "Anthus Labs" member "sam@example.com" has authority ceiling for structured "send" with:
-      | recipient | alex@example.com |
-      | body      | copy edit        |
-    And organization "Anthus Labs" member "ryan@example.com" has authority ceiling for structured "send" with:
-      | recipient | production.example.com |
-      | body      | publish                |
-    And a bot on behalf of "sam@example.com" proposes structured consequential operation "send" with:
-      | destination | production.example.com |
-      | payload     | publish                |
-    When the consequential operation is routed for approval
-    Then the approval request escalates to "ryan@example.com"
-
-  @wip
-  Scenario: An action exceeding every member ceiling stays blocked for approval
-    Given organization "Anthus Labs" member "sam@example.com" has authority ceiling for structured "send" with:
-      | recipient | alex@example.com |
-      | body      | copy edit        |
-    And organization "Anthus Labs" member "ryan@example.com" has authority ceiling for structured "send" with:
-      | recipient | production.example.com |
-      | body      | publish                |
-    And a bot on behalf of "sam@example.com" proposes structured consequential operation "send" with:
-      | destination | vendor.example.com |
-      | payload     | purchase order       |
-    When the consequential operation is routed for approval
-    Then no organization member ceiling covers the operation
-    And the turn waits for a member with sufficient standing

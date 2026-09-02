@@ -17,6 +17,7 @@ _FULL_ROLE_CEILING = Ceiling(
     recipients=frozenset(),
     file_scopes=frozenset(),
     egress_classes=frozenset(),
+    ingest_classes=frozenset(),
     spend_limit=None,
 )
 
@@ -26,6 +27,7 @@ _MEMBER_ROLE_CEILING = Ceiling(
     recipients=frozenset(),
     file_scopes=frozenset(),
     egress_classes=frozenset(),
+    ingest_classes=frozenset(),
     spend_limit=None,
 )
 

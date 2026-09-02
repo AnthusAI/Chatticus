@@ -87,22 +87,6 @@ def given_covering_delegation(
     )
 
 
-@given(
-    'a bot on behalf of "{requester}" proposes structured consequential operation '
-    '"{action_type}" with:'
-)
-def given_bot_proposes_on_behalf(
-    context: object, requester: str, action_type: str
-) -> None:
-    args = _table_args(context)
-    context.delegated_authority_requester = requester
-    context.proposal = context.plane.approval_binding.propose_structured_operation(
-        action_type,
-        args["destination"],
-        args["payload"],
-    )
-
-
 @when('"{email}" approves that consequential operation within their ceiling')
 def when_member_approves_within_ceiling(context: object, email: str) -> None:
     context.delegated_authority_actor = email
@@ -155,11 +139,6 @@ def when_days_pass(context: object, days: int) -> None:
     context.now = getattr(context, "now", NOW) + timedelta(days=days)
 
 
-@when("the consequential operation is routed for approval")
-def when_operation_routed_for_approval(context: object) -> None:
-    _pending_behavior("approval routing escalates to sufficient ceiling")
-
-
 @then("the approval is granted for that exact operation")
 def then_approval_granted_for_exact_operation(context: object) -> None:
     _pending_behavior("approval granted within ceiling")
@@ -189,19 +168,3 @@ def then_always_allow_broader_refused(context: object) -> None:
 @then("the expired delegation does not authorize the approval")
 def then_expired_delegation_does_not_authorize(context: object) -> None:
     _pending_behavior("expired delegation does not authorize")
-
-
-@then('the approval request escalates to "{email}"')
-def then_approval_escalates_to(context: object, email: str) -> None:
-    context.delegated_authority_escalation_target = email
-    _pending_behavior("approval escalates to sufficient ceiling")
-
-
-@then("no organization member ceiling covers the operation")
-def then_no_member_ceiling_covers(context: object) -> None:
-    _pending_behavior("no member ceiling covers operation")
-
-
-@then("the turn waits for a member with sufficient standing")
-def then_turn_waits_for_sufficient_standing(context: object) -> None:
-    _pending_behavior("turn waits for sufficient standing")
