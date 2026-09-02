@@ -7,9 +7,7 @@ from pathlib import Path
 _FORBIDDEN = "X-Tenant-Id"
 _ROOT = Path(__file__).resolve().parents[1]
 _PATHS = (
-    _ROOT / "scripts" / "exercise_thin_turn.py",
     _ROOT / "scripts" / "chatticus_chat.py",
-    _ROOT / "scripts" / "live_aws_thin_turn.sh",
     _ROOT / "src" / "chatticus" / "thin_turn_conversation.py",
 )
 

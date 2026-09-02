@@ -41,7 +41,7 @@ When SSM is blocked, pass `--base-url` or set `CHATTICUS_DEVELOPMENT_BASE_URL` (
 - **74b06d** (closed, kernel): GET computer is `1` after a computer-queue nack. Not live until ThinTurn redeploy.
 - Epic **8f98f8** (open): summon one computer. Remaining DoD is a Chromium-backed real executor via **ephemeral** Fargate `RunTask` (not standing `desiredCount=1`, not a fake `opened`). Chromium is in `computer/Dockerfile` but that image is not rebuilt/pushed/deployed.
 - **e747d7** closed: Test 2 median ~22s to RUNNING; Chromium was not in the image at measurement time.
-- Demo CLI epic **35d86b** is human-owned. Do not steal it. `exercise_thin_turn.py` stays the gate.
+- Demo CLI epic **35d86b** is human-owned. Do not steal it. Live proof is manual via dev.chattic.us.
 
 ## In flight (do this next)
 

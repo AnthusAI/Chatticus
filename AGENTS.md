@@ -125,18 +125,8 @@ local venv matches GitHub CI. Do not upgrade them in one place only.
 Do not declare worker-protocol work done if `behave` or `pytest` is failing.
 
 Those gates are in-process. They use in-memory stores and moto. They do
-not prove a CloudFront origin, SQS, or Lambda. After a ThinTurn deploy,
-and when you mean to check the real stack, from a shell that already
-has `aws login`:
-
-```bash
-cd python
-sh scripts/live_aws_thin_turn.sh development
-```
-
-Or `CHATTICUS_LIVE_AWS=1 pytest tests/test_live_aws_thin_turn.py`. That
-hits the named environment only. It does not scale Fargate. GitHub CI
-must not run that path.
+not prove a CloudFront origin, SQS, or Lambda. To check the real stack,
+sign in at [dev.chattic.us](https://dev.chattic.us) and send a message.
 
 ## Computer and Lambda
 

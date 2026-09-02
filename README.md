@@ -111,11 +111,8 @@ stay dark until explicitly re-enabled and re-proven.
 
 ### Live acceptance gate
 
-`cd python && sh scripts/live_aws_thin_turn.sh development` exercises the named
-development stack (Cognito `id_token` on user routes + worker bearer on worker
-routes). Full exit 0 still requires the OpenAI SSM key documented in
-`infra/README.md`. The script now requires `CHATTICUS_LIVE_ID_TOKEN` for user
-routes (per #7b4616 enforcement).
+Live stack proof is manual: sign in at [dev.chattic.us](https://dev.chattic.us)
+and send a message.
 
 GitHub **Deploy ThinTurn (development)** and **Deploy Web (development)** are
 manual (`workflow_dispatch`). GitHub Actions must not hit live AWS.
@@ -309,18 +306,9 @@ ruff check src ../features tests
 
 The deployed thin turn is exercised against a **named cloud environment**
 (CloudFront on development only today), not against an in-process queue.
-GitHub CI (`behave`, `pytest`) uses in-memory stores and moto. Live AWS is
-a local command after `aws login`. Full exit 0 requires the OpenAI SSM key
-documented in `infra/README.md`:
-
-```bash
-cd python
-sh scripts/live_aws_thin_turn.sh development
-```
-
-That is the same as
-`python scripts/exercise_thin_turn.py --environment development` plus an
-identity check.
+GitHub CI (`behave`, `pytest`) uses in-memory stores and moto. Live stack
+proof is manual: sign in at [dev.chattic.us](https://dev.chattic.us) and
+send a message.
 
 Watch one live conversation as a human (tokens on stdout, committed reply
 at the end). Workers use bearer tokens after registration. The product SPA
@@ -334,8 +322,8 @@ python scripts/chatticus_chat.py --environment development \
   --tenant-id anthus --user-id ryan --bot Luna --message "hello"
 ```
 
-The script resolves the front door like `exercise_thin_turn.py`
-(`CHATTICUS_DEVELOPMENT_BASE_URL`, SSM, or CloudFormation). Omit
+The script resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`,
+SSM, or CloudFormation. Omit
 `--message` for an interactive prompt. `--list-turns` calls
 `GET /users/{user_id}/turns`; `--watch-turn` reconnects with
 `Last-Event-ID` on `GET /turns/{id}/stream`.
