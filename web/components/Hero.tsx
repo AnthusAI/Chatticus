@@ -4,9 +4,9 @@ import { Wordmark } from "@/components/Wordmark";
 import { Button } from "@/components/ui/button";
 
 const proof = [
-  ["Public source", "Inspect the system"],
-  ["3 environments", "Named cloud boundaries"],
-  ["1 computer", "Shared by your teammates"],
+  ["100% public", "Every commit, on GitHub"],
+  ["3 environments", "Named, separate, and real"],
+  ["1 shared computer", "No clones. No silos."],
 ];
 
 export function Hero() {
@@ -87,7 +87,7 @@ export function Hero() {
       </div>
 
       <div className="bg-surface-raised">
-        <div className="mx-auto grid max-w-[92rem] gap-2 px-5 py-3 sm:grid-cols-3 sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-[92rem] gap-2 px-5 py-3 sm:px-8 lg:grid-cols-3 lg:px-12">
           {proof.map(([value, label]) => (
             <div key={value} className="flex items-center gap-4 rounded-2xl bg-surface-high px-4 py-4 sm:px-6">
               <span className="font-display text-2xl font-semibold tracking-[-0.04em]">

@@ -62,7 +62,7 @@ export function WorkspaceThread({
 
       {member ? (
         <>
-          <div className="grid h-[8.5rem] content-start gap-2 overflow-y-auto">
+          <div className="grid h-[15rem] content-start gap-2 overflow-y-auto">
             {messages.map((message) => (
               <div
                 key={message.id}
