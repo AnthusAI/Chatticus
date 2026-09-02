@@ -3,7 +3,7 @@
   "title": "Confirm operator run of live_aws_thin_turn.sh development with CHATTICUS_LIVE_ID_TOKEN set",
   "description": "",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -19,13 +19,22 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "934cff19-2344-4a97-9cb6-268c127906c0",
+      "author": "home",
+      "text": "Resolved by deletion, not by running the script. PR #207 squash-merged to develop (611de14): deleted live_aws_thin_turn.sh, exercise_thin_turn.py, test_live_aws_thin_turn.py, test_exercise_thin_turn.py; updated test_tooling_auth.py, AGENTS.md, README.md, docs/test-migration-survey.md, project/wiki/status.md; removed unused live_aws pytest marker. Live stack proof is now manual via dev.chattic.us sign-in. Automated replacement is card 214f2f (Lambda IAM-role integration test, in flight).",
+      "created_at": "2026-09-02T22:18:28.606708Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-02T00:50:47.263378Z",
-  "updated_at": "2026-09-02T22:01:09.408826Z",
-  "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "updated_at": "2026-09-02T22:18:29.541063Z",
+  "closed_at": "2026-09-02T22:18:29.540862Z",
+  "right_now_summary": "The team is deleting the live script and tests instead of running them; live proof stays manual via dev.chattic.us.",
+  "right_now_updated_at": "2026-09-02T22:03:00.928187Z",
   "custom": {},
   "agent": null
 }
