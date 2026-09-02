@@ -33,10 +33,17 @@
       "text": "Plan accepted with corrections: GET /me must not 410 on expired invites (skip, return remaining membership); if /me mints identity, update me.feature unknown-email (user_id present, orgs empty). Owner-only via assert_may_invite_members. No SES, no domain auto-join. Worktree /tmp/chatticus-ae51dc-invite.",
       "created_at": "2026-09-02T16:24:57.609159Z",
       "comment_type": "default"
+    },
+    {
+      "id": "dbd02f48-e35c-4b59-a270-fde1c54f5efa",
+      "author": "home",
+      "text": "Acceptance APPROVE on HTTP join path. Sent back for missing owner invite UI on EnabledWorkspace before PR.",
+      "created_at": "2026-09-02T16:31:40.612509Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:40:45.611456Z",
-  "updated_at": "2026-09-02T16:24:57.609159Z",
+  "updated_at": "2026-09-02T16:31:40.612509Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
