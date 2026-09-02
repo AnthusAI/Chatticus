@@ -70,3 +70,10 @@ export function thinTurnExportName(
 ): string {
   return `Chatticus-${environment}-thin-turn-${suffix}`;
 }
+
+/** Anthus deployments allow product signup; customer deployments use invitation_only. */
+export function signupModeForEnvironment(
+  _environment: ChatticusCloudEnvironment,
+): "open" | "invitation_only" {
+  return "open";
+}

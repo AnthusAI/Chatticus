@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request
@@ -54,6 +54,7 @@ from chatticus.models import (
     primary_human_participant,
 )
 from chatticus.principal import Principal
+from chatticus.signup_mode import SignupMode, signup_mode_from_env
 from chatticus.worker_credentials import parse_bearer_token
 
 logger = logging.getLogger("chatticus.http")
@@ -214,6 +215,20 @@ class MeResponseBody(BaseModel):
     organizations: list[MeOrganizationBody]
 
 
+class CreateOrganizationBody(BaseModel):
+    """Body for POST /organizations."""
+
+    name: str
+
+
+class CreateOrganizationResponseBody(BaseModel):
+    """Response for POST /organizations."""
+
+    tenant_id: str
+    name: str
+    status: str
+
+
 @dataclass
 class AppState:
     """Mutable front-door state attached to each app instance."""
@@ -222,6 +237,7 @@ class AppState:
     invoke_key: str
     environment: str
     cognito_verifier: CognitoJwtVerifier | None = None
+    signup_mode: SignupMode = SignupMode.INVITATION_ONLY
     open_sse_streams: int = 0
 
 
@@ -240,6 +256,7 @@ def create_app(
     invoke_key: str | None = None,
     environment: str | None = None,
     cognito_verifier: CognitoJwtVerifier | None = None,
+    signup_mode: SignupMode | None = None,
 ) -> FastAPI:
     """Build a FastAPI app backed by one control plane instance."""
     resolved_key = (
@@ -252,11 +269,15 @@ def create_app(
         if environment is not None
         else os.environ.get("CHATTICUS_ENVIRONMENT", "local")
     ).strip() or "local"
+    resolved_signup_mode = (
+        signup_mode if signup_mode is not None else signup_mode_from_env()
+    )
     state = AppState(
         plane=plane,
         invoke_key=resolved_key,
         environment=resolved_environment,
         cognito_verifier=cognito_verifier,
+        signup_mode=resolved_signup_mode,
     )
     app = FastAPI(
         title="Chatticus control plane",
@@ -321,6 +342,41 @@ def create_app(
                 )
                 for organization in me.organizations
             ],
+        )
+
+    @waitlist_safe
+    @app.post("/organizations", status_code=201)
+    def create_organization_route(
+        request: Request, body: CreateOrganizationBody
+    ) -> CreateOrganizationResponseBody:
+        if state.signup_mode is not SignupMode.OPEN:
+            raise HTTPException(
+                status_code=403,
+                detail="organization creation is not enabled on this deployment",
+            )
+        verifier = state.cognito_verifier
+        if verifier is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Cognito verifier is not configured for POST /organizations.",
+            )
+        token = parse_bearer_token(request.headers.get("Authorization"))
+        if token is None:
+            raise HTTPException(status_code=403, detail="user credential required")
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="organization name is required")
+        try:
+            verified = verifier.verify_id_token(token)
+        except CognitoTokenError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        now = datetime.now(tz=UTC)
+        owner = state.plane.sign_in(verified.email, now=now)
+        organization = state.plane.create_organization(owner, name, now=now)
+        return CreateOrganizationResponseBody(
+            tenant_id=organization.tenant_id,
+            name=organization.name,
+            status=organization.status.value,
         )
 
     @org_router.post("/workers/register")

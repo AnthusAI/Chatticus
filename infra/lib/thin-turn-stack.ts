@@ -18,6 +18,7 @@ import {
 import {
   ChatticusCloudEnvironment,
   openAiApiKeyParameterName,
+  signupModeForEnvironment,
   thinTurnExportName,
   thinTurnParameterPrefix,
   webParameterPrefix,
@@ -162,6 +163,7 @@ export class ThinTurnStack extends cdk.Stack {
       CHATTICUS_MESSAGING_TABLE: table.tableName,
       CHATTICUS_TURN_QUEUE_URL: turnQueue.queueUrl,
       CHATTICUS_COMPUTER_TURN_QUEUE_URL: computerTurnQueue.queueUrl,
+      CHATTICUS_SIGNUP_MODE: signupModeForEnvironment(environmentName),
       OPENAI_MODEL: "gpt-5.6-luna",
       OPENAI_API_KEY_PARAMETER: openAiParameterName,
     };

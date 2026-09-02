@@ -57,6 +57,16 @@ describe("ThinTurnStack OpenAI key", () => {
           },
         });
       });
+
+      it("sets CHATTICUS_SIGNUP_MODE to open on Anthus deployments", () => {
+        template.hasResourceProperties("AWS::Lambda::Function", {
+          Environment: {
+            Variables: Match.objectLike({
+              CHATTICUS_SIGNUP_MODE: "open",
+            }),
+          },
+        });
+      });
     });
   }
 });

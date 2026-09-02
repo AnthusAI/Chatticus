@@ -11,8 +11,7 @@ export function NoOrganizationPanel() {
         yet.
       </p>
       <p className="status">
-        Ask an operator to invite you or seed your household before using the
-        workspace.
+        Ask an operator to invite you before using the workspace.
       </p>
     </section>
   );

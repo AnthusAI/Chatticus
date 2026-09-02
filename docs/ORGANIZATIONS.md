@@ -66,10 +66,24 @@ the existing keys already express.
 
 ## Enablement and the waitlist
 
-Anyone may sign in and create an organization. Creating one lands it
-`pending`. Enabling is a deliberate act, and it is per **organization**,
-not per person: the owner then invites their own people, and invited
-members of an enabled organization never see the waitlist.
+Whether a signed-in person may **create** an organization is a **deployment
+switch**, not a global product law. Each deployment sets
+`CHATTICUS_SIGNUP_MODE`:
+
+| Deployment | Signup mode | Product behavior |
+| --- | --- | --- |
+| Anthus (`development`, `staging`, `production`) | `open` | Google sign-in is the waitlist form; `POST /organizations` creates a pending org |
+| Customer deployment | `invitation_only` | Sign-in only; creation is refused until an invitation exists |
+
+The web SPA reads the matching build-time flag
+`NEXT_PUBLIC_CHATTICUS_SIGNUP_MODE`. The HTTP front door enforces the server
+value even when the web flag is wrong.
+
+On an open-signup deployment, anyone may sign in and create an organization.
+Creating one lands it `pending`. Enabling is a deliberate act, and it is per
+**organization**, not per person: the owner then invites their own people, and
+invited members of an enabled organization never see the pending welcome
+screen.
 
 The alternative was enabling individuals, which makes Chatticus the
 gatekeeper for every employee of every customer forever, and builds the
