@@ -33,10 +33,17 @@
       "text": "Plan not accepted yet. Rate-limit scenario is off-by-one and would be masked by 409 if cap is checked first. Cognito alarm with 30 eval periods and empty AlarmActions would not detect a flood. Planner revising; worktree not created.",
       "created_at": "2026-09-02T17:13:52.648276Z",
       "comment_type": "default"
+    },
+    {
+      "id": "18a2a842-b976-429c-b6d2-5d23010a3645",
+      "author": "home",
+      "text": "Plan accepted with correction: alarm on FederationSuccesses (Google federation), not SignUpSuccesses. Worktree /tmp/chatticus-694392-org-caps branch cursor/org-caps-694392-4a21 — create tree first, then implement.",
+      "created_at": "2026-09-02T17:15:14.023181Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:57:18.525663Z",
-  "updated_at": "2026-09-02T17:13:52.648276Z",
+  "updated_at": "2026-09-02T17:15:14.023181Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
