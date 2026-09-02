@@ -1,7 +1,6 @@
-import { ArrowDownRight, ArrowUpRight, Github } from "lucide-react";
+import { ArrowUpRight, Github } from "lucide-react";
 import { WorkspaceDemo } from "@/components/workspace/WorkspaceDemo";
 import { Wordmark } from "@/components/Wordmark";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 const proof = [
@@ -20,27 +19,27 @@ export function Hero() {
       <div className="hero-grid absolute inset-0 -z-10 opacity-60" />
       <div className="mx-auto grid max-w-[92rem] items-center gap-12 px-5 py-14 sm:px-8 sm:py-16 lg:grid-cols-[1.08fr_0.92fr] lg:gap-10 lg:px-12 lg:py-20">
         <div className="max-w-[46rem]">
-          <Wordmark
-            reportsPresenceAsHero
-            showText={false}
-            size={176}
-            className="animate-rise mb-4"
-          />
-          <Badge variant="outline" className="animate-rise">
-            Named teammates · one shared computer
-          </Badge>
           <h1
             id="hero-title"
-            className="mt-5 font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em]"
+            className="font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em]"
           >
-            <span className="block animate-rise [animation-delay:80ms]">
-              One shared
+            {/* Mark sits beside the first line only, baseline-aligned like a drop cap; the rest of the headline flows full-width below it. */}
+            <span className="flex flex-wrap items-end gap-3 sm:gap-5">
+              <Wordmark
+                reportsPresenceAsHero
+                showText={false}
+                size={140}
+                className="animate-rise shrink-0"
+              />
+              <span className="block animate-rise [animation-delay:80ms]">
+                One shared
+              </span>
             </span>
             <span className="block animate-rise [animation-delay:160ms]">
               space for
             </span>
             <span className="block animate-rise italic text-clay [animation-delay:240ms]">
-              people and{" "}
+              people <span className="text-surface-foreground">and</span>{" "}
               <span className="relative inline-block">
                 bots.
                 <svg
@@ -81,13 +80,6 @@ export function Hero() {
               </a>
             </Button>
           </div>
-          <a
-            href="#organization"
-            className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-full font-mono text-[0.7rem] uppercase tracking-[0.14em] text-ink-soft transition hover:text-surface-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
-          >
-            See how the team works
-            <ArrowDownRight className="h-4 w-4" aria-hidden="true" />
-          </a>
         </div>
 
         <div className="animate-rise self-center [animation-delay:300ms] lg:pl-3">

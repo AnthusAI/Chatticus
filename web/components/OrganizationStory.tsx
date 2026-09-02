@@ -76,9 +76,9 @@ export function OrganizationStory() {
             id="organization-title"
             className="font-display text-[clamp(3.5rem,7vw,7.6rem)] leading-[0.88] tracking-[-0.065em]"
           >
-            The next step is not a smarter assistant.
+            The next step isn&rsquo;t a smarter assistant.
             <span className="block italic text-signal">
-              It is a better organization.
+              It&rsquo;s a better organization.
             </span>
           </h2>
         </div>
