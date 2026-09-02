@@ -1,10 +1,44 @@
 import assert from "node:assert/strict";
+import vm from "node:vm";
 import { describe, it } from "node:test";
 
 import {
+  buildSpaViewerRequestFunction,
   SPA_VIEWER_REQUEST_FUNCTION,
   SPA_VIEWER_RESPONSE_FUNCTION,
 } from "../lib/cloudfront-functions";
+
+type ViewerRequestEvent = {
+  request: {
+    uri: string;
+    headers: Record<string, { value: string }>;
+  };
+};
+
+function runViewerRequest(
+  functionSource: string,
+  event: ViewerRequestEvent,
+): ViewerRequestEvent["request"] {
+  const context = { event };
+  return vm.runInNewContext(`${functionSource}\nhandler(event);`, context) as ViewerRequestEvent["request"];
+}
+
+function viewerRequestEvent(
+  uri: string,
+  host?: string,
+): ViewerRequestEvent {
+  return {
+    request: {
+      uri,
+      headers: host ? { host: { value: host } } : {},
+    },
+  };
+}
+
+const productionSpaViewerRequest = buildSpaViewerRequestFunction({
+  appDomain: "hey.chattic.us",
+  marketingDomain: "chattic.us",
+});
 
 describe("SPA viewer-request rewrite", () => {
   it("rewrites slashless /auth/callback to the Next export index", () => {
@@ -25,6 +59,49 @@ describe("SPA viewer-request rewrite", () => {
 
   it("does not rewrite /api paths", () => {
     assert.match(SPA_VIEWER_REQUEST_FUNCTION, /uri\.indexOf\("\/api"\) === 0/);
+  });
+});
+
+describe("production Host-based viewer-request routing", () => {
+  it("rewrites hey.chattic.us / to /chat/", () => {
+    const request = runViewerRequest(
+      productionSpaViewerRequest,
+      viewerRequestEvent("/", "hey.chattic.us"),
+    );
+    assert.equal(request.uri, "/chat/");
+  });
+
+  it("leaves chattic.us / unchanged", () => {
+    const request = runViewerRequest(
+      productionSpaViewerRequest,
+      viewerRequestEvent("/", "chattic.us"),
+    );
+    assert.equal(request.uri, "/");
+  });
+
+  it("keeps /auth/callback at the root on hey.chattic.us", () => {
+    const request = runViewerRequest(
+      productionSpaViewerRequest,
+      viewerRequestEvent("/auth/callback", "hey.chattic.us"),
+    );
+    assert.equal(request.uri, "/auth/callback/index.html");
+  });
+
+  it("keeps /auth/signout-callback at the root on hey.chattic.us", () => {
+    const request = runViewerRequest(
+      productionSpaViewerRequest,
+      viewerRequestEvent("/auth/signout-callback", "hey.chattic.us"),
+    );
+    assert.equal(request.uri, "/auth/signout-callback/index.html");
+  });
+
+  it("runs Host routing before slashless SPA rewrites", () => {
+    const request = runViewerRequest(
+      productionSpaViewerRequest,
+      viewerRequestEvent("/auth/callback", "hey.chattic.us"),
+    );
+    assert.equal(request.uri, "/auth/callback/index.html");
+    assert.doesNotMatch(request.uri, /^\/chat\//);
   });
 });
 

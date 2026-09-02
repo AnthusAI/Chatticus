@@ -13,13 +13,44 @@ export const API_ORIGIN_VIEWER_REQUEST_FUNCTION = `function handler(event) {
   return request;
 }`;
 
-/** Rewrite slashless SPA paths before S3 lookup (OAuth callback has no trailing slash). */
-export const SPA_VIEWER_REQUEST_FUNCTION = `function handler(event) {
+export interface SpaViewerRequestOptions {
+  /** Product app hostname (e.g. hey.chattic.us). Enables host routing when set with marketingDomain. */
+  appDomain?: string;
+  /** Marketing apex hostname (e.g. chattic.us). Enables host routing when set with appDomain. */
+  marketingDomain?: string;
+}
+
+/**
+ * Viewer-request rewrite: production Host-based routing (app domain -> /chat), then
+ * slashless SPA paths before S3 lookup (OAuth callbacks have no trailing slash).
+ */
+export function buildSpaViewerRequestFunction(
+  options: SpaViewerRequestOptions = {},
+): string {
+  const { appDomain, marketingDomain } = options;
+  const hostRouting =
+    appDomain && marketingDomain
+      ? `
+  var host = request.headers.host && request.headers.host.value;
+  if (host === "${appDomain}") {
+    var isAuthPath = uri === "/auth/callback" || uri === "/auth/signout-callback";
+    if (!isAuthPath) {
+      if (uri === "/" || uri === "/index.html") {
+        request.uri = "/chat/";
+      } else if (uri === "/chat") {
+        request.uri = "/chat/";
+      }
+    }
+    uri = request.uri;
+  }`
+      : "";
+
+  return `function handler(event) {
   var request = event.request;
   var uri = request.uri;
   if (uri.indexOf("/api") === 0) {
     return request;
-  }
+  }${hostRouting}
   if (uri === "/auth/callback") {
     request.uri = "/auth/callback/index.html";
   }
@@ -28,6 +59,10 @@ export const SPA_VIEWER_REQUEST_FUNCTION = `function handler(event) {
   }
   return request;
 }`;
+}
+
+/** Default SPA viewer-request (no production Host split). */
+export const SPA_VIEWER_REQUEST_FUNCTION = buildSpaViewerRequestFunction();
 
 /** Rewrite S3 403/404 to 200 for the static site only (default behavior). */
 export const SPA_VIEWER_RESPONSE_FUNCTION = `function handler(event) {
