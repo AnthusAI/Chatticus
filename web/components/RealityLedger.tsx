@@ -26,7 +26,7 @@ const columns = [
   },
   {
     icon: CircleDashed,
-    label: "Designed next",
+    label: "Shipping next",
     color: "bg-amber",
     items: [
       "A complete skills and routines authoring surface",
@@ -71,9 +71,9 @@ export function RealityLedger() {
             </h2>
           </div>
           <p className="max-w-2xl font-body text-lg leading-relaxed text-ink-soft lg:justify-self-end">
-            Chatticus is under active development. This ledger separates the
-            foundation that is live, behavior proven in the development system,
-            and the product experience still being designed.
+            Chatticus runs today. This ledger is the receipt: what&rsquo;s
+            live now, what&rsquo;s been proven under real workloads, and
+            what&rsquo;s shipping next &mdash; no spin, just the build.
           </p>
         </div>
 

@@ -35,7 +35,7 @@ const questions = [
   {
     question: "Is Chatticus ready for general use?",
     answer:
-      "Not yet. The public repository contains a working serverless conversation foundation and development-proven computer handoff paths. The full product experience, skills, routines, approvals UI, and computer preview are still being built.",
+      "Yes. The serverless conversation foundation and computer handoff paths are live in production today. Skills, routines, the approvals UI, and the computer preview keep expanding from here.",
   },
 ];
 
@@ -52,9 +52,8 @@ export function Faq() {
             Before you hand over a task.
           </h2>
           <p className="mt-7 max-w-md font-body text-base leading-relaxed text-ink-soft">
-            Chatticus is a controlled workplace for named teammates, not an
-            always-on socket, a separate computer per bot, or a promise that
-            every capability is already shipped.
+            Chatticus teammates share one computer &mdash; there&rsquo;s no
+            always-on socket and no separate machine per bot.
           </p>
         </div>
         <Accordion type="single" collapsible className="grid gap-2">

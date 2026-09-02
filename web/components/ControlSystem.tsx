@@ -51,9 +51,10 @@ export function ControlSystem() {
           <div>
             <Badge variant="clay">Control is the product</Badge>
             <p className="mt-8 max-w-lg font-body text-lg leading-relaxed text-ink-soft">
-              Intelligence is plentiful. Chatticus is designed around the
-              scarce thing: your attention. Give the organization rules for
-              method, timing, quality, and consequence.
+              Any model can talk. What&rsquo;s missing is discipline: who did
+              what, on whose authority, and what happens when it&rsquo;s wrong.
+              Chatticus gives the organization rules for method, timing,
+              quality, and consequence.
             </p>
           </div>
           <h2

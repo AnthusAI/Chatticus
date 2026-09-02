@@ -54,6 +54,10 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        highlightSweep: {
+          "0%": { backgroundSize: "0% 88%" },
+          "100%": { backgroundSize: "100% 88%" },
+        },
       },
       animation: {
         rise: "rise 700ms cubic-bezier(.22,.75,.18,1) both",
@@ -61,6 +65,7 @@ const config: Config = {
         "pulse-rule": "pulseRule 2.8s ease-in-out infinite",
         "accordion-down": "accordionDown 220ms ease-out",
         "accordion-up": "accordionUp 220ms ease-out",
+        "highlight-sweep": "highlightSweep 650ms cubic-bezier(.4,0,.2,1) both",
       },
     },
   },

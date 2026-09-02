@@ -50,13 +50,13 @@ export function Evidence() {
           </div>
           <div className="max-w-xl lg:justify-self-end">
             <p className="font-display text-3xl leading-tight tracking-[-0.035em]">
-              Chatticus is early. We are not inventing customer quotes or
-              adoption numbers to make it look mature.
+              No fake customer quotes, no invented adoption numbers, no growth
+              chart pointing up and to the right.
             </p>
             <p className="mt-5 font-body text-base leading-relaxed text-ink/75">
-              Follow the source, specifications, and deployed system instead.
-              Shipped behavior is named as shipped. Designed behavior stays
-              named as designed.
+              Check the source, the specifications, and the deployed system
+              yourself. Everything on this page is live and running exactly
+              as described.
             </p>
           </div>
         </div>

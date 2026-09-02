@@ -42,7 +42,7 @@ export function Footer() {
               <Wordmark />
             </a>
             <p className="mt-6 max-w-sm font-display text-2xl leading-tight tracking-[-0.035em]">
-              Named teammates on a computer you control.
+              Named teammates, a shared space you control.
             </p>
             <p className="mt-5 max-w-md font-body text-sm leading-relaxed text-ink-soft">
               The marketing site collects no signup form data. Product account,
@@ -74,7 +74,7 @@ export function Footer() {
           </div>
         </div>
         <div className="mt-10 flex flex-col gap-3 rounded-2xl bg-surface-high px-5 py-4 font-mono text-[0.62rem] uppercase tracking-[0.11em] text-ink-soft sm:flex-row sm:items-center sm:justify-between">
-          <p>Chatticus · Active development</p>
+          <p>Chatticus · Live in production</p>
           <p>Your teammates. Your computer. Your call.</p>
         </div>
       </div>
