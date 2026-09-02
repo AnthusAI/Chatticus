@@ -2,7 +2,10 @@
 
 import {
   BotAvatar,
-  creativeDeskModelForRole,
+  characterColorProps,
+  characterGazeConfig,
+  creativeCharacterModelForRole,
+  creativeCharacterSpecForRole,
   type CreativeMotionState,
   type CreativeRole,
   type BotAvatarState,
@@ -34,13 +37,17 @@ export function CreativeCharacter({
     complete: "speakingComplete",
   };
 
+  const spec = creativeCharacterSpecForRole(role);
+
   return (
     <div className={className} aria-hidden={decorative || undefined}>
       <BotAvatar
-        model={creativeDeskModelForRole(role)}
+        model={creativeCharacterModelForRole(role)}
         state={stateMap[state]}
         size={240}
-        lightColor="transparent"
+        gaze={paused ? "none" : "pointer"}
+        gazeConfig={characterGazeConfig(spec)}
+        {...characterColorProps(spec)}
         ariaLabel={decorative ? undefined : label}
         paused={paused}
       />
