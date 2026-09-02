@@ -55,8 +55,11 @@ def given_member_authority_ceiling(
     context: object, org_name: str, email: str, action_type: str
 ) -> None:
     org = _org(context, org_name)
-    _member_ceilings(context)[(org.tenant_id, email, action_type)] = _table_args(
-        context
+    context.plane.set_member_authority_ceiling(
+        org.tenant_id,
+        email,
+        action_type,
+        arguments=_table_args(context),
     )
 
 

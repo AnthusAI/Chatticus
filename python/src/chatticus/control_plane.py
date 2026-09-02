@@ -14,7 +14,14 @@ from chatticus.approval_binding import (
     ApprovalBindingGate,
     ApprovedOperation,
     BoundExecutionResult,
+    OperationProposal,
     StructuredConsequentialOperation,
+)
+from chatticus.authorization_ceiling import (
+    MemberAuthorityCeiling,
+    auto_review_rule_exceeds_member_authority_ceiling,
+    member_authority_ceiling_from_structured_arguments,
+    structured_operation_exceeds_member_authority_ceiling,
 )
 from chatticus.capability_policy import (
     CapabilityPolicy,
@@ -60,9 +67,11 @@ from chatticus.models import (
     AWS_COST_CLASSES,
     CONSEQUENTIAL_ACTION_TYPES,
     COST_CLASS_RANK,
+    KERNEL_HUMAN_AUTHOR,
     ActorKind,
     ActorNotInChannelError,
     ApprovalDecision,
+    AuthorizationIdentity,
     AutoReviewRule,
     AutoReviewRuleKind,
     Bot,
@@ -199,6 +208,10 @@ class ControlPlane:
         self._snapshots: dict[str, ComputerSnapshot] = {}
         self._auto_review_rules: list[AutoReviewRule] = []
         self._refused_bot_auto_review: list[tuple[str, str]] = []
+        self._refused_authority_ceiling: list[tuple[str, str, str]] = []
+        self._member_authority_ceilings: dict[
+            tuple[str, str, str], MemberAuthorityCeiling
+        ] = {}
         self._approval_binding = ApprovalBindingGate()
         self._capability_policies: dict[tuple[str, str], CapabilityPolicy] = {}
         self._active_browser_contexts: dict[tuple[str, str], PolicyBrowserContext] = {}
@@ -1429,30 +1442,126 @@ class ControlPlane:
         *,
         arguments: dict[str, str] | None = None,
         created_by: str = "human",
-    ) -> None:
+        creator: AuthorizationIdentity | None = None,
+        creator_bot_id: str | None = None,
+    ) -> bool:
         """Add an auto-review rule scoped to a tenant, optionally one user.
 
         A bot cannot create an always-allow that loosens a consequential
-        action; that attempt is recorded and discarded.
+        action. A human cannot write a rule broader than their standing
+        ceiling. Returns whether the rule was recorded.
         """
-        if created_by == "bot" and kind == AutoReviewRuleKind.ALWAYS_ALLOW:
+        resolved_creator = creator
+        if resolved_creator is None:
+            if created_by == "bot":
+                resolved_creator = AuthorizationIdentity.bot(creator_bot_id or "bot")
+            else:
+                resolved_creator = AuthorizationIdentity.human(KERNEL_HUMAN_AUTHOR)
+        if (
+            resolved_creator.kind == ActorKind.BOT
+            and kind == AutoReviewRuleKind.ALWAYS_ALLOW
+        ):
             self._refused_bot_auto_review.append((tenant_id, action_type))
-            return
-        bindings = tuple(sorted((arguments or {}).items()))
+            return False
+        bindings = arguments or {}
+        member_ceiling = self._member_authority_ceiling(
+            tenant_id,
+            resolved_creator.actor_id,
+            action_type,
+        )
+        if auto_review_rule_exceeds_member_authority_ceiling(
+            action_type,
+            bindings,
+            member_ceiling,
+        ):
+            self._refused_authority_ceiling.append(
+                (tenant_id, action_type, resolved_creator.actor_id)
+            )
+            return False
         self._auto_review_rules.append(
             AutoReviewRule(
                 kind=kind,
                 action_type=action_type,
                 tenant_id=tenant_id,
                 user_id=user_id,
-                argument_bindings=bindings,
-                created_by=created_by,
+                argument_bindings=tuple(sorted(bindings.items())),
+                creator=resolved_creator,
             )
+        )
+        return True
+
+    def set_member_authority_ceiling(
+        self,
+        tenant_id: str,
+        member_user_id: str,
+        action_type: str,
+        *,
+        arguments: dict[str, str],
+    ) -> None:
+        """Record one member's standing authority for a structured action."""
+        self._member_authority_ceilings[(tenant_id, member_user_id, action_type)] = (
+            member_authority_ceiling_from_structured_arguments(action_type, arguments)
+        )
+
+    def member_authority_ceiling(
+        self,
+        tenant_id: str,
+        member_user_id: str,
+        action_type: str,
+    ) -> MemberAuthorityCeiling | None:
+        """Return the recorded standing ceiling for one member and action."""
+        return self._member_authority_ceilings.get(
+            (tenant_id, member_user_id, action_type)
+        )
+
+    def approve_structured_operation(
+        self,
+        tenant_id: str,
+        proposal: OperationProposal,
+        *,
+        approver: AuthorizationIdentity,
+    ) -> ApprovedOperation | None:
+        """Approve one structured operation when the approver is within standing."""
+        if approver.kind != ActorKind.HUMAN:
+            self._refused_authority_ceiling.append(
+                (tenant_id, proposal.operation.action_type, approver.actor_id)
+            )
+            return None
+        member_ceiling = self._member_authority_ceiling(
+            tenant_id,
+            approver.actor_id,
+            proposal.operation.action_type,
+        )
+        if structured_operation_exceeds_member_authority_ceiling(
+            proposal.operation,
+            member_ceiling,
+        ):
+            self._refused_authority_ceiling.append(
+                (tenant_id, proposal.operation.action_type, approver.actor_id)
+            )
+            return None
+        return self._approval_binding.approve_operation(
+            proposal,
+            approver=approver,
+        )
+
+    def _member_authority_ceiling(
+        self,
+        tenant_id: str,
+        member_user_id: str,
+        action_type: str,
+    ) -> MemberAuthorityCeiling | None:
+        return self._member_authority_ceilings.get(
+            (tenant_id, member_user_id, action_type)
         )
 
     def refused_bot_auto_review(self) -> list[tuple[str, str]]:
         """Return always-allow attempts the kernel rejected from a bot."""
         return list(self._refused_bot_auto_review)
+
+    def refused_authority_ceiling(self) -> list[tuple[str, str, str]]:
+        """Return rule or approval attempts refused outside standing."""
+        return list(self._refused_authority_ceiling)
 
     @property
     def approval_binding(self) -> ApprovalBindingGate:
