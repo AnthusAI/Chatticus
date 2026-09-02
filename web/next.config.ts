@@ -10,15 +10,23 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   async rewrites() {
-    if (isDev) {
-      return [
-        {
-          source: "/api/:path*",
-          destination: "https://wwfo67h32ahlhyaxs23p4rraba0fgxit.lambda-url.us-east-1.on.aws/:path*",
-        },
-      ];
+    if (!isDev) {
+      return [];
     }
-    return [];
+    // Local dev only: proxy /api to a named stack. Set CHATTICUS_DEV_API_ORIGIN
+    // (e.g. https://dev.chattic.us/api) or CHATTICUS_DEVELOPMENT_BASE_URL in .env.local.
+    const base =
+      process.env.CHATTICUS_DEV_API_ORIGIN?.replace(/\/$/, "") ??
+      process.env.CHATTICUS_DEVELOPMENT_BASE_URL?.replace(/\/$/, "");
+    if (!base) {
+      return [];
+    }
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${base}/:path*`,
+      },
+    ];
   },
 };
 

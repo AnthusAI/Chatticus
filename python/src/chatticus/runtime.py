@@ -5,13 +5,16 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from chatticus.control_plane import ControlPlane
 from chatticus.messaging.store import DynamoMessagingStore
 from chatticus.models import ComputerPolicy, TurnJob
 from chatticus.turn_recovery import TurnDeadlineScheduler
 from chatticus.worker.openai_completion import load_local_env
+
+if TYPE_CHECKING:
+    from chatticus.cognito_jwt import CognitoJwtVerifier
 
 logger = logging.getLogger("chatticus.runtime")
 
@@ -39,6 +42,38 @@ def plane_from_env() -> ControlPlane:
         deadline_scheduler=deadline_scheduler,
         recovery_enabled=recovery_enabled,
         wall_clock=True,
+    )
+
+
+def cognito_verifier_from_env() -> CognitoJwtVerifier | None:
+    """Build a Cognito JWT verifier from Lambda environment or SSM."""
+    from chatticus.cloud_environments import (
+        CLOUD_ENVIRONMENTS,
+        parse_cloud_environment,
+        resolve_cognito_config,
+    )
+    from chatticus.cognito_jwt import CognitoConfig, CognitoJwtVerifier
+
+    environment = os.environ.get("CHATTICUS_ENVIRONMENT", "local").strip() or "local"
+    if environment in CLOUD_ENVIRONMENTS:
+        try:
+            return CognitoJwtVerifier(
+                resolve_cognito_config(parse_cloud_environment(environment))
+            )
+        except LookupError:
+            return None
+
+    issuer = os.environ.get("CHATTICUS_COGNITO_ISSUER", "").strip().rstrip("/")
+    client_id = os.environ.get("CHATTICUS_COGNITO_CLIENT_ID", "").strip()
+    if not (issuer and client_id):
+        return None
+    jwks_url = os.environ.get("CHATTICUS_COGNITO_JWKS_URL", "").strip()
+    return CognitoJwtVerifier(
+        CognitoConfig(
+            issuer=issuer,
+            client_id=client_id,
+            jwks_url=jwks_url or f"{issuer}/.well-known/jwks.json",
+        )
     )
 
 

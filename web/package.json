@@ -15,16 +15,16 @@
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
-    "anthus-vultus": "github:AnthusAI/Vultus#main",
+    "anthus-vultus": "https://github.com/AnthusAI/Vultus/archive/2bda883f111306934c714df32a8aeb219326a593.tar.gz",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
     "next": "^15.5.2",
+    "oidc-client-ts": "^3.5.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "tailwind-merge": "^2.6.0",
-    "lottie-react": "^3.1.1",
-    "oidc-client-ts": "^3.5.0"
+    "lottie-react": "^3.1.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",

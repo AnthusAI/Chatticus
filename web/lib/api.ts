@@ -1,5 +1,7 @@
-import { apiBase, tenantId } from "./config";
+import { apiBase } from "./config";
+import { authorizedHeaders } from "./api-auth";
 import { orgApiPath } from "./paths";
+import type { ActiveOrg } from "./membership-state";
 
 export type HealthResponse = {
   environment?: string;
@@ -46,15 +48,6 @@ export type Task = {
   updated_by_bot_id: string | null;
 };
 
-const invokeKey = process.env.NEXT_PUBLIC_CHATTICUS_INVOKE_KEY;
-async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const headers = new Headers(init?.headers);
-  if (invokeKey) {
-    headers.set("X-Chatticus-Invoke-Key", invokeKey);
-  }
-  return fetch(input, { ...init, headers });
-}
-
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const detail = await response.text();
@@ -64,48 +57,49 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {
-  const response = await authFetch(`${apiBase}/health`);
+  const response = await fetch(`${apiBase}/health`);
   return readJson<HealthResponse>(response);
 }
 
-export async function listBots(userId: string): Promise<Bot[]> {
-  const response = await authFetch(
-    `${apiBase}${orgApiPath(tenantId, `/users/${encodeURIComponent(userId)}/bots`)}`,
+export async function listBots(org: ActiveOrg): Promise<Bot[]> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/users/${encodeURIComponent(org.userId)}/bots`)}`,
+    { headers: await authorizedHeaders() },
   );
   const body = await readJson<{ bots: Bot[] }>(response);
   return body.bots;
 }
 
 export async function createChannel(
-  userId: string,
+  org: ActiveOrg,
   botIds: string[],
 ): Promise<Channel> {
-  const response = await authFetch(`${apiBase}${orgApiPath(tenantId, "/channels")}`, {
+  const response = await fetch(`${apiBase}${orgApiPath(org.tenantId, "/channels")}`, {
     method: "POST",
-    headers: {
+    headers: await authorizedHeaders({
       "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ user_id: userId, bot_ids: botIds }),
+    }),
+    body: JSON.stringify({ user_id: org.userId, bot_ids: botIds }),
   });
   return readJson<Channel>(response);
 }
 
 export async function postMessage(
+  org: ActiveOrg,
   channelId: string,
-  userId: string,
   body: string,
   addressedToBotId: string,
 ): Promise<PostMessageResponse> {
-  const response = await authFetch(
-    `${apiBase}${orgApiPath(tenantId, `/channels/${encodeURIComponent(channelId)}/messages`)}`,
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/messages`)}`,
     {
       method: "POST",
-      headers: {
+      headers: await authorizedHeaders({
         "Content-Type": "application/json",
-      },
+      }),
       body: JSON.stringify({
         author_kind: "human",
-        author_id: userId,
+        author_id: org.userId,
         body,
         addressed_to_bot_id: addressedToBotId,
       }),
@@ -114,17 +108,19 @@ export async function postMessage(
   return readJson<PostMessageResponse>(response);
 }
 
-export async function listTasks(userId: string): Promise<Task[]> {
-  const response = await authFetch(
-    `${apiBase}${orgApiPath(tenantId, `/users/${encodeURIComponent(userId)}/tasks`)}`,
+export async function listTasks(org: ActiveOrg): Promise<Task[]> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/users/${encodeURIComponent(org.userId)}/tasks`)}`,
+    { headers: await authorizedHeaders() },
   );
   const body = await readJson<{ tasks: Task[] }>(response);
   return body.tasks;
 }
 
-export async function getTask(taskId: string): Promise<Task> {
-  const response = await authFetch(
-    `${apiBase}${orgApiPath(tenantId, `/tasks/${encodeURIComponent(taskId)}`)}`,
+export async function getTask(org: ActiveOrg, taskId: string): Promise<Task> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/tasks/${encodeURIComponent(taskId)}`)}`,
+    { headers: await authorizedHeaders() },
   );
   return readJson<Task>(response);
 }
