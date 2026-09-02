@@ -34,7 +34,7 @@ def test_enable_organization_does_not_provision_computer() -> None:
     org = plane.create_organization(owner, "Anthus Labs", now=NOW)
     enabled = plane.enable_organization(org.tenant_id)
     assert enabled.status.value == "enabled"
-    assert plane._messaging_store.get_computer(org.tenant_id, owner.user_id) is None
+    assert plane._messaging_store.get_computer(org.tenant_id) is None
 
 
 def test_control_plane_org_methods_share_messaging_store() -> None:
@@ -103,7 +103,7 @@ def test_wall_clock_plane_does_not_freeze() -> None:
 def test_computer_for_unknown_user_raises() -> None:
     plane = ControlPlane()
     with pytest.raises(KeyError):
-        plane.computer_for_user("anthus", "ryan")
+        plane.computer_for_organization("anthus")
 
 
 def test_remember_on_unknown_bot_raises() -> None:
@@ -123,9 +123,10 @@ def test_heartbeat_at_exact_timeout_is_still_healthy() -> None:
 
 def test_newer_heartbeat_wins_among_same_cost_class() -> None:
     plane = ControlPlane()
-    plane.register_worker(_worker("mac-a", computer_id="a"))
+    plane.ensure_computer("anthus", computer_id="household-computer")
+    plane.register_worker(_worker("mac-a", computer_id="household-computer"))
     plane.advance_seconds(1)
-    plane.register_worker(_worker("mac-b", computer_id="b"))
+    plane.register_worker(_worker("mac-b", computer_id="household-computer"))
     job = plane.enqueue_turn("anthus", frozenset({"computer"}))
     assigned = plane.assign_turn(job)
     assert assigned is not None
@@ -134,8 +135,8 @@ def test_newer_heartbeat_wins_among_same_cost_class() -> None:
 
 def test_ensure_computer_is_idempotent() -> None:
     plane = ControlPlane()
-    first = plane.ensure_computer("anthus", "ryan")
-    second = plane.ensure_computer("anthus", "ryan")
+    first = plane.ensure_computer("anthus", computer_id="household-computer")
+    second = plane.ensure_computer("anthus", computer_id="household-computer")
     assert first.computer_id == second.computer_id
 
 
@@ -192,15 +193,15 @@ def test_worker_id_may_repeat_across_tenants() -> None:
 
 def test_duplicate_bot_name_for_one_user_is_rejected() -> None:
     plane = ControlPlane()
-    plane.create_bot("anthus", "ryan", "Researcher")
+    plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     with pytest.raises(DuplicateBotNameError):
-        plane.create_bot("anthus", "ryan", "Researcher")
+        plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
 
 
 def test_bot_turn_pins_to_the_user_computer() -> None:
     plane = ControlPlane()
-    computer = plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
-    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    computer = plane.ensure_computer("anthus", computer_id="household-computer")
+    bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
     job = plane.enqueue_turn(
         "anthus",
@@ -221,9 +222,9 @@ def test_computer_by_unknown_id_raises() -> None:
 
 def test_publish_snapshot_copies_disk_into_object_storage() -> None:
     plane = ControlPlane()
-    computer = plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    computer = plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
-    plane.write_workspace("anthus", "ryan", "notes.md", "weekly")
+    plane.write_workspace("anthus", "notes.md", "weekly")
     record = plane.publish_snapshot("household-computer", "fargate-1")
     assert record.snapshot_uri == plane.snapshot_uri_for(computer)
     assert record.workspace["notes.md"] == "weekly"
@@ -235,7 +236,7 @@ def test_publish_snapshot_copies_disk_into_object_storage() -> None:
 
 def test_relocate_without_snapshot_raises() -> None:
     plane = ControlPlane()
-    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
     with pytest.raises(SnapshotRequiredError):
         plane.relocate_computer("household-computer", "garage-mac-1")
@@ -243,34 +244,34 @@ def test_relocate_without_snapshot_raises() -> None:
 
 def test_dirty_disk_blocks_relocate() -> None:
     plane = ControlPlane()
-    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
     plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
-    plane.write_workspace("anthus", "ryan", "notes.md", "weekly")
+    plane.write_workspace("anthus", "notes.md", "weekly")
     plane.publish_snapshot("household-computer", "fargate-1")
-    plane.write_workspace("anthus", "ryan", "notes.md", "unsynced")
+    plane.write_workspace("anthus", "notes.md", "unsynced")
     with pytest.raises(ComputerDirtyError):
         plane.relocate_computer("household-computer", "garage-mac-1")
 
 
 def test_hydrate_restores_published_disk() -> None:
     plane = ControlPlane()
-    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
     plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
-    plane.write_workspace("anthus", "ryan", "notes.md", "published")
+    plane.write_workspace("anthus", "notes.md", "published")
     plane.publish_snapshot("household-computer", "fargate-1")
     plane.relocate_computer("household-computer", "garage-mac-1")
     plane.hydrate_computer("household-computer", "garage-mac-1")
-    assert plane.read_workspace("anthus", "ryan", "notes.md") == "published"
+    assert plane.read_workspace("anthus", "notes.md") == "published"
 
 
 def test_wrong_host_cannot_publish_or_hydrate() -> None:
     plane = ControlPlane()
-    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
     plane.register_worker(_worker("other-mac", computer_id="other-computer"))
-    plane.write_workspace("anthus", "ryan", "notes.md", "weekly")
+    plane.write_workspace("anthus", "notes.md", "weekly")
     with pytest.raises(WorkerDoesNotHostComputerError):
         plane.publish_snapshot("household-computer", "other-mac")
     plane.publish_snapshot("household-computer", "fargate-1")
@@ -286,21 +287,21 @@ def test_wrong_host_cannot_publish_or_hydrate() -> None:
 
 def test_publish_while_hydrate_required_raises() -> None:
     plane = ControlPlane()
-    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
     plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
-    plane.write_workspace("anthus", "ryan", "notes.md", "weekly")
+    plane.write_workspace("anthus", "notes.md", "weekly")
     plane.publish_snapshot("household-computer", "fargate-1")
     plane.relocate_computer("household-computer", "garage-mac-1")
     with pytest.raises(ComputerNotHydratedError):
         plane.publish_snapshot("household-computer", "garage-mac-1")
     with pytest.raises(ComputerNotHydratedError):
-        plane.save_browser_session("anthus", "ryan", "salesforce", "signed-in")
+        plane.save_browser_session("anthus", "salesforce", "signed-in")
 
 
 def test_hydrate_without_snapshot_raises() -> None:
     plane = ControlPlane()
-    plane.ensure_computer("anthus", "ryan", computer_id="household-computer")
+    plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
     with pytest.raises(SnapshotRequiredError):
         plane.hydrate_computer("household-computer", "garage-mac-1")

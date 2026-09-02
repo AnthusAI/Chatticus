@@ -73,7 +73,7 @@ def test_members_cli_list_and_enable_without_computer(
 
     organization = plane.get_organization(tenant_id)
     assert organization.status == OrganizationStatus.ENABLED
-    assert plane._messaging_store.get_computer(tenant_id, owner_id) is None
+    assert plane._messaging_store.get_computer(tenant_id) is None
 
 
 def test_members_cli_enable_requires_pending(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -160,7 +160,7 @@ def test_members_cli_reinstate_round_trip(monkeypatch: pytest.MonkeyPatch) -> No
 
     organization = plane.get_organization(tenant_id)
     assert organization.status == OrganizationStatus.ENABLED
-    assert plane._messaging_store.get_computer(tenant_id, owner_id) is None
+    assert plane._messaging_store.get_computer(tenant_id) is None
 
 
 def test_members_cli_reinstate_requires_suspended(

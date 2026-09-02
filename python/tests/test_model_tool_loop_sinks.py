@@ -18,7 +18,7 @@ from chatticus.worker.tool_dispatch import GatedToolCall, dispatch_gated_tool
 
 
 def _turn_with_grant(plane: ControlPlane) -> tuple[str, str]:
-    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     _, turn = plane.post_channel_message(
         channel.channel_id,
@@ -35,8 +35,8 @@ def _turn_with_grant(plane: ControlPlane) -> tuple[str, str]:
 
 def test_dispatch_read_workspace_allows_granted_path() -> None:
     plane = ControlPlane()
-    plane.ensure_computer("anthus", "ryan")
-    plane.write_workspace("anthus", "ryan", "/workspace/research/notes.txt", "weekly")
+    plane.ensure_computer("anthus")
+    plane.write_workspace("anthus", "/workspace/research/notes.txt", "weekly")
     api = start_test_server(create_app(plane))
     _, turn_id = _turn_with_grant(plane)
     client = HttpTurnClient(api, "anthus")
@@ -102,9 +102,9 @@ def test_deny_model_tool_records_send_denial() -> None:
 
 def test_computerless_worker_reads_granted_file_through_http() -> None:
     plane = ControlPlane()
-    plane.ensure_computer("anthus", "ryan")
-    plane.write_workspace("anthus", "ryan", "/workspace/research/notes.txt", "weekly")
-    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    plane.ensure_computer("anthus")
+    plane.write_workspace("anthus", "/workspace/research/notes.txt", "weekly")
+    bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     _, turn = plane.post_channel_message(
         channel.channel_id,

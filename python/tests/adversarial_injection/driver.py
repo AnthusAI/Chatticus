@@ -126,8 +126,8 @@ class AdversarialInjectionDriver:
         if case.workspace_seed is None:
             return
         path, content = case.workspace_seed
-        self.plane.ensure_computer(TENANT_ID, USER_ID)
-        self.plane.write_workspace(TENANT_ID, USER_ID, path, content)
+        self.plane.ensure_computer(TENANT_ID)
+        self.plane.write_workspace(TENANT_ID, path, content)
 
     def _prepare_approval(self, case: InjectionCase) -> ApprovedOperation | None:
         if case.approval_setup is None:
@@ -153,14 +153,12 @@ class AdversarialInjectionDriver:
             return self.plane.gated_read_workspace(
                 TENANT_ID,
                 TURN_ID,
-                USER_ID,
                 args["path"],
             )
         if sink == "gated_write":
             self.plane.gated_write_workspace(
                 TENANT_ID,
                 TURN_ID,
-                USER_ID,
                 args["path"],
                 args.get("content", ""),
             )

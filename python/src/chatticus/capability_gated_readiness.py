@@ -60,7 +60,7 @@ class CapabilityGatedTurnDriver:
 
     def given_stopped_computer(self) -> None:
         """Mark the household computer stopped with no capability gates ready."""
-        self.plane.set_computer_stopped(self.tenant_id, self.user_id, True)
+        self.plane.set_computer_stopped(self.tenant_id, True)
         self.readiness = ComputerCapabilityReadiness(
             model_ready=False,
             workspace_ready=False,
@@ -92,7 +92,9 @@ class CapabilityGatedTurnDriver:
         if not self._phases:
             msg = "Turn work plan is not configured."
             raise ValueError(msg)
-        bot = self.plane.create_bot(self.tenant_id, self.user_id, "Assistant")
+        bot = self.plane.create_bot(
+            self.tenant_id, "Assistant", creator_user_id=self.user_id
+        )
         channel = self.plane.create_channel(self.tenant_id, self.user_id, [bot.bot_id])
         _, started = self.plane.post_channel_message(
             channel.channel_id,
@@ -141,7 +143,7 @@ class CapabilityGatedTurnDriver:
 
     def mark_computer_ready(self) -> None:
         """Clear capability gates after the household computer finishes booting."""
-        self.plane.set_computer_stopped(self.tenant_id, self.user_id, False)
+        self.plane.set_computer_stopped(self.tenant_id, False)
         self.readiness.workspace_ready = True
         self.readiness.browser_ready = True
 

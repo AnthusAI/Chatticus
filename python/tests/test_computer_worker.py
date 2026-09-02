@@ -81,19 +81,13 @@ def test_computer_worker_leaves_job_queued_without_host_executor() -> None:
         job for job in plane._jobs if job.job_id == setup.continuation_job.job_id
     ]
     assert len(remaining) == 1
-    assert (
-        plane.computer_for_user(setup.tenant_id, setup.user_id).host_start_generation
-        == 1
-    )
+    assert plane.computer_for_organization(setup.tenant_id).host_start_generation == 1
     with pytest.raises(ComputerWorkerHostNotReady):
         ComputerWorker(
             plane,
             HttpTurnClient(api, setup.tenant_id),
         ).run_job(setup.continuation_job)
-    assert (
-        plane.computer_for_user(setup.tenant_id, setup.user_id).host_start_generation
-        == 1
-    )
+    assert plane.computer_for_organization(setup.tenant_id).host_start_generation == 1
     api.close()
 
 
@@ -108,10 +102,7 @@ def test_computer_worker_nacks_host_not_ready_on_a_second_process() -> None:
             worker_plane,
             HttpTurnClient(api, setup.tenant_id),
         ).run_job(setup.continuation_job)
-    assert (
-        door.computer_for_user(setup.tenant_id, setup.user_id).host_start_generation
-        == 1
-    )
+    assert door.computer_for_organization(setup.tenant_id).host_start_generation == 1
     api.close()
 
 
@@ -169,7 +160,7 @@ def test_computer_worker_continues_structured_handoff_journal() -> None:
     driver.plane.commit_pending_computer_tool(driver.tenant_id, driver.turn_id)
     driver.plane.enqueue_computer_continuation(driver.tenant_id, driver.turn_id)
     driver.plane.relinquish_computerless_ownership(driver.tenant_id, driver.turn_id)
-    driver.plane.set_computer_stopped(driver.tenant_id, driver.user_id, False)
+    driver.plane.set_computer_stopped(driver.tenant_id, False)
     driver.plane.record_computer_capability_ready(
         driver.tenant_id, driver.user_id, BROWSER_CAPABILITY
     )
@@ -319,7 +310,7 @@ def test_computer_worker_hydrates_waiting_turn_after_process_recycle() -> None:
     store = InMemoryMessagingStore()
     plane = ControlPlane(messaging_store=store)
     api = _client_for(plane)
-    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     post = api.post(
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
@@ -334,7 +325,7 @@ def test_computer_worker_hydrates_waiting_turn_after_process_recycle() -> None:
     client = HttpTurnClient(api, channel.tenant_id)
     client.claim(turn_id, "waiting-worker")
     client.post_waiting(turn_id, "browser")
-    plane.set_computer_stopped("anthus", "ryan", False)
+    plane.set_computer_stopped("anthus", False)
     plane.record_computer_capability_ready("anthus", "ryan", BROWSER_CAPABILITY)
     job = plane.resume_waiting_turn(channel.tenant_id, turn_id)
     api.close()

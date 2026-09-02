@@ -19,13 +19,13 @@ def test_computer_host_boot_records_browser_gate_after_chromium_probe() -> None:
     ):
         result = driver.boot_through_browser()
     xvfb.start.assert_called_once()
-    readiness = plane.computer_capability_readiness(driver.tenant_id, driver.user_id)
+    readiness = plane.computer_capability_readiness(driver.tenant_id)
     assert readiness.is_ready("model") is True
     assert readiness.is_ready("workspace") is True
     assert readiness.is_ready(BROWSER_CAPABILITY) is True
     assert result.chromium_version == "Chromium 120.0.0.0"
     assert driver.readiness_order == ["model", "workspace", BROWSER_CAPABILITY]
-    assert plane.computer_for_user(driver.tenant_id, driver.user_id).stopped is False
+    assert plane.computer_for_organization(driver.tenant_id).stopped is False
 
 
 def test_computer_worker_commits_tool_result_with_chromium_executor() -> None:

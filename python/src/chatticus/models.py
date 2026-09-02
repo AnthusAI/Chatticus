@@ -74,7 +74,7 @@ class WorkerTenantMismatchError(ChatticusError):
 
 
 class DuplicateBotNameError(ChatticusError):
-    """Bot names are unique per tenant user."""
+    """Bot names are unique per tenant."""
 
 
 class SnapshotRequiredError(ChatticusError):
@@ -351,7 +351,6 @@ class Bot:
 
     bot_id: str
     tenant_id: str
-    user_id: str
     name: str
     memory: dict[str, str] = field(default_factory=dict)
 
@@ -375,7 +374,7 @@ class ComputerSnapshot:
 
 @dataclass
 class Computer:
-    """User-scoped workplace. Shared by every bot of that user.
+    """Organization-scoped workplace. Shared by every member and bot.
 
     Local and AWS workers that host this workplace share the same
     ``computer_id``. That is how a pin survives failover from a garage Mac
@@ -389,7 +388,6 @@ class Computer:
 
     computer_id: str
     tenant_id: str
-    user_id: str
     policy: ComputerPolicy = ComputerPolicy.PREFER_LOCAL
     workspace: dict[str, str] = field(default_factory=dict)
     browser_sessions: dict[str, str] = field(default_factory=dict)
@@ -422,9 +420,17 @@ class Channel:
 
     channel_id: str
     tenant_id: str
-    user_id: str
     participants: list[ChannelParticipant] = field(default_factory=list)
     next_seq: int = 1
+
+
+def primary_human_participant(channel: Channel) -> str:
+    """Return the first human participant on a channel."""
+    for participant in channel.participants:
+        if participant.kind == ActorKind.HUMAN:
+            return participant.actor_id
+    msg = f"Channel {channel.channel_id!r} has no human participants."
+    raise ActorNotInChannelError(msg)
 
 
 @dataclass(frozen=True)

@@ -31,7 +31,6 @@ def test_grant_persists_across_recycled_control_plane() -> None:
             second.gated_read_workspace(
                 "anthus",
                 "turn-1",
-                "ryan",
                 "/workspace/secrets/notes.txt",
             )
 
@@ -45,12 +44,11 @@ def test_grant_allow_path_survives_recycled_plane_with_workspace() -> None:
         first = ControlPlane(messaging_store=store)
         first.set_turn_capability_grant("anthus", "turn-1", research_grant())
         second = ControlPlane(messaging_store=store)
-        second.ensure_computer("anthus", "ryan")
+        second.ensure_computer("anthus")
         assert (
             second.gated_read_workspace(
                 "anthus",
                 "turn-1",
-                "ryan",
                 "/workspace/research/notes.txt",
             )
             is None
@@ -64,7 +62,7 @@ def test_http_grant_and_gated_read_use_durable_store() -> None:
         create_messaging_table(client, table_name)
         store = DynamoMessagingStore(table_name, client=client)
         plane = ControlPlane(messaging_store=store)
-        bot = plane.create_bot("anthus", "ryan", "Researcher")
+        bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
         channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
         _, turn = plane.post_channel_message(
             channel.channel_id,

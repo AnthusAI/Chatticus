@@ -21,7 +21,7 @@ class ComputerHostReadinessDriver:
 
     def given_stopped_computer(self) -> None:
         """Ensure the household computer exists and is stopped."""
-        self.plane.set_computer_stopped(self.tenant_id, self.user_id, True)
+        self.plane.set_computer_stopped(self.tenant_id, True)
 
     def boot_through_workspace(self) -> None:
         """Clear model and workspace gates, leaving browser cold."""
@@ -40,4 +40,4 @@ class ComputerHostReadinessDriver:
 
     def readiness(self) -> object:
         """Return the computer's recorded capability readiness."""
-        return self.plane.computer_capability_readiness(self.tenant_id, self.user_id)
+        return self.plane.computer_capability_readiness(self.tenant_id)

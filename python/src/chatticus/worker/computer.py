@@ -61,23 +61,22 @@ class ComputerWorker:
     def _dispatch_host_start_if_needed(
         self,
         tenant_id: str,
-        user_id: str,
         turn_id: str,
     ) -> None:
         """Invoke the host-start driver once per durable generation."""
-        claim = self.plane.request_computer_host_start(tenant_id, user_id, turn_id)
-        computer = self.plane.computer_for_user(tenant_id, user_id)
+        claim = self.plane.request_computer_host_start(tenant_id, turn_id)
+        computer = self.plane.computer_for_organization(tenant_id)
         if computer.host_start_dispatched_generation >= computer.host_start_generation:
             return
         if not self.plane.mark_host_start_dispatched(
-            tenant_id, user_id, computer.host_start_generation
+            tenant_id, computer.host_start_generation
         ):
             return
         try:
             self.host_starter.start_host(claim)
         except Exception as exc:
             self.plane.release_host_start_dispatch(
-                tenant_id, user_id, computer.host_start_generation
+                tenant_id, computer.host_start_generation
             )
             raise ComputerWorkerHostNotReady(
                 f"Turn {turn_id!r} host start failed: {exc}."
@@ -87,15 +86,13 @@ class ComputerWorker:
         """Return whether a real computer host can run one pending tool call."""
         if self.action_executor is None:
             return False
-        if job.user_id is None:
-            return False
-        computer = self.plane.computer_for_user(job.tenant_id, job.user_id)
+        computer = self.plane.computer_for_organization(job.tenant_id)
         if computer.stopped:
             return False
         capability = capability_for_computer_tool(tool_name)
-        return self.plane.computer_capability_readiness(
-            job.tenant_id, job.user_id
-        ).is_ready(capability)
+        return self.plane.computer_capability_readiness(job.tenant_id).is_ready(
+            capability
+        )
 
     def complete_pending_for_bot(self, bot_id: str) -> None:
         """Run every queued computer continuation job for one bot."""
@@ -135,10 +132,7 @@ class ComputerWorker:
             if not unresolved and pending is None:
                 return
             tool_name = pending.tool_name if pending is not None else "computer"
-            if job.user_id is not None:
-                self._dispatch_host_start_if_needed(
-                    job.tenant_id, job.user_id, job.turn_id
-                )
+            self._dispatch_host_start_if_needed(job.tenant_id, job.turn_id)
             raise ComputerWorkerHostNotReady(
                 f"Turn {job.turn_id!r} has no ready computer host for {tool_name!r}."
             )
@@ -147,10 +141,7 @@ class ComputerWorker:
             return
         tool_name = record.pending_call.tool_name
         if unresolved and not self._host_ready_for_tool(job, tool_name):
-            if job.user_id is not None:
-                self._dispatch_host_start_if_needed(
-                    job.tenant_id, job.user_id, job.turn_id
-                )
+            self._dispatch_host_start_if_needed(job.tenant_id, job.turn_id)
             raise ComputerWorkerHostNotReady(
                 f"Turn {job.turn_id!r} has no ready computer host for {tool_name!r}."
             )

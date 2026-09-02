@@ -14,6 +14,7 @@ from chatticus.models import (
     ComputerlessCannotExecuteComputerJob,
     TurnJob,
     TurnStatus,
+    primary_human_participant,
 )
 from chatticus.vendor_ledger import (
     BILLED_VIA_VENDOR,
@@ -351,11 +352,11 @@ class ComputerlessWorker:
         bot_id = job.bot_id or turn.bot_id
         if bot_id is None:
             raise RuntimeError("Gated tool requires a bot-addressed turn.")
-        bot = self.plane.bot(job.tenant_id, bot_id)
+        channel = self.plane.channel(job.tenant_id, turn.channel_id)
         result = dispatch_gated_tool(
             self.turn_client,
             turn_id=job.turn_id,
-            user_id=bot.user_id,
+            user_id=primary_human_participant(channel),
             call=outcome.gated_tool_call,
         )
         answer = self._answer_for_gated_tool(outcome.text, result)
@@ -382,10 +383,10 @@ class ComputerlessWorker:
         bot_id = job.bot_id or turn.bot_id
         if bot_id is None:
             raise RuntimeError("Task tool requires a bot-addressed turn.")
-        bot = self.plane.bot(job.tenant_id, bot_id)
+        channel = self.plane.channel(job.tenant_id, turn.channel_id)
         task = self.turn_client.invoke_task_tool(
             bot_id,
-            bot.user_id,
+            primary_human_participant(channel),
             outcome.task_tool_call.action,
             outcome.task_tool_call.arguments,
         )

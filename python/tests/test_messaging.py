@@ -35,6 +35,7 @@ from chatticus.models import (
     TurnJob,
     TurnNotWaitingError,
     TurnStatus,
+    primary_human_participant,
 )
 from chatticus.turn_recovery import logical_enqueue_id
 from chatticus.worker.computer import ComputerWorker
@@ -51,7 +52,7 @@ from chatticus.worker.openai_completion import (
 
 
 def _channel_with_bot(plane: ControlPlane, name: str = "Researcher"):
-    bot = plane.create_bot("anthus", "ryan", name)
+    bot = plane.create_bot("anthus", name, creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     return bot, channel
 
@@ -87,8 +88,8 @@ def test_cursor_from_last_event_id() -> None:
 def test_list_channel_messages_after_query_skips_earlier_seq() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
-    researcher = plane.create_bot("anthus", "ryan", "Researcher")
-    writer = plane.create_bot("anthus", "ryan", "Writer")
+    researcher = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
+    writer = plane.create_bot("anthus", "Writer", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [researcher.bot_id, writer.bot_id])
     api.post(
         org_path("anthus", f"/channels/{channel.channel_id}/messages"),
@@ -169,7 +170,7 @@ def test_dynamo_logical_enqueue_survives_a_new_control_plane() -> None:
         turn_enqueued=capture,
         recovery_enabled=True,
     )
-    bot = first.create_bot("anthus", "ryan", "Assistant")
+    bot = first.create_bot("anthus", "Assistant", creator_user_id="ryan")
     channel = first.create_channel("anthus", "ryan", [bot.bot_id])
     _, started = first.post_channel_message(
         channel.channel_id,
@@ -242,7 +243,7 @@ def test_dynamo_bot_memory_survives_a_new_control_plane() -> None:
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
-    bot = first.create_bot("anthus", "ryan", "Researcher")
+    bot = first.create_bot("anthus", "Researcher", creator_user_id="ryan")
     first.remember("anthus", bot.bot_id, "voice", "short and direct")
     second = ControlPlane(messaging_store=store)
     loaded = second.bot("anthus", bot.bot_id)
@@ -265,7 +266,7 @@ def test_dynamo_bot_memory_survives_a_new_control_plane() -> None:
 def test_remember_hydrates_bot_on_a_new_control_plane() -> None:
     store = InMemoryMessagingStore()
     first = ControlPlane(messaging_store=store)
-    bot = first.create_bot("anthus", "ryan", "Researcher")
+    bot = first.create_bot("anthus", "Researcher", creator_user_id="ryan")
     second = ControlPlane(messaging_store=store)
     second.remember("anthus", bot.bot_id, "voice", "short and direct")
     assert second.memory("anthus", bot.bot_id, "voice") == "short and direct"
@@ -277,7 +278,9 @@ def test_dynamo_remember_hydrates_bot_on_a_new_control_plane() -> None:
     client = boto3.client("dynamodb", region_name="us-east-1")
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
-    bot = ControlPlane(messaging_store=store).create_bot("anthus", "ryan", "Researcher")
+    bot = ControlPlane(messaging_store=store).create_bot(
+        "anthus", "Researcher", creator_user_id="ryan"
+    )
     second = ControlPlane(messaging_store=store)
     second.remember("anthus", bot.bot_id, "voice", "short and direct")
     assert second.memory("anthus", bot.bot_id, "voice") == "short and direct"
@@ -286,7 +289,7 @@ def test_dynamo_remember_hydrates_bot_on_a_new_control_plane() -> None:
 def test_http_bot_memory_write_on_a_new_control_plane() -> None:
     store = InMemoryMessagingStore()
     first = ControlPlane(messaging_store=store)
-    bot = first.create_bot("anthus", "ryan", "Researcher")
+    bot = first.create_bot("anthus", "Researcher", creator_user_id="ryan")
     api = _client_for(ControlPlane(messaging_store=store))
     remembered = api.post(
         org_path("anthus", f"/bots/{bot.bot_id}/memory"),
@@ -302,23 +305,23 @@ def test_http_lookup_bot_by_name() -> None:
     api = _client_for(plane)
     created = api.post(
         org_path("anthus", "/bots"),
-        json={"user_id": "ryan", "name": "Researcher"},
+        json={"name": "Researcher"},
     )
     bot_id = created.json()["bot_id"]
     fetched = api.get(
         org_path("anthus", "/bots"),
-        params={"user_id": "ryan", "name": "Researcher"},
+        params={"name": "Researcher"},
     )
     assert fetched.status_code == 200
     assert fetched.json()["bot_id"] == bot_id
     missing = api.get(
         org_path("other", "/bots"),
-        params={"user_id": "ryan", "name": "Researcher"},
+        params={"name": "Researcher"},
     )
     assert missing.status_code == 404
     unknown = api.get(
         org_path("anthus", "/bots"),
-        params={"user_id": "ryan", "name": "Missing"},
+        params={"name": "Missing"},
     )
     assert unknown.status_code == 404
     api.close()
@@ -331,11 +334,11 @@ def test_http_lookup_bot_by_name_survives_a_new_control_plane() -> None:
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
-    bot = first.create_bot("anthus", "ryan", "Researcher")
+    bot = first.create_bot("anthus", "Researcher", creator_user_id="ryan")
     api = _client_for(ControlPlane(messaging_store=store))
     fetched = api.get(
         org_path("anthus", "/bots"),
-        params={"user_id": "ryan", "name": "Researcher"},
+        params={"name": "Researcher"},
     )
     assert fetched.status_code == 200
     assert fetched.json()["bot_id"] == bot.bot_id
@@ -347,25 +350,26 @@ def test_http_list_user_bots() -> None:
     api = _client_for(plane)
     researcher = api.post(
         org_path("anthus", "/bots"),
-        json={"user_id": "ryan", "name": "Researcher"},
+        json={"name": "Researcher"},
     )
     writer = api.post(
         org_path("anthus", "/bots"),
-        json={"user_id": "ryan", "name": "Writer"},
+        json={"name": "Writer"},
     )
-    api.post(
+    ops = api.post(
         org_path("anthus", "/bots"),
-        json={"user_id": "alex", "name": "Ops"},
+        json={"name": "Ops"},
     )
     listed = api.get(
         org_path("anthus", "/users/ryan/bots"),
     )
     assert listed.status_code == 200
     bots = listed.json()["bots"]
-    assert [bot["name"] for bot in bots] == ["Researcher", "Writer"]
+    assert [bot["name"] for bot in bots] == ["Ops", "Researcher", "Writer"]
     assert {bot["bot_id"] for bot in bots} == {
         researcher.json()["bot_id"],
         writer.json()["bot_id"],
+        ops.json()["bot_id"],
     }
     empty = api.get(
         org_path("other", "/users/ryan/bots"),
@@ -383,24 +387,28 @@ def test_http_list_user_bots_survives_a_new_control_plane() -> None:
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
     ensure_test_org(first)
-    researcher = first.create_bot("anthus", "ryan", "Researcher")
-    writer = first.create_bot("anthus", "ryan", "Writer")
-    first.create_bot("anthus", "alex", "Ops")
+    researcher = first.create_bot("anthus", "Researcher", creator_user_id="ryan")
+    writer = first.create_bot("anthus", "Writer", creator_user_id="ryan")
+    ops = first.create_bot("anthus", "Ops", creator_user_id="alex")
     api = _client_for(ControlPlane(messaging_store=store))
     listed = api.get(
         org_path("anthus", "/users/ryan/bots"),
     )
     assert listed.status_code == 200
     bots = listed.json()["bots"]
-    assert [bot["name"] for bot in bots] == ["Researcher", "Writer"]
-    assert {bot["bot_id"] for bot in bots} == {researcher.bot_id, writer.bot_id}
+    assert [bot["name"] for bot in bots] == ["Ops", "Researcher", "Writer"]
+    assert {bot["bot_id"] for bot in bots} == {
+        researcher.bot_id,
+        writer.bot_id,
+        ops.bot_id,
+    }
     api.close()
 
 
 def test_http_list_user_channels() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
-    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     first = api.post(
         org_path("anthus", "/channels"),
         json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
@@ -413,7 +421,9 @@ def test_http_list_user_channels() -> None:
         org_path("anthus", "/channels"),
         json={
             "user_id": "alex",
-            "bot_ids": [plane.create_bot("anthus", "alex", "Ops").bot_id],
+            "bot_ids": [
+                plane.create_bot("anthus", "Ops", creator_user_id="alex").bot_id
+            ],
         },
     )
     listed = api.get(
@@ -440,13 +450,13 @@ def test_http_list_user_channels_survives_a_new_control_plane() -> None:
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
     ensure_test_org(first)
-    bot = first.create_bot("anthus", "ryan", "Researcher")
+    bot = first.create_bot("anthus", "Researcher", creator_user_id="ryan")
     first_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
     second_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
     first.create_channel(
         "anthus",
         "alex",
-        [first.create_bot("anthus", "alex", "Ops").bot_id],
+        [first.create_bot("anthus", "Ops", creator_user_id="alex").bot_id],
     )
     api = _client_for(ControlPlane(messaging_store=store))
     listed = api.get(
@@ -463,11 +473,11 @@ def test_http_list_user_channels_survives_a_new_control_plane() -> None:
 def test_http_list_user_active_turns() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
-    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     first = plane.create_channel("anthus", "ryan", [bot.bot_id])
     second = plane.create_channel("anthus", "ryan", [bot.bot_id])
     idle = plane.create_channel("anthus", "ryan", [bot.bot_id])
-    other_bot = plane.create_bot("anthus", "alex", "Ops")
+    other_bot = plane.create_bot("anthus", "Ops", creator_user_id="alex")
     other_channel = plane.create_channel("anthus", "alex", [other_bot.bot_id])
     first_turn = plane.post_channel_message(
         first.channel_id,
@@ -522,7 +532,7 @@ def test_http_list_user_active_turns_survives_a_new_control_plane() -> None:
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
-    bot = first.create_bot("anthus", "ryan", "Researcher")
+    bot = first.create_bot("anthus", "Researcher", creator_user_id="ryan")
     first_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
     second_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
     first_turn = first.post_channel_message(
@@ -562,7 +572,7 @@ def test_http_list_user_active_turns_omits_completed() -> None:
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
     plane = ControlPlane(messaging_store=store)
-    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     done_channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     live_channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     done_turn = plane.post_channel_message(
@@ -616,9 +626,9 @@ def test_http_list_user_active_turns_omits_completed() -> None:
 def test_http_get_user_computer() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
-    plane.create_bot("anthus", "ryan", "Researcher")
-    plane.set_computer_stopped("anthus", "ryan", True)
-    expected = plane.computer_for_user("anthus", "ryan")
+    plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
+    plane.set_computer_stopped("anthus", True)
+    expected = plane.computer_for_organization("anthus")
     fetched = api.get(
         org_path("anthus", "/users/ryan/computer"),
     )
@@ -626,7 +636,6 @@ def test_http_get_user_computer() -> None:
     payload = fetched.json()
     assert payload["computer_id"] == expected.computer_id
     assert payload["stopped"] is True
-    assert payload["user_id"] == "ryan"
     assert payload["host_start_generation"] == 0
     missing = api.get(
         org_path("other", "/users/ryan/computer"),
@@ -642,9 +651,9 @@ def test_http_get_user_computer_survives_a_new_control_plane() -> None:
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
-    first.create_bot("anthus", "ryan", "Researcher")
-    first.set_computer_stopped("anthus", "ryan", True)
-    expected = first.computer_for_user("anthus", "ryan")
+    first.create_bot("anthus", "Researcher", creator_user_id="ryan")
+    first.set_computer_stopped("anthus", True)
+    expected = first.computer_for_organization("anthus")
     api = _client_for(ControlPlane(messaging_store=store))
     fetched = api.get(
         org_path("anthus", "/users/ryan/computer"),
@@ -689,9 +698,7 @@ def test_http_get_computer_sees_host_start_from_a_second_process() -> None:
     assert primed.status_code == 200
     assert primed.json()["host_start_generation"] == 0
     worker_plane = ControlPlane(messaging_store=store)
-    worker_plane.request_computer_host_start(
-        "anthus", "ryan", "host-start-from-second-process"
-    )
+    worker_plane.request_computer_host_start("anthus", "host-start-from-second-process")
     fetched = api.get(
         org_path("anthus", "/users/ryan/computer"),
     )
@@ -707,26 +714,18 @@ def test_dynamo_host_start_dispatch_is_claimed_once() -> None:
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
     plane = ControlPlane(messaging_store=store)
-    plane.ensure_computer("anthus", "ryan")
-    plane.request_computer_host_start("anthus", "ryan", "turn-a")
-    computer = plane.computer_for_user("anthus", "ryan")
-    first = plane.mark_host_start_dispatched(
-        "anthus", "ryan", computer.host_start_generation
-    )
-    second = plane.mark_host_start_dispatched(
-        "anthus", "ryan", computer.host_start_generation
-    )
+    plane.ensure_computer("anthus", computer_id="household-computer")
+    plane.request_computer_host_start("anthus", "turn-a")
+    computer = plane.computer_for_organization("anthus")
+    first = plane.mark_host_start_dispatched("anthus", computer.host_start_generation)
+    second = plane.mark_host_start_dispatched("anthus", computer.host_start_generation)
     other = ControlPlane(messaging_store=store)
-    third = other.mark_host_start_dispatched(
-        "anthus", "ryan", computer.host_start_generation
-    )
+    third = other.mark_host_start_dispatched("anthus", computer.host_start_generation)
     assert first is True
     assert second is False
     assert third is False
-    plane.release_host_start_dispatch("anthus", "ryan", computer.host_start_generation)
-    fourth = plane.mark_host_start_dispatched(
-        "anthus", "ryan", computer.host_start_generation
-    )
+    plane.release_host_start_dispatch("anthus", computer.host_start_generation)
+    fourth = plane.mark_host_start_dispatched("anthus", computer.host_start_generation)
     assert fourth is True
 
 
@@ -905,7 +904,7 @@ def test_http_bot_memory_roundtrip() -> None:
     api = _client_for(plane)
     created = api.post(
         org_path("anthus", "/bots"),
-        json={"user_id": "ryan", "name": "Researcher"},
+        json={"name": "Researcher"},
     )
     bot_id = created.json()["bot_id"]
     remembered = api.post(
@@ -1009,7 +1008,7 @@ def test_cpu_turn_does_not_pin_computer() -> None:
 def test_computerless_worker_commits_one_answer_with_fake_openai() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
-    plane.set_computer_stopped("anthus", "ryan", True)
+    plane.set_computer_stopped("anthus", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     api.post(
         org_path("anthus", f"/channels/{channel.channel_id}/messages"),
@@ -1026,7 +1025,7 @@ def test_computerless_worker_commits_one_answer_with_fake_openai() -> None:
         FakeTextCompletionClient(),
     )
     worker.complete_pending_for_bot(bot.bot_id)
-    assert plane.computer_is_stopped("anthus", "ryan")
+    assert plane.computer_is_stopped("anthus")
     messages = api.get(
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
     ).json()["messages"]
@@ -1039,7 +1038,7 @@ def test_computerless_worker_commits_one_answer_with_fake_openai() -> None:
 def test_computerless_worker_waits_when_the_model_needs_the_browser() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
-    plane.set_computer_stopped("anthus", "ryan", True)
+    plane.set_computer_stopped("anthus", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
         org_path("anthus", f"/channels/{channel.channel_id}/messages"),
@@ -1081,7 +1080,7 @@ def test_computerless_worker_waits_when_the_model_needs_the_browser() -> None:
 def test_computerless_worker_does_not_recall_model_on_a_waiting_turn() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
-    plane.set_computer_stopped("anthus", "ryan", True)
+    plane.set_computer_stopped("anthus", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
         org_path("anthus", f"/channels/{channel.channel_id}/messages"),
@@ -1109,7 +1108,7 @@ def test_computerless_worker_does_not_recall_model_on_a_waiting_turn() -> None:
             job_id=str(uuid4()),
             tenant_id=channel.tenant_id,
             required_capabilities=frozenset({"cpu"}),
-            user_id=channel.user_id,
+            user_id=primary_human_participant(channel),
             bot_id=bot.bot_id,
             turn_id=turn_id,
         )
@@ -1144,7 +1143,7 @@ def test_computerless_worker_commits_one_answer_with_live_openai() -> None:
     model = os.environ.get("OPENAI_MODEL", "gpt-5.6-luna").strip() or "gpt-5.6-luna"
     plane = ControlPlane()
     api = _client_for(plane)
-    plane.set_computer_stopped("anthus", "ryan", True)
+    plane.set_computer_stopped("anthus", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
         org_path("anthus", f"/channels/{channel.channel_id}/messages"),
@@ -1163,7 +1162,7 @@ def test_computerless_worker_commits_one_answer_with_live_openai() -> None:
         OpenAITextCompletionClient(api_key, model),
     )
     worker.complete_pending_for_bot(bot.bot_id)
-    assert plane.computer_is_stopped("anthus", "ryan")
+    assert plane.computer_is_stopped("anthus")
     turn = plane.turn(channel.tenant_id, turn_id)
     assert turn.status == TurnStatus.COMPLETED
     messages = api.get(
@@ -1328,7 +1327,7 @@ def test_http_waiting_emits_gate_and_releases_claim() -> None:
         headers=_worker_headers(api, worker_id="waiting-worker"),
     )
     assert stale.status_code == 409
-    plane.set_computer_stopped("anthus", "ryan", True)
+    plane.set_computer_stopped("anthus", True)
     refused = api.post(
         org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
         headers=_worker_headers(api, worker_id="waiting-worker"),
@@ -1406,7 +1405,7 @@ def test_resume_enqueues_the_same_turn_when_the_computer_is_running() -> None:
     client.claim(turn_id, "waiting-worker")
     client.post_chunk(turn_id, "Here is a draft.")
     client.post_waiting(turn_id, "browser")
-    plane.set_computer_stopped("anthus", "ryan", False)
+    plane.set_computer_stopped("anthus", False)
     resumed = api.post(
         org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
         headers=_worker_headers(api, worker_id="resume-worker"),
@@ -1567,7 +1566,6 @@ def test_http_get_channel_roundtrip() -> None:
     payload = fetched.json()
     assert payload["channel_id"] == channel.channel_id
     assert payload["tenant_id"] == channel.tenant_id
-    assert payload["user_id"] == channel.user_id
     missing = api.get(
         org_path("other", f"/channels/{channel.channel_id}"),
     )
@@ -1607,7 +1605,9 @@ def test_dynamo_channel_create_idempotency_survives_a_new_control_plane() -> Non
     client = boto3.client("dynamodb", region_name="us-east-1")
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
-    bot = ControlPlane(messaging_store=store).create_bot("anthus", "ryan", "Assistant")
+    bot = ControlPlane(messaging_store=store).create_bot(
+        "anthus", "Assistant", creator_user_id="ryan"
+    )
     first = ControlPlane(messaging_store=store)
     channel = first.create_channel(
         "anthus", "ryan", [bot.bot_id], idempotency_key="retry-ch"
@@ -1623,7 +1623,7 @@ def test_resume_does_not_publish_computer_job_to_cpu_queue() -> None:
     captured: list[TurnJob] = []
     plane = ControlPlane(turn_enqueued=captured.append)
     api = _client_for(plane)
-    plane.set_computer_stopped("anthus", "ryan", True)
+    plane.set_computer_stopped("anthus", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
         org_path("anthus", f"/channels/{channel.channel_id}/messages"),
@@ -1642,7 +1642,7 @@ def test_resume_does_not_publish_computer_job_to_cpu_queue() -> None:
     ).complete_pending_for_bot(bot.bot_id)
     cpu_ids = {job.job_id for job in captured}
     assert cpu_ids
-    plane.set_computer_stopped("anthus", "ryan", False)
+    plane.set_computer_stopped("anthus", False)
     resumed = api.post(
         org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
         headers=_worker_headers(api, worker_id="resume-worker"),
@@ -1664,7 +1664,7 @@ def test_resume_publishes_computer_job_to_computer_queue() -> None:
         computer_enqueued=computer_jobs.append,
     )
     api = _client_for(plane)
-    plane.set_computer_stopped("anthus", "ryan", True)
+    plane.set_computer_stopped("anthus", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
         org_path("anthus", f"/channels/{channel.channel_id}/messages"),
@@ -1681,7 +1681,7 @@ def test_resume_publishes_computer_job_to_computer_queue() -> None:
         HttpTurnClient(api, channel.tenant_id),
         FakeTextCompletionClient(),
     ).complete_pending_for_bot(bot.bot_id)
-    plane.set_computer_stopped("anthus", "ryan", False)
+    plane.set_computer_stopped("anthus", False)
     resumed = api.post(
         org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
         headers=_worker_headers(api, worker_id="resume-worker"),
@@ -1698,7 +1698,7 @@ def test_resume_publishes_computer_job_to_computer_queue() -> None:
 def test_computerless_worker_refuses_a_computer_continuation_job() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
-    plane.set_computer_stopped("anthus", "ryan", True)
+    plane.set_computer_stopped("anthus", True)
     bot, channel = _channel_with_bot(plane, "Assistant")
     post = api.post(
         org_path("anthus", f"/channels/{channel.channel_id}/messages"),
@@ -1718,7 +1718,7 @@ def test_computerless_worker_refuses_a_computer_continuation_job() -> None:
     )
     worker.complete_pending_for_bot(bot.bot_id)
     assert counting.calls == 1
-    plane.set_computer_stopped("anthus", "ryan", False)
+    plane.set_computer_stopped("anthus", False)
     resumed = api.post(
         org_path(channel.tenant_id, f"/turns/{turn_id}/resume"),
         headers=_worker_headers(api, worker_id="resume-worker"),
@@ -1789,21 +1789,21 @@ def test_turn_completes_without_sse_watcher() -> None:
 def test_bot_and_stopped_computer_survive_a_new_control_plane() -> None:
     store = InMemoryMessagingStore()
     first = ControlPlane(messaging_store=store)
-    bot = first.create_bot("anthus", "ryan", "Researcher")
-    first.set_computer_stopped("anthus", "ryan", True)
+    bot = first.create_bot("anthus", "Researcher", creator_user_id="ryan")
+    first.set_computer_stopped("anthus", True)
     second = ControlPlane(messaging_store=store)
     channel = second.create_channel("anthus", "ryan", [bot.bot_id])
-    assert second.computer_is_stopped("anthus", "ryan")
+    assert second.computer_is_stopped("anthus")
     assert channel.participants[-1].actor_id == bot.bot_id
 
 
 def test_duplicate_bot_name_survives_a_new_control_plane() -> None:
     store = InMemoryMessagingStore()
     first = ControlPlane(messaging_store=store)
-    first.create_bot("anthus", "ryan", "Researcher")
+    first.create_bot("anthus", "Researcher", creator_user_id="ryan")
     second = ControlPlane(messaging_store=store)
     with pytest.raises(DuplicateBotNameError):
-        second.create_bot("anthus", "ryan", "Researcher")
+        second.create_bot("anthus", "Researcher", creator_user_id="ryan")
 
 
 @mock_aws
@@ -1813,10 +1813,10 @@ def test_dynamo_duplicate_bot_name_survives_a_new_control_plane() -> None:
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
-    first.create_bot("anthus", "ryan", "Researcher")
+    first.create_bot("anthus", "Researcher", creator_user_id="ryan")
     second = ControlPlane(messaging_store=store)
     with pytest.raises(DuplicateBotNameError):
-        second.create_bot("anthus", "ryan", "Researcher")
+        second.create_bot("anthus", "Researcher", creator_user_id="ryan")
 
 
 def test_http_duplicate_bot_name_is_rejected() -> None:
@@ -1824,12 +1824,12 @@ def test_http_duplicate_bot_name_is_rejected() -> None:
     api = _client_for(plane)
     created = api.post(
         org_path("anthus", "/bots"),
-        json={"user_id": "ryan", "name": "Researcher"},
+        json={"name": "Researcher"},
     )
     assert created.status_code == 200
     duplicate = api.post(
         org_path("anthus", "/bots"),
-        json={"user_id": "ryan", "name": "Researcher"},
+        json={"name": "Researcher"},
     )
     assert duplicate.status_code == 400
     api.close()
@@ -1860,10 +1860,12 @@ def test_dynamo_bot_create_idempotency_survives_a_new_control_plane() -> None:
     create_messaging_table(client, table_name)
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
-    bot = first.create_bot("anthus", "ryan", "Researcher", idempotency_key="retry-bot")
+    bot = first.create_bot(
+        "anthus", "Researcher", creator_user_id="ryan", idempotency_key="retry-bot"
+    )
     second = ControlPlane(messaging_store=store)
     again = second.create_bot(
-        "anthus", "ryan", "Researcher", idempotency_key="retry-bot"
+        "anthus", "Researcher", creator_user_id="ryan", idempotency_key="retry-bot"
     )
     assert again.bot_id == bot.bot_id
 

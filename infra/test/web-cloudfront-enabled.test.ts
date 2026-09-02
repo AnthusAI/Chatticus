@@ -12,12 +12,9 @@ describe("WEB_CLOUDFRONT_ENABLED", () => {
     }
   });
 
-  it("keeps development reachable", () => {
-    assert.equal(WEB_CLOUDFRONT_ENABLED.development, true);
-  });
-
-  it("disables staging and production CloudFront without stack destroy", () => {
-    assert.equal(WEB_CLOUDFRONT_ENABLED.staging, false);
-    assert.equal(WEB_CLOUDFRONT_ENABLED.production, false);
+  it("keeps all environments reachable via CloudFront", () => {
+    for (const environment of CHATTICUS_CLOUD_ENVIRONMENTS) {
+      assert.equal(WEB_CLOUDFRONT_ENABLED[environment], true);
+    }
   });
 });

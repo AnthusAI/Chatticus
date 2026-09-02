@@ -9,7 +9,7 @@ from messaging_steps import _channel, _turn_id
 
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.paths import org_path
-from chatticus.models import ActorKind
+from chatticus.models import ActorKind, primary_human_participant
 from chatticus.thin_turn_conversation import (
     ThinTurnConversationClient,
     TurnWatchOutcome,
@@ -23,7 +23,7 @@ def _demo_client(context: object) -> ThinTurnConversationClient:
         channel = _channel(context)
         client = ThinTurnConversationClient(
             tenant_id=channel.tenant_id,
-            user_id=channel.user_id,
+            user_id=primary_human_participant(channel),
             client=context.api_client,
         )
         context.demo_client = client

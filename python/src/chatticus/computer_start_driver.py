@@ -35,21 +35,19 @@ class SingleComputerStartDriver:
     def given_stopped_computer(self) -> None:
         """Ensure the household computer exists and is stopped."""
         if self.computer_id is not None:
-            self.plane.ensure_computer(
-                self.tenant_id, self.user_id, computer_id=self.computer_id
-            )
+            self.plane.ensure_computer(self.tenant_id, computer_id=self.computer_id)
         else:
-            self.plane.ensure_computer(self.tenant_id, self.user_id)
-        self.plane.set_computer_stopped(self.tenant_id, self.user_id, True)
+            self.plane.ensure_computer(self.tenant_id)
+        self.plane.set_computer_stopped(self.tenant_id, True)
 
     def _computer_id(self) -> str:
-        return self.plane.computer_for_user(self.tenant_id, self.user_id).computer_id
+        return self.plane.computer_for_organization(self.tenant_id).computer_id
 
     def request_host_start(self) -> None:
         """Request one host start for a single turn."""
         bot_count = len(self.plane._bots)
         bot = self.plane.create_bot(
-            self.tenant_id, self.user_id, f"Researcher-{bot_count + 1}"
+            self.tenant_id, f"Researcher-{bot_count + 1}", creator_user_id=self.user_id
         )
         channel = self.plane.create_channel(self.tenant_id, self.user_id, [bot.bot_id])
         _, turn = self.plane.post_channel_message(
@@ -62,16 +60,12 @@ class SingleComputerStartDriver:
         )
         assert turn is not None
         self._last_turn_id = turn.turn_id
-        self.plane.request_computer_host_start(
-            self.tenant_id, self.user_id, turn.turn_id
-        )
+        self.plane.request_computer_host_start(self.tenant_id, turn.turn_id)
 
     def retry_host_start(self) -> None:
         """Retry the same turn's host start without expiring the claim."""
         assert self._last_turn_id is not None
-        self.plane.request_computer_host_start(
-            self.tenant_id, self.user_id, self._last_turn_id
-        )
+        self.plane.request_computer_host_start(self.tenant_id, self._last_turn_id)
 
     def expire_host_start_lease(self) -> None:
         """Advance past the host-start lease without granting a live writer."""
@@ -80,12 +74,12 @@ class SingleComputerStartDriver:
 
     def host_start_count(self) -> int:
         """Return the lifetime host-start count for the household computer."""
-        computer = self.plane.computer_for_user(self.tenant_id, self.user_id)
+        computer = self.plane.computer_for_organization(self.tenant_id)
         return computer.host_start_generation
 
     def disk_write_lock_held(self) -> bool:
         """Return whether any host still holds the disk write lock."""
-        computer = self.plane.computer_for_user(self.tenant_id, self.user_id)
+        computer = self.plane.computer_for_organization(self.tenant_id)
         key = (self.tenant_id, computer.computer_id)
         claim = self.plane._host_starts.get(key)
         if claim is None:
@@ -99,13 +93,11 @@ class SingleComputerStartDriver:
     def publish_remote_snapshot_generation(self, generation: int) -> None:
         """Publish snapshots until the computer reaches one generation."""
         computer_id = self._computer_id()
-        computer = self.plane.computer_for_user(self.tenant_id, self.user_id)
+        computer = self.plane.computer_for_organization(self.tenant_id)
         while computer.snapshot_generation < generation:
-            self.plane.write_workspace(
-                self.tenant_id, self.user_id, "notes.md", "published"
-            )
+            self.plane.write_workspace(self.tenant_id, "notes.md", "published")
             self.plane.publish_snapshot(computer_id, "fargate-1")
-            computer = self.plane.computer_for_user(self.tenant_id, self.user_id)
+            computer = self.plane.computer_for_organization(self.tenant_id)
 
     def select_start_host(self) -> str | None:
         """Choose which host should start the stopped computer."""
@@ -120,8 +112,12 @@ class SingleComputerStartDriver:
 
     def request_two_turns_concurrently(self) -> SingleComputerStartOutcome:
         """Issue two start requests without an intervening host boot."""
-        researcher = self.plane.create_bot(self.tenant_id, self.user_id, "Researcher")
-        writer = self.plane.create_bot(self.tenant_id, self.user_id, "Writer")
+        researcher = self.plane.create_bot(
+            self.tenant_id, "Researcher", creator_user_id=self.user_id
+        )
+        writer = self.plane.create_bot(
+            self.tenant_id, "Writer", creator_user_id=self.user_id
+        )
         channel = self.plane.create_channel(
             self.tenant_id, self.user_id, [researcher.bot_id, writer.bot_id]
         )
@@ -142,15 +138,11 @@ class SingleComputerStartDriver:
             addressed_to_bot_id=writer.bot_id,
         )
         assert first is not None and second is not None
-        claim_a = self.plane.request_computer_host_start(
-            self.tenant_id, self.user_id, first.turn_id
-        )
-        claim_b = self.plane.request_computer_host_start(
-            self.tenant_id, self.user_id, second.turn_id
-        )
+        claim_a = self.plane.request_computer_host_start(self.tenant_id, first.turn_id)
+        claim_b = self.plane.request_computer_host_start(self.tenant_id, second.turn_id)
         write_a = self.plane.acquire_computer_disk_write(claim_a.computer_id, "host-a")
         write_b = self.plane.acquire_computer_disk_write(claim_b.computer_id, "host-b")
-        claim = self.plane.host_start_claim(self.tenant_id, self.user_id)
+        claim = self.plane.host_start_claim(self.tenant_id)
         outcome = SingleComputerStartOutcome(
             host_start_count=claim.host_start_count,
             computer_ids=[claim_a.computer_id, claim_b.computer_id],

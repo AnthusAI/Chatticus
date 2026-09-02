@@ -59,7 +59,7 @@ def then_task_status(context: object, status: str) -> None:
 
 @then('the task records bot "{bot_name}" as provenance')
 def then_task_provenance(context: object, bot_name: str) -> None:
-    bot = context.plane.bot_by_name(context.task_driver.tenant_id, "ryan", bot_name)
+    bot = context.plane.bot_by_name(context.task_driver.tenant_id, bot_name)
     assert context.last_task is not None
     assert context.last_task.created_by_bot_id == bot.bot_id
 

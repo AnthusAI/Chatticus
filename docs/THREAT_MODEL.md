@@ -13,13 +13,14 @@ pages. That is the product. The risk is not incidental to it.
 
 Two facts set the blast radius:
 
-- **Bots are not a security boundary.** The user is. Every bot on a user
-  shares `/workspace`, browser cookies, and command-line credentials.
+- **Bots are not a security boundary.** The organization is. Every bot in
+  an organization shares `/workspace`, browser cookies, and command-line
+  credentials.
 - **Connectors are account-wide.** Their availability is not scoped to
   one bot.
 
-So anything that captures one bot mid-task reaches everything that user's
-computer can reach.
+So anything that captures one bot mid-task reaches everything that
+organization's computer can reach.
 
 ## The primary attack: injection through page content
 

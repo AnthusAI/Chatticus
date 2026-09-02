@@ -36,11 +36,18 @@ export const WEB_SITE_DOMAINS: Record<ChatticusCloudEnvironment, string> = {
   production: "hey.chattic.us",
 };
 
+/** Production marketing apex; dev/staging use a single app domain (no split). */
+export const WEB_MARKETING_DOMAINS: Partial<
+  Record<ChatticusCloudEnvironment, string>
+> = {
+  production: "chattic.us",
+};
+
 /** CloudFront ``enabled`` on ChatticusWeb* stacks (disable staging/prod without destroy). */
 export const WEB_CLOUDFRONT_ENABLED: Record<ChatticusCloudEnvironment, boolean> = {
   development: true,
-  staging: false,
-  production: false,
+  staging: true,
+  production: true,
 };
 
 export function thinTurnParameterPrefix(environment: ChatticusCloudEnvironment): string {

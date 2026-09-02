@@ -95,7 +95,7 @@ def test_host_worker_runs_waiting_turn_when_sqs_is_empty() -> None:
     store = InMemoryMessagingStore()
     plane = ControlPlane(messaging_store=store)
     api = _client_for(plane)
-    bot = plane.create_bot("anthus", "ryan", "Researcher")
+    bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     post = api.post(
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
@@ -110,7 +110,7 @@ def test_host_worker_runs_waiting_turn_when_sqs_is_empty() -> None:
     client = HttpTurnClient(api, channel.tenant_id)
     client.claim(turn_id, "waiting-worker")
     client.post_waiting(turn_id, "browser")
-    plane.set_computer_stopped("anthus", "ryan", False)
+    plane.set_computer_stopped("anthus", False)
     boot = ComputerHostBootDriver(plane, tenant_id=channel.tenant_id, user_id="ryan")
     with (
         patch.object(boot._xvfb, "start"),

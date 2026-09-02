@@ -66,30 +66,33 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-09-02.** Git **`main`** is at release `v0.9.0` (Google sign-in,
-membership branching, marketing at `/`, product workspace at `/chat`, Lottie avatars
-via Vultus 0.1.1). **`develop`** is ahead of `main`: it adds principal enforcement
-(#7b4616, deployed to development). Future work lands on `develop` and promotes
+**Last updated: 2026-09-02.** Git **`main`** and **`develop`** are aligned after
+the v0.10 promote: principal enforcement (#7b4616), sign-out ending the SSO
+session (#169), and the behavior-driven spec migration are on `main` and deployed
+across all three named environments. Future work lands on `develop` and promotes
 to `main` for release.
 
-### Deployed on development (`https://dev.chattic.us`)
+### Deployed across environments
 
-| Area | Status |
-| --- | --- |
-| ThinTurn API | Live at `https://dev.chattic.us/api` (CloudFront → Lambda) |
-| Google sign-in | Live — Cognito PKCE, `id_token` as SPA credential (#157–#161, #165) |
-| Membership UI | Live — signed-out, no-org, pending, enabled branches via `GET /me` (#162) |
-| Route enforcement | Live — every org route requires a Cognito `id_token` or worker bearer; only `/health` and `POST …/workers/register` are open (#7b4616, deployed) |
-| Web bundle | Live — marketing `/` and product `/chat` deployed (ChatticusWeb) |
+| Environment | ThinTurn API (enforcement) | Cognito Auth (sign-out) | Web bundle |
+| --- | --- | --- | --- |
+| development (`dev.chattic.us`) | Live — CloudFront → Lambda | Live — `logoutUrls` + `/auth/signout-callback` | Live — marketing `/` + product `/chat` (CF enabled) |
+| staging (`staging.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
+| production (`hey.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
 
-A seeded owner (`ryan@anth.us` → org `anthus`, enabled) can sign in with Google and
-reach the workspace (roster, health, chat shell). Operator org records are DynamoDB
+Every org route requires a Cognito `id_token` or worker bearer on all three
+environments; only `/health` and `POST …/workers/register` (invoke-key gated)
+are open. Live-verified on each environment: `/health` 200, `/me` 403, org
+route 403 with no credential.
+
+A seeded owner (`ryan@anth.us` → org `anthus`, enabled) can sign in with Google
+on development and reach the workspace. Operator org records are DynamoDB
 data, not CDK; see [Operator org seed](docs/OPERATOR_ORG_SEED.md).
 
-### In git `develop` but not necessarily deployed on development
+### In git `develop` but not necessarily deployed
 
-- Sign-out ends the Cognito/Google SSO session (#169, PR open) — needs a
-  `ChatticusAuth` + `ChatticusWeb` deploy before it is live on dev
+- Phase 5 org-scoping (6c1a9b, 0814e6, ddf609) — in flight; will drop
+  `user_id` from bot/channel/computer identity
 - Org-scoped HTTP, worker bearer credentials, members CLI, budgets stack, turn
   recovery kernel — same as before
 
