@@ -63,12 +63,12 @@ describe("SPA viewer-request rewrite", () => {
 });
 
 describe("production Host-based viewer-request routing", () => {
-  it("rewrites hey.chattic.us / to /chat/", () => {
+  it("rewrites hey.chattic.us / to /chat/index.html", () => {
     const request = runViewerRequest(
       productionSpaViewerRequest,
       viewerRequestEvent("/", "hey.chattic.us"),
     );
-    assert.equal(request.uri, "/chat/");
+    assert.equal(request.uri, "/chat/index.html");
   });
 
   it("leaves chattic.us / unchanged", () => {

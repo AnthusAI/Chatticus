@@ -36,9 +36,9 @@ export function buildSpaViewerRequestFunction(
     var isAuthPath = uri === "/auth/callback" || uri === "/auth/signout-callback";
     if (!isAuthPath) {
       if (uri === "/" || uri === "/index.html") {
-        request.uri = "/chat/";
+        request.uri = "/chat/index.html";
       } else if (uri === "/chat") {
-        request.uri = "/chat/";
+        request.uri = "/chat/index.html";
       }
     }
     uri = request.uri;
