@@ -3,7 +3,7 @@
   "title": "Implement authorized connections between organizations",
   "description": "Gherkin already exists in features/authorized_connections.feature (4 @wip scenarios) with StepNotImplementedError in authorized_connections_steps.py. Spec landed in PR 182.\n\nImplement the product: a connection is a clip (borrowed standing on a named channel, never the computer). Four scenarios must pass and drop @wip:\n1. Propose within ceiling -> authorized and clipped\n2. Propose outside ceiling -> refused\n3. Exceed requester ceiling -> escalate to nearest covering member\n4. Exceed every member ceiling -> stay blocked\n\nReuse ceiling/escalation/org channel setup already in steps. Gherkin-first (scenarios exist). Dual path not applicable (Python control plane). PR to develop. Do not touch web/ Footer or da7f95 brand work.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -19,11 +19,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "f5c6515d-ae11-464a-9787-5892d4edf0eb",
+      "author": "home",
+      "text": "Squash-merged PR 201 to develop (c539898f). Four connection scenarios pass; standing is not a consequential tool.",
+      "created_at": "2026-09-02T20:47:13.222029Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-02T20:41:02.259710Z",
-  "updated_at": "2026-09-02T20:41:30.082959Z",
-  "closed_at": null,
+  "updated_at": "2026-09-02T20:47:13.980955Z",
+  "closed_at": "2026-09-02T20:47:13.980857Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},
