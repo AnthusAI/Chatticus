@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
 import type { WorkspaceMember, WorkspaceMessage } from "./workspace/types";
+import { AuthCard, authErrorClassName, authOkClassName, authStatusClassName } from "./AuthCard";
 import { InviteMemberPanel } from "./InviteMemberPanel";
 import { TaskList } from "./TaskList";
 import { avatarActivityFromTurn, botAvatarStateFromActivity } from "../lib/avatar-state";
@@ -234,22 +235,21 @@ export function EnabledWorkspace({ activeOrg }: EnabledWorkspaceProps) {
 
   return (
     <>
-      <section className="card health">
-        <h2>Control plane</h2>
-        <p className="status">
+      <AuthCard title="Control plane">
+        <p className={authStatusClassName}>
           Organization: <code>{activeOrg.tenantId}</code>
         </p>
         {health ? (
-          <p className="status ok">
+          <p className={authOkClassName}>
             Health: {health.status ?? "ok"}
             {health.environment ? ` (${health.environment})` : ""}
           </p>
         ) : (
-          <p className="status error">
+          <p className={authErrorClassName}>
             Health check pending{healthError ? `: ${healthError}` : ""}
           </p>
         )}
-      </section>
+      </AuthCard>
 
       <InviteMemberPanel tenantId={activeOrg.tenantId} />
 
@@ -281,7 +281,7 @@ export function EnabledWorkspace({ activeOrg }: EnabledWorkspaceProps) {
         }}
       />
 
-      <section className="card">
+      <section className="rounded-2xl bg-surface-raised p-4 text-surface-foreground sm:p-5">
         <TaskList activeOrg={activeOrg} />
       </section>
     </>

@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthCard, authButtonClassName, authErrorClassName, authOkClassName, authStatusClassName } from "./AuthCard";
 import { useMembership } from "../lib/membership-context";
 
 export function SignInPanel() {
@@ -7,36 +8,34 @@ export function SignInPanel() {
 
   if (authLoading) {
     return (
-      <section className="card auth">
-        <h2>Sign in</h2>
-        <p className="status">Checking session…</p>
-      </section>
+      <AuthCard title="Sign in">
+        <p className={authStatusClassName}>Checking session…</p>
+      </AuthCard>
     );
   }
 
   return (
-    <section className="card auth">
-      <h2>Sign in</h2>
-      <p className="status">Sign in with Google to use Chatticus.</p>
-      {error ? <p className="status error">{error}</p> : null}
-      <button type="button" className="retry-button" onClick={() => void signIn()}>
+    <AuthCard title="Sign in">
+      <p className={authStatusClassName}>Sign in with Google to use Chatticus.</p>
+      {error ? <p className={authErrorClassName}>{error}</p> : null}
+      <button type="button" className={authButtonClassName} onClick={() => void signIn()}>
         Sign in with Google
       </button>
-    </section>
+    </AuthCard>
   );
 }
 
 function SignedInHeader() {
   const { session, signOut } = useMembership();
   return (
-    <section className="card auth">
-      <p className="status ok">
+    <AuthCard>
+      <p className={authOkClassName}>
         Signed in{session?.email ? ` as ${session.email}` : ""}.
       </p>
-      <button type="button" className="retry-button" onClick={() => void signOut()}>
+      <button type="button" className={authButtonClassName} onClick={() => void signOut()}>
         Sign out
       </button>
-    </section>
+    </AuthCard>
   );
 }
 

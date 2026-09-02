@@ -1,18 +1,17 @@
 "use client";
 
-import { SignInPanel } from "./SignInPanel";
+import { AuthCard, authStatusClassName } from "./AuthCard";
 
 export function NoOrganizationPanel() {
   return (
-    <section className="card membership">
-      <h2>No organization</h2>
-      <p className="status">
+    <AuthCard title="No organization">
+      <p className={authStatusClassName}>
         You are signed in, but no Chatticus organization is linked to this account
         yet.
       </p>
-      <p className="status">
+      <p className={authStatusClassName}>
         Ask an operator to invite you before using the workspace.
       </p>
-    </section>
+    </AuthCard>
   );
 }
