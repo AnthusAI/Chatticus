@@ -21,7 +21,6 @@ Feature: Authorized connections between organizations
     And organization "Anthus Labs" has shared channel "legal-review"
     And organization "Anthus Labs" has shared channel "executive-briefing"
 
-  @wip
   Scenario: A member proposes a connection within their authority ceiling
     Given organization "Anthus Labs" member "sam@example.com" has authority ceiling for structured "connection" with:
       | channel          | support-queue |
@@ -29,7 +28,6 @@ Feature: Authorized connections between organizations
     When "sam@example.com" proposes a connection for organization "Partner Co" to read shared channel "support-queue" in organization "Anthus Labs"
     Then the connection is authorized and clipped to "sam@example.com" ceiling
 
-  @wip
   Scenario: A member is refused when proposing a connection outside their authority ceiling
     Given organization "Anthus Labs" member "sam@example.com" has authority ceiling for structured "connection" with:
       | channel          | support-queue |
@@ -37,7 +35,6 @@ Feature: Authorized connections between organizations
     When "sam@example.com" tries to propose a connection for organization "Partner Co" to read shared channel "legal-review" in organization "Anthus Labs"
     Then proposing a connection outside the member authority ceiling is refused
 
-  @wip
   Scenario: A connection proposal exceeding the requester's ceiling routes to the nearest member whose ceiling covers it
     Given organization "Anthus Labs" member "sam@example.com" has authority ceiling for structured "connection" with:
       | channel          | support-queue |
@@ -49,7 +46,6 @@ Feature: Authorized connections between organizations
     And the connection proposal is routed for approval
     Then the connection proposal escalates to "ryan@example.com"
 
-  @wip
   Scenario: A connection proposal exceeding every member ceiling stays blocked
     Given organization "Anthus Labs" member "sam@example.com" has authority ceiling for structured "connection" with:
       | channel          | support-queue |

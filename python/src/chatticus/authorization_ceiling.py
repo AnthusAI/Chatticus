@@ -11,7 +11,11 @@ from chatticus.capability_policy import (
     TaskCapabilityGrant,
 )
 from chatticus.ceiling import Ceiling, grant_exceeds_ceiling
-from chatticus.models import CONSEQUENTIAL_ACTION_TYPES, MemberRole
+from chatticus.models import (
+    CONNECTION_STANDING_ACTION_TYPE,
+    CONSEQUENTIAL_ACTION_TYPES,
+    MemberRole,
+)
 
 STRUCTURED_ARGUMENT_ALIASES = {
     "recipient": "destination",
@@ -159,7 +163,19 @@ def member_authority_ceiling_from_structured_arguments(
     action_type: str,
     arguments: dict[str, str],
 ) -> MemberAuthorityCeiling:
-    """Build a member ceiling from one structured consequential binding table."""
+    """Build a member ceiling from one structured binding table."""
+    if action_type == CONNECTION_STANDING_ACTION_TYPE:
+        return MemberAuthorityCeiling(
+            grant_ceiling=Ceiling(
+                action_types=frozenset({CONNECTION_STANDING_ACTION_TYPE}),
+                origins=frozenset(),
+                recipients=frozenset(),
+                file_scopes=frozenset(),
+                egress_classes=frozenset(),
+                ingest_classes=frozenset(),
+            ),
+            structured_argument_bindings=tuple(sorted(arguments.items())),
+        )
     normalized = normalize_structured_arguments(arguments)
     recipient = normalized.get("destination")
     egress = _egress_for_action(action_type)
@@ -173,6 +189,25 @@ def member_authority_ceiling_from_structured_arguments(
             ingest_classes=frozenset(),
         ),
         structured_argument_bindings=tuple(sorted(arguments.items())),
+    )
+
+
+def connection_proposal_exceeds_member_authority_ceiling(
+    channel_name: str,
+    receiving_tenant_id: str,
+    member_ceiling: MemberAuthorityCeiling | None,
+) -> bool:
+    """Return whether a connection proposal exceeds one member's standing."""
+    if member_ceiling is None:
+        return True
+    attempted = {
+        "channel": channel_name,
+        "receiving_tenant": receiving_tenant_id,
+    }
+    ceiling_bindings = dict(member_ceiling.structured_argument_bindings)
+    return not structured_bindings_within_ceiling_bindings(
+        attempted,
+        ceiling_bindings,
     )
 
 

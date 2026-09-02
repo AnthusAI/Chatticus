@@ -60,6 +60,8 @@ CONSEQUENTIAL_ACTION_TYPES = frozenset(
     }
 )
 
+CONNECTION_STANDING_ACTION_TYPE = "connection"
+
 COST_CLASS_RANK = {
     CostClass.LOCAL: 0,
     CostClass.EC2: 1,
