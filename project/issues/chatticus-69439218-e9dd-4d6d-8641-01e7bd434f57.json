@@ -12,9 +12,20 @@
     "phase-4"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "6a3d928a-d695-4e12-822d-5117ac2557c7",
+      "author": "home",
+      "text": "e41552 acceptance: POST /organizations currently allows multiple pending orgs per user and unbounded name length. Fold those into this cap/alarm slice — one org per person unless an operator lifts it, plus a sane name bound so the waitlist write path cannot be stuffed.",
+      "created_at": "2026-09-02T16:15:31.862534Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-01T02:57:18.525663Z",
-  "updated_at": "2026-09-01T02:57:18.525663Z",
+  "updated_at": "2026-09-02T16:15:31.862534Z",
   "closed_at": null,
-  "custom": {}
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }
