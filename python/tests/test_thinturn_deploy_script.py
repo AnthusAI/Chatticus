@@ -186,8 +186,7 @@ def test_github_deploy_stack_trusts_thinturn_development_workflow() -> None:
         assert role_name in text
     assert "AdministratorAccess" in text
     assert (
-        '"token.actions.githubusercontent.com:environment": githubEnvironment'
-        in text
+        '"token.actions.githubusercontent.com:environment": githubEnvironment' in text
     )
 
     trusted_workflows_by_environment = {
