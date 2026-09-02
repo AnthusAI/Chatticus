@@ -64,6 +64,8 @@ for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
   const thinTurn = new ThinTurnStack(app, THIN_TURN_STACK_IDS[environmentName], {
     env,
     chatticusEnvironment: environmentName,
+    budgetsAlertsTopicArn,
+    budgetsMonthlyLimitUsd: budgetsConfig?.monthlyLimitUsd,
     description:
       `Zero-idle computerless turn (${environmentName}): DynamoDB, SQS, ` +
       "Lambda SSE front door.",

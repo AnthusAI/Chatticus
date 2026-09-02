@@ -5,6 +5,8 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as scheduler from "aws-cdk-lib/aws-scheduler";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { execSync } from "child_process";
@@ -37,6 +39,10 @@ const LAMBDA_WEB_ADAPTER_LAYER_VERSION = 28;
  */
 export interface ThinTurnStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
+  /** When set, budget alert recorder and rollup threshold SNS use this topic. */
+  budgetsAlertsTopicArn?: string;
+  /** Account monthly AWS budget limit; required for the daily rollup Lambda. */
+  budgetsMonthlyLimitUsd?: number;
 }
 
 export class ThinTurnStack extends cdk.Stack {
@@ -356,6 +362,93 @@ export class ThinTurnStack extends cdk.Stack {
         table,
         computerTurnQueue,
       );
+    }
+
+    if (props.budgetsMonthlyLimitUsd !== undefined) {
+      const budgetsAlertsTopicArn = props.budgetsAlertsTopicArn;
+      const rollupFunctionName = `chatticus-${environmentName}-daily-budget-rollup`;
+      const rollupScheduleGroupName = `chatticus-${environmentName}-budget-rollup`;
+      const rollupSchedulerRoleName = `chatticus-${environmentName}-budget-rollup-scheduler`;
+      const rollupScheduleGroup = new scheduler.CfnScheduleGroup(
+        this,
+        "BudgetRollupGroup",
+        { name: rollupScheduleGroupName },
+      );
+      const rollupFunction = new lambda.Function(this, "DailyBudgetRollup", {
+        functionName: rollupFunctionName,
+        runtime: lambda.Runtime.PYTHON_3_12,
+        handler: "chatticus.budget_rollup.lambda_handler.handler",
+        architecture: lambda.Architecture.X86_64,
+        memorySize: 256,
+        logRetention: CHATTICUS_LOG_RETENTION,
+        timeout: cdk.Duration.seconds(120),
+        description:
+          "EventBridge Scheduler target: daily AWS and vendor budget rollup.",
+        environment: {
+          ...sharedEnv,
+          CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD: String(props.budgetsMonthlyLimitUsd),
+          ...(budgetsAlertsTopicArn
+            ? { CHATTICUS_BUDGETS_ALERTS_TOPIC_ARN: budgetsAlertsTopicArn }
+            : {}),
+        },
+        code: httpCode,
+      });
+      table.grantReadWriteData(rollupFunction);
+      rollupFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["ce:GetCostAndUsage", "ce:GetTags"],
+          resources: ["*"],
+        }),
+      );
+      if (budgetsAlertsTopicArn) {
+        rollupFunction.addToRolePolicy(
+          new iam.PolicyStatement({
+            actions: ["sns:Publish"],
+            resources: [budgetsAlertsTopicArn],
+          }),
+        );
+      }
+      const rollupSchedulerRole = new iam.Role(this, "BudgetRollupSchedulerRole", {
+        roleName: rollupSchedulerRoleName,
+        assumedBy: new iam.ServicePrincipal("scheduler.amazonaws.com"),
+      });
+      rollupFunction.grantInvoke(rollupSchedulerRole);
+      new scheduler.CfnSchedule(this, "DailyBudgetRollupSchedule", {
+        name: `chatticus-${environmentName}-daily-budget-rollup`,
+        groupName: rollupScheduleGroup.name ?? rollupScheduleGroupName,
+        scheduleExpression: "cron(0 6 * * ? *)",
+        scheduleExpressionTimezone: "UTC",
+        flexibleTimeWindow: { mode: "OFF" },
+        target: {
+          arn: rollupFunction.functionArn,
+          roleArn: rollupSchedulerRole.roleArn,
+        },
+      });
+      rollupScheduleGroup.node.addDependency(rollupFunction);
+
+      if (budgetsAlertsTopicArn) {
+        const budgetsAlertsTopic = sns.Topic.fromTopicArn(
+          this,
+          "BudgetsAlertsTopic",
+          budgetsAlertsTopicArn,
+        );
+        const alertRecorderFunction = new lambda.Function(this, "BudgetAlertRecorder", {
+          runtime: lambda.Runtime.PYTHON_3_12,
+          handler: "chatticus.budget_rollup.alert_recorder.handler",
+          architecture: lambda.Architecture.X86_64,
+          memorySize: 256,
+          logRetention: CHATTICUS_LOG_RETENTION,
+          timeout: cdk.Duration.seconds(30),
+          description:
+            "Record AWS Budgets SNS alerts on durable account rollup rows.",
+          environment: sharedEnv,
+          code: httpCode,
+        });
+        table.grantReadWriteData(alertRecorderFunction);
+        budgetsAlertsTopic.addSubscription(
+          new subscriptions.LambdaSubscription(alertRecorderFunction),
+        );
+      }
     }
 
     new ssm.StringParameter(this, "FunctionUrlParameter", {

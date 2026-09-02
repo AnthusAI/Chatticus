@@ -70,3 +70,58 @@ describe("ThinTurnStack OpenAI key", () => {
     });
   }
 });
+
+describe("ThinTurnStack daily budget rollup", () => {
+  const topicArn = "arn:aws:sns:us-east-1:111111111111:chatticus-budgets-alerts";
+  const template = synthThinTurnStack("development", {
+    budgetsAlertsTopicArn: topicArn,
+    budgetsMonthlyLimitUsd: 120,
+  });
+
+  it("creates a scheduled daily rollup Lambda with Cost Explorer access", () => {
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Handler: "chatticus.budget_rollup.lambda_handler.handler",
+      Environment: {
+        Variables: Match.objectLike({
+          CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD: "120",
+          CHATTICUS_BUDGETS_ALERTS_TOPIC_ARN: topicArn,
+        }),
+      },
+    });
+    template.hasResourceProperties("AWS::IAM::Policy", {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(["ce:GetCostAndUsage"]),
+            Effect: "Allow",
+          }),
+        ]),
+      },
+    });
+  });
+
+  it("schedules one daily EventBridge Scheduler rollup", () => {
+    template.hasResourceProperties("AWS::Scheduler::Schedule", {
+      ScheduleExpression: "cron(0 6 * * ? *)",
+    });
+  });
+
+  it("records AWS Budgets alerts without republishing rollup messages", () => {
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Handler: "chatticus.budget_rollup.alert_recorder.handler",
+    });
+    template.hasResourceProperties("AWS::SNS::Subscription", {
+      Protocol: "lambda",
+    });
+  });
+});
+
+describe("ThinTurnStack without budget context", () => {
+  it("omits daily rollup Lambdas", () => {
+    const template = synthThinTurnStack("development");
+    const resources = template.findResources("AWS::Lambda::Function");
+    const serialized = JSON.stringify(resources);
+    assert.equal(serialized.includes("budget_rollup.lambda_handler"), false);
+    assert.equal(serialized.includes("budget_rollup.alert_recorder"), false);
+  });
+});

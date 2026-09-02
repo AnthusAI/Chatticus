@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import json
 import threading
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Protocol
 
+from chatticus.budget_rollup.models import (
+    BudgetAlertEvent,
+    BudgetRollupRow,
+    BudgetThresholdState,
+)
 from chatticus.capability_policy import (
     TaskCapabilityGrant,
     grant_from_payload,
@@ -310,6 +315,40 @@ class MessagingStore(Protocol):
     ) -> VendorLedgerRow:
         """Add token and optional cost deltas to an existing ledger row."""
 
+    def list_vendor_ledger_rows_for_tenant(
+        self, tenant_id: str
+    ) -> list[VendorLedgerRow]:
+        """Return every vendor ledger row for one tenant."""
+
+    def get_budget_rollup_row(
+        self, tenant_id: str, environment: str, rollup_date: date
+    ) -> BudgetRollupRow | None:
+        """Load one org-environment-day rollup row."""
+
+    def put_budget_rollup_row(self, row: BudgetRollupRow) -> BudgetRollupRow:
+        """Insert or replace one org-environment-day rollup row."""
+
+    def list_budget_rollup_rows_for_day(
+        self, tenant_id: str, environment: str, rollup_date: date
+    ) -> list[BudgetRollupRow]:
+        """Return rollup rows for one tenant, environment, and day."""
+
+    def get_account_budget_rollup_row(
+        self, environment: str, rollup_date: date
+    ) -> BudgetRollupRow | None:
+        """Load the account-level rollup row for one environment and day."""
+
+    def put_account_budget_rollup_row(self, row: BudgetRollupRow) -> BudgetRollupRow:
+        """Insert or replace the account-level rollup row."""
+
+    def get_budget_threshold_state(
+        self, environment: str
+    ) -> BudgetThresholdState | None:
+        """Load vendor threshold notification dedup state."""
+
+    def put_budget_threshold_state(self, state: BudgetThresholdState) -> None:
+        """Persist vendor threshold notification dedup state."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -339,6 +378,8 @@ class InMemoryMessagingStore:
         self._invitations: dict[str, Invitation] = {}
         self._workers: dict[tuple[str, str], WorkerRecord] = {}
         self._vendor_ledger: dict[tuple[str, str], VendorLedgerRow] = {}
+        self._budget_rollups: dict[tuple[str, str, str], BudgetRollupRow] = {}
+        self._budget_threshold_state: dict[str, BudgetThresholdState] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -830,6 +871,54 @@ class InMemoryMessagingStore:
             )
             self._vendor_ledger[key] = updated
             return updated
+
+    def list_vendor_ledger_rows_for_tenant(
+        self, tenant_id: str
+    ) -> list[VendorLedgerRow]:
+        rows = [
+            row
+            for (row_tenant_id, _turn_id), row in self._vendor_ledger.items()
+            if row_tenant_id == tenant_id
+        ]
+        return sorted(rows, key=lambda row: row.recorded_at)
+
+    def get_budget_rollup_row(
+        self, tenant_id: str, environment: str, rollup_date: date
+    ) -> BudgetRollupRow | None:
+        return self._budget_rollups.get(
+            (tenant_id, environment, rollup_date.isoformat())
+        )
+
+    def put_budget_rollup_row(self, row: BudgetRollupRow) -> BudgetRollupRow:
+        key = (row.tenant_id, row.environment, row.rollup_date.isoformat())
+        with self._lock:
+            self._budget_rollups[key] = row
+            return row
+
+    def list_budget_rollup_rows_for_day(
+        self, tenant_id: str, environment: str, rollup_date: date
+    ) -> list[BudgetRollupRow]:
+        row = self.get_budget_rollup_row(tenant_id, environment, rollup_date)
+        return [row] if row is not None else []
+
+    def get_account_budget_rollup_row(
+        self, environment: str, rollup_date: date
+    ) -> BudgetRollupRow | None:
+        from chatticus.budget_rollup.models import ACCOUNT_TENANT_ID
+
+        return self.get_budget_rollup_row(ACCOUNT_TENANT_ID, environment, rollup_date)
+
+    def put_account_budget_rollup_row(self, row: BudgetRollupRow) -> BudgetRollupRow:
+        return self.put_budget_rollup_row(row)
+
+    def get_budget_threshold_state(
+        self, environment: str
+    ) -> BudgetThresholdState | None:
+        return self._budget_threshold_state.get(environment)
+
+    def put_budget_threshold_state(self, state: BudgetThresholdState) -> None:
+        with self._lock:
+            self._budget_threshold_state[state.environment] = state
 
 
 class DynamoMessagingStore:
@@ -2115,6 +2204,100 @@ class DynamoMessagingStore:
             raise RuntimeError(msg)
         return stored
 
+    def list_vendor_ledger_rows_for_tenant(
+        self, tenant_id: str
+    ) -> list[VendorLedgerRow]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk",
+            ExpressionAttributeValues={
+                ":pk": {"S": self._vendor_ledger_pk(tenant_id)},
+            },
+        )
+        rows = [_vendor_ledger_from_item(item) for item in response.get("Items", [])]
+        return sorted(rows, key=lambda row: row.recorded_at)
+
+    def get_budget_rollup_row(
+        self, tenant_id: str, environment: str, rollup_date: date
+    ) -> BudgetRollupRow | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._budget_rollup_pk(tenant_id)},
+                "sk": {"S": self._budget_rollup_sk(environment, rollup_date)},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _budget_rollup_from_item(item)
+
+    def put_budget_rollup_row(self, row: BudgetRollupRow) -> BudgetRollupRow:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=_budget_rollup_item(row),
+        )
+        stored = self.get_budget_rollup_row(
+            row.tenant_id, row.environment, row.rollup_date
+        )
+        if stored is None:
+            msg = (
+                f"Budget rollup row for {row.tenant_id!r} "
+                f"{row.environment!r} on {row.rollup_date!r} was not persisted."
+            )
+            raise RuntimeError(msg)
+        return stored
+
+    def list_budget_rollup_rows_for_day(
+        self, tenant_id: str, environment: str, rollup_date: date
+    ) -> list[BudgetRollupRow]:
+        row = self.get_budget_rollup_row(tenant_id, environment, rollup_date)
+        return [row] if row is not None else []
+
+    def get_account_budget_rollup_row(
+        self, environment: str, rollup_date: date
+    ) -> BudgetRollupRow | None:
+        from chatticus.budget_rollup.models import ACCOUNT_TENANT_ID
+
+        return self.get_budget_rollup_row(ACCOUNT_TENANT_ID, environment, rollup_date)
+
+    def put_account_budget_rollup_row(self, row: BudgetRollupRow) -> BudgetRollupRow:
+        return self.put_budget_rollup_row(row)
+
+    def get_budget_threshold_state(
+        self, environment: str
+    ) -> BudgetThresholdState | None:
+        from chatticus.budget_rollup.models import ACCOUNT_TENANT_ID
+
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._budget_rollup_pk(ACCOUNT_TENANT_ID)},
+                "sk": {"S": self._budget_threshold_state_sk(environment)},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return BudgetThresholdState(
+            environment=environment,
+            last_notified_band=int(item["last_notified_band"]["N"]),
+            updated_at=datetime.fromisoformat(item["updated_at"]["S"]),
+        )
+
+    def put_budget_threshold_state(self, state: BudgetThresholdState) -> None:
+        from chatticus.budget_rollup.models import ACCOUNT_TENANT_ID
+
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._budget_rollup_pk(ACCOUNT_TENANT_ID)},
+                "sk": {"S": self._budget_threshold_state_sk(state.environment)},
+                "last_notified_band": {"N": str(state.last_notified_band)},
+                "updated_at": {"S": state.updated_at.isoformat()},
+            },
+        )
+
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
 
@@ -2177,6 +2360,15 @@ class DynamoMessagingStore:
 
     def _vendor_ledger_sk(self, turn_id: str) -> str:
         return f"turn#{turn_id}"
+
+    def _budget_rollup_pk(self, tenant_id: str) -> str:
+        return f"{tenant_id}#budget_rollup"
+
+    def _budget_rollup_sk(self, environment: str, rollup_date: date) -> str:
+        return f"{environment}#day#{rollup_date.isoformat()}"
+
+    def _budget_threshold_state_sk(self, environment: str) -> str:
+        return f"{environment}#threshold_state"
 
     def _bot_from_item(self, item: dict[str, Any]) -> Bot:
         memory_raw = item.get("memory", {}).get("S", "{}")
@@ -2573,6 +2765,64 @@ def _vendor_ledger_from_item(item: dict[str, Any]) -> VendorLedgerRow:
         cost_usd=_optional_decimal(item, "cost_usd"),
         recorded_at=datetime.fromisoformat(item["recorded_at"]["S"]),
     )
+
+
+def _budget_rollup_item(row: BudgetRollupRow) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "pk": {"S": f"{row.tenant_id}#budget_rollup"},
+        "sk": {"S": f"{row.environment}#day#{row.rollup_date.isoformat()}"},
+        "tenant_id": {"S": row.tenant_id},
+        "environment": {"S": row.environment},
+        "rollup_date": {"S": row.rollup_date.isoformat()},
+        "vendor_cost_usd": {"N": str(row.vendor_cost_usd)},
+        "ce_status": {"S": row.ce_status},
+        "updated_at": {"S": row.updated_at.isoformat()},
+        "alert_events": {
+            "S": json.dumps(_budget_alert_events_to_json(row.alert_events))
+        },
+    }
+    if row.aws_cost_usd is not None:
+        item["aws_cost_usd"] = {"N": str(row.aws_cost_usd)}
+    if row.combined_report_usd is not None:
+        item["combined_report_usd"] = {"N": str(row.combined_report_usd)}
+    return item
+
+
+def _budget_rollup_from_item(item: dict[str, Any]) -> BudgetRollupRow:
+    alert_events_raw = item.get("alert_events", {}).get("S", "[]")
+    alert_payloads = json.loads(alert_events_raw)
+    alert_events = tuple(
+        BudgetAlertEvent(
+            source=str(entry["source"]),
+            fired_at=datetime.fromisoformat(str(entry["fired_at"])),
+            detail=str(entry["detail"]),
+        )
+        for entry in alert_payloads
+    )
+    return BudgetRollupRow(
+        tenant_id=item["tenant_id"]["S"],
+        environment=item["environment"]["S"],
+        rollup_date=date.fromisoformat(item["rollup_date"]["S"]),
+        aws_cost_usd=_optional_decimal(item, "aws_cost_usd"),
+        vendor_cost_usd=Decimal(item["vendor_cost_usd"]["N"]),
+        combined_report_usd=_optional_decimal(item, "combined_report_usd"),
+        ce_status=item["ce_status"]["S"],
+        alert_events=alert_events,
+        updated_at=datetime.fromisoformat(item["updated_at"]["S"]),
+    )
+
+
+def _budget_alert_events_to_json(
+    events: tuple[BudgetAlertEvent, ...],
+) -> list[dict[str, str]]:
+    return [
+        {
+            "source": event.source,
+            "fired_at": event.fired_at.isoformat(),
+            "detail": event.detail,
+        }
+        for event in events
+    ]
 
 
 def create_messaging_table(client: Any, table_name: str) -> None:
