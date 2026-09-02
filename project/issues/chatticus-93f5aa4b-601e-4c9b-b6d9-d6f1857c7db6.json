@@ -38,10 +38,24 @@
       "text": "Merged https://github.com/AnthusAI/Chattic.us/pull/189 (acf72f5) to develop. Seven workflow_dispatch workflows + OIDC roles are on develop. Do not dispatch from a PR. Operator next: redeploy ChatticusGitHubDeploy, set staging/production AWS_DEPLOY_ROLE_ARN, add production required reviewers. Tear down /tmp/chatticus-93f5aa-gha-deploys.",
       "created_at": "2026-09-02T17:50:02.165711Z",
       "comment_type": "default"
+    },
+    {
+      "id": "4c4d483a-5789-4606-bf0a-bce0e173814a",
+      "author": "home",
+      "text": "Acceptance REJECT after merge: pytest test_github_deploy_stack_trusts_thinturn_development_workflow still expects an inline OIDC environment literal. TS synth tests are correct; the Python source-scan is stale. Hotfix on develop; do not reopen product scope.",
+      "created_at": "2026-09-02T17:52:24.610310Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "1339293f-afc7-40f6-8bc8-1b6c68790a59",
+      "author": "home",
+      "text": "Follow-up bug 788adf: pytest OIDC source-scan hotfix. Product workflows stay on develop.",
+      "created_at": "2026-09-02T17:53:02.314896Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-02T01:26:39.218285Z",
-  "updated_at": "2026-09-02T17:50:02.165711Z",
+  "updated_at": "2026-09-02T17:53:02.314896Z",
   "closed_at": "2026-09-02T17:50:02.153757Z",
   "custom": {}
 }

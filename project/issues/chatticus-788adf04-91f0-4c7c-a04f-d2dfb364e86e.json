@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-788adf04-91f0-4c7c-a04f-d2dfb364e86e",
+  "title": "Fix pytest OIDC source-scan after GitHubDeployStack helper refactor",
+  "description": "**Found by acceptance on #189 after merge.**\n\n`python/tests/test_thinturn_deploy_script.py::test_github_deploy_stack_trusts_thinturn_development_workflow` still expects the inline OIDC claim `\"token.actions.githubusercontent.com:environment\": \"development\"`. `github-deploy-stack.ts` now passes `githubEnvironment` into `createGithubDeployRole`. Infra synth tests already cover trust correctly.\n\nAlso add the new Auth/ThinTurn staging+production (and missing Auth development) deploy scripts to `DEPLOY_SCRIPT_STACKS` so `--exclusively` stays gated.\n\n**Do not:** change OIDC product behavior; dispatch workflows; cdk deploy.\n\n**Done when:** pytest green on develop for this file; PR merged to develop.",
+  "type": "bug",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-93f5aa4b-601e-4c9b-b6d9-d6f1857c7db6",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "19591484-6b5a-4f43-9ed2-9021896b550c",
+      "author": "home",
+      "text": "Implementing: Composer 2.5 in /tmp/chatticus-788adf-pytest-hotfix. Update stale OIDC source-scan; add new deploy scripts to DEPLOY_SCRIPT_STACKS. No OIDC behavior change.",
+      "created_at": "2026-09-02T17:52:56.278047Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-02T17:52:42.594982Z",
+  "updated_at": "2026-09-02T17:52:56.278047Z",
+  "closed_at": null,
+  "custom": {}
+}
