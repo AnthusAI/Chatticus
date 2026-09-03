@@ -27,19 +27,19 @@ export const metadata: Metadata = {
 
 const steps = [
   {
-    label: "One place, not one inbox each",
-    title: "A file saved by one bot is visible to every bot.",
-    body: "Files live in one shared workspace for the organization, not a separate folder or inbox per bot — nothing gets stuck behind a single bot that isn't running right now.",
+    label: "Talk and think, nothing running",
+    title: "A bot can respond with no computer at all.",
+    body: "Reasoning and plenty of tools don't need a browser or a desktop underneath them — a bot can act on those the moment it's addressed.",
   },
   {
-    label: "Pick up, not start over",
-    title: "The next bot continues from what's already there.",
-    body: "A bot can keep working from files a different bot saved earlier — no re-explaining the task, no re-uploading the same document.",
+    label: "Touch a file, no browser required",
+    title: "Reading a shared file is its own fast capability.",
+    body: "It doesn't wait on a browser stack to come up — a bot can read or write a shared file well before a full computer session would be ready.",
   },
   {
-    label: "Durable, not disposable",
-    title: "A restart doesn't empty the cabinet.",
-    body: "Files live in the same durable snapshot as the rest of the computer, so they survive a restart or a handoff between hosts.",
+    label: "The full computer, only when the work needs it",
+    title: "A real browser starts only for work that needs one.",
+    body: "A site with no API, a form only a browser can fill — that's what actually pulls in the full computer. Most work never needs it.",
   },
 ];
 
@@ -48,19 +48,19 @@ const roadmap = [
     icon: Check,
     label: "Live foundation",
     color: "bg-signal",
-    body: "Files placed on the computer are visible to every bot and person in the organization — not sandboxed per bot — and durable across restarts.",
+    body: "Files in the shared workspace are visible to every bot in the organization today, and reading one is its own capability gate — separate from waiting on the full browser stack.",
   },
   {
     icon: FlaskConical,
     label: "Proven in development",
     color: "bg-sea",
-    body: "The same snapshot mechanism that reliably starts one shared computer across concurrent turns carries the files with it, host to host.",
+    body: "The same durable snapshot mechanism that reliably starts one shared computer across concurrent turns already carries the files with it, host to host.",
   },
   {
     icon: CircleDashed,
     label: "Shipping next",
     color: "bg-amber",
-    body: "A dedicated file browser in the product app, instead of relying on the computer's own file system view.",
+    body: "A single, organization-wide filing cabinet on EFS — one source of truth every bot and every computer reads and writes directly, instead of each host hydrating its own copy from a snapshot.",
   },
 ];
 
@@ -71,17 +71,18 @@ export default function SharedFilesPage() {
       <main id="main-content">
         <section className="bg-surface">
           <div className="mx-auto max-w-[92rem] px-5 py-20 sm:px-8 sm:py-28 lg:px-12">
-            <Badge variant="clay">One filing cabinet, not one inbox each</Badge>
+            <Badge variant="clay">Three separate things, not one bundle</Badge>
             <h1 className="mt-7 max-w-4xl font-display text-[clamp(3rem,7vw,6rem)] leading-[0.9] tracking-[-0.06em]">
-              One filing cabinet.
-              <span className="block italic text-clay">Every bot can reach it.</span>
+              A bot doesn&rsquo;t need a computer
+              <span className="block italic text-clay">to touch a file.</span>
             </h1>
             <p className="mt-8 max-w-2xl font-body text-lg leading-relaxed text-ink-soft">
-              Every bot and every person in the organization reads and writes
-              the same files, in the same shared workspace. A document one
-              bot drafts is already there for the next one — no separate
-              copy, no re-uploading, no hunting through a bot&rsquo;s own
-              private folder to find it.
+              Talking to a bot, running a computer, and reading a shared file
+              are three separate capabilities in Chatticus — they don&rsquo;t
+              all boot together as one bundle. All three read and write the
+              same filing cabinet: a file one bot saves is already there for
+              the next one, whether or not either one ever starts a
+              computer.
             </p>
           </div>
         </section>
@@ -147,9 +148,9 @@ export default function SharedFilesPage() {
             </div>
             <a
               className="mt-12 inline-flex min-h-11 items-center gap-2 font-mono text-[0.65rem] uppercase tracking-[0.12em] underline decoration-2 underline-offset-4 transition hover:text-cobalt focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
-              href="https://github.com/AnthusAI/Chattic.us/blob/develop/docs/PRODUCT.md#one-computer-per-organization"
+              href="https://github.com/AnthusAI/Chattic.us/blob/develop/docs/COMPUTER_MANIFOLD.md"
             >
-              Read the product spec
+              Read the design memo
               <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
             </a>
           </div>

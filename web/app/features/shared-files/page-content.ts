@@ -6,9 +6,9 @@
 export const SHARED_FILES_PAGE_CONTENT = {
   title: "Shared Files | Chatticus",
   description:
-    "One filing cabinet every bot and person in the organization can reach -- not a separate inbox or folder per bot, no re-uploading, no siloed copies.",
+    "Talking to a bot, running a computer, and reading a shared file are three separate capabilities in Chatticus, not one bundle -- and every bot reads and writes the same filing cabinet.",
   ogTitle: "Shared Files",
-  ogDescription: "One filing cabinet every bot can reach. No siloed copies, no re-uploading.",
-  ogHeadline: "One filing cabinet. Every bot can reach it.",
-  ogTagline: "A file one bot saves, the next bot can already see.",
+  ogDescription: "A bot doesn't need a computer just to touch a file. One filing cabinet, every bot can reach it.",
+  ogHeadline: "A bot doesn't need a computer to touch a file.",
+  ogTagline: "Talking, running a computer, and reading a file are three separate things.",
 } as const;
