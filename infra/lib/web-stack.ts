@@ -149,11 +149,27 @@ export class WebStack extends cdk.Stack {
       },
     });
 
-    const webRoot = path.join(__dirname, "../../web");
+    const repoRoot = path.join(__dirname, "../..");
+    const webRoot = path.join(repoRoot, "web");
     const websiteSources = props.websiteDeploySource
       ? [props.websiteDeploySource]
       : [
-          s3deploy.Source.asset(webRoot, {
+          s3deploy.Source.asset(repoRoot, {
+            exclude: [
+              "**/node_modules",
+              ".git",
+              "python",
+              "computer",
+              "features",
+              "docs",
+              "project",
+              "spikes",
+              "infra/cdk.out",
+              "infra/dist",
+              "web/.next",
+              "web/out",
+              ".venv",
+            ],
             bundling: {
               image: cdk.DockerImage.fromRegistry(WEB_BUNDLE_DOCKER_IMAGE),
               command: ["bash", "-c", webDockerBundleCommand(environmentName)],
@@ -163,7 +179,7 @@ export class WebStack extends cdk.Stack {
                     execSync(
                       `${WEB_LOCAL_BUNDLE_AWS_CLI_CHECK} && ${webLocalBundleCommand(environmentName)}`,
                       {
-                        cwd: webRoot,
+                        cwd: repoRoot,
                         stdio: "inherit",
                         shell: "/bin/bash",
                       },

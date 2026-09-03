@@ -25,14 +25,15 @@ describe("web bundle commands", () => {
     const command = webDockerBundleCommand("development");
     assert.doesNotMatch(command, /apt-get/);
     assert.match(command, /aws ssm get-parameter/);
-    assert.match(command, /npm run build/);
+    assert.match(command, /npm run build --workspace=web/);
+    assert.match(command, /cp -r web\/out\/\. \/asset-output\//);
     assert.match(WEB_BUNDLE_DOCKER_IMAGE, /sam\/build-nodejs/);
   });
 
   it("uses aws cli during local tryBundle when available", () => {
     const command = webLocalBundleCommand("staging");
     assert.match(command, /\/chatticus\/staging\/web\/cognito-user-pool-id/);
-    assert.match(command, /npm run build/);
+    assert.match(command, /npm run build --workspace=web/);
     assert.match(WEB_LOCAL_BUNDLE_AWS_CLI_CHECK, /command -v aws/);
   });
 });

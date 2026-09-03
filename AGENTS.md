@@ -78,8 +78,9 @@ must pass. Neither is a substitute for the other.
   worker processes.
 - `web/` — Next.js app: marketing at `/` and product workspace at `/chat`
   (`chattic.us` marketing, `hey.chattic.us` product in production). One web
-  project, not a separate marketing repo. Avatars are procedural Vultus
-  models (`anthus-vultus`), not Lottie.
+  project, not a separate marketing repo. Root `package.json` workspaces
+  `web` and `infra`. Avatars are procedural Vultus models (`anthus-vultus`),
+  not Lottie.
 - `computer/` — Docker image for the Linux workplace.
 - `infra/` — AWS CDK.
 

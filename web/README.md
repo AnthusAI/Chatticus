@@ -4,6 +4,9 @@ Next.js app for **marketing** at `/` and the **product workspace** at `/chat`.
 Production export goes to `out/` for the `ChatticusWeb` CloudFront stack; same-origin
 `/api` is stripped at the edge in deployed environments.
 
+From the repo root, `npm install` installs all JavaScript dependencies (canonical).
+You can still `cd web` and run scripts below.
+
 ```bash
 npm install
 npm test

@@ -75,5 +75,12 @@ export const SPA_VIEWER_RESPONSE_FUNCTION = `function handler(event) {
     response.statusCode = 200;
     response.statusDescription = "OK";
   }
+  // Next's static export writes this route's generated image with no file
+  // extension, so S3/BucketDeployment can't infer its content-type from the
+  // filename and serves it as application/octet-stream -- which some
+  // og:image/twitter:image crawlers reject outright. Force the real type.
+  if (uri === "/opengraph-image") {
+    response.headers["content-type"] = { value: "image/png" };
+  }
   return response;
 }`;
