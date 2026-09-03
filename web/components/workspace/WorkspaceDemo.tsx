@@ -99,7 +99,7 @@ export function WorkspaceDemo() {
 
   return (
     <div>
-      <p className="mb-4 flex animate-rise flex-wrap items-center justify-start gap-x-2 gap-y-1 font-mono text-[0.7rem] uppercase tracking-[0.12em] text-ink-soft [animation-delay:300ms]">
+      <div className="mb-4 flex animate-rise flex-col items-center gap-2 text-center font-mono text-[0.7rem] uppercase tracking-[0.12em] text-ink-soft [animation-delay:300ms]">
         <span>A team of bots and people working on</span>
         <span
           key={scenario.id}
@@ -114,7 +114,7 @@ export function WorkspaceDemo() {
         >
           {scenario.useCase}
         </span>
-      </p>
+      </div>
       <div
         className="workspace-prototype relative mx-auto w-[70%] max-w-[19rem] lg:w-full lg:max-w-[21rem]"
         data-motion-paused={paused ? "true" : "false"}

@@ -4,9 +4,9 @@ import { Wordmark } from "@/components/Wordmark";
 import { Button } from "@/components/ui/button";
 
 const proof = [
-  ["100% public", "Every commit, on GitHub"],
-  ["3 environments", "Named, separate, and real"],
+  ["24/7", "Runs around the clock"],
   ["1 shared computer", "No clones. No silos."],
+  ["0% lock-in", "Your data. Your move."],
 ];
 
 export function Hero() {
@@ -17,67 +17,68 @@ export function Hero() {
       className="relative overflow-hidden"
     >
       <div className="hero-grid absolute inset-0 -z-10 opacity-60" />
-      <div className="mx-auto grid max-w-[92rem] items-center gap-12 px-5 py-14 sm:px-8 sm:py-16 lg:grid-cols-[1.08fr_0.92fr] lg:gap-10 lg:px-12 lg:py-20">
-        <div className="max-w-[46rem]">
-          <h1
-            id="hero-title"
-            className="animate-rise font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em]"
-          >
-            {/* Floated like a print drop cap so the headline liquid-wraps around it and continues wrapping naturally at whatever width is available, instead of forcing manual line breaks. */}
-            <Wordmark
-              reportsPresenceAsHero
-              showText={false}
-              size={140}
-              className="float-left mr-4 mt-1"
-            />
-            Shared space for{" "}
-            <span className="italic text-clay">
-              people <span className="text-surface-foreground">and</span>{" "}
-              <span className="relative inline-block">
-                bots.
-                <svg
-                  aria-hidden="true"
-                  className="absolute -bottom-3 left-0 h-4 w-full text-signal"
-                  viewBox="0 0 560 24"
-                  preserveAspectRatio="none"
-                >
-                  <path
-                    d="M4 14C123 2 274 23 556 8"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                  />
-                </svg>
+      <div className="mx-auto grid max-w-[92rem] items-center gap-12 px-5 py-14 sm:px-8 sm:py-16 lg:grid-cols-[1.35fr_0.65fr] lg:gap-10 lg:px-12 lg:py-20">
+        <div className="flex max-w-[64rem] flex-col items-start gap-4 sm:flex-row">
+          <Wordmark
+            reportsPresenceAsHero
+            showText={false}
+            size={140}
+            className="mt-1 shrink-0"
+          />
+          <div className="min-w-0">
+            <h1
+              id="hero-title"
+              className="animate-rise font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em]"
+            >
+              Shared space for{" "}
+              <span className="italic text-clay">
+                people <span className="text-surface-foreground">and</span>{" "}
+                <span className="relative inline-block">
+                  bots.
+                  <svg
+                    aria-hidden="true"
+                    className="absolute -bottom-3 left-0 h-4 w-full text-signal"
+                    viewBox="0 0 560 24"
+                    preserveAspectRatio="none"
+                  >
+                    <path
+                      d="M4 14C123 2 274 23 556 8"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
               </span>
-            </span>
-          </h1>
-          <p className="mt-10 max-w-[42rem] animate-rise font-body text-lg leading-relaxed text-ink-soft [animation-delay:340ms] sm:text-xl">
-            Chatticus is{" "}
-            <span className="animate-highlight-sweep bg-[image:linear-gradient(var(--signal),var(--signal))] bg-[position:0_88%] bg-no-repeat px-0.5 [animation-delay:2200ms]">
-              a shared, collaborative space
-            </span>{" "}
-            where people and bots work together around common files, tools,
-            and a system of authority and approvals —{" "}
-            <span className="animate-highlight-sweep bg-[image:linear-gradient(var(--signal),var(--signal))] bg-[position:0_88%] bg-no-repeat px-0.5 [animation-delay:4200ms]">
-              like an office, not a chat window
-            </span>
-            . It&rsquo;s a 24/7 agent farm you can use to grow whatever you want,
-            around the clock.
-          </p>
-          <div className="mt-9 flex animate-rise flex-col gap-3 [animation-delay:430ms] sm:flex-row">
-            <Button asChild size="lg">
-              <a href="/chat">
-                Explore the workspace
-                <ArrowUpRight className="h-5 w-5" aria-hidden="true" />
-              </a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="https://github.com/AnthusAI/Chattic.us">
-                <Github className="h-5 w-5" aria-hidden="true" />
-                Read the source
-              </a>
-            </Button>
+            </h1>
+            <p className="mt-10 max-w-[42rem] animate-rise font-body text-lg leading-relaxed text-ink-soft [animation-delay:340ms] sm:text-xl">
+              Chatticus is{" "}
+              <span className="animate-highlight-sweep bg-[image:linear-gradient(var(--signal),var(--signal))] bg-[position:0_88%] bg-no-repeat px-0.5 [animation-delay:2200ms]">
+                a shared, collaborative space
+              </span>{" "}
+              where people and bots work together around common files, tools,
+              and a system of authority and approvals —{" "}
+              <span className="animate-highlight-sweep bg-[image:linear-gradient(var(--signal),var(--signal))] bg-[position:0_88%] bg-no-repeat px-0.5 [animation-delay:4200ms]">
+                like an office, not a chat window
+              </span>
+              . It&rsquo;s a 24/7 agent farm you can use to grow whatever you
+              want, around the clock.
+            </p>
+            <div className="mt-9 flex animate-rise flex-col gap-3 [animation-delay:430ms] sm:flex-row">
+              <Button asChild size="lg">
+                <a href="/chat">
+                  Explore the workspace
+                  <ArrowUpRight className="h-5 w-5" aria-hidden="true" />
+                </a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="https://github.com/AnthusAI/Chattic.us">
+                  <Github className="h-5 w-5" aria-hidden="true" />
+                  Read the source
+                </a>
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -93,7 +94,7 @@ export function Hero() {
               <span className="font-display text-2xl font-semibold tracking-[-0.04em]">
                 {value}
               </span>
-              <span className="max-w-32 font-mono text-[0.62rem] uppercase leading-relaxed tracking-[0.1em] text-ink-soft">
+              <span className="font-mono text-[0.62rem] uppercase leading-relaxed tracking-[0.1em] text-ink-soft">
                 {label}
               </span>
             </div>
