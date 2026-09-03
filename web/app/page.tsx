@@ -8,6 +8,7 @@ import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { OrganizationStory } from "@/components/OrganizationStory";
 import { RealityLedger } from "@/components/RealityLedger";
+import { DelegatedResponsibility } from "@/components/DelegatedResponsibility";
 import { HOME_PAGE_CONTENT } from "./page-content";
 
 export const metadata: Metadata = {
@@ -50,6 +51,7 @@ export default function HomePage() {
         <ControlSystem />
         <Evidence />
         <RealityLedger />
+        <DelegatedResponsibility />
         <Faq />
         <FinalCta />
       </main>
