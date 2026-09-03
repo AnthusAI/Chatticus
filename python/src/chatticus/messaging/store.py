@@ -81,6 +81,11 @@ def _waitlist_signup_from_item(item: dict[str, Any]) -> WaitlistSignup:
         created_at=datetime.fromisoformat(item["created_at"]["S"]),
         email_confirmed=item.get("email_confirmed", {}).get("BOOL", False),
         offer_snapshot=_waitlist_signup_offer_snapshot_from_item(item),
+        utm_source=item.get("utm_source", {}).get("S"),
+        utm_medium=item.get("utm_medium", {}).get("S"),
+        utm_campaign=item.get("utm_campaign", {}).get("S"),
+        utm_content=item.get("utm_content", {}).get("S"),
+        utm_term=item.get("utm_term", {}).get("S"),
     )
 
 
@@ -2449,6 +2454,16 @@ class DynamoMessagingStore:
         }
         if signup.offer_snapshot is not None:
             item["offer_snapshot"] = {"S": json.dumps(signup.offer_snapshot.to_dict())}
+        if signup.utm_source is not None:
+            item["utm_source"] = {"S": signup.utm_source}
+        if signup.utm_medium is not None:
+            item["utm_medium"] = {"S": signup.utm_medium}
+        if signup.utm_campaign is not None:
+            item["utm_campaign"] = {"S": signup.utm_campaign}
+        if signup.utm_content is not None:
+            item["utm_content"] = {"S": signup.utm_content}
+        if signup.utm_term is not None:
+            item["utm_term"] = {"S": signup.utm_term}
         self.client.put_item(
             TableName=self.table_name,
             Item=item,

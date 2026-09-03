@@ -8,6 +8,7 @@ import {
   submitWaitlist,
   type SubmitWaitlistPayload,
 } from "../lib/waitlist-api";
+import { captureUtmFromUrl, installInMemoryAnalyticsForTests, readAnalyticsEventsForTests, trackSignupComplete } from "../lib/analytics";
 import { FULL_WAITLIST_SURVEY_FIXTURE } from "../lib/waitlist-survey-fixture";
 
 const statePath =
@@ -26,6 +27,7 @@ type HarnessState = {
   submitResponseStatus: number;
   lastSubmitPayload: SubmitWaitlistPayload | null;
   surveyFetched: boolean;
+  analyticsEvents: ReturnType<typeof readAnalyticsEventsForTests>;
 };
 
 function emptyState(): HarnessState {
@@ -35,6 +37,7 @@ function emptyState(): HarnessState {
     submitResponseStatus: 201,
     lastSubmitPayload: null,
     surveyFetched: false,
+    analyticsEvents: [],
   };
 }
 
@@ -46,9 +49,17 @@ function loadState(): HarnessState {
   }
 }
 
+function snapshotState(state: HarnessState): HarnessState {
+  return {
+    ...state,
+    analyticsEvents: readAnalyticsEventsForTests(),
+  };
+}
+
 function saveState(state: HarnessState): HarnessState {
-  writeFileSync(statePath, JSON.stringify(state));
-  return state;
+  const snapshot = snapshotState(state);
+  writeFileSync(statePath, JSON.stringify(snapshot));
+  return snapshot;
 }
 
 function clearStateFile(): void {
@@ -94,6 +105,7 @@ function installFetch(state: HarnessState): void {
 
 function resetHarness(): HarnessState {
   clearStateFile();
+  installInMemoryAnalyticsForTests();
   const state = emptyState();
   installFetch(state);
   return saveState(state);
@@ -122,9 +134,32 @@ async function submitIncomplete(email: string): Promise<HarnessState> {
 
 async function submitComplete(payload: SubmitWaitlistPayload): Promise<HarnessState> {
   const state = loadState();
+  installInMemoryAnalyticsForTests();
   installFetch(state);
   try {
     await submitWaitlist(payload);
+    if (payload.complete) {
+      trackSignupComplete();
+    }
+  } catch {
+    // Non-201 responses are recorded on the harness state.
+  }
+  return saveState(state);
+}
+
+async function captureUtmAndSubmitComplete(
+  query: string,
+  payload: SubmitWaitlistPayload,
+): Promise<HarnessState> {
+  const state = loadState();
+  installInMemoryAnalyticsForTests();
+  captureUtmFromUrl(new URLSearchParams(query.startsWith("?") ? query.slice(1) : query));
+  installFetch(state);
+  try {
+    await submitWaitlist(payload);
+    if (payload.complete) {
+      trackSignupComplete();
+    }
   } catch {
     // Non-201 responses are recorded on the harness state.
   }
@@ -150,6 +185,14 @@ async function main(): Promise<void> {
     case "submit-complete": {
       const payload = JSON.parse(payloadJson ?? "{}") as SubmitWaitlistPayload;
       result = await submitComplete(payload);
+      break;
+    }
+    case "submit-complete-with-utm": {
+      const payload = JSON.parse(payloadJson ?? "{}") as SubmitWaitlistPayload & {
+        query?: string;
+      };
+      const { query, ...submitPayload } = payload;
+      result = await captureUtmAndSubmitComplete(query ?? "", submitPayload);
       break;
     }
     case "set-submit-status": {

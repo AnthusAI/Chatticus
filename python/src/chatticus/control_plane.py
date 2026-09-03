@@ -3503,6 +3503,11 @@ class ControlPlane:
         *,
         source: str,
         offer_snapshot: OfferSnapshot | None = None,
+        utm_source: str | None = None,
+        utm_medium: str | None = None,
+        utm_campaign: str | None = None,
+        utm_content: str | None = None,
+        utm_term: str | None = None,
         now: datetime | None = None,
     ) -> WaitlistSignup:
         """Record an unauthenticated waitlist signup from the marketing site."""
@@ -3536,6 +3541,11 @@ class ControlPlane:
             complete=complete,
             created_at=existing.created_at if existing else moment,
             offer_snapshot=resolved_offer_snapshot,
+            utm_source=utm_source or (existing.utm_source if existing else None),
+            utm_medium=utm_medium or (existing.utm_medium if existing else None),
+            utm_campaign=utm_campaign or (existing.utm_campaign if existing else None),
+            utm_content=utm_content or (existing.utm_content if existing else None),
+            utm_term=utm_term or (existing.utm_term if existing else None),
         )
         self._messaging_store.put_waitlist_signup(signup)
         return signup

@@ -116,6 +116,11 @@ class SubmitWaitlistBody(BaseModel):
     price_sensitivity_answers: PriceSensitivityAnswersBody | None = None
     offer_snapshot: OfferSnapshotBody | None = None
     complete: bool
+    utm_source: str | None = None
+    utm_medium: str | None = None
+    utm_campaign: str | None = None
+    utm_content: str | None = None
+    utm_term: str | None = None
 
 
 class SubmitContactBody(BaseModel):
@@ -439,6 +444,11 @@ def create_app(
             complete=body.complete,
             source=waitlist_submission_source(request),
             offer_snapshot=offer_snapshot,
+            utm_source=body.utm_source,
+            utm_medium=body.utm_medium,
+            utm_campaign=body.utm_campaign,
+            utm_content=body.utm_content,
+            utm_term=body.utm_term,
         )
         return {"status": "recorded"}
 
