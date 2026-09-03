@@ -1,18 +1,18 @@
 import { OG_IMAGE_SIZE, renderOgImage } from "@/lib/ogImage";
-import { HOME_PAGE_CONTENT } from "./page-content";
+import { CHAT_PAGE_CONTENT } from "./page-content";
 
 // Required for `output: "export"`: this image never varies per-request, so
 // it's rendered once at build time into a static file, same as any other
 // static asset.
 export const dynamic = "force-static";
 
-export const alt = `Chatticus — ${HOME_PAGE_CONTENT.ogTitle}`;
+export const alt = `Chatticus — ${CHAT_PAGE_CONTENT.ogTitle}`;
 export const size = OG_IMAGE_SIZE;
 export const contentType = "image/png";
 
 export default function Image() {
   return renderOgImage({
-    headline: HOME_PAGE_CONTENT.ogHeadline,
-    tagline: HOME_PAGE_CONTENT.ogTagline,
+    headline: CHAT_PAGE_CONTENT.ogHeadline,
+    tagline: CHAT_PAGE_CONTENT.ogTagline,
   });
 }
