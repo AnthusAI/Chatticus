@@ -101,3 +101,46 @@ def then_states_aws_account(context: object) -> None:
 def then_states_open_licence(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
     assert "code is mit licensed" in text, text
+
+@when("I look at the delegated responsibility section")
+def when_look_at_delegated_responsibility_section(context: object) -> None:
+    pass
+
+@then("it offers forking and self-deploying at no cost")
+def then_offers_forking_at_no_cost(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "no cost" in text or "free" in text or "$0" in text, text
+    assert "fork" in text or "self-deploying" in text or "deploy it yourself" in text, text
+
+@then("it offers self-setup with managed operation at a monthly price")
+def then_offers_self_setup_managed_operation(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "self-setup" in text, text
+    assert "$20 a month" in text or "$20 / month" in text or "$20/month" in text, text
+
+@then("it offers assisted setup with managed operation at a monthly price and a one-time fee")
+def then_offers_assisted_setup_managed_operation(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "assisted setup" in text, text
+    assert "$20 a month" in text or "$20 / month" in text or "$20/month" in text, text
+    assert "$100 once" in text or "$100 one-time" in text, text
+
+@then("it offers professional services as a quote")
+def then_offers_professional_services_quote(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "professional services" in text, text
+    assert "quote" in text or "quoted" in text, text
+
+@given("the delegated responsibility section")
+def given_delegated_responsibility_section(context: object) -> None:
+    context.marketing_ui_harness = _run_harness("render")
+
+@then("the managed rungs state that Anthus keeps the deployment updated")
+def then_managed_rungs_state_anthus_keeps_updated(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "keeps the deployment updated" in text or "keep the deployment updated" in text or "keep it updated" in text, text
+
+@then("they state that Anthus updates its own organizations first")
+def then_state_anthus_updates_own_orgs_first(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "updates its own organizations first" in text or "update our own first" in text or "update our own" in text, text

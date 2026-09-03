@@ -14,3 +14,16 @@ Feature: Delegation ladder positioning
     Given the chattic.us home page
     Then it states that the organization computer runs in an AWS account the customer controls
     And it states that the source is available under an open licence
+
+  Scenario: The home page offers four rungs, each with a price
+    Given the chattic.us home page
+    When I look at the delegated responsibility section
+    Then it offers forking and self-deploying at no cost
+    And it offers self-setup with managed operation at a monthly price
+    And it offers assisted setup with managed operation at a monthly price and a one-time fee
+    And it offers professional services as a quote
+
+  Scenario: The managed rungs say what managed means
+    Given the delegated responsibility section
+    Then the managed rungs state that Anthus keeps the deployment updated
+    And they state that Anthus updates its own organizations first
