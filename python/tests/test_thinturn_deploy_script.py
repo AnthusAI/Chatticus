@@ -185,9 +185,14 @@ def test_github_deploy_stack_trusts_thinturn_development_workflow() -> None:
     ):
         assert role_name in text
     assert "AdministratorAccess" in text
-    assert (
-        '"token.actions.githubusercontent.com:environment": githubEnvironment' in text
-    )
+    # Trust is scoped by the `sub` claim (repo identity + GitHub environment
+    # name), not `environment`/`job_workflow_ref` -- this account's OIDC
+    # provider does not evaluate those two custom claim condition keys
+    # despite the token carrying them correctly. See the comment on
+    # `createGithubDeployRole` in github-deploy-stack.ts for the full
+    # root-cause narrative (confirmed 2026-09-03).
+    assert '"token.actions.githubusercontent.com:sub"' in text
+    assert ":environment:${githubEnvironment}" in text
 
     trusted_workflows_by_environment = {
         "development": (
