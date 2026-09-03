@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-ab10be64-c795-43f5-a79a-28196089a7d3",
+  "title": "A failed payment suspends the organization and recovery reinstates it",
+  "description": "**Phase 3 of 5.**\n\n- **Blocked by:** the webhook signature story\n- **Runs in parallel with:** the enablement story\n- **Unblocks:** nothing\n\n---\nThe rest of the subscription lifecycle, mapped onto the status enum that already exists. Suspended is already a state the members CLI can set and reinstate from, and payment failure is simply another reason to reach it.\n\nOne thing to get right: suspension is not deletion. Their computer stops and the workplace locks, but the organization, its bots, and its channels survive \u2014 because most suspensions are an expired card, and a customer who loses their workspace over a card expiry does not come back.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-e26358f9-9757-4017-9522-f1a9dec279f9",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "09959bd3-677f-40b3-a978-4ee9d4103b14",
+      "author": "unknown",
+      "text": "Feature: Paid enablement\n\n  Scenario: A final failed payment suspends the organization\n    Given an enabled organization\n    When Stripe reports the final payment attempt failed\n    Then the organization status is suspended\n\n  Scenario: An earlier retry does not suspend\n    Given an enabled organization\n    When Stripe reports a payment attempt failed with retries remaining\n    Then the organization status is enabled\n\n  Scenario: Recovering payment reinstates the organization\n    Given a suspended organization whose payment failed\n    When Stripe reports the payment succeeded\n    Then the organization status is enabled\n    And its bots and channels are unchanged",
+      "created_at": "2026-09-03T13:19:45.838112Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:19:44.700449Z",
+  "updated_at": "2026-09-03T13:19:45.838275Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

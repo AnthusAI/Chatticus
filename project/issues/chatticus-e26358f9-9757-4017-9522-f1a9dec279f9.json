@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-e26358f9-9757-4017-9522-f1a9dec279f9",
+  "title": "Paid enablement through Stripe",
+  "description": "**Phase 3 of 5.** Blocked by waitlist triage and by the cross-account provisioning epic. Unblocks spend ceilings.\n\nMoney, wired to the organization lifecycle that already exists.\n\n**Stripe becomes a second caller of the enable path the members CLI already calls.** OrganizationStatus was already the right shape for a billing state machine, and this epic adds no parallel subscription status:\n\n| Stripe event | Organization status |\n| --- | --- |\n| checkout.session.completed | stays pending \u2014 provisioning has not happened yet |\n| provisioning succeeds | enabled, and the subscription trial ends |\n| invoice.payment_failed, final attempt | suspended |\n| customer.subscription.deleted | suspended |\n| payment recovered | enabled, through the CLI reinstate path |\n\n**The subscription must not start at checkout.** Provisioning can take days of back-and-forth with someone's security team, and charging a monthly fee for an organization that does not exist yet is the kind of small unfairness beta customers remember. Checkout collects the one-time setup fee immediately and creates the subscription on a trial; the trial ends from the same webhook path that flips the organization to enabled.\n\nSetup fee tiers: $500 for Path A, $1,500 for Path B, waived for the first twenty design partners in exchange for a recorded interview and permission to write up the result. A discount that can be withdrawn is worth more than a low price that has to be raised.\n\nTerms acceptance is collected by Stripe, not implied by a checkbox that has to be defended later. The beta terms name specific things that can happen \u2014 features change without notice, data may be reset between releases, no uptime guarantee, and the deployed footprint in their account may change shape.\n\nThis is also where the join lands: the organization records the waitlist signup it came from, so every survey answer is attached to a real tenant_id from then on.\n\n**Start with:** the webhook and the enable path. Checkout is configuration; the state machine is the part that can be got wrong.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:15:31.736795Z",
+  "updated_at": "2026-09-03T13:15:31.736978Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

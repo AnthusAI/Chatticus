@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-cc6d0a24-d248-4f69-b8f7-70948b17161e",
+  "title": "An organization records the waitlist signup it came from",
+  "description": "**Phase 3 of 5.**\n\n- **Blocked by:** the invitation story, in the triage epic\n- **Runs in parallel with:** the rest of this epic\n- **Unblocks:** the readout tasks, in the market research epic\n\n---\nSmall story, and the reason it was worth owning the survey rather than renting a hosted form.\n\nFrom the moment an invited person creates their organization, every survey answer they gave is attached to a real tenant_id. That is what lets the beta ask questions no funnel report can answer: do the teams people said they wanted match the teams they actually built, does a high score predict activation, does the price they called a bargain predict whether they are still here in ninety days.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-e26358f9-9757-4017-9522-f1a9dec279f9",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "efcc1b54-45f0-4532-9539-594d9b596ecd",
+      "author": "unknown",
+      "text": "Feature: Paid enablement\n\n  Scenario: A created organization carries its waitlist origin\n    Given an invited waitlist signup\n    When that person signs in and creates their organization\n    Then the organization records the waitlist signup it came from\n\n  Scenario: Survey answers are reachable from the organization\n    Given an organization created from a waitlist invitation\n    When an operator reads that organization\n    Then its survey answers and score are reachable from it",
+      "created_at": "2026-09-03T13:19:48.155853Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:19:46.981551Z",
+  "updated_at": "2026-09-03T13:19:48.156002Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

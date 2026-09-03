@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "title": "Spend visibility and ceilings on the customer's bill",
+  "description": "**Phase 4 of 5.** Blocked by paid enablement and by cross-account provisioning.\n\nBring-your-own-AWS did not remove the runaway-cost risk. It moved it somewhere worse.\n\nThe old version of this risk was margin: a heavy organization cost Anthus more than it paid. The new version is a customer discovering an unexpected four-figure AWS line item with our name attached to it. That is a churn event, a refund conversation, and a bad reference, and it lands on the person who trusted us enough to grant a role in their production account.\n\nThe machinery already exists \u2014 authorization_ceiling.py, budget_alerts.py, budget_rollup/, cost_explorer.py. This epic points it at a per-organization cap the customer sets during provisioning, and surfaces the number in the product where they can see it.\n\n**Reframe it while building it.** Cost visibility and a hard ceiling on a beta agent that runs a Linux computer is not a safety feature bolted on afterwards. It is a reason to buy, and it belongs on the pitch page.\n\nOne design constraint: crossing the ceiling stops new computer work, not the whole organization. A member who cannot read their own channels because a budget tripped will assume the product broke.\n\n**Start with:** the ceiling on the record. Alerting and display are views over it.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:15:40.991276Z",
+  "updated_at": "2026-09-03T13:15:40.991518Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

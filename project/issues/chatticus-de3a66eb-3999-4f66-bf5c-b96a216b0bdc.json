@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-de3a66eb-3999-4f66-bf5c-b96a216b0bdc",
+  "title": "A confirmed signup is scored at submission",
+  "description": "**Phase 2 of 5.**\n\n- **Blocked by:** the survey submission and confirmation stories\n- **Runs in parallel with:** the disqualification story\n- **Unblocks:** the operator queue story\n\n---\nDeterministic, computed once when the signup is confirmed, stored on the record. Not computed at read time \u2014 the queue has to be sortable and the score has to be explainable months later against the weights that were in force when it was assigned.\n\nStore the weights version alongside the score. These weights get recalibrated after fifty responses, and a queue holding scores from two different scoring schemes with no way to tell them apart is worse than no score.\n\nThe full table is on the epic.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b2de8891-df4e-4558-8660-230e36b16dd9",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "b928484b-50e9-470a-b46e-5b32f2197a01",
+      "author": "unknown",
+      "text": "Feature: Waitlist triage\n\n  Scenario: A senior AWS buyer with budget scores highly\n    Given a confirmed waitlist signup\n    And they run production workloads on AWS\n    And their organization has 101 or more people\n    And they answered yes with budget to professional services\n    And they can approve AWS access themselves\n    When the signup is scored\n    Then its score is at least 10\n    And it is marked services-qualified\n\n  Scenario: A curious individual scores low\n    Given a confirmed waitlist signup\n    And their organization has 1 to 5 people\n    And they answered not now to professional services\n    And they are just exploring\n    When the signup is scored\n    Then it is not marked services-qualified\n\n  Scenario: A score records the weights it was computed with\n    Given a confirmed waitlist signup\n    When the signup is scored\n    Then the record carries the scoring weights version",
+      "created_at": "2026-09-03T13:18:46.653204Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:18:45.529710Z",
+  "updated_at": "2026-09-03T13:18:46.653350Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

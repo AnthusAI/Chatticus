@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-4b8c8268-9e67-4f11-bb09-d772e7f1ef98",
+  "title": "Run twenty design partner interviews and publish the findings",
+  "description": "**Phase 5 of 5.**\n\n- **Blocked by:** the provisioning session definition, in the provisioning epic\n- **Runs in parallel with:** the other readout tasks\n- **Unblocks:** the price recommendation task\n\n---\nA task because the deliverable is research, not code. **Start here** \u2014 it is the only part of this epic with a deadline on somebody else calendar.\n\nThe setup fee is waived for the first twenty design partners in exchange for a 45-minute recorded interview and permission to write up the result. This task is collecting on that.\n\nWhat to ask about: what they were doing before, what made them try this, what nearly stopped them, what the AWS requirement cost them internally, what they would pay, and what they would want built for them specifically. The last one is a services scoping conversation wearing a research hat, which is fine and is the point.\n\nPublish the findings as a wiki page, including the ones that are unflattering. A research readout that only contains encouraging quotes is a marketing document and will get treated as one by everybody who reads it.\n\n**Done when:** twenty interviews are recorded and a findings page is in the wiki.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-29f5b5ab-758a-4249-933e-eeb4026e2143",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:21:13.146174Z",
+  "updated_at": "2026-09-03T13:21:13.146367Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

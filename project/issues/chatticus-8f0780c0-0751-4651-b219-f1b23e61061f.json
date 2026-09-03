@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-8f0780c0-0751-4651-b219-f1b23e61061f",
+  "title": "The Stripe webhook is a named no-principal route that verifies its signature",
+  "description": "**Phase 3 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the checkout story\n- **Unblocks:** every other story in this epic\n\n---\nStripe calls with no Chatticus credential, so like the waitlist endpoint this route sits outside the principal marker system and must be named explicitly in NO_PRINCIPAL_ROUTES.\n\nThe signature is the whole security model. This route can enable an organization \u2014 approving recurring spend and unlocking a workplace \u2014 on the strength of a POST body. An unverified webhook is a public endpoint that turns on paid accounts.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-e26358f9-9757-4017-9522-f1a9dec279f9",
+  "labels": [
+    "phase-3"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "6d95ecbf-794e-40f5-b611-0da0eba818aa",
+      "author": "unknown",
+      "text": "Feature: Paid enablement\n\n  Scenario: The Stripe webhook is outside the principal system\n    Given the thin-turn front door\n    Then \"/stripe/webhook\" is a named no-principal route\n\n  Scenario: An unsigned webhook is refused\n    Given a Stripe webhook payload with no valid signature\n    When it is delivered to the webhook route\n    Then the response is 400\n    And no organization status changed\n\n  Scenario: A replayed webhook changes nothing twice\n    Given a signed Stripe event that has already been processed\n    When the same event is delivered again\n    Then the response is 200\n    And no organization status changed",
+      "created_at": "2026-09-03T13:19:38.596936Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:19:37.392940Z",
+  "updated_at": "2026-09-03T13:19:38.597093Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-78618556-8949-4843-b2ee-180b4ac7d653",
+  "title": "An operator invites a signup and the link is single use",
+  "description": "**Phase 2 of 5.**\n\n- **Blocked by:** the operator queue story\n- **Runs in parallel with:** the digest story\n- **Unblocks:** paid enablement\n\n---\nThe handoff from the anonymous funnel to the authenticated product, and the only place the two are joined.\n\nThe invitation email carries a single-use link that lands on sign-in. When they sign in with Google and create their organization, the organization records which waitlist signup it came from \u2014 which is what makes every survey answer queryable against a real tenant_id afterwards, and what lets the beta ask whether the teams people said they wanted match the teams they actually built.\n\nSingle use, and expiring, because the link is the gate on a queue whose rate is capped by how many provisioning sessions a week Anthus can run.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b2de8891-df4e-4558-8660-230e36b16dd9",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "cf5f0351-fe61-4be4-ad96-a5540e5a77ed",
+      "author": "unknown",
+      "text": "Feature: Waitlist triage\n\n  Scenario: Inviting a signup issues a single-use link\n    Given a confirmed waitlist signup in the queue\n    When an operator invites them\n    Then an invitation link is issued for that signup\n    And the signup is marked invited\n\n  Scenario: A used invitation link cannot be used again\n    Given an invited waitlist signup whose link has been followed\n    When the link is followed a second time\n    Then it is refused\n\n  Scenario: An expired invitation link is refused\n    Given an invited waitlist signup whose link has expired\n    When the link is followed\n    Then it is refused",
+      "created_at": "2026-09-03T13:18:53.371354Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:18:52.198603Z",
+  "updated_at": "2026-09-03T13:18:53.371496Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

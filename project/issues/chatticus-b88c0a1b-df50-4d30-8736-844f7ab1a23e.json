@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-b88c0a1b-df50-4d30-8736-844f7ab1a23e",
+  "title": "Provision one throwaway AWS account end to end by hand, and time it",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the template task\n- **Unblocks:** the setup fee, the queue rate, and the promise on the pitch page\n\n---\nA task, not a story, because the deliverable is a measured number and a written runbook rather than a behavior the system exhibits.\n\nStand up a fresh AWS account, run the cross-account setup as a customer would experience it, provision one organization computer, and run one bot task. Record what actually happened: elapsed wall-clock time, how much of it was waiting on AWS, which steps needed a human decision, and every place the instructions were wrong.\n\n**Nothing else in this initiative can be honestly scheduled or priced until this number exists.** The setup fee prices this session. The invitation rate is capped by how many of these can be run per week. The pitch page makes a promise about how long onboarding takes. All three are currently guesses.\n\n**Done when:** a runbook exists in the wiki, with a measured elapsed time and a list of the steps that needed a person.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:18:00.752545Z",
+  "updated_at": "2026-09-03T13:18:00.752745Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

@@ -1,0 +1,42 @@
+{
+  "id": "chatticus-6525a75f-6317-4ffb-abb2-d699bd178133",
+  "title": "The beta pitch states every cost before the survey begins",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the ladder story, in the delegation ladder epic\n- **Runs in parallel with:** the rest of this epic\n- **Unblocks:** the price block in the survey\n\n---\nThe most important story in this epic, and the one most likely to be quietly dropped as marketing copy.\n\nA customer pays up to four things: **$20 a month** to Anthus, AWS for the organization computer, Anthropic or OpenAI for tokens, and **$0 or $100** for setup depending on whether they run the template themselves or have an engineer do it with them. The floated monthly price is deliberate and stays floated. The other three are not optional to state.\n\n**If the page shows $20 and leaves the rest implicit, the beta measures the wrong number.** It learns what people will pay for a $20 thing, then watches them churn when the AWS bill lands, and that churn reads as demand in the funnel. Worse than no data.\n\nRound numbers throughout \u2014 $20 and $100, not $19.95 and $99.95. A page arguing that it is being straight with you should not price like a supermarket shelf.\n\nThis is a specified behavior with a guard, not a copy decision, because copy gets edited by whoever is closest to the page.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "3ac382e5-1efb-443e-a0c1-6b4512f58a6c",
+      "author": "unknown",
+      "text": "Feature: Beta waitlist marketing funnel\n\n  Scenario: All four costs appear before the first survey question\n    Given the beta pitch page\n    Then it states the monthly Chatticus fee\n    And it states that AWS infrastructure is billed to the customer\n    And it states that model tokens are billed to the customer\n    And it states the one-time setup fee\n    And all four appear above the first survey question\n\n  Scenario: The page states what beta means\n    Given the beta pitch page\n    Then it states that features change without notice\n    And it states that there is no uptime guarantee\n    And it states that the subscription can be cancelled at any time",
+      "created_at": "2026-09-03T13:17:13.893142Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "25c68bd4-0188-48c1-8540-178376c2a4e6",
+      "author": "unknown",
+      "text": "Revised scenarios, superseding the earlier single-price version now that setup is two paths:\n\nFeature: Beta waitlist marketing funnel\n\n  Scenario: Every cost appears before the first survey question\n    Given the beta pitch page\n    Then it states the monthly Chatticus fee\n    And it states that AWS infrastructure is billed to the customer\n    And it states that model tokens are billed to the customer\n    And it states the setup fee for each setup path\n    And all of them appear above the first survey question\n\n  Scenario: Prices are quoted as round numbers\n    Given the beta pitch page\n    Then no price on the page ends in .95\n\n  Scenario: The page states what beta means\n    Given the beta pitch page\n    Then it states that features change without notice\n    And it states that there is no uptime guarantee\n    And it states that the subscription can be cancelled at any time\n    And it states that the deployment stays in the customer account if they leave",
+      "created_at": "2026-09-03T13:42:25.352165Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:17:12.727885Z",
+  "updated_at": "2026-09-03T13:42:25.352330Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

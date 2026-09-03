@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-935a98f4-53b4-485f-a01b-828a93bc3faf",
+  "title": "The delegation ladder on the marketing site",
+  "description": "Chatticus is not one offer. It is a ladder, and the marketing site currently shows only the middle of it.\n\n**Two axes, not one.** The rungs differ in how much responsibility you delegate, and equally in how close you get to the people who built the thing. Each axis fixes the other one weakness: control without access is a self-hosting chore, access without control is every other vendor.\n\n| Rung | Responsibility | Access | Price |\n| --- | --- | --- | --- |\n| **Fork it** | all yours | the source, the issue tracker | free |\n| **Self-setup, managed** | you install, we operate | you run what Anthus runs | $20/mo |\n| **Assisted setup, managed** | we install and operate | plus a session with an engineer | $20/mo + $100 once |\n| **Professional services** | we adapt it to you | the team, on your problem | quoted |\n\n**The bottom rung is already true and already on the site.** The repository is MIT licensed, the Hero links to it with \"Read the source\", and the proof strip says 0% lock-in, your data, your move. What is missing is saying out loud that these are rungs of one ladder rather than a product and a coincidence.\n\n## What the pitch actually is\n\nAlmost the entire appeal over a closed agent product is **control**: your AWS account, your data, your network, code you can read and fork. That is the half the architecture already delivers and the site already gestures at.\n\nThe other half is what a closed product structurally cannot offer. **The people who wrote this run their own business on it, and the managed service puts you next to them** \u2014 a team dogfooding an agent farm at the front of a fast-moving field, for fun and profit, shipping what they learn into your deployment as they learn it. Not a support tier. Not a ticket queue. The developers.\n\nThe managed updates epic is where that claim becomes verifiable rather than rhetorical: Anthus organizations take every release first, and the rollout refuses to advance until they have. \"We run what we ship, before you run it\" is a marketing line and a release gate at the same time.\n\nSay plainly that this level of access exists **because the beta is small**. It is a reason to join now rather than later, it is honest, and it sets the expectation correctly for when it has to change.\n\n**Round numbers on purpose.** $20 and $100, not $19.95 and $99.95. A page whose entire argument is that we are telling you every cost up front should not price like a supermarket shelf.\n\n**Start with:** 4f9b03, the definition of what managed operation includes. Both the ladder section and the beta page quote it, and neither can be written honestly until it exists.",
+  "type": "epic",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:38:23.319745Z",
+  "updated_at": "2026-09-03T14:00:30.699534Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

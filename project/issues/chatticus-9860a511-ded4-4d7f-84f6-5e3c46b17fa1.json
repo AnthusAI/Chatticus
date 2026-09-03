@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-9860a511-ded4-4d7f-84f6-5e3c46b17fa1",
+  "title": "Publish the measured cost of running one organization computer for a month",
+  "description": "**Phase 5 of 5.**\n\n- **Blocked by:** the spend display story, in the spend ceiling epic\n- **Runs in parallel with:** the other readout tasks\n- **Unblocks:** nothing\n\n---\nA task because the deliverable is a measured number and a page edit, not behavior.\n\nRead cost_explorer and budget_rollup against real provisioned organizations and publish a range on the pitch page: what a customer should expect their AWS bill to be for one organization computer at light, typical, and heavy use.\n\n**Until this exists, the pitch page is guessing at one of the four numbers it states**, and the price research is measuring a total that nobody has verified. The floated $19.95 is deliberately unverified. The AWS number is not supposed to be.\n\n**Done when:** the range is on the pitch page, derived from at least three real organizations across a full month.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-29f5b5ab-758a-4249-933e-eeb4026e2143",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:21:10.958320Z",
+  "updated_at": "2026-09-03T13:21:10.958607Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

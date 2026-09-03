@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-500adff9-41b7-4fd7-9eec-83c872efe821",
+  "title": "The survey records a price sensitivity block",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the survey submission story\n- **Runs in parallel with:** the rest of this epic\n- **Unblocks:** the price readout, in the market research epic\n\n---\nFour questions in the Van Westendorp form \u2014 too cheap, a bargain, expensive, too expensive \u2014 asked about the all-in monthly cost including AWS and tokens, not about the Chatticus fee alone.\n\nThis is the instrument that answers what the product is worth. Beta volumes will never reach significance on a split price test, so there will not be one; the crossings of these four curves bracket the acceptable range from a few dozen responses, which is the sample that will exist.\n\nAsking it about the fee alone would produce a clean curve for the wrong number.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "58273442-5022-442b-9199-088cde813107",
+      "author": "unknown",
+      "text": "Feature: Waitlist survey submission\n\n  Scenario: A signup carries four price answers\n    Given a visitor on the beta page\n    When they complete the survey including the price block\n    Then the waitlist signup records a too-cheap price\n    And it records a bargain price\n    And it records an expensive price\n    And it records a too-expensive price\n\n  Scenario: The price block asks about total monthly cost\n    Given the beta page survey\n    Then the price questions name the total including AWS and model tokens",
+      "created_at": "2026-09-03T13:17:18.497826Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:17:17.256010Z",
+  "updated_at": "2026-09-03T13:17:18.497978Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

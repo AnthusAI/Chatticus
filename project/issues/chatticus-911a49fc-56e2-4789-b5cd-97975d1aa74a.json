@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-911a49fc-56e2-4789-b5cd-97975d1aa74a",
+  "title": "A managed organization is updated without a person in the loop",
+  "description": "**Phase 4 of 5.**\n\n- **Blocked by:** the release record story and the ordering story\n- **Runs in parallel with:** the notification story\n- **Unblocks:** nothing\n\n---\nWhat the $20 buys, delivered. Chatticus assumes the cross-account role and applies the release to the customer deployment. No ticket, no session, no email asking them to schedule something.\n\nTwo constraints that are the whole story:\n\n**It does not interrupt work in flight.** An update that kills a running turn is an outage the customer did not schedule and cannot explain to whoever was waiting on it.\n\n**It rolls back.** A rapidly-evolving beta applying automatic updates to production deployments in accounts Anthus does not own needs a rollback path before it needs a faster rollout. The failure to design against is a release breaking a customer organization while everyone at Anthus is asleep.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-5b21313c-63fe-4530-a6e1-687399fab773",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "e4d91652-1f15-447e-aef0-a61dc61ba344",
+      "author": "unknown",
+      "text": "Feature: Managed updates\n\n  Scenario: A managed organization receives a release automatically\n    Given a managed organization behind the current release\n    And that release is running at Anthus\n    When the rollout reaches that organization\n    Then its deployment is updated\n    And it records the new release\n\n  Scenario: An update waits for work in flight to finish\n    Given a managed organization with a turn in progress\n    When the rollout reaches that organization\n    Then the turn completes\n    And the update is applied afterwards\n\n  Scenario: A failed update rolls back\n    Given a managed organization being updated\n    When the update fails\n    Then the deployment is returned to its previous release\n    And an operator is alerted",
+      "created_at": "2026-09-03T13:40:15.644753Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:40:14.448729Z",
+  "updated_at": "2026-09-03T13:40:15.644915Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

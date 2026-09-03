@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-2adb0627-83cd-4e5b-85f3-7830e283809c",
+  "title": "Anthus organizations take a release before any customer does",
+  "description": "**Phase 4 of 5.**\n\n- **Blocked by:** the release record story\n- **Runs in parallel with:** the update and notification stories\n- **Unblocks:** nothing\n\n---\nThe release gate, and the thing that makes the marketing claim true rather than aspirational.\n\nThe promise on the page is that Anthus keeps customer deployments updated as it updates the organizations it runs itself. **That is credible exactly as long as it is literally the order things happen in.** A release reaching a customer before it has run in an Anthus organization is not a scheduling detail, it is the claim being false.\n\nSo the rollout refuses to advance. Not warns \u2014 refuses. A gate that can be overridden under deadline pressure is not a gate, and the pressure to ship a fix straight to a customer is highest on exactly the release most likely to break something.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-5b21313c-63fe-4530-a6e1-687399fab773",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "ff9067cf-7957-439c-958d-0a0104afbf93",
+      "author": "unknown",
+      "text": "Feature: Managed updates\n\n  Scenario: A release reaches Anthus organizations first\n    Given a new Chatticus release\n    When the rollout begins\n    Then Anthus organizations receive it before any customer organization\n\n  Scenario: A release that has not run at Anthus cannot reach a customer\n    Given a new Chatticus release that no Anthus organization is running\n    When a rollout to a customer organization is attempted\n    Then it is refused\n    And the customer organization keeps its current release",
+      "created_at": "2026-09-03T13:40:13.292022Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:40:12.042347Z",
+  "updated_at": "2026-09-03T13:40:13.292230Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

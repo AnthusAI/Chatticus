@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-399c5494-15eb-45db-9a54-fe6e453a5ebb",
+  "title": "Decide the second sign-in provider from the survey",
+  "description": "**Phase 5 of 5.**\n\n- **Blocked by:** the survey submission story, in the pitch and survey epic\n- **Runs in parallel with:** the other readout tasks\n- **Unblocks:** nothing\n\n---\nA task because the deliverable is a decision.\n\nGitHub was deferred deliberately, and the reasons are worth restating so the decision gets made on evidence rather than repeated from memory:\n\n- The identity kernel is keyed on **verified email** \u2014 sign_in(email) mints the user_id, normalize_email is the key, invitations match on it. GitHub routinely returns a private or unverified email, so adding it means deciding what happens when the key identity is built on is missing.\n- buildUserManagerSettings hard-codes identity_provider Google, so a second provider means a chooser UI and a new Cognito IdP.\n- The buyer for this product can authorize a cross-account IAM role in a production AWS account. That person has a corporate identity and a corporate email, and the domain is the most valuable single field in the survey. A GitHub username says nothing about whether they can say yes.\n\nReal cost, no beta-critical benefit \u2014 unless the optional survey question says otherwise. Read it and decide. If the audience turns out developer-heavy and GitHub wins, build it then, with evidence.\n\n**Done when:** the decision and the survey evidence behind it are in the wiki, and an epic exists if the answer is yes.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-29f5b5ab-758a-4249-933e-eeb4026e2143",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:21:16.459114Z",
+  "updated_at": "2026-09-03T13:21:16.459332Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

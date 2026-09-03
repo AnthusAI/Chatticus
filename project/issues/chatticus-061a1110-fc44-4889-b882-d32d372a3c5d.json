@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-061a1110-fc44-4889-b882-d32d372a3c5d",
+  "title": "The organization computer launches in the customer account",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the assume-role story and the account record story\n- **Runs in parallel with:** nothing\n- **Unblocks:** paid enablement\n\n---\nThe behavior the whole epic exists for. Compute for an organization runs under the customer AWS account, using the assumed role, and its cost lands on their bill.\n\nThis is what makes the floated price safe, and it is also the strongest thing on the pitch page: the computer runs in their account, on their network, under their logging. Data never leaves. That story sells to buyers who would never accept a hosted agent with a shell.\n\nThe failure that matters most is silent fallback. An organization whose cross-account role cannot be assumed must refuse to start a computer, not quietly start one in the Anthus account \u2014 which would work, would look fine, and would put a customer workload and its cost somewhere neither party agreed to.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "067374c8-7ef4-487b-8d77-f6084e1c6d68",
+      "author": "unknown",
+      "text": "Feature: Cross-account provisioning\n\n  Scenario: Compute for an organization runs in the customer account\n    Given an organization provisioned into a customer AWS account\n    When its computer starts\n    Then the instance is launched in the customer account\n    And no compute for that organization runs in the Anthus account\n\n  Scenario: An unreachable customer role refuses rather than falls back\n    Given an organization whose cross-account role cannot be assumed\n    When its computer is asked to start\n    Then the start is refused with a provisioning error\n    And no instance is launched in the Anthus account",
+      "created_at": "2026-09-03T13:18:08.490245Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:18:07.323570Z",
+  "updated_at": "2026-09-03T13:18:08.490378Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

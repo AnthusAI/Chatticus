@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-1aef04f5-fe7d-4248-b20a-8fefa8cb40a4",
+  "title": "Report what share of interested people can run on AWS at all",
+  "description": "**Phase 5 of 5.**\n\n- **Blocked by:** the disqualification story, in the triage epic\n- **Runs in parallel with:** the other readout tasks\n- **Unblocks:** nothing\n\n---\nA task because the deliverable is a number and a strategic recommendation.\n\n**Possibly the single most important number the beta produces.** Of everyone interested enough to complete the survey, what fraction runs on AWS and could therefore ever be a customer of this product as designed?\n\nIf it is high, bring-your-own-AWS is a moat: the deployment story sells to buyers who would never accept a hosted agent with a shell. If it is low, the finding is that the product strategy is wrong rather than the funnel, and no amount of CTA copy fixes it.\n\nReport it with the cloud breakdown behind it, and against the funnel: do AWS shops also convert better once invited, or is the disqualification filtering out enthusiasm rather than fit?\n\n**Done when:** the number and its recommendation are in the wiki, read against the funnel report.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-29f5b5ab-758a-4249-933e-eeb4026e2143",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:21:14.233493Z",
+  "updated_at": "2026-09-03T13:21:14.233781Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
