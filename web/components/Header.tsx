@@ -30,8 +30,13 @@ export function Header() {
             FAQ
           </a>
         </div>
-        {/* Shaped like the logo mark's black message bubble (CHATTICUS_MARK_MODEL's ink bubble: 8/8/1.85/8 corner radii). */}
-        <Button asChild size="sm" variant="dark" className="rounded-[22px_22px_5px_22px]">
+        {/* Shaped and colored like the logo mark's backdrop bubble (CHATTICUS_MARK_MODEL's shadow bubble: 8/8/1.85/8 corner radii, --surface-2 fill). */}
+        <Button
+          asChild
+          size="sm"
+          variant="dark"
+          className="rounded-[22px_22px_5px_22px] bg-surface-high text-surface-foreground hover:bg-cobalt hover:text-white"
+        >
           <a href="/chat">
             Hey, Chatticus...
             <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
