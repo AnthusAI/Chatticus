@@ -9,3 +9,9 @@ Feature: Public waitlist submission
     When they post a complete waitlist survey
     Then the response is 201
     And no principal was resolved for the request
+
+  Scenario: Repeated submissions from one source are refused
+    Given a source that has submitted the waitlist survey at the allowed limit
+    When that source submits the survey again
+    Then the response is 429
+    And no additional waitlist signup is recorded

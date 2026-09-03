@@ -20,6 +20,7 @@ from chatticus.capability_policy import (
 )
 from chatticus.models import (
     ActorKind,
+    AwsSetupPath,
     Bot,
     Channel,
     ChannelParticipant,
@@ -45,6 +46,7 @@ from chatticus.models import (
     TurnEvent,
     TurnEventKind,
     TurnStatus,
+    WaitlistRateLimitedError,
     WaitlistSignup,
     WorkerRecord,
     WorkerRegistration,
@@ -350,12 +352,21 @@ class MessagingStore(Protocol):
     def put_budget_threshold_state(self, state: BudgetThresholdState) -> None:
         """Persist vendor threshold notification dedup state."""
 
-
     def put_waitlist_signup(self, signup: WaitlistSignup) -> None:
         """Persist one waitlist signup."""
 
     def get_waitlist_signup(self, email: str) -> WaitlistSignup | None:
         """Load one waitlist signup by email."""
+
+    def record_waitlist_submission(
+        self,
+        source: str,
+        *,
+        now: datetime,
+        limit: int,
+        window: timedelta,
+    ) -> None:
+        """Increment one submission attempt and refuse when over the limit."""
 
 
 class InMemoryMessagingStore:
@@ -389,6 +400,7 @@ class InMemoryMessagingStore:
         self._budget_rollups: dict[tuple[str, str, str], BudgetRollupRow] = {}
         self._budget_threshold_state: dict[str, BudgetThresholdState] = {}
         self._waitlist_signups: dict[str, WaitlistSignup] = {}
+        self._waitlist_submission_attempts: dict[str, list[datetime]] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -935,6 +947,28 @@ class InMemoryMessagingStore:
 
     def get_waitlist_signup(self, email: str) -> WaitlistSignup | None:
         return self._waitlist_signups.get(email)
+
+    def record_waitlist_submission(
+        self,
+        source: str,
+        *,
+        now: datetime,
+        limit: int,
+        window: timedelta,
+    ) -> None:
+        cutoff = now - window
+        attempts = [
+            timestamp
+            for timestamp in self._waitlist_submission_attempts.get(source, [])
+            if timestamp > cutoff
+        ]
+        attempts.append(now)
+        self._waitlist_submission_attempts[source] = attempts
+        if len(attempts) > limit:
+            raise WaitlistRateLimitedError(
+                f"Source {source!r} exceeded the waitlist submission rate limit "
+                f"of {limit} attempts per {window}."
+            )
 
 
 class DynamoMessagingStore:
@@ -2322,7 +2356,9 @@ class DynamoMessagingStore:
                 "sk": {"S": "SIGNUP"},
                 "email": {"S": signup.email},
                 "fit_answers": {"S": json.dumps(signup.fit_answers)},
-                "aws_readiness_answers": {"S": json.dumps(signup.aws_readiness_answers)},
+                "aws_readiness_answers": {
+                    "S": json.dumps(signup.aws_readiness_answers)
+                },
                 "price_answers": {"S": json.dumps(signup.price_answers)},
                 "complete": {"BOOL": signup.complete},
                 "created_at": {"S": signup.created_at.isoformat()},
@@ -2348,6 +2384,41 @@ class DynamoMessagingStore:
             complete=item.get("complete", {}).get("BOOL", False),
             created_at=datetime.fromisoformat(item["created_at"]["S"]),
         )
+
+    def record_waitlist_submission(
+        self,
+        source: str,
+        *,
+        now: datetime,
+        limit: int,
+        window: timedelta,
+    ) -> None:
+        window_seconds = max(int(window.total_seconds()), 1)
+        bucket = int(now.timestamp()) // window_seconds
+        expires_at = int((now + window + timedelta(hours=1)).timestamp())
+        response = self.client.update_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._waitlist_rate_pk(source)},
+                "sk": {"S": self._waitlist_rate_sk(bucket)},
+            },
+            UpdateExpression=(
+                "SET attempt_count = if_not_exists(attempt_count, :zero) + :one, "
+                "expires_at = :expires"
+            ),
+            ExpressionAttributeValues={
+                ":zero": {"N": "0"},
+                ":one": {"N": "1"},
+                ":expires": {"N": str(expires_at)},
+            },
+            ReturnValues="ALL_NEW",
+        )
+        count = int(response["Attributes"]["attempt_count"]["N"])
+        if count > limit:
+            raise WaitlistRateLimitedError(
+                f"Source {source!r} exceeded the waitlist submission rate limit "
+                f"of {limit} attempts per {window}."
+            )
 
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
@@ -2393,6 +2464,12 @@ class DynamoMessagingStore:
 
     def _org_create_rate_sk(self, bucket: int) -> str:
         return f"org_create_rate#{bucket}"
+
+    def _waitlist_rate_pk(self, source: str) -> str:
+        return f"WAITLIST_RATE#{source}"
+
+    def _waitlist_rate_sk(self, bucket: int) -> str:
+        return f"waitlist_rate#{bucket}"
 
     def _invitation_lookup_pk(self, invitation_id: str) -> str:
         return f"invitation_lookup#{invitation_id}"
@@ -2618,7 +2695,7 @@ def _identity_from_item(item: dict[str, Any]) -> Identity:
 
 
 def _organization_item(organization: Organization) -> dict[str, Any]:
-    return {
+    item: dict[str, Any] = {
         "pk": {"S": f"{organization.tenant_id}#org"},
         "sk": {"S": "meta"},
         "tenant_id": {"S": organization.tenant_id},
@@ -2627,6 +2704,19 @@ def _organization_item(organization: Organization) -> dict[str, Any]:
         "owner_user_id": {"S": organization.owner_user_id},
         "created_at": {"S": organization.created_at.isoformat()},
     }
+    if organization.aws_account_id is not None:
+        item["aws_account_id"] = {"S": organization.aws_account_id}
+    if organization.aws_cross_account_role is not None:
+        item["aws_cross_account_role"] = {"S": organization.aws_cross_account_role}
+    if organization.aws_external_id is not None:
+        item["aws_external_id"] = {"S": organization.aws_external_id}
+    if organization.aws_setup_path is not None:
+        item["aws_setup_path"] = {"S": organization.aws_setup_path}
+    if organization.setup_fee_cents is not None:
+        item["setup_fee_cents"] = {"N": str(organization.setup_fee_cents)}
+    if organization.assisted_setup_session:
+        item["assisted_setup_session"] = {"BOOL": True}
+    return item
 
 
 def _organization_from_item(item: dict[str, Any]) -> Organization:
@@ -2636,6 +2726,20 @@ def _organization_from_item(item: dict[str, Any]) -> Organization:
         status=OrganizationStatus(item["status"]["S"]),
         owner_user_id=item["owner_user_id"]["S"],
         created_at=datetime.fromisoformat(item["created_at"]["S"]),
+        aws_account_id=item.get("aws_account_id", {}).get("S"),
+        aws_cross_account_role=item.get("aws_cross_account_role", {}).get("S"),
+        aws_external_id=item.get("aws_external_id", {}).get("S"),
+        aws_setup_path=(
+            AwsSetupPath(item["aws_setup_path"]["S"])
+            if "aws_setup_path" in item
+            else None
+        ),
+        setup_fee_cents=(
+            int(item["setup_fee_cents"]["N"]) if "setup_fee_cents" in item else None
+        ),
+        assisted_setup_session=item.get("assisted_setup_session", {}).get(
+            "BOOL", False
+        ),
     )
 
 

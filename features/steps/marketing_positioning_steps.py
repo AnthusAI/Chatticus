@@ -93,7 +93,8 @@ def then_states_managed_customers_run_what_anthus_runs(context: object) -> None:
 
 
 @then(
-    "it states that the organization computer runs in an AWS account the customer controls"  # noqa: E501
+    "it states that the organization computer runs in an AWS account "
+    "the customer controls"
 )
 def then_states_aws_account(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
@@ -128,7 +129,8 @@ def then_offers_self_setup_managed_operation(context: object) -> None:
 
 
 @then(
-    "it offers assisted setup with managed operation at a monthly price and a one-time fee"  # noqa: E501
+    "it offers assisted setup with managed operation at a monthly price "
+    "and a one-time fee"
 )
 def then_offers_assisted_setup_managed_operation(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
@@ -172,6 +174,7 @@ def then_state_anthus_updates_own_orgs_first(context: object) -> None:
 @then('there are calls to action for "/beta"')
 def then_calls_to_action_for_beta(context: object) -> None:
     html = context.marketing_ui_harness.get("html") or ""
+    # Header, Hero, FinalCta, Footer -> 4 occurrences
     assert (
         html.count('href="/beta"') >= 4
     ), f"Found {html.count('href=\"/beta\"')} links to /beta"
