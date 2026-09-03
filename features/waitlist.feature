@@ -7,7 +7,7 @@ Feature: Public waitlist submission
   Scenario: A caller without a principal may post a waitlist signup
     Given a visitor with no Chatticus account
     When they post a complete waitlist survey
-    Then the response is 201
+    Then the response is 200
     And no principal was resolved for the request
 
   Scenario: Repeated submissions from one source are refused

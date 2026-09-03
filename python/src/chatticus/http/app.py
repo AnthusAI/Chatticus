@@ -53,6 +53,7 @@ from chatticus.models import (
     OrganizationNameTooLongError,
     OrganizationNotFoundError,
     OrganizationOwnerCapError,
+    PriceSensitivityAnswers,
     StaleAttemptError,
     TaskAccessDeniedError,
     TaskNotFoundError,
@@ -71,6 +72,7 @@ from chatticus.models import (
 )
 from chatticus.principal import Principal
 from chatticus.signup_mode import SignupMode, signup_mode_from_env
+from chatticus.waitlist_survey import beta_page_survey
 from chatticus.worker_credentials import parse_bearer_token
 
 logger = logging.getLogger("chatticus.http")
@@ -78,6 +80,15 @@ INVOKE_HEADER = "X-Chatticus-Invoke-Key"
 
 
 TENANT_HEADER = "X-Tenant-Id"
+
+
+class PriceSensitivityAnswersBody(BaseModel):
+    """Van Westendorp price block on the waitlist survey."""
+
+    too_cheap: str
+    bargain: str
+    expensive: str
+    too_expensive: str
 
 
 class SubmitWaitlistBody(BaseModel):
@@ -88,6 +99,7 @@ class SubmitWaitlistBody(BaseModel):
     aws_readiness_answers: dict[str, str] = Field(default_factory=dict)
     price_answers: dict[str, str] = Field(default_factory=dict)
     setup_path_answers: dict[str, str] = Field(default_factory=dict)
+    price_sensitivity_answers: PriceSensitivityAnswersBody | None = None
     complete: bool
 
 
@@ -364,14 +376,27 @@ def create_app(
     def health() -> dict[str, str]:
         return {"status": "ok", "environment": state.environment}
 
+    @app.get("/waitlist/survey")
+    def get_waitlist_survey() -> dict[str, object]:
+        return beta_page_survey()
+
     @app.post("/waitlist", status_code=201)
     def submit_waitlist(body: SubmitWaitlistBody, request: Request) -> dict[str, str]:
+        price_sensitivity_answers = None
+        if body.price_sensitivity_answers is not None:
+            price_sensitivity_answers = PriceSensitivityAnswers(
+                too_cheap=body.price_sensitivity_answers.too_cheap,
+                bargain=body.price_sensitivity_answers.bargain,
+                expensive=body.price_sensitivity_answers.expensive,
+                too_expensive=body.price_sensitivity_answers.too_expensive,
+            )
         state.plane.record_waitlist_signup(
             email=body.email,
             fit_answers=body.fit_answers,
             aws_readiness_answers=body.aws_readiness_answers,
             price_answers=body.price_answers,
             setup_path_answers=body.setup_path_answers,
+            price_sensitivity_answers=price_sensitivity_answers,
             complete=body.complete,
             source=waitlist_submission_source(request),
         )

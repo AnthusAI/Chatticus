@@ -39,6 +39,7 @@ from chatticus.models import (
     OrganizationOwnerCapError,
     OrganizationStatus,
     PendingComputerToolSnapshot,
+    PriceSensitivityAnswers,
     StaleAttemptError,
     Task,
     TaskStatus,
@@ -2371,6 +2372,13 @@ class DynamoMessagingStore:
                 },
                 "price_answers": {"S": json.dumps(signup.price_answers)},
                 "setup_path_answers": {"S": json.dumps(signup.setup_path_answers)},
+                "price_sensitivity_answers": {
+                    "S": json.dumps(
+                        signup.price_sensitivity_answers.to_dict()
+                        if signup.price_sensitivity_answers is not None
+                        else {}
+                    )
+                },
                 "complete": {"BOOL": signup.complete},
                 "created_at": {"S": signup.created_at.isoformat()},
                 "email_confirmed": {"BOOL": signup.email_confirmed},
@@ -2388,6 +2396,7 @@ class DynamoMessagingStore:
         item = response.get("Item")
         if item is None:
             return None
+        price_data = json.loads(item.get("price_sensitivity_answers", {"S": "{}"})["S"])
         return WaitlistSignup(
             email=item["email"]["S"],
             fit_answers=json.loads(item["fit_answers"]["S"]),
@@ -2395,6 +2404,9 @@ class DynamoMessagingStore:
             price_answers=json.loads(item.get("price_answers", {"S": "{}"})["S"]),
             setup_path_answers=json.loads(
                 item.get("setup_path_answers", {"S": "{}"})["S"]
+            ),
+            price_sensitivity_answers=(
+                PriceSensitivityAnswers.from_dict(price_data) if price_data else None
             ),
             complete=item.get("complete", {}).get("BOOL", False),
             created_at=datetime.fromisoformat(item["created_at"]["S"]),

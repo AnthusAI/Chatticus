@@ -672,6 +672,35 @@ class TurnEvent:
 
 
 @dataclass(frozen=True)
+class PriceSensitivityAnswers:
+    """Van Westendorp price sensitivity block on the waitlist survey."""
+
+    too_cheap: str
+    bargain: str
+    expensive: str
+    too_expensive: str
+
+    def to_dict(self) -> dict[str, str]:
+        """Serialize the four price answers for storage."""
+        return {
+            "too_cheap": self.too_cheap,
+            "bargain": self.bargain,
+            "expensive": self.expensive,
+            "too_expensive": self.too_expensive,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, str]) -> PriceSensitivityAnswers:
+        """Deserialize stored price answers."""
+        return cls(
+            too_cheap=data["too_cheap"],
+            bargain=data["bargain"],
+            expensive=data["expensive"],
+            too_expensive=data["too_expensive"],
+        )
+
+
+@dataclass(frozen=True)
 class WaitlistSignup:
     """A lead from the public marketing site waitlist survey."""
 
@@ -680,6 +709,7 @@ class WaitlistSignup:
     aws_readiness_answers: dict[str, str]
     price_answers: dict[str, str]
     setup_path_answers: dict[str, str]
+    price_sensitivity_answers: PriceSensitivityAnswers | None
     complete: bool
     created_at: datetime
     email_confirmed: bool = False
