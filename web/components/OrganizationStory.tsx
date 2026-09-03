@@ -21,7 +21,7 @@ const foundation = [
     eyebrow: "Identity",
     title: "Remembers the last time you talked.",
     description:
-      "Each bot has a name, durable memory, and a role in the work. Context compounds instead of disappearing at the end of a prompt.",
+      "Each bot has a name, durable memory, and a role in the work — context compounds instead of vanishing at the end of a prompt.",
     status: "Live foundation",
     accent: "bg-cobalt",
   },
@@ -29,10 +29,10 @@ const foundation = [
     icon: HardDrive,
     number: "02",
     eyebrow: "Computer",
-    title: "One workplace the team can share.",
+    title: "One computer, not one login per bot.",
     description:
-      "Your teammates use the same browser sessions, files, and command-line credentials, with a separate screen for each active worker.",
-    status: "Development path",
+      "Every teammate shares the same browser sessions, files, and credentials — each gets its own screen, not its own machine.",
+    status: "Proven in development",
     accent: "bg-sea",
   },
   {
@@ -42,7 +42,7 @@ const foundation = [
     title: "Consequences stop with you.",
     description:
       "Sending, publishing, buying, deleting, and changing permissions pause at an approval boundary you can inspect.",
-    status: "Policy kernel",
+    status: "Proven in development",
     accent: "bg-clay",
   },
   {
@@ -51,8 +51,8 @@ const foundation = [
     eyebrow: "Continuity",
     title: "Work can outlast the open laptop.",
     description:
-      "Routines can wake a named teammate on a schedule or event. The computer is summoned only when the work actually needs it.",
-    status: "Designed path",
+      "A routine wakes a named teammate on a schedule or event — the computer only spins up when the work actually needs it.",
+    status: "Shipping next",
     accent: "bg-amber",
   },
 ];
