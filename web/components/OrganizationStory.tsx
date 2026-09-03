@@ -89,9 +89,9 @@ export function OrganizationStory() {
             return (
               <Card
                 key={item.number}
-                className={`group overflow-hidden bg-paper/[0.06] text-paper transition duration-300 hover:bg-paper/[0.1] ${index === 0 || index === 3 ? "md:min-h-[27rem]" : "md:translate-y-12"}`}
+                className={`group overflow-hidden bg-paper/[0.06] text-paper transition duration-300 hover:bg-paper/[0.1] ${index === 0 || index === 3 ? "md:min-h-[27rem]" : ""}`}
               >
-                <CardHeader className="flex-row items-start justify-between gap-8 p-7 sm:p-9">
+                <CardHeader className="flex flex-row items-start justify-between gap-8 p-7 sm:p-9">
                   <div>
                     <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-paper/50">
                       {item.number} · {item.eyebrow}

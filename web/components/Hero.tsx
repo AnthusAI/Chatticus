@@ -23,7 +23,7 @@ export function Hero() {
             reportsPresenceAsHero
             showText={false}
             size={140}
-            className="mt-1 shrink-0"
+            className="-mt-[29px] shrink-0"
           />
           <div className="min-w-0">
             <h1
