@@ -14,8 +14,22 @@ HARNESS = WEB_DIR / "test-support" / "membership-ui-harness.ts"
 HARNESS_STATE = REPO_ROOT / ".membership-ui-harness-state.json"
 
 
+def _tsx_binary() -> Path:
+    candidates = (
+        WEB_DIR / "node_modules" / ".bin" / "tsx",
+        REPO_ROOT / "node_modules" / ".bin" / "tsx",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(
+        "tsx not found; run npm install at the repo root "
+        f"(checked {candidates[0]} and {candidates[1]})"
+    )
+
+
 def _run_harness(command: str, payload: dict | None = None) -> dict:
-    tsx = WEB_DIR / "node_modules" / ".bin" / "tsx"
+    tsx = _tsx_binary()
     args = [str(tsx), str(HARNESS), command]
     if payload is not None:
         args.append(json.dumps(payload))

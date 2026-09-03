@@ -283,9 +283,21 @@ Chattic.us/
 ```
 
 v1 language for the product brain is **Python**. The web app is
-**TypeScript**. Gherkin in `features/` is the behavior spec.
+**TypeScript**. Gherkin in `features/` is the behavior spec. Root
+`package.json` workspaces `web` and `infra` so one `npm install` at the
+repo root installs all JavaScript dependencies (Node 22+).
 
 ## What you can run today
+
+Local JavaScript setup (Node 22+):
+
+```bash
+npm install
+npm run build
+npm run test
+npm run lint
+npm run dev
+```
 
 Local quality gates (CI uses a fake OpenAI client; a live key is not
 required):

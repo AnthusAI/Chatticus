@@ -357,8 +357,9 @@ Synth validates CloudFormation templates without deploying. CI runs
 stack asset path exists:
 
 ```bash
-cd web && npm ci && npm run build
-cd ../infra && npm ci && npx cdk synth
+npm install
+npm run build --workspace=web
+npm run synth --workspace=infra
 ```
 
 Before promoting to `main` or a gated production deploy, confirm the

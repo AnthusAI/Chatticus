@@ -1,0 +1,24 @@
+{
+  "name": "chatticus",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "web",
+    "infra"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspace=web",
+    "typecheck": "npm run typecheck --workspace=web",
+    "dev": "npm run dev --workspace=web",
+    "synth": "npm run synth --workspace=infra"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "postcss": "8.5.23",
+    "next": "15.5.24"
+  }
+}

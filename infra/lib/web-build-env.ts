@@ -33,17 +33,19 @@ export function webDockerBundleCommand(
     "cd /asset-input",
     webBuildEnvExports(environmentName),
     "npm ci",
-    "npm run build",
-    "cp -r out/. /asset-output/",
+    "npm run build --workspace=web",
+    "cp -r web/out/. /asset-output/",
   ].join(" && ");
 }
 
 export function webLocalBundleCommand(
   environmentName: ChatticusCloudEnvironment,
 ): string {
-  return [webBuildEnvExports(environmentName), "npm ci", "npm run build"].join(
-    " && ",
-  );
+  return [
+    webBuildEnvExports(environmentName),
+    "npm ci",
+    "npm run build --workspace=web",
+  ].join(" && ");
 }
 
 /** Shell guard: only attempt local bundling when AWS CLI is on PATH. */
