@@ -27,3 +27,13 @@ Feature: Delegation ladder positioning
     Given the delegated responsibility section
     Then the managed rungs state that Anthus keeps the deployment updated
     And they state that Anthus updates its own organizations first
+
+  Scenario: The FAQ explains what stopping payment does
+    Given the chattic.us FAQ
+    Then it states that the deployment lives in the customer AWS account
+    And it states that Anthus stops operating it and deletes nothing
+
+  Scenario: The FAQ explains what managed operation covers
+    Given the chattic.us FAQ
+    Then it states that Anthus applies updates to managed deployments
+    And it states that a customer may move between self-setup and assisted setup

@@ -1,8 +1,14 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import HomePage from "../app/page";
 
 (globalThis as any).React = React;
+
+(AccordionPrimitive.Content as any).defaultProps = {
+  ...((AccordionPrimitive.Content as any).defaultProps || {}),
+  forceMount: true,
+};
 
 async function main(): Promise<void> {
   const [command] = process.argv.slice(2);

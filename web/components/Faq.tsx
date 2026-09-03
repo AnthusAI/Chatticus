@@ -37,6 +37,26 @@ const questions = [
     answer:
       "Yes. The serverless conversation foundation and computer handoff paths are live in production today. Skills, routines, the approvals UI, and the computer preview keep expanding from here.",
   },
+  {
+    question: "Do I need an AWS account?",
+    answer:
+      "Yes, for every rung except forking it, and here is roughly what it will cost you.",
+  },
+  {
+    question: "What happens if I stop paying?",
+    answer:
+      "Your deployment is in your account and stays there. We stop operating it. Nothing is deleted by us.",
+  },
+  {
+    question: "What does managed actually mean?",
+    answer:
+      "We apply updates, we watch it, and we go first — our own organizations take every release before yours.",
+  },
+  {
+    question: "Can I start self-setup and move to assisted?",
+    answer:
+      "Yes, and the reverse.",
+  },
 ];
 
 export function Faq() {
