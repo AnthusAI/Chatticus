@@ -19,11 +19,13 @@ export type DemoScenario = {
 /**
  * Scripted transcripts for the marketing hero's live demo of the real
  * Workspace UI — no network calls from the public site. Each scenario casts
- * the same four character archetypes Vultus's character system currently
- * ships (Editor/Reporter/Copy Writer/Illustrator -- capsule/clay,
- * circle/cobalt, rectangle/signal, square/sea) with names and job-title
- * labels suited to that scenario's use case; a genuinely distinct
- * shape/color per scenario would need new archetypes added to Vultus itself.
+ * four of Vultus's eight character archetypes (Editor/Reporter/Copy
+ * Writer/Illustrator/Producer/Researcher/Archivist/Analyst), varied
+ * scenario to scenario so the carousel doesn't show the same four
+ * silhouettes on repeat -- every scenario differs from its neighbors (in
+ * carousel order, wrapping around) by at least two of its four characters.
+ * `role` picks the character archetype; `meta` is just the on-screen job
+ * title and doesn't need to match it literally.
  *
  * Each member's messages are choreographed via WorkspaceMessage's
  * typingBeforeMs/reaction fields (see WorkspaceThread's reveal logic) --
@@ -111,7 +113,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       {
         id: "pirx",
         name: "Pirx",
-        role: "Editor",
+        role: "Producer",
         meta: "Release Manager",
         motionState: "editing",
         activity: "Reviewing the changelog",
@@ -124,7 +126,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       {
         id: "golem",
         name: "Golem",
-        role: "Reporter",
+        role: "Analyst",
         meta: "QA Engineer",
         motionState: "gathering",
         activity: "Triaging overnight failures",
@@ -190,7 +192,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       {
         id: "sage",
         name: "Sage",
-        role: "Reporter",
+        role: "Researcher",
         meta: "Sourcing Lead",
         motionState: "gathering",
         activity: "Confirming the fish delivery",
@@ -203,7 +205,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       {
         id: "clove",
         name: "Clove",
-        role: "Copy Writer",
+        role: "Archivist",
         meta: "Menu Writer",
         motionState: "drafting",
         activity: "Rewriting the menu copy",
@@ -249,7 +251,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       {
         id: "vela",
         name: "Vela",
-        role: "Reporter",
+        role: "Researcher",
         meta: "Observational Astronomer",
         motionState: "gathering",
         activity: "Confirming the second transit",
@@ -274,7 +276,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       {
         id: "halley",
         name: "Halley",
-        role: "Illustrator",
+        role: "Analyst",
         meta: "Data Viz Lead",
         motionState: "drawing",
         activity: "Simplifying the light curve",
@@ -302,7 +304,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       {
         id: "moss",
         name: "Moss",
-        role: "Editor",
+        role: "Producer",
         meta: "Lead Investigator",
         motionState: "editing",
         activity: "Reviewing the case file",
@@ -328,7 +330,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       {
         id: "thistle",
         name: "Thistle",
-        role: "Copy Writer",
+        role: "Archivist",
         meta: "Dispatch Writer",
         motionState: "drafting",
         activity: "Drafting the member newsletter",

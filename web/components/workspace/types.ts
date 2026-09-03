@@ -1,10 +1,10 @@
-import type { BotAvatarState, CreativeRole } from "anthus-vultus";
+import type { BotAvatarState, CreativeCharacterRole } from "anthus-vultus";
 
 export type WorkspaceMember = {
   id: string;
   name: string;
   /** Explicit character role; falls back to name-based inference (see BotAvatarView) when omitted. */
-  role?: CreativeRole;
+  role?: CreativeCharacterRole;
   /** Small line under the member's name in the roster/header (title, activity, memory count, ...). */
   meta?: string;
 };
