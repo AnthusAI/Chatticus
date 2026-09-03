@@ -24,38 +24,15 @@ const mono = IBM_Plex_Mono({
   display: "swap",
 });
 
+/**
+ * Only truly site-wide metadata lives here. Title, description, keywords,
+ * canonical, openGraph, and twitter are per-page (see page-content.ts and
+ * each route's own metadata export) so a shared link's preview actually
+ * describes the page being shared, not always the homepage -- each route
+ * also gets its own opengraph-image.tsx built from the same copy.
+ */
 export const metadata: Metadata = {
   metadataBase: new URL("https://chattic.us"),
-  title: "Chatticus | Build the AI organization you control",
-  description:
-    "Persistent, named AI teammates with memory, skills, routines, approvals, and one shared computer inside a boundary you control.",
-  keywords: [
-    "AI teammates",
-    "AI organization",
-    "self-hosted AI agents",
-    "agent computer",
-    "AI approvals",
-  ],
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    type: "website",
-    url: "/",
-    title: "Build the AI organization you control",
-    description:
-      "Named AI teammates on one shared computer, inside a boundary you own.",
-    siteName: "Chatticus",
-    // Image comes from app/opengraph-image.tsx (renders the real logo mark
-    // as a PNG at build time) -- Next injects it automatically, and Twitter
-    // falls back to it too since no twitter-image file exists.
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Build the AI organization you control",
-    description:
-      "Named AI teammates on one shared computer, inside a boundary you own.",
-  },
   icons: {
     icon: "/favicon.svg",
   },
