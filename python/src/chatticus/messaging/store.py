@@ -20,6 +20,7 @@ from chatticus.capability_policy import (
 )
 from chatticus.models import (
     ActorKind,
+    AwsSetupPath,
     Bot,
     Channel,
     ChannelParticipant,
@@ -349,7 +350,6 @@ class MessagingStore(Protocol):
 
     def put_budget_threshold_state(self, state: BudgetThresholdState) -> None:
         """Persist vendor threshold notification dedup state."""
-
 
     def put_waitlist_signup(self, signup: WaitlistSignup) -> None:
         """Persist one waitlist signup."""
@@ -2322,7 +2322,9 @@ class DynamoMessagingStore:
                 "sk": {"S": "SIGNUP"},
                 "email": {"S": signup.email},
                 "fit_answers": {"S": json.dumps(signup.fit_answers)},
-                "aws_readiness_answers": {"S": json.dumps(signup.aws_readiness_answers)},
+                "aws_readiness_answers": {
+                    "S": json.dumps(signup.aws_readiness_answers)
+                },
                 "price_answers": {"S": json.dumps(signup.price_answers)},
                 "complete": {"BOOL": signup.complete},
                 "created_at": {"S": signup.created_at.isoformat()},
@@ -2618,7 +2620,7 @@ def _identity_from_item(item: dict[str, Any]) -> Identity:
 
 
 def _organization_item(organization: Organization) -> dict[str, Any]:
-    return {
+    item: dict[str, Any] = {
         "pk": {"S": f"{organization.tenant_id}#org"},
         "sk": {"S": "meta"},
         "tenant_id": {"S": organization.tenant_id},
@@ -2627,6 +2629,19 @@ def _organization_item(organization: Organization) -> dict[str, Any]:
         "owner_user_id": {"S": organization.owner_user_id},
         "created_at": {"S": organization.created_at.isoformat()},
     }
+    if organization.aws_account_id is not None:
+        item["aws_account_id"] = {"S": organization.aws_account_id}
+    if organization.aws_cross_account_role is not None:
+        item["aws_cross_account_role"] = {"S": organization.aws_cross_account_role}
+    if organization.aws_external_id is not None:
+        item["aws_external_id"] = {"S": organization.aws_external_id}
+    if organization.aws_setup_path is not None:
+        item["aws_setup_path"] = {"S": organization.aws_setup_path}
+    if organization.setup_fee_cents is not None:
+        item["setup_fee_cents"] = {"N": str(organization.setup_fee_cents)}
+    if organization.assisted_setup_session:
+        item["assisted_setup_session"] = {"BOOL": True}
+    return item
 
 
 def _organization_from_item(item: dict[str, Any]) -> Organization:
@@ -2636,6 +2651,20 @@ def _organization_from_item(item: dict[str, Any]) -> Organization:
         status=OrganizationStatus(item["status"]["S"]),
         owner_user_id=item["owner_user_id"]["S"],
         created_at=datetime.fromisoformat(item["created_at"]["S"]),
+        aws_account_id=item.get("aws_account_id", {}).get("S"),
+        aws_cross_account_role=item.get("aws_cross_account_role", {}).get("S"),
+        aws_external_id=item.get("aws_external_id", {}).get("S"),
+        aws_setup_path=(
+            AwsSetupPath(item["aws_setup_path"]["S"])
+            if "aws_setup_path" in item
+            else None
+        ),
+        setup_fee_cents=(
+            int(item["setup_fee_cents"]["N"]) if "setup_fee_cents" in item else None
+        ),
+        assisted_setup_session=item.get("assisted_setup_session", {}).get(
+            "BOOL", False
+        ),
     )
 
 

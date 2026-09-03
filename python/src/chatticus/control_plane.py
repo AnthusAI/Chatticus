@@ -65,6 +65,7 @@ from chatticus.computer_capabilities import (
     ComputerCapabilityReadiness,
 )
 from chatticus.computer_start import HostStartClaim
+from chatticus.cross_account_provisioning import CrossAccountRoleInspector
 from chatticus.escalation_handoff import (
     ComputerOwnershipClaim,
     EscalationRecord,
@@ -111,6 +112,7 @@ from chatticus.models import (
     OrganizationOwnerCapError,
     OrganizationStatus,
     PendingComputerToolSnapshot,
+    SelfSetupCrossAccountResult,
     SnapshotRequiredError,
     StaleAttemptError,
     Task,
@@ -373,6 +375,22 @@ class ControlPlane:
     def enable_organization(self, tenant_id: str) -> Organization:
         """Mark one organization enabled without provisioning a computer."""
         return self._org_records.enable_organization(tenant_id)
+
+    def submit_self_setup_cross_account_role(
+        self,
+        tenant_id: str,
+        *,
+        account_id: str,
+        cross_account_role: str,
+        role_inspector: CrossAccountRoleInspector,
+    ) -> SelfSetupCrossAccountResult:
+        """Validate and accept one customer self-setup cross-account submission."""
+        return self._org_records.submit_self_setup_cross_account_role(
+            tenant_id,
+            account_id=account_id,
+            cross_account_role=cross_account_role,
+            role_inspector=role_inspector,
+        )
 
     def suspend_organization(self, tenant_id: str) -> Organization:
         """Mark one organization suspended."""
@@ -3443,6 +3461,7 @@ class ControlPlane:
         )
         self._messaging_store.put_waitlist_signup(signup)
         return signup
+
 
 def _disk_checksum(workspace: dict[str, str], browser_sessions: dict[str, str]) -> str:
     payload = json.dumps(

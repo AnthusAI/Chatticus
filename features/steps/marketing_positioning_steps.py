@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from behave import given, then
+from behave import given, then, when
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WEB_DIR = REPO_ROOT / "web"
@@ -91,7 +91,11 @@ def then_states_managed_customers_run_what_anthus_runs(context: object) -> None:
         or "managed customers run what anthus runs" in text
     ), text
 
-@then("it states that the organization computer runs in an AWS account the customer controls")
+
+@then(
+    "it states that the organization computer runs in an AWS account "
+    "the customer controls"
+)
 def then_states_aws_account(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
     assert "runs in an aws account you own" in text, text
@@ -102,15 +106,20 @@ def then_states_open_licence(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
     assert "code is mit licensed" in text, text
 
+
 @when("I look at the delegated responsibility section")
 def when_look_at_delegated_responsibility_section(context: object) -> None:
     pass
+
 
 @then("it offers forking and self-deploying at no cost")
 def then_offers_forking_at_no_cost(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
     assert "no cost" in text or "free" in text or "$0" in text, text
-    assert "fork" in text or "self-deploying" in text or "deploy it yourself" in text, text
+    assert (
+        "fork" in text or "self-deploying" in text or "deploy it yourself" in text
+    ), text
+
 
 @then("it offers self-setup with managed operation at a monthly price")
 def then_offers_self_setup_managed_operation(context: object) -> None:
@@ -118,12 +127,17 @@ def then_offers_self_setup_managed_operation(context: object) -> None:
     assert "self-setup" in text, text
     assert "$20 a month" in text or "$20 / month" in text or "$20/month" in text, text
 
-@then("it offers assisted setup with managed operation at a monthly price and a one-time fee")
+
+@then(
+    "it offers assisted setup with managed operation at a monthly price "
+    "and a one-time fee"
+)
 def then_offers_assisted_setup_managed_operation(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
     assert "assisted setup" in text, text
     assert "$20 a month" in text or "$20 / month" in text or "$20/month" in text, text
     assert "$100 once" in text or "$100 one-time" in text, text
+
 
 @then("it offers professional services as a quote")
 def then_offers_professional_services_quote(context: object) -> None:
@@ -131,43 +145,63 @@ def then_offers_professional_services_quote(context: object) -> None:
     assert "professional services" in text, text
     assert "quote" in text or "quoted" in text, text
 
+
 @given("the delegated responsibility section")
 def given_delegated_responsibility_section(context: object) -> None:
     context.marketing_ui_harness = _run_harness("render")
 
+
 @then("the managed rungs state that Anthus keeps the deployment updated")
 def then_managed_rungs_state_anthus_keeps_updated(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
-    assert "keeps the deployment updated" in text or "keep the deployment updated" in text or "keep it updated" in text, text
+    assert (
+        "keeps the deployment updated" in text
+        or "keep the deployment updated" in text
+        or "keep it updated" in text
+    ), text
+
 
 @then("they state that Anthus updates its own organizations first")
 def then_state_anthus_updates_own_orgs_first(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
-    assert "updates its own organizations first" in text or "update our own first" in text or "update our own" in text, text
+    assert (
+        "updates its own organizations first" in text
+        or "update our own first" in text
+        or "update our own" in text
+    ), text
+
 
 @then('there are calls to action for "/beta"')
 def then_calls_to_action_for_beta(context: object) -> None:
     html = context.marketing_ui_harness.get("html") or ""
     # Header, Hero, FinalCta, Footer -> 4 occurrences
-    assert html.count('href="/beta"') >= 4, f"Found {html.count('href=\"/beta\"')} links to /beta"
+    assert (
+        html.count('href="/beta"') >= 4
+    ), f"Found {html.count('href=\"/beta\"')} links to /beta"
+
+
 @given("the chattic.us FAQ")
 def given_chatticus_faq(context: object) -> None:
     context.marketing_ui_harness = _run_harness("render")
+
 
 @then("it states that the deployment lives in the customer AWS account")
 def then_deployment_lives_in_customer_aws_account(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
     assert "deployment is in your account" in text, text
 
+
 @then("it states that Anthus stops operating it and deletes nothing")
 def then_anthus_stops_operating_and_deletes_nothing(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
     assert "we stop operating it" in text and "nothing is deleted by us" in text, text
 
+
 @then("it states that Anthus applies updates to managed deployments")
 def then_anthus_applies_updates(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
     assert "we apply updates" in text, text
+
 
 @then("it states that a customer may move between self-setup and assisted setup")
 def then_customer_may_move_between_setups(context: object) -> None:
