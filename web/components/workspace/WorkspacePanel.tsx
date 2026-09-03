@@ -1,6 +1,6 @@
 "use client";
 
-import { Pause, Play, Sparkles } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import { WorkspaceRoster } from "./WorkspaceRoster";
 import { WorkspaceThread } from "./WorkspaceThread";
 import type { BotAvatarState, WorkspaceMember, WorkspaceMessage } from "./types";
@@ -59,14 +59,9 @@ export function WorkspacePanel({
       className="rounded-[2rem] bg-surface p-2 text-surface-foreground sm:p-3"
     >
       <div className="flex items-center justify-between rounded-2xl bg-surface-raised px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-[0.6rem] bg-signal text-ink">
-            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          </span>
-          <div>
-            <p className="font-mono text-[0.52rem] uppercase tracking-[0.14em] text-surface-foreground/60">{orgLabel}</p>
-            <p className="font-body text-xs font-extrabold">{workspaceLabel}</p>
-          </div>
+        <div>
+          <p className="font-mono text-[0.52rem] uppercase tracking-[0.14em] text-surface-foreground/60">{orgLabel}</p>
+          <p className="font-body text-xs font-extrabold">{workspaceLabel}</p>
         </div>
         {onTogglePaused ? (
           <button
