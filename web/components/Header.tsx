@@ -10,23 +10,23 @@ export function Header() {
         className="mx-auto flex h-[4.6rem] max-w-[92rem] items-center justify-between px-5 sm:px-8 lg:px-12"
       >
         <a
-          href="#top"
+          href="/#top"
           aria-label="Chatticus home"
           className="rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/30"
         >
           <Wordmark animated="auto" iconPosition="end" />
         </a>
         <div className="hidden items-center gap-7 font-body text-sm font-semibold lg:flex">
-          <a className="nav-link" href="#organization">
+          <a className="nav-link" href="/#organization">
             Organization
           </a>
-          <a className="nav-link" href="#control">
+          <a className="nav-link" href="/#control">
             Why Chatticus
           </a>
-          <a className="nav-link" href="#evidence">
+          <a className="nav-link" href="/#evidence">
             Evidence
           </a>
-          <a className="nav-link" href="#faq">
+          <a className="nav-link" href="/#faq">
             FAQ
           </a>
         </div>
