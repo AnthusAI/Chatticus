@@ -147,6 +147,7 @@ from chatticus.models import (
     TurnStatus,
     TurnTerminalError,
     WaitlistSignup,
+    WaitlistSummary,
     WorkerDoesNotHostComputerError,
     WorkerRecord,
     WorkerRegistration,
@@ -3575,6 +3576,7 @@ class ControlPlane:
             scoring_weights_version=(
                 existing.scoring_weights_version if existing else None
             ),
+            disqualified=existing.disqualified if existing else False,
         )
         if confirmation_token is None:
             token = secrets.token_urlsafe(16)
@@ -3592,28 +3594,50 @@ class ControlPlane:
         """List waitlist signups that have confirmed their email."""
         return self._messaging_store.list_waitlist_queue()
 
+    def summarize_waitlist(self) -> WaitlistSummary:
+        """Return counts of queued and disqualified confirmed waitlist signups."""
+        return self._messaging_store.summarize_confirmed_waitlist()
+
     def confirm_waitlist_email(self, email: str) -> None:
-        """Mark a waitlist signup's email as confirmed and score it once."""
+        """Mark a waitlist signup's email as confirmed and triage it once."""
         from chatticus.org_records import normalize_email
-        from chatticus.waitlist_scoring import score_waitlist_signup
+        from chatticus.waitlist_scoring import (
+            non_aws_cloud_provider,
+            score_waitlist_signup,
+        )
 
         normalized = normalize_email(email)
         signup = self._messaging_store.get_waitlist_signup(normalized)
         if not signup:
             return
 
-        if signup.email_confirmed and signup.scoring_weights_version is not None:
+        if signup.disqualified or signup.scoring_weights_version is not None:
+            if not signup.email_confirmed:
+                self._messaging_store.put_waitlist_signup(
+                    replace(signup, email_confirmed=True)
+                )
             return
 
-        result = score_waitlist_signup(signup)
-        confirmed = replace(
-            signup,
-            email_confirmed=True,
-            waitlist_score=result.score,
-            services_qualified=result.services_qualified,
-            scoring_weights_version=result.weights_version,
-        )
-        self._messaging_store.put_waitlist_signup(confirmed)
+        if non_aws_cloud_provider(signup):
+            triaged = replace(
+                signup,
+                email_confirmed=True,
+                disqualified=True,
+                waitlist_score=None,
+                services_qualified=False,
+                scoring_weights_version=None,
+            )
+        else:
+            result = score_waitlist_signup(signup)
+            triaged = replace(
+                signup,
+                email_confirmed=True,
+                disqualified=False,
+                waitlist_score=result.score,
+                services_qualified=result.services_qualified,
+                scoring_weights_version=result.weights_version,
+            )
+        self._messaging_store.put_waitlist_signup(triaged)
 
     def record_contact_lead(
         self,
