@@ -12,7 +12,12 @@ const groups = [
   },
   {
     title: "Features",
-    links: [["Flex Mode", "/features/flex-mode"]],
+    links: [
+      ["Shared Computer", "/features/shared-computer"],
+      ["Shared Files", "/features/shared-files"],
+      ["Approvals", "/features/approvals"],
+      ["Flex Mode", "/features/flex-mode"],
+    ],
   },
   {
     title: "Build",
@@ -38,10 +43,10 @@ export function Footer() {
               aria-label="Back to the top"
               className="inline-flex rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
             >
-              <Wordmark />
+              <Wordmark iconPosition="end" />
             </a>
             <p className="mt-6 max-w-sm font-display text-2xl leading-tight tracking-[-0.035em]">
-              Named teammates, a shared space you control.
+              Bots with roles, a shared space you control.
             </p>
             <p className="mt-5 max-w-md font-body text-sm leading-relaxed text-ink-soft">
               The marketing site collects no signup form data. Product account,
