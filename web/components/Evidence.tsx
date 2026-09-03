@@ -40,25 +40,20 @@ export function Evidence() {
       <div className="mx-auto max-w-[92rem] px-5 py-24 sm:px-8 sm:py-32 lg:px-12">
         <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
-            <Badge variant="default">Proof, not praise</Badge>
+            <Badge variant="default">Control and access</Badge>
             <h2
               id="evidence-title"
               className="mt-7 max-w-4xl font-display text-[clamp(4rem,8vw,8rem)] leading-[0.84] tracking-[-0.07em]"
             >
-              No vendor lock-in.
+              Control without lock-in. Access without a queue.
             </h2>
           </div>
           <div className="max-w-xl lg:justify-self-end">
             <p className="font-display text-3xl leading-tight tracking-[-0.035em]">
-              Nothing here is proprietary — free to copy, change, and run,
-              no license fee, no permission needed. Run your bot farm on our
-              infrastructure, or take the whole stack — code, data, and all —
-              and run it yourself.
+              The deployment runs in infrastructure the customer controls, and the source is MIT-licensed code you can read, fork, and change.
             </p>
             <p className="mt-5 font-body text-base leading-relaxed text-ink/75">
-              You don&rsquo;t need our permission to leave, and you don&rsquo;t
-              need us at all. If you&rsquo;d rather have help moving it
-              somewhere else, we&rsquo;ll do that too.
+              But control alone reads as more work for you. The second half of the pitch is access: Anthus runs its own organizations on Chatticus. Buying the managed service puts you next to them. Managed customers run what Anthus runs, giving you access to the developers instead of a support queue.
             </p>
             <a
               className="mt-5 inline-flex min-h-11 items-center gap-2 font-mono text-[0.65rem] uppercase tracking-[0.12em] underline decoration-2 underline-offset-4 transition hover:text-cobalt focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
