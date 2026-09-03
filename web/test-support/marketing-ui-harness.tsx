@@ -14,7 +14,7 @@ async function main(): Promise<void> {
       // Very basic HTML tag removal to just get text content.
       // Replacing tags with spaces helps ensure words don't merge.
       const text = html.replace(/<[^>]*>?/gm, ' ');
-      result = { visibleText: text };
+      result = { visibleText: text, html: html };
       break;
     default:
       throw new Error(`Unknown marketing UI harness command: ${command}`);

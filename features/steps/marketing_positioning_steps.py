@@ -144,3 +144,9 @@ def then_managed_rungs_state_anthus_keeps_updated(context: object) -> None:
 def then_state_anthus_updates_own_orgs_first(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
     assert "updates its own organizations first" in text or "update our own first" in text or "update our own" in text, text
+
+@then('there are calls to action for "/beta"')
+def then_calls_to_action_for_beta(context: object) -> None:
+    html = context.marketing_ui_harness.get("html") or ""
+    # Header, Hero, FinalCta, Footer -> 4 occurrences
+    assert html.count('href="/beta"') >= 4, f"Found {html.count('href=\"/beta\"')} links to /beta"
