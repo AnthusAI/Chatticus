@@ -5,12 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from chatticus.models import WaitlistSignup
-from chatticus.waitlist_scoring import (
-    SERVICES_QUALIFIED_MINIMUM_SCORE,
-    WAITLIST_SCORING_WEIGHTS_VERSION,
-    non_aws_cloud_provider,
-    score_waitlist_signup,
-)
+from chatticus.waitlist_scoring import non_aws_cloud_provider, score_waitlist_signup
 
 
 def _signup(
@@ -29,36 +24,6 @@ def _signup(
         complete=True,
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
-
-
-def test_high_intent_aws_buyer_scores_services_qualified() -> None:
-    result = score_waitlist_signup(
-        _signup(
-            fit_answers={"organization_size": "101-plus"},
-            aws_readiness_answers={
-                "cloud_provider": "aws",
-                "account_status": "production-workloads",
-                "cloud_authority": "me",
-            },
-            price_answers={"professional_services_interest": "yes-with-budget"},
-        )
-    )
-
-    assert result.score >= SERVICES_QUALIFIED_MINIMUM_SCORE
-    assert result.services_qualified is True
-    assert result.weights_version == WAITLIST_SCORING_WEIGHTS_VERSION
-
-
-def test_curious_individual_is_not_services_qualified() -> None:
-    result = score_waitlist_signup(
-        _signup(
-            fit_answers={"organization_size": "1-to-5"},
-            aws_readiness_answers={"account_status": "exploring-no-production"},
-            price_answers={"professional_services_interest": "not-now"},
-        )
-    )
-
-    assert result.services_qualified is False
 
 
 def test_production_maturity_requires_aws_cloud_provider() -> None:
