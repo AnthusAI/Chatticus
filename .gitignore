@@ -35,6 +35,7 @@ var/
 # Web auth behavior harness state (test artifact, never commit)
 .auth-harness-state.json
 .membership-ui-harness-state.json
+.survey-form-harness-state.json
 # Kanbus event logs (LLM usage transcripts, local operational data)
 project/events/
 project/.overlay/

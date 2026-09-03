@@ -112,15 +112,6 @@ def then_states_org_data_lives_in_customer_aws_account(context: object) -> None:
     assert any(term in text for term in ("bot", "conversation", "file")), text
 
 
-@then(
-    "it states that the organization computer runs in an AWS account "
-    "the customer controls"
-)
-def then_states_aws_account(context: object) -> None:
-    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
-    assert "runs in an aws account you own" in text, text
-
-
 @then("it states that the source is available under an open licence")
 def then_states_open_licence(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()

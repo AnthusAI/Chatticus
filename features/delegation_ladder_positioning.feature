@@ -16,9 +16,9 @@ Feature: Delegation ladder positioning
     And it does not offer to archive the account as a way to get the data
     And it states that organization data already lives in the customer AWS account
 
-  Scenario: The home page states where the computer runs
+  Scenario: The home page states where the Chatticus organization runs
     Given the chattic.us home page
-    Then it states that the organization computer runs in an AWS account the customer controls
+    Then it states that the Chatticus organization runs in the customer AWS account
     And it states that the source is available under an open licence
 
   Scenario: The home page offers four rungs, each with a price
