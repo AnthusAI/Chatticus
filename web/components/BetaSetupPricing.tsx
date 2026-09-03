@@ -58,9 +58,9 @@ export function BetaSetupPricing() {
             What you pay
           </h3>
           <ul className="mt-4 space-y-2 font-body leading-relaxed text-ink-soft">
-            <li>$20 a month to Anthus for managed operation</li>
-            <li>AWS infrastructure billed to your account</li>
-            <li>Model tokens billed to your account</li>
+            <li>$20 a month for the Chatticus control plane</li>
+            <li>AWS infrastructure is billed to the customer</li>
+            <li>Model tokens (Anthropic or OpenAI) are billed to the customer</li>
             <li>$0 setup on self-setup, or $100 once on assisted setup</li>
           </ul>
         </div>
