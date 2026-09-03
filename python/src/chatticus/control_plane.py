@@ -3540,6 +3540,8 @@ class ControlPlane:
             price_sensitivity_answers=price_sensitivity_answers,
             complete=complete,
             created_at=existing.created_at if existing else moment,
+            email_confirmed=existing.email_confirmed if existing else False,
+            confirmation_token=existing.confirmation_token if existing else None,
             offer_snapshot=resolved_offer_snapshot,
             utm_source=utm_source or (existing.utm_source if existing else None),
             utm_medium=utm_medium or (existing.utm_medium if existing else None),

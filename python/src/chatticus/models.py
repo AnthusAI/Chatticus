@@ -758,6 +758,7 @@ class WaitlistSignup:
     complete: bool
     created_at: datetime
     email_confirmed: bool = False
+    confirmation_token: str | None = None
     offer_snapshot: OfferSnapshot | None = None
     utm_source: str | None = None
     utm_medium: str | None = None
