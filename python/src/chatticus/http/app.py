@@ -118,6 +118,17 @@ class SubmitWaitlistBody(BaseModel):
     complete: bool
 
 
+class SubmitContactBody(BaseModel):
+    """Body for POST /contact."""
+
+    email: str
+    contact_type: str
+    name: str | None = None
+    organization: str | None = None
+    details: dict[str, str] = Field(default_factory=dict)
+    offer_snapshot: OfferSnapshotBody | None = None
+
+
 class CreateChannelBody(BaseModel):
     """Body for POST /channels."""
 
@@ -427,6 +438,39 @@ def create_app(
             price_sensitivity_answers=price_sensitivity_answers,
             complete=body.complete,
             source=waitlist_submission_source(request),
+            offer_snapshot=offer_snapshot,
+        )
+        return {"status": "recorded"}
+
+    @app.post("/contact", status_code=201)
+    def submit_contact(body: SubmitContactBody) -> dict[str, str]:
+        if body.contact_type not in {"professional_services", "professional_training"}:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "contact_type must be professional_services "
+                    "or professional_training"
+                ),
+            )
+        offer_snapshot = None
+        if body.offer_snapshot is not None:
+            created_at = body.offer_snapshot.created_at or datetime.now(UTC)
+            offer_snapshot = OfferSnapshot(
+                management_fee_cents=body.offer_snapshot.management_fee_cents,
+                installation_fee_cents=body.offer_snapshot.installation_fee_cents,
+                beta_expectations=tuple(body.offer_snapshot.beta_expectations),
+                professional_services_terms=body.offer_snapshot.professional_services_terms,
+                professional_training_terms=body.offer_snapshot.professional_training_terms,
+                created_at=created_at,
+                content_hash=body.offer_snapshot.content_hash,
+                content_version=body.offer_snapshot.content_version,
+            )
+        state.plane.record_contact_lead(
+            email=body.email,
+            contact_type=body.contact_type,
+            name=body.name,
+            organization=body.organization,
+            details=body.details or None,
             offer_snapshot=offer_snapshot,
         )
         return {"status": "recorded"}

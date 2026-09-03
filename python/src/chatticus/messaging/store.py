@@ -26,6 +26,7 @@ from chatticus.models import (
     ChannelParticipant,
     Computer,
     ComputerPolicy,
+    ContactLead,
     CostClass,
     DuplicateBotNameError,
     Identity,
@@ -80,6 +81,31 @@ def _waitlist_signup_from_item(item: dict[str, Any]) -> WaitlistSignup:
         created_at=datetime.fromisoformat(item["created_at"]["S"]),
         email_confirmed=item.get("email_confirmed", {}).get("BOOL", False),
         offer_snapshot=_waitlist_signup_offer_snapshot_from_item(item),
+    )
+
+
+def _contact_lead_offer_snapshot_from_item(
+    item: dict[str, Any],
+) -> OfferSnapshot | None:
+    raw = item.get("offer_snapshot", {}).get("S")
+    if not raw:
+        return None
+    return OfferSnapshot.from_dict(json.loads(raw))
+
+
+def _contact_lead_from_item(item: dict[str, Any]) -> ContactLead:
+    details_raw = item.get("details", {}).get("S")
+    details = json.loads(details_raw) if details_raw else None
+    name_raw = item.get("name", {}).get("S")
+    organization_raw = item.get("organization", {}).get("S")
+    return ContactLead(
+        email=item["email"]["S"],
+        contact_type=item["contact_type"]["S"],
+        created_at=datetime.fromisoformat(item["created_at"]["S"]),
+        name=name_raw,
+        organization=organization_raw,
+        details=details,
+        offer_snapshot=_contact_lead_offer_snapshot_from_item(item),
     )
 
 
@@ -400,6 +426,12 @@ class MessagingStore(Protocol):
     def list_waitlist_queue(self) -> list[WaitlistSignup]:
         """List waitlist signups that have confirmed their email."""
 
+    def put_contact_lead(self, lead: ContactLead) -> None:
+        """Persist one contact form lead."""
+
+    def get_contact_lead(self, email: str, contact_type: str) -> ContactLead | None:
+        """Load one contact lead by email and form type."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -433,6 +465,7 @@ class InMemoryMessagingStore:
         self._budget_threshold_state: dict[str, BudgetThresholdState] = {}
         self._waitlist_signups: dict[str, WaitlistSignup] = {}
         self._waitlist_submission_attempts: dict[str, list[datetime]] = {}
+        self._contact_leads: dict[tuple[str, str], ContactLead] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -1008,6 +1041,13 @@ class InMemoryMessagingStore:
                 (s for s in self._waitlist_signups.values() if s.email_confirmed),
                 key=lambda s: s.created_at,
             )
+
+    def put_contact_lead(self, lead: ContactLead) -> None:
+        with self._lock:
+            self._contact_leads[(lead.email, lead.contact_type)] = lead
+
+    def get_contact_lead(self, email: str, contact_type: str) -> ContactLead | None:
+        return self._contact_leads.get((email, contact_type))
 
 
 class DynamoMessagingStore:
@@ -2478,6 +2518,40 @@ class DynamoMessagingStore:
                 continue
             signups.append(_waitlist_signup_from_item(item))
         return sorted(signups, key=lambda signup: signup.created_at)
+
+    def put_contact_lead(self, lead: ContactLead) -> None:
+        item: dict[str, Any] = {
+            "pk": {"S": "CONTACT"},
+            "sk": {"S": f"LEAD#{lead.contact_type}#{lead.email}"},
+            "email": {"S": lead.email},
+            "contact_type": {"S": lead.contact_type},
+            "created_at": {"S": lead.created_at.isoformat()},
+        }
+        if lead.name is not None:
+            item["name"] = {"S": lead.name}
+        if lead.organization is not None:
+            item["organization"] = {"S": lead.organization}
+        if lead.details is not None:
+            item["details"] = {"S": json.dumps(lead.details)}
+        if lead.offer_snapshot is not None:
+            item["offer_snapshot"] = {"S": json.dumps(lead.offer_snapshot.to_dict())}
+        self.client.put_item(
+            TableName=self.table_name,
+            Item=item,
+        )
+
+    def get_contact_lead(self, email: str, contact_type: str) -> ContactLead | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": "CONTACT"},
+                "sk": {"S": f"LEAD#{contact_type}#{email}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return _contact_lead_from_item(item)
 
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
