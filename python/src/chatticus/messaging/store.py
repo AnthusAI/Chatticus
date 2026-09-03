@@ -80,6 +80,7 @@ def _waitlist_signup_from_item(item: dict[str, Any]) -> WaitlistSignup:
         complete=item.get("complete", {}).get("BOOL", False),
         created_at=datetime.fromisoformat(item["created_at"]["S"]),
         email_confirmed=item.get("email_confirmed", {}).get("BOOL", False),
+        confirmation_token=item.get("confirmation_token", {}).get("S"),
         offer_snapshot=_waitlist_signup_offer_snapshot_from_item(item),
         utm_source=item.get("utm_source", {}).get("S"),
         utm_medium=item.get("utm_medium", {}).get("S"),
@@ -2452,6 +2453,8 @@ class DynamoMessagingStore:
             "created_at": {"S": signup.created_at.isoformat()},
             "email_confirmed": {"BOOL": signup.email_confirmed},
         }
+        if signup.confirmation_token is not None:
+            item["confirmation_token"] = {"S": signup.confirmation_token}
         if signup.offer_snapshot is not None:
             item["offer_snapshot"] = {"S": json.dumps(signup.offer_snapshot.to_dict())}
         if signup.utm_source is not None:
