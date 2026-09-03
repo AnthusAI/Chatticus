@@ -10,6 +10,12 @@ Feature: Delegation ladder positioning
     Then it states that Anthus runs its own organizations on Chatticus
     And it states that managed customers run what Anthus runs
 
+  Scenario: The home page does not describe organization data as something to export
+    Given the chattic.us home page
+    Then it does not describe bots, conversations, or files as exportable
+    And it does not offer to archive the account as a way to get the data
+    And it states that organization data already lives in the customer AWS account
+
   Scenario: The home page states where the computer runs
     Given the chattic.us home page
     Then it states that the organization computer runs in an AWS account the customer controls

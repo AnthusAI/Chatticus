@@ -92,6 +92,26 @@ def then_states_managed_customers_run_what_anthus_runs(context: object) -> None:
     ), text
 
 
+@then("it does not describe bots, conversations, or files as exportable")
+def then_does_not_describe_org_data_as_exportable(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "exportable" not in text, text
+
+
+@then("it does not offer to archive the account as a way to get the data")
+def then_does_not_offer_to_archive_account(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "archive your account" not in text, text
+    assert "archive the account" not in text, text
+
+
+@then("it states that organization data already lives in the customer AWS account")
+def then_states_org_data_lives_in_customer_aws_account(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "lives in your aws account" in text, text
+    assert any(term in text for term in ("bot", "conversation", "file")), text
+
+
 @then(
     "it states that the organization computer runs in an AWS account "
     "the customer controls"
