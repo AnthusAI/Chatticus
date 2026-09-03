@@ -12,6 +12,8 @@ type WorkspaceRosterProps = {
   error?: string | null;
   onSelect: (member: WorkspaceMember) => void;
   onRetry?: () => void;
+  /** A shared DOM element the whole roster should notice and look toward (see WorkspaceThread/WorkspacePanel). */
+  focusElement?: Element | null;
 };
 
 export function WorkspaceRoster({
@@ -22,6 +24,7 @@ export function WorkspaceRoster({
   error,
   onSelect,
   onRetry,
+  focusElement,
 }: WorkspaceRosterProps) {
   return (
     <aside className="rounded-2xl bg-surface-raised p-2" aria-label="Teammates">
@@ -67,6 +70,7 @@ export function WorkspaceRoster({
                 state={selected ? selectedMemberState : "neutral"}
                 size={40}
                 className="shrink-0"
+                focusElement={focusElement}
               />
               <span className="hidden w-full min-w-0 sm:block">
                 <span className="block truncate font-body text-[0.6rem] font-extrabold">{member.name}</span>

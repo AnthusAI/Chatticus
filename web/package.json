@@ -15,7 +15,7 @@
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
-    "anthus-vultus": "https://github.com/AnthusAI/Vultus/archive/dd2ccfa44bc4bb307552d9f02a8d93d21e4e99ec.tar.gz",
+    "anthus-vultus": "https://github.com/AnthusAI/Vultus/archive/31ef25595b4ff19aac9f59ffcbb32deb3dd2ac2a.tar.gz",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lottie-react": "^3.1.1",

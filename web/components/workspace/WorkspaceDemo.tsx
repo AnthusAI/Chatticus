@@ -16,7 +16,7 @@ const MOTION_STATE_TO_AVATAR_STATE: Record<CreativeMotionState, BotAvatarState> 
 };
 
 /** How long each teammate holds focus before the next beat (or the next scenario) starts. */
-const BEAT_MS = 2200;
+const BEAT_MS = 4400;
 /** Duration of the exit/enter push when one scenario swaps for the next. */
 const TRANSITION_MS = 550;
 
@@ -28,7 +28,7 @@ type TransitionPhase = "idle" | "exiting" | "entering";
  * same component EnabledWorkspace renders for the real, authenticated app.
  *
  * Cycles through DEMO_SCENARIOS: within a scenario, each teammate gets a
- * ~2s beat of focus in turn; once the last teammate's beat finishes, the
+ * ~4.4s beat of focus in turn; once the last teammate's beat finishes, the
  * whole panel slides out and the next scenario's panel slides in.
  */
 export function WorkspaceDemo() {
