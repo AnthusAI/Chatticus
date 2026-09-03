@@ -34,6 +34,7 @@ from chatticus.models import (
     MemberRole,
     Membership,
     Message,
+    OfferSnapshot,
     Organization,
     OrganizationCreationRateLimitedError,
     OrganizationOwnerCapError,
@@ -53,6 +54,33 @@ from chatticus.models import (
     WorkerRegistration,
 )
 from chatticus.vendor_ledger import VendorLedgerRow
+
+
+def _waitlist_signup_offer_snapshot_from_item(
+    item: dict[str, Any],
+) -> OfferSnapshot | None:
+    raw = item.get("offer_snapshot", {}).get("S")
+    if not raw:
+        return None
+    return OfferSnapshot.from_dict(json.loads(raw))
+
+
+def _waitlist_signup_from_item(item: dict[str, Any]) -> WaitlistSignup:
+    price_data = json.loads(item.get("price_sensitivity_answers", {"S": "{}"})["S"])
+    return WaitlistSignup(
+        email=item["email"]["S"],
+        fit_answers=json.loads(item["fit_answers"]["S"]),
+        aws_readiness_answers=json.loads(item["aws_readiness_answers"]["S"]),
+        price_answers=json.loads(item.get("price_answers", {"S": "{}"})["S"]),
+        setup_path_answers=json.loads(item.get("setup_path_answers", {"S": "{}"})["S"]),
+        price_sensitivity_answers=(
+            PriceSensitivityAnswers.from_dict(price_data) if price_data else None
+        ),
+        complete=item.get("complete", {}).get("BOOL", False),
+        created_at=datetime.fromisoformat(item["created_at"]["S"]),
+        email_confirmed=item.get("email_confirmed", {}).get("BOOL", False),
+        offer_snapshot=_waitlist_signup_offer_snapshot_from_item(item),
+    )
 
 
 class MessagingStore(Protocol):
@@ -2360,29 +2388,30 @@ class DynamoMessagingStore:
         )
 
     def put_waitlist_signup(self, signup: WaitlistSignup) -> None:
+        item: dict[str, Any] = {
+            "pk": {"S": "WAITLIST"},
+            "sk": {"S": f"SIGNUP#{signup.email}"},
+            "email": {"S": signup.email},
+            "fit_answers": {"S": json.dumps(signup.fit_answers)},
+            "aws_readiness_answers": {"S": json.dumps(signup.aws_readiness_answers)},
+            "price_answers": {"S": json.dumps(signup.price_answers)},
+            "setup_path_answers": {"S": json.dumps(signup.setup_path_answers)},
+            "price_sensitivity_answers": {
+                "S": json.dumps(
+                    signup.price_sensitivity_answers.to_dict()
+                    if signup.price_sensitivity_answers is not None
+                    else {}
+                )
+            },
+            "complete": {"BOOL": signup.complete},
+            "created_at": {"S": signup.created_at.isoformat()},
+            "email_confirmed": {"BOOL": signup.email_confirmed},
+        }
+        if signup.offer_snapshot is not None:
+            item["offer_snapshot"] = {"S": json.dumps(signup.offer_snapshot.to_dict())}
         self.client.put_item(
             TableName=self.table_name,
-            Item={
-                "pk": {"S": "WAITLIST"},
-                "sk": {"S": f"SIGNUP#{signup.email}"},
-                "email": {"S": signup.email},
-                "fit_answers": {"S": json.dumps(signup.fit_answers)},
-                "aws_readiness_answers": {
-                    "S": json.dumps(signup.aws_readiness_answers)
-                },
-                "price_answers": {"S": json.dumps(signup.price_answers)},
-                "setup_path_answers": {"S": json.dumps(signup.setup_path_answers)},
-                "price_sensitivity_answers": {
-                    "S": json.dumps(
-                        signup.price_sensitivity_answers.to_dict()
-                        if signup.price_sensitivity_answers is not None
-                        else {}
-                    )
-                },
-                "complete": {"BOOL": signup.complete},
-                "created_at": {"S": signup.created_at.isoformat()},
-                "email_confirmed": {"BOOL": signup.email_confirmed},
-            },
+            Item=item,
         )
 
     def get_waitlist_signup(self, email: str) -> WaitlistSignup | None:
@@ -2396,22 +2425,7 @@ class DynamoMessagingStore:
         item = response.get("Item")
         if item is None:
             return None
-        price_data = json.loads(item.get("price_sensitivity_answers", {"S": "{}"})["S"])
-        return WaitlistSignup(
-            email=item["email"]["S"],
-            fit_answers=json.loads(item["fit_answers"]["S"]),
-            aws_readiness_answers=json.loads(item["aws_readiness_answers"]["S"]),
-            price_answers=json.loads(item.get("price_answers", {"S": "{}"})["S"]),
-            setup_path_answers=json.loads(
-                item.get("setup_path_answers", {"S": "{}"})["S"]
-            ),
-            price_sensitivity_answers=(
-                PriceSensitivityAnswers.from_dict(price_data) if price_data else None
-            ),
-            complete=item.get("complete", {}).get("BOOL", False),
-            created_at=datetime.fromisoformat(item["created_at"]["S"]),
-            email_confirmed=item.get("email_confirmed", {}).get("BOOL", False),
-        )
+        return _waitlist_signup_from_item(item)
 
     def record_waitlist_submission(
         self,
@@ -2462,19 +2476,7 @@ class DynamoMessagingStore:
             email_confirmed = item.get("email_confirmed", {}).get("BOOL", False)
             if not email_confirmed:
                 continue
-            signups.append(
-                WaitlistSignup(
-                    email=item["email"]["S"],
-                    fit_answers=json.loads(item["fit_answers"]["S"]),
-                    aws_readiness_answers=json.loads(
-                        item["aws_readiness_answers"]["S"]
-                    ),
-                    price_answers=json.loads(item["price_answers"]["S"]),
-                    complete=item.get("complete", {}).get("BOOL", False),
-                    created_at=datetime.fromisoformat(item["created_at"]["S"]),
-                    email_confirmed=email_confirmed,
-                )
-            )
+            signups.append(_waitlist_signup_from_item(item))
         return sorted(signups, key=lambda signup: signup.created_at)
 
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:

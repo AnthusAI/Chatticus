@@ -49,6 +49,7 @@ from chatticus.models import (
     CostClass,
     MemberStandingRequiredError,
     NotOrganizationOwnerError,
+    OfferSnapshot,
     OrganizationCreationRateLimitedError,
     OrganizationNameTooLongError,
     OrganizationNotFoundError,
@@ -91,6 +92,19 @@ class PriceSensitivityAnswersBody(BaseModel):
     too_expensive: str
 
 
+class OfferSnapshotBody(BaseModel):
+    """Offer terms shown on the beta page at submission time."""
+
+    management_fee_cents: int
+    installation_fee_cents: int
+    beta_expectations: list[str]
+    professional_services_terms: str = "quoted"
+    professional_training_terms: str = "quoted"
+    content_hash: str
+    content_version: str
+    created_at: datetime | None = None
+
+
 class SubmitWaitlistBody(BaseModel):
     """Body for POST /waitlist."""
 
@@ -100,6 +114,7 @@ class SubmitWaitlistBody(BaseModel):
     price_answers: dict[str, str] = Field(default_factory=dict)
     setup_path_answers: dict[str, str] = Field(default_factory=dict)
     price_sensitivity_answers: PriceSensitivityAnswersBody | None = None
+    offer_snapshot: OfferSnapshotBody | None = None
     complete: bool
 
 
@@ -390,6 +405,19 @@ def create_app(
                 expensive=body.price_sensitivity_answers.expensive,
                 too_expensive=body.price_sensitivity_answers.too_expensive,
             )
+        offer_snapshot = None
+        if body.offer_snapshot is not None:
+            created_at = body.offer_snapshot.created_at or datetime.now(UTC)
+            offer_snapshot = OfferSnapshot(
+                management_fee_cents=body.offer_snapshot.management_fee_cents,
+                installation_fee_cents=body.offer_snapshot.installation_fee_cents,
+                beta_expectations=tuple(body.offer_snapshot.beta_expectations),
+                professional_services_terms=body.offer_snapshot.professional_services_terms,
+                professional_training_terms=body.offer_snapshot.professional_training_terms,
+                created_at=created_at,
+                content_hash=body.offer_snapshot.content_hash,
+                content_version=body.offer_snapshot.content_version,
+            )
         state.plane.record_waitlist_signup(
             email=body.email,
             fit_answers=body.fit_answers,
@@ -399,6 +427,7 @@ def create_app(
             price_sensitivity_answers=price_sensitivity_answers,
             complete=body.complete,
             source=waitlist_submission_source(request),
+            offer_snapshot=offer_snapshot,
         )
         return {"status": "recorded"}
 

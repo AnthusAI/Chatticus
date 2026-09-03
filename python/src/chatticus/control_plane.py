@@ -113,6 +113,7 @@ from chatticus.models import (
     Membership,
     MemberStandingRequiredError,
     Message,
+    OfferSnapshot,
     Organization,
     OrganizationNotFoundError,
     OrganizationOwnerCapError,
@@ -3500,9 +3501,11 @@ class ControlPlane:
         complete: bool,
         *,
         source: str,
+        offer_snapshot: OfferSnapshot | None = None,
         now: datetime | None = None,
     ) -> WaitlistSignup:
         """Record an unauthenticated waitlist signup from the marketing site."""
+        from chatticus.offer_snapshot import current_offer_snapshot
         from chatticus.org_records import normalize_email
 
         moment = now or self._now
@@ -3515,6 +3518,13 @@ class ControlPlane:
         normalized = normalize_email(email)
         existing = self._messaging_store.get_waitlist_signup(normalized)
 
+        if existing and existing.offer_snapshot is not None:
+            resolved_offer_snapshot = existing.offer_snapshot
+        elif offer_snapshot is not None:
+            resolved_offer_snapshot = offer_snapshot
+        else:
+            resolved_offer_snapshot = current_offer_snapshot(moment)
+
         signup = WaitlistSignup(
             email=normalized,
             fit_answers=fit_answers,
@@ -3524,6 +3534,7 @@ class ControlPlane:
             price_sensitivity_answers=price_sensitivity_answers,
             complete=complete,
             created_at=existing.created_at if existing else moment,
+            offer_snapshot=resolved_offer_snapshot,
         )
         self._messaging_store.put_waitlist_signup(signup)
         return signup
