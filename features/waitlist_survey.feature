@@ -61,3 +61,22 @@ Feature: Waitlist survey submission
     Given a waitlist signup exists with earlier offer terms
     When a survey is submitted again for that email without offer terms
     Then the signup still records the earlier offer terms
+
+  Scenario: A confirmation link confirms the email
+    Given a waitlist signup for jane@example.com with an unconfirmed email
+    When a GET request to /waitlist/confirm with the email and a valid token
+    Then the response is 200
+    And the signup email is marked confirmed
+    And the page shows a confirmation message
+
+  Scenario: An invalid token does not confirm
+    Given a waitlist signup for jane@example.com with an unconfirmed email
+    When a GET request to /waitlist/confirm with the email and an invalid token
+    Then the response is 200
+    And the signup email is not marked confirmed
+    And the page shows an invalid token message
+
+  Scenario: An already-confirmed email shows already confirmed
+    Given a waitlist signup for jane@example.com with a confirmed email
+    When a GET request to /waitlist/confirm with the email and a valid token
+    Then the page shows an already confirmed message

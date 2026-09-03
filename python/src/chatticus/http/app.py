@@ -5,9 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -121,6 +122,13 @@ class SubmitWaitlistBody(BaseModel):
     utm_campaign: str | None = None
     utm_content: str | None = None
     utm_term: str | None = None
+
+
+class WaitlistConfirmResponse(BaseModel):
+    """Outcome of GET /waitlist/confirm."""
+
+    status: Literal["confirmed", "invalid_token", "already_confirmed"]
+    message: str
 
 
 class SubmitContactBody(BaseModel):
@@ -451,6 +459,39 @@ def create_app(
             utm_term=body.utm_term,
         )
         return {"status": "recorded"}
+
+    @app.get("/waitlist/confirm")
+    def confirm_waitlist(
+        email: str = Query(...),
+        token: str = Query(...),
+    ) -> WaitlistConfirmResponse:
+        from chatticus.org_records import normalize_email
+
+        normalized_email = normalize_email(email)
+        signup = state.plane._messaging_store.get_waitlist_signup(normalized_email)
+        stored_token = signup.confirmation_token if signup is not None else None
+        if (
+            signup is None
+            or stored_token is None
+            or not secrets.compare_digest(stored_token, token)
+        ):
+            return WaitlistConfirmResponse(
+                status="invalid_token",
+                message=(
+                    "This confirmation link is invalid or has expired. "
+                    "Request a new confirmation email from the beta page."
+                ),
+            )
+        if signup.email_confirmed:
+            return WaitlistConfirmResponse(
+                status="already_confirmed",
+                message="Your email is already confirmed. You are on the waitlist.",
+            )
+        state.plane.confirm_waitlist_email(normalized_email)
+        return WaitlistConfirmResponse(
+            status="confirmed",
+            message="Your email is confirmed. You are on the waitlist.",
+        )
 
     @app.post("/contact", status_code=201)
     def submit_contact(body: SubmitContactBody) -> dict[str, str]:

@@ -1,5 +1,7 @@
 """Behave steps for the beta waitlist survey."""
 
+from dataclasses import replace
+
 from behave import given, then, when
 
 from chatticus.models import OfferSnapshot, PriceSensitivityAnswers
@@ -553,3 +555,110 @@ def then_signup_still_records_earlier_offer_terms(context: object) -> None:
     assert (
         signup.offer_snapshot.installation_fee_cents != TURN_KEY_INSTALLATION_FEE_CENTS
     )
+
+
+_CONFIRMATION_TOKEN = "valid-confirmation-token"
+
+
+def _store_waitlist_signup_with_token(
+    context: object,
+    *,
+    email: str,
+    email_confirmed: bool,
+) -> None:
+    context.visitor_email = email
+    context.confirmation_token = _CONFIRMATION_TOKEN
+    context.plane.record_waitlist_signup(
+        email=email,
+        fit_answers={},
+        aws_readiness_answers={},
+        price_answers={},
+        setup_path_answers={},
+        price_sensitivity_answers=None,
+        complete=True,
+        source="behave-test",
+    )
+    signup = context.plane._messaging_store.get_waitlist_signup(email)
+    assert signup is not None
+    context.plane._messaging_store.put_waitlist_signup(
+        replace(
+            signup,
+            confirmation_token=_CONFIRMATION_TOKEN,
+            email_confirmed=email_confirmed,
+        )
+    )
+
+
+@given("a waitlist signup for {email} with an unconfirmed email")
+def given_waitlist_signup_with_unconfirmed_email(context: object, email: str) -> None:
+    _store_waitlist_signup_with_token(
+        context,
+        email=email,
+        email_confirmed=False,
+    )
+
+
+@given("a waitlist signup for {email} with a confirmed email")
+def given_waitlist_signup_with_confirmed_email(context: object, email: str) -> None:
+    _store_waitlist_signup_with_token(
+        context,
+        email=email,
+        email_confirmed=True,
+    )
+
+
+@when("a GET request to /waitlist/confirm with the email and a valid token")
+def when_get_waitlist_confirm_with_valid_token(context: object) -> None:
+    context.waitlist_response = context.api_client.get(
+        "/waitlist/confirm",
+        params={
+            "email": context.visitor_email,
+            "token": context.confirmation_token,
+        },
+    )
+
+
+@when("a GET request to /waitlist/confirm with the email and an invalid token")
+def when_get_waitlist_confirm_with_invalid_token(context: object) -> None:
+    context.waitlist_response = context.api_client.get(
+        "/waitlist/confirm",
+        params={
+            "email": context.visitor_email,
+            "token": "invalid-token",
+        },
+    )
+
+
+@then("the signup email is marked confirmed")
+def then_signup_email_is_marked_confirmed(context: object) -> None:
+    signup = context.plane._messaging_store.get_waitlist_signup(context.visitor_email)
+    assert signup is not None
+    assert signup.email_confirmed is True
+
+
+@then("the signup email is not marked confirmed")
+def then_signup_email_is_not_marked_confirmed(context: object) -> None:
+    signup = context.plane._messaging_store.get_waitlist_signup(context.visitor_email)
+    assert signup is not None
+    assert signup.email_confirmed is False
+
+
+@then("the page shows a confirmation message")
+def then_page_shows_confirmation_message(context: object) -> None:
+    body = context.waitlist_response.json()
+    assert body["status"] == "confirmed"
+    assert "confirmed" in body["message"].lower()
+
+
+@then("the page shows an invalid token message")
+def then_page_shows_invalid_token_message(context: object) -> None:
+    body = context.waitlist_response.json()
+    assert body["status"] == "invalid_token"
+    assert "invalid" in body["message"].lower()
+
+
+@then("the page shows an already confirmed message")
+def then_page_shows_already_confirmed_message(context: object) -> None:
+    body = context.waitlist_response.json()
+    assert body["status"] == "already_confirmed"
+    assert "already confirmed" in body["message"].lower()

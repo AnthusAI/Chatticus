@@ -62,6 +62,25 @@ export class WaitlistApiError extends Error {
   }
 }
 
+export type WaitlistConfirmStatus =
+  | "confirmed"
+  | "invalid_token"
+  | "already_confirmed";
+
+export type WaitlistConfirmResponse = {
+  status: WaitlistConfirmStatus;
+  message: string;
+};
+
+export async function confirmWaitlistEmail(
+  email: string,
+  token: string,
+): Promise<WaitlistConfirmResponse> {
+  const params = new URLSearchParams({ email, token });
+  const response = await fetchImpl(`${apiBase}/waitlist/confirm?${params}`);
+  return readJson<WaitlistConfirmResponse>(response);
+}
+
 export async function fetchWaitlistSurvey(): Promise<WaitlistSurvey> {
   const response = await fetchImpl(`${apiBase}/waitlist/survey`);
   return readJson<WaitlistSurvey>(response);

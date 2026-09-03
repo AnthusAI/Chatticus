@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it, mock } from "node:test";
 
 import {
+  confirmWaitlistEmail,
   fetchWaitlistSurvey,
   setFetchForTests,
   submitWaitlist,
@@ -57,5 +58,31 @@ describe("waitlist API", () => {
     assert.equal(capturedInit?.method, "POST");
     const body = JSON.parse(String(capturedInit?.body)) as { complete: boolean };
     assert.equal(body.complete, true);
+  });
+
+  it("confirmWaitlistEmail requests GET /waitlist/confirm with query params", async () => {
+    let capturedUrl = "";
+    setFetchForTests(
+      mock.fn(async (input) => {
+        capturedUrl = String(input);
+        return new Response(
+          JSON.stringify({
+            status: "confirmed",
+            message: "Your email is confirmed. You are on the waitlist.",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }) as typeof fetch,
+    );
+
+    const result = await confirmWaitlistEmail("person@example.com", "token-123");
+    assert.equal(
+      capturedUrl,
+      "/api/waitlist/confirm?email=person%40example.com&token=token-123",
+    );
+    assert.equal(result.status, "confirmed");
   });
 });
