@@ -23,3 +23,13 @@ Feature: Waitlist survey submission
     When that visitor returns and completes the survey
     Then one waitlist signup exists for "sam@example.com"
     And it is no longer marked incomplete
+
+  Scenario: An unconfirmed signup is not queued
+    Given a waitlist signup that has not been confirmed
+    When an operator lists the waitlist queue
+    Then that signup is not in the queue
+
+  Scenario: Confirming the email queues the signup
+    Given a waitlist signup that has not been confirmed
+    When the visitor follows the confirmation link
+    Then that signup is in the queue
