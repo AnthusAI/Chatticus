@@ -31,7 +31,7 @@ const config: Config = {
       },
       boxShadow: {
         hard: "8px 8px 0 var(--ink)",
-        signal: "0 0 0 1px var(--signal), 0 24px 70px rgba(184, 243, 74, 0.14)",
+        signal: "0 0 0 1px var(--signal), 0 24px 70px rgba(255, 212, 0, 0.14)",
       },
       keyframes: {
         rise: {
