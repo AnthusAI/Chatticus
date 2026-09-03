@@ -214,3 +214,126 @@ def then_records_no_aws_account(context: object) -> None:
 def then_status_is_pending(context: object) -> None:
     org = context.pending_org
     assert org.status == OrganizationStatus.PENDING
+
+
+class RecordingAssumeRole:
+    """Capture AssumeRole keyword arguments for scenario assertions."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def __call__(self, **kwargs: object) -> dict[str, object]:
+        self.calls.append(kwargs)
+        return {
+            "Credentials": {
+                "AccessKeyId": "AKIATEST",
+                "SecretAccessKey": "secret",
+                "SessionToken": "token",
+                "Expiration": NOW,
+            }
+        }
+
+
+def _provision_cross_account_org(
+    context: object,
+    *,
+    name: str,
+    owner_email: str,
+    account_id: str,
+    external_id: str,
+) -> object:
+    _ensure_org_store(context)
+    owner = _plane(context).sign_in(owner_email, now=context.now)
+    org = _plane(context).create_organization(owner, name, now=context.now)
+    _plane(context).enable_organization(org.tenant_id)
+    role_arn = f"arn:aws:iam::{account_id}:role/ChatticusOrganizationComputerRole"
+    return _plane(context).provision_organization_aws(
+        org.tenant_id,
+        account_id=account_id,
+        cross_account_role=role_arn,
+        external_id=external_id,
+        setup_path=AwsSetupPath.CUSTOMER_OWNED,
+    )
+
+
+@given("an organization with a provisioned cross-account role")
+def given_organization_with_provisioned_role(context: object) -> None:
+    org = _provision_cross_account_org(
+        context,
+        name="Provisioned Org",
+        owner_email="assume-owner@example.com",
+        account_id="111111111111",
+        external_id="external-id-alpha",
+    )
+    context.cross_account_org = org
+    context.assume_role_recorder = RecordingAssumeRole()
+
+
+@given("two organizations with cross-account roles in different AWS accounts")
+def given_two_organizations_with_roles(context: object) -> None:
+    context.first_cross_account_org = _provision_cross_account_org(
+        context,
+        name="First Org",
+        owner_email="first@example.com",
+        account_id="111111111111",
+        external_id="external-id-alpha",
+    )
+    context.second_cross_account_org = _provision_cross_account_org(
+        context,
+        name="Second Org",
+        owner_email="second@example.com",
+        account_id="222222222222",
+        external_id="external-id-beta",
+    )
+    context.assume_role_recorder = RecordingAssumeRole()
+
+
+@when("Chatticus assumes that role")
+def when_chatticus_assumes_role(context: object) -> None:
+    org = context.cross_account_org
+    context.assume_role_outcome = _plane(
+        context
+    ).assume_organization_cross_account_role(
+        org.tenant_id,
+        assume_role=context.assume_role_recorder,
+    )
+
+
+@when(
+    "Chatticus attempts the first organization role using the second "
+    "organization ExternalId"
+)
+def when_chatticus_attempts_role_with_wrong_external_id(context: object) -> None:
+    first = context.first_cross_account_org
+    second = context.second_cross_account_org
+    context.assume_role_outcome = _plane(
+        context
+    ).assume_organization_cross_account_role(
+        first.tenant_id,
+        external_id=second.aws_external_id,
+        assume_role=context.assume_role_recorder,
+    )
+
+
+@then("the request carries the ExternalId recorded for that organization")
+def then_request_carries_recorded_external_id(context: object) -> None:
+    org = context.cross_account_org
+    recorder = context.assume_role_recorder
+    assert len(recorder.calls) == 1
+    assert recorder.calls[0]["ExternalId"] == org.aws_external_id
+    outcome = context.assume_role_outcome
+    assert outcome.refused is False
+    assert outcome.external_id == org.aws_external_id
+    assert outcome.session is not None
+
+
+@then("the assume is refused")
+def then_assume_is_refused(context: object) -> None:
+    assert context.assume_role_outcome.refused is True
+
+
+@then("no session is issued")
+def then_no_session_is_issued(context: object) -> None:
+    outcome = context.assume_role_outcome
+    assert outcome.session is None
+    assert len(context.assume_role_recorder.calls) == 0
