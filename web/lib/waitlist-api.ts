@@ -3,10 +3,15 @@ import { getStoredUtmParams, type UtmParams } from "./analytics";
 
 export type { UtmParams };
 
+export type WaitlistSurveyChoice = {
+  value: string;
+  label: string;
+};
+
 export type WaitlistSurveyQuestion = {
   id: string;
   prompt: string;
-  choices?: string[];
+  choices?: WaitlistSurveyChoice[];
 };
 
 export type WaitlistSurvey = {
