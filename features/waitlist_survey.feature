@@ -11,3 +11,15 @@ Feature: Waitlist survey submission
     When they leave the page without submitting
     Then a waitlist signup is recorded for that email
     And it is marked incomplete
+
+  Scenario: A second submission from one email updates the first
+    Given a waitlist signup exists for "sam@example.com"
+    When a survey is submitted again for "SAM@example.com"
+    Then one waitlist signup exists for "sam@example.com"
+    And it carries the answers from the second submission
+
+  Scenario: Completing an abandoned survey fills in the same signup
+    Given an incomplete waitlist signup exists for "sam@example.com"
+    When that visitor returns and completes the survey
+    Then one waitlist signup exists for "sam@example.com"
+    And it is no longer marked incomplete

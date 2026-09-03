@@ -3480,6 +3480,8 @@ class ControlPlane:
         now: datetime | None = None,
     ) -> WaitlistSignup:
         """Record an unauthenticated waitlist signup from the marketing site."""
+        from chatticus.org_records import normalize_email
+
         moment = now or self._now
         self._messaging_store.record_waitlist_submission(
             source,
@@ -3487,13 +3489,16 @@ class ControlPlane:
             limit=self._waitlist_submission_rate_limit,
             window=WAITLIST_SUBMISSION_RATE_WINDOW,
         )
+        normalized = normalize_email(email)
+        existing = self._messaging_store.get_waitlist_signup(normalized)
+
         signup = WaitlistSignup(
-            email=email.strip().lower(),
+            email=normalized,
             fit_answers=fit_answers,
             aws_readiness_answers=aws_readiness_answers,
             price_answers=price_answers,
             complete=complete,
-            created_at=moment,
+            created_at=existing.created_at if existing else moment,
         )
         self._messaging_store.put_waitlist_signup(signup)
         return signup
