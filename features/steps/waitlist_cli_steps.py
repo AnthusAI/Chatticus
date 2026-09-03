@@ -99,6 +99,16 @@ def given_confirmed_waitlist_signups_with_score_range(context: object) -> None:
         price_answers={"professional_services_interest": "not-now"},
         created_at=base_time + timedelta(minutes=2),
     )
+    disqualified_email = "gcp-queue@example.com"
+    _record_and_confirm_signup(
+        context,
+        email=disqualified_email,
+        fit_answers={},
+        aws_readiness_answers={"cloud_provider": "gcp"},
+        price_answers={},
+        created_at=base_time + timedelta(minutes=3),
+    )
+    context.waitlist_cli_disqualified_email = disqualified_email
     context.waitlist_cli_score_range_emails = (
         "high-score@example.com",
         "mid-score@example.com",
@@ -174,11 +184,12 @@ def then_waitlist_cli_output_score_descending(context: object) -> None:
 @then("no disqualified signup appears in the waitlist CLI output")
 def then_no_disqualified_in_waitlist_cli_output(context: object) -> None:
     output = context.waitlist_cli_output
-    assert "gcp-summary@example.com" not in output
+    disqualified_email = context.waitlist_cli_disqualified_email
     plane = _plane(context)
-    for signup in plane.list_confirmed_waitlist_signups():
-        if signup.disqualified:
-            assert signup.email not in output
+    signup = plane._messaging_store.get_waitlist_signup(disqualified_email)
+    assert signup is not None
+    assert signup.disqualified is True
+    assert disqualified_email not in output
 
 
 @then("every signup in the waitlist CLI output scored at least 10")

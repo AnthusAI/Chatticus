@@ -7,13 +7,14 @@ from chatticus.models import WaitlistSignup
 
 def sort_waitlist_by_score_desc(signups: list[WaitlistSignup]) -> list[WaitlistSignup]:
     """Return signups by score descending, then created_at ascending."""
-    return sorted(
-        signups,
-        key=lambda signup: (
-            -(signup.waitlist_score if signup.waitlist_score is not None else -1),
-            signup.created_at,
-        ),
-    )
+    return sorted(signups, key=_waitlist_score_desc_sort_key)
+
+
+def _waitlist_score_desc_sort_key(signup: WaitlistSignup) -> tuple[int, int, object]:
+    """Sort scored signups first by score; unscored signups sort last."""
+    if signup.waitlist_score is None:
+        return (1, 0, signup.created_at)
+    return (0, -signup.waitlist_score, signup.created_at)
 
 
 def format_waitlist_list_line(signup: WaitlistSignup) -> str:
