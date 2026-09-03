@@ -57,6 +57,33 @@ Ask bots to keep durable project files in `/workspace` with clear project
 folders. Treat temporary directories, manually installed packages, and
 uncommitted application state as replaceable.
 
+## Bots, computer, and files are separate capabilities
+
+Talking to a bot, running the computer, and reading or writing a shared
+file are independently gated — not one bundle that comes up together:
+
+- **model** — reasoning and any tool that doesn't touch the computer.
+  Always ready.
+- **workspace** — reading and writing `/workspace` files. A read serves
+  straight from the published S3 snapshot even while no host has
+  hydrated it (`read_workspace`); a write requires a host to have
+  already loaded the live disk (`hydrate_required` is `False` — see
+  `write_workspace`).
+- **browser** — full computer-use automation (Xvfb, Chromium). The
+  slowest gate to clear, and only needed for work that actually
+  requires a browser, such as a site with no API.
+
+See `capability_for_computer_tool` and `ComputerCapabilityReadiness` in
+`computer_capabilities.py`. A bot never waits on the browser stack just
+to touch a file, and reading one needs no host running at all — writing
+still needs a hydrated host disk today, but not the browser.
+
+This is expected to change: see [Computer manifold](COMPUTER_MANIFOLD.md)
+for the proposed direction (EFS as a single, organization-wide filing
+cabinet every bot and every computer reads and writes directly, instead
+of each host hydrating its own copy from a snapshot). That direction is
+not implemented and this section does not describe it as current.
+
 ## Tools versus the browser
 
 Prefer a connector or MCP server when one exists. Structured tools are more
