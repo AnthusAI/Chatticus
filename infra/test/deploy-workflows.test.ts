@@ -11,43 +11,52 @@ const workflowsDir = join(
 
 const EXPECTED_DEPLOY_WORKFLOWS: Record<
   string,
-  { environment: string; script: string }
+  { environment: string; script: string; pushBranch: string }
 > = {
   "deploy-auth-development.yml": {
     environment: "development",
     script: "deploy-chatticus-auth-development.sh",
+    pushBranch: "develop",
   },
   "deploy-auth-staging.yml": {
     environment: "staging",
     script: "deploy-chatticus-auth-staging.sh",
+    pushBranch: "main",
   },
   "deploy-auth-production.yml": {
     environment: "production",
     script: "deploy-chatticus-auth-production.sh",
+    pushBranch: "main",
   },
   "deploy-thinturn-development.yml": {
     environment: "development",
     script: "deploy-chatticus-thinturn-development.sh",
+    pushBranch: "develop",
   },
   "deploy-thinturn-staging.yml": {
     environment: "staging",
     script: "deploy-chatticus-thinturn-staging.sh",
+    pushBranch: "main",
   },
   "deploy-thinturn-production.yml": {
     environment: "production",
     script: "deploy-chatticus-thinturn-production.sh",
+    pushBranch: "main",
   },
   "deploy-web-development.yml": {
     environment: "development",
     script: "deploy-chatticus-web-development.sh",
+    pushBranch: "develop",
   },
   "deploy-web-staging.yml": {
     environment: "staging",
     script: "deploy-chatticus-web-staging.sh",
+    pushBranch: "main",
   },
   "deploy-web-production.yml": {
     environment: "production",
     script: "deploy-chatticus-web-production.sh",
+    pushBranch: "main",
   },
 };
 
@@ -66,9 +75,11 @@ describe("deploy workflow YAML", () => {
     describe(fileName, () => {
       const contents = readFileSync(join(workflowsDir, fileName), "utf8");
 
-      it("uses workflow_dispatch only", () => {
-        assert.match(contents, /^on:\n  workflow_dispatch:\n/m);
-        assert.doesNotMatch(contents, /^  push:/m);
+      it("triggers on push to its deploy branch, with workflow_dispatch as a manual fallback", () => {
+        assert.match(
+          contents,
+          new RegExp(`^on:\\n  workflow_dispatch:\\n  push:\\n    branches: \\[${expected.pushBranch}\\]\\n`, "m"),
+        );
         assert.doesNotMatch(contents, /^  pull_request:/m);
         assert.doesNotMatch(contents, /^  release:/m);
       });
