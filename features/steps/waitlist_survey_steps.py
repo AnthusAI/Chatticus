@@ -63,7 +63,6 @@ def when_they_leave_without_submitting(context: object) -> None:
     assert response.status_code == 201, response.text
 
 
-
 @then("it is marked incomplete")
 def then_marked_incomplete(context: object) -> None:
     signup = context.last_signup

@@ -13,7 +13,6 @@ _WAITLIST_SURVEY_BODY = {
 }
 
 
-
 @given("the thin-turn front door")
 def given_front_door(context: object) -> None:
     pass
@@ -65,7 +64,6 @@ def when_source_submits_waitlist_again(context: object) -> None:
             "complete": True,
         },
     )
-
 
 
 @then("the response is {status_code:d}")
