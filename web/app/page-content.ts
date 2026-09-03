@@ -4,11 +4,11 @@
  * opengraph-image.tsx.
  */
 export const HOME_PAGE_CONTENT = {
-  title: "Chatticus | Build the AI organization you control",
+  title: "Chatticus | Shared spaces for people and bots",
   description:
     "Persistent, named AI teammates with memory, skills, routines, approvals, and one shared computer inside a boundary you control.",
-  ogTitle: "Build the AI organization you control",
+  ogTitle: "Shared spaces for people and bots",
   ogDescription: "Named AI teammates on one shared computer, inside a boundary you own.",
-  ogHeadline: "Build the AI organization you control.",
+  ogHeadline: "Shared spaces for people and bots.",
   ogTagline: "Named teammates. One shared computer. Human approval boundaries.",
 } as const;
