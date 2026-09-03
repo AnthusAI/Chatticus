@@ -13,8 +13,8 @@ const groups = [
   {
     title: "Features",
     links: [
-      ["Shared Computer", "/features/shared-computer"],
       ["Shared Files", "/features/shared-files"],
+      ["Flexible Compute", "/features/flexible-compute"],
       ["Approvals", "/features/approvals"],
       ["Flex Mode", "/features/flex-mode"],
     ],
