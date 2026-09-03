@@ -55,8 +55,14 @@ const config: Config = {
           to: { height: "0" },
         },
         highlightSweep: {
-          "0%": { backgroundSize: "0% 88%" },
-          "100%": { backgroundSize: "100% 88%" },
+          // Text color rides along with the sweep (ink-soft, matching the
+          // surrounding paragraph and adaptive to light/dark mode, up to
+          // fixed ink once the signal-yellow fill lands) instead of being
+          // fixed dark from the start -- a fixed dark color would be
+          // unreadable against a dark-mode page during the pre-sweep
+          // delay, when the background is still transparent.
+          "0%": { backgroundSize: "0% 88%", color: "var(--ink-soft)" },
+          "100%": { backgroundSize: "100% 88%", color: "var(--ink)" },
         },
       },
       animation: {

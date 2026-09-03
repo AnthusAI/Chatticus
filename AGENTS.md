@@ -223,14 +223,27 @@ developer or agent shell, not from GitHub Actions.
 | Git | Cloud environment | CDK stack |
 | --- | --- | --- |
 | `develop` | development | `ChatticusThinTurn` |
-| `main` (release) | staging | `ChatticusThinTurnStaging` |
-| explicit gated deploy | production | `ChatticusThinTurnProduction` |
+| `main` (release) | staging + production | `ChatticusThinTurnStaging` / `ChatticusThinTurnProduction` |
 
-Merging to `develop` is not a production release and is not a staging
-release. Promoting to `main` updates staging after CI. Production is a
-separate deploy of a staging-proven release. Shared stacks
-`ChatticusSnapshots` and `ChatticusComputers` are not per-environment.
-Never `cdk deploy --all`. Never destroy those two stacks.
+Deployment is a real CI/CD pipeline, not a manual step: each of the nine
+`deploy-{web,thinturn,auth}-{development,staging,production}.yml`
+workflows triggers on `push` to its branch (`develop` for development,
+`main` for both staging and production) in addition to `workflow_dispatch`.
+A push to `main` deploys staging and production in the same motion --
+there is no separate approval gate between them. Branch protection on
+`main` (required PR review + green CI before merge) is the safety gate,
+not a deploy-time click. So "deploy this" from a human means: get the
+work merged to `main` (through the normal `develop` -> `main` promotion
+PR, reviewed and green) and then watch those workflow runs to
+completion -- not run `cdk deploy` by hand from a local shell with
+`aws login`. Local `cdk deploy` (via the `infra/deploy-*.sh` scripts)
+still works and remains the fallback when CI can't be used, but prefer
+the CI path: it authenticates via OIDC (`configure-aws-credentials`),
+not a personal AWS session.
+
+Shared stacks `ChatticusSnapshots` and `ChatticusComputers` are not
+per-environment. Never `cdk deploy --all`. Never destroy those two
+stacks.
 
 ## Local desk configuration (`AGENTS.local.md`)
 
