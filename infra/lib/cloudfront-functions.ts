@@ -46,16 +46,24 @@ export function buildSpaViewerRequestFunction(
   var uri = request.uri;
   if (uri.indexOf("/api") === 0) {
     return request;
-  }
-  if (uri === "/chat") {
-    request.uri = "/chat/index.html";
-    uri = request.uri;
   }${hostRouting}
-  if (uri === "/auth/callback") {
-    request.uri = "/auth/callback/index.html";
-  }
-  if (uri === "/auth/signout-callback") {
-    request.uri = "/auth/signout-callback/index.html";
+  // Next's static export writes every route as <path>/index.html (except
+  // the distribution root, which CloudFront's defaultRootObject already
+  // resolves) -- rewrite any other extensionless path so S3 finds the
+  // real object instead of 403ing, no matter how deeply nested the route
+  // is (this used to be a hardcoded per-route list -- /chat, /auth/*, ...
+  // -- that silently 403ed every new route, like /features/*, added
+  // after it was written).
+  var lastSegment = uri.substring(uri.lastIndexOf("/") + 1);
+  // Metadata image routes (opengraph-image, twitter-image, ...) are real
+  // static files Next writes with no extension by design -- leave them alone.
+  var isMetadataImageRoute =
+    lastSegment === "opengraph-image" ||
+    lastSegment === "twitter-image" ||
+    lastSegment === "icon" ||
+    lastSegment === "apple-icon";
+  if (uri !== "/" && !isMetadataImageRoute && lastSegment.indexOf(".") === -1) {
+    request.uri = uri.slice(-1) === "/" ? uri + "index.html" : uri + "/index.html";
   }
   return request;
 }`;
@@ -75,11 +83,13 @@ export const SPA_VIEWER_RESPONSE_FUNCTION = `function handler(event) {
     response.statusCode = 200;
     response.statusDescription = "OK";
   }
-  // Next's static export writes this route's generated image with no file
-  // extension, so S3/BucketDeployment can't infer its content-type from the
-  // filename and serves it as application/octet-stream -- which some
-  // og:image/twitter:image crawlers reject outright. Force the real type.
-  if (uri === "/opengraph-image") {
+  // Next's static export writes every route's opengraph-image/twitter-image
+  // with no file extension, so S3/BucketDeployment can't infer its
+  // content-type and serves it as application/octet-stream -- which some
+  // og:image/twitter:image crawlers reject outright. Force the real type
+  // for every such route, not just the site root's.
+  var lastSegment = uri.substring(uri.lastIndexOf("/") + 1);
+  if (lastSegment === "opengraph-image" || lastSegment === "twitter-image") {
     response.headers["content-type"] = { value: "image/png" };
   }
   return response;
