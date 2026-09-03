@@ -7,7 +7,7 @@ import {
   characterGazeConfig,
   creativeCharacterModelForRole,
   creativeCharacterSpecForRole,
-  type CreativeRole,
+  type CreativeCharacterRole,
   BotAvatar,
 } from "anthus-vultus";
 
@@ -18,7 +18,7 @@ type BotAvatarViewProps = {
   ariaLabel?: string;
   className?: string;
   /** Skip name-based role inference and use this role directly (e.g. scripted demo data that wants a specific character regardless of name). */
-  role?: CreativeRole;
+  role?: CreativeCharacterRole;
   /**
    * A shared DOM element (a "typing…" indicator, a just-arrived message)
    * this avatar should notice and look toward instead of its usual
@@ -52,11 +52,15 @@ function useStochasticFocusElement(focusElement: Element | null | undefined): El
   return delayedFocusElement;
 }
 
-function getRoleForBotName(name: string): CreativeRole {
+function getRoleForBotName(name: string): CreativeCharacterRole {
   const lower = name.toLowerCase();
   if (lower.includes("edit")) return "Editor";
-  if (lower.includes("report") || lower.includes("research")) return "Reporter";
+  if (lower.includes("research")) return "Researcher";
+  if (lower.includes("report")) return "Reporter";
   if (lower.includes("copy") || lower.includes("write")) return "Copy Writer";
+  if (lower.includes("produc")) return "Producer";
+  if (lower.includes("archiv")) return "Archivist";
+  if (lower.includes("analy")) return "Analyst";
   return "Illustrator";
 }
 
