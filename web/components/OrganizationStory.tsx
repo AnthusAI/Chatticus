@@ -29,9 +29,9 @@ const foundation = [
     icon: HardDrive,
     number: "02",
     eyebrow: "Computer",
-    title: "One computer, not one login per bot.",
+    title: "One shared filing cabinet, compute that flexes.",
     description:
-      "Every teammate shares the same browser sessions, files, and credentials — each gets its own screen, not its own machine.",
+      "Every bot reads and writes the same files. The compute underneath is picked for the task — a light container for browsing today, heavier options on the roadmap — not one fixed machine for everyone.",
     status: "Proven in development",
     accent: "bg-sea",
   },

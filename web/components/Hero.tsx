@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 const proof = [
   ["24/7", "Runs around the clock"],
-  ["1 shared computer", "No clones. No silos."],
+  ["1 shared file system", "No clones. No silos."],
   ["0% lock-in", "Your data. Your move."],
 ];
 

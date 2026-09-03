@@ -52,7 +52,7 @@ export function Faq() {
             Before you hand over a task.
           </h2>
           <p className="mt-7 max-w-md font-body text-base leading-relaxed text-ink-soft">
-            Chatticus teammates share one computer &mdash; there&rsquo;s no
+            Chatticus teammates share the same files &mdash; there&rsquo;s no
             always-on socket and no separate machine per bot.
           </p>
         </div>
