@@ -228,13 +228,12 @@ def then_links_to_iam_policy(context: object) -> None:
     assert "scoped iam policy" in text, "Missing IAM policy link"
 
 
-@then("it states that the organization computer runs in the customer AWS account")
+@then("it states that the Chatticus organization runs in the customer AWS account")
 def then_states_runs_in_customer_aws_account(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
-    assert (
-        "runs in an aws account you own" in text
-        or "runs in the customer aws account" in text
-    ), "Missing statement about customer AWS account"
+    assert "your chatticus organization runs in" in text, text
+    assert "runs in an aws account you own" in text, text
+    assert "organization computer" not in text, text
 
 
 @then("it offers self-setup with no setup fee")

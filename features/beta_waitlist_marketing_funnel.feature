@@ -33,7 +33,7 @@ Feature: Beta waitlist marketing funnel
     Given the beta pitch page
     Then it links to the cross-account CloudFormation template
     And it links to the scoped IAM policy
-    And it states that the organization computer runs in the customer AWS account
+    And it states that the Chatticus organization runs in the customer AWS account
 
   Scenario: The survey records which setup path they want
     Given a visitor on the beta page
