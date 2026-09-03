@@ -30,7 +30,7 @@ export function Hero() {
               id="hero-title"
               className="animate-rise font-display text-[clamp(3.4rem,7.6vw,7.2rem)] font-medium leading-[0.82] tracking-[-0.075em]"
             >
-              Shared space for{" "}
+              Shared spaces for{" "}
               <span className="italic text-clay">
                 people <span className="text-surface-foreground">and</span>{" "}
                 <span className="relative inline-block">
