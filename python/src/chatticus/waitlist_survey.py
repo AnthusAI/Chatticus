@@ -8,35 +8,77 @@ from chatticus.models import PriceSensitivityAnswers
 
 
 @dataclass(frozen=True)
+class WaitlistSurveyChoice:
+    """One selectable answer for a scored survey question."""
+
+    value: str
+    label: str
+
+
+@dataclass(frozen=True)
 class WaitlistSurveyQuestion:
     """One question in the waitlist survey."""
 
     question_id: str
     prompt: str
+    choices: tuple[WaitlistSurveyChoice, ...] = ()
 
 
 def _serialize_questions(
     questions: tuple[WaitlistSurveyQuestion, ...],
-) -> list[dict[str, str]]:
+) -> list[dict[str, object]]:
     """Return question definitions for the survey API."""
-    return [
-        {"id": question.question_id, "prompt": question.prompt}
-        for question in questions
-    ]
+    serialized: list[dict[str, object]] = []
+    for question in questions:
+        item: dict[str, object] = {
+            "id": question.question_id,
+            "prompt": question.prompt,
+        }
+        if question.choices:
+            item["choices"] = [
+                {"value": choice.value, "label": choice.label}
+                for choice in question.choices
+            ]
+        serialized.append(item)
+    return serialized
 
 
 FIT_QUESTIONS: tuple[WaitlistSurveyQuestion, ...] = (
     WaitlistSurveyQuestion(
         question_id="organization_size",
         prompt="How many people are in your organization?",
+        choices=(
+            WaitlistSurveyChoice(value="1-to-5", label="1 to 5 people"),
+            WaitlistSurveyChoice(value="6-to-25", label="6 to 25 people"),
+            WaitlistSurveyChoice(value="26-to-100", label="26 to 100 people"),
+            WaitlistSurveyChoice(value="101-plus", label="101 or more people"),
+        ),
     ),
     WaitlistSurveyQuestion(
         question_id="seniority",
         prompt=("What is your role or level of seniority in the organization?"),
+        choices=(
+            WaitlistSurveyChoice(
+                value="founder-executive-or-lead",
+                label="Founder, executive, or lead",
+            ),
+            WaitlistSurveyChoice(value="manager", label="Manager"),
+            WaitlistSurveyChoice(
+                value="individual-contributor",
+                label="Individual contributor",
+            ),
+            WaitlistSurveyChoice(value="other", label="Other"),
+        ),
     ),
     WaitlistSurveyQuestion(
         question_id="urgency",
         prompt="When are you hoping to start using Chatticus?",
+        choices=(
+            WaitlistSurveyChoice(value="this-week", label="This week"),
+            WaitlistSurveyChoice(value="this-month", label="This month"),
+            WaitlistSurveyChoice(value="this-quarter", label="This quarter"),
+            WaitlistSurveyChoice(value="just-exploring", label="Just exploring"),
+        ),
     ),
     WaitlistSurveyQuestion(
         question_id="work_description",
@@ -54,15 +96,45 @@ AWS_READINESS_QUESTIONS: tuple[WaitlistSurveyQuestion, ...] = (
             "Which cloud provider does your organization primarily use "
             "for production workloads?"
         ),
+        choices=(
+            WaitlistSurveyChoice(value="aws", label="AWS"),
+            WaitlistSurveyChoice(value="gcp", label="Google Cloud (GCP)"),
+            WaitlistSurveyChoice(value="azure", label="Microsoft Azure"),
+            WaitlistSurveyChoice(value="other", label="Other"),
+            WaitlistSurveyChoice(value="multi-cloud", label="Multi-cloud"),
+        ),
     ),
     WaitlistSurveyQuestion(
         question_id="account_status",
         prompt=("What is the status of your AWS account for production workloads?"),
+        choices=(
+            WaitlistSurveyChoice(
+                value="production-workloads",
+                label="Production workloads on AWS",
+            ),
+            WaitlistSurveyChoice(
+                value="staging-or-dev",
+                label="Staging or development only",
+            ),
+            WaitlistSurveyChoice(
+                value="exploring-no-production",
+                label="Exploring — no production yet",
+            ),
+        ),
     ),
     WaitlistSurveyQuestion(
         question_id="aws_spend",
         prompt=(
             "Approximately how much does your organization spend on AWS " "per month?"
+        ),
+        choices=(
+            WaitlistSurveyChoice(value="under-1k", label="Under $1,000"),
+            WaitlistSurveyChoice(value="1k-to-10k", label="$1,000 to $10,000"),
+            WaitlistSurveyChoice(value="10k-plus", label="$10,000 or more"),
+            WaitlistSurveyChoice(
+                value="prefer-not-to-say",
+                label="Prefer not to say",
+            ),
         ),
     ),
     WaitlistSurveyQuestion(
@@ -71,12 +143,36 @@ AWS_READINESS_QUESTIONS: tuple[WaitlistSurveyQuestion, ...] = (
             "Who can approve cross-account IAM access and AWS changes "
             "for a new tool like Chatticus?"
         ),
+        choices=(
+            WaitlistSurveyChoice(value="me", label="Me"),
+            WaitlistSurveyChoice(value="devops-team", label="Our DevOps team"),
+            WaitlistSurveyChoice(
+                value="security-or-compliance",
+                label="Security or compliance",
+            ),
+            WaitlistSurveyChoice(
+                value="procurement-or-vendor-management",
+                label="Procurement or vendor management",
+            ),
+        ),
     ),
     WaitlistSurveyQuestion(
         question_id="byok_readiness",
         prompt=(
             "Do you already have production API keys for the model providers "
             "you plan to use with Chatticus?"
+        ),
+        choices=(
+            WaitlistSurveyChoice(
+                value="already-in-production",
+                label="Already in production",
+            ),
+            WaitlistSurveyChoice(
+                value="have-keys-not-in-production",
+                label="Have keys but not in production",
+            ),
+            WaitlistSurveyChoice(value="will-procure", label="Will procure"),
+            WaitlistSurveyChoice(value="not-yet", label="Not yet"),
         ),
     ),
     WaitlistSurveyQuestion(
@@ -91,6 +187,11 @@ AWS_READINESS_QUESTIONS: tuple[WaitlistSurveyQuestion, ...] = (
         prompt=(
             "Will adopting Chatticus require a security or vendor review "
             "before you can start?"
+        ),
+        choices=(
+            WaitlistSurveyChoice(value="yes-required", label="Yes, required"),
+            WaitlistSurveyChoice(value="no-not-required", label="No, not required"),
+            WaitlistSurveyChoice(value="unsure", label="Unsure"),
         ),
     ),
 )
@@ -111,6 +212,15 @@ PROFESSIONAL_SERVICES_INTEREST_QUESTIONS: tuple[WaitlistSurveyQuestion, ...] = (
         prompt=(
             "Are you interested in professional services for integrating "
             "Chatticus with your custom resources?"
+        ),
+        choices=(
+            WaitlistSurveyChoice(
+                value="yes-with-budget",
+                label="Yes, we have budget",
+            ),
+            WaitlistSurveyChoice(value="tell-me-more", label="Tell me more"),
+            WaitlistSurveyChoice(value="not-now", label="Not now"),
+            WaitlistSurveyChoice(value="no", label="No"),
         ),
     ),
 )

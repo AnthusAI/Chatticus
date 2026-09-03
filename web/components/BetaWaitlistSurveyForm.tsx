@@ -147,17 +147,17 @@ function SurveyQuestionField({
         <div className="mt-3 flex flex-col gap-2">
           {question.choices.map((choice) => (
             <label
-              key={choice}
+              key={choice.value}
               className="flex items-center gap-3 rounded-lg bg-[var(--surface-0)] p-3"
             >
               <input
                 type="radio"
                 name={inputId}
-                value={choice}
-                checked={value === choice}
-                onChange={() => onChange(choice)}
+                value={choice.value}
+                checked={value === choice.value}
+                onChange={() => onChange(choice.value)}
               />
-              <span>{choice}</span>
+              <span>{choice.label}</span>
             </label>
           ))}
         </div>

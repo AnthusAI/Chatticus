@@ -3570,6 +3570,11 @@ class ControlPlane:
             utm_campaign=utm_campaign or (existing.utm_campaign if existing else None),
             utm_content=utm_content or (existing.utm_content if existing else None),
             utm_term=utm_term or (existing.utm_term if existing else None),
+            waitlist_score=existing.waitlist_score if existing else None,
+            services_qualified=existing.services_qualified if existing else False,
+            scoring_weights_version=(
+                existing.scoring_weights_version if existing else None
+            ),
         )
         if confirmation_token is None:
             token = secrets.token_urlsafe(16)
@@ -3588,12 +3593,26 @@ class ControlPlane:
         return self._messaging_store.list_waitlist_queue()
 
     def confirm_waitlist_email(self, email: str) -> None:
-        """Mark a waitlist signup's email as confirmed."""
-        signup = self._messaging_store.get_waitlist_signup(email)
+        """Mark a waitlist signup's email as confirmed and score it once."""
+        from chatticus.org_records import normalize_email
+        from chatticus.waitlist_scoring import score_waitlist_signup
+
+        normalized = normalize_email(email)
+        signup = self._messaging_store.get_waitlist_signup(normalized)
         if not signup:
             return
 
-        confirmed = replace(signup, email_confirmed=True)
+        if signup.email_confirmed and signup.scoring_weights_version is not None:
+            return
+
+        result = score_waitlist_signup(signup)
+        confirmed = replace(
+            signup,
+            email_confirmed=True,
+            waitlist_score=result.score,
+            services_qualified=result.services_qualified,
+            scoring_weights_version=result.weights_version,
+        )
         self._messaging_store.put_waitlist_signup(confirmed)
 
     def record_contact_lead(

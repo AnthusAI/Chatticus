@@ -12,14 +12,20 @@ export const FULL_WAITLIST_SURVEY_FIXTURE: WaitlistSurvey = {
     {
       id: "has_aws_account",
       prompt: "Do you already have an AWS account for this deployment?",
-      choices: ["yes", "no"],
+      choices: [
+        { value: "yes", label: "Yes" },
+        { value: "no", label: "No" },
+      ],
     },
   ],
   setup_path: [
     {
       id: "preferred_path",
       prompt: "Which setup path do you prefer?",
-      choices: ["self-setup", "assisted setup"],
+      choices: [
+        { value: "self-setup", label: "Self-setup" },
+        { value: "assisted setup", label: "Assisted setup" },
+      ],
     },
   ],
   price_sensitivity: [
@@ -49,7 +55,10 @@ export const FULL_WAITLIST_SURVEY_FIXTURE: WaitlistSurvey = {
       id: "professional_services_interest",
       prompt:
         "Are you interested in optional professional services from Anthus AI Solutions?",
-      choices: ["yes", "no"],
+      choices: [
+        { value: "yes", label: "Yes" },
+        { value: "no", label: "No" },
+      ],
     },
   ],
   training_interest: [
@@ -57,7 +66,10 @@ export const FULL_WAITLIST_SURVEY_FIXTURE: WaitlistSurvey = {
       id: "training_interest",
       prompt:
         "Are you interested in optional professional training from Anthus AI Solutions?",
-      choices: ["yes", "no"],
+      choices: [
+        { value: "yes", label: "Yes" },
+        { value: "no", label: "No" },
+      ],
     },
   ],
 };

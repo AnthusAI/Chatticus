@@ -765,6 +765,9 @@ class WaitlistSignup:
     utm_campaign: str | None = None
     utm_content: str | None = None
     utm_term: str | None = None
+    waitlist_score: int | None = None
+    services_qualified: bool = False
+    scoring_weights_version: str | None = None
 
 
 @dataclass(frozen=True)

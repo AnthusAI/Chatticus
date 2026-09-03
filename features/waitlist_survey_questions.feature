@@ -17,3 +17,11 @@ Feature: Survey question definitions
 
   Scenario: the survey defines a professional training interest question
     Then GET /waitlist/survey returns a question asking if they are interested in professional training for their staff
+
+  Scenario: scored questions return choices with value and label
+    Then GET /waitlist/survey returns organization size choices with value and label
+    And GET /waitlist/survey returns professional services interest choices with value and label
+
+  Scenario: GET /waitlist/survey returns choices for scored questions
+    Then GET /waitlist/survey returns choices on scored fit questions
+    And GET /waitlist/survey returns choices on scored AWS readiness questions
