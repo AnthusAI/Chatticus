@@ -92,13 +92,49 @@ def then_states_managed_customers_run_what_anthus_runs(context: object) -> None:
     ), text
 
 
-@then(
-    "it states that the organization computer runs in an AWS account "
-    "the customer controls"
-)
-def then_states_aws_account(context: object) -> None:
+@then("it does not describe bots, conversations, or files as exportable")
+def then_does_not_describe_org_data_as_exportable(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
-    assert "runs in an aws account you own" in text, text
+    assert "exportable" not in text, text
+
+
+@then("it does not offer to archive the account as a way to get the data")
+def then_does_not_offer_to_archive_account(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "archive your account" not in text, text
+    assert "archive the account" not in text, text
+
+
+@then("it states that the file system and secrets live in the customer AWS account")
+def then_states_filesystem_secrets_in_customer_aws_account(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "file system" in text, text
+    assert "encrypted secrets" in text, text
+    assert (
+        "live in your aws account" in text or "lives in your aws account" in text
+    ), text
+
+
+@then("it does not state that conversations live in the customer AWS account")
+def then_does_not_state_conversations_in_customer_aws(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    forbidden = (
+        "every bot, conversation, and file lives in your aws account",
+        "bot, conversation, and file lives in your aws account",
+        "conversations live in your aws account",
+    )
+    assert not any(phrase in text for phrase in forbidden), text
+    residency_phrase = None
+    if "lives in your aws account" in text:
+        residency_phrase = "lives in your aws account"
+    elif "live in your aws account" in text:
+        residency_phrase = "live in your aws account"
+    if residency_phrase is not None:
+        idx = text.find(residency_phrase)
+        window = text[max(0, idx - 80) : idx + len(residency_phrase) + 20]
+        assert (
+            "conversation" not in window
+        ), f"Conversation tied to AWS residency: {window!r}"
 
 
 @then("it states that the source is available under an open licence")
@@ -228,13 +264,12 @@ def then_links_to_iam_policy(context: object) -> None:
     assert "scoped iam policy" in text, "Missing IAM policy link"
 
 
-@then("it states that the organization computer runs in the customer AWS account")
+@then("it states that the Chatticus organization runs in the customer AWS account")
 def then_states_runs_in_customer_aws_account(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
-    assert (
-        "runs in an aws account you own" in text
-        or "runs in the customer aws account" in text
-    ), "Missing statement about customer AWS account"
+    assert "your chatticus organization runs in" in text, text
+    assert "runs in an aws account you own" in text, text
+    assert "organization computer" not in text, text
 
 
 @then("it offers self-setup with no setup fee")

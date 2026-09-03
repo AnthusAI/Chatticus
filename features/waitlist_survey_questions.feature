@@ -25,3 +25,6 @@ Feature: Survey question definitions
   Scenario: GET /waitlist/survey returns choices for scored questions
     Then GET /waitlist/survey returns choices on scored fit questions
     And GET /waitlist/survey returns choices on scored AWS readiness questions
+
+  Scenario: the work description question is a tall textarea
+    Then GET /waitlist/survey marks the work description question as multiline

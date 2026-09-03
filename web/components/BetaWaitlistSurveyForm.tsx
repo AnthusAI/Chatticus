@@ -165,6 +165,24 @@ function SurveyQuestionField({
     );
   }
 
+  const fieldClassName = "mt-3 w-full rounded-lg bg-[var(--surface-0)] p-3";
+
+  if (question.multiline) {
+    return (
+      <label className="mt-4 block text-lg" htmlFor={inputId}>
+        {question.prompt}
+        <textarea
+          id={inputId}
+          name={inputId}
+          rows={8}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={`${fieldClassName} min-h-40 resize-y`}
+        />
+      </label>
+    );
+  }
+
   return (
     <label className="mt-4 block text-lg" htmlFor={inputId}>
       {question.prompt}
@@ -174,7 +192,7 @@ function SurveyQuestionField({
         type="text"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-3 w-full rounded-lg bg-[var(--surface-0)] p-3"
+        className={fieldClassName}
       />
     </label>
   );
