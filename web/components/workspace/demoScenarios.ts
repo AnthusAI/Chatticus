@@ -195,6 +195,62 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
     ],
   },
   {
+    id: "observatory",
+    useCase: "astrophysics",
+    orgLabel: "Kepler Ridge Observatory",
+    workspaceLabel: "Control Room",
+    members: [
+      {
+        id: "corvus",
+        name: "Corvus",
+        role: "Editor",
+        meta: "Principal Investigator",
+        motionState: "editing",
+        activity: "Reviewing the transit fit",
+        messages: [
+          { id: "corvus-1", author: "operator", authorLabel: "Dr. Reyes · Lab Director", body: "The journal wants the draft by Monday. Nothing goes out without my sign-off." },
+          { id: "corvus-2", author: "bot", authorLabel: "Corvus", body: "Cross-checking the transit depth against the calibration run now." },
+        ],
+      },
+      {
+        id: "vela",
+        name: "Vela",
+        role: "Reporter",
+        meta: "Observational Astronomer",
+        motionState: "gathering",
+        activity: "Confirming the second transit",
+        messages: [
+          { id: "vela-1", author: "operator", authorLabel: "Dr. Reyes · Lab Director", body: "Is the signal even real?" },
+          { id: "vela-2", author: "bot", authorLabel: "Vela", body: "Confirmed across two nights — same depth, same period, not an artifact." },
+        ],
+      },
+      {
+        id: "nova",
+        name: "Nova",
+        role: "Copy Writer",
+        meta: "Paper Writer",
+        motionState: "drafting",
+        activity: "Rewriting the abstract",
+        messages: [
+          { id: "nova-1", author: "operator", authorLabel: "Dr. Reyes · Lab Director", body: "Cut the hedging. State the confidence interval plainly." },
+          { id: "nova-2", author: "bot", authorLabel: "Nova", body: "Rewriting the abstract with the interval up front, no qualifiers." },
+        ],
+      },
+      {
+        id: "halley",
+        name: "Halley",
+        role: "Illustrator",
+        meta: "Data Viz Lead",
+        motionState: "drawing",
+        activity: "Simplifying the light curve",
+        messages: [
+          { id: "halley-1", author: "operator", authorLabel: "Dr. Reyes · Lab Director", body: "The light curve plot needs to read on a phone screen." },
+          { id: "halley-2", author: "bot", authorLabel: "Halley", body: "Simplified to the folded light curve — noise trimmed, transit dip obvious." },
+        ],
+      },
+    ],
+  },
+  {
     id: "cryptid-society",
     useCase: "cryptid research",
     orgLabel: "Pine County Sasquatch Society",
