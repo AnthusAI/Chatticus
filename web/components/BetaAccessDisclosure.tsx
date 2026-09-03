@@ -1,7 +1,7 @@
 export function BetaAccessDisclosure() {
   return (
     <p className="font-display text-3xl leading-tight tracking-[-0.035em]">
-      The organization computer runs in an AWS account you own, on your network,
+      Your Chatticus organization runs in an AWS account you own, on your network,
       under your logging. We access it via a{" "}
       <a
         href="https://github.com/AnthusAI/Chattic.us/blob/main/infra/customer-role.yml"
