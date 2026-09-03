@@ -3503,6 +3503,19 @@ class ControlPlane:
         self._messaging_store.put_waitlist_signup(signup)
         return signup
 
+    def list_waitlist_queue(self) -> list[WaitlistSignup]:
+        """List waitlist signups that have confirmed their email."""
+        return self._messaging_store.list_waitlist_queue()
+
+    def confirm_waitlist_email(self, email: str) -> None:
+        """Mark a waitlist signup's email as confirmed."""
+        signup = self._messaging_store.get_waitlist_signup(email)
+        if not signup:
+            return
+
+        confirmed = replace(signup, email_confirmed=True)
+        self._messaging_store.put_waitlist_signup(confirmed)
+
 
 def _disk_checksum(workspace: dict[str, str], browser_sessions: dict[str, str]) -> str:
     payload = json.dumps(

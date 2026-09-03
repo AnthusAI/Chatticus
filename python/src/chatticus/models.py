@@ -681,3 +681,4 @@ class WaitlistSignup:
     price_answers: dict[str, str]
     complete: bool
     created_at: datetime
+    email_confirmed: bool = False
