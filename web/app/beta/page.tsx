@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BetaAccessDisclosure } from "@/components/BetaAccessDisclosure";
+import { BetaSetupPricing } from "@/components/BetaSetupPricing";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 
@@ -30,40 +31,7 @@ export default function BetaPitchPage() {
           </div>
         </section>
 
-        <section
-          id="beta-costs"
-          aria-labelledby="beta-costs-heading"
-          className="bg-[var(--surface-0)]"
-        >
-          <div className="mx-auto max-w-[92rem] px-5 py-20 sm:px-8 lg:px-12">
-            <div className="max-w-3xl rounded-2xl bg-[var(--surface-1)] p-8">
-              <h2
-                id="beta-costs-heading"
-                className="font-display text-3xl tracking-[-0.04em]"
-              >
-                Beta pricing and costs
-              </h2>
-              <ul className="mt-6 list-disc space-y-3 pl-5 text-lg">
-                <li>
-                  <strong>Monthly fee:</strong> $20 a month for the Chatticus
-                  control plane.
-                </li>
-                <li>
-                  <strong>Infrastructure:</strong> AWS infrastructure is billed
-                  to the customer directly.
-                </li>
-                <li>
-                  <strong>Tokens:</strong> Model tokens (Anthropic or OpenAI) are
-                  billed to the customer.
-                </li>
-                <li>
-                  <strong>Setup fee:</strong> $0 for self-setup, or $100
-                  one-time for assisted setup with an engineer.
-                </li>
-              </ul>
-            </div>
-          </div>
-        </section>
+        <BetaSetupPricing />
 
         <section
           id="beta-expectations"

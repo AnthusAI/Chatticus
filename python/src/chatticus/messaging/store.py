@@ -2370,6 +2370,7 @@ class DynamoMessagingStore:
                     "S": json.dumps(signup.aws_readiness_answers)
                 },
                 "price_answers": {"S": json.dumps(signup.price_answers)},
+                "setup_path_answers": {"S": json.dumps(signup.setup_path_answers)},
                 "complete": {"BOOL": signup.complete},
                 "created_at": {"S": signup.created_at.isoformat()},
                 "email_confirmed": {"BOOL": signup.email_confirmed},
@@ -2391,7 +2392,10 @@ class DynamoMessagingStore:
             email=item["email"]["S"],
             fit_answers=json.loads(item["fit_answers"]["S"]),
             aws_readiness_answers=json.loads(item["aws_readiness_answers"]["S"]),
-            price_answers=json.loads(item["price_answers"]["S"]),
+            price_answers=json.loads(item.get("price_answers", {"S": "{}"})["S"]),
+            setup_path_answers=json.loads(
+                item.get("setup_path_answers", {"S": "{}"})["S"]
+            ),
             complete=item.get("complete", {}).get("BOOL", False),
             created_at=datetime.fromisoformat(item["created_at"]["S"]),
             email_confirmed=item.get("email_confirmed", {}).get("BOOL", False),

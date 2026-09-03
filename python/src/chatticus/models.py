@@ -679,6 +679,7 @@ class WaitlistSignup:
     fit_answers: dict[str, str]
     aws_readiness_answers: dict[str, str]
     price_answers: dict[str, str]
+    setup_path_answers: dict[str, str]
     complete: bool
     created_at: datetime
     email_confirmed: bool = False

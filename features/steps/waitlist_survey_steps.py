@@ -10,10 +10,12 @@ def given_visitor_on_beta_page(context: object) -> None:
         "fit": {"q1": "a1"},
         "aws_readiness": {"q2": "a2"},
         "price": {"q3": "a3"},
+        "setup_path": {"q4": "a4"},
     }
 
 
 @when("they complete the survey and submit it")
+@when("they complete the survey")
 def when_they_complete_survey(context: object) -> None:
     response = context.api_client.post(
         "/waitlist",
@@ -22,6 +24,7 @@ def when_they_complete_survey(context: object) -> None:
             "fit_answers": context.visitor_answers["fit"],
             "aws_readiness_answers": context.visitor_answers["aws_readiness"],
             "price_answers": context.visitor_answers["price"],
+            "setup_path_answers": context.visitor_answers["setup_path"],
             "complete": True,
         },
     )
@@ -43,7 +46,16 @@ def then_it_carries_answers(context: object) -> None:
     assert signup.fit_answers == context.visitor_answers["fit"]
     assert signup.aws_readiness_answers == context.visitor_answers["aws_readiness"]
     assert signup.price_answers == context.visitor_answers["price"]
+    assert signup.setup_path_answers == context.visitor_answers["setup_path"]
     assert signup.complete is True
+
+
+@then("the waitlist signup records whether they want self-setup or assisted setup")
+def then_waitlist_records_setup_path(context: object) -> None:
+    signup = context.plane._messaging_store.get_waitlist_signup(context.visitor_email)
+    assert signup is not None
+    assert signup.setup_path_answers == context.visitor_answers["setup_path"]
+    assert len(signup.setup_path_answers) > 0
 
 
 @given("a visitor who has entered only their work email")
@@ -70,6 +82,7 @@ def then_marked_incomplete(context: object) -> None:
     assert signup.fit_answers == {}
     assert signup.aws_readiness_answers == {}
     assert signup.price_answers == {}
+    assert signup.setup_path_answers == {}
 
 
 @given('a waitlist signup exists for "{email}"')
@@ -182,6 +195,7 @@ def given_unconfirmed_waitlist_signup(context: object) -> None:
         fit_answers={},
         aws_readiness_answers={},
         price_answers={},
+        setup_path_answers={},
         complete=True,
         source="behave-test",
     )

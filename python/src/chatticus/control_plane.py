@@ -3494,6 +3494,7 @@ class ControlPlane:
         fit_answers: dict[str, str],
         aws_readiness_answers: dict[str, str],
         price_answers: dict[str, str],
+        setup_path_answers: dict[str, str],
         complete: bool,
         *,
         source: str,
@@ -3517,6 +3518,7 @@ class ControlPlane:
             fit_answers=fit_answers,
             aws_readiness_answers=aws_readiness_answers,
             price_answers=price_answers,
+            setup_path_answers=setup_path_answers,
             complete=complete,
             created_at=existing.created_at if existing else moment,
         )
