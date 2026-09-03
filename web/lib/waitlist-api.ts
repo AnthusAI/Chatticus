@@ -77,6 +77,18 @@ export type WaitlistConfirmResponse = {
   message: string;
 };
 
+export type WaitlistInviteStatus =
+  | "accepted"
+  | "invalid_token"
+  | "expired"
+  | "already_used";
+
+export type WaitlistInviteResponse = {
+  status: WaitlistInviteStatus;
+  message: string;
+  sign_in_url?: string | null;
+};
+
 export async function confirmWaitlistEmail(
   email: string,
   token: string,
@@ -84,6 +96,14 @@ export async function confirmWaitlistEmail(
   const params = new URLSearchParams({ email, token });
   const response = await fetchImpl(`${apiBase}/waitlist/confirm?${params}`);
   return readJson<WaitlistConfirmResponse>(response);
+}
+
+export async function consumeWaitlistInvitation(
+  token: string,
+): Promise<WaitlistInviteResponse> {
+  const params = new URLSearchParams({ token });
+  const response = await fetchImpl(`${apiBase}/waitlist/invite?${params}`);
+  return readJson<WaitlistInviteResponse>(response);
 }
 
 export async function fetchWaitlistSurvey(): Promise<WaitlistSurvey> {

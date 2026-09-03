@@ -39,6 +39,7 @@ NO_PRINCIPAL_ROUTES: Final[frozenset[str]] = frozenset(
         "/integration-test/session",
         "/waitlist",
         "/waitlist/confirm",
+        "/waitlist/invite",
         "/waitlist/survey",
         "/contact",
     }

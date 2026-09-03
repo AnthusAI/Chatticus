@@ -343,6 +343,22 @@ class WaitlistRateLimitedError(ChatticusError):
     """Too many waitlist submissions from the same source in the current window."""
 
 
+class WaitlistSignupNotInvitableError(ChatticusError):
+    """The waitlist signup cannot receive an operator invitation."""
+
+
+class WaitlistInvitationNotFoundError(ChatticusError):
+    """The waitlist invitation token is unknown."""
+
+
+class WaitlistInvitationExpiredError(ChatticusError):
+    """The waitlist invitation link has expired."""
+
+
+class WaitlistInvitationConsumedError(ChatticusError):
+    """The waitlist invitation link was already used."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""
@@ -769,6 +785,19 @@ class WaitlistSignup:
     services_qualified: bool = False
     scoring_weights_version: str | None = None
     disqualified: bool = False
+    invited_at: datetime | None = None
+    invitation_token: str | None = None
+    invitation_expires_at: datetime | None = None
+    invitation_consumed_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class WaitlistInviteConsumeResult:
+    """Outcome of consuming one waitlist invitation link."""
+
+    status: str
+    message: str
+    sign_in_url: str | None = None
 
 
 @dataclass(frozen=True)

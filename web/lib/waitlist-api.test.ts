@@ -3,6 +3,7 @@ import { afterEach, describe, it, mock } from "node:test";
 
 import {
   confirmWaitlistEmail,
+  consumeWaitlistInvitation,
   fetchWaitlistSurvey,
   setFetchForTests,
   submitWaitlist,
@@ -84,5 +85,30 @@ describe("waitlist API", () => {
       "/api/waitlist/confirm?email=person%40example.com&token=token-123",
     );
     assert.equal(result.status, "confirmed");
+  });
+
+  it("consumeWaitlistInvitation requests GET /waitlist/invite with token", async () => {
+    let capturedUrl = "";
+    setFetchForTests(
+      mock.fn(async (input) => {
+        capturedUrl = String(input);
+        return new Response(
+          JSON.stringify({
+            status: "accepted",
+            message: "Your invitation is accepted. Sign in to continue.",
+            sign_in_url: "/chat",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }) as typeof fetch,
+    );
+
+    const result = await consumeWaitlistInvitation("invite-token-123");
+    assert.equal(capturedUrl, "/api/waitlist/invite?token=invite-token-123");
+    assert.equal(result.status, "accepted");
+    assert.equal(result.sign_in_url, "/chat");
   });
 });

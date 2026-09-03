@@ -59,6 +59,12 @@ def main(
         help="Include disqualified signups in the export",
     )
 
+    invite_parser = subparsers.add_parser(
+        "invite",
+        help="Invite one queued waitlist signup",
+    )
+    invite_parser.add_argument("email", help="Signup email address")
+
     args = parser.parse_args(argv)
     build_plane = plane_factory or _plane_from_env
     try:
@@ -74,6 +80,8 @@ def main(
                 services_qualified=args.services_qualified,
                 disqualified=args.disqualified,
             )
+        if args.command == "invite":
+            return _cmd_invite(plane, args.email)
         return _cmd_export(plane, include_disqualified=args.include_disqualified)
     except RuntimeError as error:
         print(str(error), file=sys.stderr)
@@ -119,6 +127,12 @@ def _cmd_export(plane: ControlPlane, *, include_disqualified: bool) -> int:
     else:
         signups = plane.list_waitlist_queue()
     print(render_waitlist_csv(sort_waitlist_by_score_desc(signups)), end="")
+    return 0
+
+
+def _cmd_invite(plane: ControlPlane, email: str) -> int:
+    invitation_url = plane.invite_waitlist_signup(email)
+    print(invitation_url)
     return 0
 
 
