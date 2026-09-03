@@ -64,6 +64,15 @@ const config: Config = {
           "0%": { backgroundSize: "0% 88%", color: "var(--ink-soft)" },
           "100%": { backgroundSize: "100% 88%", color: "var(--ink)" },
         },
+        typingBounce: {
+          "0%, 80%, 100%": { transform: "translateY(0)", opacity: "0.4" },
+          "40%": { transform: "translateY(-3px)", opacity: "1" },
+        },
+        pop: {
+          "0%": { transform: "scale(0.4)", opacity: "0" },
+          "60%": { transform: "scale(1.08)", opacity: "1" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
       },
       animation: {
         rise: "rise 700ms cubic-bezier(.22,.75,.18,1) both",
@@ -72,6 +81,8 @@ const config: Config = {
         "accordion-down": "accordionDown 220ms ease-out",
         "accordion-up": "accordionUp 220ms ease-out",
         "highlight-sweep": "highlightSweep 650ms cubic-bezier(.4,0,.2,1) both",
+        "typing-bounce": "typingBounce 1.1s ease-in-out infinite",
+        pop: "pop 320ms cubic-bezier(.22,.75,.18,1) both",
       },
     },
   },
