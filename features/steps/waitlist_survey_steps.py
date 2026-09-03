@@ -167,10 +167,91 @@ def then_records_too_expensive_price(context: object) -> None:
 
 
 @given("the beta page survey")
+@given("the waitlist survey API")
 def given_beta_page_survey(context: object) -> None:
     response = context.api_client.get("/waitlist/survey")
     assert response.status_code == 200, response.text
     context.beta_page_survey = response.json()
+
+
+def _question_prompts(block: list[dict[str, str]]) -> str:
+    return " ".join(question["prompt"].lower() for question in block)
+
+
+def _question_ids(block: list[dict[str, str]]) -> set[str]:
+    return {question["id"] for question in block}
+
+
+@then(
+    "GET /waitlist/survey returns a fit block with questions about "
+    "organization size, seniority, urgency, and work description"
+)
+def then_survey_returns_fit_block(context: object) -> None:
+    fit_block = context.beta_page_survey["fit"]
+    assert len(fit_block) >= 4
+    question_ids = _question_ids(fit_block)
+    assert "organization_size" in question_ids
+    assert "seniority" in question_ids
+    assert "urgency" in question_ids
+    assert "work_description" in question_ids
+    prompts = _question_prompts(fit_block)
+    assert "organization" in prompts
+    assert "seniority" in prompts or "role" in prompts
+    assert "urgency" in prompts or "when" in prompts
+    assert "work" in prompts or "use case" in prompts
+
+
+@then(
+    "GET /waitlist/survey returns an AWS readiness block with questions "
+    "about cloud provider, account status, and IAM comfort"
+)
+def then_survey_returns_aws_readiness_block(context: object) -> None:
+    aws_block = context.beta_page_survey["aws_readiness"]
+    assert len(aws_block) >= 3
+    question_ids = _question_ids(aws_block)
+    assert "cloud_provider" in question_ids
+    assert "account_status" in question_ids
+    assert "iam_comfort" in question_ids
+    prompts = _question_prompts(aws_block)
+    assert "cloud provider" in prompts
+    assert "aws account" in prompts
+    assert "iam" in prompts
+
+
+@then(
+    "GET /waitlist/survey returns a setup-path block asking whether they "
+    "want self-install or turn-key"
+)
+def then_survey_returns_setup_path_block(context: object) -> None:
+    setup_path_block = context.beta_page_survey["setup_path"]
+    assert len(setup_path_block) >= 1
+    prompts = _question_prompts(setup_path_block)
+    assert "self-install" in prompts
+    assert "turn-key" in prompts
+
+
+@then(
+    "GET /waitlist/survey returns a question asking if they are interested "
+    "in professional services for integrating with custom resources"
+)
+def then_survey_returns_professional_services_question(context: object) -> None:
+    services_block = context.beta_page_survey["professional_services_interest"]
+    assert len(services_block) == 1
+    prompt = services_block[0]["prompt"].lower()
+    assert "professional services" in prompt
+    assert "custom resources" in prompt
+
+
+@then(
+    "GET /waitlist/survey returns a question asking if they are interested "
+    "in professional training for their staff"
+)
+def then_survey_returns_training_interest_question(context: object) -> None:
+    training_block = context.beta_page_survey["training_interest"]
+    assert len(training_block) == 1
+    prompt = training_block[0]["prompt"].lower()
+    assert "professional training" in prompt
+    assert "staff" in prompt
 
 
 @then("the price questions name the total including AWS and model tokens")
