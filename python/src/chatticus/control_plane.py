@@ -76,6 +76,7 @@ from chatticus.email_sender import (
     EmailSender,
     NoOpEmailSender,
     build_waitlist_confirmation_url,
+    build_waitlist_invitation_url,
     waitlist_confirmation_base_url_from_env,
 )
 from chatticus.escalation_handoff import (
@@ -146,7 +147,9 @@ from chatticus.models import (
     TurnReconcilingError,
     TurnStatus,
     TurnTerminalError,
+    WaitlistInviteConsumeResult,
     WaitlistSignup,
+    WaitlistSignupNotInvitableError,
     WaitlistSummary,
     WorkerDoesNotHostComputerError,
     WorkerRecord,
@@ -3577,6 +3580,14 @@ class ControlPlane:
                 existing.scoring_weights_version if existing else None
             ),
             disqualified=existing.disqualified if existing else False,
+            invited_at=existing.invited_at if existing else None,
+            invitation_token=existing.invitation_token if existing else None,
+            invitation_expires_at=(
+                existing.invitation_expires_at if existing else None
+            ),
+            invitation_consumed_at=(
+                existing.invitation_consumed_at if existing else None
+            ),
         )
         if confirmation_token is None:
             token = secrets.token_urlsafe(16)
@@ -3642,6 +3653,114 @@ class ControlPlane:
                 scoring_weights_version=result.weights_version,
             )
         self._messaging_store.put_waitlist_signup(triaged)
+
+    def invite_waitlist_signup(self, email: str, *, now: datetime | None = None) -> str:
+        """Issue or refresh one operator invitation for a queued waitlist signup."""
+        import secrets
+
+        from chatticus.org_records import normalize_email
+        from chatticus.waitlist.invitation import waitlist_invitation_ttl
+
+        moment = now or self._now
+        normalized = normalize_email(email)
+        signup = self._messaging_store.get_waitlist_signup(normalized)
+        if signup is None or not signup.email_confirmed or signup.disqualified:
+            raise WaitlistSignupNotInvitableError(
+                f"Waitlist signup {normalized!r} is not invitable."
+            )
+        if signup.invitation_consumed_at is not None:
+            raise WaitlistSignupNotInvitableError(
+                f"Waitlist signup {normalized!r} is not invitable: "
+                "invitation already consumed."
+            )
+        if signup.invited_at is not None and (
+            signup.invitation_expires_at is None
+            or signup.invitation_expires_at > moment
+        ):
+            raise WaitlistSignupNotInvitableError(
+                f"Waitlist signup {normalized!r} is not invitable: "
+                "active invitation already exists."
+            )
+
+        old_token = signup.invitation_token
+        token = secrets.token_urlsafe(16)
+        expires_at = moment + waitlist_invitation_ttl()
+        invited = replace(
+            signup,
+            invited_at=signup.invited_at or moment,
+            invitation_token=token,
+            invitation_expires_at=expires_at,
+        )
+        if old_token is not None:
+            self._messaging_store.delete_waitlist_invite_pointer(old_token)
+        self._messaging_store.put_waitlist_invite_pointer(token, normalized)
+        self._messaging_store.put_waitlist_signup(invited)
+        invitation_url = build_waitlist_invitation_url(
+            self._waitlist_confirmation_base_url,
+            token,
+        )
+        self._email_sender.send_waitlist_invitation_email(normalized, invitation_url)
+        return invitation_url
+
+    def consume_waitlist_invitation(
+        self,
+        token: str,
+        *,
+        now: datetime | None = None,
+    ) -> WaitlistInviteConsumeResult:
+        """Consume one waitlist invitation link when it is valid."""
+        import secrets
+
+        moment = now or self._now
+        email = self._messaging_store.get_waitlist_email_for_invite_token(token)
+        if email is None:
+            return WaitlistInviteConsumeResult(
+                status="invalid_token",
+                message=(
+                    "This invitation link is invalid. "
+                    "Ask your Chatticus contact for a new invitation."
+                ),
+            )
+
+        signup = self._messaging_store.get_waitlist_signup(email)
+        stored_token = signup.invitation_token if signup is not None else None
+        if (
+            signup is None
+            or stored_token is None
+            or not secrets.compare_digest(stored_token, token)
+        ):
+            return WaitlistInviteConsumeResult(
+                status="invalid_token",
+                message=(
+                    "This invitation link is invalid. "
+                    "Ask your Chatticus contact for a new invitation."
+                ),
+            )
+        if signup.invitation_consumed_at is not None:
+            return WaitlistInviteConsumeResult(
+                status="already_used",
+                message="This invitation link has already been used.",
+            )
+        if (
+            signup.invitation_expires_at is None
+            or signup.invitation_expires_at <= moment
+        ):
+            return WaitlistInviteConsumeResult(
+                status="expired",
+                message=(
+                    "This invitation link has expired. "
+                    "Ask your Chatticus contact for a new invitation."
+                ),
+            )
+
+        consumed = replace(signup, invitation_consumed_at=moment)
+        self._messaging_store.put_waitlist_signup(consumed)
+        self._messaging_store.delete_waitlist_invite_pointer(token)
+        return WaitlistInviteConsumeResult(
+            status="accepted",
+            message="Your invitation is accepted. Sign in to continue.",
+            sign_in_url="/chat",
+        )
 
     def record_contact_lead(
         self,

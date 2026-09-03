@@ -94,6 +94,22 @@ def _waitlist_signup_from_item(item: dict[str, Any]) -> WaitlistSignup:
         services_qualified=item.get("services_qualified", {}).get("BOOL", False),
         scoring_weights_version=item.get("scoring_weights_version", {}).get("S"),
         disqualified=item.get("disqualified", {}).get("BOOL", False),
+        invited_at=(
+            datetime.fromisoformat(item["invited_at"]["S"])
+            if "invited_at" in item
+            else None
+        ),
+        invitation_token=item.get("invitation_token", {}).get("S"),
+        invitation_expires_at=(
+            datetime.fromisoformat(item["invitation_expires_at"]["S"])
+            if "invitation_expires_at" in item
+            else None
+        ),
+        invitation_consumed_at=(
+            datetime.fromisoformat(item["invitation_consumed_at"]["S"])
+            if "invitation_consumed_at" in item
+            else None
+        ),
     )
 
 
@@ -426,6 +442,15 @@ class MessagingStore(Protocol):
     def get_waitlist_signup(self, email: str) -> WaitlistSignup | None:
         """Load one waitlist signup by email."""
 
+    def put_waitlist_invite_pointer(self, token: str, email: str) -> None:
+        """Persist one token lookup pointer for a waitlist invitation."""
+
+    def delete_waitlist_invite_pointer(self, token: str) -> None:
+        """Remove one waitlist invitation token pointer."""
+
+    def get_waitlist_email_for_invite_token(self, token: str) -> str | None:
+        """Resolve the signup email for one invitation token."""
+
     def record_waitlist_submission(
         self,
         source: str,
@@ -483,6 +508,7 @@ class InMemoryMessagingStore:
         self._budget_rollups: dict[tuple[str, str, str], BudgetRollupRow] = {}
         self._budget_threshold_state: dict[str, BudgetThresholdState] = {}
         self._waitlist_signups: dict[str, WaitlistSignup] = {}
+        self._waitlist_invite_tokens: dict[str, str] = {}
         self._waitlist_submission_attempts: dict[str, list[datetime]] = {}
         self._contact_leads: dict[tuple[str, str], ContactLead] = {}
         self._lock = threading.Lock()
@@ -1032,6 +1058,17 @@ class InMemoryMessagingStore:
     def get_waitlist_signup(self, email: str) -> WaitlistSignup | None:
         return self._waitlist_signups.get(email)
 
+    def put_waitlist_invite_pointer(self, token: str, email: str) -> None:
+        with self._lock:
+            self._waitlist_invite_tokens[token] = email
+
+    def delete_waitlist_invite_pointer(self, token: str) -> None:
+        with self._lock:
+            self._waitlist_invite_tokens.pop(token, None)
+
+    def get_waitlist_email_for_invite_token(self, token: str) -> str | None:
+        return self._waitlist_invite_tokens.get(token)
+
     def record_waitlist_submission(
         self,
         source: str,
@@ -1060,7 +1097,7 @@ class InMemoryMessagingStore:
                 (
                     s
                     for s in self._waitlist_signups.values()
-                    if s.email_confirmed and not s.disqualified
+                    if s.email_confirmed and not s.disqualified and s.invited_at is None
                 ),
                 key=lambda s: s.created_at,
             )
@@ -1085,7 +1122,7 @@ class InMemoryMessagingStore:
                     continue
                 if signup.disqualified:
                     disqualified_count += 1
-                else:
+                elif signup.invited_at is None:
                     queued_count += 1
             return WaitlistSummary(
                 queued_count=queued_count,
@@ -2519,6 +2556,18 @@ class DynamoMessagingStore:
         item["disqualified"] = {"BOOL": signup.disqualified}
         if signup.disqualified:
             item["services_qualified"] = {"BOOL": False}
+        if signup.invited_at is not None:
+            item["invited_at"] = {"S": signup.invited_at.isoformat()}
+        if signup.invitation_token is not None:
+            item["invitation_token"] = {"S": signup.invitation_token}
+        if signup.invitation_expires_at is not None:
+            item["invitation_expires_at"] = {
+                "S": signup.invitation_expires_at.isoformat()
+            }
+        if signup.invitation_consumed_at is not None:
+            item["invitation_consumed_at"] = {
+                "S": signup.invitation_consumed_at.isoformat()
+            }
         self.client.put_item(
             TableName=self.table_name,
             Item=item,
@@ -2536,6 +2585,38 @@ class DynamoMessagingStore:
         if item is None:
             return None
         return _waitlist_signup_from_item(item)
+
+    def put_waitlist_invite_pointer(self, token: str, email: str) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": "WAITLIST"},
+                "sk": {"S": f"INVITE#{token}"},
+                "email": {"S": email},
+            },
+        )
+
+    def delete_waitlist_invite_pointer(self, token: str) -> None:
+        self.client.delete_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": "WAITLIST"},
+                "sk": {"S": f"INVITE#{token}"},
+            },
+        )
+
+    def get_waitlist_email_for_invite_token(self, token: str) -> str | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": "WAITLIST"},
+                "sk": {"S": f"INVITE#{token}"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return item["email"]["S"]
 
     def record_waitlist_submission(
         self,
@@ -2587,7 +2668,7 @@ class DynamoMessagingStore:
             if not email_confirmed:
                 continue
             signup = _waitlist_signup_from_item(item)
-            if signup.disqualified:
+            if signup.disqualified or signup.invited_at is not None:
                 continue
             signups.append(signup)
         return sorted(signups, key=lambda signup: signup.created_at)
@@ -2624,7 +2705,7 @@ class DynamoMessagingStore:
                 continue
             if item.get("disqualified", {}).get("BOOL", False):
                 disqualified_count += 1
-            else:
+            elif "invited_at" not in item:
                 queued_count += 1
         return WaitlistSummary(
             queued_count=queued_count,
