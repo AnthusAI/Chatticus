@@ -125,9 +125,9 @@ from chatticus.models import (
     TurnJob,
     TurnNotFoundError,
     TurnNotWaitingError,
-    TurnReconcilingError,
     TurnStatus,
     TurnTerminalError,
+    WaitlistSignup,
     WorkerDoesNotHostComputerError,
     WorkerRecord,
     WorkerRegistration,
@@ -3421,6 +3421,27 @@ class ControlPlane:
         )
         self._signal_turn_subscribers(turn.turn_id, None)
 
+    def record_waitlist_signup(
+        self,
+        email: str,
+        fit_answers: dict[str, str],
+        aws_readiness_answers: dict[str, str],
+        price_answers: dict[str, str],
+        complete: bool,
+        *,
+        now: datetime | None = None,
+    ) -> WaitlistSignup:
+        """Record an unauthenticated waitlist signup from the marketing site."""
+        signup = WaitlistSignup(
+            email=email.strip().lower(),
+            fit_answers=fit_answers,
+            aws_readiness_answers=aws_readiness_answers,
+            price_answers=price_answers,
+            complete=complete,
+            created_at=now or self._now,
+        )
+        self._messaging_store.put_waitlist_signup(signup)
+        return signup
 
 def _disk_checksum(workspace: dict[str, str], browser_sessions: dict[str, str]) -> str:
     payload = json.dumps(

@@ -640,3 +640,15 @@ class TurnEvent:
     pending_computer_tool: PendingComputerToolSnapshot | None = None
     action_id: str | None = None
     attempt_id: str | None = None
+
+
+@dataclass(frozen=True)
+class WaitlistSignup:
+    """A lead from the public marketing site waitlist survey."""
+
+    email: str
+    fit_answers: dict[str, str]
+    aws_readiness_answers: dict[str, str]
+    price_answers: dict[str, str]
+    complete: bool
+    created_at: datetime
