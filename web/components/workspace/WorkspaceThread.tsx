@@ -18,10 +18,19 @@ type WorkspaceThreadProps = {
   composerPlaceholder?: string;
   onDraftChange: (value: string) => void;
   onSend: () => void;
+  /**
+   * Reports the DOM element (a typing indicator, a just-arrived message)
+   * this thread's teammate is currently drawing attention to, so a caller
+   * can point other avatars (e.g. the roster) at the same thing.
+   */
+  onFocusElementChange?: (element: Element | null) => void;
 };
 
 /** Minimum gap between two reveals that both have no typingBeforeMs of their own, so "instant" messages don't pop in on the same frame. */
 const MIN_REVEAL_STAGGER_MS = 260;
+
+/** How long a newly-revealed message holds the shared gaze focus before releasing it, absent something newer to look at. */
+const MESSAGE_GLANCE_DURATION_MS = 1600;
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
@@ -54,6 +63,7 @@ function useRevealedMessages(member: WorkspaceMember | null, messages: Workspace
   const [revealedCount, setRevealedCount] = useState(0);
   const [typingAuthor, setTypingAuthor] = useState<WorkspaceMessageAuthor | null>(null);
   const [visibleReactionIds, setVisibleReactionIds] = useState<ReadonlySet<string>>(new Set());
+  const [glanceMessageId, setGlanceMessageId] = useState<string | null>(null);
 
   const prevMemberIdRef = useRef<string | null>(null);
   const prevMessagesRef = useRef<WorkspaceMessage[]>([]);
@@ -108,6 +118,10 @@ function useRevealedMessages(member: WorkspaceMember | null, messages: Workspace
       schedule(delay, () => {
         setTypingAuthor(null);
         setRevealedCount(index + 1);
+        setGlanceMessageId(message.id);
+        schedule(MESSAGE_GLANCE_DURATION_MS, () => {
+          setGlanceMessageId((current) => (current === message.id ? null : current));
+        });
         if (message.reaction) {
           schedule(message.reaction.delayMs, () => {
             setVisibleReactionIds((current) => new Set(current).add(message.id));
@@ -124,7 +138,7 @@ function useRevealedMessages(member: WorkspaceMember | null, messages: Workspace
     };
   }, [member?.id, messages]);
 
-  return { revealedCount, typingAuthor, visibleReactionIds };
+  return { revealedCount, typingAuthor, visibleReactionIds, glanceMessageId };
 }
 
 export function WorkspaceThread({
@@ -139,16 +153,38 @@ export function WorkspaceThread({
   composerPlaceholder,
   onDraftChange,
   onSend,
+  onFocusElementChange,
 }: WorkspaceThreadProps) {
   const composerDisabled = disabled || !member || sending || draft.trim().length === 0;
-  const { revealedCount, typingAuthor, visibleReactionIds } = useRevealedMessages(member, messages);
+  const { revealedCount, typingAuthor, visibleReactionIds, glanceMessageId } = useRevealedMessages(member, messages);
   const visibleMessages = messages.slice(0, revealedCount);
+
+  const [typingIndicatorElement, setTypingIndicatorElement] = useState<HTMLElement | null>(null);
+  const messageElementsRef = useRef(new Map<string, HTMLElement>());
+  const [focusElement, setFocusElement] = useState<Element | null>(null);
+
+  // Recomputed after commit (not during render) so a message that just
+  // became the glance target already has its DOM ref attached.
+  useEffect(() => {
+    const glanceElement = glanceMessageId ? (messageElementsRef.current.get(glanceMessageId) ?? null) : null;
+    setFocusElement(typingIndicatorElement ?? glanceElement ?? null);
+  }, [typingIndicatorElement, glanceMessageId]);
+
+  useEffect(() => {
+    onFocusElementChange?.(focusElement);
+  }, [focusElement, onFocusElementChange]);
 
   return (
     <section className="rounded-2xl bg-surface-raised p-3" aria-label="Conversation">
       {member ? (
         <div className="flex items-center gap-2 pb-2">
-          <BotAvatarView botName={member.name} role={member.role} state={memberState} size={40} />
+          <BotAvatarView
+            botName={member.name}
+            role={member.role}
+            state={memberState}
+            size={40}
+            focusElement={focusElement}
+          />
           <div className="min-w-0">
             {member.meta ? (
               <p className="truncate font-mono text-[0.49rem] uppercase tracking-[0.13em] text-surface-foreground/60">
@@ -176,6 +212,10 @@ export function WorkspaceThread({
             {visibleMessages.map((message) => (
               <div
                 key={message.id}
+                ref={(element) => {
+                  if (element) messageElementsRef.current.set(message.id, element);
+                  else messageElementsRef.current.delete(message.id);
+                }}
                 className={cn(
                   "animate-rise rounded-xl px-3 py-2",
                   message.author === "operator" ? "bg-surface-high" : "bg-signal text-ink",
@@ -197,6 +237,7 @@ export function WorkspaceThread({
             ))}
             {typingAuthor ? (
               <div
+                ref={setTypingIndicatorElement}
                 className={cn(
                   "flex w-fit items-center gap-1 rounded-xl px-3 py-2.5",
                   typingAuthor === "operator" ? "bg-surface-high" : "bg-signal text-ink",
