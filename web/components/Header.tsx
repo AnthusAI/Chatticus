@@ -14,7 +14,7 @@ export function Header() {
           aria-label="Chatticus home"
           className="rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/30"
         >
-          <Wordmark animated="auto" />
+          <Wordmark animated="auto" iconPosition="end" />
         </a>
         <div className="hidden items-center gap-7 font-body text-sm font-semibold lg:flex">
           <a className="nav-link" href="#organization">
