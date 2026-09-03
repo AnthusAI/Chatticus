@@ -33,15 +33,17 @@ type WordmarkProps = {
   reportsPresenceAsHero?: boolean;
   /** Set to false to render just the mark, without the "Chatticus" text. */
   showText?: boolean;
+  /** Where the icon sits relative to the "Chatticus" text. Defaults to before it. */
+  iconPosition?: "start" | "end";
 };
 
 const PAPER = "#f2efe7";
 const CLAY = "#ef6a47";
-/* Mirrors --surface-2 (see app/globals.css): the flat "most-attention"
-   background step, already designed to be a gentle light/dark-mirrored
-   pair rather than a stark black/white extreme. */
-const SHADOW_BUBBLE_LIGHT = "#d9d3c1";
-const SHADOW_BUBBLE_DARK = "#2a2e22";
+/* Mirrors --mark-shadow (see app/globals.css): a gentle light/dark-mirrored
+   pair, deliberately a step more contrasty than --surface-2 so the bubble
+   reads as a distinct shape rather than a stark black/white extreme. */
+const SHADOW_BUBBLE_LIGHT = "#cbc4ad";
+const SHADOW_BUBBLE_DARK = "#373c2c";
 
 function useSystemPrefersDark(): boolean {
   const [prefersDark, setPrefersDark] = useState(false);
@@ -65,6 +67,7 @@ export function Wordmark({
   animated = false,
   reportsPresenceAsHero = false,
   showText = true,
+  iconPosition = "start",
 }: WordmarkProps) {
   const rootElementRef = useRef<HTMLSpanElement>(null);
   const [heroIsVisible, setHeroIsVisible] = useState(false);
@@ -100,6 +103,20 @@ export function Wordmark({
 
   const isAnimated = reportsPresenceAsHero || animated === true || (animated === "auto" && !heroIsVisible);
 
+  const mark = (
+    <span aria-hidden="true" className="inline-flex">
+      <BotAvatar
+        model={CHATTICUS_MARK_MODEL}
+        size={size}
+        shadowColor={resolvedInverse ? SHADOW_BUBBLE_DARK : SHADOW_BUBBLE_LIGHT}
+        accentColor={CLAY}
+        lightColor={PAPER}
+        neutralIdleMode="static"
+        gaze={isAnimated ? "pointer" : "none"}
+      />
+    </span>
+  );
+
   return (
     <span
       ref={rootElementRef}
@@ -109,18 +126,9 @@ export function Wordmark({
         className,
       )}
     >
-      <span aria-hidden="true" className="inline-flex">
-        <BotAvatar
-          model={CHATTICUS_MARK_MODEL}
-          size={size}
-          shadowColor={resolvedInverse ? SHADOW_BUBBLE_DARK : SHADOW_BUBBLE_LIGHT}
-          accentColor={CLAY}
-          lightColor={PAPER}
-          neutralIdleMode="static"
-          gaze={isAnimated ? "pointer" : "none"}
-        />
-      </span>
+      {iconPosition === "start" ? mark : null}
       {showText ? <span>Chatticus</span> : null}
+      {iconPosition === "end" ? mark : null}
     </span>
   );
 }
