@@ -2,7 +2,13 @@
 
 from behave import given, then, when
 
-from chatticus.models import PriceSensitivityAnswers
+from chatticus.models import OfferSnapshot, PriceSensitivityAnswers
+from chatticus.offer_snapshot import (
+    MANAGED_MANAGEMENT_FEE_CENTS,
+    TURN_KEY_INSTALLATION_FEE_CENTS,
+    current_offer_snapshot,
+    offer_content_hash,
+)
 
 
 def _sample_price_sensitivity_answers() -> PriceSensitivityAnswers:
@@ -22,6 +28,7 @@ def _waitlist_payload(
     price_answers: dict[str, str] | None = None,
     setup_path_answers: dict[str, str] | None = None,
     price_sensitivity_answers: PriceSensitivityAnswers | None = None,
+    offer_snapshot: OfferSnapshot | None = None,
     complete: bool,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
@@ -34,6 +41,8 @@ def _waitlist_payload(
     }
     if price_sensitivity_answers is not None:
         payload["price_sensitivity_answers"] = price_sensitivity_answers.to_dict()
+    if offer_snapshot is not None:
+        payload["offer_snapshot"] = offer_snapshot.to_dict()
     return payload
 
 
@@ -338,3 +347,128 @@ def then_signup_is_in_queue(context: object) -> None:
     queue = context.plane.list_waitlist_queue()
     emails = [s.email for s in queue]
     assert context.visitor_email in emails
+
+
+@given("the current offer terms are known")
+def given_current_offer_terms_are_known(context: object) -> None:
+    context.current_offer = current_offer_snapshot(context.plane._now)
+
+
+@when("they complete the survey and submit it with the current offer")
+def when_they_complete_survey_with_current_offer(context: object) -> None:
+    response = context.api_client.post(
+        "/waitlist",
+        json=_waitlist_payload(
+            email=context.visitor_email,
+            fit_answers=context.visitor_answers["fit"],
+            aws_readiness_answers=context.visitor_answers["aws_readiness"],
+            price_answers=context.visitor_answers["price"],
+            setup_path_answers=context.visitor_answers["setup_path"],
+            price_sensitivity_answers=context.visitor_answers["price_sensitivity"],
+            offer_snapshot=context.current_offer,
+            complete=True,
+        ),
+    )
+    assert response.status_code == 201, response.text
+
+
+@when("they complete the survey without sending offer terms")
+def when_they_complete_survey_without_offer_terms(context: object) -> None:
+    context.current_offer = current_offer_snapshot(context.plane._now)
+    response = context.api_client.post(
+        "/waitlist",
+        json=_waitlist_payload(
+            email=context.visitor_email,
+            fit_answers=context.visitor_answers["fit"],
+            aws_readiness_answers=context.visitor_answers["aws_readiness"],
+            price_answers=context.visitor_answers["price"],
+            setup_path_answers=context.visitor_answers["setup_path"],
+            price_sensitivity_answers=context.visitor_answers["price_sensitivity"],
+            complete=True,
+        ),
+    )
+    assert response.status_code == 201, response.text
+
+
+@then("the waitlist signup records those offer terms")
+@then("the waitlist signup records the current offer terms")
+def then_waitlist_signup_records_offer_terms(context: object) -> None:
+    signup = context.plane._messaging_store.get_waitlist_signup(context.visitor_email)
+    assert signup is not None
+    assert signup.offer_snapshot is not None
+    expected = context.current_offer
+    assert signup.offer_snapshot.management_fee_cents == expected.management_fee_cents
+    assert (
+        signup.offer_snapshot.installation_fee_cents == expected.installation_fee_cents
+    )
+    assert signup.offer_snapshot.beta_expectations == expected.beta_expectations
+    assert (
+        signup.offer_snapshot.professional_services_terms
+        == expected.professional_services_terms
+    )
+    assert (
+        signup.offer_snapshot.professional_training_terms
+        == expected.professional_training_terms
+    )
+    assert signup.offer_snapshot.content_hash == expected.content_hash
+    assert signup.offer_snapshot.content_version == expected.content_version
+
+
+@given("a waitlist signup exists with earlier offer terms")
+def given_waitlist_signup_exists_with_earlier_offer_terms(context: object) -> None:
+    context.visitor_email = "offer-honor@example.com"
+    context.current_offer = current_offer_snapshot(context.plane._now)
+    context.earlier_offer = OfferSnapshot(
+        management_fee_cents=1_500,
+        installation_fee_cents=7_500,
+        beta_expectations=("Earlier beta terms.",),
+        professional_services_terms="quoted",
+        professional_training_terms="quoted",
+        created_at=context.plane._now,
+        content_hash=offer_content_hash(
+            management_fee_cents=1_500,
+            installation_fee_cents=7_500,
+            beta_expectations=("Earlier beta terms.",),
+            professional_services_terms="quoted",
+            professional_training_terms="quoted",
+            content_version="earlier-beta-offer",
+        ),
+        content_version="earlier-beta-offer",
+    )
+    response = context.api_client.post(
+        "/waitlist",
+        json=_waitlist_payload(
+            email=context.visitor_email,
+            fit_answers={"first": "yes"},
+            offer_snapshot=context.earlier_offer,
+            complete=True,
+        ),
+    )
+    assert response.status_code == 201, response.text
+
+
+@when("a survey is submitted again for that email without offer terms")
+def when_survey_submitted_again_without_offer_terms(context: object) -> None:
+    from datetime import timedelta
+
+    context.plane.set_now(context.plane._now + timedelta(seconds=60))
+    response = context.api_client.post(
+        "/waitlist",
+        json=_waitlist_payload(
+            email=context.visitor_email,
+            fit_answers={"second": "yes"},
+            complete=True,
+        ),
+    )
+    assert response.status_code == 201, response.text
+
+
+@then("the signup still records the earlier offer terms")
+def then_signup_still_records_earlier_offer_terms(context: object) -> None:
+    signup = context.plane._messaging_store.get_waitlist_signup(context.visitor_email)
+    assert signup is not None
+    assert signup.offer_snapshot == context.earlier_offer
+    assert signup.offer_snapshot.management_fee_cents != MANAGED_MANAGEMENT_FEE_CENTS
+    assert (
+        signup.offer_snapshot.installation_fee_cents != TURN_KEY_INSTALLATION_FEE_CENTS
+    )
