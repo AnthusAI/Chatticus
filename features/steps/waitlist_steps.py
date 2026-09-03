@@ -4,12 +4,18 @@ from behave import given, then, when
 from fastapi.testclient import TestClient
 
 from chatticus.http.principal import is_no_principal_route
+from chatticus.http.waitlist_source import FORWARDED_FOR_HEADER
+from chatticus.waitlist_limits import WAITLIST_SUBMISSION_RATE_LIMIT
+
+_WAITLIST_SURVEY_BODY = {
+    "email": "test@example.com",
+    "complete": True,
+}
+
 
 
 @given("the thin-turn front door")
 def given_front_door(context: object) -> None:
-    # the front door API client is provided by before_all in environment.py
-    # and accessible via context.api_client
     pass
 
 
@@ -28,8 +34,38 @@ def given_visitor_no_account(context: object) -> None:
 @when("they post a complete waitlist survey")
 def when_post_waitlist_survey(context: object) -> None:
     context.waitlist_response = context.api_client.post(
-        "/waitlist", json={"email": "test@example.com"}
+        "/waitlist",
+        json=_WAITLIST_SURVEY_BODY,
     )
+
+
+@given("a source that has submitted the waitlist survey at the allowed limit")
+def given_source_at_waitlist_limit(context: object) -> None:
+    context.waitlist_source_ip = "203.0.113.50"
+    for index in range(WAITLIST_SUBMISSION_RATE_LIMIT):
+        response = context.api_client.post(
+            "/waitlist",
+            headers={FORWARDED_FOR_HEADER: context.waitlist_source_ip},
+            json={
+                "email": f"flood{index}@example.com",
+                "complete": True,
+            },
+        )
+        assert response.status_code == 201, response.text
+
+
+@when("that source submits the survey again")
+def when_source_submits_waitlist_again(context: object) -> None:
+    context.waitlist_overflow_email = "flood-overflow@example.com"
+    context.waitlist_response = context.api_client.post(
+        "/waitlist",
+        headers={FORWARDED_FOR_HEADER: context.waitlist_source_ip},
+        json={
+            "email": context.waitlist_overflow_email,
+            "complete": True,
+        },
+    )
+
 
 
 @then("the response is {status_code:d}")
@@ -43,3 +79,11 @@ def then_response_is(context: object, status_code: int) -> None:
 @then("no principal was resolved for the request")
 def then_no_principal_resolved(context: object) -> None:
     pass
+
+
+@then("no additional waitlist signup is recorded")
+def then_no_additional_waitlist_signup(context: object) -> None:
+    signup = context.plane._messaging_store.get_waitlist_signup(
+        context.waitlist_overflow_email
+    )
+    assert signup is None

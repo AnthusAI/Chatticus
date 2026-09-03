@@ -46,6 +46,7 @@ from chatticus.models import (
     TurnEvent,
     TurnEventKind,
     TurnStatus,
+    WaitlistRateLimitedError,
     WaitlistSignup,
     WorkerRecord,
     WorkerRegistration,
@@ -357,6 +358,16 @@ class MessagingStore(Protocol):
     def get_waitlist_signup(self, email: str) -> WaitlistSignup | None:
         """Load one waitlist signup by email."""
 
+    def record_waitlist_submission(
+        self,
+        source: str,
+        *,
+        now: datetime,
+        limit: int,
+        window: timedelta,
+    ) -> None:
+        """Increment one submission attempt and refuse when over the limit."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -389,6 +400,7 @@ class InMemoryMessagingStore:
         self._budget_rollups: dict[tuple[str, str, str], BudgetRollupRow] = {}
         self._budget_threshold_state: dict[str, BudgetThresholdState] = {}
         self._waitlist_signups: dict[str, WaitlistSignup] = {}
+        self._waitlist_submission_attempts: dict[str, list[datetime]] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -935,6 +947,28 @@ class InMemoryMessagingStore:
 
     def get_waitlist_signup(self, email: str) -> WaitlistSignup | None:
         return self._waitlist_signups.get(email)
+
+    def record_waitlist_submission(
+        self,
+        source: str,
+        *,
+        now: datetime,
+        limit: int,
+        window: timedelta,
+    ) -> None:
+        cutoff = now - window
+        attempts = [
+            timestamp
+            for timestamp in self._waitlist_submission_attempts.get(source, [])
+            if timestamp > cutoff
+        ]
+        attempts.append(now)
+        self._waitlist_submission_attempts[source] = attempts
+        if len(attempts) > limit:
+            raise WaitlistRateLimitedError(
+                f"Source {source!r} exceeded the waitlist submission rate limit "
+                f"of {limit} attempts per {window}."
+            )
 
 
 class DynamoMessagingStore:
@@ -2351,6 +2385,41 @@ class DynamoMessagingStore:
             created_at=datetime.fromisoformat(item["created_at"]["S"]),
         )
 
+    def record_waitlist_submission(
+        self,
+        source: str,
+        *,
+        now: datetime,
+        limit: int,
+        window: timedelta,
+    ) -> None:
+        window_seconds = max(int(window.total_seconds()), 1)
+        bucket = int(now.timestamp()) // window_seconds
+        expires_at = int((now + window + timedelta(hours=1)).timestamp())
+        response = self.client.update_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._waitlist_rate_pk(source)},
+                "sk": {"S": self._waitlist_rate_sk(bucket)},
+            },
+            UpdateExpression=(
+                "SET attempt_count = if_not_exists(attempt_count, :zero) + :one, "
+                "expires_at = :expires"
+            ),
+            ExpressionAttributeValues={
+                ":zero": {"N": "0"},
+                ":one": {"N": "1"},
+                ":expires": {"N": str(expires_at)},
+            },
+            ReturnValues="ALL_NEW",
+        )
+        count = int(response["Attributes"]["attempt_count"]["N"])
+        if count > limit:
+            raise WaitlistRateLimitedError(
+                f"Source {source!r} exceeded the waitlist submission rate limit "
+                f"of {limit} attempts per {window}."
+            )
+
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
 
@@ -2395,6 +2464,12 @@ class DynamoMessagingStore:
 
     def _org_create_rate_sk(self, bucket: int) -> str:
         return f"org_create_rate#{bucket}"
+
+    def _waitlist_rate_pk(self, source: str) -> str:
+        return f"WAITLIST_RATE#{source}"
+
+    def _waitlist_rate_sk(self, bucket: int) -> str:
+        return f"waitlist_rate#{bucket}"
 
     def _invitation_lookup_pk(self, invitation_id: str) -> str:
         return f"invitation_lookup#{invitation_id}"
