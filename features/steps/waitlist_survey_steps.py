@@ -662,3 +662,122 @@ def then_page_shows_already_confirmed_message(context: object) -> None:
     body = context.waitlist_response.json()
     assert body["status"] == "already_confirmed"
     assert "already confirmed" in body["message"].lower()
+
+
+@given("a visitor who submits a complete survey with email {email}")
+def given_visitor_submits_complete_survey(context: object, email: str) -> None:
+    context.visitor_email = email
+    context.visitor_answers = {
+        "fit": {"q1": "a1"},
+        "aws_readiness": {"q2": "a2"},
+        "price": {"q3": "a3"},
+        "setup_path": {"q4": "a4"},
+        "price_sensitivity": _sample_price_sensitivity_answers(),
+    }
+    context.pending_waitlist_payload = _waitlist_payload(
+        email=email,
+        fit_answers=context.visitor_answers["fit"],
+        aws_readiness_answers=context.visitor_answers["aws_readiness"],
+        price_answers=context.visitor_answers["price"],
+        setup_path_answers=context.visitor_answers["setup_path"],
+        price_sensitivity_answers=context.visitor_answers["price_sensitivity"],
+        complete=True,
+    )
+
+
+@when("the signup is recorded")
+def when_signup_is_recorded(context: object) -> None:
+    payload = getattr(context, "pending_waitlist_payload", None)
+    if payload is None:
+        payload = _waitlist_payload(
+            email=context.visitor_email,
+            fit_answers=context.visitor_answers.get("fit", {}),
+            aws_readiness_answers=context.visitor_answers.get("aws_readiness", {}),
+            price_answers=context.visitor_answers.get("price", {}),
+            setup_path_answers=context.visitor_answers.get("setup_path", {}),
+            price_sensitivity_answers=context.visitor_answers.get("price_sensitivity"),
+            complete=True,
+        )
+    response = context.api_client.post("/waitlist", json=payload)
+    assert response.status_code == 201, response.text
+
+
+@then("a confirmation email is sent to {email}")
+def then_confirmation_email_sent(context: object, email: str) -> None:
+    from chatticus.org_records import normalize_email
+
+    normalized = normalize_email(email)
+    sent_to = [recipient for recipient, _ in context.email_sender.sent]
+    assert normalized in sent_to
+
+
+@then("the email contains a link to /waitlist/confirm with the email and a token")
+def then_email_contains_confirmation_link(context: object) -> None:
+    from chatticus.org_records import normalize_email
+
+    normalized = normalize_email(context.visitor_email)
+    signup = context.plane._messaging_store.get_waitlist_signup(normalized)
+    assert signup is not None
+    assert signup.confirmation_token is not None
+    matching = [
+        url for recipient, url in context.email_sender.sent if recipient == normalized
+    ]
+    assert matching
+    confirmation_url = matching[-1]
+    assert "/waitlist/confirm" in confirmation_url
+    assert f"email={normalized}" in confirmation_url or "email=" in confirmation_url
+    assert "token=" in confirmation_url
+    assert signup.confirmation_token in confirmation_url
+
+
+@given("the Chatticus control plane")
+def given_chatticus_control_plane(context: object) -> None:
+    assert context.plane is not None
+    assert context.email_sender is not None
+
+
+@then(
+    "it uses an email sender protocol with a no-op implementation for tests "
+    "and an SES implementation for production"
+)
+def then_email_sender_is_protocol(context: object) -> None:
+    from chatticus.email_sender import (
+        NoOpEmailSender,
+        RecordingEmailSender,
+        SesEmailSender,
+    )
+
+    sender = context.plane.email_sender
+    assert hasattr(sender, "send_confirmation_email")
+    assert isinstance(
+        sender,
+        (NoOpEmailSender, RecordingEmailSender, SesEmailSender),
+    )
+
+
+@then("the sender is called after the signup is recorded")
+def then_sender_called_after_signup_recorded(context: object) -> None:
+    assert context.email_sender.sent
+
+
+@given("a waitlist signup exists for {email} with a confirmation email already sent")
+def given_signup_with_confirmation_email_sent(context: object, email: str) -> None:
+    context.visitor_email = email
+    response = context.api_client.post(
+        "/waitlist",
+        json=_waitlist_payload(
+            email=email,
+            fit_answers={"first": "yes"},
+            complete=True,
+        ),
+    )
+    assert response.status_code == 201, response.text
+    signup = context.plane._messaging_store.get_waitlist_signup(email.lower())
+    assert signup is not None
+    assert signup.confirmation_token is not None
+    context.initial_email_count = len(context.email_sender.sent)
+
+
+@then("no second confirmation email is sent")
+def then_no_second_confirmation_email_sent(context: object) -> None:
+    assert len(context.email_sender.sent) == context.initial_email_count

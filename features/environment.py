@@ -18,6 +18,7 @@ if _TESTS_DIR.is_dir() and str(_TESTS_DIR) not in sys.path:
 from cognito_test_support import make_cognito_test_keys  # noqa: E402
 
 from chatticus.control_plane import ControlPlane  # noqa: E402
+from chatticus.email_sender import RecordingEmailSender  # noqa: E402
 from chatticus.vendor_prices import clear_vendor_prices  # noqa: E402
 
 
@@ -26,7 +27,12 @@ def before_scenario(context: object, scenario: object) -> None:
     from browser_auth_helpers import wire_test_http_front_door
 
     clear_vendor_prices()
-    context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
+    context.email_sender = RecordingEmailSender()
+    context.plane = ControlPlane(
+        heartbeat_timeout=timedelta(seconds=30),
+        email_sender=context.email_sender,
+        waitlist_confirmation_base_url="https://hey.chattic.us",
+    )
     context.cognito_test_keys = make_cognito_test_keys()
     wire_test_http_front_door(context, context.plane, invoke_key="")
     context.bots_by_name = {}
