@@ -2,6 +2,8 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import BetaPitchPage from "../app/beta/page";
+import ContactServicesPage from "../app/contact/services/page";
+import ContactTrainingPage from "../app/contact/training/page";
 import HomePage from "../app/page";
 import {
   BetaWaitlistSurveyForm,
@@ -56,6 +58,18 @@ async function main(): Promise<void> {
           testView: "rate-limited",
         }),
       );
+      const text = html.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html };
+      break;
+    }
+    case "render-contact-services": {
+      const html = renderToStaticMarkup(React.createElement(ContactServicesPage));
+      const text = html.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html };
+      break;
+    }
+    case "render-contact-training": {
+      const html = renderToStaticMarkup(React.createElement(ContactTrainingPage));
       const text = html.replace(/<[^>]*>?/gm, " ");
       result = { visibleText: text, html };
       break;
