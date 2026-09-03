@@ -15,6 +15,33 @@ type ViewerRequestEvent = {
   };
 };
 
+type ViewerResponseEvent = {
+  request: { uri: string };
+  response: {
+    statusCode: number;
+    statusDescription?: string;
+    headers: Record<string, { value: string }>;
+  };
+};
+
+function runViewerResponse(
+  functionSource: string,
+  event: ViewerResponseEvent,
+): ViewerResponseEvent["response"] {
+  const context = { event };
+  return vm.runInNewContext(`${functionSource}\nhandler(event);`, context) as ViewerResponseEvent["response"];
+}
+
+function viewerResponseEvent(
+  uri: string,
+  statusCode = 200,
+): ViewerResponseEvent {
+  return {
+    request: { uri },
+    response: { statusCode, headers: {} },
+  };
+}
+
 function runViewerRequest(
   functionSource: string,
   event: ViewerRequestEvent,
@@ -142,5 +169,21 @@ describe("SPA viewer-response fallback", () => {
   it("still rewrites 403/404 to 200 for static assets", () => {
     assert.match(SPA_VIEWER_RESPONSE_FUNCTION, /response\.statusCode === 403/);
     assert.match(SPA_VIEWER_RESPONSE_FUNCTION, /response\.statusCode === 404/);
+  });
+
+  it("forces the correct content-type for the static-export social preview image", () => {
+    const response = runViewerResponse(
+      SPA_VIEWER_RESPONSE_FUNCTION,
+      viewerResponseEvent("/opengraph-image"),
+    );
+    assert.equal(response.headers["content-type"].value, "image/png");
+  });
+
+  it("leaves other static assets' content-type untouched", () => {
+    const response = runViewerResponse(
+      SPA_VIEWER_RESPONSE_FUNCTION,
+      viewerResponseEvent("/favicon.svg"),
+    );
+    assert.equal(response.headers["content-type"], undefined);
   });
 });
