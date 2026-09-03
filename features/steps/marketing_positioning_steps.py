@@ -105,11 +105,36 @@ def then_does_not_offer_to_archive_account(context: object) -> None:
     assert "archive the account" not in text, text
 
 
-@then("it states that organization data already lives in the customer AWS account")
-def then_states_org_data_lives_in_customer_aws_account(context: object) -> None:
+@then("it states that the file system and secrets live in the customer AWS account")
+def then_states_filesystem_secrets_in_customer_aws_account(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
-    assert "lives in your aws account" in text, text
-    assert any(term in text for term in ("bot", "conversation", "file")), text
+    assert "file system" in text, text
+    assert "encrypted secrets" in text, text
+    assert (
+        "live in your aws account" in text or "lives in your aws account" in text
+    ), text
+
+
+@then("it does not state that conversations live in the customer AWS account")
+def then_does_not_state_conversations_in_customer_aws(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    forbidden = (
+        "every bot, conversation, and file lives in your aws account",
+        "bot, conversation, and file lives in your aws account",
+        "conversations live in your aws account",
+    )
+    assert not any(phrase in text for phrase in forbidden), text
+    residency_phrase = None
+    if "lives in your aws account" in text:
+        residency_phrase = "lives in your aws account"
+    elif "live in your aws account" in text:
+        residency_phrase = "live in your aws account"
+    if residency_phrase is not None:
+        idx = text.find(residency_phrase)
+        window = text[max(0, idx - 80) : idx + len(residency_phrase) + 20]
+        assert (
+            "conversation" not in window
+        ), f"Conversation tied to AWS residency: {window!r}"
 
 
 @then("it states that the source is available under an open licence")

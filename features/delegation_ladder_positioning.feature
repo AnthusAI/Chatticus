@@ -14,7 +14,8 @@ Feature: Delegation ladder positioning
     Given the chattic.us home page
     Then it does not describe bots, conversations, or files as exportable
     And it does not offer to archive the account as a way to get the data
-    And it states that organization data already lives in the customer AWS account
+    And it states that the file system and secrets live in the customer AWS account
+    And it does not state that conversations live in the customer AWS account
 
   Scenario: The home page states where the Chatticus organization runs
     Given the chattic.us home page
