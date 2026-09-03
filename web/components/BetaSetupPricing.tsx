@@ -1,3 +1,40 @@
+const INSTALLATION_OPTIONS = [
+  { key: "self-install", label: "Self-install", fee: "$0" },
+  { key: "turn-key", label: "Turn-key install", fee: "$100 once" },
+] as const;
+
+const MANAGEMENT_OPTIONS = [
+  {
+    key: "self-hosted",
+    label: "Self-hosted",
+    fee: "$0/month",
+    description:
+      "You run the Chatticus control plane yourself in your own AWS account. There is no monthly management fee to Anthus.",
+  },
+  {
+    key: "managed",
+    label: "Managed service",
+    fee: "$20/month",
+    description:
+      "Anthus runs the core Chatticus management infrastructure and plugs your AWS account into it. We are responsible for availability, continuous upgrades, ever-evolving security scanning and privacy safeguards, and all ITSM in general.",
+  },
+] as const;
+
+function scenarioTotal(
+  installationFee: string,
+  managementFee: string,
+): { installation: string; management: string } {
+  return { installation: installationFee, management: managementFee };
+}
+
+const PRICING_SCENARIOS = MANAGEMENT_OPTIONS.flatMap((management) =>
+  INSTALLATION_OPTIONS.map((installation) => ({
+    management,
+    installation,
+    total: scenarioTotal(installation.fee, management.fee),
+  })),
+);
+
 export function BetaSetupPricing() {
   return (
     <section
@@ -9,47 +46,126 @@ export function BetaSetupPricing() {
           id="beta-setup-pricing-title"
           className="max-w-4xl font-display text-[clamp(2.2rem,4.5vw,3.6rem)] leading-[0.95] tracking-[-0.05em]"
         >
-          Two ways in. Same $20 a month once you are running.
+          Four ways in. Both fees are optional.
         </h2>
         <p className="mt-6 max-w-3xl font-body text-lg leading-relaxed text-ink-soft">
-          Most customers run the template themselves. Assisted setup is for
-          people who would rather not — not because it is worse, but because
-          $100 does not cover an engineer session at fully loaded cost.
+          Chatticus pricing has two independent dimensions: who runs the control
+          plane, and who handles installation. You choose one option on each
+          axis. The $20/month management fee and the $100 turn-key installation
+          fee are both optional.
         </p>
+
+        <p className="mt-6 max-w-3xl font-body leading-relaxed text-ink-soft">
+          Either way, the heavy resources like EC2 instances and the private
+          information like your file system volume and your encrypted secrets
+          are all stored within your AWS account and you pay for those. You
+          bring your own AWS account and may bring your own AI API accounts,
+          such as OpenAI, Anthropic, xAI, DeepSeek, Moonshot, or Amazon
+          Bedrock.
+        </p>
+
+        <div className="mt-10 space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,1fr))]">
+            <div className="hidden lg:block" aria-hidden="true" />
+            {INSTALLATION_OPTIONS.map((installation) => (
+              <div
+                key={installation.key}
+                className="rounded-[1.6rem] bg-surface-raised px-6 py-5"
+              >
+                <p className="font-display text-sm font-semibold uppercase tracking-[0.08em] text-ink-soft">
+                  Installation
+                </p>
+                <h3 className="mt-2 font-display text-xl font-semibold tracking-[-0.04em]">
+                  {installation.label}
+                </h3>
+                <p className="mt-2 font-body text-ink-soft">
+                  {installation.fee}
+                  {installation.key === "turn-key" ? " (optional)" : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {MANAGEMENT_OPTIONS.map((management) => (
+            <div
+              key={management.key}
+              className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,1fr))]"
+            >
+              <div className="rounded-[1.6rem] bg-surface-raised px-6 py-5">
+                <p className="font-display text-sm font-semibold uppercase tracking-[0.08em] text-ink-soft">
+                  Management
+                </p>
+                <h3 className="mt-2 font-display text-xl font-semibold tracking-[-0.04em]">
+                  {management.label}
+                </h3>
+                <p className="mt-2 font-body text-ink-soft">
+                  {management.fee}
+                  {management.key === "managed" ? " (optional)" : ""}
+                </p>
+                <p className="mt-4 font-body text-sm leading-relaxed text-ink-soft">
+                  {management.description}
+                </p>
+                {management.key === "managed" ? (
+                  <p className="mt-4 font-body text-sm leading-relaxed text-ink-soft">
+                    Your AWS account, file system, and encrypted secrets stay in
+                    your account.
+                  </p>
+                ) : null}
+              </div>
+
+              {INSTALLATION_OPTIONS.map((installation) => {
+                const scenario = PRICING_SCENARIOS.find(
+                  (entry) =>
+                    entry.management.key === management.key &&
+                    entry.installation.key === installation.key,
+                );
+                if (!scenario) {
+                  return null;
+                }
+
+                return (
+                  <div
+                    key={`${management.key}-${installation.key}`}
+                    className="rounded-[1.6rem] bg-surface-high px-6 py-5"
+                    aria-label={`${management.label} with ${installation.label}`}
+                  >
+                    <p className="font-display text-sm font-semibold uppercase tracking-[0.08em] text-ink-soft">
+                      Total
+                    </p>
+                    <p className="mt-3 font-display text-2xl font-semibold tracking-[-0.04em]">
+                      {scenario.total.installation}
+                    </p>
+                    <p className="mt-1 font-display text-2xl font-semibold tracking-[-0.04em]">
+                      {scenario.total.management}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
 
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
           <article className="rounded-[1.6rem] bg-surface-raised p-8">
-            <h3 className="font-display text-2xl font-semibold tracking-[-0.04em]">
-              Self-setup
+            <h3 className="font-display text-xl font-semibold tracking-[-0.04em]">
+              Professional services
             </h3>
             <p className="mt-4 font-body leading-relaxed text-ink-soft">
-              Run the CloudFormation template yourself in your AWS account. You
-              get the template, the IAM policy, and written instructions.
-              Anthus operates the deployment and keeps it updated.
+              Optional professional services from Anthus AI Solutions. We adapt
+              Chatticus to your needs — custom integrations, workflow design,
+              and deployment support beyond the standard install.
             </p>
-            <div className="mt-8 space-y-1">
-              <p className="font-display text-3xl font-semibold tracking-[-0.04em]">
-                $20 a month
-              </p>
-              <p className="font-body text-ink-soft">No setup fee</p>
-            </div>
           </article>
 
-          <article className="rounded-[1.6rem] bg-surface-high p-8">
-            <h3 className="font-display text-2xl font-semibold tracking-[-0.04em]">
-              Assisted setup
+          <article className="rounded-[1.6rem] bg-surface-raised p-8">
+            <h3 className="font-display text-xl font-semibold tracking-[-0.04em]">
+              Professional training
             </h3>
             <p className="mt-4 font-body leading-relaxed text-ink-soft">
-              Have us do it with you. A scheduled session with an engineer,
-              ending with your first team of bots running. Anthus then operates
-              the deployment and keeps it updated.
+              Optional professional training from Anthus AI Solutions. Learn how
+              to run your organization on Chatticus, from day-to-day operations
+              to advanced bot and routine design.
             </p>
-            <div className="mt-8 space-y-1">
-              <p className="font-display text-3xl font-semibold tracking-[-0.04em]">
-                $20 a month
-              </p>
-              <p className="font-body text-ink-soft">and $100 once</p>
-            </div>
           </article>
         </div>
 
