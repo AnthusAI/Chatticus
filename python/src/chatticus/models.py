@@ -759,6 +759,11 @@ class WaitlistSignup:
     created_at: datetime
     email_confirmed: bool = False
     offer_snapshot: OfferSnapshot | None = None
+    utm_source: str | None = None
+    utm_medium: str | None = None
+    utm_campaign: str | None = None
+    utm_content: str | None = None
+    utm_term: str | None = None
 
 
 @dataclass(frozen=True)

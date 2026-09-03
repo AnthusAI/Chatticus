@@ -15,9 +15,17 @@
     "ec2"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "8cadccec-10d6-4975-8b50-cc1515e338cb",
+      "author": "home",
+      "text": "Design conversation 2026-09-03: reframed as GUI session work kind in the compute manifold. Phase 0 validation complete — VNC screenshot, keyboard, and mouse all proven on live omarchy-ec2-test instance. Storage is a separate concern (chatticus-fbae4e). Tailscale is the connectivity layer. Next step: thin agent display-client library wrapping VNC.",
+      "created_at": "2026-09-03T18:12:18.382246Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-03T15:58:26.469742Z",
-  "updated_at": "2026-09-03T17:59:16.884484Z",
+  "updated_at": "2026-09-03T18:12:18.382246Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

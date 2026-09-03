@@ -136,9 +136,31 @@ def given_visitor_filled_all_blocks(context: object) -> None:
 
 @when("they submit the survey")
 def when_they_submit_survey(context: object) -> None:
+    payload = context.complete_survey_payload
+    if hasattr(context, "expected_utm"):
+        context.survey_form_harness = _run_survey_harness(
+            "submit-complete-with-utm",
+            {
+                **payload,
+                "query": (
+                    f"utm_source={context.expected_utm['utm_source']}"
+                    f"&utm_campaign={context.expected_utm['utm_campaign']}"
+                ),
+            },
+        )
+        response = context.api_client.post(
+            "/waitlist",
+            json={
+                **payload,
+                **context.expected_utm,
+            },
+        )
+        assert response.status_code == 201, response.text
+        return
+
     context.survey_form_harness = _run_survey_harness(
         "submit-complete",
-        context.complete_survey_payload,
+        payload,
     )
 
 

@@ -1,4 +1,7 @@
 import { apiBase } from "./config";
+import { getStoredUtmParams, type UtmParams } from "./analytics";
+
+export type { UtmParams };
 
 export type WaitlistSurveyQuestion = {
   id: string;
@@ -31,7 +34,7 @@ export type SubmitWaitlistPayload = {
   setup_path_answers: Record<string, string>;
   price_sensitivity_answers?: PriceSensitivityAnswers;
   complete: boolean;
-};
+} & UtmParams;
 
 type FetchFn = typeof fetch;
 
@@ -65,10 +68,15 @@ export async function fetchWaitlistSurvey(): Promise<WaitlistSurvey> {
 }
 
 export async function submitWaitlist(payload: SubmitWaitlistPayload): Promise<void> {
+  const utmParams = getStoredUtmParams();
+  const body = {
+    ...payload,
+    ...utmParams,
+  };
   const response = await fetchImpl(`${apiBase}/waitlist`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
   await readJson<{ status: string }>(response);
 }
