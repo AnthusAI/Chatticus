@@ -56,6 +56,7 @@ from chatticus.models import (
     WorkerRegistration,
 )
 from chatticus.vendor_ledger import VendorLedgerRow
+from chatticus.waitlist.invitation import waitlist_signup_in_operator_queue
 
 
 def _waitlist_signup_offer_snapshot_from_item(
@@ -1097,7 +1098,7 @@ class InMemoryMessagingStore:
                 (
                     s
                     for s in self._waitlist_signups.values()
-                    if s.email_confirmed and not s.disqualified and s.invited_at is None
+                    if waitlist_signup_in_operator_queue(s)
                 ),
                 key=lambda s: s.created_at,
             )
@@ -1122,7 +1123,7 @@ class InMemoryMessagingStore:
                     continue
                 if signup.disqualified:
                     disqualified_count += 1
-                elif signup.invited_at is None:
+                elif waitlist_signup_in_operator_queue(signup):
                     queued_count += 1
             return WaitlistSummary(
                 queued_count=queued_count,
@@ -2668,7 +2669,7 @@ class DynamoMessagingStore:
             if not email_confirmed:
                 continue
             signup = _waitlist_signup_from_item(item)
-            if signup.disqualified or signup.invited_at is not None:
+            if not waitlist_signup_in_operator_queue(signup):
                 continue
             signups.append(signup)
         return sorted(signups, key=lambda signup: signup.created_at)
@@ -2703,9 +2704,10 @@ class DynamoMessagingStore:
         for item in response.get("Items", []):
             if not item.get("email_confirmed", {}).get("BOOL", False):
                 continue
-            if item.get("disqualified", {}).get("BOOL", False):
+            signup = _waitlist_signup_from_item(item)
+            if signup.disqualified:
                 disqualified_count += 1
-            elif "invited_at" not in item:
+            elif waitlist_signup_in_operator_queue(signup):
                 queued_count += 1
         return WaitlistSummary(
             queued_count=queued_count,

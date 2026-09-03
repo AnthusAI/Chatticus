@@ -76,7 +76,6 @@ from chatticus.email_sender import (
     EmailSender,
     NoOpEmailSender,
     build_waitlist_confirmation_url,
-    build_waitlist_invitation_url,
     waitlist_confirmation_base_url_from_env,
 )
 from chatticus.escalation_handoff import (
@@ -176,6 +175,7 @@ from chatticus.turn_recovery import (
     logical_enqueue_id,
 )
 from chatticus.vendor_ledger import CompletionUsage, VendorLedgerRow
+from chatticus.waitlist.invitation import build_waitlist_invitation_url
 from chatticus.waitlist_limits import (
     WAITLIST_SUBMISSION_RATE_LIMIT,
     WAITLIST_SUBMISSION_RATE_WINDOW,

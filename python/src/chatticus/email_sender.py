@@ -126,12 +126,6 @@ def build_waitlist_confirmation_url(
     return f"{base_url.rstrip('/')}/waitlist/confirm?{query}"
 
 
-def build_waitlist_invitation_url(base_url: str, token: str) -> str:
-    """Build the waitlist operator invitation URL for one signup."""
-    query = urlencode({"token": token})
-    return f"{base_url.rstrip('/')}/waitlist/invite?{query}"
-
-
 def waitlist_confirmation_base_url_from_env() -> str:
     """Return the web origin used in waitlist confirmation links."""
     explicit = os.environ.get("CHATTICUS_WAITLIST_CONFIRMATION_BASE_URL", "").strip()
