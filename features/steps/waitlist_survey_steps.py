@@ -332,6 +332,17 @@ def then_survey_returns_choices_on_scored_aws_questions(context: object) -> None
             _assert_choices_have_value_and_label(question["choices"])
 
 
+@then("GET /waitlist/survey marks the work description question as multiline")
+def then_survey_marks_work_description_multiline(context: object) -> None:
+    work_description = _question_by_id(
+        context.beta_page_survey["fit"],
+        "work_description",
+    )
+    assert work_description.get("multiline") is True
+    for question in context.beta_page_survey["price_sensitivity"]:
+        assert question.get("multiline") is not True
+
+
 @then("the price questions name the total including AWS and model tokens")
 def then_price_questions_name_total_monthly_cost(context: object) -> None:
     questions = context.beta_page_survey["price_sensitivity"]

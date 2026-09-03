@@ -22,6 +22,7 @@ class WaitlistSurveyQuestion:
     question_id: str
     prompt: str
     choices: tuple[WaitlistSurveyChoice, ...] = ()
+    multiline: bool = False
 
 
 def _serialize_questions(
@@ -39,6 +40,8 @@ def _serialize_questions(
                 {"value": choice.value, "label": choice.label}
                 for choice in question.choices
             ]
+        if question.multiline:
+            item["multiline"] = True
         serialized.append(item)
     return serialized
 
@@ -86,6 +89,7 @@ FIT_QUESTIONS: tuple[WaitlistSurveyQuestion, ...] = (
             "Describe the work you want Chatticus to help with. "
             "Include enough detail that we can understand your use case."
         ),
+        multiline=True,
     ),
 )
 

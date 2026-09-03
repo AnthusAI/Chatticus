@@ -96,6 +96,22 @@ def when_page_loads(context: object) -> None:
     context.survey_form_harness = _run_survey_harness("load-survey")
 
 
+@when("the survey form is rendered")
+def when_the_survey_form_is_rendered(context: object) -> None:
+    context.marketing_ui_harness = _run_marketing_harness("render-beta-survey")
+
+
+@then("the work description question is a tall textarea")
+def then_work_description_is_tall_textarea(context: object) -> None:
+    html = context.marketing_ui_harness.get("html") or ""
+    start = html.find("<textarea")
+    assert start != -1, html
+    chunk = html[start : start + 500]
+    assert 'id="survey-fit-work_description"' in chunk, chunk
+    assert 'rows="8"' in chunk, chunk
+    assert "<input" not in chunk.split(">")[0]
+
+
 @then("it fetches GET /waitlist/survey")
 def then_fetches_waitlist_survey(context: object) -> None:
     harness = context.survey_form_harness

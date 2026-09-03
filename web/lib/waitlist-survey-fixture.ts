@@ -7,6 +7,12 @@ export const FULL_WAITLIST_SURVEY_FIXTURE: WaitlistSurvey = {
       id: "team_size",
       prompt: "How many people in your organization would use Chatticus?",
     },
+    {
+      id: "work_description",
+      prompt:
+        "Describe the work you want Chatticus to help with. Include enough detail that we can understand your use case.",
+      multiline: true,
+    },
   ],
   aws_readiness: [
     {
