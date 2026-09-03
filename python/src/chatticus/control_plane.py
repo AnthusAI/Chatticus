@@ -156,6 +156,10 @@ from chatticus.turn_recovery import (
     logical_enqueue_id,
 )
 from chatticus.vendor_ledger import CompletionUsage, VendorLedgerRow
+from chatticus.waitlist_limits import (
+    WAITLIST_SUBMISSION_RATE_LIMIT,
+    WAITLIST_SUBMISSION_RATE_WINDOW,
+)
 from chatticus.worker_credentials import (
     hash_worker_token,
     mint_worker_token,
@@ -186,6 +190,7 @@ class ControlPlane:
         wall_clock: bool = False,
         fault_injector: FaultInjector | None = None,
         organization_creation_rate_limit: int | None = None,
+        waitlist_submission_rate_limit: int | None = None,
     ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
@@ -255,6 +260,11 @@ class ControlPlane:
             organization_creation_rate_limit
             if organization_creation_rate_limit is not None
             else ORGANIZATION_CREATION_RATE_LIMIT
+        )
+        self._waitlist_submission_rate_limit = (
+            waitlist_submission_rate_limit
+            if waitlist_submission_rate_limit is not None
+            else WAITLIST_SUBMISSION_RATE_LIMIT
         )
         self._turn_enqueued = turn_enqueued
         self._computer_enqueued = computer_enqueued
@@ -3448,16 +3458,24 @@ class ControlPlane:
         price_answers: dict[str, str],
         complete: bool,
         *,
+        source: str,
         now: datetime | None = None,
     ) -> WaitlistSignup:
         """Record an unauthenticated waitlist signup from the marketing site."""
+        moment = now or self._now
+        self._messaging_store.record_waitlist_submission(
+            source,
+            now=moment,
+            limit=self._waitlist_submission_rate_limit,
+            window=WAITLIST_SUBMISSION_RATE_WINDOW,
+        )
         signup = WaitlistSignup(
             email=email.strip().lower(),
             fit_answers=fit_answers,
             aws_readiness_answers=aws_readiness_answers,
             price_answers=price_answers,
             complete=complete,
-            created_at=now or self._now,
+            created_at=moment,
         )
         self._messaging_store.put_waitlist_signup(signup)
         return signup

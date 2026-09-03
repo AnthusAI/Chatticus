@@ -339,6 +339,10 @@ class OrganizationCreationRateLimitedError(ChatticusError):
     """Too many organization creation attempts in the current window."""
 
 
+class WaitlistRateLimitedError(ChatticusError):
+    """Too many waitlist submissions from the same source in the current window."""
+
+
 @dataclass(frozen=True)
 class WorkerRegistration:
     """Advertisement a worker sends when it plugs into the control plane."""

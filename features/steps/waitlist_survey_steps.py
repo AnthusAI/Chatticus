@@ -25,7 +25,7 @@ def when_they_complete_survey(context: object) -> None:
             "complete": True,
         },
     )
-    assert response.status_code == 200, response.text
+    assert response.status_code == 201, response.text
     context.last_waitlist_response = response.json()
 
 
@@ -60,7 +60,8 @@ def when_they_leave_without_submitting(context: object) -> None:
             "complete": False,
         },
     )
-    assert response.status_code == 200, response.text
+    assert response.status_code == 201, response.text
+
 
 
 @then("it is marked incomplete")

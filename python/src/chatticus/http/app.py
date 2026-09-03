@@ -38,6 +38,7 @@ from chatticus.http.sse import (
     format_turn_event_sse,
     turn_event_payload,
 )
+from chatticus.http.waitlist_source import waitlist_submission_source
 from chatticus.models import (
     ActorKind,
     ActorNotInChannelError,
@@ -62,6 +63,7 @@ from chatticus.models import (
     TurnNotWaitingError,
     TurnReconcilingError,
     TurnTerminalError,
+    WaitlistRateLimitedError,
     WorkerRegistration,
     WorkerTenantMismatchError,
     pending_computer_tool_from_turn,
@@ -361,14 +363,15 @@ def create_app(
     def health() -> dict[str, str]:
         return {"status": "ok", "environment": state.environment}
 
-    @app.post("/waitlist")
-    def submit_waitlist(body: SubmitWaitlistBody) -> dict[str, str]:
+    @app.post("/waitlist", status_code=201)
+    def submit_waitlist(body: SubmitWaitlistBody, request: Request) -> dict[str, str]:
         state.plane.record_waitlist_signup(
             email=body.email,
             fit_answers=body.fit_answers,
             aws_readiness_answers=body.aws_readiness_answers,
             price_answers=body.price_answers,
             complete=body.complete,
+            source=waitlist_submission_source(request),
         )
         return {"status": "recorded"}
 
@@ -1145,6 +1148,8 @@ def _status_for_error(error: ChatticusError) -> int:
     if isinstance(error, OrganizationOwnerCapError):
         return 409
     if isinstance(error, OrganizationCreationRateLimitedError):
+        return 429
+    if isinstance(error, WaitlistRateLimitedError):
         return 429
     if isinstance(error, OrganizationNameTooLongError):
         return 400
