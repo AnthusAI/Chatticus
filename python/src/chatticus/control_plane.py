@@ -3594,6 +3594,10 @@ class ControlPlane:
         """List waitlist signups that have confirmed their email."""
         return self._messaging_store.list_waitlist_queue()
 
+    def list_confirmed_waitlist_signups(self) -> list[WaitlistSignup]:
+        """List all email-confirmed waitlist signups, queued and disqualified."""
+        return self._messaging_store.list_confirmed_waitlist_signups()
+
     def summarize_waitlist(self) -> WaitlistSummary:
         """Return counts of queued and disqualified confirmed waitlist signups."""
         return self._messaging_store.summarize_confirmed_waitlist()
