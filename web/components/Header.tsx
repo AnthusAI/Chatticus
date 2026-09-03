@@ -35,7 +35,7 @@ export function Header() {
           asChild
           size="sm"
           variant="dark"
-          className="rounded-[22px_22px_5px_22px] bg-surface-high text-surface-foreground hover:bg-cobalt hover:text-white"
+          className="rounded-[22px_22px_5px_22px] bg-[var(--mark-shadow)] text-surface-foreground hover:bg-cobalt hover:text-white"
         >
           <a href="/chat">
             Hey, Chatticus...

@@ -39,11 +39,11 @@ type WordmarkProps = {
 
 const PAPER = "#f2efe7";
 const CLAY = "#ef6a47";
-/* Mirrors --surface-2 (see app/globals.css): the flat "most-attention"
-   background step, already designed to be a gentle light/dark-mirrored
-   pair rather than a stark black/white extreme. */
-const SHADOW_BUBBLE_LIGHT = "#d9d3c1";
-const SHADOW_BUBBLE_DARK = "#2a2e22";
+/* Mirrors --mark-shadow (see app/globals.css): a gentle light/dark-mirrored
+   pair, deliberately a step more contrasty than --surface-2 so the bubble
+   reads as a distinct shape rather than a stark black/white extreme. */
+const SHADOW_BUBBLE_LIGHT = "#cbc4ad";
+const SHADOW_BUBBLE_DARK = "#373c2c";
 
 function useSystemPrefersDark(): boolean {
   const [prefersDark, setPrefersDark] = useState(false);

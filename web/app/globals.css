@@ -27,6 +27,11 @@
   --surface-2: #d9d3c1;
   /* Legible text color on a --surface-*: ink in light mode, paper in dark. */
   --surface-foreground: var(--ink);
+  /* One step past --surface-2 in each mode -- deliberately more contrast
+     than the general surface steps, for the one specific pairing (the
+     logo mark's backdrop bubble + the header CTA) that wants to read as
+     a distinct shape rather than a subtle background step. */
+  --mark-shadow: #cbc4ad;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -39,6 +44,7 @@
        needs a dark-mode value too so text-ink-soft stays legible once its
        surface flips (a static dark-green reads as invisible on a dark page). */
     --ink-soft: #b9c0b6;
+    --mark-shadow: #373c2c;
   }
 }
 
