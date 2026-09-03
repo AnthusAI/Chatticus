@@ -2,6 +2,40 @@
 
 from behave import given, then, when
 
+from chatticus.models import PriceSensitivityAnswers
+
+
+def _sample_price_sensitivity_answers() -> PriceSensitivityAnswers:
+    return PriceSensitivityAnswers(
+        too_cheap="15",
+        bargain="35",
+        expensive="90",
+        too_expensive="175",
+    )
+
+
+def _waitlist_payload(
+    *,
+    email: str,
+    fit_answers: dict[str, str] | None = None,
+    aws_readiness_answers: dict[str, str] | None = None,
+    price_answers: dict[str, str] | None = None,
+    setup_path_answers: dict[str, str] | None = None,
+    price_sensitivity_answers: PriceSensitivityAnswers | None = None,
+    complete: bool,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "email": email,
+        "fit_answers": fit_answers or {},
+        "aws_readiness_answers": aws_readiness_answers or {},
+        "price_answers": price_answers or {},
+        "setup_path_answers": setup_path_answers or {},
+        "complete": complete,
+    }
+    if price_sensitivity_answers is not None:
+        payload["price_sensitivity_answers"] = price_sensitivity_answers.to_dict()
+    return payload
+
 
 @given("a visitor on the beta page")
 def given_visitor_on_beta_page(context: object) -> None:
@@ -11,6 +45,7 @@ def given_visitor_on_beta_page(context: object) -> None:
         "aws_readiness": {"q2": "a2"},
         "price": {"q3": "a3"},
         "setup_path": {"q4": "a4"},
+        "price_sensitivity": _sample_price_sensitivity_answers(),
     }
 
 
@@ -19,17 +54,34 @@ def given_visitor_on_beta_page(context: object) -> None:
 def when_they_complete_survey(context: object) -> None:
     response = context.api_client.post(
         "/waitlist",
-        json={
-            "email": context.visitor_email,
-            "fit_answers": context.visitor_answers["fit"],
-            "aws_readiness_answers": context.visitor_answers["aws_readiness"],
-            "price_answers": context.visitor_answers["price"],
-            "setup_path_answers": context.visitor_answers["setup_path"],
-            "complete": True,
-        },
+        json=_waitlist_payload(
+            email=context.visitor_email,
+            fit_answers=context.visitor_answers["fit"],
+            aws_readiness_answers=context.visitor_answers["aws_readiness"],
+            price_answers=context.visitor_answers["price"],
+            setup_path_answers=context.visitor_answers["setup_path"],
+            price_sensitivity_answers=context.visitor_answers["price_sensitivity"],
+            complete=True,
+        ),
     )
     assert response.status_code == 201, response.text
     context.last_waitlist_response = response.json()
+
+
+@when("they complete the survey including the price block")
+def when_they_complete_survey_including_price_block(context: object) -> None:
+    context.visitor_price_sensitivity = _sample_price_sensitivity_answers()
+    response = context.api_client.post(
+        "/waitlist",
+        json=_waitlist_payload(
+            email=context.visitor_email,
+            fit_answers=context.visitor_answers["fit"],
+            aws_readiness_answers=context.visitor_answers["aws_readiness"],
+            price_sensitivity_answers=context.visitor_price_sensitivity,
+            complete=True,
+        ),
+    )
+    assert response.status_code == 201, response.text
 
 
 @then("a waitlist signup is recorded for their work email")
@@ -47,6 +99,9 @@ def then_it_carries_answers(context: object) -> None:
     assert signup.aws_readiness_answers == context.visitor_answers["aws_readiness"]
     assert signup.price_answers == context.visitor_answers["price"]
     assert signup.setup_path_answers == context.visitor_answers["setup_path"]
+    assert (
+        signup.price_sensitivity_answers == context.visitor_answers["price_sensitivity"]
+    )
     assert signup.complete is True
 
 
@@ -58,6 +113,68 @@ def then_waitlist_records_setup_path(context: object) -> None:
     assert len(signup.setup_path_answers) > 0
 
 
+@then("the waitlist signup records a too-cheap price")
+def then_records_too_cheap_price(context: object) -> None:
+    signup = context.plane._messaging_store.get_waitlist_signup(context.visitor_email)
+    assert signup is not None
+    assert signup.price_sensitivity_answers is not None
+    assert (
+        signup.price_sensitivity_answers.too_cheap
+        == context.visitor_price_sensitivity.too_cheap
+    )
+
+
+@then("it records a bargain price")
+def then_records_bargain_price(context: object) -> None:
+    signup = context.plane._messaging_store.get_waitlist_signup(context.visitor_email)
+    assert signup is not None
+    assert signup.price_sensitivity_answers is not None
+    assert (
+        signup.price_sensitivity_answers.bargain
+        == context.visitor_price_sensitivity.bargain
+    )
+
+
+@then("it records an expensive price")
+def then_records_expensive_price(context: object) -> None:
+    signup = context.plane._messaging_store.get_waitlist_signup(context.visitor_email)
+    assert signup is not None
+    assert signup.price_sensitivity_answers is not None
+    assert (
+        signup.price_sensitivity_answers.expensive
+        == context.visitor_price_sensitivity.expensive
+    )
+
+
+@then("it records a too-expensive price")
+def then_records_too_expensive_price(context: object) -> None:
+    signup = context.plane._messaging_store.get_waitlist_signup(context.visitor_email)
+    assert signup is not None
+    assert signup.price_sensitivity_answers is not None
+    assert (
+        signup.price_sensitivity_answers.too_expensive
+        == context.visitor_price_sensitivity.too_expensive
+    )
+
+
+@given("the beta page survey")
+def given_beta_page_survey(context: object) -> None:
+    response = context.api_client.get("/waitlist/survey")
+    assert response.status_code == 200, response.text
+    context.beta_page_survey = response.json()
+
+
+@then("the price questions name the total including AWS and model tokens")
+def then_price_questions_name_total_monthly_cost(context: object) -> None:
+    questions = context.beta_page_survey["price_sensitivity"]
+    assert len(questions) == 4
+    for question in questions:
+        prompt = question["prompt"].lower()
+        assert "total monthly cost" in prompt
+        assert "aws" in prompt
+        assert "model token" in prompt or "model tokens" in prompt
+
+
 @given("a visitor who has entered only their work email")
 def given_visitor_entered_only_email(context: object) -> None:
     context.visitor_email = "abandon@example.com"
@@ -67,10 +184,7 @@ def given_visitor_entered_only_email(context: object) -> None:
 def when_they_leave_without_submitting(context: object) -> None:
     response = context.api_client.post(
         "/waitlist",
-        json={
-            "email": context.visitor_email,
-            "complete": False,
-        },
+        json=_waitlist_payload(email=context.visitor_email, complete=False),
     )
     assert response.status_code == 201, response.text
 
@@ -83,6 +197,7 @@ def then_marked_incomplete(context: object) -> None:
     assert signup.aws_readiness_answers == {}
     assert signup.price_answers == {}
     assert signup.setup_path_answers == {}
+    assert signup.price_sensitivity_answers is None
 
 
 @given('a waitlist signup exists for "{email}"')
@@ -196,6 +311,7 @@ def given_unconfirmed_waitlist_signup(context: object) -> None:
         aws_readiness_answers={},
         price_answers={},
         setup_path_answers={},
+        price_sensitivity_answers=None,
         complete=True,
         source="behave-test",
     )

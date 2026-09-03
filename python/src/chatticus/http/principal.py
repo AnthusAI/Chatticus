@@ -34,7 +34,7 @@ _WORKER_ROUTE_ATTR: Final = "__chatticus_worker_route__"
 
 # Routes that never participate in principal resolution or the marker system.
 NO_PRINCIPAL_ROUTES: Final[frozenset[str]] = frozenset(
-    {"/health", "/integration-test/session", "/waitlist"}
+    {"/health", "/integration-test/session", "/waitlist", "/waitlist/survey"}
 )
 NO_PRINCIPAL_ROUTE_PREFIXES: Final[tuple[str, ...]] = ("/auth/",)
 

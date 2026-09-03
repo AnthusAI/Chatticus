@@ -33,3 +33,15 @@ Feature: Waitlist survey submission
     Given a waitlist signup that has not been confirmed
     When the visitor follows the confirmation link
     Then that signup is in the queue
+
+  Scenario: A signup carries four price answers
+    Given a visitor on the beta page
+    When they complete the survey including the price block
+    Then the waitlist signup records a too-cheap price
+    And it records a bargain price
+    And it records an expensive price
+    And it records a too-expensive price
+
+  Scenario: The price block asks about total monthly cost
+    Given the beta page survey
+    Then the price questions name the total including AWS and model tokens
