@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BetaAccessDisclosure } from "@/components/BetaAccessDisclosure";
+import { BetaSetupPricing } from "@/components/BetaSetupPricing";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 
@@ -29,6 +30,7 @@ export default function BetaPitchPage() {
             </div>
           </div>
         </section>
+        <BetaSetupPricing />
       </main>
       <Footer />
     </>

@@ -87,6 +87,7 @@ class SubmitWaitlistBody(BaseModel):
     fit_answers: dict[str, str] = Field(default_factory=dict)
     aws_readiness_answers: dict[str, str] = Field(default_factory=dict)
     price_answers: dict[str, str] = Field(default_factory=dict)
+    setup_path_answers: dict[str, str] = Field(default_factory=dict)
     complete: bool
 
 
@@ -370,6 +371,7 @@ def create_app(
             fit_answers=body.fit_answers,
             aws_readiness_answers=body.aws_readiness_answers,
             price_answers=body.price_answers,
+            setup_path_answers=body.setup_path_answers,
             complete=body.complete,
             source=waitlist_submission_source(request),
         )
