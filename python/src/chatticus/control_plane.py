@@ -88,6 +88,7 @@ from chatticus.models import (
     AuthorizationIdentity,
     AutoReviewRule,
     AutoReviewRuleKind,
+    AwsSetupPath,
     Bot,
     Channel,
     ChannelNotFoundError,
@@ -385,6 +386,23 @@ class ControlPlane:
     def enable_organization(self, tenant_id: str) -> Organization:
         """Mark one organization enabled without provisioning a computer."""
         return self._org_records.enable_organization(tenant_id)
+
+    def provision_organization_aws(
+        self,
+        tenant_id: str,
+        account_id: str,
+        cross_account_role: str,
+        external_id: str,
+        setup_path: AwsSetupPath,
+    ) -> Organization:
+        """Record the AWS account details for a provisioned organization."""
+        return self._org_records.provision_organization_aws(
+            tenant_id,
+            account_id,
+            cross_account_role,
+            external_id,
+            setup_path,
+        )
 
     def submit_self_setup_cross_account_role(
         self,

@@ -154,3 +154,63 @@ def then_organization_stays_pending(context: object) -> None:
     assert organization.status == OrganizationStatus.PENDING
     assert organization.aws_account_id is None
     assert organization.aws_cross_account_role is None
+
+
+@given("an organization that has completed provisioning")
+def given_completed_provisioning(context: object) -> None:
+    _ensure_org_store(context)
+    identity = _plane(context).sign_in("owner@example.com", now=context.now)
+    org = _plane(context).create_organization(identity, "Test Org", now=context.now)
+    _plane(context).enable_organization(org.tenant_id)
+    context.provisioned_org = _plane(context).provision_organization_aws(
+        org.tenant_id,
+        account_id=CUSTOMER_ACCOUNT_ID,
+        cross_account_role=CUSTOMER_ROLE_ARN,
+        external_id=org.tenant_id,
+        setup_path=AwsSetupPath.CUSTOMER_OWNED,
+    )
+
+
+@then("it records the customer AWS account id")
+def then_records_customer_aws_account(context: object) -> None:
+    org = context.provisioned_org
+    assert org.aws_account_id == CUSTOMER_ACCOUNT_ID
+
+
+@then("it records the cross-account role")
+def then_records_cross_account_role(context: object) -> None:
+    org = context.provisioned_org
+    assert org.aws_cross_account_role == CUSTOMER_ROLE_ARN
+    assert org.aws_external_id == org.tenant_id
+
+
+@then("it records whether the account is customer-owned or Anthus-managed")
+def then_records_setup_path(context: object) -> None:
+    org = context.provisioned_org
+    assert org.aws_setup_path == AwsSetupPath.CUSTOMER_OWNED
+
+
+@given("an organization that has paid but not been provisioned")
+def given_paid_not_provisioned(context: object) -> None:
+    _ensure_org_store(context)
+    identity = _plane(context).sign_in("newowner@example.com", now=context.now)
+    context.pending_org = _plane(context).create_organization(
+        identity,
+        "Pending Org",
+        now=context.now,
+    )
+
+
+@then("it records no customer AWS account")
+def then_records_no_aws_account(context: object) -> None:
+    org = context.pending_org
+    assert org.aws_account_id is None
+    assert org.aws_cross_account_role is None
+    assert org.aws_external_id is None
+    assert org.aws_setup_path is None
+
+
+@then("its status is pending")
+def then_status_is_pending(context: object) -> None:
+    org = context.pending_org
+    assert org.status == OrganizationStatus.PENDING
