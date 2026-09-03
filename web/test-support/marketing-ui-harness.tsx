@@ -3,6 +3,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import BetaPitchPage from "../app/beta/page";
 import HomePage from "../app/page";
+import {
+  BetaWaitlistSurveyForm,
+  FULL_WAITLIST_SURVEY_FIXTURE,
+} from "../components/BetaWaitlistSurveyForm";
 
 (globalThis as any).React = React;
 
@@ -22,6 +26,38 @@ async function main(): Promise<void> {
       const html = renderToStaticMarkup(React.createElement(page));
       const text = html.replace(/<[^>]*>?/gm, " ");
       result = { visibleText: text, html: html };
+      break;
+    }
+    case "render-beta-survey": {
+      const html = renderToStaticMarkup(
+        React.createElement(BetaWaitlistSurveyForm, {
+          initialSurvey: FULL_WAITLIST_SURVEY_FIXTURE,
+        }),
+      );
+      const text = html.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html };
+      break;
+    }
+    case "render-beta-survey-thank-you": {
+      const html = renderToStaticMarkup(
+        React.createElement(BetaWaitlistSurveyForm, {
+          initialSurvey: FULL_WAITLIST_SURVEY_FIXTURE,
+          testView: "thank-you",
+        }),
+      );
+      const text = html.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html };
+      break;
+    }
+    case "render-beta-survey-rate-limited": {
+      const html = renderToStaticMarkup(
+        React.createElement(BetaWaitlistSurveyForm, {
+          initialSurvey: FULL_WAITLIST_SURVEY_FIXTURE,
+          testView: "rate-limited",
+        }),
+      );
+      const text = html.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html };
       break;
     }
     default:

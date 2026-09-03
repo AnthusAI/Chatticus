@@ -201,7 +201,7 @@ def then_states_setup_fee(context: object) -> None:
 @then("all of them appear above the first survey question")
 def then_appear_above_first_survey_question(context: object) -> None:
     html = (context.marketing_ui_harness.get("html") or "").lower()
-    survey_index = html.find('id="survey-fit"')
+    survey_index = html.find('id="survey-email"')
     assert survey_index != -1, html
     for marker in COST_MARKERS:
         marker_index = html.find(marker)
