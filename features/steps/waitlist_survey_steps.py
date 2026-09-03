@@ -172,3 +172,39 @@ def when_visitor_returns_and_completes(context: object) -> None:
 def then_no_longer_marked_incomplete(context: object) -> None:
     signup = context.last_signup
     assert signup.complete is True
+
+
+@given("a waitlist signup that has not been confirmed")
+def given_unconfirmed_waitlist_signup(context: object) -> None:
+    context.visitor_email = "unconfirmed@example.com"
+    context.plane.record_waitlist_signup(
+        email=context.visitor_email,
+        fit_answers={},
+        aws_readiness_answers={},
+        price_answers={},
+        complete=True,
+        source="behave-test",
+    )
+
+
+@when("an operator lists the waitlist queue")
+def when_operator_lists_queue(context: object) -> None:
+    context.waitlist_queue = context.plane.list_waitlist_queue()
+
+
+@then("that signup is not in the queue")
+def then_signup_not_in_queue(context: object) -> None:
+    emails = [s.email for s in context.waitlist_queue]
+    assert context.visitor_email not in emails
+
+
+@when("the visitor follows the confirmation link")
+def when_visitor_follows_confirmation_link(context: object) -> None:
+    context.plane.confirm_waitlist_email(context.visitor_email)
+
+
+@then("that signup is in the queue")
+def then_signup_is_in_queue(context: object) -> None:
+    queue = context.plane.list_waitlist_queue()
+    emails = [s.email for s in queue]
+    assert context.visitor_email in emails

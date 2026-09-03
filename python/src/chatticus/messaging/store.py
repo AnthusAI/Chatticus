@@ -368,6 +368,9 @@ class MessagingStore(Protocol):
     ) -> None:
         """Increment one submission attempt and refuse when over the limit."""
 
+    def list_waitlist_queue(self) -> list[WaitlistSignup]:
+        """List waitlist signups that have confirmed their email."""
+
 
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
@@ -968,6 +971,13 @@ class InMemoryMessagingStore:
             raise WaitlistRateLimitedError(
                 f"Source {source!r} exceeded the waitlist submission rate limit "
                 f"of {limit} attempts per {window}."
+            )
+
+    def list_waitlist_queue(self) -> list[WaitlistSignup]:
+        with self._lock:
+            return sorted(
+                (s for s in self._waitlist_signups.values() if s.email_confirmed),
+                key=lambda s: s.created_at,
             )
 
 
@@ -2352,8 +2362,8 @@ class DynamoMessagingStore:
         self.client.put_item(
             TableName=self.table_name,
             Item={
-                "pk": {"S": f"WAITLIST#{signup.email}"},
-                "sk": {"S": "SIGNUP"},
+                "pk": {"S": "WAITLIST"},
+                "sk": {"S": f"SIGNUP#{signup.email}"},
                 "email": {"S": signup.email},
                 "fit_answers": {"S": json.dumps(signup.fit_answers)},
                 "aws_readiness_answers": {
@@ -2362,6 +2372,7 @@ class DynamoMessagingStore:
                 "price_answers": {"S": json.dumps(signup.price_answers)},
                 "complete": {"BOOL": signup.complete},
                 "created_at": {"S": signup.created_at.isoformat()},
+                "email_confirmed": {"BOOL": signup.email_confirmed},
             },
         )
 
@@ -2369,8 +2380,8 @@ class DynamoMessagingStore:
         response = self.client.get_item(
             TableName=self.table_name,
             Key={
-                "pk": {"S": f"WAITLIST#{email}"},
-                "sk": {"S": "SIGNUP"},
+                "pk": {"S": "WAITLIST"},
+                "sk": {"S": f"SIGNUP#{email}"},
             },
         )
         item = response.get("Item")
@@ -2383,6 +2394,7 @@ class DynamoMessagingStore:
             price_answers=json.loads(item["price_answers"]["S"]),
             complete=item.get("complete", {}).get("BOOL", False),
             created_at=datetime.fromisoformat(item["created_at"]["S"]),
+            email_confirmed=item.get("email_confirmed", {}).get("BOOL", False),
         )
 
     def record_waitlist_submission(
@@ -2419,6 +2431,35 @@ class DynamoMessagingStore:
                 f"Source {source!r} exceeded the waitlist submission rate limit "
                 f"of {limit} attempts per {window}."
             )
+
+    def list_waitlist_queue(self) -> list[WaitlistSignup]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": "WAITLIST"},
+                ":prefix": {"S": "SIGNUP#"},
+            },
+        )
+        signups: list[WaitlistSignup] = []
+        for item in response.get("Items", []):
+            email_confirmed = item.get("email_confirmed", {}).get("BOOL", False)
+            if not email_confirmed:
+                continue
+            signups.append(
+                WaitlistSignup(
+                    email=item["email"]["S"],
+                    fit_answers=json.loads(item["fit_answers"]["S"]),
+                    aws_readiness_answers=json.loads(
+                        item["aws_readiness_answers"]["S"]
+                    ),
+                    price_answers=json.loads(item["price_answers"]["S"]),
+                    complete=item.get("complete", {}).get("BOOL", False),
+                    created_at=datetime.fromisoformat(item["created_at"]["S"]),
+                    email_confirmed=email_confirmed,
+                )
+            )
+        return sorted(signups, key=lambda signup: signup.created_at)
 
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:
         return f"{tenant_id}#channel#{channel_id}"
