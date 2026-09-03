@@ -8,7 +8,7 @@ export const SHARED_FILES_PAGE_CONTENT = {
   description:
     "Talking to a bot, running a computer, and reading a shared file are three separate capabilities in Chatticus, not one bundle -- and every bot reads and writes the same filing cabinet.",
   ogTitle: "Shared Files",
-  ogDescription: "A bot doesn't need a computer just to touch a file. One filing cabinet, every bot can reach it.",
-  ogHeadline: "A bot doesn't need a computer to touch a file.",
+  ogDescription: "A bot doesn't need a computer just to read a file. One filing cabinet, every bot can reach it.",
+  ogHeadline: "A bot doesn't need a computer to read a file.",
   ogTagline: "Talking, running a computer, and reading a file are three separate things.",
 } as const;

@@ -32,14 +32,14 @@ const steps = [
     body: "Reasoning and plenty of tools don't need a browser or a desktop underneath them — a bot can act on those the moment it's addressed.",
   },
   {
-    label: "Touch a file, no browser required",
-    title: "Reading a shared file is its own fast capability.",
-    body: "It doesn't wait on a browser stack to come up — a bot can read or write a shared file well before a full computer session would be ready.",
+    label: "Reading needs nothing running",
+    title: "A file read serves straight from storage.",
+    body: "No host has to be up at all — reading a shared file doesn't wait on a computer to start, let alone on the browser stack inside it. Writing needs a host's disk loaded, but still never waits on the browser.",
   },
   {
     label: "The full computer, only when the work needs it",
     title: "A real browser starts only for work that needs one.",
-    body: "A site with no API, a form only a browser can fill — that's what actually pulls in the full computer. Most work never needs it.",
+    body: "A site with no API, a form only a browser can fill — that's what actually pulls in the full computer, the slowest capability to come up. Most work never needs it.",
   },
 ];
 
@@ -74,15 +74,14 @@ export default function SharedFilesPage() {
             <Badge variant="clay">Three separate things, not one bundle</Badge>
             <h1 className="mt-7 max-w-4xl font-display text-[clamp(3rem,7vw,6rem)] leading-[0.9] tracking-[-0.06em]">
               A bot doesn&rsquo;t need a computer
-              <span className="block italic text-clay">to touch a file.</span>
+              <span className="block italic text-clay">to read a file.</span>
             </h1>
             <p className="mt-8 max-w-2xl font-body text-lg leading-relaxed text-ink-soft">
               Talking to a bot, running a computer, and reading a shared file
               are three separate capabilities in Chatticus — they don&rsquo;t
               all boot together as one bundle. All three read and write the
               same filing cabinet: a file one bot saves is already there for
-              the next one, whether or not either one ever starts a
-              computer.
+              the next one to read, computer or not.
             </p>
           </div>
         </section>
