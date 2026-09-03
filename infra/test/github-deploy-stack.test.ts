@@ -1,24 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  TRUSTED_DEVELOPMENT_WORKFLOW_REFS,
-  TRUSTED_PRODUCTION_WORKFLOW_REFS,
-  TRUSTED_STAGING_WORKFLOW_REFS,
-} from "../lib/github-deploy-stack";
-import {
   federatedPrincipalConditions,
   roleAssumeRolePolicy,
   synthGitHubDeployStack,
 } from "./github-deploy-stack-harness";
 
-function stringLikeWorkflowRefs(condition: Record<string, unknown>): string[] {
-  const stringLike = condition.StringLike as Record<string, string[]>;
-  return stringLike["token.actions.githubusercontent.com:job_workflow_ref"];
+const GITHUB_SUB_PREFIX = "repo:AnthusAI@152415604/Chattic.us@1350947261";
+
+function subClaim(condition: Record<string, unknown>): string {
+  const stringLike = condition.StringLike as Record<string, string>;
+  return stringLike["token.actions.githubusercontent.com:sub"];
 }
 
-function environmentClaim(condition: Record<string, unknown>): string {
+function audClaim(condition: Record<string, unknown>): string {
   const stringEquals = condition.StringEquals as Record<string, string>;
-  return stringEquals["token.actions.githubusercontent.com:environment"];
+  return stringEquals["token.actions.githubusercontent.com:aud"];
 }
 
 describe("GitHubDeployStack", () => {
@@ -37,50 +34,40 @@ describe("GitHubDeployStack", () => {
     });
   });
 
-  it("trusts development workflows only on the development role", () => {
+  // Trust is scoped by the `sub` claim (repo identity + GitHub environment
+  // name), not by `job_workflow_ref`/`environment` condition keys -- AWS
+  // STS does not evaluate those two custom claim keys for this OIDC
+  // provider/account, confirmed 2026-09-03 (see the comment on
+  // `createGithubDeployRole` in github-deploy-stack.ts for the full
+  // root-cause narrative).
+  it("trusts only the development environment's sub claim on the development role", () => {
     const condition = federatedPrincipalConditions(
       roleAssumeRolePolicy(template, "chatticus-github-actions-deploy"),
     );
-    assert.equal(environmentClaim(condition), "development");
-    assert.deepEqual(
-      stringLikeWorkflowRefs(condition),
-      [...TRUSTED_DEVELOPMENT_WORKFLOW_REFS],
-    );
+    assert.equal(audClaim(condition), "sts.amazonaws.com");
+    assert.equal(subClaim(condition), `${GITHUB_SUB_PREFIX}:environment:development`);
   });
 
-  it("trusts staging workflows only on the staging role", () => {
+  it("trusts only the staging environment's sub claim on the staging role", () => {
     const condition = federatedPrincipalConditions(
       roleAssumeRolePolicy(template, "chatticus-github-actions-deploy-staging"),
     );
-    assert.equal(environmentClaim(condition), "staging");
-    assert.deepEqual(stringLikeWorkflowRefs(condition), [...TRUSTED_STAGING_WORKFLOW_REFS]);
+    assert.equal(subClaim(condition), `${GITHUB_SUB_PREFIX}:environment:staging`);
   });
 
-  it("trusts production workflows only on the production role", () => {
+  it("trusts only the production environment's sub claim on the production role", () => {
     const condition = federatedPrincipalConditions(
       roleAssumeRolePolicy(template, "chatticus-github-actions-deploy-production"),
     );
-    assert.equal(environmentClaim(condition), "production");
-    assert.deepEqual(
-      stringLikeWorkflowRefs(condition),
-      [...TRUSTED_PRODUCTION_WORKFLOW_REFS],
-    );
+    assert.equal(subClaim(condition), `${GITHUB_SUB_PREFIX}:environment:production`);
   });
 
-  it("does not cross-trust staging or production workflow paths on development", () => {
+  it("does not cross-trust staging or production environment claims on development", () => {
     const condition = federatedPrincipalConditions(
       roleAssumeRolePolicy(template, "chatticus-github-actions-deploy"),
     );
-    const trusted = stringLikeWorkflowRefs(condition);
-    for (const workflowRef of [
-      ...TRUSTED_STAGING_WORKFLOW_REFS,
-      ...TRUSTED_PRODUCTION_WORKFLOW_REFS,
-    ]) {
-      assert.equal(
-        trusted.includes(workflowRef),
-        false,
-        `development role must not trust ${workflowRef}`,
-      );
-    }
+    const trusted = subClaim(condition);
+    assert.notEqual(trusted, `${GITHUB_SUB_PREFIX}:environment:staging`);
+    assert.notEqual(trusted, `${GITHUB_SUB_PREFIX}:environment:production`);
   });
 });

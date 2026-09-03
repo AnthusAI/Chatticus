@@ -23,12 +23,12 @@ export function Hero() {
             reportsPresenceAsHero
             showText={false}
             size={140}
-            className="mt-1 shrink-0"
+            className="-mt-[29px] shrink-0"
           />
           <div className="min-w-0">
             <h1
               id="hero-title"
-              className="animate-rise font-display text-[clamp(4.2rem,9.2vw,8.8rem)] font-medium leading-[0.79] tracking-[-0.075em]"
+              className="animate-rise font-display text-[clamp(3.4rem,7.6vw,7.2rem)] font-medium leading-[0.82] tracking-[-0.075em]"
             >
               Shared space for{" "}
               <span className="italic text-clay">
