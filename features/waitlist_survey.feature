@@ -45,3 +45,19 @@ Feature: Waitlist survey submission
   Scenario: The price block asks about total monthly cost
     Given the beta page survey
     Then the price questions name the total including AWS and model tokens
+
+  Scenario: A waitlist signup records the offer terms shown at submission
+    Given a visitor on the beta page
+    And the current offer terms are known
+    When they complete the survey and submit it with the current offer
+    Then the waitlist signup records those offer terms
+
+  Scenario: A waitlist signup captures the offer when the client omits it
+    Given a visitor on the beta page
+    When they complete the survey without sending offer terms
+    Then the waitlist signup records the current offer terms
+
+  Scenario: A repeat submission preserves the first offer snapshot
+    Given a waitlist signup exists with earlier offer terms
+    When a survey is submitted again for that email without offer terms
+    Then the signup still records the earlier offer terms

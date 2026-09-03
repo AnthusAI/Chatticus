@@ -701,6 +701,51 @@ class PriceSensitivityAnswers:
 
 
 @dataclass(frozen=True)
+class OfferSnapshot:
+    """Offer terms shown on the beta page at waitlist submission time."""
+
+    management_fee_cents: int
+    installation_fee_cents: int
+    beta_expectations: tuple[str, ...]
+    professional_services_terms: str
+    professional_training_terms: str
+    created_at: datetime
+    content_hash: str
+    content_version: str
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialize the offer snapshot for durable storage."""
+        return {
+            "management_fee_cents": self.management_fee_cents,
+            "installation_fee_cents": self.installation_fee_cents,
+            "beta_expectations": list(self.beta_expectations),
+            "professional_services_terms": self.professional_services_terms,
+            "professional_training_terms": self.professional_training_terms,
+            "created_at": self.created_at.isoformat(),
+            "content_hash": self.content_hash,
+            "content_version": self.content_version,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> OfferSnapshot:
+        """Deserialize a stored offer snapshot."""
+        beta_expectations = data["beta_expectations"]
+        if not isinstance(beta_expectations, list):
+            msg = "beta_expectations must be a list of strings."
+            raise TypeError(msg)
+        return cls(
+            management_fee_cents=int(data["management_fee_cents"]),  # type: ignore[arg-type]
+            installation_fee_cents=int(data["installation_fee_cents"]),  # type: ignore[arg-type]
+            beta_expectations=tuple(str(item) for item in beta_expectations),
+            professional_services_terms=str(data["professional_services_terms"]),
+            professional_training_terms=str(data["professional_training_terms"]),
+            created_at=datetime.fromisoformat(str(data["created_at"])),
+            content_hash=str(data["content_hash"]),
+            content_version=str(data["content_version"]),
+        )
+
+
+@dataclass(frozen=True)
 class WaitlistSignup:
     """A lead from the public marketing site waitlist survey."""
 
@@ -713,3 +758,4 @@ class WaitlistSignup:
     complete: bool
     created_at: datetime
     email_confirmed: bool = False
+    offer_snapshot: OfferSnapshot | None = None
