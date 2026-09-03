@@ -87,6 +87,11 @@ def _waitlist_signup_from_item(item: dict[str, Any]) -> WaitlistSignup:
         utm_campaign=item.get("utm_campaign", {}).get("S"),
         utm_content=item.get("utm_content", {}).get("S"),
         utm_term=item.get("utm_term", {}).get("S"),
+        waitlist_score=(
+            int(item["waitlist_score"]["N"]) if "waitlist_score" in item else None
+        ),
+        services_qualified=item.get("services_qualified", {}).get("BOOL", False),
+        scoring_weights_version=item.get("scoring_weights_version", {}).get("S"),
     )
 
 
@@ -2467,6 +2472,11 @@ class DynamoMessagingStore:
             item["utm_content"] = {"S": signup.utm_content}
         if signup.utm_term is not None:
             item["utm_term"] = {"S": signup.utm_term}
+        if signup.waitlist_score is not None:
+            item["waitlist_score"] = {"N": str(signup.waitlist_score)}
+            item["services_qualified"] = {"BOOL": signup.services_qualified}
+        if signup.scoring_weights_version is not None:
+            item["scoring_weights_version"] = {"S": signup.scoring_weights_version}
         self.client.put_item(
             TableName=self.table_name,
             Item=item,
