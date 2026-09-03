@@ -65,6 +65,11 @@ from chatticus.computer_capabilities import (
     ComputerCapabilityReadiness,
 )
 from chatticus.computer_start import HostStartClaim
+from chatticus.cross_account_assume_role import (
+    AssumeRoleCallable,
+    CrossAccountAssumeRoleOutcome,
+    attempt_cross_account_assume_role,
+)
 from chatticus.cross_account_provisioning import CrossAccountRoleInspector
 from chatticus.escalation_handoff import (
     ComputerOwnershipClaim,
@@ -418,6 +423,21 @@ class ControlPlane:
             account_id=account_id,
             cross_account_role=cross_account_role,
             role_inspector=role_inspector,
+        )
+
+    def assume_organization_cross_account_role(
+        self,
+        tenant_id: str,
+        *,
+        external_id: str | None = None,
+        assume_role: AssumeRoleCallable,
+    ) -> CrossAccountAssumeRoleOutcome:
+        """Assume one organization's cross-account role with its ExternalId."""
+        organization = self._org_records.get_organization(tenant_id)
+        return attempt_cross_account_assume_role(
+            organization,
+            external_id=external_id,
+            assume_role=assume_role,
         )
 
     def suspend_organization(self, tenant_id: str) -> Organization:

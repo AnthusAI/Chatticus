@@ -31,3 +31,14 @@ Feature: Cross-account provisioning
     Given an organization that has paid but not been provisioned
     Then it records no customer AWS account
     And its status is pending
+
+  Scenario: The role is assumed with the organization ExternalId
+    Given an organization with a provisioned cross-account role
+    When Chatticus assumes that role
+    Then the request carries the ExternalId recorded for that organization
+
+  Scenario: One organization ExternalId does not open another account
+    Given two organizations with cross-account roles in different AWS accounts
+    When Chatticus attempts the first organization role using the second organization ExternalId
+    Then the assume is refused
+    And no session is issued
