@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import queue
+import secrets
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -71,6 +72,12 @@ from chatticus.cross_account_assume_role import (
     attempt_cross_account_assume_role,
 )
 from chatticus.cross_account_provisioning import CrossAccountRoleInspector
+from chatticus.email_sender import (
+    EmailSender,
+    NoOpEmailSender,
+    build_waitlist_confirmation_url,
+    waitlist_confirmation_base_url_from_env,
+)
 from chatticus.escalation_handoff import (
     ComputerOwnershipClaim,
     EscalationRecord,
@@ -200,6 +207,8 @@ class ControlPlane:
         fault_injector: FaultInjector | None = None,
         organization_creation_rate_limit: int | None = None,
         waitlist_submission_rate_limit: int | None = None,
+        email_sender: EmailSender | None = None,
+        waitlist_confirmation_base_url: str | None = None,
     ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
@@ -275,6 +284,12 @@ class ControlPlane:
             if waitlist_submission_rate_limit is not None
             else WAITLIST_SUBMISSION_RATE_LIMIT
         )
+        self._email_sender = email_sender or NoOpEmailSender()
+        self._waitlist_confirmation_base_url = (
+            waitlist_confirmation_base_url
+            if waitlist_confirmation_base_url is not None
+            else waitlist_confirmation_base_url_from_env()
+        )
         self._turn_enqueued = turn_enqueued
         self._computer_enqueued = computer_enqueued
         self._logical_enqueue_delivery_count = 0
@@ -290,6 +305,11 @@ class ControlPlane:
             self._deadline_scheduler = InMemoryTurnDeadlineScheduler(
                 self.handle_turn_deadline
             )
+
+    @property
+    def email_sender(self) -> EmailSender:
+        """Email sender used for waitlist confirmation delivery."""
+        return self._email_sender
 
     def subscribe_turn_events(self, turn_id: str) -> queue.Queue[TurnEvent | None]:
         """Register one SSE watcher and return its dedicated live-event queue."""
@@ -3523,6 +3543,8 @@ class ControlPlane:
         )
         normalized = normalize_email(email)
         existing = self._messaging_store.get_waitlist_signup(normalized)
+        confirmation_token = existing.confirmation_token if existing else None
+        email_confirmed = existing.email_confirmed if existing else False
 
         if existing and existing.offer_snapshot is not None:
             resolved_offer_snapshot = existing.offer_snapshot
@@ -3540,8 +3562,8 @@ class ControlPlane:
             price_sensitivity_answers=price_sensitivity_answers,
             complete=complete,
             created_at=existing.created_at if existing else moment,
-            email_confirmed=existing.email_confirmed if existing else False,
-            confirmation_token=existing.confirmation_token if existing else None,
+            email_confirmed=email_confirmed,
+            confirmation_token=confirmation_token,
             offer_snapshot=resolved_offer_snapshot,
             utm_source=utm_source or (existing.utm_source if existing else None),
             utm_medium=utm_medium or (existing.utm_medium if existing else None),
@@ -3549,6 +3571,15 @@ class ControlPlane:
             utm_content=utm_content or (existing.utm_content if existing else None),
             utm_term=utm_term or (existing.utm_term if existing else None),
         )
+        if confirmation_token is None:
+            token = secrets.token_urlsafe(16)
+            confirmation_url = build_waitlist_confirmation_url(
+                self._waitlist_confirmation_base_url,
+                normalized,
+                token,
+            )
+            self._email_sender.send_confirmation_email(normalized, confirmation_url)
+            signup = replace(signup, confirmation_token=token)
         self._messaging_store.put_waitlist_signup(signup)
         return signup
 
