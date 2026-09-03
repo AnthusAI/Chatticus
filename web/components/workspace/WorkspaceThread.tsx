@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BotAvatarView } from "@/components/BotAvatarView";
-import type { BotAvatarState, WorkspaceMember, WorkspaceMessage } from "./types";
+import type { BotAvatarState, WorkspaceMember, WorkspaceMessage, WorkspaceMessageAuthor } from "./types";
 
 type WorkspaceThreadProps = {
   member: WorkspaceMember | null;
@@ -17,7 +18,128 @@ type WorkspaceThreadProps = {
   composerPlaceholder?: string;
   onDraftChange: (value: string) => void;
   onSend: () => void;
+  /**
+   * Reports the DOM element (a typing indicator, a just-arrived message)
+   * this thread's teammate is currently drawing attention to, so a caller
+   * can point other avatars (e.g. the roster) at the same thing.
+   */
+  onFocusElementChange?: (element: Element | null) => void;
 };
+
+/** Minimum gap between two reveals that both have no typingBeforeMs of their own, so "instant" messages don't pop in on the same frame. */
+const MIN_REVEAL_STAGGER_MS = 260;
+
+/** How long a newly-revealed message holds the shared gaze focus before releasing it, absent something newer to look at. */
+const MESSAGE_GLANCE_DURATION_MS = 1600;
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * Reveals `messages` one at a time (optionally preceded by a typing
+ * indicator, per message.typingBeforeMs) instead of dumping the whole
+ * array in at once, and pops in a message's `reaction` after its own
+ * delay. This is real behavior of the shared thread component -- not a
+ * marketing-only affordance -- so it has to behave correctly for a live
+ * app too:
+ *
+ * - A brand-new message set (switching members, or the demo swapping to a
+ *   new scripted beat) resets and replays from the start.
+ * - Messages *appended* to the same set already on screen (the real app,
+ *   mid-conversation) continue from wherever the reveal sequence already
+ *   was instead of replaying the whole history -- a real chat should
+ *   never re-animate messages the user already read.
+ * - Messages with no `typingBeforeMs`/`reaction` (every real message
+ *   today) reveal with just a brief stagger and no typing indicator --
+ *   this hook is a no-op in spirit for the current real app, and only
+ *   changes behavior once something actually sets that metadata.
+ * - `prefers-reduced-motion` reveals everything immediately.
+ */
+function useRevealedMessages(member: WorkspaceMember | null, messages: WorkspaceMessage[]) {
+  const [revealedCount, setRevealedCount] = useState(0);
+  const [typingAuthor, setTypingAuthor] = useState<WorkspaceMessageAuthor | null>(null);
+  const [visibleReactionIds, setVisibleReactionIds] = useState<ReadonlySet<string>>(new Set());
+  const [glanceMessageId, setGlanceMessageId] = useState<string | null>(null);
+
+  const prevMemberIdRef = useRef<string | null>(null);
+  const prevMessagesRef = useRef<WorkspaceMessage[]>([]);
+  const revealedCountRef = useRef(0);
+  revealedCountRef.current = revealedCount;
+
+  useEffect(() => {
+    const sameMember = prevMemberIdRef.current === (member?.id ?? null);
+    const previous = prevMessagesRef.current;
+    const isAppend =
+      sameMember &&
+      messages.length >= previous.length &&
+      previous.every((prevMessage, index) => messages[index]?.id === prevMessage.id);
+
+    prevMemberIdRef.current = member?.id ?? null;
+    prevMessagesRef.current = messages;
+
+    if (prefersReducedMotion()) {
+      setRevealedCount(messages.length);
+      setTypingAuthor(null);
+      setVisibleReactionIds(new Set(messages.filter((message) => message.reaction).map((message) => message.id)));
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+    const schedule = (delay: number, action: () => void) => {
+      timeouts.push(
+        setTimeout(() => {
+          if (!cancelled) action();
+        }, delay),
+      );
+    };
+
+    const startIndex = isAppend ? Math.min(revealedCountRef.current, messages.length) : 0;
+    if (!isAppend) {
+      setRevealedCount(0);
+      setTypingAuthor(null);
+      setVisibleReactionIds(new Set());
+    }
+
+    function revealFrom(index: number) {
+      if (index >= messages.length) {
+        setTypingAuthor(null);
+        return;
+      }
+      const message = messages[index];
+      const delay = Math.max(message.typingBeforeMs ?? 0, index === startIndex ? 0 : MIN_REVEAL_STAGGER_MS);
+      if (message.typingBeforeMs) {
+        setTypingAuthor(message.author);
+      }
+      schedule(delay, () => {
+        setTypingAuthor(null);
+        setRevealedCount(index + 1);
+        setGlanceMessageId(message.id);
+        schedule(MESSAGE_GLANCE_DURATION_MS, () => {
+          setGlanceMessageId((current) => (current === message.id ? null : current));
+        });
+        if (message.reaction) {
+          schedule(message.reaction.delayMs, () => {
+            setVisibleReactionIds((current) => new Set(current).add(message.id));
+          });
+        }
+        revealFrom(index + 1);
+      });
+    }
+    revealFrom(startIndex);
+
+    return () => {
+      cancelled = true;
+      timeouts.forEach(clearTimeout);
+    };
+  }, [member?.id, messages]);
+
+  return { revealedCount, typingAuthor, visibleReactionIds, glanceMessageId };
+}
 
 export function WorkspaceThread({
   member,
@@ -31,14 +153,38 @@ export function WorkspaceThread({
   composerPlaceholder,
   onDraftChange,
   onSend,
+  onFocusElementChange,
 }: WorkspaceThreadProps) {
   const composerDisabled = disabled || !member || sending || draft.trim().length === 0;
+  const { revealedCount, typingAuthor, visibleReactionIds, glanceMessageId } = useRevealedMessages(member, messages);
+  const visibleMessages = messages.slice(0, revealedCount);
+
+  const [typingIndicatorElement, setTypingIndicatorElement] = useState<HTMLElement | null>(null);
+  const messageElementsRef = useRef(new Map<string, HTMLElement>());
+  const [focusElement, setFocusElement] = useState<Element | null>(null);
+
+  // Recomputed after commit (not during render) so a message that just
+  // became the glance target already has its DOM ref attached.
+  useEffect(() => {
+    const glanceElement = glanceMessageId ? (messageElementsRef.current.get(glanceMessageId) ?? null) : null;
+    setFocusElement(typingIndicatorElement ?? glanceElement ?? null);
+  }, [typingIndicatorElement, glanceMessageId]);
+
+  useEffect(() => {
+    onFocusElementChange?.(focusElement);
+  }, [focusElement, onFocusElementChange]);
 
   return (
     <section className="rounded-2xl bg-surface-raised p-3" aria-label="Conversation">
       {member ? (
         <div className="flex items-center gap-2 pb-2">
-          <BotAvatarView botName={member.name} role={member.role} state={memberState} size={40} />
+          <BotAvatarView
+            botName={member.name}
+            role={member.role}
+            state={memberState}
+            size={40}
+            focusElement={focusElement}
+          />
           <div className="min-w-0">
             {member.meta ? (
               <p className="truncate font-mono text-[0.49rem] uppercase tracking-[0.13em] text-surface-foreground/60">
@@ -63,11 +209,15 @@ export function WorkspaceThread({
       {member ? (
         <>
           <div className="grid h-[15rem] content-start gap-2 overflow-y-auto">
-            {messages.map((message) => (
+            {visibleMessages.map((message) => (
               <div
                 key={message.id}
+                ref={(element) => {
+                  if (element) messageElementsRef.current.set(message.id, element);
+                  else messageElementsRef.current.delete(message.id);
+                }}
                 className={cn(
-                  "rounded-xl px-3 py-2",
+                  "animate-rise rounded-xl px-3 py-2",
                   message.author === "operator" ? "bg-surface-high" : "bg-signal text-ink",
                 )}
               >
@@ -75,8 +225,30 @@ export function WorkspaceThread({
                   {message.authorLabel}
                 </p>
                 <p className="font-body text-sm leading-relaxed">{message.body}</p>
+                {message.reaction && visibleReactionIds.has(message.id) ? (
+                  <span
+                    className="animate-pop mt-1.5 inline-flex w-fit items-center rounded-full bg-surface px-2 py-0.5 text-sm text-surface-foreground"
+                    aria-hidden="true"
+                  >
+                    {message.reaction.emoji}
+                  </span>
+                ) : null}
               </div>
             ))}
+            {typingAuthor ? (
+              <div
+                ref={setTypingIndicatorElement}
+                className={cn(
+                  "flex w-fit items-center gap-1 rounded-xl px-3 py-2.5",
+                  typingAuthor === "operator" ? "bg-surface-high" : "bg-signal text-ink",
+                )}
+                aria-hidden="true"
+              >
+                <span className="animate-typing-bounce h-1.5 w-1.5 rounded-full bg-current [animation-delay:0ms]" />
+                <span className="animate-typing-bounce h-1.5 w-1.5 rounded-full bg-current [animation-delay:150ms]" />
+                <span className="animate-typing-bounce h-1.5 w-1.5 rounded-full bg-current [animation-delay:300ms]" />
+              </div>
+            ) : null}
           </div>
 
           <form

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Pause, Play } from "lucide-react";
 import { WorkspaceRoster } from "./WorkspaceRoster";
 import { WorkspaceThread } from "./WorkspaceThread";
@@ -52,6 +53,10 @@ export function WorkspacePanel({
   onTogglePaused,
 }: WorkspacePanelProps) {
   const selectedMember = members.find((member) => member.id === selectedMemberId) ?? null;
+  // Whatever the selected teammate's thread is currently drawing attention
+  // to (a typing indicator, a just-arrived message) -- shared out to the
+  // whole roster so every avatar can notice it, not just the header one.
+  const [focusElement, setFocusElement] = useState<Element | null>(null);
 
   return (
     <section
@@ -86,6 +91,7 @@ export function WorkspacePanel({
           error={rosterError}
           onSelect={onSelectMember}
           onRetry={onRetryRoster}
+          focusElement={focusElement}
         />
         <WorkspaceThread
           member={selectedMember}
@@ -99,6 +105,7 @@ export function WorkspacePanel({
           composerPlaceholder={composerPlaceholder}
           onDraftChange={onDraftChange}
           onSend={onSend}
+          onFocusElementChange={setFocusElement}
         />
       </div>
     </section>

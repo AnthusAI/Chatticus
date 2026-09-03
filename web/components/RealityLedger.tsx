@@ -67,7 +67,7 @@ export function RealityLedger() {
               id="ledger-title"
               className="mt-7 font-display text-[clamp(3.7rem,7vw,7rem)] leading-[0.86] tracking-[-0.065em]"
             >
-              The roadmap is not a testimonial.
+              What&rsquo;s built. What&rsquo;s proven. What&rsquo;s next.
             </h2>
           </div>
           <p className="max-w-2xl font-body text-lg leading-relaxed text-ink-soft lg:justify-self-end">
