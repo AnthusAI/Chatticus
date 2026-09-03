@@ -8,6 +8,10 @@ Feature: Beta waitlist marketing funnel
     Then it fetches GET /waitlist/survey
     And it renders an email field, a fit block, an AWS readiness block, a setup-path block, a price sensitivity block, a professional services interest question, and a training interest question
 
+  Scenario: the beta form renders a textarea for the work description
+    When the survey form is rendered
+    Then the work description question is a tall textarea
+
   Scenario: a complete survey submission is recorded
     Given a visitor who has filled in their work email and all survey blocks
     When they submit the survey

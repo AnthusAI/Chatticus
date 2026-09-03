@@ -12,6 +12,7 @@ export type WaitlistSurveyQuestion = {
   id: string;
   prompt: string;
   choices?: WaitlistSurveyChoice[];
+  multiline?: boolean;
 };
 
 export type WaitlistSurvey = {
