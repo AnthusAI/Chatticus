@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-903bc940-992f-460c-9be5-3d63ce0437e2",
+  "title": "Recalibrate the scoring weights against what actually converted",
+  "description": "**Phase 5 of 5.**\n\n- **Blocked by:** the funnel reporting story\n- **Runs in parallel with:** the other readout tasks\n- **Unblocks:** nothing\n\n---\nA task because the deliverable is a revised weights table and the judgement behind it.\n\nThe weights that shipped are a starting heuristic invented before any data existed. After fifty confirmed signups, check each one against outcomes: did a high score predict paying, predict activating, predict buying services? Which signals turned out to carry nothing?\n\nThe likely finding is that fewer signals matter than were guessed, and the discipline is to delete rather than add. A scoring model with five predictive signals beats one with twelve where seven are noise, and it is explainable to the operator working the queue.\n\nBump the weights version when they change, so old scores stay interpretable.\n\n**Done when:** the revised weights are in force, the version is bumped, and the reasoning is in the wiki.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-29f5b5ab-758a-4249-933e-eeb4026e2143",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:21:15.320028Z",
+  "updated_at": "2026-09-03T13:21:15.320289Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

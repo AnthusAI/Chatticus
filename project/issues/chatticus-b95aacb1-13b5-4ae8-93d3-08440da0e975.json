@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "title": "The beta pitch and the waitlist survey",
+  "description": "**Phase 1 of 5.** Nothing blocks it. Runs in parallel with the cross-account provisioning epic.\n\nThe top of the funnel: a third CTA on the marketing home page, a /beta pitch page, and an unauthenticated survey that writes one waitlist record.\n\n**No sign-in anywhere in this epic.** Nothing behind the survey needs an identity yet, and an auth wall in front of a form is the most reliable way to lose the top of a funnel. Authentication appears exactly once in this initiative, at checkout, where it is a formality. The work email field comes first and saves on blur, so an abandoned survey still leaves a lead.\n\nThe pitch page states four costs together \u2014 the floated $19.95 monthly fee, AWS billed to the customer, model tokens billed to the customer, and the one-time setup fee. This is not a disclosure nicety. A page that floats $19.95 and leaves the other three implicit measures what people will pay for a $19.95 thing and then watches them churn when the AWS bill lands, which reads as demand and is not.\n\nThe survey is nineteen questions across three blocks: fit, AWS readiness, and price. That is longer than ideal and it is the right call, because the AWS block disqualifies people who could never be customers. Expect a lower completion rate and treat where people drop as a market finding rather than a form problem.\n\n**Start with:** the public waitlist endpoint. Everything else on the page is copy, and copy can move while the record shape settles.",
+  "type": "epic",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:14:54.683689Z",
+  "updated_at": "2026-09-03T13:14:54.683980Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

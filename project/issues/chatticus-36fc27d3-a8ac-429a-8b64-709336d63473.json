@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-36fc27d3-a8ac-429a-8b64-709336d63473",
+  "title": "An operator receives a weekly waitlist digest",
+  "description": "**Phase 2 of 5.**\n\n- **Blocked by:** the scoring and disqualification stories\n- **Runs in parallel with:** the invitation story\n- **Unblocks:** nothing\n\n---\nNew signups, the score distribution, the disqualified count, the price answers so far, and **the full text of every free-text answer describing the work they want done.**\n\nThat last part is the point. At beta volume, reading those verbatim is worth more than any chart, and a digest that summarizes them into a count throws away the only qualitative signal the funnel produces. The free-text answer is also the lead: someone who writes a brief has told you they have already thought about it, and quoting it back at them is what the 48-hour reply is made of.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b2de8891-df4e-4558-8660-230e36b16dd9",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "3f1bfd7d-9ba5-40da-8c46-76d3362bb74c",
+      "author": "unknown",
+      "text": "Feature: Waitlist triage\n\n  Scenario: The weekly digest carries the qualitative answers in full\n    Given waitlist signups confirmed during the week\n    When the weekly digest is produced\n    Then it reports the new signup count and the score distribution\n    And it reports the disqualified count\n    And it includes the full text of each free-text work description\n\n  Scenario: A quiet week still reports\n    Given no waitlist signups confirmed during the week\n    When the weekly digest is produced\n    Then it reports that there were none",
+      "created_at": "2026-09-03T13:18:55.555786Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:18:54.409175Z",
+  "updated_at": "2026-09-03T13:18:55.555917Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

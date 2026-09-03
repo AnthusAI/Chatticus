@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "title": "Cross-account provisioning into the customer's AWS",
+  "description": "**Phase 1 of 5.** Nothing blocks it. Runs in parallel with the pitch and survey epic. Joins the critical path at paid enablement.\n\nChatticus deploys the organization computer into an AWS account the customer owns and pays for. This epic is the mechanism.\n\n**One correction on mechanism, because it changes what gets built.** AWS Resource Access Manager shares specific resources across accounts \u2014 subnets, transit gateways, license configurations. It is the right tool for one narrow thing here: placing the organization computer inside a VPC the customer already owns. It is not the mechanism for deploying into their account. That mechanism is a cross-account IAM role: the customer runs a CloudFormation template Chatticus publishes, which creates a role scoped to exactly the permissions needed, trusting the Anthus principal and requiring a per-organization ExternalId. Chatticus then calls sts:AssumeRole. This is the pattern Datadog, Wiz and Vanta onboard with, and customers' security teams already recognize it \u2014 which is worth a great deal when the ask is access to a production account.\n\nTwo setup paths, and the difference is billing, not technology:\n\n- **Path A, their existing account.** They own and pay for it, Anthus holds a scoped role. No credit risk, no reseller relationship. Recommend a dedicated account inside their AWS Organization rather than their main production account: cleaner blast radius, easier security approval, and it makes the cost of Chatticus legible to them. **This is what the beta ships.**\n- **Path B, an account Anthus creates, billed to them.** Either it lives in their AWS Organization, which needs access to their management account and is a far larger ask than a role, or it lives in ours and we re-bill, which makes Anthus an AWS reseller with credit risk and a partner-status question. Delivered by hand, priced accordingly, and explicitly out of scope for automation.\n\nAWS Marketplace resolves the billing question properly and lets customers spend committed AWS budget on the fee. Too much to build now, but it is the destination, and the role and provisioning shape should not foreclose it.\n\n**Start with:** provisioning one throwaway account end to end by hand. Nothing else in this initiative can be scheduled or priced until that elapsed time is known.",
+  "type": "epic",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:15:08.373478Z",
+  "updated_at": "2026-09-03T13:15:08.373641Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

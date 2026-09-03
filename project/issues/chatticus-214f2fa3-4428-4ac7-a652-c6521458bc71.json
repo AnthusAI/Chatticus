@@ -3,7 +3,7 @@
   "title": "Automated live-stack integration test in Fargate with an IAM role",
   "description": "Replace the deleted live_aws_thin_turn.sh laptop+pasted-JWT approach with a real automated check that runs inside AWS (Fargate task or Lambda) using an IAM role, so it exercises the live named ThinTurn stack end-to-end with no human copying a token. Central design question: user routes require a Cognito id_token (human OAuth) which an IAM role cannot mint; the plan must resolve how the container authenticates to initiate a user turn (worker-seeded message, a new machine/service principal, Cognito ROPC test user, or worker+health only). Respect: named stacks only, never cdk deploy --all, Computers desiredCount stays 0, Gherkin-first for any new behavior, pytest only for pure helpers.",
   "type": "chore",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -37,11 +37,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "ba412dcd-66db-4384-8427-d332f215de80",
+      "author": "home",
+      "text": "PR #208 squash-merged to develop. SigV4 session-exchange auth (dev + staging, disabled in production), Lambda runner in ChatticusIntegrationTest stack, dedicated integration-test tenant/user, smoke tier. Full tier (computer/grants/tasks) is follow-up. Deploy of the named stacks (ChatticusThinTurn dev+staging, ChatticusIntegrationTest) is operator-gated.",
+      "created_at": "2026-09-02T22:36:40.804704Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-02T22:02:48.151403Z",
-  "updated_at": "2026-09-02T22:13:19.515385Z",
-  "closed_at": null,
+  "updated_at": "2026-09-02T22:37:04.598142Z",
+  "closed_at": "2026-09-02T22:37:04.597490Z",
   "right_now_summary": "A planner is resolving how an IAM-role container can authenticate and test the live ThinTurn stack.",
   "right_now_updated_at": "2026-09-02T22:03:54.115483Z",
   "custom": {},

@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-b47c1bd9-3f4b-493b-b1a5-1c38192f4d20",
+  "title": "Define the release channel, the rollout order, and the rollback path",
+  "description": "**Phase 4 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the release record story\n- **Unblocks:** the ordering and update stories\n\n---\nA task because the deliverable is a written operating procedure, not behavior.\n\nDecide and record: what constitutes a release, how it is versioned, the rollout order after Anthus (a canary customer, then a cohort, then the rest, or something simpler), how long a release sits at each stage before advancing, what automatically halts a rollout, who can halt one by hand, and how a rollback is executed and verified.\n\n**Write this before the automation exists.** The stories in this epic implement a policy, and a policy invented while implementing it will be the one that was easiest to code rather than the one that keeps customer deployments working. This is also the document a security-conscious customer will ask for when they want to know what we can change in their account and under what circumstances \u2014 which makes it a sales asset, not only an internal runbook.\n\n**Done when:** the procedure is in the wiki and the rollback path has been executed once against a real deployment.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-5b21313c-63fe-4530-a6e1-687399fab773",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:40:19.147343Z",
+  "updated_at": "2026-09-03T13:40:19.147577Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

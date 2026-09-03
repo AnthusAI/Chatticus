@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-319834d9-54ed-4884-8334-3e894ac75416",
+  "title": "The home page presents four rungs of delegated responsibility",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the AWS positioning story\n- **Runs in parallel with:** the FAQ story\n- **Unblocks:** the beta page pricing story\n\n---\nA new section, with its own nav anchor beside #organization, #control, #evidence and #faq. It goes after the product is explained and before the FAQ: by then a reader knows what the thing is and the open question is what it costs them to run it.\n\nFour rungs, in this order, because the order is the argument \u2014 it starts from the rung where Anthus is not involved at all and each step up is a choice to delegate more:\n\n1. **Fork it.** MIT licensed. Deploy it yourself. Anthus does nothing and charges nothing.\n2. **Self-setup, managed.** You run the CloudFormation template in your account; we operate it and keep it updated as we update our own. $20 a month.\n3. **Assisted setup, managed.** We run the setup session with you, then operate it. $20 a month and $100 once.\n4. **Professional services.** We adapt a deployment to your exact needs, with or without the managed service. Quoted.\n\nEvery rung names its price, including the free one and the quoted one. A ladder with a gap where a price should be reads as the rung where the real money is hidden.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-935a98f4-53b4-485f-a01b-828a93bc3faf",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "8293bbe0-87d9-4fdd-9492-5d3897f3f079",
+      "author": "unknown",
+      "text": "Feature: Delegation ladder positioning\n\n  Scenario: The home page offers four rungs, each with a price\n    Given the chattic.us home page\n    When I look at the delegated responsibility section\n    Then it offers forking and self-deploying at no cost\n    And it offers self-setup with managed operation at a monthly price\n    And it offers assisted setup with managed operation at a monthly price and a one-time fee\n    And it offers professional services as a quote\n\n  Scenario: The managed rungs say what managed means\n    Given the delegated responsibility section\n    Then the managed rungs state that Anthus keeps the deployment updated\n    And they state that Anthus updates its own organizations first",
+      "created_at": "2026-09-03T13:39:27.001839Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:39:25.181184Z",
+  "updated_at": "2026-09-03T13:39:27.001986Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
