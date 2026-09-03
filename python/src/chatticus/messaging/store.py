@@ -45,6 +45,7 @@ from chatticus.models import (
     TurnEvent,
     TurnEventKind,
     TurnStatus,
+    WaitlistSignup,
     WorkerRecord,
     WorkerRegistration,
 )
@@ -350,6 +351,13 @@ class MessagingStore(Protocol):
         """Persist vendor threshold notification dedup state."""
 
 
+    def put_waitlist_signup(self, signup: WaitlistSignup) -> None:
+        """Persist one waitlist signup."""
+
+    def get_waitlist_signup(self, email: str) -> WaitlistSignup | None:
+        """Load one waitlist signup by email."""
+
+
 class InMemoryMessagingStore:
     """In-memory store for fast kernel tests."""
 
@@ -380,6 +388,7 @@ class InMemoryMessagingStore:
         self._vendor_ledger: dict[tuple[str, str], VendorLedgerRow] = {}
         self._budget_rollups: dict[tuple[str, str, str], BudgetRollupRow] = {}
         self._budget_threshold_state: dict[str, BudgetThresholdState] = {}
+        self._waitlist_signups: dict[str, WaitlistSignup] = {}
         self._lock = threading.Lock()
 
     def put_channel(self, channel: Channel) -> None:
@@ -919,6 +928,13 @@ class InMemoryMessagingStore:
     def put_budget_threshold_state(self, state: BudgetThresholdState) -> None:
         with self._lock:
             self._budget_threshold_state[state.environment] = state
+
+    def put_waitlist_signup(self, signup: WaitlistSignup) -> None:
+        with self._lock:
+            self._waitlist_signups[signup.email] = signup
+
+    def get_waitlist_signup(self, email: str) -> WaitlistSignup | None:
+        return self._waitlist_signups.get(email)
 
 
 class DynamoMessagingStore:
@@ -2296,6 +2312,41 @@ class DynamoMessagingStore:
                 "last_notified_band": {"N": str(state.last_notified_band)},
                 "updated_at": {"S": state.updated_at.isoformat()},
             },
+        )
+
+    def put_waitlist_signup(self, signup: WaitlistSignup) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": f"WAITLIST#{signup.email}"},
+                "sk": {"S": "SIGNUP"},
+                "email": {"S": signup.email},
+                "fit_answers": {"S": json.dumps(signup.fit_answers)},
+                "aws_readiness_answers": {"S": json.dumps(signup.aws_readiness_answers)},
+                "price_answers": {"S": json.dumps(signup.price_answers)},
+                "complete": {"BOOL": signup.complete},
+                "created_at": {"S": signup.created_at.isoformat()},
+            },
+        )
+
+    def get_waitlist_signup(self, email: str) -> WaitlistSignup | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": f"WAITLIST#{email}"},
+                "sk": {"S": "SIGNUP"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return WaitlistSignup(
+            email=item["email"]["S"],
+            fit_answers=json.loads(item["fit_answers"]["S"]),
+            aws_readiness_answers=json.loads(item["aws_readiness_answers"]["S"]),
+            price_answers=json.loads(item["price_answers"]["S"]),
+            complete=item.get("complete", {}).get("BOOL", False),
+            created_at=datetime.fromisoformat(item["created_at"]["S"]),
         )
 
     def _channel_pk(self, tenant_id: str, channel_id: str) -> str:

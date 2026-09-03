@@ -78,6 +78,16 @@ INVOKE_HEADER = "X-Chatticus-Invoke-Key"
 TENANT_HEADER = "X-Tenant-Id"
 
 
+class SubmitWaitlistBody(BaseModel):
+    """Body for POST /waitlist."""
+
+    email: str
+    fit_answers: dict[str, str] = Field(default_factory=dict)
+    aws_readiness_answers: dict[str, str] = Field(default_factory=dict)
+    price_answers: dict[str, str] = Field(default_factory=dict)
+    complete: bool
+
+
 class CreateChannelBody(BaseModel):
     """Body for POST /channels."""
 
@@ -350,6 +360,17 @@ def create_app(
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "environment": state.environment}
+
+    @app.post("/waitlist")
+    def submit_waitlist(body: SubmitWaitlistBody) -> dict[str, str]:
+        state.plane.record_waitlist_signup(
+            email=body.email,
+            fit_answers=body.fit_answers,
+            aws_readiness_answers=body.aws_readiness_answers,
+            price_answers=body.price_answers,
+            complete=body.complete,
+        )
+        return {"status": "recorded"}
 
     if integration_test_session_enabled(state.integration_test_auth):
 
