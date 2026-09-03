@@ -76,6 +76,7 @@ Deploy and accept against named cloud environments from the start:
 - Computer snapshots: publish to S3, administrator relocate, host hydrate
 - docker-compose for local control plane + computer
 - Fargate (and optional EC2) path in AWS
+- Computer manifold memo: work kinds vs hosts ([Computer manifold](COMPUTER_MANIFOLD.md); design only)
 
 This repository currently encodes worker routing, approvals, and
 snapshot/relocate in Gherkin and an in-memory Python control plane.

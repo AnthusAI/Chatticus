@@ -149,7 +149,7 @@ Failover when a prefer-local Mac's heartbeat dies is the same hydrate path on
 an AWS host, from the last published snapshot. Work that was never
 published is gone.
 
-See [Computer snapshots](COMPUTER_SNAPSHOTS.md).
+See [Computer snapshots](COMPUTER_SNAPSHOTS.md) and [Computer manifold](COMPUTER_MANIFOLD.md) (work-kind placement; not implemented).
 
 ## What lives where
 

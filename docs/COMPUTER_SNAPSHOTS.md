@@ -11,6 +11,9 @@ durable workplace is a **snapshot in S3**. A host that should run the
 computer **hydrates** that snapshot onto local disk, runs, then **publishes**
 again before someone else takes over.
 
+For how hosts are chosen from declared work kinds (manifold; not implemented),
+see [Computer manifold](COMPUTER_MANIFOLD.md).
+
 ## What is stored where
 
 The Ubuntu image (Xvfb, Chromium, worker, agent) lives in a **registry**
