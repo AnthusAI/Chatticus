@@ -11,6 +11,11 @@ from typing import TYPE_CHECKING, Annotated, Final
 from fastapi import Depends, HTTPException, Request
 
 from chatticus.cognito_jwt import CognitoJwtVerifier, CognitoTokenError
+from chatticus.http.integration_test_auth import (
+    IntegrationTestAuthConfig,
+    resolve_integration_test_principal,
+    verify_integration_test_token,
+)
 from chatticus.models import (
     IdentityNotFoundError,
     MemberRole,
@@ -28,7 +33,9 @@ _PRINCIPAL_POLICY_ATTR: Final = "__chatticus_principal_policy__"
 _WORKER_ROUTE_ATTR: Final = "__chatticus_worker_route__"
 
 # Routes that never participate in principal resolution or the marker system.
-NO_PRINCIPAL_ROUTES: Final[frozenset[str]] = frozenset({"/health"})
+NO_PRINCIPAL_ROUTES: Final[frozenset[str]] = frozenset(
+    {"/health", "/integration-test/session"}
+)
 NO_PRINCIPAL_ROUTE_PREFIXES: Final[tuple[str, ...]] = ("/auth/",)
 
 # Waitlist-safe routes are opt-out: each path must be named explicitly.
@@ -326,7 +333,7 @@ async def enforce_worker_principal(request: Request, tenant_id: str) -> Principa
 
 
 async def enforce_user_principal(request: Request, tenant_id: str) -> Principal:
-    """Require a Cognito id_token for one org-scoped user route."""
+    """Require Cognito id_token or integration bearer on org user routes."""
     token = parse_bearer_token(request.headers.get("Authorization"))
     if token is None:
         raise HTTPException(status_code=403, detail="user credential required")
@@ -336,6 +343,34 @@ async def enforce_user_principal(request: Request, tenant_id: str) -> Principal:
             status_code=403,
             detail="worker credential not accepted on this route",
         )
+    integration_config: IntegrationTestAuthConfig | None = getattr(
+        request.app.state.chatticus,
+        "integration_test_auth",
+        None,
+    )
+    if integration_config is not None and verify_integration_test_token(
+        token,
+        config=integration_config,
+    ):
+        principal = resolve_integration_test_principal(
+            plane,
+            tenant_id,
+            token,
+            config=integration_config,
+        )
+        request.state.integration_test_auth = True
+        route_policy = _route_policy_for_request(request)
+        policy = PrincipalRoutePolicy(
+            waitlist_safe=route_policy.waitlist_safe,
+            audience=PrincipalAudience.USER,
+        )
+        try:
+            verify_principal_audience(principal, audience=policy.audience)
+            verify_org_access(principal, tenant_id, policy=policy, plane=plane)
+        except (OrgAccessDeniedError, PrincipalAudienceDeniedError) as error:
+            raise _http_forbidden_from_principal_error(error) from error
+        _store_principal(request, principal)
+        return principal
     verifier = _cognito_verifier_from_request(request)
     try:
         principal = resolve_user_principal_from_token(

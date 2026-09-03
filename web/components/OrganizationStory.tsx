@@ -19,7 +19,7 @@ const foundation = [
     icon: BrainCircuit,
     number: "01",
     eyebrow: "Identity",
-    title: "A teammate, not a blank chat.",
+    title: "Remembers the last time you talked.",
     description:
       "Each bot has a name, durable memory, and a role in the work. Context compounds instead of disappearing at the end of a prompt.",
     status: "Live foundation",
@@ -76,9 +76,9 @@ export function OrganizationStory() {
             id="organization-title"
             className="font-display text-[clamp(3.5rem,7vw,7.6rem)] leading-[0.88] tracking-[-0.065em]"
           >
-            The next step is not a smarter assistant.
+            The next step isn&rsquo;t a smarter assistant.
             <span className="block italic text-signal">
-              It is a better organization.
+              It&rsquo;s a better organization.
             </span>
           </h2>
         </div>

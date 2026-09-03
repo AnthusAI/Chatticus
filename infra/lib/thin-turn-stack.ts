@@ -19,6 +19,7 @@ import {
 } from "./computer-host-start";
 import {
   ChatticusCloudEnvironment,
+  integrationTestParameterPrefix,
   openAiApiKeyParameterName,
   signupModeForEnvironment,
   thinTurnExportName,
@@ -55,6 +56,7 @@ export class ThinTurnStack extends cdk.Stack {
     const environmentName = props.chatticusEnvironment;
     const parameterPrefix = thinTurnParameterPrefix(environmentName);
     const webPrefix = webParameterPrefix(environmentName);
+    const integrationPrefix = integrationTestParameterPrefix(environmentName);
     const openAiParameterName = openAiApiKeyParameterName(environmentName);
     const retainData = environmentName !== "development";
     cdk.Tags.of(this).add("chatticus:environment", environmentName);
@@ -197,6 +199,9 @@ export class ThinTurnStack extends cdk.Stack {
         AWS_LWA_PORT: "8080",
         AWS_LWA_READINESS_CHECK_PATH: "/health",
         CHATTICUS_INVOKE_KEY: invokeSecret.secretValue.unsafeUnwrap(),
+        ...(environmentName !== "production"
+          ? { CHATTICUS_INTEGRATION_TEST_ENABLED: "1" }
+          : {}),
       },
       code: httpCode,
     });
@@ -255,6 +260,11 @@ export class ThinTurnStack extends cdk.Stack {
           `arn:aws:ssm:${this.region}:${this.account}:parameter${openAiParameterName}`,
           `arn:aws:ssm:${this.region}:${this.account}:parameter${webPrefix}/cognito-user-pool-id`,
           `arn:aws:ssm:${this.region}:${this.account}:parameter${webPrefix}/cognito-app-client-id`,
+          ...(environmentName !== "production"
+            ? [
+                `arn:aws:ssm:${this.region}:${this.account}:parameter${integrationPrefix}/*`,
+              ]
+            : []),
         ],
       }),
     );
@@ -460,6 +470,26 @@ export class ThinTurnStack extends cdk.Stack {
       parameterName: `${parameterPrefix}/invoke-key-secret-arn`,
       stringValue: invokeSecret.secretArn,
       description: `Invoke-key secret ARN for the ${environmentName} thin-turn front door.`,
+    });
+    new ssm.StringParameter(this, "TurnQueueUrlParameter", {
+      parameterName: `${parameterPrefix}/turn-queue-url`,
+      stringValue: turnQueue.queueUrl,
+      description: `CPU turn queue URL for the ${environmentName} thin turn.`,
+    });
+    new ssm.StringParameter(this, "TurnQueueArnParameter", {
+      parameterName: `${parameterPrefix}/turn-queue-arn`,
+      stringValue: turnQueue.queueArn,
+      description: `CPU turn queue ARN for the ${environmentName} thin turn.`,
+    });
+    new ssm.StringParameter(this, "ComputerTurnQueueUrlParameter", {
+      parameterName: `${parameterPrefix}/computer-turn-queue-url`,
+      stringValue: computerTurnQueue.queueUrl,
+      description: `Computer turn queue URL for the ${environmentName} thin turn.`,
+    });
+    new ssm.StringParameter(this, "ComputerTurnQueueArnParameter", {
+      parameterName: `${parameterPrefix}/computer-turn-queue-arn`,
+      stringValue: computerTurnQueue.queueArn,
+      description: `Computer turn queue ARN for the ${environmentName} thin turn.`,
     });
 
     new cdk.CfnOutput(this, "ChatticusEnvironment", { value: environmentName });

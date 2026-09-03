@@ -3,17 +3,29 @@
   "title": "Confirm operator run of live_aws_thin_turn.sh development with CHATTICUS_LIVE_ID_TOKEN set",
   "description": "",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": null,
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "6de1ae0a-b1db-4ad8-8d5e-4a91d9fa41a1",
+      "author": "home",
+      "text": "Decision: delete live_aws_thin_turn.sh + exercise_thin_turn.py and their tests instead of running them. The script is optional operator machinery; the token friction is not worth it. Live stack proof stays manual via dev.chattic.us sign-in. Dispatching Composer 2.5 implementer in /tmp/chatticus-delete-live-script on branch chore/delete-live-thin-turn-script.",
+      "created_at": "2026-09-02T22:01:09.408736Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-02T00:50:47.263378Z",
-  "updated_at": "2026-09-02T00:50:47.263378Z",
+  "updated_at": "2026-09-02T22:01:09.408826Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
   "custom": {},
   "agent": null
 }

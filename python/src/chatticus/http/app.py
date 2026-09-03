@@ -17,6 +17,14 @@ from chatticus.capability_policy import grant_from_payload
 from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.cognito_jwt import CognitoJwtVerifier, CognitoTokenError
 from chatticus.control_plane import ControlPlane
+from chatticus.http.integration_test_auth import (
+    INTEGRATION_TEST_SESSION_PATH,
+    IntegrationTestAuthConfig,
+    assert_integration_test_user_id,
+    create_integration_test_session_response,
+    integration_test_session_enabled,
+    load_integration_test_auth_config,
+)
 from chatticus.http.principal import (
     RequireUserPrincipal,
     RequireWorkerPrincipal,
@@ -259,6 +267,7 @@ class AppState:
     cognito_verifier: CognitoJwtVerifier | None = None
     signup_mode: SignupMode = SignupMode.INVITATION_ONLY
     open_sse_streams: int = 0
+    integration_test_auth: IntegrationTestAuthConfig | None = None
 
 
 def _verify_invoke_key(request: Request) -> None:
@@ -277,6 +286,7 @@ def create_app(
     environment: str | None = None,
     cognito_verifier: CognitoJwtVerifier | None = None,
     signup_mode: SignupMode | None = None,
+    integration_test_auth: IntegrationTestAuthConfig | None = None,
 ) -> FastAPI:
     """Build a FastAPI app backed by one control plane instance."""
     resolved_key = (
@@ -298,6 +308,11 @@ def create_app(
         environment=resolved_environment,
         cognito_verifier=cognito_verifier,
         signup_mode=resolved_signup_mode,
+        integration_test_auth=integration_test_auth
+        or load_integration_test_auth_config(
+            environment=resolved_environment,
+            invoke_key=resolved_key,
+        ),
     )
     app = FastAPI(
         title="Chatticus control plane",
@@ -335,6 +350,17 @@ def create_app(
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "environment": state.environment}
+
+    if integration_test_session_enabled(state.integration_test_auth):
+
+        @app.post(INTEGRATION_TEST_SESSION_PATH)
+        def integration_test_session(request: Request) -> dict[str, str]:
+            config = state.integration_test_auth
+            if config is None:
+                raise HTTPException(
+                    status_code=404, detail="integration test auth disabled"
+                )
+            return create_integration_test_session_response(request, config)
 
     @waitlist_safe
     @app.get("/me")
@@ -640,10 +666,17 @@ def create_app(
 
     @user_router.post("/channels")
     def create_channel(
+        request: Request,
         tenant_id: str,
         body: CreateChannelBody,
+        principal: RequireUserPrincipal,
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, Any]:
+        assert_integration_test_user_id(
+            request,
+            body.user_id,
+            principal_user_id=principal.user_id,
+        )
         key = (idempotency_key or "").strip() or None
         channel = state.plane.create_channel(
             tenant_id,
@@ -686,11 +719,19 @@ def create_app(
 
     @user_router.post("/channels/{channel_id}/messages")
     def post_message(
+        request: Request,
         tenant_id: str,
         channel_id: str,
         body: PostMessageBody,
+        principal: RequireUserPrincipal,
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, Any]:
+        if body.author_kind is ActorKind.HUMAN:
+            assert_integration_test_user_id(
+                request,
+                body.author_id,
+                principal_user_id=principal.user_id,
+            )
         key = (idempotency_key or "").strip() or None
         message, started = state.plane.post_channel_message(
             channel_id,

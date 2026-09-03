@@ -47,7 +47,6 @@ target-version = ["py312"]
 [tool.pytest.ini_options]
 markers = [
     "live_openai: calls the live OpenAI API when OPENAI_API_KEY is set",
-    "live_aws: hits a named ThinTurn stack; skipped unless CHATTICUS_LIVE_AWS=1",
 ]
 
 [tool.ruff]

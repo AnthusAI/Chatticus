@@ -12,6 +12,7 @@ import {
 import { readBudgetsConfig } from "../lib/budgets-config";
 import { BudgetsStack } from "../lib/budgets-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
+import { IntegrationTestStack } from "../lib/integration-test-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
 import { websiteDeploySourceForApp } from "../lib/web-bundle-stub";
@@ -94,5 +95,29 @@ for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
     description:
       `Cognito user pool (${environmentName}) with Google federation and ` +
       "custom auth domain for SPA authorization code + PKCE.",
+  });
+}
+
+const integrationTestEnvironment = app.node.tryGetContext("integrationTestEnvironment");
+if (
+  typeof integrationTestEnvironment === "string" &&
+  integrationTestEnvironment.length > 0
+) {
+  if (
+    !CHATTICUS_CLOUD_ENVIRONMENTS.includes(
+      integrationTestEnvironment as (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number],
+    )
+  ) {
+    throw new Error(
+      `Unknown integrationTestEnvironment '${integrationTestEnvironment}'. ` +
+        `Expected one of: ${CHATTICUS_CLOUD_ENVIRONMENTS.join(", ")}`,
+    );
+  }
+  new IntegrationTestStack(app, "ChatticusIntegrationTest", {
+    env,
+    integrationTestEnvironment:
+      integrationTestEnvironment as (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number],
+    description:
+      "Scheduled Lambda smoke tests against one named thin-turn environment.",
   });
 }

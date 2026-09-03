@@ -45,19 +45,27 @@ export function Evidence() {
               id="evidence-title"
               className="mt-7 max-w-4xl font-display text-[clamp(4rem,8vw,8rem)] leading-[0.84] tracking-[-0.07em]"
             >
-              No borrowed credibility.
+              No vendor lock-in.
             </h2>
           </div>
           <div className="max-w-xl lg:justify-self-end">
             <p className="font-display text-3xl leading-tight tracking-[-0.035em]">
-              Chatticus is early. We are not inventing customer quotes or
-              adoption numbers to make it look mature.
+              Every piece of this is MIT-licensed. Run your bot farm on our
+              infrastructure, or take the whole stack — code, data, and all —
+              and run it yourself.
             </p>
             <p className="mt-5 font-body text-base leading-relaxed text-ink/75">
-              Follow the source, specifications, and deployed system instead.
-              Shipped behavior is named as shipped. Designed behavior stays
-              named as designed.
+              You don&rsquo;t need our permission to leave, and you don&rsquo;t
+              need us at all. If you&rsquo;d rather have help moving it
+              somewhere else, we&rsquo;ll do that too.
             </p>
+            <a
+              className="mt-5 inline-flex min-h-11 items-center gap-2 font-mono text-[0.65rem] uppercase tracking-[0.12em] underline decoration-2 underline-offset-4 transition hover:text-cobalt focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
+              href="https://anth.us"
+            >
+              Get migration help
+              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            </a>
           </div>
         </div>
 

@@ -43,7 +43,6 @@ route guards, membership, grants). Prefer new Gherkin over deleting leftovers.
 | `test_runtime.py` | SQS payload helper. |
 | `test_browser_profiles.py` | Path mapping for Chromium profiles. |
 | `test_tooling_auth.py` | Static scan (no `X-Tenant-Id` in live tooling). |
-| `test_live_aws_thin_turn.py` | Live AWS skip-unless-flagged. |
 | `test_adversarial_injection_evals.py` | Eval harness. |
 | `test_adversarial_injection_live_openai.py` | Live model eval. |
 | `test_turn_deadline_scheduler.py` | Scheduler name/format helpers + EventBridge client. |
@@ -61,7 +60,6 @@ route guards, membership, grants). Prefer new Gherkin over deleting leftovers.
 | `test_computer_worker.py` | `computer_continuation_worker.feature` overlap; worker dispatch leftovers. |
 | `test_computer_start.py` | `single_computer_start.feature` overlap. |
 | `test_computer_host_worker.py` / `test_computer_host_boot.py` / `test_host_starter.py` | Host-start features exist. |
-| `test_exercise_thin_turn.py` | Mix of route-presence flags and string helpers. |
 | `test_thin_turn_conversation.py` | Header/SSE parse helpers + org-scoped path usage. |
 | `test_turn_recovery.py` / `test_turn_fault_injection.py` / `test_structured_handoff.py` | Matching features exist. |
 | `test_thin_task_item.py` / `test_vendor_ledger.py` / `test_snapshot_pack.py` | Matching features exist. |

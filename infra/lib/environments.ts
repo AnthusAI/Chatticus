@@ -64,6 +64,12 @@ export function webParameterPrefix(environment: ChatticusCloudEnvironment): stri
   return `/chatticus/${environment}/web`;
 }
 
+export function integrationTestParameterPrefix(
+  environment: ChatticusCloudEnvironment,
+): string {
+  return `/chatticus/${environment}/integration-test`;
+}
+
 export function thinTurnExportName(
   environment: ChatticusCloudEnvironment,
   suffix: string,

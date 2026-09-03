@@ -1,0 +1,49 @@
+{
+  "id": "chatticus-214f2fa3-4428-4ac7-a652-c6521458bc71",
+  "title": "Automated live-stack integration test in Fargate with an IAM role",
+  "description": "Replace the deleted live_aws_thin_turn.sh laptop+pasted-JWT approach with a real automated check that runs inside AWS (Fargate task or Lambda) using an IAM role, so it exercises the live named ThinTurn stack end-to-end with no human copying a token. Central design question: user routes require a Cognito id_token (human OAuth) which an IAM role cannot mint; the plan must resolve how the container authenticates to initiate a user turn (worker-seeded message, a new machine/service principal, Cognito ROPC test user, or worker+health only). Respect: named stacks only, never cdk deploy --all, Computers desiredCount stays 0, Gherkin-first for any new behavior, pytest only for pure helpers.",
+  "type": "chore",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "ac8e2532-d834-42fa-80bb-7464525a765b",
+      "author": "home",
+      "text": "Dispatching Composer 2.5 planner (plan-only) to resolve the auth design: how does an IAM-role container initiate a user turn when user routes require a Cognito id_token a role cannot mint? Planner reads http/app.py + control_plane.py + worker auth + infra/lib/*.ts and recommends one option. No code yet.",
+      "created_at": "2026-09-02T22:02:53.666717Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "1d5765d9-927d-4483-a9b5-78f9c1ee4274",
+      "author": "home",
+      "text": "Plan in (Composer 2.5 planner). Recommends option (b): dev-only SigV4 session exchange \u2014 new POST /integration-test/session trusts an IAM-role SigV4 signature, mints a short-lived HMAC bearer bound to a fixed test user/tenant; enforce_user_principal accepts it only when CHATTICUS_INTEGRATION_TEST_ENABLED=1 and not production. Runner = Lambda (not Fargate, ~$0 idle) in new named stack ChatticusIntegrationTest, EventBridge daily smoke + on-demand full tier. Gherkin for auth behavior, pytest for SigV4/token/SSE helpers. Rejected: worker-seeded (workers cant post user msgs), ROPC (stored password), worker-only (doesnt prove user path). PENDING HUMAN: auth-surface approval, Lambda-vs-Fargate, test-user identity, computer tier on schedule vs on-demand.",
+      "created_at": "2026-09-02T22:05:45.442371Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "5d8e2b67-8d33-47f0-a6dd-8964d861d4af",
+      "author": "home",
+      "text": "Plan APPROVED by human. Decisions: (1) SigV4 session exchange auth path, dev-only, disabled in production; (2) Lambda runner in new named stack ChatticusIntegrationTest, EventBridge daily smoke + on-demand full; (3) DEDICATED integration-test tenant/user (not anthus/ryan). Sequencing: do NOT refactor exercise_thin_turn.py (being deleted in parallel PR chore/delete-live-thin-turn-script) \u2014 write a fresh runner. Ship smoke tier as MVP this PR. Authorizing Composer 2.5 implementer in /tmp/chatticus-fargate-inttest-214f2f on feat/fargate-integration-test-214f2f.",
+      "created_at": "2026-09-02T22:13:19.515268Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-02T22:02:48.151403Z",
+  "updated_at": "2026-09-02T22:13:19.515385Z",
+  "closed_at": null,
+  "right_now_summary": "A planner is resolving how an IAM-role container can authenticate and test the live ThinTurn stack.",
+  "right_now_updated_at": "2026-09-02T22:03:54.115483Z",
+  "custom": {},
+  "agent": null
+}

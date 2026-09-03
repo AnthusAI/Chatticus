@@ -47,9 +47,9 @@ export function WorkspaceThread({
             ) : null}
             <p className="truncate font-body text-sm font-extrabold">{member.name}</p>
             {memberActivity ? (
-              <p className="mt-0.5 flex items-center gap-1 font-mono text-[0.5rem] uppercase tracking-[0.08em] text-signal">
-                <span className="h-1.5 w-1.5 rounded-full bg-signal" />
-                {memberActivity}
+              <p className="mt-0.5 flex items-center gap-1 truncate font-mono text-[0.5rem] uppercase tracking-[0.08em] text-signal">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-signal" />
+                <span className="truncate">{memberActivity}</span>
               </p>
             ) : null}
           </div>
@@ -62,7 +62,7 @@ export function WorkspaceThread({
 
       {member ? (
         <>
-          <div className="grid gap-2">
+          <div className="grid h-[15rem] content-start gap-2 overflow-y-auto">
             {messages.map((message) => (
               <div
                 key={message.id}
