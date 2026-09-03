@@ -7,24 +7,24 @@ const evidence = [
   {
     initials: "GH",
     icon: GitBranch,
-    title: "Inspect the source",
-    body: "The control plane, worker protocol, architecture decisions, and executable behavior live in a public repository.",
+    title: "Archive your account, anytime",
+    body: "Every bot, conversation, and file is documented, exportable data — not something trapped behind an API only we control.",
     href: "https://github.com/AnthusAI/Chattic.us",
     link: "Open the repository",
   },
   {
     initials: "AWS",
     icon: Boxes,
-    title: "Named cloud boundaries",
-    body: "Development, staging, and production are separate environments. Infrastructure exists as code, not as an invisible hosted service.",
+    title: "Take it to another host",
+    body: "The same infrastructure-as-code that runs Chatticus for you can stand up your bot farm on any cloud account — yours, ours, or someone else's.",
     href: "https://github.com/AnthusAI/Chattic.us/tree/develop/infra",
     link: "Read the infrastructure",
   },
   {
     initials: "BDD",
     icon: ShieldCheck,
-    title: "Behavior before claims",
-    body: "Gherkin specifications cover tenant boundaries, turn recovery, approvals, computer escalation, and the web contract.",
+    title: "No hidden rules",
+    body: "Every approval, escalation, and recovery rule is a written, testable specification — not tribal knowledge you'd lose by switching providers.",
     href: "https://github.com/AnthusAI/Chattic.us/tree/develop/features",
     link: "Read the specifications",
   },
@@ -50,7 +50,8 @@ export function Evidence() {
           </div>
           <div className="max-w-xl lg:justify-self-end">
             <p className="font-display text-3xl leading-tight tracking-[-0.035em]">
-              Every piece of this is MIT-licensed. Run your bot farm on our
+              Nothing here is proprietary — free to copy, change, and run,
+              no license fee, no permission needed. Run your bot farm on our
               infrastructure, or take the whole stack — code, data, and all —
               and run it yourself.
             </p>
