@@ -12,7 +12,12 @@ const groups = [
   },
   {
     title: "Features",
-    links: [["Flex Mode", "/features/flex-mode"]],
+    links: [
+      ["Shared Computer", "/features/shared-computer"],
+      ["Shared Files", "/features/shared-files"],
+      ["Approvals", "/features/approvals"],
+      ["Flex Mode", "/features/flex-mode"],
+    ],
   },
   {
     title: "Build",
