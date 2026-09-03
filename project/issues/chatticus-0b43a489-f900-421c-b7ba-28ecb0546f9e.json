@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-0b43a489-f900-421c-b7ba-28ecb0546f9e",
+  "title": "An organization records the release it runs and whether it is managed",
+  "description": "**Phase 4 of 5.**\n\n- **Blocked by:** the account record story, in the provisioning epic\n- **Runs in parallel with:** nothing. It gates the rest of this epic\n- **Unblocks:** the ordering, update, and notification stories\n\n---\nTwo fields, and the second one is the ladder made real in the data model.\n\n**Release:** which version of Chatticus this organization deployment is running. Without it there is no way to answer what a customer is on, no way to order a rollout, and no way to roll one back.\n\n**Managed:** whether this organization bought operation or only the code. A forked deployment is not in this table at all, but an organization that took self-setup and then declined the managed service is, and applying an update to it would be an unauthorized change in an account we do not own.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-5b21313c-63fe-4530-a6e1-687399fab773",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "b8135a68-aaec-4127-99cd-6df039384390",
+      "author": "unknown",
+      "text": "Feature: Managed updates\n\n  Scenario: A provisioned organization records its release\n    Given an organization provisioned into a customer AWS account\n    Then it records the Chatticus release it is running\n\n  Scenario: An organization records whether Anthus operates it\n    Given an organization on the managed service\n    Then it is marked managed\n    And an organization that declined managed operation is not",
+      "created_at": "2026-09-03T13:40:10.901900Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:40:09.671191Z",
+  "updated_at": "2026-09-03T13:40:10.902036Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

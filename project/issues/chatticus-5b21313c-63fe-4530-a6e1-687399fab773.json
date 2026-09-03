@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-5b21313c-63fe-4530-a6e1-687399fab773",
+  "title": "Managed updates into customer accounts",
+  "description": "**Phase 4 of 5.** Blocked by cross-account provisioning and paid enablement.\n\nWhat the $20 actually buys. Everything else in this initiative gets a customer to a running organization; this epic is the reason they keep paying after that.\n\nThe promise is specific: **we keep your rapidly-evolving deployment updated as we update the organizations we run ourselves.** That is a strong differentiator and a hard commitment, and it only works if three things are true.\n\n1. **Chatticus can push a release into a customer account** through the cross-account role, without a person driving it.\n2. **Anthus goes first.** Our own organizations run the same deployment and receive every release before any customer does. This is dogfooding as a release gate, not as a slogan \u2014 \"we update ours, yours follows\" is credible exactly as long as it is literally the order things happen in.\n3. **A customer knows which release they are on**, and a self-managed customer who took the fork rung is told an update exists rather than having one applied to them.\n\nThat last distinction is the epic in miniature. The ladder means some organizations are managed and some are not, and applying an update to an organization that did not buy management would be both a broken promise and, in their AWS account, an unauthorized change.\n\n**The failure mode to design against** is a release that breaks a customer organization while Anthus is asleep. A rapidly-evolving beta that auto-updates production deployments in accounts we do not own needs a rollback path before it needs a faster rollout.\n\n**Start with:** the release marker on the organization record. Ordering and rollout are views over it.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:38:38.252696Z",
+  "updated_at": "2026-09-03T13:38:38.252909Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

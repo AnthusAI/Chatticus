@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-bc8437d7-afdc-4abe-ab06-936a04f2aa33",
+  "title": "The FAQ answers how much of it you have to run yourself",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the ladder story\n- **Unblocks:** nothing\n\n---\nThe FAQ already answers where the computer runs. With the ladder on the page, that answer is now incomplete in a way that matters: it says where, not who operates it.\n\nQuestions to add or extend:\n\n- Do I need an AWS account? Yes, for every rung except forking it, and here is roughly what it will cost you.\n- What happens if I stop paying? Your deployment is in your account and stays there. We stop operating it. Nothing is deleted by us.\n- What does managed actually mean? We apply updates, we watch it, and we go first \u2014 our own organizations take every release before yours.\n- Can I start self-setup and move to assisted? Yes, and the reverse.\n\nThe stop-paying answer is the one worth writing carefully. It is the strongest thing on the page and almost nobody asks it out loud.\n\n**Done when:** the scenario exists and fails for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-935a98f4-53b4-485f-a01b-828a93bc3faf",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "e5f0261a-4614-455b-b1f2-331a82e92889",
+      "author": "unknown",
+      "text": "Feature: Delegation ladder positioning\n\n  Scenario: The FAQ explains what stopping payment does\n    Given the chattic.us FAQ\n    Then it states that the deployment lives in the customer AWS account\n    And it states that Anthus stops operating it and deletes nothing\n\n  Scenario: The FAQ explains what managed operation covers\n    Given the chattic.us FAQ\n    Then it states that Anthus applies updates to managed deployments\n    And it states that a customer may move between self-setup and assisted setup",
+      "created_at": "2026-09-03T13:39:29.533019Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:39:28.228461Z",
+  "updated_at": "2026-09-03T13:39:29.533257Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

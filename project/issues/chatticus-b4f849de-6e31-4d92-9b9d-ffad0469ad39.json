@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-b4f849de-6e31-4d92-9b9d-ffad0469ad39",
+  "title": "The beta page prices both setup paths and the self-setup waiver",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the ladder story\n- **Runs in parallel with:** nothing\n- **Unblocks:** the Stripe products chore, in the paid enablement epic\n\n---\nReplaces the single-price version of the pitch page. Two ways in, both landing on the same $20 a month:\n\n- **Run the template yourself.** No setup fee. You get the template, the IAM policy, and written instructions.\n- **Have us do it with you.** $100 once. A scheduled session with an engineer, ending with your first team of bots running.\n\n**Say plainly that self-setup is the normal path and assisted is for people who would rather not.** Not because assisted is bad, but because the arithmetic only works if most people self-serve: $100 does not cover an engineer session at fully loaded cost, so every assisted setup is a deliberate subsidy, and the ones worth subsidizing are the ones that turn into services conversations.\n\nCosts still stated together, as before: $20 a month to Anthus, AWS billed to you, model tokens billed to you, and $0 or $100 for setup depending on which path you take. The four-costs guard from 6525a7 still applies and now has a branch.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-935a98f4-53b4-485f-a01b-828a93bc3faf",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "83247a24-44fd-4599-b3d0-f192a525afdf",
+      "author": "unknown",
+      "text": "Feature: Beta waitlist marketing funnel\n\n  Scenario: The beta page offers setup with and without a fee\n    Given the beta pitch page\n    Then it offers self-setup with no setup fee\n    And it offers assisted setup for a one-time fee\n    And both paths state the same monthly price\n\n  Scenario: Self-setup is presented as the normal path\n    Given the beta pitch page\n    Then it states that most customers run the template themselves\n\n  Scenario: The survey records which setup path they want\n    Given a visitor on the beta page\n    When they complete the survey\n    Then the waitlist signup records whether they want self-setup or assisted setup",
+      "created_at": "2026-09-03T13:39:32.184893Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:39:30.925530Z",
+  "updated_at": "2026-09-03T13:39:32.185076Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

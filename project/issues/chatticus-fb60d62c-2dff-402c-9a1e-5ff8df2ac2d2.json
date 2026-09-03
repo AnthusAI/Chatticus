@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-fb60d62c-2dff-402c-9a1e-5ff8df2ac2d2",
+  "title": "The home page says Chatticus runs in an AWS account you control",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the rest of this epic\n- **Unblocks:** the ladder story\n\n---\nTop-level positioning, not a footnote on a pricing page. The Hero and the proof strip already gesture at it \u2014 0% lock-in, your data, your move, read the source \u2014 without ever saying the concrete thing that makes those claims true.\n\nSay it: the organization computer runs in an AWS account you own, on your network, under your logging, and the code is MIT licensed.\n\n**This is the message that converts the AWS requirement from an objection into the reason to choose Chatticus.** A buyer evaluating an agent product that runs a Linux computer has exactly one real fear, and every competitor answers it with a trust argument. This answers it with an account boundary.\n\n**Done when:** the scenario exists and fails for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-935a98f4-53b4-485f-a01b-828a93bc3faf",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "2e461965-56eb-48fd-8652-620d6839a07a",
+      "author": "unknown",
+      "text": "Feature: Delegation ladder positioning\n\n  Scenario: The home page states where the computer runs\n    Given the chattic.us home page\n    Then it states that the organization computer runs in an AWS account the customer controls\n    And it states that the source is available under an open licence",
+      "created_at": "2026-09-03T13:39:23.719967Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:39:22.419271Z",
+  "updated_at": "2026-09-03T13:39:23.720113Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

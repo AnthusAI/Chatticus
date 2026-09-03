@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-29387f7c-fe07-4533-8f8d-1608c3138679",
+  "title": "A self-managed organization is told an update exists rather than given one",
+  "description": "**Phase 4 of 5.**\n\n- **Blocked by:** the release record story\n- **Runs in parallel with:** the update story\n- **Unblocks:** nothing\n\n---\nThe other side of the ladder, and the story most likely to be forgotten until it causes an incident.\n\nAn organization that took the code but not the operation gets told. It does not get touched. Applying an update to a deployment in someone AWS account who did not buy management is a broken promise and an unauthorized change to their infrastructure, in that order of how they will describe it.\n\nThe notification is genuinely useful rather than a formality: what changed, whether it matters to them, and how to apply it themselves.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-5b21313c-63fe-4530-a6e1-687399fab773",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "d2bc4bf4-e871-435d-9f62-df3f4f6ff68b",
+      "author": "unknown",
+      "text": "Feature: Managed updates\n\n  Scenario: An unmanaged organization is notified, not updated\n    Given an organization that is not managed and is behind the current release\n    When a release is available\n    Then its owner is told an update exists\n    And its deployment is unchanged\n\n  Scenario: The notification says what changed\n    Given an unmanaged organization behind the current release\n    When its owner is told an update exists\n    Then the notice names the release and how to apply it",
+      "created_at": "2026-09-03T13:40:17.989388Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:40:16.792520Z",
+  "updated_at": "2026-09-03T13:40:17.989524Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
