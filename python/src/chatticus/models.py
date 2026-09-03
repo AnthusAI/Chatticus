@@ -768,6 +768,15 @@ class WaitlistSignup:
     waitlist_score: int | None = None
     services_qualified: bool = False
     scoring_weights_version: str | None = None
+    disqualified: bool = False
+
+
+@dataclass(frozen=True)
+class WaitlistSummary:
+    """Counts of confirmed waitlist signups by triage outcome."""
+
+    queued_count: int
+    disqualified_count: int
 
 
 @dataclass(frozen=True)

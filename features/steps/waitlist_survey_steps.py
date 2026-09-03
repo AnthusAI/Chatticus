@@ -685,14 +685,17 @@ def given_waitlist_signup_with_confirmed_email(context: object, email: str) -> N
 
 @when("a GET request to /waitlist/confirm with the email and a valid token")
 def when_get_waitlist_confirm_with_valid_token(context: object) -> None:
-    if hasattr(context, "triage_signup_recorded"):
+    if getattr(context, "triage_signup_recorded", None) is False:
         from waitlist_triage_steps import _ensure_triage_signup_recorded
 
         _ensure_triage_signup_recorded(context)
+        email = context.signup_email
+    else:
+        email = context.visitor_email
     context.waitlist_response = context.api_client.get(
         "/waitlist/confirm",
         params={
-            "email": context.visitor_email,
+            "email": email,
             "token": context.confirmation_token,
         },
     )
