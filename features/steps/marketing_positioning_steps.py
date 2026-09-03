@@ -90,3 +90,14 @@ def then_states_managed_customers_run_what_anthus_runs(context: object) -> None:
         "buying the managed service puts you next to them" in text
         or "managed customers run what anthus runs" in text
     ), text
+
+@then("it states that the organization computer runs in an AWS account the customer controls")
+def then_states_aws_account(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "runs in an aws account you own" in text, text
+
+
+@then("it states that the source is available under an open licence")
+def then_states_open_licence(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "code is mit licensed" in text, text
