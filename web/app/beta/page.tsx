@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BetaAccessDisclosure } from "@/components/BetaAccessDisclosure";
+import { BetaPageAnalytics } from "@/components/BetaPageAnalytics";
 import { BetaSetupPricing } from "@/components/BetaSetupPricing";
 import { BetaWaitlistSurveyForm } from "@/components/BetaWaitlistSurveyForm";
 import { Footer } from "@/components/Footer";
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
 export default function BetaPitchPage() {
   return (
     <>
+      <BetaPageAnalytics />
       <Header />
       <main id="main-content">
         <section className="bg-clay text-ink">

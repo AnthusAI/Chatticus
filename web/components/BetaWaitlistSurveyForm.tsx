@@ -10,6 +10,7 @@ import {
   type WaitlistSurvey,
   type WaitlistSurveyQuestion,
 } from "@/lib/waitlist-api";
+import { trackSignupComplete } from "@/lib/analytics";
 import { FULL_WAITLIST_SURVEY_FIXTURE } from "@/lib/waitlist-survey-fixture";
 
 type SurveyBlockKey =
@@ -271,6 +272,7 @@ export function BetaWaitlistSurveyForm({
     }
     try {
       await submitWaitlist(buildPayload(trimmedEmail, answers, true));
+      trackSignupComplete();
       setView("thank-you");
     } catch (error) {
       if (error instanceof WaitlistApiError && error.status === 429) {
