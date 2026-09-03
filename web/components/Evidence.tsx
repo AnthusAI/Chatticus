@@ -9,7 +9,7 @@ const evidence = [
     initials: "GH",
     icon: GitBranch,
     title: "Already in your account",
-    body: "Every bot, conversation, and file lives in your AWS account from the start — not something trapped behind an API only we control.",
+    body: "Your file system and encrypted secrets live in your AWS account from the start — not something trapped behind an API only we control.",
     href: "https://github.com/AnthusAI/Chattic.us",
     link: "Open the repository",
   },
