@@ -150,3 +150,26 @@ def then_calls_to_action_for_beta(context: object) -> None:
     html = context.marketing_ui_harness.get("html") or ""
     # Header, Hero, FinalCta, Footer -> 4 occurrences
     assert html.count('href="/beta"') >= 4, f"Found {html.count('href=\"/beta\"')} links to /beta"
+@given("the chattic.us FAQ")
+def given_chatticus_faq(context: object) -> None:
+    context.marketing_ui_harness = _run_harness("render")
+
+@then("it states that the deployment lives in the customer AWS account")
+def then_deployment_lives_in_customer_aws_account(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "deployment is in your account" in text, text
+
+@then("it states that Anthus stops operating it and deletes nothing")
+def then_anthus_stops_operating_and_deletes_nothing(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "we stop operating it" in text and "nothing is deleted by us" in text, text
+
+@then("it states that Anthus applies updates to managed deployments")
+def then_anthus_applies_updates(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "we apply updates" in text, text
+
+@then("it states that a customer may move between self-setup and assisted setup")
+def then_customer_may_move_between_setups(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "self-setup and move to assisted" in text, text

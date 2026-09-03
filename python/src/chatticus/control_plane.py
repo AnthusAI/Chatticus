@@ -125,6 +125,7 @@ from chatticus.models import (
     TurnJob,
     TurnNotFoundError,
     TurnNotWaitingError,
+    TurnReconcilingError,
     TurnStatus,
     TurnTerminalError,
     WaitlistSignup,
