@@ -61,6 +61,11 @@ def given_production_workloads_on_aws(context: object) -> None:
     context.triage_aws_readiness_answers["account_status"] = "production-workloads"
 
 
+@given("their team runs on GCP")
+def given_team_runs_on_gcp(context: object) -> None:
+    context.triage_aws_readiness_answers["cloud_provider"] = "gcp"
+
+
 @given("their organization has 101 or more people")
 def given_organization_101_plus(context: object) -> None:
     context.triage_fit_answers["organization_size"] = "101-plus"
@@ -98,6 +103,76 @@ def when_visitor_confirms_email(context: object) -> None:
     signup = _triage_signup(context)
     context.stored_waitlist_score = signup.waitlist_score
     context.stored_scoring_weights_version = signup.scoring_weights_version
+
+
+@given("confirmed waitlist signups on AWS and on other clouds")
+def given_confirmed_signups_on_aws_and_other_clouds(context: object) -> None:
+    aws_email = "aws-summary@example.com"
+    gcp_email = "gcp-summary@example.com"
+    for email, cloud_provider in (
+        (aws_email, "aws"),
+        (gcp_email, "gcp"),
+    ):
+        context.plane.record_waitlist_signup(
+            email=email,
+            fit_answers={},
+            aws_readiness_answers={"cloud_provider": cloud_provider},
+            price_answers={},
+            setup_path_answers={},
+            price_sensitivity_answers=None,
+            complete=True,
+            source="behave-test",
+        )
+        context.plane.confirm_waitlist_email(email)
+
+
+@when("an operator reads the waitlist summary")
+def when_operator_reads_waitlist_summary(context: object) -> None:
+    context.waitlist_summary = context.plane.summarize_waitlist()
+    context.waitlist_queue = context.plane.list_waitlist_queue()
+
+
+@then("the signup is marked disqualified")
+@then("the signup is still marked disqualified")
+def then_signup_is_marked_disqualified(context: object) -> None:
+    signup = _triage_signup(context)
+    assert signup.disqualified is True
+
+
+@then("the signup is not marked disqualified")
+def then_signup_is_not_marked_disqualified(context: object) -> None:
+    signup = _triage_signup(context)
+    assert signup.disqualified is False
+
+
+@then("the signup carries no waitlist score")
+def then_signup_carries_no_waitlist_score(context: object) -> None:
+    signup = _triage_signup(context)
+    assert signup.waitlist_score is None
+
+
+@then("the signup is not in the operator queue")
+def then_signup_is_not_in_operator_queue(context: object) -> None:
+    queue = context.plane.list_waitlist_queue()
+    emails = [signup.email for signup in queue]
+    assert context.signup_email not in emails
+
+
+@then("the signup is in the operator queue")
+def then_signup_is_in_operator_queue(context: object) -> None:
+    queue = context.plane.list_waitlist_queue()
+    emails = [signup.email for signup in queue]
+    assert context.signup_email in emails
+
+
+@then("the disqualified count is reported apart from the queue")
+def then_disqualified_count_reported_apart_from_queue(context: object) -> None:
+    summary = context.waitlist_summary
+    queue = context.waitlist_queue
+    assert summary.disqualified_count >= 1
+    assert summary.queued_count >= 1
+    assert summary.queued_count == len(queue)
+    assert summary.queued_count + summary.disqualified_count >= 2
 
 
 @then("the signup waitlist score is at least {minimum:d}")

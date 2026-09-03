@@ -51,6 +51,7 @@ from chatticus.models import (
     TurnStatus,
     WaitlistRateLimitedError,
     WaitlistSignup,
+    WaitlistSummary,
     WorkerRecord,
     WorkerRegistration,
 )
@@ -92,6 +93,7 @@ def _waitlist_signup_from_item(item: dict[str, Any]) -> WaitlistSignup:
         ),
         services_qualified=item.get("services_qualified", {}).get("BOOL", False),
         scoring_weights_version=item.get("scoring_weights_version", {}).get("S"),
+        disqualified=item.get("disqualified", {}).get("BOOL", False),
     )
 
 
@@ -436,6 +438,9 @@ class MessagingStore(Protocol):
 
     def list_waitlist_queue(self) -> list[WaitlistSignup]:
         """List waitlist signups that have confirmed their email."""
+
+    def summarize_confirmed_waitlist(self) -> WaitlistSummary:
+        """Return counts of queued and disqualified confirmed waitlist signups."""
 
     def put_contact_lead(self, lead: ContactLead) -> None:
         """Persist one contact form lead."""
@@ -1049,8 +1054,28 @@ class InMemoryMessagingStore:
     def list_waitlist_queue(self) -> list[WaitlistSignup]:
         with self._lock:
             return sorted(
-                (s for s in self._waitlist_signups.values() if s.email_confirmed),
+                (
+                    s
+                    for s in self._waitlist_signups.values()
+                    if s.email_confirmed and not s.disqualified
+                ),
                 key=lambda s: s.created_at,
+            )
+
+    def summarize_confirmed_waitlist(self) -> WaitlistSummary:
+        with self._lock:
+            queued_count = 0
+            disqualified_count = 0
+            for signup in self._waitlist_signups.values():
+                if not signup.email_confirmed:
+                    continue
+                if signup.disqualified:
+                    disqualified_count += 1
+                else:
+                    queued_count += 1
+            return WaitlistSummary(
+                queued_count=queued_count,
+                disqualified_count=disqualified_count,
             )
 
     def put_contact_lead(self, lead: ContactLead) -> None:
@@ -2477,6 +2502,9 @@ class DynamoMessagingStore:
             item["services_qualified"] = {"BOOL": signup.services_qualified}
         if signup.scoring_weights_version is not None:
             item["scoring_weights_version"] = {"S": signup.scoring_weights_version}
+        item["disqualified"] = {"BOOL": signup.disqualified}
+        if signup.disqualified:
+            item["services_qualified"] = {"BOOL": False}
         self.client.put_item(
             TableName=self.table_name,
             Item=item,
@@ -2544,8 +2572,34 @@ class DynamoMessagingStore:
             email_confirmed = item.get("email_confirmed", {}).get("BOOL", False)
             if not email_confirmed:
                 continue
-            signups.append(_waitlist_signup_from_item(item))
+            signup = _waitlist_signup_from_item(item)
+            if signup.disqualified:
+                continue
+            signups.append(signup)
         return sorted(signups, key=lambda signup: signup.created_at)
+
+    def summarize_confirmed_waitlist(self) -> WaitlistSummary:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": "WAITLIST"},
+                ":prefix": {"S": "SIGNUP#"},
+            },
+        )
+        queued_count = 0
+        disqualified_count = 0
+        for item in response.get("Items", []):
+            if not item.get("email_confirmed", {}).get("BOOL", False):
+                continue
+            if item.get("disqualified", {}).get("BOOL", False):
+                disqualified_count += 1
+            else:
+                queued_count += 1
+        return WaitlistSummary(
+            queued_count=queued_count,
+            disqualified_count=disqualified_count,
+        )
 
     def put_contact_lead(self, lead: ContactLead) -> None:
         item: dict[str, Any] = {

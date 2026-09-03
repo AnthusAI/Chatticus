@@ -46,3 +46,38 @@ Feature: Waitlist triage
     Then the signup still carries the original waitlist score
     And the signup still carries scoring weights version "waitlist-weights-v1"
     And the signup is still marked services-qualified
+
+  Scenario: A GCP shop is disqualified when they confirm their email
+    Given a complete waitlist signup for "gcp-shop@example.com" with email not yet confirmed
+    And their team runs on GCP
+    When the visitor confirms their email
+    Then the signup is marked disqualified
+    And the signup carries no waitlist score
+    And the signup is not in the operator queue
+
+  Scenario: A GCP shop is disqualified when they confirm via HTTP
+    Given a complete waitlist signup for "gcp-http@example.com" with email not yet confirmed
+    And their team runs on GCP
+    When a GET request to /waitlist/confirm with the email and a valid token
+    Then the signup is marked disqualified
+    And the signup carries no waitlist score
+    And the signup is not in the operator queue
+
+  Scenario: Disqualified signups are counted separately
+    Given confirmed waitlist signups on AWS and on other clouds
+    When an operator reads the waitlist summary
+    Then the disqualified count is reported apart from the queue
+
+  Scenario: A signup with no cloud provider answer is still queued
+    Given a complete waitlist signup for "no-cloud@example.com" with email not yet confirmed
+    When the visitor confirms their email
+    Then the signup is not marked disqualified
+    And the signup is in the operator queue
+
+  Scenario: A repeat survey submission preserves disqualification
+    Given a complete waitlist signup for "gcp-resubmit@example.com" with email not yet confirmed
+    And their team runs on GCP
+    When the visitor confirms their email
+    And a survey is submitted again for "gcp-resubmit@example.com"
+    Then the signup is still marked disqualified
+    And the signup carries no waitlist score
