@@ -256,6 +256,82 @@ def then_survey_returns_training_interest_question(context: object) -> None:
     assert "staff" in prompt
 
 
+def _question_by_id(
+    block: list[dict[str, object]], question_id: str
+) -> dict[str, object]:
+    for question in block:
+        if question["id"] == question_id:
+            return question
+    raise AssertionError(f"Question {question_id!r} not found in survey block")
+
+
+def _assert_choices_have_value_and_label(choices: list[dict[str, str]]) -> None:
+    assert len(choices) > 0
+    for choice in choices:
+        assert "value" in choice
+        assert "label" in choice
+        assert choice["value"]
+        assert choice["label"]
+        assert choice["value"] != choice["label"]
+
+
+@then("GET /waitlist/survey returns organization size choices with value and label")
+def then_survey_returns_organization_size_choices(context: object) -> None:
+    organization_size = _question_by_id(
+        context.beta_page_survey["fit"],
+        "organization_size",
+    )
+    choices = organization_size["choices"]
+    _assert_choices_have_value_and_label(choices)
+    values = {choice["value"] for choice in choices}
+    labels = {choice["label"] for choice in choices}
+    assert "101-plus" in values
+    assert "101 or more people" in labels
+
+
+@then(
+    "GET /waitlist/survey returns professional services interest choices "
+    "with value and label"
+)
+def then_survey_returns_professional_services_choices(context: object) -> None:
+    services_question = context.beta_page_survey["professional_services_interest"][0]
+    choices = services_question["choices"]
+    _assert_choices_have_value_and_label(choices)
+    values = {choice["value"] for choice in choices}
+    labels = {choice["label"] for choice in choices}
+    assert "yes-with-budget" in values
+    assert "Yes, we have budget" in labels
+
+
+_SCORED_FIT_QUESTION_IDS = frozenset({"organization_size", "seniority", "urgency"})
+_SCORED_AWS_READINESS_QUESTION_IDS = frozenset(
+    {
+        "cloud_provider",
+        "account_status",
+        "aws_spend",
+        "cloud_authority",
+        "byok_readiness",
+        "security_review_cycle",
+    }
+)
+
+
+@then("GET /waitlist/survey returns choices on scored fit questions")
+def then_survey_returns_choices_on_scored_fit_questions(context: object) -> None:
+    fit_block = context.beta_page_survey["fit"]
+    for question in fit_block:
+        if question["id"] in _SCORED_FIT_QUESTION_IDS:
+            _assert_choices_have_value_and_label(question["choices"])
+
+
+@then("GET /waitlist/survey returns choices on scored AWS readiness questions")
+def then_survey_returns_choices_on_scored_aws_questions(context: object) -> None:
+    aws_block = context.beta_page_survey["aws_readiness"]
+    for question in aws_block:
+        if question["id"] in _SCORED_AWS_READINESS_QUESTION_IDS:
+            _assert_choices_have_value_and_label(question["choices"])
+
+
 @then("the price questions name the total including AWS and model tokens")
 def then_price_questions_name_total_monthly_cost(context: object) -> None:
     questions = context.beta_page_survey["price_sensitivity"]
