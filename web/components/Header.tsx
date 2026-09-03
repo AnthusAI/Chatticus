@@ -30,18 +30,23 @@ export function Header() {
             FAQ
           </a>
         </div>
-        {/* Shaped and colored like the logo mark's backdrop bubble (CHATTICUS_MARK_MODEL's shadow bubble: 8/8/1.85/8 corner radii, --surface-2 fill). */}
-        <Button
-          asChild
-          size="sm"
-          variant="dark"
-          className="rounded-[22px_22px_5px_22px] bg-[var(--mark-shadow)] text-surface-foreground hover:bg-cobalt hover:text-white"
-        >
-          <a href="/chat">
-            Hey, Chatticus...
-            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-          </a>
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
+            <a href="/beta">Join the beta</a>
+          </Button>
+          {/* Shaped and colored like the logo mark's backdrop bubble (CHATTICUS_MARK_MODEL's shadow bubble: 8/8/1.85/8 corner radii, --surface-2 fill). */}
+          <Button
+            asChild
+            size="sm"
+            variant="dark"
+            className="rounded-[22px_22px_5px_22px] bg-[var(--mark-shadow)] text-surface-foreground hover:bg-cobalt hover:text-white"
+          >
+            <a href="/chat">
+              Hey, Chatticus...
+              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            </a>
+          </Button>
+        </div>
       </nav>
     </header>
   );

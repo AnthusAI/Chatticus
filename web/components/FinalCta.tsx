@@ -32,6 +32,16 @@ export function FinalCta() {
               asChild
               size="lg"
               variant="outline"
+              className="bg-paper/[0.12] text-paper hover:bg-paper hover:text-ink border-transparent"
+            >
+              <a href="/beta">
+                Join the beta
+              </a>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
               className="bg-paper/[0.12] text-paper hover:bg-paper hover:text-ink"
             >
               <a href="https://github.com/AnthusAI/Chattic.us">
