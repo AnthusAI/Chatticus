@@ -132,6 +132,14 @@ class WaitlistConfirmResponse(BaseModel):
     message: str
 
 
+class WaitlistInviteResponse(BaseModel):
+    """Outcome of GET /waitlist/invite."""
+
+    status: Literal["accepted", "invalid_token", "expired", "already_used"]
+    message: str
+    sign_in_url: str | None = None
+
+
 class SubmitContactBody(BaseModel):
     """Body for POST /contact."""
 
@@ -494,6 +502,17 @@ def create_app(
         return WaitlistConfirmResponse(
             status="confirmed",
             message="Your email is confirmed. You are on the waitlist.",
+        )
+
+    @app.get("/waitlist/invite")
+    def consume_waitlist_invite(
+        token: str = Query(...),
+    ) -> WaitlistInviteResponse:
+        result = state.plane.consume_waitlist_invitation(token)
+        return WaitlistInviteResponse(
+            status=result.status,  # type: ignore[arg-type]
+            message=result.message,
+            sign_in_url=result.sign_in_url,
         )
 
     @app.post("/contact", status_code=201)
