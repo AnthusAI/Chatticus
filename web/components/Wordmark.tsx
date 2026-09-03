@@ -35,10 +35,13 @@ type WordmarkProps = {
   showText?: boolean;
 };
 
-const INK = "#11130f";
 const PAPER = "#f2efe7";
 const CLAY = "#ef6a47";
-const SIGNAL = "#b8f34a";
+/* Mirrors --surface-2 (see app/globals.css): the flat "most-attention"
+   background step, already designed to be a gentle light/dark-mirrored
+   pair rather than a stark black/white extreme. */
+const SHADOW_BUBBLE_LIGHT = "#d9d3c1";
+const SHADOW_BUBBLE_DARK = "#2a2e22";
 
 function useSystemPrefersDark(): boolean {
   const [prefersDark, setPrefersDark] = useState(false);
@@ -110,9 +113,9 @@ export function Wordmark({
         <BotAvatar
           model={CHATTICUS_MARK_MODEL}
           size={size}
-          shadowColor={resolvedInverse ? PAPER : INK}
-          accentColor={resolvedInverse ? SIGNAL : CLAY}
-          lightColor={resolvedInverse ? INK : PAPER}
+          shadowColor={resolvedInverse ? SHADOW_BUBBLE_DARK : SHADOW_BUBBLE_LIGHT}
+          accentColor={CLAY}
+          lightColor={PAPER}
           neutralIdleMode="static"
           gaze={isAnimated ? "pointer" : "none"}
         />
