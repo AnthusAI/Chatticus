@@ -5,21 +5,35 @@ import { Construct } from "constructs";
 /** GitHub repository slug for OIDC trust (not an AWS account id). */
 const GITHUB_REPOSITORY = "AnthusAI/Chattic.us";
 
-/** Development deploy workflows trusted for OIDC AssumeRole (explicit list). */
+/**
+ * GitHub's OIDC `sub` claim for this repo, e.g.:
+ *   repo:AnthusAI@152415604/Chattic.us@1350947261:environment:development
+ *
+ * GitHub now appends immutable numeric owner/repo IDs to the `sub` claim
+ * (`OWNER@ownerId/REPO@repoId` instead of plain `OWNER/REPO`). This prefix
+ * is fixed for as long as this repo isn't deleted/transferred.
+ */
+const GITHUB_SUB_PREFIX = "repo:AnthusAI@152415604/Chattic.us@1350947261";
+
+/**
+ * Development deploy workflows this role is intended to back (documentation
+ * only -- see the trust-condition comment on `createGithubDeployRole` for
+ * why these aren't the actual IAM trust-policy condition).
+ */
 const TRUSTED_DEVELOPMENT_WORKFLOW_REFS = [
   `${GITHUB_REPOSITORY}/.github/workflows/deploy-thinturn-development.yml@*`,
   `${GITHUB_REPOSITORY}/.github/workflows/deploy-web-development.yml@*`,
   `${GITHUB_REPOSITORY}/.github/workflows/deploy-auth-development.yml@*`,
 ] as const;
 
-/** Staging deploy workflows trusted for OIDC AssumeRole (explicit list). */
+/** Staging deploy workflows this role is intended to back (documentation only). */
 const TRUSTED_STAGING_WORKFLOW_REFS = [
   `${GITHUB_REPOSITORY}/.github/workflows/deploy-thinturn-staging.yml@*`,
   `${GITHUB_REPOSITORY}/.github/workflows/deploy-web-staging.yml@*`,
   `${GITHUB_REPOSITORY}/.github/workflows/deploy-auth-staging.yml@*`,
 ] as const;
 
-/** Production deploy workflows trusted for OIDC AssumeRole (explicit list). */
+/** Production deploy workflows this role is intended to back (documentation only). */
 const TRUSTED_PRODUCTION_WORKFLOW_REFS = [
   `${GITHUB_REPOSITORY}/.github/workflows/deploy-thinturn-production.yml@*`,
   `${GITHUB_REPOSITORY}/.github/workflows/deploy-web-production.yml@*`,
@@ -35,18 +49,41 @@ function createGithubDeployRole(
   description: string,
   githubProvider: iam.IOpenIdConnectProvider,
   githubEnvironment: GithubDeployEnvironment,
-  trustedWorkflowRefs: readonly string[],
 ): iam.Role {
   const role = new iam.Role(scope, id, {
     roleName,
     description,
+    // Trust is scoped by the `sub` claim (repo identity + GitHub
+    // environment name), NOT by `job_workflow_ref` or `environment` as
+    // separate condition keys.
+    //
+    // Root-caused 2026-09-03: every push- and workflow_dispatch-triggered
+    // run of these deploy workflows failed at "Configure AWS credentials"
+    // with "Not authorized to perform sts:AssumeRoleWithWebIdentity", even
+    // though CloudTrail showed the request reaching AWS with the correct
+    // `aud` and a `sub` that plainly satisfied the intended scope. A
+    // decoded-claims debug step (temporary workflow step, since removed)
+    // confirmed the OIDC ID token's `aud`, `environment`, and
+    // `job_workflow_ref` claims all matched the trust policy's
+    // StringEquals/StringLike conditions byte-for-byte -- yet
+    // AssumeRoleWithWebIdentity was still denied. Swapping the trust
+    // condition to StringLike on `sub` alone (same account, same role,
+    // only the condition key changed) succeeded immediately; a control
+    // test using only `job_workflow_ref` (dropping `environment`) still
+    // failed. So in this account, this OIDC provider does not evaluate the
+    // `token.actions.githubusercontent.com:environment` or
+    // `:job_workflow_ref` custom claim condition keys as documented --
+    // only `aud` and `sub` are honored. Trust is therefore scoped via
+    // `sub`, matched against the fixed owner/repo ID prefix plus the
+    // GitHub environment name; this still gives per-environment isolation
+    // (development/staging/production can't assume each other's role),
+    // just not per-workflow-file isolation within an environment.
     assumedBy: new iam.WebIdentityPrincipal(githubProvider.openIdConnectProviderArn, {
       StringEquals: {
         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-        "token.actions.githubusercontent.com:environment": githubEnvironment,
       },
       StringLike: {
-        "token.actions.githubusercontent.com:job_workflow_ref": trustedWorkflowRefs,
+        "token.actions.githubusercontent.com:sub": `${GITHUB_SUB_PREFIX}:environment:${githubEnvironment}`,
       },
     }),
   });
@@ -61,8 +98,9 @@ function createGithubDeployRole(
  *
  * One AWS account hosts development, staging, and production named stacks.
  * Three GitHub environments (`development`, `staging`, `production`) each
- * assume a dedicated role whose trust list matches that environment's
- * workflow_dispatch deploy paths only.
+ * assume a dedicated role whose trust condition matches that GitHub
+ * environment's OIDC `sub` claim only (see `createGithubDeployRole` for why
+ * `job_workflow_ref`/`environment` condition keys don't work here).
  */
 export class GitHubDeployStack extends cdk.Stack {
   public readonly deployRole: iam.Role;
@@ -85,7 +123,6 @@ export class GitHubDeployStack extends cdk.Stack {
       "GitHub Actions OIDC deploy: development ThinTurn, Web, and Auth workflows.",
       githubProvider,
       "development",
-      TRUSTED_DEVELOPMENT_WORKFLOW_REFS,
     );
 
     this.stagingDeployRole = createGithubDeployRole(
@@ -95,7 +132,6 @@ export class GitHubDeployStack extends cdk.Stack {
       "GitHub Actions OIDC deploy: staging ThinTurn, Web, and Auth workflows.",
       githubProvider,
       "staging",
-      TRUSTED_STAGING_WORKFLOW_REFS,
     );
 
     this.productionDeployRole = createGithubDeployRole(
@@ -105,7 +141,6 @@ export class GitHubDeployStack extends cdk.Stack {
       "GitHub Actions OIDC deploy: production ThinTurn, Web, and Auth workflows.",
       githubProvider,
       "production",
-      TRUSTED_PRODUCTION_WORKFLOW_REFS,
     );
 
     new cdk.CfnOutput(this, "GithubDeployRoleArn", {
@@ -135,17 +170,17 @@ export class GitHubDeployStack extends cdk.Stack {
     new cdk.CfnOutput(this, "TrustedDevelopmentWorkflows", {
       value: TRUSTED_DEVELOPMENT_WORKFLOW_REFS.join(", "),
       description:
-        "development job_workflow_ref patterns trusted for AssumeRoleWithWebIdentity.",
+        "development workflows this role backs (informational -- trust is scoped by `sub`, not job_workflow_ref).",
     });
     new cdk.CfnOutput(this, "TrustedStagingWorkflows", {
       value: TRUSTED_STAGING_WORKFLOW_REFS.join(", "),
       description:
-        "staging job_workflow_ref patterns trusted for AssumeRoleWithWebIdentity.",
+        "staging workflows this role backs (informational -- trust is scoped by `sub`, not job_workflow_ref).",
     });
     new cdk.CfnOutput(this, "TrustedProductionWorkflows", {
       value: TRUSTED_PRODUCTION_WORKFLOW_REFS.join(", "),
       description:
-        "production job_workflow_ref patterns trusted for AssumeRoleWithWebIdentity.",
+        "production workflows this role backs (informational -- trust is scoped by `sub`, not job_workflow_ref).",
     });
   }
 }
