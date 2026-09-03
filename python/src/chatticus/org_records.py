@@ -13,6 +13,7 @@ from chatticus.cross_account_provisioning import (
 )
 from chatticus.messaging.store import MessagingStore
 from chatticus.models import (
+    AwsSetupPath,
     DuplicateMembershipError,
     Identity,
     IdentityUserIdMismatchError,
@@ -232,6 +233,28 @@ class OrgRecordsKernel:
         enabled = replace(organization, status=OrganizationStatus.ENABLED)
         self.store.put_organization(enabled)
         return enabled
+
+    def provision_organization_aws(
+        self,
+        tenant_id: str,
+        account_id: str,
+        cross_account_role: str,
+        external_id: str,
+        setup_path: AwsSetupPath,
+    ) -> Organization:
+        """Record the AWS account details for a provisioned organization."""
+        organization = self.store.get_organization(tenant_id)
+        if organization is None:
+            raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")
+        provisioned = replace(
+            organization,
+            aws_account_id=account_id,
+            aws_cross_account_role=cross_account_role,
+            aws_external_id=external_id,
+            aws_setup_path=setup_path,
+        )
+        self.store.put_organization(provisioned)
+        return provisioned
 
     def submit_self_setup_cross_account_role(
         self,
