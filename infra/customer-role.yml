@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Chatticus Cross-Account IAM Role for Organization Computer Provisioning and Operation'
+
+Parameters:
+  AnthusAccountId:
+    Type: String
+    Description: 'The 12-digit AWS Account ID for Anthus (provided by the Anthus team).'
+    AllowedPattern: '^\d{12}$'
+  OrganizationId:
+    Type: String
+    Description: 'Your Chatticus Organization ID (used as the ExternalId for secure AssumeRole).'
+    MinLength: 1
+
+Resources:
+  ChatticusCrossAccountRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'ChatticusOrganizationComputerRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AnthusAccountId}:root'
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref OrganizationId
+      Policies:
+        - PolicyName: 'ChatticusProvisioningAndOperation'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: CloudFormation
+                Effect: Allow
+                Action:
+                  - 'cloudformation:CreateStack'
+                  - 'cloudformation:UpdateStack'
+                  - 'cloudformation:DeleteStack'
+                  - 'cloudformation:DescribeStacks'
+                  - 'cloudformation:DescribeStackEvents'
+                  - 'cloudformation:DescribeStackResources'
+                  - 'cloudformation:GetTemplate'
+                  - 'cloudformation:GetTemplateSummary'
+                Resource: !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/ChatticusComputers*/*'
+              - Sid: ECS
+                Effect: Allow
+                Action:
+                  - 'ecs:CreateCluster'
+                  - 'ecs:DeleteCluster'
+                  - 'ecs:DescribeClusters'
+                  - 'ecs:RegisterTaskDefinition'
+                  - 'ecs:DeregisterTaskDefinition'
+                  - 'ecs:DescribeTaskDefinition'
+                  - 'ecs:RunTask'
+                  - 'ecs:StopTask'
+                  - 'ecs:DescribeTasks'
+                  - 'ecs:CreateService'
+                  - 'ecs:UpdateService'
+                  - 'ecs:DeleteService'
+                  - 'ecs:DescribeServices'
+                  - 'ecs:TagResource'
+                  - 'ecs:UntagResource'
+                  - 'ecs:ListTasks'
+                  - 'ecs:ListClusters'
+                  - 'ecs:ListServices'
+                  - 'ecs:ListTagsForResource'
+                Resource: '*'
+              - Sid: EC2
+                Effect: Allow
+                Action:
+                  - 'ec2:CreateVpc'
+                  - 'ec2:DeleteVpc'
+                  - 'ec2:DescribeVpcs'
+                  - 'ec2:DescribeAvailabilityZones'
+                  - 'ec2:CreateSubnet'
+                  - 'ec2:DeleteSubnet'
+                  - 'ec2:DescribeSubnets'
+                  - 'ec2:CreateSecurityGroup'
+                  - 'ec2:DeleteSecurityGroup'
+                  - 'ec2:DescribeSecurityGroups'
+                  - 'ec2:AuthorizeSecurityGroupIngress'
+                  - 'ec2:AuthorizeSecurityGroupEgress'
+                  - 'ec2:RevokeSecurityGroupIngress'
+                  - 'ec2:RevokeSecurityGroupEgress'
+                  - 'ec2:CreateRouteTable'
+                  - 'ec2:DeleteRouteTable'
+                  - 'ec2:DescribeRouteTables'
+                  - 'ec2:CreateRoute'
+                  - 'ec2:DeleteRoute'
+                  - 'ec2:AssociateRouteTable'
+                  - 'ec2:DisassociateRouteTable'
+                  - 'ec2:CreateInternetGateway'
+                  - 'ec2:DeleteInternetGateway'
+                  - 'ec2:AttachInternetGateway'
+                  - 'ec2:DetachInternetGateway'
+                  - 'ec2:CreateTags'
+                  - 'ec2:DeleteTags'
+                  - 'ec2:DescribeTags'
+                  - 'ec2:ModifyVpcAttribute'
+                Resource: '*'
+              - Sid: ECR
+                Effect: Allow
+                Action:
+                  - 'ecr:CreateRepository'
+                  - 'ecr:DeleteRepository'
+                  - 'ecr:DescribeRepositories'
+                  - 'ecr:GetAuthorizationToken'
+                  - 'ecr:BatchCheckLayerAvailability'
+                  - 'ecr:GetDownloadUrlForLayer'
+                  - 'ecr:GetRepositoryPolicy'
+                  - 'ecr:SetRepositoryPolicy'
+                  - 'ecr:DeleteRepositoryPolicy'
+                  - 'ecr:DescribeImages'
+                  - 'ecr:ListImages'
+                  - 'ecr:PutImage'
+                  - 'ecr:InitiateLayerUpload'
+                  - 'ecr:UploadLayerPart'
+                  - 'ecr:CompleteLayerUpload'
+                  - 'ecr:TagResource'
+                  - 'ecr:UntagResource'
+                Resource: '*'
+              - Sid: Logs
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:DeleteLogGroup'
+                  - 'logs:DescribeLogGroups'
+                  - 'logs:PutRetentionPolicy'
+                  - 'logs:ListTagsLogGroup'
+                  - 'logs:TagResource'
+                  - 'logs:UntagResource'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'logs:DescribeLogStreams'
+                Resource: '*'
+              - Sid: IAM
+                Effect: Allow
+                Action:
+                  - 'iam:CreateRole'
+                  - 'iam:DeleteRole'
+                  - 'iam:GetRole'
+                  - 'iam:PassRole'
+                  - 'iam:AttachRolePolicy'
+                  - 'iam:DetachRolePolicy'
+                  - 'iam:PutRolePolicy'
+                  - 'iam:DeleteRolePolicy'
+                  - 'iam:GetRolePolicy'
+                  - 'iam:ListRolePolicies'
+                  - 'iam:ListAttachedRolePolicies'
+                  - 'iam:TagRole'
+                  - 'iam:UntagRole'
+                  - 'iam:CreateServiceLinkedRole'
+                Resource:
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/ChatticusComputers*'
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/ChatticusOrganizationComputerRole'
+
+Outputs:
+  RoleArn:
+    Description: 'The ARN of the cross-account role'
+    Value: !GetAtt ChatticusCrossAccountRole.Arn
