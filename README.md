@@ -1,8 +1,10 @@
 # Chatticus
 
-Chatticus is a roster of named AI teammates that do real work on a computer
-you control. You message a teammate. It uses tools, files, a browser, and a
-shell. It comes back when something needs your approval.
+**Shared spaces for people and bots.**
+
+Chatticus is a shared, collaborative space where people and named bots
+work together around common files, tools, and a system of authority and
+approvals — like an office, not a chat window.
 
 The public marketing site is [chattic.us](https://chattic.us). The planned
 production product workspace is [hey.chattic.us](https://hey.chattic.us)
