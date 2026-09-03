@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BetaAccessDisclosure } from "@/components/BetaAccessDisclosure";
 import { BetaSetupPricing } from "@/components/BetaSetupPricing";
+import { BetaWaitlistSurveyForm } from "@/components/BetaWaitlistSurveyForm";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 
@@ -69,17 +70,7 @@ export default function BetaPitchPage() {
               >
                 Survey questions
               </h2>
-              <form className="mt-6">
-                <label htmlFor="survey-fit" className="block text-lg">
-                  First survey question:
-                </label>
-                <input
-                  id="survey-fit"
-                  name="survey-fit"
-                  type="text"
-                  className="mt-3 w-full rounded-lg bg-[var(--surface-0)] p-3"
-                />
-              </form>
+              <BetaWaitlistSurveyForm />
             </div>
           </div>
         </section>

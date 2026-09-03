@@ -1,5 +1,30 @@
 Feature: Beta waitlist marketing funnel
 
+  Background:
+    Given a visitor on the beta pitch page
+
+  Scenario: the survey form fetches question blocks from the API
+    When the page loads
+    Then it fetches GET /waitlist/survey
+    And it renders an email field, a fit block, an AWS readiness block, a setup-path block, a price sensitivity block, a professional services interest question, and a training interest question
+
+  Scenario: a complete survey submission is recorded
+    Given a visitor who has filled in their work email and all survey blocks
+    When they submit the survey
+    Then it posts to POST /waitlist with complete: true
+    And the page shows a thank-you confirmation
+
+  Scenario: an abandoned survey still leaves a lead from the form
+    Given a visitor who has entered only their work email
+    When they blur their email without submitting
+    Then it posts to POST /waitlist with complete: false on email blur
+    And a waitlist signup is recorded for that email marked incomplete
+
+  Scenario: a rate-limited submission shows an error
+    Given a source that has submitted at the allowed limit
+    When they submit again from the survey form
+    Then the page shows a rate-limit message
+
   Scenario: The access Chatticus needs is readable before signing up
     Given the beta pitch page
     Then it links to the cross-account CloudFormation template
