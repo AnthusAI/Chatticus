@@ -235,3 +235,32 @@ def then_states_runs_in_customer_aws_account(context: object) -> None:
         "runs in an aws account you own" in text
         or "runs in the customer aws account" in text
     ), "Missing statement about customer AWS account"
+
+
+@then("it offers self-setup with no setup fee")
+def then_offers_self_setup_with_no_setup_fee(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "self-setup" in text, text
+    assert "no setup fee" in text or "$0 setup" in text or "$0 for setup" in text, text
+
+
+@then("it offers assisted setup for a one-time fee")
+def then_offers_assisted_setup_for_one_time_fee(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "assisted setup" in text, text
+    assert (
+        "$100 once" in text or "$100 one-time" in text or "and $100 once" in text
+    ), text
+
+
+@then("both paths state the same monthly price")
+def then_both_paths_state_same_monthly_price(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    monthly_price = "$20 a month"
+    assert text.count(monthly_price) >= 2, text
+
+
+@then("it states that most customers run the template themselves")
+def then_states_most_customers_run_template_themselves(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "most customers run the template themselves" in text, text
