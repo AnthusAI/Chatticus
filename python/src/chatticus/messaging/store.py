@@ -439,6 +439,9 @@ class MessagingStore(Protocol):
     def list_waitlist_queue(self) -> list[WaitlistSignup]:
         """List waitlist signups that have confirmed their email."""
 
+    def list_confirmed_waitlist_signups(self) -> list[WaitlistSignup]:
+        """List all email-confirmed waitlist signups, queued and disqualified."""
+
     def summarize_confirmed_waitlist(self) -> WaitlistSummary:
         """Return counts of queued and disqualified confirmed waitlist signups."""
 
@@ -1060,6 +1063,17 @@ class InMemoryMessagingStore:
                     if s.email_confirmed and not s.disqualified
                 ),
                 key=lambda s: s.created_at,
+            )
+
+    def list_confirmed_waitlist_signups(self) -> list[WaitlistSignup]:
+        with self._lock:
+            return sorted(
+                (
+                    signup
+                    for signup in self._waitlist_signups.values()
+                    if signup.email_confirmed
+                ),
+                key=lambda signup: signup.created_at,
             )
 
     def summarize_confirmed_waitlist(self) -> WaitlistSummary:
@@ -2576,6 +2590,22 @@ class DynamoMessagingStore:
             if signup.disqualified:
                 continue
             signups.append(signup)
+        return sorted(signups, key=lambda signup: signup.created_at)
+
+    def list_confirmed_waitlist_signups(self) -> list[WaitlistSignup]:
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": "WAITLIST"},
+                ":prefix": {"S": "SIGNUP#"},
+            },
+        )
+        signups: list[WaitlistSignup] = []
+        for item in response.get("Items", []):
+            if not item.get("email_confirmed", {}).get("BOOL", False):
+                continue
+            signups.append(_waitlist_signup_from_item(item))
         return sorted(signups, key=lambda signup: signup.created_at)
 
     def summarize_confirmed_waitlist(self) -> WaitlistSummary:
