@@ -1,4 +1,5 @@
 import { ArrowUpRight, Boxes, GitBranch, ShieldCheck } from "lucide-react";
+import { BetaAccessDisclosure } from "@/components/BetaAccessDisclosure";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,8 +50,10 @@ export function Evidence() {
             </h2>
           </div>
           <div className="max-w-xl lg:justify-self-end">
-            <p className="font-display text-3xl leading-tight tracking-[-0.035em]">
-              The organization computer runs in an AWS account you own, on your network, under your logging, and the code is MIT licensed. Free to copy, change, and run. Run your bot farm on our infrastructure, or take the whole stack — code, data, and all — and run it yourself.
+            <BetaAccessDisclosure />
+            <p className="mt-5 font-display text-3xl leading-tight tracking-[-0.035em]">
+              The code is MIT licensed. Free to copy, change, and run. Run your bot
+              farm on our infrastructure, or take the whole stack and run it yourself.
             </p>
             <p className="mt-5 font-body text-base leading-relaxed text-ink/75">
               But control alone reads as more work for you. The second half of the pitch is access: Anthus runs its own organizations on Chatticus. Buying the managed service puts you next to them. Managed customers run what Anthus runs, giving you access to the developers instead of a support queue.

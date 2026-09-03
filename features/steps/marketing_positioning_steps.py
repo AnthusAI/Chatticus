@@ -207,3 +207,31 @@ def then_anthus_applies_updates(context: object) -> None:
 def then_customer_may_move_between_setups(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
     assert "self-setup and move to assisted" in text, text
+
+
+@given("the beta pitch page")
+def given_beta_pitch_page(context: object) -> None:
+    context.marketing_ui_harness = _run_harness("render-beta")
+
+
+@then("it links to the cross-account CloudFormation template")
+def then_links_to_cloudformation(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert (
+        "cross-account cloudformation template" in text
+    ), "Missing CloudFormation link"
+
+
+@then("it links to the scoped IAM policy")
+def then_links_to_iam_policy(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "scoped iam policy" in text, "Missing IAM policy link"
+
+
+@then("it states that the organization computer runs in the customer AWS account")
+def then_states_runs_in_customer_aws_account(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert (
+        "runs in an aws account you own" in text
+        or "runs in the customer aws account" in text
+    ), "Missing statement about customer AWS account"
