@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-98b4d9df-2691-4952-a3ed-7e5e55fd49cf",
+  "title": "A repeated submission updates one signup instead of duplicating it",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the survey submission story\n- **Runs in parallel with:** the confirmation story\n- **Unblocks:** nothing\n\n---\nPeople fill the survey twice: they abandon and come back, they change an answer, they forget they already applied. The record is keyed by normalized work email, the same way the identity kernel normalizes email in org_records.py \u2014 lowercase and strip, dots and plus-tags kept exactly.\n\nWithout this, the operator queue fills with the same person three times and every conversion number is wrong.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "fb4ef189-9ead-4105-978e-1d36fde09de1",
+      "author": "unknown",
+      "text": "Feature: Waitlist survey submission\n\n  Scenario: A second submission from one email updates the first\n    Given a waitlist signup exists for \"sam@example.com\"\n    When a survey is submitted again for \"SAM@example.com\"\n    Then one waitlist signup exists for \"sam@example.com\"\n    And it carries the answers from the second submission\n\n  Scenario: Completing an abandoned survey fills in the same signup\n    Given an incomplete waitlist signup exists for \"sam@example.com\"\n    When that visitor returns and completes the survey\n    Then one waitlist signup exists for \"sam@example.com\"\n    And it is no longer marked incomplete",
+      "created_at": "2026-09-03T13:16:38.902348Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:16:37.716636Z",
+  "updated_at": "2026-09-03T13:16:38.902487Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

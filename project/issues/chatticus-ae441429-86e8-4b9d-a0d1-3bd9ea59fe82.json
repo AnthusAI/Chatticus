@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-ae441429-86e8-4b9d-a0d1-3bd9ea59fe82",
+  "title": "Read the price sensitivity curve and recommend a price",
+  "description": "**Phase 5 of 5.**\n\n- **Blocked by:** the price block story, in the pitch and survey epic\n- **Runs in parallel with:** the other readout tasks\n- **Unblocks:** nothing\n\n---\nA task because the deliverable is an analysis and a recommendation, not a behavior.\n\nPlot the four Van Westendorp series from the survey \u2014 too cheap, bargain, expensive, too expensive \u2014 and read the crossings. That brackets an acceptable range for the all-in monthly cost from a few dozen responses, which is the sample that will exist.\n\n**Do not run a split price test.** Beta volumes will not reach significance, and a split test that cannot reach significance produces a number that looks like evidence and is not.\n\nSet the analysis beside two other things before recommending: what the invited-to-paid rate actually was at the floated price, and what the design partner interviews said when asked directly. A curve, a conversion rate, and twenty conversations agreeing is a defensible price. Any one alone is not.\n\n**Done when:** a recommendation is in the wiki with the curve, the conversion rate, and the interview evidence behind it.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-29f5b5ab-758a-4249-933e-eeb4026e2143",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:21:12.061581Z",
+  "updated_at": "2026-09-03T13:21:12.061773Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

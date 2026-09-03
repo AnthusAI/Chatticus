@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-47892baf-0859-40b7-87b4-194a7aaf7e61",
+  "title": "A visitor reaches the beta pitch from the marketing home page",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the rest of this epic\n- **Unblocks:** nothing\n\n---\nA third call to action beside the two that exist, in Header, Hero, FinalCta and Footer. Same-origin, like the others.\n\nmarketing-cta.test.ts currently asserts that each of those components links to /chat and mentions no hey.chattic.us host. Extend it rather than working around it \u2014 the guard exists because a marketing CTA pointing at the wrong origin has broken before.\n\n**Done when:** the scenario exists and fails for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "b73a2342-e44a-49ed-83e4-8672caec49f1",
+      "author": "unknown",
+      "text": "Feature: Beta waitlist marketing funnel\n\n  Scenario: The home page offers the beta as a third path\n    Given the chattic.us home page\n    When I look at the calls to action\n    Then one of them leads to \"/beta\"\n    And it is a same-origin link",
+      "created_at": "2026-09-03T13:17:11.600503Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:17:10.415714Z",
+  "updated_at": "2026-09-03T13:17:11.600755Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

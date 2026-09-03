@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-8a25af4a-7ae7-44e6-8229-e1d8313b712b",
+  "title": "Publish the cross-account CloudFormation template and scoped IAM policy",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the hand-provisioning task\n- **Unblocks:** the assume-role story, and the pitch page access story\n\n---\nA task because the deliverable is a versioned artifact the customer runs, not behavior in the Chatticus front door.\n\nThe template creates one role in the customer account, trusting the Anthus principal, requiring a per-organization ExternalId, scoped to exactly what provisioning and operating an organization computer needs.\n\n**Never AdministratorAccess.** The people with authority to grant this will read the policy, which is good news only if the policy is defensible. Every permission in it should survive the question \"why does an agent product need this.\"\n\nVersion it in the repository and treat a change to it as a customer-visible change, because it is one \u2014 an existing customer has to re-run it.\n\n**Done when:** the template and policy are in the repository, published at a stable URL, and the hand-provisioning task ran against them unmodified.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:18:01.851861Z",
+  "updated_at": "2026-09-03T13:18:01.852104Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

@@ -1,0 +1,43 @@
+{
+  "id": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
+  "title": "Phase 5: Sell the beta on the customer's own AWS",
+  "description": "Outcome: chattic.us converts strangers into paying beta customers. A CTA on the marketing home page leads to a pitch page that states the whole deal \u2014 a floated $19.95 monthly operations fee to Anthus, AWS billed to them, model tokens billed to them, and a one-time setup fee \u2014 gated by a survey that both qualifies the lead and prices the product. Qualified signups pay through Stripe, get their organization provisioned into their own AWS account by a person, and land enabled. Every provisioning session is an Anthus professional services conversation.\n\nNot included: self-serve provisioning, AWS Marketplace listing, reseller billing (Path B is delivered by hand), a second sign-in provider, per-seat pricing.\n\n## The reframe this initiative rests on\n\nChatticus already has a waitlist. docs/ORGANIZATIONS.md: \"Google sign-in is the waitlist form; POST /organizations creates a pending org.\" Organizations land pending, an operator enables them through the members CLI, WelcomeOrganizationPanel is the queue screen, and routing is already default-deny for waitlisted principals. **Nothing here builds a second waitlist.** It puts a survey and a payment in front of the existing pending to enabled transition, and adds the step that bring-your-own-AWS forces: provisioning.\n\nBring-your-own-AWS moves the compute cost onto the customer, which makes the floated price safe. It also means no customer can be onboarded without a human doing a cross-account setup, which makes professional services the main motion rather than an upsell.\n\n## How to work this initiative\n\nEvery child issue carries a header naming its phase, what blocks it, what it runs in parallel with, and what it unblocks. **Phases run in sequence. Everything inside a phase runs at the same time.** Filter by the phase-N label to see what is workable now.\n\n| Phase | What happens | Epic | Items |\n| --- | --- | --- | --- |\n| 1 | Collect signups | **b95aac** | c7c7c1, then 0112aa, 98b4d9, 9ae395, e8f75f, 500adf; 47892b, 6525a7, 58d81d in parallel |\n| 1 | Prove the cross-account setup by hand | **598be4** | b88c0a, 8a25af, then 812b47, 9f5001, then 061a11; f90c39 |\n| 2 | Turn signups into a prioritized queue | **b2de88** | de3a66, 4e14ec, then 49324d, then 786185, 36fc27 |\n| 3 | Take money and enable | **e26358** | 8f0780, 54f1cf, then ca62f9, cc6d0a, then 7370ef, ab10be |\n| 4 | Protect the customer from their own bill | **ca57c7** | 43e64c, then 39d8f5, 6a9e97, 9563cb |\n| 5 | Read the results and decide | **29f5b5** | 4b8c82 first; 9d8cde, 9860a5, 1aef04, then ae4414, 903bc9, 399c54 |\n\n**Critical path:** c7c7c1 to 0112aa to 9ae395 to de3a66 to 49324d to 786185 to ca62f9 to 7370ef. The cross-account track (b88c0a to 8a25af to 812b47 to 061a11) runs beside all of it and joins at 7370ef. Everything off those two lines has slack.\n\n**One hard prerequisite before the CTA ships: b88c0a.** One throwaway AWS account provisioned end to end by hand, timed. The setup fee, the invitation rate, and the promise on the pitch page all depend on knowing how long that really takes. Publishing a CTA before that number exists commits the company to a service it has never performed.\n\n**One story that will look like copy and is not: 6525a7.** All four costs stated together, above the first survey question, with a guard. A page that floats $19.95 and leaves the AWS bill implicit measures what people will pay for a $19.95 thing and then watches them churn \u2014 and that churn reads as demand in the funnel. Marketing copy gets edited by whoever is closest to the page, which is why this one has a scenario.\n\n**One serialize-merge hazard.** 061a11 moves where compute launches. It touches computer_start, the worker credentials seam, and the computer stack. Give it a clear window and merge it alone.\n\n## Rules for every item\n\n- Gherkin first. Scenarios must fail for the right reason before production code exists.\n- The price on the pitch page is a research instrument, not a cost-recovery number. It is deliberately floated. But all four costs are stated together.\n- Reuse the pending/enabled/suspended machinery. Stripe becomes a second caller of the enable path the members CLI already calls. Do not add a parallel subscription status.\n- AWS resources are CDK only. The customer-facing cross-account template is a published artifact and is versioned in the repository.\n- Never ask a customer for AdministratorAccess. Scoped role, per-organization ExternalId, published policy.\n- Secrets never enter the repository, a CDK template, or an agent transcript.",
+  "type": "initiative",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "e2d33693-2e4b-4e0f-aaf0-976a9956e640",
+      "author": "unknown",
+      "text": "As a team going to market, I want strangers to arrive from the marketing site, tell us who they are and what they need, pay us, and end up running Chatticus in their own AWS account, so that we learn what this is worth while every onboarding puts an Anthus engineer in the room with a decision-maker.\n\nDefinition of done: a CTA on the chattic.us home page leads to a pitch page stating all four costs; a survey gate qualifies and prices; scored signups are invited by an operator; Stripe collects a setup fee and a trialing subscription; a paid organization is provisioned into the customer's own AWS account and enabled; and the beta ends with a defensible answer on price, on whether the audience can even run on AWS, and on which sign-in provider to add next.",
+      "created_at": "2026-09-03T13:14:43.622244Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "81de58a3-837b-4279-8d36-f9e4b87d6e75",
+      "author": "unknown",
+      "text": "Design reasoning, the full nineteen-question survey, the scoring table, the two AWS setup paths, and the rejected alternatives are written up here: https://claude.ai/code/artifact/9ad7059f-4be8-4fec-bdc9-41b1f8a1777b\n\nThree decisions recorded there that the child issues assume rather than re-argue:\n\n1. **No authentication on the survey, and no GitHub sign-in.** Auth appears once, at checkout. GitHub is deferred because the identity kernel is keyed on verified email and GitHub routinely returns a private or unverified one. Revisited in 399c54, from survey evidence.\n2. **AWS Resource Access Manager is not the deployment mechanism.** It shares specific resources across accounts and is right for placing the computer inside a VPC the customer already owns. Deploying into their account is a cross-account IAM role with a per-organization ExternalId, run from a CloudFormation template we publish.\n3. **Path A ships, Path B is delivered by hand.** An account Anthus creates and re-bills makes us an AWS reseller with credit risk and a partner-status question. That is a real business, not one to acquire by accident during a beta. AWS Marketplace is the eventual answer to the billing question and should not be foreclosed by the role design.",
+      "created_at": "2026-09-03T13:21:57.458591Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:14:35.446393Z",
+  "updated_at": "2026-09-03T13:21:57.458697Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {
+    "source": "shared",
+    "project_label": "chatticus"
+  },
+  "agent": null
+}

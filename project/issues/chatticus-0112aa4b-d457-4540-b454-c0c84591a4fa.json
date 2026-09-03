@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-0112aa4b-d457-4540-b454-c0c84591a4fa",
+  "title": "A visitor submits the waitlist survey without signing in",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the no-principal route story\n- **Runs in parallel with:** the pitch page stories\n- **Unblocks:** scoring, in the triage epic\n\n---\nOne record per submission, carrying the nineteen answers across the three blocks: fit, AWS readiness, and price. No account, no OAuth, no password.\n\nThe work email is the first field and saves on blur, so a survey abandoned at question nine still leaves a lead. That is a behavior, not a UI nicety, and it belongs in the scenario.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "8b221f52-0631-4265-83b3-f831fb1a4d41",
+      "author": "unknown",
+      "text": "Feature: Waitlist survey submission\n\n  Scenario: A complete survey creates one waitlist signup\n    Given a visitor on the beta page\n    When they complete the survey and submit it\n    Then a waitlist signup is recorded for their work email\n    And it carries their fit, AWS readiness, and price answers\n\n  Scenario: An abandoned survey still leaves a lead\n    Given a visitor who has entered only their work email\n    When they leave the page without submitting\n    Then a waitlist signup is recorded for that email\n    And it is marked incomplete",
+      "created_at": "2026-09-03T13:16:36.546340Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:16:35.365515Z",
+  "updated_at": "2026-09-03T13:16:36.546483Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

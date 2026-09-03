@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-9563cb99-99f6-49e6-82fd-80284def7fd3",
+  "title": "A member sees the organization AWS spend in the workspace",
+  "description": "**Phase 4 of 5.**\n\n- **Blocked by:** the ceiling story\n- **Runs in parallel with:** the alert story and the stop story\n- **Unblocks:** the cost readout task, in the market research epic\n\n---\nMonth-to-date spend against the ceiling, visible in the workspace rather than only in an alert that arrives once.\n\n**This is a reason to buy, not a safety feature bolted on.** A beta agent that runs a Linux computer on your own AWS account is exactly the thing a buyer is nervous about, and showing them the number continuously is the answer to the nervousness. It belongs on the pitch page as a feature.\n\nIt also produces the measurement the market research epic needs: what an organization computer actually costs to run for a month, from real organizations rather than an estimate.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "ea9b1f8c-4e72-4979-9bda-42c0fcd8b9ce",
+      "author": "unknown",
+      "text": "Feature: Organization spend ceiling\n\n  Scenario: The workspace shows spend against the ceiling\n    Given an enabled organization with recorded AWS spend this month\n    When a member opens the workspace\n    Then they see the month-to-date AWS spend\n    And they see the monthly ceiling\n\n  Scenario: An organization with no spend yet reads clearly\n    Given an enabled organization provisioned today with no recorded spend\n    When a member opens the workspace\n    Then the month-to-date AWS spend reads as zero rather than unknown",
+      "created_at": "2026-09-03T13:20:27.838408Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:20:26.653698Z",
+  "updated_at": "2026-09-03T13:20:27.838550Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-49324d4c-4bc7-4184-8c02-40d4786c866c",
+  "title": "The members CLI lists waitlist signups by score",
+  "description": "**Phase 2 of 5.**\n\n- **Blocked by:** the scoring and disqualification stories\n- **Runs in parallel with:** the invitation story\n- **Unblocks:** the readout tasks, in the market research epic\n\n---\nOperator tooling beside the existing members CLI, one module over, with the same ergonomics \u2014 the precedent is members_cli.feature, which lists and enables waitlist organizations without provisioning anything.\n\nList, filter by score, filter by disqualified, and export CSV. **No dashboard.** For the first two hundred signups a CSV read in a spreadsheet by a person beats anything that could be built, and building the dashboard first is how the reading never happens.\n\nThe export is what the market research epic reads.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b2de8891-df4e-4558-8660-230e36b16dd9",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "52eb879c-fc2b-4e23-a7f9-cf922d472ae0",
+      "author": "unknown",
+      "text": "Feature: Waitlist triage\n\n  Scenario: List the queue highest score first\n    Given confirmed waitlist signups with a range of scores\n    When the members CLI lists the waitlist queue\n    Then the output is ordered by score descending\n    And no disqualified signup appears\n\n  Scenario: List only the services-qualified\n    Given confirmed waitlist signups with a range of scores\n    When the members CLI lists the waitlist queue filtered to services-qualified\n    Then every signup in the output scored at least 10\n\n  Scenario: Export the queue for analysis\n    Given confirmed waitlist signups\n    When the members CLI exports the waitlist as CSV\n    Then each row carries the survey answers, the score, and the price block",
+      "created_at": "2026-09-03T13:18:51.094422Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:18:50.017958Z",
+  "updated_at": "2026-09-03T13:18:51.094559Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

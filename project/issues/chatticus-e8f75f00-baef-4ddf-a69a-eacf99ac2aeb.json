@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-e8f75f00-baef-4ddf-a69a-eacf99ac2aeb",
+  "title": "A flood of submissions from one source is refused",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the no-principal route story\n- **Runs in parallel with:** the rest of this epic\n- **Unblocks:** nothing\n\n---\nThe route takes unauthenticated writes from the open internet, behind the CloudFront invoke secret but in front of nothing else. Rate limiting is the only thing standing between the operator queue and someone with a loop.\n\n**Done when:** the scenario exists and fails for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "8012c44b-9761-4c89-a4c3-be3b1ce8d2e4",
+      "author": "unknown",
+      "text": "Feature: Public waitlist submission\n\n  Scenario: Repeated submissions from one source are refused\n    Given a source that has submitted the waitlist survey at the allowed limit\n    When that source submits the survey again\n    Then the response is 429\n    And no additional waitlist signup is recorded",
+      "created_at": "2026-09-03T13:16:43.451710Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:16:42.365842Z",
+  "updated_at": "2026-09-03T13:16:43.451884Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

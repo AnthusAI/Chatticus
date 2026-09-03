@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-f90c394e-8c00-4d22-a68e-9ac864509447",
+  "title": "Define the provisioning session as a delivered engagement",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the hand-provisioning task\n- **Runs in parallel with:** the rest of this epic\n- **Unblocks:** the setup fee tiers, in the paid enablement epic\n\n---\nA chore because the deliverable is an agreed way of working, not code.\n\nBring-your-own-AWS means no customer reaches a running organization without a person from Anthus in a call with them. That is not a support ticket to be minimized. It is a 60-to-90 minute session with a named engineer that ends with their first team of bots configured and running \u2014 and it is the highest-signal customer research available at any price, with a decision-maker in the room at the moment they are most invested.\n\n**Professional services stops being an upsell here and becomes the main motion.** Every onboarding is already a small consulting engagement; the only question is whether it is run deliberately.\n\nDefine: who runs it, what the agenda is, what gets recorded afterwards, and what the handoff into a scoping conversation looks like for the ones who want more.\n\nKeep the in-product counterpart restrained by contrast \u2014 one quiet line in organization settings is enough. The session is the pitch.\n\n**Done when:** the session agenda and the post-session record template are in the wiki, and the first one has been run against a real customer.",
+  "type": "chore",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:18:09.627040Z",
+  "updated_at": "2026-09-03T13:18:09.627282Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

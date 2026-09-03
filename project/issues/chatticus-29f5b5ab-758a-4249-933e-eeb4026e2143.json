@@ -1,0 +1,23 @@
+{
+  "id": "chatticus-29f5b5ab-758a-4249-933e-eeb4026e2143",
+  "title": "Market research readout and the decisions it settles",
+  "description": "**Phase 5 of 5.** Blocked by everything. Does not start before roughly fifty survey responses exist.\n\nThe initiative exists to produce findings, not only a funnel. This epic is where they get read and where the open questions get closed.\n\n**This epic is mostly tasks rather than stories on purpose.** Analysis, interviews, and decisions are not user-observable behavior and do not belong in Gherkin. The instrumentation that produces the data is specified in the earlier epics; what remains here is reading it.\n\nQuestions this epic must answer:\n\n- **What is this worth?** From the Van Westendorp block, not from watching one posted price convert. Beta volumes never reach significance on a split price test, so do not run one. Four survey questions about all-in monthly cost give a sensitivity curve from a few dozen responses, which is the sample that will exist.\n- **What does an organization computer actually cost to run for a month?** Measured from cost_explorer and budget_rollup against real provisioned organizations, published as a range on the pitch page. Until this exists the pitch page is guessing at one of the four numbers it states.\n- **Can the audience even run on AWS?** The share of interested people who are AWS shops is possibly the single most important number in the beta. If it is low, the product strategy is wrong, not the funnel.\n- **Which sign-in provider comes next?** Answered from the optional survey question, not from opinion. GitHub was deferred deliberately: the identity kernel is keyed on verified email, GitHub routinely returns a private or unverified one, and buildUserManagerSettings hard-codes identity_provider Google, so a second provider means a chooser and a new Cognito IdP. Real cost, no beta-critical benefit \u2014 unless the data says otherwise.\n- **Where does the funnel leak?** Home to pitch, pitch to survey start, survey start to complete, complete to invited, invited to paid, paid to provisioned, provisioned to first task run. Paid to provisioned is the new one and the most likely to leak; if the median is three weeks, provisioning is the next product problem.\n\n**Start with:** the design partner interviews. They are the only part with a deadline attached to someone else's calendar.",
+  "type": "epic",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-03T13:15:54.995274Z",
+  "updated_at": "2026-09-03T13:15:54.995495Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

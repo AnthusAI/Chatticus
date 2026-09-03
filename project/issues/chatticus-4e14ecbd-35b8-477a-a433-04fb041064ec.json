@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-4e14ecbd-35b8-477a-a433-04fb041064ec",
+  "title": "A signup on a non-AWS cloud is disqualified rather than scored",
+  "description": "**Phase 2 of 5.**\n\n- **Blocked by:** the survey submission story\n- **Runs in parallel with:** the scoring story\n- **Unblocks:** the operator queue story\n\n---\nThe hard filter, and the reason it is a separate story from scoring.\n\nA team running on GCP or Azure cannot be a beta customer at any score, because the product deploys into an AWS account. Giving them a low number puts them in the same queue as a weak AWS lead and spends operator attention on someone who will never convert no matter how the weights move.\n\nDisqualified is not rejected. It is a different track: a polite reply, a mailing list, and a count. **The share of interested people who are disqualified here is possibly the most important single number in the beta** \u2014 if it is high, the product strategy is wrong rather than the funnel.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b2de8891-df4e-4558-8660-230e36b16dd9",
+  "labels": [
+    "phase-2"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "39b8f54f-6dcc-4638-be03-631eec0d997f",
+      "author": "unknown",
+      "text": "Feature: Waitlist triage\n\n  Scenario: A GCP shop is disqualified rather than scored\n    Given a confirmed waitlist signup\n    And their team runs on GCP\n    When the signup is triaged\n    Then it is marked disqualified\n    And it carries no score\n    And it is not in the operator queue\n\n  Scenario: Disqualified signups are counted separately\n    Given confirmed waitlist signups on AWS and on other clouds\n    When an operator reads the waitlist summary\n    Then the disqualified count is reported apart from the queue",
+      "created_at": "2026-09-03T13:18:48.896019Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-03T13:18:47.774749Z",
+  "updated_at": "2026-09-03T13:18:48.896186Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
