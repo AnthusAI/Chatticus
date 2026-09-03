@@ -18,6 +18,7 @@ from chatticus.capability_policy import grant_from_payload
 from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.cognito_jwt import CognitoJwtVerifier, CognitoTokenError
 from chatticus.control_plane import ControlPlane
+from chatticus.email_sender import EmailSender
 from chatticus.http.integration_test_auth import (
     INTEGRATION_TEST_SESSION_PATH,
     IntegrationTestAuthConfig,
@@ -328,6 +329,7 @@ class AppState:
     plane: ControlPlane
     invoke_key: str
     environment: str
+    email_sender: EmailSender
     cognito_verifier: CognitoJwtVerifier | None = None
     signup_mode: SignupMode = SignupMode.INVITATION_ONLY
     open_sse_streams: int = 0
@@ -370,6 +372,7 @@ def create_app(
         plane=plane,
         invoke_key=resolved_key,
         environment=resolved_environment,
+        email_sender=plane.email_sender,
         cognito_verifier=cognito_verifier,
         signup_mode=resolved_signup_mode,
         integration_test_auth=integration_test_auth

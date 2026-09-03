@@ -80,3 +80,21 @@ Feature: Waitlist survey submission
     Given a waitlist signup for jane@example.com with a confirmed email
     When a GET request to /waitlist/confirm with the email and a valid token
     Then the page shows an already confirmed message
+
+  Scenario: A confirmation email is sent after survey submission
+    Given a visitor who submits a complete survey with email jane@example.com
+    When the signup is recorded
+    Then a confirmation email is sent to jane@example.com
+    And the email contains a link to /waitlist/confirm with the email and a token
+
+  Scenario: The email sender is an abstraction
+    Given the Chatticus control plane
+    And a visitor who submits a complete survey with email protocol@example.com
+    When the signup is recorded
+    Then it uses an email sender protocol with a no-op implementation for tests and an SES implementation for production
+    And the sender is called after the signup is recorded
+
+  Scenario: A repeated submission does not send a second email
+    Given a waitlist signup exists for jane@example.com with a confirmation email already sent
+    When a survey is submitted again for "JANE@example.com"
+    Then no second confirmation email is sent

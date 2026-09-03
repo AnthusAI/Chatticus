@@ -8,6 +8,10 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from chatticus.control_plane import ControlPlane
+from chatticus.email_sender import (
+    email_sender_from_env,
+    waitlist_confirmation_base_url_from_env,
+)
 from chatticus.messaging.store import DynamoMessagingStore
 from chatticus.models import ComputerPolicy, TurnJob
 from chatticus.turn_recovery import TurnDeadlineScheduler
@@ -42,6 +46,8 @@ def plane_from_env() -> ControlPlane:
         deadline_scheduler=deadline_scheduler,
         recovery_enabled=recovery_enabled,
         wall_clock=True,
+        email_sender=email_sender_from_env(),
+        waitlist_confirmation_base_url=waitlist_confirmation_base_url_from_env(),
     )
 
 
