@@ -6,6 +6,11 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from uuid import uuid4
 
+from chatticus.cross_account_provisioning import (
+    CrossAccountRoleInspector,
+    organization_after_accepted_self_setup,
+    validate_cross_account_role_for_self_setup,
+)
 from chatticus.messaging.store import MessagingStore
 from chatticus.models import (
     DuplicateMembershipError,
@@ -28,6 +33,7 @@ from chatticus.models import (
     OrganizationSeedConflictError,
     OrganizationStatus,
     OrganizationStatusTransitionError,
+    SelfSetupCrossAccountResult,
 )
 
 ANTHUS_TENANT_ID = "anthus"
@@ -226,6 +232,38 @@ class OrgRecordsKernel:
         enabled = replace(organization, status=OrganizationStatus.ENABLED)
         self.store.put_organization(enabled)
         return enabled
+
+    def submit_self_setup_cross_account_role(
+        self,
+        tenant_id: str,
+        *,
+        account_id: str,
+        cross_account_role: str,
+        role_inspector: CrossAccountRoleInspector,
+    ) -> SelfSetupCrossAccountResult:
+        """Validate and accept one customer self-setup cross-account submission."""
+        organization = self.store.get_organization(tenant_id)
+        if organization is None:
+            raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")
+        decision = validate_cross_account_role_for_self_setup(
+            organization,
+            account_id=account_id,
+            cross_account_role=cross_account_role,
+            role_inspector=role_inspector,
+        )
+        if not decision.accepted:
+            return decision
+        provisioned = organization_after_accepted_self_setup(
+            organization,
+            account_id=account_id,
+            cross_account_role=cross_account_role,
+        )
+        self.store.put_organization(provisioned)
+        return SelfSetupCrossAccountResult(
+            accepted=True,
+            organization=provisioned,
+            message=None,
+        )
 
     def suspend_organization(self, tenant_id: str) -> Organization:
         """Mark one organization suspended."""

@@ -234,6 +234,16 @@ class TaskStatus(StrEnum):
     CLOSED = "closed"
 
 
+class AwsSetupPath(StrEnum):
+    """How the customer AWS account was connected to Chatticus."""
+
+    CUSTOMER_OWNED = "customer-owned"
+    ANTHUS_MANAGED = "anthus-managed"
+
+
+ASSISTED_SETUP_FEE_CENTS = 10_000
+
+
 class OrganizationStatus(StrEnum):
     """Lifecycle of one organization."""
 
@@ -583,6 +593,15 @@ class Identity:
 
 
 @dataclass(frozen=True)
+class SelfSetupCrossAccountResult:
+    """Outcome of one customer self-setup cross-account submission."""
+
+    accepted: bool
+    organization: Organization
+    message: str | None = None
+
+
+@dataclass(frozen=True)
 class Organization:
     """One organization; tenant_id is its identifier."""
 
@@ -591,6 +610,12 @@ class Organization:
     status: OrganizationStatus
     owner_user_id: str
     created_at: datetime
+    aws_account_id: str | None = None
+    aws_cross_account_role: str | None = None
+    aws_external_id: str | None = None
+    aws_setup_path: AwsSetupPath | None = None
+    setup_fee_cents: int | None = None
+    assisted_setup_session: bool = False
 
 
 @dataclass(frozen=True)
