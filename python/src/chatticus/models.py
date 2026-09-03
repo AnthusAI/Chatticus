@@ -759,3 +759,16 @@ class WaitlistSignup:
     created_at: datetime
     email_confirmed: bool = False
     offer_snapshot: OfferSnapshot | None = None
+
+
+@dataclass(frozen=True)
+class ContactLead:
+    """A lead from a public contact form on the marketing site."""
+
+    email: str
+    contact_type: str
+    created_at: datetime
+    name: str | None = None
+    organization: str | None = None
+    details: dict[str, str] | None = None
+    offer_snapshot: OfferSnapshot | None = None

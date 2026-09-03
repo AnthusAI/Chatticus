@@ -105,6 +105,7 @@ from chatticus.models import (
     ComputerNotReadyError,
     ComputerPolicy,
     ComputerSnapshot,
+    ContactLead,
     CostClass,
     DuplicateBotNameError,
     Identity,
@@ -3551,6 +3552,40 @@ class ControlPlane:
 
         confirmed = replace(signup, email_confirmed=True)
         self._messaging_store.put_waitlist_signup(confirmed)
+
+    def record_contact_lead(
+        self,
+        email: str,
+        contact_type: str,
+        *,
+        name: str | None = None,
+        organization: str | None = None,
+        details: dict[str, str] | None = None,
+        offer_snapshot: OfferSnapshot | None = None,
+        now: datetime | None = None,
+    ) -> ContactLead:
+        """Record an unauthenticated contact form submission from the marketing site."""
+        from chatticus.offer_snapshot import current_offer_snapshot
+        from chatticus.org_records import normalize_email
+
+        moment = now or self._now
+        normalized = normalize_email(email)
+        resolved_offer_snapshot = (
+            offer_snapshot
+            if offer_snapshot is not None
+            else current_offer_snapshot(moment)
+        )
+        lead = ContactLead(
+            email=normalized,
+            contact_type=contact_type,
+            created_at=moment,
+            name=name,
+            organization=organization,
+            details=details,
+            offer_snapshot=resolved_offer_snapshot,
+        )
+        self._messaging_store.put_contact_lead(lead)
+        return lead
 
 
 def _disk_checksum(workspace: dict[str, str], browser_sessions: dict[str, str]) -> str:

@@ -155,6 +155,14 @@ export function BetaSetupPricing() {
               Chatticus to your needs — custom integrations, workflow design,
               and deployment support beyond the standard install.
             </p>
+            <p className="mt-6">
+              <a
+                href="/contact/services"
+                className="font-body text-sm font-semibold text-ink underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
+              >
+                Contact us about professional services
+              </a>
+            </p>
           </article>
 
           <article className="rounded-[1.6rem] bg-surface-raised p-8">
@@ -165,6 +173,14 @@ export function BetaSetupPricing() {
               Optional professional training from Anthus AI Solutions. Learn how
               to run your organization on Chatticus, from day-to-day operations
               to advanced bot and routine design.
+            </p>
+            <p className="mt-6">
+              <a
+                href="/contact/training"
+                className="font-body text-sm font-semibold text-ink underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
+              >
+                Contact us about professional training
+              </a>
             </p>
           </article>
         </div>
