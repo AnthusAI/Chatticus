@@ -26,9 +26,7 @@ const groups = [
       ["Source", "https://github.com/AnthusAI/Chattic.us"],
       ["Architecture", "https://github.com/AnthusAI/Chattic.us/blob/develop/docs/ARCHITECTURE.md"],
       ["Open an issue", "https://github.com/AnthusAI/Chattic.us/issues"],
-      ["Vultus avatars", "https://github.com/AnthusAI/Vultus"],
-      ["License", "https://github.com/AnthusAI/Chattic.us/blob/develop/LICENSE"],
-      ["Anth.us", "https://anth.us"],
+      ["Free and Open-Source", "https://github.com/AnthusAI/Chattic.us/blob/develop/LICENSE"],
     ],
   },
   {

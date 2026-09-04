@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-8ef2188e-4530-4e31-9204-32577afa0462",
+  "title": "Footer says Free and Open-Source; drop Vultus and Anth.us",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ffac024e-78e7-4c48-bc3b-0d136e81d890",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "f3542377-faa0-44ae-a704-d5703e0a5cff",
+      "author": "ubuntu",
+      "text": "As a visitor to chattic.us, I want the footer Build group to say the product is free and open-source without pointing at Vultus or Anth.us, so that the chrome stays about Chatticus.\n\nFeature: Marketing footer Build links\n\n  Scenario: The license is named in plain language\n    Given the chattic.us home page\n    Then the footer lists Free and Open-Source linking to the license\n    And the footer does not list Vultus avatars\n    And the footer does not list Anth.us",
+      "created_at": "2026-09-04T12:42:04.589334Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "c7089d56-cdf3-4368-8358-675ac83e7791",
+      "author": "ubuntu",
+      "text": "Landed on cursor/footer-build-links-c16e. Gherkin marketing_footer is green.",
+      "created_at": "2026-09-04T12:42:53.882628Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T12:41:53.047545Z",
+  "updated_at": "2026-09-04T12:42:54.367922Z",
+  "closed_at": "2026-09-04T12:42:54.367840Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
