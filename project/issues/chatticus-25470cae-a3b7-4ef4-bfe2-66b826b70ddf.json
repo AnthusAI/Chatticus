@@ -24,10 +24,19 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "c47ccd22-68cf-4081-9acc-b68363e2269f",
+      "author": "home",
+      "text": "Scope drift note (recorded during execution): since this task was written,\ndevelop gained a marketing blog (web/app/updates, web/content/blog/updates),\nan agent showcase (web/app/agent-zoo, web/content/blog/agent-zoo), a wiki\n(web/app/wiki, web/lib/wiki.ts, web/content/wiki -- \"ideas\" essays and a\n\"product\" collection generated from docs/ + LICENSE by\npython/src/chatticus/wiki_publish.py, wired into deploy-web-production.yml's\n\"Generate Markus wiki\" step), and /privacy and /terms.\n\nAll of it renders under the chattic.us apex, the same domain-ownership\nconstraint driving this whole split (one CloudFront alias, one owning\ndistribution) -- so it moves with everything else in this task, not just the\nroutes originally listed. The wiki's Python generation step comes along by\nrunning python -m chatticus.wiki_publish in the marketing repo's own CI\nagainst python/ and docs/ pulled in through the same chatticus tarball\ndependency already used for the shared UI package, writing into the\nmarketing repo's own web/generated/wiki/.",
+      "created_at": "2026-09-04T21:58:08.483586Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:29:18.893366Z",
-  "updated_at": "2026-09-04T21:29:51.571479Z",
+  "updated_at": "2026-09-04T21:58:08.483683Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
