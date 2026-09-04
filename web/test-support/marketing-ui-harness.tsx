@@ -74,6 +74,20 @@ async function main(): Promise<void> {
       result = { visibleText: text, html };
       break;
     }
+    case "render-updates": {
+      const { default: UpdatesPage } = await import("../app/updates/page");
+      const html = renderToStaticMarkup(React.createElement(UpdatesPage));
+      const text = html.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html };
+      break;
+    }
+    case "render-agent-zoo": {
+      const { default: AgentZooPage } = await import("../app/agent-zoo/page");
+      const html = renderToStaticMarkup(React.createElement(AgentZooPage));
+      const text = html.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html };
+      break;
+    }
     default:
       throw new Error(`Unknown marketing UI harness command: ${command}`);
   }
