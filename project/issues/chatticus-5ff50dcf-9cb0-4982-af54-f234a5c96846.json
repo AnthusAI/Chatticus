@@ -3,7 +3,7 @@
   "title": "Clarify marketing entry CTAs: Sign in vs Join the beta",
   "description": "## Problem\nEntry paths are muddled. Header primary action is \\\"Hey, Chatticus...\\\" \u2192 `/chat` (Google sign-in). Hero primary is \\\"Explore the workspace\\\" \u2192 `/chat`. Secondary is \\\"Join the beta\\\". Visitors cannot tell Sign in / open product vs join waitlist/beta.\n\n## Decisions (locked)\n1. Keep destinations: product workspace remains `/chat`; beta remains `/beta`.\n2. Header dark primary button currently labeled \\\"Hey, Chatticus...\\\": change label to **Sign in**. Keep the distinctive bubble styling. Destination stays `/chat`.\n3. Hero primary button currently \\\"Explore the workspace\\\": change label to **Sign in**. Destination stays `/chat`.\n4. Keep \\\"Join the beta\\\" as the outline/secondary CTA wherever it already appears (header outline, hero secondary, footer Product column, FinalCta).\n5. Do **not** invent a third \\\"Open product\\\" label in this task \u2014 Sign in + Join the beta is the pair.\n6. Footer Product link currently \\\"Hey, Chatticus...\\\" \u2192 `/chat`: change label to **Sign in** for consistency.\n7. Update any marketing CTA helper tests (`web/lib/marketing-cta.test.ts` etc.) that snapshot old strings.\n\n## Done when\n- Header, hero, and footer use Sign in for `/chat` and Join the beta for `/beta`\n- No remaining \\\"Explore the workspace\\\" / \\\"Hey, Chatticus...\\\" as the primary product CTA on those surfaces\n- Tests updated and passing for touched files",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,7 +12,7 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-09-04T17:03:57.080074Z",
-  "updated_at": "2026-09-04T17:03:57.080074Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T17:14:19.470755Z",
+  "closed_at": "2026-09-04T17:14:19.470755Z",
   "custom": {}
 }
