@@ -3,7 +3,7 @@
   "title": "Rename AnthusAI/Chattic.us to AnthusAI/Chatticus",
   "description": "",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -28,11 +28,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "31932e3f-1ef7-489c-be8e-0e39e855f63c",
+      "author": "home",
+      "text": "Rename executed: gh repo rename Chatticus --repo AnthusAI/Chattic.us. Sequence: (1) redeployed ChatticusGitHubDeploy with the hardened trust policy, verified via a real production workflow run under the OLD name (success); (2) ran the rename; (3) verified again with a real production workflow run under the NEW name (run 33927632480, success). Local remote updated. Hardcoded AnthusAI/Chattic.us URLs swept and fixed in wiki_publish.py (load-bearing: generates and recognizes doc links) and marketing content -- PR #297.",
+      "created_at": "2026-09-04T23:00:45.743913Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:31:11.256660Z",
-  "updated_at": "2026-09-04T22:43:23.571098Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T23:00:46.273376Z",
+  "closed_at": "2026-09-04T23:00:46.273291Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

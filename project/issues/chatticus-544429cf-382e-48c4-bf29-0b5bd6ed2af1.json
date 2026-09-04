@@ -3,7 +3,7 @@
   "title": "Marketing CDK stack: bucket, distribution, /api* behavior, OIDC role",
   "description": "",
   "type": "chore",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -42,11 +42,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "d5413df0-ac4e-4ff5-b976-4d49331943db",
+      "author": "home",
+      "text": "Deployed. ChatticusMarketingGitHubDeploy role bootstrapped locally, AWS_DEPLOY_ROLE_ARN secret set on the repo's production environment, ChatticusMarketing deployed via CI (run 33927607653, success) after fixing an unrelated but real bug the deploy caught: the committed package-lock.json pinned an integrity hash for the chatticus tarball that went stale the moment this repo's own semantic-release pushed a version-bump commit to main -- npm install failed closed with EINTEGRITY. Fixed by not committing package-lock.json at all (the whole point of the dependency is that it's unpinned/always-current; a lockfile fights that). \n\nVerified live (chatticus-ef8371's guarantee): www.chattic.us and the raw CloudFront domain (d2jp75rstyi891.cloudfront.net) both serve 200s across /, /beta/, /wiki/. Same-origin /api* proxy confirmed end-to-end: GET /api/waitlist/survey returns the real survey schema (200), POST /api/waitlist and POST /api/contact both return {status: recorded} (201) against the real production thin-turn backend. Test email marketing-cutover-verification-test@example.com used for both -- flagging in case it needs cleanup from the waitlist/contact-lead tables before real operator review.",
+      "created_at": "2026-09-04T23:04:12.507177Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:29:20.017554Z",
-  "updated_at": "2026-09-04T22:42:55.488445Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T23:04:14.780840Z",
+  "closed_at": "2026-09-04T23:04:14.780741Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},
