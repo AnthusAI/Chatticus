@@ -1,0 +1,104 @@
+/*
+ * Shared design tokens for the Chatticus brand system: color/duration/easing
+ * custom properties, the dark-mode override, and the base html/body/selection
+ * reset. Consumed both by this app's globals.css and by the private
+ * marketing/SaaS repo, which imports this file from the `chatticus` package
+ * alongside its own page-specific styles.
+ *
+ * `@import` must precede other statements in a stylesheet, so the importer
+ * pulls this file in before its own `@tailwind base` -- which means the
+ * rules below are NOT wrapped in `@layer base` (that layer doesn't exist
+ * yet at import time). They still land ahead of Tailwind's utilities in
+ * source order, which is what `@layer base` would have given them anyway.
+ */
+
+:root {
+  --paper: #f2efe7;
+  --ink: #11130f;
+  --ink-soft: #3f463d;
+  --signal: #ffd400;
+  --clay: #ef6a47;
+  --cobalt: #4f71ff;
+  --sea: #73d7c5;
+  --amber: #f0bc4d;
+  --duration-fast: 160ms;
+  --duration-medium: 320ms;
+  --duration-slow: 700ms;
+  --ease-out: cubic-bezier(0.22, 0.75, 0.18, 1);
+
+  /*
+   * Three flat background steps (see docs/BRAND_GUIDELINES.md): page base,
+   * a raised region, and the region getting the most attention. Light mode
+   * steps down from --paper; dark mode steps up from --ink by the same
+   * kind of offset, mirrored.
+   */
+  --surface-0: var(--paper);
+  --surface-1: #e7e2d5;
+  --surface-2: #d9d3c1;
+  /* Legible text color on a --surface-*: ink in light mode, paper in dark. */
+  --surface-foreground: var(--ink);
+  /* One step past --surface-2 in each mode -- deliberately more contrast
+     than the general surface steps, for the one specific pairing (the
+     logo mark's backdrop bubble + the header CTA) that wants to read as
+     a distinct shape rather than a subtle background step. */
+  --mark-shadow: #cbc4ad;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-0: var(--ink);
+    --surface-1: #1d2018;
+    --surface-2: #2a2e22;
+    --surface-foreground: var(--paper);
+    /* --ink-soft is the muted/secondary text color throughout the site; it
+       needs a dark-mode value too so text-ink-soft stays legible once its
+       surface flips (a static dark-green reads as invisible on a dark page). */
+    --ink-soft: #b9c0b6;
+    --mark-shadow: #373c2c;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--surface-0);
+  color: var(--surface-foreground);
+  font-family: var(--font-body), sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--signal);
+  color: var(--ink);
+}
+
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-rise {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

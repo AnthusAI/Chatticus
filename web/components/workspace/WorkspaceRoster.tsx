@@ -1,7 +1,7 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { BotAvatarView } from "@/components/BotAvatarView";
+import { cn } from "../../lib/utils";
+import { BotAvatarView } from "../BotAvatarView";
 import type { BotAvatarState, WorkspaceMember } from "./types";
 
 type WorkspaceRosterProps = {
