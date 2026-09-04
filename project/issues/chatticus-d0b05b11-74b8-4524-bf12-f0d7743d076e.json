@@ -10,9 +10,19 @@
   "parent": "chatticus-606ca033-f10c-4ef5-8e3f-4b8833d680bc",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "a8223a09-6d27-4155-835c-5b4fcda1f86f",
+      "author": "ubuntu",
+      "text": "Starting wiki structure: Gherkin first, then loader/index/factory.",
+      "created_at": "2026-09-04T11:24:39.943286Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-04T11:22:51.850087Z",
-  "updated_at": "2026-09-04T11:23:45.897643Z",
+  "updated_at": "2026-09-04T11:24:39.943347Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

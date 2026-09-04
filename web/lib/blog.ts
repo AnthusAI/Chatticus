@@ -12,6 +12,7 @@ export type BlogPostFrontmatter = {
   ogHeadline: string;
   ogTagline: string;
   draft?: boolean;
+  relatedWiki?: string[];
 };
 
 export type BlogPost = {
@@ -40,6 +41,37 @@ export function postPath(category: BlogCategory, slug: string): string {
   return `${categoryBasePath(category)}/${slug}`;
 }
 
+function parseYamlListBlock(
+  lines: string[],
+  startIndex: number,
+): { items: string[]; nextIndex: number } {
+  const items: string[] = [];
+  let index = startIndex + 1;
+
+  while (index < lines.length) {
+    const trimmed = lines[index].trim();
+    if (!trimmed) {
+      index += 1;
+      continue;
+    }
+    if (!trimmed.startsWith("- ")) {
+      break;
+    }
+
+    let value = trimmed.slice(2).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    items.push(value);
+    index += 1;
+  }
+
+  return { items, nextIndex: index };
+}
+
 export function parseFrontmatter(raw: string): { frontmatter: BlogPostFrontmatter; body: string } {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!match) {
@@ -47,40 +79,59 @@ export function parseFrontmatter(raw: string): { frontmatter: BlogPostFrontmatte
   }
 
   const [, yamlBlock, body] = match;
-  const frontmatter: Record<string, string | boolean> = {};
+  const lines = yamlBlock.split(/\r?\n/);
+  const scalarFields: Record<string, string | boolean> = {};
+  const listFields: Record<string, string[]> = {};
 
-  for (const line of yamlBlock.split(/\r?\n/)) {
-    const trimmed = line.trim();
+  let index = 0;
+  while (index < lines.length) {
+    const trimmed = lines[index].trim();
     if (!trimmed) {
+      index += 1;
       continue;
     }
+
     const separator = trimmed.indexOf(":");
     if (separator === -1) {
+      index += 1;
       continue;
     }
+
     const key = trimmed.slice(0, separator).trim();
-    let value = trimmed.slice(separator + 1).trim();
+    const inlineValue = trimmed.slice(separator + 1).trim();
+
+    if (!inlineValue && (key === "relatedWiki" || key === "relatedPosts")) {
+      const parsedList = parseYamlListBlock(lines, index);
+      listFields[key] = parsedList.items;
+      index = parsedList.nextIndex;
+      continue;
+    }
+
+    let value = inlineValue;
     if (
       (value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'"))
     ) {
       value = value.slice(1, -1);
     }
+
     if (value === "true") {
-      frontmatter[key] = true;
+      scalarFields[key] = true;
     } else if (value === "false") {
-      frontmatter[key] = false;
+      scalarFields[key] = false;
     } else {
-      frontmatter[key] = value;
+      scalarFields[key] = value;
     }
+    index += 1;
   }
 
-  const title = String(frontmatter.title ?? "");
-  const date = String(frontmatter.date ?? "");
-  const description = String(frontmatter.description ?? "");
-  const ogHeadline = String(frontmatter.ogHeadline ?? "");
-  const ogTagline = String(frontmatter.ogTagline ?? "");
-  const draft = frontmatter.draft === true;
+  const title = String(scalarFields.title ?? "");
+  const date = String(scalarFields.date ?? "");
+  const description = String(scalarFields.description ?? "");
+  const ogHeadline = String(scalarFields.ogHeadline ?? "");
+  const ogTagline = String(scalarFields.ogTagline ?? "");
+  const draft = scalarFields.draft === true;
+  const relatedWiki = listFields.relatedWiki ?? [];
 
   if (!title || !date || !description || !ogHeadline || !ogTagline) {
     throw new Error("Post frontmatter is missing required fields");
@@ -94,6 +145,7 @@ export function parseFrontmatter(raw: string): { frontmatter: BlogPostFrontmatte
       ogHeadline,
       ogTagline,
       draft,
+      relatedWiki: relatedWiki.length > 0 ? relatedWiki : undefined,
     },
     body: body.trim(),
   };

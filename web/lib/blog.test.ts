@@ -58,6 +58,15 @@ describe("parseFrontmatter", () => {
     const parsed = parseFrontmatter(DRAFT_POST);
     assert.equal(parsed.frontmatter.draft, true);
   });
+
+  it("parses optional relatedWiki slugs", () => {
+    const withRelatedWiki = `${SAMPLE_POST.trimEnd()}\n`.replace(
+      "draft: false",
+      "draft: false\nrelatedWiki:\n  - reactor-chamber\n  - missing-page",
+    );
+    const parsed = parseFrontmatter(withRelatedWiki);
+    assert.deepEqual(parsed.frontmatter.relatedWiki, ["reactor-chamber", "missing-page"]);
+  });
 });
 
 describe("listPosts with a temporary content directory", () => {
