@@ -10,9 +10,19 @@
   "parent": "chatticus-606ca033-f10c-4ef5-8e3f-4b8833d680bc",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "0579dec1-24b7-43f9-96d3-87200d64fcae",
+      "author": "ubuntu",
+      "text": "Loaders resolve relatedPosts and relatedWiki; missing and draft targets are omitted. RelatedLinksSection renders nothing when empty.",
+      "created_at": "2026-09-04T11:40:51.228185Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-04T11:22:50.747730Z",
-  "updated_at": "2026-09-04T11:27:31.604724Z",
+  "updated_at": "2026-09-04T11:40:51.228247Z",
   "closed_at": "2026-09-04T11:27:31.604641Z",
   "right_now_summary": null,
   "right_now_updated_at": null,

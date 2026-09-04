@@ -28,10 +28,19 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "bd164417-b786-4da4-9251-923c8f881295",
+      "author": "ubuntu",
+      "text": "Loader, factory, WikiPageView, related-link chrome, GFM tables, empty /wiki index. No [slug] routes until a published page.",
+      "created_at": "2026-09-04T11:40:52.841361Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T11:22:51.850087Z",
-  "updated_at": "2026-09-04T11:27:26.944434Z",
+  "updated_at": "2026-09-04T11:40:52.841423Z",
   "closed_at": "2026-09-04T11:27:26.944320Z",
   "right_now_summary": null,
   "right_now_updated_at": null,

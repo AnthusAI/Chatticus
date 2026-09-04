@@ -10,9 +10,19 @@
   "parent": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "42140796-694e-4ca4-aaf0-ccdd897ba019",
+      "author": "ubuntu",
+      "text": "Structure pass complete. Unpublished /wiki plus draft research on names for the workplace. Launch (footer + index) is a later decision after more pages.",
+      "created_at": "2026-09-04T11:40:53.645951Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-04T11:22:17.816807Z",
-  "updated_at": "2026-09-04T11:27:36.573889Z",
+  "updated_at": "2026-09-04T11:40:53.646014Z",
   "closed_at": "2026-09-04T11:27:36.573801Z",
   "right_now_summary": null,
   "right_now_updated_at": null,

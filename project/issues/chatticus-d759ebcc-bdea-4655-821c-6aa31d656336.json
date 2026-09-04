@@ -10,9 +10,19 @@
   "parent": "chatticus-606ca033-f10c-4ef5-8e3f-4b8833d680bc",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "60cf9a0d-941a-475e-b0b5-ff5eedda5989",
+      "author": "ubuntu",
+      "text": "Green. Footer and News group do not list Wiki.",
+      "created_at": "2026-09-04T11:40:49.623574Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-04T11:22:49.639774Z",
-  "updated_at": "2026-09-04T11:27:30.403549Z",
+  "updated_at": "2026-09-04T11:40:49.623640Z",
   "closed_at": "2026-09-04T11:27:30.403468Z",
   "right_now_summary": null,
   "right_now_updated_at": null,

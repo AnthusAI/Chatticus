@@ -10,9 +10,19 @@
   "parent": "chatticus-606ca033-f10c-4ef5-8e3f-4b8833d680bc",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "59b30b53-0dce-47af-8b25-51492fa32df9",
+      "author": "ubuntu",
+      "text": "Green. /wiki is a noindex durable-notes index; draft research pages do not appear in the listing.",
+      "created_at": "2026-09-04T11:40:50.424969Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-04T11:22:50.201451Z",
-  "updated_at": "2026-09-04T11:27:30.987560Z",
+  "updated_at": "2026-09-04T11:40:50.425039Z",
   "closed_at": "2026-09-04T11:27:30.987471Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
