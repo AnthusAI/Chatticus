@@ -163,20 +163,6 @@ export function listPublishedPosts(): BlogPost[] {
   return sortPostsNewestFirst(posts);
 }
 
-export const STATIC_EXPORT_PLACEHOLDER_SLUG = "__placeholder__";
-
-export function buildStaticParams(category: BlogCategory): { slug: string }[] {
-  const posts = listPosts(category).map((post) => ({ slug: post.slug }));
-  if (posts.length === 0) {
-    return [{ slug: STATIC_EXPORT_PLACEHOLDER_SLUG }];
-  }
-  return posts;
-}
-
-export function isStaticExportPlaceholder(slug: string): boolean {
-  return slug === STATIC_EXPORT_PLACEHOLDER_SLUG;
-}
-
 export function assertBlogCategory(value: string): BlogCategory {
   if (!isBlogCategory(value)) {
     throw new Error(`Unknown blog category: ${value}`);

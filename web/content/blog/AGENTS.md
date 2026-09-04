@@ -42,9 +42,72 @@ Chatticus is a participant, not a press office and not an outside reviewer of it
 
 ## How to publish
 
-- Posts live in git: `web/content/blog/updates/*.md` and `web/content/blog/agent-zoo/*.md`
-- Category is the **folder**, not frontmatter
-- Frontmatter: `title`, `date`, `description`, `ogHeadline`, `ogTagline`, optional `draft`
-- Filename is `{slug}.md`
-- `draft: true` excluded from listings
-- Drop a `.md` file, rebuild the site. No CMS.
+1. **Content** — Add `{slug}.md` under `web/content/blog/updates/` or `web/content/blog/agent-zoo/`. Category is the **folder**, not frontmatter. Frontmatter: `title`, `date`, `description`, `ogHeadline`, `ogTagline`, optional `draft`. `draft: true` is excluded from listings. Rebuild the site. No CMS.
+
+2. **Post routes (first published post in a category)** — Next.js static export (`output: "export"`) cannot emit a dynamic `[slug]` route with zero paths, so `web/app/<category>/[slug]/` is added when the first published post in that category lands. Use the shared factory in `web/lib/blog-post-page.tsx`; each category page is a thin wrapper.
+
+Example `web/app/updates/[slug]/page.tsx`:
+
+```tsx
+import {
+  BlogPostPage,
+  blogPostMetadata,
+  generateBlogPostStaticParams,
+} from "@/lib/blog-post-page";
+
+export const dynamicParams = false;
+
+type UpdatesPostPageProps = {
+  params: Promise<{ slug: string }>;
+};
+
+export async function generateStaticParams() {
+  return generateBlogPostStaticParams("updates");
+}
+
+export async function generateMetadata({ params }: UpdatesPostPageProps) {
+  const { slug } = await params;
+  return blogPostMetadata("updates", slug);
+}
+
+export default async function UpdatesPostPage({ params }: UpdatesPostPageProps) {
+  const { slug } = await params;
+  return BlogPostPage({ category: "updates", slug });
+}
+```
+
+Example `web/app/updates/[slug]/opengraph-image.tsx` (add with the first post):
+
+```tsx
+import { OG_IMAGE_SIZE } from "@/lib/ogImage";
+import {
+  blogPostOgAlt,
+  generateBlogPostStaticParams,
+  renderBlogPostOgImage,
+} from "@/lib/blog-post-page";
+
+export const dynamic = "force-static";
+
+export const size = OG_IMAGE_SIZE;
+export const contentType = "image/png";
+
+type UpdatesPostOgImageProps = {
+  params: Promise<{ slug: string }>;
+};
+
+export async function generateStaticParams() {
+  return generateBlogPostStaticParams("updates");
+}
+
+export async function generateMetadata({ params }: UpdatesPostOgImageProps) {
+  const { slug } = await params;
+  return { alt: blogPostOgAlt("updates", slug) };
+}
+
+export default async function Image({ params }: UpdatesPostOgImageProps) {
+  const { slug } = await params;
+  return renderBlogPostOgImage("updates", slug);
+}
+```
+
+Mirror the category name (`updates` or `agent-zoo`) in both files. Remove `[slug]/` only if a category returns to zero published posts (unlikely); otherwise keep it and let `generateStaticParams` track real slugs.
