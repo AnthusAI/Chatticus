@@ -1,7 +1,7 @@
 {
   "id": "chatticus-0e94bd43-ee60-4de0-8120-206cdd5d2062",
-  "title": "The pricing section headline names the cost of every option",
-  "description": "As a visitor on the marketing home page, I want the pricing section headline to say that every option shows its price, so I can read the bill without decoding a riddle.\n\nOut of scope: restyling the pricing cards, changing rung prices, promoting to main.\n\nThe riddle \"A ladder with a gap where a price should be...\" was design rationale leaked onto the page. Replace it with a headline in the homepage voice: two short sentences, then a plain line that every option shows its price.",
+  "title": "The pricing section headline offers a choice of how much help",
+  "description": "As a visitor on the marketing home page, I want the pricing section to say I choose how much help I enlist, so the first thing I read is flexibility rather than a bill.\n\nOut of scope: restyling the pricing cards, changing rung prices, promoting to main.\n\nHeadline: You choose how much we help.\nThen a short paragraph: run it yourself, or enlist Anthus to operate it, set it up with you, or adapt a deployment.",
   "type": "story",
   "status": "in_progress",
   "priority": 1,
@@ -28,10 +28,19 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "ecb47586-18d4-43fc-a293-d3e840d14a90",
+      "author": "ubuntu",
+      "text": "Feature: Delegation ladder positioning\n\n  Scenario: The pricing section headline offers a choice of how much help\n    Given the chattic.us home page\n    When I look at the delegated responsibility section\n    Then it headlines that you choose how much we help\n    And it states that you can run it yourself or enlist us\n    And it does not describe a ladder with a gap where a price should be",
+      "created_at": "2026-09-04T19:12:55.859858Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T19:04:04.758634Z",
-  "updated_at": "2026-09-04T19:07:37.376190Z",
+  "updated_at": "2026-09-04T19:12:55.859917Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

@@ -148,18 +148,19 @@ def when_look_at_delegated_responsibility_section(context: object) -> None:
     pass
 
 
-@then("it headlines that the work is yours and so is the bill")
-def then_headlines_work_is_yours_so_is_the_bill(context: object) -> None:
-    text = context.marketing_ui_harness.get("visibleText") or ""
-    lowered = text.lower()
-    assert "the work is yours" in lowered, text
-    assert "so is the bill" in lowered, text
-
-
-@then("it states that every option shows its price")
-def then_states_every_option_shows_its_price(context: object) -> None:
+@then("it headlines that you choose how much we help")
+def then_headlines_you_choose_how_much_we_help(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()
-    assert "every option shows its price" in text, text
+    assert "you choose how much we help" in text, text
+
+
+@then("it states that you can run it yourself or enlist us")
+def then_states_run_yourself_or_enlist_us(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "run the whole stack yourself" in text, text
+    assert "operate it" in text, text
+    assert "set it up with you" in text, text
+    assert "adapt a deployment" in text, text
 
 
 @then("it does not describe a ladder with a gap where a price should be")
