@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-b5b57ff7-e82c-45f2-89c8-47a85580cecf",
+  "title": "Markdown blog loader and post templates",
+  "description": "web/lib/blog.ts reads markdown at build time. Category is the folder. Frontmatter: title, date, description, ogHeadline, ogTagline, optional draft. Newest first. Drafts excluded. node:test in web/lib/blog.test.ts. Empty updates/ and agent-zoo/ folders. [slug] routes with generateStaticParams. Shared post chrome. No first posts.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-492b65b2-93bc-4488-964b-b0c225774258",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-04T10:51:31.509479Z",
+  "updated_at": "2026-09-04T10:51:31.509572Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

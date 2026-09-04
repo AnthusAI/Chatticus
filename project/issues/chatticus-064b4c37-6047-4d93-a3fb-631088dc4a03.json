@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-064b4c37-6047-4d93-a3fb-631088dc4a03",
+  "title": "Updates and Agent Zoo routes, OG images, and footer",
+  "description": "Ship /updates and /agent-zoo indexes with mastheads, page-content.ts, opengraph-image.tsx. Footer News group, lg:grid-cols-4, no borders. Marketing UI harness commands. Make marketing_blog.feature green.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-492b65b2-93bc-4488-964b-b0c225774258",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-04T10:51:32.073202Z",
+  "updated_at": "2026-09-04T10:51:32.073300Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

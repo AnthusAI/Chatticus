@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-3577b5cd-d1ff-476d-a378-2be975331320",
+  "title": "The footer News group lists Updates then Agent Zoo",
+  "description": "**As a** visitor on any marketing page, **I want** Updates and Agent Zoo in the site footer, **so that** I can reach both news desks without hunting.\n\nNot in the header. Updates is first. Agent Zoo is directly below it.\n\nFeature: Marketing blog\n\n  Scenario: Footer News group lists Updates then Agent Zoo\n    Given the chattic.us home page\n    Then the footer has a News group\n    And the News group lists Updates linking to \"/updates\"\n    And the News group lists Agent Zoo linking to \"/agent-zoo\"\n    And Updates appears before Agent Zoo in that group",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-492b65b2-93bc-4488-964b-b0c225774258",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "a5a4ab2a-55e6-4031-b808-c2c91f8ac604",
+      "author": "ubuntu",
+      "text": "Gherkin + steps in features/marketing_blog.feature; footer News group assertion fails (no Footer change yet).",
+      "created_at": "2026-09-04T10:54:08.732259Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "16d7903b-07ba-4c5f-bfe7-19199153530c",
+      "author": "ubuntu",
+      "text": "Gherkin in features/marketing_blog.feature. Currently red: Footer group News not found.",
+      "created_at": "2026-09-04T10:57:00.835763Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T10:51:28.726278Z",
+  "updated_at": "2026-09-04T10:57:00.835825Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

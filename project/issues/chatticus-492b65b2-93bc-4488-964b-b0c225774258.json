@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-492b65b2-93bc-4488-964b-b0c225774258",
+  "title": "Marketing website: Updates and Agent Zoo",
+  "description": "**As a** visitor to chattic.us, **I want** two in-repo news desks \u2014 Updates (Chatticus progress) and Agent Zoo (the peer-product beat) \u2014 **so that** I can follow the product and the category from the marketing site, without a CMS.\n\nThis pass is **structure only**. No first posts. Adding a markdown file under `web/content/blog/{category}/` later is enough to publish.\n\n## Locked names\n\n- Public category names: **Updates** and **Agent Zoo**.\n- Agent Zoo is Chatticus's name for the desk. \"Model zoo\", \"bot farm\", \"software factory\", \"reactor chamber\", and next week's coinage are industry jargon the desk *covers*. They are not the blog's name and they are not Chatticus product names.\n\n## Definition of Done\n\n- Footer News group lists Updates, then Agent Zoo, at `/updates` and `/agent-zoo`.\n- Both indexes ship with a real masthead and an empty article list. No \"coming soon.\"\n- `web/content/blog/AGENTS.md` is the news-desk editor guide; root `AGENTS.md` points at it.\n- A markdown loader at build time (`web/lib/blog.ts`) is the seam for later moving content.\n- `[slug]` post templates exist with `generateStaticParams`. Zero posts emit nothing.\n- `features/marketing_blog.feature` is green via the marketing UI harness.\n- No header nav, RSS, sitemap expansion, or first posts.\n\n## Out of scope\n\nFirst posts, RSS, sitemap, CMS, header links.",
+  "type": "epic",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-04T10:51:12.559839Z",
+  "updated_at": "2026-09-04T10:51:41.873611Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
