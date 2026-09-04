@@ -40,7 +40,7 @@ function robotsMetaTagFromMetadata(metadata: { robots?: unknown } | undefined): 
 };
 
 async function main(): Promise<void> {
-  const [command] = process.argv.slice(2);
+  const [command, ...rest] = process.argv.slice(2);
   let result = {};
 
   switch (command) {
@@ -117,6 +117,21 @@ async function main(): Promise<void> {
       const htmlWithHead = `${robotsMeta}${html}`;
       const text = htmlWithHead.replace(/<[^>]*>?/gm, " ");
       result = { visibleText: text, html: htmlWithHead };
+      break;
+    }
+    case "render-post": {
+      const [category, slug] = rest;
+      if (category !== "updates" && category !== "agent-zoo") {
+        throw new Error(`Unknown blog category for render-post: ${category}`);
+      }
+      if (!slug) {
+        throw new Error("render-post requires a slug");
+      }
+      const { BlogPostPage } = await import("../lib/blog-post-page");
+      const page = await BlogPostPage({ category, slug });
+      const html = renderToStaticMarkup(page);
+      const text = html.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html };
       break;
     }
     default:

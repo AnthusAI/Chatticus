@@ -27,9 +27,9 @@ def _tsx_binary() -> Path:
     )
 
 
-def _run_harness(command: str) -> dict:
+def _run_harness(*command: str) -> dict:
     tsx = _tsx_binary()
-    args = [str(tsx), str(HARNESS), command]
+    args = [str(tsx), str(HARNESS), *command]
     env = dict(__import__("os").environ)
     result = subprocess.run(
         args,
@@ -41,7 +41,7 @@ def _run_harness(command: str) -> dict:
     )
     if result.returncode != 0:
         raise AssertionError(
-            f"marketing UI harness failed ({command}): "
+            f"marketing UI harness failed ({' '.join(command)}): "
             f"{result.stderr or result.stdout}"
         )
     return json.loads(result.stdout)
