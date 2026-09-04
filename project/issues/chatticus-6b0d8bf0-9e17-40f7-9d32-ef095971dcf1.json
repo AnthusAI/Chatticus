@@ -19,10 +19,19 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "52c20057-1b08-42fe-a7fa-c5aae9fa896d",
+      "author": "home",
+      "text": "Code changes ready and on main (chatticus-oidc-name-independent-trust, PR #293, merged and promoted): GITHUB_SUB_PREFIX wildcards the owner/repo name segments, pinning only the numeric ids, so a rename no longer invalidates trust. NOT yet deployed to AWS -- ChatticusGitHubDeploy has no automated deploy workflow (by design, per its own deploy script's comment), so the fix only takes effect once someone with AWS credentials runs 'sh infra/deploy-chatticus-github-deploy.sh'. The actual gh repo rename must wait for that deploy to complete and be verified (a production workflow run going green) -- doing the rename first would break every deploy workflow immediately. Blocked on interactive aws login this session cannot perform.",
+      "created_at": "2026-09-04T22:43:23.571018Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:31:11.256660Z",
-  "updated_at": "2026-09-04T21:31:11.762022Z",
+  "updated_at": "2026-09-04T22:43:23.571098Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

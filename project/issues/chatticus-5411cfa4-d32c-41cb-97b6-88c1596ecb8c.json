@@ -3,7 +3,7 @@
   "title": "Move marketing behave specs and TS harnesses to Chattic.us-web",
   "description": "",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,10 +24,19 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "544962ad-7946-44d1-9ab5-2411257bd202",
+      "author": "home",
+      "text": "Landed in Chattic.us-web@031354c: beta_pitch, beta_waitlist_marketing_funnel, contact_forms, delegation_ladder_positioning, marketing_beta_pitch features plus their step files and the 4 TS harnesses (marketing-ui, contact-form, survey-form, analytics). behave: 5 features, 31 scenarios, 123 steps, all green against the real chatticus package.\n\nTrimmed on the way over: contact_form_steps.py and beta_waitlist_survey_form_steps.py/beta_waitlist_utm_analytics_steps.py dropped their context.api_client/context.plane backend assertions (marketing repo has no control plane). Rate limiting and complete=false signup recording stay covered by this repo's own waitlist_steps.py/waitlist_survey_steps.py, no gap. Two real gaps do open once the OLD scenarios here are deleted (chatticus-cd78ca): contact lead recording (services+training) and waitlist UTM-field persistence have no other coverage in this repo. New backend-only Gherkin for both needs to land in the same change that deletes the old cross-repo scenarios -- flagging here so it isn't missed.",
+      "created_at": "2026-09-04T22:39:08.666746Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:29:19.496911Z",
-  "updated_at": "2026-09-04T21:29:52.071556Z",
+  "updated_at": "2026-09-04T22:39:08.666805Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
