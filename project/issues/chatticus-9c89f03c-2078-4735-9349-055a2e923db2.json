@@ -1,0 +1,49 @@
+{
+  "id": "chatticus-9c89f03c-2078-4735-9349-055a2e923db2",
+  "title": "Publish founding Updates and Agent Zoo posts",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-492b65b2-93bc-4488-964b-b0c225774258",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "c88f0c49-c520-487e-b1a1-db637de5f014",
+      "author": "ubuntu",
+      "text": "As a visitor, I want founding posts on Updates and Agent Zoo, so that the public archive states the workplace bet, the idle-floor thesis, the naming problem, and farms-versus-factories \u2014 checkable, not a changelog.\n\nFeature: Marketing blog\n\n  Scenario: Updates index lists founding progress notes\n    Given a visitor on the Updates page\n    Then the page lists \"The workplace is the product\" linking to \"/updates/the-workplace\"\n    And the page lists \"Nothing bills while nobody is working\" linking to \"/updates/nothing-bills\"\n\n  Scenario: Agent Zoo index lists founding category notes\n    Given a visitor on the Agent Zoo page\n    Then the page lists \"Nobody agrees what to call this\" linking to \"/agent-zoo/nobody-agrees\"\n    And the page lists \"A farm of desks\" linking to \"/agent-zoo/farms-and-desks\"\n\n  Scenario: A visitor can read the workplace update\n    Given a visitor on the Updates post \"the-workplace\"\n    Then the page is titled \"The workplace is the product\"\n    And the page states that named teammates share one computer\n\n  Scenario: A visitor can read the names Agent Zoo post\n    Given a visitor on the Agent Zoo post \"nobody-agrees\"\n    Then the page is titled \"Nobody agrees what to call this\"\n    And the page does not call itself a model zoo",
+      "created_at": "2026-09-04T13:05:50.431266Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "998557f8-e323-45c1-8d2f-3eae6c585a95",
+      "author": "ubuntu",
+      "text": "Gherkin for the names post checks that the industry has not settled on a word. The post may name model zoo as jargon in the wild; the index still must not call itself a model zoo.",
+      "created_at": "2026-09-04T13:09:08.793424Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "051339ed-b5f1-47e3-acef-003fb101515a",
+      "author": "ubuntu",
+      "text": "Founding posts published on cursor/founding-posts-c16e. Gherkin marketing_blog, web tests, lint, typecheck, and next build are green. [slug] routes emit the four pages.",
+      "created_at": "2026-09-04T13:10:28.120707Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T13:05:43.389017Z",
+  "updated_at": "2026-09-04T13:10:28.694115Z",
+  "closed_at": "2026-09-04T13:10:28.694034Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
