@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-739edaba-9583-4efb-a473-c7490c064d8c",
+  "title": "Restore accessible mobile marketing navigation",
+  "description": "## Problem\nBelow the `lg` breakpoint, section navigation (Organization, Why Chatticus, Evidence, FAQ) disappears entirely. Only the logo and Sign-in/beta actions remain. There is no menu control. Mobile visitors cannot reach in-page sections from the header.\n\n## Decisions (locked)\n1. Add an accessible mobile navigation pattern in `web/components/Header.tsx` (or a small child component) visible below `lg`.\n2. Use a button that toggles a menu/drawer/panel with `aria-expanded`, `aria-controls`, and a labeled control (e.g. \\\"Menu\\\" / \\\"Close menu\\\"). Keyboard operable; focus management reasonable.\n3. Mobile menu must include the same section links as desktop: Organization, Why Chatticus, Evidence, FAQ, **Pricing** (`/#pricing`), plus Join the beta if the outline button is hidden on the smallest widths.\n4. Sign in button may remain visible in the header bar on mobile (current pattern).\n5. Match existing visual language (surface, cobalt focus rings, body font). No emoji.\n6. Prefer client-component interactivity only where required; keep Wordmark/link behavior intact.\n\n## Done when\n- On a narrow viewport, a user can open a menu and jump to Organization / Why Chatticus / Evidence / FAQ / Pricing\n- Menu is keyboard accessible and has correct ARIA\n- No layout regression on desktop (`lg+` still shows inline links)",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-70e0cf25-05c6-402d-b221-46da90f071e1",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-04T17:03:57.682989Z",
+  "updated_at": "2026-09-04T17:03:57.682989Z",
+  "closed_at": null,
+  "custom": {}
+}
