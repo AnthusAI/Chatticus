@@ -29,7 +29,7 @@ import {
   CHATTICUS_LOG_RETENTION,
   CustomResourceProviderLogRetentionAspect,
 } from "./log-retention";
-import { webDockerBundleCommand, webLocalBundleCommand, WEB_BUNDLE_DOCKER_IMAGE, WEB_LOCAL_BUNDLE_AWS_CLI_CHECK } from "./web-build-env";
+import { webDockerBundleCommand, webDockerBundlingEnvironment, webLocalBundleCommand, WEB_BUNDLE_DOCKER_IMAGE, WEB_LOCAL_BUNDLE_AWS_CLI_CHECK } from "./web-build-env";
 
 export interface WebStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
@@ -173,6 +173,7 @@ export class WebStack extends cdk.Stack {
             bundling: {
               image: cdk.DockerImage.fromRegistry(WEB_BUNDLE_DOCKER_IMAGE),
               command: ["bash", "-c", webDockerBundleCommand(environmentName)],
+              environment: webDockerBundlingEnvironment(),
               local: {
                 tryBundle(outputDir: string): boolean {
                   try {
