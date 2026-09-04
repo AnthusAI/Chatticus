@@ -89,6 +89,16 @@ def given_visitor_on_agent_zoo_page(context: object) -> None:
     context.marketing_ui_harness = _run_harness("render-agent-zoo")
 
 
+@given('a visitor on the Updates post "{slug}"')
+def given_visitor_on_updates_post(context: object, slug: str) -> None:
+    context.marketing_ui_harness = _run_harness("render-post", "updates", slug)
+
+
+@given('a visitor on the Agent Zoo post "{slug}"')
+def given_visitor_on_agent_zoo_post(context: object, slug: str) -> None:
+    context.marketing_ui_harness = _run_harness("render-post", "agent-zoo", slug)
+
+
 @then("the footer has a News group")
 def then_footer_has_news_group(context: object) -> None:
     _news_group_links(context)
@@ -143,6 +153,23 @@ def then_page_lists_no_articles_yet(context: object) -> None:
         ), f"Unexpected article link found: {pattern.pattern}"
 
 
+@then('the page lists "{title}" linking to "{path}"')
+def then_page_lists_title_linking_to_path(
+    context: object, title: str, path: str
+) -> None:
+    html = _html(context)
+    text = _visible_text(context)
+    assert title in text, text
+    normalized = _normalize_href(path)
+    for match in FOOTER_LINK_PATTERN.finditer(html):
+        href = _normalize_href(match.group(1))
+        label = re.sub(r"<[^>]+>", "", match.group(2))
+        label = " ".join(label.split())
+        if href == normalized and title in label:
+            return
+    raise AssertionError(f"No link titled {title!r} to {path!r} found")
+
+
 @then("the page does not say coming soon")
 def then_page_does_not_say_coming_soon(context: object) -> None:
     text = _visible_text(context).lower()
@@ -153,6 +180,12 @@ def then_page_does_not_say_coming_soon(context: object) -> None:
 def then_page_is_titled_agent_zoo(context: object) -> None:
     text = _visible_text(context)
     assert "Agent Zoo" in text, text
+
+
+@then('the page is titled "{title}"')
+def then_page_is_titled(context: object, title: str) -> None:
+    text = _visible_text(context)
+    assert title in text, text
 
 
 @then(
@@ -172,6 +205,12 @@ def then_page_does_not_call_itself_model_zoo(context: object) -> None:
     assert "model zoo" not in text.lower(), text
 
 
+@then("the page states that the industry has not settled on a word")
+def then_page_states_industry_has_not_settled_on_a_word(context: object) -> None:
+    text = _visible_text(context).lower()
+    assert "has not settled on a word" in text, text
+
+
 @then('the page links to "/agent-zoo"')
 def then_page_links_to_agent_zoo(context: object) -> None:
     _page_has_href(context, "/agent-zoo")
@@ -180,3 +219,10 @@ def then_page_links_to_agent_zoo(context: object) -> None:
 @then('the page links to "/updates"')
 def then_page_links_to_updates(context: object) -> None:
     _page_has_href(context, "/updates")
+
+
+@then("the page states that named teammates share one computer")
+def then_page_states_named_teammates_share_one_computer(context: object) -> None:
+    text = _visible_text(context).lower()
+    assert "named" in text, text
+    assert "computer" in text, text

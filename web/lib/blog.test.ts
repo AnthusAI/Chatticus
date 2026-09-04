@@ -106,3 +106,25 @@ describe("listPosts with a temporary content directory", () => {
     }
   });
 });
+
+describe("committed founding posts", () => {
+  it("publishes the four founding notes and skips drafts", () => {
+    const updates = listPosts("updates");
+    const zoo = listPosts("agent-zoo");
+
+    assert.deepEqual(
+      updates.map((post) => post.slug),
+      ["the-workplace", "nothing-bills"],
+    );
+    assert.deepEqual(
+      zoo.map((post) => post.slug),
+      ["nobody-agrees", "farms-and-desks"],
+    );
+
+    for (const post of [...updates, ...zoo]) {
+      assert.equal(post.frontmatter.draft, false);
+      assert.ok(post.frontmatter.ogHeadline);
+      assert.ok(post.body.length > 0);
+    }
+  });
+});
