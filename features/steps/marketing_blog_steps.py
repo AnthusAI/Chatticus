@@ -27,11 +27,6 @@ PAGE_LINK_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-ARTICLE_LINK_PATTERNS = (
-    re.compile(r'href="/updates/[^"]+"', re.IGNORECASE),
-    re.compile(r'href="/agent-zoo/[^"]+"', re.IGNORECASE),
-)
-
 
 def _visible_text(context: object) -> str:
     return context.marketing_ui_harness.get("visibleText") or ""
@@ -144,15 +139,6 @@ def then_updates_page_states_progress_notes(context: object) -> None:
     assert "chatticus" in text, text
 
 
-@then("the page lists no articles yet")
-def then_page_lists_no_articles_yet(context: object) -> None:
-    html = _html(context)
-    for pattern in ARTICLE_LINK_PATTERNS:
-        assert (
-            pattern.search(html) is None
-        ), f"Unexpected article link found: {pattern.pattern}"
-
-
 @then('the page lists "{title}" linking to "{path}"')
 def then_page_lists_title_linking_to_path(
     context: object, title: str, path: str
@@ -226,3 +212,15 @@ def then_page_states_named_teammates_share_one_computer(context: object) -> None
     text = _visible_text(context).lower()
     assert "named" in text, text
     assert "computer" in text, text
+
+
+@then("the page states that the computer is summoned when a turn needs it")
+def then_page_states_computer_is_summoned(context: object) -> None:
+    text = _visible_text(context).lower()
+    assert "summoned" in text, text
+
+
+@then("the page states that Chatticus is a farm of desks")
+def then_page_states_chatticus_is_a_farm_of_desks(context: object) -> None:
+    text = _visible_text(context).lower()
+    assert "farm of desks" in text, text

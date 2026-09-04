@@ -38,3 +38,13 @@ Feature: Marketing blog
     Given a visitor on the Agent Zoo post "nobody-agrees"
     Then the page is titled "Nobody agrees what to call this"
     And the page states that the industry has not settled on a word
+
+  Scenario: A visitor can read the idle-floor update
+    Given a visitor on the Updates post "nothing-bills"
+    Then the page is titled "Nothing bills while nobody is working"
+    And the page states that the computer is summoned when a turn needs it
+
+  Scenario: A visitor can read the farms and desks Agent Zoo post
+    Given a visitor on the Agent Zoo post "farms-and-desks"
+    Then the page is titled "A farm of desks"
+    And the page states that Chatticus is a farm of desks
