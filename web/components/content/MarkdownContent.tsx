@@ -1,5 +1,6 @@
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export const markdownComponents: Components = {
   p: ({ children }) => <p>{children}</p>,
@@ -28,6 +29,26 @@ export const markdownComponents: Components = {
       {children}
     </code>
   ),
+  table: ({ children }) => (
+    <div className="-mx-1 overflow-x-auto px-1">
+      <table className="w-full min-w-[36rem] border-separate border-spacing-y-2">
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children }) => <thead>{children}</thead>,
+  tbody: ({ children }) => <tbody>{children}</tbody>,
+  tr: ({ children }) => <tr>{children}</tr>,
+  th: ({ children }) => (
+    <th className="bg-surface-high px-4 py-3 text-left align-top font-mono text-[0.62rem] uppercase tracking-[0.14em] text-ink-soft first:rounded-l-2xl last:rounded-r-2xl">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="bg-surface-raised px-4 py-3 align-top text-base leading-relaxed first:rounded-l-2xl last:rounded-r-2xl">
+      {children}
+    </td>
+  ),
 };
 
 type MarkdownContentProps = {
@@ -37,7 +58,9 @@ type MarkdownContentProps = {
 export function MarkdownContent({ children }: MarkdownContentProps) {
   return (
     <div className="prose-chatticus max-w-3xl space-y-5 font-body text-lg leading-relaxed text-ink-soft">
-      <ReactMarkdown components={markdownComponents}>{children}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        {children}
+      </ReactMarkdown>
     </div>
   );
 }
