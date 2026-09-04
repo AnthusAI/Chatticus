@@ -3,16 +3,25 @@
   "title": "Marketing launch polish: legal, status, nav, pricing",
   "description": "## Problem\nchattic.us is moving from early prototype to product launch. A launch-readiness review of the homepage header/footer found legal/support gaps, beta vs production messaging conflict, unclear entry CTAs, buried pricing, and missing mobile nav.\n\n## Scope (child tasks)\n1. Legal + support surfaces (Privacy, Terms, Support via GitHub Issues for now)\n2. Footer + FAQ: say we are in beta (not \\\"live in production\\\")\n3. Clarify entry path CTAs (Sign in vs Join the beta)\n4. Surface Pricing in primary nav\n5. Restore accessible mobile navigation\n\n## Out of scope\n- Replacing GitHub Issues with a first-party support inbox (separate follow-up story)\n- Public wiki / blog work already in flight elsewhere\n- Visual redesign of the marketing site\n\n## Done when\nAll child tasks closed; marketing copy is consistent about beta; legal/support links exist; Pricing and mobile nav work; changes on develop (and main when product owner merges).",
   "type": "epic",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": null,
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "bad123e2-a009-4db0-9438-b15f5e472c17",
+      "author": "box",
+      "text": "Merged to develop and main after Composer PR #290 review (FinalCta Sign in fix required once). Left chatticus-8a935c open for first-party support inbox.",
+      "created_at": "2026-09-04T17:14:20.753591Z",
+      "comment_type": "default",
+      "data": {}
+    }
+  ],
   "created_at": "2026-09-04T17:03:28.680489Z",
-  "updated_at": "2026-09-04T17:03:58.307584Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T17:14:20.753591Z",
+  "closed_at": "2026-09-04T17:14:20.444062Z",
   "custom": {}
 }
