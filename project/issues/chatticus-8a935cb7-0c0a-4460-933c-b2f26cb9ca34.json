@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-8a935cb7-0c0a-4460-933c-b2f26cb9ca34",
+  "title": "First-party support inbox (replace GitHub Issues later)",
+  "description": "## Problem\nSupport is temporarily GitHub Issues. That is not good enough for launch customers long-term. We need a first-party support surface tracked in product data, similar to the waitlist system.\n\n## Intent (not building yet)\n- Design and implement an in-product / marketing-linked support request flow\n- Persist requests in Chatticus/Anthus data (Dynamo or existing waitlist-adjacent patterns) rather than only GitHub\n- Operator triage workflow for Anthus\n\n## Out of scope for the marketing polish epic implementation\nDo not implement this story in the Composer marketing PR. Keep it open as the follow-up once Privacy/Terms/Support links ship with GitHub Issues as the interim Support destination.\n\n## Done when (future)\n- Customers can submit support without a GitHub account\n- Requests are stored and reviewable by operators\n- Marketing Support link points at the first-party surface",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-70e0cf25-05c6-402d-b221-46da90f071e1",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-04T17:03:57.990404Z",
+  "updated_at": "2026-09-04T17:03:57.990404Z",
+  "closed_at": null,
+  "custom": {}
+}

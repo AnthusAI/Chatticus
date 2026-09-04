@@ -1,12 +1,15 @@
 import { ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
+import { SUPPORT_ISSUES_URL } from "@/lib/marketing-nav";
 
 const groups = [
   {
     title: "Product",
     links: [
-      ["Hey, Chatticus...", "/chat"],
+      ["Sign in", "/chat"],
       ["Join the beta", "/beta"],
+      ["Pricing", "/#pricing"],
       ["Product model", "https://github.com/AnthusAI/Chattic.us/blob/develop/docs/PRODUCT.md"],
       ["Roadmap", "https://github.com/AnthusAI/Chattic.us/blob/develop/docs/ROADMAP.md"],
     ],
@@ -55,10 +58,40 @@ export function Footer() {
               Bots with roles, a shared space you control.
             </p>
             <p className="mt-5 max-w-md font-body text-sm leading-relaxed text-ink-soft">
-              The marketing site collects no signup form data. Product account,
-              privacy, and support surfaces will be published before general
-              availability.
+              Chatticus is in public beta. This marketing site does not run
+              product account signup — use Sign in for an existing workspace or
+              Join the beta to apply. The beta waitlist collects what you submit
+              on that form.
             </p>
+            <nav aria-label="Legal and support" className="mt-5">
+              <ul className="flex flex-wrap gap-x-4 gap-y-2 font-body text-sm font-semibold">
+                <li>
+                  <Link
+                    className="transition hover:text-cobalt focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
+                    href="/privacy"
+                  >
+                    Privacy
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    className="transition hover:text-cobalt focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
+                    href="/terms"
+                  >
+                    Terms
+                  </Link>
+                </li>
+                <li>
+                  <a
+                    className="inline-flex items-center gap-1.5 transition hover:text-cobalt focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
+                    href={SUPPORT_ISSUES_URL}
+                  >
+                    Support
+                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
+                </li>
+              </ul>
+            </nav>
           </div>
           <div className="grid grid-cols-2 gap-8 lg:grid-cols-4">
             {groups.map((group) => (
@@ -83,9 +116,9 @@ export function Footer() {
             ))}
           </div>
         </div>
-        <div className="mt-10 flex flex-col gap-3 rounded-2xl bg-surface-high px-5 py-4 font-mono text-[0.62rem] uppercase tracking-[0.11em] text-ink-soft sm:flex-row sm:items-center sm:justify-between">
-          <p>Chatticus · Live in production</p>
-          <p>Your teammates. Your computer. Your call.</p>
+        <div className="mt-10 flex flex-col gap-3 rounded-2xl bg-surface-high px-5 py-4 font-mono text-[0.62rem] tracking-[0.11em] text-ink-soft sm:flex-row sm:items-center sm:justify-between">
+          <p>Chatticus · Beta</p>
+          <p className="uppercase">Your teammates. Your computer. Your call.</p>
         </div>
       </div>
     </footer>

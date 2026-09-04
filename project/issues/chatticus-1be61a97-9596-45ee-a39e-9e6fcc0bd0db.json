@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-1be61a97-9596-45ee-a39e-9e6fcc0bd0db",
+  "title": "Publish Privacy, Terms, and Support links (GitHub Issues for now)",
+  "description": "## Problem\nThe marketing footer says product account, privacy, and support surfaces will be published before GA. There are no Privacy, Terms, or Support destination pages/links suitable for launch. Visitors have nowhere obvious to go for legal or help.\n\n## Decisions (locked \u2014 do not reopen)\n1. Add first-party **Privacy** and **Terms** pages under the marketing Next.js app (`web/`), linked from the shared `Footer`.\n2. Add a **Support** footer link. **For this task**, Support goes to GitHub Issues: `https://github.com/AnthusAI/Chattic.us/issues` (same destination as existing \\\"Open an issue\\\", but labeled Support in a Legal/Company column so it is discoverable).\n3. Replace the footer disclaimer that promises privacy/support \\\"before general availability\\\" with copy that points to the new Privacy / Terms / Support links and states we are in **beta**.\n4. Do **not** build a new support ticket product in this task. A separate story tracks replacing GitHub Issues with a first-party support inbox stored in product data (waitlist-like).\n\n## Files / area (hypothesis \u2014 verify)\n- `web/components/Footer.tsx`\n- New routes e.g. `web/app/privacy/page.tsx`, `web/app/terms/page.tsx` (or equivalent app-router paths)\n- Shared layout/header/footer patterns used by other marketing pages (`/beta`, `/features/*`)\n\n## Content requirements\n- Privacy and Terms must be real beta-appropriate pages (not \\\"lorem\\\" / \\\"coming soon\\\"). Cover: what the marketing site collects (footer currently claims no signup form data on marketing \u2014 reconcile with waitlist/beta forms), Cognito/Google sign-in, customer-owned AWS / MIT framing at a high level, contact via Support/GitHub Issues. Keep tone consistent with chattic.us brand guidelines (`docs/BRAND_GUIDELINES.md`).\n- No emojis in UI copy.\n- Do not invent fake company legal addresses. If a physical address is unknown, omit it rather than fabricate.\n\n## Done when\n- Footer links to Privacy, Terms, and Support\n- Pages render on desktop and mobile\n- Old \\\"will be published before GA\\\" disclaimer is gone\n- Lint/typecheck for touched web code passes",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-70e0cf25-05c6-402d-b221-46da90f071e1",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-04T17:03:56.487030Z",
+  "updated_at": "2026-09-04T17:03:56.487030Z",
+  "closed_at": null,
+  "custom": {}
+}

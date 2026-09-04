@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-8d8e7b86-8b56-457e-adaa-c40712d0d767",
+  "title": "Add Pricing to primary marketing navigation",
+  "description": "## Problem\nPricing is one of the first things visitors look for. It currently lives in the homepage Delegated Responsibility section (`id=\\\"delegated-responsibility\\\"`) and on `/beta` (`BetaSetupPricing`), with no Pricing item in the header.\n\n## Decisions (locked)\n1. Add a **Pricing** link to the desktop primary nav in `web/components/Header.tsx`, alongside Organization / Why Chatticus / Evidence / FAQ.\n2. Destination: `/#pricing` (homepage anchor).\n3. On the homepage pricing section (`web/components/DelegatedResponsibility.tsx`), set the section `id` to **`pricing`** (replace or alias `delegated-responsibility`). Keep the visible heading \\\"Delegated Responsibility\\\" unless a one-line subhead helps; do not invent a new pricing model.\n4. Include Pricing in the new mobile nav menu (see mobile-nav task) with the same destination.\n5. Optional: add Pricing to the Footer Product column pointing to `/#pricing`.\n6. Do not create a separate `/pricing` route in this task.\n\n## Done when\n- Desktop header shows Pricing\n- `/#pricing` scrolls to the pricing/delegated-responsibility content\n- Mobile menu includes Pricing when that task lands (same PR preferred)",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-70e0cf25-05c6-402d-b221-46da90f071e1",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-04T17:03:57.377646Z",
+  "updated_at": "2026-09-04T17:03:57.377646Z",
+  "closed_at": null,
+  "custom": {}
+}

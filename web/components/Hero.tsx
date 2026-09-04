@@ -68,7 +68,7 @@ export function Hero() {
             <div className="mt-9 flex animate-rise flex-col gap-3 [animation-delay:430ms] sm:flex-row">
               <Button asChild size="lg">
                 <a href="/chat">
-                  Explore the workspace
+                  Sign in
                   <ArrowUpRight className="h-5 w-5" aria-hidden="true" />
                 </a>
               </Button>

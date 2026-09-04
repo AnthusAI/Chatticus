@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-465c665a-142f-4802-aa73-b1b3f915a3c0",
+  "title": "Footer and FAQ: Chatticus is in beta (not live in production)",
+  "description": "## Problem\nFooter status line says \\\"Chatticus \u00b7 Live in production\\\". FAQ answers \\\"Is Chatticus ready for general use?\\\" with \\\"Yes\\\" and \\\"live in production today\\\", while `/beta` says features change without notice and there is no uptime guarantee. Launch messaging must be honest: we are in **beta**.\n\n## Decisions (locked)\n1. Change footer status line in `web/components/Footer.tsx` from `Chatticus \u00b7 Live in production` to exactly: `Chatticus \u00b7 Beta`.\n2. Rewrite the FAQ item \\\"Is Chatticus ready for general use?\\\" in `web/components/Faq.tsx` so the answer is **no, not general availability** \u2014 Chatticus is in **public beta**. Keep the useful technical truth (conversation foundation and computer handoff paths exist) but frame it as beta, expanding skills/routines/approvals UI/computer preview, and no GA uptime promise.\n3. Search marketing `web/` copy for other \\\"live in production\\\" / \\\"general availability\\\" / \\\"ready for general use\\\" claims that conflict with beta and align them. Do not weaken `/beta` honesty copy.\n4. Do not change product runtime behavior \u2014 marketing copy only.\n\n## Done when\n- Footer says Beta\n- FAQ no longer claims general-use readiness / unqualified production\n- No remaining conflicting \\\"LIVE IN PRODUCTION\\\" marketing claims on the homepage chrome\n- Touched tests updated if any assert old strings",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-70e0cf25-05c6-402d-b221-46da90f071e1",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-04T17:03:56.781540Z",
+  "updated_at": "2026-09-04T17:03:56.781540Z",
+  "closed_at": null,
+  "custom": {}
+}

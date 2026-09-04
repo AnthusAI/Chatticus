@@ -35,7 +35,7 @@ const questions = [
   {
     question: "Is Chatticus ready for general use?",
     answer:
-      "Yes. The serverless conversation foundation and computer handoff paths are live in production today. Skills, routines, the approvals UI, and the computer preview keep expanding from here.",
+      "Not yet — Chatticus is in public beta. The serverless conversation foundation and computer handoff paths are live and improving, but skills, routines, the approvals UI, and the computer preview are still expanding. There is no uptime guarantee and features can change without notice.",
   },
   {
     question: "Do I need an AWS account?",
