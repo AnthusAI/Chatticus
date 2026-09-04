@@ -134,7 +134,7 @@ export function parseFrontmatter(raw: string): { frontmatter: WikiPageFrontmatte
 }
 
 function readPageFile(filename: string): WikiPage | null {
-  if (!filename.endsWith(".md")) {
+  if (!filename.endsWith(".md") || filename === "AGENTS.md") {
     return null;
   }
 

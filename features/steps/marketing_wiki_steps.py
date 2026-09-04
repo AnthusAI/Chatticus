@@ -36,7 +36,7 @@ def then_footer_does_not_list_wiki_link(context: object) -> None:
     for link_match in FOOTER_LINK_PATTERN.finditer(footer_html):
         label = re.sub(r"<[^>]+>", "", link_match.group(2))
         label = " ".join(label.split())
-        assert label.lower() != "wiki", f'Footer lists a Wiki link: {label!r}'
+        assert label.lower() != "wiki", f"Footer lists a Wiki link: {label!r}"
 
 
 @then("the News group does not list Wiki")
@@ -65,4 +65,3 @@ def then_page_lists_no_wiki_pages_yet(context: object) -> None:
 def then_page_is_marked_noindex(context: object) -> None:
     html = _html(context)
     assert ROBOTS_NOINDEX_PATTERN.search(html) is not None, html
-
