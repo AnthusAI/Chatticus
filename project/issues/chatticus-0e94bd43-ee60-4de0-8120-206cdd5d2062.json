@@ -19,10 +19,19 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "9c95377e-21bb-4c33-bf9e-4f76ef72dd5a",
+      "author": "ubuntu",
+      "text": "Shipped on cursor/pricing-headline-c16e as PR https://github.com/AnthusAI/Chattic.us/pull/292. Headline: The work is yours. So is the bill. Subhead: Every option shows its price. Composer 2.5 approved; waiting on CI.",
+      "created_at": "2026-09-04T19:07:37.376131Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T19:04:04.758634Z",
-  "updated_at": "2026-09-04T19:04:08.981045Z",
+  "updated_at": "2026-09-04T19:07:37.376190Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
