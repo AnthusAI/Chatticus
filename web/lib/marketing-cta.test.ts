@@ -23,12 +23,8 @@ describe("marketing CTA links", () => {
     });
   }
 
-  it("Header, Hero, and Footer label the /chat entry path Sign in", () => {
-    for (const relativePath of [
-      "components/Header.tsx",
-      "components/Hero.tsx",
-      "components/Footer.tsx",
-    ]) {
+  it("marketing chrome labels the /chat entry path Sign in", () => {
+    for (const relativePath of marketingCtaComponents) {
       const source = fs.readFileSync(
         path.join(process.cwd(), relativePath),
         "utf8",
@@ -36,6 +32,7 @@ describe("marketing CTA links", () => {
       assert.match(source, /Sign in/);
       assert.doesNotMatch(source, /Hey, Chatticus/);
       assert.doesNotMatch(source, /Explore the workspace/);
+      assert.doesNotMatch(source, /Open the product/);
     }
   });
 });
