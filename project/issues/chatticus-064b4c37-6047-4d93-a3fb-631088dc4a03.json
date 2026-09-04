@@ -3,7 +3,7 @@
   "title": "Updates and Agent Zoo routes, OG images, and footer",
   "description": "Ship /updates and /agent-zoo indexes with mastheads, page-content.ts, opengraph-image.tsx. Footer News group, lg:grid-cols-4, no borders. Marketing UI harness commands. Make marketing_blog.feature green.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -19,11 +19,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "cf178d9a-e997-4244-b4dd-03ef304df47e",
+      "author": "ubuntu",
+      "text": "Indexes, OG images, News footer, and marketing_blog.feature are green.",
+      "created_at": "2026-09-04T11:15:45.526106Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T10:51:32.073202Z",
-  "updated_at": "2026-09-04T11:10:05.601626Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T11:15:46.071590Z",
+  "closed_at": "2026-09-04T11:15:46.071506Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

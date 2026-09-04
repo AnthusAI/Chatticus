@@ -3,7 +3,7 @@
   "title": "The Updates index is the Chatticus progress desk",
   "description": "**As a** visitor, **I want** /updates to state that it is Chatticus progress notes, **so that** I know this desk is about the product itself.\n\nThe page is the desk: masthead plus an empty article list. No coming-soon hedging.\n\nFeature: Marketing blog\n\n  Scenario: Updates index states it is Chatticus progress notes\n    Given a visitor on the Updates page\n    Then the page states that Updates is progress notes about Chatticus itself\n    And the page lists no articles yet\n    And the page does not say coming soon",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -28,11 +28,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "b5419393-a03a-4ed5-9adc-0d5c54c0571b",
+      "author": "ubuntu",
+      "text": "Green. /updates is the Chatticus progress desk with an empty listing and a cross-link to Agent Zoo.",
+      "created_at": "2026-09-04T11:15:41.100447Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T10:51:29.283775Z",
-  "updated_at": "2026-09-04T10:57:01.396950Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T11:15:41.661158Z",
+  "closed_at": "2026-09-04T11:15:41.661077Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

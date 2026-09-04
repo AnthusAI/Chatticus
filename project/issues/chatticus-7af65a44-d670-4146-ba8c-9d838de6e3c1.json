@@ -3,7 +3,7 @@
   "title": "The Agent Zoo index covers the persistent-agent workplace beat",
   "description": "**As a** visitor, **I want** /agent-zoo to explain the beat in public language, **so that** I understand it is a trade desk about workplaces where agents collaborate and do useful work.\n\nThe public name is Agent Zoo. The page must not call itself a model zoo. Jargon such as model zoo, bot farm, software factory, and reactor chamber may appear as names the industry uses.\n\nFeature: Marketing blog\n\n  Scenario: Agent Zoo index states the category beat\n    Given a visitor on the Agent Zoo page\n    Then the page is titled Agent Zoo\n    And the page states that Agent Zoo covers workplaces where agents collaborate and do useful work\n    And the page lists no articles yet\n    And the page does not call itself a model zoo\n    And the page does not say coming soon",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -28,11 +28,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "664d7a7e-64c6-4004-991a-cf08ec587d99",
+      "author": "ubuntu",
+      "text": "Green. /agent-zoo is titled Agent Zoo, covers workplaces where agents collaborate and do useful work, and does not call itself a model zoo.",
+      "created_at": "2026-09-04T11:15:42.219311Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T10:51:29.833897Z",
-  "updated_at": "2026-09-04T10:57:01.948353Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T11:15:42.772801Z",
+  "closed_at": "2026-09-04T11:15:42.772714Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},
