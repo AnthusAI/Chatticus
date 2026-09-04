@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ArrowUpRight, Check, CircleDashed, FlaskConical } from "lucide-react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
@@ -194,13 +195,13 @@ export default function FlexModePage() {
                 );
               })}
             </div>
-            <a
+            <Link
               className="mt-12 inline-flex min-h-11 items-center gap-2 font-mono text-[0.65rem] uppercase tracking-[0.12em] underline decoration-2 underline-offset-4 transition hover:text-cobalt focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25"
               href="/wiki/cost-vs-sla"
             >
               Read the full argument
               <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-            </a>
+            </Link>
           </div>
         </section>
       </main>
