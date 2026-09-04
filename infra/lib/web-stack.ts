@@ -14,14 +14,13 @@ import * as path from "path";
 import { Construct } from "constructs";
 import {
   API_ORIGIN_VIEWER_REQUEST_FUNCTION,
-  buildSpaViewerRequestFunction,
+  SPA_VIEWER_REQUEST_FUNCTION,
   SPA_VIEWER_RESPONSE_FUNCTION,
 } from "./cloudfront-functions";
 import {
   ChatticusCloudEnvironment,
   thinTurnParameterPrefix,
   WEB_CLOUDFRONT_ENABLED,
-  WEB_MARKETING_DOMAINS,
   webParameterPrefix,
   WEB_SITE_DOMAINS,
 } from "./environments";
@@ -57,10 +56,6 @@ export class WebStack extends cdk.Stack {
 
     const environmentName = props.chatticusEnvironment;
     const siteDomain = WEB_SITE_DOMAINS[environmentName];
-    const marketingDomain = WEB_MARKETING_DOMAINS[environmentName];
-    const distributionDomainNames = marketingDomain
-      ? [siteDomain, marketingDomain]
-      : [siteDomain];
     const webPrefix = webParameterPrefix(environmentName);
     const thinTurnPrefix = thinTurnParameterPrefix(environmentName);
     const retainData = environmentName !== "development";
@@ -88,15 +83,8 @@ export class WebStack extends cdk.Stack {
       comment: "Strip /api prefix and Accept-Encoding for the Lambda origin.",
     });
     const spaViewerRequest = new cloudfront.Function(this, "SpaViewerRequest", {
-      code: cloudfront.FunctionCode.fromInline(
-        buildSpaViewerRequestFunction(
-          marketingDomain
-            ? { appDomain: siteDomain, marketingDomain }
-            : {},
-        ),
-      ),
-      comment:
-        "Host-based app/marketing routing (production) and slashless SPA paths before S3 lookup.",
+      code: cloudfront.FunctionCode.fromInline(SPA_VIEWER_REQUEST_FUNCTION),
+      comment: "Root -> /chat, and slashless SPA paths before S3 lookup.",
     });
     const spaViewerResponse = new cloudfront.Function(this, "SpaViewerResponse", {
       code: cloudfront.FunctionCode.fromInline(SPA_VIEWER_RESPONSE_FUNCTION),
@@ -106,7 +94,7 @@ export class WebStack extends cdk.Stack {
     const distribution = new cloudfront.Distribution(this, "SiteDistribution", {
       enabled: WEB_CLOUDFRONT_ENABLED[environmentName],
       comment: `Chatticus ${environmentName} web UI and same-origin /api front door.`,
-      domainNames: distributionDomainNames,
+      domainNames: [siteDomain],
       certificate: props.siteCertificate,
       defaultRootObject: "index.html",
       defaultBehavior: {
@@ -220,25 +208,6 @@ export class WebStack extends cdk.Stack {
       ),
     });
 
-    if (marketingDomain) {
-      const marketingIsApex =
-        marketingDomain === props.hostedZone.zoneName;
-      new route53.ARecord(this, "MarketingAliasRecord", {
-        zone: props.hostedZone,
-        ...(marketingIsApex ? {} : { recordName: marketingDomain }),
-        target: route53.RecordTarget.fromAlias(
-          new route53Targets.CloudFrontTarget(distribution),
-        ),
-      });
-      new route53.AaaaRecord(this, "MarketingAliasRecordV6", {
-        zone: props.hostedZone,
-        ...(marketingIsApex ? {} : { recordName: marketingDomain }),
-        target: route53.RecordTarget.fromAlias(
-          new route53Targets.CloudFrontTarget(distribution),
-        ),
-      });
-    }
-
     const siteUrl = `https://${siteDomain}`;
     const apiBaseUrl = `${siteUrl}/api`;
 
@@ -267,10 +236,5 @@ export class WebStack extends cdk.Stack {
     new cdk.CfnOutput(this, "CloudFrontDistributionDomainName", {
       value: distribution.distributionDomainName,
     });
-    if (marketingDomain) {
-      new cdk.CfnOutput(this, "MarketingSiteUrl", {
-        value: `https://${marketingDomain}`,
-      });
-    }
   }
 }
