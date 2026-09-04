@@ -3,7 +3,6 @@ title: Always-on
 description: Agents that wait in a sidebar or on a phone — persistent availability without a shared workplace.
 ogHeadline: Always-on
 ogTagline: Availability without a shared workplace
-draft: true
 ---
 
 **Always-on** means the agent is available without being summoned into a workplace: a sidebar, a phone, a proactive ping. Persistence here is *availability*, not *disk*.

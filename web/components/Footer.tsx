@@ -10,8 +10,9 @@ const groups = [
       ["Sign in", "/chat"],
       ["Join the beta", "/beta"],
       ["Pricing", "/#pricing"],
-      ["Product model", "https://github.com/AnthusAI/Chattic.us/blob/develop/docs/PRODUCT.md"],
-      ["Roadmap", "https://github.com/AnthusAI/Chattic.us/blob/develop/docs/ROADMAP.md"],
+      ["Wiki", "/wiki"],
+      ["Product model", "/wiki/product"],
+      ["Roadmap", "/wiki/roadmap"],
     ],
   },
   {
@@ -27,9 +28,9 @@ const groups = [
     title: "Build",
     links: [
       ["Source", "https://github.com/AnthusAI/Chattic.us"],
-      ["Architecture", "https://github.com/AnthusAI/Chattic.us/blob/develop/docs/ARCHITECTURE.md"],
+      ["Architecture", "/wiki/architecture"],
       ["Open an issue", "https://github.com/AnthusAI/Chattic.us/issues"],
-      ["Free and Open-Source", "https://github.com/AnthusAI/Chattic.us/blob/develop/LICENSE"],
+      ["Free and Open-Source", "/wiki/license"],
     ],
   },
   {

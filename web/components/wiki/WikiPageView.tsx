@@ -16,8 +16,12 @@ export function WikiPageView({ page }: WikiPageViewProps) {
         <h1 className="max-w-4xl font-display text-[clamp(2.6rem,6vw,4.8rem)] leading-[0.95] tracking-[-0.05em]">
           {page.frontmatter.title}
         </h1>
-        <div className="mt-10">
-          <MarkdownContent>{page.body}</MarkdownContent>
+        <div className="wiki-markus mt-10">
+          {page.html ? (
+            <div dangerouslySetInnerHTML={{ __html: page.html }} />
+          ) : (
+            <MarkdownContent>{page.body}</MarkdownContent>
+          )}
         </div>
         <RelatedLinksSection
           heading="Related posts"

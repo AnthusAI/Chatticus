@@ -33,8 +33,10 @@ Editorial policy for Updates and Agent Zoo lives in
 
 ## Marketing wiki
 
-Editorial policy for the unpublished marketing wiki lives in
+Editorial policy for the public marketing wiki lives in
 [`web/content/wiki/AGENTS.md`](web/content/wiki/AGENTS.md).
+Wiki pages are Markus HTML with a Chatticus theme; do not link marketing
+copy at GitHub blobs of `docs/` or `LICENSE`.
 
 ## Behavior-driven design (outside-in, for real)
 

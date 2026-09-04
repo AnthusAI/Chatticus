@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-77b485ee-0b92-4e12-bb3b-e137f8c6cf37",
+  "title": "First-day Updates post: why we started",
+  "description": "As a visitor on chattic.us, I want a first-day Updates note that states why Chatticus exists \u2014 a standing team of people and bots, with control over models, price, computer, files, and account \u2014 so the motivation is public and checkable.\n\nOut of scope: a Grok Bot product dossier, claiming every control is already shipped, a second LLM client.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": "agent@example.com",
+  "creator": null,
+  "parent": "chatticus-ffac024e-78e7-4c48-bc3b-0d136e81d890",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "00755e08-3fa8-43d5-891b-40601b5e84fd",
+      "author": "ubuntu",
+      "text": "Feature: Marketing blog\n\n  Scenario: A visitor can read the first-day motivation update\n    Given a visitor on the Updates post \"why-we-started\"\n    Then the page is titled \"Why we started\"\n    And the page states that a standing team is the default picture\n    And the page states that people share the workplace with the bots\n    And the page does not say coming soon",
+      "created_at": "2026-09-04T16:59:27.612568Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T16:59:16.972774Z",
+  "updated_at": "2026-09-04T16:59:27.612648Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

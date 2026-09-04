@@ -26,9 +26,9 @@ The news desk is still **Agent Zoo**. That is not the name of the workplace and 
 
 ## Information architecture
 
-Public pages are **ideas**. A vendor may appear as an example in a sentence. A vendor does not get a slug.
+Public pages are **ideas** plus **product source** rendered from `docs/` (and `LICENSE`) by Markus. A vendor may appear as an example in a sentence. A vendor does not get a slug.
 
-Planned idea pages (all `draft: true` until launch):
+Published idea pages:
 
 | Slug | Idea |
 | --- | --- |
@@ -43,7 +43,9 @@ Planned idea pages (all `draft: true` until launch):
 
 Do not add `grok-bot.md`, `factory.md`, `gas-town.md`, or any other product slug. Deep notes on those products live in Kanbus.
 
-Feature pages under `/features/` stay product-marketing pages. Do not duplicate them as wiki slugs unless the idea is broader than the Chatticus feature (approvals-as-office-authority can wait).
+Feature pages under `/features/` stay product-marketing pages. They link to wiki product docs, not GitHub blobs.
+
+Product source pages (Markus-rendered from `docs/` and `LICENSE`, not copied into `web/content/wiki/`): `product`, `roadmap`, `architecture`, `design-challenges`, `messaging`, `computer-manifold`, `cost-vs-sla`, `license`. Other public `docs/*.md` files get unlisted wiki routes so in-doc links stay on-site.
 
 ## How current events attach
 
@@ -83,80 +85,13 @@ Missing targets are omitted when resolving links; they must not fail the build.
 
 ## Draft research notes
 
-`draft: true` pages live in git. They are excluded from wiki listings and from `generateStaticParams`. Remove `draft` or set `draft: false` when the page is ready to publish. Launch the wiki (footer + index) only when several idea pages are published, not when the first stub exists.
+`draft: true` pages live in git. They are excluded from wiki listings and from `generateStaticParams`. Remove `draft` or set `draft: false` when the page is ready to publish.
 
 ## How to publish a page
 
-1. **Content** — Add or undraft `{slug}.md` under `web/content/wiki/`. Rebuild the site. No CMS.
+1. **Idea content** — Add or undraft `{slug}.md` under `web/content/wiki/`.
+2. **Product docs** — Edit the source in `docs/` or `LICENSE`. Do not copy those files into `web/content/wiki/`.
+3. **Render** — `python -m chatticus.wiki_publish` (also `npm run prebuild` / `predev` in `web/`). Pages are Markus HTML with the Chatticus theme (`web/styles/markus-chatticus.css`).
+4. **Routes** — `web/app/wiki/[slug]/` is the published wiki. Use the shared factory in `web/lib/wiki-page.tsx`.
 
-2. **Page routes (first published page)** — Next.js static export (`output: "export"`) cannot emit a dynamic `[slug]` route with zero paths, so `web/app/wiki/[slug]/` is added when the first published wiki page lands. Use the shared factory in `web/lib/wiki-page.tsx`; the route is a thin wrapper.
-
-Example `web/app/wiki/[slug]/page.tsx`:
-
-```tsx
-import {
-  WikiPage,
-  generateWikiStaticParams,
-  wikiPageMetadata,
-} from "@/lib/wiki-page";
-
-export const dynamicParams = false;
-
-type WikiSlugPageProps = {
-  params: Promise<{ slug: string }>;
-};
-
-export async function generateStaticParams() {
-  return generateWikiStaticParams();
-}
-
-export async function generateMetadata({ params }: WikiSlugPageProps) {
-  const { slug } = await params;
-  return wikiPageMetadata(slug);
-}
-
-export default async function WikiSlugPage({ params }: WikiSlugPageProps) {
-  const { slug } = await params;
-  return WikiPage({ slug });
-}
-```
-
-Example `web/app/wiki/[slug]/opengraph-image.tsx` (add with the first page):
-
-```tsx
-import { OG_IMAGE_SIZE } from "@/lib/ogImage";
-import {
-  generateWikiStaticParams,
-  renderWikiPageOgImage,
-  wikiPageOgAlt,
-} from "@/lib/wiki-page";
-
-export const dynamic = "force-static";
-
-export const size = OG_IMAGE_SIZE;
-export const contentType = "image/png";
-
-type WikiSlugOgImageProps = {
-  params: Promise<{ slug: string }>;
-};
-
-export async function generateStaticParams() {
-  return generateWikiStaticParams();
-}
-
-export async function generateMetadata({ params }: WikiSlugOgImageProps) {
-  const { slug } = await params;
-  return { alt: wikiPageOgAlt(slug) };
-}
-
-export default async function Image({ params }: WikiSlugOgImageProps) {
-  const { slug } = await params;
-  return renderWikiPageOgImage(slug);
-}
-```
-
-## Launching the wiki on the site
-
-Do not add the wiki to the footer or header until editors decide the encyclopedia is ready to launch. Until then, `/wiki` stays `noindex` and is reachable only by direct URL.
-
-When you launch, add a Wiki link in the footer (and header if desired), remove `robots: noindex` from `web/app/wiki/page.tsx`, and rebuild.
+The wiki is linked from the footer and is indexable. Do not point marketing copy at GitHub blobs of `docs/*.md` or `LICENSE`; use `/wiki/{slug}`. Source, issues, and IAM YAML stay on GitHub.

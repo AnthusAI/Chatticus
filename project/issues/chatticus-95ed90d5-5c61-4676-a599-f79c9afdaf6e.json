@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-95ed90d5-5c61-4676-a599-f79c9afdaf6e",
+  "title": "Publish wiki pages with Markus, not GitHub blobs",
+  "description": "As a visitor on chattic.us, I want product documentation and idea notes as wiki pages on the site, rendered with Markus in a Chatticus theme, so I can read them without leaving for GitHub blobs.\n\nOut of scope: Kanbus competitive-landscape dossiers, competitor product slugs, GitHub Pages hosting, WebSockets, a separate wiki subdomain.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": "agent@example.com",
+  "creator": null,
+  "parent": "chatticus-ffac024e-78e7-4c48-bc3b-0d136e81d890",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "15c30ec4-af60-4c62-b375-4ea445645e46",
+      "author": "ubuntu",
+      "text": "Feature: Marketing wiki\n\n  Scenario: The wiki is linked from the footer Product group\n    Given the chattic.us home page\n    Then the footer lists Wiki linking to \"/wiki\"\n    And the News group does not list Wiki\n\n  Scenario: Product docs in the footer are wiki pages\n    Given the chattic.us home page\n    Then the footer lists Product model linking to \"/wiki/product\"\n    And the footer lists Roadmap linking to \"/wiki/roadmap\"\n    And the footer lists Architecture linking to \"/wiki/architecture\"\n    And the footer lists Free and Open-Source linking to \"/wiki/license\"\n    And the footer does not link Product model to a GitHub blob\n\n  Scenario: Wiki index is a durable notes desk with published pages\n    Given a visitor on the wiki page\n    Then the page states that the wiki is durable notes about agent workplaces\n    And the page describes general ideas\n    And the page lists \"Agent workplace\" linking to \"/wiki/agent-workplace\"\n    And the page lists \"Product model\" linking to \"/wiki/product\"\n    And the page does not say coming soon\n    And the page is not marked noindex\n\n  Scenario: An idea page is a Markus wiki article\n    Given a visitor on the wiki page \"agent-workplace\"\n    Then the page is titled \"Agent workplace\"\n    And the article is a Markus document\n    And the article uses the Chatticus Markus theme\n\n  Scenario: The product model is a wiki page, not a GitHub blob\n    Given a visitor on the wiki page \"product\"\n    Then the page is titled \"Product model\"\n    And the article is a Markus document\n    And the article uses the Chatticus Markus theme\n    And the page states that named teammates share one computer\n\n  Scenario: Founding posts point at wiki pages\n    Given a visitor on the Updates post \"the-workplace\"\n    Then the page links to \"/wiki/product\"\n    And the page does not link to a GitHub blob of PRODUCT.md\n    Given a visitor on the Updates post \"nothing-bills\"\n    Then the page links to \"/wiki/design-challenges\"\n    And the page links to \"/wiki/messaging\"",
+      "created_at": "2026-09-04T16:48:37.513046Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T16:48:25.884114Z",
+  "updated_at": "2026-09-04T16:48:37.513107Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

@@ -3,7 +3,6 @@ title: Software factory
 description: The idea of an assembly line for code — spec, branch, review, merge — as distinct from a general agent workplace.
 ogHeadline: Software factory
 ogTagline: An assembly line whose product is merged code
-draft: true
 ---
 
 A **software factory** is an assembly line whose product is merged code. The happy path looks like: a ticket or spec goes in; agents plan, implement, test, and open a review; a human (or a policy) merges.

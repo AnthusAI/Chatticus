@@ -17,4 +17,4 @@ Zero at idle is the requirement. A design that is cheaper on average but charges
 
 Workers pull jobs. The control plane never reaches into a garage Mac. The same Ubuntu image runs on Fargate, EC2, and local Docker. Durable disk is an S3 snapshot plus a local cache on the current host.
 
-This is written down so we cannot quietly trade it away. [Design challenges](https://github.com/AnthusAI/Chattic.us/blob/develop/docs/DESIGN_CHALLENGES.md) lists the requirements and, as importantly, the non-requirements. [Messaging](https://github.com/AnthusAI/Chattic.us/blob/develop/docs/MESSAGING.md) is the transcript and the one-turn stream. If a later post contradicts those two, believe those two until we publish a correction.
+This is written down so we cannot quietly trade it away. [Design challenges](/wiki/design-challenges) lists the requirements and, as importantly, the non-requirements. [Messaging](/wiki/messaging) is the transcript and the one-turn stream. If a later post contradicts those two, believe those two until we publish a correction.

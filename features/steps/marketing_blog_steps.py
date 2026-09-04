@@ -197,14 +197,9 @@ def then_page_states_industry_has_not_settled_on_a_word(context: object) -> None
     assert "has not settled on a word" in text, text
 
 
-@then('the page links to "/agent-zoo"')
-def then_page_links_to_agent_zoo(context: object) -> None:
-    _page_has_href(context, "/agent-zoo")
-
-
-@then('the page links to "/updates"')
-def then_page_links_to_updates(context: object) -> None:
-    _page_has_href(context, "/updates")
+@then('the page links to "{path}"')
+def then_page_links_to_path(context: object, path: str) -> None:
+    _page_has_href(context, path)
 
 
 @then("the page states that named teammates share one computer")
@@ -224,3 +219,18 @@ def then_page_states_computer_is_summoned(context: object) -> None:
 def then_page_states_chatticus_is_a_farm_of_desks(context: object) -> None:
     text = _visible_text(context).lower()
     assert "farm of desks" in text, text
+
+
+@then("the page states that a standing team is the default picture")
+def then_page_states_standing_team_is_default_picture(context: object) -> None:
+    text = _visible_text(context).lower()
+    assert "standing" in text, text
+    assert "team" in text, text
+    assert "default" in text, text
+
+
+@then("the page states that people share the workplace with the bots")
+def then_page_states_people_share_workplace_with_bots(context: object) -> None:
+    text = _visible_text(context).lower()
+    assert "organization" in text, text
+    assert "bots" in text, text

@@ -14,6 +14,7 @@ build/
 node_modules/
 .next/
 out/
+web/generated/
 # CDK / AWS
 infra/cdk.out/
 infra/dist/
@@ -36,6 +37,7 @@ var/
 .auth-harness-state.json
 .membership-ui-harness-state.json
 .survey-form-harness-state.json
+.contact-form-harness-state.json
 # Kanbus event logs (LLM usage transcripts, local operational data)
 project/events/
 project/.overlay/

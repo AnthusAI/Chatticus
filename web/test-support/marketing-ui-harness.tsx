@@ -119,6 +119,18 @@ async function main(): Promise<void> {
       result = { visibleText: text, html: htmlWithHead };
       break;
     }
+    case "render-wiki-page": {
+      const slug = rest[0];
+      if (!slug) {
+        throw new Error("render-wiki-page requires a slug");
+      }
+      const { WikiPage } = await import("../lib/wiki-page");
+      const page = await WikiPage({ slug });
+      const html = renderToStaticMarkup(page);
+      const text = html.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html };
+      break;
+    }
     case "render-post": {
       const [category, slug] = rest;
       if (category !== "updates" && category !== "agent-zoo") {
