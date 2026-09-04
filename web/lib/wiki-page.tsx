@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { WikiPageView } from "@/components/wiki/WikiPageView";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { renderOgImage } from "@/lib/ogImage";
@@ -72,16 +73,7 @@ export async function WikiPage({ slug }: WikiPageProps) {
     <>
       <Header />
       <main id="main-content">
-        <article className="bg-surface">
-          <div className="mx-auto max-w-[92rem] px-5 py-20 sm:px-8 sm:py-28 lg:px-12">
-            <h1 className="max-w-4xl font-display text-[clamp(3rem,7vw,6rem)] leading-[0.9] tracking-[-0.06em]">
-              {page.frontmatter.title}
-            </h1>
-            <p className="mt-8 max-w-2xl font-body text-lg leading-relaxed text-ink-soft">
-              {page.frontmatter.description}
-            </p>
-          </div>
-        </article>
+        <WikiPageView page={page} />
       </main>
       <Footer />
     </>

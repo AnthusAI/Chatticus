@@ -3,7 +3,7 @@
   "title": "Wiki markdown loader, factory, and /wiki index",
   "description": "web/lib/wiki.ts, wiki.test.ts, wiki-page factory, app/wiki/page.tsx with noindex, empty folders, extend blog frontmatter with optional relatedWiki. marketing_wiki.feature green. No footer link. No dummy slugs.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -19,11 +19,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "2968254e-b450-4d2c-862e-e79c6954bcf1",
+      "author": "ubuntu",
+      "text": "Wiki structure landed: Gherkin green, npm test/lint/typecheck/build green, behave marketing_wiki + marketing_blog green.",
+      "created_at": "2026-09-04T11:27:20.933276Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T11:22:51.850087Z",
-  "updated_at": "2026-09-04T11:24:39.943347Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T11:27:26.944434Z",
+  "closed_at": "2026-09-04T11:27:26.944320Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},
