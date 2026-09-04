@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-b591559f-baa0-454d-b6ba-0aaded3ba1a8",
+  "title": "Kanbus wiki: competitive landscape peers and categories",
+  "description": "Fill Kanbus project wiki with product pages, category pages, and index maps for competitive/adjacent landscape. Sources: research briefs outside repo.",
+  "type": "chore",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-04T11:40:09.641044Z",
+  "updated_at": "2026-09-04T11:40:28.830539Z",
+  "closed_at": null,
+  "custom": {}
+}
