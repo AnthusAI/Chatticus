@@ -10,11 +10,14 @@ from chatticus.wiki_publish import (
     FEATURED_PRODUCT_PAGES,
     add_heading_ids,
     apply_chatticus_theme,
+    build_wiki_pages,
+    default_idea_dir,
     markus_css_path,
     product_pages_for_repo,
     repo_root_from_here,
     rewrite_markdown_links,
     slug_lookup,
+    write_generated_wiki,
 )
 
 
@@ -111,3 +114,48 @@ def test_product_pages_do_not_publish_internal_briefs() -> None:
 def test_committed_markus_css_matches_package() -> None:
     committed = markus_css_path().read_text(encoding="utf-8")
     assert committed == default_css()
+
+
+def test_default_idea_dir_matches_build_wiki_pages_default(tmp_path: Path) -> None:
+    assert default_idea_dir(tmp_path) == tmp_path / "web" / "content" / "wiki"
+
+
+def test_build_wiki_pages_idea_dir_override_reads_ideas_from_elsewhere(
+    tmp_path: Path,
+) -> None:
+    other_idea_dir = tmp_path / "elsewhere" / "ideas"
+    other_idea_dir.mkdir(parents=True)
+    (other_idea_dir / "override-idea.md").write_text(
+        "---\n"
+        "title: Override Idea\n"
+        "description: Read from an overridden directory, not the repo's own.\n"
+        "ogHeadline: Override Idea\n"
+        "ogTagline: Not the repo's own idea dir\n"
+        "---\n\n"
+        "Body.\n",
+        encoding="utf-8",
+    )
+
+    pages = build_wiki_pages(repo_root_from_here(), idea_dir=other_idea_dir)
+
+    idea_slugs = {page["slug"] for page in pages if page["collection"] == "ideas"}
+    assert idea_slugs == {"override-idea"}
+    product_slugs = {page["slug"] for page in pages if page["collection"] == "product"}
+    assert (
+        "product" in product_slugs
+    ), "docs/ still resolves from repo_root, not idea_dir"
+
+
+def test_write_generated_wiki_output_dir_override_writes_elsewhere(
+    tmp_path: Path,
+) -> None:
+    idea_dir = tmp_path / "ideas"
+    idea_dir.mkdir()
+    output_dir = tmp_path / "out"
+
+    dest = write_generated_wiki(
+        repo_root_from_here(), idea_dir=idea_dir, output_dir=output_dir
+    )
+
+    assert dest == output_dir / "pages.json"
+    assert dest.is_file()
