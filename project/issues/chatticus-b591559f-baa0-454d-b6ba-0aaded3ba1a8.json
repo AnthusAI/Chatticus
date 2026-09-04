@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-b591559f-baa0-454d-b6ba-0aaded3ba1a8",
+  "title": "Kanbus wiki: competitive landscape peers and categories",
+  "description": "Fill Kanbus project wiki with product pages, category pages, and index maps for competitive/adjacent landscape. Sources: research briefs outside repo.",
+  "type": "chore",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "9250f147-9740-4f5a-981b-edbeba544c95",
+      "author": "box",
+      "text": "Wiki tree written and committed on branch `wiki/competitive-landscape` (`3d1a201`).\n\n- `project/wiki/competitive-landscape/` \u2014 index, metaphors, 8 categories, 35 product pages\n- `project/wiki/index.md` linked\n- `kanbus wiki lint` ok\n- Pushed to origin; `gh` not authenticated on this computer so PR not opened via CLI yet\n- Compare: https://github.com/AnthusAI/Chattic.us/compare/develop...wiki/competitive-landscape?expand=1",
+      "created_at": "2026-09-04T11:45:22.889344Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "da2ad49a-a694-4839-8242-787b9645d4f8",
+      "author": "ubuntu",
+      "text": "Public encyclopedia split recorded. This Kanbus tree stays the product/category dossiers. chattic.us wiki will not copy it.\n\nSee project/wiki/competitive-landscape/public-encyclopedia.md for the idea-slug spine and the category-to-public map. Metaphors page now points at that split.",
+      "created_at": "2026-09-04T11:59:17.367268Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T11:40:09.641044Z",
+  "updated_at": "2026-09-04T11:59:17.367329Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

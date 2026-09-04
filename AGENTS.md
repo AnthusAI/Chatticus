@@ -26,6 +26,16 @@ computer, skills, routines, or the worker protocol.
 v1's LLM is **OpenAI**. Amazon Bedrock may follow. Do not assume or add an
 xAI client. The model vendor is not the product name.
 
+## Marketing news desk
+
+Editorial policy for Updates and Agent Zoo lives in
+[`web/content/blog/AGENTS.md`](web/content/blog/AGENTS.md).
+
+## Marketing wiki
+
+Editorial policy for the unpublished marketing wiki lives in
+[`web/content/wiki/AGENTS.md`](web/content/wiki/AGENTS.md).
+
 ## Behavior-driven design (outside-in, for real)
 
 Chatticus is a **behavior-driven** project. Gherkin features in `features/`

@@ -31,6 +31,13 @@ const groups = [
       ["Anth.us", "https://anth.us"],
     ],
   },
+  {
+    title: "News",
+    links: [
+      ["Updates", "/updates"],
+      ["Agent Zoo", "/agent-zoo"],
+    ],
+  },
 ];
 
 export function Footer() {
@@ -55,7 +62,7 @@ export function Footer() {
               availability.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-8 lg:grid-cols-4">
             {groups.map((group) => (
               <div key={group.title}>
                 <h2 className="font-mono text-[0.65rem] uppercase tracking-[0.13em] text-ink-soft">

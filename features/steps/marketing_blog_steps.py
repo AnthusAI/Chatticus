@@ -1,0 +1,182 @@
+"""Behave steps for marketing blog (Updates and Agent Zoo)."""
+
+from __future__ import annotations
+
+import re
+
+from behave import given, then
+from marketing_positioning_steps import _run_harness
+
+FOOTER_PATTERN = re.compile(
+    r"<footer[^>]*>(.*?)</footer>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+FOOTER_GROUP_PATTERN = re.compile(
+    r"<h2[^>]*>\s*(?P<title>[^<]+?)\s*</h2>\s*<ul[^>]*>(?P<links>.*?)</ul>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+FOOTER_LINK_PATTERN = re.compile(
+    r'<a\b[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
+    re.DOTALL | re.IGNORECASE,
+)
+
+PAGE_LINK_PATTERN = re.compile(
+    r'<a\b[^>]*href="(?P<href>/[^"]+)"',
+    re.IGNORECASE,
+)
+
+ARTICLE_LINK_PATTERNS = (
+    re.compile(r'href="/updates/[^"]+"', re.IGNORECASE),
+    re.compile(r'href="/agent-zoo/[^"]+"', re.IGNORECASE),
+)
+
+
+def _visible_text(context: object) -> str:
+    return context.marketing_ui_harness.get("visibleText") or ""
+
+
+def _html(context: object) -> str:
+    return context.marketing_ui_harness.get("html") or ""
+
+
+def _footer_html(context: object) -> str:
+    html = _html(context)
+    match = FOOTER_PATTERN.search(html)
+    assert match is not None, "Footer not found in rendered HTML"
+    return match.group(1)
+
+
+def _news_group_links(context: object) -> list[tuple[str, str]]:
+    footer_html = _footer_html(context)
+    for group_match in FOOTER_GROUP_PATTERN.finditer(footer_html):
+        title = group_match.group("title").strip()
+        if title.lower() != "news":
+            continue
+        links_html = group_match.group("links")
+        links: list[tuple[str, str]] = []
+        for link_match in FOOTER_LINK_PATTERN.finditer(links_html):
+            href = link_match.group(1)
+            label = re.sub(r"<[^>]+>", "", link_match.group(2))
+            label = " ".join(label.split())
+            links.append((label, href))
+        return links
+    raise AssertionError('Footer group "News" not found')
+
+
+def _normalize_href(href: str) -> str:
+    return href.rstrip("/") or "/"
+
+
+def _page_has_href(context: object, expected_path: str) -> None:
+    html = _html(context)
+    normalized = _normalize_href(expected_path)
+    for match in PAGE_LINK_PATTERN.finditer(html):
+        href = _normalize_href(match.group("href"))
+        if href == normalized:
+            return
+    raise AssertionError(f"No link to {expected_path!r} found in page HTML")
+
+
+@given("a visitor on the Updates page")
+def given_visitor_on_updates_page(context: object) -> None:
+    context.marketing_ui_harness = _run_harness("render-updates")
+
+
+@given("a visitor on the Agent Zoo page")
+def given_visitor_on_agent_zoo_page(context: object) -> None:
+    context.marketing_ui_harness = _run_harness("render-agent-zoo")
+
+
+@then("the footer has a News group")
+def then_footer_has_news_group(context: object) -> None:
+    _news_group_links(context)
+
+
+@then('the News group lists Updates linking to "/updates"')
+def then_news_group_lists_updates(context: object) -> None:
+    links = _news_group_links(context)
+    for label, href in links:
+        if label == "Updates":
+            assert (
+                _normalize_href(href) == "/updates"
+            ), f'Updates link expected "/updates", got {href!r}'
+            return
+    raise AssertionError('News group does not list "Updates"')
+
+
+@then('the News group lists Agent Zoo linking to "/agent-zoo"')
+def then_news_group_lists_agent_zoo(context: object) -> None:
+    links = _news_group_links(context)
+    for label, href in links:
+        if label == "Agent Zoo":
+            assert (
+                _normalize_href(href) == "/agent-zoo"
+            ), f'Agent Zoo link expected "/agent-zoo", got {href!r}'
+            return
+    raise AssertionError('News group does not list "Agent Zoo"')
+
+
+@then("Updates appears before Agent Zoo in that group")
+def then_updates_before_agent_zoo_in_news_group(context: object) -> None:
+    links = _news_group_links(context)
+    labels = [label for label, _href in links]
+    assert "Updates" in labels, labels
+    assert "Agent Zoo" in labels, labels
+    assert labels.index("Updates") < labels.index("Agent Zoo"), labels
+
+
+@then("the page states that Updates is progress notes about Chatticus itself")
+def then_updates_page_states_progress_notes(context: object) -> None:
+    text = _visible_text(context).lower()
+    assert "progress notes" in text, text
+    assert "chatticus" in text, text
+
+
+@then("the page lists no articles yet")
+def then_page_lists_no_articles_yet(context: object) -> None:
+    html = _html(context)
+    for pattern in ARTICLE_LINK_PATTERNS:
+        assert (
+            pattern.search(html) is None
+        ), f"Unexpected article link found: {pattern.pattern}"
+
+
+@then("the page does not say coming soon")
+def then_page_does_not_say_coming_soon(context: object) -> None:
+    text = _visible_text(context).lower()
+    assert "coming soon" not in text, text
+
+
+@then("the page is titled Agent Zoo")
+def then_page_is_titled_agent_zoo(context: object) -> None:
+    text = _visible_text(context)
+    assert "Agent Zoo" in text, text
+
+
+@then(
+    "the page states that Agent Zoo covers workplaces where agents "
+    "collaborate and do useful work"
+)
+def then_agent_zoo_page_states_category_beat(context: object) -> None:
+    text = _visible_text(context).lower()
+    assert "collaborate" in text, text
+    assert "useful work" in text, text
+
+
+@then("the page does not call itself a model zoo")
+def then_page_does_not_call_itself_model_zoo(context: object) -> None:
+    text = _visible_text(context)
+    assert "Agent Zoo" in text, text
+    assert "model zoo" not in text.lower(), text
+
+
+@then('the page links to "/agent-zoo"')
+def then_page_links_to_agent_zoo(context: object) -> None:
+    _page_has_href(context, "/agent-zoo")
+
+
+@then('the page links to "/updates"')
+def then_page_links_to_updates(context: object) -> None:
+    _page_has_href(context, "/updates")

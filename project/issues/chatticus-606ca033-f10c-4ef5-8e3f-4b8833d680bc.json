@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-606ca033-f10c-4ef5-8e3f-4b8833d680bc",
+  "title": "Marketing website: unpublished wiki",
+  "description": "**As a** visitor and as an editor, **I want** an in-repo wiki on chattic.us that can hold durable notes (names for the category, peer products, concepts), **so that** Agent Zoo / Updates posts can link into a stable encyclopedia and wiki pages can point back at related posts.\n\nThis pass is **structure only**. Do not add the wiki to the footer or header. Do not treat an empty `/wiki` as a launch. Fill pages (starting with research) before publishing the wiki on the site.\n\nThis is **not** the Kanbus project wiki (`project/wiki`). That stays the internal board. This is a public marketing encyclopedia compiled into the static Next export.\n\n## Locked decisions\n\n- Route: `/wiki` index, `/wiki/[slug]` pages (slug routes mount when the first published page exists \u2014 same Next `output: export` constraint as the blog).\n- Content: `web/content/wiki/*.md`. Flat for now.\n- Unpublished: no footer/header link; index `robots: noindex` until we decide to publish.\n- Bidirectional links in frontmatter now, even with zero pages: wiki `relatedPosts: [{ category, slug }]`, blog `relatedWiki: [slug]`. Missing targets are omitted, not a build failure.\n- `draft: true` pages live in git as research notes and do not appear in listings or static params.\n\n## Definition of Done\n\n- `web/content/wiki/AGENTS.md` editor guide (wiki vs blog vs Kanbus wiki; how to link).\n- Loader `web/lib/wiki.ts` with node:test.\n- Empty `/wiki` index, noindex, not in the footer.\n- Shared page factory like `web/lib/blog-post-page.tsx`.\n- Blog frontmatter accepts optional `relatedWiki`.\n- `features/marketing_wiki.feature` green.\n\n## Out of scope\n\nFirst published wiki pages, footer launch, nested wiki trees, CMS.",
+  "type": "epic",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-6acb3398-d314-45e2-9c14-0fecacbab420",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "42140796-694e-4ca4-aaf0-ccdd897ba019",
+      "author": "ubuntu",
+      "text": "Structure pass complete. Unpublished /wiki plus draft research on names for the workplace. Launch (footer + index) is a later decision after more pages.",
+      "created_at": "2026-09-04T11:40:53.645951Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T11:22:17.816807Z",
+  "updated_at": "2026-09-04T11:40:53.646014Z",
+  "closed_at": "2026-09-04T11:27:36.573801Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
