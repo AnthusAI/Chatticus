@@ -22,6 +22,13 @@ Feature: Delegation ladder positioning
     Then it states that the Chatticus organization runs in the customer AWS account
     And it states that the source is available under an open licence
 
+  Scenario: The pricing section headline offers a choice of how much help
+    Given the chattic.us home page
+    When I look at the delegated responsibility section
+    Then it headlines that you choose how much we help
+    And it states that you can run it yourself or enlist us
+    And it does not describe a ladder with a gap where a price should be
+
   Scenario: The home page offers four rungs, each with a price
     Given the chattic.us home page
     When I look at the delegated responsibility section
