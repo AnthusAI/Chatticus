@@ -1,4 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/Wordmark";
 
@@ -9,26 +10,26 @@ export function Header() {
         aria-label="Primary navigation"
         className="mx-auto flex h-[4.6rem] max-w-[92rem] items-center justify-between px-5 sm:px-8 lg:px-12"
       >
-        <a
+        <Link
           href="/#top"
           aria-label="Chatticus home"
           className="rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/30"
         >
           <Wordmark animated="auto" iconPosition="end" />
-        </a>
+        </Link>
         <div className="hidden items-center gap-7 font-body text-sm font-semibold lg:flex">
-          <a className="nav-link" href="/#organization">
+          <Link className="nav-link" href="/#organization">
             Organization
-          </a>
-          <a className="nav-link" href="/#control">
+          </Link>
+          <Link className="nav-link" href="/#control">
             Why Chatticus
-          </a>
-          <a className="nav-link" href="/#evidence">
+          </Link>
+          <Link className="nav-link" href="/#evidence">
             Evidence
-          </a>
-          <a className="nav-link" href="/#faq">
+          </Link>
+          <Link className="nav-link" href="/#faq">
             FAQ
-          </a>
+          </Link>
         </div>
         <div className="flex items-center gap-3">
           <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">

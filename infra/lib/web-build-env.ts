@@ -9,14 +9,17 @@ import {
 export const WEB_BUNDLE_DOCKER_IMAGE =
   "public.ecr.aws/sam/build-nodejs22.x";
 
+export const CHATTICUS_AWS_REGION = "us-east-1";
+
 /** Fetch public Cognito SSM parameters at bundle time (not CloudFormation tokens). */
 export function webBuildEnvExports(environmentName: ChatticusCloudEnvironment): string {
   const webPrefix = webParameterPrefix(environmentName);
   const siteDomain = WEB_SITE_DOMAINS[environmentName];
   return [
-    `export NEXT_PUBLIC_COGNITO_USER_POOL_ID="$(aws ssm get-parameter --name '${webPrefix}/cognito-user-pool-id' --query 'Parameter.Value' --output text)"`,
-    `export NEXT_PUBLIC_COGNITO_CLIENT_ID="$(aws ssm get-parameter --name '${webPrefix}/cognito-app-client-id' --query 'Parameter.Value' --output text)"`,
-    `export NEXT_PUBLIC_COGNITO_AUTH_DOMAIN="$(aws ssm get-parameter --name '${webPrefix}/cognito-auth-domain' --query 'Parameter.Value' --output text)"`,
+    `export AWS_DEFAULT_REGION='${CHATTICUS_AWS_REGION}'`,
+    `export NEXT_PUBLIC_COGNITO_USER_POOL_ID="$(aws ssm get-parameter --region '${CHATTICUS_AWS_REGION}' --name '${webPrefix}/cognito-user-pool-id' --query 'Parameter.Value' --output text)"`,
+    `export NEXT_PUBLIC_COGNITO_CLIENT_ID="$(aws ssm get-parameter --region '${CHATTICUS_AWS_REGION}' --name '${webPrefix}/cognito-app-client-id' --query 'Parameter.Value' --output text)"`,
+    `export NEXT_PUBLIC_COGNITO_AUTH_DOMAIN="$(aws ssm get-parameter --region '${CHATTICUS_AWS_REGION}' --name '${webPrefix}/cognito-auth-domain' --query 'Parameter.Value' --output text)"`,
     `[ -n "$NEXT_PUBLIC_COGNITO_USER_POOL_ID" ]`,
     `[ -n "$NEXT_PUBLIC_COGNITO_CLIENT_ID" ]`,
     `[ -n "$NEXT_PUBLIC_COGNITO_AUTH_DOMAIN" ]`,
@@ -46,6 +49,17 @@ export function webLocalBundleCommand(
     "npm ci",
     "npm run build --workspace=web",
   ].join(" && ");
+}
+
+/** Forward runner OIDC credentials into the SAM docker bundling container. */
+export function webDockerBundlingEnvironment(): Record<string, string> {
+  return {
+    AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID ?? "",
+    AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY ?? "",
+    AWS_SESSION_TOKEN: process.env.AWS_SESSION_TOKEN ?? "",
+    AWS_DEFAULT_REGION: CHATTICUS_AWS_REGION,
+    AWS_REGION: CHATTICUS_AWS_REGION,
+  };
 }
 
 /** Shell guard: only attempt local bundling when AWS CLI is on PATH. */
