@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-d759ebcc-bdea-4655-821c-6aa31d656336",
+  "title": "Wiki is unpublished: not in the footer or header",
+  "description": "**As a** visitor, **I want** the wiki omitted from site chrome until it has pages, **so that** we do not launch an empty encyclopedia.\n\nFeature: Marketing wiki\n\n  Scenario: The wiki is not linked from the footer\n    Given the chattic.us home page\n    Then the footer does not list a Wiki link\n    And the News group does not list Wiki",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-606ca033-f10c-4ef5-8e3f-4b8833d680bc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "60cf9a0d-941a-475e-b0b5-ff5eedda5989",
+      "author": "ubuntu",
+      "text": "Green. Footer and News group do not list Wiki.",
+      "created_at": "2026-09-04T11:40:49.623574Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T11:22:49.639774Z",
+  "updated_at": "2026-09-04T11:40:49.623640Z",
+  "closed_at": "2026-09-04T11:27:30.403468Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

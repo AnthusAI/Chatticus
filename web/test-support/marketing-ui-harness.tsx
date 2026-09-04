@@ -12,6 +12,28 @@ import {
 
 (globalThis as any).React = React;
 
+function robotsMetaTagFromMetadata(metadata: { robots?: unknown } | undefined): string {
+  const robots = metadata?.robots;
+  if (!robots || typeof robots !== "object") {
+    return "";
+  }
+
+  const directives: string[] = [];
+  const robotsRecord = robots as Record<string, boolean | string | undefined>;
+  if (robotsRecord.index === false) {
+    directives.push("noindex");
+  }
+  if (robotsRecord.follow === false) {
+    directives.push("nofollow");
+  }
+
+  if (directives.length === 0) {
+    return "";
+  }
+
+  return `<meta name="robots" content="${directives.join(", ")}">`;
+}
+
 (AccordionPrimitive.Content as any).defaultProps = {
   ...((AccordionPrimitive.Content as any).defaultProps || {}),
   forceMount: true,
@@ -72,6 +94,29 @@ async function main(): Promise<void> {
       const html = renderToStaticMarkup(React.createElement(ContactTrainingPage));
       const text = html.replace(/<[^>]*>?/gm, " ");
       result = { visibleText: text, html };
+      break;
+    }
+    case "render-updates": {
+      const { default: UpdatesPage } = await import("../app/updates/page");
+      const html = renderToStaticMarkup(React.createElement(UpdatesPage));
+      const text = html.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html };
+      break;
+    }
+    case "render-agent-zoo": {
+      const { default: AgentZooPage } = await import("../app/agent-zoo/page");
+      const html = renderToStaticMarkup(React.createElement(AgentZooPage));
+      const text = html.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html };
+      break;
+    }
+    case "render-wiki": {
+      const wikiModule = await import("../app/wiki/page");
+      const html = renderToStaticMarkup(React.createElement(wikiModule.default));
+      const robotsMeta = robotsMetaTagFromMetadata(wikiModule.metadata);
+      const htmlWithHead = `${robotsMeta}${html}`;
+      const text = htmlWithHead.replace(/<[^>]*>?/gm, " ");
+      result = { visibleText: text, html: htmlWithHead };
       break;
     }
     default:

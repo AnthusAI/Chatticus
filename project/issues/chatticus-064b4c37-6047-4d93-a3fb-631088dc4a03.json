@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-064b4c37-6047-4d93-a3fb-631088dc4a03",
+  "title": "Updates and Agent Zoo routes, OG images, and footer",
+  "description": "Ship /updates and /agent-zoo indexes with mastheads, page-content.ts, opengraph-image.tsx. Footer News group, lg:grid-cols-4, no borders. Marketing UI harness commands. Make marketing_blog.feature green.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-492b65b2-93bc-4488-964b-b0c225774258",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "683b490c-ce47-4740-8851-eb89fb612a87",
+      "author": "ubuntu",
+      "text": "Placeholder routes removed per review. Build emits only index pages until first posts.",
+      "created_at": "2026-09-04T11:10:05.601564Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "cf178d9a-e997-4244-b4dd-03ef304df47e",
+      "author": "ubuntu",
+      "text": "Indexes, OG images, News footer, and marketing_blog.feature are green.",
+      "created_at": "2026-09-04T11:15:45.526106Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T10:51:32.073202Z",
+  "updated_at": "2026-09-04T11:15:46.071590Z",
+  "closed_at": "2026-09-04T11:15:46.071506Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

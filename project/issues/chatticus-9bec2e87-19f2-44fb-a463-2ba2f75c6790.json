@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-9bec2e87-19f2-44fb-a463-2ba2f75c6790",
+  "title": "Wiki index exists unpublished at /wiki",
+  "description": "**As an** editor, **I want** /wiki ready as a durable notes index, **so that** published pages have a home when we launch.\n\nThe page is noindex. Empty listing. No coming soon.\n\nFeature: Marketing wiki\n\n  Scenario: Wiki index is a durable notes desk with no pages yet\n    Given a visitor on the wiki page\n    Then the page states that the wiki is durable notes about agent workplaces\n    And the page lists no wiki pages yet\n    And the page does not say coming soon\n    And the page is marked noindex",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-606ca033-f10c-4ef5-8e3f-4b8833d680bc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "59b30b53-0dce-47af-8b25-51492fa32df9",
+      "author": "ubuntu",
+      "text": "Green. /wiki is a noindex durable-notes index; draft research pages do not appear in the listing.",
+      "created_at": "2026-09-04T11:40:50.424969Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T11:22:50.201451Z",
+  "updated_at": "2026-09-04T11:40:50.425039Z",
+  "closed_at": "2026-09-04T11:27:30.987471Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

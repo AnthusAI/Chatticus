@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-15a7c2b2-f61a-4ad3-bb6c-c758a7cec14b",
+  "title": "Wiki editorial policy",
+  "description": "web/content/wiki/AGENTS.md. Distinguish from Kanbus project wiki and from the Agent Zoo news desk. Wiki is the encyclopedia; blog is the time-stamped desk. How to add a page, draft research notes, relatedPosts/relatedWiki, when to add footer (not this pass).",
+  "type": "chore",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-606ca033-f10c-4ef5-8e3f-4b8833d680bc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "920b5798-b62b-409a-80b4-b6636ab8ad07",
+      "author": "ubuntu",
+      "text": "web/content/wiki/AGENTS.md distinguishes marketing wiki, blog desks, and Kanbus project wiki.",
+      "created_at": "2026-09-04T11:40:52.037831Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T11:22:51.294015Z",
+  "updated_at": "2026-09-04T11:40:52.037892Z",
+  "closed_at": "2026-09-04T11:27:32.185148Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

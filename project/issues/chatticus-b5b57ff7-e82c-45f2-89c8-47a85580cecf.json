@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-b5b57ff7-e82c-45f2-89c8-47a85580cecf",
+  "title": "Markdown blog loader and post templates",
+  "description": "web/lib/blog.ts reads markdown at build time. Category is the folder. Frontmatter: title, date, description, ogHeadline, ogTagline, optional draft. Newest first. Drafts excluded. node:test in web/lib/blog.test.ts. Empty updates/ and agent-zoo/ folders. [slug] routes with generateStaticParams. Shared post chrome. No first posts.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-492b65b2-93bc-4488-964b-b0c225774258",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "ba2146c3-0867-41c2-94c5-9ddde9737741",
+      "author": "ubuntu",
+      "text": "Removed placeholder slug. [slug] routes deferred until first post; factory in blog-post-page.tsx.",
+      "created_at": "2026-09-04T11:10:05.060594Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "cab8511a-93fd-4b0a-b4ba-ce4bb73a62fd",
+      "author": "ubuntu",
+      "text": "Loader, tests, empty category folders, and BlogPostPage factory landed. Next static export cannot emit [slug] routes with zero params, so those app routes wait for the first published post; the factory is ready.",
+      "created_at": "2026-09-04T11:15:44.424148Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T10:51:31.509479Z",
+  "updated_at": "2026-09-04T11:15:44.980043Z",
+  "closed_at": "2026-09-04T11:15:44.979962Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

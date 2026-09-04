@@ -1,0 +1,49 @@
+{
+  "id": "chatticus-d0b05b11-74b8-4524-bf12-f0d7743d076e",
+  "title": "Wiki markdown loader, factory, and /wiki index",
+  "description": "web/lib/wiki.ts, wiki.test.ts, wiki-page factory, app/wiki/page.tsx with noindex, empty folders, extend blog frontmatter with optional relatedWiki. marketing_wiki.feature green. No footer link. No dummy slugs.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-606ca033-f10c-4ef5-8e3f-4b8833d680bc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "a8223a09-6d27-4155-835c-5b4fcda1f86f",
+      "author": "ubuntu",
+      "text": "Starting wiki structure: Gherkin first, then loader/index/factory.",
+      "created_at": "2026-09-04T11:24:39.943286Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "2968254e-b450-4d2c-862e-e79c6954bcf1",
+      "author": "ubuntu",
+      "text": "Wiki structure landed: Gherkin green, npm test/lint/typecheck/build green, behave marketing_wiki + marketing_blog green.",
+      "created_at": "2026-09-04T11:27:20.933276Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "bd164417-b786-4da4-9251-923c8f881295",
+      "author": "ubuntu",
+      "text": "Loader, factory, WikiPageView, related-link chrome, GFM tables, empty /wiki index. No [slug] routes until a published page.",
+      "created_at": "2026-09-04T11:40:52.841361Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T11:22:51.850087Z",
+  "updated_at": "2026-09-04T11:40:52.841423Z",
+  "closed_at": "2026-09-04T11:27:26.944320Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

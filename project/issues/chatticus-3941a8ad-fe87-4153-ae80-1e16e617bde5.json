@@ -1,0 +1,49 @@
+{
+  "id": "chatticus-3941a8ad-fe87-4153-ae80-1e16e617bde5",
+  "title": "Each news desk links to the other",
+  "description": "**As a** visitor on one desk, **I want** a link to the other desk, **so that** I can move between Chatticus progress notes and the category beat.\n\nFeature: Marketing blog\n\n  Scenario: Each index links to the other desk\n    Given a visitor on the Updates page\n    Then the page links to \"/agent-zoo\"\n    Given a visitor on the Agent Zoo page\n    Then the page links to \"/updates\"",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-492b65b2-93bc-4488-964b-b0c225774258",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "4ee57495-38cb-48de-833c-c93bd652a823",
+      "author": "ubuntu",
+      "text": "Cross-link scenario in marketing_blog.feature; blocked on index pages.",
+      "created_at": "2026-09-04T10:54:10.368814Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "ee09b274-1ff3-4078-9416-637bc2ece110",
+      "author": "ubuntu",
+      "text": "Gherkin red: each index must link to the other desk.",
+      "created_at": "2026-09-04T10:57:02.500982Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "a7629d4b-f10c-4640-8962-84bcf5dc158f",
+      "author": "ubuntu",
+      "text": "Green. Each index links to the other desk.",
+      "created_at": "2026-09-04T11:15:43.326765Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T10:51:30.390893Z",
+  "updated_at": "2026-09-04T11:15:43.873447Z",
+  "closed_at": "2026-09-04T11:15:43.873367Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
