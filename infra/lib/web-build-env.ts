@@ -51,5 +51,16 @@ export function webLocalBundleCommand(
   ].join(" && ");
 }
 
+/** Forward runner OIDC credentials into the SAM docker bundling container. */
+export function webDockerBundlingEnvironment(): Record<string, string> {
+  return {
+    AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID ?? "",
+    AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY ?? "",
+    AWS_SESSION_TOKEN: process.env.AWS_SESSION_TOKEN ?? "",
+    AWS_DEFAULT_REGION: CHATTICUS_AWS_REGION,
+    AWS_REGION: CHATTICUS_AWS_REGION,
+  };
+}
+
 /** Shell guard: only attempt local bundling when AWS CLI is on PATH. */
 export const WEB_LOCAL_BUNDLE_AWS_CLI_CHECK = "command -v aws >/dev/null";
