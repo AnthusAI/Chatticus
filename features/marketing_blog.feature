@@ -12,6 +12,7 @@ Feature: Marketing blog
     Then the page states that Updates is progress notes about Chatticus itself
     And the page lists "The workplace is the product" linking to "/updates/the-workplace"
     And the page lists "Nothing bills while nobody is working" linking to "/updates/nothing-bills"
+    And the page lists "Why we started" linking to "/updates/why-we-started"
     And the page does not say coming soon
 
   Scenario: Agent Zoo index lists founding category notes
@@ -48,3 +49,10 @@ Feature: Marketing blog
     Given a visitor on the Agent Zoo post "farms-and-desks"
     Then the page is titled "A farm of desks"
     And the page states that Chatticus is a farm of desks
+
+  Scenario: A visitor can read the first-day motivation update
+    Given a visitor on the Updates post "why-we-started"
+    Then the page is titled "Why we started"
+    And the page states that a standing team is the default picture
+    And the page states that people share the workplace with the bots
+    And the page does not say coming soon

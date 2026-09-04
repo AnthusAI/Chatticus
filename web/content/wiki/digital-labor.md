@@ -3,7 +3,6 @@ title: Digital labor
 description: Agents sold as employees or a workforce you hire — adjacent to the workplace idea, aimed at a different buyer.
 ogHeadline: Digital labor
 ogTagline: The enterprise pitch of a workforce you hire
-draft: true
 ---
 
 **Digital labor** is the enterprise pitch: do not buy a chatbot, hire a workforce. The unit of sale is closer to a seat, a team, or an hour of work than to a repository or a household computer.

@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import { getPost, type BlogCategory, type BlogPost } from "@/lib/blog";
 
+export type WikiCollection = "ideas" | "product";
+
 export type WikiPageFrontmatter = {
   title: string;
   description: string;
@@ -15,9 +17,25 @@ export type WikiPage = {
   slug: string;
   frontmatter: WikiPageFrontmatter;
   body: string;
+  html: string;
+  collection: WikiCollection;
+  listed: boolean;
+};
+
+type GeneratedWikiFile = {
+  pages: Array<{
+    slug: string;
+    collection: WikiCollection;
+    listed: boolean;
+    frontmatter: WikiPageFrontmatter;
+    html: string;
+  }>;
 };
 
 const wikiRoot = (): string => path.join(process.cwd(), "content", "wiki");
+
+const generatedWikiPath = (): string =>
+  path.join(process.cwd(), "generated", "wiki", "pages.json");
 
 const BLOG_CATEGORIES: readonly BlogCategory[] = ["updates", "agent-zoo"] as const;
 
@@ -146,7 +164,30 @@ function readPageFile(filename: string): WikiPage | null {
     slug: filename.replace(/\.md$/, ""),
     frontmatter,
     body,
+    html: "",
+    collection: "ideas",
+    listed: true,
   };
+}
+
+function readGeneratedPages(): WikiPage[] | null {
+  const filePath = generatedWikiPath();
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+
+  const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as GeneratedWikiFile;
+  return parsed.pages.map((page) => ({
+    slug: page.slug,
+    frontmatter: {
+      ...page.frontmatter,
+      draft: page.frontmatter.draft === true,
+    },
+    body: "",
+    html: page.html,
+    collection: page.collection,
+    listed: page.listed !== false,
+  }));
 }
 
 function sortPagesAlphabetically(pages: WikiPage[]): WikiPage[] {
@@ -157,7 +198,7 @@ export function wikiPagePath(slug: string): string {
   return `/wiki/${slug}`;
 }
 
-export function listPages(options?: { includeDrafts?: boolean }): WikiPage[] {
+function listMarkdownIdeaPages(options?: { includeDrafts?: boolean }): WikiPage[] {
   const root = wikiRoot();
   if (!fs.existsSync(root)) {
     return [];
@@ -173,7 +214,25 @@ export function listPages(options?: { includeDrafts?: boolean }): WikiPage[] {
   return sortPagesAlphabetically(pages);
 }
 
+export function listPages(options?: { includeDrafts?: boolean }): WikiPage[] {
+  if (options?.includeDrafts) {
+    return listMarkdownIdeaPages({ includeDrafts: true });
+  }
+
+  const generated = readGeneratedPages();
+  if (generated) {
+    return generated.filter((page) => !page.frontmatter.draft);
+  }
+
+  return listMarkdownIdeaPages({ includeDrafts: false });
+}
+
 export function getPage(slug: string): WikiPage | null {
+  const generated = readGeneratedPages();
+  if (generated) {
+    return generated.find((page) => page.slug === slug) ?? null;
+  }
+
   const filename = `${slug}.md`;
   const filePath = path.join(wikiRoot(), filename);
   if (!fs.existsSync(filePath)) {

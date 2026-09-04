@@ -3,7 +3,10 @@ title: Shared computer
 description: One organization-scoped Linux workplace — summoned when work needs a machine, not assumed at login, and not a laptop each bot pretends to own.
 ogHeadline: Shared computer
 ogTagline: One Linux workplace for the whole organization
-draft: true
+relatedPosts:
+  - updates/why-we-started
+  - updates/the-workplace
+  - updates/nothing-bills
 ---
 
 A **shared computer** is one durable Linux workplace for the whole organization. Bots and people use it. Files persist. A display can be watched. There is no `stop_computer`: turning the machine off would strand everyone else's work.

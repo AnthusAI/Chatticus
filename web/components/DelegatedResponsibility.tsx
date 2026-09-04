@@ -6,10 +6,12 @@ export function DelegatedResponsibility() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Delegated Responsibility
+            You choose how much we help
           </h2>
-          <p className="mt-4 text-xl text-gray-600 dark:text-gray-300">
-            A ladder with a gap where a price should be reads as the rung where the real money is hidden.
+          <p className="mt-4 max-w-2xl text-xl text-gray-600 dark:text-gray-300">
+            You can run the whole stack yourself. If you want help, we can
+            operate it, set it up with you, or adapt a deployment to what you
+            need.
           </p>
         </div>
 

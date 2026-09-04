@@ -8,10 +8,6 @@ import { WIKI_PAGE_CONTENT } from "./page-content";
 export const metadata: Metadata = {
   title: WIKI_PAGE_CONTENT.title,
   description: WIKI_PAGE_CONTENT.description,
-  robots: {
-    index: false,
-    follow: false,
-  },
   alternates: {
     canonical: "/wiki",
   },

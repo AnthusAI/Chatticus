@@ -3,7 +3,9 @@ title: Named teammates
 description: Persistent bots with names, memory, and a place on the roster — not a pool of anonymous workers and not a single acting coworker.
 ogHeadline: Named teammates
 ogTagline: Bots that stay themselves across turns
-draft: true
+relatedPosts:
+  - updates/why-we-started
+  - updates/the-workplace
 ---
 
 A **named teammate** is a bot that stays itself across turns: a name, a role, memory, and a seat on the organization's roster. People address it. Other bots on the channel can read what it wrote. Only the addressed bot acts.

@@ -12,13 +12,13 @@ Entry: [Competitive landscape](index.md). Vocabulary: [Names and metaphors](meta
 
 ## Public wiki (chattic.us)
 
-`web/content/wiki/` on the marketing site. **Idea pages** plus links to dated blog posts. Not a competitor catalog. Voice is participant and checkable. Still unpublished (no footer; `/wiki` is noindex) until several idea pages are ready.
+`web/content/wiki/` on the marketing site, plus Markus-rendered product docs from `docs/` and `LICENSE`. **Idea pages** plus links to dated blog posts. Not a competitor catalog. Voice is participant and checkable. Published at `/wiki` and linked from the footer.
 
 Editorial IA: `web/content/wiki/AGENTS.md`.
 
-### Public idea slugs (planned)
+### Public idea slugs
 
-Drafts live in `web/content/wiki/`. Still `draft: true` until launch.
+Live in `web/content/wiki/`.
 
 | Public slug | Idea |
 | --- | --- |

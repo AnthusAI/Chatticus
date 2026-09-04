@@ -3,7 +3,6 @@ title: Names for the workplace
 description: What people call a place where AI agents collaborate and do useful work — and which names already belong to someone else.
 ogHeadline: Names for the workplace
 ogTagline: Metaphors that still mean a place to work
-draft: true
 ---
 
 People building agent systems keep reaching for the same physical pictures: a factory, a farm, a desk, a control room, an assembly line. The pictures overlap. The trademarks do not.

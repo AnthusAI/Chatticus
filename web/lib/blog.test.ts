@@ -108,13 +108,13 @@ describe("listPosts with a temporary content directory", () => {
 });
 
 describe("committed founding posts", () => {
-  it("publishes the four founding notes and skips drafts", () => {
+  it("publishes the founding notes and skips drafts", () => {
     const updates = listPosts("updates");
     const zoo = listPosts("agent-zoo");
 
     assert.deepEqual(
       updates.map((post) => post.slug),
-      ["the-workplace", "nothing-bills"],
+      ["the-workplace", "nothing-bills", "why-we-started"],
     );
     assert.deepEqual(
       zoo.map((post) => post.slug),

@@ -103,7 +103,7 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 
 | Host | Role | Notes |
 | --- | --- | --- |
-| [chattic.us](https://chattic.us) | Marketing | Separate deploy from this repo's `web/` export today |
+| [chattic.us](https://chattic.us) | Marketing | Updates, Agent Zoo, and the Markus wiki at `/wiki` |
 | [dev.chattic.us](https://dev.chattic.us) | Development product + API | Same-origin `/api`; marketing `/` + product `/chat` live |
 | [hey.chattic.us](https://hey.chattic.us) | Production product (planned) | Web CloudFront **disabled** (stack exists, dark) |
 | [staging.chattic.us](https://staging.chattic.us) | Staging (planned) | Web CloudFront **disabled** |

@@ -7,7 +7,7 @@ import re
 from behave import then
 from marketing_blog_steps import FOOTER_LINK_PATTERN, _footer_html
 
-LICENSE_HREF_PATTERN = re.compile(r"/LICENSE(?:$|[?#])", re.IGNORECASE)
+LICENSE_HREF_PATTERN = re.compile(r"/wiki/license(?:$|[?#])", re.IGNORECASE)
 
 
 def _footer_links(context: object) -> list[tuple[str, str]]:

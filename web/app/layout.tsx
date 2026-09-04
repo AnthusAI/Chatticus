@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Manrope, Newsreader } from "next/font/google";
 import "./globals.css";
+import "@/styles/markus.css";
+import "@/styles/markus-chatticus.css";
 
 const display = Newsreader({
   subsets: ["latin"],

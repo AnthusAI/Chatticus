@@ -3,7 +3,9 @@ title: Farms and desks
 description: Specialized bots at durable desks on one workplace — an agent farm, not a spam bot farm, and not one hero coworker.
 ogHeadline: Farms and desks
 ogTagline: Specialized desks on one shared workplace
-draft: true
+relatedPosts:
+  - updates/why-we-started
+  - agent-zoo/farms-and-desks
 ---
 
 **Farms and desks** is Chatticus's picture of the [agent workplace](/wiki/agent-workplace): several specialized bots, each with a desk (a role, memory, and a beat), sharing one [computer](/wiki/shared-computer).

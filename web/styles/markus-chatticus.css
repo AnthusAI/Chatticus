@@ -1,0 +1,112 @@
+/* Chatticus theme for Markus fragments on chattic.us.
+   Tokens follow docs/BRAND_GUIDELINES.md: three surface steps, no region
+   borders, system light/dark via the same --surface-* / --ink variables. */
+
+.markus-theme-chatticus,
+[data-theme="chatticus"] {
+  --markus-ink: var(--ink);
+  --markus-muted: var(--ink-soft);
+  --markus-paper: var(--surface-0);
+  --markus-card: var(--surface-1);
+  --markus-line: var(--surface-2);
+  --markus-accent: var(--cobalt);
+  --markus-accent-2: var(--clay);
+  --markus-quote: var(--ink-soft);
+  --markus-note: var(--sea);
+  --markus-warning: var(--amber);
+  --markus-tip: var(--sea);
+  --markus-caution: var(--clay);
+  --markus-sans: var(--font-body), sans-serif;
+  --markus-serif: var(--font-display), serif;
+  --markus-mono: var(--font-mono), ui-monospace, monospace;
+  --markus-pre-bg: var(--surface-2);
+  --markus-pre-ink: var(--ink);
+  --markus-code-bg: var(--surface-1);
+  --markus-aside-bg: var(--surface-1);
+  --markus-tab-nav-bg: var(--surface-1);
+  --markus-th-bg: var(--surface-2);
+}
+
+.wiki-markus .markus-document {
+  max-width: 48rem;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-body), sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.625;
+}
+
+.wiki-markus .markus-document h1,
+.wiki-markus .markus-document h2,
+.wiki-markus .markus-document h3,
+.wiki-markus .markus-document h4 {
+  color: var(--ink);
+  font-family: var(--font-display), serif;
+  letter-spacing: -0.04em;
+}
+
+.wiki-markus .markus-document a {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.wiki-markus .markus-document a:hover {
+  color: var(--cobalt);
+}
+
+.wiki-markus .markus-document pre,
+.wiki-markus .markus-document th,
+.wiki-markus .markus-document td,
+.wiki-markus .markus-document blockquote,
+.wiki-markus .markus-callout,
+.wiki-markus .markus-card,
+.wiki-markus .markus-column,
+.wiki-markus .markus-details,
+.wiki-markus .markus-tabs,
+.wiki-markus .markus-metric {
+  border: 0;
+}
+
+.wiki-markus .markus-document blockquote {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  background: var(--surface-1);
+}
+
+.wiki-markus .markus-document th,
+.wiki-markus .markus-document td {
+  background: var(--surface-1);
+}
+
+.wiki-markus .markus-document th {
+  background: var(--surface-2);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.wiki-markus .markus-document pre {
+  border-radius: 1rem;
+}
+
+.wiki-markus .markus-document code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.wiki-markus .markus-callout,
+.wiki-markus .markus-card,
+.wiki-markus .markus-column,
+.wiki-markus .markus-details,
+.wiki-markus .markus-aside,
+.wiki-markus .markus-metric,
+.wiki-markus .markus-tabs {
+  background: var(--surface-1);
+}

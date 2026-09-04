@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "predev": "sh scripts/generate-wiki.sh",
+    "prebuild": "sh scripts/generate-wiki.sh",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
