@@ -44,7 +44,7 @@ export function FinalCta() {
               variant="outline"
               className="bg-paper/[0.12] text-paper hover:bg-paper hover:text-ink"
             >
-              <a href="https://github.com/AnthusAI/Chattic.us">
+              <a href="https://github.com/AnthusAI/Chatticus">
                 <Github className="h-5 w-5" aria-hidden="true" />
                 Follow development
               </a>

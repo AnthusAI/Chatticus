@@ -48,7 +48,7 @@ def test_rewrite_github_blob_to_wiki_slug(tmp_path: Path) -> None:
     source.write_text("note", encoding="utf-8")
     slugs = {"docs/PRODUCT.md": "product", "PRODUCT.md": "product"}
     rewritten = rewrite_markdown_links(
-        "The [product model](https://github.com/AnthusAI/Chattic.us/blob/develop/docs/PRODUCT.md).",
+        "The [product model](https://github.com/AnthusAI/Chatticus/blob/develop/docs/PRODUCT.md).",
         source_path=source,
         repo_root=repo,
         slugs=slugs,
@@ -72,7 +72,7 @@ def test_rewrite_spike_path_to_github_blob(tmp_path: Path) -> None:
         slugs={},
     )
     assert rewritten == (
-        "See [results](https://github.com/AnthusAI/Chattic.us/blob/develop/"
+        "See [results](https://github.com/AnthusAI/Chatticus/blob/develop/"
         "spikes/computer-cold-start/results/README.md)."
     )
 

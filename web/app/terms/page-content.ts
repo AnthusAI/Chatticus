@@ -14,7 +14,7 @@ Chatticus is in **public beta**. By using chattic.us, submitting the beta waitli
 
 Chatticus provides persistent named bots, a shared organization workspace, approvals, and an optional Linux computer inside infrastructure you control. During beta, features change without notice, documentation may lag the product, and **there is no uptime guarantee**.
 
-The open-source software is available under the [MIT License](https://github.com/AnthusAI/Chattic.us/blob/develop/LICENSE). If you fork and self-host, you operate that deployment yourself and these beta service terms apply only to Anthus-operated surfaces such as the marketing site, waitlist, and managed operation of your deployment.
+The open-source software is available under the [MIT License](https://github.com/AnthusAI/Chatticus/blob/develop/LICENSE). If you fork and self-host, you operate that deployment yourself and these beta service terms apply only to Anthus-operated surfaces such as the marketing site, waitlist, and managed operation of your deployment.
 
 ## Managed operation
 
@@ -34,6 +34,6 @@ We may update these terms as the beta progresses. Continued use after an update 
 
 ## Support
 
-During beta, support is handled through [GitHub Issues](https://github.com/AnthusAI/Chattic.us/issues) on the Chatticus repository. Use the **Support** label when it is available.
+During beta, support is handled through [GitHub Issues](https://github.com/AnthusAI/Chatticus/issues) on the Chatticus repository. Use the **Support** label when it is available.
 `.trim(),
 } as const;

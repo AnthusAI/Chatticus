@@ -32,7 +32,7 @@ We use beta waitlist and contact submissions to review applications, respond to 
 
 ## Sharing and processors
 
-We use cloud providers such as Amazon Web Services to host marketing and control-plane services. Support requests during beta are handled through [GitHub Issues](https://github.com/AnthusAI/Chattic.us/issues) on the public repository.
+We use cloud providers such as Amazon Web Services to host marketing and control-plane services. Support requests during beta are handled through [GitHub Issues](https://github.com/AnthusAI/Chatticus/issues) on the public repository.
 
 ## Retention and changes
 
@@ -40,6 +40,6 @@ Beta waitlist and contact records are kept while they are needed to operate the 
 
 ## Contact
 
-Questions about privacy during beta can be opened as a GitHub issue on [AnthusAI/Chattic.us](https://github.com/AnthusAI/Chattic.us/issues). Choose the **Support** label when it is available so we can find it quickly.
+Questions about privacy during beta can be opened as a GitHub issue on [AnthusAI/Chatticus](https://github.com/AnthusAI/Chatticus/issues). Choose the **Support** label when it is available so we can find it quickly.
 `.trim(),
 } as const;

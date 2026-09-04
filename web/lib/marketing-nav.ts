@@ -7,4 +7,4 @@ export const MARKETING_NAV_LINKS = [
 ] as const;
 
 export const SUPPORT_ISSUES_URL =
-  "https://github.com/AnthusAI/Chattic.us/issues";
+  "https://github.com/AnthusAI/Chatticus/issues";

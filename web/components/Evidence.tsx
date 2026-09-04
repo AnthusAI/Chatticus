@@ -10,7 +10,7 @@ const evidence = [
     icon: GitBranch,
     title: "Already in your account",
     body: "Your file system and encrypted secrets live in your AWS account from the start — not something trapped behind an API only we control.",
-    href: "https://github.com/AnthusAI/Chattic.us",
+    href: "https://github.com/AnthusAI/Chatticus",
     link: "Open the repository",
   },
   {
@@ -18,7 +18,7 @@ const evidence = [
     icon: Boxes,
     title: "Take it to another host",
     body: "The same infrastructure-as-code that runs Chatticus for you can stand up your bot farm on any cloud account — yours, ours, or someone else's.",
-    href: "https://github.com/AnthusAI/Chattic.us/tree/develop/infra",
+    href: "https://github.com/AnthusAI/Chatticus/tree/develop/infra",
     link: "Read the infrastructure",
   },
   {
@@ -26,7 +26,7 @@ const evidence = [
     icon: ShieldCheck,
     title: "No hidden rules",
     body: "Every approval, escalation, and recovery rule is a written, testable specification — not tribal knowledge you'd lose by switching providers.",
-    href: "https://github.com/AnthusAI/Chattic.us/tree/develop/features",
+    href: "https://github.com/AnthusAI/Chatticus/tree/develop/features",
     link: "Read the specifications",
   },
 ];

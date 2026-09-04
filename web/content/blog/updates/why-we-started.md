@@ -26,4 +26,4 @@ A serious team also needs control.
 
 **The work has to be visible.** Channels are the conversation: every bot on a channel reads it; only the addressed bot acts. Tasks are the board across the whole roster. People and bots should share both.
 
-That is the first-day bet. You can check what we wrote down: the [product model](/wiki/product), the [source](https://github.com/AnthusAI/Chattic.us), the homepage ledger of [what is live, what is proven, and what is shipping next](/#ledger-title). We are not going to pretend every control is finished. The motivation is.
+That is the first-day bet. You can check what we wrote down: the [product model](/wiki/product), the [source](https://github.com/AnthusAI/Chatticus), the homepage ledger of [what is live, what is proven, and what is shipping next](/#ledger-title). We are not going to pretend every control is finished. The motivation is.

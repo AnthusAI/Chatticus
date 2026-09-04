@@ -18,7 +18,7 @@ from pathlib import Path
 from markusmd import convert
 from markusmd.render import default_css
 
-GITHUB_BLOB_PREFIX = "https://github.com/AnthusAI/Chattic.us/blob/develop/"
+GITHUB_BLOB_PREFIX = "https://github.com/AnthusAI/Chatticus/blob/develop/"
 
 SKIP_DOC_FILENAMES = frozenset(
     {
@@ -32,7 +32,7 @@ SKIP_DOC_FILENAMES = frozenset(
 
 MARKDOWN_LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 GITHUB_DOC_BLOB_PATTERN = re.compile(
-    r"https://github\.com/AnthusAI/Chattic\.us/blob/(?:develop|main)/([^?#\s)]+)"
+    r"https://github\.com/AnthusAI/Chatticus/blob/(?:develop|main)/([^?#\s)]+)"
     r"(#[^)\s]*)?"
 )
 HEADING_PATTERN = re.compile(r"<h([1-6])([^>]*)>(.*?)</h\1>", re.IGNORECASE | re.DOTALL)
