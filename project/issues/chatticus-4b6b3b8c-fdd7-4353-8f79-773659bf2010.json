@@ -3,7 +3,7 @@
   "title": "Public wiki is idea pages, not competitor dossiers",
   "description": "",
   "type": "chore",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -19,11 +19,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "13071f89-94a3-4d59-916a-d780d054d155",
+      "author": "ubuntu",
+      "text": "Public wiki IA landed on cursor/marketing-blog-structure-c16e. Idea spine is draft-only. No competitor slugs. Map: project/wiki/competitive-landscape/public-encyclopedia.md. Gherkin marketing_wiki and web wiki tests green.",
+      "created_at": "2026-09-04T12:01:01.911520Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T11:58:57.445475Z",
-  "updated_at": "2026-09-04T11:59:12.281757Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T12:01:02.479006Z",
+  "closed_at": "2026-09-04T12:01:02.478921Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},
