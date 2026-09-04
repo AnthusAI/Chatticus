@@ -1,0 +1,45 @@
+{
+  "id": "chatticus-25470cae-a3b7-4ef4-bfe2-66b826b70ddf",
+  "title": "Move marketing routes, components, and lib modules to Chattic.us-web",
+  "description": "",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-a9fc83",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "b85b0e56-b8fb-4464-a3f0-f029188e6721",
+      "author": "home",
+      "text": "Move to Chattic.us-web: routes /, /beta, /contact/*, /features/*, /waitlist/*.\nComponents: Hero, Header, Footer, Wordmark, ControlSystem,\nDelegatedResponsibility, Evidence, Faq, FinalCta, OrganizationStory,\nRealityLedger, BetaAccessDisclosure, BetaPageAnalytics, BetaSetupPricing,\nBetaWaitlistSurveyForm, ContactForm, WaitlistConfirmPanel, WaitlistInvitePanel,\nworkspace/WorkspaceDemo.tsx, workspace/demoScenarios.ts. Lib modules:\nanalytics.ts, contact-api.ts, conversion-tracking.ts, waitlist-api.ts,\nwaitlist-survey-fixture.ts, wordmark-presence.ts.\n\nWorkspaceDemo consumes the shared workspace/* components from task 6's export\nrather than a local copy \u2014 this is the one place marketing and product share\nruntime UI, not just tokens.\n\nDepends on task 6 (the shared package must exist to import against) and task 7\n(the repo must exist to move files into).",
+      "created_at": "2026-09-04T21:29:51.571412Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "c47ccd22-68cf-4081-9acc-b68363e2269f",
+      "author": "home",
+      "text": "Scope drift note (recorded during execution): since this task was written,\ndevelop gained a marketing blog (web/app/updates, web/content/blog/updates),\nan agent showcase (web/app/agent-zoo, web/content/blog/agent-zoo), a wiki\n(web/app/wiki, web/lib/wiki.ts, web/content/wiki -- \"ideas\" essays and a\n\"product\" collection generated from docs/ + LICENSE by\npython/src/chatticus/wiki_publish.py, wired into deploy-web-production.yml's\n\"Generate Markus wiki\" step), and /privacy and /terms.\n\nAll of it renders under the chattic.us apex, the same domain-ownership\nconstraint driving this whole split (one CloudFront alias, one owning\ndistribution) -- so it moves with everything else in this task, not just the\nroutes originally listed. The wiki's Python generation step comes along by\nrunning python -m chatticus.wiki_publish in the marketing repo's own CI\nagainst python/ and docs/ pulled in through the same chatticus tarball\ndependency already used for the shared UI package, writing into the\nmarketing repo's own web/generated/wiki/.",
+      "created_at": "2026-09-04T21:58:08.483586Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:29:18.893366Z",
+  "updated_at": "2026-09-04T21:58:08.483683Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

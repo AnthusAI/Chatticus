@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { BotAvatarState, CreativeMotionState } from "anthus-vultus";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 import { WorkspacePanel } from "./WorkspacePanel";
 import { DEMO_SCENARIOS } from "./demoScenarios";
 

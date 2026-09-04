@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-574e4b5e-c1bb-42ff-87a6-79a53c310629",
+  "title": "Move the waitlist into the private SaaS repo",
+  "description": "",
+  "type": "epic",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-b2de88",
+      "type": "relates-to"
+    },
+    {
+      "target": "chatticus-3926bc",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "1b94331f-0007-4075-ae8f-d3a56ce06939",
+      "author": "home",
+      "text": "Follow-on to chatticus-3926bc (factor the marketing site out). Recorded now so\nthe boundary decision is on the record, not started until the Account model\nthis epic depends on exists \u2014 see the paid-enablement epic, chatticus-e26358,\nas re-scoped by chatticus-16d3a9.\n\nThe waitlist is Anthus's sales funnel: prospect contact details, survey\nanswers, and scoring weights tuned to Anthus's professional-services business.\nA self-hoster cloning Chatticus (the open product) has no use for it, and it is\nthe pre-account stage of the same lifecycle as Account. Under the\nOrganization/Account boundary this project settled on, it belongs in the\nprivate repo (Chattic.us-web, or a later-split SaaS-specific repo if that\nbecomes warranted) alongside Stripe.\n\nCarries: python/src/chatticus/waitlist/, waitlist_scoring.py,\nwaitlist_survey.py, waitlist_limits.py, http/waitlist_source.py, the operator\nCLI, and the six waitlist_*.feature files plus their steps.\n\nNot moving with this: chatticus-b2de88's decision that a dashboard is not\nworth building before roughly two hundred signups, in favor of CSV export and\na weekly digest. That decision stands; this epic relocates the code, it does\nnot revisit the product call.\n\n**Why not folded into the marketing split (chatticus-3926bc):** moving the\nwaitlist means relocating a live DynamoDB-backed store, five Python modules,\nand an operator CLI, and it only makes sense once Account exists to attach\nsignups to. Splitting marketing first, with the waitlist API untouched and\nstill called same-origin from the new marketing host, keeps that project\nscoped to routes, components, and static infra.\n\n**Done when:** the waitlist store, scoring, and operator tooling run from the\nprivate repo, and this repository (the open product) contains no waitlist\ncode, matching the \"clones and deploys with no billing configured\" guarantee\nin chatticus-180e40.",
+      "created_at": "2026-09-04T21:31:27.080747Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:31:25.879015Z",
+  "updated_at": "2026-09-04T21:31:27.080814Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

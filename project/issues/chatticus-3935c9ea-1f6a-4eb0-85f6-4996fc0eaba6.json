@@ -1,0 +1,82 @@
+{
+  "id": "chatticus-3935c9ea-1f6a-4eb0-85f6-4996fc0eaba6",
+  "title": "Web CDK bundling docker cannot read Cognito SSM without a region",
+  "description": "Production and development web deploys fail while bundling the Next.js asset.\n\nThe SAM Node docker image runs `aws ssm get-parameter` for Cognito public config (`infra/lib/web-build-env.ts`) with no `--region` and no `AWS_DEFAULT_REGION`. GitHub sets `aws-region: us-east-1` on the runner; CDK does not forward it into the bundling container.\n\nFailed runs:\n- Deploy Web (production) after develop→main: https://github.com/AnthusAI/Chattic.us/actions/runs/33818669077\n- Deploy Web (development): https://github.com/AnthusAI/Chattic.us/actions/runs/33816545135\n\nError: `An error occurred (NoRegion): You must specify a region.`\n\nThis blocks shipping the `/beta` nav fix (already on main via PR 279) to chattic.us.\n\nDoD: `webBuildEnvExports` / docker bundle command sets the region so SSM works inside the bundling image; existing `infra/test/web-build-env.test.ts` asserts it; web deploy can succeed. No Gherkin — this is CDK bundling, not visitor-facing behavior.",
+  "type": "bug",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-cc5e6f6d-47d6-425f-a13b-6452c6b3207c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "8164c107-b6b8-4350-8b41-8860a07a77bd",
+      "author": "home",
+      "text": "Composer 2.5 planning a region fix for CDK web bundling so production web deploy can ship the already-merged nav change.",
+      "created_at": "2026-09-03T23:48:05.047528Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "ad2774b2-44f0-4f83-9649-3fafe2e5e0ed",
+      "author": "home",
+      "text": "Plan approved. Worktree /tmp/Chatticus-3935c9-web-bundle-region on fix/3935c9-web-bundle-region. Implementation authorized: region-explicit SSM in web-build-env.ts plus node:test; tests must match the quoted --region 'us-east-1' form.",
+      "created_at": "2026-09-03T23:49:02.290299Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "e054a21b-1601-4851-b95f-a15abd35e957",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chattic.us/pull/280 — worktree /tmp/Chatticus-3935c9-web-bundle-region, branch fix/3935c9-web-bundle-region. npm test and npm run build pass in infra/.",
+      "created_at": "2026-09-03T23:53:03.539793Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "ce87d5bb-4e1b-4f5d-9376-7596cc20b972",
+      "author": "home",
+      "text": "PR 280 merged to develop. Region fix worked: SSM now reports NoCredentials, not NoRegion. Deploy Web (development) still failed: local tryBundle dies on next/no-html-link-for-pages in Header.tsx (the /#top nav hrefs), then Docker bundling has no AWS credentials. Sending implementer back. https://github.com/AnthusAI/Chattic.us/actions/runs/33819606523",
+      "created_at": "2026-09-04T00:01:57.776069Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "1dc3e3bf-79ae-4055-af17-7955ee74e530",
+      "author": "home",
+      "text": "PR follow-up (tryBundle ESLint + docker credentials): will add URL after gh pr create from worktree /tmp/Chatticus-3935c9-web-deploy-creds branch fix/3935c9-web-deploy-creds.",
+      "created_at": "2026-09-04T00:07:06.886985Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c2a25d71-8057-4ead-a1aa-41f2197ba3e2",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chattic.us/pull/281 — Header uses next/link for /#top section nav; web-stack forwards OIDC creds into docker bundling.environment. web lint, marketing_primary_navigation behave, infra npm test pass.",
+      "created_at": "2026-09-04T00:07:09.948460Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "0caf4c2f-9469-4a9e-9191-6bc192dabc83",
+      "author": "home",
+      "text": "PR 281 merged to develop. Watching Deploy Web (development): https://github.com/AnthusAI/Chattic.us/actions/runs/33820653717",
+      "created_at": "2026-09-04T00:15:25.081481Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "7a9d18b1-2820-4c41-a796-46aa4234fc91",
+      "author": "home",
+      "text": "Development web deploy succeeded. Promoted to main as https://github.com/AnthusAI/Chattic.us/pull/282. Watching production web deploy.",
+      "created_at": "2026-09-04T00:23:14.358809Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "84fd1ec0-3204-43c8-9a0a-6188c91362ce",
+      "author": "home",
+      "text": "Production web deploy succeeded. Verified on chattic.us: primary nav from /beta uses /#top and home-section hrefs; Organization and Chatticus home reach the marketing home page.",
+      "created_at": "2026-09-04T00:39:40.763573Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T23:47:46.792350Z",
+  "updated_at": "2026-09-04T00:39:40.778357Z",
+  "closed_at": "2026-09-04T00:39:40.778357Z",
+  "custom": {}
+}

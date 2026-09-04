@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-7fb82b78-724f-4700-a74a-4096271779ba",
+  "title": "the system records the offer terms at submission time",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "fe5b8810-083f-4c05-a222-2dcce5558748",
+      "author": "home",
+      "text": "Feature: Offer snapshot at submission time\n\n  Background:\n    Given the waitlist survey API\n\n  Scenario: a waitlist signup records the offer terms at submission time\n    Given a visitor on the beta page with the current pricing matrix displayed\n    When they submit the survey\n    Then the waitlist signup includes an offer snapshot\n    And the offer snapshot captures the management fee, installation fee, beta expectations, and professional services terms\n    And it includes a timestamp so the offer can be identified later\n\n  Scenario: the offer snapshot is honored if prices change\n    Given a waitlist signup recorded under an offer with a $20/month management fee\n    When the management fee changes to $25/month after the signup\n    Then the original signup still shows $20/month as its offer terms\n",
+      "created_at": "2026-09-03T17:46:36.884855Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "aa4f299b-30b5-46bc-bbc7-7ca87846342a",
+      "author": "home",
+      "text": "Dispatched to Composer 2.5 worker.",
+      "created_at": "2026-09-03T17:46:39.941282Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "2c8bad28-1073-484f-8272-98fce10c3ee1",
+      "author": "home",
+      "text": "Merged via PR #264 to develop and main. Deployed to staging/production.",
+      "created_at": "2026-09-03T18:01:15.364610Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T17:46:26.810916Z",
+  "updated_at": "2026-09-03T18:01:15.364610Z",
+  "closed_at": "2026-09-03T18:01:15.347161Z",
+  "custom": {}
+}

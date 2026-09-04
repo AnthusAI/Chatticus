@@ -12,9 +12,19 @@
     "phase-3"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "03d5d0a6-fb0a-44ac-84f6-4b30ba753744",
+      "author": "home",
+      "text": "Re-scoped by chatticus-3926bc (factor the marketing site into its own private\nrepository). Organization and Account are now separate but related concepts:\n\n- The open product (chatticus-3926bc's public repo, being renamed to\n  Chatticus per chatticus-6b0d8b) owns Organization status \u2014 pending,\n  enabled, suspended \u2014 and gains an authenticated operator enable/suspend API\n  (story chatticus-16d3a9, parented here) so external callers do not need\n  shell access to the members CLI. This API has no knowledge of Stripe,\n  Account, or money.\n- The private repo (Chattic.us-web) owns Account: the Stripe customer, the\n  setup fee, the subscription, payment state, and the mapping from Account to\n  (deployment, Organization). It becomes the second caller of the operator API\n  the members CLI already calls \u2014 the framing this epic's description\n  anticipated (\"Stripe becomes a second caller of the enable path\").\n\nWhat this epic keeps: the state-machine table (checkout.session.completed,\nprovisioning succeeds, invoice.payment_failed, customer.subscription.deleted,\npayment recovered), the setup-fee tiers, and the trial-not-starting-at-checkout\ndecision \u2014 all of it moves to the private repo essentially as designed here,\njust implemented against the new operator API instead of writing organization\nstatus directly.\n\nThe waitlist-signup join (\"the organization records the waitlist signup it\ncame from\") follows the waitlist itself to the private repo \u2014 see\nchatticus-574e4b.",
+      "created_at": "2026-09-04T21:31:40.355802Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-03T13:15:31.736795Z",
-  "updated_at": "2026-09-03T13:15:31.736978Z",
+  "updated_at": "2026-09-04T21:31:40.355890Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

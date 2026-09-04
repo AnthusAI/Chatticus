@@ -1,0 +1,54 @@
+{
+  "id": "chatticus-7796f2a9-e4ff-42bb-9ad1-96d6a81b8278",
+  "title": "Top nav section links work from /beta",
+  "description": "From https://chattic.us/beta#top, Organization / Why Chatticus / Evidence / FAQ stay on /beta with a hash that has no matching section. The wordmark is labeled Chatticus home but `href=\"#top\"` is also page-local, so it does not leave /beta.\n\nConfirmed on production: clicking Organization changes the URL to https://chattic.us/beta#organization and the page does not move to the home Organization section.\n\nRoot cause: `web/components/Header.tsx` uses in-page hashes (`#organization`, `#control`, `#evidence`, `#faq`, `#top`). Those ids exist only on the home page (`Hero` has `id=\"top\"`, `OrganizationStory` has `id=\"organization\"`). The same Header is mounted on /beta, /contact/*, /features/*, and waitlist confirm/invite.\n\nDoD:\n- From /beta (including /beta#top), each top-nav section link lands on the matching home-page section.\n- The wordmark labeled Chatticus home leaves /beta for the marketing home page.\n- One path: root-relative home hashes (`/#organization`), not a page-local vs home-page dual.\n- Footer \"Back to the top\" may stay page-local if that is current-page scroll; do not conflate it with Chatticus home.\n- Behavior in Gherkin, not a pytest/source-scan for the click path.\n\n```gherkin\nFeature: Marketing primary navigation\n\n  Scenario: section links from the beta page reach home page sections\n    Given a visitor on the beta pitch page\n    When they follow the Organization link in the primary navigation\n    Then they are on the home page Organization section\n```",
+  "type": "bug",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "a58710ea-05a8-4d32-9b9f-6d5bd693dda4",
+      "author": "home",
+      "text": "Review approved. PR https://github.com/AnthusAI/Chattic.us/pull/275 auto-merges when CI is green.",
+      "created_at": "2026-09-03T22:53:18.084793Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "0fe330c6-918c-49c2-8e0e-09fc4f7ffbbf",
+      "author": "home",
+      "text": "Merged as https://github.com/AnthusAI/Chattic.us/pull/275",
+      "created_at": "2026-09-03T22:53:30.288866Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "313e8e01-bc41-4157-bbdf-0c8f451328bf",
+      "author": "home",
+      "text": "Verified on production: https://chattic.us/beta#top still has href=#top for the wordmark and page-local hashes for section links. The code fix is on develop (#275) but not on main. Promotion PR opened so a human can ship it to chattic.us.",
+      "created_at": "2026-09-03T23:38:13.826860Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "2c8b75ef-912e-404b-9e0e-27b63417405b",
+      "author": "home",
+      "text": "Human approved: merged develop to main as https://github.com/AnthusAI/Chattic.us/pull/279. Production web deploy is running.",
+      "created_at": "2026-09-03T23:41:27.155931Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "50b30b3f-a291-4956-baec-af56db38f5fe",
+      "author": "home",
+      "text": "Now live on chattic.us after production web deploy (PRs 280-282). Hard-refresh if you still see page-local #top hashes.",
+      "created_at": "2026-09-04T00:39:40.791944Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T22:46:01.243144Z",
+  "updated_at": "2026-09-04T00:39:40.791944Z",
+  "closed_at": "2026-09-03T22:53:30.305883Z",
+  "custom": {}
+}

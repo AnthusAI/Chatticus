@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-0fdd7470-2928-4186-b69e-2f232d317b8b",
+  "title": "Marketing copy does not talk about exporting organization data",
+  "description": "The organization already runs in the customer's AWS account, so they have the data the whole time. Copy that talks about exporting or archiving an account implies Chatticus is holding the files and handing them back. That is the wrong model.\n\nKnown offenders on the marketing site:\n- Evidence card title **Archive your account, anytime** and body **documented, exportable data** (`web/components/Evidence.tsx`)\n- Hero proof line **Your data. Your move.** (`web/components/Hero.tsx`) if it still reads as taking data out\n\nThe lock-in argument stays: data is not trapped behind an API only Anthus controls. Recast it as already-in-your-account, not exportable-on-request.\n\nScan other visitor-facing `web/` copy (home, /beta, /features/*, FAQ). Leave TypeScript `export`, Next `output: \"export\"`, waitlist CLI CSV export, and infra docs alone.\n\n```gherkin\nFeature: Delegation ladder positioning\n\n  Scenario: The home page does not describe organization data as something to export\n    Given the chattic.us home page\n    Then it does not describe bots, conversations, or files as exportable\n    And it does not offer to archive the account as a way to get the data\n    And it states that organization data already lives in the customer AWS account\n```",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-935a98f4-53b4-485f-a01b-828a93bc3faf",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "71591b22-3894-4c6b-a5c9-3c682fc86d31",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chattic.us/pull/277 — Evidence/Hero no longer talk about exporting or archiving org data.",
+      "created_at": "2026-09-03T23:00:09.506256Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "e8133392-a3be-4c65-addf-556c8d02bdd6",
+      "author": "home",
+      "text": "PR #277 also gitignores survey harness state and retargets homepage Gherkin so it matches Chatticus organization copy (Bugbot leftovers from #276).",
+      "created_at": "2026-09-03T23:01:44.642050Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "e6eeef18-c78c-4289-ba3a-01ee76592f32",
+      "author": "home",
+      "text": "Merged as https://github.com/AnthusAI/Chattic.us/pull/277",
+      "created_at": "2026-09-03T23:03:27.621191Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T22:48:11.692766Z",
+  "updated_at": "2026-09-03T23:03:27.640272Z",
+  "closed_at": "2026-09-03T23:03:27.640272Z",
+  "custom": {}
+}

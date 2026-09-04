@@ -8,6 +8,7 @@ Next.js wiki routes.
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 from dataclasses import dataclass
@@ -149,6 +150,13 @@ def generated_wiki_dir(repo_root: Path | None = None) -> Path:
 
     root = repo_root or repo_root_from_here()
     return root / "web" / "generated" / "wiki"
+
+
+def default_idea_dir(repo_root: Path | None = None) -> Path:
+    """Return the default directory of "ideas" collection wiki source markdown."""
+
+    root = repo_root or repo_root_from_here()
+    return root / "web" / "content" / "wiki"
 
 
 def markus_css_path(repo_root: Path | None = None) -> Path:
@@ -332,16 +340,28 @@ def parse_idea_frontmatter(raw: str) -> dict[str, object]:
     return fields
 
 
-def build_wiki_pages(repo_root: Path | None = None) -> list[dict[str, object]]:
-    """Build the published wiki catalog as JSON-ready dictionaries."""
+def build_wiki_pages(
+    repo_root: Path | None = None,
+    *,
+    idea_dir: Path | None = None,
+) -> list[dict[str, object]]:
+    """Build the published wiki catalog as JSON-ready dictionaries.
+
+    ``idea_dir`` overrides where "ideas" collection markdown is read from,
+    independent of ``repo_root`` (which still locates ``docs/`` and
+    ``LICENSE`` for the "product" collection). A downstream repo that
+    depends on this one as a package -- see the private marketing/SaaS
+    repo -- keeps its own idea essays out of this open-source tree while
+    still generating the product-doc pages from this repo's ``docs/``.
+    """
 
     root = repo_root or repo_root_from_here()
     product_pages = product_pages_for_repo(root)
     slugs = slug_lookup(product_pages)
     published: list[dict[str, object]] = []
 
-    idea_dir = root / "web" / "content" / "wiki"
-    for path in sorted(idea_dir.glob("*.md")):
+    resolved_idea_dir = idea_dir or default_idea_dir(root)
+    for path in sorted(resolved_idea_dir.glob("*.md")):
         if path.name == "AGENTS.md":
             continue
         parsed = parse_idea_frontmatter(path.read_text(encoding="utf-8"))
@@ -398,14 +418,27 @@ def build_wiki_pages(repo_root: Path | None = None) -> list[dict[str, object]]:
     return published
 
 
-def write_generated_wiki(repo_root: Path | None = None) -> Path:
-    """Write Markus HTML fragments and return the pages.json path."""
+def write_generated_wiki(
+    repo_root: Path | None = None,
+    *,
+    idea_dir: Path | None = None,
+    output_dir: Path | None = None,
+) -> Path:
+    """Write Markus HTML fragments and return the pages.json path.
+
+    ``idea_dir`` and ``output_dir`` default to this repo's own layout
+    (``web/content/wiki`` and ``web/generated/wiki``) but can each be
+    overridden independently -- see ``build_wiki_pages`` for why a
+    downstream repo wants its own idea source directory, and a downstream
+    repo without a nested ``web/`` (the marketing/SaaS app is its own repo
+    root, not a monorepo subdirectory) wants its own output directory too.
+    """
 
     root = repo_root or repo_root_from_here()
     sync_markus_css(root)
-    dest_dir = generated_wiki_dir(root)
+    dest_dir = output_dir or generated_wiki_dir(root)
     dest_dir.mkdir(parents=True, exist_ok=True)
-    pages = build_wiki_pages(root)
+    pages = build_wiki_pages(root, idea_dir=idea_dir)
     dest = dest_dir / "pages.json"
     dest.write_text(json.dumps({"pages": pages}, indent=2) + "\n", encoding="utf-8")
     return dest
@@ -522,9 +555,29 @@ def _unquote(value: str) -> str:
 
 
 def main() -> None:
-    """Write generated wiki HTML for the Next.js build."""
+    """Write generated wiki HTML for the Next.js build.
 
-    dest = write_generated_wiki()
+    ``--idea-dir`` and ``--output-dir`` let a downstream repo (the private
+    marketing/SaaS repo, running this against its ``chatticus`` tarball
+    dependency) generate its own wiki without a nested ``web/`` layout or
+    this repo's own idea essays -- see ``write_generated_wiki``.
+    """
+
+    parser = argparse.ArgumentParser(description=main.__doc__)
+    parser.add_argument(
+        "--idea-dir",
+        type=Path,
+        default=None,
+        help="Override the 'ideas' collection markdown source directory.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Override the directory pages.json is written into.",
+    )
+    args = parser.parse_args()
+    dest = write_generated_wiki(idea_dir=args.idea_dir, output_dir=args.output_dir)
     print(dest)
 
 

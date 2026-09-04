@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-6b0d8bf0-9e17-40f7-9d32-ef095971dcf1",
+  "title": "Rename AnthusAI/Chattic.us to AnthusAI/Chatticus",
+  "description": "",
+  "type": "chore",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "0f628eb3-eb1b-4cbc-beb5-23215f642e34",
+      "author": "home",
+      "text": "Naming convention settled: the open-source core product repository becomes\nAnthusAI/Chatticus (no dot) \u2014 the product name, not the domain. The new\nprivate marketing/SaaS repository is AnthusAI/Chattic.us-web (with the dot,\nafter the domain it serves). This distinguishes \"the product\" from \"the\ndomain that sells it,\" matching the Organization/Account split elsewhere in\nthis epic.\n\nThis is a deliberate, separately-confirmed action, not bundled into the\nmarketing split itself \u2014 do not execute the actual GitHub rename as a side\neffect of other work in this epic.\n\nWhat the rename touches, beyond the GitHub UI action:\n\n- infra/lib/github-deploy-stack.ts hardcodes the repo name into the AWS OIDC\n  trust policy: GITHUB_REPOSITORY = \"AnthusAI/Chattic.us\" and\n  GITHUB_SUB_PREFIX = \"repo:AnthusAI@152415604/Chattic.us@1350947261\". Confirm\n  whether GitHub's OIDC sub claim uses the numeric repo id (stable across a\n  rename) or the name string (would change) before assuming the trust policy\n  survives unchanged \u2014 this file's own comment explains why the simpler\n  job_workflow_ref condition was rejected, read it before touching this.\n- The nine deploy-{web,thinturn,auth}-{development,staging,production}.yml\n  workflows and semantic-release.yml reference the repo implicitly via\n  actions/checkout and the OIDC role ARN; verify none hardcode the old name.\n- Root package.json's \"name\" field, README badges/links, and any absolute\n  github.com/AnthusAI/Chattic.us URLs in docs/.\n- The local git remote and any AGENTS.local.md references.\n- Chattic.us-web's package.json tarball dependency URL\n  (github.com/AnthusAI/<name>/archive/...) must point at whichever name is\n  live at the time Chattic.us-web is stood up (task 9c5d32) \u2014 sequence this\n  rename before or after that task deliberately, not accidentally.\n\nGitHub's rename redirect covers git clone/fetch/push and web URLs\nautomatically, but does not cover string comparisons in IAM trust policies or\nhardcoded config.\n\n**Done when:** a production deploy workflow run succeeds post-rename, proving\nthe OIDC trust policy still resolves.",
+      "created_at": "2026-09-04T21:31:11.761956Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:31:11.256660Z",
+  "updated_at": "2026-09-04T21:31:11.762022Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

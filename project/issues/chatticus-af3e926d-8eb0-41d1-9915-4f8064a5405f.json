@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-af3e926d-8eb0-41d1-9915-4f8064a5405f",
+  "title": "The work description question is a tall textarea",
+  "description": "The fit-block work description asks for enough detail to understand a use case. A single-line text input cannot hold that answer.\n\n**Done when:** GET /waitlist/survey marks the work description question as multiline, and the beta survey form renders it as a tall textarea (not a one-line input). Other free-text questions stay single-line.\n\n```gherkin\nFeature: Waitlist survey submission\n\nScenario: the work description question is a tall textarea\n  Given the waitlist survey API\n  Then GET /waitlist/survey marks the work description question as multiline\n\nScenario: the beta form renders a textarea for the work description\n  Given a visitor on the beta pitch page\n  When the survey form is rendered\n  Then the work description question is a tall textarea\n```",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "61a3b1de-cdc1-4ef7-86d5-c0529e90a65a",
+      "author": "home",
+      "text": "Work description is a single-line input today. Adding multiline on the survey definition and a tall textarea on the beta form.",
+      "created_at": "2026-09-03T22:37:41.621851Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "0538cba1-0e42-44ee-b19b-a84ae9f35451",
+      "author": "home",
+      "text": "Work description is a tall textarea: survey API marks work_description multiline; beta form renders an 8-row resizable textarea. PR #274 against develop.",
+      "created_at": "2026-09-03T22:43:23.868856Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "84ee8654-7e7e-4b6b-a5a3-f2407f4ae40d",
+      "author": "home",
+      "text": "Merged as https://github.com/AnthusAI/Chattic.us/pull/274",
+      "created_at": "2026-09-03T22:52:24.624389Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T22:37:36.044775Z",
+  "updated_at": "2026-09-03T22:52:24.653784Z",
+  "closed_at": "2026-09-03T22:52:24.653784Z",
+  "custom": {}
+}

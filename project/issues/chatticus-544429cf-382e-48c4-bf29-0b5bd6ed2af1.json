@@ -1,0 +1,36 @@
+{
+  "id": "chatticus-544429cf-382e-48c4-bf29-0b5bd6ed2af1",
+  "title": "Marketing CDK stack: bucket, distribution, /api* behavior, OIDC role",
+  "description": "",
+  "type": "chore",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-a9fc83",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "f0a6ab81-6fff-495b-b758-bb658daecf7e",
+      "author": "home",
+      "text": "CDK app in Chattic.us-web: S3 bucket, CloudFront distribution for chattic.us,\nan /api* behavior pointing at the same thin-turn Lambda function URL with the\nsame X-Chatticus-Invoke-Key header pattern as infra/lib/web-stack.ts here, so\nwaitlist and contact posts stay same-origin with no code change to\nlib/config.ts's apiBase. Reads the invoke secret from Secrets Manager in the\nshared account. Issues its own ACM certificate for chattic.us + www.chattic.us,\nDNS-validated against the existing hosted zone (which stays in this repo's\ninfra/lib/dns-stack.ts). New GitHub OIDC deploy role scoped to Chattic.us-web,\nmirroring infra/lib/github-deploy-stack.ts.\n\nProduction only, per the answered question on this epic.",
+      "created_at": "2026-09-04T21:29:52.556723Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:29:20.017554Z",
+  "updated_at": "2026-09-04T21:29:52.556791Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

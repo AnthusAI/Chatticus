@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-6c4f1c2d-c9bf-414c-9334-3edc96630c47",
+  "title": "The beta pitch shows four pricing scenarios as a 2x2 matrix",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "f5c7d8d4-d249-46c3-af2b-4b9abc37761d",
+      "author": "home",
+      "text": "Feature: Beta pitch pricing matrix\n\n  Background:\n    Given a visitor on the beta pitch page\n\n  Scenario: The page shows four pricing scenarios in a 2x2 matrix\n    Then the page shows a management dimension with two options: managed at $20/month or self-hosted at $0/month\n    And the page shows an installation dimension with two options: turn-key at $100 once or self-install at $0\n    And both the management fee and the installation fee are shown as optional\n\n  Scenario: The page explains what managed service includes\n    Then the page states that managed service means Anthus runs the control plane infrastructure\n    And the page states that the customer's AWS account, file system, and encrypted secrets stay in the customer's account\n    And the page states that managed service covers availability, continuous upgrades, security scanning, privacy safeguards, and ITSM\n\n  Scenario: The page explains what self-hosted means\n    Then the page states that self-hosted means the customer runs the control plane themselves in their own AWS account\n    And the page states that there is no monthly management fee to Anthus\n\n  Scenario: The page mentions professional services from Anthus AI Solutions\n    Then the page shows a blurb for optional professional services\n    And the blurb states that Anthus AI Solutions adapts Chatticus to the customer's needs\n\n  Scenario: The page mentions professional training from Anthus AI Solutions\n    Then the page shows a blurb for optional professional training\n    And the blurb states that training is available from Anthus AI Solutions\n\n  Scenario: The page mentions bringing your own AI API accounts\n    Then the page states that the customer brings their own AWS account\n    And the page states that the customer may bring their own AI API accounts\n    And the page lists OpenAI, Anthropic, xAI, DeepSeek, Moonshot, and Amazon Bedrock as options",
+      "created_at": "2026-09-03T17:25:26.985746Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "cd4717d0-1b5f-493b-9a8d-d1c726d1bf0e",
+      "author": "home",
+      "text": "Dispatched to Composer 2.5 worker. Worktree: /tmp/Chatticus-6c4f1c-pricing-matrix",
+      "created_at": "2026-09-03T17:25:30.434656Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "6547d5e5-2077-45a2-b7b6-eabfa84fe631",
+      "author": "home",
+      "text": "Merged via PR #262 to develop and main. Deployed to staging/production.",
+      "created_at": "2026-09-03T17:33:18.716175Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T17:25:19.486530Z",
+  "updated_at": "2026-09-03T17:33:18.716175Z",
+  "closed_at": "2026-09-03T17:33:18.696292Z",
+  "custom": {}
+}

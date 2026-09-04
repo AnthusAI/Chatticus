@@ -1,0 +1,47 @@
+{
+  "id": "chatticus-9782360a-7e91-4ade-88c0-4e835d1b0dee",
+  "title": "A confirmation link route and landing page",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "28380360-2633-47d8-8cdf-e183df254cfc",
+      "author": "home",
+      "text": "Feature: Waitlist confirmation route and landing page\n\n  Background:\n    Given the waitlist survey API\n\n  Scenario: a confirmation link confirms the email\n    Given a waitlist signup for jane@example.com with an unconfirmed email\n    When a GET request to /waitlist/confirm with the email and a valid token\n    Then the response is 200\n    And the signup email is marked confirmed\n    And the page shows a confirmation message\n\n  Scenario: an invalid token does not confirm\n    Given a waitlist signup for jane@example.com with an unconfirmed email\n    When a GET request to /waitlist/confirm with the email and an invalid token\n    Then the response is 200\n    And the signup email is not marked confirmed\n    And the page shows an invalid token message\n\n  Scenario: an already-confirmed email shows already confirmed\n    Given a waitlist signup for jane@example.com with a confirmed email\n    When a GET request to /waitlist/confirm with the email and a valid token\n    Then the page shows an already confirmed message\n",
+      "created_at": "2026-09-03T18:20:35.752167Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "3b653b24-5c10-4a4c-a420-da9ad34073ca",
+      "author": "home",
+      "text": "Dispatched to Composer 2.5 worker.",
+      "created_at": "2026-09-03T18:20:35.814739Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "86efecb3-f7a9-4054-bf8c-6c9f994125bd",
+      "author": "home",
+      "text": "PR #268: GET /waitlist/confirm route, landing page at /waitlist/confirm, Gherkin scenarios. All quality gates green.",
+      "created_at": "2026-09-03T18:28:47.011830Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "aedbc713-5ec6-47c2-8a70-8e175e8808a9",
+      "author": "home",
+      "text": "Merged via PR #268 to develop and main. Deployed to staging/production.",
+      "created_at": "2026-09-03T18:29:16.735219Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T18:20:27.690829Z",
+  "updated_at": "2026-09-03T18:29:16.735219Z",
+  "closed_at": "2026-09-03T18:29:16.720454Z",
+  "custom": {}
+}

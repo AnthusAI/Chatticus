@@ -12,9 +12,19 @@
     "phase-2"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "18012972-9da7-4ce7-8e02-e53f409fc7d2",
+      "author": "home",
+      "text": "Boundary decision recorded on chatticus-574e4b (follow-on epic, not started\nyet): this epic's dashboard call is unchanged \u2014 CSV export and a weekly digest\nover a UI, until roughly two hundred signups. What changes is the repository:\nonce the private SaaS's Account model exists, the waitlist store, scoring, and\nthis epic's operator CLI relocate to the private repo (Chattic.us-web),\nalongside Stripe. The open product (being renamed to Chatticus, see\nchatticus-6b0d8b) will carry no waitlist code once that lands.",
+      "created_at": "2026-09-04T21:31:39.855337Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
   "created_at": "2026-09-03T13:15:20.858149Z",
-  "updated_at": "2026-09-03T13:15:20.858326Z",
+  "updated_at": "2026-09-04T21:31:39.855408Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

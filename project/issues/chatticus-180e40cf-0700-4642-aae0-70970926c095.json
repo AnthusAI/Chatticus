@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-180e40cf-0700-4642-aae0-70970926c095",
+  "title": "The open repository clones and deploys with no billing configured",
+  "description": "",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "60c146d1-1418-458d-97d0-b941b614bc3d",
+      "author": "home",
+      "text": "As someone evaluating Chatticus, I want to clone AnthusAI/Chattic.us and deploy\nit with no billing system configured, so that the open product is genuinely\nself-contained.\n\n**Blocked by:** nothing directly, but must hold true after every other story in\nthis epic lands. **Unblocks:** nothing; this is a guard.\n\n---\nFeature: The open repository has no billing dependency\n\n  Scenario: A fresh clone deploys with no Stripe configuration\n    Given a fresh clone of AnthusAI/Chattic.us with no Stripe keys or secrets set\n    When the CDK stacks are synthesized and deployed\n    Then the deploy succeeds\n    And no code path references Stripe, an Account, or payment state\n\n  Scenario: The organization lifecycle needs no billing signal\n    Given a freshly deployed instance\n    When an operator enables an organization through the members CLI\n    Then the organization becomes enabled with no billing system involved\n\n**Done when:** grep for \"stripe\" (case-insensitive) across the repository\nreturns nothing outside private-repo references in docs/comments.",
+      "created_at": "2026-09-04T21:28:52.578014Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "4635b8ed-7e5f-458f-891f-1a0e429f2e0b",
+      "author": "home",
+      "text": "Naming note: this scenario's \"clone AnthusAI/Chattic.us\" refers to the open\nproduct repository, which chatticus-6b0d8b renames to AnthusAI/Chatticus\n(no dot) \u2014 distinct from AnthusAI/Chattic.us-web, the private marketing/SaaS\nrepo (with the dot, after the domain). Sequence-independent: the guarantee\nthis story specifies (no billing in the open repo) holds under either name.",
+      "created_at": "2026-09-04T21:31:46.987743Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:28:27.160416Z",
+  "updated_at": "2026-09-04T21:31:46.987820Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

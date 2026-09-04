@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-ee3d6974-1f4a-4524-9b9b-606e8449a5f2",
+  "title": "The beta page renders a working survey form",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "db0f2e63-6ac5-4e95-959e-9aad2d112ace",
+      "author": "home",
+      "text": "Feature: Beta page survey form\n\n  Background:\n    Given a visitor on the beta pitch page\n\n  Scenario: the survey form fetches question blocks from the API\n    When the page loads\n    Then it fetches GET /waitlist/survey\n    And it renders an email field, a fit block, an AWS readiness block, a setup-path block, a price sensitivity block, a professional services interest question, and a training interest question\n\n  Scenario: a complete survey submission is recorded\n    Given a visitor who has filled in their work email and all survey blocks\n    When they submit the survey\n    Then it posts to POST /waitlist with complete: true\n    And the page shows a thank-you confirmation\n\n  Scenario: an abandoned survey still leaves a lead\n    Given a visitor who has entered only their work email\n    When they leave the page without submitting\n    Then it posts to POST /waitlist with complete: false on email blur\n    And a waitlist signup is recorded for that email marked incomplete\n\n  Scenario: a rate-limited submission shows an error\n    Given a source that has submitted at the allowed limit\n    When they submit again\n    Then the page shows a rate-limit message\n",
+      "created_at": "2026-09-03T17:46:36.850419Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "2f17a2cf-e4d7-4b59-8847-1744cc0d8d1b",
+      "author": "home",
+      "text": "Dispatched to Composer 2.5 worker.",
+      "created_at": "2026-09-03T17:46:39.876014Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "41496d70-2a02-485d-840d-f181d770033f",
+      "author": "home",
+      "text": "Merged via PR #263 to develop and main. Deployed to staging/production.",
+      "created_at": "2026-09-03T17:59:10.559149Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T17:46:26.769486Z",
+  "updated_at": "2026-09-03T17:59:10.559149Z",
+  "closed_at": "2026-09-03T17:59:10.541528Z",
+  "custom": {}
+}

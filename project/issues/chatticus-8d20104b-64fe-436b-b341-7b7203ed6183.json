@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-8d20104b-64fe-436b-b341-7b7203ed6183",
+  "title": "Update AGENTS.md, README, and docs for the two-repo shape",
+  "description": "",
+  "type": "chore",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "08b9fedf-4945-4302-a1d9-fb823d1958aa",
+      "author": "home",
+      "text": "AGENTS.md currently states the rule this epic reverses: \"web/ \u2014 Next.js app:\nmarketing at / and product workspace at /chat ... One web project, not a\nseparate marketing repo.\" Update that section to describe the two-repo shape:\nthis repo owns the product and doubles as the shared package; Chattic.us-web\nis private and owns marketing plus (eventually, per the follow-on waitlist\nepic) billing.\n\nUpdate README's environment table and docs/STACK.md wherever they describe\nchattic.us as served from this repo's web/. Leave docs/BRAND_GUIDELINES.md in\nplace but note it now governs both repos.",
+      "created_at": "2026-09-04T21:29:53.802123Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:29:04.916470Z",
+  "updated_at": "2026-09-04T21:29:53.802202Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

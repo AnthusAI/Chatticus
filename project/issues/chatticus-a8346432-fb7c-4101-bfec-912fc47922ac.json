@@ -1,0 +1,36 @@
+{
+  "id": "chatticus-a8346432-fb7c-4101-bfec-912fc47922ac",
+  "title": "Certificate and apex DNS cutover for chattic.us",
+  "description": "",
+  "type": "chore",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-14475c",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "f6cc9254-3b75-41bc-a7a2-6cbf2e57ac2c",
+      "author": "home",
+      "text": "Cutover is DNS: move the apex A/AAAA records for chattic.us from the product\nCloudFront distribution to the marketing one, once story 1 (chatticus-a9fc83)\nand story 3 (chatticus-ef8371) are verified green against the marketing\ndistribution's own CloudFront domain. Do this after task 12\n(chatticus-cd78ca) removes marketing routes from the product web app, so\nthere is no window where both distributions claim to serve chattic.us with\ndifferent content.\n\ndev.chattic.us and staging.chattic.us are unaffected \u2014 marketing is production\nonly.",
+      "created_at": "2026-09-04T21:30:33.971299Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:30:32.946599Z",
+  "updated_at": "2026-09-04T21:30:33.971382Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

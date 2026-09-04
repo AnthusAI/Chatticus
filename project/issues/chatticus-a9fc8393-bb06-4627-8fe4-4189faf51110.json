@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-a9fc8393-bb06-4627-8fe4-4189faf51110",
+  "title": "The marketing site serves chattic.us from its own deployment",
+  "description": "",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "63cfa27c-4e88-478b-a760-7e909384ec67",
+      "author": "home",
+      "text": "As a visitor, I want chattic.us to load the marketing site from its own\ndeployment, so that marketing changes ship independently of the product.\n\n**Blocked by:** nothing. **Unblocks:** S2 (DNS cutover), S3.\n\n---\nFeature: Marketing site deployment\n\n  Scenario: The marketing distribution serves the home page\n    Given the Chattic.us-web repository's CDK stack deployed to production\n    When a browser requests https://chattic.us/\n    Then the response is the marketing home page rendered from the new deployment\n\n  Scenario: Feature, contact, and waitlist pages are reachable\n    Given the marketing distribution is live\n    When a browser requests /features/approvals, /contact/services, and /waitlist/confirm\n    Then each renders its migrated page content\n\n**Done when:** the scenarios pass against the marketing distribution's own\nCloudFront domain, before DNS cutover.",
+      "created_at": "2026-09-04T21:28:51.085467Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:28:25.407357Z",
+  "updated_at": "2026-09-04T21:28:51.085542Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

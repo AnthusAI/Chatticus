@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-a5efd1f5-550e-4b08-96eb-f8db3ffa3ff9",
+  "title": "Evidence copy must not claim chats and bots live in the customer AWS account",
+  "description": "Bugbot on PR #277 (already merged): the Evidence card overstates data residency.\n\nCurrent copy (after #277):\n- Title: Already in your account\n- Body: Every bot, conversation, and file lives in your AWS account from the start\n\nThat is true of the workplace (file system, computer, encrypted secrets) — see beta pricing and `docs/ARCHITECTURE.md` / `docs/COMPUTER_SNAPSHOTS.md`. It is **not** true of bots, memory, skills, and the transcript: those live in control-plane DynamoDB. On managed service, Anthus runs that control plane.\n\nDo not restore export/archive framing. Recast the card to match the pricing page: files, computer, and secrets in the customer AWS account; not trapped behind an API only Anthus controls. Do not say every bot and conversation already lives in the customer account.\n\nThe Gherkin Then that requires `lives in your aws account` **and** bot/conversation/file on the home page is what locked in the overstatement. Retarget it.\n\nHero \"In your AWS account.\" can stay if it does not imply transcripts live there.\n\n```gherkin\nFeature: Delegation ladder positioning\n\n  Scenario: The home page does not describe organization data as something to export\n    Given the chattic.us home page\n    Then it does not describe bots, conversations, or files as exportable\n    And it does not offer to archive the account as a way to get the data\n    And it states that the file system and secrets live in the customer AWS account\n    And it does not state that conversations live in the customer AWS account\n```",
+  "type": "bug",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-935a98f4-53b4-485f-a01b-828a93bc3faf",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "709560bf-7936-45de-9fff-4f86e1b62de2",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chattic.us/pull/278 — Evidence now says file system and encrypted secrets live in the customer AWS account, not bots and conversations.",
+      "created_at": "2026-09-03T23:10:06.672944Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "934b6b1b-1cf8-491a-947d-973c71b3627f",
+      "author": "home",
+      "text": "Merged to develop in https://github.com/AnthusAI/Chattic.us/pull/278. Evidence card now claims file system and encrypted secrets live in the customer AWS account; Gherkin forbids conversations-in-AWS residency.",
+      "created_at": "2026-09-03T23:15:30.654358Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T23:05:58.507494Z",
+  "updated_at": "2026-09-03T23:15:30.671317Z",
+  "closed_at": "2026-09-03T23:15:30.671317Z",
+  "custom": {}
+}
