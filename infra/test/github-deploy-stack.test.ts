@@ -6,7 +6,7 @@ import {
   synthGitHubDeployStack,
 } from "./github-deploy-stack-harness";
 
-const GITHUB_SUB_PREFIX = "repo:AnthusAI@152415604/Chattic.us@1350947261";
+const GITHUB_SUB_PREFIX = "repo:*@152415604/*@1350947261";
 
 function subClaim(condition: Record<string, unknown>): string {
   const stringLike = condition.StringLike as Record<string, string>;

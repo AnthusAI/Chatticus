@@ -3,17 +3,22 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
 
 /** GitHub repository slug for OIDC trust (not an AWS account id). */
-const GITHUB_REPOSITORY = "AnthusAI/Chattic.us";
+const GITHUB_REPOSITORY = "AnthusAI/Chatticus";
 
 /**
  * GitHub's OIDC `sub` claim for this repo, e.g.:
  *   repo:AnthusAI@152415604/Chattic.us@1350947261:environment:development
  *
- * GitHub now appends immutable numeric owner/repo IDs to the `sub` claim
- * (`OWNER@ownerId/REPO@repoId` instead of plain `OWNER/REPO`). This prefix
- * is fixed for as long as this repo isn't deleted/transferred.
+ * GitHub appends immutable numeric owner/repo IDs to the `sub` claim
+ * (`OWNER@ownerId/REPO@repoId` instead of plain `OWNER/REPO`), and those ids
+ * are fixed for as long as this repo isn't deleted/transferred -- but the
+ * *name* segments (`AnthusAI`, `Chattic.us`) are the repo's current display
+ * name at token-mint time, and change immediately on a `gh repo rename`.
+ * Trust is therefore matched with `StringLike` wildcards over the name
+ * segments, pinned only by the numeric ids, so a rename (e.g. to
+ * `AnthusAI/Chatticus`) does not invalidate every deploy role in one motion.
  */
-const GITHUB_SUB_PREFIX = "repo:AnthusAI@152415604/Chattic.us@1350947261";
+const GITHUB_SUB_PREFIX = "repo:*@152415604/*@1350947261";
 
 /**
  * Development deploy workflows this role is intended to back (documentation
