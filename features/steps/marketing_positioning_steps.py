@@ -148,6 +148,27 @@ def when_look_at_delegated_responsibility_section(context: object) -> None:
     pass
 
 
+@then("it headlines that the work is yours and so is the bill")
+def then_headlines_work_is_yours_so_is_the_bill(context: object) -> None:
+    text = context.marketing_ui_harness.get("visibleText") or ""
+    lowered = text.lower()
+    assert "the work is yours" in lowered, text
+    assert "so is the bill" in lowered, text
+
+
+@then("it states that every option shows its price")
+def then_states_every_option_shows_its_price(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "every option shows its price" in text, text
+
+
+@then("it does not describe a ladder with a gap where a price should be")
+def then_does_not_describe_ladder_gap_riddle(context: object) -> None:
+    text = (context.marketing_ui_harness.get("visibleText") or "").lower()
+    assert "ladder with a gap" not in text, text
+    assert "the real money is hidden" not in text, text
+
+
 @then("it offers forking and self-deploying at no cost")
 def then_offers_forking_at_no_cost(context: object) -> None:
     text = (context.marketing_ui_harness.get("visibleText") or "").lower()

@@ -3,7 +3,7 @@
   "title": "Publish wiki pages with Markus, not GitHub blobs",
   "description": "As a visitor on chattic.us, I want product documentation and idea notes as wiki pages on the site, rendered with Markus in a Chatticus theme, so I can read them without leaving for GitHub blobs.\n\nOut of scope: Kanbus competitive-landscape dossiers, competitor product slugs, GitHub Pages hosting, WebSockets, a separate wiki subdomain.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": "agent@example.com",
   "creator": null,
@@ -19,11 +19,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "ba596ddb-c8ce-4d4d-8421-d9251740067b",
+      "author": "ubuntu",
+      "text": "Wiki pages publish through Markus with a Chatticus theme; footer and founding posts point at /wiki routes. Merged to develop in #289.",
+      "created_at": "2026-09-04T17:25:33.397606Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T16:48:25.884114Z",
-  "updated_at": "2026-09-04T16:48:37.513107Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T17:25:33.397665Z",
+  "closed_at": "2026-09-04T17:25:32.430707Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

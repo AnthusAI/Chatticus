@@ -3,7 +3,7 @@
   "title": "First-day Updates post: why we started",
   "description": "As a visitor on chattic.us, I want a first-day Updates note that states why Chatticus exists \u2014 a standing team of people and bots, with control over models, price, computer, files, and account \u2014 so the motivation is public and checkable.\n\nOut of scope: a Grok Bot product dossier, claiming every control is already shipped, a second LLM client.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": "agent@example.com",
   "creator": null,
@@ -19,11 +19,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "1a760219-1254-4eba-8809-d2c4090b402d",
+      "author": "ubuntu",
+      "text": "First-day Updates post /updates/why-we-started is live. Merged to develop in #289.",
+      "created_at": "2026-09-04T17:25:33.856427Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T16:59:16.972774Z",
-  "updated_at": "2026-09-04T16:59:27.612648Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T17:25:33.856488Z",
+  "closed_at": "2026-09-04T17:25:32.918172Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},
