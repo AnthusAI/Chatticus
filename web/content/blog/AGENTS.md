@@ -26,6 +26,8 @@ These are names you will see in the wild for the same idea. They are not names f
 
 Add further synonyms when they name the same idea: a workplace where agents collaborate and do useful work.
 
+Sourced research (unpublished draft): `web/content/wiki/names-for-the-workplace.md`.
+
 ## Who is in the zoo
 
 Coverage includes Chatticus and peers such as Gastown, Grok Bot, and PostHog's agent/cowork work, plus new entries as they appear. This desk MAY name third-party products. That does NOT license renaming Chatticus bots, the computer, skills, routines, or the worker protocol after them. Root `AGENTS.md` still holds for product code.
