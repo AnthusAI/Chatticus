@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-470cb071-e3fd-4621-a3ef-88e7aefd7163",
+  "title": "The beta pitch talks about the Chatticus organization, not the organization computer",
+  "description": "The /beta hero currently leads with \"The organization computer runs in an AWS account you own...\". That is too narrow. The pitch should speak about the Chatticus organization / bot farm as a whole.\n\nLead with: **Your Chatticus organization runs in...** (same rest of the sentence: AWS account you own, on your network, under your logging, then the CloudFormation and IAM links).\n\nDo not rename the product concept in Python, Gherkin about the actual computer, or `docs/ORGANIZATIONS.md`. This is marketing copy on the beta pitch.\n\nDoD:\n- `BetaAccessDisclosure` does not say \"organization computer\".\n- It does say the Chatticus organization runs in the customer's AWS account.\n- CloudFormation template and scoped IAM policy links stay.\n- Gherkin on the beta funnel is updated; the old Then about \"the organization computer\" is gone from that feature.\n- Home page / FAQ / product internals are out of scope unless they repeat this exact pitch line.\n\n```gherkin\nFeature: Beta waitlist marketing funnel\n\n  Scenario: The access Chatticus needs is readable before signing up\n    Given the beta pitch page\n    Then it links to the cross-account CloudFormation template\n    And it links to the scoped IAM policy\n    And it states that the Chatticus organization runs in the customer AWS account\n    And it does not call that deployment the organization computer\n```",
+  "type": "story",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "3031912e-bf81-4443-9582-2827c4a49c44",
+      "author": "home",
+      "text": "Merged as https://github.com/AnthusAI/Chattic.us/pull/276",
+      "created_at": "2026-09-03T22:54:06.454920Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T22:47:21.556815Z",
+  "updated_at": "2026-09-03T22:54:06.508431Z",
+  "closed_at": "2026-09-03T22:54:06.508431Z",
+  "custom": {}
+}

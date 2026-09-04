@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-9c5d32e7-764e-4666-a8bf-d13f0aa4d4eb",
+  "title": "Stand up the Chattic.us-web repository skeleton consuming the shared package",
+  "description": "",
+  "type": "chore",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "b1084160-acb7-4bc8-9577-90900944096f",
+      "author": "home",
+      "text": "New repository: AnthusAI/Chattic.us-web, private. Next.js app (static export),\nits own package.json depending on the main repo by branch tarball:\n\n  \"chatticus\": \"https://github.com/AnthusAI/Chattic.us/archive/refs/heads/main.tar.gz\"\n\nmirroring the anthus-vultus pattern already in web/package.json. Its own\ntsconfig, tailwind config extending the exported preset with content globs\nreaching into ./node_modules/chatticus/web/**, its own lockfile, its own CI.\n\nThis is the empty shell tasks 8-9 populate.",
+      "created_at": "2026-09-04T21:29:51.072586Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:29:03.131277Z",
+  "updated_at": "2026-09-04T21:29:51.072659Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

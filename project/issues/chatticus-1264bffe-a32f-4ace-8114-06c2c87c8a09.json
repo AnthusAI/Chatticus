@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-1264bffe-a32f-4ace-8114-06c2c87c8a09",
+  "title": "Export the shared brand surface from the main repo's root package",
+  "description": "",
+  "type": "chore",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "5550eb6e-d148-4847-b5a2-9fef0fd4fe00",
+      "author": "home",
+      "text": "Add an \\`exports\\` map to the root package.json pointing into the existing\nweb/ tree \u2014 nothing moves. Add the dependencies the shared source needs (clsx,\ntailwind-merge, class-variance-authority, the Radix packages in use,\nlucide-react, anthus-vultus, React as a peer). Source ships as raw .tsx; the\nconsuming app lists this package in transpilePackages, so no build step is\nadded here.\n\nSurface to export: components/ui/* (accordion, avatar, badge, button, card,\ninput), components/workspace/* and BotAvatarView.tsx, lib/utils.ts (cn()),\nlib/ogImage.tsx, a Tailwind preset built from tailwind.config.ts's\ncolors/fonts/radius/shadow extensions, and the shared :root custom properties\nplus .workspace-prototype/.prototype-* rules from globals.css.\n\nRewrite the @/* alias imports inside the exported files to relative imports \u2014\nthat alias only exists in web/tsconfig.json and will not resolve from outside\nthe package.\n\nConfirm and drop web/lib/auth-context.tsx (no importers found) and\n@radix-ui/react-separator (no direct import found) rather than exporting them.",
+      "created_at": "2026-09-04T21:29:50.575882Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:29:02.603862Z",
+  "updated_at": "2026-09-04T21:29:50.575960Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

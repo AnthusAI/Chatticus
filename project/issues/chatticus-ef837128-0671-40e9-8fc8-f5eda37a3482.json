@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-ef837128-0671-40e9-8fc8-f5eda37a3482",
+  "title": "Waitlist and contact submissions reach the API from the marketing host",
+  "description": "",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "419a4f5e-0fb4-45e5-b31a-3e4f830a5993",
+      "author": "home",
+      "text": "As a prospective customer, I want the waitlist survey and contact form to work\non the new marketing site, so that lead capture is not broken by the split.\n\n**Blocked by:** S1. **Runs in parallel with:** S2.\n\n---\nFeature: Same-origin API access from the marketing host\n\n  Scenario: A waitlist survey submission succeeds\n    Given the marketing distribution has its own /api* behavior to the thin-turn\n      Lambda function URL\n    When a visitor submits the waitlist survey on the marketing site\n    Then the submission is accepted with no CORS error\n    And the signup is scored and stored exactly as it is today\n\n  Scenario: A contact form submission succeeds\n    When a visitor submits the services contact form on the marketing site\n    Then the submission is accepted with no CORS error\n\n**Done when:** both scenarios pass against the marketing distribution before\nDNS cutover, with lib/config.ts's apiBase contract unchanged.",
+      "created_at": "2026-09-04T21:28:52.084353Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:28:26.525133Z",
+  "updated_at": "2026-09-04T21:28:52.084422Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

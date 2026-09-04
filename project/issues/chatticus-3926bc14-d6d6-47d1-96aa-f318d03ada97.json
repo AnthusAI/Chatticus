@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "title": "Factor the marketing site into its own private repository",
+  "description": "Chatticus is public and MIT-licensed: clone it, deploy it, run it. Anthus also\noperates it as a paid service. Those are different concerns, and today they\nshare one repository and one web application.\n\n`web/` serves marketing (`/`, `/features/*`, `/contact/*`, `/waitlist/*`,\n`/beta`) and the product workspace (`/chat`, `/auth`) from one static export,\none bucket, one distribution, one pipeline. In production a single distribution\nanswers on both `chattic.us` and `hey.chattic.us`, with a CloudFront function\nrewriting `/` to `/chat/index.html` when the Host is the app domain.\n\nThis epic ends with **two repositories, not three**:\n\n| | Public AnthusAI/Chattic.us | Private marketing/SaaS repo |\n| --- | --- | --- |\n| Owns | Organization lifecycle, control plane, product app, CDK for the deployable product | Account (Stripe customer, setup fee, subscription, payment state), marketing site |\n| Knows about | nothing downstream | organization ids, deployment targets |\n| Billing code | none, ever | all of it |\n\nThe dependency direction is forced rather than chosen: a public repository can\nnever depend on a private one. So the public repo doubles as the shared\ndesign-system package and the private marketing repo consumes it. No third\nrepository and no publish step.\n\n**Decisions already taken:**\n\n- The shared package is the main repo itself, consumed by branch tarball,\n  always current, no version pinning. npm cannot install a subdirectory of a\n  git repo, so the whole repo is the package and the root `package.json` gains\n  an `exports` map. Non-reproducible marketing builds are accepted.\n- Marketing Gherkin moves with the marketing site and keeps `behave`.\n- The marketing distribution gets its own `/api*` behavior to the same\n  thin-turn Lambda, so form posts stay same-origin. No CORS.\n- The marketing CDK stack lives in the private repo with its own OIDC role.\n- Marketing gets production only, matching today's asymmetry.\n\n**Done when:** `chattic.us` serves marketing from its own deployment,\n`hey.chattic.us/` serves the workspace, and this repository contains no\nmarketing routes, components, or specs.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-04T21:28:16.257040Z",
+  "updated_at": "2026-09-04T21:28:16.257189Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-0d889781-dc14-4afb-b782-a08ad38de81c",
+  "title": "Contact forms for professional services and training with conversion tracking",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "0ac106b5-c5f8-441b-a1ce-ccfac920c551",
+      "author": "home",
+      "text": "Feature: Contact forms for professional services and training\n\n  Background:\n    Given the Chatticus marketing site\n\n  Scenario: a professional services contact form exists at /contact/services\n    Given a visitor on the contact services page\n    Then it shows a form with name, email, organization, and a field for what resources to integrate\n    When they submit the form\n    Then a contact lead is recorded with type professional_services\n    And a contact_services conversion event is fired\n\n  Scenario: a professional training contact form exists at /contact/training\n    Given a visitor on the contact training page\n    Then it shows a form with name, email, organization, team size, and topics of interest\n    When they submit the form\n    Then a contact lead is recorded with type professional_training\n    And a contact_training conversion event is fired\n\n  Scenario: the contact forms are reachable from the beta page\n    Given the beta pitch page\n    Then it links to /contact/services\n    And it links to /contact/training\n",
+      "created_at": "2026-09-03T18:05:20.603050Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "28b85c1d-c856-4a79-9147-f40a078f0f13",
+      "author": "home",
+      "text": "Dispatched to Composer 2.5 worker.",
+      "created_at": "2026-09-03T18:05:25.146529Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "1dbd02b7-7529-4173-a170-2c180b6ff494",
+      "author": "home",
+      "text": "Merged via PR #266 to develop and main. Deployed to staging/production.",
+      "created_at": "2026-09-03T18:10:40.229881Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T18:05:14.249140Z",
+  "updated_at": "2026-09-03T18:10:40.229881Z",
+  "closed_at": "2026-09-03T18:10:40.206462Z",
+  "custom": {}
+}

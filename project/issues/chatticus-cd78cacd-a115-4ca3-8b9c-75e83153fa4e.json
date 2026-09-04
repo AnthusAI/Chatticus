@@ -1,0 +1,36 @@
+{
+  "id": "chatticus-cd78cacd-a115-4ca3-8b9c-75e83153fa4e",
+  "title": "Remove marketing routes from web/ and simplify host routing",
+  "description": "",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-14475c",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "4eb892ca-2f91-44ee-8dc0-ae2e1420ba04",
+      "author": "home",
+      "text": "Remove app/page.tsx, app/beta, app/contact, app/features, app/waitlist and\ntheir components/lib modules from web/ once task 8 has landed them in\nChattic.us-web and story 1 is verified. Remove WEB_MARKETING_DOMAINS from\ninfra/lib/environments.ts, the marketing alias records and MarketingSiteUrl\noutput from infra/lib/web-stack.ts. Simplify the SpaViewerRequest CloudFront\nfunction in infra/lib/cloudfront-functions.ts: with no marketing pages in the\nbucket, / serves the workspace unconditionally and the host-based\nHost===siteDomain branch is dead code to delete, leaving only the generic\nextensionless-path SPA rewrite.\n\nDepends on task 8 landing and story 1 passing verification first.",
+      "created_at": "2026-09-04T21:29:53.292630Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:29:20.545157Z",
+  "updated_at": "2026-09-04T21:29:53.292699Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-8f36f3d2-e666-47b1-a053-245aac4028c7",
+  "title": "the survey defines all question blocks",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "885884c5-4ce1-43ab-a270-d9db45c48cab",
+      "author": "home",
+      "text": "Feature: Survey question definitions\n\n  Background:\n    Given the waitlist survey API\n\n  Scenario: the survey defines a fit block\n    Then GET /waitlist/survey returns a fit block with questions about organization size, seniority, urgency, and work description\n\n  Scenario: the survey defines an AWS readiness block\n    Then GET /waitlist/survey returns an AWS readiness block with questions about cloud provider, account status, and IAM comfort\n\n  Scenario: the survey defines a setup-path block\n    Then GET /waitlist/survey returns a setup-path block asking whether they want self-install or turn-key\n\n  Scenario: the survey defines a professional services interest question\n    Then GET /waitlist/survey returns a question asking if they are interested in professional services for integrating with custom resources\n\n  Scenario: the survey defines a professional training interest question\n    Then GET /waitlist/survey returns a question asking if they are interested in professional training for their staff\n",
+      "created_at": "2026-09-03T17:46:36.867142Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "266e0a89-e5b7-4507-bde1-8e709b0c8a8d",
+      "author": "home",
+      "text": "Dispatched to Composer 2.5 worker.",
+      "created_at": "2026-09-03T17:46:39.908923Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "0a5dc4d3-e99a-40b0-bd15-39e87f24f1d4",
+      "author": "home",
+      "text": "Merged via PR #265 to develop and main. Deployed to staging/production.",
+      "created_at": "2026-09-03T18:04:50.349504Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T17:46:26.790083Z",
+  "updated_at": "2026-09-03T18:04:50.349504Z",
+  "closed_at": "2026-09-03T18:04:50.333805Z",
+  "custom": {}
+}

@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-57ecb2ad-ddf0-4f81-9e12-b04025c9801a",
+  "title": "A confirmation email is sent after survey submission",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "3e6b2cae-5c46-464a-98bf-4469bafdd072",
+      "author": "home",
+      "text": "Feature: Waitlist email confirmation\n\n  Background:\n    Given the waitlist survey API\n\n  Scenario: a confirmation email is sent after survey submission\n    Given a visitor who submits a complete survey with email jane@example.com\n    When the signup is recorded\n    Then a confirmation email is sent to jane@example.com\n    And the email contains a link to /waitlist/confirm with the email and a token\n\n  Scenario: the email sender is an abstraction\n    Given the Chatticus control plane\n    Then it uses an email sender protocol with a no-op implementation for tests and an SES implementation for production\n    And the sender is called after the signup is recorded\n\n  Scenario: a repeated submission does not send a second email\n    Given a waitlist signup exists for jane@example.com with a confirmation email already sent\n    When a survey is submitted again for JANE@example.com\n    Then no second confirmation email is sent\n",
+      "created_at": "2026-09-03T18:20:35.730901Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "accdf6d9-b9db-42e4-9576-b363792d351f",
+      "author": "home",
+      "text": "Dispatched to Composer 2.5 worker.",
+      "created_at": "2026-09-03T18:20:35.783626Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f31ee11b-984e-4a4c-b8fa-780e6e0bdd58",
+      "author": "home",
+      "text": "Merged via PR #269 to develop and main. Deployed to staging/production.",
+      "created_at": "2026-09-03T18:36:53.206431Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T18:20:27.655189Z",
+  "updated_at": "2026-09-03T18:36:53.206431Z",
+  "closed_at": "2026-09-03T18:36:53.190985Z",
+  "custom": {}
+}

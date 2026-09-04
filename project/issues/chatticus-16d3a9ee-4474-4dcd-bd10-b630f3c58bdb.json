@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-16d3a9ee-4474-4dcd-bd10-b630f3c58bdb",
+  "title": "An operator enables an organization through an authenticated API",
+  "description": "",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-e26358f9-9757-4017-9522-f1a9dec279f9",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "8e9acb37-3592-4fe6-ad3a-6bc0656ffa81",
+      "author": "home",
+      "text": "As an operator (self-hosted or the private SaaS), I want to enable or suspend\nan organization through an authenticated API, so that billing systems and other\nexternal callers do not need shell access to the members CLI.\n\n**Blocked by:** nothing. **Unblocks:** the private SaaS's Stripe webhook\nhandler, which becomes this API's second caller.\n\n---\nFeature: Authenticated operator enable/suspend API\n\n  Scenario: An authenticated operator enables a pending organization\n    Given an organization in pending status\n    And an authenticated operator credential\n    When the operator calls the enable endpoint for that organization\n    Then the organization becomes enabled\n    And the same state transition the members CLI produces occurs\n\n  Scenario: An authenticated operator suspends an enabled organization\n    Given an organization in enabled status\n    When the operator calls the suspend endpoint for that organization\n    Then the organization becomes suspended\n\n  Scenario: An unauthenticated caller is rejected\n    When a request without a valid operator credential calls the enable endpoint\n    Then the request is rejected and no organization status changes\n\n**Done when:** the members CLI is refactored to call this API path rather than\nduplicating the state transition, so there is exactly one enable/suspend\nimplementation.",
+      "created_at": "2026-09-04T21:28:53.055046Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:28:27.705885Z",
+  "updated_at": "2026-09-04T21:28:53.055124Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-b5531100-673a-4ea1-b2b9-4af25d16ebf1",
+  "title": "The beta page captures UTM parameters and conversion events",
+  "description": "",
+  "type": "story",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-b95aacb1-13b5-4ae8-93d3-08440da0e975",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "9634745b-414f-4541-aedf-a0626ca90dbb",
+      "author": "home",
+      "text": "Feature: UTM capture and conversion events\n\n  Background:\n    Given a visitor on the beta pitch page\n\n  Scenario: UTM parameters are captured from the URL\n    Given a visitor arrives at /beta with utm_source=google and utm_campaign=beta_launch\n    When they submit the survey\n    Then the waitlist signup records the UTM source, medium, campaign, content, and term\n\n  Scenario: a page view event is fired on load\n    When the visitor loads the beta page\n    Then a page_view event is fired\n\n  Scenario: a signup_complete conversion event is fired on survey submission\n    Given a visitor who completes the survey\n    When they submit it\n    Then a signup_complete conversion event is fired\n",
+      "created_at": "2026-09-03T18:05:20.588023Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d0302180-7b1d-4887-bae4-91fd0bf50690",
+      "author": "home",
+      "text": "Dispatched to Composer 2.5 worker.",
+      "created_at": "2026-09-03T18:05:25.112137Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "239a5261-7ec4-45be-800f-ab11d59cc220",
+      "author": "home",
+      "text": "Merged via PR #267 to develop and main. Deployed to staging/production.",
+      "created_at": "2026-09-03T18:19:59.887771Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-03T18:05:14.228447Z",
+  "updated_at": "2026-09-03T18:19:59.887771Z",
+  "closed_at": "2026-09-03T18:19:59.866930Z",
+  "custom": {}
+}

@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-14475c1a-5ac6-4713-99b3-c60e0c4657e7",
+  "title": "The product host serves the workspace and no marketing pages",
+  "description": "",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-3926bc14-d6d6-47d1-96aa-f318d03ada97",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "f94ae676-351b-4f78-be0d-2824e690288b",
+      "author": "home",
+      "text": "As a Chatticus user, I want hey.chattic.us/ to be the workspace, so that the\nproduct host has no marketing content left in it after the split.\n\n**Blocked by:** S1 (marketing verified live on its own domain).\n**Unblocks:** DNS cutover (task 11).\n\n---\nFeature: Product host after the marketing split\n\n  Scenario: The root path serves the workspace unconditionally\n    Given the marketing pages have been removed from web/\n    When a browser requests https://hey.chattic.us/\n    Then the response is the chat workspace, with no host-based branching\n\n  Scenario: Marketing routes are gone from the product build\n    Given the product web app has been rebuilt\n    Then /features/*, /contact/*, /waitlist/*, and /beta return 404\n\n**Done when:** the CloudFront function's host-based `/` rewrite is removed and\nonly the generic extensionless-path SPA rewrite remains.",
+      "created_at": "2026-09-04T21:28:51.588034Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T21:28:25.956763Z",
+  "updated_at": "2026-09-04T21:28:51.588117Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
