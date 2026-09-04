@@ -221,3 +221,44 @@ Update body.`,
     }
   });
 });
+
+describe("committed wiki pages", () => {
+  const IDEA_SLUGS = [
+    "agent-workplace",
+    "always-on",
+    "digital-labor",
+    "farms-and-desks",
+    "named-teammates",
+    "names-for-the-workplace",
+    "shared-computer",
+    "software-factory",
+  ];
+
+  const PRODUCT_SLUGS_THAT_STAY_INTERNAL = [
+    "grok-bot",
+    "factory",
+    "factory-20",
+    "gas-town",
+    "devin",
+    "posthog",
+  ];
+
+  it("parses every page including drafts and keeps the idea spine", () => {
+    const pages = listPages({ includeDrafts: true });
+    const slugs = pages.map((page) => page.slug);
+
+    for (const slug of IDEA_SLUGS) {
+      assert.ok(slugs.includes(slug), `missing idea page: ${slug}`);
+    }
+
+    for (const slug of PRODUCT_SLUGS_THAT_STAY_INTERNAL) {
+      assert.ok(!slugs.includes(slug), `competitor slug leaked onto the public wiki: ${slug}`);
+    }
+
+    for (const page of pages) {
+      assert.ok(page.frontmatter.title, page.slug);
+      assert.ok(page.frontmatter.ogHeadline, page.slug);
+      assert.ok(page.frontmatter.ogTagline, page.slug);
+    }
+  });
+});

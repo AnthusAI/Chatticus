@@ -53,6 +53,12 @@ def then_wiki_page_states_durable_notes_about_agent_workplaces(context: object) 
     assert "agent workplaces" in text, text
 
 
+@then("the page describes general ideas")
+def then_wiki_page_describes_general_ideas(context: object) -> None:
+    text = _visible_text(context).lower()
+    assert "general ideas" in text, text
+
+
 @then("the page lists no wiki pages yet")
 def then_page_lists_no_wiki_pages_yet(context: object) -> None:
     html = _html(context)

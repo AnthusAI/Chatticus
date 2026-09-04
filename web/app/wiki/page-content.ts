@@ -6,14 +6,14 @@
 export const WIKI_PAGE_CONTENT = {
   title: "Wiki | Chatticus",
   description:
-    "Durable notes about agent workplaces — names for the category, peer products, and concepts that stay stable while the news desk moves.",
+    "Durable notes about agent workplaces — general ideas that stay stable, with current events linked from Updates and Agent Zoo.",
   ogTitle: "Wiki",
   ogDescription:
-    "Durable notes about agent workplaces — stable names, peers, and concepts.",
+    "Durable notes about agent workplaces — general ideas that stay stable while the news desks move.",
   ogHeadline: "Durable notes about agent workplaces.",
-  ogTagline: "Stable encyclopedia entries for names, peers, and concepts.",
+  ogTagline: "General ideas, plus current events from the news desks.",
   badge: "Durable notes",
   mastheadTitle: "Wiki",
   mastheadDescription:
-    "The wiki is durable notes about agent workplaces — reactor chambers, software factories, and the other names people use for places where agents collaborate and do useful work. Entries stay stable while Updates and Agent Zoo cover what changed this week.",
+    "The wiki is durable notes about agent workplaces — general ideas that stay stable while Updates and Agent Zoo cover what changed. It is not a catalog of competitor products.",
 } as const;

@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-4b6b3b8c-fdd7-4353-8f79-773659bf2010",
+  "title": "Public wiki is idea pages, not competitor dossiers",
+  "description": "",
+  "type": "chore",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-606ca033-f10c-4ef5-8e3f-4b8833d680bc",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "8ba6bbb5-ab9d-495a-a510-e5ae7a0fac5b",
+      "author": "ubuntu",
+      "text": "Public wiki = general ideas + current events attached as related blog posts. No page per competitor.\n\nSpine (all still draft): agent-workplace, names-for-the-workplace, named-teammates, shared-computer, farms-and-desks, software-factory, digital-labor, always-on.\n\nKanbus competitive-landscape keeps product dossiers. Map: project/wiki/competitive-landscape/public-encyclopedia.md",
+      "created_at": "2026-09-04T11:59:12.281697Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    }
+  ],
+  "created_at": "2026-09-04T11:58:57.445475Z",
+  "updated_at": "2026-09-04T11:59:12.281757Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}

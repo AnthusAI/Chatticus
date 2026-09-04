@@ -32,6 +32,8 @@ Sourced research (unpublished draft): `web/content/wiki/names-for-the-workplace.
 
 Coverage includes Chatticus and peers such as Gastown, Grok Bot, and PostHog's agent/cowork work, plus new entries as they appear. This desk MAY name third-party products. That does NOT license renaming Chatticus bots, the computer, skills, routines, or the worker protocol after them. Root `AGENTS.md` still holds for product code.
 
+Dated coverage of a vendor belongs **here**, not on the public wiki. The wiki is idea pages (`web/content/wiki/AGENTS.md`). When a post is about an idea (farm, factory, shared computer), set `relatedWiki` to that slug. Do not ask for a wiki article named after the vendor.
+
 ## Updates vs Agent Zoo
 
 **Updates** — Chatticus's own progress notes. Honesty like `docs/FEATURE_PAGES_BRIEF.md` (live / proven / shipping). Checkable claims.

@@ -107,6 +107,8 @@ Categories are **not mutually exclusive** — a product may appear on several pa
 | --- | --- |
 | [Babulus](products/babulus.md) | Marketing / campaign factory (Anthus internal) |
 
-## Metaphors
+## Metaphors and the public encyclopedia
 
-See [Metaphors](metaphors.md) — software factory, agent/bot farm, model zoo: claim / avoid / redefine.
+See [Names and metaphors](metaphors.md) — software factory, agent/bot farm, model zoo: claim / avoid / redefine.
+
+The chattic.us wiki is **idea pages**, not this product tree. See [Public encyclopedia vs this tree](public-encyclopedia.md) for the split and the category-to-slug map.
