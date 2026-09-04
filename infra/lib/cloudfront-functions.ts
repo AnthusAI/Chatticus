@@ -13,40 +13,27 @@ export const API_ORIGIN_VIEWER_REQUEST_FUNCTION = `function handler(event) {
   return request;
 }`;
 
-export interface SpaViewerRequestOptions {
-  /** Product app hostname (e.g. hey.chattic.us). Enables host routing when set with marketingDomain. */
-  appDomain?: string;
-  /** Marketing apex hostname (e.g. chattic.us). Enables host routing when set with appDomain. */
-  marketingDomain?: string;
-}
-
 /**
- * Viewer-request rewrite: global /chat SPA path, production app-domain root -> /chat,
- * then slashless SPA paths before S3 lookup (OAuth callbacks have no trailing slash).
+ * Viewer-request rewrite: root -> /chat SPA path, then slashless SPA paths
+ * before S3 lookup (OAuth callbacks have no trailing slash).
+ *
+ * The root rewrite is unconditional, not host-gated -- every ChatticusWeb*
+ * environment's site domain (dev.chattic.us, staging.chattic.us,
+ * hey.chattic.us) is the product app now that the marketing site has its
+ * own separate distribution (chatticus-3926bc). There is no other content
+ * at the bucket root for any environment to fall back to.
  */
-export function buildSpaViewerRequestFunction(
-  options: SpaViewerRequestOptions = {},
-): string {
-  const { appDomain, marketingDomain } = options;
-  const hostRouting =
-    appDomain && marketingDomain
-      ? `
-  var host = request.headers.host && request.headers.host.value;
-  if (host === "${appDomain}") {
-    var isAuthPath = uri === "/auth/callback" || uri === "/auth/signout-callback";
-    if (!isAuthPath && (uri === "/" || uri === "/index.html")) {
-      request.uri = "/chat/index.html";
-    }
-    uri = request.uri;
-  }`
-      : "";
-
-  return `function handler(event) {
+export const SPA_VIEWER_REQUEST_FUNCTION = `function handler(event) {
   var request = event.request;
   var uri = request.uri;
   if (uri.indexOf("/api") === 0) {
     return request;
-  }${hostRouting}
+  }
+  var isAuthPath = uri === "/auth/callback" || uri === "/auth/signout-callback";
+  if (!isAuthPath && (uri === "/" || uri === "/index.html")) {
+    request.uri = "/chat/index.html";
+    uri = request.uri;
+  }
   // Next's static export writes every route as <path>/index.html (except
   // the distribution root, which CloudFront's defaultRootObject already
   // resolves) -- rewrite any other extensionless path so S3 finds the
@@ -67,10 +54,6 @@ export function buildSpaViewerRequestFunction(
   }
   return request;
 }`;
-}
-
-/** Default SPA viewer-request (no production Host split). */
-export const SPA_VIEWER_REQUEST_FUNCTION = buildSpaViewerRequestFunction();
 
 /** Rewrite S3 403/404 to 200 for the static site only (default behavior). */
 export const SPA_VIEWER_RESPONSE_FUNCTION = `function handler(event) {

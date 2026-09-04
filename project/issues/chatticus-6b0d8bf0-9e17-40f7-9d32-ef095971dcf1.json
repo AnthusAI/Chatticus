@@ -3,7 +3,7 @@
   "title": "Rename AnthusAI/Chattic.us to AnthusAI/Chatticus",
   "description": "",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -19,11 +19,29 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "52c20057-1b08-42fe-a7fa-c5aae9fa896d",
+      "author": "home",
+      "text": "Code changes ready and on main (chatticus-oidc-name-independent-trust, PR #293, merged and promoted): GITHUB_SUB_PREFIX wildcards the owner/repo name segments, pinning only the numeric ids, so a rename no longer invalidates trust. NOT yet deployed to AWS -- ChatticusGitHubDeploy has no automated deploy workflow (by design, per its own deploy script's comment), so the fix only takes effect once someone with AWS credentials runs 'sh infra/deploy-chatticus-github-deploy.sh'. The actual gh repo rename must wait for that deploy to complete and be verified (a production workflow run going green) -- doing the rename first would break every deploy workflow immediately. Blocked on interactive aws login this session cannot perform.",
+      "created_at": "2026-09-04T22:43:23.571018Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "31932e3f-1ef7-489c-be8e-0e39e855f63c",
+      "author": "home",
+      "text": "Rename executed: gh repo rename Chatticus --repo AnthusAI/Chattic.us. Sequence: (1) redeployed ChatticusGitHubDeploy with the hardened trust policy, verified via a real production workflow run under the OLD name (success); (2) ran the rename; (3) verified again with a real production workflow run under the NEW name (run 33927632480, success). Local remote updated. Hardcoded AnthusAI/Chattic.us URLs swept and fixed in wiki_publish.py (load-bearing: generates and recognizes doc links) and marketing content -- PR #297.",
+      "created_at": "2026-09-04T23:00:45.743913Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:31:11.256660Z",
-  "updated_at": "2026-09-04T21:31:11.762022Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T23:00:46.273376Z",
+  "closed_at": "2026-09-04T23:00:46.273291Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

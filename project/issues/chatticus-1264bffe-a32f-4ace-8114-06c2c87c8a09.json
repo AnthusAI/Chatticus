@@ -3,7 +3,7 @@
   "title": "Export the shared brand surface from the main repo's root package",
   "description": "",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -19,11 +19,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "39cefaa5-2ff7-4b85-befe-290500f1309c",
+      "author": "home",
+      "text": "Landed via PR #294 (2e97aa6), merged to develop then promoted to main via #296. Root package.json exports components/ui/*, BotAvatarView, the workspace trio (WorkspacePanel/Roster/Thread/types), lib/utils, lib/ogImage, a Tailwind preset, and web/styles/shared.css. Verified: npm run build/typecheck/test green, 5 marketing behave features (32 scenarios) still passing against the refactored surface.",
+      "created_at": "2026-09-04T22:38:44.125409Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:29:02.603862Z",
-  "updated_at": "2026-09-04T21:29:50.575960Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T22:38:44.666117Z",
+  "closed_at": "2026-09-04T22:38:44.666026Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

@@ -3,7 +3,7 @@
   "title": "Move marketing routes, components, and lib modules to Chattic.us-web",
   "description": "",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -33,10 +33,19 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "50579f6f-2de0-4500-a87a-60889fb326a2",
+      "author": "home",
+      "text": "Landed in Chattic.us-web@031354c: routes /, /beta, /contact/*, /features/*, /waitlist/*, /agent-zoo(+[slug]), /updates(+[slug]), /wiki(+[slug]), /privacy, /terms, plus components, lib modules, content/wiki+blog, and Markus stylesheets. @/lib/utils, @/lib/ogImage, @/components/ui/*, @/components/BotAvatarView, and the workspace trio rewritten to chatticus/... package imports. Not yet deleted from this repo -- that's chatticus-cd78ca, gated on the marketing repo's own deploy being verified first, per the plan.",
+      "created_at": "2026-09-04T22:39:07.604406Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:29:18.893366Z",
-  "updated_at": "2026-09-04T21:58:08.483683Z",
+  "updated_at": "2026-09-04T22:39:07.604475Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

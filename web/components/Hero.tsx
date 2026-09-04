@@ -78,7 +78,7 @@ export function Hero() {
                 </a>
               </Button>
               <Button asChild size="lg" variant="ghost">
-                <a href="https://github.com/AnthusAI/Chattic.us">
+                <a href="https://github.com/AnthusAI/Chatticus">
                   <Github className="h-5 w-5" aria-hidden="true" />
                   Read the source
                 </a>

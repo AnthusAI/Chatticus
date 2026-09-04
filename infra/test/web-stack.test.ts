@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { buildSpaViewerRequestFunction } from "../lib/cloudfront-functions";
-import { WEB_CLOUDFRONT_ENABLED } from "../lib/environments";
+import { SPA_VIEWER_REQUEST_FUNCTION } from "../lib/cloudfront-functions";
+import { WEB_CLOUDFRONT_ENABLED, WEB_SITE_DOMAINS } from "../lib/environments";
 import { synthWebStack } from "./web-stack-harness";
 
 describe("WebStack CloudFront enabled flag", () => {
@@ -32,7 +32,7 @@ describe("WebStack CloudFront enabled flag", () => {
   it("associates SPA viewer-request rewrite on the default behavior", () => {
     const template = synthWebStack("development");
     template.hasResourceProperties("AWS::CloudFront::Function", {
-      FunctionCode: buildSpaViewerRequestFunction(),
+      FunctionCode: SPA_VIEWER_REQUEST_FUNCTION,
     });
     const distributions = template.findResources("AWS::CloudFront::Distribution");
     const defaultBehavior = Object.values(distributions)[0].Properties
@@ -47,45 +47,34 @@ describe("WebStack CloudFront enabled flag", () => {
   });
 });
 
-describe("WebStack production two-domain routing", () => {
-  it("aliases both hey.chattic.us and chattic.us on one distribution", () => {
-    const template = synthWebStack("production");
-    template.hasResourceProperties("AWS::CloudFront::Distribution", {
-      DistributionConfig: {
-        Aliases: ["hey.chattic.us", "chattic.us"],
-      },
+describe("WebStack single-domain routing (post marketing split, chatticus-3926bc)", () => {
+  for (const environmentName of ["development", "staging", "production"] as const) {
+    it(`aliases only ${WEB_SITE_DOMAINS[environmentName]} for ${environmentName}`, () => {
+      const template = synthWebStack(environmentName);
+      template.hasResourceProperties("AWS::CloudFront::Distribution", {
+        DistributionConfig: {
+          Aliases: [WEB_SITE_DOMAINS[environmentName]],
+        },
+      });
     });
+  }
+
+  it("does not export MarketingSiteUrl", () => {
+    const template = synthWebStack("production");
+    const outputs = template.findOutputs("*");
+    assert.ok(
+      !Object.keys(outputs).includes("MarketingSiteUrl"),
+      "MarketingSiteUrl should no longer be exported -- the marketing site has its own distribution now",
+    );
   });
 
-  it("embeds Host-based routing in the production viewer-request function", () => {
-    const template = synthWebStack("production");
-    template.hasResourceProperties("AWS::CloudFront::Function", {
-      FunctionCode: buildSpaViewerRequestFunction({
-        appDomain: "hey.chattic.us",
-        marketingDomain: "chattic.us",
-      }),
-    });
-  });
-
-  it("creates apex A and AAAA records for chattic.us", () => {
+  it("creates no apex A/AAAA records for chattic.us", () => {
     const template = synthWebStack("production");
     const records = template.findResources("AWS::Route53::RecordSet");
-    const apexARecords = Object.values(records).filter((record) => {
-      const properties = record.Properties as { Name?: string; Type?: string };
-      return properties.Name === "chattic.us." && properties.Type === "A";
+    const apexRecords = Object.values(records).filter((record) => {
+      const properties = record.Properties as { Name?: string };
+      return properties.Name === "chattic.us.";
     });
-    assert.equal(apexARecords.length, 1);
-    const apexAaaaRecords = Object.values(records).filter((record) => {
-      const properties = record.Properties as { Name?: string; Type?: string };
-      return properties.Name === "chattic.us." && properties.Type === "AAAA";
-    });
-    assert.equal(apexAaaaRecords.length, 1);
-  });
-
-  it("exports MarketingSiteUrl for production", () => {
-    const template = synthWebStack("production");
-    template.hasOutput("MarketingSiteUrl", {
-      Value: "https://chattic.us",
-    });
+    assert.equal(apexRecords.length, 0);
   });
 });

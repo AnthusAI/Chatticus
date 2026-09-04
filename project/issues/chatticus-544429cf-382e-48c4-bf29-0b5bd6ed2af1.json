@@ -3,7 +3,7 @@
   "title": "Marketing CDK stack: bucket, distribution, /api* behavior, OIDC role",
   "description": "",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,38 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "ba2827ac-4470-4f19-b693-51fe612c21c8",
+      "author": "home",
+      "text": "CDK app written in Chattic.us-web@031354c: ChatticusMarketingGitHubDeploy (OIDC role, production only, sub-claim wildcarded to numeric ids matching AnthusAI/Chatticus's own convention) and ChatticusMarketing (S3 + CloudFront + /api* behavior). Hosted zone and cert reused via Fn.importValue(ChatticusDns-HostedZoneId/SiteCertificateArn) rather than a new cert. Thin-turn function-url and invoke-key-secret-arn resolved via ssm.StringParameter.valueForStringParameter (deploy-time dynamic reference, not a synth-time lookup, so cdk synth needs no AWS credentials -- verified). includeApexDomain prop (env CHATTICUS_MARKETING_INCLUDE_APEX) controls www-only vs www+apex, defaulting to www-only until cutover (chatticus-a83464).\n\nVerified: infra npm test 5/5, cdk synth clean with no AWS creds.\n\nNot yet deployed -- blocked on aws login (interactive browser auth this session cannot complete). Once available: sh deploy-chatticus-marketing-github-deploy.sh (bootstrap, local only, sets AWS_DEPLOY_ROLE_ARN production secret on the repo), then push to main deploys ChatticusMarketing via CI.",
+      "created_at": "2026-09-04T22:39:19.126878Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "09715e45-c541-499a-b828-88167bcacf36",
+      "author": "home",
+      "text": "Fixed a real bug found by Chattic.us-web's own first CI run: this app's root tsconfig.json globs **/*.ts from the repo root, which swept in infra/bin/chattic-us-web.ts and failed the Next.js build's typecheck phase on 'Cannot find module aws-cdk-lib' (infra/ has its own separate node_modules). Fixed by excluding infra/ from tsconfig.json and eslint.config.mjs (4b57605). Second CI run: green (build, typecheck, test, behave all pass). Deploy Marketing (production) reached exactly the expected, benign stopping point -- Configure AWS credentials fails cleanly with no AWS_DEPLOY_ROLE_ARN secret set, since ChatticusMarketingGitHubDeploy hasn't been deployed yet (needs aws login, which this session cannot complete interactively).",
+      "created_at": "2026-09-04T22:42:55.488366Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "d5413df0-ac4e-4ff5-b976-4d49331943db",
+      "author": "home",
+      "text": "Deployed. ChatticusMarketingGitHubDeploy role bootstrapped locally, AWS_DEPLOY_ROLE_ARN secret set on the repo's production environment, ChatticusMarketing deployed via CI (run 33927607653, success) after fixing an unrelated but real bug the deploy caught: the committed package-lock.json pinned an integrity hash for the chatticus tarball that went stale the moment this repo's own semantic-release pushed a version-bump commit to main -- npm install failed closed with EINTEGRITY. Fixed by not committing package-lock.json at all (the whole point of the dependency is that it's unpinned/always-current; a lockfile fights that). \n\nVerified live (chatticus-ef8371's guarantee): www.chattic.us and the raw CloudFront domain (d2jp75rstyi891.cloudfront.net) both serve 200s across /, /beta/, /wiki/. Same-origin /api* proxy confirmed end-to-end: GET /api/waitlist/survey returns the real survey schema (200), POST /api/waitlist and POST /api/contact both return {status: recorded} (201) against the real production thin-turn backend. Test email marketing-cutover-verification-test@example.com used for both -- flagging in case it needs cleanup from the waitlist/contact-lead tables before real operator review.",
+      "created_at": "2026-09-04T23:04:12.507177Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:29:20.017554Z",
-  "updated_at": "2026-09-04T21:29:52.556791Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T23:04:14.780840Z",
+  "closed_at": "2026-09-04T23:04:14.780741Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

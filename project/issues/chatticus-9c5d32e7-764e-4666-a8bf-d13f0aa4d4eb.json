@@ -3,7 +3,7 @@
   "title": "Stand up the Chattic.us-web repository skeleton consuming the shared package",
   "description": "",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -19,11 +19,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "8e4c45b8-d8f7-41ea-b1b5-95c03fafd3c5",
+      "author": "home",
+      "text": "AnthusAI/Chattic.us-web created (private). Pushed initial commit 031354c to main: standalone Next.js app depending on chatticus (main branch tarball) for the shared UI kit; package.json, tsconfig, next.config.ts, tailwind config, ESLint/PostCSS config, behave.ini, CI workflow (web+infra jobs), and deploy-marketing-production.yml all in place. Verified locally against the real main tarball: npm run build/typecheck/test green (34/34 unit tests), behave 5/5 features (31 scenarios, 123 steps). infra/ CDK app (ChatticusMarketingGitHubDeploy + ChatticusMarketing) synths cleanly with no AWS credentials; infra unit tests 5/5 green. Not yet deployed to AWS -- blocked on an interactive aws login this session cannot complete; see chatticus-544429 for the infra deploy itself.",
+      "created_at": "2026-09-04T22:38:52.042254Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:29:03.131277Z",
-  "updated_at": "2026-09-04T21:29:51.072659Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T22:38:56.779361Z",
+  "closed_at": "2026-09-04T22:38:56.779207Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

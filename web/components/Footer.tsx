@@ -27,9 +27,9 @@ const groups = [
   {
     title: "Build",
     links: [
-      ["Source", "https://github.com/AnthusAI/Chattic.us"],
+      ["Source", "https://github.com/AnthusAI/Chatticus"],
       ["Architecture", "/wiki/architecture"],
-      ["Open an issue", "https://github.com/AnthusAI/Chattic.us/issues"],
+      ["Open an issue", "https://github.com/AnthusAI/Chatticus/issues"],
       ["Free and Open-Source", "/wiki/license"],
     ],
   },
