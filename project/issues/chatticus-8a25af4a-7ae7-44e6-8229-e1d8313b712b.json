@@ -47,10 +47,17 @@
       "text": "PR #308 review fix: synth asserts one DeployWebsite with SourceObjectKeys.length=2; Asset2 zip has provisioning/customer-role.yml (not root); stub SPA asset has index.html only. Infra tests green. Still in_progress until b88c0a runs prod URL.",
       "created_at": "2026-09-05T19:51:30.248616Z",
       "comment_type": "default"
+    },
+    {
+      "id": "49f5bc69-b145-4f0c-8ef0-7fde9b0502c4",
+      "author": "home",
+      "text": "PR #308 squash-merged to develop (be007ec). Template publishes from the existing DeployWebsite source at /provisioning/customer-role.yml. Stays in_progress until ChatticusWeb deploys and b88c0a runs the published URL unmodified.",
+      "created_at": "2026-09-05T19:58:35.779309Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-05T19:51:30.248616Z",
+  "updated_at": "2026-09-05T19:58:35.779309Z",
   "closed_at": null,
   "custom": {}
 }
