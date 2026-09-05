@@ -3,7 +3,7 @@
   "title": "Unify workspace UI and redesign on flat, borderless surfaces",
   "description": "",
   "type": "chore",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -14,63 +14,55 @@
     {
       "id": "afd1e85e-ef81-44a6-8f45-4afae53b24f4",
       "author": "home",
-      "text": "Directly briefed by the user in chat (Claude Code session), not the Cursor-agent Gherkin ritual. Frontend/visual redesign, no backend behavior change.\n\nTwo goals:\n1. DRY the workspace UI: build one real shared component (web/components/workspace/) used by both the marketing hero (Hero.tsx, fed by scripted demo data) and the real authenticated app (EnabledWorkspace.tsx, fed by live API/SSE data), replacing WorkspacePrototype.tsx (a disconnected mockup) and the /chat app's separate chat.css dark theme.\n2. Redesign the brand on flat, borderless surfaces: no borders/outlines/gradients anywhere; regions are rounded rects with flat background-color steps only (3 steps per mode: base/raised/highlighted), neither pure black nor pure white, light and dark symmetric via real prefers-color-scheme support (new \u2014 currently marketing is light-only and /chat is dark-only, disconnected).\n\nPhased: 0) docs/BRAND_GUIDELINES.md + surface token system, 1) shared Workspace component, 2) restyle /chat onto shared tokens, 3) remove borders across ~14 marketing components, 4) verification. Each phase its own PR to develop. Plan: /Users/example/.claude/plans/yes-let-s-plan-this-atomic-river.md",
+      "text": "Directly briefed by the user in chat (Claude Code session), not the Cursor-agent Gherkin ritual. Frontend/visual redesign, no backend behavior change.\n\nTwo goals:\n1. DRY the workspace UI: build one real shared component (web/components/workspace/) used by both the marketing hero (Hero.tsx, fed by scripted demo data) and the real authenticated app (EnabledWorkspace.tsx, fed by live API/SSE data), replacing WorkspacePrototype.tsx (a disconnected mockup) and the /chat app's separate chat.css dark theme.\n2. Redesign the brand on flat, borderless surfaces: no borders/outlines/gradients anywhere; regions are rounded rects with flat background-color steps only (3 steps per mode: base/raised/highlighted), neither pure black nor pure white, light and dark symmetric via real prefers-color-scheme support (new — currently marketing is light-only and /chat is dark-only, disconnected).\n\nPhased: 0) docs/BRAND_GUIDELINES.md + surface token system, 1) shared Workspace component, 2) restyle /chat onto shared tokens, 3) remove borders across ~14 marketing components, 4) verification. Each phase its own PR to develop. Plan: /Users/example/.claude/plans/yes-let-s-plan-this-atomic-river.md",
       "created_at": "2026-09-02T18:40:36.314164Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
     },
     {
       "id": "5891548b-a9ff-459b-8abc-6bcfd2854c0b",
       "author": "home",
       "text": "Phase 0 (brand guidelines + surface tokens, #197) and Phase 1 (shared WorkspacePanel component used by both the marketing hero demo and the real /chat app, #198) landed on develop. Also shipped along the way: message-bubble CTA shape (#196), and found+fixed a real pre-existing bug while deploying to production -- CloudFront was never invalidated on deploy (24h stale-cache window), fixed in #195.\n\nRemaining: Phase 2 (restyle the rest of /chat -- MembershipShell and its panels -- onto the shared surface tokens, retire chat.css) and Phase 3 (remove borders across the ~14 marketing components still using them). Checking in with the user before continuing into that larger remaining scope.",
       "created_at": "2026-09-02T19:14:16.601257Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
     },
     {
       "id": "2fc1dedb-acc7-4fac-8e14-a74d2d5ec3ba",
       "author": "home",
       "text": "Phase 2 landed on develop as #200 (restyle /chat onto shared tokens, retire chat.css). Remaining: Phase 3 marketing borderless. #202 (Workspace Send justify-self-end) is this session's PR against develop; manager will merge when CI is green. Live ChatticusWeb development verified: https://dev.chattic.us CTAs are same-origin /chat and /chat serves Sign in with Google.",
       "created_at": "2026-09-02T20:57:24.520979Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
     },
     {
       "id": "1c555ab7-8141-4260-9bf0-53726c3a3833",
       "author": "home",
       "text": "#202 squash-merged to develop (f89a7d8). ChatticusWeb development redeployed; live hero composer Send is right-aligned (justify-self: end, button right edge matches textarea).",
       "created_at": "2026-09-02T21:02:29.055180Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
     },
     {
       "id": "12605e28-914c-417e-99fe-0287611a05dc",
       "author": "home",
-      "text": "Phase 3 (#203) is on develop and live on ChatticusWeb development. Header has no bottom border; wordmark reads Chatticus; CTAs remain same-origin /chat. Card stays in_progress \u2014 other session is on feat/hero-collaborative-space-copy.",
+      "text": "Phase 3 (#203) is on develop and live on ChatticusWeb development. Header has no bottom border; wordmark reads Chatticus; CTAs remain same-origin /chat. Card stays in_progress — other session is on feat/hero-collaborative-space-copy.",
       "created_at": "2026-09-02T21:28:22.044229Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
     },
     {
       "id": "cd485d47-1fd1-492c-8abc-90f7b5c7351a",
       "author": "home",
       "text": "#204 squash-merged and live on ChatticusWeb development: hero is One shared space for people and bots; demo roster Pirx/Golem/Trurl/Aniel; CTAs still /chat. Document title still the old control-first line. Card stays in_progress.",
       "created_at": "2026-09-02T21:33:56.719970Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
+    },
+    {
+      "id": "89a5782c-5c1c-40bf-abe2-91eab9fd3fcd",
+      "author": "home",
+      "text": "Phases 0–3 landed (#197–#204) while marketing and /chat shared a repo. Product /chat tokens are on develop. Remaining document-title/hero copy is Chattic.us-web after the split. Close here.",
+      "created_at": "2026-09-05T17:59:24.720971Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-02T18:40:27.506745Z",
-  "updated_at": "2026-09-02T21:33:56.720082Z",
-  "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "updated_at": "2026-09-05T17:59:24.735441Z",
+  "closed_at": "2026-09-05T17:59:24.735441Z",
+  "custom": {}
 }

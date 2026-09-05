@@ -3,7 +3,7 @@
   "title": "Waitlist and contact submissions reach the API from the marketing host",
   "description": "",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -19,11 +19,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "f4bc1220-5b3f-40bd-809d-0cec14faf9dd",
+      "author": "home",
+      "text": "Verified live against production: GET https://www.chattic.us/api/waitlist/survey returned 200 with the real survey schema; POST https://www.chattic.us/api/waitlist and POST https://www.chattic.us/api/contact both returned 201 {status: recorded} against the real thin-turn backend, proving the marketing distribution's /api* same-origin proxy reaches this repo's production API.",
+      "created_at": "2026-09-05T00:27:07.948159Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:28:26.525133Z",
-  "updated_at": "2026-09-04T21:28:52.084422Z",
-  "closed_at": null,
+  "updated_at": "2026-09-05T00:27:08.457459Z",
+  "closed_at": "2026-09-05T00:27:08.457351Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

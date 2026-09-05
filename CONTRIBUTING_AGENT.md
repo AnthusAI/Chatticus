@@ -30,6 +30,22 @@ When relationships, flows, or state transitions are easier to grasp visually, ad
 
 Editing project/ directly bypasses the record The Way depends on. Do not read or write anything inside project/. Do not inspect issue JSON with tools like cat or jq. All work must pass through Kanbus.
 
+## Recording Kanbus in git
+
+Kanbus writes the board under `project/` (issues, comments, wiki). Those files are the git history of the record. After `kbs` create, update, comment, or close — or after editing `project/wiki` — commit on `develop` and push:
+
+```
+git add the paths kbs (or the wiki edit) changed
+git commit
+git push origin develop
+```
+
+Use a `pm:` subject. Do not hand-edit issue JSON.
+
+**Do not open a pull request.** Do not create a feature branch or worktree. Do not wait for CI or a reviewer. Pull requests are for product behavior and production code. This has been stated repeatedly; opening a PR for board or wiki work is a process defect.
+
+Do not bundle Kanbus files into a product PR. Push the board to `develop` on its own.
+
 ## The Order of Being
 
 All work is structured.

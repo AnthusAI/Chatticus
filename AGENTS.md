@@ -10,6 +10,8 @@ How: See CONTRIBUTING_AGENT.md for the Kanbus workflow, hierarchy, status rules,
 Performance: Prefer kbs (Rust) when available; kanbus (Python) is equivalent but slower.
 Warning: Editing project/ directly violates The Way. Do not read or write anything in project/; work only through Kanbus.
 
+Kanbus board and wiki commits are **project management, not product**. After `kbs` create/update/comment/close (or a wiki edit), commit those files on `develop` and push `origin develop`. **Do not open a pull request.** Do not use a feature branch or worktree. Do not wait for CI or a reviewer. A PR is for product behavior and production code (`python/`, `web/`, `infra/`, `features/`, `computer/`). See CONTRIBUTING_AGENT.md.
+
 ## What this project is
 
 Chatticus is a named-teammate product: persistent bots, an organization-scoped Linux
@@ -216,10 +218,15 @@ workflow is local to this repo and authenticates with `GITHUB_TOKEN`;
 do not call the platform-ci reusable workflow, which requires an
 `anthusbot_gh_token` this repository does not have.
 
-Open pull requests against `develop`. Merge them there as soon as
-sub-agent review is addressed and CI is green. Do not park completed
-work on feature branches. Promote `develop` to `main` when you intend a
-release, not as the daily integration path.
+Open pull requests against `develop` for **product** work. Merge them
+there as soon as sub-agent review is addressed and CI is green. Do not
+park completed work on feature branches. Promote `develop` to `main`
+when you intend a release, not as the daily integration path.
+
+**Do not open a pull request for project management.** Kanbus issues,
+comments, status changes, and `project/wiki` pages commit on `develop`
+and push. No feature branch, no PR, no review loop. Mixing board files
+into a product PR is also wrong: land the board on `develop` first.
 
 ## Cloud environments
 

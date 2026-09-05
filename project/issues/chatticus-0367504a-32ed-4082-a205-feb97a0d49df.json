@@ -1,9 +1,9 @@
 {
   "id": "chatticus-0367504a-32ed-4082-a205-feb97a0d49df",
   "title": "A customer completes setup themselves without an Anthus session",
-  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the published template task\n- **Runs in parallel with:** the assume-role and account record stories\n- **Unblocks:** paid enablement\n\n---\nThe rung that makes the arithmetic work, and it did not exist in the first version of this initiative.\n\nA customer runs the published CloudFormation template in their own account, comes back with the role ARN and account id, and provisioning proceeds with no Anthus engineer in the call. Setup fee is $0 because there was no session to pay for.\n\n**The quality of that template is now the business model.** If self-setup works, most customers take it, margins hold, and engineer hours go to services work that is actually worth selling. If self-setup does not work, everyone falls back to the $100 assisted path, Anthus loses money on each one, and the hours meant for services get spent on setup instead. Everything about the ladder rests on this story working for a competent person with an AWS account and no help.\n\nSo it has to fail well. The common mistakes \u2014 template run in the wrong region, wrong account, role created but ExternalId mismatched, insufficient permissions on the running principal \u2014 must produce a message that says what is wrong and what to do, not a stack trace or a silent pending organization.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the published template task\n- **Runs in parallel with:** the assume-role and account record stories\n- **Unblocks:** paid enablement\n\n---\nThe rung that makes the arithmetic work, and it did not exist in the first version of this initiative.\n\nA customer runs the published CloudFormation template in their own account, comes back with the role ARN and account id, and provisioning proceeds with no Anthus engineer in the call. Setup fee is $0 because there was no session to pay for.\n\n**The quality of that template is now the business model.** If self-setup works, most customers take it, margins hold, and engineer hours go to services work that is actually worth selling. If self-setup does not work, everyone falls back to the $100 assisted path, Anthus loses money on each one, and the hours meant for services get spent on setup instead. Everything about the ladder rests on this story working for a competent person with an AWS account and no help.\n\nSo it has to fail well. The common mistakes — template run in the wrong region, wrong account, role created but ExternalId mismatched, insufficient permissions on the running principal — must produce a message that says what is wrong and what to do, not a stack trace or a silent pending organization.\n\n**Done when:** the scenarios exist and fail for the right reason.",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -18,16 +18,18 @@
       "author": "unknown",
       "text": "Feature: Cross-account provisioning\n\n  Scenario: Self-setup provisions with no Anthus session\n    Given a customer who has run the cross-account template in their own account\n    When they submit their AWS account id and role\n    Then provisioning proceeds without an assisted session\n    And no setup fee is charged\n\n  Scenario: A template run with a mismatched ExternalId says so\n    Given a customer whose role trusts a different ExternalId\n    When they submit their AWS account id and role\n    Then the response names the ExternalId mismatch and how to correct it\n    And the organization stays pending\n\n  Scenario: A role missing required permissions says which\n    Given a customer whose role lacks a permission provisioning needs\n    When they submit their AWS account id and role\n    Then the response names the missing permission\n    And the organization stays pending",
       "created_at": "2026-09-03T13:42:28.239912Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
+    },
+    {
+      "id": "e0a76853-9881-4584-82d2-d8616bb0b787",
+      "author": "home",
+      "text": "On develop: self-setup submit path in `cross_account_provisioning.py` / `submit_self_setup_cross_account_role` with ExternalId and missing-permission failures. Covered by `features/cross_account_provisioning.feature`. Setup-fee-is-zero is a billing consequence for Chattic.us-web, not a second status on Organization. Board was behind the kernel.",
+      "created_at": "2026-09-05T17:59:24.761560Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:42:26.476843Z",
-  "updated_at": "2026-09-03T13:42:28.240088Z",
-  "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "updated_at": "2026-09-05T17:59:24.798947Z",
+  "closed_at": "2026-09-05T17:59:24.798947Z",
+  "custom": {}
 }

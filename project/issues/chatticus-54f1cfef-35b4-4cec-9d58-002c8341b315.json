@@ -1,7 +1,7 @@
 {
   "id": "chatticus-54f1cfef-35b4-4cec-9d58-002c8341b315",
   "title": "Set up Stripe products, setup fee tiers, and the beta terms document",
-  "description": "**Phase 3 of 5.**\n\n- **Blocked by:** the beta page pricing story, in the delegation ladder epic\n- **Runs in parallel with:** the rest of this epic\n- **Unblocks:** the checkout story\n\n---\nA chore because the deliverable is account configuration and a legal document, not code.\n\n**Prices are round numbers on purpose: $20 a month, $100 setup.** Not $19.95 and $99.95. The entire argument of the pitch page is that we are telling you every cost up front; retail pricing psychology in the same breath undercuts it. Twenty dollars reads as a number a person quoted. $19.95 reads as a number designed to feel smaller than it is.\n\nProducts and prices in Stripe:\n\n| Item | Amount | When |\n| --- | --- | --- |\n| Chatticus managed operation | $20 / month | subscription, trial ends at enablement |\n| Assisted setup | $100 | one time, at checkout |\n| Self-setup | $0 | no line item |\n\n**The setup fee is structural, not promotional.** It is waived by taking the self-setup path \u2014 run the CloudFormation template yourself and there is nothing to pay. It is charged when an Anthus engineer runs the session with you. That is the honest description of what the money is for, and it is what stops the beta from spending every engineer hour on $20 accounts.\n\nWorth stating plainly somewhere internal: **$100 does not cover an engineer session at fully loaded cost.** Every assisted setup is a deliberate subsidy, justified by the services conversation it creates rather than by the fee. Design partners get the assisted path free in exchange for a recorded interview.\n\nThe beta terms name specific things rather than gesturing at beta: features change without notice, data may be reset between releases, no uptime guarantee, and the deployed footprint in the customer AWS account may change shape as releases roll out. Plus the plain commitments \u2014 cancel any time, the setup fee is refunded if provisioning fails, and the deployment stays in the customer account if they leave.\n\nPublish a response-time promise that can be kept. One business day by email beats silence and beats an SLA that gets missed.\n\n**Done when:** the products exist in Stripe test and live mode, the terms document is published at a stable URL, and Checkout references it.",
+  "description": "**Phase 3 of 5.**\n\n- **Blocked by:** the beta page pricing story, in the delegation ladder epic\n- **Runs in parallel with:** the rest of this epic\n- **Unblocks:** the checkout story\n\n---\nA chore because the deliverable is account configuration and a legal document, not code.\n\n**Prices are round numbers on purpose: $20 a month, $100 setup.** Not $19.95 and $99.95. The entire argument of the pitch page is that we are telling you every cost up front; retail pricing psychology in the same breath undercuts it. Twenty dollars reads as a number a person quoted. $19.95 reads as a number designed to feel smaller than it is.\n\nProducts and prices in Stripe:\n\n| Item | Amount | When |\n| --- | --- | --- |\n| Chatticus managed operation | $20 / month | subscription, trial ends at enablement |\n| Assisted setup | $100 | one time, at checkout |\n| Self-setup | $0 | no line item |\n\n**The setup fee is structural, not promotional.** It is waived by taking the self-setup path — run the CloudFormation template yourself and there is nothing to pay. It is charged when an Anthus engineer runs the session with you. That is the honest description of what the money is for, and it is what stops the beta from spending every engineer hour on $20 accounts.\n\nWorth stating plainly somewhere internal: **$100 does not cover an engineer session at fully loaded cost.** Every assisted setup is a deliberate subsidy, justified by the services conversation it creates rather than by the fee. Design partners get the assisted path free in exchange for a recorded interview.\n\nThe beta terms name specific things rather than gesturing at beta: features change without notice, data may be reset between releases, no uptime guarantee, and the deployed footprint in the customer AWS account may change shape as releases roll out. Plus the plain commitments — cancel any time, the setup fee is refunded if provisioning fails, and the deployment stays in the customer account if they leave.\n\nPublish a response-time promise that can be kept. One business day by email beats silence and beats an SLA that gets missed.\n\n**Done when:** the products exist in Stripe test and live mode, the terms document is published at a stable URL, and Checkout references it.",
   "type": "chore",
   "status": "open",
   "priority": 1,
@@ -12,12 +12,17 @@
     "phase-3"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "5ea92799-269c-4060-ab24-7be8d68491fb",
+      "author": "home",
+      "text": "Chattic.us-web Stripe configuration. Not this repository.",
+      "created_at": "2026-09-05T17:59:20.887024Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-03T13:19:49.305166Z",
-  "updated_at": "2026-09-03T13:42:22.971834Z",
+  "updated_at": "2026-09-05T17:59:20.887024Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "custom": {}
 }

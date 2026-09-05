@@ -1,9 +1,9 @@
 {
   "id": "chatticus-061a1110-fc44-4889-b882-d32d372a3c5d",
   "title": "The organization computer launches in the customer account",
-  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the assume-role story and the account record story\n- **Runs in parallel with:** nothing\n- **Unblocks:** paid enablement\n\n---\nThe behavior the whole epic exists for. Compute for an organization runs under the customer AWS account, using the assumed role, and its cost lands on their bill.\n\nThis is what makes the floated price safe, and it is also the strongest thing on the pitch page: the computer runs in their account, on their network, under their logging. Data never leaves. That story sells to buyers who would never accept a hosted agent with a shell.\n\nThe failure that matters most is silent fallback. An organization whose cross-account role cannot be assumed must refuse to start a computer, not quietly start one in the Anthus account \u2014 which would work, would look fine, and would put a customer workload and its cost somewhere neither party agreed to.\n\n**Done when:** the scenarios exist and fail for the right reason.",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the assume-role story and the account record story\n- **Runs in parallel with:** nothing\n- **Unblocks:** paid enablement\n\n---\nThe behavior the whole epic exists for. Compute for an organization runs under the customer AWS account, using the assumed role, and its cost lands on their bill.\n\nThis is what makes the floated price safe, and it is also the strongest thing on the pitch page: the computer runs in their account, on their network, under their logging. Data never leaves. That story sells to buyers who would never accept a hosted agent with a shell.\n\nThe failure that matters most is silent fallback. An organization whose cross-account role cannot be assumed must refuse to start a computer, not quietly start one in the Anthus account — which would work, would look fine, and would put a customer workload and its cost somewhere neither party agreed to.\n\n**Done when:** the scenarios exist and fail for the right reason.",
   "type": "story",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -18,16 +18,32 @@
       "author": "unknown",
       "text": "Feature: Cross-account provisioning\n\n  Scenario: Compute for an organization runs in the customer account\n    Given an organization provisioned into a customer AWS account\n    When its computer starts\n    Then the instance is launched in the customer account\n    And no compute for that organization runs in the Anthus account\n\n  Scenario: An unreachable customer role refuses rather than falls back\n    Given an organization whose cross-account role cannot be assumed\n    When its computer is asked to start\n    Then the start is refused with a provisioning error\n    And no instance is launched in the Anthus account",
       "created_at": "2026-09-03T13:18:08.490245Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
+    },
+    {
+      "id": "11bb8603-00e5-4b2e-86b4-8c7546163574",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree `/tmp/chatticus-061a11-customer-computer` on `feat/computer-launches-in-customer-account-061a11` from origin/develop. Implementation not authorized until plan review. Merge window: this slice alone against computer_start / worker credentials / computer stack.",
+      "created_at": "2026-09-05T17:59:47.387177Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "9f6749fe-cbf3-4715-a70f-78ffd7a47e52",
+      "author": "home",
+      "text": "Plan reviewed, not authorized. Dual launcher is the hole: empty AWS fields must not mean “RunTask in Anthus.” Launch account is always the org AWS home; missing home refuses. Anthus/dev household keeps working by recording the deployment account on that org, not a special branch. Gherkin owns account-selection behavior (no parallel pytest). Worktree not created yet.",
+      "created_at": "2026-09-05T18:01:56.183950Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "80f11bcd-6d0a-4dc3-8c58-71a594932871",
+      "author": "home",
+      "text": "Plan authorized. Worktree verified at `/tmp/chatticus-061a11-customer-computer` on `feat/computer-launches-in-customer-account-061a11` (`b264392`). Same-account vs AssumeRole is credentials only; missing `aws_account_id` always refuses. Live RunTask-in-customer-account waits on `b88c0a`.",
+      "created_at": "2026-09-05T18:02:30.424715Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:07.323570Z",
-  "updated_at": "2026-09-03T13:18:08.490378Z",
+  "updated_at": "2026-09-05T18:02:30.424715Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "custom": {}
 }

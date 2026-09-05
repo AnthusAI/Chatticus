@@ -3,7 +3,7 @@
   "title": "The product host serves the workspace and no marketing pages",
   "description": "",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -19,11 +19,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "e826abd0-f9c3-4644-ad4b-65b6f72260ab",
+      "author": "home",
+      "text": "Verified live: hey.chattic.us, dev.chattic.us, and staging.chattic.us all serve the workspace (not marketing) at /, confirmed by page title. Marketing routes/components no longer exist in this repo's web/ tree (chatticus-cd78ca).",
+      "created_at": "2026-09-05T00:27:06.856649Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:28:25.956763Z",
-  "updated_at": "2026-09-04T21:28:51.588117Z",
-  "closed_at": null,
+  "updated_at": "2026-09-05T00:27:07.362275Z",
+  "closed_at": "2026-09-05T00:27:07.362192Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

@@ -3,7 +3,7 @@
   "title": "The open repository clones and deploys with no billing configured",
   "description": "",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -28,11 +28,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "d2f2630d-58fc-4a82-9741-07cfe8414e7f",
+      "author": "home",
+      "text": "Verified: grep -rli stripe across the whole repo (excluding project/issues, which records intent, not code) returns nothing. The organization enable path remains the members CLI only -- the operator HTTP API (chatticus-16d3a9) that would let a private SaaS layer call it is separately scheduled under the Stripe epic chatticus-e26358, not built here, so there is no billing-adjacent code path in this repo at all yet.",
+      "created_at": "2026-09-05T00:27:08.964719Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:28:27.160416Z",
-  "updated_at": "2026-09-04T21:31:46.987820Z",
-  "closed_at": null,
+  "updated_at": "2026-09-05T00:27:09.471100Z",
+  "closed_at": "2026-09-05T00:27:09.471018Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

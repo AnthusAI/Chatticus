@@ -3,7 +3,7 @@
   "title": "Update AGENTS.md, README, and docs for the two-repo shape",
   "description": "",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -19,11 +19,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "d3d0e1f8-d972-459f-868b-293600aea1c0",
+      "author": "home",
+      "text": "AGENTS.md updated in PR #300 (b6e8277): removed the 'Marketing news desk'/'Marketing wiki' sections (those AGENTS.md files no longer exist here), replaced the 'one web project, not a separate marketing repo' claim with the actual two-repo boundary and a pointer to the shared-package exports map, and fixed the product-name/marketing-site framing at the top. README.md fixed directly on develop (1fc7a97): chattic.us's role now correctly attributes it to the private Chattic.us-web repo in both the deploy-status and public-sites tables. Broader README staleness unrelated to this split (production/staging CloudFront described as disabled when it's actually enabled) flagged as a separate follow-up task, not fixed here -- out of scope for this epic.",
+      "created_at": "2026-09-05T00:16:24.953723Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:29:04.916470Z",
-  "updated_at": "2026-09-04T21:29:53.802202Z",
-  "closed_at": null,
+  "updated_at": "2026-09-05T00:16:24.953795Z",
+  "closed_at": "2026-09-05T00:16:17.502680Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

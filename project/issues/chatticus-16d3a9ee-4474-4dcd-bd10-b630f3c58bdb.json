@@ -3,7 +3,7 @@
   "title": "An operator enables an organization through an authenticated API",
   "description": "",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -16,16 +16,67 @@
       "author": "home",
       "text": "As an operator (self-hosted or the private SaaS), I want to enable or suspend\nan organization through an authenticated API, so that billing systems and other\nexternal callers do not need shell access to the members CLI.\n\n**Blocked by:** nothing. **Unblocks:** the private SaaS's Stripe webhook\nhandler, which becomes this API's second caller.\n\n---\nFeature: Authenticated operator enable/suspend API\n\n  Scenario: An authenticated operator enables a pending organization\n    Given an organization in pending status\n    And an authenticated operator credential\n    When the operator calls the enable endpoint for that organization\n    Then the organization becomes enabled\n    And the same state transition the members CLI produces occurs\n\n  Scenario: An authenticated operator suspends an enabled organization\n    Given an organization in enabled status\n    When the operator calls the suspend endpoint for that organization\n    Then the organization becomes suspended\n\n  Scenario: An unauthenticated caller is rejected\n    When a request without a valid operator credential calls the enable endpoint\n    Then the request is rejected and no organization status changes\n\n**Done when:** the members CLI is refactored to call this API path rather than\nduplicating the state transition, so there is exactly one enable/suspend\nimplementation.",
       "created_at": "2026-09-04T21:28:53.055046Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
+    },
+    {
+      "id": "94506db5-c0b7-4bef-88fd-86d0851d1c02",
+      "author": "home",
+      "text": "Composer 2.5 planning the operator enable/suspend HTTP API. Planned worktree `/tmp/chatticus-16d3a9-operator-api` on branch `feat/operator-enable-suspend-api-16d3a9` from `origin/develop`. Implementation not authorized until the plan is reviewed.",
+      "created_at": "2026-09-05T17:26:52.690446Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "75fe411f-982f-439d-b44e-04fed91dda8d",
+      "author": "home",
+      "text": "Plan reviewed, not authorized yet. Shape accepted: two callers (CLI + HTTP) of ControlPlane, reinstate included, `/operator/` prefix, not NO_PRINCIPAL, CLI stays Dynamo-direct.\n\nRequired before implement: (1) operator key fail-closed when unset/empty — do not copy invoke-key's optional skip; (2) extend the route principal coverage guard so operator routes must wire `enforce_operator_principal`; (3) worktree `/tmp/chatticus-16d3a9-operator-api` must exist on `feat/operator-enable-suspend-api-16d3a9` before any code.",
+      "created_at": "2026-09-05T17:29:24.818350Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "61f2ab9a-9483-4bec-8ce2-92b480367dfb",
+      "author": "home",
+      "text": "Plan authorized. Worktree verified at `/tmp/chatticus-16d3a9-operator-api` on `feat/operator-enable-suspend-api-16d3a9` (HEAD matches origin/develop). Composer 2.5 implementing; live acceptance against development ThinTurn starts in parallel and is not GitHub CI.",
+      "created_at": "2026-09-05T17:30:17.260843Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "1a3a8a95-ec4b-41df-9c99-88b52616bafd",
+      "author": "home",
+      "text": "Implementation PR #304 against develop: https://github.com/AnthusAI/Chatticus/pull/304\n\nWorktree `/tmp/chatticus-16d3a9-operator-api` on `feat/operator-enable-suspend-api-16d3a9`. Review and CI in progress; not merged. Live acceptance stays blocked until a named ChatticusThinTurn development deploy after merge.",
+      "created_at": "2026-09-05T17:40:50.173108Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "1f712d96-46f5-4266-89ae-9dc984ac99c7",
+      "author": "home",
+      "text": "PR #304 review: request changes. Coverage scan must require `enforce_operator_principal` specifically; remove `verify_org_access` operator allow-all; add helper pytest for fail-closed empty key. Implementer sent back; not merged.",
+      "created_at": "2026-09-05T17:41:46.626624Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "8d11a36d-a743-46d1-a453-6d69acaefebb",
+      "author": "home",
+      "text": "Review fixes pushed on #304 (`b03a003`): operator-enforcer-specific coverage scan, `verify_org_access` fail-closed, helper pytest, single auth layer, wrong-bearer Gherkin. Re-review and CI in progress; still not merged.",
+      "created_at": "2026-09-05T17:43:40.216015Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "68c1060c-87fa-48e0-ab23-931e7a618e72",
+      "author": "home",
+      "text": "#304 squash-merged to develop (`b264392`). CI python+infra green; Composer 2.5 re-review approved. Live acceptance still required after named ChatticusThinTurn development deploy (OperatorKey mint). Card stays in_progress until that pass.",
+      "created_at": "2026-09-05T17:49:50.356796Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "783fa6f3-de7b-47ca-ad08-5a4c6e5b1827",
+      "author": "home",
+      "text": "Done. Operator enable/suspend/reinstate HTTP API on develop (#304, `b264392`) and live on development ThinTurn after named deploy 33982163637.\n\nPOST `/operator/orgs/{tenant_id}/{enable,suspend,reinstate}` with a deployment-wide operator bearer; empty key fail-closed; same ControlPlane transitions as the members CLI (CLI stays Dynamo-direct). Live on dev.chattic.us: enable without a computer, suspend, enable-on-suspended 409, reinstate, 403 without a valid operator credential, 404 unknown tenant. OperatorKeySecretArn present; computers desiredCount 0.",
+      "created_at": "2026-09-05T17:53:33.809065Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-04T21:28:27.705885Z",
-  "updated_at": "2026-09-04T21:28:53.055124Z",
-  "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "updated_at": "2026-09-05T17:53:33.835262Z",
+  "closed_at": "2026-09-05T17:53:33.835262Z",
+  "custom": {}
 }
