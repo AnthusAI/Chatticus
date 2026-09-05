@@ -3,7 +3,7 @@
   "title": "Determine whether a bot can have concurrent turns in flight",
   "description": "## Question\n\n**Can one bot have two turns in flight at once?**\n\nFor example a routine wake-up firing while a user turn is live.\n\nThis is an **open question in `chatticus-fbae4e`** and it is answerable by reading the scheduler, not by running an experiment. Recorded so it gets read rather than assumed.\n\n## Why it matters\n\nUnder the EFS design it no longer threatens correctness — NFS arbitrates concurrent writers, which is the entire point of D3. But it still decides:\n\n- Whether two turns can sensibly **share one working tree**, or whether concurrent turns need separate workspaces\n- Whether the workspace scoping proposed in the initiative (`workspace_id` as a first-class noun, default one per bot) is sufficient, or whether the default needs to be finer\n- What `hydrate_required` means during the transition period, while the snapshot path is still the running implementation\n\n## Where to look\n\n- `python/src/chatticus/` — the in-memory scheduler\n- `features/turn_attempts.feature` — \"one request never becomes two answers or two bills from concurrent model calls\" suggests turn-level deduplication exists; whether that extends to *bot*-level serialization is the actual question\n- `features/single_computer_start.feature` — \"concurrent bots share one computer start\" establishes that concurrent *bots* share a computer, which is a different question from one bot's concurrent turns\n\n## Cost\n\nReading, not building.\n\n## Done when\n\nThe answer is recorded in `chatticus-fbae4e`'s open questions, with the scoping consequence stated either way.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 3,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,17 @@
     "architecture"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f8d88702-5b9a-4259-be2b-f16550338170",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree /tmp/chatticus-766c51-concurrent-turns on spike/concurrent-turns-766c51. Read scheduler and Gherkin; record the answer on fbae4e.",
+      "created_at": "2026-09-05T18:22:43.351511Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-05T18:08:50.633090Z",
-  "updated_at": "2026-09-05T18:08:50.633090Z",
+  "updated_at": "2026-09-05T18:22:43.351511Z",
   "closed_at": null,
   "custom": {}
 }
