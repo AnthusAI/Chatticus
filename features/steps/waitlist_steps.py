@@ -66,6 +66,30 @@ def when_source_submits_waitlist_again(context: object) -> None:
     )
 
 
+@when("they post a waitlist survey with UTM source google and campaign beta_launch")
+def when_post_waitlist_survey_with_utm(context: object) -> None:
+    context.waitlist_utm_email = "utm-persistence@example.com"
+    context.waitlist_response = context.api_client.post(
+        "/waitlist",
+        json={
+            "email": context.waitlist_utm_email,
+            "complete": True,
+            "utm_source": "google",
+            "utm_campaign": "beta_launch",
+        },
+    )
+
+
+@then("the waitlist signup records the UTM source and campaign")
+def then_waitlist_signup_records_utm(context: object) -> None:
+    signup = context.plane._messaging_store.get_waitlist_signup(
+        context.waitlist_utm_email
+    )
+    assert signup is not None
+    assert signup.utm_source == "google"
+    assert signup.utm_campaign == "beta_launch"
+
+
 @then("the response is {status_code:d}")
 def then_response_is(context: object, status_code: int) -> None:
     assert context.waitlist_response.status_code == status_code, (

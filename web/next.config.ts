@@ -9,6 +9,16 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  async redirects() {
+    if (!isDev) {
+      return [];
+    }
+    // Local dev only: production's CloudFront function rewrites / -> /chat
+    // before the static export is ever consulted (marketing moved to its
+    // own repo, chatticus-3926bc, so there is no app/page.tsx for / to
+    // fall back to). next dev has no CloudFront in front of it.
+    return [{ source: "/", destination: "/chat", permanent: false }];
+  },
   async rewrites() {
     if (!isDev) {
       return [];

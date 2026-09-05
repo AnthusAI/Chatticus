@@ -22,16 +22,6 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Generate Markus wiki
-        working-directory: python
-        run: |
-          pip install -e ".[wiki]"
-          python -m chatticus.wiki_publish
-
       - name: Install JS dependencies
         run: npm ci
 

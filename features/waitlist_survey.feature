@@ -6,6 +6,11 @@ Feature: Waitlist survey submission
     Then a waitlist signup is recorded for their work email
     And it carries their fit, AWS readiness, and price answers
 
+  Scenario: The survey records which setup path they want
+    Given a visitor on the beta page
+    When they complete the survey
+    Then the waitlist signup records whether they want self-setup or assisted setup
+
   Scenario: An abandoned survey still leaves a lead
     Given a visitor who has entered only their work email
     When they leave the page without submitting
