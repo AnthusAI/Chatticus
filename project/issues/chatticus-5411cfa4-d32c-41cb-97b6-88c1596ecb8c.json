@@ -3,7 +3,7 @@
   "title": "Move marketing behave specs and TS harnesses to Chattic.us-web",
   "description": "",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -33,11 +33,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "b42a071a-8800-47cc-aa2f-4fae3115d7ce",
+      "author": "home",
+      "text": "Complete, including the 4 additional feature/step files found during deletion (see chatticus-25470c). Backend coverage preserved before deletion: contact_api.feature (new) and a UTM-persistence scenario added to waitlist.feature; the setup-path scenario relocated into waitlist_survey.feature (no new step code needed, that step module already existed there). Full verification: this repo's behave 73/418/2502 green, marketing repo's behave 9/49/210 green.",
+      "created_at": "2026-09-05T00:14:58.528310Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:29:19.496911Z",
-  "updated_at": "2026-09-04T22:39:08.666805Z",
-  "closed_at": null,
+  "updated_at": "2026-09-05T00:14:59.042564Z",
+  "closed_at": "2026-09-05T00:14:59.042478Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

@@ -3,7 +3,7 @@
   "title": "Move marketing routes, components, and lib modules to Chattic.us-web",
   "description": "",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -42,11 +42,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "411d94a2-7b1c-4b23-abf1-3b9e0de1804e",
+      "author": "home",
+      "text": "Complete. Deleted from this repo in PR #300 (b6e8277), which also caught 4 more marketing feature/step files (marketing_blog, marketing_footer, marketing_primary_navigation, marketing_wiki) that had landed on develop after the initial migration and were missed -- moved to Chattic.us-web (fa49b7d) before deletion here.",
+      "created_at": "2026-09-05T00:14:57.471930Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:29:18.893366Z",
-  "updated_at": "2026-09-04T22:39:07.604475Z",
-  "closed_at": null,
+  "updated_at": "2026-09-05T00:14:57.997494Z",
+  "closed_at": "2026-09-05T00:14:57.997411Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

@@ -3,7 +3,7 @@
   "title": "Remove marketing routes from web/ and simplify host routing",
   "description": "",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "12a2ffa1-cdce-4801-8486-9f0ab09ec671",
+      "author": "home",
+      "text": "Complete. Marketing routes/components/lib/content/styles/test-support all removed from web/ (PR #300, b6e8277). Host routing simplified in the SAME apex-cutover PR (#298, d707856): the CloudFront viewer-request function's / -> /chat/index.html rewrite is now unconditional (not host-gated), since every ChatticusWeb* site domain is the product app now and there's no other content at the bucket root to fall back to once marketing routes were gone. Coupled these two deliberately: making the rewrite unconditional had to land before (or atomically with) the route deletion, or dev/staging/production would each 404 or serve stale bucket content at / for the gap between the two.",
+      "created_at": "2026-09-05T00:15:08.911941Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:29:20.545157Z",
-  "updated_at": "2026-09-04T21:29:53.292699Z",
-  "closed_at": null,
+  "updated_at": "2026-09-05T00:15:09.435568Z",
+  "closed_at": "2026-09-05T00:15:09.435483Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},
