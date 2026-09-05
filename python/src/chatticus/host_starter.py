@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-import os
-from typing import Any, Protocol
+from collections.abc import Callable
+from typing import Protocol
 
 from chatticus.computer_start import HostStartClaim
+from chatticus.deployment_aws_account import deployment_aws_account_id
+from chatticus.models import Organization
 
 
 class HostStarter(Protocol):
@@ -33,104 +35,19 @@ class RecordingHostStarter:
         self.invocations.append(claim)
 
 
-class EcsHostStarter:
-    """Optional ECS RunTask starter gated by environment configuration."""
+def host_starter_from_env(
+    get_organization: Callable[[str], Organization] | None = None,
+) -> HostStarter:
+    """Return the configured host starter for this deployment."""
+    if get_organization is None:
+        return NoOpHostStarter()
+    from chatticus.organization_computer_host import (
+        OrganizationComputerHostStarter,
+        deployment_ecs_config_from_env,
+    )
 
-    def __init__(
-        self,
-        *,
-        ecs_client: Any | None = None,
-        cluster: str | None = None,
-        task_definition: str | None = None,
-        subnets: list[str] | None = None,
-        security_groups: list[str] | None = None,
-    ) -> None:
-        self._ecs = ecs_client
-        self._cluster = cluster or os.environ.get("CHATTICUS_ECS_CLUSTER", "").strip()
-        self._task_definition = (
-            task_definition
-            or os.environ.get("CHATTICUS_ECS_TASK_DEFINITION", "").strip()
-        )
-        subnet_csv = os.environ.get("CHATTICUS_ECS_SUBNETS", "").strip()
-        self._subnets = subnets or [part for part in subnet_csv.split(",") if part]
-        group_csv = os.environ.get("CHATTICUS_ECS_SECURITY_GROUPS", "").strip()
-        self._security_groups = security_groups or [
-            part for part in group_csv.split(",") if part
-        ]
-
-    def start_host(self, claim: HostStartClaim) -> None:
-        """Run one ECS task when cluster wiring is configured."""
-        if not (self._cluster and self._task_definition and self._subnets):
-            return
-        ecs = self._ecs
-        if ecs is None:
-            import boto3
-
-            ecs = boto3.client("ecs")
-        response = ecs.run_task(
-            cluster=self._cluster,
-            taskDefinition=self._task_definition,
-            launchType="FARGATE",
-            networkConfiguration={
-                "awsvpcConfiguration": {
-                    "subnets": self._subnets,
-                    "securityGroups": self._security_groups,
-                    "assignPublicIp": "ENABLED",
-                }
-            },
-            tags=[
-                {"key": "tenant_id", "value": claim.tenant_id},
-                {"key": "computer_id", "value": claim.computer_id},
-                {
-                    "key": "host_start_generation",
-                    "value": str(claim.host_start_count),
-                },
-            ],
-            **self._run_task_overrides(claim),
-        )
-        failures = (response or {}).get("failures") or []
-        tasks = (response or {}).get("tasks") or []
-        if failures or not tasks:
-            raise RuntimeError(f"ecs.run_task returned no tasks failures={failures!r}")
-
-    def _run_task_overrides(self, claim: HostStartClaim) -> dict[str, Any]:
-        command = os.environ.get("CHATTICUS_ECS_HOST_COMMAND", "").strip()
-        if not command:
-            return {}
-        container = os.environ.get("CHATTICUS_ECS_CONTAINER_NAME", "computer").strip()
-        environment = [
-            {"name": "CHATTICUS_TENANT_ID", "value": claim.tenant_id},
-            {"name": "CHATTICUS_USER_ID", "value": claim.user_id},
-            {"name": "CHATTICUS_COMPUTER_BOOT", "value": "1"},
-        ]
-        for key in (
-            "CHATTICUS_COMPUTER_TURN_QUEUE_URL",
-            "CHATTICUS_FRONT_DOOR_URL",
-            "CHATTICUS_INVOKE_KEY",
-            "CHATTICUS_ENVIRONMENT",
-            "CHATTICUS_MESSAGING_TABLE",
-            "AWS_REGION",
-            "AWS_DEFAULT_REGION",
-        ):
-            value = os.environ.get(key, "").strip()
-            if value:
-                environment.append({"name": key, "value": value})
-        return {
-            "overrides": {
-                "containerOverrides": [
-                    {
-                        "name": container,
-                        "command": command.split(),
-                        "environment": environment,
-                    }
-                ]
-            }
-        }
-
-
-def host_starter_from_env() -> HostStarter:
-    """Return the configured host starter, defaulting to a no-op."""
-    kind = os.environ.get("CHATTICUS_HOST_STARTER", "noop").strip().lower()
-    if kind == "ecs":
-        return EcsHostStarter()
-    return NoOpHostStarter()
+    return OrganizationComputerHostStarter(
+        get_organization,
+        deployment_account_id=deployment_aws_account_id(),
+        deployment_ecs_config=deployment_ecs_config_from_env(),
+    )
