@@ -3,7 +3,7 @@
   "title": "The organization computer launches in the customer account",
   "description": "**Phase 1 of 5.**\n\n- **Blocked by:** the assume-role story and the account record story\n- **Runs in parallel with:** nothing\n- **Unblocks:** paid enablement\n\n---\nThe behavior the whole epic exists for. Compute for an organization runs under the customer AWS account, using the assumed role, and its cost lands on their bill.\n\nThis is what makes the floated price safe, and it is also the strongest thing on the pitch page: the computer runs in their account, on their network, under their logging. Data never leaves. That story sells to buyers who would never accept a hosted agent with a shell.\n\nThe failure that matters most is silent fallback. An organization whose cross-account role cannot be assumed must refuse to start a computer, not quietly start one in the Anthus account — which would work, would look fine, and would put a customer workload and its cost somewhere neither party agreed to.\n\n**Done when:** the scenarios exist and fail for the right reason.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -75,10 +75,17 @@
       "text": "PR #306 gate restored (`612750f`): `host_starter_from_env` is NoOp unless `CHATTICUS_HOST_STARTER=ecs`, even when the lambda passes `get_organization`. Re-review and CI in flight; not merged.",
       "created_at": "2026-09-05T20:10:40.283030Z",
       "comment_type": "default"
+    },
+    {
+      "id": "91c31c23-36e0-42bc-b600-69f83f70b72e",
+      "author": "home",
+      "text": "Done in-process. Squash-merged #306 to develop (`05245a3`). Review approved after restoring the `CHATTICUS_HOST_STARTER` gate; python+infra CI green.\n\nLaunch account is always `organization.aws_account_id`. Missing home or unreachable customer role refuses with zero Anthus RunTask. Same-account (seeded Anthus) uses native creds. Customer home assumes the org role with ExternalId. Staging/production ComputerWorker stays NoOp unless ECS host-start is wired.\n\nLive RunTask in a customer account still waits on `b88c0a`. Existing `anthus` Dynamo rows with `aws_account_id=None` must re-run `members seed` before computer start.",
+      "created_at": "2026-09-05T20:18:33.153763Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:07.323570Z",
-  "updated_at": "2026-09-05T20:10:40.283030Z",
-  "closed_at": null,
+  "updated_at": "2026-09-05T20:18:33.164939Z",
+  "closed_at": "2026-09-05T20:18:33.164939Z",
   "custom": {}
 }
