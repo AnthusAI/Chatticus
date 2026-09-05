@@ -61,10 +61,17 @@
       "text": "CI python Behave on PR 306 sat in_progress ~26m (307 Behave was ~4m). Canceled hung run 33987235303 and retriggered. If it hangs again, look for live STS or network in Gherkin.",
       "created_at": "2026-09-05T19:56:16.325572Z",
       "comment_type": "default"
+    },
+    {
+      "id": "b4987f3e-ca77-4eab-82e2-03df744afc5c",
+      "author": "home",
+      "text": "PR #306 review: request changes. `host_starter_from_env` dropped the `CHATTICUS_HOST_STARTER` gate, so staging/production ComputerWorker (no ECS host-start wiring) would crash on `CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID` or, if that env were added alone, would RunTask in a customer account. Implementer sent back; not merged. Same-account Gherkin and fail-closed account id still stand.",
+      "created_at": "2026-09-05T20:09:41.472086Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:07.323570Z",
-  "updated_at": "2026-09-05T19:56:16.325572Z",
+  "updated_at": "2026-09-05T20:09:41.472086Z",
   "closed_at": null,
   "custom": {}
 }
