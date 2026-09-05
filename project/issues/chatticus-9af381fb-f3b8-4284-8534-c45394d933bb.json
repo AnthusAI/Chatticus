@@ -63,10 +63,17 @@
       "text": "Phase A0 plan authorized with amendments: Linux Docker (not Darwin), two NFS clients for the ea918a staleness curve, pip-to-/tmp excluded from the D5 verdict ratio, kernel-NFS fallback to ganesha if Docker-on-Mac cannot export. Worktree `/tmp/chatticus-9af381-netem` on `spike/nfs-wan-netem-9af381`. Worker does not write Kanbus; manager will record numbers after results.",
       "created_at": "2026-09-05T20:50:25.869336Z",
       "comment_type": "default"
+    },
+    {
+      "id": "c1c0ad69-aa45-483f-86cd-8726c29921b4",
+      "author": "home",
+      "text": "Phase A0 first run (PR #310, not merged): nfs-ganesha, claimed 20ms netem, warm git status ~30s vs local ~0.01s, stat sweep ~32s vs ~0.02s. That *looks* like ~1 RTT per file on a 976-file tree — **if** the delay is WAN.\n\nDo not treat it as a D5 verdict yet. nfsstat never captured; ping RTT not recorded; local checkout 0.0s inflated the 57680x ratio; two-client “staleness” ~32s is git-status duration on client-b, not cache delay. Sent back: LAN NFS control, `test -f` probe, wall-clock table, commit timing JSON.",
+      "created_at": "2026-09-05T22:23:57.217519Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:08:29.618306Z",
-  "updated_at": "2026-09-05T20:50:25.869336Z",
+  "updated_at": "2026-09-05T22:23:57.217519Z",
   "closed_at": null,
   "custom": {}
 }
