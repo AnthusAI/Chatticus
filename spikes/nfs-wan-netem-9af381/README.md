@@ -22,7 +22,8 @@ I/O and is excluded — see below).
 | 3-10x | Marginal; reopen org-on-EFS / local hot tree split |
 | Over 10x | Local interactive host not viable |
 
-`ratio_overall = max(ratio_git_status, ratio_checkout, ratio_stat_sweep)`.
+`ratio_overall = max(ratio_git_status, ratio_stat_sweep)` when local checkout is
+below timer resolution; otherwise includes checkout.
 
 ## Operations
 

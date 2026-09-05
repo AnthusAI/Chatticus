@@ -32,11 +32,24 @@ echo "=== Start clients ==="
 docker compose up -d client-a client-b local-control
 sleep 5
 
+echo "=== Measure ping RTT ==="
+bash scripts/measure-rtt.sh
+
 echo "=== Local disk baseline ==="
 docker compose exec -T local-control bash /scripts/run-local-benchmark.sh
 
+echo "=== LAN NFS control (no netem) ==="
+docker compose exec -T client-a bash -c "tc qdisc del dev eth0 root 2>/dev/null || true"
+docker compose exec -T client-a bash /scripts/run-lan-benchmark.sh
+
+echo "=== Re-apply netem for WAN benchmarks ==="
+docker compose exec -T client-a bash -c "
+    tc qdisc del dev eth0 root 2>/dev/null || true
+    tc qdisc add dev eth0 root netem delay 20ms
+"
+
 for ACTIMEO in default 1 15 60 300; do
-    echo "=== NFS benchmark actimeo=${ACTIMEO} ==="
+    echo "=== NFS WAN benchmark actimeo=${ACTIMEO} ==="
     docker compose exec -T client-a bash /scripts/run-nfs-benchmark.sh "$ACTIMEO"
 done
 

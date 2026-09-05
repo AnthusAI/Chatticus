@@ -3,17 +3,8 @@ set -euo pipefail
 
 NFS_SERVER="${NFS_SERVER:-172.28.0.2}"
 MOUNT_POINT="${MOUNT_POINT:-/workspace}"
-ACTIMEO="${1:-default}"
 
 source /scripts/lib-bench.sh
-
-mount_opts() {
-    local opts="vers=4.1,timeo=600,retrans=2"
-    if [ "$ACTIMEO" != "default" ]; then
-        opts="${opts},actimeo=${ACTIMEO}"
-    fi
-    echo "$opts"
-}
 
 do_mount() {
     mkdir -p "$MOUNT_POINT"
@@ -21,17 +12,17 @@ do_mount() {
         umount -l "$MOUNT_POINT" 2>/dev/null || umount "$MOUNT_POINT" || true
         sleep 1
     fi
-    mount -t nfs -o "$(mount_opts)" "${NFS_SERVER}:/exports/workspace" "$MOUNT_POINT"
+    mount -t nfs -o vers=4.1,timeo=600,retrans=2 "${NFS_SERVER}:/exports/workspace" "$MOUNT_POINT"
 }
 
 REPO="${MOUNT_POINT}/chatticus"
 PIP_DEST="${MOUNT_POINT}/.pip-scratch"
 RUNS=3
-TAG="nfs-actimeo-${ACTIMEO}"
+TAG="nfs-lan"
 
 mkdir -p /results/raw
 do_mount
-echo "Benchmark ${TAG} on $(hostname) (netem active)"
+echo "Benchmark ${TAG} on $(hostname) (no netem)"
 
 drop_caches() {
     sync
@@ -63,8 +54,8 @@ mp="$(median "${ps[@]}")"
 cat >/results/raw/${TAG}.json <<EOF
 {
   "condition": "${TAG}",
-  "actimeo": "${ACTIMEO}",
-  "netem": true,
+  "actimeo": "default",
+  "netem": false,
   "host": "$(hostname)",
   "runs": ${RUNS},
   "median_seconds": {

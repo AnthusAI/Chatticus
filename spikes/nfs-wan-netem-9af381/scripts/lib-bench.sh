@@ -18,11 +18,17 @@ PY
 timed_run() {
     local label="$1"
     shift
-    local out
-    out="$( { /usr/bin/time -p bash -c "git config --global --add safe.directory '*' 2>/dev/null; $*" ; } 2>&1 )"
-    local real
-    real="$(echo "$out" | awk '/^real /{print $2}')"
-    echo "$real"
+    python3 - "$@" <<'PY'
+import subprocess, sys, time
+cmd = sys.argv[1]
+start = time.perf_counter()
+subprocess.run(
+    ["bash", "-c", f"git config --global --add safe.directory '*' 2>/dev/null; {cmd}"],
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+)
+print(f"{time.perf_counter() - start:.4f}")
+PY
 }
 
 run_ops() {
@@ -38,35 +44,104 @@ run_ops() {
     echo "${git_status} ${checkout} ${stat_sweep} ${pip_install}"
 }
 
-nfsstat_snapshot() {
-    nfsstat -c 2>/dev/null || echo "nfsstat unavailable"
+rpc_snapshot() {
+    python3 <<'PY'
+import json
+import re
+import subprocess
+from pathlib import Path
+
+out = {"source": None, "ops": {}}
+
+mountstats = Path("/proc/self/mountstats")
+if mountstats.exists():
+    ops = {}
+    in_nfs = False
+    in_ops = False
+    for line in mountstats.read_text().splitlines():
+        if "mounted on /workspace with fstype nfs" in line:
+            in_nfs = True
+            in_ops = False
+            continue
+        if in_nfs and line.startswith("device ") and "/workspace" not in line:
+            break
+        if in_nfs and "per-op statistics" in line:
+            in_ops = True
+            continue
+        if in_nfs and in_ops:
+            m = re.match(r"\s+(\S+):\s+(\d+)", line)
+            if m:
+                ops[m.group(1).rstrip(":")] = int(m.group(2))
+            elif line.strip() == "":
+                continue
+            elif not line.startswith("\t"):
+                break
+    if ops:
+        out["source"] = "mountstats"
+        out["ops"] = ops
+        print(json.dumps(out))
+        raise SystemExit(0)
+
+nfs4 = Path("/proc/net/rpc/nfs4")
+if nfs4.exists():
+    ops = {}
+    for line in nfs4.read_text().splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0].endswith(":"):
+            key = parts[0].rstrip(":")
+            try:
+                ops[key] = int(parts[1])
+            except ValueError:
+                pass
+    if ops:
+        out["source"] = "proc_net_rpc_nfs4"
+        out["ops"] = ops
+        print(json.dumps(out))
+        raise SystemExit(0)
+
+try:
+    text = subprocess.check_output(["nfsstat", "-c"], stderr=subprocess.DEVNULL, text=True)
+except (subprocess.CalledProcessError, FileNotFoundError):
+    text = ""
+if text.strip():
+    ops = {}
+    for line in text.splitlines():
+        m = re.match(r"\s*(\S+):\s*(\d+)", line)
+        if m:
+            ops[m.group(1)] = int(m.group(2))
+    if ops:
+        print(json.dumps({"source": "nfsstat", "ops": ops}))
+        raise SystemExit(0)
+
+print(json.dumps({"source": "none", "ops": {}}))
+PY
 }
 
-diff_nfsstat() {
+diff_rpc() {
     local before_file="$1"
     local after_file="$2"
     local out="$3"
     python3 - "$before_file" "$after_file" "$out" <<'PY'
-import re, sys
-before, after, out = sys.argv[1:4]
-def parse(path):
-    counts = {}
-    if not path:
-        return counts
-    try:
-        text = open(path).read()
-    except OSError:
-        return counts
-    for line in text.splitlines():
-        m = re.match(r"\s*(\S+):\s*(\d+)", line)
-        if m:
-            counts[m.group(1)] = int(m.group(2))
-    return counts
-b, a = parse(before), parse(after)
-delta = {k: a.get(k, 0) - b.get(k, 0) for k in set(b) | set(a)}
-with open(out, "w") as f:
-    for k in sorted(delta):
-        if delta[k]:
-            f.write(f"{k}: {delta[k]}\n")
+import json, sys
+from pathlib import Path
+
+before = json.loads(Path(sys.argv[1]).read_text())
+after = json.loads(Path(sys.argv[2]).read_text())
+out = Path(sys.argv[3])
+keys = set(before.get("ops", {})) | set(after.get("ops", {}))
+delta = {}
+for k in sorted(keys):
+    d = after.get("ops", {}).get(k, 0) - before.get("ops", {}).get(k, 0)
+    if d:
+        delta[k] = d
+lines = [f"{k}: {v}" for k, v in delta.items()]
+out.write_text("\n".join(lines) + ("\n" if lines else ""))
+if not delta:
+    src_b = before.get("source")
+    src_a = after.get("source")
+    raise SystemExit(f"empty RPC delta (before={src_b} after={src_a})")
 PY
 }
+
+nfsstat_snapshot() { rpc_snapshot; }
+diff_nfsstat() { diff_rpc "$@"; }
