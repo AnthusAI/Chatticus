@@ -12,12 +12,17 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7178ab6b-9bfe-4b99-9c9b-748d4603b37a",
+      "author": "home",
+      "text": "Do not pass the published CloudFront URL to `aws cloudformation create-stack --template-url` — CloudFormation rejects it. GET `https://dev.chattic.us/provisioning/customer-role.yml` unmodified, then `--template-body`. Docs PR in flight to put that in `infra/README.md`.",
+      "created_at": "2026-09-05T20:21:34.815348Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-03T13:18:00.752745Z",
+  "updated_at": "2026-09-05T20:21:34.815348Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "custom": {}
 }
