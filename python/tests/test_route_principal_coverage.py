@@ -42,7 +42,7 @@ PRINCIPAL_ENFORCER_NAMES: frozenset[str] = frozenset(
 
 
 def _full_route_path(route: APIRoute, parent_prefix: str) -> str:
-    if route.path.startswith("/orgs/"):
+    if route.path.startswith("/orgs/") or route.path.startswith("/operator/"):
         return route.path
     return f"{parent_prefix.rstrip('/')}{route.path}"
 
@@ -111,6 +111,15 @@ def _route_has_principal_enforcer(route: APIRoute) -> bool:
     return False
 
 
+def _route_has_operator_enforcer(route: APIRoute) -> bool:
+    for call in _dependency_callables(route.dependant):
+        if call is enforce_operator_principal:
+            return True
+        if getattr(call, "__name__", "") == enforce_operator_principal.__name__:
+            return True
+    return False
+
+
 def _test_app() -> FastAPI:
     keys = make_cognito_test_keys()
     return create_app(
@@ -155,13 +164,23 @@ def test_all_operator_routes_wire_a_principal_enforcer() -> None:
     assert operator_routes, "expected at least one operator route"
 
     unprotected: list[str] = []
+    wrong_enforcer: list[str] = []
     for route, path in operator_routes:
-        if not _route_has_principal_enforcer(route):
-            for method in sorted(route.methods):
-                unprotected.append(f"{method} {path}")
+        has_operator_enforcer = _route_has_operator_enforcer(route)
+        for method in sorted(route.methods):
+            endpoint = f"{method} {path}"
+            if not has_operator_enforcer:
+                if _route_has_principal_enforcer(route):
+                    wrong_enforcer.append(endpoint)
+                else:
+                    unprotected.append(endpoint)
 
     assert not unprotected, "Operator routes missing principal enforcer:\n" + "\n".join(
         unprotected
+    )
+    assert not wrong_enforcer, (
+        "Operator routes must wire enforce_operator_principal, not another enforcer:\n"
+        + "\n".join(wrong_enforcer)
     )
 
 

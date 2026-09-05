@@ -543,8 +543,6 @@ def verify_org_access(
     plane: ControlPlane,
 ) -> None:
     """Check that *principal* may access *path_tenant_id* under *policy*."""
-    if principal.kind == PrincipalKind.OPERATOR:
-        return
     if principal.kind == PrincipalKind.WORKER:
         if principal.tenant_id != path_tenant_id:
             raise OrgAccessDeniedError(

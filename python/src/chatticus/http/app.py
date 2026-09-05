@@ -28,7 +28,6 @@ from chatticus.http.integration_test_auth import (
     load_integration_test_auth_config,
 )
 from chatticus.http.principal import (
-    RequireOperatorPrincipal,
     RequireUserPrincipal,
     RequireWorkerPrincipal,
     enforce_operator_principal,
@@ -1324,9 +1323,7 @@ def create_app(
     @operator_router.post("/enable")
     def operator_enable_organization(
         tenant_id: str,
-        principal: RequireOperatorPrincipal,
     ) -> OperatorOrganizationResponseBody:
-        del principal
         organization = state.plane.enable_organization(tenant_id)
         return _operator_organization_response(organization)
 
@@ -1334,9 +1331,7 @@ def create_app(
     @operator_router.post("/suspend")
     def operator_suspend_organization(
         tenant_id: str,
-        principal: RequireOperatorPrincipal,
     ) -> OperatorOrganizationResponseBody:
-        del principal
         organization = state.plane.suspend_organization(tenant_id)
         return _operator_organization_response(organization)
 
@@ -1344,9 +1339,7 @@ def create_app(
     @operator_router.post("/reinstate")
     def operator_reinstate_organization(
         tenant_id: str,
-        principal: RequireOperatorPrincipal,
     ) -> OperatorOrganizationResponseBody:
-        del principal
         organization = state.plane.reinstate_organization(tenant_id)
         return _operator_organization_response(organization)
 

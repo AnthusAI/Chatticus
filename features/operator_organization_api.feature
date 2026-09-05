@@ -61,6 +61,20 @@ Feature: Authenticated operator enable/suspend API
     Then the operator response status is 403
     And the organization status is unchanged
 
+  Scenario: A wrong operator bearer is rejected
+    Given an organization in pending status
+    When the enable endpoint is called with bearer "wrong-operator-secret"
+    Then the operator response status is 403
+    And the organization status is unchanged
+
+  Scenario: Invoke key and operator bearer together enable an organization
+    Given an organization in pending status
+    And the HTTP front door requires invoke key "edge-secret"
+    And an authenticated operator credential
+    When the operator calls the enable endpoint for that organization
+    Then the operator response status is 200
+    And the organization becomes enabled
+
   Scenario: Enabling a non-pending organization is refused
     Given an organization in enabled status
     And an authenticated operator credential
