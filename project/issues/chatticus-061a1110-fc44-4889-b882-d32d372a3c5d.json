@@ -54,10 +54,17 @@
       "text": "CI fix: conftest patches org_records.caller_aws_account_id so pytest never calls live STS. 565 passed with AWS creds unset.",
       "created_at": "2026-09-05T19:28:56.285669Z",
       "comment_type": "default"
+    },
+    {
+      "id": "1b84f2f1-7893-40a5-8e9e-a5af3f3591cf",
+      "author": "home",
+      "text": "CI python Behave on PR 306 sat in_progress ~26m (307 Behave was ~4m). Canceled hung run 33987235303 and retriggered. If it hangs again, look for live STS or network in Gherkin.",
+      "created_at": "2026-09-05T19:56:16.325572Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:07.323570Z",
-  "updated_at": "2026-09-05T19:28:56.285669Z",
+  "updated_at": "2026-09-05T19:56:16.325572Z",
   "closed_at": null,
   "custom": {}
 }
