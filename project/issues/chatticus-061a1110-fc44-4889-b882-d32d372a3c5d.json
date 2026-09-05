@@ -47,10 +47,17 @@
       "text": "Review fixes landed: same-account Anthus-managed Gherkin, fail-closed deployment account id (STS at seed), OPERATOR_ORG_SEED migration note. black/ruff/behave/pytest green in worktree (7 web SPA scenarios error on missing tsx, pre-existing).",
       "created_at": "2026-09-05T18:34:17.768376Z",
       "comment_type": "default"
+    },
+    {
+      "id": "e669c353-70b0-490d-bcc5-16da4d7c1561",
+      "author": "home",
+      "text": "CI fix: conftest patches org_records.caller_aws_account_id so pytest never calls live STS. 565 passed with AWS creds unset.",
+      "created_at": "2026-09-05T19:28:56.285669Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:07.323570Z",
-  "updated_at": "2026-09-05T18:34:17.768376Z",
+  "updated_at": "2026-09-05T19:28:56.285669Z",
   "closed_at": null,
   "custom": {}
 }
