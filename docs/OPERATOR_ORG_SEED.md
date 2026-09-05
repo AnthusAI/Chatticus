@@ -134,6 +134,28 @@ no computer row created by seed for that owner. Existing bots and channels
 under `anthus` / `ryan` should remain readable through the control plane
 unchanged.
 
+## HTTP API for external callers
+
+External systems (for example the private SaaS billing layer) can enable,
+suspend, and reinstate organizations through the authenticated operator HTTP
+API instead of shell access to the members CLI.
+
+```http
+POST /operator/orgs/{tenant_id}/enable
+POST /operator/orgs/{tenant_id}/suspend
+POST /operator/orgs/{tenant_id}/reinstate
+Authorization: Bearer <operator-key>
+```
+
+The operator bearer is deployment-wide. It is stored in Secrets Manager as
+`OperatorKey` and injected into the thin-turn Lambda as
+`CHATTICUS_OPERATOR_KEY`. The CloudFront invoke key is still required at the
+edge when configured; it is not operator identity.
+
+Self-hosters with AWS credentials and `CHATTICUS_MESSAGING_TABLE` can keep
+using `python -m chatticus.members` for the same transitions. The CLI and the
+HTTP API are two callers of one control-plane implementation.
+
 ## What not to do
 
 - Do not edit Dynamo rows by hand except through this CLI.

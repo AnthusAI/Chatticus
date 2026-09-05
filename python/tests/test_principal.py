@@ -37,8 +37,12 @@ from chatticus.principal import (
 NOW = datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC)
 
 
-def test_principal_kind_has_user_and_worker_only() -> None:
-    assert set(PrincipalKind) == {PrincipalKind.USER, PrincipalKind.WORKER}
+def test_principal_kind_includes_user_worker_and_operator() -> None:
+    assert set(PrincipalKind) == {
+        PrincipalKind.USER,
+        PrincipalKind.WORKER,
+        PrincipalKind.OPERATOR,
+    }
 
 
 def test_role_is_member_role() -> None:

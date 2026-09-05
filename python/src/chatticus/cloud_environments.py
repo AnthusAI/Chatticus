@@ -233,3 +233,34 @@ def resolve_invoke_key_for_environment(
         "secretsmanager", region_name=resolved_region
     ).get_secret_value(SecretId=arn)
     return secret["SecretString"]
+
+
+def resolve_operator_key_for_environment(
+    environment: CloudEnvironment,
+    *,
+    operator_key: str | None = None,
+    region: str | None = None,
+) -> str:
+    """Return the thin-turn operator bearer credential for a named environment.
+
+    Order: explicit value, ``CHATTICUS_OPERATOR_KEY``, Secrets Manager
+    ``OperatorKeySecretArn`` from the thin-turn stack.
+    """
+    explicit = (operator_key or os.environ.get("CHATTICUS_OPERATOR_KEY", "")).strip()
+    if explicit:
+        return explicit
+    resolved_region = (
+        region
+        or os.environ.get("AWS_REGION")
+        or os.environ.get("AWS_DEFAULT_REGION")
+        or "us-east-1"
+    )
+    arn = thin_turn_stack_output(
+        environment, "OperatorKeySecretArn", region=resolved_region
+    )
+    import boto3
+
+    secret = boto3.client(
+        "secretsmanager", region_name=resolved_region
+    ).get_secret_value(SecretId=arn)
+    return secret["SecretString"]

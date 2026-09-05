@@ -15,6 +15,7 @@ class PrincipalKind(StrEnum):
 
     USER = "user"
     WORKER = "worker"
+    OPERATOR = "operator"
 
 
 @dataclass(frozen=True)

@@ -49,6 +49,7 @@ export interface ThinTurnStackProps extends cdk.StackProps {
 export class ThinTurnStack extends cdk.Stack {
   readonly frontDoorFunctionUrl: lambda.FunctionUrl;
   readonly invokeSecret: secretsmanager.ISecret;
+  readonly operatorSecret: secretsmanager.ISecret;
 
   constructor(scope: Construct, id: string, props: ThinTurnStackProps) {
     super(scope, id, props);
@@ -98,6 +99,16 @@ export class ThinTurnStack extends cdk.Stack {
       },
     });
     this.invokeSecret = invokeSecret;
+
+    const operatorSecret = new secretsmanager.Secret(this, "OperatorKey", {
+      description: `Operator bearer credential for the Chatticus ${environmentName} thin-turn front door.`,
+      removalPolicy: dataRetention,
+      generateSecretString: {
+        passwordLength: 32,
+        excludePunctuation: true,
+      },
+    });
+    this.operatorSecret = operatorSecret;
 
     const openaiParameter = ssm.StringParameter.fromSecureStringParameterAttributes(
       this,
@@ -199,6 +210,7 @@ export class ThinTurnStack extends cdk.Stack {
         AWS_LWA_PORT: "8080",
         AWS_LWA_READINESS_CHECK_PATH: "/health",
         CHATTICUS_INVOKE_KEY: invokeSecret.secretValue.unsafeUnwrap(),
+        CHATTICUS_OPERATOR_KEY: operatorSecret.secretValue.unsafeUnwrap(),
         ...(environmentName !== "production"
           ? { CHATTICUS_INTEGRATION_TEST_ENABLED: "1" }
           : {}),
@@ -471,6 +483,11 @@ export class ThinTurnStack extends cdk.Stack {
       stringValue: invokeSecret.secretArn,
       description: `Invoke-key secret ARN for the ${environmentName} thin-turn front door.`,
     });
+    new ssm.StringParameter(this, "OperatorKeySecretArnParameter", {
+      parameterName: `${parameterPrefix}/operator-key-secret-arn`,
+      stringValue: operatorSecret.secretArn,
+      description: `Operator-key secret ARN for the ${environmentName} thin-turn front door.`,
+    });
     new ssm.StringParameter(this, "TurnQueueUrlParameter", {
       parameterName: `${parameterPrefix}/turn-queue-url`,
       stringValue: turnQueue.queueUrl,
@@ -514,6 +531,13 @@ export class ThinTurnStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "InvokeKeySecretArnOutput", {
       value: invokeSecret.secretArn,
+    });
+    new cdk.CfnOutput(this, "OperatorKeySecretArn", {
+      value: operatorSecret.secretArn,
+      exportName: thinTurnExportName(environmentName, "operator-key-secret-arn"),
+    });
+    new cdk.CfnOutput(this, "OperatorKeySecretArnOutput", {
+      value: operatorSecret.secretArn,
     });
   }
 }

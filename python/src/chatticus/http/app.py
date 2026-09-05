@@ -30,8 +30,10 @@ from chatticus.http.integration_test_auth import (
 from chatticus.http.principal import (
     RequireUserPrincipal,
     RequireWorkerPrincipal,
+    enforce_operator_principal,
     enforce_user_principal,
     enforce_worker_principal,
+    operator_route,
     resolve_me_from_token,
     waitlist_safe,
 )
@@ -56,6 +58,7 @@ from chatticus.models import (
     OrganizationNameTooLongError,
     OrganizationNotFoundError,
     OrganizationOwnerCapError,
+    OrganizationStatusTransitionError,
     PriceSensitivityAnswers,
     StaleAttemptError,
     TaskAccessDeniedError,
@@ -330,12 +333,21 @@ class CreateInvitationResponseBody(BaseModel):
     expires_at: str
 
 
+class OperatorOrganizationResponseBody(BaseModel):
+    """Response for operator organization lifecycle routes."""
+
+    tenant_id: str
+    name: str
+    status: str
+
+
 @dataclass
 class AppState:
     """Mutable front-door state attached to each app instance."""
 
     plane: ControlPlane
     invoke_key: str
+    operator_key: str
     environment: str
     email_sender: EmailSender
     cognito_verifier: CognitoJwtVerifier | None = None
@@ -357,6 +369,7 @@ def create_app(
     plane: ControlPlane,
     *,
     invoke_key: str | None = None,
+    operator_key: str | None = None,
     environment: str | None = None,
     cognito_verifier: CognitoJwtVerifier | None = None,
     signup_mode: SignupMode | None = None,
@@ -367,6 +380,11 @@ def create_app(
         invoke_key
         if invoke_key is not None
         else os.environ.get("CHATTICUS_INVOKE_KEY", "")
+    ).strip()
+    resolved_operator_key = (
+        operator_key
+        if operator_key is not None
+        else os.environ.get("CHATTICUS_OPERATOR_KEY", "")
     ).strip()
     resolved_environment = (
         environment
@@ -379,6 +397,7 @@ def create_app(
     state = AppState(
         plane=plane,
         invoke_key=resolved_key,
+        operator_key=resolved_operator_key,
         environment=resolved_environment,
         email_sender=plane.email_sender,
         cognito_verifier=cognito_verifier,
@@ -412,6 +431,10 @@ def create_app(
         return await call_next(request)  # type: ignore[misc, operator]
 
     org_router = APIRouter(prefix="/orgs/{tenant_id}")
+    operator_router = APIRouter(
+        prefix="/operator/orgs/{tenant_id}",
+        dependencies=[Depends(enforce_operator_principal)],
+    )
     worker_router = APIRouter(dependencies=[Depends(enforce_worker_principal)])
     user_router = APIRouter(dependencies=[Depends(enforce_user_principal)])
 
@@ -1287,6 +1310,41 @@ def create_app(
     org_router.include_router(user_router)
     app.include_router(org_router)
 
+    def _operator_organization_response(
+        organization: object,
+    ) -> OperatorOrganizationResponseBody:
+        return OperatorOrganizationResponseBody(
+            tenant_id=organization.tenant_id,
+            name=organization.name,
+            status=organization.status.value,
+        )
+
+    @operator_route
+    @operator_router.post("/enable")
+    def operator_enable_organization(
+        tenant_id: str,
+    ) -> OperatorOrganizationResponseBody:
+        organization = state.plane.enable_organization(tenant_id)
+        return _operator_organization_response(organization)
+
+    @operator_route
+    @operator_router.post("/suspend")
+    def operator_suspend_organization(
+        tenant_id: str,
+    ) -> OperatorOrganizationResponseBody:
+        organization = state.plane.suspend_organization(tenant_id)
+        return _operator_organization_response(organization)
+
+    @operator_route
+    @operator_router.post("/reinstate")
+    def operator_reinstate_organization(
+        tenant_id: str,
+    ) -> OperatorOrganizationResponseBody:
+        organization = state.plane.reinstate_organization(tenant_id)
+        return _operator_organization_response(organization)
+
+    app.include_router(operator_router)
+
     return app
 
 
@@ -1319,6 +1377,8 @@ def _status_for_error(error: ChatticusError) -> int:
     if isinstance(error, OrganizationNotFoundError):
         return 404
     if isinstance(error, OrganizationOwnerCapError):
+        return 409
+    if isinstance(error, OrganizationStatusTransitionError):
         return 409
     if isinstance(error, OrganizationCreationRateLimitedError):
         return 429
