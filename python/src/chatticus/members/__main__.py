@@ -15,7 +15,6 @@ from chatticus.models import (
     MemberRole,
     Organization,
     OrganizationStatus,
-    OrganizationStatusTransitionError,
 )
 from chatticus.worker.openai_completion import load_local_env
 
@@ -217,11 +216,6 @@ def _cmd_enable(plane: ControlPlane, tenant_id: str, *, yes: bool) -> int:
     organization = plane.get_organization(tenant_id)
     _require_yes(yes, action="enable")
     _print_org_summary(organization)
-    if organization.status != OrganizationStatus.PENDING:
-        raise OrganizationStatusTransitionError(
-            f"Organization {tenant_id!r} has status "
-            f"{organization.status!r}; enable requires pending."
-        )
     updated = plane.enable_organization(tenant_id)
     print(f"enabled tenant_id={updated.tenant_id} status={updated.status}")
     return 0
@@ -231,11 +225,6 @@ def _cmd_suspend(plane: ControlPlane, tenant_id: str, *, yes: bool) -> int:
     organization = plane.get_organization(tenant_id)
     _require_yes(yes, action="suspend")
     _print_org_summary(organization)
-    if organization.status != OrganizationStatus.ENABLED:
-        raise OrganizationStatusTransitionError(
-            f"Organization {tenant_id!r} has status "
-            f"{organization.status!r}; suspend requires enabled."
-        )
     updated = plane.suspend_organization(tenant_id)
     print(f"suspended tenant_id={updated.tenant_id} status={updated.status}")
     return 0
@@ -245,11 +234,6 @@ def _cmd_reinstate(plane: ControlPlane, tenant_id: str, *, yes: bool) -> int:
     organization = plane.get_organization(tenant_id)
     _require_yes(yes, action="reinstate")
     _print_org_summary(organization)
-    if organization.status != OrganizationStatus.SUSPENDED:
-        raise OrganizationStatusTransitionError(
-            f"Organization {tenant_id!r} has status "
-            f"{organization.status!r}; reinstate requires suspended."
-        )
     updated = plane.reinstate_organization(tenant_id)
     print(f"reinstated tenant_id={updated.tenant_id} status={updated.status}")
     return 0

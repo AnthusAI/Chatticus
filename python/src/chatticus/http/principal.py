@@ -23,6 +23,12 @@ from chatticus.models import (
     MembershipNotFoundError,
     OrganizationStatus,
 )
+from chatticus.operator_credentials import (
+    operator_auth_failure_detail,
+    operator_key_configured,
+    parse_operator_bearer,
+    verify_operator_bearer,
+)
 from chatticus.principal import Principal, PrincipalKind
 from chatticus.worker_credentials import parse_bearer_token
 
@@ -66,6 +72,7 @@ class PrincipalAudience(StrEnum):
 
     USER = "user"
     WORKER = "worker"
+    OPERATOR = "operator"
 
 
 @dataclass(frozen=True)
@@ -172,6 +179,16 @@ def worker_route[T](route_handler: T) -> T:
     return route_handler
 
 
+def operator_route[T](route_handler: T) -> T:
+    """Mark one route as operator-only and requiring a bearer credential."""
+    setattr(
+        route_handler,
+        _PRINCIPAL_POLICY_ATTR,
+        PrincipalRoutePolicy(audience=PrincipalAudience.OPERATOR),
+    )
+    return route_handler
+
+
 def resolve_worker_principal_from_token(
     plane: ControlPlane,
     tenant_id: str,
@@ -186,6 +203,15 @@ def resolve_worker_principal_from_token(
         tenant_id=tenant_id,
         worker_id=worker_id,
     )
+
+
+def resolve_operator_principal_from_token(token: str, operator_key: str) -> Principal:
+    """Map one bearer token to a deployment-wide operator principal."""
+    if not operator_key_configured(operator_key):
+        raise HTTPException(status_code=403, detail=operator_auth_failure_detail())
+    if not verify_operator_bearer(token, operator_key):
+        raise HTTPException(status_code=403, detail=operator_auth_failure_detail())
+    return Principal(kind=PrincipalKind.OPERATOR, tenant_id="")
 
 
 # Warm-life cache: membership rows for one Lambda container.
@@ -316,6 +342,24 @@ async def resolve_worker_bearer(request: Request, tenant_id: str) -> Principal:
     return resolve_worker_principal_from_token(plane, tenant_id, token)
 
 
+async def enforce_operator_principal(request: Request) -> Principal:
+    """Require a valid operator bearer credential for one operator route."""
+    operator_key = request.app.state.chatticus.operator_key
+    if not operator_key_configured(operator_key):
+        raise HTTPException(status_code=403, detail=operator_auth_failure_detail())
+    token = parse_operator_bearer(request.headers.get("Authorization"))
+    if token is None:
+        raise HTTPException(status_code=403, detail=operator_auth_failure_detail())
+    principal = resolve_operator_principal_from_token(token, operator_key)
+    policy = PrincipalRoutePolicy(audience=PrincipalAudience.OPERATOR)
+    try:
+        verify_principal_audience(principal, audience=policy.audience)
+    except PrincipalAudienceDeniedError as error:
+        raise _http_forbidden_from_principal_error(error) from error
+    _store_principal(request, principal)
+    return principal
+
+
 async def enforce_worker_principal(request: Request, tenant_id: str) -> Principal:
     """Require a valid worker bearer credential for one org-scoped route."""
     principal = await resolve_worker_bearer(request, tenant_id)
@@ -406,9 +450,11 @@ async def enforce_user_principal(request: Request, tenant_id: str) -> Principal:
 
 RequireWorkerPrincipal = Annotated[Principal, Depends(enforce_worker_principal)]
 RequireUserPrincipal = Annotated[Principal, Depends(enforce_user_principal)]
+RequireOperatorPrincipal = Annotated[Principal, Depends(enforce_operator_principal)]
 
 require_worker_principal = enforce_worker_principal
 require_user_principal = enforce_user_principal
+require_operator_principal = enforce_operator_principal
 
 
 async def resolve_principal(request: Request) -> Principal:
@@ -470,12 +516,23 @@ def verify_principal_audience(
     audience: PrincipalAudience,
 ) -> None:
     """Check that *principal* matches the declared route *audience*."""
-    if audience == PrincipalAudience.WORKER and principal.kind != PrincipalKind.WORKER:
-        raise PrincipalAudienceDeniedError("This route requires a worker credential.")
-    if audience == PrincipalAudience.USER and principal.kind != PrincipalKind.USER:
-        raise PrincipalAudienceDeniedError(
-            "This route does not accept a worker credential."
-        )
+    if audience == PrincipalAudience.OPERATOR:
+        if principal.kind != PrincipalKind.OPERATOR:
+            raise PrincipalAudienceDeniedError(
+                "This route requires an operator credential."
+            )
+        return
+    if audience == PrincipalAudience.WORKER:
+        if principal.kind != PrincipalKind.WORKER:
+            raise PrincipalAudienceDeniedError(
+                "This route requires a worker credential."
+            )
+        return
+    if audience == PrincipalAudience.USER:
+        if principal.kind != PrincipalKind.USER:
+            raise PrincipalAudienceDeniedError(
+                "This route does not accept a worker credential."
+            )
 
 
 def verify_org_access(
@@ -486,6 +543,8 @@ def verify_org_access(
     plane: ControlPlane,
 ) -> None:
     """Check that *principal* may access *path_tenant_id* under *policy*."""
+    if principal.kind == PrincipalKind.OPERATOR:
+        return
     if principal.kind == PrincipalKind.WORKER:
         if principal.tenant_id != path_tenant_id:
             raise OrgAccessDeniedError(

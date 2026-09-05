@@ -15,6 +15,7 @@ from chatticus.control_plane import ControlPlane
 from chatticus.http.app import create_app
 from chatticus.http.paths import org_path
 from chatticus.http.principal import (
+    enforce_operator_principal,
     enforce_user_principal,
     enforce_worker_principal,
     is_no_principal_route,
@@ -26,9 +27,14 @@ from chatticus.org_records import ANTHUS_TENANT_ID
 NOW = datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC)
 
 ORG_SCOPED_PREFIX = "/orgs/{tenant_id}/"
+OPERATOR_PREFIX = "/operator/"
 WORKER_REGISTER_ROUTE = ("POST", f"{ORG_SCOPED_PREFIX}workers/register")
 PRINCIPAL_ENFORCERS: frozenset[Callable[..., object]] = frozenset(
-    {enforce_user_principal, enforce_worker_principal}
+    {
+        enforce_user_principal,
+        enforce_worker_principal,
+        enforce_operator_principal,
+    }
 )
 PRINCIPAL_ENFORCER_NAMES: frozenset[str] = frozenset(
     {enforcer.__name__ for enforcer in PRINCIPAL_ENFORCERS}
@@ -41,8 +47,10 @@ def _full_route_path(route: APIRoute, parent_prefix: str) -> str:
     return f"{parent_prefix.rstrip('/')}{route.path}"
 
 
-def _iter_org_api_routes(app: FastAPI) -> Iterator[tuple[APIRoute, str]]:
-    """Yield every org-scoped APIRoute and its fully qualified path."""
+def _iter_api_routes(
+    app: FastAPI, *, path_prefix: str
+) -> Iterator[tuple[APIRoute, str]]:
+    """Yield every APIRoute under *path_prefix* and its fully qualified path."""
 
     def walk(
         router_routes: list[object], prefix: str = ""
@@ -50,7 +58,7 @@ def _iter_org_api_routes(app: FastAPI) -> Iterator[tuple[APIRoute, str]]:
         for route in router_routes:
             if isinstance(route, APIRoute):
                 path = _full_route_path(route, prefix)
-                if path.startswith(ORG_SCOPED_PREFIX):
+                if path.startswith(path_prefix):
                     yield route, path
                 continue
             original_router = getattr(route, "original_router", None)
@@ -63,6 +71,16 @@ def _iter_org_api_routes(app: FastAPI) -> Iterator[tuple[APIRoute, str]]:
                 yield from walk(nested_routes, prefix)
 
     yield from walk(app.router.routes)
+
+
+def _iter_org_api_routes(app: FastAPI) -> Iterator[tuple[APIRoute, str]]:
+    """Yield every org-scoped APIRoute and its fully qualified path."""
+    yield from _iter_api_routes(app, path_prefix=ORG_SCOPED_PREFIX)
+
+
+def _iter_operator_api_routes(app: FastAPI) -> Iterator[tuple[APIRoute, str]]:
+    """Yield every operator APIRoute and its fully qualified path."""
+    yield from _iter_api_routes(app, path_prefix=OPERATOR_PREFIX)
 
 
 def _dependency_callables(
@@ -95,7 +113,12 @@ def _route_has_principal_enforcer(route: APIRoute) -> bool:
 
 def _test_app() -> FastAPI:
     keys = make_cognito_test_keys()
-    return create_app(ControlPlane(), invoke_key="", cognito_verifier=keys.verifier())
+    return create_app(
+        ControlPlane(),
+        invoke_key="",
+        operator_key="test-operator-secret",
+        cognito_verifier=keys.verifier(),
+    )
 
 
 def test_all_org_scoped_routes_wire_a_principal_enforcer() -> None:
@@ -122,6 +145,22 @@ def test_all_org_scoped_routes_wire_a_principal_enforcer() -> None:
         exempt_found
     ), "POST /orgs/{tenant_id}/workers/register must exist as the open bootstrap route"
     assert not unprotected, "Org routes missing principal enforcer:\n" + "\n".join(
+        unprotected
+    )
+
+
+def test_all_operator_routes_wire_a_principal_enforcer() -> None:
+    app = _test_app()
+    operator_routes = list(_iter_operator_api_routes(app))
+    assert operator_routes, "expected at least one operator route"
+
+    unprotected: list[str] = []
+    for route, path in operator_routes:
+        if not _route_has_principal_enforcer(route):
+            for method in sorted(route.methods):
+                unprotected.append(f"{method} {path}")
+
+    assert not unprotected, "Operator routes missing principal enforcer:\n" + "\n".join(
         unprotected
     )
 
