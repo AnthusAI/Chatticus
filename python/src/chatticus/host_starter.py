@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from typing import Protocol
 
@@ -39,7 +40,8 @@ def host_starter_from_env(
     get_organization: Callable[[str], Organization] | None = None,
 ) -> HostStarter:
     """Return the configured host starter for this deployment."""
-    if get_organization is None:
+    kind = os.environ.get("CHATTICUS_HOST_STARTER", "noop").strip().lower()
+    if kind != "ecs" or get_organization is None:
         return NoOpHostStarter()
     from chatticus.organization_computer_host import (
         OrganizationComputerHostStarter,

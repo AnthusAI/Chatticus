@@ -33,8 +33,25 @@ def test_recording_host_starter_captures_claims() -> None:
 
 
 def test_host_starter_from_env_defaults_to_noop(monkeypatch: object) -> None:
+    from datetime import UTC, datetime
+
+    from chatticus.models import AwsSetupPath, Organization, OrganizationStatus
+
     monkeypatch.delenv("CHATTICUS_HOST_STARTER", raising=False)  # type: ignore[attr-defined]
-    assert isinstance(host_starter_from_env(), NoOpHostStarter)
+    monkeypatch.delenv("CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID", raising=False)  # type: ignore[attr-defined]
+    seeded = Organization(
+        tenant_id="anthus",
+        name="Anthus",
+        status=OrganizationStatus.ENABLED,
+        owner_user_id="owner",
+        created_at=datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC),
+        aws_account_id="123456789012",
+        aws_setup_path=AwsSetupPath.ANTHUS_MANAGED,
+    )
+    assert isinstance(
+        host_starter_from_env(lambda _tenant_id: seeded),
+        NoOpHostStarter,
+    )
 
 
 def test_host_starter_from_env_selects_organization_starter(
