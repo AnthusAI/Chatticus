@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { SPA_VIEWER_REQUEST_FUNCTION } from "../lib/cloudfront-functions";
 import { WEB_CLOUDFRONT_ENABLED, WEB_SITE_DOMAINS } from "../lib/environments";
+import { provisioningParameterPrefix } from "../lib/customer-role-template";
 import { synthWebStack } from "./web-stack-harness";
 
 describe("WebStack CloudFront enabled flag", () => {
@@ -28,6 +29,21 @@ describe("WebStack CloudFront enabled flag", () => {
     assert.ok(properties.DistributionId, "expected DistributionId to be set");
     assert.deepEqual(properties.DistributionPaths, ["/*"]);
   });
+
+  for (const environmentName of ["development", "staging", "production"] as const) {
+    it(`publishes customer-role.yml at a stable URL for ${environmentName}`, () => {
+      const template = synthWebStack(environmentName);
+      const siteDomain = WEB_SITE_DOMAINS[environmentName];
+      const templateUrl = `https://${siteDomain}/provisioning/customer-role.yml`;
+      template.hasResourceProperties("AWS::SSM::Parameter", {
+        Name: `${provisioningParameterPrefix(environmentName)}/customer-role-template-url`,
+        Value: templateUrl,
+      });
+      template.hasOutput("CustomerRoleTemplateUrl", {
+        Value: templateUrl,
+      });
+    });
+  }
 
   it("associates SPA viewer-request rewrite on the default behavior", () => {
     const template = synthWebStack("development");

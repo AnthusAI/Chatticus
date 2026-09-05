@@ -126,7 +126,11 @@ describe("SPA viewer-request rewrite", () => {
   });
 
   it("does not rewrite static assets that already have a file extension", () => {
-    for (const uri of ["/favicon.svg", "/_next/static/chunks/123.js"]) {
+    for (const uri of [
+      "/favicon.svg",
+      "/_next/static/chunks/123.js",
+      "/provisioning/customer-role.yml",
+    ]) {
       const request = runViewerRequest(SPA_VIEWER_REQUEST_FUNCTION, viewerRequestEvent(uri));
       assert.equal(request.uri, uri, uri);
     }

@@ -40,10 +40,17 @@
       "text": "Product PR feat/publish-customer-role-template-8a25af: customer-role.yml added as second Source on existing DeployWebsite (one BucketDeployment). URL https://hey.chattic.us/provisioning/customer-role.yml (+ dev/staging). SSM /chatticus/{env}/provisioning/customer-role-template-url. Issue stays in_progress until b88c0a runs prod URL unmodified.",
       "created_at": "2026-09-05T19:46:39.625818Z",
       "comment_type": "default"
+    },
+    {
+      "id": "27c97dc2-6187-49c7-ac44-2ee964c9f61c",
+      "author": "home",
+      "text": "PR #308 review fix: synth asserts one DeployWebsite with SourceObjectKeys.length=2; Asset2 zip has provisioning/customer-role.yml (not root); stub SPA asset has index.html only. Infra tests green. Still in_progress until b88c0a runs prod URL.",
+      "created_at": "2026-09-05T19:51:30.248616Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-05T19:46:39.625818Z",
+  "updated_at": "2026-09-05T19:51:30.248616Z",
   "closed_at": null,
   "custom": {}
 }
