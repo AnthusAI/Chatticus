@@ -68,10 +68,17 @@
       "text": "PR #306 review: request changes. `host_starter_from_env` dropped the `CHATTICUS_HOST_STARTER` gate, so staging/production ComputerWorker (no ECS host-start wiring) would crash on `CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID` or, if that env were added alone, would RunTask in a customer account. Implementer sent back; not merged. Same-account Gherkin and fail-closed account id still stand.",
       "created_at": "2026-09-05T20:09:41.472086Z",
       "comment_type": "default"
+    },
+    {
+      "id": "6365f7d9-9c14-4af2-8b08-fd34af4d1d1e",
+      "author": "home",
+      "text": "PR #306 gate restored (`612750f`): `host_starter_from_env` is NoOp unless `CHATTICUS_HOST_STARTER=ecs`, even when the lambda passes `get_organization`. Re-review and CI in flight; not merged.",
+      "created_at": "2026-09-05T20:10:40.283030Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:07.323570Z",
-  "updated_at": "2026-09-05T20:09:41.472086Z",
+  "updated_at": "2026-09-05T20:10:40.283030Z",
   "closed_at": null,
   "custom": {}
 }
