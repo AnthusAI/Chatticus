@@ -3,7 +3,7 @@
   "title": "Determine whether a bot can have concurrent turns in flight",
   "description": "## Question\n\n**Can one bot have two turns in flight at once?**\n\nFor example a routine wake-up firing while a user turn is live.\n\nThis is an **open question in `chatticus-fbae4e`** and it is answerable by reading the scheduler, not by running an experiment. Recorded so it gets read rather than assumed.\n\n## Why it matters\n\nUnder the EFS design it no longer threatens correctness — NFS arbitrates concurrent writers, which is the entire point of D3. But it still decides:\n\n- Whether two turns can sensibly **share one working tree**, or whether concurrent turns need separate workspaces\n- Whether the workspace scoping proposed in the initiative (`workspace_id` as a first-class noun, default one per bot) is sufficient, or whether the default needs to be finer\n- What `hydrate_required` means during the transition period, while the snapshot path is still the running implementation\n\n## Where to look\n\n- `python/src/chatticus/` — the in-memory scheduler\n- `features/turn_attempts.feature` — \"one request never becomes two answers or two bills from concurrent model calls\" suggests turn-level deduplication exists; whether that extends to *bot*-level serialization is the actual question\n- `features/single_computer_start.feature` — \"concurrent bots share one computer start\" establishes that concurrent *bots* share a computer, which is a different question from one bot's concurrent turns\n\n## Cost\n\nReading, not building.\n\n## Done when\n\nThe answer is recorded in `chatticus-fbae4e`'s open questions, with the scoping consequence stated either way.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 3,
   "assignee": null,
   "creator": null,
@@ -26,10 +26,17 @@
       "text": "Authorized. Create worktree then read and record. No AWS needed.",
       "created_at": "2026-09-05T18:24:40.246338Z",
       "comment_type": "default"
+    },
+    {
+      "id": "33d1be6c-fa2b-48ca-a8c6-9a2b41599850",
+      "author": "home",
+      "text": "**Answer: Yes.** One bot can have multiple turns in flight. There is no bot-level serialization in `enqueue_turn` / `_start_turn_for_bot`; `pending_jobs_for_bot` and `complete_pending_for_bot` handle multiple jobs per bot.\n\n**Turn-attempt dedup is separate:** `turn_attempts.feature` fences duplicate delivery of one logical enqueue per `turn_id`, not one turn per bot.\n\n**Same-channel nuance:** Two ACTIVE turns on one channel are allowed; the active-turn pointer is per-channel and shows only the latest (`_sync_active_channel_turn`).\n\n**Recorded on fbae4e** with `workspace_id` and `hydrate_required` scoping consequences.\n\nWorktree: `/tmp/chatticus-766c51-concurrent-turns` on `spike/concurrent-turns-766c51` (leave until issue closed).",
+      "created_at": "2026-09-05T18:25:37.647941Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:08:50.633090Z",
-  "updated_at": "2026-09-05T18:24:40.246338Z",
-  "closed_at": null,
+  "updated_at": "2026-09-05T18:25:37.660536Z",
+  "closed_at": "2026-09-05T18:25:37.660536Z",
   "custom": {}
 }
