@@ -75,10 +75,17 @@
       "text": "Docs PR #309: infra/README runbook is GET + `--template-body` (not CloudFront `--template-url`). Card still waits on `b88c0a`.",
       "created_at": "2026-09-05T20:22:31.511018Z",
       "comment_type": "default"
+    },
+    {
+      "id": "3e6e603d-8dc5-43c5-a110-4b8c4ff5353a",
+      "author": "home",
+      "text": "#309 squash-merged to develop (`7a36e2e`): customer-role runbook is GET + `--template-body`. This card stays in_progress until `b88c0a` runs the published URL unmodified.",
+      "created_at": "2026-09-05T20:32:58.759174Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-05T20:22:31.511018Z",
+  "updated_at": "2026-09-05T20:32:58.759174Z",
   "closed_at": null,
   "custom": {}
 }

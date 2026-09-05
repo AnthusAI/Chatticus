@@ -19,10 +19,17 @@
       "text": "Do not pass the published CloudFront URL to `aws cloudformation create-stack --template-url` — CloudFormation rejects it. GET `https://dev.chattic.us/provisioning/customer-role.yml` unmodified, then `--template-body`. Docs PR in flight to put that in `infra/README.md`.",
       "created_at": "2026-09-05T20:21:34.815348Z",
       "comment_type": "default"
+    },
+    {
+      "id": "8bf7c60e-896f-4d3e-9b22-915d112828be",
+      "author": "home",
+      "text": "Runbook on develop (`infra/README.md` via #309): GET `https://dev.chattic.us/provisioning/customer-role.yml`, then `create-stack --template-body`. Do not pass CloudFront as `--template-url`.",
+      "created_at": "2026-09-05T20:32:58.773439Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-05T20:21:34.815348Z",
+  "updated_at": "2026-09-05T20:32:58.773439Z",
   "closed_at": null,
   "custom": {}
 }
