@@ -84,6 +84,9 @@ on `develop` first and promotes to `main` for release.
 | staging (`staging.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
 | production (`hey.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
 
+Staging and production thin-turn stacks may lag `develop`; their web front doors
+stay dark until explicitly re-enabled and re-proven.
+
 Every org route requires a Cognito `id_token` or worker bearer on all three
 environments; only `/health` and `POST …/workers/register` (invoke-key gated)
 are open. Live-verified on each environment: `/health` 200, `/me` 403, org
@@ -118,11 +121,6 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   the no-op host starter.
 - **End-to-end customer-account RunTask** is not live-proven; measured
   onboarding and the customer runbook are still open work.
-- Phase 5 org-scoping (6c1a9b, 0814e6, ddf609) — in flight; will drop
-  `user_id` from bot/channel/computer identity
-- Org-scoped HTTP, worker bearer credentials, members CLI, budgets stack, and
-  turn recovery kernel — on `develop` ahead of staging/production thin-turn
-  deploys
 
 ### Public sites
 
@@ -132,9 +130,6 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 | [dev.chattic.us](https://dev.chattic.us) | Development product + API | Same-origin `/api`; product `/chat` at `/` |
 | [hey.chattic.us](https://hey.chattic.us) | Production product (planned) | Web CloudFront **disabled** (stack exists, dark) |
 | [staging.chattic.us](https://staging.chattic.us) | Staging (planned) | Web CloudFront **disabled** |
-
-Staging and production thin-turn stacks may lag `develop`; their web front doors
-stay dark until explicitly re-enabled and re-proven.
 
 ### Live acceptance gate
 
