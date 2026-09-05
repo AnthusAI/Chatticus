@@ -34,10 +34,17 @@
       "text": "## Spike complete (development, 2026-09-05)\n\nEvidence: PR #307 `spikes/long-running-job-0edb18/results/final/`.\n\n### Observation 1 — CHATTICUS_HOST_WORKER_SECONDS\nIdle poll exited at 135.7 s (106 iterations, no job). During active execute the 120 s poll deadline does not interrupt. Raising it alone is insufficient.\n\n### Observation 2 — SQS visibility\nQueue VisibilityTimeout=180 s. Held message without DeleteMessage/ChangeMessageVisibility; `ComputerWorker` never calls `queue_visibility_renewer`. Multi-day work exceeds SQS 12 h max regardless.\n\n### Observation 3 — Heartbeat\nHealthy workers 1 → 0 after 35 s without heartbeat (30 s timeout). `computer_host_worker` does not heartbeat during long execute. No busy-vs-dead distinction.\n\n### Observation 4 — Turn semantics\nAuthorized: 1800 s sleep + 2 GB PUT. Turn **failed** at ~T+4.5 min (`recovery attempts exhausted`); worker continued; S3 artifact landed; **no turn.completed**.\n\n### D8\nSee comment on chatticus-fbae4e — corrected, not confirmed as stated.",
       "created_at": "2026-09-05T19:25:59.134180Z",
       "comment_type": "default"
+    },
+    {
+      "id": "1d620c6a-87fd-4365-bb56-9b9ed675c40e",
+      "author": "home",
+      "text": "## Learnings\n\n- **A multi-day training run is not a turn.** Raising timeouts will not make it one. On the authorized 30 min sleep + 2 GB S3 PUT, the turn failed at ~4.5 min (`recovery attempts exhausted`) while the worker kept sleeping and the PUT later succeeded. No `turn.completed`.\n- `CHATTICUS_HOST_WORKER_SECONDS` (120) is an **idle poll** budget. Active `execute()` is not cut off by it. Raising it does not fix the turn loop.\n- SQS visibility on the computer queue is 180 s; `ComputerWorker` does not renew. AWS max visibility is 12 hours, so a multi-day job cannot be one queue message regardless of configuration.\n- Heartbeat timeout (30 s) drops a busy worker the same as a dead one. Routing rule 1 is correct for crashes and wrong for training hosts unless there is a separate liveness signal.\n- **D8 takeaway:** SQS + scoped S3 are necessary for artifacts and insufficient as \"the entire integration.\" Accelerated batch needs a manifold **job kind** (submit / poll / complete), results as objects.\n- Evidence: PR #307, `spikes/long-running-job-0edb18/results/final/`.\n",
+      "created_at": "2026-09-05T19:40:35.097418Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:08:09.390419Z",
-  "updated_at": "2026-09-05T19:25:59.165557Z",
+  "updated_at": "2026-09-05T19:40:35.097418Z",
   "closed_at": "2026-09-05T19:25:59.165557Z",
   "custom": {}
 }

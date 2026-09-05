@@ -35,10 +35,17 @@
       "text": "Phase A done (blocked: no Chatticus EFS). Parking as open. Phase B waits on CDK EFS + tunnel; not in progress until those exist.",
       "created_at": "2026-09-05T19:26:54.825353Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f442113c-ab49-4688-83e2-5cbec774817f",
+      "author": "home",
+      "text": "## Learnings (Phase A)\n\n- **You cannot measure NFS-over-WAN until a Chatticus workplace EFS exists.** Account `335163751677` has a Chatticus VPC (`vpc-0c5a0f0ca21e2afdd` from `ChatticusComputers`) with no EFS, no mount targets, no WireGuard/tunnel EC2, and no EFS in CDK.\n- The only EFS in the account is Kanbus (`fs-09fcbd58a2e2d2c98`). Using it for Chatticus numbers would contaminate another product's filesystem and would not be the workplace mount D1 describes. Do not mount it.\n- DNS, SG 2049 from a tunnel subnet, and `amazon-efs-utils` TLS/stunnel were not run because the prerequisite filesystem is missing. That is a complete Phase A result, not a skipped test.\n- D5's FS-Cache vs `actimeo` distinction is already recorded on `fbae4e`. Phase B (thresholds vs local disk) still waits on CDK EFS + tunnel + a garage Linux VM.\n- Local interactive host remains the least valuable slice and is correctly still gated here. AWS-host EFS simplification and accelerated batch do not wait on this spike.\n",
+      "created_at": "2026-09-05T19:40:35.110657Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:08:29.618306Z",
-  "updated_at": "2026-09-05T19:26:54.825353Z",
+  "updated_at": "2026-09-05T19:40:35.110657Z",
   "closed_at": null,
   "custom": {}
 }

@@ -33,10 +33,17 @@
       "text": "**Answer: Yes.** One bot can have multiple turns in flight. There is no bot-level serialization in `enqueue_turn` / `_start_turn_for_bot`; `pending_jobs_for_bot` and `complete_pending_for_bot` handle multiple jobs per bot.\n\n**Turn-attempt dedup is separate:** `turn_attempts.feature` fences duplicate delivery of one logical enqueue per `turn_id`, not one turn per bot.\n\n**Same-channel nuance:** Two ACTIVE turns on one channel are allowed; the active-turn pointer is per-channel and shows only the latest (`_sync_active_channel_turn`).\n\n**Recorded on fbae4e** with `workspace_id` and `hydrate_required` scoping consequences.\n\nWorktree: `/tmp/chatticus-766c51-concurrent-turns` on `spike/concurrent-turns-766c51` (leave until issue closed).",
       "created_at": "2026-09-05T18:25:37.647941Z",
       "comment_type": "default"
+    },
+    {
+      "id": "3352bb79-7ee1-471b-bc67-9054f46a3f44",
+      "author": "home",
+      "text": "## Learnings\n\n- **Turns are not serialized per bot.** Admission (`enqueue_turn` / `_start_turn_for_bot`) always creates another turn. `turn_attempts.feature` only fences duplicate *delivery* of one `turn_id`.\n- One bot, two channels, two actives is already in `messages.feature`. Same channel can hold two ACTIVE turns; the pointer API shows only the latest.\n- **Do not treat \"one workspace per bot\" as a lock.** Concurrent turns must declare `workspace_id` (or an explicit share policy) if they need an exclusive tree. Under EFS, NFS locking is the writer arbitration; workspace scope is the product isolation boundary.\n- `hydrate_required` is a computer/org transition gate, not a bot mutex. It goes away when snapshots go away (D3).\n- Routine wake-up during a live user turn is allowed by today's admission path even though routines are not fully wired.\n",
+      "created_at": "2026-09-05T19:40:35.083561Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:08:50.633090Z",
-  "updated_at": "2026-09-05T18:25:37.660536Z",
+  "updated_at": "2026-09-05T19:40:35.083561Z",
   "closed_at": "2026-09-05T18:25:37.660536Z",
   "custom": {}
 }
