@@ -18,10 +18,7 @@ import boto3
 SPIKE_ROOT = Path(__file__).resolve().parent
 RESULTS_ROOT = SPIKE_ROOT / "results"
 
-S3_BUCKET = os.environ.get(
-    "CHATTICUS_SNAPSHOT_BUCKET",
-    "chatticussnapshots-computersnapshotsb892d73f-r8qgykc9zjiq",
-)
+S3_BUCKET = os.environ.get("CHATTICUS_SNAPSHOT_BUCKET", "<snapshot-bucket-name>")
 S3_PREFIX = os.environ.get("CHATTICUS_SPIKE_S3_PREFIX", "spikes/0edb18")
 
 

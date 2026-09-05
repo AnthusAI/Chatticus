@@ -7,7 +7,7 @@
   "upload_started_at": "2026-09-05T19:12:15.561711+00:00",
   "upload_finished_at": "2026-09-05T19:25:17.361628+00:00",
   "upload_result": {
-    "bucket": "chatticussnapshots-computersnapshotsb892d73f-r8qgykc9zjiq",
+    "bucket": "<snapshot-bucket-name>",
     "key": "spikes/0edb18/authorized-64013564/artifact.bin",
     "size_bytes": 2000000000,
     "elapsed_seconds": 781.777,

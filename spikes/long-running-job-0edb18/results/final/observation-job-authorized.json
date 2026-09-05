@@ -19,7 +19,7 @@
     "terminal_reason": "recovery attempts exhausted"
   },
   "upload_result": {
-    "bucket": "chatticussnapshots-computersnapshotsb892d73f-r8qgykc9zjiq",
+    "bucket": "<snapshot-bucket-name>",
     "key": "spikes/0edb18/authorized-64013564/artifact.bin",
     "size_bytes": 2000000000,
     "elapsed_seconds": 781.777,

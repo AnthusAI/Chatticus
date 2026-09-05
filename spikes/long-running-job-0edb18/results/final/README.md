@@ -1,6 +1,6 @@
 # Spike chatticus-0edb18 — consolidated evidence
 
-Run date: 2026-09-05. Environment: development (`335163751677`, us-east-1).
+Run date: 2026-09-05. Environment: development (`<aws-account-id>`, us-east-1).
 
 Worker kernel: `chatticus.computer_host_worker.run_host_worker_once` (production pull
 worker). Spike injects `NoopBootDriver` and `LongJobActionExecutor` only.
@@ -13,11 +13,11 @@ worker). Spike injects `NoopBootDriver` and `LongJobActionExecutor` only.
 | SQS visibility (obs 2) | `../20260905T183137Z-probes-f2dd4386/` |
 | Heartbeat (obs 3) | `../20260905T183731Z-heartbeat-e049c923/` |
 | 150 s iteration | `../20260905T183849Z-iteration-3c0ac7a7/` |
-| 30 min authorized | `../20260905T184210Z-authorized-e8743925/` (in progress / see summary) |
+| 30 min authorized | `../20260905T184210Z-authorized-e8743925/` |
 
 ## S3 prefix
 
-`s3://chatticussnapshots-computersnapshotsb892d73f-r8qgykc9zjiq/spikes/0edb18/`
+`s3://<snapshot-bucket-name>/spikes/0edb18/`
 
 Objects deleted after each run.
 

@@ -6,7 +6,7 @@ spike-only boot and action executors. No changes under `python/src`.
 
 ## Prerequisites
 
-- AWS account `335163751677`, region `us-east-1`, `aws login`
+- AWS account `<aws-account-id>`, region `us-east-1`, `aws login`
 - Python venv with `pip install -e ".[dev]"` from `python/`
 - Env vars (see `env.example.sh`)
 
@@ -23,6 +23,6 @@ Results land in `results/<run-id>/`.
 
 ## S3 prefix (throwaway)
 
-`s3://chatticussnapshots-computersnapshotsb892d73f-r8qgykc9zjiq/spikes/0edb18/`
+`s3://<snapshot-bucket-name>/spikes/0edb18/` (CDK `SnapshotBucketName` output)
 
 Objects are deleted after each run.
