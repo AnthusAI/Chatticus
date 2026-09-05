@@ -20,10 +20,17 @@
       "text": "Composer 2.5 planning. Worktree /tmp/chatticus-0edb18-long-job on spike/long-running-job-0edb18. Highest-value experiment in e9ddec; plumbing only (30 min sleep + 2 GB S3 PUT), not a real training run.",
       "created_at": "2026-09-05T18:22:43.376178Z",
       "comment_type": "default"
+    },
+    {
+      "id": "fa000835-4ec8-4150-9a55-72f843880283",
+      "author": "home",
+      "text": "Authorized with live AWS session (335163751677). Interrupt planning: create worktree and run the plumbing spike. Do not create buckets.",
+      "created_at": "2026-09-05T18:24:40.261266Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:08:09.390419Z",
-  "updated_at": "2026-09-05T18:22:43.376178Z",
+  "updated_at": "2026-09-05T18:24:40.261266Z",
   "closed_at": null,
   "custom": {}
 }
