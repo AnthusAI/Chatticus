@@ -21,10 +21,17 @@
       "text": "AWS session is live (account 335163751677). Composer 2.5 executing Phase A only if existing EFS/VPC resources exist; do not create filesystems or clusters by CLI. Worktree /tmp/chatticus-9af381-nfs-wan on spike/nfs-wan-9af381.",
       "created_at": "2026-09-05T18:24:40.220304Z",
       "comment_type": "default"
+    },
+    {
+      "id": "18ce9f66-edb1-4a03-90f0-1667e0fc3625",
+      "author": "home",
+      "text": "## Phase A complete — mount blocked (valid result)\n\n**Verdict:** Phase A cannot proceed. No Chatticus workplace EFS exists in account `335163751677` (`us-east-1`). Mount feasibility (DNS, SG 2049, `amazon-efs-utils` TLS/stunnel over WireGuard) is **not testable** until a Chatticus EFS filesystem and tunnel path are provisioned via CDK per `chatticus-fbae4e` D1–D2.\n\n### AWS inventory (read-only, 2026-09-05)\n\n| Resource | Chatticus | Notes |\n|---|---|---|\n| EFS filesystem | **None** | Exactly one EFS in account: `fs-09fcbd58a2e2d2c98` (`KanbusCloudFoundation/KanbusTenantFilesystem`) — Kanbus, **not** Chatticus. Not mounted, not written. |\n| EFS mount targets | **None for Chatticus** | Kanbus FS has 2 MTs in `vpc-06dead2c4a3b0a93e` (`10.0.2.237`, `10.0.3.121`). |\n| Chatticus VPC | **Exists, empty of EFS** | `vpc-0c5a0f0ca21e2afdd` (`ChatticusComputers/Vpc`, `10.0.0.0/16`) from `ChatticusComputers` stack — no EFS MTs. |\n| Tunnel / WireGuard EC2 | **None** | No instances tagged Chatticus, tunnel, or WireGuard. |\n| SSM `/chatticus/*` | **No EFS params** | Thin-turn and web params only. |\n\n### CDK / repo\n\n- `infra/lib/` has **no** `AWS::EFS::FileSystem`, mount target, or WireGuard/tunnel EC2 definitions.\n- Workplace storage today remains S3 snapshots (`ChatticusSnapshots`); EFS is design-only (`chatticus-fbae4e` D1).\n\n### Phase A sub-checks (not run — prerequisite missing)\n\n1. **DNS:** EFS DNS → VPC-private MT IPs over tunnel — blocked (no Chatticus FS).\n2. **SG 2049:** MT security group from tunnel subnet — blocked (no MT, no tunnel subnet/EC2).\n3. **amazon-efs-utils / stunnel over WireGuard** — blocked (no endpoint, no FS).\n\n### D5 correction (fbae4e)\n\nConfirmed already recorded in `chatticus-fbae4e` D5 (2026-09-05): `cachefilesd`/FS-Cache caches **data pages**; metadata-heavy work is governed by the **attribute cache** (`actimeo` / `acreg*` / `acdir*`). No rewrite needed.\n\n### Next (Phase B — not started)\n\nBlocked on same prerequisites plus a garage Linux VM and tunnel. Re-run Phase A after CDK lands Chatticus workplace EFS + tunnel endpoint.\n",
+      "created_at": "2026-09-05T18:25:48.708956Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:08:29.618306Z",
-  "updated_at": "2026-09-05T18:24:40.220304Z",
+  "updated_at": "2026-09-05T18:25:48.708956Z",
   "closed_at": null,
   "custom": {}
 }
