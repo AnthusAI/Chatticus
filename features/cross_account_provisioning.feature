@@ -42,3 +42,29 @@ Feature: Cross-account provisioning
     When Chatticus attempts the first organization role using the second organization ExternalId
     Then the assume is refused
     And no session is issued
+
+  Scenario: An Anthus-managed organization starts in the deployment account
+    Given an Anthus-managed organization homed in the deployment AWS account
+    When its computer starts
+    Then the instance is launched with deployment credentials
+    And AssumeRole is not called
+    And no ECS client is opened in a customer account
+
+  Scenario: Compute for an organization runs in the customer account
+    Given an organization provisioned into a customer AWS account with a ChatticusComputers stack
+    When its computer starts
+    Then the instance is launched in the customer account
+    And the organization's cross-account role was assumed
+    And no compute for that organization runs in the Anthus account
+
+  Scenario: An unreachable customer role refuses rather than falls back
+    Given an organization whose cross-account role cannot be assumed
+    When its computer is asked to start
+    Then the start is refused with a provisioning error
+    And no instance is launched in the Anthus account
+
+  Scenario: An organization without an AWS home refuses computer start
+    Given an organization that has paid but not been provisioned
+    When its computer is asked to start
+    Then the start is refused with a provisioning error
+    And no instance is launched in the Anthus account
