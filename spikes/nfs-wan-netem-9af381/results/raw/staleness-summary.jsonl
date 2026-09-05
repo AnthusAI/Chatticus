@@ -1,0 +1,10 @@
+{"actimeo": "default", "probe": "stat", "trials": 5, "median_staleness_ms": 787, "samples": [911, 826, 787, 777, 770]}
+{"actimeo": "default", "probe": "git_status", "note": "contrast only \u2014 confounded by git status runtime", "trials": 1, "median_staleness_ms": 61439, "samples": [61439]}
+{"actimeo": "1", "probe": "stat", "trials": 5, "median_staleness_ms": 827, "samples": [1005, 829, 802, 827, 822]}
+{"actimeo": "1", "probe": "git_status", "note": "contrast only \u2014 confounded by git status runtime", "trials": 1, "median_staleness_ms": 60873, "samples": [60873]}
+{"actimeo": "15", "probe": "stat", "trials": 5, "median_staleness_ms": 747, "samples": [942, 747, 765, 736, 742]}
+{"actimeo": "15", "probe": "git_status", "note": "contrast only \u2014 confounded by git status runtime", "trials": 1, "median_staleness_ms": 57534, "samples": [57534]}
+{"actimeo": "60", "probe": "stat", "trials": 5, "median_staleness_ms": 768, "samples": [921, 769, 768, 764, 753]}
+{"actimeo": "60", "probe": "git_status", "note": "contrast only \u2014 confounded by git status runtime", "trials": 1, "median_staleness_ms": 56935, "samples": [56935]}
+{"actimeo": "300", "probe": "stat", "trials": 5, "median_staleness_ms": 760, "samples": [857, 760, 800, 757, 750]}
+{"actimeo": "300", "probe": "git_status", "note": "contrast only \u2014 confounded by git status runtime", "trials": 1, "median_staleness_ms": 57303, "samples": [57303]}

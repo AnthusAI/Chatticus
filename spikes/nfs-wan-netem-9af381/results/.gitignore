@@ -1,0 +1,8 @@
+raw/*-before.nfsstat
+raw/*-after.nfsstat
+raw/*-before.rpc.json
+raw/*-after.rpc.json
+raw/*-nfsstat-diff.txt
+raw/*-rpc-diff.txt
+*.log
+run-all.log
