@@ -28,10 +28,17 @@
       "text": "## New item from reviewing the campaign (2026-09-05)\n\n`chatticus-ea918a` — **the actimeo vs concurrent-workspace contradiction.** Answering `766c51` falsified the premise D5 was resting on. D5 calls a long `actimeo` its load-bearing mitigation and justifies it by single-writer-per-workspace scoping; `766c51` established turns are not serialized per bot and the default is one workspace per bot. Concurrent readers of a shared workspace are therefore the default case.\n\n\"NFS arbitrates concurrent writers\" does not answer it — the failure mode is attribute-cache **staleness**, not corruption, and close-to-open consistency does not apply because `git status` calls `lstat()` rather than `open()`.\n\n**This is not gated behind `9af381`.** The epic records EFS-for-AWS-hosts as having no unknowns blocking it. That remains true of experiments, but AWS hosts have the same exposure at default `actimeo` — a smaller window, still nonzero — whenever concurrent turns for one bot land on different hosts. Two turns on one NFS client are coherent; different hosts are not.\n\nD5 and D3 on `fbae4e` have been corrected to stop asserting the falsified premise. D3's \"the two-writer problem stops existing\" now carries a qualification: true for write arbitration, not for cache coherence.\n\nAlso added **Phase A0** to `9af381` — a netem pre-experiment answering the D5 threshold question with no AWS, tunnel, or CDK, which also produces the staleness curve `ea918a` needs.",
       "created_at": "2026-09-05T20:34:58.396761Z",
       "comment_type": "default"
+    },
+    {
+      "id": "fc5031c0-0944-43b9-a6ae-466710677183",
+      "author": "home",
+      "text": "`9af381` Phase A0 on develop (#310): netem pre-experiment says the local interactive host does not clear the 3x/10x table at ~25ms RTT. Phase A/B (real EFS + tunnel) still blocked on CDK. EFS-for-AWS-hosts and accelerated batch still do not wait on this spike.",
+      "created_at": "2026-09-05T23:35:32.256432Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:07:47.371873Z",
-  "updated_at": "2026-09-05T20:34:58.396761Z",
+  "updated_at": "2026-09-05T23:35:32.256432Z",
   "closed_at": null,
   "custom": {}
 }
