@@ -209,6 +209,10 @@ export function wireComputerWorkerEcsHostStart(
   for (const [key, value] of Object.entries(environment)) {
     computerWorkerFunction.addEnvironment(key, value);
   }
+  computerWorkerFunction.addEnvironment(
+    "CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID",
+    stack.account,
+  );
 
   const taskDefinitionFamily = config.taskDefinition.includes("/")
     ? config.taskDefinition.split("/").pop()!.split(":")[0]
@@ -244,6 +248,12 @@ export function wireComputerWorkerEcsHostStart(
           "iam:PassedToService": "ecs-tasks.amazonaws.com",
         },
       },
+    }),
+  );
+  computerWorkerFunction.addToRolePolicy(
+    new iam.PolicyStatement({
+      actions: ["sts:AssumeRole"],
+      resources: ["arn:aws:iam::*:role/ChatticusOrganizationComputerRole"],
     }),
   );
 

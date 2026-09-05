@@ -7,7 +7,7 @@ import os
 from behave import given, then, when
 
 from chatticus.computer_start import HostStartClaim
-from chatticus.host_starter import EcsHostStarter
+from chatticus.organization_computer_host import run_fargate_task
 
 
 class _FakeEcs:
@@ -30,19 +30,18 @@ def given_ecs_host_command(context: object) -> None:
 
 @when("the ECS host starter starts a host for a claim")
 def when_ecs_host_starter_starts(context: object) -> None:
-    EcsHostStarter(
-        ecs_client=context.fake_ecs,  # type: ignore[attr-defined]
+    run_fargate_task(
+        context.fake_ecs,  # type: ignore[attr-defined]
         cluster="ChatticusComputers",
         task_definition="computer",
         subnets=["subnet-1"],
         security_groups=["sg-1"],
-    ).start_host(
-        HostStartClaim(
+        claim=HostStartClaim(
             tenant_id="anthus",
             computer_id="household-computer",
             host_start_count=1,
             user_id="ryan",
-        )
+        ),
     )
 
 

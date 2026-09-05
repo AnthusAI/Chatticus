@@ -63,7 +63,7 @@ def test_computer_worker_lambda_nacks_in_flight_without_host_executor(
     )
     monkeypatch.setattr(
         "chatticus.worker.lambda_handler.host_starter_from_env",
-        lambda: starter,
+        lambda _get_organization=None: starter,
     )
     result = handler(
         _sqs_event_for_job(setup.continuation_job, message_id=message_id), None
