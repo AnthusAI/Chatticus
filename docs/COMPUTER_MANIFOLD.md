@@ -22,8 +22,16 @@ In shorter form:
 > Snapshots are the contract between them.**
 
 This memo does **not** implement the manifold, EFS, an Antharchy AMI, or a
-Tailscale/VPN local-VM path. It names what is live today, what is proposed,
+tunneled local-host path. It names what is live today, what is proposed,
 and what is explicitly out of scope.
+
+> **Superseded in part, September 3, 2026.** A storage design conversation
+> (initiative `chatticus-fbae4e`) moved the workplace store from S3
+> snapshots to **one EFS filesystem mounted by every host class**, reached
+> over an outbound tunnel by hosts outside the VPC. Sections 4, 6, and 7
+> carry the specific supersede notes. What is described as *live today*
+> (section 1) remains accurate; the snapshot protocol is still the running
+> system and stays until EFS lands.
 
 ---
 
@@ -146,6 +154,24 @@ targets for a future API; none of them is a second live-sync path.
 | **Headless session** | Long-lived shell/browser without a human desktop | Fargate **if** we stop exiting at ~120 s | Default `CHATTICUS_HOST_WORKER_SECONDS=120` blocks this today |
 | **GUI session** | Hyprland desktop, human watch/takeover | **Antharchy on EC2** or local VM | Not the slim Debian Fargate image |
 | **Edit-on-Mac / compute-on-cloud** (optional, name TBD) | Mutagen-*style* dev sync | Mac editor + remote compute | **Do not dual-live-sync** two writable disks for one `computer_id` |
+| **Accelerated batch** (added 2026-09-03) | ML training, fine-tuning, long GPU runs | GPU EC2 (g5, p4d, p5) **or owned hardware** | Object I/O only -- pull dataset, train, push weights. No filesystem mount, no display. See below. |
+
+**Accelerated batch is the work kind where non-AWS compute pays.** A g5.xlarge
+is ~$1/hr and a p4d.24xlarge ~$32/hr, against electricity on hardware an
+organization already owns; a multi-day training run is a four-figure
+difference, not the ~$0.01/hr the slim Fargate computer costs.
+
+It is also the *easiest* host class to support, because it needs the least:
+no display, and no filesystem mount. Datasets and checkpoints are large
+objects, and **data transfer into AWS is free while egress is ~$0.09/GB**, so
+the shape that costs least is also the natural one -- keep the dataset local,
+train locally, `PUT` the weights to S3. Egress is charged only if a local
+host pulls a large dataset *out* of AWS, which argues for keeping training
+corpora on the side of the boundary where they are consumed.
+
+An accelerated-batch host therefore needs only SQS and scoped S3
+credentials. It is the highest-value non-AWS host class and the one with the
+thinnest requirements.
 
 ### 3.1 Omarchy and Antharchy
 
@@ -158,34 +184,67 @@ AnthusAI **Antharchy** repository is the copy to rebrand for that path. That
 is a **separate AMI / host class**, not a swap of the current
 `computer/Dockerfile`.
 
-### 3.2 Local VM over Tailscale or VPN (explore only)
+### 3.2 Local hosts (outside the VPC)
 
-A **local VM** on hardware that is already on (garage Mac, home server) is a
-cheap host when idle cost is effectively zero. The same **pull worker
-protocol** applies: outbound-only registration, no inbound ports, hydrate
-from S3, publish before relocate.
+A **local host** on hardware that is already on -- garage Mac, home server,
+an owned GPU box -- is cheap when idle cost is effectively zero. The same
+**pull worker protocol** applies: outbound-only registration, no inbound
+ports. A local worker is always a **Linux VM**, never macOS directly.
 
-**Do not implement** a VPN/Tailscale host path in this memo's scope. Record
-it as a feasible host class the manifold should eventually rank alongside
-Fargate and EC2.
+Two shapes, with very different requirements:
+
+- **Accelerated batch** needs only SQS and scoped S3 credentials. No tunnel,
+  no mount, no display. This is the host class that saves real money.
+- **GUI session / interactive work** needs `/org` and `/workspace`, which
+  means an outbound tunnel to reach the EFS mount target, plus a reverse
+  channel for watch/takeover. Both ride one tunnel.
+
+Connectivity is stated as a **requirement, not a product**: an outbound-only,
+mutually authenticated channel the worker opens; no host accepts inbound
+connections. WireGuard is the default implementation because it is the
+smallest thing that satisfies it; reverse SSH, SSM Session Manager, and mesh
+VPNs also qualify. **Nothing in the Chatticus codebase imports any of them.**
+
+**Do not implement** in this memo's scope. See `chatticus-fbae4e` for the
+design and `chatticus-3c6df9` for the display path.
 
 ---
 
-## 4. EFS as `/org` filing cabinet (feasible, not chosen)
+## 4. EFS as the store (chosen 2026-09-03; supersedes this section's earlier position)
 
-Treating **EFS as an organization-scoped filing cabinet** (`/org` or
-equivalent) is architecturally feasible on AWS hosts that share a VPC:
+This section previously held that EFS was a **cache or shared read-mostly
+tree, not a second durable workplace store**, and that a home Mac would keep
+hydrating from S3. That position rested on a premise that turned out to be
+false: that the local client is macOS. **A local worker is always a Linux VM**
+with a working kernel NFSv4.1 client, and a VPC-private mount target is
+reachable over an outbound WireGuard tunnel on a stopped-when-idle endpoint
+(~$0.65/mo).
 
-- **Elastic throughput** can idle at **$0/hour for I/O** when the filesystem
-  is quiet.
-- **Storage still bills** while data remains on EFS.
-- **Mac is not a first-class EFS client**; a home Mac continues to hydrate
-  from S3.
+The chosen design is **one EFS filesystem**, with `/org` and `/workspace` as
+directories distinguished by access points and permissions -- not two
+storage systems. Every host class mounts the same filesystem at the same
+paths and runs the same code.
 
-EFS is a **cache or shared read-mostly tree**, not a second durable
-workplace store. If adopted, files of record still publish through the S3
-snapshot path so relocate and failover semantics stay one checkpoint, not
-two divergent truths.
+Why this beats the snapshot model: the disk-write lease, `hydrate_required`,
+publish/hydrate, and relocate-as-publish-then-hydrate all exist for one
+reason -- **S3 has no locking**, so two hosts can both hydrate, both write,
+and both publish, with the second publish silently destroying the first. EFS
+has POSIX locking. The two-writer problem is not solved; it stops existing.
+
+Costs and boundaries that survive:
+
+- **Storage still bills** while data is on EFS -- and at roughly an order of
+  magnitude more per GB than S3, which is why large objects stay objects.
+- **Datasets, model weights, screenshots, and artifacts remain in S3.** That
+  is files versus objects, not a second file store.
+- **Regenerable output** -- build directories, dependency trees, caches --
+  is host-local scratch. It never crosses the tunnel and is never canonical.
+- **WAN metadata latency is the real cost** and is handled with stock Linux
+  (FS-Cache via `cachefilesd`, `nconnect`, generous `actimeo`), not with
+  architecture. This assumption is **unmeasured** and should be measured
+  before implementation.
+
+Full rationale, rejected alternatives, and security model: `chatticus-fbae4e`.
 
 ---
 
@@ -216,12 +275,22 @@ Future work should not silently reopen these decisions:
    instances, and Docker on a Mac are hosts.
 2. **S3 is the one durable workplace store.** Snapshots are `snapshot.tar.gz`
    plus `manifest.json` for workspace and browser profiles only.
+   *(Superseded 2026-09-03 as a design target -- EFS is the store; see §4.
+   Still true of the running system. S3 keeps objects: artifacts, datasets,
+   model weights, screenshots.)*
 3. **One live disk per `computer_id`.** Two concurrent live disks are
-   forbidden.
+   forbidden. *(Rescoped: the invariant belongs to the workspace, not the
+   host, and under EFS it is enforced by POSIX locking rather than by a
+   lease.)*
 4. **Relocate is publish, then hydrate.** No live container migration.
+   *(Superseded as a design target -- under EFS there is nothing to
+   relocate.)*
 5. **The v1 AWS computer image is Debian + Xvfb + Chromium on Fargate
    ARM64 0.25 vCPU / 512 MiB, scale to 0.**
 6. **EFS is not implemented** and is not a second canonical store.
+   *(Superseded 2026-09-03: EFS is the chosen store -- see §4. Still
+   unimplemented. The "second canonical store" concern is answered by there
+   being exactly one: EFS holds files, S3 holds objects.)*
 7. **Omarchy is not the Fargate image; GUI desktop sessions belong on EC2
    (Antharchy), not in the slim container.**
 8. **Agents should eventually declare work kind; the manifold chooses the
@@ -241,10 +310,12 @@ Future work should not silently reopen these decisions:
    **headless session** kind without breaking scale-to-zero economics.
 3. Specify **Antharchy on EC2**: AMI lifecycle, stop/start vs always-on,
    EBS cache vs hydrate-from-S3 on boot, and how GUI sessions publish.
-4. Decide whether **EFS `/org`** is worth the operational surface before
-   any org has outgrown S3 hydrate latency for file-heavy batch work.
-5. Rank **local VM (Tailscale/VPN)** against prefer-local Mac Docker in the
-   scheduler without inbound ports.
+4. **Measure WAN NFS with FS-Cache** before implementing §4. Real
+   `git status` and build times on an Antharchy VM over the tunnel are the
+   load-bearing unknown of the EFS design.
+5. Rank **local hosts** against AWS hosts in the scheduler without inbound
+   ports -- and rank **accelerated batch separately**, since it needs no
+   tunnel and carries by far the largest cost delta.
 6. Measure **total cost per organization** across Fargate summons, stopped
    EC2 + EBS, and local hosts — tie to [Organizations](ORGANIZATIONS.md)
    budget notes.

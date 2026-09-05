@@ -81,9 +81,19 @@ Routing:
 4. `aws_only` excludes local. `local_only` never starts AWS.
 
 The control plane never SSHs into the garage. Workers pull from SQS. Home
-machines need no inbound ports. Watch/takeover display traffic is an
-outbound tunnel through the control plane (Tailscale or SSM hybrid
-activation).
+machines need no inbound ports.
+
+**The worker always dials out.** Watch/takeover display traffic, and file
+access for hosts outside the VPC, ride a tunnel the *worker* opens: an
+outbound-only, mutually authenticated channel from host to control plane.
+No host accepts an inbound connection, and no home router needs a
+forwarded port.
+
+That is the requirement. The implementation is an operator deployment
+choice -- WireGuard, reverse SSH, SSM Session Manager, or a mesh VPN --
+and nothing in the Chatticus codebase imports any of them. Naming a
+product here would over-specify a requirement several implementations
+satisfy.
 
 ECS Anywhere is optional later. A thin SQS-pull worker is the v1 local
 plug-in.
@@ -151,6 +161,17 @@ published is gone.
 
 See [Computer snapshots](COMPUTER_SNAPSHOTS.md) and [Computer manifold](COMPUTER_MANIFOLD.md) (work-kind placement; not implemented).
 
+**This section describes the live system and is superseded as a design
+target.** The September 3, 2026 storage design (initiative
+`chatticus-fbae4e`) makes one EFS filesystem the store for `/org` and
+`/workspace`, mounted by every host class -- directly in the VPC, over the
+worker's outbound tunnel elsewhere. A real filesystem has POSIX locking, so
+the snapshot cycle, `hydrate_required`, and the disk-write lease exist only
+to work around S3's lack of it and go away with it. Large artifacts --
+datasets, model weights, screenshots -- stay objects in S3; that is a
+files-versus-objects split, not a second file store. The snapshot path
+stays in place until EFS lands.
+
 ## What lives where
 
 | Concern | Store |
@@ -160,9 +181,9 @@ See [Computer snapshots](COMPUTER_SNAPSHOTS.md) and [Computer manifold](COMPUTER
 | In-flight turn chunks | DynamoDB items with a TTL, polled by the streaming function |
 | Turn jobs, heartbeats | SQS + scheduler records |
 | Routine wake-ups, worker starts, `turn.completed` to device push | EventBridge |
-| `/workspace` and browser profile | S3 snapshot (canonical); local volume, EBS, or EFS as a cache on the current host |
+| `/workspace` and browser profile | S3 snapshot (canonical); local volume, EBS, or EFS as a cache on the current host. Target: EFS as the store, mounted by every host -- see `chatticus-fbae4e` |
 | Secrets | Secrets Manager |
-| Object files / artifacts | S3 |
+| Object files / artifacts (screenshots, datasets, model weights) | S3 |
 
 Stopping compute does not delete the published snapshot. That is how
 Chatticus stays "always able to work" without paying for an always-running
