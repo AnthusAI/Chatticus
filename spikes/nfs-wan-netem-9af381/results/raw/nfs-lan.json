@@ -1,0 +1,13 @@
+{
+  "condition": "nfs-lan",
+  "actimeo": "default",
+  "netem": false,
+  "host": "client-a",
+  "runs": 3,
+  "median_seconds": {
+    "git_status": 0.2513,
+    "checkout": 0.5003,
+    "stat_sweep": 0.2567,
+    "pip_install": 0.1556
+  }
+}
