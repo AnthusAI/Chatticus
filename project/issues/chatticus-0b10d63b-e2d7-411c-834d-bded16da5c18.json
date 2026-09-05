@@ -3,7 +3,7 @@
   "title": "Verify Fargate cannot host a WireGuard peer",
   "description": "## Question\n\n**Can ECS Fargate host a WireGuard peer?**\n\n`chatticus-fbae4e` D2 asserts it cannot — Fargate supports neither privileged mode nor `NET_ADMIN` / `/dev/net/tun` — and marks the claim *\"verify before implementation.\"*\n\nThis is a **documentation check, not a spike.** Recorded as a task so nobody spends a day building a Fargate-based tunnel endpoint on an unverified assumption, and so nobody spends a day *proving* something a doc page settles in minutes.\n\n## Why it matters\n\nIf the assertion is wrong and Fargate *can* run a WireGuard peer, the tunnel endpoint becomes scale-to-zero rather than a stopped-when-idle EC2 instance. That drops the idle floor from ~$0.65/mo to $0 and removes a box to patch — a genuine improvement to D2, not a rounding error, given the initiative's cost argument turns on idle floors.\n\nIf the assertion is right, D2 stands as written and the \"verify\" caveat comes out.\n\n## How\n\nCheck the ECS task definition documentation for `linuxParameters.capabilities.add` support on the Fargate launch type, and for privileged mode. If ambiguous, attempt a task definition requesting `NET_ADMIN` and observe whether registration or task start is rejected.\n\n## Cost\n\nMinutes.\n\n## Done when\n\n`chatticus-fbae4e` D2 either drops its \"verify before implementation\" caveat, or is corrected along with the endpoint cost figures that depend on it.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 3,
   "assignee": null,
   "creator": null,
@@ -26,10 +26,17 @@
       "text": "Authorized. AWS logged in as root in 335163751677 us-east-1. Create worktree then run docs check AND RegisterTaskDefinition probe.",
       "created_at": "2026-09-05T18:24:40.233745Z",
       "comment_type": "default"
+    },
+    {
+      "id": "3a6321da-3347-475b-8841-bef26e2b99eb",
+      "author": "home",
+      "text": "## Result: Fargate cannot host a WireGuard peer\n\nD2 confirmed. The verify caveat on `chatticus-fbae4e` D2 is removed.\n\n### Phase 1 — AWS documentation\n\n| Claim | Source | Finding |\n|-------|--------|---------|\n| No privileged containers | [Fargate task definition differences](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-tasks-services.html) | `privileged` is **not valid** on Fargate |\n| No privileged containers | [Fargate security considerations](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-security-considerations.html) | Privileged containers **unavailable** on Fargate |\n| `NET_ADMIN` restricted | [Fargate security considerations](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-security-considerations.html) | `CAP_NET_ADMIN` and `CAP_SYS_ADMIN` **restricted** |\n| Only `SYS_PTRACE` addable | [Fargate task definition differences](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-tasks-services.html) | `linuxParameters.capabilities.add` allows **only** `CAP_SYS_PTRACE` |\n| Only `SYS_PTRACE` addable | [API KernelCapabilities](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_KernelCapabilities.html) | *\"Tasks launched on AWS Fargate only support adding the `SYS_PTRACE` kernel capability.\"* |\n| No `/dev/net/tun` device mapping | [Fargate task definition differences](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-tasks-services.html) | `linuxParameters.devices` **not supported** on Fargate |\n\nWireGuard requires `NET_ADMIN` (interface creation) and a TUN device; Fargate provides neither.\n\n### Phase 2 — live API probe\n\n- **Account:** 335163751677 (root)\n- **Region:** us-east-1\n- **Cluster:** `ChatticusComputers-ClusterEB0386A7-KBVRNWeg2bzf` (existence confirmed; not used for RunTask)\n- **Task definition:** `spike-wg-cap-check-0b10d6` with `requiresCompatibilities: [\"FARGATE\"]`, `linuxParameters.capabilities.add: [\"NET_ADMIN\"]`\n- **Command:** `aws ecs register-task-definition --cli-input-json file://spike-task-def-net-admin.json`\n\n**Outcome:** Registration rejected at API — no task definition created, nothing to deregister.\n\n```\nClientException: NET_ADMIN is not allowed on Fargate.\n```\n\nRunTask was not attempted (registration failed).\n\n### Conclusion\n\n- D2 stands: tunnel endpoint remains **stopped-when-idle EC2** (~$0.65/mo EBS-only idle floor).\n- Fargate scale-to-zero tunnel endpoint is **not** available on current ECS Fargate.\n- Spike artifacts live in worktree `/tmp/chatticus-0b10d6-fargate-wg` on branch `spike/fargate-wireguard-0b10d6`.\n",
+      "created_at": "2026-09-05T18:25:20.735098Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:08:40.426959Z",
-  "updated_at": "2026-09-05T18:24:40.233745Z",
-  "closed_at": null,
+  "updated_at": "2026-09-05T18:25:30.869326Z",
+  "closed_at": "2026-09-05T18:25:30.869326Z",
   "custom": {}
 }
