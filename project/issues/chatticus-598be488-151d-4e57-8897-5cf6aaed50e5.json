@@ -19,10 +19,17 @@
       "text": "Kernel on develop: org AWS home, ExternalId assume-role, self-setup submit, `infra/customer-role.yml`. Closed `9f5001`, `812b47`, `036750` as board drift.\n\nStill open: `061a11` (computer launches in the customer account — serialize: computer_start / worker / computer stack, merge alone), `8a25af` (publish the existing template at a stable URL; then `b88c0a` must run that artifact), `b88c0a` (human timed throwaway account), `f90c39` (define assisted session as an engagement).",
       "created_at": "2026-09-05T17:59:47.358557Z",
       "comment_type": "default"
+    },
+    {
+      "id": "d852d4d2-fb16-4faa-add3-9a874456dbf4",
+      "author": "home",
+      "text": "`061a11` closed: in-process customer-account launch on develop (#306, `05245a3`). Still open: `8a25af` (published URL live on development; waits on `b88c0a` running it unmodified), `b88c0a` (human timed throwaway account), `f90c39` (assisted session as engagement).",
+      "created_at": "2026-09-05T20:18:33.178136Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-05T17:59:47.358557Z",
+  "updated_at": "2026-09-05T20:18:33.178136Z",
   "closed_at": null,
   "custom": {}
 }
