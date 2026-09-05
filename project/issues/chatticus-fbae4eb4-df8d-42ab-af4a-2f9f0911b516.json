@@ -22,10 +22,17 @@
       "text": "Design conversation 2026-09-03: explored EFS-over-Tailscale direct mount from a Mac (technically possible but unusual — AWS designed EFS for in-VPC compute, not remote laptops). Settled on EFS as AWS-internal primary, S3 as local-host bridge. Per-org databases scoped to organization, accessed via control-plane tunnel from local workers. Tailscale is the connectivity layer, not the storage layer. Full reasoning in initiative description.",
       "created_at": "2026-09-03T18:12:17.601439Z",
       "comment_type": "default"
+    },
+    {
+      "id": "baf433a5-e1f3-4458-9ee0-ae110ba33620",
+      "author": "home",
+      "text": "## D8 correction (spike chatticus-0edb18, 2026-09-05)\n\n**Corrected:** D8 stated accelerated batch needs only SQS and scoped S3 credentials — \"That is the entire integration.\"\n\nThe long-job spike shows those surfaces are **necessary but not sufficient** when work is modeled as a turn:\n\n- SQS + S3 can move artifacts, but the turn loop fails long before batch work finishes (`turn_deadline` 120 s, recovery exhausted at ~4.5 min on the 30 min authorized run).\n- SQS visibility (180 s default, 12 h max) and missing renew on the computer pull path cannot carry multi-day jobs.\n- Heartbeat timeout (30 s) drops busy workers unless separately heartbeating.\n\n**Revised claim:** An accelerated-batch host needs SQS and scoped S3 credentials **plus a non-turn job kind** in the manifold (submit / poll / complete), with results as S3 objects rather than streamed turn output.\n\nEvidence: PR #307, `spikes/long-running-job-0edb18/results/final/`.",
+      "created_at": "2026-09-05T19:25:59.152035Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T17:58:56.905441Z",
-  "updated_at": "2026-09-05T18:25:35.939977Z",
+  "updated_at": "2026-09-05T19:25:59.152035Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

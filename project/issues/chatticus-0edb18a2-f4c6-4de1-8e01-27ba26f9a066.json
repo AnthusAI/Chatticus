@@ -3,7 +3,7 @@
   "title": "Spike: long-running job on a non-AWS worker",
   "description": "## Question\n\n**Can a multi-day training run be a turn at all?**\n\n`chatticus-fbae4e` D8 claims an accelerated-batch host needs only SQS and scoped S3 credentials. That claim is untested against the one thing most likely to break it: the worker loop is built around short turns, and a training run is not short.\n\nThis is the **highest-value experiment in the epic** — it gates the only host class where the money is real (a p4d run is four figures against electricity) — and it depends on nothing else. No GPU, no EFS, no tunnel.\n\n## Setup\n\nTake the existing local pull worker. Give it a job that sleeps 30 minutes, then `PUT`s a 2 GB file to S3. Watch what breaks.\n\nDeliberately not a real training run: the point is to exercise the *plumbing* under a long job, not to train anything.\n\n## What to observe\n\n- **Where the 120 s ceiling actually bites.** `CHATTICUS_HOST_WORKER_SECONDS` (default 120) is documented in `docs/COMPUTER_MANIFOLD.md` §1.5 as the practical ceiling. Is it one constant, or does raising it reveal further assumptions behind it?\n- **SQS visibility timeout** on a job nothing acks for 30 minutes. The maximum is 12 hours, so a multi-day run exceeds it *regardless of configuration* — what is the intended shape? Heartbeat-extend, or a job type that is not a queue message at all?\n- **Heartbeat semantics.** Does the scheduler distinguish \"worker is dead\" from \"worker is busy for six hours\"? `docs/ARCHITECTURE.md` routing rule 1 drops workers with stale heartbeats, which is the correct behavior for a crashed host and the wrong one for a training host.\n- **Turn semantics.** Does anything in the turn loop assume a bounded turn — timeouts, in-flight chunk TTLs, `turn.completed` expectations?\n\n## Hypothesis to test\n\n**A multi-day training run is not a turn and should not pretend to be.** It is more likely a job type with its own lifecycle: submit, poll, complete, with results landing as S3 objects rather than as streamed turn output.\n\nIf the spike supports that, the finding is a design conclusion, not a bug: accelerated batch needs a **job kind** in the manifold, not a longer timeout.\n\n## What would falsify the current design\n\nIf long jobs cannot be made to work without restructuring the turn loop, then D8's \"SQS and scoped S3 credentials is the entire integration\" is wrong and should be corrected in `chatticus-fbae4e`.\n\n## Cost\n\nAn afternoon. A few dollars of S3.\n\n## Done when\n\nThe four observations above are recorded with evidence, and `chatticus-fbae4e` D8 is either confirmed or corrected in writing.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -27,10 +27,17 @@
       "text": "Authorized with live AWS session (335163751677). Interrupt planning: create worktree and run the plumbing spike. Do not create buckets.",
       "created_at": "2026-09-05T18:24:40.261266Z",
       "comment_type": "default"
+    },
+    {
+      "id": "0cf9d968-9de0-4956-90e7-d0b15eada3b8",
+      "author": "home",
+      "text": "## Spike complete (development, 2026-09-05)\n\nEvidence: PR #307 `spikes/long-running-job-0edb18/results/final/`.\n\n### Observation 1 — CHATTICUS_HOST_WORKER_SECONDS\nIdle poll exited at 135.7 s (106 iterations, no job). During active execute the 120 s poll deadline does not interrupt. Raising it alone is insufficient.\n\n### Observation 2 — SQS visibility\nQueue VisibilityTimeout=180 s. Held message without DeleteMessage/ChangeMessageVisibility; `ComputerWorker` never calls `queue_visibility_renewer`. Multi-day work exceeds SQS 12 h max regardless.\n\n### Observation 3 — Heartbeat\nHealthy workers 1 → 0 after 35 s without heartbeat (30 s timeout). `computer_host_worker` does not heartbeat during long execute. No busy-vs-dead distinction.\n\n### Observation 4 — Turn semantics\nAuthorized: 1800 s sleep + 2 GB PUT. Turn **failed** at ~T+4.5 min (`recovery attempts exhausted`); worker continued; S3 artifact landed; **no turn.completed**.\n\n### D8\nSee comment on chatticus-fbae4e — corrected, not confirmed as stated.",
+      "created_at": "2026-09-05T19:25:59.134180Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:08:09.390419Z",
-  "updated_at": "2026-09-05T18:24:40.261266Z",
-  "closed_at": null,
+  "updated_at": "2026-09-05T19:25:59.165557Z",
+  "closed_at": "2026-09-05T19:25:59.165557Z",
   "custom": {}
 }
