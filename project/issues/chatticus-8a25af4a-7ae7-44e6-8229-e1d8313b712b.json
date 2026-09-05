@@ -61,10 +61,17 @@
       "text": "Development URL is live: https://dev.chattic.us/provisioning/customer-role.yml (HTTP 200, AWSTemplateFormatVersion body). A later web-deploy run failed only because ChatticusWeb was already UPDATE_IN_PROGRESS from the #308 deploy. Production URL waits on main. b88c0a still must run a published URL unmodified.",
       "created_at": "2026-09-05T20:01:37.197278Z",
       "comment_type": "default"
+    },
+    {
+      "id": "4a3398e2-7d1a-4147-97ed-d62b5107b33f",
+      "author": "home",
+      "text": "Product URL is live on development. Remaining DoD is still `b88c0a` running that URL unmodified (GET + `--template-body`, not CloudFront as TemplateURL). Docs PR in flight for the README lie; this card stays in_progress.",
+      "created_at": "2026-09-05T20:21:34.831683Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-05T20:01:37.197278Z",
+  "updated_at": "2026-09-05T20:21:34.831683Z",
   "closed_at": null,
   "custom": {}
 }
