@@ -125,7 +125,9 @@ def handler(event: dict[str, Any], _context: object) -> dict[str, Any] | None:
                     ComputerWorker(
                         plane,
                         turn_client,
-                        host_starter=host_starter_from_env(),
+                        host_starter=host_starter_from_env(
+                            plane.get_organization,
+                        ),
                         queue_visibility_renewer=queue_visibility_renewer,
                     ).run_job(job)
                 else:

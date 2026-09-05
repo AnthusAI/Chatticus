@@ -21,6 +21,16 @@ def _clear_invoke_key_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("CHATTICUS_INVOKE_KEY", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _deployment_aws_account(monkeypatch: pytest.MonkeyPatch) -> None:
+    account_id = "111122223333"
+    monkeypatch.setenv("CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID", account_id)
+    monkeypatch.setattr(
+        "chatticus.org_records.caller_aws_account_id",
+        lambda: account_id,
+    )
+
+
 def make_test_api(plane: ControlPlane | None = None) -> tuple[ControlPlane, object]:
     """Return a control plane and in-process HTTP client without invoke-key gating."""
     resolved_plane = plane or ControlPlane()

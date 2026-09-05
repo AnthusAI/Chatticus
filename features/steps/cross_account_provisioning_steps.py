@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from behave import given, then, when
 
+from chatticus.computer_start import HostStartClaim
 from chatticus.control_plane import ControlPlane
 from chatticus.cross_account_provisioning import (
     PROVISIONING_REQUIRED_PERMISSIONS,
@@ -14,8 +15,14 @@ from chatticus.cross_account_provisioning import (
 )
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import AwsSetupPath, OrganizationStatus
+from chatticus.organization_computer_host import (
+    DeploymentEcsConfig,
+    OrganizationComputerHostStarter,
+    OrganizationComputerProvisioningError,
+)
 
 CUSTOMER_ACCOUNT_ID = "123456789012"
+DEPLOYMENT_ACCOUNT_ID = "111122223333"
 CUSTOMER_ROLE_ARN = (
     f"arn:aws:iam::{CUSTOMER_ACCOUNT_ID}:role/ChatticusOrganizationComputerRole"
 )
@@ -337,3 +344,235 @@ def then_no_session_is_issued(context: object) -> None:
     outcome = context.assume_role_outcome
     assert outcome.session is None
     assert len(context.assume_role_recorder.calls) == 0
+
+
+class _FakeEcs:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def run_task(self, **kwargs: object) -> dict[str, object]:
+        self.calls.append(kwargs)
+        return {"tasks": [{"taskArn": "arn:ecs:task/gherkin"}], "failures": []}
+
+
+class _FakeCloudFormation:
+    def __init__(self) -> None:
+        self.describe_calls: list[dict[str, object]] = []
+
+    def describe_stacks(self, **kwargs: object) -> dict[str, object]:
+        self.describe_calls.append(kwargs)
+        return {
+            "Stacks": [
+                {
+                    "Outputs": [
+                        {
+                            "OutputKey": "ComputerClusterName",
+                            "OutputValue": "cust-cluster",
+                        },
+                        {
+                            "OutputKey": "ComputerTaskDefinitionArn",
+                            "OutputValue": (
+                                "arn:aws:ecs:us-east-1:123456789012:"
+                                "task-definition/computer:1"
+                            ),
+                        },
+                        {
+                            "OutputKey": "ComputerServiceName",
+                            "OutputValue": "FargateHost",
+                        },
+                    ]
+                }
+            ]
+        }
+
+
+class _FakeEcsWithServices(_FakeEcs):
+    def describe_services(
+        self,
+        *,
+        cluster: str,
+        services: list[str],
+    ) -> dict[str, object]:
+        return {
+            "services": [
+                {
+                    "networkConfiguration": {
+                        "awsvpcConfiguration": {
+                            "subnets": ["subnet-customer-1"],
+                            "securityGroups": ["sg-customer-1"],
+                        }
+                    }
+                }
+            ]
+        }
+
+
+class _MultiAccountEcsRecorder:
+    def __init__(self) -> None:
+        self.deployment = _FakeEcs()
+        self.customer = _FakeEcsWithServices()
+
+    def factory(self, credentials: dict[str, str] | None) -> _FakeEcs:
+        if credentials is None:
+            return self.deployment
+        return self.customer
+
+
+def _host_starter(context: object) -> OrganizationComputerHostStarter:
+    return context.host_starter  # type: ignore[attr-defined]
+
+
+def _start_claim_for_org(context: object, tenant_id: str) -> HostStartClaim:
+    plane = _plane(context)
+    plane.ensure_computer(tenant_id)
+    computer = plane.computer_for_organization(tenant_id)
+    return HostStartClaim(
+        tenant_id=tenant_id,
+        computer_id=computer.computer_id,
+        host_start_count=1,
+        user_id="owner-user",
+    )
+
+
+def _wire_host_start_context(
+    context: object,
+    *,
+    assume_role: object | None = None,
+    deployment_ecs_config: DeploymentEcsConfig | None = None,
+) -> None:
+    _ensure_org_store(context)
+    recorder = _MultiAccountEcsRecorder()
+    context.ecs_recorder = recorder  # type: ignore[attr-defined]
+    cloudformation_client = _FakeCloudFormation()
+    context.cloudformation_client = cloudformation_client  # type: ignore[attr-defined]
+    context.assume_role_recorder = assume_role or RecordingAssumeRole()  # type: ignore[attr-defined]
+    context.host_starter = OrganizationComputerHostStarter(  # type: ignore[attr-defined]
+        _plane(context).get_organization,
+        deployment_account_id=DEPLOYMENT_ACCOUNT_ID,
+        deployment_ecs_config=deployment_ecs_config
+        or DeploymentEcsConfig(
+            cluster="deployment-cluster",
+            task_definition="computer:1",
+            subnets=["subnet-deploy-1"],
+            security_groups=["sg-deploy-1"],
+        ),
+        assume_role=context.assume_role_recorder,  # type: ignore[attr-defined]
+        ecs_client_factory=recorder.factory,
+        cloudformation_client_factory=lambda _credentials: cloudformation_client,
+    )
+    context.host_start_error = None  # type: ignore[attr-defined]
+
+
+@given(
+    "an organization provisioned into a customer AWS account "
+    "with a ChatticusComputers stack"
+)
+def given_organization_provisioned_into_customer_account(context: object) -> None:
+    org = _provision_cross_account_org(
+        context,
+        name="Customer Org",
+        owner_email="customer-start@example.com",
+        account_id=CUSTOMER_ACCOUNT_ID,
+        external_id="customer-org-external-id",
+    )
+    context.start_org = org
+    _wire_host_start_context(context)
+
+
+@given("an Anthus-managed organization homed in the deployment AWS account")
+def given_anthus_managed_in_deployment_account(context: object) -> None:
+    _ensure_org_store(context)
+    context.start_org = _plane(context).admin_seed_organization(
+        "anthus-managed",
+        "anthus-owner@example.com",
+        name="Anthus Managed",
+        now=context.now,
+    )
+    _wire_host_start_context(context)
+
+
+@given("an organization whose cross-account role cannot be assumed")
+def given_unreachable_customer_role(context: object) -> None:
+    org = _provision_cross_account_org(
+        context,
+        name="Unreachable Org",
+        owner_email="unreachable@example.com",
+        account_id=CUSTOMER_ACCOUNT_ID,
+        external_id="unreachable-external-id",
+    )
+    context.start_org = org
+
+    class _UnreachableAssumeRole:
+        def __call__(self, **_kwargs: object) -> dict[str, object]:
+            raise RuntimeError("AssumeRole refused by STS")
+
+    _wire_host_start_context(context, assume_role=_UnreachableAssumeRole())
+
+
+@when("its computer starts")
+@when("its computer is asked to start")
+def when_its_computer_starts(context: object) -> None:
+    if not getattr(context, "host_starter", None):
+        _wire_host_start_context(context)
+    org = getattr(context, "start_org", None) or context.pending_org
+    claim = _start_claim_for_org(context, org.tenant_id)
+    starter = _host_starter(context)
+    try:
+        starter.start_host(claim)
+    except OrganizationComputerProvisioningError as error:
+        context.host_start_error = error  # type: ignore[attr-defined]
+
+
+@then("the instance is launched in the customer account")
+def then_instance_launched_in_customer_account(context: object) -> None:
+    starter = _host_starter(context)
+    assert starter.last_outcome is not None
+    assert starter.last_outcome.launch_account_id == CUSTOMER_ACCOUNT_ID
+    assert len(context.ecs_recorder.customer.calls) == 1  # type: ignore[attr-defined]
+    assert len(context.cloudformation_client.describe_calls) == 1  # type: ignore[attr-defined]
+
+
+@then("the organization's cross-account role was assumed")
+def then_cross_account_role_was_assumed(context: object) -> None:
+    recorder = context.assume_role_recorder  # type: ignore[attr-defined]
+    org = context.start_org
+    assert len(recorder.calls) == 1
+    assert recorder.calls[0]["RoleArn"] == org.aws_cross_account_role
+    assert recorder.calls[0]["ExternalId"] == org.aws_external_id
+
+
+@then("the instance is launched with deployment credentials")
+def then_instance_launched_with_deployment_credentials(context: object) -> None:
+    starter = _host_starter(context)
+    assert starter.last_outcome is not None
+    assert starter.last_outcome.launch_account_id == DEPLOYMENT_ACCOUNT_ID
+    assert len(context.ecs_recorder.deployment.calls) == 1  # type: ignore[attr-defined]
+
+
+@then("AssumeRole is not called")
+def then_assume_role_is_not_called(context: object) -> None:
+    recorder = context.assume_role_recorder  # type: ignore[attr-defined]
+    assert len(recorder.calls) == 0
+
+
+@then("no ECS client is opened in a customer account")
+def then_no_ecs_client_in_customer_account(context: object) -> None:
+    assert len(context.ecs_recorder.customer.calls) == 0  # type: ignore[attr-defined]
+
+
+@then("no compute for that organization runs in the Anthus account")
+@then("no instance is launched in the Anthus account")
+def then_no_compute_in_deployment_account(context: object) -> None:
+    recorder = getattr(context, "ecs_recorder", None)
+    if recorder is not None:
+        assert len(recorder.deployment.calls) == 0
+        return
+    assert context.host_start_error is not None  # type: ignore[attr-defined]
+
+
+@then("the start is refused with a provisioning error")
+def then_start_refused_with_provisioning_error(context: object) -> None:
+    error = context.host_start_error  # type: ignore[attr-defined]
+    assert error is not None
+    message = str(error).lower()
+    assert "provisioning" in message or "refused" in message

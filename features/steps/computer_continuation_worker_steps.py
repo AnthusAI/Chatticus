@@ -166,7 +166,7 @@ def when_computer_lambda_processes_without_host_executor(context: object) -> Non
         ),
         patch(
             "chatticus.worker.lambda_handler.host_starter_from_env",
-            lambda: host_starter,
+            lambda _get_organization=None: host_starter,
         ),
     ):
         context.lambda_result = handler(event, None)
