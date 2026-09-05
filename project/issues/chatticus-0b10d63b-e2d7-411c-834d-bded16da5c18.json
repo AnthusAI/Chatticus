@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-0b10d63b-e2d7-411c-834d-bded16da5c18",
+  "title": "Verify Fargate cannot host a WireGuard peer",
+  "description": "## Question\n\n**Can ECS Fargate host a WireGuard peer?**\n\n`chatticus-fbae4e` D2 asserts it cannot — Fargate supports neither privileged mode nor `NET_ADMIN` / `/dev/net/tun` — and marks the claim *\"verify before implementation.\"*\n\nThis is a **documentation check, not a spike.** Recorded as a task so nobody spends a day building a Fargate-based tunnel endpoint on an unverified assumption, and so nobody spends a day *proving* something a doc page settles in minutes.\n\n## Why it matters\n\nIf the assertion is wrong and Fargate *can* run a WireGuard peer, the tunnel endpoint becomes scale-to-zero rather than a stopped-when-idle EC2 instance. That drops the idle floor from ~$0.65/mo to $0 and removes a box to patch — a genuine improvement to D2, not a rounding error, given the initiative's cost argument turns on idle floors.\n\nIf the assertion is right, D2 stands as written and the \"verify\" caveat comes out.\n\n## How\n\nCheck the ECS task definition documentation for `linuxParameters.capabilities.add` support on the Fargate launch type, and for privileged mode. If ambiguous, attempt a task definition requesting `NET_ADMIN` and observe whether registration or task start is rejected.\n\n## Cost\n\nMinutes.\n\n## Done when\n\n`chatticus-fbae4e` D2 either drops its \"verify before implementation\" caveat, or is corrected along with the endpoint cost figures that depend on it.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-e9ddec0c-76bb-4acb-81a7-0afee00e3dea",
+  "labels": [
+    "architecture"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-05T18:08:40.426959Z",
+  "updated_at": "2026-09-05T18:08:40.426959Z",
+  "closed_at": null,
+  "custom": {}
+}

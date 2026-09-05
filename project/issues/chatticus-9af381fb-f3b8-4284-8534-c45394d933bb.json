@@ -1,0 +1,22 @@
+{
+  "id": "chatticus-9af381fb-f3b8-4284-8534-c45394d933bb",
+  "title": "Spike: NFS-over-WAN metadata latency for the local interactive host",
+  "description": "## Question\n\n**Is NFS-over-WAN usable for a hot working tree?**\n\nThis is the load-bearing, unmeasured assumption behind `chatticus-fbae4e` D1–D5. If metadata operations over the tunnel are unusably slow, the EFS-everywhere design fails for interactive work.\n\n**Run this before committing engineering time to the local interactive host — not before the tracks that do not depend on it.** Per the parent epic, this gates only the ~$30–60/mo piece. The EFS simplification for AWS hosts and accelerated batch both proceed regardless.\n\n## Correction to D5 that raises the stakes\n\nD5 says WAN latency is handled with FS-Cache. **That is imprecise in a way that matters**, and it should be corrected in `chatticus-fbae4e` regardless of this spike's outcome:\n\n- `fsc` / `cachefilesd` caches file **data pages**.\n- Directory lookups and attributes — which is essentially all `git status` does, thousands of `lstat` calls — are governed by the **attribute cache** (`acregmin`, `acregmax`, `acdirmin`, `acdirmax`, or `actimeo` for all four). A different mechanism.\n- FS-Cache is documented as frequently unhelpful, and occasionally counterproductive, for metadata-heavy work.\n\nSo the recorded mitigation caches the wrong thing for the workload it was meant to address. The real lever is a **long `actimeo`**, which is safe here only because of the single-writer-per-workspace scoping in the initiative. That is a different argument than the one currently written down, and it makes this measurement more necessary, not less.\n\n## Phase A — can it mount at all?\n\nRun separately so a failure is diagnosable rather than tangled with the benchmark. Non-obvious pieces, each able to fail independently:\n\n- EFS DNS names resolve to **VPC-private IPs**; the VM needs VPC DNS reachable over the tunnel, or a hardcoded mount-target IP.\n- The mount target's security group must allow 2049 **from the tunnel subnet** — and per the initiative's security model, from nothing else. This scoping is load-bearing, not hygiene.\n- `amazon-efs-utils` TLS mounting runs stunnel; whether that behaves over WireGuard is unverified.\n\nA clean failure here is itself a useful result. Roughly half a day.\n\n## Phase B — measure against thresholds set in advance\n\n**Set the thresholds before looking at numbers.** Four conditions, same operations:\n\n1. Local disk (control)\n2. EFS from an in-VPC EC2 (isolates EFS itself from the WAN)\n3. Garage VM over the tunnel, cold cache\n4. Garage VM over the tunnel, warm cache with a long `actimeo`\n\nOperations, chosen to be metadata-heavy in different ways:\n\n- `git status` on a large repo\n- `git checkout` between two branches\n- `find . -type f | xargs stat` sweep\n- a dependency install\n\nCapture `nfsstat -c` before and after each run. **RPC counts explain why, not just how slow**, and show whether `actimeo` is absorbing what we hoped or whether the attribute cache is being invalidated anyway.\n\n## Decision thresholds (agreed in advance)\n\n| Warm-cache result vs local disk | Verdict |\n|---|---|\n| Within ~3x | D1–D5 hold. Proceed with the local interactive host. |\n| 3–10x | Marginal. `/org` on EFS, keep the hot working tree local — the data-shape split the initiative considered and rejected. Reopen it. |\n| Over 10x | Local interactive host is not viable. Keep accelerated batch, which never needed any of this. |\n\nThe third row is a **scope reduction, not a failure** — it removes the least valuable piece and leaves the valuable ones untouched.\n\n## Depends on\n\nNothing in this epic. But do the cheap fact-checks first; they are minutes, and this is days.\n\n## Done when\n\nPhase A either mounts or fails with a diagnosed cause, Phase B numbers are recorded against the thresholds above, and `chatticus-fbae4e` D5 is corrected with the FS-Cache / attribute-cache distinction regardless of outcome.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-e9ddec0c-76bb-4acb-81a7-0afee00e3dea",
+  "labels": [
+    "spike",
+    "architecture",
+    "efs"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-05T18:08:29.618306Z",
+  "updated_at": "2026-09-05T18:08:29.618306Z",
+  "closed_at": null,
+  "custom": {}
+}
