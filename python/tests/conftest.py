@@ -26,7 +26,7 @@ def _deployment_aws_account(monkeypatch: pytest.MonkeyPatch) -> None:
     account_id = "111122223333"
     monkeypatch.setenv("CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID", account_id)
     monkeypatch.setattr(
-        "chatticus.deployment_aws_account.caller_aws_account_id",
+        "chatticus.org_records.caller_aws_account_id",
         lambda: account_id,
     )
 
