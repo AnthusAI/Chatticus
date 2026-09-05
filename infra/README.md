@@ -34,12 +34,22 @@ secret ARN for the matching web stack. The web stack publishes:
 **Customer cross-account template:** `infra/customer-role.yml` is the only
 template. Each `ChatticusWeb*` stack publishes it at
 `https://{hostname}/provisioning/customer-role.yml` (development:
-`dev.chattic.us`, staging: `staging.chattic.us`, production:
-`hey.chattic.us`). Customers and runbooks pass that URL unmodified to
-`aws cloudformation create-stack --template-url`. Changes to the file are
-customer-visible; existing customers re-run or update their stack. S3 may
-serve the object as `application/octet-stream`; CloudFormation accepts the
-HTTPS GET. Never duplicate this file or broaden it to `AdministratorAccess`.
+`dev.chattic.us`; staging and production hostnames exist in SSM but web
+CloudFront stays dark until re-enabled). Customers and runbooks **GET** that
+URL (HTTPS; body is this file unmodified) and pass the YAML to
+`aws cloudformation create-stack --template-body`. CloudFormation rejects a
+CloudFront distribution URL as `--template-url`; do not use `--template-url`
+with the published hostname. Example:
+
+```bash
+curl -fsS "https://dev.chattic.us/provisioning/customer-role.yml" \
+  -o /tmp/customer-role.yml
+aws cloudformation create-stack ... \
+  --template-body file:///tmp/customer-role.yml
+```
+
+Changes to the file are customer-visible; existing customers re-run or update
+their stack. Never duplicate this file or broaden it to `AdministratorAccess`.
 
 Each auth stack publishes (under the same web prefix):
 
@@ -165,8 +175,9 @@ aws lambda invoke \
 EventBridge runs the same smoke schedule daily per deployed environment.
 Lambda idle cost is approximately zero between runs.
 
-GitHub Actions: manual `workflow_dispatch` deploy workflows only. No
-CodePipeline. No deploy on push to `develop` or `main`. One AWS account
+GitHub Actions: named deploy workflows run on **push** to the environment
+branch (`develop` for development; `main` for staging and production) and on
+**`workflow_dispatch`**. No CodePipeline. One AWS account
 hosts all three named cloud environments; three GitHub environments
 (`development`, `staging`, `production`) each assume a dedicated OIDC role
 (see below). A future split into dedicated AWS accounts per environment
@@ -217,7 +228,7 @@ secrets for deploy workflows; OIDC assumes a role per run.
 
 Each role trusts only its GitHub environment name, audience
 `sts.amazonaws.com`, and an explicit list of `job_workflow_ref` patterns
-(`workflow_dispatch` from any branch). Each has `AdministratorAccess` for
+(`push` on the environment branch and `workflow_dispatch`). Each has `AdministratorAccess` for
 CDK deploy of its named stacks and read-only lookups of `ChatticusComputers`
 outputs used by ThinTurn deploy scripts.
 
@@ -232,10 +243,10 @@ the new workflow can assume the role.
 2. In each environment, set secret **`AWS_DEPLOY_ROLE_ARN`** from the
    matching stack output above.
 
-3. Run **Actions → Deploy … (environment) → Run workflow**
-   (`workflow_dispatch`).
+3. Deploys also run on **push** to the environment branch, or manually via
+   **Actions → Deploy … (environment) → Run workflow** (`workflow_dispatch`).
 
-CI (`ci.yml`) does **not** deploy to AWS; only manual deploy workflows do.
+CI (`ci.yml`) does **not** deploy to AWS; only the named deploy workflows above do.
 
 Then:
 

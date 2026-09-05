@@ -70,11 +70,11 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-09-02.** Git **`main`** and **`develop`** are aligned after
-the v0.10 promote: principal enforcement (#7b4616), sign-out ending the SSO
-session (#169), and the behavior-driven spec migration are on `main` and deployed
-across all three named environments. Future work lands on `develop` and promotes
-to `main` for release.
+**Last updated: 2026-09-05.** Git **`develop`** is ahead of **`main`** (last
+promote: #303). Principal enforcement (#7b4616), sign-out ending the SSO session
+(#169), and the behavior-driven spec migration are on `main` and deployed across
+all three named environments. Phase 1 org-computer work (#304, #306, #308) lands
+on `develop` first and promotes to `main` for release.
 
 ### Deployed across environments
 
@@ -83,6 +83,9 @@ to `main` for release.
 | development (`dev.chattic.us`) | Live — CloudFront → Lambda | Live — `logoutUrls` + `/auth/signout-callback` | Live — product `/chat` at `/` (CF enabled; marketing moved to `AnthusAI/Chattic.us-web`, chatticus-3926bc) |
 | staging (`staging.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
 | production (`hey.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
+
+Staging and production thin-turn stacks may lag `develop`; their web front doors
+stay dark until explicitly re-enabled and re-proven.
 
 Every org route requires a Cognito `id_token` or worker bearer on all three
 environments; only `/health` and `POST …/workers/register` (invoke-key gated)
@@ -94,12 +97,30 @@ Solutions, enabled) can sign in with Google on development and reach the
 workspace. Operator org records are DynamoDB data, not CDK; see
 [Operator org seed](docs/OPERATOR_ORG_SEED.md).
 
-### In git `develop` but not necessarily deployed
+### Live on development (beyond the table)
 
-- Phase 5 org-scoping (6c1a9b, 0814e6, ddf609) — in flight; will drop
-  `user_id` from bot/channel/computer identity
-- Org-scoped HTTP, worker bearer credentials, members CLI, budgets stack, turn
-  recovery kernel — same as before
+- **Operator org lifecycle HTTP** (#304): enable, suspend, and reinstate on
+  development ThinTurn. Endpoints and auth are in
+  [Operator org seed](docs/OPERATOR_ORG_SEED.md).
+- **Customer cross-account template** (#308): `infra/customer-role.yml` is
+  published at
+  `https://dev.chattic.us/provisioning/customer-role.yml` (SSM:
+  `/chatticus/development/provisioning/customer-role-template-url`). Runbook:
+  [infra/README.md](infra/README.md). Staging and production hostnames stay
+  CF-dark; do not treat their template URLs as a customer onboarding path yet.
+
+### On `develop`, not on `main`
+
+- **Organization computer in the customer AWS home** (#306): host start routes
+  through the org's recorded AWS account and cross-account role; same-account
+  orgs use deployment credentials; unreachable customer roles refuse without
+  Anthus fallback. Covered in Gherkin (`cross_account_provisioning.feature`,
+  `computer_ecs_host_starter.feature`).
+- **ECS host start** is wired on **development ThinTurn only**
+  (`CHATTICUS_HOST_STARTER=ecs`). Staging and production ComputerWorker keep
+  the no-op host starter.
+- **End-to-end customer-account RunTask** is not live-proven; measured
+  onboarding and the customer runbook are still open work.
 
 ### Public sites
 
@@ -110,16 +131,18 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 | [hey.chattic.us](https://hey.chattic.us) | Production product (planned) | Web CloudFront **disabled** (stack exists, dark) |
 | [staging.chattic.us](https://staging.chattic.us) | Staging (planned) | Web CloudFront **disabled** |
 
-Staging and production thin-turn stacks may lag `develop`; their web front doors
-stay dark until explicitly re-enabled and re-proven.
-
 ### Live acceptance gate
 
 Live stack proof is manual: sign in at [dev.chattic.us](https://dev.chattic.us)
 and send a message.
 
-GitHub **Deploy ThinTurn (development)** and **Deploy Web (development)** are
-manual (`workflow_dispatch`). GitHub Actions must not hit live AWS.
+Named deploy workflows (`deploy-thinturn-development.yml`,
+`deploy-web-development.yml`, `deploy-auth-development.yml`, and the matching
+staging/production workflows) run on **push** to the environment branch
+(`develop` for development; `main` for staging and production) and on
+**`workflow_dispatch`**. GitHub Actions deploys to live AWS through OIDC
+(`ChatticusGitHubDeploy` roles). Local `cdk deploy` via `infra/deploy-*.sh`
+remains the fallback when CI cannot be used.
 
 ### Cloud stacks (do not destroy)
 
