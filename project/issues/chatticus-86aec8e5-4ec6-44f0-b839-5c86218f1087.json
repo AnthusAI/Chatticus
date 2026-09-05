@@ -3,7 +3,7 @@
   "title": "Phase 4: Serve organizations with delegated authority",
   "description": "Outcome: chattic.us serves multi-user organizations. People sign in with Google through Cognito, organizations are the unit of enablement and billing, members share channels, bots, and one organization computer, and what a member may approve or see is governed by a delegated authority ceiling modeled on how an office works.\n\nNot included: Apple sign-in, domain-verified auto-join, per-member isolation on the shared computer, billing mechanics.\n\nDesign, rejected alternatives, and explicit non-requirements: **docs/ORGANIZATIONS.md**.\n\n## How to work this initiative\n\nEvery child issue carries a header naming its phase, what blocks it, what it runs in parallel with, and what it unblocks. **Phases run in sequence. Everything inside a phase runs at the same time.** Filter by the phase-N label to see what is workable now.\n\n| Phase | What happens | Items |\n| --- | --- | --- |\n| 1 | Ground work, nothing blocks it | 79ca6a, 7c1382, 0ab02c, 272aea, 1ebc7d |\n| 2 | Cognito and the control plane, two builds that never touch | 0df6cb, b574a6 |\n| 3 | Identity resolves, nothing enforces yet | 5f0c4c, fac2ee, 79578e, 5558db, 41d08d |\n| 4 | The door closes | 22f5bb, then **7b4616**, then e41552, ae51dc |\n| 5 | Collaboration | 14f692, then 6c1a9b, 0814e6, ddf609 |\n| 6 | Delegated authority | 24df70, eef4aa, then ac3b7a, b49a89, 14cf05, then e4053a |\n| 7 | Environments come back | bc830a, then 89a222 |\n\n**Critical path:** 0ab02c to 0df6cb to 5f0c4c to 22f5bb to 7b4616 to 14f692 to ddf609 to 24df70 to eef4aa to e4053a to bc830a to 89a222. Everything off that line has slack; if capacity is short, staff the path first and let the members CLI, invitations, and named roles arrive late.\n\n**One hard join: 7b4616.** Four phase-3 and phase-4 tracks converge on it and nothing in phases 5 to 7 begins before it. Enforcement flips in a single step because a half-enforced front door is a second authentication path, and this repository does not keep two.\n\n**Two serialize-merge hazards.** 79578e reshapes every route and the tenant column in most feature files; give it a clear window and merge it alone. 6c1a9b, 0814e6, and ddf609 are independent in logic but all edit models.py and messaging/store.py; give the set to one agent or merge them one at a time.\n\n## Rules for every item\n\n- Gherkin first. Scenarios must fail for the right reason before production code exists.\n- One correct path. No item ships a second way of doing what it already does.\n- Pull requests target develop, reviewed by the sub-agent loop in AGENTS.md.\n- AWS resources are CDK only. Organization and membership rows are data and may be written by the members CLI.\n- After any deploy-affecting merge, run sh scripts/live_aws_thin_turn.sh development from a logged-in shell. The in-process gates use moto and prove nothing about CloudFront, SQS, or Lambda.\n- Secrets never enter the repository, a CDK template, or an agent transcript.",
   "type": "initiative",
-  "status": "in_progress",
+  "status": "open",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -192,10 +192,17 @@
       "text": "Phase 4 product join is live. Open children: `71e3e0` leftover `ac5453` (human Google verification), `2e3e94` leftover `f3c786` (Bedrock meter, parked until Bedrock exists). Do not treat this initiative as the next coding queue.",
       "created_at": "2026-09-05T17:59:20.810610Z",
       "comment_type": "default"
+    },
+    {
+      "id": "698da139-a81b-44ca-a6ad-dda17b07795f",
+      "author": "home",
+      "text": "Parking: Phase 4 join is live. Remaining children are human Google consent (ac5453) and parked Bedrock meter (f3c786). Not an active coding queue.",
+      "created_at": "2026-09-05T19:55:23.078724Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T02:33:10.381126Z",
-  "updated_at": "2026-09-05T17:59:20.810610Z",
+  "updated_at": "2026-09-05T19:55:23.078724Z",
   "closed_at": null,
   "custom": {}
 }
