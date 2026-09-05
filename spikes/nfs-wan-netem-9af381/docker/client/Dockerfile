@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nfs-common \
     git \
     iproute2 \
+    iputils-ping \
     python3 \
     python3-pip \
     findutils \

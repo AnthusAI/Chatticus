@@ -1,0 +1,13 @@
+{
+  "condition": "nfs-actimeo-1",
+  "actimeo": "1",
+  "netem": true,
+  "host": "client-a",
+  "runs": 3,
+  "median_seconds": {
+    "git_status": 34.1811,
+    "checkout": 66.3587,
+    "stat_sweep": 37.5343,
+    "pip_install": 1.1298
+  }
+}

@@ -1,11 +1,12 @@
 # Staleness curve (ea918a input)
 
-Two NFS clients on the same export. client-a writes; client-b observes via `git status --porcelain` (lstat path).
+Two NFS clients. client-a creates a marker file; client-b polls with **`stat`** (100ms loop).
+One **`git status --porcelain`** trial per actimeo is contrast-only (confounded by ~30s git runtime).
 
-| actimeo | ratio_overall | median_staleness_ms | performance vs freshness |
+| actimeo | ratio_overall (WAN) | stat staleness ms | git_status contrast ms |
 | --- | --- | --- | --- |
-| 1 | 61600.0x | 33959 | actimeo did not separate perf vs staleness in this cross-client test |
-| 15 | 57880.0x | 32016 | actimeo did not separate perf vs staleness in this cross-client test |
-| 300 | 57510.0x | 32026 | actimeo did not separate perf vs staleness in this cross-client test |
-| 60 | 57630.0x | 31694 | actimeo did not separate perf vs staleness in this cross-client test |
-| default | 57680.0x | 32113 | actimeo did not separate perf vs staleness in this cross-client test |
+| 1 | 1743.93x | 827 | 60873 (contrast) |
+| 15 | 1629.53x | 747 | 57534 (contrast) |
+| 300 | 1637.43x | 760 | 57303 (contrast) |
+| 60 | 1640.27x | 768 | 56935 (contrast) |
+| default | 1649.48x | 787 | 61439 (contrast) |
