@@ -1,0 +1,100 @@
+services:
+  nfs-server:
+    build:
+      context: ./docker/nfs-server
+    privileged: true
+    hostname: nfs-server
+    networks:
+      nfs-wan:
+        ipv4_address: 172.28.0.2
+    volumes:
+      - nfs-data:/exports
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/nfs-healthcheck.sh"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+      start_period: 15s
+
+  seed:
+    build:
+      context: ./docker/client
+    privileged: true
+    depends_on:
+      nfs-server:
+        condition: service_healthy
+    networks:
+      nfs-wan:
+        ipv4_address: 172.28.0.10
+    volumes:
+      - nfs-data:/exports
+      - ./scripts:/scripts:ro
+      - ./fixtures:/fixtures:ro
+      - ./results:/results
+    entrypoint: ["/scripts/seed-workspace.sh"]
+
+  client-a:
+    build:
+      context: ./docker/client
+    privileged: true
+    hostname: client-a
+    depends_on:
+      nfs-server:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    networks:
+      nfs-wan:
+        ipv4_address: 172.28.0.3
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./fixtures:/fixtures:ro
+      - ./results:/results
+    entrypoint: ["/scripts/client-entrypoint.sh"]
+
+  client-b:
+    build:
+      context: ./docker/client
+    privileged: true
+    hostname: client-b
+    depends_on:
+      nfs-server:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    networks:
+      nfs-wan:
+        ipv4_address: 172.28.0.4
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./fixtures:/fixtures:ro
+      - ./results:/results
+    entrypoint: ["/scripts/client-entrypoint.sh"]
+
+  local-control:
+    build:
+      context: ./docker/client
+    privileged: true
+    hostname: local-control
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    networks:
+      nfs-wan:
+        ipv4_address: 172.28.0.5
+    volumes:
+      - nfs-data:/exports:ro
+      - ./scripts:/scripts:ro
+      - ./fixtures:/fixtures:ro
+      - ./results:/results
+    entrypoint: ["/scripts/local-control-entrypoint.sh"]
+
+networks:
+  nfs-wan:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+volumes:
+  nfs-data:

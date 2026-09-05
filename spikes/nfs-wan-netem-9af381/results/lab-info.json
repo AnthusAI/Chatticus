@@ -1,0 +1,9 @@
+{
+  "server_backend": "ganesha",
+  "netem_delay_ms": 20,
+  "expected_rtt_ms": 40,
+  "nfs_version": "4.1",
+  "seed_file_count": 976,
+  "seed_repo_url": "https://github.com/AnthusAI/Chatticus.git",
+  "seeded_at": "2026-09-05T20:58:51Z"
+}
