@@ -26,10 +26,24 @@
       "text": "Composer 2.5 planning. Remaining DoD is a stable public URL for existing infra/customer-role.yml. Worktree /tmp/chatticus-8a25af-publish-template on feat/publish-customer-role-template-8a25af. Do not write a second template.",
       "created_at": "2026-09-05T19:43:10.235456Z",
       "comment_type": "default"
+    },
+    {
+      "id": "e8ada2cc-ea11-4fea-a467-a4d056a0d9e3",
+      "author": "home",
+      "text": "Plan reviewed and authorized with one hole closed: do not add a second BucketDeployment. DeployWebsite already prunes the site bucket; a second Custom::CDKBucketDeployment would delete the SPA or the yaml. Add infra/customer-role.yml as another Source on the existing DeployWebsite. Canonical path /provisioning/customer-role.yml on each ChatticusWeb* host. No second template. No Gherkin. Do not close until b88c0a runs the published URL. Worktree /tmp/chatticus-8a25af-publish-template on feat/publish-customer-role-template-8a25af.",
+      "created_at": "2026-09-05T19:45:00.090025Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "558aea74-0c1e-4236-a3be-1770e228bc8f",
+      "author": "home",
+      "text": "Product PR feat/publish-customer-role-template-8a25af: customer-role.yml added as second Source on existing DeployWebsite (one BucketDeployment). URL https://hey.chattic.us/provisioning/customer-role.yml (+ dev/staging). SSM /chatticus/{env}/provisioning/customer-role-template-url. Issue stays in_progress until b88c0a runs prod URL unmodified.",
+      "created_at": "2026-09-05T19:46:39.625818Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-05T19:43:10.235456Z",
+  "updated_at": "2026-09-05T19:46:39.625818Z",
   "closed_at": null,
   "custom": {}
 }
