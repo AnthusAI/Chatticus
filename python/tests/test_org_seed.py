@@ -12,6 +12,7 @@ from chatticus.members.__main__ import main as members_main
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
     ActorKind,
+    AwsSetupPath,
     Bot,
     Channel,
     ChannelParticipant,
@@ -62,6 +63,8 @@ def test_admin_seed_organization_aligns_with_messaging_user_id() -> None:
 
     assert organization.tenant_id == ANTHUS_TENANT_ID
     assert organization.status == OrganizationStatus.ENABLED
+    assert organization.aws_account_id is not None
+    assert organization.aws_setup_path == AwsSetupPath.ANTHUS_MANAGED
     identity = store.get_identity_by_email("owner@example.com")
     assert identity is not None
     assert identity.user_id == ANTHUS_LEGACY_USER_ID

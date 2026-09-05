@@ -11,6 +11,7 @@ from chatticus.cross_account_provisioning import (
     organization_after_accepted_self_setup,
     validate_cross_account_role_for_self_setup,
 )
+from chatticus.deployment_aws_account import caller_aws_account_id
 from chatticus.messaging.store import MessagingStore
 from chatticus.models import (
     AwsSetupPath,
@@ -121,6 +122,8 @@ class OrgRecordsKernel:
             status=OrganizationStatus.ENABLED,
             owner_user_id=owner.user_id,
             created_at=now,
+            aws_account_id=caller_aws_account_id(),
+            aws_setup_path=AwsSetupPath.ANTHUS_MANAGED,
         )
         self.store.put_organization(organization)
         self.store.put_membership(
@@ -132,6 +135,17 @@ class OrgRecordsKernel:
             )
         )
         return organization
+
+    def _apply_seed_aws_home(self, organization: Organization) -> Organization:
+        if organization.aws_account_id is not None:
+            return organization
+        updated = replace(
+            organization,
+            aws_account_id=caller_aws_account_id(),
+            aws_setup_path=AwsSetupPath.ANTHUS_MANAGED,
+        )
+        self.store.put_organization(updated)
+        return updated
 
     def _put_pending_organization(
         self,
@@ -212,9 +226,10 @@ class OrgRecordsKernel:
                 f"membership for {owner.user_id!r}."
             )
         if existing.status == OrganizationStatus.ENABLED:
-            return existing
+            return self._apply_seed_aws_home(existing)
         if existing.status == OrganizationStatus.PENDING:
-            return self.enable_organization(tenant_id)
+            enabled = self.enable_organization(tenant_id)
+            return self._apply_seed_aws_home(enabled)
         raise OrganizationSeedConflictError(
             f"Organization {tenant_id!r} has status "
             f"{existing.status!r}; seed requires pending or enabled."

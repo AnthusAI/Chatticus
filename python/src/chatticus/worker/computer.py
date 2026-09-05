@@ -21,6 +21,7 @@ from chatticus.models import (
     TurnStatus,
     pending_computer_tool_from_turn,
 )
+from chatticus.organization_computer_host import OrganizationComputerProvisioningError
 
 
 class ComputerActionExecutor(Protocol):
@@ -74,6 +75,13 @@ class ComputerWorker:
             return
         try:
             self.host_starter.start_host(claim)
+        except OrganizationComputerProvisioningError as exc:
+            self.plane.release_host_start_dispatch(
+                tenant_id, computer.host_start_generation
+            )
+            raise ComputerWorkerHostNotReady(
+                f"Turn {turn_id!r} computer provisioning refused: {exc}"
+            ) from exc
         except Exception as exc:
             self.plane.release_host_start_dispatch(
                 tenant_id, computer.host_start_generation

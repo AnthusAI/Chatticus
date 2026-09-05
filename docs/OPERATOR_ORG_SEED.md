@@ -52,7 +52,14 @@ python -m chatticus.members list --status enabled
 ```
 
 Confirm `status=enabled`, `name=Anthus AI Solutions`, and owner email keyed
-as `ryan@anth.us`. No computer row is created.
+as `ryan@anth.us`. The seed records `aws_account_id` from the STS caller
+identity of the operator credentials running the command (not a default
+placeholder). No computer row is created.
+
+**Migration:** Organizations seeded before this change may have
+`aws_account_id=None`. Computer start refuses until `members seed` is
+re-run for `anthus` (or the tenant) with live AWS credentials so the
+home account is recorded.
 
 ## Cold bootstrap (empty org records, arbitrary tenant)
 
@@ -107,6 +114,8 @@ Behavior:
 - If the email already maps to a **different** `user_id`, the command fails
   loudly instead of splitting identity from legacy data.
 - Writes `enabled` directly (or enables an existing pending org).
+- Sets `aws_account_id` to the AWS account id returned by STS
+  `get_caller_identity` for the operator credentials running seed.
 - Re-running is idempotent when owner and status already match.
 - Never provisions a computer.
 
