@@ -70,10 +70,17 @@
       "text": "Phase A0 first run (PR #310, not merged): nfs-ganesha, claimed 20ms netem, warm git status ~30s vs local ~0.01s, stat sweep ~32s vs ~0.02s. That *looks* like ~1 RTT per file on a 976-file tree — **if** the delay is WAN.\n\nDo not treat it as a D5 verdict yet. nfsstat never captured; ping RTT not recorded; local checkout 0.0s inflated the 57680x ratio; two-client “staleness” ~32s is git-status duration on client-b, not cache delay. Sent back: LAN NFS control, `test -f` probe, wall-clock table, commit timing JSON.",
       "created_at": "2026-09-05T22:23:57.217519Z",
       "comment_type": "default"
+    },
+    {
+      "id": "dde1a9bf-e52f-4259-b5d7-f2c3169b02bf",
+      "author": "home",
+      "text": "Phase A0 re-run on PR #310 (not merged until re-review + CI).\n\n**Wall seconds (warm, default actimeo):** local git_status 0.02s; NFS LAN (no netem) 0.25s; NFS WAN (netem) 32.3s. Stat sweep 0.02 / 0.26 / 33.4s. Measured ping RTT: LAN 0.21ms, WAN 24.7ms (egress-only 20ms qdisc, not 40ms RTT). GETATTR traffic present via mountstats.\n\n**D5 pre-filter:** every actimeo row is >10x vs local (~1650x git_status). LAN vs local is ~13x (Ganesha-in-Docker tax; do not call that EFS). WAN vs LAN is the delay: ~32s extra. `actimeo` did not change warm git_status (~30–32s all values). Phase A0 answer: **no threshold-table row is reachable at ~25ms RTT in this lab.** That is a scope reduction signal for the local interactive host, not Phase A/B, not EFS floor, not stunnel.\n\n**ea918a:** stat-probe staleness ~0.75–0.83s all actimeo; git-status contrast ~57–61s. The 0.8s floor may include docker-exec start after the write; do not treat it as a measured `actimeo` window. Decision still `ea918a`.",
+      "created_at": "2026-09-05T23:28:32.026495Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:08:29.618306Z",
-  "updated_at": "2026-09-05T22:23:57.217519Z",
+  "updated_at": "2026-09-05T23:28:32.026495Z",
   "closed_at": null,
   "custom": {}
 }
