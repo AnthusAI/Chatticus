@@ -29,6 +29,17 @@ secret ARN for the matching web stack. The web stack publishes:
 
 - `/chatticus/{environment}/web/site-url` — `https://{hostname}`
 - `/chatticus/{environment}/thin-turn/cloudfront-url` — `https://{hostname}/api` (same-origin API base for workers and acceptance)
+- `/chatticus/{environment}/provisioning/customer-role-template-url` — `https://{hostname}/provisioning/customer-role.yml` (customer cross-account IAM setup; source file is `infra/customer-role.yml`, deployed by the same `DeployWebsite` `BucketDeployment` as the SPA)
+
+**Customer cross-account template:** `infra/customer-role.yml` is the only
+template. Each `ChatticusWeb*` stack publishes it at
+`https://{hostname}/provisioning/customer-role.yml` (development:
+`dev.chattic.us`, staging: `staging.chattic.us`, production:
+`hey.chattic.us`). Customers and runbooks pass that URL unmodified to
+`aws cloudformation create-stack --template-url`. Changes to the file are
+customer-visible; existing customers re-run or update their stack. S3 may
+serve the object as `application/octet-stream`; CloudFormation accepts the
+HTTPS GET. Never duplicate this file or broaden it to `AdministratorAccess`.
 
 Each auth stack publishes (under the same web prefix):
 

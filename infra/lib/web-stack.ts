@@ -18,6 +18,11 @@ import {
   SPA_VIEWER_RESPONSE_FUNCTION,
 } from "./cloudfront-functions";
 import {
+  customerRoleTemplateDeploySource,
+  customerRoleTemplateUrl,
+  provisioningParameterPrefix,
+} from "./customer-role-template";
+import {
   ChatticusCloudEnvironment,
   thinTurnParameterPrefix,
   WEB_CLOUDFRONT_ENABLED,
@@ -139,52 +144,55 @@ export class WebStack extends cdk.Stack {
 
     const repoRoot = path.join(__dirname, "../..");
     const webRoot = path.join(repoRoot, "web");
-    const websiteSources = props.websiteDeploySource
-      ? [props.websiteDeploySource]
-      : [
-          s3deploy.Source.asset(repoRoot, {
-            exclude: [
-              "**/node_modules",
-              ".git",
-              "python",
-              "computer",
-              "features",
-              "docs",
-              "project",
-              "spikes",
-              "infra/cdk.out",
-              "infra/dist",
-              "web/.next",
-              "web/out",
-              ".venv",
-            ],
-            bundling: {
-              image: cdk.DockerImage.fromRegistry(WEB_BUNDLE_DOCKER_IMAGE),
-              command: ["bash", "-c", webDockerBundleCommand(environmentName)],
-              environment: webDockerBundlingEnvironment(),
-              local: {
-                tryBundle(outputDir: string): boolean {
-                  try {
-                    execSync(
-                      `${WEB_LOCAL_BUNDLE_AWS_CLI_CHECK} && ${webLocalBundleCommand(environmentName)}`,
-                      {
-                        cwd: repoRoot,
+    const websiteSources = [
+      ...(props.websiteDeploySource
+        ? [props.websiteDeploySource]
+        : [
+            s3deploy.Source.asset(repoRoot, {
+              exclude: [
+                "**/node_modules",
+                ".git",
+                "python",
+                "computer",
+                "features",
+                "docs",
+                "project",
+                "spikes",
+                "infra/cdk.out",
+                "infra/dist",
+                "web/.next",
+                "web/out",
+                ".venv",
+              ],
+              bundling: {
+                image: cdk.DockerImage.fromRegistry(WEB_BUNDLE_DOCKER_IMAGE),
+                command: ["bash", "-c", webDockerBundleCommand(environmentName)],
+                environment: webDockerBundlingEnvironment(),
+                local: {
+                  tryBundle(outputDir: string): boolean {
+                    try {
+                      execSync(
+                        `${WEB_LOCAL_BUNDLE_AWS_CLI_CHECK} && ${webLocalBundleCommand(environmentName)}`,
+                        {
+                          cwd: repoRoot,
+                          stdio: "inherit",
+                          shell: "/bin/bash",
+                        },
+                      );
+                      execSync(`cp -r ${webRoot}/out/. ${outputDir}/`, {
                         stdio: "inherit",
-                        shell: "/bin/bash",
-                      },
-                    );
-                    execSync(`cp -r ${webRoot}/out/. ${outputDir}/`, {
-                      stdio: "inherit",
-                    });
-                    return true;
-                  } catch {
-                    return false;
-                  }
+                      });
+                      return true;
+                    } catch {
+                      return false;
+                    }
+                  },
                 },
               },
-            },
-          }),
-        ];
+            }),
+          ]),
+      customerRoleTemplateDeploySource(repoRoot),
+    ];
     new s3deploy.BucketDeployment(this, "DeployWebsite", {
       logRetention: CHATTICUS_LOG_RETENTION,
       sources: websiteSources,
@@ -210,6 +218,8 @@ export class WebStack extends cdk.Stack {
 
     const siteUrl = `https://${siteDomain}`;
     const apiBaseUrl = `${siteUrl}/api`;
+    const customerRoleTemplatePublicUrl = customerRoleTemplateUrl(siteDomain);
+    const provisioningPrefix = provisioningParameterPrefix(environmentName);
 
     new ssm.StringParameter(this, "SiteUrlParameter", {
       parameterName: `${webPrefix}/site-url`,
@@ -227,6 +237,12 @@ export class WebStack extends cdk.Stack {
       description:
         `Same-origin API base URL for the ${environmentName} thin-turn front door.`,
     });
+    new ssm.StringParameter(this, "CustomerRoleTemplateUrlParameter", {
+      parameterName: `${provisioningPrefix}/customer-role-template-url`,
+      stringValue: customerRoleTemplatePublicUrl,
+      description:
+        `Public HTTPS URL for the customer cross-account CloudFormation template (${environmentName}).`,
+    });
 
     new cdk.CfnOutput(this, "ChatticusEnvironment", { value: environmentName });
     new cdk.CfnOutput(this, "SiteDomain", { value: siteDomain });
@@ -235,6 +251,11 @@ export class WebStack extends cdk.Stack {
     new cdk.CfnOutput(this, "CloudFrontUrl", { value: siteUrl });
     new cdk.CfnOutput(this, "CloudFrontDistributionDomainName", {
       value: distribution.distributionDomainName,
+    });
+    new cdk.CfnOutput(this, "CustomerRoleTemplateUrl", {
+      value: customerRoleTemplatePublicUrl,
+      description:
+        "Stable HTTPS URL for infra/customer-role.yml (customer cross-account IAM setup).",
     });
   }
 }
