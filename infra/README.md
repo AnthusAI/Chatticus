@@ -34,12 +34,22 @@ secret ARN for the matching web stack. The web stack publishes:
 **Customer cross-account template:** `infra/customer-role.yml` is the only
 template. Each `ChatticusWeb*` stack publishes it at
 `https://{hostname}/provisioning/customer-role.yml` (development:
-`dev.chattic.us`, staging: `staging.chattic.us`, production:
-`hey.chattic.us`). Customers and runbooks pass that URL unmodified to
-`aws cloudformation create-stack --template-url`. Changes to the file are
-customer-visible; existing customers re-run or update their stack. S3 may
-serve the object as `application/octet-stream`; CloudFormation accepts the
-HTTPS GET. Never duplicate this file or broaden it to `AdministratorAccess`.
+`dev.chattic.us`; staging and production hostnames exist in SSM but web
+CloudFront stays dark until re-enabled). Customers and runbooks **GET** that
+URL (HTTPS; body is this file unmodified) and pass the YAML to
+`aws cloudformation create-stack --template-body`. CloudFormation rejects a
+CloudFront distribution URL as `--template-url`; do not use `--template-url`
+with the published hostname. Example:
+
+```bash
+curl -fsS "https://dev.chattic.us/provisioning/customer-role.yml" \
+  -o /tmp/customer-role.yml
+aws cloudformation create-stack ... \
+  --template-body file:///tmp/customer-role.yml
+```
+
+Changes to the file are customer-visible; existing customers re-run or update
+their stack. Never duplicate this file or broaden it to `AdministratorAccess`.
 
 Each auth stack publishes (under the same web prefix):
 
