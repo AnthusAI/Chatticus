@@ -1,0 +1,29 @@
+{
+  "label": "authorized",
+  "sleep_seconds": 1800,
+  "upload_bytes": 2000000000,
+  "job_completed": true,
+  "sqs_deleted": "spike-receipt-1",
+  "sqs_receive_count": 1,
+  "elapsed_seconds": 2583.696,
+  "final_turn": {
+    "at": "2026-09-05T19:25:17.866238+00:00",
+    "turn_id": "83d5ef2c-68e4-483e-bbb6-8b485c106180",
+    "status": "failed",
+    "claimed_by_worker_id": null,
+    "lease_expires_at": null,
+    "deadline_at": "2026-09-05T18:46:36+00:00",
+    "recovery_attempts": 1,
+    "fence_token": 4,
+    "waiting_for": null,
+    "terminal_reason": "recovery attempts exhausted"
+  },
+  "upload_result": {
+    "bucket": "<snapshot-bucket-name>",
+    "key": "spikes/0edb18/authorized-64013564/artifact.bin",
+    "size_bytes": 2000000000,
+    "elapsed_seconds": 781.777,
+    "at": "2026-09-05T19:25:17.361599+00:00"
+  },
+  "turn_completed": false
+}
