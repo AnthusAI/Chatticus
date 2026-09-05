@@ -20,10 +20,17 @@
       "text": "Do not use the first 9af381 Phase A0 “~32s staleness across all actimeo” as decision input. The observer was `git status` (~30s), so the curve is the metadata op cost, not cross-client attribute-cache delay. A `test -f`/`stat` probe is in flight on PR #310.",
       "created_at": "2026-09-05T22:23:57.236449Z",
       "comment_type": "default"
+    },
+    {
+      "id": "7974afe0-a82e-40c3-b362-13a532da7dd3",
+      "author": "home",
+      "text": "Phase A0 stat-probe (PR #310): cross-client create visible in ~0.75–0.83s for every `actimeo` (1–300s). Git-status contrast ~60s is the op cost, not cache delay. The ~0.8s floor is not a clean `actimeo` curve (possible docker-exec after write). Performance vs freshness is **not** a tradeoff in this lab: long `actimeo` did not make `git status` faster. Options A–D still need a product decision; this spike does not pick one.",
+      "created_at": "2026-09-05T23:28:32.063937Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T20:34:06.008440Z",
-  "updated_at": "2026-09-05T22:23:57.236449Z",
+  "updated_at": "2026-09-05T23:28:32.063937Z",
   "closed_at": null,
   "custom": {}
 }
