@@ -16,8 +16,12 @@ Chatticus is a named-teammate product: persistent bots, an organization-scoped L
 computer, approvals, skills, routines, and a pull-based worker protocol that
 can run the computer on AWS or on local hardware.
 
-The public marketing site and product name is **Chatticus** at **chattic.us**.
-The production product workspace is at **hey.chattic.us**.
+The product name is **Chatticus**. The production product workspace is at
+**hey.chattic.us**. The marketing site and its private SaaS layer are the
+private `AnthusAI/Chattic.us-web` repo, serving **chattic.us**; this repo
+knows nothing about that one (see Kanbus epic `chatticus-3926bc` for the
+public/private boundary). Do not add marketing routes, billing code, or
+account/payment state to this repo.
 
 Do not describe this product as a clone, port, or copy of any third-party
 agent product. Do not use third-party product names for Chatticus bots, the
@@ -25,18 +29,6 @@ computer, skills, routines, or the worker protocol.
 
 v1's LLM is **OpenAI**. Amazon Bedrock may follow. Do not assume or add an
 xAI client. The model vendor is not the product name.
-
-## Marketing news desk
-
-Editorial policy for Updates and Agent Zoo lives in
-[`web/content/blog/AGENTS.md`](web/content/blog/AGENTS.md).
-
-## Marketing wiki
-
-Editorial policy for the public marketing wiki lives in
-[`web/content/wiki/AGENTS.md`](web/content/wiki/AGENTS.md).
-Wiki pages are Markus HTML with a Chatticus theme; do not link marketing
-copy at GitHub blobs of `docs/` or `LICENSE`.
 
 ## Behavior-driven design (outside-in, for real)
 
@@ -88,9 +80,12 @@ must pass. Neither is a substitute for the other.
 - `features/` — shared Gherkin. Behavior changes start here.
 - `python/` — control plane, scheduler, roster, approvals, later agent and
   worker processes.
-- `web/` — Next.js app: marketing at `/` and product workspace at `/chat`
-  (`chattic.us` marketing, `hey.chattic.us` product in production). One web
-  project, not a separate marketing repo. Root `package.json` workspaces
+- `web/` — Next.js app: the product workspace at `/chat` and `/auth`
+  (`hey.chattic.us` in production). No marketing routes -- those live in the
+  private `AnthusAI/Chattic.us-web` repo (chatticus-3926bc), which depends
+  on this repo's root package as its shared UI kit and brand tokens (see the
+  `exports` map in the root `package.json`); don't remove or rename anything
+  under that map without checking that repo. Root `package.json` workspaces
   `web` and `infra`. Avatars are procedural Vultus models (`anthus-vultus`),
   not Lottie.
 - `computer/` — Docker image for the Linux workplace.

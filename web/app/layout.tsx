@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Manrope, Newsreader } from "next/font/google";
 import "./globals.css";
-import "@/styles/markus.css";
-import "@/styles/markus-chatticus.css";
 
 const display = Newsreader({
   subsets: ["latin"],
@@ -30,11 +28,11 @@ const mono = IBM_Plex_Mono({
  * Only truly site-wide metadata lives here. Title, description, keywords,
  * canonical, openGraph, and twitter are per-page (see page-content.ts and
  * each route's own metadata export) so a shared link's preview actually
- * describes the page being shared, not always the homepage -- each route
- * also gets its own opengraph-image.tsx built from the same copy.
+ * describes the page being shared, not always the workspace root -- each
+ * route also gets its own opengraph-image.tsx built from the same copy.
  */
 export const metadata: Metadata = {
-  metadataBase: new URL("https://chattic.us"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://hey.chattic.us"),
   icons: {
     icon: "/favicon.svg",
   },

@@ -6,9 +6,11 @@ Chatticus is a shared, collaborative space where people and named bots
 work together around common files, tools, and a system of authority and
 approvals — like an office, not a chat window.
 
-The public marketing site is [chattic.us](https://chattic.us). The planned
-production product workspace is [hey.chattic.us](https://hey.chattic.us)
-(web CloudFront is disabled today; see What is live today).
+The production product workspace is [hey.chattic.us](https://hey.chattic.us).
+The public marketing site, [chattic.us](https://chattic.us), is a separate
+private repo (`AnthusAI/Chattic.us-web`) that depends on this repo's shared
+UI kit and brand tokens; see the `exports` map in [package.json](package.json)
+and Kanbus epic `chatticus-3926bc` for the public/private boundary.
 
 v1 is personal: one household, one AWS account, as many named bots as we
 want. Every record already carries a `tenant_id` so the same system can
@@ -78,7 +80,7 @@ to `main` for release.
 
 | Environment | ThinTurn API (enforcement) | Cognito Auth (sign-out) | Web bundle |
 | --- | --- | --- | --- |
-| development (`dev.chattic.us`) | Live — CloudFront → Lambda | Live — `logoutUrls` + `/auth/signout-callback` | Live — marketing `/` + product `/chat` (CF enabled) |
+| development (`dev.chattic.us`) | Live — CloudFront → Lambda | Live — `logoutUrls` + `/auth/signout-callback` | Live — product `/chat` at `/` (CF enabled; marketing moved to `AnthusAI/Chattic.us-web`, chatticus-3926bc) |
 | staging (`staging.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
 | production (`hey.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
 
@@ -103,8 +105,8 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 
 | Host | Role | Notes |
 | --- | --- | --- |
-| [chattic.us](https://chattic.us) | Marketing | Updates, Agent Zoo, and the Markus wiki at `/wiki` |
-| [dev.chattic.us](https://dev.chattic.us) | Development product + API | Same-origin `/api`; marketing `/` + product `/chat` live |
+| [chattic.us](https://chattic.us) | Marketing (private `AnthusAI/Chattic.us-web` repo) | Updates, Agent Zoo, and the Markus wiki at `/wiki`; same-origin `/api` to this repo's thin-turn front door |
+| [dev.chattic.us](https://dev.chattic.us) | Development product + API | Same-origin `/api`; product `/chat` at `/` |
 | [hey.chattic.us](https://hey.chattic.us) | Production product (planned) | Web CloudFront **disabled** (stack exists, dark) |
 | [staging.chattic.us](https://staging.chattic.us) | Staging (planned) | Web CloudFront **disabled** |
 

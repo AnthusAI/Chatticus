@@ -24,6 +24,10 @@ export function webBuildEnvExports(environmentName: ChatticusCloudEnvironment): 
     `[ -n "$NEXT_PUBLIC_COGNITO_CLIENT_ID" ]`,
     `[ -n "$NEXT_PUBLIC_COGNITO_AUTH_DOMAIN" ]`,
     `export NEXT_PUBLIC_COGNITO_REDIRECT_URI='https://${siteDomain}/auth/callback'`,
+    // metadataBase for OG image URL resolution -- this environment's own
+    // site domain now that marketing (and its own chattic.us domain) has
+    // moved to a separate repo/distribution (chatticus-3926bc).
+    `export NEXT_PUBLIC_SITE_URL='https://${siteDomain}'`,
     `export NEXT_PUBLIC_CHATTICUS_SIGNUP_MODE='${signupModeForEnvironment(environmentName)}'`,
     `export CHATTICUS_ENV='${environmentName}'`,
   ].join(" && ");

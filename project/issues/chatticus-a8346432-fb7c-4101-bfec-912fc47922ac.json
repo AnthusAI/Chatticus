@@ -3,7 +3,7 @@
   "title": "Certificate and apex DNS cutover for chattic.us",
   "description": "",
   "type": "chore",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,20 @@
       "comment_type": "default",
       "data": {},
       "agent": null
+    },
+    {
+      "id": "91f07ae2-2a7c-4ba6-b365-40c2ae01fbda",
+      "author": "home",
+      "text": "Cutover executed. Sequence: (1) merged and promoted the product-repo changes dropping WEB_MARKETING_DOMAINS and the marketing alias/host-routing/apex-records from ChatticusWeb* (PR #298); (2) waited for the production deploy (ChatticusWebProduction) to succeed, confirming it released the chattic.us alias; (3) immediately pushed the marketing repo's CHATTICUS_MARKETING_INCLUDE_APEX=1 change, triggering ChatticusMarketing to claim the apex.\n\nActual downtime window: chattic.us was unreachable from when ChatticusWebProduction's deploy completed until ChatticusMarketing's deploy completed and the new distribution's alias propagated -- roughly the two deploy durations back to back (a few minutes), not the CloudFront propagation delay itself since DNS never had to change (both distributions' apex A/AAAA records point at whichever CloudFront distribution currently holds the alias in AWS's global anycast layer, not a Route53 change). hey.chattic.us, dev.chattic.us, and staging.chattic.us were unaffected throughout, confirmed by curl during the window.\n\nOne operational hiccup, unrelated to the cutover logic itself: the #297 and #298 merges landed close enough together that their two 'Deploy Web (development)'/'Deploy ThinTurn (development)' CI runs raced against the same CloudFormation stack; the second of each failed with UPDATE_IN_PROGRESS/CREATE_IN_PROGRESS conflicts rather than queuing. Both re-triggered manually and succeeded on retry -- dev.chattic.us's root was briefly still showing marketing content until the retry landed, now fixed.\n\nFinal verification: chattic.us and www.chattic.us serve the marketing site (/, /beta/, /contact/services/, /wiki/ all 200; /api/waitlist/survey 200 through the same-origin proxy). hey.chattic.us, dev.chattic.us, and staging.chattic.us all serve the workspace at root (title check on all three).",
+      "created_at": "2026-09-04T23:51:03.358557Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     }
   ],
   "created_at": "2026-09-04T21:30:32.946599Z",
-  "updated_at": "2026-09-04T21:30:33.971382Z",
-  "closed_at": null,
+  "updated_at": "2026-09-04T23:51:03.873036Z",
+  "closed_at": "2026-09-04T23:51:03.872951Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

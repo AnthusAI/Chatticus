@@ -22,13 +22,6 @@ from chatticus.email_sender import RecordingEmailSender  # noqa: E402
 from chatticus.vendor_prices import clear_vendor_prices  # noqa: E402
 
 
-def before_all(context: object) -> None:
-    """Build Markus wiki HTML once so marketing wiki scenarios can render it."""
-    from chatticus.wiki_publish import write_generated_wiki
-
-    write_generated_wiki()
-
-
 def before_scenario(context: object, scenario: object) -> None:
     """Start each scenario with a fresh control plane and temp dirs."""
     from browser_auth_helpers import wire_test_http_front_door

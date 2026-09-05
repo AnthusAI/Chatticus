@@ -15,3 +15,7 @@ Feature: Public waitlist submission
     When that source submits the survey again
     Then the response is 429
     And no additional waitlist signup is recorded
+
+  Scenario: UTM parameters are persisted on the signup
+    When they post a waitlist survey with UTM source google and campaign beta_launch
+    Then the waitlist signup records the UTM source and campaign
