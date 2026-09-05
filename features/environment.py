@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import sys
 import tempfile
 from datetime import timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 _TESTS_DIR = Path(__file__).resolve().parents[1] / "python" / "tests"
 _STEPS_DIR = Path(__file__).resolve().parent / "steps"
@@ -21,10 +23,19 @@ from chatticus.control_plane import ControlPlane  # noqa: E402
 from chatticus.email_sender import RecordingEmailSender  # noqa: E402
 from chatticus.vendor_prices import clear_vendor_prices  # noqa: E402
 
+_DEPLOYMENT_AWS_ACCOUNT_ID = "111122223333"
+
 
 def before_scenario(context: object, scenario: object) -> None:
     """Start each scenario with a fresh control plane and temp dirs."""
     from browser_auth_helpers import wire_test_http_front_door
+
+    os.environ["CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID"] = _DEPLOYMENT_AWS_ACCOUNT_ID
+    context._caller_account_patch = patch(  # type: ignore[attr-defined]
+        "chatticus.org_records.caller_aws_account_id",
+        return_value=_DEPLOYMENT_AWS_ACCOUNT_ID,
+    )
+    context._caller_account_patch.start()  # type: ignore[attr-defined]
 
     clear_vendor_prices()
     context.email_sender = RecordingEmailSender()
@@ -61,6 +72,10 @@ def before_scenario(context: object, scenario: object) -> None:
 
 def after_scenario(context: object, scenario: object) -> None:
     """Remove per-scenario snapshot directories."""
+    caller_patch = getattr(context, "_caller_account_patch", None)
+    if caller_patch is not None:
+        caller_patch.stop()
+    os.environ.pop("CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID", None)
     clear_vendor_prices()
     watcher = getattr(context, "sse_watcher", None)
     if watcher is not None:

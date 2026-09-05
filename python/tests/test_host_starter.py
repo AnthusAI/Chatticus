@@ -45,13 +45,17 @@ def test_host_starter_from_env_selects_organization_starter(
     from chatticus.models import AwsSetupPath, Organization, OrganizationStatus
 
     monkeypatch.setenv("CHATTICUS_HOST_STARTER", "ecs")  # type: ignore[attr-defined]
+    monkeypatch.setenv(  # type: ignore[attr-defined]
+        "CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID",
+        "111122223333",
+    )
     seeded = Organization(
         tenant_id="anthus",
         name="Anthus",
         status=OrganizationStatus.ENABLED,
         owner_user_id="owner",
         created_at=datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC),
-        aws_account_id="999999999999",
+        aws_account_id="111122223333",
         aws_setup_path=AwsSetupPath.ANTHUS_MANAGED,
     )
     assert isinstance(

@@ -13,16 +13,16 @@ from chatticus.cross_account_provisioning import (
     CrossAccountRoleSnapshot,
     InMemoryCrossAccountRoleInspector,
 )
-from chatticus.deployment_aws_account import DEFAULT_DEPLOYMENT_AWS_ACCOUNT_ID
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import AwsSetupPath, OrganizationStatus
 from chatticus.organization_computer_host import (
+    DeploymentEcsConfig,
     OrganizationComputerHostStarter,
     OrganizationComputerProvisioningError,
 )
 
 CUSTOMER_ACCOUNT_ID = "123456789012"
-DEPLOYMENT_ACCOUNT_ID = DEFAULT_DEPLOYMENT_AWS_ACCOUNT_ID
+DEPLOYMENT_ACCOUNT_ID = "111122223333"
 CUSTOMER_ROLE_ARN = (
     f"arn:aws:iam::{CUSTOMER_ACCOUNT_ID}:role/ChatticusOrganizationComputerRole"
 )
@@ -438,21 +438,35 @@ def _wire_host_start_context(
     context: object,
     *,
     assume_role: object | None = None,
+    deployment_ecs_config: DeploymentEcsConfig | None = None,
 ) -> None:
     _ensure_org_store(context)
     recorder = _MultiAccountEcsRecorder()
     context.ecs_recorder = recorder  # type: ignore[attr-defined]
+    cloudformation_client = _FakeCloudFormation()
+    context.cloudformation_client = cloudformation_client  # type: ignore[attr-defined]
+    context.assume_role_recorder = assume_role or RecordingAssumeRole()  # type: ignore[attr-defined]
     context.host_starter = OrganizationComputerHostStarter(  # type: ignore[attr-defined]
         _plane(context).get_organization,
         deployment_account_id=DEPLOYMENT_ACCOUNT_ID,
-        assume_role=assume_role or RecordingAssumeRole(),
+        deployment_ecs_config=deployment_ecs_config
+        or DeploymentEcsConfig(
+            cluster="deployment-cluster",
+            task_definition="computer:1",
+            subnets=["subnet-deploy-1"],
+            security_groups=["sg-deploy-1"],
+        ),
+        assume_role=context.assume_role_recorder,  # type: ignore[attr-defined]
         ecs_client_factory=recorder.factory,
-        cloudformation_client_factory=lambda _credentials: _FakeCloudFormation(),
+        cloudformation_client_factory=lambda _credentials: cloudformation_client,
     )
     context.host_start_error = None  # type: ignore[attr-defined]
 
 
-@given("an organization provisioned into a customer AWS account")
+@given(
+    "an organization provisioned into a customer AWS account "
+    "with a ChatticusComputers stack"
+)
 def given_organization_provisioned_into_customer_account(context: object) -> None:
     org = _provision_cross_account_org(
         context,
@@ -465,9 +479,16 @@ def given_organization_provisioned_into_customer_account(context: object) -> Non
     _wire_host_start_context(context)
 
 
-@given("its customer account has a ChatticusComputers stack")
-def given_customer_account_has_computers_stack(context: object) -> None:
-    assert context.start_org.aws_account_id == CUSTOMER_ACCOUNT_ID
+@given("an Anthus-managed organization homed in the deployment AWS account")
+def given_anthus_managed_in_deployment_account(context: object) -> None:
+    _ensure_org_store(context)
+    context.start_org = _plane(context).admin_seed_organization(
+        "anthus-managed",
+        "anthus-owner@example.com",
+        name="Anthus Managed",
+        now=context.now,
+    )
+    _wire_host_start_context(context)
 
 
 @given("an organization whose cross-account role cannot be assumed")
@@ -508,6 +529,35 @@ def then_instance_launched_in_customer_account(context: object) -> None:
     assert starter.last_outcome is not None
     assert starter.last_outcome.launch_account_id == CUSTOMER_ACCOUNT_ID
     assert len(context.ecs_recorder.customer.calls) == 1  # type: ignore[attr-defined]
+    assert len(context.cloudformation_client.describe_calls) == 1  # type: ignore[attr-defined]
+
+
+@then("the organization's cross-account role was assumed")
+def then_cross_account_role_was_assumed(context: object) -> None:
+    recorder = context.assume_role_recorder  # type: ignore[attr-defined]
+    org = context.start_org
+    assert len(recorder.calls) == 1
+    assert recorder.calls[0]["RoleArn"] == org.aws_cross_account_role
+    assert recorder.calls[0]["ExternalId"] == org.aws_external_id
+
+
+@then("the instance is launched with deployment credentials")
+def then_instance_launched_with_deployment_credentials(context: object) -> None:
+    starter = _host_starter(context)
+    assert starter.last_outcome is not None
+    assert starter.last_outcome.launch_account_id == DEPLOYMENT_ACCOUNT_ID
+    assert len(context.ecs_recorder.deployment.calls) == 1  # type: ignore[attr-defined]
+
+
+@then("AssumeRole is not called")
+def then_assume_role_is_not_called(context: object) -> None:
+    recorder = context.assume_role_recorder  # type: ignore[attr-defined]
+    assert len(recorder.calls) == 0
+
+
+@then("no ECS client is opened in a customer account")
+def then_no_ecs_client_in_customer_account(context: object) -> None:
+    assert len(context.ecs_recorder.customer.calls) == 0  # type: ignore[attr-defined]
 
 
 @then("no compute for that organization runs in the Anthus account")
@@ -524,4 +574,5 @@ def then_no_compute_in_deployment_account(context: object) -> None:
 def then_start_refused_with_provisioning_error(context: object) -> None:
     error = context.host_start_error  # type: ignore[attr-defined]
     assert error is not None
-    assert "provisioning" in str(error).lower()
+    message = str(error).lower()
+    assert "provisioning" in message or "refused" in message
