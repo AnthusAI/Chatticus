@@ -11,7 +11,7 @@ from chatticus.cross_account_provisioning import (
     organization_after_accepted_self_setup,
     validate_cross_account_role_for_self_setup,
 )
-from chatticus.deployment_aws_account import deployment_aws_account_id
+from chatticus.deployment_aws_account import caller_aws_account_id
 from chatticus.messaging.store import MessagingStore
 from chatticus.models import (
     AwsSetupPath,
@@ -122,7 +122,7 @@ class OrgRecordsKernel:
             status=OrganizationStatus.ENABLED,
             owner_user_id=owner.user_id,
             created_at=now,
-            aws_account_id=deployment_aws_account_id(),
+            aws_account_id=caller_aws_account_id(),
             aws_setup_path=AwsSetupPath.ANTHUS_MANAGED,
         )
         self.store.put_organization(organization)
@@ -141,7 +141,7 @@ class OrgRecordsKernel:
             return organization
         updated = replace(
             organization,
-            aws_account_id=deployment_aws_account_id(),
+            aws_account_id=caller_aws_account_id(),
             aws_setup_path=AwsSetupPath.ANTHUS_MANAGED,
         )
         self.store.put_organization(updated)

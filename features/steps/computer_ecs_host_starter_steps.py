@@ -19,15 +19,18 @@ def given_host_starter_ecs(context: object) -> None:
     os.environ["CHATTICUS_HOST_STARTER"] = "ecs"
 
 
-@then("the host starter from environment is an ECS host starter")
-def then_host_starter_is_ecs(context: object) -> None:
+@then("the host starter from environment is an OrganizationComputerHostStarter")
+def then_host_starter_is_organization_starter(context: object) -> None:
+    import os
+
+    deployment_account_id = os.environ["CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID"]
     seeded = Organization(
         tenant_id="anthus",
         name="Anthus",
         status=OrganizationStatus.ENABLED,
         owner_user_id="owner",
         created_at=datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC),
-        aws_account_id="999999999999",
+        aws_account_id=deployment_account_id,
         aws_setup_path=AwsSetupPath.ANTHUS_MANAGED,
     )
     assert isinstance(
