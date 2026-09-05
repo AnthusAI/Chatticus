@@ -1,0 +1,7 @@
+{
+  "host_worker_seconds": 120,
+  "elapsed_seconds": 135.651,
+  "iterations": 106,
+  "exited_before_job": true,
+  "finding": "Poll loop ran until wall clock exceeded CHATTICUS_HOST_WORKER_SECONDS without receiving a job; this constant is an idle poll budget, not checked inside run_host_worker_once during action execution."
+}
