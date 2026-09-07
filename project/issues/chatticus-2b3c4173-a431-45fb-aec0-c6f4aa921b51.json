@@ -3,7 +3,7 @@
   "title": "Customer account holds the computer image at runtime",
   "description": "**Principle follow-through, not the `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` patch.**\n\nEpic `chatticus-598be488-151d-4e57-8897-5cf6aaed50e5` decided 2026-09-07: a customer organization's account holds everything that organization's work depends on at runtime — image, files, compute.\n\n`infra/customer-role.yml` already grants the full ECR push set (`CreateRepository`, `PutImage`, `InitiateLayerUpload`, `UploadLayerPart`, `CompleteLayerUpload`, `SetRepositoryPolicy`). `chatticus-82dab7c4-a44c-4e0e-ac19-51a0c7a12d09`'s who-creates-what table said the `:dev` image lands in **that** ECR under the assumed role. `infra/lib/customer-computers-stack.ts` instead `fromRegistry(anthusComputerImageUri)`.\n\nDo not start this until `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` has a host that runs — two customer-visible computer-stack changes at once will blur the labeled stop. Template edits stay customer-visible.\n\n```\nFeature: The customer computer pulls an image from the customer's ECR\n\n  Scenario: RunTask does not depend on Anthus registry reachability\n    Given a customer ChatticusComputers stack\n    When a computer host starts\n    Then the task definition image URI is in CUSTOMER_ACCOUNT_ID\n    And the published role's push permissions are used, not leftover\n```",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -31,10 +31,17 @@
       "text": "`chatticus-8fe4c7e1` closed: a customer host executed `browser_open`. This card is unblocked. Next: customer ECR holds `:dev` at RunTask; stop pulling `fromRegistry(anthusComputerImageUri)`. Do not mix with host-disk step 2 in the same slice.\n",
       "created_at": "2026-09-07T23:37:41.858203Z",
       "comment_type": "default"
+    },
+    {
+      "id": "61ac19c9-bcf6-4f33-9745-b1392472eb51",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree `/tmp/chatticus-2b3c41-customer-ecr` on `feat/2b3c41-customer-ecr-image`. Implementation not authorized until the plan is reviewed. Customer-visible template stays customer-visible. Do not mix host-disk step 2 into this slice.\n",
+      "created_at": "2026-09-07T23:38:21.509242Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T22:58:46.825272Z",
-  "updated_at": "2026-09-07T23:37:41.858203Z",
+  "updated_at": "2026-09-07T23:38:21.509242Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
