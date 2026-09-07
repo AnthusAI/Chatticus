@@ -1660,28 +1660,11 @@ class DynamoMessagingStore:
     def put_computer(self, computer: Computer) -> None:
         self.client.put_item(
             TableName=self.table_name,
-            Item={
-                "pk": {"S": self._roster_pk(computer.tenant_id)},
-                "sk": {"S": "computer"},
-                "tenant_id": {"S": computer.tenant_id},
-                "computer_id": {"S": computer.computer_id},
-                "stopped": {"BOOL": computer.stopped},
-                "policy": {"S": computer.policy},
-                "model_ready": {"BOOL": computer.model_ready},
-                "workspace_ready": {"BOOL": computer.workspace_ready},
-                "browser_ready": {"BOOL": computer.browser_ready},
-                "host_start_generation": {"N": str(computer.host_start_generation)},
-                "host_start_dispatched_generation": {
-                    "N": str(computer.host_start_dispatched_generation)
-                },
-                "host_start_lease_expires_at": {
-                    "N": str(
-                        int(computer.host_start_lease_expires_at.timestamp())
-                        if computer.host_start_lease_expires_at is not None
-                        else 0
-                    )
-                },
-            },
+            Item=_computer_item(
+                computer,
+                pk=self._roster_pk(computer.tenant_id),
+                sk="computer",
+            ),
         )
 
     def get_computer(self, tenant_id: str) -> Computer | None:
@@ -1695,25 +1678,7 @@ class DynamoMessagingStore:
         item = response.get("Item")
         if item is None:
             return None
-        lease_epoch = int(item.get("host_start_lease_expires_at", {}).get("N", "0"))
-        return Computer(
-            computer_id=item["computer_id"]["S"],
-            tenant_id=item["tenant_id"]["S"],
-            policy=ComputerPolicy(item["policy"]["S"]),
-            stopped=item["stopped"]["BOOL"],
-            model_ready=item.get("model_ready", {}).get("BOOL", True),
-            workspace_ready=item.get("workspace_ready", {}).get("BOOL", False),
-            browser_ready=item.get("browser_ready", {}).get("BOOL", False),
-            host_start_generation=int(
-                item.get("host_start_generation", {}).get("N", "0")
-            ),
-            host_start_dispatched_generation=int(
-                item.get("host_start_dispatched_generation", {}).get("N", "0")
-            ),
-            host_start_lease_expires_at=(
-                datetime.fromtimestamp(lease_epoch, tz=UTC) if lease_epoch else None
-            ),
-        )
+        return _computer_from_item(item)
 
     def claim_host_start_dispatch(self, tenant_id: str, generation: int) -> bool:
         try:
@@ -2840,6 +2805,70 @@ class DynamoMessagingStore:
             name=item["name"]["S"],
             memory={str(key): str(value) for key, value in memory.items()},
         )
+
+
+def _computer_from_item(item: dict[str, Any]) -> Computer:
+    lease_epoch = int(item.get("host_start_lease_expires_at", {}).get("N", "0"))
+    snapshot_uri = item.get("snapshot_uri", {}).get("S")
+    snapshot_checksum = item.get("snapshot_checksum", {}).get("S")
+    intended_host = item.get("intended_host_worker_id", {}).get("S")
+    return Computer(
+        computer_id=item["computer_id"]["S"],
+        tenant_id=item["tenant_id"]["S"],
+        policy=ComputerPolicy(item["policy"]["S"]),
+        stopped=item["stopped"]["BOOL"],
+        model_ready=item.get("model_ready", {}).get("BOOL", True),
+        workspace_ready=item.get("workspace_ready", {}).get("BOOL", False),
+        browser_ready=item.get("browser_ready", {}).get("BOOL", False),
+        host_start_generation=int(item.get("host_start_generation", {}).get("N", "0")),
+        host_start_dispatched_generation=int(
+            item.get("host_start_dispatched_generation", {}).get("N", "0")
+        ),
+        host_start_lease_expires_at=(
+            datetime.fromtimestamp(lease_epoch, tz=UTC) if lease_epoch else None
+        ),
+        snapshot_uri=snapshot_uri or None,
+        snapshot_checksum=snapshot_checksum or None,
+        snapshot_generation=int(item.get("snapshot_generation", {}).get("N", "0")),
+        disk_dirty=item.get("disk_dirty", {}).get("BOOL", False),
+        hydrate_required=item.get("hydrate_required", {}).get("BOOL", False),
+        intended_host_worker_id=intended_host or None,
+    )
+
+
+def _computer_item(computer: Computer, *, pk: str, sk: str) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "pk": {"S": pk},
+        "sk": {"S": sk},
+        "tenant_id": {"S": computer.tenant_id},
+        "computer_id": {"S": computer.computer_id},
+        "stopped": {"BOOL": computer.stopped},
+        "policy": {"S": computer.policy},
+        "model_ready": {"BOOL": computer.model_ready},
+        "workspace_ready": {"BOOL": computer.workspace_ready},
+        "browser_ready": {"BOOL": computer.browser_ready},
+        "host_start_generation": {"N": str(computer.host_start_generation)},
+        "host_start_dispatched_generation": {
+            "N": str(computer.host_start_dispatched_generation)
+        },
+        "host_start_lease_expires_at": {
+            "N": str(
+                int(computer.host_start_lease_expires_at.timestamp())
+                if computer.host_start_lease_expires_at is not None
+                else 0
+            )
+        },
+        "snapshot_generation": {"N": str(computer.snapshot_generation)},
+        "disk_dirty": {"BOOL": computer.disk_dirty},
+        "hydrate_required": {"BOOL": computer.hydrate_required},
+    }
+    if computer.snapshot_uri is not None:
+        item["snapshot_uri"] = {"S": computer.snapshot_uri}
+    if computer.snapshot_checksum is not None:
+        item["snapshot_checksum"] = {"S": computer.snapshot_checksum}
+    if computer.intended_host_worker_id is not None:
+        item["intended_host_worker_id"] = {"S": computer.intended_host_worker_id}
+    return item
 
 
 def _message_item(message: Message, *, pk: str, sk: str) -> dict[str, Any]:
