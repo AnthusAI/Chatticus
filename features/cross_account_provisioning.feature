@@ -150,3 +150,32 @@ Feature: Cross-account provisioning
     Given the ChatticusComputers stack is terminal-failed in ROLLBACK_FAILED status
     When its computer is asked to start
     Then Chatticus deletes the ChatticusComputers stack in the customer account
+
+  Scenario: A CREATE_COMPLETE stack with legacy outputs starts UpdateStack before RunTask
+    Given an organization provisioned into a customer AWS account with a CREATE_COMPLETE ChatticusComputers stack with legacy outputs only
+    When its computer is asked to start
+    Then Chatticus updates the ChatticusComputers stack in the customer account
+    And the start is refused with a provisioning error
+    And no instance is launched in the Anthus account
+    And Chatticus does not delete the ChatticusComputers stack
+
+  Scenario: After UPDATE_COMPLETE with subnet outputs host start RunTasks in the customer account
+    Given an organization provisioned into a customer AWS account with a CREATE_COMPLETE ChatticusComputers stack with legacy outputs only
+    When its computer is asked to start
+    And the ChatticusComputers stack finishes updating
+    When its computer starts
+    Then the instance is launched in the customer account
+    And no compute for that organization runs in the Anthus account
+
+  Scenario: UPDATE_COMPLETE without subnet outputs refuses with a visible provisioning error
+    Given an organization provisioned into a customer AWS account with a ChatticusComputers stack in UPDATE_COMPLETE status without subnet outputs
+    When its computer is asked to start
+    Then the start is refused with a provisioning error naming incomplete outputs
+    And no instance is launched in the Anthus account
+
+  Scenario: UpdateStack no-op succeeds when subnet outputs are already present
+    Given an organization provisioned into a customer AWS account with a ChatticusComputers stack
+    And UpdateStack reports no changes for the customer CloudFormation client
+    When its computer starts
+    Then the instance is launched in the customer account
+    And no compute for that organization runs in the Anthus account

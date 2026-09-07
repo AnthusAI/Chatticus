@@ -136,16 +136,20 @@ def handler(event: dict[str, Any], _context: object) -> dict[str, Any] | None:
                         turn_client,
                         queue_visibility_renewer=queue_visibility_renewer,
                     ).run_job(job)
-        except ComputerWorkerHostNotReady:
+        except ComputerWorkerHostNotReady as exc:
             if worker_kind != "computer":
                 raise
             batch_failures.append({"itemIdentifier": record["messageId"]})
             logger.info(
-                "job_nacked tenant_id=%s turn_id=%s attempt_id=%s message_id=%s",
+                (
+                    "job_nacked tenant_id=%s turn_id=%s attempt_id=%s "
+                    "message_id=%s reason=%s"
+                ),
                 job.tenant_id,
                 job.turn_id,
                 job.job_id,
                 record["messageId"],
+                exc,
             )
             continue
         logger.info(

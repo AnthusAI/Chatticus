@@ -11,6 +11,7 @@ from chatticus.customer_computers_template import (
     CREATE_STACK_TEMPLATE_BYTE_LIMIT,
     create_stack_capabilities,
     customer_computers_create_stack_parameters,
+    is_no_stack_updates_error,
     is_stack_missing_error,
     load_customer_computers_template,
     template_delivery_for_create_stack,
@@ -91,3 +92,31 @@ def test_committed_template_has_no_cdk_bootstrap() -> None:
     body = json.dumps(template)
     assert "AWS::SSM::Parameter::Value" not in body
     assert "/cdk-bootstrap/" not in body
+
+
+def test_committed_template_exports_run_task_network_outputs() -> None:
+    template = load_customer_computers_template()
+    outputs = template.get("Outputs", {})
+    assert "ComputerPublicSubnetIds" in outputs
+    assert "ComputerSecurityGroupId" in outputs
+
+
+def test_is_no_stack_updates_error() -> None:
+    error = ClientError(
+        {
+            "Error": {
+                "Code": "ValidationError",
+                "Message": "No updates are to be performed.",
+            }
+        },
+        "UpdateStack",
+    )
+    assert is_no_stack_updates_error(error) is True
+
+
+def test_is_no_stack_updates_error_rejects_other_errors() -> None:
+    error = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "nope"}},
+        "UpdateStack",
+    )
+    assert is_no_stack_updates_error(error) is False

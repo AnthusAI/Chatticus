@@ -519,6 +519,29 @@
           "Name"
         ]
       }
+    },
+    "ComputerPublicSubnetIds": {
+      "Value": {
+        "Fn::Join": [
+          ",",
+          [
+            {
+              "Ref": "VpcpublicSubnet1Subnet2BB74ED7"
+            },
+            {
+              "Ref": "VpcpublicSubnet2SubnetE34B022A"
+            }
+          ]
+        ]
+      }
+    },
+    "ComputerSecurityGroupId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ComputerSecurityGroupA7D795AD",
+          "GroupId"
+        ]
+      }
     }
   }
 }

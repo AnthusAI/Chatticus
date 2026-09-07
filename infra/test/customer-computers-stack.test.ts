@@ -71,6 +71,8 @@ describe("CustomerComputersStack", () => {
     template.hasOutput("ComputerClusterName", {});
     template.hasOutput("ComputerTaskDefinitionArn", {});
     template.hasOutput("ComputerServiceName", {});
+    template.hasOutput("ComputerPublicSubnetIds", {});
+    template.hasOutput("ComputerSecurityGroupId", {});
     const outputs = template.findOutputs("*");
     assert.equal(
       Object.keys(outputs).some((key) => key.includes("SnapshotBucketName")),

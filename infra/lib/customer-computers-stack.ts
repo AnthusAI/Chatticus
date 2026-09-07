@@ -121,5 +121,11 @@ export class CustomerComputersStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ComputerServiceName", {
       value: service.serviceName,
     });
+    new cdk.CfnOutput(this, "ComputerPublicSubnetIds", {
+      value: cdk.Fn.join(",", vpc.publicSubnets.map((subnet) => subnet.subnetId)),
+    });
+    new cdk.CfnOutput(this, "ComputerSecurityGroupId", {
+      value: securityGroup.securityGroupId,
+    });
   }
 }
