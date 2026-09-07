@@ -115,10 +115,17 @@
       "text": "F-computer (`chatticus-2f2d87`) ran against the published template **unmodified**. No template edit.\n\nLive: AssumeRole succeeded; missing customer `ChatticusComputers` refused with zero Anthus `RunTask`. The published policy already allows `CreateStack` on `ChatticusComputers*` — ComputerWorker does not call it. That deploy is `chatticus-82dab7`, not a customer-run second template.\n\nA customer stack named `ChatticusSnapshots` would **be** a customer-visible template change (CFN resource filter is `ChatticusComputers*` only). Decision: customer snapshot bucket is created inside `ChatticusComputers`. Stay closed unless `82dab7` proves a policy hole.",
       "created_at": "2026-09-07T16:22:59.942039Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f2814ca2-bcab-49ae-9976-6d7fcb96913c",
+      "author": "home",
+      "text": "`82dab7` plan review: first customer `ChatticusComputers` **must not** create a snapshot bucket. Published role has no `s3:*`; that CreateStack would fail. Stay closed. Reopen only when file-actions (`3e72dc`) need customer-account packs — then add scoped `s3:*` (customer-visible) and put the bucket inside `ChatticusComputers`.",
+      "created_at": "2026-09-07T16:29:43.468893Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-07T16:22:59.942039Z",
+  "updated_at": "2026-09-07T16:29:43.468893Z",
   "closed_at": "2026-09-07T15:44:10.297139Z",
   "custom": {}
 }
