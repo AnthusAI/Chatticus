@@ -108,10 +108,17 @@
       "text": "F-computer (`chatticus-2f2d87`) is probing live customer-account host start against the published template **unmodified**. Any required template change (ChatticusComputers deploy permissions, customer snapshot bucket, Snapshots stack name in the CFN resource filter) is **customer-visible** and comes back to this card — do not silent-edit `customer-role.yml` during the run.",
       "created_at": "2026-09-07T16:08:15.767087Z",
       "comment_type": "default"
+    },
+    {
+      "id": "a9138b10-dc5e-4c2d-8d67-72eba28a6767",
+      "author": "home",
+      "text": "F-computer (`chatticus-2f2d87`) ran against the published template **unmodified**. No template edit.\n\nLive: AssumeRole succeeded; missing customer `ChatticusComputers` refused with zero Anthus `RunTask`. The published policy already allows `CreateStack` on `ChatticusComputers*` — ComputerWorker does not call it. That deploy is `chatticus-82dab7`, not a customer-run second template.\n\nA customer stack named `ChatticusSnapshots` would **be** a customer-visible template change (CFN resource filter is `ChatticusComputers*` only). Decision: customer snapshot bucket is created inside `ChatticusComputers`. Stay closed unless `82dab7` proves a policy hole.",
+      "created_at": "2026-09-07T16:22:59.942039Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-07T16:08:15.767087Z",
+  "updated_at": "2026-09-07T16:22:59.942039Z",
   "closed_at": "2026-09-07T15:44:10.297139Z",
   "custom": {}
 }

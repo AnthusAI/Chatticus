@@ -13,7 +13,7 @@
   ],
   "dependencies": [
     {
-      "target": "chatticus-2f2d8752-5740-4175-a117-d37f978f99ef",
+      "target": "chatticus-82dab7",
       "type": "blocked-by"
     }
   ],
@@ -24,10 +24,17 @@
       "text": "**Snapshot bucket decision:** customer account, not Anthus. Durable `/workspace` (S3 snapshot protocol, D3 permanent) rests in `CUSTOMER_ACCOUNT_ID`. Anthus `ChatticusSnapshots` is not the customer workplace. File-actions row still waits on F-computer, then on whoever creates that bucket (template vs assumed-role `ChatticusComputers` — F-computer will say). Do not reopen storage discovery.",
       "created_at": "2026-09-07T16:08:15.749290Z",
       "comment_type": "default"
+    },
+    {
+      "id": "165d626c-007e-4b33-b460-9fa1f9f4f27f",
+      "author": "home",
+      "text": "F-computer closed as a labeled refuse: customer `ChatticusComputers` does not exist; AssumeRole yes; zero `RunTask` in both accounts.\n\nThis matrix still cannot run. **Blocked-by `chatticus-82dab7`** (Chatticus CreateStack under the assumed role, then one customer `RunTask`). Do not start terminal/browser/files against the same missing stack — that is the same stop, not a new row.\n\nSnapshot bucket decision stands: customer account, inside `ChatticusComputers`, not Anthus `ChatticusSnapshots`.",
+      "created_at": "2026-09-07T16:22:59.959206Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:01:06.214793Z",
-  "updated_at": "2026-09-07T16:08:15.749290Z",
+  "updated_at": "2026-09-07T16:22:59.959206Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

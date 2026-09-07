@@ -111,8 +111,13 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **Throwaway-account hand run** (`chatticus-b88c0a`): published template
   unmodified; F-safe `pong` completed on development. Timed runbook:
   [wiki](project/wiki/runbooks/throwaway-account-provisioning.md)
-  (~19 min Chatticus provision; consumer AWS signup unmeasured). Customer
-  `ChatticusComputers` in the throwaway account was not deployed.
+  (~19 min Chatticus provision; consumer AWS signup unmeasured). That
+  figure **excludes** F-computer.
+- **F-computer live refuse** (`chatticus-2f2d87`, closed): ComputerWorker
+  assumed the customer role; `DescribeStacks(ChatticusComputers)` failed
+  in `CUSTOMER_ACCOUNT_ID`; **zero `RunTask` in both accounts**; Anthus
+  desiredCount stayed 0. Kernel handoff ~5 s. Next: Chatticus
+  `CreateStack` under the assumed role (`chatticus-82dab7`).
 
 ### On `develop`, not on `main`
 
@@ -124,8 +129,9 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **ECS host start** is wired on **development ThinTurn only**
   (`CHATTICUS_HOST_STARTER=ecs`). Staging and production ComputerWorker keep
   the no-op host starter.
-- **End-to-end customer-account RunTask** is not live-proven; measured
-  onboarding and the customer runbook are still open work.
+- **End-to-end customer-account RunTask** is not live-proven. F-computer
+  proved AssumeRole and refuse-not-fallback live; the customer account
+  has no `ChatticusComputers` stack (`chatticus-82dab7`).
 
 ### Public sites
 
