@@ -117,10 +117,17 @@
       "text": "Phase A: Organizations enabled; `CreateAccount` **SUCCEEDED** in **~16s** aws-wait (~65s wall). Member id is in `AGENTS.local.md` only.\n\n**Finding (lab-only):** management-account **root** cannot `AssumeRole` (`Roles may not be assumed by root accounts`). A real customer never hits this — they run CloudFormation as root **in their own account**. Next: IAM user in the management account to assume `OrganizationAccountAccessRole`, then continue. Do not treat this as a customer-role template defect.",
       "created_at": "2026-09-07T15:35:09.779810Z",
       "comment_type": "default"
+    },
+    {
+      "id": "c7da879a-5abb-468f-b319-de1c012f3f7f",
+      "author": "home",
+      "text": "Assume-role into the member account **SUCCEEDED** via lab IAM user `chatticus-b88c0a-operator` (management account). Root assume-role stays a lab-only finding. Stopped before the published template: no Chatticus `tenant_id` yet.\n\n**Next human gate:** Google sign-in at `https://dev.chattic.us` and create an organization (`POST /organizations`) so `tenant_id` can be `OrganizationId` on `create-stack`. Do not `members seed`. Template still unmodified.",
+      "created_at": "2026-09-07T15:36:11.773369Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:35:09.779810Z",
+  "updated_at": "2026-09-07T15:36:11.773369Z",
   "closed_at": null,
   "custom": {}
 }
