@@ -201,10 +201,17 @@
       "text": "Merged https://github.com/AnthusAI/Chatticus/pull/316 to develop (`6457a30`). Composer 2.5 APPROVE; CI green.\n\nDo not close. Remaining: ThinTurn development deploy, then lab-user CloudTrail **UpdateStack** on the existing CREATE_COMPLETE stack and customer **RunTask ≥ 1**. Do not infer from dispatch_ok.",
       "created_at": "2026-09-07T20:04:53.223476Z",
       "comment_type": "default"
+    },
+    {
+      "id": "80cb6a9c-6923-484e-9ad6-0fbb11b756ae",
+      "author": "home",
+      "text": "## The snapshot-bucket row will fail as written (2026-09-07)\n\nThe **who creates what** table says the snapshot bucket is created by *\"Chatticus, inside `ChatticusComputers`\"*. That cannot work with the published role.\n\n```\ngrep -c 's3:' infra/customer-role.yml  ->  0\n```\n\n**The role has zero `s3:` actions.** CloudFormation creates resources with the **caller's** permissions, so a `CreateStack`/`UpdateStack` carrying an `AWS::S3::Bucket` will fail access-denied on the bucket, regardless of the stack name matching `ChatticusComputers*`. The `ChatticusComputers*` resource filter governs which *stacks* the role may touch, not which *resource types* it may create inside them.\n\n**So the template changes either way.** The card avoids a customer-run bucket partly to avoid a second template and a customer-visible change — but S3 permissions must be added to `infra/customer-role.yml` no matter which path is taken. That is a customer-visible change by `chatticus-8a25af`'s rule. Given it is unavoidable, choose on merit rather than on avoiding it.\n\n**Decision made 2026-09-07: the bucket is declared in the customer-run template.** See `chatticus-bb9084`. Reasoning:\n\n- The customer can **read what they are agreeing to** before running it — the standard `8a25af` sets. A bucket deployed later under an assumed role is not reviewable in advance.\n- It keeps **`s3:CreateBucket` off the Anthus role entirely**. The role needs only read/write on one named bucket — a far narrower ask of a security team than \"may create buckets in your account\".\n- No first-run race: the bucket exists before the first hydrate or publish.\n- Teardown and lifecycle belong to the customer's stack, with encryption, versioning and block-public-access declared and reviewable.\n\n**This does not change the rest of the table.** `ChatticusComputers` (VPC, cluster, task def, ECR, logs, task role) and the `:dev` image stay Chatticus-deployed under the assumed role, as recorded. Only the bucket row moves.\n\nOpen sub-questions are on `bb9084` — bucket naming from `OrganizationId`, `DeletionPolicy` (`Retain` recommended: deleting a customer's files as a side effect of removing an IAM role would be indefensible), region pinning, and whether the `tenants/{tenant_id}` prefix is still wanted with one bucket per organization.",
+      "created_at": "2026-09-07T20:14:47.823957Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T20:04:53.223476Z",
+  "updated_at": "2026-09-07T20:15:01.519047Z",
   "closed_at": null,
   "custom": {}
 }
