@@ -73,6 +73,7 @@ Feature: Cross-account provisioning
     Given an organization provisioned into a customer AWS account without a ChatticusComputers stack
     When its computer is asked to start
     Then Chatticus creates the ChatticusComputers stack in the customer account
+    And Anthus grants cross-account ECR pull for the customer account
     And the instance is launched in the customer account
     And no compute for that organization runs in the Anthus account
 
@@ -81,6 +82,7 @@ Feature: Cross-account provisioning
     When its computer starts
     Then Chatticus describes the ChatticusComputers stack in the customer account
     And Chatticus does not create the ChatticusComputers stack
+    And Anthus grants cross-account ECR pull for the customer account
     And the instance is launched in the customer account
     And no compute for that organization runs in the Anthus account
 

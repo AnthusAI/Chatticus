@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 from behave import given, then, when
 from botocore.exceptions import ClientError
 
+from chatticus.anthus_computer_ecr_pull import (
+    ECR_PULL_ACTIONS,
+    grant_customer_account_anthus_computer_image_pull,
+)
 from chatticus.computer_start import HostStartClaim
 from chatticus.control_plane import ControlPlane
 from chatticus.cross_account_provisioning import (
@@ -447,6 +452,41 @@ class _MultiAccountEcsRecorder:
         return self.customer
 
 
+class _RecordingEcrRepositoryPolicy:
+    def __init__(self) -> None:
+        self.repository_name: str | None = None
+        self.policy_text: str | None = None
+
+    def get_repository_policy(self, *, repositoryName: str) -> dict[str, object]:
+        raise _RepositoryPolicyNotFound(repositoryName)
+
+    def set_repository_policy(
+        self,
+        *,
+        repositoryName: str,
+        policyText: str,
+    ) -> dict[str, object]:
+        self.repository_name = repositoryName
+        self.policy_text = policyText
+        return {}
+
+
+class _RepositoryPolicyNotFound(Exception):
+    def __init__(self, repository_name: str) -> None:
+        super().__init__(repository_name)
+        self.response = {"Error": {"Code": "RepositoryPolicyNotFoundException"}}
+
+
+def _grant_anthus_ecr_pull(context: object, customer_account_id: str) -> None:
+    recorder = _RecordingEcrRepositoryPolicy()
+    context.ecr_policy_recorder = recorder  # type: ignore[attr-defined]
+    grant_customer_account_anthus_computer_image_pull(
+        recorder,
+        repository_name="chatticuscomputers-computerimage",
+        customer_account_id=customer_account_id,
+    )
+
+
 def _host_starter(context: object) -> OrganizationComputerHostStarter:
     return context.host_starter  # type: ignore[attr-defined]
 
@@ -482,6 +522,7 @@ def _wire_host_start_context(
 
     def _record_grant(customer_account_id: str) -> None:
         context.grant_anthus_pull_calls.append(customer_account_id)  # type: ignore[attr-defined]
+        _grant_anthus_ecr_pull(context, customer_account_id)
 
     context.host_starter = OrganizationComputerHostStarter(  # type: ignore[attr-defined]
         _plane(context).get_organization,
@@ -681,6 +722,26 @@ def then_chatticus_creates_customer_stack(context: object) -> None:
     assert create_call["StackName"] == "ChatticusComputers"
     assert "CAPABILITY_IAM" in create_call["Capabilities"]
     assert "CAPABILITY_NAMED_IAM" in create_call["Capabilities"]
+
+
+@then("Anthus grants cross-account ECR pull for the customer account")
+def then_anthus_grants_cross_account_ecr_pull(context: object) -> None:
+    recorder = context.ecr_policy_recorder  # type: ignore[attr-defined]
+    assert recorder.repository_name == "chatticuscomputers-computerimage"
+    assert recorder.policy_text is not None
+    policy = json.loads(recorder.policy_text)
+    statement = next(
+        item
+        for item in policy["Statement"]
+        if item.get("Sid") == "ChatticusCustomerAccountPull"
+    )
+    assert statement["Action"] == sorted(ECR_PULL_ACTIONS)
+    principal = statement["Principal"]["AWS"]
+    if isinstance(principal, str):
+        principals = [principal]
+    else:
+        principals = list(principal)
+    assert f"arn:aws:iam::{CUSTOMER_ACCOUNT_ID}:root" in principals
 
 
 @then("Chatticus describes the ChatticusComputers stack in the customer account")

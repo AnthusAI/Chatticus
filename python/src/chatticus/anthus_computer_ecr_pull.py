@@ -6,6 +6,7 @@ import json
 from typing import Any, Protocol
 
 ECR_PULL_ACTIONS = (
+    "ecr:BatchCheckLayerAvailability",
     "ecr:BatchGetImage",
     "ecr:GetDownloadUrlForLayer",
 )
@@ -58,7 +59,7 @@ def merge_customer_account_ecr_pull_statement(
             "Sid": "ChatticusCustomerAccountPull",
             "Effect": "Allow",
             "Principal": {"AWS": [principal]},
-            "Action": list(ECR_PULL_ACTIONS),
+            "Action": sorted(ECR_PULL_ACTIONS),
         }
     )
     return {
