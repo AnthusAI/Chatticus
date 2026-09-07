@@ -35,10 +35,17 @@
       "text": "Lab is up: throwaway EFS `fs-028e92bee71335473` (not Kanbus) and SSM-only EC2 `i-009947083959a9ae0` in `subnet-06c4e78bf06400f26`. First instance `i-0750b264c25a01ac5` failed SSM and was terminated. Benchmark command is in progress on the second instance. ChatticusComputers Fargate `desiredCount` remains 0. No PR yet.",
       "created_at": "2026-09-07T13:27:50.323244Z",
       "comment_type": "default"
+    },
+    {
+      "id": "d8b9766d-7f58-47b6-96b8-c0a7299a7b9c",
+      "author": "home",
+      "text": "In-VPC numbers are in [#311](https://github.com/AnthusAI/Chatticus/pull/311). Mutating A0 vs local EBS: **23–54×** (`ratio_overall`) — **D1 fails for `/workspace` (>10×)**. Read-only warm `git status`: **~10–12×** EBS; RPC 203 → ~131 (−35%), not a near-zero cache. `actimeo=1` thrashes. Throwaway FS `fs-028e92bee71335473` and all spike EC2/SG/IAM are gone; Kanbus EFS untouched; Computers `desiredCount` still 0. Reviewing before merge. Do not write EFS CDK.",
+      "created_at": "2026-09-07T14:04:54.592776Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T12:50:30.168595Z",
-  "updated_at": "2026-09-07T13:27:50.323244Z",
+  "updated_at": "2026-09-07T14:04:54.592776Z",
   "closed_at": null,
   "custom": {}
 }
