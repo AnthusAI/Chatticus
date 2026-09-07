@@ -31,10 +31,17 @@
       "text": "`chatticus-82dab7` **closed** with customer `RunTask`. Sequence: this card before `chatticus-3e72dc` file-actions. Do not put the bucket inside `ChatticusComputers` under AssumeRole (`grep -c 's3:' infra/customer-role.yml` is 0). Customer-run published template; role later needs only read/write on the named bucket.\n",
       "created_at": "2026-09-07T20:51:54.470553Z",
       "comment_type": "default"
+    },
+    {
+      "id": "8706ad34-dfd8-4bf2-8e41-2a08c4961522",
+      "author": "home",
+      "text": "## What this bucket would hold is not what `read_workspace` reads (2026-09-07)\n\nVerified: agent `read_workspace` / `write_workspace` touch `computer.workspace` (in-process dict). Dynamo does not persist it. The pack library (`ComputerHostDisk`) tars **host filesystem** `workspace/` + `browser-profiles/`. Nothing in the agent loop writes those trees. `ControlPlane.publish_snapshot` copies the dict for in-memory Gherkin.\n\n**Decision, not assumption:** this card's bucket is for **host snapshot packs** (ARCHITECTURE / COMPUTER_SNAPSHOTS — \"their files\" on disk + Chromium profile). It is **not** a store for the control-plane dict, and it does **not** unblock `ls /workspace` or today's `read_workspace`. Bridging agent tools to host disk is product work, not implied by creating the bucket.\n\n`chatticus-3e72dc` file-actions is therefore not blocked on this card the way terminal is not blocked on RunTask.\n",
+      "created_at": "2026-09-07T21:14:25.992055Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T20:09:48.784194Z",
-  "updated_at": "2026-09-07T20:51:54.470553Z",
+  "updated_at": "2026-09-07T21:14:25.992055Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
