@@ -68,10 +68,17 @@
       "text": "Anthus session is live (`335163751677` root). This account is **not** in AWS Organizations, so there is no `CreateAccount` path. T0 still blocked on a **consumer** signup at aws.amazon.com (email/phone/card) and a CLI session in that new account. Do not use Anthus as the customer home.",
       "created_at": "2026-09-07T15:13:36.890451Z",
       "comment_type": "default"
+    },
+    {
+      "id": "15981f97-36be-4cf7-980f-e138570fc902",
+      "author": "home",
+      "text": "**Method note:** AWS Organizations is **not** in use on `335163751677` and will **not** be enabled for this run. `CreateAccount` is off the table.\n\nThe remaining path is a **consumer** AWS account (aws.amazon.com signup: email, phone, payment) plus a CLI session in that account. Anthus root cannot stand in as the customer home — that only proves same-account start.\n\nT0 remains blocked until that second account exists. If this desk cannot create one, that fact itself belongs in the wiki (invitation-rate / setup-fee input): we cannot complete a customer-shaped provision from a single billed account.",
+      "created_at": "2026-09-07T15:22:53.142267Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:13:36.890451Z",
+  "updated_at": "2026-09-07T15:22:53.142267Z",
   "closed_at": null,
   "custom": {}
 }
