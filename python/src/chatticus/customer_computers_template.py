@@ -28,6 +28,12 @@ def is_stack_missing_error(error: ClientError) -> bool:
     return "does not exist" in message.lower()
 
 
+def is_no_stack_updates_error(error: ClientError) -> bool:
+    """Return whether CloudFormation rejected UpdateStack because nothing changed."""
+    message = str(error.response.get("Error", {}).get("Message", "")).lower()
+    return "no updates are to be performed" in message
+
+
 def template_delivery_for_create_stack(
     template_body: str,
     *,
