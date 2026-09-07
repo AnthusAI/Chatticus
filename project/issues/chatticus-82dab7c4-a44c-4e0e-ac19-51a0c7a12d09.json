@@ -61,10 +61,17 @@
       "text": "PR #312 HEAD `132dfff`: customer execution role granted ECR pull; committed template re-synced; infra test asserts GetAuthorizationToken. Re-review in flight. CI in progress. Not merging yet.",
       "created_at": "2026-09-07T16:54:00.215148Z",
       "comment_type": "default"
+    },
+    {
+      "id": "c7794906-e761-4e3e-90fe-73438666d411",
+      "author": "home",
+      "text": "PR #312 review was APPROVE on `132dfff`, but **infra CI failed**: `npm run check:customer-computers-template` (committed artifact drifted from CDK synth). Not merging. Re-synth, commit the artifact, push.",
+      "created_at": "2026-09-07T16:56:07.867505Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T16:54:00.215148Z",
+  "updated_at": "2026-09-07T16:56:07.867505Z",
   "closed_at": null,
   "custom": {}
 }
