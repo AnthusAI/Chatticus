@@ -238,10 +238,17 @@
       "text": "Composer 2.5 planning the `RUNTASK_USER_ID_NONE` slice. Worktree (planner will create): `/tmp/chatticus-82dab7-runtask-user-id` on `feat/customer-runtask-user-id-82dab7`. Plan only until authorized. Do not close this card without lab-user `RunTask ≥ 1`.\n",
       "created_at": "2026-09-07T20:25:00.450369Z",
       "comment_type": "default"
+    },
+    {
+      "id": "381b49dc-5810-4552-9755-0a19940b8941",
+      "author": "home",
+      "text": "Plan accepted with two required strengthenings (not optional):\n\n1. Existing lambda scenario in `computer_continuation_worker.feature` must also assert the host start claim carries user \"ryan\" — that is the SQS → Lambda path that nacked live.\n2. pytest on `_run_task_overrides` must reject `None` and empty `user_id`. `RecordingHostStarter` never calls boto3; Gherkin alone would miss the live failure.\n\nWorktree not created yet. Not authorizing implementation.\n",
+      "created_at": "2026-09-07T20:27:35.933978Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T20:25:00.450369Z",
+  "updated_at": "2026-09-07T20:27:35.933978Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
