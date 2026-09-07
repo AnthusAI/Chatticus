@@ -3,7 +3,7 @@
   "title": "Exercise the remaining bot capabilities in a customer account",
   "description": "**Phase 1 of 5.**\n\n- **Blocked by:** `chatticus-2f2d87` (F-computer) — nothing below can run until a computer starts in the customer account\n- **Unblocks:** an honest pitch page, and any claim about what a customer gets\n\n---\n\n## Why this exists\n\n`chatticus-b88c0a` proved the **backbone substrate** end to end in a customer account: Google sign-in, organization record, cross-account role with ExternalId, enablement, AWS home, and a completed turn (`pong`).\n\nThat is a real milestone and it is also **one capability out of many**. `pong` is a **computerless** turn — capability `cpu`. Every capability that touches the computer is unexercised in a customer account.\n\nThis card owns the rest of the matrix so the gaps are visible up front rather than found one at a time by a customer.\n\n## Coverage after `b88c0a`\n\n| Capability | Customer account | Evidence / gap |\n|---|---|---|\n| Google sign-in | **Proven** | `dev.chattic.us` |\n| Organization record + `tenant_id` | **Proven** | Invisible in UI — `chatticus-9c8dbf` |\n| Cross-account role, ExternalId, AssumeRole | **Proven** | `CREATE_COMPLETE`, template unmodified |\n| Org enablement + AWS home | **Proven** | Operator deviation — `chatticus-070cb4` |\n| Bot creation | Kernel only | No UI — `chatticus-7622fd` |\n| **Computerless turn (`cpu`)** | **Proven** | `pong` |\n| Computer start (cross-account RunTask) | **Unproven** | `chatticus-2f2d87` |\n| Terminal / shell actions | **Unproven** | Needs a computer first |\n| Browser actions (Chromium) | **Unproven** | Needs a computer first |\n| File actions (`/workspace`) | **Unproven, and predicted to fail** | See below |\n| Approvals loop | **Unproven** | Consequential actions default to require-approval |\n| Watch / takeover display | **Unproven** | |\n| Spend ceiling enforcement | **Unproven** | The ceiling is what makes the price safe |\n| Relocate / failover between hosts | **Unproven** | |\n\n## One failure is predictable now, before running anything\n\n**File actions will fail in a customer account as currently templated.**\n\n`b88c0a` recorded that the published role CFN is scoped to `ChatticusComputers*` and **not** `ChatticusSnapshots`. `/workspace` depends on the S3 snapshot protocol for hydrate and publish — and per `chatticus-fbae4e` D3 (refuted 2026-09-07), that protocol is **permanent**, not a transitional artifact waiting for EFS. So a bot in a customer account cannot hydrate or publish `/workspace` without snapshot-bucket access the role does not grant.\n\nThat is a **template gap**, and by `chatticus-8a25af`'s rule a template change is **customer-visible** — an existing customer has to re-run it. Cheap now, expensive after the first customer.\n\nDecide deliberately: does the snapshot bucket live in the Anthus account with the role granted cross-account access, or in the customer account created by the template? That choice changes both the template and where customer data rests — which is the pitch page's central claim.\n\n## Sequence\n\n1. `chatticus-2f2d87` **F-computer** — a computer starts at all. Everything else is blocked on it.\n2. **Terminal**, then **browser** — the two computer capabilities with no storage dependency.\n3. **File actions** — expect the snapshot-bucket failure above; resolve the template question.\n4. **Approvals** — a consequential action pauses and resumes correctly across the account boundary.\n5. **Spend ceiling** — enforcement is what makes the floated price safe.\n6. **Relocate / failover** — last; the least likely to be exercised by an early customer.\n\nStop and record at the first failure in each row rather than pushing through. A labeled stop is a result.\n\n## Record\n\nSame discipline as `b88c0a`: wiki runbook with placeholders, real ids in gitignored `AGENTS.local.md`, every deviation labeled. Add elapsed time per capability — the ~19 min provisioning figure covers **none** of this.\n\n## Done when\n\nEach row above is proven, or has a recorded failure with a decision about what changes — template, infrastructure, or product scope.",
   "type": "task",
-  "status": "in_progress",
+  "status": "open",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -11,7 +11,12 @@
   "labels": [
     "phase-1"
   ],
-  "dependencies": [],
+  "dependencies": [
+    {
+      "target": "chatticus-82dab7",
+      "type": "blocked-by"
+    }
+  ],
   "comments": [
     {
       "id": "c39b7bed-1f46-4c33-914c-0f99088b9bc3",
@@ -47,10 +52,17 @@
       "text": "Plan reviewed and **authorized** with two holes closed.\n\nWorktree verified: `/tmp/chatticus-3e72dc-capability-matrix` on `spike/3e72dc-capability-matrix` (not the primary clone). Sequence, expected file-actions stop, no template edit, kernel messages, Layer A+B RUNNING, Anthus desiredCount 0 — accepted.\n\n**Closed on authorize:**\n1. **ECS Exec is not a terminal pass.** Row 1 is proven only if a shell command completes in the **turn journal**. Otherwise label `NO_TERMINAL_TOOL` and stop that row. Do not call `execute-command` a product result.\n2. **Approvals must cross the account boundary.** Computerless `purchase` does not satisfy the card. Prefer a computer-side consequential action (browser or workspace) that hits `require_approval`. If no such path exists, label `APPROVAL_NO_CROSS_ACCOUNT_PATH` — still record whether require_approval fired. Computerless purchase may be extra evidence, not the row.\n\nUse the lab IAM user (not management root) for customer `DescribeTasks`. Do not fold times into ~19 min. Wiki on `develop` via the manager after labeled stops.",
       "created_at": "2026-09-07T17:37:13.807259Z",
       "comment_type": "default"
+    },
+    {
+      "id": "2c37dbab-f101-4395-be4b-d9c23d767671",
+      "author": "home",
+      "text": "Matrix run finished; **no row proven.** Rows 1–2: `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` (customer stack gone vs `82dab7` closure). Row 3/6: expected `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET`. Row 4: `APPROVAL_NO_CROSS_ACCOUNT_PATH`. Row 5: `SPEND_LIMIT_NOT_ENFORCED_AT_SINK`. Anthus desiredCount 0.\n\nParked (`open`) until `82dab7` DoD holds under lab-user `DescribeStacks`, then re-run terminal/browser. Worktree kept. Do not fold times into ~19 min.",
+      "created_at": "2026-09-07T17:47:19.786395Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:01:06.214793Z",
-  "updated_at": "2026-09-07T17:37:13.807259Z",
+  "updated_at": "2026-09-07T17:47:19.786395Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

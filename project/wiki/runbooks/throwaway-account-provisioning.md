@@ -61,22 +61,24 @@ Attempted after F-safe. **Do not fold this elapsed time into the ~19 min figure.
 
 **Who creates `ChatticusComputers` in the customer account:** Chatticus, under the assumed role. Customer does not run a second template. This slice has **no snapshot bucket** (no `s3:*` on the published role). Bucket + scoped `s3:*` is `chatticus-8a25af` before `chatticus-3e72dc` file-actions. Anthus `ChatticusSnapshots` / `ChatticusComputers` stay Anthus-managed. Never destroy them. Never `cdk deploy --all`.
 
-## Customer Computers (`chatticus-82dab7`, closed 2026-09-07)
+## Customer Computers (`chatticus-82dab7`, **reopened** 2026-09-07)
 
-PR #312 on `develop` (`9826f2b`). ThinTurn development deploy [34147142105](https://github.com/AnthusAI/Chatticus/actions/runs/34147142105). **Do not fold this elapsed time into the ~19 min figure.**
+PR #312 on `develop` (`9826f2b`). First live attempt inferred CreateStack/RunTask from ComputerWorker because management **root** cannot AssumeRole into the member account.
 
-| Metric | Value |
-| --- | --- |
-| Path | Kernel deviation (standing rule), same as F-computer |
-| AssumeRole | **Yes** |
-| CreateStack `ChatticusComputers` in `CUSTOMER_ACCOUNT_ID` | **Yes** (once; TemplateBody, `CAPABILITY_IAM` + `CAPABILITY_NAMED_IAM`; no S3 in template) |
-| Image | Anthus ECR `:dev` (cross-account repo policy; no customer ECR replica) |
-| `RunTask` in `CUSTOMER_ACCOUNT_ID` | **Yes** — host-start gen 29 dispatched without rollback (~111 s on the succeeding attempt) |
-| `RunTask` in `ANTHUS_ACCOUNT_ID` | **No** |
-| Anthus desiredCount | **0** |
-| Silent Anthus fallback | **No** |
+**`chatticus-3e72dc` preflight (lab IAM user, same day):** `DescribeStacks(ChatticusComputers)` in `CUSTOMER_ACCOUNT_ID` → stack does not exist; customer ECS cluster list empty. Anthus desiredCount stayed 0. The 82dab7 DoD is **not** holding. Do not treat the ~111 s dispatch as a durable customer computer.
 
-Desk shell is management-account root and cannot AssumeRole into the member account for a direct customer `DescribeStacks`. CreateStack/RunTask in the customer account is inferred from ComputerWorker (nack while provisioning, then `mark_host_start_dispatched` without rollback) plus Anthus CloudTrail AssumeRole / ECR `SetRepositoryPolicy`.
+## Capability matrix (`chatticus-3e72dc`, 2026-09-07)
+
+Kernel path. **Do not fold elapsed times into the ~19 min figure.** None of six rows proven.
+
+| # | Row | Stop |
+| --- | --- | --- |
+| 1 | Terminal | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` (~1.6 s) |
+| 2 | Browser | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` (~1.7 s) |
+| 3 | File actions | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` (~127 s; `turn.waiting=workspace`) |
+| 4 | Approvals | `APPROVAL_NO_CROSS_ACCOUNT_PATH` (no customer host) |
+| 5 | Spend ceiling | `SPEND_LIMIT_NOT_ENFORCED_AT_SINK` (standing denial, not dollar ceiling) |
+| 6 | Relocate | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` |
 
 ## Not done on this run
 
