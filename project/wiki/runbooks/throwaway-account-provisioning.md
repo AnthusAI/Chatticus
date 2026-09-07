@@ -102,22 +102,28 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 
 **Tool-list read (after `82dab7`, before more live rows):** `docs/ARCHITECTURE.md` already says the image shell is unreachable by an agent. Live `ls /workspace` with a **running** computer returned that answer. Host executor tools: `browser_open`, `request_computer_capability` (Chromium, browser gate only). Live OpenAI tools: task, `read_workspace`, `browse` (origin authorize), `request_computer_capability`. `read_workspace` / `write_workspace` operate on `computer.workspace` (in-process dict). Dynamo does not persist it. Nothing in the agent loop reads the container's `/workspace`. `ComputerHostDisk` packs host directories to S3 in tests/CLI; the Fargate host worker does not publish or hydrate.
 
+**Architecture cite (`4142832`):** the snapshot protocol is the **design target, not currently wired**. An earlier note called it "the shipping design" (`48a2c79`); that overstated it. Two file layers exist and are not connected. The snapshot library should not be deleted; it is unwired, not load-bearing.
+
+**Open decision:** dict vs host disk is `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` (Ryan picks; not implicit). Terminal is its own build: `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4`. `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac` stays cheap insurance; it does not unblock file actions.
+
 | # | Row | First-pass stop | After tool-list |
 | --- | --- | --- | --- |
-| 1 | Terminal | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **Not implemented** — no agent tool. Do not live-run again. |
-| 2 | Browser | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **`browser_open` is real** — only row worth a computer-host live test. Computerless `browse` does not open Chromium. |
-| 3 | File actions | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | **Not a host-disk path.** `read_workspace` hits the dict, not `/workspace`, and not the snapshot bucket. Same shape as terminal (name ≠ tool). `bb9084` is still the bucket for **host packs**, which agents do not write today. |
-| 4 | Approvals | `APPROVAL_NO_CROSS_ACCOUNT_PATH` | No agent tool. Kernel/human binding. |
-| 5 | Spend ceiling | `SPEND_LIMIT_NOT_ENFORCED_AT_SINK` | Live model has no `purchase` tool. Token ledger is separate. |
-| 6 | Relocate | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | No agent tool. Host worker never publish/hydrate. |
+| 1 | Terminal | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **Not implemented** — own card `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4`. Do not live-run. |
+| 2 | Browser | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **Only live row:** host `browser_open` on the customer-account computer. Computerless `browse` is origin-authorize (`POST .../browse/authorize`) and proves nothing new. |
+| 3 | File actions | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | **Not a host-disk path.** Wait on `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7`. `bb9084` is insurance for **host packs**, which agents do not write today. |
+| 4 | Approvals | `APPROVAL_NO_CROSS_ACCOUNT_PATH` | No agent tool. Kernel/human binding. Not a host sweep. |
+| 5 | Spend ceiling | `SPEND_LIMIT_NOT_ENFORCED_AT_SINK` | Live model has no `purchase` tool. Token ledger is separate. Not a host sweep. |
+| 6 | Relocate | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | No agent tool. Host worker never publish/hydrate. Downstream of the file-layer pick. |
 
 ## Not done on this run
 
 | Step | Status |
 | --- | --- |
 | Consumer AWS signup | Skipped (lab `CreateAccount`) |
-| Customer snapshot bucket in the published template | `chatticus-bb9084` (not inside `ChatticusComputers` under AssumeRole) |
-| Terminal / browser / files / approvals / spend / relocate | `chatticus-3e72dc` |
+| Customer snapshot bucket in the published template | `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac` — insurance, does not unblock file actions |
+| Dict vs host disk (open; Ryan picks) | `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` |
+| Agent terminal tool (build, not a sweep) | `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4` |
+| Browser live / remaining matrix | `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` |
 
 ## Replay (customer-shaped, once the gaps close)
 

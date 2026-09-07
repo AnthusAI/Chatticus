@@ -78,10 +78,17 @@
       "text": "## Ordering caveat found 2026-09-07 — not a reopening\n\nThis initiative spent three days deciding **where `/workspace` should live**. It has since emerged that **no agent-facing tool can reach the container's `/workspace` at all.**\n\nTwo file layers ship and are not connected:\n\n- `ControlPlane.read_workspace` / `write_workspace` → an **in-process dict** (`computer.workspace`), which `put_computer` does not persist, so a ThinTurn recycle starts empty. This is what agent tools reach.\n- `chatticus.snapshot` (`pack_live_disk` / `unpack_live_disk`) → **real directories**, exactly as `COMPUTER_SNAPSHOTS.md` specifies. Tested, exercised by `python -m chatticus.snapshot`, and called by **no production path** — the Fargate host worker never publishes or hydrates. Verified: the only references are the module's own exports and `python/tests/test_snapshot_pack.py`.\n\n`publish_snapshot` bridges them for Gherkin only, by copying the dict.\n\n**Nothing here is invalidated.** The `chatticus-3d5357` measurements are real, EFS is still measured out, and the data-shape split still stands. But the order was inverted: we answered *where workspace files should live* before establishing *whether agents can use workspace files at all*. The answer to the second is currently no.\n\n**One correction to a claim this initiative produced.** `docs/ARCHITECTURE.md` was edited on 2026-09-07 to call the snapshot protocol \"the shipping design\". That overstated it — the library is real and tested but unwired. Corrected in the same doc: it is the **design target**, \"do not delete\" still holds, but it is not load-bearing in production today.\n\n**The live decision is on `chatticus-3e72dc`:** leave agent files as the dict, or wire the tools to host disk (and then `chatticus-bb9084`'s bucket). That decision, not this initiative, determines whether any of the storage reasoning here becomes operative.",
       "created_at": "2026-09-07T21:23:33.502462Z",
       "comment_type": "default"
+    },
+    {
+      "id": "cd7d5aa3-1670-4924-ac2a-1d4e24e9bcac",
+      "author": "home",
+      "text": "Operative-vs-aspirational (2026-09-07): D3 / host-local `/workspace` + S3 snapshots remain the **design target** (`docs/ARCHITECTURE.md` `4142832`, not the earlier \"shipping design\" wording). They are only *operative* if agent file tools are wired to host disk (`chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7`). Under the dict branch this initiative's conclusions stay true as a target and the snapshot library still must not be deleted, but no agent writes the trees the library packs. Storage discovery stays closed: no `/workspace` EFS, no tunnel.",
+      "created_at": "2026-09-07T21:32:39.700858Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T17:58:56.905441Z",
-  "updated_at": "2026-09-07T21:23:47.523748Z",
+  "updated_at": "2026-09-07T21:32:39.700858Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
