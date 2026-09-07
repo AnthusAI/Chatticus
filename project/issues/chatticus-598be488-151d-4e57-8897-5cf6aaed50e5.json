@@ -26,10 +26,17 @@
       "text": "`061a11` closed: in-process customer-account launch on develop (#306, `05245a3`). Still open: `8a25af` (published URL live on development; waits on `b88c0a` running it unmodified), `b88c0a` (human timed throwaway account), `f90c39` (assisted session as engagement).",
       "created_at": "2026-09-05T20:18:33.178136Z",
       "comment_type": "default"
+    },
+    {
+      "id": "580636e4-0f9a-4328-ace5-690eb2307a13",
+      "author": "home",
+      "text": "## Next action: `chatticus-b88c0a` (2026-09-07)\n\nStorage discovery closed today (`chatticus-e9ddec`); nothing in this epic was ever blocked by it. This epic is the live P0 and its own description names the starting point: *\"Start with: provisioning one throwaway account end to end by hand.\"*\n\n**State of Phase 1:**\n\n| Task | Status | Note |\n|---|---|---|\n| `8a25af` publish template + scoped policy | in_progress | Artifact done and live — `https://dev.chattic.us/provisioning/customer-role.yml`, HTTP 200, 6379 bytes, byte-identical to `infra/customer-role.yml`. Now **blocked-by `b88c0a`** for closure: its DoD requires the hand run to use it unmodified. |\n| `b88c0a` hand-provision one throwaway account | **open, ready, next** | Blocker cleared (#309 runbook: GET then `--template-body`; never CloudFront as `--template-url`). |\n\n**What the run produces that nothing else can:** the measured elapsed time. The $100 setup fee (`54f1cf`, `b4f849`) and the invitation rate are already chosen as round numbers — this run is what makes them defensible or reveals them as wrong. The pitch page's onboarding promise is currently a guess.\n\nThe most valuable output is the least likely to get written down while working: **every place the instructions were wrong.**",
+      "created_at": "2026-09-07T14:57:57.220120Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-05T20:18:33.178136Z",
+  "updated_at": "2026-09-07T14:57:57.220120Z",
   "closed_at": null,
   "custom": {}
 }

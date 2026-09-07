@@ -26,10 +26,24 @@
       "text": "Runbook on develop (`infra/README.md` via #309): GET `https://dev.chattic.us/provisioning/customer-role.yml`, then `create-stack --template-body`. Do not pass CloudFront as `--template-url`.",
       "created_at": "2026-09-05T20:32:58.773439Z",
       "comment_type": "default"
+    },
+    {
+      "id": "73082bd3-4233-4308-a65e-5cdf1d25bb60",
+      "author": "home",
+      "text": "# ▶ NEXT ACTION (2026-09-07)\n\n**This is the next thing to work on.** Storage discovery is closed (`chatticus-e9ddec`, epic closed today) and nothing on the P0 list is blocked by it. This task is P0, blocked by nothing, and its one known obstacle is resolved.\n\n## Why this one\n\n- The parent epic says it outright: *\"Start with: provisioning one throwaway account end to end by hand. Nothing else in this initiative can be scheduled or priced until that elapsed time is known.\"*\n- `chatticus-8a25af` (P0, in_progress) **cannot close without it** — its done-condition is *\"the hand-provisioning task ran against them unmodified.\"* The template is published; this run is what validates it.\n- Three numbers currently guessed depend on the result: the **$100 setup fee** (`54f1cf`, `b4f849`), the **invitation rate** (how many of these can be run per week), and the **onboarding promise on the pitch page**. Prices are already chosen — this run tells you whether they are defensible.\n\n## The blocker is cleared\n\nThe CloudFormation obstacle is resolved and the runbook landed in `infra/README.md` via #309:\n\n- GET `https://dev.chattic.us/provisioning/customer-role.yml`\n- then `aws cloudformation create-stack --template-body`\n- **do not** pass the CloudFront URL as `--template-url` — CloudFormation rejects it\n\n## Run it as a customer would\n\nFresh AWS account, cross-account setup exactly as a customer experiences it, provision one organization computer, run one bot task. Use the published template **unmodified** — if you have to edit it, that is a finding about `8a25af`, not a workaround.\n\n## Record, per the description\n\nElapsed wall-clock; how much was waiting on AWS; which steps needed a human decision; **every place the instructions were wrong**. The last one is the most valuable output and the easiest to skip while working.\n\n**Done when:** a runbook exists in the wiki with a measured elapsed time and the list of steps that needed a person.",
+      "created_at": "2026-09-07T14:57:13.806156Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "23ffdb59-d045-473e-9d54-71a33f4656eb",
+      "author": "home",
+      "text": "## Readiness verified 2026-09-07\n\nChecked rather than assumed, because the earlier note on `8a25af` said *\"product PR merged; waiting on web deploy.\"* That wait is over:\n\n```\nGET https://dev.chattic.us/provisioning/customer-role.yml\nHTTP 200, 6379 bytes\n```\n\n**6379 bytes is byte-identical to `infra/customer-role.yml` in the repo** (#308, `be007ec`). The published artifact and the versioned one are the same file, so a hand run against the URL is a genuine test of what a customer would get.\n\nNothing is blocking this task. It can start today.",
+      "created_at": "2026-09-07T14:57:50.132158Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-05T20:32:58.773439Z",
+  "updated_at": "2026-09-07T14:57:50.132158Z",
   "closed_at": null,
   "custom": {}
 }
