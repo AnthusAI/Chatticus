@@ -21,10 +21,17 @@
       "text": "Composer 2.5 planning in-VPC EFS vs EBS. Worktree to be `/tmp/chatticus-3d5357-efs-invpc` on `spike/efs-invpc-3d5357`. Chatticus VPC `vpc-0c5a0f0ca21e2afdd` currently has **only public subnets** (`subnet-06c4e78bf06400f26` 1a, `subnet-0b7f7c7be05091111` 1b) — no private subnet to put a mount target in. Plan must name that and not invent a NAT/private tier. No tunnel. No Kanbus EFS. Tear the experiment FS/EC2 down after. Implementation not authorized until plan review.",
       "created_at": "2026-09-07T12:57:55.569860Z",
       "comment_type": "default"
+    },
+    {
+      "id": "6525d3fc-25c3-4a25-92d1-86bb42fde517",
+      "author": "home",
+      "text": "Plan authorized with amendments: SSM-only EC2 in `subnet-06c4e78bf06400f26` (no private/NAT), throwaway GP EFS, destroy-on-failure, no S3 bucket, no Kanbus FS, no tunnel. Read-only `git status` loop is the cache test; mutating A0 sequence is a separate table. Worktree `/tmp/chatticus-3d5357-efs-invpc` on `spike/efs-invpc-3d5357`.",
+      "created_at": "2026-09-07T13:00:21.210007Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T12:50:30.168595Z",
-  "updated_at": "2026-09-07T12:57:55.569860Z",
+  "updated_at": "2026-09-07T13:00:21.210007Z",
   "closed_at": null,
   "custom": {}
 }
