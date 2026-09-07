@@ -33,10 +33,17 @@
       "text": "Plan reviewed, **not authorized**. Worktree `/tmp/chatticus-82dab7-customer-computers` on `feat/customer-computers-stack-82dab7` is correct (not the primary clone, at `cc8eaf6`). Lazy one-shot inside `OrganizationComputerHostStarter`, Gherkin-first, refuse-not-fallback, and the 8a25af STOP rule stand.\n\nHoles to close before implement (inversion):\n\n1. **Do not put an S3 bucket in this slice’s template.** `customer-role.yml` has no `s3:*`. CreateStack of a bucket will `CREATE_FAILED`. 82dab7 DoD is customer `RunTask`, not hydrate. Omit the bucket; ephemeral live root. Bucket + `s3:*` is a customer-visible follow-up on `8a25af` before the file-actions row of `3e72dc`. Do not wait for a live failure to discover a hole we can read in the YAML now.\n\n2. **Do not copy `:dev` layers through the 60s ComputerWorker Lambda.** Chromium image will not finish in one (or many) 60s nacks. Customer task definition pulls **Anthus** `:dev`. Anthus ECR repo policy allows the customer execution role (Anthus-side, not customer-visible). Customer ECR replica is out of this card. Live preflight: Anthus `:dev` already exists (`computer/push-computer-image.sh`); if missing, that is an Anthus ops stop, not a customer copy.\n\n3. **`CreateStack` TemplateBody max is 51,200 bytes.** A CDK VPC+ECS template often exceeds it. After synth, measure. Over the limit: `TemplateURL` to an Anthus **S3 object URL** (CFN cannot fetch CloudFront — that is why customer-role is GET then `--template-body`). Under the limit: `TemplateBody` is fine. CI must fail if synth drifts from the committed artifact.\n\n4. **`CreateStack` must pass `CAPABILITY_IAM` and `CAPABILITY_NAMED_IAM`.** Omitted from the plan; IAM roles are in the stack.\n\n5. **No production auto-provision flag.** Scenario 3 is a Gherkin fake that cannot `CreateStack` (test double), not `CHATTICUS_*_AUTOPROVISION=0` in Lambda. Two products is a defect.\n\nRevise PLAN.md in the existing worktree. Do not implement. Do not CreateStack. Do not edit `customer-role.yml`.",
       "created_at": "2026-09-07T16:29:43.442569Z",
       "comment_type": "default"
+    },
+    {
+      "id": "47595cbe-f569-492f-9082-f9ee7f09b275",
+      "author": "home",
+      "text": "Plan re-reviewed and **authorized** with one hole closed.\n\nWorktree verified: `/tmp/chatticus-82dab7-customer-computers` on `feat/customer-computers-stack-82dab7` (not the primary clone). Five prior holes are closed: no S3 in this template, no Lambda image copy, TemplateBody 51,200 gate, both IAM capabilities, test-double refusal (no prod flag).\n\n**Closed on authorize:** Anthus ECR `:dev` pull is **per customer `aws_account_id` at provision time**, not a synth-time list of accounts in CDK. ComputerWorker (Anthus creds) merges that account into the Anthus `ComputerImage` repository policy (account root principal is enough; the customer execution role already has ECS pull APIs). A hardcoded lab account in CDK would be a second product. Lambda needs `ecr:GetRepositoryPolicy` / `ecr:SetRepositoryPolicy` on the Anthus repo only — not customer-visible.\n\nDo not edit `customer-role.yml`. Do not CreateStack until Gherkin is red for the right reasons. Tear down the worktree only after this card is closed and the product PR is on `develop`.",
+      "created_at": "2026-09-07T16:31:30.875334Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T16:29:43.442569Z",
+  "updated_at": "2026-09-07T16:31:30.875334Z",
   "closed_at": null,
   "custom": {}
 }
