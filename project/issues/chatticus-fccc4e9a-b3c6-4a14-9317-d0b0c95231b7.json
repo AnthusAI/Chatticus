@@ -38,10 +38,17 @@
       "text": "Pick stands. Confirming check on chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32 falsified ECR-auth; named cause is customer host Dynamo AccessDenied. Step 1 is chatticus-4ac60c71-3911-40b4-9be9-dfaabd97c8f4. Image self-containment is chatticus-2b3c4173-a431-45fb-aec0-c6f4aa921b51, not this card's patch.",
       "created_at": "2026-09-07T22:59:09.910932Z",
       "comment_type": "default"
+    },
+    {
+      "id": "d8513dc9-3776-41d2-9ba7-a621182b0861",
+      "author": "home",
+      "text": "Step 1 landed on develop: `chatticus-4ac60c71` / PR #318. Snapshot metadata survives ThinTurn recycle. File bytes still do not — that is steps 2–5, blocked on `chatticus-8fe4c7e1`.\n",
+      "created_at": "2026-09-07T23:15:40.812830Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.946029Z",
-  "updated_at": "2026-09-07T22:59:09.910932Z",
+  "updated_at": "2026-09-07T23:15:40.812830Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
