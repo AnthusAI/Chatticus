@@ -6,6 +6,7 @@ cd "$ROOT"
 
 python3 <<'PY'
 import json
+import re
 from pathlib import Path
 
 results = Path("results")
@@ -13,6 +14,9 @@ raw = results / "raw"
 ebs_path = raw / "ebs-control.json"
 if not ebs_path.exists():
     raise SystemExit("missing ebs-control.json")
+
+readonly_re = re.compile(r"^efs-readonly-actimeo-[^-]+\.json$")
+mutating_re = re.compile(r"^efs-mutating-actimeo-[^-]+\.json$")
 
 ebs = json.loads(ebs_path.read_text())["median_seconds"]
 CHECKOUT_RESOLUTION = 0.01
@@ -48,6 +52,8 @@ def fmt(v):
 
 readonly_rows = []
 for path in sorted(raw.glob("efs-readonly-actimeo-*.json")):
+    if not readonly_re.match(path.name):
+        continue
     data = json.loads(path.read_text())
     actimeo = data["actimeo"]
     first = data["first_post_remount"]
@@ -68,6 +74,8 @@ for path in sorted(raw.glob("efs-readonly-actimeo-*.json")):
 
 mutating_rows = []
 for path in sorted(raw.glob("efs-mutating-actimeo-*.json")):
+    if not mutating_re.match(path.name):
+        continue
     data = json.loads(path.read_text())
     med = data["median_seconds"]
     overall = ratio_overall(ebs, med)
