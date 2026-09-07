@@ -103,10 +103,17 @@
       "text": "Wiki runbook for this card must **not** include desk AWS account ids, member-account ids, or billing emails. Placeholders only (`ANTHUS_ACCOUNT_ID`, `CUSTOMER_ACCOUNT_ID`); real values stay in gitignored `AGENTS.local.md`.",
       "created_at": "2026-09-07T15:30:36.738672Z",
       "comment_type": "default"
+    },
+    {
+      "id": "801c5a5f-168b-4138-9ec1-d312763b2ca7",
+      "author": "home",
+      "text": "T0 started. Method: Organizations `CreateAccount` on the existing Anthus account for lab consolidated billing (not consumer signup). Throwaway member email is in `AGENTS.local.md` only — not the wiki, not this comment. Wiki stays placeholders.",
+      "created_at": "2026-09-07T15:33:01.070318Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:30:36.738672Z",
+  "updated_at": "2026-09-07T15:33:01.070318Z",
   "closed_at": null,
   "custom": {}
 }
