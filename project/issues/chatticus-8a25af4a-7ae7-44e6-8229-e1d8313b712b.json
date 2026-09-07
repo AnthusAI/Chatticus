@@ -164,10 +164,17 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/314 — DescribeInternetGateways + ModifySubnetAttribute + ECS SLR. Composer 2.5 review + CI in flight. Not merging. Close only after published YAML + lab UpdateStack, not Computers CREATE_COMPLETE.",
       "created_at": "2026-09-07T18:46:19.372645Z",
       "comment_type": "default"
+    },
+    {
+      "id": "d6346718-34ab-4e70-8c60-0457b23f9dcf",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/314 to develop (`17a3e46`). Composer 2.5 APPROVE; CI green.\n\nDo not close. Remaining: ChatticusWeb development deploy of this commit, then lab GET published YAML + `UpdateStack` `ChatticusCrossAccountRole` (`UPDATE_COMPLETE`). Computers `CREATE_COMPLETE` stays `82dab7`.",
+      "created_at": "2026-09-07T18:53:56.163516Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-07T18:46:19.372645Z",
+  "updated_at": "2026-09-07T18:53:56.163516Z",
   "closed_at": null,
   "custom": {}
 }
