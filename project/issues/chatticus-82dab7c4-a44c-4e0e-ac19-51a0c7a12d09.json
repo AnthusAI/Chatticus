@@ -68,10 +68,17 @@
       "text": "PR #312 review was APPROVE on `132dfff`, but **infra CI failed**: `npm run check:customer-computers-template` (committed artifact drifted from CDK synth). Not merging. Re-synth, commit the artifact, push.",
       "created_at": "2026-09-07T16:56:07.867505Z",
       "comment_type": "default"
+    },
+    {
+      "id": "9968565a-fd21-4c67-944f-2fedb90b3504",
+      "author": "home",
+      "text": "PR #312 HEAD `1ec4681`: template check uses `cdk synth --no-version-reporting` (Linux vs macOS Analytics drift). Re-review + CI in flight. Not merging yet.",
+      "created_at": "2026-09-07T17:11:31.866978Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T16:56:07.867505Z",
+  "updated_at": "2026-09-07T17:11:31.866978Z",
   "closed_at": null,
   "custom": {}
 }
