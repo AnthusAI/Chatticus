@@ -72,6 +72,10 @@ def before_scenario(context: object, scenario: object) -> None:
 
 def after_scenario(context: object, scenario: object) -> None:
     """Remove per-scenario snapshot directories."""
+    moto = getattr(context, "_moto", None)
+    if moto is not None:
+        moto.stop()
+        context._moto = None
     caller_patch = getattr(context, "_caller_account_patch", None)
     if caller_patch is not None:
         caller_patch.stop()

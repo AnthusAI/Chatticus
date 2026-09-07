@@ -1155,6 +1155,7 @@ class ControlPlane:
         if worker is not None:
             worker.hydrated_snapshot_generation = computer.snapshot_generation
             self._messaging_store.put_worker(worker)
+        self._messaging_store.put_computer(computer)
         return snapshot
 
     def relocate_computer(self, computer_id: str, target_worker_id: str) -> None:
@@ -1182,6 +1183,7 @@ class ControlPlane:
         self._require_host(computer, target_worker_id)
         computer.intended_host_worker_id = target_worker_id
         computer.hydrate_required = True
+        self._messaging_store.put_computer(computer)
 
     def hydrate_computer(self, computer_id: str, worker_id: str) -> None:
         """Load the published snapshot onto the intended host's live disk.
@@ -1217,6 +1219,7 @@ class ControlPlane:
         if worker is not None:
             worker.hydrated_snapshot_generation = computer.snapshot_generation
             self._messaging_store.put_worker(worker)
+        self._messaging_store.put_computer(computer)
 
     def _require_host(self, computer: Computer, worker_id: str) -> None:
         record = self._messaging_store.get_worker(computer.tenant_id, worker_id)
@@ -1688,6 +1691,7 @@ class ControlPlane:
             )
         computer.workspace[path] = content
         computer.disk_dirty = True
+        self._messaging_store.put_computer(computer)
 
     def read_workspace(self, tenant_id: str, path: str) -> str | None:
         """Read a file from the user's shared computer.
@@ -1710,6 +1714,7 @@ class ControlPlane:
             )
         computer.browser_sessions[service] = session
         computer.disk_dirty = True
+        self._messaging_store.put_computer(computer)
 
     def browser_session(self, tenant_id: str, service: str) -> str | None:
         """Return a saved browser session, if present.
