@@ -3,7 +3,7 @@
   "title": "Publish the cross-account CloudFormation template and scoped IAM policy",
   "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the hand-provisioning task\n- **Unblocks:** the assume-role story, and the pitch page access story\n\n---\nA task because the deliverable is a versioned artifact the customer runs, not behavior in the Chatticus front door.\n\nThe template creates one role in the customer account, trusting the Anthus principal, requiring a per-organization ExternalId, scoped to exactly what provisioning and operating an organization computer needs.\n\n**Never AdministratorAccess.** The people with authority to grant this will read the policy, which is good news only if the policy is defensible. Every permission in it should survive the question \"why does an agent product need this.\"\n\nVersion it in the repository and treat a change to it as a customer-visible change, because it is one — an existing customer has to re-run it.\n\n**Done when:** the template and policy are in the repository, published at a stable URL, and the hand-provisioning task ran against them unmodified.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -171,10 +171,17 @@
       "text": "Merged https://github.com/AnthusAI/Chatticus/pull/314 to develop (`17a3e46`). Composer 2.5 APPROVE; CI green.\n\nDo not close. Remaining: ChatticusWeb development deploy of this commit, then lab GET published YAML + `UpdateStack` `ChatticusCrossAccountRole` (`UPDATE_COMPLETE`). Computers `CREATE_COMPLETE` stays `82dab7`.",
       "created_at": "2026-09-07T18:53:56.163516Z",
       "comment_type": "default"
+    },
+    {
+      "id": "076a6ea9-ef0e-49ae-b4df-ae538c7c2014",
+      "author": "home",
+      "text": "Closing this reopen. #314 on develop (`17a3e46`). Published YAML at https://dev.chattic.us/provisioning/customer-role.yml (6705 bytes) includes `DescribeInternetGateways`, `ModifySubnetAttribute`, and ECS SLR. Lab `UpdateStack` `ChatticusCrossAccountRole` **UPDATE_COMPLETE**. IAM simulate: IGW describe and ModifySubnetAttribute allowed.\n\nCustomer `ChatticusComputers` is still `ROLLBACK_FAILED` — that is `82dab7` (#315 DeleteStack recovery + live RunTask). Snapshot `s3:*` stays a later reopen before file-actions. Do not add `ssm:*`.",
+      "created_at": "2026-09-07T19:03:13.840809Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-07T18:53:56.163516Z",
-  "closed_at": null,
+  "updated_at": "2026-09-07T19:03:30.652995Z",
+  "closed_at": "2026-09-07T19:03:13.855987Z",
   "custom": {}
 }
