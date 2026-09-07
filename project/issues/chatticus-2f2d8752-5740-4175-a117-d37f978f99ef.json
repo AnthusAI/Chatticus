@@ -19,10 +19,17 @@
       "text": "Starting F-computer on the `b88c0a` lab assets (no seed). Composer 2.5 planning: worktree `/tmp/chatticus-2f2d87-f-computer` on `spike/2f2d87-f-computer`. Wiki on `develop` after the stop is labeled. Do not treat the ~19 min figure as including this.\n\n**Snapshot decision (do not rediscover):** customer `/workspace` packs live in the **customer** account, not in Anthus `ChatticusSnapshots`. Pitch claim is that the file system rests in the account they own. Anthus `ChatticusSnapshots` stays for Anthus-managed orgs. F-computer must not grant or copy customer workplace bytes into the Anthus bucket. Template/stack work to create that customer bucket is customer-visible (`8a25af`); this card records the stop, it does not slip a template edit.",
       "created_at": "2026-09-07T16:08:15.731698Z",
       "comment_type": "default"
+    },
+    {
+      "id": "32db6509-007c-4ff8-a207-ba6d57843937",
+      "author": "home",
+      "text": "Plan reviewed. Worktree `/tmp/chatticus-2f2d87-f-computer` on `spike/2f2d87-f-computer` verified (not the primary clone). Authorizing the live attempt with one hole closed:\n\n`POST .../turns/{id}/resume` **refuses** while the computer is stopped (`ComputerNotReadyError`). It cannot be the path that first summons ComputerWorker. After the UI turn is `waiting` on `workspace`, the labeled operator path is kernel `enqueue_computer_continuation` (does not require a running host). Record resume-won't-start-stopped-computer as a product gap. Do not treat a 409 from resume as F-computer done — that never reached AssumeRole.\n\nEverything else in the plan stands: AWS-home gate first, dual-account ECS, zero Anthus RunTask, no template edit, no seed, no customer bytes in Anthus S3.",
+      "created_at": "2026-09-07T16:11:54.180936Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:00:18.378300Z",
-  "updated_at": "2026-09-07T16:08:15.731698Z",
+  "updated_at": "2026-09-07T16:11:54.180936Z",
   "closed_at": null,
   "custom": {}
 }
