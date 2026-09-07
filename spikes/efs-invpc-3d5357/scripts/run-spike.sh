@@ -26,7 +26,7 @@ cleanup() {
 trap cleanup EXIT
 
 WORKTREE_ROOT="$(cd "${ROOT}/../.." && pwd)"
-if [ ! -d "${WORKTREE_ROOT}/.git" ]; then
+if ! git -C "$WORKTREE_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "ERROR: expected git worktree at ${WORKTREE_ROOT}" >&2
     exit 1
 fi
