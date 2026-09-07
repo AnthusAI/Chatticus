@@ -145,10 +145,17 @@
       "text": "Phase C complete. Published template GET **6379 bytes**, `cmp` identical to `infra/customer-role.yml`. Member-account `ChatticusCrossAccountRole` **CREATE_COMPLETE** (~30s aws-wait). RoleArn in `AGENTS.local.md` only. Template unmodified — that is the `8a25af` DoD.\n\n**Deviation already labeled:** no customer HTTP for `submit_self_setup_cross_account_role`. Phase D is operator-assisted kernel submit (or `members enable` only if inspect cannot be done honestly). Do not `members seed`. ACME Corp still pending until D.",
       "created_at": "2026-09-07T15:44:10.266682Z",
       "comment_type": "default"
+    },
+    {
+      "id": "4bf302df-023c-4944-9c1b-29df0f129424",
+      "author": "home",
+      "text": "Phase D complete via **labeled operator deviation** (no customer HTTP, no live inspector): AssumeRole + ExternalId succeeded as non-root lab IAM user; kernel `submit_self_setup_cross_account_role` accepted. ACME Corp is **enabled** and AWS home is written (not seed). Root assume failed (lab-only). Next: F-safe (`pong`) in the unlocked workspace; E (customer `ChatticusComputers`) is a finding if missing, not a template edit.",
+      "created_at": "2026-09-07T15:47:13.572269Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:44:10.266682Z",
+  "updated_at": "2026-09-07T15:47:13.572269Z",
   "closed_at": null,
   "custom": {}
 }
