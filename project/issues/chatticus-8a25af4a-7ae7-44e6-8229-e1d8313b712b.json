@@ -3,7 +3,7 @@
   "title": "Publish the cross-account CloudFormation template and scoped IAM policy",
   "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the hand-provisioning task\n- **Unblocks:** the assume-role story, and the pitch page access story\n\n---\nA task because the deliverable is a versioned artifact the customer runs, not behavior in the Chatticus front door.\n\nThe template creates one role in the customer account, trusting the Anthus principal, requiring a per-organization ExternalId, scoped to exactly what provisioning and operating an organization computer needs.\n\n**Never AdministratorAccess.** The people with authority to grant this will read the policy, which is good news only if the policy is defensible. Every permission in it should survive the question \"why does an agent product need this.\"\n\nVersion it in the repository and treat a change to it as a customer-visible change, because it is one — an existing customer has to re-run it.\n\n**Done when:** the template and policy are in the repository, published at a stable URL, and the hand-provisioning task ran against them unmodified.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -94,10 +94,17 @@
       "text": "## Closure is gated on `chatticus-b88c0a` (2026-09-07)\n\nThe artifact exists — template published, runbook in `infra/README.md` via #309. What remains is not more publishing.\n\nThis task's own done-condition is *\"the template and policy are in the repository, published at a stable URL, **and the hand-provisioning task ran against them unmodified**.\"* That last clause is `b88c0a`, which is now the next action.\n\nTwo possible outcomes:\n\n- **The hand run uses the template unmodified** → this task closes on the strength of that run.\n- **The run needs edits to the template or policy** → those edits are work on *this* task, and they are customer-visible by the description's own rule (an existing customer has to re-run it).\n\nEither way `b88c0a` produces the evidence. Do not close this on the artifact existing alone; a published template nobody has run against a real account is exactly the thing this project keeps finding to be wrong in practice.",
       "created_at": "2026-09-07T14:57:21.622781Z",
       "comment_type": "default"
+    },
+    {
+      "id": "79fee01f-2ef1-4643-83a4-999fc7a1c0ec",
+      "author": "home",
+      "text": "`b88c0a` ran the published development URL unmodified: GET `https://dev.chattic.us/provisioning/customer-role.yml`, `--template-body`, stack **CREATE_COMPLETE**. No template edits. Closing — remaining b88c0a phases (submit, enable, bot) are not this card.",
+      "created_at": "2026-09-07T15:44:10.283843Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-07T14:57:21.622781Z",
-  "closed_at": null,
+  "updated_at": "2026-09-07T15:44:10.297139Z",
+  "closed_at": "2026-09-07T15:44:10.297139Z",
   "custom": {}
 }
