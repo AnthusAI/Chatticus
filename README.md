@@ -114,10 +114,14 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   (~19 min Chatticus provision; consumer AWS signup unmeasured). That
   figure **excludes** F-computer.
 - **F-computer live refuse** (`chatticus-2f2d87`, closed): ComputerWorker
-  assumed the customer role; `DescribeStacks(ChatticusComputers)` failed
-  in `CUSTOMER_ACCOUNT_ID`; **zero `RunTask` in both accounts**; Anthus
-  desiredCount stayed 0. Kernel handoff ~5 s. Next: Chatticus
-  `CreateStack` under the assumed role (`chatticus-82dab7`).
+  assumed the customer role; missing customer `ChatticusComputers`;
+  **zero `RunTask` in both accounts**. Kernel handoff ~5 s.
+- **Customer-account `RunTask`** (`chatticus-82dab7`, #312): ComputerWorker
+  `CreateStack`s `ChatticusComputers` under the assumed role (no snapshot
+  bucket; image is Anthus `:dev`). Live on development after ThinTurn
+  deploy of `9826f2b`: customer `RunTask` yes; Anthus `RunTask` no;
+  desiredCount 0. Succeeding kernel handoff ~111 s. **Not** folded into
+  the ~19 min provision figure.
 
 ### On `develop`, not on `main`
 
@@ -129,9 +133,10 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **ECS host start** is wired on **development ThinTurn only**
   (`CHATTICUS_HOST_STARTER=ecs`). Staging and production ComputerWorker keep
   the no-op host starter.
-- **End-to-end customer-account RunTask** is not live-proven. F-computer
-  proved AssumeRole and refuse-not-fallback live; the customer account
-  has no `ChatticusComputers` stack (`chatticus-82dab7`).
+- **End-to-end customer-account RunTask** is live-proven on **development**
+  (`chatticus-82dab7`, #312). Staging and production ComputerWorker still
+  use the no-op host starter. File-actions still need a customer snapshot
+  bucket (`chatticus-8a25af` before `chatticus-3e72dc`).
 
 ### Public sites
 

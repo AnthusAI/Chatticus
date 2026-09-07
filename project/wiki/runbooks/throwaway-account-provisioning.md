@@ -39,7 +39,7 @@ Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` 
 - No HTTP to submit RoleArn after CFN; no live `CrossAccountRoleInspector` (Gherkin in-memory only).
 - No create-bot UI in the enabled workspace (`POST /bots` exists; UI never calls it).
 - `infra/README.md` `create-stack` example omitted `--parameters` and `CAPABILITY_NAMED_IAM`.
-- Published role CFN is scoped to `ChatticusComputers*` only — not `ChatticusSnapshots`. ComputerWorker does **not** `CreateStack`. Dynamo computer row exists; ECS/ECR in `CUSTOMER_ACCOUNT_ID` does not (`chatticus-82dab7`).
+- Published role CFN is scoped to `ChatticusComputers*` only — not `ChatticusSnapshots`. Snapshot bucket is **not** in the first customer `ChatticusComputers` template (`chatticus-8a25af` before file-actions).
 - Workspace prompt did not escalate: Ping answered **no** (`STOP_NO_COMPUTER_TOOL`).
 - `POST .../turns/{id}/resume` while the computer is stopped is `ComputerNotReadyError`; first summon needs kernel `enqueue_computer_continuation`.
 - ComputerWorker nack omits provisioning exception text.
@@ -59,15 +59,32 @@ Attempted after F-safe. **Do not fold this elapsed time into the ~19 min figure.
 | ComputerWorker nack | **~0.8 s** |
 | Labeled stop | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` |
 
-**Who creates `ChatticusComputers` in the customer account:** Chatticus, under the assumed role (`chatticus-82dab7`). Customer does not run a second template. Snapshot bucket lives **inside** that customer `ChatticusComputers` stack; a customer stack named `ChatticusSnapshots` would be a template change (`chatticus-8a25af`). Anthus `ChatticusSnapshots` / `ChatticusComputers` stay Anthus-managed. Never destroy them. Never `cdk deploy --all`.
+**Who creates `ChatticusComputers` in the customer account:** Chatticus, under the assumed role. Customer does not run a second template. This slice has **no snapshot bucket** (no `s3:*` on the published role). Bucket + scoped `s3:*` is `chatticus-8a25af` before `chatticus-3e72dc` file-actions. Anthus `ChatticusSnapshots` / `ChatticusComputers` stay Anthus-managed. Never destroy them. Never `cdk deploy --all`.
+
+## Customer Computers (`chatticus-82dab7`, closed 2026-09-07)
+
+PR #312 on `develop` (`9826f2b`). ThinTurn development deploy [34147142105](https://github.com/AnthusAI/Chatticus/actions/runs/34147142105). **Do not fold this elapsed time into the ~19 min figure.**
+
+| Metric | Value |
+| --- | --- |
+| Path | Kernel deviation (standing rule), same as F-computer |
+| AssumeRole | **Yes** |
+| CreateStack `ChatticusComputers` in `CUSTOMER_ACCOUNT_ID` | **Yes** (once; TemplateBody, `CAPABILITY_IAM` + `CAPABILITY_NAMED_IAM`; no S3 in template) |
+| Image | Anthus ECR `:dev` (cross-account repo policy; no customer ECR replica) |
+| `RunTask` in `CUSTOMER_ACCOUNT_ID` | **Yes** — host-start gen 29 dispatched without rollback (~111 s on the succeeding attempt) |
+| `RunTask` in `ANTHUS_ACCOUNT_ID` | **No** |
+| Anthus desiredCount | **0** |
+| Silent Anthus fallback | **No** |
+
+Desk shell is management-account root and cannot AssumeRole into the member account for a direct customer `DescribeStacks`. CreateStack/RunTask in the customer account is inferred from ComputerWorker (nack while provisioning, then `mark_host_start_dispatched` without rollback) plus Anthus CloudTrail AssumeRole / ECR `SetRepositoryPolicy`.
 
 ## Not done on this run
 
 | Step | Status |
 | --- | --- |
 | Consumer AWS signup | Skipped (lab `CreateAccount`) |
-| Customer `ChatticusComputers` / ECR `:dev` / snapshot bucket in customer account | Not deployed — Chatticus must `CreateStack` under the assumed role (`chatticus-82dab7`) |
-| F-computer (cross-account RunTask) | Attempted; refused (missing customer stack). Zero `RunTask` in both accounts. |
+| Customer snapshot bucket / `s3:*` on published role | Not this slice — `chatticus-8a25af` before file-actions |
+| Terminal / browser / files / approvals / spend / relocate | `chatticus-3e72dc` |
 
 ## Replay (customer-shaped, once the gaps close)
 
