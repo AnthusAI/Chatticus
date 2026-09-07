@@ -47,7 +47,7 @@ ssm_cat() {
 list_cmd_id="$(aws ssm send-command \
     --instance-ids "$INSTANCE_ID" \
     --document-name AWS-RunShellScript \
-    --parameters "commands=[\"find '${SPIKE_REMOTE}/results' -type f \\( -name '*.json' -o -name '*.md' \\) | sort\"]" \
+    --parameters "commands=[\"find '${SPIKE_REMOTE}/results' -type f \\( -name '*.md' -o -name 'lab-info.json' -o -name 'ebs-control.json' -o -name 'efs-readonly-actimeo-*.json' -o -name 'efs-mutating-actimeo-*.json' \\) ! -name '*-iter*' ! -name '*-run*' ! -name '*.rpc.json' | sort\"]" \
     --query 'Command.CommandId' --output text)"
 
 for _ in $(seq 1 60); do
