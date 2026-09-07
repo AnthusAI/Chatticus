@@ -77,7 +77,6 @@ def deployment_ecs_config_from_env() -> DeploymentEcsConfig | None:
 
 def lookup_customer_computer_ecs_config(
     cloudformation_client: Any,
-    ecs_client: Any,
     *,
     stack_name: str = COMPUTERS_STACK_NAME,
 ) -> CustomerComputerEcsConfig:
@@ -87,28 +86,8 @@ def lookup_customer_computer_ecs_config(
         stack_name=stack_name,
     )
     outputs = stack_outputs_from_describe_stacks(stack_response)
-    service_name = outputs.get("ComputerServiceName", "").strip()
-    cluster = outputs.get("ComputerClusterName", "").strip()
-    if not service_name or not cluster:
-        msg = (
-            f"{stack_name} stack is missing ComputerServiceName or ComputerClusterName."
-        )
-        raise OrganizationComputerProvisioningError(msg)
-    described = ecs_client.describe_services(cluster=cluster, services=[service_name])
-    services = described.get("services") or []
-    network = (
-        services[0].get("networkConfiguration", {}).get("awsvpcConfiguration", {})
-        if services
-        else {}
-    )
-    subnets = list(network.get("subnets") or [])
-    security_groups = list(network.get("securityGroups") or [])
     try:
-        return customer_computer_ecs_config_from_stack_outputs(
-            outputs,
-            subnets=subnets,
-            security_groups=security_groups,
-        )
+        return customer_computer_ecs_config_from_stack_outputs(outputs)
     except ValueError as error:
         raise OrganizationComputerProvisioningError(str(error)) from error
 
@@ -335,7 +314,7 @@ class OrganizationComputerHostStarter:
             organization,
             anthus_computer_image_uri=image_uri,
         )
-        config = lookup_customer_computer_ecs_config(cloudformation, ecs)
+        config = lookup_customer_computer_ecs_config(cloudformation)
         run_fargate_task(
             ecs,
             cluster=config.cluster,

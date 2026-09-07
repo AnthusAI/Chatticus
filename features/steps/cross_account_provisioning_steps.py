@@ -372,7 +372,7 @@ class _FakeEcs:
 
 
 class _FakeCloudFormation:
-    _STACK_OUTPUTS: list[dict[str, str]] = [
+    _LEGACY_STACK_OUTPUTS: list[dict[str, str]] = [
         {
             "OutputKey": "ComputerClusterName",
             "OutputValue": "cust-cluster",
@@ -388,6 +388,17 @@ class _FakeCloudFormation:
             "OutputValue": "FargateHost",
         },
     ]
+    _FULL_STACK_OUTPUTS: list[dict[str, str]] = [
+        *_LEGACY_STACK_OUTPUTS,
+        {
+            "OutputKey": "ComputerPublicSubnetIds",
+            "OutputValue": "subnet-customer-1,subnet-customer-2",
+        },
+        {
+            "OutputKey": "ComputerSecurityGroupId",
+            "OutputValue": "sg-customer-1",
+        },
+    ]
 
     def __init__(
         self,
@@ -396,14 +407,24 @@ class _FakeCloudFormation:
         stack_status: str = "CREATE_COMPLETE",
         create_result_status: str = "CREATE_COMPLETE",
         delete_denied: bool = False,
+        output_profile: str = "full",
+        update_no_op: bool = False,
     ) -> None:
         self.stack_present = stack_present
         self.stack_status = stack_status if stack_present else None
         self.create_result_status = create_result_status
         self.delete_denied = delete_denied
+        self.output_profile = output_profile
+        self.update_no_op = update_no_op
         self.describe_calls: list[dict[str, object]] = []
         self.create_stack_calls: list[dict[str, object]] = []
         self.delete_stack_calls: list[dict[str, object]] = []
+        self.update_stack_calls: list[dict[str, object]] = []
+
+    def _outputs_for_status(self) -> list[dict[str, str]]:
+        if self.output_profile == "legacy":
+            return list(self._LEGACY_STACK_OUTPUTS)
+        return list(self._FULL_STACK_OUTPUTS)
 
     def describe_stacks(self, **kwargs: object) -> dict[str, object]:
         self.describe_calls.append(kwargs)
@@ -418,15 +439,32 @@ class _FakeCloudFormation:
                 "DescribeStacks",
             )
         stack: dict[str, object] = {"StackStatus": self.stack_status}
-        if self.stack_status == "CREATE_COMPLETE":
-            stack["Outputs"] = list(self._STACK_OUTPUTS)
+        if self.stack_status in {"CREATE_COMPLETE", "UPDATE_COMPLETE"}:
+            stack["Outputs"] = self._outputs_for_status()
         return {"Stacks": [stack]}
 
     def create_stack(self, **kwargs: object) -> dict[str, object]:
         self.create_stack_calls.append(kwargs)
         self.stack_present = True
         self.stack_status = self.create_result_status
+        if self.create_result_status == "CREATE_COMPLETE":
+            self.output_profile = "full"
         return {"StackId": "arn:aws:cloudformation:stack/gherkin"}
+
+    def update_stack(self, **kwargs: object) -> dict[str, object]:
+        self.update_stack_calls.append(kwargs)
+        if self.update_no_op:
+            raise ClientError(
+                {
+                    "Error": {
+                        "Code": "ValidationError",
+                        "Message": "No updates are to be performed.",
+                    }
+                },
+                "UpdateStack",
+            )
+        self.stack_status = "UPDATE_IN_PROGRESS"
+        return {}
 
     def delete_stack(self, **kwargs: object) -> dict[str, object]:
         if self.delete_denied:
@@ -450,36 +488,22 @@ class _FakeCloudFormation:
     def set_stack_status(self, status: str) -> None:
         self.stack_present = True
         self.stack_status = status
+        if status == "CREATE_COMPLETE":
+            self.output_profile = "full"
+
+    def finish_stack_update(self) -> None:
+        self.stack_present = True
+        self.stack_status = "UPDATE_COMPLETE"
+        self.output_profile = "full"
 
     def allow_delete_stack(self) -> None:
         self.delete_denied = False
 
 
-class _FakeEcsWithServices(_FakeEcs):
-    def describe_services(
-        self,
-        *,
-        cluster: str,
-        services: list[str],
-    ) -> dict[str, object]:
-        return {
-            "services": [
-                {
-                    "networkConfiguration": {
-                        "awsvpcConfiguration": {
-                            "subnets": ["subnet-customer-1"],
-                            "securityGroups": ["sg-customer-1"],
-                        }
-                    }
-                }
-            ]
-        }
-
-
 class _MultiAccountEcsRecorder:
     def __init__(self) -> None:
         self.deployment = _FakeEcs()
-        self.customer = _FakeEcsWithServices()
+        self.customer = _FakeEcs()
 
     def factory(self, credentials: dict[str, str] | None) -> _FakeEcs:
         if credentials is None:
@@ -903,3 +927,78 @@ def then_chatticus_deletes_customer_stack(context: object) -> None:
     assert len(cloudformation.delete_stack_calls) == expected_calls
     delete_call = cloudformation.delete_stack_calls[-1]
     assert delete_call["StackName"] == "ChatticusComputers"
+
+
+@given(
+    "an organization provisioned into a customer AWS account with a "
+    "CREATE_COMPLETE ChatticusComputers stack with legacy outputs only"
+)
+def given_organization_with_legacy_create_complete_stack(context: object) -> None:
+    cloudformation = _FakeCloudFormation(
+        stack_status="CREATE_COMPLETE",
+        output_profile="legacy",
+    )
+    _provision_customer_org_for_stack_recovery(
+        context,
+        name="Legacy Output Org",
+        owner_email="legacy-outputs@example.com",
+        external_id="legacy-outputs-external-id",
+        cloudformation=cloudformation,
+    )
+
+
+@given(
+    "an organization provisioned into a customer AWS account with a "
+    "ChatticusComputers stack in UPDATE_COMPLETE status without subnet outputs"
+)
+def given_organization_with_update_complete_without_subnet_outputs(
+    context: object,
+) -> None:
+    cloudformation = _FakeCloudFormation(
+        stack_status="UPDATE_COMPLETE",
+        output_profile="legacy",
+    )
+    _provision_customer_org_for_stack_recovery(
+        context,
+        name="Incomplete Update Org",
+        owner_email="incomplete-update@example.com",
+        external_id="incomplete-update-external-id",
+        cloudformation=cloudformation,
+    )
+
+
+@given("UpdateStack reports no changes for the customer CloudFormation client")
+def given_update_stack_reports_no_changes(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    cloudformation.update_no_op = True
+
+
+@when("the ChatticusComputers stack finishes updating")
+def when_chatticus_computers_stack_finishes_updating(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    cloudformation.finish_stack_update()
+
+
+@then("Chatticus updates the ChatticusComputers stack in the customer account")
+def then_chatticus_updates_customer_stack(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    assert len(cloudformation.update_stack_calls) == 1
+    update_call = cloudformation.update_stack_calls[0]
+    assert update_call["StackName"] == "ChatticusComputers"
+    assert "CAPABILITY_IAM" in update_call["Capabilities"]
+    assert "CAPABILITY_NAMED_IAM" in update_call["Capabilities"]
+
+
+@then("Chatticus does not delete the ChatticusComputers stack")
+def then_chatticus_does_not_delete_customer_stack(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    assert len(cloudformation.delete_stack_calls) == 0
+
+
+@then("the start is refused with a provisioning error naming incomplete outputs")
+def then_start_refused_naming_incomplete_outputs(context: object) -> None:
+    error = context.host_start_error  # type: ignore[attr-defined]
+    assert error is not None
+    message = str(error).lower()
+    assert "incomplete" in message or "computerpublicsubnetids" in message
+    assert "chatticuscomputers" in message
