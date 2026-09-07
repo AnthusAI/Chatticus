@@ -143,10 +143,17 @@
       "text": "Composer 2.5 planning ROLLBACK_FAILED recovery (DeleteStack then CreateStack). Worktree /tmp/chatticus-82dab7-rollback-recovery on feat/customer-computers-rollback-recovery-82dab7. Plan only. Do not edit customer-role.yml.",
       "created_at": "2026-09-07T18:40:35.960379Z",
       "comment_type": "default"
+    },
+    {
+      "id": "a6a10837-c08e-4a6e-be42-e319d26d6e25",
+      "author": "home",
+      "text": "Plan reviewed, **not authorized**. Worktree `/tmp/chatticus-82dab7-rollback-recovery` on `feat/customer-computers-rollback-recovery-82dab7` is correct.\n\n**Hole:** a `ChatticusRecoveryAttempt=1` tag that permanently refuses a second DeleteStack. After one failed recreate (role still missing DescribeInternetGateways), the product would never recover even after `8a25af` lands — that forces a CLI delete, which this card forbids.\n\nRevise: on terminal-failed, always `DeleteStack` then nack; when missing, `CreateStack`. ComputerWorker nack is the rate limit. No stack-tag loop cap. Drop Gherkin scenario 5 (permanent refuse) or replace it with “CREATE_FAILED after recreate still starts DeleteStack.” Do not implement until that is in PLAN.md.",
+      "created_at": "2026-09-07T18:43:55.210526Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T18:40:35.960379Z",
+  "updated_at": "2026-09-07T18:43:55.210526Z",
   "closed_at": null,
   "custom": {}
 }

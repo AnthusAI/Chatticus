@@ -150,10 +150,24 @@
       "text": "Composer 2.5 planning. Worktree /tmp/chatticus-8a25af-igw-describe on feat/customer-role-describe-igw-8a25af. Plan only — do not edit the YAML until authorized.",
       "created_at": "2026-09-07T18:40:35.947449Z",
       "comment_type": "default"
+    },
+    {
+      "id": "75b2a4e0-1074-4339-9a33-c94a40ae484a",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with one hole closed. Worktree `/tmp/chatticus-8a25af-igw-describe` on `feat/customer-role-describe-igw-8a25af` verified.\n\nImplement: `DescribeInternetGateways`, `ModifySubnetAttribute`, conditioned ECS `CreateServiceLinkedRole` (`iam:AWSServiceName: ecs.amazonaws.com`); infra tests; no `ssm:*`/`s3:*`; no PLAN.md in the PR.\n\n**Close this card** after the YAML is published and lab `UpdateStack` of `ChatticusCrossAccountRole` is `UPDATE_COMPLETE`. Customer `ChatticusComputers` `CREATE_COMPLETE` / RunTask remains `82dab7`.",
+      "created_at": "2026-09-07T18:43:55.228334Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c570b5b1-8eb1-495c-94e8-343cb0bbc510",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/314 — DescribeInternetGateways + ModifySubnetAttribute + ECS SLR. Composer 2.5 review + CI in flight. Not merging. Close only after published YAML + lab UpdateStack, not Computers CREATE_COMPLETE.",
+      "created_at": "2026-09-07T18:46:19.372645Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-07T18:40:35.947449Z",
+  "updated_at": "2026-09-07T18:46:19.372645Z",
   "closed_at": null,
   "custom": {}
 }
