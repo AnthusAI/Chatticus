@@ -12,58 +12,70 @@
     "v1",
     "transport"
   ],
-  "dependencies": [
-    {
-      "target": "chatticus-bbfb8d",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "212512a8-04f7-40ff-b50e-7e570376461a",
       "author": "home",
       "text": "Status 2026-08-30:\n\nDone: Test 1 (chatticus-bbfb8d) merged; stack ChatticusSseSpike destroyed; mermaid follow-up (chatticus-f0f9e0) closed.\n\nStill open on the original DoD: mobile Safari was not measured. Do not treat CloudFront as the product front door. Do not rebuild the spike. Leave this epic open until that gap is either measured or explicitly waived by the owner.\n",
-      "created_at": "2026-08-30T18:30:35.009657Z"
+      "created_at": "2026-08-30T18:30:35.009657Z",
+      "comment_type": "default"
     },
     {
       "id": "8efe00db-e1c7-45b5-9088-ed51a6f13b60",
       "author": "home",
       "text": "Reconnect on the live development ThinTurn front door is now exercised: exercise_thin_turn.py drops mid-stream and reconnects with after_seq through CloudFront (de44cdc on develop). Spike Test 1 already covered foreground desktop reconnect.\n\nStill open on original DoD: real background-tab and mobile Safari were not measured and cannot be faked here. Epic stays open until those are measured or explicitly waived by the owner.",
-      "created_at": "2026-08-31T02:37:29.171390Z"
+      "created_at": "2026-08-31T02:37:29.171390Z",
+      "comment_type": "default"
     },
     {
       "id": "222e47cc-3b69-486b-9b4e-02db8287886c",
       "author": "home",
       "text": "Product turn SSE now emits id=seq and honors Last-Event-ID through CloudFront (1e389e, baed1eb). Foreground reconnect is live. Background tab and mobile Safari remain unmeasured.",
-      "created_at": "2026-08-31T03:56:24.588086Z"
+      "created_at": "2026-08-31T03:56:24.588086Z",
+      "comment_type": "default"
     },
     {
       "id": "27456662-acc0-4428-b2a5-dd460cb6a961",
       "author": "home",
       "text": "Foreground reconnect and HTTP turn-journal poll after seq are live on development (555ccff). Background tab and mobile Safari remain unmeasured; epic stays open.",
-      "created_at": "2026-08-31T04:11:41.587098Z"
+      "created_at": "2026-08-31T04:11:41.587098Z",
+      "comment_type": "default"
     },
     {
       "id": "3af62a90-806d-4089-bb8c-c80bb66a2151",
       "author": "home",
       "text": "Board lag pass 2026-08-31: left open on purpose. Foreground CloudFront reconnect is live; mobile Safari and background-tab are still unmeasured. Owner has not waived.",
-      "created_at": "2026-08-31T05:56:28.987623Z"
+      "created_at": "2026-08-31T05:56:28.987623Z",
+      "comment_type": "default"
     },
     {
       "id": "93c25102-f982-4390-935d-4b6726ac2e72",
       "author": "rap@endymion.com",
       "text": "Board currency: all children closed. Epic stays open only for the mobile Safari measurement (or owner waiver). Not in_progress; no SSE spike rebuild.",
-      "created_at": "2026-08-31T19:51:53.809488Z"
+      "created_at": "2026-08-31T19:51:53.809488Z",
+      "comment_type": "default"
     },
     {
       "id": "e4a5c963-4a35-4665-aa8a-8cf85ca00f51",
       "author": "rap@endymion.com",
       "text": "Owner waived remaining DoD: no way to measure mobile Safari or background-tab SSE. Foreground CloudFront reconnect already live. Do not rebuild the spike. Closing epic on that waiver.\n",
-      "created_at": "2026-09-01T00:51:22.520185Z"
+      "created_at": "2026-09-01T00:51:22.520185Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d88d9f57-1341-4091-8663-06c524e4526e",
+      "author": "home",
+      "text": "Repaired a dangling `blocked-by chatticus-bbfb8d` (short form). Re-adding the full id failed: **circular dependency — cannot block on child**. The short dep was removed; parent/child already records the relationship. Always wire `kbs dep` with full issue ids.\n",
+      "created_at": "2026-09-07T20:22:16.538823Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-08-30T15:53:17.431152Z",
-  "updated_at": "2026-09-01T00:51:22.535081Z",
+  "updated_at": "2026-09-07T20:22:16.538823Z",
   "closed_at": "2026-09-01T00:51:22.535081Z",
-  "custom": {}
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }

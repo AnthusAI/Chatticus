@@ -11,7 +11,7 @@
   "labels": [],
   "dependencies": [
     {
-      "target": "chatticus-14475c",
+      "target": "chatticus-14475c1a-5ac6-4713-99b3-c60e0c4657e7",
       "type": "relates-to"
     }
   ],
@@ -21,25 +21,21 @@
       "author": "home",
       "text": "Remove app/page.tsx, app/beta, app/contact, app/features, app/waitlist and\ntheir components/lib modules from web/ once task 8 has landed them in\nChattic.us-web and story 1 is verified. Remove WEB_MARKETING_DOMAINS from\ninfra/lib/environments.ts, the marketing alias records and MarketingSiteUrl\noutput from infra/lib/web-stack.ts. Simplify the SpaViewerRequest CloudFront\nfunction in infra/lib/cloudfront-functions.ts: with no marketing pages in the\nbucket, / serves the workspace unconditionally and the host-based\nHost===siteDomain branch is dead code to delete, leaving only the generic\nextensionless-path SPA rewrite.\n\nDepends on task 8 landing and story 1 passing verification first.",
       "created_at": "2026-09-04T21:29:53.292630Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
     },
     {
       "id": "12a2ffa1-cdce-4801-8486-9f0ab09ec671",
       "author": "home",
       "text": "Complete. Marketing routes/components/lib/content/styles/test-support all removed from web/ (PR #300, b6e8277). Host routing simplified in the SAME apex-cutover PR (#298, d707856): the CloudFront viewer-request function's / -> /chat/index.html rewrite is now unconditional (not host-gated), since every ChatticusWeb* site domain is the product app now and there's no other content at the bucket root to fall back to once marketing routes were gone. Coupled these two deliberately: making the rewrite unconditional had to land before (or atomically with) the route deletion, or dev/staging/production would each 404 or serve stale bucket content at / for the gap between the two.",
       "created_at": "2026-09-05T00:15:08.911941Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-04T21:29:20.545157Z",
   "updated_at": "2026-09-05T00:15:09.435568Z",
   "closed_at": "2026-09-05T00:15:09.435483Z",
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }

@@ -13,7 +13,7 @@
   ],
   "dependencies": [
     {
-      "target": "41d08d",
+      "target": "chatticus-41d08d0e-b37a-4b97-b4a6-09a45972ab31",
       "type": "blocked-by"
     }
   ],
@@ -22,17 +22,22 @@
       "id": "eee7eca4-594f-47c5-97f6-7d856909cdac",
       "author": "rap@endymion.com",
       "text": "Unblocked (41d08d on develop). Planning `reinstate` on kernel + members CLI: SUSPENDED only, do not relax `enable`. Worktree `/tmp/chatticus-50b42d-reinstate` branch `cursor/reinstate-org-50b42d-4a21`. Computers desiredCount 0. Never `--all`.\n",
-      "created_at": "2026-09-01T08:47:11.712605Z"
+      "created_at": "2026-09-01T08:47:11.712605Z",
+      "comment_type": "default"
     },
     {
       "id": "cb7c8476-8cf0-4eb9-9b79-278a8eaa816c",
       "author": "rap@endymion.com",
       "text": "#145 opened: dedicated `reinstate`, enable stays pending-only. Waiting on python CI before merge to develop.\n",
-      "created_at": "2026-09-01T09:04:59.912993Z"
+      "created_at": "2026-09-01T09:04:59.912993Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T06:08:27.775544Z",
   "updated_at": "2026-09-01T09:20:41.971675Z",
   "closed_at": "2026-09-01T09:20:41.971675Z",
-  "custom": {}
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }
