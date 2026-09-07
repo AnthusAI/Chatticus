@@ -5,7 +5,6 @@ set -euo pipefail
 export AWS_REGION="${AWS_REGION:-us-east-1}"
 export AWS_DEFAULT_REGION="${AWS_REGION}"
 export SPIKE_TAG="${SPIKE_TAG:-chatticus-3d5357}"
-export AWS_ACCOUNT="${AWS_ACCOUNT:-335163751677}"
 export VPC_ID="${VPC_ID:-vpc-0c5a0f0ca21e2afdd}"
 export SUBNET_ID="${SUBNET_ID:-subnet-06c4e78bf06400f26}"
 export KANBUS_EFS_ID="${KANBUS_EFS_ID:-fs-09fcbd58a2e2d2c98}"
