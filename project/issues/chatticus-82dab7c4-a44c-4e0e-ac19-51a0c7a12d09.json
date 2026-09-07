@@ -157,10 +157,17 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/315 — DeleteStack on terminal-failed, then CreateStack when missing. No recovery-tag cap. Composer 2.5 review + CI in flight. Not merging. Live proof still waits on 8a25af role UpdateStack.",
       "created_at": "2026-09-07T18:53:20.645789Z",
       "comment_type": "default"
+    },
+    {
+      "id": "b9f473b2-7188-459e-9009-df6a99e59969",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/315 to develop (`6663c16`). Composer 2.5 APPROVE; CI green. Product path now DeleteStack on terminal-failed then CreateStack when missing.\n\nDo not close. Remaining: ThinTurn development deploy of this commit, `8a25af` lab role `UpdateStack`, then lab-user DescribeStacks(ChatticusComputers)=CREATE_COMPLETE and customer RunTask >= 1.",
+      "created_at": "2026-09-07T19:02:26.801483Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T18:53:20.645789Z",
+  "updated_at": "2026-09-07T19:02:26.801483Z",
   "closed_at": null,
   "custom": {}
 }
