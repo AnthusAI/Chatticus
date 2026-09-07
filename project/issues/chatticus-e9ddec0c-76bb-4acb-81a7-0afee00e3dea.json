@@ -35,10 +35,17 @@
       "text": "`9af381` Phase A0 on develop (#310): netem pre-experiment says the local interactive host does not clear the 3x/10x table at ~25ms RTT. Phase A/B (real EFS + tunnel) still blocked on CDK. EFS-for-AWS-hosts and accelerated batch still do not wait on this spike.",
       "created_at": "2026-09-05T23:35:32.256432Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f9db6a8c-b8a3-40f1-a225-235c3ce8d724",
+      "author": "home",
+      "text": "## Status 2026-09-07 (3d5357 closed)\n\n`chatticus-3d5357` measured in-VPC EFS vs EBS (PR #311). Mutating **23–54×**, read-only ~**10×**; D1 **fails for `/workspace`**. Epic children that remain: `ea918a` (product call for `/org` cache coherence). **Stop writing EFS CDK.** No tunnel. Accelerated batch (D8) still untouched.",
+      "created_at": "2026-09-07T14:24:42.999475Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:07:47.371873Z",
-  "updated_at": "2026-09-05T23:35:32.256432Z",
+  "updated_at": "2026-09-07T14:24:42.999475Z",
   "closed_at": null,
   "custom": {}
 }
