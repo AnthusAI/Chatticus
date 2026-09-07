@@ -3,7 +3,7 @@
   "title": "Provision one throwaway AWS account end to end by hand, and time it",
   "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the template task\n- **Unblocks:** the setup fee, the queue rate, and the promise on the pitch page\n\n---\nA task, not a story, because the deliverable is a measured number and a written runbook rather than a behavior the system exhibits.\n\nStand up a fresh AWS account, run the cross-account setup as a customer would experience it, provision one organization computer, and run one bot task. Record what actually happened: elapsed wall-clock time, how much of it was waiting on AWS, which steps needed a human decision, and every place the instructions were wrong.\n\n**Nothing else in this initiative can be honestly scheduled or priced until this number exists.** The setup fee prices this session. The invitation rate is capped by how many of these can be run per week. The pitch page makes a promise about how long onboarding takes. All three are currently guesses.\n\n**Done when:** a runbook exists in the wiki, with a measured elapsed time and a list of the steps that needed a person.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -40,10 +40,17 @@
       "text": "## Readiness verified 2026-09-07\n\nChecked rather than assumed, because the earlier note on `8a25af` said *\"product PR merged; waiting on web deploy.\"* That wait is over:\n\n```\nGET https://dev.chattic.us/provisioning/customer-role.yml\nHTTP 200, 6379 bytes\n```\n\n**6379 bytes is byte-identical to `infra/customer-role.yml` in the repo** (#308, `be007ec`). The published artifact and the versioned one are the same file, so a hand run against the URL is a genuine test of what a customer would get.\n\nNothing is blocking this task. It can start today.",
       "created_at": "2026-09-07T14:57:50.132158Z",
       "comment_type": "default"
+    },
+    {
+      "id": "42375c1d-5017-42cc-af36-7ff1ff2a3c68",
+      "author": "home",
+      "text": "Starting the timed throwaway-account run. Storage stays closed. Published template at `https://dev.chattic.us/provisioning/customer-role.yml` unmodified; GET then `--template-body`. Anthus AWS session currently expired — will re-auth. Wiki runbook on `develop` (no product PR). Worktree for notes: `/tmp/chatticus-b88c0a-hand-provision` on `spike/b88c0a-hand-provision` if scripts are needed; wiki itself commits on `develop`.",
+      "created_at": "2026-09-07T15:02:00.773932Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T14:57:50.132158Z",
+  "updated_at": "2026-09-07T15:02:00.773932Z",
   "closed_at": null,
   "custom": {}
 }
