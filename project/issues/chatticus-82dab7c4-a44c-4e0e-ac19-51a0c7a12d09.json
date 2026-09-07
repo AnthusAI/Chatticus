@@ -224,10 +224,24 @@
       "text": "## Description table rewritten (2026-09-07)\n\nThe snapshot-bucket row now matches the decision on `chatticus-bb9084`: **Customer, published CloudFormation template**. The rest of the who-creates-what table is unchanged.\n\nDo **not** add `AWS::S3::Bucket` to `ChatticusComputers` before the next deploy. `grep -c 's3:' infra/customer-role.yml` is 0. CloudFormation creates resources with the caller's permissions; `ChatticusComputers*` only names which stacks the role may touch.\n\nRefuse-not-fallback is now a citable wiki section: `project/wiki/runbooks/throwaway-account-provisioning.md` (not only this card).\n",
       "created_at": "2026-09-07T20:22:16.501989Z",
       "comment_type": "default"
+    },
+    {
+      "id": "907b0767-8e63-46c5-bcfb-c15d4c580d3d",
+      "author": "home",
+      "text": "## Live proof after #316: FAIL — `RUNTASK_USER_ID_NONE`\n\nThinTurn development deploy of `6457a30` (https://github.com/AnthusAI/Chatticus/actions/runs/34158002739). Lab IAM user, not root.\n\n| Check | Result |\n| --- | --- |\n| Stack | `UPDATE_COMPLETE` |\n| Subnet/SG outputs | Present (2 subnets + SG) |\n| Product UpdateStack after deploy | 1 success |\n| Customer `RunTask` | **0** |\n| Anthus `RunTask` / desiredCount | **0** / **0** |\n| Nack `reason=` | Yes (#316 logging holds) |\n\n`#316` did what it claimed. `start_host` now reaches `ecs.run_task`; boto3 rejects overrides:\n\n`Invalid type for parameter overrides.containerOverrides[0].environment[1].value, value: None`\n\n`environment[1]` is `CHATTICUS_USER_ID`. `HostStartClaim.user_id` is `None` because `ComputerWorker._dispatch_host_start_if_needed` calls `request_computer_host_start(tenant_id, turn_id)` with the default `user_id=None`.\n\nDo not close. Next slice: pass a real string `user_id` on the computer-continuation host-start path. Do **not** add S3 to `ChatticusComputers`. Do **not** silent-edit the published role.\n",
+      "created_at": "2026-09-07T20:24:34.775879Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "440986d5-8555-4cdb-b86b-4b67f969253f",
+      "author": "home",
+      "text": "Composer 2.5 planning the `RUNTASK_USER_ID_NONE` slice. Worktree (planner will create): `/tmp/chatticus-82dab7-runtask-user-id` on `feat/customer-runtask-user-id-82dab7`. Plan only until authorized. Do not close this card without lab-user `RunTask ≥ 1`.\n",
+      "created_at": "2026-09-07T20:25:00.450369Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T20:22:16.501989Z",
+  "updated_at": "2026-09-07T20:25:00.450369Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

@@ -40,9 +40,9 @@ Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` 
 - No create-bot UI in the enabled workspace (`POST /bots` exists; UI never calls it).
 - `infra/README.md` `create-stack` example omitted `--parameters` and `CAPABILITY_NAMED_IAM`.
 - Published role CFN is scoped to `ChatticusComputers*` only. The snapshot bucket is **not** created by Chatticus inside `ChatticusComputers` under AssumeRole (that path AccessDenies: the role has no `s3:`). The bucket is declared in the customer-run published template (`chatticus-bb9084`).
-- Workspace prompt: Ping said it **could not** run `ls /workspace` — not that it would not. Do not treat this as the model declining to summon a computer, and do not tune prompts. `create_bot` assigns no grant, capability, ceiling, or standing; sinks deny with reason `no task grant` (`chatticus-5336ff`). The kernel F-computer path is a separate labeled deviation (`STOP_NO_COMPUTER_TOOL` / `enqueue_computer_continuation`).
+- Workspace prompt exact reply: **I can't run shell commands directly in the household workspace.** Grants were **absent** on those turns (`create_bot` still assigns none — `chatticus-5336ff`). That sentence is **not** the sink string `no task grant`; one turn never called a tool, another called `request_computer_capability` then still that prose (`STOP_NO_COMPUTER_TOOL`). Do not tune prompts.
 - `POST .../turns/{id}/resume` while the computer is stopped is `ComputerNotReadyError`; first summon needs kernel `enqueue_computer_continuation`.
-- ComputerWorker nack omits provisioning exception text.
+- ComputerWorker nack now logs `reason=` (#316). Host start still fails when `CHATTICUS_USER_ID` is `None` (`RUNTASK_USER_ID_NONE` on `chatticus-82dab7`).
 
 ## Refuse-not-fallback (production-verified, 2026-09-07)
 
@@ -90,7 +90,9 @@ PR #312 on `develop` (`9826f2b`). First live attempt inferred CreateStack/RunTas
 
 **Named cause 2 (fixed in #314 + lab UpdateStack; `8a25af` closed):** `CREATESTACK_ROLLBACK_EC2_DESCRIBE_INTERNET_GATEWAYS_DENIED`.
 
-**Named cause 3 (live after #315):** `HOST_START_NO_RUNTASK_AFTER_CREATE_COMPLETE`. Product DeleteStack+CreateStack left `ChatticusComputers` `CREATE_COMPLETE`. Customer `RunTask` still **0**. `start_host` throws before `ecs.RunTask` (dispatch released). ComputerWorker nack log omits the exception.
+**Named cause 3 (fixed in #316, `6457a30`):** `LOOKUP_EMPTY_SUBNETS_DESCRIBE_SERVICES` / `HOST_START_NO_RUNTASK_AFTER_CREATE_COMPLETE`. Subnet/SG outputs + UpdateStack. Nack logs now include `reason=`.
+
+**Named cause 4 (live after #316, 2026-09-07):** `RUNTASK_USER_ID_NONE`. Stack `UPDATE_COMPLETE`, subnet/SG outputs present, one product UpdateStack. Customer `RunTask` still **0**. `ecs.run_task` rejects `CHATTICUS_USER_ID` `None` on the computer-continuation host-start path. Anthus `RunTask` 0; desiredCount 0. Do not close `chatticus-82dab7` until lab-user `RunTask ≥ 1`.
 
 ## Capability matrix (`chatticus-3e72dc`, 2026-09-07)
 
