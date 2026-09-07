@@ -13,15 +13,39 @@ import {
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
+function readCustomerRoleTemplate(): string {
+  const templatePath = path.join(repoRoot, CUSTOMER_ROLE_TEMPLATE_REPO_PATH);
+  return readFileSync(templatePath, "utf8");
+}
+
 describe("customer-role template publish helper", () => {
   it("reads the single repo template for deploy (never a second file)", () => {
-    const templatePath = path.join(repoRoot, CUSTOMER_ROLE_TEMPLATE_REPO_PATH);
-    const repoTemplate = readFileSync(templatePath, "utf8");
+    const repoTemplate = readCustomerRoleTemplate();
     assert.match(repoTemplate, /ChatticusCrossAccountRole/);
     assert.doesNotMatch(repoTemplate, /AdministratorAccess/);
 
     const source = customerRoleTemplateDeploySource(repoRoot);
     assert.equal(typeof source.bind, "function");
+  });
+
+  it("grants IAM actions required for ChatticusComputers CreateStack", () => {
+    const repoTemplate = readCustomerRoleTemplate();
+    assert.match(repoTemplate, /ec2:DescribeInternetGateways/);
+    assert.match(repoTemplate, /ec2:ModifySubnetAttribute/);
+    assert.match(repoTemplate, /Sid: ECSServiceLinkedRole/);
+    assert.match(
+      repoTemplate,
+      /Sid: ECSServiceLinkedRole[\s\S]*?iam:CreateServiceLinkedRole[\s\S]*?iam:AWSServiceName': 'ecs\.amazonaws\.com'/,
+    );
+    const serviceLinkedRoleMatches = repoTemplate.match(/iam:CreateServiceLinkedRole/g);
+    assert.equal(serviceLinkedRoleMatches?.length, 1);
+  });
+
+  it("forbids bootstrap SSM, snapshot S3, and AdministratorAccess", () => {
+    const repoTemplate = readCustomerRoleTemplate();
+    assert.doesNotMatch(repoTemplate, /ssm:\*/);
+    assert.doesNotMatch(repoTemplate, /s3:\*/);
+    assert.doesNotMatch(repoTemplate, /AdministratorAccess/);
   });
 
   it("uses the stable S3 object key under provisioning/", () => {
