@@ -1,0 +1,19 @@
+{
+  "spike_tag": "chatticus-3d5357",
+  "vpc_id": "vpc-0c5a0f0ca21e2afdd",
+  "subnet_id": "subnet-06c4e78bf06400f26",
+  "availability_zone": "us-east-1a",
+  "instance_id": "i-009947083959a9ae0",
+  "instance_type": "t3.medium",
+  "efs_id": "fs-028e92bee71335473",
+  "kanbus_efs_guard": "fs-09fcbd58a2e2d2c98",
+  "efs_mount_target_ip": "10.0.30.140",
+  "nfs_version": "4.1",
+  "efs_mount_tls": true,
+  "in_vpc": true,
+  "access": "ssm_only",
+  "seed_file_count": 1015,
+  "seed_repo_url": "https://github.com/AnthusAI/Chatticus.git",
+  "seeded_at": "2026-09-07T13:47:00Z",
+  "fixture": "same as nfs-wan-netem-9af381 (bench-a/bench-b)"
+}
