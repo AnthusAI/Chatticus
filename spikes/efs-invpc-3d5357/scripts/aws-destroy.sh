@@ -31,11 +31,11 @@ destroy_spike_resources() {
         if [ -n "$mt_id" ] && [ "$mt_id" != "None" ]; then
             echo "Deleting mount target ${mt_id}..."
             aws efs delete-mount-target --mount-target-id "$mt_id" || true
-            aws efs wait mount-target-deleted --mount-target-id "$mt_id" 2>/dev/null || true
+            wait_mount_target_deleted "$mt_id" || true
         fi
         echo "Deleting EFS ${fs_id}..."
         aws efs delete-file-system --file-system-id "$fs_id" || true
-        aws efs wait file-system-deleted --file-system-id "$fs_id" 2>/dev/null || true
+        wait_efs_deleted "$fs_id" || true
         rm -f "$(state_file efs-id)"
     fi
 

@@ -58,3 +58,60 @@ verify_computers_desired_count_zero() {
     fi
     echo "OK: ${COMPUTERS_STACK} desiredCount=0"
 }
+
+wait_efs_available() {
+    local fs_id="$1"
+    for _ in $(seq 1 60); do
+        state="$(aws efs describe-file-systems --file-system-id "$fs_id" \
+            --query 'FileSystems[0].LifeCycleState' --output text 2>/dev/null || true)"
+        if [ "$state" = "available" ]; then
+            return 0
+        fi
+        sleep 5
+    done
+    echo "TIMEOUT: EFS ${fs_id} not available" >&2
+    return 1
+}
+
+wait_mount_target_available() {
+    local mt_id="$1"
+    for _ in $(seq 1 60); do
+        state="$(aws efs describe-mount-targets --mount-target-id "$mt_id" \
+            --query 'MountTargets[0].LifeCycleState' --output text 2>/dev/null || true)"
+        if [ "$state" = "available" ]; then
+            return 0
+        fi
+        sleep 5
+    done
+    echo "TIMEOUT: mount target ${mt_id} not available" >&2
+    return 1
+}
+
+wait_mount_target_deleted() {
+    local mt_id="$1"
+    for _ in $(seq 1 60); do
+        if ! aws efs describe-mount-targets --mount-target-id "$mt_id" >/dev/null 2>&1; then
+            return 0
+        fi
+        state="$(aws efs describe-mount-targets --mount-target-id "$mt_id" \
+            --query 'MountTargets[0].LifeCycleState' --output text 2>/dev/null || true)"
+        if [ "$state" = "deleted" ] || [ "$state" = "None" ]; then
+            return 0
+        fi
+        sleep 5
+    done
+    echo "TIMEOUT: mount target ${mt_id} not deleted" >&2
+    return 1
+}
+
+wait_efs_deleted() {
+    local fs_id="$1"
+    for _ in $(seq 1 60); do
+        if ! aws efs describe-file-systems --file-system-id "$fs_id" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 5
+    done
+    echo "TIMEOUT: EFS ${fs_id} not deleted" >&2
+    return 1
+}
