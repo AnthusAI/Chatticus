@@ -56,10 +56,17 @@
       "text": "[#311](https://github.com/AnthusAI/Chatticus/pull/311) `f4ae344`: read-only summaries regenerated from `iterations_detail`. `actimeo=1` warm RPC is now 480 (131/765 thrash), not 160. Other actimeo `first_post_remount` matches each file's iteration 1. Mutating **23–54×** unchanged — D1 still fails for `/workspace`. Re-reviewing before merge.",
       "created_at": "2026-09-07T14:08:47.682449Z",
       "comment_type": "default"
+    },
+    {
+      "id": "87453f50-00f2-4997-9d7a-50a247939966",
+      "author": "home",
+      "text": "[#311](https://github.com/AnthusAI/Chatticus/pull/311) review approved the measurement; CI failed `test_committed_tree_does_not_embed_account_origins` on `spikes/efs-invpc-3d5357/scripts/aws-env.sh` (`335163751677`). Redacting — not skipping the scan.",
+      "created_at": "2026-09-07T14:16:04.510308Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T12:50:30.168595Z",
-  "updated_at": "2026-09-07T14:08:47.682449Z",
+  "updated_at": "2026-09-07T14:16:04.510308Z",
   "closed_at": null,
   "custom": {}
 }
