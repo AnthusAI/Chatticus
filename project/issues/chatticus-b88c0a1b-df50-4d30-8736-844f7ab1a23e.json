@@ -54,10 +54,17 @@
       "text": "Plan reviewed. Journey is development-only (`dev.chattic.us`). Template GET + `--template-body` with `AnthusAccountId` + `OrganizationId=<tenant_id>` minted by `POST /organizations` first. Do not `members seed` the throwaway org. Do not Organizations `CreateAccount` as a fake customer.\n\nAmendments: (1) `CreateOrganizationPanel` leaves the org **pending** until an operator enables it — that is a person-step the README never mentions. (2) No HTTP for `submit_self_setup_cross_account_role` — kernel only; any operator script is a deviation, labeled as such. (3) Published role cannot create `ChatticusSnapshots`; ComputerWorker does not deploy `ChatticusComputers` in the customer account. F-safe (`pong`) is the honest first bot task; F-computer is a finding if infra is missing, not a reason to edit the template. (4) Worktree `/tmp/chatticus-b88c0a-hand-provision`. Wiki on `develop`. (5) **T0 does not start** until Anthus `aws login` is live and a human is ready for consumer AWS signup (phone/card). Clock not started.",
       "created_at": "2026-09-07T15:04:33.059502Z",
       "comment_type": "default"
+    },
+    {
+      "id": "9629ab65-bb06-4848-8083-9499f9f2cd5f",
+      "author": "home",
+      "text": "Preflight: worktree `/tmp/chatticus-b88c0a-hand-provision` on `spike/b88c0a-hand-provision`. Published template still **6379 bytes**, `cmp` identical to `infra/customer-role.yml`. T0 not started — waiting on Anthus `aws login` and a human consumer AWS signup.",
+      "created_at": "2026-09-07T15:05:01.844569Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:04:33.059502Z",
+  "updated_at": "2026-09-07T15:05:01.844569Z",
   "closed_at": null,
   "custom": {}
 }
