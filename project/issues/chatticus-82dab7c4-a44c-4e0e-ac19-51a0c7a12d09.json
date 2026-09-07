@@ -266,10 +266,17 @@
       "text": "Merged https://github.com/AnthusAI/Chatticus/pull/317 to develop (`7d6dc1a`). Composer 2.5 APPROVE; CI python + infra green.\n\nDo not close. Remaining: ThinTurn development deploy of `7d6dc1a`, then kernel summon, then lab-user CloudTrail **customer `RunTask ≥ 1`**, Anthus `RunTask` 0, desiredCount 0. Named cause to beat: `RUNTASK_USER_ID_NONE`.\n",
       "created_at": "2026-09-07T20:42:40.040821Z",
       "comment_type": "default"
+    },
+    {
+      "id": "802fbfea-b32a-49ee-aa01-044e08964d00",
+      "author": "home",
+      "text": "Live proof after #317: **PASS**. ThinTurn [34160413819](https://github.com/AnthusAI/Chatticus/actions/runs/34160413819) (`7d6dc1a`). Lab IAM user `chatticus-b88c0a-operator`.\n\n## Gate 0\n\nDeploy **success** at 2026-09-07T20:43:58Z before summon.\n\n## Gate 2 — kernel deviation\n\n`post_channel_message` + `prepare_computer_tool(request_computer_capability, gate=workspace)` + `commit_pending_computer_tool` + `enqueue_computer_continuation`. Turn `09ce8907-…` at 2026-09-07T20:47:39Z. SQS job carried non-empty `user_id` (develop control plane, not stale worktree).\n\n## Gate 3\n\n| Check | Result |\n| --- | --- |\n| Customer `ChatticusComputers` | **UPDATE_COMPLETE** |\n| `ComputerPublicSubnetIds` + `ComputerSecurityGroupId` | **Present** |\n| Customer CloudTrail `RunTask` after summon | **2** (first **+3 s** at 20:47:42Z; not `dispatch_ok`) |\n| Anthus `RunTask` | **0** |\n| Anthus Computers `desiredCount` | **0** |\n| Nack `reason=` | `has no ready computer host for 'request_computer_capability'` — **not** `RUNTASK_USER_ID_NONE` |\n\n**Elapsed:** ~3 s to first customer `RunTask`; ~95 s CloudTrail visibility.\n\nPrior `RUNTASK_USER_ID_NONE` is closed by #317. Manager may close `chatticus-82dab7` after verifying CloudTrail in `CUSTOMER_ACCOUNT_ID`.\n",
+      "created_at": "2026-09-07T20:50:05.586731Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T20:42:40.040821Z",
+  "updated_at": "2026-09-07T20:50:05.586731Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
