@@ -40,10 +40,17 @@
       "text": "Plan re-reviewed and **authorized** with one hole closed.\n\nWorktree verified: `/tmp/chatticus-82dab7-customer-computers` on `feat/customer-computers-stack-82dab7` (not the primary clone). Five prior holes are closed: no S3 in this template, no Lambda image copy, TemplateBody 51,200 gate, both IAM capabilities, test-double refusal (no prod flag).\n\n**Closed on authorize:** Anthus ECR `:dev` pull is **per customer `aws_account_id` at provision time**, not a synth-time list of accounts in CDK. ComputerWorker (Anthus creds) merges that account into the Anthus `ComputerImage` repository policy (account root principal is enough; the customer execution role already has ECS pull APIs). A hardcoded lab account in CDK would be a second product. Lambda needs `ecr:GetRepositoryPolicy` / `ecr:SetRepositoryPolicy` on the Anthus repo only — not customer-visible.\n\nDo not edit `customer-role.yml`. Do not CreateStack until Gherkin is red for the right reasons. Tear down the worktree only after this card is closed and the product PR is on `develop`.",
       "created_at": "2026-09-07T16:31:30.875334Z",
       "comment_type": "default"
+    },
+    {
+      "id": "13a2507d-809b-4f2a-ace9-76fb1c96244e",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/312 (feat/customer-computers-stack-82dab7). Composer 2.5 review in flight. Not merging yet.\n\nKnown pushback before live proof: Anthus ECR repo policy omits `ecr:BatchCheckLayerAvailability` (cross-account pull will fail); drop `spikes/82dab7-customer-computers/PLAN.md` from the product PR.",
+      "created_at": "2026-09-07T16:48:11.264277Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T16:31:30.875334Z",
+  "updated_at": "2026-09-07T16:48:11.264277Z",
   "closed_at": null,
   "custom": {}
 }
