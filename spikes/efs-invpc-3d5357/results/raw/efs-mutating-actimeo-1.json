@@ -1,0 +1,13 @@
+{
+  "condition": "efs-mutating-actimeo-1",
+  "actimeo": "1",
+  "storage": "efs",
+  "host": "ip-10-0-92-71.ec2.internal",
+  "runs": 3,
+  "median_seconds": {
+    "git_status": 0.5044500000000001,
+    "checkout": 0.3403,
+    "stat_sweep": 0.18975,
+    "pip_install": 0.97695
+  }
+}
