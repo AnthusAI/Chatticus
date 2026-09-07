@@ -3,7 +3,7 @@
   "title": "Publish the cross-account CloudFormation template and scoped IAM policy",
   "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Runs in parallel with:** the hand-provisioning task\n- **Unblocks:** the assume-role story, and the pitch page access story\n\n---\nA task because the deliverable is a versioned artifact the customer runs, not behavior in the Chatticus front door.\n\nThe template creates one role in the customer account, trusting the Anthus principal, requiring a per-organization ExternalId, scoped to exactly what provisioning and operating an organization computer needs.\n\n**Never AdministratorAccess.** The people with authority to grant this will read the policy, which is good news only if the policy is defensible. Every permission in it should survive the question \"why does an agent product need this.\"\n\nVersion it in the repository and treat a change to it as a customer-visible change, because it is one — an existing customer has to re-run it.\n\n**Done when:** the template and policy are in the repository, published at a stable URL, and the hand-provisioning task ran against them unmodified.",
   "type": "task",
-  "status": "closed",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -136,10 +136,24 @@
       "text": "`82dab7` CreateStack failures are **CDK BootstrapVersion SSM** in the product template, not a missing `ssm:*` on the published role. Stay closed. Do not add SSM to `customer-role.yml` for this. Snapshot-bucket `s3:*` is still the later customer-visible change.",
       "created_at": "2026-09-07T17:49:48.816287Z",
       "comment_type": "default"
+    },
+    {
+      "id": "edfae213-7fe7-4df4-b912-04d5147b6ca1",
+      "author": "home",
+      "text": "**Reopened.** `82dab7` live proof after #313 (`fb0d7d5`, ThinTurn [34152080224](https://github.com/AnthusAI/Chatticus/actions/runs/34152080224)): bootstrap SSM is gone. Customer `CreateStack` API **succeeded**. Stack ended **ROLLBACK_FAILED**.\n\n**Named cause:** `CREATESTACK_ROLLBACK_EC2_DESCRIBE_INTERNET_GATEWAYS_DENIED`\n\nPublished `customer-role.yml` allows `ec2:CreateInternetGateway` / `Delete` / `Attach` / `Detach` but **not** `ec2:DescribeInternetGateways`. CFN failed on `VpcIGWD7BA715C`; rollback also failed. Lab IAM user evidence, not journal.\n\nThis is a customer-visible policy hole. Add the missing EC2 describe (and any other CFN actions required by the committed Computers template resource types). Do **not** add `ssm:*` or `s3:*`. Lab must `UpdateStack` `ChatticusCrossAccountRole` from the published URL after ChatticusWeb deploys — GET then `--template-body`.",
+      "created_at": "2026-09-07T18:40:31.456556Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "d5193f35-4839-41d5-873b-4aa8b65aa22a",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree /tmp/chatticus-8a25af-igw-describe on feat/customer-role-describe-igw-8a25af. Plan only — do not edit the YAML until authorized.",
+      "created_at": "2026-09-07T18:40:35.947449Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:01.851861Z",
-  "updated_at": "2026-09-07T17:49:48.816287Z",
-  "closed_at": "2026-09-07T15:44:10.297139Z",
+  "updated_at": "2026-09-07T18:40:35.947449Z",
+  "closed_at": null,
   "custom": {}
 }

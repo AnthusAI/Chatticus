@@ -11,7 +11,12 @@
   "labels": [
     "phase-1"
   ],
-  "dependencies": [],
+  "dependencies": [
+    {
+      "target": "chatticus-8a25af",
+      "type": "blocked-by"
+    }
+  ],
   "comments": [
     {
       "id": "9ec7bb7c-7ca2-4c53-8c11-2c7e136ca694",
@@ -124,10 +129,24 @@
       "text": "Merged https://github.com/AnthusAI/Chatticus/pull/313 to develop (`fb0d7d5`). Composer 2.5 APPROVE; CI green (infra template check + python).\n\nDo not close. Remaining DoD: ThinTurn development deploy of this commit, then lab-user (not root) DescribeStacks(ChatticusComputers)=CREATE_COMPLETE and customer RunTask >= 1 with Anthus RunTask 0.",
       "created_at": "2026-09-07T18:32:52.174450Z",
       "comment_type": "default"
+    },
+    {
+      "id": "38a4d549-8cd3-4605-9d45-88047d8c0e0e",
+      "author": "home",
+      "text": "Live proof after #313: **FAIL**. Gate 0 passed ([34152080224](https://github.com/AnthusAI/Chatticus/actions/runs/34152080224), `7bd6b54`). Lab IAM user (not root, not journal):\n\n| Check | Result |\n| --- | --- |\n| DescribeStacks(ChatticusComputers) | ROLLBACK_FAILED |\n| CreateStack API (post-deploy) | 1 success (bootstrap SSM gone) |\n| `/cdk-bootstrap/` ssm:GetParameters | 0 |\n| Customer RunTask | 0 |\n| Anthus RunTask / desiredCount | 0 / 0 |\n\n**Named cause:** `CREATESTACK_ROLLBACK_EC2_DESCRIBE_INTERNET_GATEWAYS_DENIED` — recorded on reopened `chatticus-8a25af`. Do not silent-edit `customer-role.yml` on this card.\n\nProduct hole on this card after the role lands: `ensure_stack` **refuses** `ROLLBACK_FAILED` forever. Recovery is DeleteStack then CreateStack (Gherkin). Do not CLI-create the stack. Card stays in_progress; blocked-by `8a25af` for live CreateStack.",
+      "created_at": "2026-09-07T18:40:31.474117Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "ffc25ed8-c6b4-4361-b02b-276c86bb4cf0",
+      "author": "home",
+      "text": "Composer 2.5 planning ROLLBACK_FAILED recovery (DeleteStack then CreateStack). Worktree /tmp/chatticus-82dab7-rollback-recovery on feat/customer-computers-rollback-recovery-82dab7. Plan only. Do not edit customer-role.yml.",
+      "created_at": "2026-09-07T18:40:35.960379Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T18:32:52.174450Z",
+  "updated_at": "2026-09-07T18:40:35.960379Z",
   "closed_at": null,
   "custom": {}
 }

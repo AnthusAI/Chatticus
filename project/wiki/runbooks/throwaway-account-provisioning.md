@@ -16,7 +16,7 @@ Desk AWS account ids, member-account ids, `tenant_id`s, RoleArns, and billing em
 
 This run used AWS Organizations `CreateAccount` on the existing Anthus management account for **lab consolidated billing**. It is **not** the customer funnel. Real customers stay out of this org. Pitch page, invitation rate, and the $100 setup fee should use the **Chatticus-provision** number (~19 min here) and treat AWS account signup as a separate, still-unmeasured stopwatch.
 
-Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` then `create-stack --template-body`. Never pass CloudFront as `--template-url`. This run: **6379 bytes, unmodified**, stack `ChatticusCrossAccountRole` `CREATE_COMPLETE`. That closed `chatticus-8a25af`.
+Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` then `create-stack --template-body`. Never pass CloudFront as `--template-url`. This run: **6379 bytes, unmodified**, stack `ChatticusCrossAccountRole` `CREATE_COMPLETE`. That closed `chatticus-8a25af` until `82dab7` proved a policy hole (`ec2:DescribeInternetGateways`); the card is **reopened**.
 
 ## Person-steps (needed a human)
 
@@ -67,7 +67,9 @@ PR #312 on `develop` (`9826f2b`). First live attempt inferred CreateStack/RunTas
 
 **`chatticus-3e72dc` preflight (lab IAM user, same day):** `DescribeStacks(ChatticusComputers)` in `CUSTOMER_ACCOUNT_ID` → stack does not exist; customer ECS cluster list empty.
 
-**Named cause (`CREATESTACK_NEVER_SUCCEEDED_SSM_GETPARAMETERS_DENIED`):** the committed customer-computers template includes CDK `BootstrapVersion` (`SSM` `/cdk-bootstrap/hnb659fds/version`). Published `customer-role.yml` has no `ssm:*`. CloudTrail: **28** failed `CreateStack` (ValidationException), **0** `DeleteStack`, **0** customer `RunTask`. The stack was never created. Do **not** add `ssm:*` to the published role — strip bootstrap from the product template (customer accounts are not CDK-bootstrapped).
+**Named cause 1 (fixed in #313, `fb0d7d5`):** `CREATESTACK_NEVER_SUCCEEDED_SSM_GETPARAMETERS_DENIED` — CDK `BootstrapVersion` SSM. Do **not** add `ssm:*` to the published role.
+
+**Named cause 2 (live after #313, `chatticus-8a25af` reopened):** `CREATESTACK_ROLLBACK_EC2_DESCRIBE_INTERNET_GATEWAYS_DENIED`. Lab IAM user: one successful customer `CreateStack` API call; stack `ROLLBACK_FAILED` (IGW describe denied; rollback also failed). Customer `RunTask` **0**. Anthus `RunTask` **0**. `ensure_stack` currently refuses `ROLLBACK_FAILED` forever — recovery is product work on `82dab7` after the role lands.
 
 ## Capability matrix (`chatticus-3e72dc`, 2026-09-07)
 

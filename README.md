@@ -116,12 +116,11 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **F-computer live refuse** (`chatticus-2f2d87`, closed): ComputerWorker
   assumed the customer role; missing customer `ChatticusComputers`;
   **zero `RunTask` in both accounts**. Kernel handoff ~5 s.
-- **Customer-account `RunTask`** (`chatticus-82dab7`, #312): ComputerWorker
-  can `CreateStack` `ChatticusComputers` under the assumed role (no snapshot
-  bucket; image is Anthus `:dev`). Closure on 2026-09-07 inferred customer
-  `RunTask` from ComputerWorker dispatch (desk root cannot AssumeRole).
-  **`chatticus-3e72dc` Layer B (lab IAM user) then found the customer
-  stack absent and ECS clusters empty.** DoD is not holding. Card reopened.
+- **Customer-account `RunTask`** (`chatticus-82dab7`, #312 + #313): #313
+  stripped CDK bootstrap SSM; customer `CreateStack` API then succeeded.
+  Stack ended **ROLLBACK_FAILED** (`ec2:DescribeInternetGateways` missing
+  on the published role). Customer `RunTask` still 0. `chatticus-8a25af`
+  reopened for that customer-visible policy hole. DoD is not holding.
 
 ### On `develop`, not on `main`
 
@@ -133,11 +132,11 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **ECS host start** is wired on **development ThinTurn only**
   (`CHATTICUS_HOST_STARTER=ecs`). Staging and production ComputerWorker keep
   the no-op host starter.
-- **End-to-end customer-account RunTask** is **not** holding. #312 is on
-  `develop`; `3e72dc` live `DescribeStacks(ChatticusComputers)` in
-  `CUSTOMER_ACCOUNT_ID` failed (stack missing, empty ECS). `82dab7`
-  reopened. File-actions still need a customer snapshot bucket
-  (`chatticus-8a25af`).
+- **End-to-end customer-account RunTask** is **not** holding. #313 is on
+  `develop`; lab-user `DescribeStacks(ChatticusComputers)` is
+  `ROLLBACK_FAILED`. `82dab7` stays open; `8a25af` reopened for
+  `DescribeInternetGateways`. File-actions still need scoped `s3:*`
+  and a bucket inside `ChatticusComputers`.
 
 ### Public sites
 
