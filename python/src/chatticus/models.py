@@ -205,6 +205,10 @@ class ComputerWorkerRequiresComputerCapability(ChatticusError):
     """A computer-capable worker must not ack a job without the computer capability."""
 
 
+class OrganizationComputerProvisioningError(ChatticusError):
+    """Refuse computer start when the organization AWS home is unusable."""
+
+
 class ComputerWorkerHostNotReady(ChatticusError):
     """Leave the computer SQS job unacked until a real host can run the tool."""
 

@@ -17,11 +17,11 @@ from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
     ComputerWorkerHostNotReady,
     ComputerWorkerRequiresComputerCapability,
+    OrganizationComputerProvisioningError,
     TurnJob,
     TurnStatus,
     pending_computer_tool_from_turn,
 )
-from chatticus.organization_computer_host import OrganizationComputerProvisioningError
 
 
 class ComputerActionExecutor(Protocol):

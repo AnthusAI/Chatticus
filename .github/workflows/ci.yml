@@ -71,6 +71,10 @@ jobs:
         working-directory: infra
         run: npm test
 
+      - name: Check customer-computers template artifact
+        working-directory: infra
+        run: npm run check:customer-computers-template
+
       - name: Synth
         working-directory: infra
         env:
