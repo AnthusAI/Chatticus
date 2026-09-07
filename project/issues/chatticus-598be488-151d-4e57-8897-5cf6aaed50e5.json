@@ -61,10 +61,17 @@
       "text": "## State of play after `82dab7` (2026-09-07)\n\nCustomer-account computer **starts**. #312 on develop; live `RunTask` in `CUSTOMER_ACCOUNT_ID`; zero Anthus `RunTask`; desiredCount 0. Template unmodified. No snapshot bucket in the customer stack.\n\n**Next:** `chatticus-3e72dc` (terminal → browser → files → approvals → spend → relocate). File-actions still need `8a25af` (`s3:*` + bucket inside `ChatticusComputers`). Self-setup (`9c8dbf`, `070cb4`, `7622fd`) still after that.",
       "created_at": "2026-09-07T17:33:46.975285Z",
       "comment_type": "default"
+    },
+    {
+      "id": "97dd9db8-6f47-4a65-a669-ffc3f8e37a0c",
+      "author": "home",
+      "text": "`82dab7` **reopened.** `3e72dc` lab-user DescribeStacks: customer `ChatticusComputers` absent, ECS empty. Prior closure was inference from ComputerWorker, not customer-side proof. Capability matrix parked.",
+      "created_at": "2026-09-07T17:47:19.806665Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-07T17:33:46.975285Z",
+  "updated_at": "2026-09-07T17:47:19.806665Z",
   "closed_at": null,
   "custom": {}
 }

@@ -117,11 +117,11 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   assumed the customer role; missing customer `ChatticusComputers`;
   **zero `RunTask` in both accounts**. Kernel handoff ~5 s.
 - **Customer-account `RunTask`** (`chatticus-82dab7`, #312): ComputerWorker
-  `CreateStack`s `ChatticusComputers` under the assumed role (no snapshot
-  bucket; image is Anthus `:dev`). Live on development after ThinTurn
-  deploy of `9826f2b`: customer `RunTask` yes; Anthus `RunTask` no;
-  desiredCount 0. Succeeding kernel handoff ~111 s. **Not** folded into
-  the ~19 min provision figure.
+  can `CreateStack` `ChatticusComputers` under the assumed role (no snapshot
+  bucket; image is Anthus `:dev`). Closure on 2026-09-07 inferred customer
+  `RunTask` from ComputerWorker dispatch (desk root cannot AssumeRole).
+  **`chatticus-3e72dc` Layer B (lab IAM user) then found the customer
+  stack absent and ECS clusters empty.** DoD is not holding. Card reopened.
 
 ### On `develop`, not on `main`
 
@@ -133,10 +133,11 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **ECS host start** is wired on **development ThinTurn only**
   (`CHATTICUS_HOST_STARTER=ecs`). Staging and production ComputerWorker keep
   the no-op host starter.
-- **End-to-end customer-account RunTask** is live-proven on **development**
-  (`chatticus-82dab7`, #312). Staging and production ComputerWorker still
-  use the no-op host starter. File-actions still need a customer snapshot
-  bucket (`chatticus-8a25af` before `chatticus-3e72dc`).
+- **End-to-end customer-account RunTask** is **not** holding. #312 is on
+  `develop`; `3e72dc` live `DescribeStacks(ChatticusComputers)` in
+  `CUSTOMER_ACCOUNT_ID` failed (stack missing, empty ECS). `82dab7`
+  reopened. File-actions still need a customer snapshot bucket
+  (`chatticus-8a25af`).
 
 ### Public sites
 
