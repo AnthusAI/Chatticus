@@ -28,10 +28,17 @@
       "text": "Plan authorized with amendments: SSM-only EC2 in `subnet-06c4e78bf06400f26` (no private/NAT), throwaway GP EFS, destroy-on-failure, no S3 bucket, no Kanbus FS, no tunnel. Read-only `git status` loop is the cache test; mutating A0 sequence is a separate table. Worktree `/tmp/chatticus-3d5357-efs-invpc` on `spike/efs-invpc-3d5357`.",
       "created_at": "2026-09-07T13:00:21.210007Z",
       "comment_type": "default"
+    },
+    {
+      "id": "2471859a-e704-4596-97d5-94f8ebe80147",
+      "author": "home",
+      "text": "Lab is up: throwaway EFS `fs-028e92bee71335473` (not Kanbus) and SSM-only EC2 `i-009947083959a9ae0` in `subnet-06c4e78bf06400f26`. First instance `i-0750b264c25a01ac5` failed SSM and was terminated. Benchmark command is in progress on the second instance. ChatticusComputers Fargate `desiredCount` remains 0. No PR yet.",
+      "created_at": "2026-09-07T13:27:50.323244Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T12:50:30.168595Z",
-  "updated_at": "2026-09-07T13:00:21.210007Z",
+  "updated_at": "2026-09-07T13:27:50.323244Z",
   "closed_at": null,
   "custom": {}
 }
