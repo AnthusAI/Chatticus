@@ -68,3 +68,32 @@ Feature: Cross-account provisioning
     When its computer is asked to start
     Then the start is refused with a provisioning error
     And no instance is launched in the Anthus account
+
+  Scenario: A customer organization without ChatticusComputers gets the stack created then RunTask
+    Given an organization provisioned into a customer AWS account without a ChatticusComputers stack
+    When its computer is asked to start
+    Then Chatticus creates the ChatticusComputers stack in the customer account
+    And the instance is launched in the customer account
+    And no compute for that organization runs in the Anthus account
+
+  Scenario: A customer organization with an existing ChatticusComputers stack only describes it
+    Given an organization provisioned into a customer AWS account with a ChatticusComputers stack
+    When its computer starts
+    Then Chatticus describes the ChatticusComputers stack in the customer account
+    And Chatticus does not create the ChatticusComputers stack
+    And the instance is launched in the customer account
+    And no compute for that organization runs in the Anthus account
+
+  Scenario: A missing ChatticusComputers stack refuses with a visible provisioning error
+    Given an organization provisioned into a customer AWS account without a ChatticusComputers stack
+    And the host starter cannot provision customer infrastructure
+    When its computer is asked to start
+    Then the start is refused with a provisioning error naming the missing stack
+    And no instance is launched in the Anthus account
+
+  Scenario: An unreachable customer role refuses without creating a stack or launching Anthus compute
+    Given an organization whose cross-account role cannot be assumed
+    When its computer is asked to start
+    Then the start is refused with a provisioning error
+    And Chatticus does not create the ChatticusComputers stack
+    And no instance is launched in the Anthus account

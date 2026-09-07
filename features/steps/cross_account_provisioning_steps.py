@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from behave import given, then, when
+from botocore.exceptions import ClientError
 
 from chatticus.computer_start import HostStartClaim
 from chatticus.control_plane import ControlPlane
@@ -13,16 +14,26 @@ from chatticus.cross_account_provisioning import (
     CrossAccountRoleSnapshot,
     InMemoryCrossAccountRoleInspector,
 )
+from chatticus.customer_computers_provision import (
+    AwsCustomerComputersProvisioner,
+    RefusingCustomerComputersProvisioner,
+)
 from chatticus.messaging.store import InMemoryMessagingStore
-from chatticus.models import AwsSetupPath, OrganizationStatus
+from chatticus.models import (
+    AwsSetupPath,
+    OrganizationComputerProvisioningError,
+    OrganizationStatus,
+)
 from chatticus.organization_computer_host import (
     DeploymentEcsConfig,
     OrganizationComputerHostStarter,
-    OrganizationComputerProvisioningError,
 )
 
 CUSTOMER_ACCOUNT_ID = "123456789012"
 DEPLOYMENT_ACCOUNT_ID = "111122223333"
+ANTHUS_COMPUTER_IMAGE_URI = (
+    "111122223333.dkr.ecr.us-east-1.amazonaws.com/chatticuscomputers-computerimage:dev"
+)
 CUSTOMER_ROLE_ARN = (
     f"arn:aws:iam::{CUSTOMER_ACCOUNT_ID}:role/ChatticusOrganizationComputerRole"
 )
@@ -356,14 +367,27 @@ class _FakeEcs:
 
 
 class _FakeCloudFormation:
-    def __init__(self) -> None:
+    def __init__(self, *, stack_present: bool = True) -> None:
+        self.stack_present = stack_present
         self.describe_calls: list[dict[str, object]] = []
+        self.create_stack_calls: list[dict[str, object]] = []
 
     def describe_stacks(self, **kwargs: object) -> dict[str, object]:
         self.describe_calls.append(kwargs)
+        if not self.stack_present:
+            raise ClientError(
+                {
+                    "Error": {
+                        "Code": "ValidationError",
+                        "Message": "Stack with id ChatticusComputers does not exist",
+                    }
+                },
+                "DescribeStacks",
+            )
         return {
             "Stacks": [
                 {
+                    "StackStatus": "CREATE_COMPLETE",
                     "Outputs": [
                         {
                             "OutputKey": "ComputerClusterName",
@@ -380,10 +404,15 @@ class _FakeCloudFormation:
                             "OutputKey": "ComputerServiceName",
                             "OutputValue": "FargateHost",
                         },
-                    ]
+                    ],
                 }
             ]
         }
+
+    def create_stack(self, **kwargs: object) -> dict[str, object]:
+        self.create_stack_calls.append(kwargs)
+        self.stack_present = True
+        return {"StackId": "arn:aws:cloudformation:stack/gherkin"}
 
 
 class _FakeEcsWithServices(_FakeEcs):
@@ -439,13 +468,21 @@ def _wire_host_start_context(
     *,
     assume_role: object | None = None,
     deployment_ecs_config: DeploymentEcsConfig | None = None,
+    cloudformation_client: _FakeCloudFormation | None = None,
+    customer_computers_provisioner: object | None = None,
+    grant_anthus_computer_image_pull: object | None = None,
 ) -> None:
     _ensure_org_store(context)
     recorder = _MultiAccountEcsRecorder()
     context.ecs_recorder = recorder  # type: ignore[attr-defined]
-    cloudformation_client = _FakeCloudFormation()
-    context.cloudformation_client = cloudformation_client  # type: ignore[attr-defined]
+    cloudformation = cloudformation_client or _FakeCloudFormation()
+    context.cloudformation_client = cloudformation  # type: ignore[attr-defined]
     context.assume_role_recorder = assume_role or RecordingAssumeRole()  # type: ignore[attr-defined]
+    context.grant_anthus_pull_calls = []  # type: ignore[attr-defined]
+
+    def _record_grant(customer_account_id: str) -> None:
+        context.grant_anthus_pull_calls.append(customer_account_id)  # type: ignore[attr-defined]
+
     context.host_starter = OrganizationComputerHostStarter(  # type: ignore[attr-defined]
         _plane(context).get_organization,
         deployment_account_id=DEPLOYMENT_ACCOUNT_ID,
@@ -458,7 +495,14 @@ def _wire_host_start_context(
         ),
         assume_role=context.assume_role_recorder,  # type: ignore[attr-defined]
         ecs_client_factory=recorder.factory,
-        cloudformation_client_factory=lambda _credentials: cloudformation_client,
+        cloudformation_client_factory=lambda _credentials: cloudformation,
+        customer_computers_provisioner=customer_computers_provisioner
+        or AwsCustomerComputersProvisioner(),
+        anthus_computer_image_uri=ANTHUS_COMPUTER_IMAGE_URI,
+        anthus_computer_repository_name="chatticuscomputers-computerimage",
+        grant_anthus_computer_image_pull=(
+            grant_anthus_computer_image_pull or _record_grant
+        ),
     )
     context.host_start_error = None  # type: ignore[attr-defined]
 
@@ -476,7 +520,48 @@ def given_organization_provisioned_into_customer_account(context: object) -> Non
         external_id="customer-org-external-id",
     )
     context.start_org = org
-    _wire_host_start_context(context)
+    _wire_host_start_context(context, cloudformation_client=_FakeCloudFormation())
+
+
+@given(
+    "an organization provisioned into a customer AWS account "
+    "without a ChatticusComputers stack"
+)
+def given_organization_without_customer_computers_stack(context: object) -> None:
+    org = _provision_cross_account_org(
+        context,
+        name="Customer Org Missing Stack",
+        owner_email="missing-stack@example.com",
+        account_id=CUSTOMER_ACCOUNT_ID,
+        external_id="customer-org-missing-stack",
+    )
+    context.start_org = org
+    _wire_host_start_context(
+        context,
+        cloudformation_client=_FakeCloudFormation(stack_present=False),
+    )
+
+
+@given("the host starter cannot provision customer infrastructure")
+def given_host_starter_cannot_provision(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    context.host_starter = OrganizationComputerHostStarter(  # type: ignore[attr-defined]
+        _plane(context).get_organization,
+        deployment_account_id=DEPLOYMENT_ACCOUNT_ID,
+        deployment_ecs_config=DeploymentEcsConfig(
+            cluster="deployment-cluster",
+            task_definition="computer:1",
+            subnets=["subnet-deploy-1"],
+            security_groups=["sg-deploy-1"],
+        ),
+        assume_role=context.assume_role_recorder,  # type: ignore[attr-defined]
+        ecs_client_factory=context.ecs_recorder.factory,  # type: ignore[attr-defined]
+        cloudformation_client_factory=lambda _credentials: cloudformation,
+        customer_computers_provisioner=RefusingCustomerComputersProvisioner(),
+        anthus_computer_image_uri=ANTHUS_COMPUTER_IMAGE_URI,
+        anthus_computer_repository_name="chatticuscomputers-computerimage",
+        grant_anthus_computer_image_pull=lambda _account_id: None,
+    )
 
 
 @given("an Anthus-managed organization homed in the deployment AWS account")
@@ -529,7 +614,7 @@ def then_instance_launched_in_customer_account(context: object) -> None:
     assert starter.last_outcome is not None
     assert starter.last_outcome.launch_account_id == CUSTOMER_ACCOUNT_ID
     assert len(context.ecs_recorder.customer.calls) == 1  # type: ignore[attr-defined]
-    assert len(context.cloudformation_client.describe_calls) == 1  # type: ignore[attr-defined]
+    assert len(context.cloudformation_client.describe_calls) >= 1  # type: ignore[attr-defined]
 
 
 @then("the organization's cross-account role was assumed")
@@ -576,3 +661,38 @@ def then_start_refused_with_provisioning_error(context: object) -> None:
     assert error is not None
     message = str(error).lower()
     assert "provisioning" in message or "refused" in message
+
+
+@then("the start is refused with a provisioning error naming the missing stack")
+def then_start_refused_naming_missing_stack(context: object) -> None:
+    error = context.host_start_error  # type: ignore[attr-defined]
+    assert error is not None
+    message = str(error)
+    lowered = message.lower()
+    assert "chatticuscomputers" in lowered, message
+    assert "does not exist" in lowered or "missing" in lowered, message
+
+
+@then("Chatticus creates the ChatticusComputers stack in the customer account")
+def then_chatticus_creates_customer_stack(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    assert len(cloudformation.create_stack_calls) == 1
+    create_call = cloudformation.create_stack_calls[0]
+    assert create_call["StackName"] == "ChatticusComputers"
+    assert "CAPABILITY_IAM" in create_call["Capabilities"]
+    assert "CAPABILITY_NAMED_IAM" in create_call["Capabilities"]
+
+
+@then("Chatticus describes the ChatticusComputers stack in the customer account")
+def then_chatticus_describes_customer_stack(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    assert len(cloudformation.describe_calls) >= 1
+    assert cloudformation.describe_calls[0]["StackName"] == "ChatticusComputers"
+
+
+@then("Chatticus does not create the ChatticusComputers stack")
+def then_chatticus_does_not_create_customer_stack(context: object) -> None:
+    cloudformation = getattr(context, "cloudformation_client", None)
+    if cloudformation is None:
+        return
+    assert len(cloudformation.create_stack_calls) == 0
