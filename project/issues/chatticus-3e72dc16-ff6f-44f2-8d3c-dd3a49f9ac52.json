@@ -31,10 +31,17 @@
       "text": "F-computer closed as a labeled refuse: customer `ChatticusComputers` does not exist; AssumeRole yes; zero `RunTask` in both accounts.\n\nThis matrix still cannot run. **Blocked-by `chatticus-82dab7`** (Chatticus CreateStack under the assumed role, then one customer `RunTask`). Do not start terminal/browser/files against the same missing stack — that is the same stop, not a new row.\n\nSnapshot bucket decision stands: customer account, inside `ChatticusComputers`, not Anthus `ChatticusSnapshots`.",
       "created_at": "2026-09-07T16:22:59.959206Z",
       "comment_type": "default"
+    },
+    {
+      "id": "8d57f5ef-6b89-480b-94f5-2e1d938c2e09",
+      "author": "home",
+      "text": "`chatticus-82dab7` closed: customer `ChatticusComputers` exists; customer `RunTask` live on development. This matrix is unblocked.\n\nSequence unchanged: **terminal**, then **browser**, then **file actions** (expect snapshot-bucket / `s3:*` stop — `8a25af`), then approvals, spend ceiling, relocate. Stop at the first failure in each row. Kernel `post_channel_message` for test humans. Do not fold times into ~19 min.",
+      "created_at": "2026-09-07T17:33:46.958559Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:01:06.214793Z",
-  "updated_at": "2026-09-07T16:22:59.959206Z",
+  "updated_at": "2026-09-07T17:33:46.958559Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

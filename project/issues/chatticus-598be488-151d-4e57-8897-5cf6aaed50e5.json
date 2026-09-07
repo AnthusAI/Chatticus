@@ -54,10 +54,17 @@
       "text": "## State of play after `2f2d87` (2026-09-07)\n\nF-computer **closed on documented missing infra**, not a completed customer `RunTask`.\n\n- AssumeRole into `CUSTOMER_ACCOUNT_ID`: **yes** (live CloudTrail).\n- Customer `ChatticusComputers`: **missing**. ComputerWorker DescribeStacks → nack. Zero `RunTask` in both accounts. Anthus desiredCount stayed 0. Refuse-not-fallback **held live**.\n- Elapsed: ~5 s kernel handoff / ~0.8 s nack. **Do not fold into the ~19 min** provision figure.\n\n**Who creates the stack:** Chatticus under the assumed role (`chatticus-82dab7`). Published template already grants CreateStack on `ChatticusComputers*`. Customer does not run a second template. Snapshot bucket: inside that customer stack, not a `ChatticusSnapshots` name (that would reopen `8a25af`).\n\n**Next:** `82dab7`, then `3e72dc`. Self-setup (`9c8dbf`, `070cb4`, `7622fd`) still after the computer actually starts.\n\nCustomer-path holes recorded, not started: UI Ping answered “no” (`STOP_NO_COMPUTER_TOOL`); `POST .../resume` while stopped is `ComputerNotReadyError`; ComputerWorker nack omits provisioning exception text.",
       "created_at": "2026-09-07T16:22:59.980714Z",
       "comment_type": "default"
+    },
+    {
+      "id": "3404308e-ad22-4a9a-bea0-a0119a5ea5cb",
+      "author": "home",
+      "text": "## State of play after `82dab7` (2026-09-07)\n\nCustomer-account computer **starts**. #312 on develop; live `RunTask` in `CUSTOMER_ACCOUNT_ID`; zero Anthus `RunTask`; desiredCount 0. Template unmodified. No snapshot bucket in the customer stack.\n\n**Next:** `chatticus-3e72dc` (terminal → browser → files → approvals → spend → relocate). File-actions still need `8a25af` (`s3:*` + bucket inside `ChatticusComputers`). Self-setup (`9c8dbf`, `070cb4`, `7622fd`) still after that.",
+      "created_at": "2026-09-07T17:33:46.975285Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-07T16:22:59.980714Z",
+  "updated_at": "2026-09-07T17:33:46.975285Z",
   "closed_at": null,
   "custom": {}
 }
