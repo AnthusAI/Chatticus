@@ -103,10 +103,17 @@
       "text": "**Named cause:** `CREATESTACK_NEVER_SUCCEEDED_SSM_GETPARAMETERS_DENIED`\n\nCustomer CloudTrail (lab IAM user): **28** failed `CreateStack` — `ssm:GetParameters` denied on `/cdk-bootstrap/hnb659fds/version`. **0** `DeleteStack`. **0** customer `RunTask`. Only `ChatticusCrossAccountRole` exists. Prior closure inferred success from ComputerWorker journal; that was wrong.\n\n**Fix (this card, not `8a25af`):** the committed `customer-computers.template.json` must not carry CDK `BootstrapVersion`. Customer accounts are not CDK-bootstrapped. Do **not** add `ssm:*` to `customer-role.yml`. Synth with a bootstrapless synthesizer (or equivalent) and assert the artifact has no SSM bootstrap parameter.\n\nLive CreateStack stays the product path after that lands. Do not CLI-create the stack.",
       "created_at": "2026-09-07T17:49:48.790686Z",
       "comment_type": "default"
+    },
+    {
+      "id": "44035b68-4075-43c7-ae11-158a76cb0876",
+      "author": "home",
+      "text": "Plan reviewed and **authorized**. Worktree `/tmp/chatticus-82dab7-bootstrapless` on `feat/customer-computers-bootstrapless-82dab7` verified.\n\n`BootstraplessSynthesizer` on `CustomerComputersStack`; re-synth artifact with no `BootstrapVersion` / SSM; infra + pytest template-shape tests; **no** `customer-role.yml` edit; **no** new Gherkin. Do not claim Done until lab-user `DescribeStacks` `CREATE_COMPLETE` after merge (not ComputerWorker journal). Tear down worktree after close.",
+      "created_at": "2026-09-07T17:51:40.907681Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T17:49:48.790686Z",
+  "updated_at": "2026-09-07T17:51:40.907681Z",
   "closed_at": null,
   "custom": {}
 }
