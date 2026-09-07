@@ -26,10 +26,17 @@
       "text": "## Cheap check done (2026-09-07) — exact wording is model prose\n\nGrant state on the ACME `ls /workspace` turns: **none**. Ping exists. Human Task roster: **0** rows. Turn grants that do exist are later matrix turns, not these.\n\nExact reply (Dynamo channel messages / `turn.completed`):\n\n> I can't run shell commands directly in the household workspace.\n\nUnicode curly apostrophe in *can't*. **Not** the sink string `no task grant`.\n\n| Turn | Grant | Tools |\n| --- | --- | --- |\n| First `ls` | absent | no tool calls; straight to that prose |\n| Repeat | absent | `request_computer_capability` (`gate: workspace`) then `attempt.relinquished` then the same prose |\n\nDo **not** tune prompts. `create_bot` still assigns no grant — that remains this card for later sinks. The ACME sentence was **not** a surfaced grant denial; it is `STOP_NO_COMPUTER_TOOL` / incomplete computer path. Product order stays F-computer `RunTask` (`chatticus-82dab7c4-a44c-4e0e-ac19-51a0c7a12d09`) before create-bot grants.\n",
       "created_at": "2026-09-07T20:24:34.788503Z",
       "comment_type": "default"
+    },
+    {
+      "id": "7f4ab49d-1ad6-478b-b1cd-b1d8f10e8a90",
+      "author": "home",
+      "text": "## Thread closed: the capability has no tool (2026-09-07)\n\nThe live retest settles it. Same prompt, **computer running** in the customer account after `chatticus-82dab7`, same answer:\n\n> I can't run shell commands directly in the household workspace.\n\nThat is literally true.\n\n```\nchromium_action_executor.py:16\n_SUPPORTED_TOOLS = frozenset({\"browser_open\", \"request_computer_capability\"})\n```\n\nTwo tools. No `run_shell`, `shell_exec`, `terminal_run` or `exec_command` anywhere in `python/src/chatticus/`. `request_computer_capability` with gate `workspace` is not a shell — the executor only opens Chromium, for the browser gate.\n\n**Three hypotheses, all wrong:**\n\n- *The model is declining* (prompting) — no; it called `request_computer_capability` on the repeat turn.\n- *No task grant* (mine) — no; the gate is `if policy.grant is not None`, so absent grants **skip** the check rather than deny. Grants were genuinely absent, which is real and stays this card, but it was not the cause.\n- *Escalation defect* (`STOP_NO_COMPUTER_TOOL`) — no; escalation had nothing to escalate to.\n\n**The bot was right and three diagnoses were wrong.** Worth remembering the next time a model reports an inability: it may be accurately describing the system.\n\n**What stays on this card:** `create_bot` assigns no grant, capability, ceiling, or standing. Still true, still a real gap for later sinks, and now known **not** to be what produced this sentence.\n\n**Terminal work moves to `chatticus-3e72dc`** as a build, not a verification.",
+      "created_at": "2026-09-07T21:00:27.365026Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T20:10:07.032720Z",
-  "updated_at": "2026-09-07T20:24:34.788503Z",
+  "updated_at": "2026-09-07T21:00:27.365026Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
