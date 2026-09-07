@@ -33,10 +33,17 @@
       "text": "Confirming check done (lab operator, not root). **IaC hypothesis falsified.**\n\nAnthus `ComputerImage` already has `ChatticusCustomerAccountPull` for the customer account. 41 stopped tasks: all `EssentialContainerExited` after a successful pull (~10–20 s). Zero `CannotPullContainerError`. CloudWatch: customer task role `AccessDenied` on Anthus Dynamo `GetItem` from `computer_host_worker` / `plane_from_env()`. Named cause `HOST_TASK_ROLE_DYNAMO_ACCESS_DENIED`.\n\nDo not grant the customer task role Dynamo. Do not treat this as an ECR policy gap. Image self-containment is `chatticus-2b3c4173-a431-45fb-aec0-c6f4aa921b51` (waits on this host actually running).\n\nComposer 2.5 planning: worktree `/tmp/chatticus-8fe4c7-host-http` on `fix/8fe4c7-host-front-door`. Implementation not authorized until the plan is reviewed.",
       "created_at": "2026-09-07T22:59:09.870462Z",
       "comment_type": "default"
+    },
+    {
+      "id": "3698ea7b-3ee8-46aa-a82b-33f3386b1c73",
+      "author": "home",
+      "text": "Plan **not authorized**. Worktree `/tmp/chatticus-8fe4c7-host-http` was named and does not exist. Shared-queue SQS consume from the customer task role is rejected.\n\nComputerTurnJobs is one Anthus queue for the environment. Customer `ReceiveMessage` on it can steal other tenants' jobs. `waiting_computer_job` via the Front Door is the job path for this slice. Lambda ComputerWorker keeps SQS. If that is not enough, Front Door receives SQS with Anthus creds — never the customer role on the shared queue.\n\nDo not add a customer-visible SQS policy in this slice. Do not mint a dozen computer routes before listing the ControlPlane methods `ComputerHostBootDriver` and `ComputerWorker.run_job` actually call. `POST /computers/stopped` is a user route today; the host is a worker.",
+      "created_at": "2026-09-07T23:03:35.410535Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:38:33.234168Z",
-  "updated_at": "2026-09-07T22:59:09.870462Z",
+  "updated_at": "2026-09-07T23:03:35.410535Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
