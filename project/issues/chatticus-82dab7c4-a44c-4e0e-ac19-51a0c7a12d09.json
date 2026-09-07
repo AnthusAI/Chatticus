@@ -166,10 +166,24 @@
       "text": "`chatticus-8a25af` closed: published role updated; lab CrossAccountRole UPDATE_COMPLETE. Blocker removed.\n\nLive proof next after ThinTurn deploy of #315 (`6663c16`): kernel computer continuation; lab-user DescribeStacks CREATE_COMPLETE; customer RunTask >= 1; Anthus RunTask 0. Do not infer from journal dispatch_ok.",
       "created_at": "2026-09-07T19:03:13.872993Z",
       "comment_type": "default"
+    },
+    {
+      "id": "d6c02d16-5f82-436b-8fa2-dd09af52fb9d",
+      "author": "home",
+      "text": "Live proof after #315: **FAIL** on RunTask. ThinTurn [34154013411](https://github.com/AnthusAI/Chatticus/actions/runs/34154013411) (`6663c16`). Lab IAM user:\n\n| Check | Result |\n| --- | --- |\n| DescribeStacks(ChatticusComputers) | **CREATE_COMPLETE** (product DeleteStack 19:04:08Z + CreateStack 19:04:14Z) |\n| bootstrap SSM | 0 |\n| Customer RunTask | **0** |\n| Anthus RunTask / desiredCount | 0 / 0 |\n\n**Named cause:** `HOST_START_NO_RUNTASK_AFTER_CREATE_COMPLETE`. Dispatch released (`host_start_dispatched_generation` 112 vs generation 113) so `start_host` is throwing before `ecs.RunTask`. ComputerWorker nack logs omit the exception (`lambda_handler` swallows `ComputerWorkerHostNotReady`). Do not close. Composer 2.5 will name the throw (stack outputs / `describe_services` subnets vs grant/lookup) and plan Gherkin plus nack-reason logging.",
+      "created_at": "2026-09-07T19:39:43.173519Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "50c24089-729c-4f3a-b390-28b6c40e09bb",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree /tmp/chatticus-82dab7-runtask-after-create on feat/customer-runtask-after-create-complete-82dab7. Plan only until the throw is named from lab DescribeStacks/describe_services. Do not implement.",
+      "created_at": "2026-09-07T19:39:54.462210Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T19:03:13.872993Z",
+  "updated_at": "2026-09-07T19:39:54.462210Z",
   "closed_at": null,
   "custom": {}
 }

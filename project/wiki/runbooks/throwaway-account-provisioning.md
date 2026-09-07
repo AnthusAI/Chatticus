@@ -69,7 +69,9 @@ PR #312 on `develop` (`9826f2b`). First live attempt inferred CreateStack/RunTas
 
 **Named cause 1 (fixed in #313, `fb0d7d5`):** `CREATESTACK_NEVER_SUCCEEDED_SSM_GETPARAMETERS_DENIED` — CDK `BootstrapVersion` SSM. Do **not** add `ssm:*` to the published role.
 
-**Named cause 2 (fixed in #314 + lab UpdateStack; `8a25af` closed):** `CREATESTACK_ROLLBACK_EC2_DESCRIBE_INTERNET_GATEWAYS_DENIED`. Role now allows IGW describe and `ModifySubnetAttribute`. Customer stack is still `ROLLBACK_FAILED` until `82dab7` #315 recovery runs live (DeleteStack then CreateStack). Customer `RunTask` still **0**.
+**Named cause 2 (fixed in #314 + lab UpdateStack; `8a25af` closed):** `CREATESTACK_ROLLBACK_EC2_DESCRIBE_INTERNET_GATEWAYS_DENIED`.
+
+**Named cause 3 (live after #315):** `HOST_START_NO_RUNTASK_AFTER_CREATE_COMPLETE`. Product DeleteStack+CreateStack left `ChatticusComputers` `CREATE_COMPLETE`. Customer `RunTask` still **0**. `start_host` throws before `ecs.RunTask` (dispatch released). ComputerWorker nack log omits the exception.
 
 ## Capability matrix (`chatticus-3e72dc`, 2026-09-07)
 

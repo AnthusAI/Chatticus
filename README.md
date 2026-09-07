@@ -116,12 +116,11 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **F-computer live refuse** (`chatticus-2f2d87`, closed): ComputerWorker
   assumed the customer role; missing customer `ChatticusComputers`;
   **zero `RunTask` in both accounts**. Kernel handoff ~5 s.
-- **Customer-account `RunTask`** (`chatticus-82dab7`, #312–#315): bootstrap
-  SSM stripped (#313); published role gained IGW describe (#314); lab
-  `ChatticusCrossAccountRole` is `UPDATE_COMPLETE`; #315 deletes
-  terminal-failed stacks then recreates. Customer stack is still
-  `ROLLBACK_FAILED` until live recovery. Customer `RunTask` still 0.
-  `chatticus-8a25af` closed for the IGW hole (`s3:*` later).
+- **Customer-account `RunTask`** (`chatticus-82dab7`, #312–#315): stack recovery
+  held live (`ChatticusComputers` `CREATE_COMPLETE` via product
+  DeleteStack/CreateStack). Customer `RunTask` still 0.
+  `HOST_START_NO_RUNTASK_AFTER_CREATE_COMPLETE`. `8a25af` closed for the
+  IGW hole (`s3:*` later).
 
 ### On `develop`, not on `main`
 
@@ -134,10 +133,8 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   (`CHATTICUS_HOST_STARTER=ecs`). Staging and production ComputerWorker keep
   the no-op host starter.
 - **End-to-end customer-account RunTask** is **not** holding. #315 is on
-  `develop`; lab-user `DescribeStacks(ChatticusComputers)` is still
-  `ROLLBACK_FAILED` until ThinTurn recovery runs. `82dab7` stays open.
-  File-actions still need scoped `s3:*` and a bucket inside
-  `ChatticusComputers` (later `8a25af` reopen).
+  `develop`; lab-user `DescribeStacks(ChatticusComputers)` is
+  `CREATE_COMPLETE`, but customer `RunTask` is 0. `82dab7` stays open.
 
 ### Public sites
 
