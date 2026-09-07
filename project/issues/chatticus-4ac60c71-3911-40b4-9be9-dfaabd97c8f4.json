@@ -3,7 +3,7 @@
   "title": "Persist computer snapshot fields in Dynamo",
   "description": "**Step 1 of the accepted `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` host-disk plan.** Control-plane only. Can proceed while `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` is open.\n\nParent epic: `chatticus-598be488-151d-4e57-8897-5cf6aaed50e5`.\n\nPersist on the Dynamo computer record: `snapshot_uri`, checksum, generation, `hydrate_required`, `intended_host_worker_id`, `disk_dirty`. Today's `put_computer` / `get_computer` omit all of them **and** omit `computer.workspace`.\n\n**Do not persist the dict as the durable workplace.** That is the leak-without-the-benefit. Do not add a second reader. Steps 2–3 (host hydrate/publish and moving file tools onto the host) wait on a host that runs (`chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32`).\n\nGherkin first. Outside-in.\n\n```\nFeature: Computer snapshot fields survive a ThinTurn recycle\n\n  Scenario: hydrate_required is still set after put_computer\n    Given a computer record with snapshot_uri, checksum, generation, hydrate_required, intended_host_worker_id, and disk_dirty\n    When the control plane persists it and a new process loads it\n    Then those fields are the same\n    And computer.workspace is not treated as the durable workplace\n```\n\nStorage discovery stays closed. Do not delete the snapshot library.\n\n## Done when\n\nDynamo round-trip of those fields is specified and green. No dual reader. No host-worker wiring on this card.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -26,11 +26,18 @@
       "text": "Plan reviewed and **authorized** with two holes closed.\n\nWorktree verified: `/tmp/chatticus-4ac60c-snapshot-fields` on `feat/4ac60c-computer-snapshot-fields` (HEAD `6d19ce4`, not the primary clone).\n\n**Closed on authorize:**\n1. **Do not put the Dynamo recycle scenario under `computer_snapshots.feature`'s in-memory Background, and do not reuse `Given an empty control plane backed by a durable messaging store`.** That step is `InMemoryMessagingStore`. Recycle there already round-trips the full `Computer` and would stay green without this card. New feature file (or a first step that fully replaces `context.plane` + store) with **moto + `DynamoMessagingStore`**. Same store object across recycle.\n2. **The `disk_dirty` recycle scenario is required**, not optional. First scenario ends not-dirty after publish; unpublished writes are the other metadata path.\n\nDo not persist `workspace` / `browser_sessions`. One reader, migrate-by-write. `behave` is the gate. No live AWS. Tear the worktree down only after the manager closes the issue.",
       "created_at": "2026-09-07T23:02:10.357212Z",
       "comment_type": "default"
+    },
+    {
+      "id": "adbf7396-9098-4a46-be65-1fc81052ae3d",
+      "author": "home",
+      "text": "Merged to develop as PR #318 (https://github.com/AnthusAI/Chatticus/pull/318, squash `f45b90f`). Composer 2.5 review approved; CI python+infra green.\n\nDynamo computer records now round-trip snapshot_uri, checksum, generation, disk_dirty, hydrate_required, and intended_host_worker_id. `workspace` / `browser_sessions` are not persisted. Gherkin is moto + DynamoMessagingStore (`computer_snapshot_dynamo.feature`); recycle then-steps read via `computer_for_organization`.\n\nSteps 2–5 of host-disk still wait on a host that executes a tool (`chatticus-8fe4c7e1`).\n",
+      "created_at": "2026-09-07T23:15:40.785984Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T22:58:46.804525Z",
-  "updated_at": "2026-09-07T23:02:10.357212Z",
-  "closed_at": null,
+  "updated_at": "2026-09-07T23:15:40.798955Z",
+  "closed_at": "2026-09-07T23:15:40.798955Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
