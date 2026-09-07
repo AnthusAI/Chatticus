@@ -33,10 +33,17 @@
       "text": "Human UI: Ping answered **no** (computerless text, no `request_computer_capability`). That is `STOP_NO_COMPUTER_TOOL` on the customer path — host start never ran. Taking the labeled kernel fallback (`prepare_computer_tool` + `enqueue_computer_continuation`) so F-computer still measures AssumeRole / missing `ChatticusComputers` / refuse-not-fallback.",
       "created_at": "2026-09-07T16:15:39.434300Z",
       "comment_type": "default"
+    },
+    {
+      "id": "3e57d76f-2fa3-41f7-a3d6-6253f1eefd0a",
+      "author": "home",
+      "text": "Standing rule: operators send all test human messages via kernel `post_channel_message` (live SQS). Do not wait on the UI. Customer-shaped UI remains a labeled gap (`STOP_NO_COMPUTER_TOOL` when Ping said no).",
+      "created_at": "2026-09-07T16:16:57.024147Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:00:18.378300Z",
-  "updated_at": "2026-09-07T16:15:39.434300Z",
+  "updated_at": "2026-09-07T16:16:57.024147Z",
   "closed_at": null,
   "custom": {}
 }
