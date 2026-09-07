@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-import json
 from unittest.mock import patch
 
 from http_test_support import start_authed_test_server
 
 from chatticus.computer_continuation_driver import prepare_computer_continuation
 from chatticus.computer_host_boot import ComputerHostBootDriver
-from chatticus.computer_host_worker import run_host_worker_once
+from chatticus.computer_host_worker import discover_computer_job, run_host_worker_once
 from chatticus.control_plane import ControlPlane
 from chatticus.http.client import HttpTurnClient
-from chatticus.http.paths import org_path
+from chatticus.http.worker_plane_client import HttpWorkerPlane
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.worker.computer import FakeComputerActionExecutor
 
@@ -21,40 +20,10 @@ def _client_for(plane: ControlPlane):
     return start_authed_test_server(plane, invoke_key="")
 
 
-class _FakeSqs:
-    def __init__(self, body: str) -> None:
-        self._body = body
-        self.deleted: str | None = None
-
-    def receive_message(self, **_kwargs: object) -> dict[str, object]:
-        return {
-            "Messages": [
-                {"Body": self._body, "ReceiptHandle": "receipt-1"},
-            ]
-        }
-
-    def delete_message(self, **kwargs: object) -> None:
-        self.deleted = str(kwargs.get("ReceiptHandle"))
-
-
 def test_host_worker_boots_then_runs_one_computer_job() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     setup = prepare_computer_continuation(plane)
-    job = setup.continuation_job
-    body = json.dumps(
-        {
-            "job_id": job.job_id,
-            "tenant_id": job.tenant_id,
-            "turn_id": job.turn_id,
-            "bot_id": job.bot_id,
-            "user_id": job.user_id,
-            "computer_id": job.computer_id,
-            "computer_policy": job.computer_policy,
-            "required_capabilities": sorted(job.required_capabilities),
-        }
-    )
-    sqs = _FakeSqs(body)
     boot = ComputerHostBootDriver(
         plane, tenant_id=setup.tenant_id, user_id=setup.user_id
     )
@@ -68,37 +37,37 @@ def test_host_worker_boots_then_runs_one_computer_job() -> None:
         ran = run_host_worker_once(
             plane=plane,
             turn_client=HttpTurnClient(api, setup.tenant_id),
-            sqs_client=sqs,
-            queue_url="https://sqs.example/computer",
             tenant_id=setup.tenant_id,
             user_id=setup.user_id,
             boot_driver=boot,
             action_executor=FakeComputerActionExecutor(),
         )
     assert ran is not None
-    assert ran.job_id == job.job_id
-    assert sqs.deleted == "receipt-1"
+    assert ran.turn_id == setup.turn_id
     record = plane.escalation_for(setup.tenant_id, setup.turn_id)
     assert record.result_committed is True
     api.close()
 
 
-class _EmptySqs:
-    def receive_message(self, **_kwargs: object) -> dict[str, object]:
-        return {}
+def test_host_worker_discovers_continuation_without_sqs() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_computer_continuation(plane)
+    worker_plane = HttpWorkerPlane(api, setup.tenant_id, setup.user_id, invoke_key="")
+    discovered = discover_computer_job(worker_plane, setup.tenant_id, setup.user_id)
+    assert discovered is not None
+    assert discovered.turn_id == setup.turn_id
+    api.close()
 
-    def delete_message(self, **_kwargs: object) -> None:
-        raise AssertionError("empty SQS should not delete")
 
-
-def test_host_worker_runs_waiting_turn_when_sqs_is_empty() -> None:
+def test_host_worker_runs_waiting_turn_via_http_plane() -> None:
     store = InMemoryMessagingStore()
     plane = ControlPlane(messaging_store=store)
     api = _client_for(plane)
     bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
     post = api.post(
-        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
+        f"/orgs/{channel.tenant_id}/channels/{channel.channel_id}/messages",
         json={
             "author_kind": "human",
             "author_id": "ryan",
@@ -111,7 +80,10 @@ def test_host_worker_runs_waiting_turn_when_sqs_is_empty() -> None:
     client.claim(turn_id, "waiting-worker")
     client.post_waiting(turn_id, "browser")
     plane.set_computer_stopped("anthus", False)
-    boot = ComputerHostBootDriver(plane, tenant_id=channel.tenant_id, user_id="ryan")
+    worker_plane = HttpWorkerPlane(api, channel.tenant_id, "ryan", invoke_key="")
+    boot = ComputerHostBootDriver(
+        worker_plane, tenant_id=channel.tenant_id, user_id="ryan"
+    )
     with (
         patch.object(boot._xvfb, "start"),
         patch(
@@ -120,10 +92,8 @@ def test_host_worker_runs_waiting_turn_when_sqs_is_empty() -> None:
         ),
     ):
         ran = run_host_worker_once(
-            plane=plane,
+            plane=worker_plane,
             turn_client=client,
-            sqs_client=_EmptySqs(),
-            queue_url="https://sqs.example/computer",
             tenant_id=channel.tenant_id,
             user_id="ryan",
             boot_driver=boot,

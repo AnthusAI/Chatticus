@@ -10,7 +10,6 @@ from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.computer_capabilities import (
     capability_for_computer_tool,
 )
-from chatticus.control_plane import ControlPlane
 from chatticus.escalation_handoff import EscalationRecord
 from chatticus.host_starter import HostStarter, NoOpHostStarter
 from chatticus.http.client import HttpTurnClient
@@ -22,6 +21,7 @@ from chatticus.models import (
     TurnStatus,
     pending_computer_tool_from_turn,
 )
+from chatticus.worker.computer_worker_plane import ComputerWorkerPlane
 
 
 class ComputerActionExecutor(Protocol):
@@ -46,7 +46,7 @@ class ComputerWorker:
 
     def __init__(
         self,
-        plane: ControlPlane,
+        plane: ComputerWorkerPlane,
         turn_client: HttpTurnClient,
         *,
         action_executor: ComputerActionExecutor | None = None,
@@ -189,6 +189,9 @@ class ComputerWorker:
             return
         if unresolved:
             self.plane.execute_pending_computer_action(job.tenant_id, job.turn_id)
+            record = self.plane.ensure_computer_escalation(job.tenant_id, job.turn_id)
+            if record is None:
+                return
         if not record.result_committed:
             if record.computer_action_count == 0:
                 return

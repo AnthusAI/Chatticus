@@ -166,11 +166,9 @@ def _run_task_overrides(claim: HostStartClaim) -> dict[str, object]:
         {"name": "CHATTICUS_COMPUTER_BOOT", "value": "1"},
     ]
     for key in (
-        "CHATTICUS_COMPUTER_TURN_QUEUE_URL",
         "CHATTICUS_FRONT_DOOR_URL",
         "CHATTICUS_INVOKE_KEY",
         "CHATTICUS_ENVIRONMENT",
-        "CHATTICUS_MESSAGING_TABLE",
         "AWS_REGION",
         "AWS_DEFAULT_REGION",
     ):
