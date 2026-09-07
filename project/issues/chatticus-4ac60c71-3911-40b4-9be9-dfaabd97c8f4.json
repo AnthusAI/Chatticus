@@ -19,10 +19,17 @@
       "text": "Step 1 of host-disk. Composer 2.5 planning: worktree `/tmp/chatticus-4ac60c-snapshot-fields` on `feat/4ac60c-computer-snapshot-fields`. Gherkin first. Do not persist `computer.workspace`. Implementation not authorized until the plan is reviewed.",
       "created_at": "2026-09-07T22:59:09.899835Z",
       "comment_type": "default"
+    },
+    {
+      "id": "04087da2-4dd9-4fc9-9239-7f52648e3b3e",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with two holes closed.\n\nWorktree verified: `/tmp/chatticus-4ac60c-snapshot-fields` on `feat/4ac60c-computer-snapshot-fields` (HEAD `6d19ce4`, not the primary clone).\n\n**Closed on authorize:**\n1. **Do not put the Dynamo recycle scenario under `computer_snapshots.feature`'s in-memory Background, and do not reuse `Given an empty control plane backed by a durable messaging store`.** That step is `InMemoryMessagingStore`. Recycle there already round-trips the full `Computer` and would stay green without this card. New feature file (or a first step that fully replaces `context.plane` + store) with **moto + `DynamoMessagingStore`**. Same store object across recycle.\n2. **The `disk_dirty` recycle scenario is required**, not optional. First scenario ends not-dirty after publish; unpublished writes are the other metadata path.\n\nDo not persist `workspace` / `browser_sessions`. One reader, migrate-by-write. `behave` is the gate. No live AWS. Tear the worktree down only after the manager closes the issue.",
+      "created_at": "2026-09-07T23:02:10.357212Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T22:58:46.804525Z",
-  "updated_at": "2026-09-07T22:59:09.899835Z",
+  "updated_at": "2026-09-07T23:02:10.357212Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
