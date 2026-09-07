@@ -28,6 +28,14 @@ describe("CustomerComputersStack", () => {
     });
     template.hasParameter("TenantId", { Type: "String" });
     template.hasParameter("AnthusComputerImageUri", { Type: "String" });
+    const parameters = template.toJSON().Parameters ?? {};
+    assert.equal(Object.keys(parameters).length, 2);
+    assert.equal("BootstrapVersion" in parameters, false);
+    const rules = template.toJSON().Rules;
+    assert.equal(rules === undefined || !("CheckBootstrapVersion" in rules), true);
+    const templateJson = JSON.stringify(template.toJSON());
+    assert.equal(templateJson.includes("AWS::SSM::Parameter::Value"), false);
+    assert.equal(templateJson.includes("/cdk-bootstrap/"), false);
     const executionPolicies = template.findResources("AWS::IAM::Policy", {
       Properties: {
         PolicyName: Match.stringLikeRegexp("^ComputerTaskExecutionRoleDefaultPolicy"),

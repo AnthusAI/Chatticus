@@ -15,7 +15,10 @@ export interface CustomerComputersStackProps extends cdk.StackProps {}
  */
 export class CustomerComputersStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: CustomerComputersStackProps) {
-    super(scope, id, props);
+    super(scope, id, {
+      ...props,
+      synthesizer: props?.synthesizer ?? new cdk.BootstraplessSynthesizer(),
+    });
 
     const tenantId = new cdk.CfnParameter(this, "TenantId", {
       type: "String",
