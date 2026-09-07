@@ -45,10 +45,17 @@
       "text": "Plan reviewed and **authorized** with two holes closed.\n\nWorktree verified: `/tmp/chatticus-2b3c41-customer-ecr` on `feat/2b3c41-customer-ecr-image` (HEAD `ab92e29`, not the primary clone). Operator-script bootstrap (not Lambda copy), TenantId-only CreateStack, delete Anthus pull path, Gherkin migration of CREATE_COMPLETE + Anthus image parameter — those stand.\n\n**Closed on authorize:**\n1. **`fromEcrRepository` + CDK pull grant.** Do not hand-write one policy with `GetAuthorizationToken` on the repo ARN (that action is account-level). Do not keep the current execution-role `resources: [\"*\"]` ECR statement as a leftover.\n2. **ComputerWorker never publishes.** Host start is `DescribeImages` then refuse if `:dev` is missing. `publish_dev_image_from_anthus` is for the operator script and Gherkin only.\n\n`customer-role.yml` stays unmodified unless a real gap appears. No host-disk, no Dynamo on the task role, no live `browser_open` in this slice (ACME will refuse until the operator script runs after UpdateStack). Tear the worktree down only after the manager closes the issue.\n",
       "created_at": "2026-09-07T23:40:43.935966Z",
       "comment_type": "default"
+    },
+    {
+      "id": "68c1ea08-a29d-45b5-8690-3c8a9639b494",
+      "author": "home",
+      "text": "PR #320 reviewed, **not merged**. Request changes.\n\nLive ECR `DescribeImages` with a missing `:dev` tag raises `ImageNotFoundException`. `customer_image_tag_exists` treats empty `imageDetails` as missing and never catches `ClientError`. `is_image_not_found_error` is defined and unused. `_FakeEcr` returns `{\"imageDetails\": []}`, so Gherkin stays green and ACME after UpdateStack would not get `OrganizationComputerProvisioningError`.\n\nFix: treat `ImageNotFoundException` / `RepositoryNotFoundException` as missing in the helper. Make the Gherkin fake raise like AWS so behave fails without that catch.\n\nAlso drop `project/wiki` from this product PR; the runbook step lands on `develop` as `pm:` after merge.\n",
+      "created_at": "2026-09-07T23:59:49.405748Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T22:58:46.825272Z",
-  "updated_at": "2026-09-07T23:40:43.935966Z",
+  "updated_at": "2026-09-07T23:59:49.405748Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
