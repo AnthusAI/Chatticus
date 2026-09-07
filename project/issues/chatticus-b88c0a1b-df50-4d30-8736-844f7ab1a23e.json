@@ -124,10 +124,17 @@
       "text": "Assume-role into the member account **SUCCEEDED** via lab IAM user `chatticus-b88c0a-operator` (management account). Root assume-role stays a lab-only finding. Stopped before the published template: no Chatticus `tenant_id` yet.\n\n**Next human gate:** Google sign-in at `https://dev.chattic.us` and create an organization (`POST /organizations`) so `tenant_id` can be `OrganizationId` on `create-stack`. Do not `members seed`. Template still unmodified.",
       "created_at": "2026-09-07T15:36:11.773369Z",
       "comment_type": "default"
+    },
+    {
+      "id": "38aafd09-966a-4bd7-88ac-5f24e9cf6ecc",
+      "author": "home",
+      "text": "AWS mail arrived (addresses stay in `AGENTS.local.md`):\n\n- Organizations asked to verify the **management-account** email (24h link). Human verified. AWS says invites of *existing* accounts are now allowed. This run used `CreateAccount`, which had already **SUCCEEDED** before that click (~16s aws-wait). Record as a person-step anyway — easy to miss, and the mail does not go to the throwaway alias.\n- Member welcome mail (“account is ready”) landed on the alias ~20s after create. No extra click required for our assume-role path.\n\nStill blocked on Google sign-in at `dev.chattic.us` + `POST /organizations` for `tenant_id` before published-template `create-stack`.",
+      "created_at": "2026-09-07T15:37:40.951549Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:36:11.773369Z",
+  "updated_at": "2026-09-07T15:37:40.951549Z",
   "closed_at": null,
   "custom": {}
 }
