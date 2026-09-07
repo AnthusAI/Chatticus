@@ -74,6 +74,22 @@ export class CustomerComputersStack extends cdk.Stack {
       },
     });
 
+    const executionRole = taskDefinition.executionRole;
+    if (executionRole === undefined) {
+      throw new Error("Customer computer task definition must have an execution role.");
+    }
+    executionRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:GetAuthorizationToken",
+          "ecr:GetDownloadUrlForLayer",
+        ],
+        resources: ["*"],
+      }),
+    );
+
     const securityGroup = new ec2.SecurityGroup(this, "ComputerSecurityGroup", {
       vpc,
       description: "Computer hosts: egress only. No inbound ports.",

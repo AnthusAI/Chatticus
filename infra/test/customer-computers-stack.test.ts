@@ -28,6 +28,38 @@ describe("CustomerComputersStack", () => {
     });
     template.hasParameter("TenantId", { Type: "String" });
     template.hasParameter("AnthusComputerImageUri", { Type: "String" });
+    const executionPolicies = template.findResources("AWS::IAM::Policy", {
+      Properties: {
+        PolicyName: Match.stringLikeRegexp("^ComputerTaskExecutionRoleDefaultPolicy"),
+      },
+    });
+    assert.equal(Object.keys(executionPolicies).length, 1);
+    const executionPolicy = Object.values(executionPolicies)[0] as {
+      Properties: {
+        PolicyDocument: {
+          Statement: Array<{ Action: string | string[]; Resource: string }>;
+        };
+      };
+    };
+    const ecrStatement = executionPolicy.Properties.PolicyDocument.Statement.find(
+      (statement) => {
+        const actions = Array.isArray(statement.Action)
+          ? statement.Action
+          : [statement.Action];
+        return actions.includes("ecr:GetAuthorizationToken");
+      },
+    );
+    assert.ok(ecrStatement);
+    const ecrActions = Array.isArray(ecrStatement.Action)
+      ? ecrStatement.Action
+      : [ecrStatement.Action];
+    assert.deepEqual(ecrActions.sort(), [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:GetAuthorizationToken",
+      "ecr:GetDownloadUrlForLayer",
+    ]);
+    assert.equal(ecrStatement.Resource, "*");
     template.hasOutput("ComputerClusterName", {});
     template.hasOutput("ComputerTaskDefinitionArn", {});
     template.hasOutput("ComputerServiceName", {});
