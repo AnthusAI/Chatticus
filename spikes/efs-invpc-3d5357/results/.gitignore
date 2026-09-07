@@ -1,0 +1,6 @@
+raw/*-before.rpc.json
+raw/*-after.rpc.json
+raw/*-rpc-diff.txt
+*.log
+run-all.log
+.spike-state/
