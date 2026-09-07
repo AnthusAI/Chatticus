@@ -3,7 +3,7 @@
   "title": "Measure EFS metadata latency in-VPC before writing EFS CDK",
   "description": "## Question\n\n**Is EFS fast enough in-VPC for a hot working tree?**\n\nD1 makes one EFS filesystem the store for `/org` **and** `/workspace`, mounted by every AWS host. Nobody has measured whether a metadata-heavy workload is viable on it. The epic records EFS-for-AWS-hosts as having *\"no unknowns blocking it\"* — that is true of the experiments run so far and **not** true of this assumption.\n\nThis is now the highest-value unmeasured thing in `chatticus-fbae4e`, because it is the only remaining question that can invalidate D1, and D1 is the foundation the rest of the design rests on.\n\n## Why `9af381` Phase A0 does not answer it\n\nA0 measured a **WAN** path against **nfs-ganesha in Docker** and reported that `actimeo` made no difference to warm `git status` (1743x / 1629x / 1637x / 1640x / 1649x across actimeo 1–300s — flat).\n\nTwo confounds prevent generalising that to in-VPC EFS:\n\n1. **The workload self-invalidates.** Each timed iteration in `spikes/nfs-wan-netem-9af381/scripts/lib-bench.sh` `run_ops()` runs `git status` → `git checkout bench-a && git checkout bench-b` → `stat` sweep. The checkout rewrites the tree every pass, so the next `git status` revalidates regardless of `actimeo`. The experiment did not test whether a long `actimeo` helps a warm, read-mostly tree — it tested a tree under continuous mutation, where cache invalidation is expected.\n2. **Ganesha is not EFS.** A0's own LAN control shows a ~13x tax versus local disk at 0.2 ms RTT, which is server overhead, not network. Its own summary says *\"do not call that EFS.\"* A userspace NFS server may also return weaker change attributes than the Linux client needs to trust its cache — exactly the mechanism under test.\n\nSo A0's WAN verdict stands (32 s is catastrophic under any reading, and real agent workloads do write files). Its **mechanism** claim does not.\n\n## What is actually at stake\n\nRough arithmetic on the ~976-file fixture, in-VPC:\n\n| If | Then |\n|---|---|\n| The attribute cache works on real EFS (proper NFSv4.1 change attributes) | Warm runs collapse toward local. D1 holds. Build EFS. |\n| Per-file round trips dominate | ~0.5–1 ms EFS metadata latency × ~1000 files ≈ **0.5–1 s vs 0.02 s local = 25–50x**, over the agreed threshold. D1 fails for AWS hosts, and the answer reverts to the data-shape split (`/org` on EFS, hot tree on local disk) that `fbae4e` considered and rejected. |\n\nBoth are plausible. Nothing on the board distinguishes them.\n\n## Method\n\nDeliberately the production configuration, not a lab analogue.\n\n- One EFS filesystem in the Chatticus VPC (`vpc-0c5a0f0ca21e2afdd`), General Purpose mode, mount target in a private subnet.\n- One EC2 instance in that VPC, `amazon-efs-utils` mount.\n- Same operation set and fixture as A0 so the numbers are comparable.\n- **Critical difference from A0: a read-only repeat loop.** Run `git status` N times with no mutation between iterations, to isolate the attribute-cache question the A0 confound obscured. Then, separately, run the A0 mutating sequence for a realistic-workload number.\n- Control: same operations on the instance's local EBS.\n- Capture `nfsstat -c` / mountstats RPC deltas per run — RPC counts explain whether the cache is being used, which wall time alone cannot.\n- Sweep `actimeo` as A0 did, but only the read-only loop makes that sweep meaningful.\n\n## Thresholds\n\nReuse the agreed table, against local EBS on the same instance: within ~3x proceed; 3–10x marginal, reopen the data-shape split; over 10x, D1 fails for `/workspace` and `/org`-only EFS becomes the design.\n\n## Cost\n\nAn EFS filesystem for a few hours costs pennies; one EC2 instance-hour costs cents. Half a day including teardown.\n\n**Run this before any EFS CDK is written.** It is cheap, and it is the one result that could make that CDK the wrong thing to build.\n\n## Done when\n\nRead-only and mutating numbers are recorded against the threshold table with RPC counts, and `chatticus-fbae4e` D1 is either confirmed for `/workspace` or narrowed to `/org`.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -14,9 +14,17 @@
     "efs"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "672b34d9-a114-4701-9ab7-9a752cbe2aa3",
+      "author": "home",
+      "text": "Composer 2.5 planning in-VPC EFS vs EBS. Worktree to be `/tmp/chatticus-3d5357-efs-invpc` on `spike/efs-invpc-3d5357`. Chatticus VPC `vpc-0c5a0f0ca21e2afdd` currently has **only public subnets** (`subnet-06c4e78bf06400f26` 1a, `subnet-0b7f7c7be05091111` 1b) — no private subnet to put a mount target in. Plan must name that and not invent a NAT/private tier. No tunnel. No Kanbus EFS. Tear the experiment FS/EC2 down after. Implementation not authorized until plan review.",
+      "created_at": "2026-09-07T12:57:55.569860Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-07T12:50:30.168595Z",
-  "updated_at": "2026-09-07T12:50:30.168595Z",
+  "updated_at": "2026-09-07T12:57:55.569860Z",
   "closed_at": null,
   "custom": {}
 }
