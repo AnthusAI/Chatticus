@@ -47,10 +47,17 @@
       "text": "Plan reviewed and **authorized** with two holes closed.\n\nWorktree verified: `/tmp/chatticus-8fe4c7-host-http` on `fix/8fe4c7-host-front-door` (HEAD `507151c`, not the primary clone). Customer SQS on the shared queue stays out. Protocol over union accepted. Kernel continuation discovery (pending tool, not only `waiting_for`) accepted.\n\n**Closed on authorize:**\n1. **Do not add `POST …/jobs/{job_id}/remove` as a real store.** `remove_pending_job` only mutates in-process `_jobs`. Front Door Lambda has an empty list. Durable signal is turn completion (`complete_computer_continuation` / turn not ACTIVE) so Lambda's next SQS receive deletes the message. No second job queue.\n2. **Worker GET turns is scoped to the host's `user_id`.** The path must not list arbitrary users in the tenant.\n\nNo `dynamodb:*` on the customer role. No customer template. No dual `plane_from_env`. Tear the worktree down only after the manager closes the issue.",
       "created_at": "2026-09-07T23:05:26.150671Z",
       "comment_type": "default"
+    },
+    {
+      "id": "ae8b6473-8459-47cb-8a65-90501176a525",
+      "author": "home",
+      "text": "Merged to develop as PR #319 (https://github.com/AnthusAI/Chatticus/pull/319, squash `26a80b9`). Composer 2.5 review approved; CI python+infra green.\n\nCustomer host is HTTP-only (`HttpWorkerPlane`); no `plane_from_env`, no customer SQS, no Dynamo on the task role. Gherkin covers boot, HTTP job discovery, and `browser_open` complete without Dynamo.\n\n**Not Done.** Live `browser_open` / `about:blank` still required. That needs (1) ThinTurn development deploy of the new `/host-worker/*` routes and (2) a rebuilt Anthus computer image `:dev` — `computer_host_worker` runs in the container, not in Lambda. Worktree `/tmp/chatticus-8fe4c7-host-http` stays until live pass.\n",
+      "created_at": "2026-09-07T23:28:57.544508Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:38:33.234168Z",
-  "updated_at": "2026-09-07T23:05:26.150671Z",
+  "updated_at": "2026-09-07T23:28:57.544508Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
