@@ -42,7 +42,7 @@ Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` 
 - Published role CFN is scoped to `ChatticusComputers*` only. The snapshot bucket is **not** created by Chatticus inside `ChatticusComputers` under AssumeRole (that path AccessDenies: the role has no `s3:`). The bucket is declared in the customer-run published template (`chatticus-bb9084`).
 - Workspace prompt exact reply: **I can't run shell commands directly in the household workspace.** Grants were **absent** on those turns (`create_bot` still assigns none — `chatticus-5336ff`). That sentence is **not** the sink string `no task grant`; one turn never called a tool, another called `request_computer_capability` then still that prose (`STOP_NO_COMPUTER_TOOL`). Do not tune prompts.
 - `POST .../turns/{id}/resume` while the computer is stopped is `ComputerNotReadyError`; first summon needs kernel `enqueue_computer_continuation`.
-- ComputerWorker nack now logs `reason=` (#316). Host start still fails when `CHATTICUS_USER_ID` is `None` (`RUNTASK_USER_ID_NONE` on `chatticus-82dab7`).
+- ComputerWorker nack logs `reason=` (#316). Host start passes a real `CHATTICUS_USER_ID` (#317). Customer `RunTask` proven (`chatticus-82dab7` closed).
 
 ## Refuse-not-fallback (production-verified, 2026-09-07)
 
@@ -80,19 +80,19 @@ Attempted after F-safe. **Do not fold this elapsed time into the ~19 min figure.
 
 **Who creates `ChatticusComputers` in the customer account:** Chatticus, under the assumed role. Do **not** ask the customer to run a second template for that stack. Do **not** put an `AWS::S3::Bucket` in it — `customer-role.yml` has zero `s3:`; CloudFormation creates resources with the caller's permissions, and `ChatticusComputers*` only names which stacks the role may touch. The snapshot bucket is declared in the **same published customer-run template** (`chatticus-bb9084`); after that, the assumed role needs only read/write on the named bucket, not `s3:CreateBucket`. Anthus `ChatticusSnapshots` serves Anthus-managed orgs only. Never destroy Anthus `ChatticusSnapshots` or `ChatticusComputers`. Never `cdk deploy --all`.
 
-## Customer Computers (`chatticus-82dab7`, **reopened** 2026-09-07)
+## Customer Computers (`chatticus-82dab7`, **closed** 2026-09-07)
 
-PR #312 on `develop` (`9826f2b`). First live attempt inferred CreateStack/RunTask from ComputerWorker because management **root** cannot AssumeRole into the member account.
+Chatticus CreateStacks `ChatticusComputers` in the customer account under the assumed role. `:dev` image pullable. **Customer-account `RunTask ≥ 1`** proven (lab IAM user, not root, not `dispatch_ok`). Anthus `RunTask` 0; desiredCount 0.
 
-**`chatticus-3e72dc` preflight (lab IAM user, same day):** `DescribeStacks(ChatticusComputers)` in `CUSTOMER_ACCOUNT_ID` → stack does not exist; customer ECS cluster list empty.
+PR #317 (`7d6dc1a`) — continuation host-start passes the turn prompt author into `CHATTICUS_USER_ID`. ThinTurn development deploy https://github.com/AnthusAI/Chatticus/actions/runs/34160413819 succeeded. Kernel summon 2026-09-07T20:47:39Z → customer CloudTrail `RunTask` at 20:47:42Z. **Do not fold this elapsed time into the ~19 min figure.**
 
 **Named cause 1 (fixed in #313, `fb0d7d5`):** `CREATESTACK_NEVER_SUCCEEDED_SSM_GETPARAMETERS_DENIED` — CDK `BootstrapVersion` SSM. Do **not** add `ssm:*` to the published role.
 
 **Named cause 2 (fixed in #314 + lab UpdateStack; `8a25af` closed):** `CREATESTACK_ROLLBACK_EC2_DESCRIBE_INTERNET_GATEWAYS_DENIED`.
 
-**Named cause 3 (fixed in #316, `6457a30`):** `LOOKUP_EMPTY_SUBNETS_DESCRIBE_SERVICES` / `HOST_START_NO_RUNTASK_AFTER_CREATE_COMPLETE`. Subnet/SG outputs + UpdateStack. Nack logs now include `reason=`.
+**Named cause 3 (fixed in #316, `6457a30`):** `LOOKUP_EMPTY_SUBNETS_DESCRIBE_SERVICES` / `HOST_START_NO_RUNTASK_AFTER_CREATE_COMPLETE`. Subnet/SG outputs + UpdateStack. Nack logs include `reason=`.
 
-**Named cause 4 (live after #316, 2026-09-07):** `RUNTASK_USER_ID_NONE`. Stack `UPDATE_COMPLETE`, subnet/SG outputs present, one product UpdateStack. Customer `RunTask` still **0**. `ecs.run_task` rejects `CHATTICUS_USER_ID` `None` on the computer-continuation host-start path. Anthus `RunTask` 0; desiredCount 0. Do not close `chatticus-82dab7` until lab-user `RunTask ≥ 1`.
+**Named cause 4 (fixed in #317, `7d6dc1a`):** `RUNTASK_USER_ID_NONE`. `ecs.run_task` no longer receives `CHATTICUS_USER_ID=None`.
 
 ## Capability matrix (`chatticus-3e72dc`, 2026-09-07)
 

@@ -24,10 +24,17 @@
       "text": "`chatticus-82dab7` who-creates-what table now points this card for the bucket row. Wiki runbook matches: customer-run published template; assumed role never gets `s3:CreateBucket`; later read/write on one named bucket.\n\nDo not implement this until `chatticus-82dab7` has lab-user `RunTask` evidence. Then this card before `chatticus-3e72dc` file-actions. Wire deps with **full** issue ids.\n",
       "created_at": "2026-09-07T20:22:16.514264Z",
       "comment_type": "default"
+    },
+    {
+      "id": "49b3939f-ae48-48aa-92c1-071dc2fe1875",
+      "author": "home",
+      "text": "`chatticus-82dab7` **closed** with customer `RunTask`. Sequence: this card before `chatticus-3e72dc` file-actions. Do not put the bucket inside `ChatticusComputers` under AssumeRole (`grep -c 's3:' infra/customer-role.yml` is 0). Customer-run published template; role later needs only read/write on the named bucket.\n",
+      "created_at": "2026-09-07T20:51:54.470553Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T20:09:48.784194Z",
-  "updated_at": "2026-09-07T20:22:16.514264Z",
+  "updated_at": "2026-09-07T20:51:54.470553Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

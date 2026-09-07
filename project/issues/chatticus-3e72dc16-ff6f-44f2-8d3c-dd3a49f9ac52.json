@@ -73,10 +73,17 @@
       "text": "## File actions: the bucket question is decided (2026-09-07)\n\nThe predicted file-actions failure now has an answer.\n\n**Snapshot packs live in the customer's own AWS account, and the bucket is created in advance by the published CloudFormation template.** Anthus's `ChatticusSnapshots` bucket serves Anthus-managed organizations only. Filed as `chatticus-bb9084`.\n\nChosen over having Chatticus create the bucket under the assumed role because the customer can review a template-declared bucket before running it, and because it keeps `s3:CreateBucket` off the role entirely — a permission that would fail `8a25af`'s *\"why does an agent product need this\"* test.\n\nThe **file actions** row here stays blocked until that lands, and it is now blocked on a scoped piece of work rather than an open question.",
       "created_at": "2026-09-07T20:10:41.258335Z",
       "comment_type": "default"
+    },
+    {
+      "id": "de3cac04-8459-4052-86da-5e266b4249c5",
+      "author": "home",
+      "text": "`chatticus-82dab7` **closed**. Customer `RunTask` proven on development (#317). This card is unblocked for **terminal then browser**. Stop at first failure. File-actions / relocate still need `chatticus-bb9084` (customer-run snapshot bucket). Do not fold times into the ~19 min provision figure. Kernel path; live SQS; lab IAM user not root.\n",
+      "created_at": "2026-09-07T20:51:54.457815Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:01:06.214793Z",
-  "updated_at": "2026-09-07T20:10:41.258335Z",
+  "updated_at": "2026-09-07T20:51:54.457815Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
