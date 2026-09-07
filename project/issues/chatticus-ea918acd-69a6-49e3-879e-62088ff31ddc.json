@@ -27,10 +27,17 @@
       "text": "Phase A0 stat-probe (PR #310): cross-client create visible in ~0.75–0.83s for every `actimeo` (1–300s). Git-status contrast ~60s is the op cost, not cache delay. The ~0.8s floor is not a clean `actimeo` curve (possible docker-exec after write). Performance vs freshness is **not** a tradeoff in this lab: long `actimeo` did not make `git status` faster. Options A–D still need a product decision; this spike does not pick one.",
       "created_at": "2026-09-05T23:28:32.063937Z",
       "comment_type": "default"
+    },
+    {
+      "id": "e72e4197-04ce-40d6-9f85-cd06af300f98",
+      "author": "home",
+      "text": "## The A0 staleness curve does not settle this (2026-09-07)\n\nA0 reported \"performance vs freshness is **not** a tradeoff in this lab: long `actimeo` did not make `git status` faster,\" which would dissolve this contradiction if true. It is not established.\n\nEach timed iteration rewrites the tree (`git checkout bench-a && git checkout bench-b` between the measurements), so the cache is invalidated every pass regardless of `actimeo`. Flat ratios across actimeo 1–300s are what that workload produces by construction. The server was also nfs-ganesha in Docker, carrying ~13x versus local on LAN.\n\nSo the premise this task turns on — that a long `actimeo` buys performance at the cost of cross-client staleness — is **neither confirmed nor refuted**. The stat-probe staleness floor (~0.75–0.83s, flat across actimeo) was already flagged as possibly docker-exec overhead rather than a measured cache window.\n\n**This decision still needs making, and it is not only about the dead local host.** It applies to AWS hosts at default `actimeo` whenever concurrent turns for one bot land on different hosts — which `766c51` established the scheduler permits. Two turns on one NFS client share a cache and are coherent; different hosts are not.\n\n`chatticus-3d5357` includes a read-only `actimeo` sweep on real EFS, which would produce the curve this task actually needs. Options A–D still require a product decision either way.",
+      "created_at": "2026-09-07T12:51:14.175725Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T20:34:06.008440Z",
-  "updated_at": "2026-09-05T23:28:32.063937Z",
+  "updated_at": "2026-09-07T12:51:14.175725Z",
   "closed_at": null,
   "custom": {}
 }

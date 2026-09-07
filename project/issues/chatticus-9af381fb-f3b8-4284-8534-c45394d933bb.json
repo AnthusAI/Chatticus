@@ -84,10 +84,17 @@
       "text": "Phase A0 landed on develop (#310, `1899611`). Re-review approved; python+infra CI green.\n\n**Pre-filter:** at measured ~25ms RTT (egress-only 20ms netem), warm git_status 0.02s local / 0.25s LAN NFS / 32s WAN. Every actimeo row >10x. Local interactive host fails the agreed threshold table in this lab. Not EFS, not stunnel, not the tunnel.\n\nParking as **open**. Phase A/B still wait on CDK Chatticus EFS + tunnel. Do not treat A0 as those phases.",
       "created_at": "2026-09-05T23:35:32.225055Z",
       "comment_type": "default"
+    },
+    {
+      "id": "6f36c803-e251-403e-81bf-13a2c7e73962",
+      "author": "home",
+      "text": "## Review of Phase A0 (2026-09-07)\n\n**The WAN verdict stands.** 1650x, and the RTT term alone (~24s of the 32s, ~1 round trip per file on a 976-file tree) is independent of caching. Row three of the threshold table. Scope reduction decision filed as `chatticus-e8380b`.\n\n**Two confounds limit what else A0 establishes.** The recorded finding \"long `actimeo` did not make `git status` faster\" is not established as a general property of NFS:\n\n1. **The workload self-invalidates.** `scripts/lib-bench.sh` `run_ops()` runs git_status → `git checkout bench-a && git checkout bench-b` → stat_sweep in every timed iteration. The checkout rewrites the tree, so the next iteration's git_status revalidates whatever `actimeo` is set to. The flat 1743/1629/1637/1640/1649x across actimeo 1–300s is what a self-invalidating workload produces by construction. A read-only repeat loop was never run.\n2. **Ganesha is not EFS.** A0's own LAN control shows ~13x versus local at 0.2ms RTT — server overhead, not network — and its summary correctly says \"do not call that EFS.\"\n\n**Consequence:** the in-VPC extrapolation is open, and that now matters more than this spike did, because the untested assumption has moved to the high-value track. Filed as `chatticus-3d5357`.\n\n**On the park:** Phase A and Phase B exist to prove an out-of-VPC mount for the host class A0 just eliminated. If `e8380b` accepts the scope reduction they are **moot, not parked** — this issue currently points at CDK EFS + tunnel work that should not happen.",
+      "created_at": "2026-09-07T12:51:07.033995Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-05T18:08:29.618306Z",
-  "updated_at": "2026-09-05T23:35:32.238049Z",
+  "updated_at": "2026-09-07T12:51:07.033995Z",
   "closed_at": null,
   "custom": {}
 }
