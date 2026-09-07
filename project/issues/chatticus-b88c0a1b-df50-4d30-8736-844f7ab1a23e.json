@@ -110,10 +110,17 @@
       "text": "T0 started. Method: Organizations `CreateAccount` on the existing Anthus account for lab consolidated billing (not consumer signup). Throwaway member email is in `AGENTS.local.md` only — not the wiki, not this comment. Wiki stays placeholders.",
       "created_at": "2026-09-07T15:33:01.070318Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f7292ddc-9bd8-409f-bebb-a814a4d9a098",
+      "author": "home",
+      "text": "Phase A: Organizations enabled; `CreateAccount` **SUCCEEDED** in **~16s** aws-wait (~65s wall). Member id is in `AGENTS.local.md` only.\n\n**Finding (lab-only):** management-account **root** cannot `AssumeRole` (`Roles may not be assumed by root accounts`). A real customer never hits this — they run CloudFormation as root **in their own account**. Next: IAM user in the management account to assume `OrganizationAccountAccessRole`, then continue. Do not treat this as a customer-role template defect.",
+      "created_at": "2026-09-07T15:35:09.779810Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:33:01.070318Z",
+  "updated_at": "2026-09-07T15:35:09.779810Z",
   "closed_at": null,
   "custom": {}
 }
