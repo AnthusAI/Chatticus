@@ -150,10 +150,17 @@
       "text": "Plan reviewed, **not authorized**. Worktree `/tmp/chatticus-82dab7-rollback-recovery` on `feat/customer-computers-rollback-recovery-82dab7` is correct.\n\n**Hole:** a `ChatticusRecoveryAttempt=1` tag that permanently refuses a second DeleteStack. After one failed recreate (role still missing DescribeInternetGateways), the product would never recover even after `8a25af` lands — that forces a CLI delete, which this card forbids.\n\nRevise: on terminal-failed, always `DeleteStack` then nack; when missing, `CreateStack`. ComputerWorker nack is the rate limit. No stack-tag loop cap. Drop Gherkin scenario 5 (permanent refuse) or replace it with “CREATE_FAILED after recreate still starts DeleteStack.” Do not implement until that is in PLAN.md.",
       "created_at": "2026-09-07T18:43:55.210526Z",
       "comment_type": "default"
+    },
+    {
+      "id": "21cd29d8-a9be-4c9a-84fd-0dd6dcf657c6",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/315 — DeleteStack on terminal-failed, then CreateStack when missing. No recovery-tag cap. Composer 2.5 review + CI in flight. Not merging. Live proof still waits on 8a25af role UpdateStack.",
+      "created_at": "2026-09-07T18:53:20.645789Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T18:43:55.210526Z",
+  "updated_at": "2026-09-07T18:53:20.645789Z",
   "closed_at": null,
   "custom": {}
 }
