@@ -16,7 +16,7 @@ Desk AWS account ids, member-account ids, `tenant_id`s, RoleArns, and billing em
 
 This run used AWS Organizations `CreateAccount` on the existing Anthus management account for **lab consolidated billing**. It is **not** the customer funnel. Real customers stay out of this org. Pitch page, invitation rate, and the $100 setup fee should use the **Chatticus-provision** number (~19 min here) and treat AWS account signup as a separate, still-unmeasured stopwatch.
 
-Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` then `create-stack --template-body` (later `update-stack` for policy holes). Never pass CloudFront as `--template-url`. First run: **6379 bytes**. After #314: **6705 bytes**; lab `UpdateStack` `ChatticusCrossAccountRole` `UPDATE_COMPLETE`. That closed the `8a25af` IGW-describe reopen. Snapshot `s3:*` is a later reopen before file-actions.
+Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` then `create-stack --template-body` (later `update-stack` for policy holes). Never pass CloudFront as `--template-url`. First run: **6379 bytes**. After #314: **6705 bytes**; lab `UpdateStack` `ChatticusCrossAccountRole` `UPDATE_COMPLETE`. That closed the `8a25af` IGW-describe reopen. Snapshot bucket + scoped `s3:*` is **not** another `8a25af` role hole: it is `chatticus-bb9084`, declared in the **customer-run** published template (decision 2026-09-07). The assumed role has **zero** `s3:` today (`grep -c 's3:' infra/customer-role.yml` is 0).
 
 ## Person-steps (needed a human)
 
@@ -39,14 +39,33 @@ Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` 
 - No HTTP to submit RoleArn after CFN; no live `CrossAccountRoleInspector` (Gherkin in-memory only).
 - No create-bot UI in the enabled workspace (`POST /bots` exists; UI never calls it).
 - `infra/README.md` `create-stack` example omitted `--parameters` and `CAPABILITY_NAMED_IAM`.
-- Published role CFN is scoped to `ChatticusComputers*` only — not `ChatticusSnapshots`. Snapshot bucket is **not** in the first customer `ChatticusComputers` template (`chatticus-8a25af` before file-actions).
-- Workspace prompt did not escalate: Ping answered **no** (`STOP_NO_COMPUTER_TOOL`).
+- Published role CFN is scoped to `ChatticusComputers*` only. The snapshot bucket is **not** created by Chatticus inside `ChatticusComputers` under AssumeRole (that path AccessDenies: the role has no `s3:`). The bucket is declared in the customer-run published template (`chatticus-bb9084`).
+- Workspace prompt: Ping said it **could not** run `ls /workspace` — not that it would not. Do not treat this as the model declining to summon a computer, and do not tune prompts. `create_bot` assigns no grant, capability, ceiling, or standing; sinks deny with reason `no task grant` (`chatticus-5336ff`). The kernel F-computer path is a separate labeled deviation (`STOP_NO_COMPUTER_TOOL` / `enqueue_computer_continuation`).
 - `POST .../turns/{id}/resume` while the computer is stopped is `ComputerNotReadyError`; first summon needs kernel `enqueue_computer_continuation`.
 - ComputerWorker nack omits provisioning exception text.
 
+## Refuse-not-fallback (production-verified, 2026-09-07)
+
+Cite this section for any customer-facing claim. It is not only a card comment.
+
+**Property:** If Chatticus can assume the customer computer role but the customer has no `ChatticusComputers` stack, the turn **refuses**. Chatticus must not start a computer in the Anthus account.
+
+**Verified on development** with the throwaway customer account (`chatticus-2f2d87`, 2026-09-07). This was an in-memory Gherkin scenario first; the live run is the production result.
+
+| Check | Result |
+| --- | --- |
+| AssumeRole of `ChatticusOrganizationComputerRole` in `CUSTOMER_ACCOUNT_ID` | **Succeeded** |
+| Customer stack `ChatticusComputers` | **Absent** |
+| `RunTask` in `CUSTOMER_ACCOUNT_ID` | **0** |
+| `RunTask` in `ANTHUS_ACCOUNT_ID` | **0** |
+| Anthus `ChatticusComputers` desiredCount | **0** |
+| Labeled stop | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` |
+
+Later customer-account `CreateStack` / `RunTask` (`chatticus-82dab7`) does not unwind this: Anthus desiredCount stays 0; there is still no Anthus fallback.
+
 ## F-computer (`chatticus-2f2d87`, closed 2026-09-07)
 
-Attempted after F-safe. **Do not fold this elapsed time into the ~19 min figure.**
+Attempted after F-safe. **Do not fold this elapsed time into the ~19 min figure.** The safety property for this attempt is [Refuse-not-fallback](#refuse-not-fallback-production-verified-2026-09-07).
 
 | Metric | Value |
 | --- | --- |
@@ -59,7 +78,7 @@ Attempted after F-safe. **Do not fold this elapsed time into the ~19 min figure.
 | ComputerWorker nack | **~0.8 s** |
 | Labeled stop | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` |
 
-**Who creates `ChatticusComputers` in the customer account:** Chatticus, under the assumed role. Customer does not run a second template. This slice has **no snapshot bucket** (no `s3:*` on the published role). Bucket + scoped `s3:*` is `chatticus-8a25af` before `chatticus-3e72dc` file-actions. Anthus `ChatticusSnapshots` / `ChatticusComputers` stay Anthus-managed. Never destroy them. Never `cdk deploy --all`.
+**Who creates `ChatticusComputers` in the customer account:** Chatticus, under the assumed role. Do **not** ask the customer to run a second template for that stack. Do **not** put an `AWS::S3::Bucket` in it — `customer-role.yml` has zero `s3:`; CloudFormation creates resources with the caller's permissions, and `ChatticusComputers*` only names which stacks the role may touch. The snapshot bucket is declared in the **same published customer-run template** (`chatticus-bb9084`); after that, the assumed role needs only read/write on the named bucket, not `s3:CreateBucket`. Anthus `ChatticusSnapshots` serves Anthus-managed orgs only. Never destroy Anthus `ChatticusSnapshots` or `ChatticusComputers`. Never `cdk deploy --all`.
 
 ## Customer Computers (`chatticus-82dab7`, **reopened** 2026-09-07)
 
@@ -91,7 +110,7 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.** None of six 
 | Step | Status |
 | --- | --- |
 | Consumer AWS signup | Skipped (lab `CreateAccount`) |
-| Customer snapshot bucket / `s3:*` on published role | Not this slice — `chatticus-8a25af` before file-actions |
+| Customer snapshot bucket in the published template | `chatticus-bb9084` (not inside `ChatticusComputers` under AssumeRole) |
 | Terminal / browser / files / approvals / spend / relocate | `chatticus-3e72dc` |
 
 ## Replay (customer-shaped, once the gaps close)
