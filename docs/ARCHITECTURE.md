@@ -50,7 +50,11 @@ A worker advertises:
 
 - `worker_id`
 - `tenant_id`
-- capabilities: `computer`, `browser`, `terminal`, `cpu`
+- capabilities: `computer`, `browser`, `terminal`, `cpu` -- **note:** `terminal` is
+  advertised here but has **no agent-facing tool**. The host executor supports
+  only `browser_open` and `request_computer_capability`
+  (`chromium_action_executor.py`). Confirmed live 2026-09-07; see
+  `chatticus-3e72dc`
 - optional `computer_id` (the workplace this process hosts)
 - cost class: `local`, `fargate`, or `ec2`
 - heartbeat timestamp
@@ -123,7 +127,9 @@ One Docker image, three hosts:
 
 The image contains Xvfb (or equivalent) virtual displays, Chromium, a shell,
 noVNC or equivalent for watch and takeover, `chatticus-worker`, and
-`chatticus-agent`. v1 AWS computers run this image on **Fargate ARM64**
+`chatticus-agent`. **The shell is present in the image and unreachable by an
+agent** -- no tool exposes it. A bot asked to run a shell command correctly
+answers that it cannot. v1 AWS computers run this image on **Fargate ARM64**
 (same architecture as Apple Silicon Docker). Scale the Fargate service to
 0 when no host is needed. Stop/start EC2 is a later host, not the v1
 path.
