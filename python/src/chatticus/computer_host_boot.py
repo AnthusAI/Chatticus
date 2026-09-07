@@ -13,7 +13,7 @@ from chatticus.computer_capabilities import (
     MODEL_CAPABILITY,
     WORKSPACE_CAPABILITY,
 )
-from chatticus.control_plane import ControlPlane
+from chatticus.worker.computer_worker_plane import ComputerWorkerPlane
 
 _DEFAULT_DISPLAY = ":99"
 _XVFB_SCREEN = "1280x720x24"
@@ -85,14 +85,18 @@ class ComputerHostBootDriver:
 
     def __init__(
         self,
-        plane: ControlPlane | None = None,
+        plane: ComputerWorkerPlane | None = None,
         *,
         tenant_id: str = "anthus",
         user_id: str = "ryan",
         display: str = _DEFAULT_DISPLAY,
         xvfb: XvfbProcess | None = None,
     ) -> None:
-        self.plane = plane or ControlPlane()
+        if plane is None:
+            from chatticus.control_plane import ControlPlane
+
+            plane = ControlPlane()
+        self.plane = plane
         self.tenant_id = tenant_id
         self.user_id = user_id
         self.display = display

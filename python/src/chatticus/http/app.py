@@ -17,8 +17,14 @@ from pydantic import BaseModel, Field
 from chatticus.capability_policy import grant_from_payload
 from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.cognito_jwt import CognitoJwtVerifier, CognitoTokenError
+from chatticus.computer_capabilities import (
+    BROWSER_CAPABILITY,
+    MODEL_CAPABILITY,
+    WORKSPACE_CAPABILITY,
+)
 from chatticus.control_plane import ControlPlane
 from chatticus.email_sender import EmailSender
+from chatticus.escalation_handoff import EscalationRecord
 from chatticus.http.integration_test_auth import (
     INTEGRATION_TEST_SESSION_PATH,
     IntegrationTestAuthConfig,
@@ -83,6 +89,8 @@ from chatticus.worker_credentials import parse_bearer_token
 
 logger = logging.getLogger("chatticus.http")
 INVOKE_HEADER = "X-Chatticus-Invoke-Key"
+HOST_USER_HEADER = "X-Chatticus-Host-User-Id"
+HOST_WORKER_PREFIX = "/host-worker"
 
 
 TENANT_HEADER = "X-Tenant-Id"
@@ -178,6 +186,30 @@ class SetComputerBody(BaseModel):
     """Body for POST /computers/stopped."""
 
     stopped: bool = True
+
+
+class RecordCapabilityReadyBody(BaseModel):
+    """Body for POST /computers/capabilities/{capability}/ready."""
+
+    user_id: str
+
+
+class ClaimComputerBody(BaseModel):
+    """Body for POST /turns/{turn_id}/computer/claim."""
+
+    worker_id: str
+
+
+class CommitComputerToolResultBody(BaseModel):
+    """Body for POST /turns/{turn_id}/computer/tool-result."""
+
+    result_body: str
+
+
+class RegateBrowseBody(BaseModel):
+    """Body for POST /turns/{turn_id}/browse/regate."""
+
+    url: str
 
 
 class PostMessageBody(BaseModel):
@@ -436,6 +468,10 @@ def create_app(
         dependencies=[Depends(enforce_operator_principal)],
     )
     worker_router = APIRouter(dependencies=[Depends(enforce_worker_principal)])
+    host_worker_router = APIRouter(
+        prefix="/host-worker",
+        dependencies=[Depends(enforce_worker_principal)],
+    )
     user_router = APIRouter(dependencies=[Depends(enforce_user_principal)])
 
     @app.exception_handler(ChatticusError)
@@ -884,6 +920,252 @@ def create_app(
     ) -> dict[str, bool]:
         return {"stopped": state.plane.computer_is_stopped(tenant_id)}
 
+    def _assert_host_user_scope(
+        user_id: str,
+        host_user_id: Annotated[str | None, Header(alias=HOST_USER_HEADER)] = None,
+    ) -> None:
+        if not host_user_id or host_user_id.strip() != user_id:
+            raise HTTPException(status_code=403, detail="host user scope required")
+
+    @host_worker_router.post("/computers/stopped")
+    def worker_set_computer_stopped(
+        tenant_id: str,
+        body: SetComputerBody,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, bool]:
+        del principal
+        state.plane.set_computer_stopped(tenant_id, body.stopped)
+        stopped = state.plane.computer_is_stopped(tenant_id)
+        logger.info(
+            "worker_computer_stopped tenant_id=%s stopped=%s",
+            tenant_id,
+            stopped,
+        )
+        return {"stopped": stopped}
+
+    @host_worker_router.post("/computers/capabilities/{capability}/ready")
+    def worker_record_capability_ready(
+        tenant_id: str,
+        capability: str,
+        body: RecordCapabilityReadyBody,
+        principal: RequireWorkerPrincipal,
+        host_user_id: Annotated[str | None, Header(alias=HOST_USER_HEADER)] = None,
+    ) -> dict[str, str]:
+        del principal
+        _assert_host_user_scope(body.user_id, host_user_id)
+        state.plane.record_computer_capability_ready(
+            tenant_id,
+            body.user_id,
+            capability,
+        )
+        logger.info(
+            "worker_capability_ready tenant_id=%s user_id=%s capability=%s",
+            tenant_id,
+            body.user_id,
+            capability,
+        )
+        return {"capability": capability, "status": "ready"}
+
+    @host_worker_router.get("/computer")
+    def worker_get_computer(
+        tenant_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, Any]:
+        del principal
+        try:
+            computer = state.plane.computer_for_organization(tenant_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="computer not found") from error
+        return _computer_payload(computer)
+
+    @host_worker_router.get("/computer/readiness")
+    def worker_get_computer_readiness(
+        tenant_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, bool]:
+        del principal
+        readiness = state.plane.computer_capability_readiness(tenant_id)
+        return {
+            "model_ready": readiness.is_ready(MODEL_CAPABILITY),
+            "workspace_ready": readiness.is_ready(WORKSPACE_CAPABILITY),
+            "browser_ready": readiness.is_ready(BROWSER_CAPABILITY),
+        }
+
+    @host_worker_router.get("/users/{user_id}/turns")
+    def worker_list_user_turns(
+        tenant_id: str,
+        user_id: str,
+        principal: RequireWorkerPrincipal,
+        host_user_id: Annotated[str | None, Header(alias=HOST_USER_HEADER)] = None,
+    ) -> dict[str, Any]:
+        del principal
+        _assert_host_user_scope(user_id, host_user_id)
+        turns = state.plane.list_active_turns(tenant_id, user_id)
+        return {"turns": [_worker_turn_payload(turn) for turn in turns]}
+
+    @host_worker_router.post("/computers/claims/expire-orphaned")
+    def worker_expire_orphaned_computer_claims(
+        tenant_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        del tenant_id, principal
+        state.plane.expire_orphaned_computer_claims()
+        return {"status": "ok"}
+
+    @host_worker_router.get("/turns/{turn_id}")
+    def worker_get_turn(
+        tenant_id: str,
+        turn_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, Any]:
+        del principal
+        try:
+            turn = state.plane.turn(tenant_id, turn_id)
+        except TurnNotFoundError as error:
+            raise TurnAccessDeniedError(
+                f"Tenant {tenant_id!r} cannot read turn {turn_id!r}."
+            ) from error
+        return _worker_turn_payload(turn)
+
+    @host_worker_router.post("/turns/{turn_id}/computer/escalation/ensure")
+    def worker_ensure_computer_escalation(
+        tenant_id: str,
+        turn_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, Any]:
+        del principal
+        record = state.plane.ensure_computer_escalation(tenant_id, turn_id)
+        if record is None:
+            return {"record": None}
+        return {"record": _escalation_payload(record)}
+
+    @host_worker_router.get("/turns/{turn_id}/computer/unresolved-actions")
+    def worker_unresolved_tool_actions(
+        tenant_id: str,
+        turn_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, Any]:
+        del principal
+        action_ids = state.plane.unresolved_tool_action_ids(tenant_id, turn_id)
+        return {"action_ids": action_ids}
+
+    @host_worker_router.post("/turns/{turn_id}/attempt-claimed")
+    def worker_record_attempt_claimed(
+        tenant_id: str,
+        turn_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, Any]:
+        del principal
+        event = state.plane.record_attempt_claimed(tenant_id, turn_id)
+        return {
+            "seq": event.seq,
+            "kind": event.kind.value,
+            "body": event.body,
+            "action_id": event.action_id,
+            "attempt_id": event.attempt_id,
+            "event_id": event.event_id,
+            "channel_id": event.channel_id,
+        }
+
+    @host_worker_router.post("/turns/{turn_id}/computer/claim")
+    def worker_claim_computer_for_turn(
+        tenant_id: str,
+        turn_id: str,
+        body: ClaimComputerBody,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, bool]:
+        _assert_worker_id_matches(principal, body.worker_id)
+        claimed = state.plane.claim_computer_for_turn(
+            tenant_id,
+            turn_id,
+            body.worker_id,
+        )
+        return {"claimed": claimed}
+
+    @host_worker_router.post("/turns/{turn_id}/computer/execute-pending")
+    def worker_execute_pending_computer_action(
+        tenant_id: str,
+        turn_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        del principal
+        state.plane.execute_pending_computer_action(tenant_id, turn_id)
+        return {"status": "ok"}
+
+    @host_worker_router.post("/turns/{turn_id}/computer/tool-result")
+    def worker_commit_computer_tool_result(
+        tenant_id: str,
+        turn_id: str,
+        body: CommitComputerToolResultBody,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        del principal
+        state.plane.commit_computer_tool_result(
+            tenant_id,
+            turn_id,
+            body.result_body,
+        )
+        return {"status": "ok"}
+
+    @host_worker_router.post("/turns/{turn_id}/computer/complete")
+    def worker_complete_computer_continuation(
+        tenant_id: str,
+        turn_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        del principal
+        state.plane.complete_computer_continuation(tenant_id, turn_id)
+        return {"status": "ok"}
+
+    @host_worker_router.get("/turns/{turn_id}/browser-context")
+    def worker_active_browser_context(
+        tenant_id: str,
+        turn_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, Any]:
+        del principal
+        context = state.plane.active_browser_context(tenant_id, turn_id)
+        if context is None:
+            return {"context": None}
+        return {
+            "context": {
+                "storage_partition": context.storage_partition,
+                "profile_path": context.named_session or "",
+            }
+        }
+
+    @host_worker_router.get("/turns/{turn_id}/capability-policy")
+    def worker_capability_policy(
+        tenant_id: str,
+        turn_id: str,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, Any]:
+        del principal
+        policy = state.plane.capability_policy_for(tenant_id, turn_id)
+        grant = policy.grant
+        if grant is None:
+            return {"grant": None}
+        return {
+            "grant": {
+                "tools": sorted(grant.tools),
+                "origins": sorted(grant.origins),
+            }
+        }
+
+    @host_worker_router.post("/turns/{turn_id}/browse/regate")
+    def worker_regate_browse_origin(
+        tenant_id: str,
+        turn_id: str,
+        body: RegateBrowseBody,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        del principal
+        try:
+            state.plane.gated_browse_origin(tenant_id, turn_id, body.url)
+        except CapabilitySinkDenied as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        return {"status": "ok"}
+
     @user_router.post("/channels")
     def create_channel(
         request: Request,
@@ -1307,6 +1589,7 @@ def create_app(
         )
 
     org_router.include_router(worker_router)
+    org_router.include_router(host_worker_router)
     org_router.include_router(user_router)
     app.include_router(org_router)
 
@@ -1421,6 +1704,38 @@ def _computer_payload(computer: Any) -> dict[str, Any]:
         "stopped": computer.stopped,
         "policy": str(computer.policy),
         "host_start_generation": computer.host_start_generation,
+        "model_ready": computer.model_ready,
+        "workspace_ready": computer.workspace_ready,
+        "browser_ready": computer.browser_ready,
+    }
+
+
+def _worker_turn_payload(turn: Any) -> dict[str, Any]:
+    payload = _turn_payload(turn)
+    payload["claimed_by_worker_id"] = turn.claimed_by_worker_id
+    return payload
+
+
+def _escalation_payload(record: EscalationRecord) -> dict[str, Any]:
+    pending = record.pending_call
+    return {
+        "turn_id": record.turn_id,
+        "tenant_id": record.tenant_id,
+        "user_id": record.user_id,
+        "computer_id": record.computer_id,
+        "pending_call": {
+            "action_id": pending.action_id,
+            "tool_name": pending.tool_name,
+            "arguments": dict(pending.arguments),
+        },
+        "call_committed": record.call_committed,
+        "continuation_enqueued": record.continuation_enqueued,
+        "computerless_relinquished": record.computerless_relinquished,
+        "computer_action_count": record.computer_action_count,
+        "result_committed": record.result_committed,
+        "continuation_job_id": record.continuation_job_id,
+        "result_body": record.result_body,
+        "executed_action_id": record.executed_action_id,
     }
 
 
