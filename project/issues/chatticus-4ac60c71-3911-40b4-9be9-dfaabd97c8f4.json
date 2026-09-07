@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-4ac60c71-3911-40b4-9be9-dfaabd97c8f4",
+  "title": "Persist computer snapshot fields in Dynamo",
+  "description": "**Step 1 of the accepted `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` host-disk plan.** Control-plane only. Can proceed while `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` is open.\n\nParent epic: `chatticus-598be488-151d-4e57-8897-5cf6aaed50e5`.\n\nPersist on the Dynamo computer record: `snapshot_uri`, checksum, generation, `hydrate_required`, `intended_host_worker_id`, `disk_dirty`. Today's `put_computer` / `get_computer` omit all of them **and** omit `computer.workspace`.\n\n**Do not persist the dict as the durable workplace.** That is the leak-without-the-benefit. Do not add a second reader. Steps 2–3 (host hydrate/publish and moving file tools onto the host) wait on a host that runs (`chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32`).\n\nGherkin first. Outside-in.\n\n```\nFeature: Computer snapshot fields survive a ThinTurn recycle\n\n  Scenario: hydrate_required is still set after put_computer\n    Given a computer record with snapshot_uri, checksum, generation, hydrate_required, intended_host_worker_id, and disk_dirty\n    When the control plane persists it and a new process loads it\n    Then those fields are the same\n    And computer.workspace is not treated as the durable workplace\n```\n\nStorage discovery stays closed. Do not delete the snapshot library.\n\n## Done when\n\nDynamo round-trip of those fields is specified and green. No dual reader. No host-worker wiring on this card.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "9e43b9b7-ea86-496b-bfa7-47b15fcfd3c1",
+      "author": "home",
+      "text": "Step 1 of host-disk. Composer 2.5 planning: worktree `/tmp/chatticus-4ac60c-snapshot-fields` on `feat/4ac60c-computer-snapshot-fields`. Gherkin first. Do not persist `computer.workspace`. Implementation not authorized until the plan is reviewed.",
+      "created_at": "2026-09-07T22:59:09.899835Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-07T22:58:46.804525Z",
+  "updated_at": "2026-09-07T22:59:09.899835Z",
+  "closed_at": null,
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
+}

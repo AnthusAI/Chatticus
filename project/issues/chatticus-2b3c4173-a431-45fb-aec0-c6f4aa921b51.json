@@ -1,0 +1,36 @@
+{
+  "id": "chatticus-2b3c4173-a431-45fb-aec0-c6f4aa921b51",
+  "title": "Customer account holds the computer image at runtime",
+  "description": "**Principle follow-through, not the `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` patch.**\n\nEpic `chatticus-598be488-151d-4e57-8897-5cf6aaed50e5` decided 2026-09-07: a customer organization's account holds everything that organization's work depends on at runtime — image, files, compute.\n\n`infra/customer-role.yml` already grants the full ECR push set (`CreateRepository`, `PutImage`, `InitiateLayerUpload`, `UploadLayerPart`, `CompleteLayerUpload`, `SetRepositoryPolicy`). `chatticus-82dab7c4-a44c-4e0e-ac19-51a0c7a12d09`'s who-creates-what table said the `:dev` image lands in **that** ECR under the assumed role. `infra/lib/customer-computers-stack.ts` instead `fromRegistry(anthusComputerImageUri)`.\n\nDo not start this until `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` has a host that runs — two customer-visible computer-stack changes at once will blur the labeled stop. Template edits stay customer-visible.\n\n```\nFeature: The customer computer pulls an image from the customer's ECR\n\n  Scenario: RunTask does not depend on Anthus registry reachability\n    Given a customer ChatticusComputers stack\n    When a computer host starts\n    Then the task definition image URI is in CUSTOMER_ACCOUNT_ID\n    And the published role's push permissions are used, not leftover\n```",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "29fa7359-4bf9-4b8b-b22e-ac09529c4f8c",
+      "author": "home",
+      "text": "Opened to apply the epic principle. Blocked by 8fe4c7 until a host runs. Not the Dynamo AccessDenied fix.",
+      "created_at": "2026-09-07T22:59:09.946180Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-07T22:58:46.825272Z",
+  "updated_at": "2026-09-07T22:59:09.946180Z",
+  "closed_at": null,
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
+}

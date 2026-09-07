@@ -40,10 +40,17 @@
       "text": "`chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac` no longer claims to unblock file actions. Justification kept: cheap insurance, customer-visible template, no customers yet. Under the dict branch of `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` the bucket stores something no agent writes. Recite `docs/ARCHITECTURE.md` `4142832` (design target, not shipping / not load-bearing).",
       "created_at": "2026-09-07T21:32:39.652700Z",
       "comment_type": "default"
+    },
+    {
+      "id": "14015d2a-b18c-480f-81eb-257b87c500bb",
+      "author": "home",
+      "text": "fccc4e picked host disk: this bucket is now required (step 4), not mere insurance. Still does not unblock today's read_workspace. Still not the 8fe4c7 patch.",
+      "created_at": "2026-09-07T22:59:09.934990Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T20:09:48.784194Z",
-  "updated_at": "2026-09-07T21:32:39.652700Z",
+  "updated_at": "2026-09-07T22:59:09.934990Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

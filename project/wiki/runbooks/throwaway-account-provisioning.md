@@ -104,7 +104,9 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 
 **Architecture cite (`4142832`):** the snapshot protocol is the **design target, not currently wired**. An earlier note called it "the shipping design" (`48a2c79`); that overstated it. Two file layers exist and are not connected. The snapshot library should not be deleted; it is unwired, not load-bearing.
 
-**Open decision:** dict vs host disk is `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` (Ryan picks; not implicit). Terminal is its own build: `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4`. `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac` stays cheap insurance; it does not unblock file actions.
+**Open decision:** dict vs host disk is **decided host disk** (`chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7`). Terminal is its own build: `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4`. `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac` is now required, not mere insurance.
+
+**`chatticus-8fe4c7` confirming check (2026-09-07):** the IaC pull-auth hypothesis was **falsified**. Customer tasks pull the Anthus image (repository policy already grants the customer account). They reach RUNNING, then `computer_host_worker` exits 1: customer task role `AccessDenied` on Anthus Dynamo `GetItem`. Named cause `HOST_TASK_ROLE_DYNAMO_ACCESS_DENIED`. Zero `CannotPullContainerError`. Do not add `dynamodb:*` to the customer role. Wiki placeholders; desk ids in `AGENTS.local.md`.
 
 | # | Row | First-pass stop | After tool-list |
 | --- | --- | --- | --- |
@@ -124,7 +126,7 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 | Dict vs host disk (open; Ryan picks) | `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` |
 | Agent terminal tool (build, not a sweep) | `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4` |
 | Browser live / remaining matrix | `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` — browser stopped `HOST_NOT_RUNNING` |
-| Customer host reaches RUNNING after RunTask | `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` |
+| Customer host reaches RUNNING after RunTask | `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` — named cause `HOST_TASK_ROLE_DYNAMO_ACCESS_DENIED` (ECR-auth hypothesis falsified) |
 
 ## Replay (customer-shaped, once the gaps close)
 
