@@ -65,7 +65,9 @@ Attempted after F-safe. **Do not fold this elapsed time into the ~19 min figure.
 
 PR #312 on `develop` (`9826f2b`). First live attempt inferred CreateStack/RunTask from ComputerWorker because management **root** cannot AssumeRole into the member account.
 
-**`chatticus-3e72dc` preflight (lab IAM user, same day):** `DescribeStacks(ChatticusComputers)` in `CUSTOMER_ACCOUNT_ID` → stack does not exist; customer ECS cluster list empty. Anthus desiredCount stayed 0. The 82dab7 DoD is **not** holding. Do not treat the ~111 s dispatch as a durable customer computer.
+**`chatticus-3e72dc` preflight (lab IAM user, same day):** `DescribeStacks(ChatticusComputers)` in `CUSTOMER_ACCOUNT_ID` → stack does not exist; customer ECS cluster list empty.
+
+**Named cause (`CREATESTACK_NEVER_SUCCEEDED_SSM_GETPARAMETERS_DENIED`):** the committed customer-computers template includes CDK `BootstrapVersion` (`SSM` `/cdk-bootstrap/hnb659fds/version`). Published `customer-role.yml` has no `ssm:*`. CloudTrail: **28** failed `CreateStack` (ValidationException), **0** `DeleteStack`, **0** customer `RunTask`. The stack was never created. Do **not** add `ssm:*` to the published role — strip bootstrap from the product template (customer accounts are not CDK-bootstrapped).
 
 ## Capability matrix (`chatticus-3e72dc`, 2026-09-07)
 
