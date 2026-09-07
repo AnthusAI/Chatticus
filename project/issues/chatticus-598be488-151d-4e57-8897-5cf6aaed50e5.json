@@ -40,10 +40,17 @@
       "text": "Hand run closed (`chatticus-b88c0a`). Remaining P0 on this epic: `chatticus-9c8dbf` (pending org list), `chatticus-070cb4` (submit RoleArn), `chatticus-7622fd` (create-bot UI) — the three product holes that made the run operator-assisted.",
       "created_at": "2026-09-07T15:54:13.089070Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f1de7126-a98a-4cf8-9352-475661a3b5d9",
+      "author": "home",
+      "text": "# ▶ State of play after `b88c0a` (2026-09-07)\n\n**The hand run succeeded and the number exists: ~19 min** (`project/wiki/runbooks/throwaway-account-provisioning.md`). `8a25af` closed — published template used **unmodified**, 6379 bytes, `cmp` identical to `infra/customer-role.yml`.\n\n**Read the number correctly.** It covers Chatticus provisioning only. Consumer AWS signup was skipped (lab `CreateAccount` on the Anthus management account), and it excludes **everything below**. It is not an onboarding estimate for the pitch page.\n\n## What is proven, and what is not\n\n`pong` proves the **backbone substrate**: sign-in → org → cross-account role → enablement → turn loop → model → response. That is a real milestone, and it is a **computerless** turn (capability `cpu`).\n\n**Every capability that touches the computer is unexercised in a customer account** — computer start, terminal, browser, file actions, approvals, spend ceiling, relocate. Full matrix on `chatticus-3e72dc`.\n\n## Next, in order\n\n1. **`chatticus-2f2d87` — F-computer.** *\"The behavior the whole epic exists for\"* (`061a11`'s own words) has never executed once. `061a11` closed saying live RunTask *\"still waits on `b88c0a`\"*; `b88c0a` closed without attempting it. It fell between two closed cards.\n2. **`chatticus-3e72dc` — the remaining capability matrix**, blocked by the above.\n3. **`9c8dbf` / `070cb4` / `7622fd`** — the self-setup holes. Known, scoped, buildable wiring.\n\n**Why the unknown goes first:** the three self-setup stories are wiring UI and HTTP to kernel calls that already exist; their scope will not surprise anyone. F-computer is unknown, and `b88c0a` recorded specific reasons to expect failure — no ECS or ECR in the customer account, no `ChatticusComputers` stack deployed there, role not scoped for `ChatticusSnapshots`. Any of those may change the **published template**, which is customer-visible by `8a25af`'s rule. Cheap now, expensive after the first customer. Same ordering that paid off in `chatticus-e9ddec`.\n\n## One failure is predictable without running anything\n\nThe published role is scoped to `ChatticusComputers*` and **not** `ChatticusSnapshots`. `/workspace` depends on the S3 snapshot protocol, which `fbae4e` D3 confirmed on 2026-09-07 is **permanent**, not transitional. So **file actions cannot work in a customer account as templated.** Decide deliberately whether the snapshot bucket lives in the Anthus account with cross-account grant, or in the customer account via the template — that choice moves where customer data rests, which is this epic's central sales claim.\n\n## Pricing\n\n`b4f849` is now blocked-by `070cb4`: the page offers *\"run the template yourself, no setup fee,\"* and four of the run's six person-steps needed an operator. The numbers look right; the **offer** cannot be published yet.",
+      "created_at": "2026-09-07T16:01:47.469433Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-07T15:54:21.627390Z",
+  "updated_at": "2026-09-07T16:01:47.469433Z",
   "closed_at": null,
   "custom": {}
 }

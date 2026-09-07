@@ -82,10 +82,17 @@
       "text": "Done in-process. Squash-merged #306 to develop (`05245a3`). Review approved after restoring the `CHATTICUS_HOST_STARTER` gate; python+infra CI green.\n\nLaunch account is always `organization.aws_account_id`. Missing home or unreachable customer role refuses with zero Anthus RunTask. Same-account (seeded Anthus) uses native creds. Customer home assumes the org role with ExternalId. Staging/production ComputerWorker stays NoOp unless ECS host-start is wired.\n\nLive RunTask in a customer account still waits on `b88c0a`. Existing `anthus` Dynamo rows with `aws_account_id=None` must re-run `members seed` before computer start.",
       "created_at": "2026-09-05T20:18:33.153763Z",
       "comment_type": "default"
+    },
+    {
+      "id": "92af5930-5fda-4c35-96df-87c2998e0703",
+      "author": "home",
+      "text": "## Reopening note — the live half was never run (2026-09-07)\n\nNot disputing this closure: the DoD was *\"the scenarios exist and fail for the right reason,\"* and that was met. Launch account is always `organization.aws_account_id`, and a missing home or unreachable role refuses with zero Anthus RunTask.\n\nBut the closing comment above says: **\"Live RunTask in a customer account still waits on `b88c0a`.\"**\n\n`b88c0a` then closed on *\"the timed runbook and person-steps\"* with **F-computer not attempted**. The handoff was recorded on both sides and picked up by neither, so the behavior this story calls *\"the behavior the whole epic exists for\"* has still never executed once. `b88c0a` proved a **computerless** turn.\n\nPicked up as `chatticus-2f2d87`, with the refuse-not-fallback guarantee as an explicit check — a silent fallback into the Anthus account is the failure this story rightly identifies as the one that matters most, and it has only ever been verified in memory.",
+      "created_at": "2026-09-07T16:01:14.920568Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:07.323570Z",
-  "updated_at": "2026-09-05T20:18:33.164939Z",
+  "updated_at": "2026-09-07T16:01:14.920568Z",
   "closed_at": "2026-09-05T20:18:33.164939Z",
   "custom": {}
 }
