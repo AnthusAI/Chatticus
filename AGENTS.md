@@ -270,6 +270,11 @@ propagates, AWS account id, and similar deploy-local values. Copy
 That file is **gitignored and must never be committed**. If it is missing,
 resolve URLs from SSM or CloudFormation with `aws login`, or ask the
 human — do not paste account-specific URLs into committed docs.
+**AWS account ids, member-account ids, billing emails, and other desk
+account facts belong only in `AGENTS.local.md`.** Do not put them in
+`project/wiki` (the wiki is git history). Write runbooks with placeholders
+(`ANTHUS_ACCOUNT_ID`, `CUSTOMER_ACCOUNT_ID`) and tell the reader to take
+values from `AGENTS.local.md`.
 
 ## Pull request review
 

@@ -213,6 +213,8 @@ Severity is not emotion. It is signal.
 ## Wiki Workflow
 
 The wiki lives under project/wiki/. You may edit Markdown files there directly.
+Do not put desk AWS account ids, member-account ids, or billing emails in
+the wiki; those belong only in gitignored `AGENTS.local.md`.
 
 When to use the wiki:
 - Add and edit project/wiki/*.md for reports, status pages, and documentation.

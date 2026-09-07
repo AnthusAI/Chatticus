@@ -96,10 +96,17 @@
       "text": "**Method amendment (one-person desk):** consolidated billing for *Anthus lab throwaways* is accepted. That is not the customer funnel.\n\n- Enable Organizations on existing `335163751677` (do not invent a second management account; do not move Chatticus stacks).\n- `CreateAccount` a member named as the b88c0a throwaway. One bill. Distinct account id, so AssumeRole + published template still apply.\n- **Do not claim we timed aws.amazon.com signup.** Wiki must say: consumer phone/card funnel skipped; measured time is Chatticus provision (template, role, org record, computer, bot) plus Organizations `CreateAccount` wait.\n- No SCPs that pretend this is a locked-down customer. Real customers stay *out* of this org.\n\nPitch/$100/invitation-rate: use the Chatticus-provision number; treat AWS account signup as unmeasured (or a separate stopwatch if someone later does a true consumer signup).",
       "created_at": "2026-09-07T15:28:30.766286Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f8a1ea2e-0922-4d77-b4c4-7abb3eb2dbdc",
+      "author": "home",
+      "text": "Wiki runbook for this card must **not** include desk AWS account ids, member-account ids, or billing emails. Placeholders only (`ANTHUS_ACCOUNT_ID`, `CUSTOMER_ACCOUNT_ID`); real values stay in gitignored `AGENTS.local.md`.",
+      "created_at": "2026-09-07T15:30:36.738672Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:28:30.766286Z",
+  "updated_at": "2026-09-07T15:30:36.738672Z",
   "closed_at": null,
   "custom": {}
 }
