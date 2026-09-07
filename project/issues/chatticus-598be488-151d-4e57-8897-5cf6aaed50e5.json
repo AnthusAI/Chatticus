@@ -75,10 +75,17 @@
       "text": "`82dab7` cause: committed customer Computers template requires CDK bootstrap SSM; published role has no `ssm:*`. 28 failed CreateStack, 0 RunTask. Fix is bootstrapless synth, not a customer-role edit.",
       "created_at": "2026-09-07T17:49:48.851864Z",
       "comment_type": "default"
+    },
+    {
+      "id": "9ee66b2d-b8db-47de-bbac-8ba97561bdfe",
+      "author": "home",
+      "text": "## Principle to settle once: how self-contained is the customer's account? (2026-09-07)\n\nThree cards are answering the same architectural question one resource at a time, and they have already drifted apart:\n\n| Resource | Where it lives | Status |\n|---|---|---|\n| Snapshot bucket | **Customer account**, created by the customer-run template | Decided — `chatticus-bb9084` |\n| Agent workspace files | **Customer account**, host disk published to that bucket | Decided 2026-09-07 — `chatticus-fccc4e` |\n| Computer image | **Contradictory** — role grants the full ECR push set for the customer's own repo, stack pulls `fromRegistry(anthusComputerImageUri)` from Anthus | Open — `chatticus-8fe4c7` |\n\nTwo of three landed on *the customer's account holds it*. The third is the outlier, it is internally inconsistent, and its inconsistency is the likely cause of `HOST_NOT_RUNNING`: cross-account ECR pull needs a resource policy on the Anthus repository, and `computer-stack.ts` has none.\n\n**Proposal: name the principle, then apply it.** *A customer organization's account holds everything that organization's work depends on at runtime — image, files, compute — so that a running customer is not dependent on Anthus-side resources being reachable or correctly permissioned.*\n\nUnder that principle `chatticus-8fe4c7` resolves toward pushing the image into the customer's ECR, which is what the published role was already built for and what `chatticus-82dab7` recorded. It also means Anthus cannot silently change a running customer's image, which is a security property worth stating rather than discovering.\n\nThe alternative — pull from an Anthus registry — is defensible on maintenance grounds (one copy, one push). But it should be chosen deliberately, and then the role's push permissions should be **removed**, because granting a customer-facing role permissions the design does not use is exactly what `chatticus-8a25af` says must survive the question *\"why does an agent product need this.\"*\n\nEither way, settle it as a principle on this epic rather than three times on three cards. The drift is what produced the current bug.",
+      "created_at": "2026-09-07T22:23:07.715945Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-07T17:49:48.851864Z",
+  "updated_at": "2026-09-07T22:23:07.715945Z",
   "closed_at": null,
   "custom": {}
 }

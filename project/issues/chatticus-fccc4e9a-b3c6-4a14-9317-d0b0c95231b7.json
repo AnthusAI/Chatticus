@@ -11,7 +11,12 @@
   "labels": [
     "phase-1"
   ],
-  "dependencies": [],
+  "dependencies": [
+    {
+      "target": "chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32",
+      "type": "blocked-by"
+    }
+  ],
   "comments": [
     {
       "id": "db4f674e-2ee1-4e7d-b63c-37e8470ca53d",
@@ -19,10 +24,17 @@
       "text": "Surfaced to Ryan 2026-09-07. Recommendation: wire tools to host disk (ThinTurn recycle leak; \"their files\" only if real; storage work only pays off on that branch). Counter: dict is simple; publish/hydrate in the Fargate host worker is unscoped product work (~3–5 PRs: Dynamo snapshot fields, host hydrate/publish, file tools on the host, `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac`, Gherkin). If near-term product does not need agents manipulating files, name the dict a deliberate placeholder on this card — current state (\"it just isn't connected\") is not a pick.\n\nDo not implement either branch until Ryan comments the pick here.",
       "created_at": "2026-09-07T21:32:39.637239Z",
       "comment_type": "default"
+    },
+    {
+      "id": "2e6c549d-a857-43b1-a606-c36b78918805",
+      "author": "home",
+      "text": "## DECIDED 2026-09-07: host disk\n\nRyan's call. Wire the agent file tools to the host disk. The dict branch is rejected.\n\n### Why\n\n1. **The dict is not a placeholder, it is silent data loss.** `put_computer` does not persist `computer.workspace`, so a ThinTurn recycle drops an agent's files with no error and no signal. That defect is shipping today. Under the dict branch you would have to fix it anyway — and persisting real state is most of the work of the host-disk branch, without the benefit.\n2. **The pitch requires real files.** Chatticus is sold on *their files, their account*. Today there are no agent files, and the ones that exist evaporate on recycle. Closing that gap between claim and system is the point of this branch.\n3. **It is the only branch where prior work becomes operative.** `chatticus-bb9084`'s bucket, the snapshot library, and every conclusion in `chatticus-fbae4e` are dead weight otherwise.\n\n### The counter-argument, and why it did not win\n\n3–5 PRs is real cost for a capability nobody has bought yet, and if the near-term product were purely conversational the dict would be defensible as a deliberate placeholder. It lost on point 1: the dict is not a working placeholder, it is a leak, so the \"cheap option\" is not actually cheap once you count fixing it.\n\n### Accepted scope\n\nThe five-step breakdown on this card stands as the plan:\n\n1. Persist `snapshot_uri`, checksum, generation, `hydrate_required`, `intended_host_worker_id`, `disk_dirty` in Dynamo.\n2. Call `ComputerHostDisk.hydrate` at `computer_host_worker` start; pack and publish before the host loop exits.\n3. Move agent file tools onto the computer-capable host — a workspace executor beside `ChromiumActionExecutor`. Gherkin, worker, HTTP.\n4. `chatticus-bb9084` plus role `s3:Get` / `s3:Put` on the named bucket. `CreateBucket` stays off the Anthus role.\n5. Agent-observable Gherkin: a file that survives host recycle, not dict-in-memory.\n\n**One path, no dual reader** — as scoped. Do not leave the dict readable alongside the host disk; two readers of the same logical workspace is the split-brain `chatticus-fbae4e` spent three days ruling out.\n\n### Sequencing — this is blocked, and not on the decision\n\n**`chatticus-8fe4c7` comes first.** No host currently reaches RUNNING in a customer account, and steps 2, 3 and 5 all require a host that runs. Wiring file tools to a host disk that never boots proves nothing.\n\nStep 1 (Dynamo persistence) is the exception — it is control-plane only and can proceed in parallel.\n\n### What this makes operative\n\n- `chatticus-bb9084` moves from insurance to required, and its `s3:Get`/`s3:Put` role scoping becomes step 4.\n- The snapshot library stops being dead code. `chatticus-fbae4e` D3's \"do not delete\" becomes \"wire it up\".\n- Relocate becomes testable for the first time, once a host actually publishes.\n- `docs/ARCHITECTURE.md` can drop \"design target, not currently wired\" when step 2 lands — **not before.**",
+      "created_at": "2026-09-07T22:22:53.762405Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.946029Z",
-  "updated_at": "2026-09-07T21:32:39.637239Z",
+  "updated_at": "2026-09-07T22:22:53.762405Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
