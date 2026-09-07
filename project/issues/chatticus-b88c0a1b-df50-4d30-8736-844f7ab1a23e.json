@@ -131,10 +131,17 @@
       "text": "AWS mail arrived (addresses stay in `AGENTS.local.md`):\n\n- Organizations asked to verify the **management-account** email (24h link). Human verified. AWS says invites of *existing* accounts are now allowed. This run used `CreateAccount`, which had already **SUCCEEDED** before that click (~16s aws-wait). Record as a person-step anyway — easy to miss, and the mail does not go to the throwaway alias.\n- Member welcome mail (“account is ready”) landed on the alias ~20s after create. No extra click required for our assume-role path.\n\nStill blocked on Google sign-in at `dev.chattic.us` + `POST /organizations` for `tenant_id` before published-template `create-stack`.",
       "created_at": "2026-09-07T15:37:40.951549Z",
       "comment_type": "default"
+    },
+    {
+      "id": "61084b9f-9696-4e8a-baa0-4ebc1692481b",
+      "author": "home",
+      "text": "ACME Corp **was created** (`pending`). Confirmed only via `members list` — the welcome screen does not show name or `tenant_id`. That is now `chatticus-9c8dbf` (P0). `tenant_id` is in `AGENTS.local.md` only. Continuing to published-template `create-stack` in the member account.",
+      "created_at": "2026-09-07T15:40:46.196945Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:37:40.951549Z",
+  "updated_at": "2026-09-07T15:40:46.196945Z",
   "closed_at": null,
   "custom": {}
 }
