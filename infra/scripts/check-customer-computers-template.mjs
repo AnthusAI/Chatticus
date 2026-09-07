@@ -17,7 +17,15 @@ const artifactPath = join(
 
 execFileSync(
   "npx",
-  ["cdk", "--app", "npx ts-node bin/customer-computers.ts", "synth", "ChatticusComputers", "-q"],
+  [
+    "cdk",
+    "--app",
+    "npx ts-node bin/customer-computers.ts",
+    "synth",
+    "ChatticusComputers",
+    "-q",
+    "--no-version-reporting",
+  ],
   { cwd: infraDir, stdio: "inherit" },
 );
 

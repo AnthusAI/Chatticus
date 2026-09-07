@@ -1,832 +1,556 @@
 {
- "Description": "Customer-account ECS cluster and Fargate task definition for computer hosts.",
- "Parameters": {
-  "TenantId": {
-   "Type": "String",
-   "Description": "Chatticus organization tenant id."
+  "Description": "Customer-account ECS cluster and Fargate task definition for computer hosts.",
+  "Parameters": {
+    "TenantId": {
+      "Type": "String",
+      "Description": "Chatticus organization tenant id."
+    },
+    "AnthusComputerImageUri": {
+      "Type": "String",
+      "Description": "Anthus ChatticusComputers ECR image URI for tag :dev."
+    },
+    "BootstrapVersion": {
+      "Type": "AWS::SSM::Parameter::Value<String>",
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+    }
   },
-  "AnthusComputerImageUri": {
-   "Type": "String",
-   "Description": "Anthus ChatticusComputers ECR image URI for tag :dev."
-  },
-  "BootstrapVersion": {
-   "Type": "AWS::SSM::Parameter::Value<String>",
-   "Default": "/cdk-bootstrap/hnb659fds/version",
-   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
-  }
- },
- "Resources": {
-  "Vpc8378EB38": {
-   "Type": "AWS::EC2::VPC",
-   "Properties": {
-    "CidrBlock": "10.0.0.0/16",
-    "EnableDnsHostnames": true,
-    "EnableDnsSupport": true,
-    "InstanceTenancy": "default",
-    "Tags": [
-     {
-      "Key": "Name",
-      "Value": "ChatticusComputers/Vpc"
-     }
-    ]
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Vpc/Resource"
-   }
-  },
-  "VpcpublicSubnet1Subnet2BB74ED7": {
-   "Type": "AWS::EC2::Subnet",
-   "Properties": {
-    "AvailabilityZone": {
-     "Fn::Select": [
-      0,
-      {
-       "Fn::GetAZs": ""
+  "Resources": {
+    "Vpc8378EB38": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/16",
+        "EnableDnsHostnames": true,
+        "EnableDnsSupport": true,
+        "InstanceTenancy": "default",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Vpc/Resource"
       }
-     ]
     },
-    "CidrBlock": "10.0.0.0/17",
-    "MapPublicIpOnLaunch": true,
-    "Tags": [
-     {
-      "Key": "aws-cdk:subnet-name",
-      "Value": "public"
-     },
-     {
-      "Key": "aws-cdk:subnet-type",
-      "Value": "Public"
-     },
-     {
-      "Key": "Name",
-      "Value": "ChatticusComputers/Vpc/publicSubnet1"
-     }
-    ],
-    "VpcId": {
-     "Ref": "Vpc8378EB38"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet1/Subnet"
-   }
-  },
-  "VpcpublicSubnet1RouteTable15C15F8E": {
-   "Type": "AWS::EC2::RouteTable",
-   "Properties": {
-    "Tags": [
-     {
-      "Key": "Name",
-      "Value": "ChatticusComputers/Vpc/publicSubnet1"
-     }
-    ],
-    "VpcId": {
-     "Ref": "Vpc8378EB38"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet1/RouteTable"
-   }
-  },
-  "VpcpublicSubnet1RouteTableAssociation4E83B6E4": {
-   "Type": "AWS::EC2::SubnetRouteTableAssociation",
-   "Properties": {
-    "RouteTableId": {
-     "Ref": "VpcpublicSubnet1RouteTable15C15F8E"
-    },
-    "SubnetId": {
-     "Ref": "VpcpublicSubnet1Subnet2BB74ED7"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet1/RouteTableAssociation"
-   }
-  },
-  "VpcpublicSubnet1DefaultRouteB88F9E93": {
-   "Type": "AWS::EC2::Route",
-   "Properties": {
-    "DestinationCidrBlock": "0.0.0.0/0",
-    "GatewayId": {
-     "Ref": "VpcIGWD7BA715C"
-    },
-    "RouteTableId": {
-     "Ref": "VpcpublicSubnet1RouteTable15C15F8E"
-    }
-   },
-   "DependsOn": [
-    "VpcVPCGWBF912B6E"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet1/DefaultRoute"
-   }
-  },
-  "VpcpublicSubnet2SubnetE34B022A": {
-   "Type": "AWS::EC2::Subnet",
-   "Properties": {
-    "AvailabilityZone": {
-     "Fn::Select": [
-      1,
-      {
-       "Fn::GetAZs": ""
-      }
-     ]
-    },
-    "CidrBlock": "10.0.128.0/17",
-    "MapPublicIpOnLaunch": true,
-    "Tags": [
-     {
-      "Key": "aws-cdk:subnet-name",
-      "Value": "public"
-     },
-     {
-      "Key": "aws-cdk:subnet-type",
-      "Value": "Public"
-     },
-     {
-      "Key": "Name",
-      "Value": "ChatticusComputers/Vpc/publicSubnet2"
-     }
-    ],
-    "VpcId": {
-     "Ref": "Vpc8378EB38"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet2/Subnet"
-   }
-  },
-  "VpcpublicSubnet2RouteTableC5A6DF77": {
-   "Type": "AWS::EC2::RouteTable",
-   "Properties": {
-    "Tags": [
-     {
-      "Key": "Name",
-      "Value": "ChatticusComputers/Vpc/publicSubnet2"
-     }
-    ],
-    "VpcId": {
-     "Ref": "Vpc8378EB38"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet2/RouteTable"
-   }
-  },
-  "VpcpublicSubnet2RouteTableAssociationCCE257FF": {
-   "Type": "AWS::EC2::SubnetRouteTableAssociation",
-   "Properties": {
-    "RouteTableId": {
-     "Ref": "VpcpublicSubnet2RouteTableC5A6DF77"
-    },
-    "SubnetId": {
-     "Ref": "VpcpublicSubnet2SubnetE34B022A"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet2/RouteTableAssociation"
-   }
-  },
-  "VpcpublicSubnet2DefaultRoute732F0BEB": {
-   "Type": "AWS::EC2::Route",
-   "Properties": {
-    "DestinationCidrBlock": "0.0.0.0/0",
-    "GatewayId": {
-     "Ref": "VpcIGWD7BA715C"
-    },
-    "RouteTableId": {
-     "Ref": "VpcpublicSubnet2RouteTableC5A6DF77"
-    }
-   },
-   "DependsOn": [
-    "VpcVPCGWBF912B6E"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet2/DefaultRoute"
-   }
-  },
-  "VpcIGWD7BA715C": {
-   "Type": "AWS::EC2::InternetGateway",
-   "Properties": {
-    "Tags": [
-     {
-      "Key": "Name",
-      "Value": "ChatticusComputers/Vpc"
-     }
-    ]
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Vpc/IGW"
-   }
-  },
-  "VpcVPCGWBF912B6E": {
-   "Type": "AWS::EC2::VPCGatewayAttachment",
-   "Properties": {
-    "InternetGatewayId": {
-     "Ref": "VpcIGWD7BA715C"
-    },
-    "VpcId": {
-     "Ref": "Vpc8378EB38"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Vpc/VPCGW"
-   }
-  },
-  "ClusterEB0386A7": {
-   "Type": "AWS::ECS::Cluster",
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/Cluster/Resource"
-   }
-  },
-  "ComputerTaskRoleE3CB9B51": {
-   "Type": "AWS::IAM::Role",
-   "Properties": {
-    "AssumeRolePolicyDocument": {
-     "Statement": [
-      {
-       "Action": "sts:AssumeRole",
-       "Effect": "Allow",
-       "Principal": {
-        "Service": "ecs-tasks.amazonaws.com"
-       }
-      }
-     ],
-     "Version": "2012-10-17"
-    },
-    "Description": "Customer computer host task role (ephemeral live root only)."
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/ComputerTaskRole/Resource"
-   }
-  },
-  "ComputerTaskRoleDefaultPolicyBBBAEA23": {
-   "Type": "AWS::IAM::Policy",
-   "Properties": {
-    "PolicyDocument": {
-     "Statement": [
-      {
-       "Action": [
-        "logs:CreateLogStream",
-        "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams",
-        "logs:PutLogEvents",
-        "ssmmessages:CreateControlChannel",
-        "ssmmessages:CreateDataChannel",
-        "ssmmessages:OpenControlChannel",
-        "ssmmessages:OpenDataChannel"
-       ],
-       "Effect": "Allow",
-       "Resource": "*"
-      }
-     ],
-     "Version": "2012-10-17"
-    },
-    "PolicyName": "ComputerTaskRoleDefaultPolicyBBBAEA23",
-    "Roles": [
-     {
-      "Ref": "ComputerTaskRoleE3CB9B51"
-     }
-    ]
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/ComputerTaskRole/DefaultPolicy/Resource"
-   }
-  },
-  "ComputerLogs3CD929E4": {
-   "Type": "AWS::Logs::LogGroup",
-   "Properties": {
-    "RetentionInDays": 30
-   },
-   "UpdateReplacePolicy": "Delete",
-   "DeletionPolicy": "Delete",
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/ComputerLogs/Resource"
-   }
-  },
-  "ComputerTask0405CB52": {
-   "Type": "AWS::ECS::TaskDefinition",
-   "Properties": {
-    "ContainerDefinitions": [
-     {
-      "Environment": [
-       {
-        "Name": "CHATTICUS_LIVE_ROOT",
-        "Value": "/var/lib/chatticus/computer"
-       },
-       {
-        "Name": "CHATTICUS_TENANT_ID",
-        "Value": {
-         "Ref": "TenantId"
+    "VpcpublicSubnet1Subnet2BB74ED7": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "AvailabilityZone": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": "10.0.0.0/17",
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "aws-cdk:subnet-name",
+            "Value": "public"
+          },
+          {
+            "Key": "aws-cdk:subnet-type",
+            "Value": "Public"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc/publicSubnet1"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
         }
-       }
-      ],
-      "Essential": true,
-      "Image": {
-       "Ref": "AnthusComputerImageUri"
       },
-      "LogConfiguration": {
-       "LogDriver": "awslogs",
-       "Options": {
-        "awslogs-group": {
-         "Ref": "ComputerLogs3CD929E4"
-        },
-        "awslogs-stream-prefix": "computer",
-        "awslogs-region": {
-         "Ref": "AWS::Region"
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet1/Subnet"
+      }
+    },
+    "VpcpublicSubnet1RouteTable15C15F8E": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc/publicSubnet1"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
         }
-       }
       },
-      "Name": "computer"
-     }
-    ],
-    "Cpu": "256",
-    "ExecutionRoleArn": {
-     "Fn::GetAtt": [
-      "ComputerTaskExecutionRoleCACA1219",
-      "Arn"
-     ]
-    },
-    "Family": "ChatticusComputersComputerTask96CD9924",
-    "Memory": "512",
-    "NetworkMode": "awsvpc",
-    "RequiresCompatibilities": [
-     "FARGATE"
-    ],
-    "RuntimePlatform": {
-     "CpuArchitecture": "ARM64",
-     "OperatingSystemFamily": "LINUX"
-    },
-    "TaskRoleArn": {
-     "Fn::GetAtt": [
-      "ComputerTaskRoleE3CB9B51",
-      "Arn"
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/ComputerTask/Resource"
-   }
-  },
-  "ComputerTaskExecutionRoleCACA1219": {
-   "Type": "AWS::IAM::Role",
-   "Properties": {
-    "AssumeRolePolicyDocument": {
-     "Statement": [
-      {
-       "Action": "sts:AssumeRole",
-       "Effect": "Allow",
-       "Principal": {
-        "Service": "ecs-tasks.amazonaws.com"
-       }
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet1/RouteTable"
       }
-     ],
-     "Version": "2012-10-17"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/ComputerTask/ExecutionRole/Resource"
-   }
-  },
-  "ComputerTaskExecutionRoleDefaultPolicy3A35585C": {
-   "Type": "AWS::IAM::Policy",
-   "Properties": {
-    "PolicyDocument": {
-     "Statement": [
-      {
-       "Action": [
-        "logs:CreateLogStream",
-        "logs:PutLogEvents"
-       ],
-       "Effect": "Allow",
-       "Resource": {
-        "Fn::GetAtt": [
-         "ComputerLogs3CD929E4",
-         "Arn"
-        ]
-       }
+    },
+    "VpcpublicSubnet1RouteTableAssociation4E83B6E4": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "VpcpublicSubnet1RouteTable15C15F8E"
+        },
+        "SubnetId": {
+          "Ref": "VpcpublicSubnet1Subnet2BB74ED7"
+        }
       },
-      {
-       "Action": [
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:BatchGetImage",
-        "ecr:GetAuthorizationToken",
-        "ecr:GetDownloadUrlForLayer"
-       ],
-       "Effect": "Allow",
-       "Resource": "*"
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet1/RouteTableAssociation"
       }
-     ],
-     "Version": "2012-10-17"
     },
-    "PolicyName": "ComputerTaskExecutionRoleDefaultPolicy3A35585C",
-    "Roles": [
-     {
-      "Ref": "ComputerTaskExecutionRoleCACA1219"
-     }
-    ]
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/ComputerTask/ExecutionRole/DefaultPolicy/Resource"
-   }
-  },
-  "ComputerSecurityGroupA7D795AD": {
-   "Type": "AWS::EC2::SecurityGroup",
-   "Properties": {
-    "GroupDescription": "Computer hosts: egress only. No inbound ports.",
-    "SecurityGroupEgress": [
-     {
-      "CidrIp": "0.0.0.0/0",
-      "Description": "Allow all outbound traffic by default",
-      "IpProtocol": "-1"
-     }
-    ],
-    "VpcId": {
-     "Ref": "Vpc8378EB38"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/ComputerSecurityGroup/Resource"
-   }
-  },
-  "FargateHostService21E870F8": {
-   "Type": "AWS::ECS::Service",
-   "Properties": {
-    "Cluster": {
-     "Ref": "ClusterEB0386A7"
-    },
-    "DeploymentConfiguration": {
-     "Alarms": {
-      "AlarmNames": [],
-      "Enable": false,
-      "Rollback": false
-     },
-     "DeploymentCircuitBreaker": {
-      "Enable": true,
-      "Rollback": true
-     },
-     "MaximumPercent": 100,
-     "MinimumHealthyPercent": 0
-    },
-    "DeploymentController": {
-     "Type": "ECS"
-    },
-    "DesiredCount": 0,
-    "EnableECSManagedTags": false,
-    "EnableExecuteCommand": true,
-    "LaunchType": "FARGATE",
-    "NetworkConfiguration": {
-     "AwsvpcConfiguration": {
-      "AssignPublicIp": "ENABLED",
-      "SecurityGroups": [
-       {
-        "Fn::GetAtt": [
-         "ComputerSecurityGroupA7D795AD",
-         "GroupId"
-        ]
-       }
+    "VpcpublicSubnet1DefaultRouteB88F9E93": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "VpcIGWD7BA715C"
+        },
+        "RouteTableId": {
+          "Ref": "VpcpublicSubnet1RouteTable15C15F8E"
+        }
+      },
+      "DependsOn": [
+        "VpcVPCGWBF912B6E"
       ],
-      "Subnets": [
-       {
-        "Ref": "VpcpublicSubnet1Subnet2BB74ED7"
-       },
-       {
-        "Ref": "VpcpublicSubnet2SubnetE34B022A"
-       }
-      ]
-     }
-    },
-    "TaskDefinition": {
-     "Ref": "ComputerTask0405CB52"
-    }
-   },
-   "DependsOn": [
-    "ComputerTaskRoleDefaultPolicyBBBAEA23",
-    "ComputerTaskRoleE3CB9B51"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/FargateHost/Service"
-   }
-  },
-  "CDKMetadata": {
-   "Type": "AWS::CDK::Metadata",
-   "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/12RwW6DMAyGn2X3kE0cul0rplWTJg3B1OsUUpe6QIISp1WF8u4LBEq1k//8duzPScrTzRt/eRJXm8hDk7RY8aEkIRuWHVUujOiAwLCQ/x1ApnzY93JM7fOM5a5qUZauUkCjt6pCO4IfUbWw+qu3tVZLFIRa3YtH8anCqFC5EwRXcZvHzKctBapTB4pYCdIZpNvOaNdPAx4Nz0BaPmStsyN5SC/yQ5hajAy2eYcjKlwI/jtakUAF5sGb75ZgLijjVlF6hqLjQ6HjrlPMdXiXiT8qz1pdB6YvXd+ZF+09K8BqZ2LXb0e9I8+UPgA/2+dLuuGv4YPOFjExThF2wIsY/wBQuSVnvQEAAA=="
-   },
-   "Metadata": {
-    "aws:cdk:path": "ChatticusComputers/CDKMetadata/Default"
-   },
-   "Condition": "CDKMetadataAvailable"
-  }
- },
- "Outputs": {
-  "ComputerClusterName": {
-   "Value": {
-    "Ref": "ClusterEB0386A7"
-   }
-  },
-  "ComputerTaskDefinitionArn": {
-   "Value": {
-    "Ref": "ComputerTask0405CB52"
-   }
-  },
-  "ComputerServiceName": {
-   "Value": {
-    "Fn::GetAtt": [
-     "FargateHostService21E870F8",
-     "Name"
-    ]
-   }
-  }
- },
- "Conditions": {
-  "CDKMetadataAvailable": {
-   "Fn::Or": [
-    {
-     "Fn::Or": [
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "af-south-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-east-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-northeast-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-northeast-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-northeast-3"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-south-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-south-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-southeast-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-southeast-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-southeast-3"
-       ]
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet1/DefaultRoute"
       }
-     ]
     },
-    {
-     "Fn::Or": [
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
+    "VpcpublicSubnet2SubnetE34B022A": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "AvailabilityZone": {
+          "Fn::Select": [
+            1,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
         },
-        "ap-southeast-4"
-       ]
+        "CidrBlock": "10.0.128.0/17",
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "aws-cdk:subnet-name",
+            "Value": "public"
+          },
+          {
+            "Key": "aws-cdk:subnet-type",
+            "Value": "Public"
+          },
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc/publicSubnet2"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
       },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ca-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ca-west-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "cn-north-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "cn-northwest-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-central-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-north-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-south-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-south-2"
-       ]
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet2/Subnet"
       }
-     ]
     },
-    {
-     "Fn::Or": [
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-west-1"
-       ]
+    "VpcpublicSubnet2RouteTableC5A6DF77": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc/publicSubnet2"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
       },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-west-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-west-3"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "il-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "me-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "me-south-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "sa-east-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "us-east-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "us-east-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "us-west-1"
-       ]
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet2/RouteTable"
       }
-     ]
     },
-    {
-     "Fn::Equals": [
-      {
-       "Ref": "AWS::Region"
+    "VpcpublicSubnet2RouteTableAssociationCCE257FF": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "VpcpublicSubnet2RouteTableC5A6DF77"
+        },
+        "SubnetId": {
+          "Ref": "VpcpublicSubnet2SubnetE34B022A"
+        }
       },
-      "us-west-2"
-     ]
-    }
-   ]
-  }
- },
- "Rules": {
-  "CheckBootstrapVersion": {
-   "Assertions": [
-    {
-     "Assert": {
-      "Fn::Not": [
-       {
-        "Fn::Contains": [
-         [
-          "1",
-          "2",
-          "3",
-          "4",
-          "5"
-         ],
-         {
-          "Ref": "BootstrapVersion"
-         }
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet2/RouteTableAssociation"
+      }
+    },
+    "VpcpublicSubnet2DefaultRoute732F0BEB": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "VpcIGWD7BA715C"
+        },
+        "RouteTableId": {
+          "Ref": "VpcpublicSubnet2RouteTableC5A6DF77"
+        }
+      },
+      "DependsOn": [
+        "VpcVPCGWBF912B6E"
+      ],
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Vpc/publicSubnet2/DefaultRoute"
+      }
+    },
+    "VpcIGWD7BA715C": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "ChatticusComputers/Vpc"
+          }
         ]
-       }
-      ]
-     },
-     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+      },
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Vpc/IGW"
+      }
+    },
+    "VpcVPCGWBF912B6E": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "InternetGatewayId": {
+          "Ref": "VpcIGWD7BA715C"
+        },
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      },
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Vpc/VPCGW"
+      }
+    },
+    "ClusterEB0386A7": {
+      "Type": "AWS::ECS::Cluster",
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/Cluster/Resource"
+      }
+    },
+    "ComputerTaskRoleE3CB9B51": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Description": "Customer computer host task role (ephemeral live root only)."
+      },
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/ComputerTaskRole/Resource"
+      }
+    },
+    "ComputerTaskRoleDefaultPolicyBBBAEA23": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "logs:CreateLogStream",
+                "logs:DescribeLogGroups",
+                "logs:DescribeLogStreams",
+                "logs:PutLogEvents",
+                "ssmmessages:CreateControlChannel",
+                "ssmmessages:CreateDataChannel",
+                "ssmmessages:OpenControlChannel",
+                "ssmmessages:OpenDataChannel"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "ComputerTaskRoleDefaultPolicyBBBAEA23",
+        "Roles": [
+          {
+            "Ref": "ComputerTaskRoleE3CB9B51"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/ComputerTaskRole/DefaultPolicy/Resource"
+      }
+    },
+    "ComputerLogs3CD929E4": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "RetentionInDays": 30
+      },
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete",
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/ComputerLogs/Resource"
+      }
+    },
+    "ComputerTask0405CB52": {
+      "Type": "AWS::ECS::TaskDefinition",
+      "Properties": {
+        "ContainerDefinitions": [
+          {
+            "Environment": [
+              {
+                "Name": "CHATTICUS_LIVE_ROOT",
+                "Value": "/var/lib/chatticus/computer"
+              },
+              {
+                "Name": "CHATTICUS_TENANT_ID",
+                "Value": {
+                  "Ref": "TenantId"
+                }
+              }
+            ],
+            "Essential": true,
+            "Image": {
+              "Ref": "AnthusComputerImageUri"
+            },
+            "LogConfiguration": {
+              "LogDriver": "awslogs",
+              "Options": {
+                "awslogs-group": {
+                  "Ref": "ComputerLogs3CD929E4"
+                },
+                "awslogs-stream-prefix": "computer",
+                "awslogs-region": {
+                  "Ref": "AWS::Region"
+                }
+              }
+            },
+            "Name": "computer"
+          }
+        ],
+        "Cpu": "256",
+        "ExecutionRoleArn": {
+          "Fn::GetAtt": [
+            "ComputerTaskExecutionRoleCACA1219",
+            "Arn"
+          ]
+        },
+        "Family": "ChatticusComputersComputerTask96CD9924",
+        "Memory": "512",
+        "NetworkMode": "awsvpc",
+        "RequiresCompatibilities": [
+          "FARGATE"
+        ],
+        "RuntimePlatform": {
+          "CpuArchitecture": "ARM64",
+          "OperatingSystemFamily": "LINUX"
+        },
+        "TaskRoleArn": {
+          "Fn::GetAtt": [
+            "ComputerTaskRoleE3CB9B51",
+            "Arn"
+          ]
+        }
+      },
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/ComputerTask/Resource"
+      }
+    },
+    "ComputerTaskExecutionRoleCACA1219": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      },
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/ComputerTask/ExecutionRole/Resource"
+      }
+    },
+    "ComputerTaskExecutionRoleDefaultPolicy3A35585C": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "ComputerLogs3CD929E4",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": [
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:BatchGetImage",
+                "ecr:GetAuthorizationToken",
+                "ecr:GetDownloadUrlForLayer"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "ComputerTaskExecutionRoleDefaultPolicy3A35585C",
+        "Roles": [
+          {
+            "Ref": "ComputerTaskExecutionRoleCACA1219"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/ComputerTask/ExecutionRole/DefaultPolicy/Resource"
+      }
+    },
+    "ComputerSecurityGroupA7D795AD": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Computer hosts: egress only. No inbound ports.",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow all outbound traffic by default",
+            "IpProtocol": "-1"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      },
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/ComputerSecurityGroup/Resource"
+      }
+    },
+    "FargateHostService21E870F8": {
+      "Type": "AWS::ECS::Service",
+      "Properties": {
+        "Cluster": {
+          "Ref": "ClusterEB0386A7"
+        },
+        "DeploymentConfiguration": {
+          "Alarms": {
+            "AlarmNames": [],
+            "Enable": false,
+            "Rollback": false
+          },
+          "DeploymentCircuitBreaker": {
+            "Enable": true,
+            "Rollback": true
+          },
+          "MaximumPercent": 100,
+          "MinimumHealthyPercent": 0
+        },
+        "DeploymentController": {
+          "Type": "ECS"
+        },
+        "DesiredCount": 0,
+        "EnableECSManagedTags": false,
+        "EnableExecuteCommand": true,
+        "LaunchType": "FARGATE",
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": [
+              {
+                "Fn::GetAtt": [
+                  "ComputerSecurityGroupA7D795AD",
+                  "GroupId"
+                ]
+              }
+            ],
+            "Subnets": [
+              {
+                "Ref": "VpcpublicSubnet1Subnet2BB74ED7"
+              },
+              {
+                "Ref": "VpcpublicSubnet2SubnetE34B022A"
+              }
+            ]
+          }
+        },
+        "TaskDefinition": {
+          "Ref": "ComputerTask0405CB52"
+        }
+      },
+      "DependsOn": [
+        "ComputerTaskRoleDefaultPolicyBBBAEA23",
+        "ComputerTaskRoleE3CB9B51"
+      ],
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/FargateHost/Service"
+      }
     }
-   ]
+  },
+  "Outputs": {
+    "ComputerClusterName": {
+      "Value": {
+        "Ref": "ClusterEB0386A7"
+      }
+    },
+    "ComputerTaskDefinitionArn": {
+      "Value": {
+        "Ref": "ComputerTask0405CB52"
+      }
+    },
+    "ComputerServiceName": {
+      "Value": {
+        "Fn::GetAtt": [
+          "FargateHostService21E870F8",
+          "Name"
+        ]
+      }
+    }
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                  ],
+                  {
+                    "Ref": "BootstrapVersion"
+                  }
+                ]
+              }
+            ]
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+        }
+      ]
+    }
   }
- }
 }
