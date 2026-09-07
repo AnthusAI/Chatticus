@@ -75,10 +75,17 @@
       "text": "PR #312 HEAD `1ec4681`: template check uses `cdk synth --no-version-reporting` (Linux vs macOS Analytics drift). Re-review + CI in flight. Not merging yet.",
       "created_at": "2026-09-07T17:11:31.866978Z",
       "comment_type": "default"
+    },
+    {
+      "id": "9fef46f6-75a4-4ce4-8c06-ac61e60afa24",
+      "author": "home",
+      "text": "PR #312 squash-merged to develop (`9826f2b`). Review APPROVE (`1ec4681`); CI green. Local feature branch left in the implementer worktree until live proof and close.\n\n**Live proof next** on development after ThinTurn deploy: kernel `post_channel_message` + `enqueue_computer_continuation`. Preflight Anthus `:dev`. Do not fold elapsed time into ~19 min. Card stays in_progress until customer `RunTask` or a labeled stop.",
+      "created_at": "2026-09-07T17:20:06.931502Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T17:11:31.866978Z",
+  "updated_at": "2026-09-07T17:20:06.931502Z",
   "closed_at": null,
   "custom": {}
 }
