@@ -1,13 +1,14 @@
 # Results
 
 Spike tag: **chatticus-3d5357**  
-Throwaway EFS `fs-028e92bee71335473` in `vpc-0c5a0f0ca21e2afdd` / `subnet-06c4e78bf06400f26` (destroyed after run).
+Throwaway EFS in `vpc-0c5a0f0ca21e2afdd` / `subnet-06c4e78bf06400f26` (destroyed after run). See `lab-info.json` for instance and seed metadata.
 
 ## Headline
 
-**EFS in-VPC mutating `ratio_overall` is 23–54× vs local EBS on the same instance — D1 fails for `/workspace` (>10×).**  
-Read-only warm `git status` stays ~10–12× EBS even with actimeo; RPC drops ~35% from first post-remount run but does not approach zero.  
-`actimeo=1` shows cache thrashing on repeat status (RPC alternates 131/765). A0 WAN numbers are not used as in-VPC prediction.
+**EFS in-VPC mutating `ratio_overall` is 23–54× vs local EBS — D1 fails for `/workspace` (>10×).**  
+Read-only warm `git status` is ~10× EBS for actimeo ≥15/default/60/300 (RPC ~131 after first post-remount). **`actimeo=1` thrashes:** warm median ~0.27s and ~480 RPC (131/765 alternation). A0 WAN numbers are not used as in-VPC prediction.
+
+Summaries in `raw/efs-readonly-actimeo-*.json` can be recomputed from `iterations_detail` via `./scripts/regen-readonly-summaries.sh` (no lab re-run).
 
 ## Tables
 

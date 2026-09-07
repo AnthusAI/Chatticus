@@ -32,8 +32,8 @@ for ACTIMEO in default 1 15 60 300; do
     # Warmup (discarded for wall-time medians; iteration 1 is first measured post-remount)
     timed_git_status "$REPO" >/dev/null || true
 
-    declare -a wall_times rpc_totals
-    first_rpc_total=""
+    wall_times=()
+    rpc_totals=()
     iteration_json="["
 
     for i in $(seq 1 "$ITERATIONS"); do
@@ -56,9 +56,6 @@ PY
 )"
         wall_times+=("$wall")
         rpc_totals+=("$rpc_total")
-        if [ "$i" -eq 1 ]; then
-            first_rpc_total="$rpc_total"
-        fi
         if [ "$i" -gt 1 ]; then
             iteration_json+=","
         fi
