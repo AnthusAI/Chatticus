@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32",
+  "title": "Customer Fargate host stays PROVISIONING after RunTask",
+  "description": "**Labeled stop from `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` browser_open (2026-09-07).** Do not retry the matrix row until this is understood.\n\n`chatticus-82dab7c4-a44c-4e0e-ac19-51a0c7a12d09` proved customer-account `RunTask ≥ 1`. It did **not** prove a host that reaches RUNNING and executes `browser_open`.\n\n## What happened\n\nKernel deviation: `post_channel_message` + `prepare_computer_tool(browser_open, about:blank)` + `enqueue_computer_continuation` (not UI; not `resume` while stopped; not computerless `browse`).\n\n- Journal: `tool.call` `browser_open`. **No** `tool.result` within ~192 s.\n- Computer: `stopped=false`, capability gates still false, `host_start_generation` dispatched (192).\n- Customer `ChatticusComputers`: stack exists; one Fargate task stuck **PROVISIONING** (container PENDING). No RUNNING host.\n- Anthus: no host for this org (`RunTask` 0). desiredCount stays 0.\n- Fake executor body `opened` was **not** seen. Chromium never ran.\n\nElapsed ~192 s for this row only. **Do not fold into the ~19 min provision figure.**\n\nDesk ids and the turn_id live in `AGENTS.local.md` / the spike RESULTS, not here.\n\n## Feature: Customer computer host becomes usable\n\n```\nFeature: A dispatched customer computer host reaches RUNNING\n\n  Scenario: browser_open waits for a ready host\n    Given host start has been dispatched into the customer account\n    When the computer continuation job is on the queue\n    Then the customer Fargate task reaches RUNNING\n    And the host records browser readiness\n    And the turn journal contains tool.result opened:about:blank\n```\n\n## Done when\n\nThe cause of PROVISIONING-without-RUNNING is named (image pull, ENI, task role, Chromium/Xvfb boot, poll window too short, or other), recorded with placeholders, and either fixed or accepted with a new labeled stop. Do not call `browser_open` proven from RunTask alone.",
+  "type": "bug",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "455aea78-9080-4fc2-9129-b447947b8369",
+      "author": "home",
+      "text": "Opened from the `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` `browser_open` live row. `HOST_NOT_RUNNING`: customer task PROVISIONING ~192 s, no Chromium `tool.result`. Do not treat `chatticus-82dab7c4-a44c-4e0e-ac19-51a0c7a12d09` as host-ready.",
+      "created_at": "2026-09-07T21:38:58.576980Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-07T21:38:33.234168Z",
+  "updated_at": "2026-09-07T21:38:58.576980Z",
+  "closed_at": null,
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
+}
