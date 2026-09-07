@@ -156,6 +156,9 @@ def _run_task_overrides(claim: HostStartClaim) -> dict[str, object]:
     command = os.environ.get("CHATTICUS_ECS_HOST_COMMAND", "").strip()
     if not command:
         return {}
+    if not claim.user_id:
+        msg = "host start claim requires a non-empty user_id"
+        raise ValueError(msg)
     container = os.environ.get("CHATTICUS_ECS_CONTAINER_NAME", "computer").strip()
     environment = [
         {"name": "CHATTICUS_TENANT_ID", "value": claim.tenant_id},

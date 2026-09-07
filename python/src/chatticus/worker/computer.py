@@ -63,9 +63,12 @@ class ComputerWorker:
         self,
         tenant_id: str,
         turn_id: str,
+        user_id: str,
     ) -> None:
         """Invoke the host-start driver once per durable generation."""
-        claim = self.plane.request_computer_host_start(tenant_id, turn_id)
+        claim = self.plane.request_computer_host_start(
+            tenant_id, turn_id, user_id=user_id
+        )
         computer = self.plane.computer_for_organization(tenant_id)
         if computer.host_start_dispatched_generation >= computer.host_start_generation:
             return
@@ -140,7 +143,11 @@ class ComputerWorker:
             if not unresolved and pending is None:
                 return
             tool_name = pending.tool_name if pending is not None else "computer"
-            self._dispatch_host_start_if_needed(job.tenant_id, job.turn_id)
+            if not job.user_id:
+                raise ComputerWorkerHostNotReady(
+                    f"Turn {job.turn_id!r} computer continuation job has no user_id."
+                )
+            self._dispatch_host_start_if_needed(job.tenant_id, job.turn_id, job.user_id)
             raise ComputerWorkerHostNotReady(
                 f"Turn {job.turn_id!r} has no ready computer host for {tool_name!r}."
             )
@@ -149,7 +156,11 @@ class ComputerWorker:
             return
         tool_name = record.pending_call.tool_name
         if unresolved and not self._host_ready_for_tool(job, tool_name):
-            self._dispatch_host_start_if_needed(job.tenant_id, job.turn_id)
+            if not job.user_id:
+                raise ComputerWorkerHostNotReady(
+                    f"Turn {job.turn_id!r} computer continuation job has no user_id."
+                )
+            self._dispatch_host_start_if_needed(job.tenant_id, job.turn_id, job.user_id)
             raise ComputerWorkerHostNotReady(
                 f"Turn {job.turn_id!r} has no ready computer host for {tool_name!r}."
             )

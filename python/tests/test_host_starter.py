@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import pytest
+
 from chatticus.computer_start import HostStartClaim
 from chatticus.host_starter import (
     NoOpHostStarter,
     RecordingHostStarter,
     host_starter_from_env,
 )
-from chatticus.organization_computer_host import OrganizationComputerHostStarter
+from chatticus.organization_computer_host import (
+    OrganizationComputerHostStarter,
+    _run_task_overrides,
+)
 
 
 def test_noop_host_starter_accepts_claims() -> None:
@@ -79,3 +84,21 @@ def test_host_starter_from_env_selects_organization_starter(
         host_starter_from_env(lambda _tenant_id: seeded),
         OrganizationComputerHostStarter,
     )
+
+
+def test_run_task_overrides_rejects_missing_user_id(monkeypatch: object) -> None:
+    monkeypatch.setenv(  # type: ignore[attr-defined]
+        "CHATTICUS_ECS_HOST_COMMAND",
+        "python -m chatticus.computer_host_worker",
+    )
+    claim = HostStartClaim(
+        tenant_id="anthus",
+        computer_id="household-computer",
+        host_start_count=1,
+        user_id="",
+    )
+    with pytest.raises(ValueError, match="non-empty user_id"):
+        _run_task_overrides(claim)
+    claim.user_id = None  # type: ignore[assignment]
+    with pytest.raises(ValueError, match="non-empty user_id"):
+        _run_task_overrides(claim)
