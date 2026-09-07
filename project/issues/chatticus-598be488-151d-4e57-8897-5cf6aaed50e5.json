@@ -33,10 +33,17 @@
       "text": "## Next action: `chatticus-b88c0a` (2026-09-07)\n\nStorage discovery closed today (`chatticus-e9ddec`); nothing in this epic was ever blocked by it. This epic is the live P0 and its own description names the starting point: *\"Start with: provisioning one throwaway account end to end by hand.\"*\n\n**State of Phase 1:**\n\n| Task | Status | Note |\n|---|---|---|\n| `8a25af` publish template + scoped policy | in_progress | Artifact done and live — `https://dev.chattic.us/provisioning/customer-role.yml`, HTTP 200, 6379 bytes, byte-identical to `infra/customer-role.yml`. Now **blocked-by `b88c0a`** for closure: its DoD requires the hand run to use it unmodified. |\n| `b88c0a` hand-provision one throwaway account | **open, ready, next** | Blocker cleared (#309 runbook: GET then `--template-body`; never CloudFront as `--template-url`). |\n\n**What the run produces that nothing else can:** the measured elapsed time. The $100 setup fee (`54f1cf`, `b4f849`) and the invitation rate are already chosen as round numbers — this run is what makes them defensible or reveals them as wrong. The pitch page's onboarding promise is currently a guess.\n\nThe most valuable output is the least likely to get written down while working: **every place the instructions were wrong.**",
       "created_at": "2026-09-07T14:57:57.220120Z",
       "comment_type": "default"
+    },
+    {
+      "id": "9a0c9d2c-f801-4669-9781-fe2b3d156b43",
+      "author": "home",
+      "text": "Hand run closed (`chatticus-b88c0a`). Remaining P0 on this epic: `chatticus-9c8dbf` (pending org list), `chatticus-070cb4` (submit RoleArn), `chatticus-7622fd` (create-bot UI) — the three product holes that made the run operator-assisted.",
+      "created_at": "2026-09-07T15:54:13.089070Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-07T14:57:57.220120Z",
+  "updated_at": "2026-09-07T15:54:21.627390Z",
   "closed_at": null,
   "custom": {}
 }

@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-7622fd27-b7c6-4de3-b3c3-5026c2088c7e",
+  "title": "An enabled member creates a named bot in the workspace",
+  "description": "## Found on `chatticus-b88c0a`\n\n`EnabledWorkspace` lists bots and can send a message. It never calls `POST /bots`. The hand run minted **Ping** via kernel `create_bot` so F-safe could run.\n\n## Done when\n\nAn enabled member creates a named bot from the workspace UI without the members CLI or a kernel snippet. Behavior in Gherkin first.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-07T15:54:05.621093Z",
+  "updated_at": "2026-09-07T15:54:05.621093Z",
+  "closed_at": null,
+  "custom": {}
+}
