@@ -65,7 +65,7 @@ EFS_ID="$(aws efs create-file-system \
 assert_not_kanbus_efs "$EFS_ID"
 echo "$EFS_ID" >"$(state_file efs-id)"
 
-aws efs wait file-system-available --file-system-id "$EFS_ID"
+wait_efs_available "$EFS_ID"
 
 aws efs create-mount-target \
     --file-system-id "$EFS_ID" \
@@ -74,7 +74,7 @@ aws efs create-mount-target \
 
 MT_ID="$(aws efs describe-mount-targets --file-system-id "$EFS_ID" \
     --query 'MountTargets[0].MountTargetId' --output text)"
-aws efs wait mount-target-available --file-system-id "$EFS_ID" --mount-target-id "$MT_ID"
+wait_mount_target_available "$MT_ID"
 
 USERDATA="${ROOT}/scripts/ec2-userdata.sh"
 INSTANCE_ID="$(aws ec2 run-instances \
