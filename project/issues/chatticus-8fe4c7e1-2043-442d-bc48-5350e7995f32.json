@@ -40,10 +40,17 @@
       "text": "Plan **not authorized**. Worktree `/tmp/chatticus-8fe4c7-host-http` was named and does not exist. Shared-queue SQS consume from the customer task role is rejected.\n\nComputerTurnJobs is one Anthus queue for the environment. Customer `ReceiveMessage` on it can steal other tenants' jobs. `waiting_computer_job` via the Front Door is the job path for this slice. Lambda ComputerWorker keeps SQS. If that is not enough, Front Door receives SQS with Anthus creds — never the customer role on the shared queue.\n\nDo not add a customer-visible SQS policy in this slice. Do not mint a dozen computer routes before listing the ControlPlane methods `ComputerHostBootDriver` and `ComputerWorker.run_job` actually call. `POST /computers/stopped` is a user route today; the host is a worker.",
       "created_at": "2026-09-07T23:03:35.410535Z",
       "comment_type": "default"
+    },
+    {
+      "id": "b2dbd4d4-dbe1-4491-9aa6-f3cac5cc5f6f",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with two holes closed.\n\nWorktree verified: `/tmp/chatticus-8fe4c7-host-http` on `fix/8fe4c7-host-front-door` (HEAD `507151c`, not the primary clone). Customer SQS on the shared queue stays out. Protocol over union accepted. Kernel continuation discovery (pending tool, not only `waiting_for`) accepted.\n\n**Closed on authorize:**\n1. **Do not add `POST …/jobs/{job_id}/remove` as a real store.** `remove_pending_job` only mutates in-process `_jobs`. Front Door Lambda has an empty list. Durable signal is turn completion (`complete_computer_continuation` / turn not ACTIVE) so Lambda's next SQS receive deletes the message. No second job queue.\n2. **Worker GET turns is scoped to the host's `user_id`.** The path must not list arbitrary users in the tenant.\n\nNo `dynamodb:*` on the customer role. No customer template. No dual `plane_from_env`. Tear the worktree down only after the manager closes the issue.",
+      "created_at": "2026-09-07T23:05:26.150671Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:38:33.234168Z",
-  "updated_at": "2026-09-07T23:03:35.410535Z",
+  "updated_at": "2026-09-07T23:05:26.150671Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
