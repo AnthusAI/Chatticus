@@ -54,10 +54,24 @@
       "text": "PR #312 **REQUEST CHANGES** (Composer 2.5 on `020ef81`). Prior two holes are closed. Remaining blocker: customer task **execution role** has only CloudWatch Logs — no `ecr:GetAuthorizationToken`. Anthus repo policy is not enough; live `RunTask` will `CannotPullContainerError`. Fix in `customer-computers-stack.ts`, re-synth committed template, assert in infra tests. DRY duplication of `ComputerStack` is non-blocking for this slice.",
       "created_at": "2026-09-07T16:50:24.441818Z",
       "comment_type": "default"
+    },
+    {
+      "id": "13395fc7-c595-4895-ac6a-d672bd49835e",
+      "author": "home",
+      "text": "PR #312 HEAD `132dfff`: customer execution role granted ECR pull; committed template re-synced; infra test asserts GetAuthorizationToken. Re-review in flight. CI in progress. Not merging yet.",
+      "created_at": "2026-09-07T16:54:00.215148Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c7794906-e761-4e3e-90fe-73438666d411",
+      "author": "home",
+      "text": "PR #312 review was APPROVE on `132dfff`, but **infra CI failed**: `npm run check:customer-computers-template` (committed artifact drifted from CDK synth). Not merging. Re-synth, commit the artifact, push.",
+      "created_at": "2026-09-07T16:56:07.867505Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T16:50:24.441818Z",
+  "updated_at": "2026-09-07T16:56:07.867505Z",
   "closed_at": null,
   "custom": {}
 }
