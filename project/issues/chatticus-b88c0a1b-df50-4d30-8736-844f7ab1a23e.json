@@ -61,10 +61,17 @@
       "text": "Preflight: worktree `/tmp/chatticus-b88c0a-hand-provision` on `spike/b88c0a-hand-provision`. Published template still **6379 bytes**, `cmp` identical to `infra/customer-role.yml`. T0 not started — waiting on Anthus `aws login` and a human consumer AWS signup.",
       "created_at": "2026-09-07T15:05:01.844569Z",
       "comment_type": "default"
+    },
+    {
+      "id": "26589599-d261-49ac-baf0-4d9f4897cd85",
+      "author": "home",
+      "text": "Anthus session is live (`335163751677` root). This account is **not** in AWS Organizations, so there is no `CreateAccount` path. T0 still blocked on a **consumer** signup at aws.amazon.com (email/phone/card) and a CLI session in that new account. Do not use Anthus as the customer home.",
+      "created_at": "2026-09-07T15:13:36.890451Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:05:01.844569Z",
+  "updated_at": "2026-09-07T15:13:36.890451Z",
   "closed_at": null,
   "custom": {}
 }
