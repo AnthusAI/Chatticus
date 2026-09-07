@@ -116,11 +116,15 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **F-computer live refuse** (`chatticus-2f2d87`, closed): ComputerWorker
   assumed the customer role; missing customer `ChatticusComputers`;
   **zero `RunTask` in both accounts**. Kernel handoff ~5 s.
-- **Customer-account `RunTask`** (`chatticus-82dab7`, #312–#315): stack recovery
-  held live (`ChatticusComputers` `CREATE_COMPLETE` via product
-  DeleteStack/CreateStack). Customer `RunTask` still 0.
-  `HOST_START_NO_RUNTASK_AFTER_CREATE_COMPLETE`. `8a25af` closed for the
-  IGW hole (`s3:*` later).
+- **Customer-account `RunTask`** (`chatticus-82dab7`, #312–#315, closed):
+  product `CreateStack` of `ChatticusComputers` in the customer account;
+  lab-user customer `RunTask ≥ 1`.
+- **Customer host executes `browser_open`** (`chatticus-8fe4c7`, #319, closed):
+  kernel `about:blank` on development (labeled deviation from the customer
+  UI). Journal `opened:about:blank`. Customer `RunTask` 1, Anthus 0. Host
+  talks to Front Door HTTP only. Image still Anthus `:dev`
+  (`chatticus-2b3c41` next). Do not fold that elapsed time into the ~19 min
+  provision figure.
 
 ### On `develop`, not on `main`
 
@@ -132,9 +136,11 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **ECS host start** is wired on **development ThinTurn only**
   (`CHATTICUS_HOST_STARTER=ecs`). Staging and production ComputerWorker keep
   the no-op host starter.
-- **End-to-end customer-account RunTask** is **not** holding. #315 is on
-  `develop`; lab-user `DescribeStacks(ChatticusComputers)` is
-  `CREATE_COMPLETE`, but customer `RunTask` is 0. `82dab7` stays open.
+- **Customer Fargate host on development** (#319): `computer_host_worker`
+  uses Front Door `/host-worker/*` (no Dynamo on the customer task role).
+  Live `browser_open` / `about:blank` completed on the ACME throwaway
+  account. Staging and production ComputerWorker still use the no-op host
+  starter. Image pull remains Anthus `:dev` until `chatticus-2b3c41`.
 
 ### Public sites
 

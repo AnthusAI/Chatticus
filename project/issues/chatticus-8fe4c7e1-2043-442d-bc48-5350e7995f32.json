@@ -3,7 +3,7 @@
   "title": "Customer Fargate host stays PROVISIONING after RunTask",
   "description": "**Labeled stop from `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` browser_open (2026-09-07).** Do not retry the matrix row until a customer host reaches RUNNING and executes `browser_open`.\n\n`chatticus-82dab7c4-a44c-4e0e-ac19-51a0c7a12d09` proved customer-account `RunTask ≥ 1`. It did **not** prove a host that stays up and executes a tool.\n\n## Confirming check (2026-09-07) — IaC hypothesis **falsified**\n\nHypothesis on this card: Anthus ECR has no resource policy, so the customer task dies on `CannotPullContainerError` (authorization).\n\n**AWS (lab operator, not root; placeholders here):**\n\n- Anthus `ComputerImage` repository policy **already** has `Sid: ChatticusCustomerAccountPull` for the customer account root (`ecr:BatchCheckLayerAvailability`, `BatchGetImage`, `GetDownloadUrlForLayer`). Runtime merge in `anthus_computer_ecr_pull.py` ran. `computer-stack.ts` still has no CDK `addToResourcePolicy`; that part of the IaC read was true and **not** the live failure.\n- Original browser_open task is **MISSING** from ECS history.\n- 41 stopped tasks: **all** `stopCode=EssentialContainerExited`, `stoppedReason=Essential container in task exited`, container `reason` empty. **Pull succeeded** (~10–20 s `pullStartedAt` → `pullStoppedAt`). **Zero** `CannotPullContainerError`.\n- CloudWatch on the customer log group: `computer_host_worker` crashes at `ControlPlane.ensure_computer` → `DynamoMessagingStore.get_computer` → **`AccessDeniedException` `dynamodb:GetItem`**. Principal is the **customer-account** task role `ChatticusComputers-ComputerTaskRole*` assumed in `CUSTOMER_ACCOUNT_ID`. Exit code **1**.\n- `infra/lib/computer-host-start.ts` grants Dynamo + computer-turn SQS to the **Anthus** imported host task role. `infra/lib/customer-computers-stack.ts` grants the customer task role **nothing** for Dynamo (and should not, under `chatticus-8a25af4a-7ae7-44e6-8229-e1d8313b712b`).\n\n**Named cause:** `HOST_TASK_ROLE_DYNAMO_ACCESS_DENIED`. The customer Fargate task pulls the image, starts `computer_host_worker`, and the process uses `plane_from_env()` (Dynamo) instead of the Front Door only. Anthus table is not callable from that role. That is why `tool.call` has no `tool.result`.\n\nDo **not** patch this bug by adding `dynamodb:*` to the customer task role. Do **not** patch it as an Anthus ECR policy gap. Image location is a separate principle card; this bug is the host talking to Dynamo from the wrong account.\n\n## Feature: Customer computer host becomes usable\n\n```\nFeature: A dispatched customer computer host reaches RUNNING and executes a tool\n\n  Scenario: browser_open completes on the customer host\n    Given host start has been dispatched into the customer account\n    And the customer task role cannot call Anthus DynamoDB\n    When the computer continuation job is on the queue\n    Then the customer Fargate task reaches RUNNING\n    And computer_host_worker does not AccessDenied on GetItem\n    And the turn journal contains tool.result opened:about:blank\n```\n\n## Done when\n\nA live kernel `browser_open` / `about:blank` against the customer-account computer yields `opened:about:blank` in the journal, customer `RunTask` (not Anthus), and CloudWatch does not show Dynamo `AccessDenied` on the customer task role. Wiki placeholders. Do not fold elapsed time into ~19 min.",
   "type": "bug",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -61,11 +61,18 @@
       "text": "Anthus computer image `:dev` rebuilt from `develop` after #319. Digest `sha256:4729f92673c451044d09a466d4148124017df7d90532a383afd22b35e63ed32b`. ChatticusComputers desiredCount stays 0.\n\nThinTurn development deploy of #319 succeeded (the overlapping pm-commit deploy failed with stack `UPDATE_IN_PROGRESS` — race, not a rollback).\n\nDispatching live kernel `browser_open` / `about:blank` against the ACME customer host. Stop at the first labeled failure. Worktree `/tmp/chatticus-8fe4c7-live-browser-open`.\n",
       "created_at": "2026-09-07T23:33:01.532150Z",
       "comment_type": "default"
+    },
+    {
+      "id": "1aa1ab64-1f86-41ad-808a-f91ccdf1c75b",
+      "author": "home",
+      "text": "DoD met. Closing.\n\nLive kernel deviation on development (not the customer UI): `prepare_computer_tool(browser_open, about:blank)` + `enqueue_computer_continuation`. Turn `0c07b8d6-7d72-45c1-afd4-ddb3a0400bc0`. Journal `tool.result` `opened:about:blank`. Customer `RunTask` 1, Anthus `RunTask` 0. Pulled Anthus `:dev` digest `sha256:4729f92673c451044d09a466d4148124017df7d90532a383afd22b35e63ed32b`. CloudWatch in the test window: zero Dynamo `AccessDenied`. Host used Front Door HTTP (`HttpWorkerPlane`); PR #319.\n\nDo not fold elapsed time into the ~19 min provision figure. Image still comes from the Anthus registry — `chatticus-2b3c4173` is the principle follow-through. Host-disk steps 2–5 on `chatticus-fccc4e9a` can proceed after that (do not mix two customer-stack changes).\n",
+      "created_at": "2026-09-07T23:37:41.829579Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:38:33.234168Z",
-  "updated_at": "2026-09-07T23:33:01.532150Z",
-  "closed_at": null,
+  "updated_at": "2026-09-07T23:37:41.842757Z",
+  "closed_at": "2026-09-07T23:37:41.842757Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"

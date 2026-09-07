@@ -24,10 +24,17 @@
       "text": "Opened to apply the epic principle. Blocked by 8fe4c7 until a host runs. Not the Dynamo AccessDenied fix.",
       "created_at": "2026-09-07T22:59:09.946180Z",
       "comment_type": "default"
+    },
+    {
+      "id": "e44eb69f-bbde-4226-a715-dd0ead2b7db3",
+      "author": "home",
+      "text": "`chatticus-8fe4c7e1` closed: a customer host executed `browser_open`. This card is unblocked. Next: customer ECR holds `:dev` at RunTask; stop pulling `fromRegistry(anthusComputerImageUri)`. Do not mix with host-disk step 2 in the same slice.\n",
+      "created_at": "2026-09-07T23:37:41.858203Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T22:58:46.825272Z",
-  "updated_at": "2026-09-07T22:59:09.946180Z",
+  "updated_at": "2026-09-07T23:37:41.858203Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

@@ -108,10 +108,12 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 
 **`chatticus-8fe4c7` confirming check (2026-09-07):** the IaC pull-auth hypothesis was **falsified**. Customer tasks pull the Anthus image (repository policy already grants the customer account). They reach RUNNING, then `computer_host_worker` exits 1: customer task role `AccessDenied` on Anthus Dynamo `GetItem`. Named cause `HOST_TASK_ROLE_DYNAMO_ACCESS_DENIED`. Zero `CannotPullContainerError`. Do not add `dynamodb:*` to the customer role. Wiki placeholders; desk ids in `AGENTS.local.md`.
 
+**`chatticus-8fe4c7` closed (2026-09-07):** Front Door HTTP host (#319) plus Anthus `:dev` rebuild. Kernel `browser_open` / `about:blank` → journal `opened:about:blank`. Customer `RunTask` 1, Anthus 0. No Dynamo `AccessDenied` in the test window. Image still Anthus `:dev` (`chatticus-2b3c4173` next). Do not fold elapsed time into ~19 min.
+
 | # | Row | First-pass stop | After tool-list |
 | --- | --- | --- | --- |
 | 1 | Terminal | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **Not implemented** — own card `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4`. Do not live-run. |
-| 2 | Browser | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **`HOST_NOT_RUNNING` (2026-09-07).** Kernel `prepare_computer_tool(browser_open, about:blank)` + `enqueue_computer_continuation` (labeled deviation; not computerless `browse`). Journal `tool.call` `browser_open`; **no** `tool.result` in ~192 s. Customer `ChatticusComputers` exists; one Fargate task stayed **PROVISIONING** (container PENDING). Anthus `RunTask` 0. Fake executor `opened` not seen. Do not fold elapsed time into ~19 min. |
+| 2 | Browser | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **PASS (2026-09-07), kernel deviation.** `prepare_computer_tool(browser_open, about:blank)` + `enqueue_computer_continuation` (not computerless `browse`). Journal `tool.result` `opened:about:blank`. Customer `RunTask` 1, Anthus 0. `chatticus-8fe4c7e1` closed. Do not fold elapsed time into ~19 min. |
 | 3 | File actions | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | **Not a host-disk path.** Wait on `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7`. `bb9084` is insurance for **host packs**, which agents do not write today. |
 | 4 | Approvals | `APPROVAL_NO_CROSS_ACCOUNT_PATH` | No agent tool. Kernel/human binding. Not a host sweep. |
 | 5 | Spend ceiling | `SPEND_LIMIT_NOT_ENFORCED_AT_SINK` | Live model has no `purchase` tool. Token ledger is separate. Not a host sweep. |
@@ -123,10 +125,10 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 | --- | --- |
 | Consumer AWS signup | Skipped (lab `CreateAccount`) |
 | Customer snapshot bucket in the published template | `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac` — insurance, does not unblock file actions |
-| Dict vs host disk (open; Ryan picks) | `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` |
+| Dict vs host disk (decided host disk; steps 2–5 open) | `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` |
 | Agent terminal tool (build, not a sweep) | `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4` |
-| Browser live / remaining matrix | `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` — browser stopped `HOST_NOT_RUNNING` |
-| Customer host reaches RUNNING after RunTask | `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` — named cause `HOST_TASK_ROLE_DYNAMO_ACCESS_DENIED` (ECR-auth hypothesis falsified) |
+| Remaining capability matrix | `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` — parked; browser host row PASS; do not live-run the rest |
+| Customer image in customer ECR | `chatticus-2b3c4173-a431-45fb-aec0-c6f4aa921b51` |
 
 ## Replay (customer-shaped, once the gaps close)
 
