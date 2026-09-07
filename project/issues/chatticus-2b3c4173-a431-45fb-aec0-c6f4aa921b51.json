@@ -38,10 +38,17 @@
       "text": "Composer 2.5 planning. Worktree `/tmp/chatticus-2b3c41-customer-ecr` on `feat/2b3c41-customer-ecr-image`. Implementation not authorized until the plan is reviewed. Customer-visible template stays customer-visible. Do not mix host-disk step 2 into this slice.\n",
       "created_at": "2026-09-07T23:38:21.509242Z",
       "comment_type": "default"
+    },
+    {
+      "id": "3256ee1b-60bf-44e3-9a78-9f7751313ef7",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with two holes closed.\n\nWorktree verified: `/tmp/chatticus-2b3c41-customer-ecr` on `feat/2b3c41-customer-ecr-image` (HEAD `ab92e29`, not the primary clone). Operator-script bootstrap (not Lambda copy), TenantId-only CreateStack, delete Anthus pull path, Gherkin migration of CREATE_COMPLETE + Anthus image parameter — those stand.\n\n**Closed on authorize:**\n1. **`fromEcrRepository` + CDK pull grant.** Do not hand-write one policy with `GetAuthorizationToken` on the repo ARN (that action is account-level). Do not keep the current execution-role `resources: [\"*\"]` ECR statement as a leftover.\n2. **ComputerWorker never publishes.** Host start is `DescribeImages` then refuse if `:dev` is missing. `publish_dev_image_from_anthus` is for the operator script and Gherkin only.\n\n`customer-role.yml` stays unmodified unless a real gap appears. No host-disk, no Dynamo on the task role, no live `browser_open` in this slice (ACME will refuse until the operator script runs after UpdateStack). Tear the worktree down only after the manager closes the issue.\n",
+      "created_at": "2026-09-07T23:40:43.935966Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T22:58:46.825272Z",
-  "updated_at": "2026-09-07T23:38:21.509242Z",
+  "updated_at": "2026-09-07T23:40:43.935966Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
