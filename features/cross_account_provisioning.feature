@@ -99,3 +99,54 @@ Feature: Cross-account provisioning
     Then the start is refused with a provisioning error
     And Chatticus does not create the ChatticusComputers stack
     And no instance is launched in the Anthus account
+
+  Scenario Outline: A failed ChatticusComputers stack starts delete and refuses host start
+    Given an organization provisioned into a customer AWS account with a failed ChatticusComputers stack in <status> status
+    When its computer is asked to start
+    Then Chatticus deletes the ChatticusComputers stack in the customer account
+    And Chatticus does not create the ChatticusComputers stack
+    And the start is refused with a provisioning error
+    And no instance is launched in the Anthus account
+
+    Examples:
+      | status            |
+      | ROLLBACK_FAILED   |
+      | ROLLBACK_COMPLETE |
+      | CREATE_FAILED     |
+      | DELETE_FAILED     |
+
+  Scenario: After delete completes ensure creates the ChatticusComputers stack
+    Given an organization provisioned into a customer AWS account whose ChatticusComputers stack was deleted
+    When its computer is asked to start
+    Then Chatticus creates the ChatticusComputers stack in the customer account
+    And the start is refused with a provisioning error
+    And no instance is launched in the Anthus account
+
+  Scenario: After failed stack recovery completes host start runs in the customer account
+    Given an organization provisioned into a customer AWS account with a failed ChatticusComputers stack in ROLLBACK_FAILED status
+    When its computer is asked to start
+    And the ChatticusComputers stack finishes deleting
+    And its computer is asked to start
+    And the ChatticusComputers stack finishes creating
+    When its computer starts
+    Then the instance is launched in the customer account
+    And no compute for that organization runs in the Anthus account
+
+  Scenario: Denied DeleteStack refuses without Anthus fallback and retries on the next start
+    Given an organization provisioned into a customer AWS account with a failed ChatticusComputers stack in ROLLBACK_FAILED status
+    And DeleteStack is denied for the customer CloudFormation client
+    When its computer is asked to start
+    Then the start is refused with a provisioning error
+    And Chatticus does not create the ChatticusComputers stack
+    And no instance is launched in the Anthus account
+    When DeleteStack is allowed for the customer CloudFormation client
+    And its computer is asked to start
+    Then Chatticus deletes the ChatticusComputers stack in the customer account
+
+  Scenario: A terminal-failed recreate still deletes on the next start
+    Given an organization provisioned into a customer AWS account with a failed ChatticusComputers stack in CREATE_FAILED status
+    When its computer is asked to start
+    Then Chatticus deletes the ChatticusComputers stack in the customer account
+    Given the ChatticusComputers stack is terminal-failed in ROLLBACK_FAILED status
+    When its computer is asked to start
+    Then Chatticus deletes the ChatticusComputers stack in the customer account

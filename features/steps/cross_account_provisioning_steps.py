@@ -372,10 +372,38 @@ class _FakeEcs:
 
 
 class _FakeCloudFormation:
-    def __init__(self, *, stack_present: bool = True) -> None:
+    _STACK_OUTPUTS: list[dict[str, str]] = [
+        {
+            "OutputKey": "ComputerClusterName",
+            "OutputValue": "cust-cluster",
+        },
+        {
+            "OutputKey": "ComputerTaskDefinitionArn",
+            "OutputValue": (
+                "arn:aws:ecs:us-east-1:123456789012:task-definition/computer:1"
+            ),
+        },
+        {
+            "OutputKey": "ComputerServiceName",
+            "OutputValue": "FargateHost",
+        },
+    ]
+
+    def __init__(
+        self,
+        *,
+        stack_present: bool = True,
+        stack_status: str = "CREATE_COMPLETE",
+        create_result_status: str = "CREATE_COMPLETE",
+        delete_denied: bool = False,
+    ) -> None:
         self.stack_present = stack_present
+        self.stack_status = stack_status if stack_present else None
+        self.create_result_status = create_result_status
+        self.delete_denied = delete_denied
         self.describe_calls: list[dict[str, object]] = []
         self.create_stack_calls: list[dict[str, object]] = []
+        self.delete_stack_calls: list[dict[str, object]] = []
 
     def describe_stacks(self, **kwargs: object) -> dict[str, object]:
         self.describe_calls.append(kwargs)
@@ -389,35 +417,42 @@ class _FakeCloudFormation:
                 },
                 "DescribeStacks",
             )
-        return {
-            "Stacks": [
-                {
-                    "StackStatus": "CREATE_COMPLETE",
-                    "Outputs": [
-                        {
-                            "OutputKey": "ComputerClusterName",
-                            "OutputValue": "cust-cluster",
-                        },
-                        {
-                            "OutputKey": "ComputerTaskDefinitionArn",
-                            "OutputValue": (
-                                "arn:aws:ecs:us-east-1:123456789012:"
-                                "task-definition/computer:1"
-                            ),
-                        },
-                        {
-                            "OutputKey": "ComputerServiceName",
-                            "OutputValue": "FargateHost",
-                        },
-                    ],
-                }
-            ]
-        }
+        stack: dict[str, object] = {"StackStatus": self.stack_status}
+        if self.stack_status == "CREATE_COMPLETE":
+            stack["Outputs"] = list(self._STACK_OUTPUTS)
+        return {"Stacks": [stack]}
 
     def create_stack(self, **kwargs: object) -> dict[str, object]:
         self.create_stack_calls.append(kwargs)
         self.stack_present = True
+        self.stack_status = self.create_result_status
         return {"StackId": "arn:aws:cloudformation:stack/gherkin"}
+
+    def delete_stack(self, **kwargs: object) -> dict[str, object]:
+        if self.delete_denied:
+            raise ClientError(
+                {
+                    "Error": {
+                        "Code": "AccessDenied",
+                        "Message": "DeleteStack denied",
+                    }
+                },
+                "DeleteStack",
+            )
+        self.delete_stack_calls.append(kwargs)
+        self.stack_status = "DELETE_IN_PROGRESS"
+        return {}
+
+    def set_stack_missing(self) -> None:
+        self.stack_present = False
+        self.stack_status = None
+
+    def set_stack_status(self, status: str) -> None:
+        self.stack_present = True
+        self.stack_status = status
+
+    def allow_delete_stack(self) -> None:
+        self.delete_denied = False
 
 
 class _FakeEcsWithServices(_FakeEcs):
@@ -581,6 +616,102 @@ def given_organization_without_customer_computers_stack(context: object) -> None
         context,
         cloudformation_client=_FakeCloudFormation(stack_present=False),
     )
+
+
+def _provision_customer_org_for_stack_recovery(
+    context: object,
+    *,
+    name: str,
+    owner_email: str,
+    external_id: str,
+    cloudformation: _FakeCloudFormation,
+) -> object:
+    org = _provision_cross_account_org(
+        context,
+        name=name,
+        owner_email=owner_email,
+        account_id=CUSTOMER_ACCOUNT_ID,
+        external_id=external_id,
+    )
+    context.start_org = org
+    _wire_host_start_context(context, cloudformation_client=cloudformation)
+    return org
+
+
+@given(
+    "an organization provisioned into a customer AWS account with a failed "
+    "ChatticusComputers stack in {status} status"
+)
+def given_organization_with_failed_chatticus_computers_stack(
+    context: object,
+    status: str,
+) -> None:
+    cloudformation = _FakeCloudFormation(
+        stack_status=status,
+        create_result_status="CREATE_IN_PROGRESS",
+    )
+    context.cloudformation_client = cloudformation  # type: ignore[attr-defined]
+    _provision_customer_org_for_stack_recovery(
+        context,
+        name="Failed Stack Org",
+        owner_email="failed-stack@example.com",
+        external_id="failed-stack-external-id",
+        cloudformation=cloudformation,
+    )
+
+
+@given(
+    "an organization provisioned into a customer AWS account whose "
+    "ChatticusComputers stack was deleted"
+)
+def given_organization_with_deleted_chatticus_computers_stack(
+    context: object,
+) -> None:
+    cloudformation = _FakeCloudFormation(
+        stack_present=False,
+        create_result_status="CREATE_IN_PROGRESS",
+    )
+    context.cloudformation_client = cloudformation  # type: ignore[attr-defined]
+    _provision_customer_org_for_stack_recovery(
+        context,
+        name="Deleted Stack Org",
+        owner_email="deleted-stack@example.com",
+        external_id="deleted-stack-external-id",
+        cloudformation=cloudformation,
+    )
+
+
+@given("DeleteStack is denied for the customer CloudFormation client")
+def given_delete_stack_denied(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    cloudformation.delete_denied = True
+
+
+@when("DeleteStack is allowed for the customer CloudFormation client")
+def when_delete_stack_allowed(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    cloudformation.allow_delete_stack()
+
+
+@when("the ChatticusComputers stack finishes deleting")
+def when_chatticus_computers_stack_finishes_deleting(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    cloudformation.set_stack_missing()
+
+
+@when("the ChatticusComputers stack finishes creating")
+def when_chatticus_computers_stack_finishes_creating(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    cloudformation.set_stack_status("CREATE_COMPLETE")
+
+
+@given("the ChatticusComputers stack is terminal-failed in {status} status")
+def given_chatticus_computers_stack_terminal_failed(
+    context: object,
+    status: str,
+) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    cloudformation.set_stack_status(status)
 
 
 @given("the host starter cannot provision customer infrastructure")
@@ -757,3 +888,18 @@ def then_chatticus_does_not_create_customer_stack(context: object) -> None:
     if cloudformation is None:
         return
     assert len(cloudformation.create_stack_calls) == 0
+
+
+@then("Chatticus deletes the ChatticusComputers stack in the customer account")
+def then_chatticus_deletes_customer_stack(context: object) -> None:
+    cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
+    expected_calls = getattr(context, "expected_delete_stack_calls", None)
+    if expected_calls is None:
+        expected_calls = len(cloudformation.delete_stack_calls)
+        context.expected_delete_stack_calls = expected_calls  # type: ignore[attr-defined]
+    else:
+        expected_calls += 1
+        context.expected_delete_stack_calls = expected_calls  # type: ignore[attr-defined]
+    assert len(cloudformation.delete_stack_calls) == expected_calls
+    delete_call = cloudformation.delete_stack_calls[-1]
+    assert delete_call["StackName"] == "ChatticusComputers"
