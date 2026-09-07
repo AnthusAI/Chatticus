@@ -3,7 +3,7 @@
   "title": "Run one cross-account computer task end to end (F-computer)",
   "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing — the customer account, role, and enabled org from `b88c0a` already exist\n- **Unblocks:** honest pricing, the pitch page's central claim, and any customer onboarding\n\n---\n\n## This fell between two closed issues\n\n`chatticus-061a11` (\"The organization computer launches in the customer account\") closed on its own DoD — *\"the scenarios exist and fail for the right reason\"* — which it met: launch account is always `organization.aws_account_id`, and a missing home or unreachable role refuses with zero Anthus RunTask. That is correct work.\n\nBut its closing comment says plainly: **\"Live RunTask in a customer account still waits on `b88c0a`.\"**\n\n`b88c0a` then closed on *\"the timed runbook and person-steps\"*, with **F-computer not attempted**. So the handoff was recorded on both sides and picked up by neither.\n\n**The result: the behavior the whole epic exists for has never been executed once.** `061a11`'s own description calls it *\"the behavior the whole epic exists for\"* and *\"the strongest thing on the pitch page.\"* What `b88c0a` proved was a **computerless** turn (`pong`). The cross-account compute path is specced, gated, and unrun.\n\n## Why this goes before the self-setup stories\n\n`9c8dbf`, `070cb4` and `7622fd` are **known** gaps — wiring UI and HTTP to kernel calls that already exist. They are buildable and their scope will not surprise anyone.\n\nF-computer is **unknown**, and `b88c0a` recorded concrete reasons to expect it to fail:\n\n- The published role CFN is scoped to `ChatticusComputers*` — **not `ChatticusSnapshots`**.\n- ComputerWorker **does not deploy** a customer `ChatticusComputers` stack.\n- There is **no ECS cluster or ECR `:dev` image** in the customer account. A Dynamo computer row exists; the compute infrastructure does not.\n\nAny of those may require changing the published template. **By `chatticus-8a25af`'s own rule, a template change is customer-visible — an existing customer has to re-run it.** That makes this cheap to discover now and expensive to discover after the first customer onboards.\n\nThis is the same ordering that paid off in `chatticus-e9ddec`: measure the unknown before building the known.\n\n## What to run\n\nThe `b88c0a` lab assets still exist — customer member account, `ChatticusCrossAccountRole`, enabled ACME org, AWS home written. Ids are in gitignored `AGENTS.local.md`.\n\nAttempt one **computer-requiring** bot task in that account and follow it wherever it stops:\n\n1. Does ComputerWorker assume the customer role and reach ECS at all?\n2. What is missing in the customer account — cluster, task definition, ECR image, snapshot bucket, log group?\n3. Which of those should the **published template** create, which should Chatticus deploy under the assumed role, and which are a separate customer-run stack?\n4. Does the refuse-not-fallback guarantee from `061a11` hold live? **A silent fallback to the Anthus account is the failure that matters most** — it would work, look fine, and put customer workload and cost somewhere neither party agreed to.\n\n## Record\n\nSame discipline as `b88c0a`: placeholders in the wiki, real ids in `AGENTS.local.md`, every deviation labeled. Add the elapsed time to the provisioning runbook — the ~19 min figure currently excludes this entirely.\n\n## Done when\n\nOne bot task requiring a computer has run in the customer account, **or** the exact missing infrastructure is documented with a decision on who creates it. A template change, if needed, is recorded as customer-visible on `chatticus-8a25af`.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,17 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "c852b4b8-fa45-4dac-97c1-dc38ff52fb58",
+      "author": "home",
+      "text": "Starting F-computer on the `b88c0a` lab assets (no seed). Composer 2.5 planning: worktree `/tmp/chatticus-2f2d87-f-computer` on `spike/2f2d87-f-computer`. Wiki on `develop` after the stop is labeled. Do not treat the ~19 min figure as including this.\n\n**Snapshot decision (do not rediscover):** customer `/workspace` packs live in the **customer** account, not in Anthus `ChatticusSnapshots`. Pitch claim is that the file system rests in the account they own. Anthus `ChatticusSnapshots` stays for Anthus-managed orgs. F-computer must not grant or copy customer workplace bytes into the Anthus bucket. Template/stack work to create that customer bucket is customer-visible (`8a25af`); this card records the stop, it does not slip a template edit.",
+      "created_at": "2026-09-07T16:08:15.731698Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-07T16:00:18.378300Z",
-  "updated_at": "2026-09-07T16:00:18.378300Z",
+  "updated_at": "2026-09-07T16:08:15.731698Z",
   "closed_at": null,
   "custom": {}
 }
