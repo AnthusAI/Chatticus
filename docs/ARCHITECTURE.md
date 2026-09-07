@@ -161,16 +161,14 @@ published is gone.
 
 See [Computer snapshots](COMPUTER_SNAPSHOTS.md) and [Computer manifold](COMPUTER_MANIFOLD.md) (work-kind placement; not implemented).
 
-**This section describes the live system and is superseded as a design
-target.** The September 3, 2026 storage design (initiative
-`chatticus-fbae4e`) makes one EFS filesystem the store for `/org` and
-`/workspace`, mounted by every host class -- directly in the VPC, over the
-worker's outbound tunnel elsewhere. A real filesystem has POSIX locking, so
-the snapshot cycle, `hydrate_required`, and the disk-write lease exist only
-to work around S3's lack of it and go away with it. Large artifacts --
-datasets, model weights, screenshots -- stay objects in S3; that is a
-files-versus-objects split, not a second file store. The snapshot path
-stays in place until EFS lands.
+**This section is the shipping design.** The September 2026 storage
+initiative (`chatticus-fbae4e`) proposed replacing it with EFS and was
+**measured out**: in-VPC EFS ran 23-54x local disk for a mutating working
+tree and ~10x read-only warm (`chatticus-3d5357`). `/workspace` stays on
+host-local disk, so publish/hydrate, `hydrate_required`, and the disk-write
+lease are **permanent, not transitional** -- do not delete them. EFS, if it
+is ever built, is for a shared read-mostly `/org` tree only. Large
+artifacts -- datasets, model weights, screenshots -- stay objects in S3.
 
 ## What lives where
 
@@ -181,7 +179,7 @@ stays in place until EFS lands.
 | In-flight turn chunks | DynamoDB items with a TTL, polled by the streaming function |
 | Turn jobs, heartbeats | SQS + scheduler records |
 | Routine wake-ups, worker starts, `turn.completed` to device push | EventBridge |
-| `/workspace` and browser profile | S3 snapshot (canonical); local volume, EBS, or EFS as a cache on the current host. Target: EFS as the store, mounted by every host -- see `chatticus-fbae4e` |
+| `/workspace` and browser profile | S3 snapshot (canonical); local volume or EBS as a cache on the current host. **Which account holds the pack depends on the organization:** a customer organization's packs live in a bucket in the **customer's own AWS account**, created by the published CloudFormation template; the Anthus `ChatticusSnapshots` bucket serves **Anthus-managed organizations only**. See `chatticus-bb9084` |
 | Secrets | Secrets Manager |
 | Object files / artifacts (screenshots, datasets, model weights) | S3 |
 

@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-5336ff11-3521-4eb0-9b49-d3fc32faaa20",
+  "title": "A newly created bot has no capability grant and cannot act",
+  "description": "**Phase 1 of 5.**\n\n- **Found by:** `chatticus-b88c0a` follow-on, during the `chatticus-2f2d87` live attempt\n- **Blocks:** the product path to F-computer, and any customer whose bot is created this way\n\n---\n\n## What happened\n\nA human in the enabled ACME workspace asked the bot:\n\n> Use the household computer workspace to run `ls /workspace` and reply with the command output.\n\nThe bot answered that it **could not**. That was first read as the model *declining* to summon a computer — a prompting problem. The distinction matters, because \"won't\" and \"can't\" have completely different fixes and only one of them is worth spending a run on.\n\n## The likely cause: no task grant\n\nCapabilities are checked against a **task grant**. With none present, requests are denied with the literal reason `\"no task grant\"` (`python/src/chatticus/capability_sinks.py`), and workspace reads go through `gated_read_workspace` in the same module.\n\n**`create_bot` issues no grants.** Its body contains no grant, capability, ceiling, or standing assignment. The ACME bot was minted through exactly that path, because the enabled workspace has no create-bot control (`chatticus-7622fd`).\n\nSo the bot most likely had no permissions at all, **correctly reported that it could not**, and was read as refusing.\n\n## Why this is not lab-only\n\nAny bot created through this path is in the same state: it exists, it looks fine in the roster, and it cannot act. If `create_bot` is reachable in any customer-facing flow — now or once `chatticus-7622fd` wires the UI to `POST /bots` — a customer gets a bot that answers questions and silently cannot do anything else.\n\nA bot that appears healthy and is functionally inert is worse than one that fails loudly at creation.\n\n## What is confirmed and what is not\n\n**Confirmed:** the denial path and its `\"no task grant\"` reason exist; `gated_read_workspace` is grant-gated; `create_bot` assigns nothing.\n\n**Not confirmed:** whether `request_computer_capability` is gated identically to `read_workspace`. It is classified as a browser-capability tool in `computer_capabilities.py`, but the grant check was not traced through to it.\n\n**The decisive check is cheap:** read the ACME bot's actual grant state and the exact refusal wording. If the bot said something like *\"I don't have permission,\"* that settles it and no prompting work is warranted.\n\n## Questions this raises\n\n- What **should** a newly created bot be granted? Nothing until a human grants it, or a sane default within the organization's ceiling?\n- Is `create_bot` missing the grant step, or is the grant meant to be issued separately and the UI never built it?\n- Does the same gap apply to bots created through any other path?\n\n## Done when\n\nA bot created through the normal flow can either act within a default grant, or fails visibly at creation rather than appearing healthy and inert — and the ACME bot's refusal is confirmed as a grant denial rather than a model decline.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-07T20:10:07.032720Z",
+  "updated_at": "2026-09-07T20:10:07.032720Z",
+  "closed_at": null,
+  "custom": {}
+}
