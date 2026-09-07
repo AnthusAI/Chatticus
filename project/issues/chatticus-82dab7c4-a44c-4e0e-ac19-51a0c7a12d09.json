@@ -259,10 +259,17 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/317 — RUNTASK_USER_ID_NONE slice. Continuation host-start passes acting_member_user_id_for_turn to CHATTICUS_USER_ID. Composer 2.5 review + CI in flight. Not merging. Live RunTask still required after ThinTurn deploy.",
       "created_at": "2026-09-07T20:34:53.372672Z",
       "comment_type": "default"
+    },
+    {
+      "id": "2fff32ee-9740-40db-8ee0-e5a0641de7bc",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/317 to develop (`7d6dc1a`). Composer 2.5 APPROVE; CI python + infra green.\n\nDo not close. Remaining: ThinTurn development deploy of `7d6dc1a`, then kernel summon, then lab-user CloudTrail **customer `RunTask ≥ 1`**, Anthus `RunTask` 0, desiredCount 0. Named cause to beat: `RUNTASK_USER_ID_NONE`.\n",
+      "created_at": "2026-09-07T20:42:40.040821Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T20:34:53.372672Z",
+  "updated_at": "2026-09-07T20:42:40.040821Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
