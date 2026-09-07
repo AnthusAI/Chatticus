@@ -90,7 +90,21 @@ INSTANCE_ID="$(aws ec2 run-instances \
     --query 'Instances[0].InstanceId' --output text)"
 echo "$INSTANCE_ID" >"$(state_file instance-id)"
 
-aws ec2 wait instance-status-ok --instance-ids "$INSTANCE_ID"
+echo "Waiting for instance ${INSTANCE_ID} status checks..."
+for _ in $(seq 1 90); do
+    read -r inst_status system_status <<<"$(aws ec2 describe-instance-status \
+        --instance-ids "$INSTANCE_ID" \
+        --include-all-instances \
+        --query 'InstanceStatuses[0].[InstanceStatus.Status,SystemStatus.Status]' \
+        --output text 2>/dev/null || echo 'pending pending')"
+    if [ "$inst_status" = "ok" ] && [ "$system_status" = "ok" ]; then
+        break
+    fi
+    sleep 10
+done
+if [ "$inst_status" != "ok" ] || [ "$system_status" != "ok" ]; then
+    echo "WARN: instance status inst=${inst_status} system=${system_status}" >&2
+fi
 
 echo "Waiting for SSM agent on ${INSTANCE_ID}..."
 for _ in $(seq 1 60); do
