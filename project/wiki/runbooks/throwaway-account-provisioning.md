@@ -39,15 +39,35 @@ Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` 
 - No HTTP to submit RoleArn after CFN; no live `CrossAccountRoleInspector` (Gherkin in-memory only).
 - No create-bot UI in the enabled workspace (`POST /bots` exists; UI never calls it).
 - `infra/README.md` `create-stack` example omitted `--parameters` and `CAPABILITY_NAMED_IAM`.
-- Published role CFN is scoped to `ChatticusComputers*` only — not `ChatticusSnapshots`. ComputerWorker does **not** deploy a customer `ChatticusComputers` stack. **F-computer was not run.** Dynamo computer row exists; ECS/ECR in `CUSTOMER_ACCOUNT_ID` does not.
+- Published role CFN is scoped to `ChatticusComputers*` only — not `ChatticusSnapshots`. ComputerWorker does **not** `CreateStack`. Dynamo computer row exists; ECS/ECR in `CUSTOMER_ACCOUNT_ID` does not (`chatticus-82dab7`).
+- Workspace prompt did not escalate: Ping answered **no** (`STOP_NO_COMPUTER_TOOL`).
+- `POST .../turns/{id}/resume` while the computer is stopped is `ComputerNotReadyError`; first summon needs kernel `enqueue_computer_continuation`.
+- ComputerWorker nack omits provisioning exception text.
+
+## F-computer (`chatticus-2f2d87`, closed 2026-09-07)
+
+Attempted after F-safe. **Do not fold this elapsed time into the ~19 min figure.**
+
+| Metric | Value |
+| --- | --- |
+| Path | Kernel deviation (standing rule): `post_channel_message` + `prepare_computer_tool` + `enqueue_computer_continuation`. UI path stopped at `STOP_NO_COMPUTER_TOOL`. |
+| AssumeRole | **Yes** — ComputerWorker → `ChatticusOrganizationComputerRole` |
+| `RunTask` in `ANTHUS_ACCOUNT_ID` | **No** (desiredCount stayed 0) |
+| `RunTask` in `CUSTOMER_ACCOUNT_ID` | **No** — stack `ChatticusComputers` does not exist |
+| Silent Anthus fallback | **No** |
+| Kernel handoff elapsed | **~5.0 s** (2026-09-07T16:16:01Z → 16:16:06Z) |
+| ComputerWorker nack | **~0.8 s** |
+| Labeled stop | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` |
+
+**Who creates `ChatticusComputers` in the customer account:** Chatticus, under the assumed role (`chatticus-82dab7`). Customer does not run a second template. Snapshot bucket lives **inside** that customer `ChatticusComputers` stack; a customer stack named `ChatticusSnapshots` would be a template change (`chatticus-8a25af`). Anthus `ChatticusSnapshots` / `ChatticusComputers` stay Anthus-managed. Never destroy them. Never `cdk deploy --all`.
 
 ## Not done on this run
 
 | Step | Status |
 | --- | --- |
 | Consumer AWS signup | Skipped (lab `CreateAccount`) |
-| Customer `ChatticusComputers` / ECR `:dev` / snapshot bucket in customer account | Not deployed (finding, not a template edit) |
-| F-computer (cross-account RunTask) | Not attempted |
+| Customer `ChatticusComputers` / ECR `:dev` / snapshot bucket in customer account | Not deployed — Chatticus must `CreateStack` under the assumed role (`chatticus-82dab7`) |
+| F-computer (cross-account RunTask) | Attempted; refused (missing customer stack). Zero `RunTask` in both accounts. |
 
 ## Replay (customer-shaped, once the gaps close)
 
