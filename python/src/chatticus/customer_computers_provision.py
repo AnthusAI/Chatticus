@@ -16,6 +16,20 @@ from chatticus.customer_computers_template import (
 )
 from chatticus.models import Organization, OrganizationComputerProvisioningError
 
+TERMINAL_FAILED_RECOVERABLE_STATUSES: frozenset[str] = frozenset(
+    {
+        "ROLLBACK_FAILED",
+        "ROLLBACK_COMPLETE",
+        "CREATE_FAILED",
+        "DELETE_FAILED",
+    }
+)
+
+
+def is_recoverable_terminal_failed_status(status: str) -> bool:
+    """Return whether *status* should trigger DeleteStack before recreate."""
+    return status in TERMINAL_FAILED_RECOVERABLE_STATUSES
+
 
 class CustomerComputersProvisioner(Protocol):
     """Ensure one organization's ChatticusComputers stack exists."""
@@ -96,8 +110,12 @@ class AwsCustomerComputersProvisioner:
         if status in {"ROLLBACK_IN_PROGRESS", "DELETE_IN_PROGRESS"}:
             msg = f"{COMPUTERS_STACK_NAME} stack is {status}; computer start refused."
             raise OrganizationComputerProvisioningError(msg)
-        if status.endswith("_FAILED") or status == "ROLLBACK_COMPLETE":
-            msg = f"{COMPUTERS_STACK_NAME} stack is {status}; computer start refused."
+        if is_recoverable_terminal_failed_status(status):
+            self._start_delete_stack(cloudformation_client)
+            msg = (
+                f"{COMPUTERS_STACK_NAME} stack is {status}; delete started, "
+                "computer start refused."
+            )
             raise OrganizationComputerProvisioningError(msg)
         if status != "CREATE_COMPLETE":
             msg = f"{COMPUTERS_STACK_NAME} stack is {status}; computer start refused."
@@ -148,6 +166,15 @@ class AwsCustomerComputersProvisioner:
                 return
             raise OrganizationComputerProvisioningError(
                 f"CreateStack({COMPUTERS_STACK_NAME}) failed: {error}"
+            ) from error
+
+    def _start_delete_stack(self, cloudformation_client: Any) -> None:
+        try:
+            cloudformation_client.delete_stack(StackName=COMPUTERS_STACK_NAME)
+        except ClientError as error:
+            raise OrganizationComputerProvisioningError(
+                f"DeleteStack({COMPUTERS_STACK_NAME}) failed; "
+                f"computer start refused: {error}"
             ) from error
 
 
