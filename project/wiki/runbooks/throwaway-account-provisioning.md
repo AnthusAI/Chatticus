@@ -96,16 +96,20 @@ PR #317 (`7d6dc1a`) — continuation host-start passes the turn prompt author in
 
 ## Capability matrix (`chatticus-3e72dc`, 2026-09-07)
 
-Kernel path. **Do not fold elapsed times into the ~19 min figure.** None of six rows proven.
+Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 
-| # | Row | Stop |
-| --- | --- | --- |
-| 1 | Terminal | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` (~1.6 s) |
-| 2 | Browser | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` (~1.7 s) |
-| 3 | File actions | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` (~127 s; `turn.waiting=workspace`) |
-| 4 | Approvals | `APPROVAL_NO_CROSS_ACCOUNT_PATH` (no customer host) |
-| 5 | Spend ceiling | `SPEND_LIMIT_NOT_ENFORCED_AT_SINK` (standing denial, not dollar ceiling) |
-| 6 | Relocate | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` |
+**First pass (before customer `RunTask`):** every computer-touching row stopped on missing stack or missing bucket — those stops are historical.
+
+**Tool-list read (after `82dab7`, before more live rows):** `docs/ARCHITECTURE.md` already says the image shell is unreachable by an agent. Live `ls /workspace` with a **running** computer returned that answer. Host executor tools: `browser_open`, `request_computer_capability` (Chromium, browser gate only). Live OpenAI tools: task, `read_workspace`, `browse` (origin authorize), `request_computer_capability`. `read_workspace` / `write_workspace` operate on `computer.workspace` (in-process dict). Dynamo does not persist it. Nothing in the agent loop reads the container's `/workspace`. `ComputerHostDisk` packs host directories to S3 in tests/CLI; the Fargate host worker does not publish or hydrate.
+
+| # | Row | First-pass stop | After tool-list |
+| --- | --- | --- | --- |
+| 1 | Terminal | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **Not implemented** — no agent tool. Do not live-run again. |
+| 2 | Browser | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **`browser_open` is real** — only row worth a computer-host live test. Computerless `browse` does not open Chromium. |
+| 3 | File actions | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | **Not a host-disk path.** `read_workspace` hits the dict, not `/workspace`, and not the snapshot bucket. Same shape as terminal (name ≠ tool). `bb9084` is still the bucket for **host packs**, which agents do not write today. |
+| 4 | Approvals | `APPROVAL_NO_CROSS_ACCOUNT_PATH` | No agent tool. Kernel/human binding. |
+| 5 | Spend ceiling | `SPEND_LIMIT_NOT_ENFORCED_AT_SINK` | Live model has no `purchase` tool. Token ledger is separate. |
+| 6 | Relocate | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | No agent tool. Host worker never publish/hydrate. |
 
 ## Not done on this run
 
