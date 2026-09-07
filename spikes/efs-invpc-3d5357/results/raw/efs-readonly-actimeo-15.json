@@ -1,0 +1,117 @@
+{
+  "condition": "efs-readonly-actimeo-15",
+  "actimeo": "15",
+  "storage": "efs",
+  "iterations": 20,
+  "first_post_remount": {
+    "wall_seconds": 0.1324,
+    "rpc_ops_delta": 203
+  },
+  "warm_median": {
+    "wall_seconds": 0.0928,
+    "rpc_ops_delta": 131
+  },
+  "rpc_reduction_pct_first_vs_warm_median": 35.5,
+  "iterations_detail": [
+    {
+      "iteration": 1,
+      "wall_seconds": 0.1324,
+      "rpc_ops_delta": 203
+    },
+    {
+      "iteration": 2,
+      "wall_seconds": 0.096,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 3,
+      "wall_seconds": 0.0937,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 4,
+      "wall_seconds": 0.0921,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 5,
+      "wall_seconds": 0.0928,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 6,
+      "wall_seconds": 0.0987,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 7,
+      "wall_seconds": 0.0896,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 8,
+      "wall_seconds": 0.1025,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 9,
+      "wall_seconds": 0.0993,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 10,
+      "wall_seconds": 0.1006,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 11,
+      "wall_seconds": 0.0913,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 12,
+      "wall_seconds": 0.0936,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 13,
+      "wall_seconds": 0.0908,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 14,
+      "wall_seconds": 0.0915,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 15,
+      "wall_seconds": 0.0893,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 16,
+      "wall_seconds": 0.0938,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 17,
+      "wall_seconds": 0.0913,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 18,
+      "wall_seconds": 0.0928,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 19,
+      "wall_seconds": 0.092,
+      "rpc_ops_delta": 131
+    },
+    {
+      "iteration": 20,
+      "wall_seconds": 0.0916,
+      "rpc_ops_delta": 131
+    }
+  ]
+}
