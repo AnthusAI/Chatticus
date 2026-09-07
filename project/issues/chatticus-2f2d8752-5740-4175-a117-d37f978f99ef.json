@@ -26,10 +26,17 @@
       "text": "Plan reviewed. Worktree `/tmp/chatticus-2f2d87-f-computer` on `spike/2f2d87-f-computer` verified (not the primary clone). Authorizing the live attempt with one hole closed:\n\n`POST .../turns/{id}/resume` **refuses** while the computer is stopped (`ComputerNotReadyError`). It cannot be the path that first summons ComputerWorker. After the UI turn is `waiting` on `workspace`, the labeled operator path is kernel `enqueue_computer_continuation` (does not require a running host). Record resume-won't-start-stopped-computer as a product gap. Do not treat a 409 from resume as F-computer done — that never reached AssumeRole.\n\nEverything else in the plan stands: AWS-home gate first, dual-account ECS, zero Anthus RunTask, no template edit, no seed, no customer bytes in Anthus S3.",
       "created_at": "2026-09-07T16:11:54.180936Z",
       "comment_type": "default"
+    },
+    {
+      "id": "2f798a6b-635e-4d8d-9aac-2ec0b04fa93a",
+      "author": "home",
+      "text": "Human UI: Ping answered **no** (computerless text, no `request_computer_capability`). That is `STOP_NO_COMPUTER_TOOL` on the customer path — host start never ran. Taking the labeled kernel fallback (`prepare_computer_tool` + `enqueue_computer_continuation`) so F-computer still measures AssumeRole / missing `ChatticusComputers` / refuse-not-fallback.",
+      "created_at": "2026-09-07T16:15:39.434300Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:00:18.378300Z",
-  "updated_at": "2026-09-07T16:11:54.180936Z",
+  "updated_at": "2026-09-07T16:15:39.434300Z",
   "closed_at": null,
   "custom": {}
 }
