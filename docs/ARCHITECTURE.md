@@ -167,14 +167,38 @@ published is gone.
 
 See [Computer snapshots](COMPUTER_SNAPSHOTS.md) and [Computer manifold](COMPUTER_MANIFOLD.md) (work-kind placement; not implemented).
 
-**This section is the shipping design.** The September 2026 storage
-initiative (`chatticus-fbae4e`) proposed replacing it with EFS and was
-**measured out**: in-VPC EFS ran 23-54x local disk for a mutating working
-tree and ~10x read-only warm (`chatticus-3d5357`). `/workspace` stays on
-host-local disk, so publish/hydrate, `hydrate_required`, and the disk-write
-lease are **permanent, not transitional** -- do not delete them. EFS, if it
-is ever built, is for a shared read-mostly `/org` tree only. Large
-artifacts -- datasets, model weights, screenshots -- stay objects in S3.
+**This section is the design target. It is not currently wired.**
+Corrected 2026-09-07 -- an earlier revision of this note called it "the
+shipping design", which overstated it.
+
+**Two file layers exist and are not connected to each other:**
+
+1. `ControlPlane.read_workspace` / `write_workspace` operate on an
+   **in-process dict** (`computer.workspace`). `put_computer` does not
+   persist it, so a ThinTurn recycle starts empty. This is what an agent's
+   tools actually reach.
+2. `chatticus.snapshot` (`pack_live_disk` / `unpack_live_disk`) packs **real
+   directories** -- host `/workspace` plus the Chromium profile, as
+   [Computer snapshots](COMPUTER_SNAPSHOTS.md) specifies. It is tested and
+   exercised by `python -m chatticus.snapshot`, and **no production code
+   path calls it**: the Fargate host worker never publishes or hydrates, and
+   host boot marks `workspace_ready` without hydrating from S3.
+
+`ControlPlane.publish_snapshot` bridges the two only for Gherkin, by copying
+the dict into `plane._snapshots` so scenarios run without a host disk.
+
+**So no agent can reach the container's `/workspace` today.** Whether agent
+file tools should keep using the dict or be wired to the host disk is an open
+product decision -- see `chatticus-3e72dc`.
+
+The storage conclusions still hold as the target: `chatticus-fbae4e`
+proposed replacing host-local disk with EFS and was **measured out** (in-VPC
+EFS ran 23-54x local for a mutating tree, ~10x read-only warm --
+`chatticus-3d5357`). `/workspace` stays on host-local disk, so publish and
+hydrate remain the intended mechanism and the snapshot library **should not
+be deleted** -- but note it is unwired rather than load-bearing today. EFS,
+if ever built, is for a shared read-mostly `/org` tree only. Large artifacts
+-- datasets, model weights, screenshots -- stay objects in S3.
 
 ## What lives where
 
