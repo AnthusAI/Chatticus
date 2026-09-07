@@ -82,10 +82,17 @@
       "text": "**Do not stand up AWS Organizations for this run.** A customer does not join an Anthus org and does not get `CreateAccount`. `customer-role.yml` trusts Anthus `335163751677` from a **separate** billed account via AssumeRole + ExternalId.\n\nWhat to do instead: one normal aws.amazon.com signup (email, phone, payment). Use **that** account as the throwaway customer. Time the signup — that wall-clock is the onboarding number. Then GET the published template in that account and `--template-body`.\n\nA new management account plus Organization would measure Anthus-internal account vending, not self-setup, and would still require a first consumer signup anyway. Do not enable Organizations on `335163751677`.",
       "created_at": "2026-09-07T15:23:44.998622Z",
       "comment_type": "default"
+    },
+    {
+      "id": "1f263e2a-40c8-4ff2-b0f4-c4ee3fed89a3",
+      "author": "home",
+      "text": "Lab bookkeeping is a wiki row (account id, purpose, destroy-after), not AWS Organizations. Inviting the throwaway into an Anthus org would make it Anthus-controlled (consolidated billing, SCPs, management-account reach) and is not what a customer account looks like. Do not enable Organizations on `335163751677` as a side effect of this timing run.",
+      "created_at": "2026-09-07T15:25:01.296325Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:23:44.998622Z",
+  "updated_at": "2026-09-07T15:25:01.296325Z",
   "closed_at": null,
   "custom": {}
 }
