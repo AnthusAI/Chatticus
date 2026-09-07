@@ -115,10 +115,17 @@
       "text": "Still parked. 8fe4c7 named cause is HOST_TASK_ROLE_DYNAMO_ACCESS_DENIED (ECR-auth falsified). No further live rows until a host executes a tool.",
       "created_at": "2026-09-07T22:59:09.921757Z",
       "comment_type": "default"
+    },
+    {
+      "id": "a850cf20-328a-4579-876a-c6eed59379c8",
+      "author": "home",
+      "text": "Browser host row **PASS** as a labeled kernel deviation (`chatticus-8fe4c7e1`, turn `0c07b8d6-…`, `opened:about:blank`). `HOST_NOT_RUNNING` is lifted for that row only.\n\nThis card stays parked. Do not live-run terminal, files, approvals, spend, or relocate. Terminal is `chatticus-e11c17ed`. Files wait on host-disk steps 2–5 (`chatticus-fccc4e9a`).\n",
+      "created_at": "2026-09-07T23:37:41.886174Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:01:06.214793Z",
-  "updated_at": "2026-09-07T22:59:09.921757Z",
+  "updated_at": "2026-09-07T23:37:41.886174Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
