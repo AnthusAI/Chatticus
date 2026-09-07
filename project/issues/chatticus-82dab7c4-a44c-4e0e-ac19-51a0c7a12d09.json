@@ -194,10 +194,17 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/316 — subnet/SG outputs, UpdateStack on CREATE_COMPLETE, nack reason logging. Composer 2.5 review + CI in flight. Not merging. Live RunTask still required after ThinTurn deploy.",
       "created_at": "2026-09-07T19:53:39.938720Z",
       "comment_type": "default"
+    },
+    {
+      "id": "285abc1d-d0bd-4791-881d-01bef883a37d",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/316 to develop (`6457a30`). Composer 2.5 APPROVE; CI green.\n\nDo not close. Remaining: ThinTurn development deploy, then lab-user CloudTrail **UpdateStack** on the existing CREATE_COMPLETE stack and customer **RunTask ≥ 1**. Do not infer from dispatch_ok.",
+      "created_at": "2026-09-07T20:04:53.223476Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T19:53:39.938720Z",
+  "updated_at": "2026-09-07T20:04:53.223476Z",
   "closed_at": null,
   "custom": {}
 }
