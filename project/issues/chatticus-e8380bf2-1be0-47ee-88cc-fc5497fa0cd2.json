@@ -3,7 +3,7 @@
   "title": "Decide the local interactive host scope reduction and its cascade",
   "description": "## Decision needed\n\n`chatticus-9af381` Phase A0 returned **1650x** at ~25 ms RTT — row three of the threshold table agreed in advance: *\"Local interactive host is not viable. Keep accelerated batch, which never needed any of this.\"*\n\nThat is not a marginal call. **This task is to accept the scope reduction and follow it through the design**, or to argue explicitly why not. It is a decision, not an experiment.\n\n## The cascade nobody has drawn yet\n\nThe local interactive host was the **only remaining consumer of the tunnel**:\n\n| Wanted the outbound tunnel for | Still needs it after A0? |\n|---|---|\n| Local host mounting EFS (`fbae4e` D1/D2) | **No** — host class not viable |\n| Reverse VNC for a local Antharchy VM (`3c6df9`) | **No** — goes away with the local GUI host |\n| Accelerated batch (`fbae4e` D8) | **Never did** — object I/O only, SQS + scoped S3 |\n\nSo if the scope reduction is accepted, the following stop being work:\n\n- **D2 entirely** — the WireGuard peer, the stopped-when-idle EC2 endpoint, the ~$0.65/mo idle floor, key distribution and rotation.\n- **`0b10d6`'s consequence** — the Fargate `NET_ADMIN` finding remains true and becomes irrelevant, because there is no tunnel endpoint to place.\n- **`9af381` Phase A and Phase B** — these exist to prove an out-of-VPC mount for a host class that no longer exists. They are **moot, not parked**. They are currently open pending CDK EFS + tunnel, which points at work that should not happen.\n- **The local-VM half of `3c6df9`** — the display initiative survives for EC2 Antharchy, and worker-dials-out remains the right transport there, but the \"same tunnel serves both storage and display\" argument loses its second consumer.\n\n## What survives\n\n- **EFS for AWS hosts** — untouched by A0, still the high-value simplification, but now carrying its own unmeasured assumption. See `chatticus-3d5357` (in-VPC measurement) before building it.\n- **Accelerated batch** — untouched. Never needed EFS, a tunnel, or a display. Still the highest-value host class, still blocked as *implementation* on a manifold job kind, which is blocked on routines not being implemented (`766c51`).\n- **`ea918a`** — the actimeo/concurrency contradiction still needs deciding, and it applies to AWS hosts at default `actimeo`, not only to the dead local host.\n- **`3c6df9` for EC2** — display on EC2 Antharchy, worker-dials-out.\n\n## Caveat to weigh before accepting\n\nA0's WAN verdict is robust (32 s wall, ~1 RTT per file, and real agent workloads do mutate trees). But A0's **mechanism** claim — that `actimeo` does not help — is confounded: each timed iteration rewrites the tree via `git checkout`, and the server was nfs-ganesha in Docker carrying a ~13x LAN tax of its own. See `chatticus-3d5357`.\n\nThat confound does **not** rescue the local interactive host: 1650x has too much headroom, and the WAN RTT term alone (~24 s of the 32 s) is independent of caching. It does mean the in-VPC extrapolation is open.\n\n## Also worth weighing\n\nThe local interactive host was already the least valuable slice — ~$30–60/mo, against accelerated batch's $100s–$1000s per run. A0 removed the cheapest-to-support version of the one thing that justified the tunnel. Deleting the tunnel workstream is a larger simplification than the host class was ever worth.\n\n## Done when\n\nEither:\n\n- **Accepted** — `9af381` closed as moot (not parked), D2 marked superseded in `chatticus-fbae4e`, the tunnel removed from `chatticus-3c6df9`'s transport section, and the epic's status updated so nobody builds toward a dead host class; or\n- **Rejected** — with a recorded reason the 1650x result should not be taken at face value, and what would change it.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -13,9 +13,17 @@
     "storage"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "d55a3faf-b095-4629-b438-b3fe98e971f6",
+      "author": "home",
+      "text": "## Accepted 2026-09-07\n\nScope reduction accepted by the roadmap owner. The local interactive host is not a host class we pursue. Cascade applied:\n\n- `chatticus-fbae4e` **D2 superseded** — no WireGuard peer, no stopped-when-idle EC2 endpoint, no key rotation, no ~$0.65/mo idle floor. The `0b10d6` Fargate finding stays on the record as verified fact; it is simply no longer load-bearing.\n- **D6 moot** — no tunnel, so no tunnel-health signal to fold into the heartbeat.\n- **D5 refuted** — A0 measured the mitigations failing at WAN latency. The mechanism claim stays open in-VPC via `3d5357`.\n- **D1 narrowed** — \"every host class\" now means every AWS host, and is still unmeasured for hot working trees.\n- **\"Shared tunnel with the display path\" withdrawn** in both initiatives.\n- `chatticus-3c6df9` — worker-dials-out **retained** for EC2 Antharchy; it never depended on the storage tunnel. Local VM row dropped from the host table.\n- `chatticus-9af381` closed as moot.\n\nWhat survives: EFS for AWS hosts (D1, gated on `3d5357`), accelerated batch (D8, untouched), `ea918a` (still needs a product decision, applies to AWS hosts), and display on EC2.",
+      "created_at": "2026-09-07T12:53:57.606793Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-07T12:50:54.814672Z",
-  "updated_at": "2026-09-07T12:50:54.814672Z",
-  "closed_at": null,
+  "updated_at": "2026-09-07T12:53:57.647830Z",
+  "closed_at": "2026-09-07T12:53:57.647830Z",
   "custom": {}
 }
