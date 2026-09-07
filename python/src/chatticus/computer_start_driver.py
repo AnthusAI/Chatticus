@@ -60,12 +60,16 @@ class SingleComputerStartDriver:
         )
         assert turn is not None
         self._last_turn_id = turn.turn_id
-        self.plane.request_computer_host_start(self.tenant_id, turn.turn_id)
+        self.plane.request_computer_host_start(
+            self.tenant_id, turn.turn_id, user_id=self.user_id
+        )
 
     def retry_host_start(self) -> None:
         """Retry the same turn's host start without expiring the claim."""
         assert self._last_turn_id is not None
-        self.plane.request_computer_host_start(self.tenant_id, self._last_turn_id)
+        self.plane.request_computer_host_start(
+            self.tenant_id, self._last_turn_id, user_id=self.user_id
+        )
 
     def expire_host_start_lease(self) -> None:
         """Advance past the host-start lease without granting a live writer."""
@@ -138,8 +142,12 @@ class SingleComputerStartDriver:
             addressed_to_bot_id=writer.bot_id,
         )
         assert first is not None and second is not None
-        claim_a = self.plane.request_computer_host_start(self.tenant_id, first.turn_id)
-        claim_b = self.plane.request_computer_host_start(self.tenant_id, second.turn_id)
+        claim_a = self.plane.request_computer_host_start(
+            self.tenant_id, first.turn_id, user_id=self.user_id
+        )
+        claim_b = self.plane.request_computer_host_start(
+            self.tenant_id, second.turn_id, user_id=self.user_id
+        )
         write_a = self.plane.acquire_computer_disk_write(claim_a.computer_id, "host-a")
         write_b = self.plane.acquire_computer_disk_write(claim_b.computer_id, "host-b")
         claim = self.plane.host_start_claim(self.tenant_id)

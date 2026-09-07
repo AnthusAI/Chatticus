@@ -698,7 +698,11 @@ def test_http_get_computer_sees_host_start_from_a_second_process() -> None:
     assert primed.status_code == 200
     assert primed.json()["host_start_generation"] == 0
     worker_plane = ControlPlane(messaging_store=store)
-    worker_plane.request_computer_host_start("anthus", "host-start-from-second-process")
+    worker_plane.request_computer_host_start(
+        "anthus",
+        "host-start-from-second-process",
+        user_id="ryan",
+    )
     fetched = api.get(
         org_path("anthus", "/users/ryan/computer"),
     )
@@ -715,7 +719,7 @@ def test_dynamo_host_start_dispatch_is_claimed_once() -> None:
     store = DynamoMessagingStore(table_name, client=client)
     plane = ControlPlane(messaging_store=store)
     plane.ensure_computer("anthus", computer_id="household-computer")
-    plane.request_computer_host_start("anthus", "turn-a")
+    plane.request_computer_host_start("anthus", "turn-a", user_id="ryan")
     computer = plane.computer_for_organization("anthus")
     first = plane.mark_host_start_dispatched("anthus", computer.host_start_generation)
     second = plane.mark_host_start_dispatched("anthus", computer.host_start_generation)
