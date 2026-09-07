@@ -80,3 +80,14 @@ def test_committed_customer_computers_template_is_under_body_limit() -> None:
     assert len(body.encode("utf-8")) <= CREATE_STACK_TEMPLATE_BYTE_LIMIT
     assert "AWS::S3::Bucket" not in body
     assert "SnapshotBucketName" not in body
+
+
+def test_committed_template_has_no_cdk_bootstrap() -> None:
+    template = load_customer_computers_template()
+    parameters = template.get("Parameters", {})
+    assert set(parameters.keys()) == {"TenantId", "AnthusComputerImageUri"}
+    rules = template.get("Rules", {})
+    assert "CheckBootstrapVersion" not in rules
+    body = json.dumps(template)
+    assert "AWS::SSM::Parameter::Value" not in body
+    assert "/cdk-bootstrap/" not in body
