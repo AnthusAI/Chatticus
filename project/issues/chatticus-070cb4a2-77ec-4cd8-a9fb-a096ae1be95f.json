@@ -1,0 +1,20 @@
+{
+  "id": "chatticus-070cb4a2-77ec-4cd8-a9fb-a096ae1be95f",
+  "title": "A customer submits the RoleArn without an operator kernel",
+  "description": "## Found on `chatticus-b88c0a`\n\nAfter `create-stack` there is no customer HTTP for `submit_self_setup_cross_account_role`. Operator HTTP is enable/suspend/reinstate only. The only `CrossAccountRoleInspector` is in-memory (Gherkin). The hand run used a labeled `/tmp` kernel script.\n\n## Done when\n\nA pending owner can submit their AWS account id and `ChatticusOrganizationComputerRole` ARN in-product. The live path inspects the role (ExternalId = `tenant_id`, required permissions) and on accept enables the org and writes AWS home. Behavior in Gherkin first. Do not `members seed`.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-07T15:54:05.599297Z",
+  "updated_at": "2026-09-07T15:54:05.599297Z",
+  "closed_at": null,
+  "custom": {}
+}

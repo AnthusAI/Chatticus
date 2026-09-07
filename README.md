@@ -70,7 +70,7 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-09-05.** Git **`develop`** is ahead of **`main`** (last
+**Last updated: 2026-09-07.** Git **`develop`** is ahead of **`main`** (last
 promote: #303). Principal enforcement (#7b4616), sign-out ending the SSO session
 (#169), and the behavior-driven spec migration are on `main` and deployed across
 all three named environments. Phase 1 org-computer work (#304, #306, #308) lands
@@ -108,6 +108,11 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   `/chatticus/development/provisioning/customer-role-template-url`). Runbook:
   [infra/README.md](infra/README.md). Staging and production hostnames stay
   CF-dark; do not treat their template URLs as a customer onboarding path yet.
+- **Throwaway-account hand run** (`chatticus-b88c0a`): published template
+  unmodified; F-safe `pong` completed on development. Timed runbook:
+  [wiki](project/wiki/runbooks/throwaway-account-provisioning.md)
+  (~19 min Chatticus provision; consumer AWS signup unmeasured). Customer
+  `ChatticusComputers` in the throwaway account was not deployed.
 
 ### On `develop`, not on `main`
 
