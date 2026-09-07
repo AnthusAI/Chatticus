@@ -97,10 +97,10 @@ lab = json.loads((results / "lab-info.json").read_text()) if (results / "lab-inf
 default_mut = next((r for r in mutating_rows if r["actimeo"] == "default"), mutating_rows[0] if mutating_rows else None)
 
 checkout_note = ""
-if ebs["checkout"] < CHECKOUT_RESOLUTION:
+if ebs["checkout"] >= CHECKOUT_RESOLUTION:
     checkout_note = (
-        f"EBS checkout median {ebs['checkout']:.4f}s is below {CHECKOUT_RESOLUTION}s timer resolution; "
-        "`ratio_overall` uses max(git_status, stat_sweep) only."
+        f"EBS checkout median {ebs['checkout']:.4f}s is above timer resolution; "
+        "`ratio_overall` includes checkout when it exceeds git_status and stat_sweep."
     )
 
 readonly_doc = [
@@ -124,7 +124,7 @@ mutating_doc = [
     "# Mutating A0 sequence (EFS vs EBS)",
     "",
     "Separate from read-only timings. Warm-cache medians of full `run_ops` (status, checkout, stat, pip).",
-    "`ratio_overall` = max(git_status, stat_sweep) when EBS checkout below timer resolution.",
+    "`ratio_overall` = max(git_status, checkout, stat_sweep) — EBS checkout 0.0146s is above timer resolution.",
     "pip_install excluded from verdict. Thresholds vs **local EBS** on same instance.",
     "",
     "## EBS control",

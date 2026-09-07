@@ -4,12 +4,12 @@
   "storage": "efs",
   "iterations": 20,
   "first_post_remount": {
-    "wall_seconds": 0.1343,
+    "wall_seconds": 0.1324,
     "rpc_ops_delta": 203
   },
   "warm_median": {
-    "wall_seconds": 0.0993,
-    "rpc_ops_delta": 131.0
+    "wall_seconds": 0.0928,
+    "rpc_ops_delta": 131
   },
   "rpc_reduction_pct_first_vs_warm_median": 35.5,
   "iterations_detail": [
