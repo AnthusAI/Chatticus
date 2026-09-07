@@ -155,7 +155,6 @@ from chatticus.models import (
     WorkerRegistration,
     WorkerTenantMismatchError,
     pending_computer_tool_from_turn,
-    primary_human_participant,
 )
 from chatticus.org_creation_limits import (
     ORGANIZATION_CREATION_RATE_LIMIT,
@@ -2118,7 +2117,7 @@ class ControlPlane:
         record = EscalationRecord(
             turn_id=turn_id,
             tenant_id=tenant_id,
-            user_id=None,
+            user_id=self.acting_member_user_id_for_turn(tenant_id, turn_id),
             computer_id=computer.computer_id,
             pending_call=PendingComputerToolCall(
                 action_id=str(uuid4()),
@@ -2172,7 +2171,6 @@ class ControlPlane:
             action_id = pending.action_id
             tool_name = pending.tool_name
             arguments = dict(pending.arguments)
-        channel = self.channel(tenant_id, turn.channel_id)
         computer = self.ensure_computer(tenant_id)
         result_committed = any(
             event.kind == TurnEventKind.TOOL_RESULT and event.action_id == action_id
@@ -2182,7 +2180,7 @@ class ControlPlane:
         record = EscalationRecord(
             turn_id=turn_id,
             tenant_id=tenant_id,
-            user_id=primary_human_participant(channel),
+            user_id=self.acting_member_user_id_for_turn(tenant_id, turn_id),
             computer_id=computer.computer_id,
             pending_call=PendingComputerToolCall(
                 action_id=action_id,
@@ -2473,9 +2471,12 @@ class ControlPlane:
         tenant_id: str,
         turn_id: str,
         *,
-        user_id: str | None = None,
+        user_id: str,
     ) -> HostStartClaim:
         """Request a host start; concurrent callers share one claim."""
+        if not user_id:
+            msg = "host start requires a non-empty user_id"
+            raise ValueError(msg)
         self.expire_host_start_claims()
         computer = self.ensure_computer(tenant_id)
         key = (tenant_id, computer.computer_id)

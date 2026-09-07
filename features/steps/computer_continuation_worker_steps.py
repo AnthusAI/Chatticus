@@ -92,6 +92,7 @@ def when_second_process_records_host_start(
     worker_plane.request_computer_host_start(
         tenant_id,
         "host-start-from-second-process",
+        user_id=user_id,
     )
 
 
@@ -311,6 +312,15 @@ def then_host_start_driver_still_invoked_once(context: object) -> None:
 @then("the host start driver was invoked twice")
 def then_host_start_driver_invoked_twice(context: object) -> None:
     assert len(context.host_starter.invocations) == 2
+
+
+@then('the host start claim carries user "{user_id}"')
+def then_host_start_claim_carries_user(context: object, user_id: str) -> None:
+    assert len(context.host_starter.invocations) == 1
+    claim = context.host_starter.invocations[0]
+    assert claim.user_id == user_id
+    assert claim.user_id is not None
+    assert claim.user_id != ""
 
 
 @then("the household computer has recorded one host start")
