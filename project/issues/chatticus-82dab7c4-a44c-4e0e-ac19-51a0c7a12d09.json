@@ -47,10 +47,17 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/312 (feat/customer-computers-stack-82dab7). Composer 2.5 review in flight. Not merging yet.\n\nKnown pushback before live proof: Anthus ECR repo policy omits `ecr:BatchCheckLayerAvailability` (cross-account pull will fail); drop `spikes/82dab7-customer-computers/PLAN.md` from the product PR.",
       "created_at": "2026-09-07T16:48:11.264277Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f873f854-e96c-44e8-ba65-23eaa6ab7f67",
+      "author": "home",
+      "text": "PR #312 **REQUEST CHANGES** (Composer 2.5 on `020ef81`). Prior two holes are closed. Remaining blocker: customer task **execution role** has only CloudWatch Logs — no `ecr:GetAuthorizationToken`. Anthus repo policy is not enough; live `RunTask` will `CannotPullContainerError`. Fix in `customer-computers-stack.ts`, re-synth committed template, assert in infra tests. DRY duplication of `ComputerStack` is non-blocking for this slice.",
+      "created_at": "2026-09-07T16:50:24.441818Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T16:22:36.278349Z",
-  "updated_at": "2026-09-07T16:48:11.264277Z",
+  "updated_at": "2026-09-07T16:50:24.441818Z",
   "closed_at": null,
   "custom": {}
 }
