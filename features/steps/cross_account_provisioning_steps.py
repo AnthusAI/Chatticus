@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 
 from behave import given, then, when
 from botocore.exceptions import ClientError
 
-from chatticus.anthus_computer_ecr_pull import (
-    ECR_PULL_ACTIONS,
-    grant_customer_account_anthus_computer_image_pull,
-)
 from chatticus.computer_start import HostStartClaim
 from chatticus.control_plane import ControlPlane
 from chatticus.cross_account_provisioning import (
@@ -36,8 +31,9 @@ from chatticus.organization_computer_host import (
 
 CUSTOMER_ACCOUNT_ID = "123456789012"
 DEPLOYMENT_ACCOUNT_ID = "111122223333"
-ANTHUS_COMPUTER_IMAGE_URI = (
-    "111122223333.dkr.ecr.us-east-1.amazonaws.com/chatticuscomputers-computerimage:dev"
+CUSTOMER_COMPUTER_REPOSITORY_URI = (
+    f"{CUSTOMER_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/"
+    "chatticuscomputers-computerimage"
 )
 CUSTOMER_ROLE_ARN = (
     f"arn:aws:iam::{CUSTOMER_ACCOUNT_ID}:role/ChatticusOrganizationComputerRole"
@@ -362,6 +358,64 @@ def then_no_session_is_issued(context: object) -> None:
     assert len(context.assume_role_recorder.calls) == 0
 
 
+class _FakeEcr:
+    def __init__(
+        self,
+        *,
+        has_dev_tag: bool = True,
+        anthus_manifest: str | None = None,
+    ) -> None:
+        self.has_dev_tag = has_dev_tag
+        self.anthus_manifest = anthus_manifest
+        self.describe_images_calls: list[dict[str, object]] = []
+        self.put_image_calls: list[dict[str, object]] = []
+
+    def describe_images(
+        self,
+        *,
+        repositoryName: str,
+        imageIds: list[dict[str, str]],
+    ) -> dict[str, object]:
+        del repositoryName
+        self.describe_images_calls.append({"imageIds": imageIds})
+        tag = imageIds[0]["imageTag"]
+        if self.has_dev_tag and tag == "dev":
+            return {"imageDetails": [{"imageTags": ["dev"]}]}
+        return {"imageDetails": []}
+
+    def batch_get_image(
+        self,
+        *,
+        repositoryName: str,
+        imageIds: list[dict[str, str]],
+    ) -> dict[str, object]:
+        del repositoryName
+        tag = imageIds[0]["imageTag"]
+        if self.anthus_manifest is None:
+            return {"failures": [{"imageTag": tag}]}
+        return {
+            "images": [{"imageManifest": self.anthus_manifest}],
+            "failures": [],
+        }
+
+    def put_image(
+        self,
+        *,
+        repositoryName: str,
+        imageManifest: str,
+        imageTag: str,
+    ) -> dict[str, object]:
+        self.put_image_calls.append(
+            {
+                "repositoryName": repositoryName,
+                "imageManifest": imageManifest,
+                "imageTag": imageTag,
+            }
+        )
+        self.has_dev_tag = True
+        return {}
+
+
 class _FakeEcs:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
@@ -397,6 +451,10 @@ class _FakeCloudFormation:
         {
             "OutputKey": "ComputerSecurityGroupId",
             "OutputValue": "sg-customer-1",
+        },
+        {
+            "OutputKey": "ComputerRepositoryUri",
+            "OutputValue": CUSTOMER_COMPUTER_REPOSITORY_URI,
         },
     ]
 
@@ -511,41 +569,6 @@ class _MultiAccountEcsRecorder:
         return self.customer
 
 
-class _RecordingEcrRepositoryPolicy:
-    def __init__(self) -> None:
-        self.repository_name: str | None = None
-        self.policy_text: str | None = None
-
-    def get_repository_policy(self, *, repositoryName: str) -> dict[str, object]:
-        raise _RepositoryPolicyNotFound(repositoryName)
-
-    def set_repository_policy(
-        self,
-        *,
-        repositoryName: str,
-        policyText: str,
-    ) -> dict[str, object]:
-        self.repository_name = repositoryName
-        self.policy_text = policyText
-        return {}
-
-
-class _RepositoryPolicyNotFound(Exception):
-    def __init__(self, repository_name: str) -> None:
-        super().__init__(repository_name)
-        self.response = {"Error": {"Code": "RepositoryPolicyNotFoundException"}}
-
-
-def _grant_anthus_ecr_pull(context: object, customer_account_id: str) -> None:
-    recorder = _RecordingEcrRepositoryPolicy()
-    context.ecr_policy_recorder = recorder  # type: ignore[attr-defined]
-    grant_customer_account_anthus_computer_image_pull(
-        recorder,
-        repository_name="chatticuscomputers-computerimage",
-        customer_account_id=customer_account_id,
-    )
-
-
 def _host_starter(context: object) -> OrganizationComputerHostStarter:
     return context.host_starter  # type: ignore[attr-defined]
 
@@ -569,7 +592,7 @@ def _wire_host_start_context(
     deployment_ecs_config: DeploymentEcsConfig | None = None,
     cloudformation_client: _FakeCloudFormation | None = None,
     customer_computers_provisioner: object | None = None,
-    grant_anthus_computer_image_pull: object | None = None,
+    ecr_client: _FakeEcr | None = None,
 ) -> None:
     _ensure_org_store(context)
     recorder = _MultiAccountEcsRecorder()
@@ -578,10 +601,8 @@ def _wire_host_start_context(
     context.cloudformation_client = cloudformation  # type: ignore[attr-defined]
     context.assume_role_recorder = assume_role or RecordingAssumeRole()  # type: ignore[attr-defined]
     context.grant_anthus_pull_calls = []  # type: ignore[attr-defined]
-
-    def _record_grant(customer_account_id: str) -> None:
-        context.grant_anthus_pull_calls.append(customer_account_id)  # type: ignore[attr-defined]
-        _grant_anthus_ecr_pull(context, customer_account_id)
+    fake_ecr = ecr_client or getattr(context, "ecr_client", None) or _FakeEcr()
+    context.ecr_client = fake_ecr  # type: ignore[attr-defined]
 
     context.host_starter = OrganizationComputerHostStarter(  # type: ignore[attr-defined]
         _plane(context).get_organization,
@@ -596,13 +617,9 @@ def _wire_host_start_context(
         assume_role=context.assume_role_recorder,  # type: ignore[attr-defined]
         ecs_client_factory=recorder.factory,
         cloudformation_client_factory=lambda _credentials: cloudformation,
+        ecr_client_factory=lambda _credentials: fake_ecr,
         customer_computers_provisioner=customer_computers_provisioner
         or AwsCustomerComputersProvisioner(),
-        anthus_computer_image_uri=ANTHUS_COMPUTER_IMAGE_URI,
-        anthus_computer_repository_name="chatticuscomputers-computerimage",
-        grant_anthus_computer_image_pull=(
-            grant_anthus_computer_image_pull or _record_grant
-        ),
     )
     context.host_start_error = None  # type: ignore[attr-defined]
 
@@ -753,10 +770,12 @@ def given_host_starter_cannot_provision(context: object) -> None:
         assume_role=context.assume_role_recorder,  # type: ignore[attr-defined]
         ecs_client_factory=context.ecs_recorder.factory,  # type: ignore[attr-defined]
         cloudformation_client_factory=lambda _credentials: cloudformation,
+        ecr_client_factory=lambda _credentials: getattr(
+            context,
+            "ecr_client",
+            _FakeEcr(),
+        ),
         customer_computers_provisioner=RefusingCustomerComputersProvisioner(),
-        anthus_computer_image_uri=ANTHUS_COMPUTER_IMAGE_URI,
-        anthus_computer_repository_name="chatticuscomputers-computerimage",
-        grant_anthus_computer_image_pull=lambda _account_id: None,
     )
 
 
@@ -879,24 +898,11 @@ def then_chatticus_creates_customer_stack(context: object) -> None:
     assert "CAPABILITY_NAMED_IAM" in create_call["Capabilities"]
 
 
-@then("Anthus grants cross-account ECR pull for the customer account")
-def then_anthus_grants_cross_account_ecr_pull(context: object) -> None:
-    recorder = context.ecr_policy_recorder  # type: ignore[attr-defined]
-    assert recorder.repository_name == "chatticuscomputers-computerimage"
-    assert recorder.policy_text is not None
-    policy = json.loads(recorder.policy_text)
-    statement = next(
-        item
-        for item in policy["Statement"]
-        if item.get("Sid") == "ChatticusCustomerAccountPull"
-    )
-    assert statement["Action"] == sorted(ECR_PULL_ACTIONS)
-    principal = statement["Principal"]["AWS"]
-    if isinstance(principal, str):
-        principals = [principal]
-    else:
-        principals = list(principal)
-    assert f"arn:aws:iam::{CUSTOMER_ACCOUNT_ID}:root" in principals
+@then("Anthus does not grant cross-account ECR pull for the customer account")
+def then_anthus_does_not_grant_cross_account_ecr_pull(context: object) -> None:
+    calls = getattr(context, "grant_anthus_pull_calls", None)
+    assert calls is not None
+    assert calls == []
 
 
 @then("Chatticus describes the ChatticusComputers stack in the customer account")

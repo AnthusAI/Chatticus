@@ -8,6 +8,7 @@ from dataclasses import dataclass
 COMPUTERS_STACK_NAME = "ChatticusComputers"
 COMPUTER_PUBLIC_SUBNET_IDS_OUTPUT = "ComputerPublicSubnetIds"
 COMPUTER_SECURITY_GROUP_ID_OUTPUT = "ComputerSecurityGroupId"
+COMPUTER_REPOSITORY_URI_OUTPUT = "ComputerRepositoryUri"
 
 
 @dataclass(frozen=True)
@@ -41,8 +42,11 @@ def stack_has_run_task_outputs(outputs: Mapping[str, str]) -> bool:
     """Return whether *outputs* include RunTask wiring from the committed template."""
     cluster = outputs.get("ComputerClusterName", "").strip()
     task_definition = outputs.get("ComputerTaskDefinitionArn", "").strip()
+    repository_uri = outputs.get(COMPUTER_REPOSITORY_URI_OUTPUT, "").strip()
     subnets, security_groups = network_from_stack_outputs(outputs)
-    return bool(cluster and task_definition and subnets and security_groups)
+    return bool(
+        cluster and task_definition and subnets and security_groups and repository_uri
+    )
 
 
 def customer_computer_ecs_config_from_stack_outputs(

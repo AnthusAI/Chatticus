@@ -14,12 +14,14 @@ from chatticus.cross_account_assume_role import (
     AssumeRoleCallable,
     attempt_cross_account_assume_role,
 )
+from chatticus.customer_computer_image import require_customer_computer_image
 from chatticus.customer_computers_provision import (
     AwsCustomerComputersProvisioner,
     CustomerComputersProvisioner,
     describe_customer_computers_stack,
 )
 from chatticus.customer_computers_stack import (
+    COMPUTER_REPOSITORY_URI_OUTPUT,
     COMPUTERS_STACK_NAME,
     CustomerComputerEcsConfig,
     customer_computer_ecs_config_from_stack_outputs,
@@ -200,10 +202,8 @@ class OrganizationComputerHostStarter:
         assume_role: AssumeRoleCallable | None = None,
         ecs_client_factory: Callable[[str | None], Any] | None = None,
         cloudformation_client_factory: Callable[[str | None], Any] | None = None,
+        ecr_client_factory: Callable[[dict[str, str] | None], Any] | None = None,
         customer_computers_provisioner: CustomerComputersProvisioner | None = None,
-        anthus_computer_image_uri: str | None = None,
-        anthus_computer_repository_name: str | None = None,
-        grant_anthus_computer_image_pull: Callable[[str], None] | None = None,
     ) -> None:
         self._get_organization = get_organization
         self._deployment_account_id = (
@@ -215,22 +215,12 @@ class OrganizationComputerHostStarter:
         self._cloudformation_client_factory = (
             cloudformation_client_factory or self._default_cloudformation_client
         )
+        self._ecr_client_factory = ecr_client_factory or self._default_ecr_client
         self._customer_computers_provisioner = (
             customer_computers_provisioner
             or AwsCustomerComputersProvisioner(
                 template_url=_customer_computers_template_url_from_env(),
             )
-        )
-        self._anthus_computer_image_uri = (
-            anthus_computer_image_uri or _anthus_computer_image_uri_from_env()
-        )
-        self._anthus_computer_repository_name = (
-            anthus_computer_repository_name
-            or _anthus_computer_repository_name_from_env()
-        )
-        self._grant_anthus_computer_image_pull = (
-            grant_anthus_computer_image_pull
-            or _default_grant_anthus_computer_image_pull
         )
         self.last_outcome: OrganizationHostStartOutcome | None = None
 
@@ -294,27 +284,28 @@ class OrganizationComputerHostStarter:
             )
             raise OrganizationComputerProvisioningError(msg)
         session = outcome.session
-        ecs = self._ecs_client_factory(
-            {
-                "aws_access_key_id": session.access_key_id,
-                "aws_secret_access_key": session.secret_access_key,
-                "aws_session_token": session.session_token,
-            }
-        )
-        cloudformation = self._cloudformation_client_factory(
-            {
-                "aws_access_key_id": session.access_key_id,
-                "aws_secret_access_key": session.secret_access_key,
-                "aws_session_token": session.session_token,
-            }
-        )
-        image_uri = self._require_anthus_computer_image_uri()
-        self._grant_anthus_computer_image_pull(home_account_id)
+        credentials = {
+            "aws_access_key_id": session.access_key_id,
+            "aws_secret_access_key": session.secret_access_key,
+            "aws_session_token": session.session_token,
+        }
+        ecs = self._ecs_client_factory(credentials)
+        cloudformation = self._cloudformation_client_factory(credentials)
+        ecr = self._ecr_client_factory(credentials)
         self._customer_computers_provisioner.ensure_stack(
             cloudformation,
             organization,
-            anthus_computer_image_uri=image_uri,
         )
+        stack_response = describe_customer_computers_stack(cloudformation)
+        outputs = stack_outputs_from_describe_stacks(stack_response)
+        repository_uri = outputs.get(COMPUTER_REPOSITORY_URI_OUTPUT, "").strip()
+        if not repository_uri:
+            msg = (
+                f"{COMPUTERS_STACK_NAME} stack outputs are incomplete; "
+                f"{COMPUTER_REPOSITORY_URI_OUTPUT} is required for host start."
+            )
+            raise OrganizationComputerProvisioningError(msg)
+        require_customer_computer_image(ecr, repository_uri=repository_uri)
         config = lookup_customer_computer_ecs_config(cloudformation)
         run_fargate_task(
             ecs,
@@ -327,16 +318,6 @@ class OrganizationComputerHostStarter:
         self.last_outcome = OrganizationHostStartOutcome(
             launch_account_id=home_account_id
         )
-
-    def _require_anthus_computer_image_uri(self) -> str:
-        image_uri = self._anthus_computer_image_uri
-        if not image_uri:
-            msg = (
-                "Anthus computer image URI is not configured; "
-                "CHATTICUS_ANTHUS_COMPUTER_IMAGE_URI is required for customer start."
-            )
-            raise OrganizationComputerProvisioningError(msg)
-        return image_uri
 
     @staticmethod
     def _default_ecs_client(credentials: dict[str, str] | None) -> Any:
@@ -353,40 +334,16 @@ class OrganizationComputerHostStarter:
         return boto3.client("cloudformation", **credentials)
 
     @staticmethod
+    def _default_ecr_client(credentials: dict[str, str] | None) -> Any:
+        if credentials is None:
+            return boto3.client("ecr")
+        return boto3.client("ecr", **credentials)
+
+    @staticmethod
     def _default_assume_role(**kwargs: object) -> dict[str, object]:
         return boto3.client("sts").assume_role(**kwargs)
-
-
-def _anthus_computer_image_uri_from_env() -> str | None:
-    value = os.environ.get("CHATTICUS_ANTHUS_COMPUTER_IMAGE_URI", "").strip()
-    return value or None
-
-
-def _anthus_computer_repository_name_from_env() -> str | None:
-    value = os.environ.get("CHATTICUS_ANTHUS_COMPUTER_REPOSITORY_NAME", "").strip()
-    return value or None
 
 
 def _customer_computers_template_url_from_env() -> str | None:
     value = os.environ.get("CHATTICUS_CUSTOMER_COMPUTERS_TEMPLATE_URL", "").strip()
     return value or None
-
-
-def _default_grant_anthus_computer_image_pull(customer_account_id: str) -> None:
-    repository_name = _anthus_computer_repository_name_from_env()
-    if not repository_name:
-        msg = (
-            "Anthus computer repository name is not configured; "
-            "CHATTICUS_ANTHUS_COMPUTER_REPOSITORY_NAME is required for customer start."
-        )
-        raise OrganizationComputerProvisioningError(msg)
-    from chatticus.anthus_computer_ecr_pull import (
-        grant_customer_account_anthus_computer_image_pull,
-    )
-
-    ecr_client = boto3.client("ecr")
-    grant_customer_account_anthus_computer_image_pull(
-        ecr_client,
-        repository_name=repository_name,
-        customer_account_id=customer_account_id,
-    )
