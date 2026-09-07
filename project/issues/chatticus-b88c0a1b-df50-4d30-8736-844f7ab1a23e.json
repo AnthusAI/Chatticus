@@ -89,10 +89,17 @@
       "text": "Lab bookkeeping is a wiki row (account id, purpose, destroy-after), not AWS Organizations. Inviting the throwaway into an Anthus org would make it Anthus-controlled (consolidated billing, SCPs, management-account reach) and is not what a customer account looks like. Do not enable Organizations on `335163751677` as a side effect of this timing run.",
       "created_at": "2026-09-07T15:25:01.296325Z",
       "comment_type": "default"
+    },
+    {
+      "id": "c56cbaef-c5b2-4e16-84de-ee4050fac45c",
+      "author": "home",
+      "text": "**Method amendment (one-person desk):** consolidated billing for *Anthus lab throwaways* is accepted. That is not the customer funnel.\n\n- Enable Organizations on existing `335163751677` (do not invent a second management account; do not move Chatticus stacks).\n- `CreateAccount` a member named as the b88c0a throwaway. One bill. Distinct account id, so AssumeRole + published template still apply.\n- **Do not claim we timed aws.amazon.com signup.** Wiki must say: consumer phone/card funnel skipped; measured time is Chatticus provision (template, role, org record, computer, bot) plus Organizations `CreateAccount` wait.\n- No SCPs that pretend this is a locked-down customer. Real customers stay *out* of this org.\n\nPitch/$100/invitation-rate: use the Chatticus-provision number; treat AWS account signup as unmeasured (or a separate stopwatch if someone later does a true consumer signup).",
+      "created_at": "2026-09-07T15:28:30.766286Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:25:01.296325Z",
+  "updated_at": "2026-09-07T15:28:30.766286Z",
   "closed_at": null,
   "custom": {}
 }
