@@ -13,6 +13,9 @@ export interface ComputerHostStartEcsConfig {
   readonly securityGroups: string[];
   readonly executionRoleArn: string;
   readonly taskRoleArn: string;
+  readonly computerRepositoryName: string;
+  readonly computerRepositoryArn: string;
+  readonly computerImageUri: string;
 }
 
 function contextString(scope: Construct, key: string): string {
@@ -30,6 +33,27 @@ function contextCsv(scope: Construct, key: string): string[] {
     .filter((part) => part.length > 0);
 }
 
+function computerRepositoryArn(
+  scope: Construct,
+  repositoryUri: string,
+): { repositoryName: string; repositoryArn: string; imageUri: string } {
+  const region =
+    cdk.Stack.of(scope).region ||
+    process.env.AWS_DEFAULT_REGION ||
+    process.env.AWS_REGION ||
+    "us-east-1";
+  const account = cdk.Stack.of(scope).account;
+  const repositoryName = repositoryUri.split("/").pop() ?? "";
+  if (!repositoryName) {
+    throw new Error(`Could not parse repository name from URI ${repositoryUri}`);
+  }
+  return {
+    repositoryName,
+    repositoryArn: `arn:aws:ecr:${region}:${account}:repository/${repositoryName}`,
+    imageUri: `${repositoryUri}:dev`,
+  };
+}
+
 function configFromContext(
   scope: Construct,
 ): ComputerHostStartEcsConfig | undefined {
@@ -38,15 +62,18 @@ function configFromContext(
   const subnets = contextCsv(scope, "computerEcsSubnets");
   const executionRoleArn = contextString(scope, "computerEcsExecutionRoleArn");
   const taskRoleArn = contextString(scope, "computerEcsTaskRoleArn");
+  const repositoryUri = contextString(scope, "computerEcrRepositoryUri");
   if (
     !cluster ||
     !taskDefinition ||
     subnets.length === 0 ||
     !executionRoleArn ||
-    !taskRoleArn
+    !taskRoleArn ||
+    !repositoryUri
   ) {
     return undefined;
   }
+  const repository = computerRepositoryArn(scope, repositoryUri);
   return {
     cluster,
     taskDefinition,
@@ -54,6 +81,9 @@ function configFromContext(
     securityGroups: contextCsv(scope, "computerEcsSecurityGroups"),
     executionRoleArn,
     taskRoleArn,
+    computerRepositoryName: repository.repositoryName,
+    computerRepositoryArn: repository.repositoryArn,
+    computerImageUri: repository.imageUri,
   };
 }
 
@@ -104,7 +134,8 @@ function lookupComputersHostStart(
     const cluster = outputs.ComputerClusterName;
     const taskDefinition = outputs.ComputerTaskDefinitionArn;
     const service = outputs.ComputerServiceName;
-    if (!cluster || !taskDefinition || !service) {
+    const repositoryUri = outputs.ComputerRepositoryUri;
+    if (!cluster || !taskDefinition || !service || !repositoryUri) {
       return undefined;
     }
     const described = awsJson([
@@ -151,6 +182,7 @@ function lookupComputersHostStart(
     ) {
       return undefined;
     }
+    const repository = computerRepositoryArn(scope, repositoryUri);
     return {
       cluster,
       taskDefinition,
@@ -158,6 +190,9 @@ function lookupComputersHostStart(
       securityGroups,
       executionRoleArn: roles.executionRoleArn,
       taskRoleArn: roles.taskRoleArn,
+      computerRepositoryName: repository.repositoryName,
+      computerRepositoryArn: repository.repositoryArn,
+      computerImageUri: repository.imageUri,
     };
   } catch {
     return undefined;
@@ -210,6 +245,14 @@ export function wireComputerWorkerEcsHostStart(
     computerWorkerFunction.addEnvironment(key, value);
   }
   computerWorkerFunction.addEnvironment(
+    "CHATTICUS_ANTHUS_COMPUTER_IMAGE_URI",
+    config.computerImageUri,
+  );
+  computerWorkerFunction.addEnvironment(
+    "CHATTICUS_ANTHUS_COMPUTER_REPOSITORY_NAME",
+    config.computerRepositoryName,
+  );
+  computerWorkerFunction.addEnvironment(
     "CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID",
     stack.account,
   );
@@ -254,6 +297,12 @@ export function wireComputerWorkerEcsHostStart(
     new iam.PolicyStatement({
       actions: ["sts:AssumeRole"],
       resources: ["arn:aws:iam::*:role/ChatticusOrganizationComputerRole"],
+    }),
+  );
+  computerWorkerFunction.addToRolePolicy(
+    new iam.PolicyStatement({
+      actions: ["ecr:GetRepositoryPolicy", "ecr:SetRepositoryPolicy"],
+      resources: [config.computerRepositoryArn],
     }),
   );
 
