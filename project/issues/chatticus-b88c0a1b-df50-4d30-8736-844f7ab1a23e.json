@@ -152,10 +152,17 @@
       "text": "Phase D complete via **labeled operator deviation** (no customer HTTP, no live inspector): AssumeRole + ExternalId succeeded as non-root lab IAM user; kernel `submit_self_setup_cross_account_role` accepted. ACME Corp is **enabled** and AWS home is written (not seed). Root assume failed (lab-only). Next: F-safe (`pong`) in the unlocked workspace; E (customer `ChatticusComputers`) is a finding if missing, not a template edit.",
       "created_at": "2026-09-07T15:47:13.572269Z",
       "comment_type": "default"
+    },
+    {
+      "id": "71fe2b01-8abd-47cb-9a7e-9cc78a99a295",
+      "author": "home",
+      "text": "Human confirmed ACME workspace unlocked at dev.chattic.us after phase D. Product has no create-bot control in EnabledWorkspace — labeled gap. Next: mint one bot via kernel (not seed), then F-safe pong from the UI.",
+      "created_at": "2026-09-07T15:48:15.168569Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:18:00.752545Z",
-  "updated_at": "2026-09-07T15:47:13.572269Z",
+  "updated_at": "2026-09-07T15:48:15.168569Z",
   "closed_at": null,
   "custom": {}
 }
