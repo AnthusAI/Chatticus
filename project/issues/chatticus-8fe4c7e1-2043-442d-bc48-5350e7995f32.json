@@ -54,10 +54,17 @@
       "text": "Merged to develop as PR #319 (https://github.com/AnthusAI/Chatticus/pull/319, squash `26a80b9`). Composer 2.5 review approved; CI python+infra green.\n\nCustomer host is HTTP-only (`HttpWorkerPlane`); no `plane_from_env`, no customer SQS, no Dynamo on the task role. Gherkin covers boot, HTTP job discovery, and `browser_open` complete without Dynamo.\n\n**Not Done.** Live `browser_open` / `about:blank` still required. That needs (1) ThinTurn development deploy of the new `/host-worker/*` routes and (2) a rebuilt Anthus computer image `:dev` — `computer_host_worker` runs in the container, not in Lambda. Worktree `/tmp/chatticus-8fe4c7-host-http` stays until live pass.\n",
       "created_at": "2026-09-07T23:28:57.544508Z",
       "comment_type": "default"
+    },
+    {
+      "id": "09064da0-426a-4101-b3f6-2f6024988fed",
+      "author": "home",
+      "text": "Anthus computer image `:dev` rebuilt from `develop` after #319. Digest `sha256:4729f92673c451044d09a466d4148124017df7d90532a383afd22b35e63ed32b`. ChatticusComputers desiredCount stays 0.\n\nThinTurn development deploy of #319 succeeded (the overlapping pm-commit deploy failed with stack `UPDATE_IN_PROGRESS` — race, not a rollback).\n\nDispatching live kernel `browser_open` / `about:blank` against the ACME customer host. Stop at the first labeled failure. Worktree `/tmp/chatticus-8fe4c7-live-browser-open`.\n",
+      "created_at": "2026-09-07T23:33:01.532150Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:38:33.234168Z",
-  "updated_at": "2026-09-07T23:28:57.544508Z",
+  "updated_at": "2026-09-07T23:33:01.532150Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
