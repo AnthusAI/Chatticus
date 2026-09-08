@@ -3,7 +3,7 @@
   "title": "A customer submits the RoleArn without an operator kernel",
   "description": "## Found on `chatticus-b88c0a`\n\nAfter `create-stack` there is no customer HTTP for `submit_self_setup_cross_account_role`. Operator HTTP is enable/suspend/reinstate only. The only `CrossAccountRoleInspector` is in-memory (Gherkin). The hand run used a labeled `/tmp` kernel script.\n\n## Done when\n\nA pending owner can submit their AWS account id and `ChatticusOrganizationComputerRole` ARN in-product. The live path inspects the role (ExternalId = `tenant_id`, required permissions) and on accept enables the org and writes AWS home. Behavior in Gherkin first. Do not `members seed`.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -54,10 +54,17 @@
       "text": "PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) merged to `develop` (`7a8fb1c`) after inline-inspect re-review. Card stays **in_progress** until I run the live submit on development (not a hypothetical customer): wait for ThinTurn/web deploy, then pending-owner POST of account id + RoleArn — 200 if the org is still pending and the role ExternalId matches, otherwise the live 422 inspect message. No `members seed`.\n",
       "created_at": "2026-09-08T11:29:49.644722Z",
       "comment_type": "default"
+    },
+    {
+      "id": "07d9db25-72d1-4264-86c1-a8495f811075",
+      "author": "home",
+      "text": "**Closed.** PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) on `develop`. I ran live HTTP on development after ThinTurn+web deploy: new pending org + existing customer RoleArn → **422** AssumeRole/ExternalId kernel message; org stayed pending; unauthenticated **403**. Happy-path 200 stays in Gherkin; do not retarget the working throwaway role. SPA Google sign-in blocked automation (labeled Cognito id_token deviation, reverted). Next self-setup hole: `chatticus-7622fd`.\n",
+      "created_at": "2026-09-08T11:36:15.410231Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T15:54:05.599297Z",
-  "updated_at": "2026-09-08T11:29:49.644722Z",
-  "closed_at": null,
+  "updated_at": "2026-09-08T11:36:15.424701Z",
+  "closed_at": "2026-09-08T11:36:15.424701Z",
   "custom": {}
 }

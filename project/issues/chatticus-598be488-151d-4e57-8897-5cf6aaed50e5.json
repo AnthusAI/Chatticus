@@ -110,10 +110,17 @@
       "text": "Self-setup `chatticus-9c8dbf` closed (#325). Next P0 hole: `chatticus-070cb4` — submit RoleArn without an operator kernel.\n",
       "created_at": "2026-09-08T10:37:59.246240Z",
       "comment_type": "default"
+    },
+    {
+      "id": "a06d945c-285b-4408-9d24-619b1d90b399",
+      "author": "home",
+      "text": "Self-setup `chatticus-070cb4` closed (#326). Live inspect 422 on development. Next P0 hole: `chatticus-7622fd` — create a named bot from the workspace UI.\n",
+      "created_at": "2026-09-08T11:36:15.464836Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-08T10:37:59.246240Z",
+  "updated_at": "2026-09-08T11:36:15.464836Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
