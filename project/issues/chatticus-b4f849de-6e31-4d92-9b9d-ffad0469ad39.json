@@ -13,7 +13,7 @@
   ],
   "dependencies": [
     {
-      "target": "c54569",
+      "target": "chatticus-c5456922-6835-404b-a787-00f0413576db",
       "type": "blocked-by"
     }
   ],
@@ -41,7 +41,7 @@
     }
   ],
   "created_at": "2026-09-03T13:39:30.925530Z",
-  "updated_at": "2026-09-08T18:49:08.796944Z",
+  "updated_at": "2026-09-08T22:12:42.920036Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
