@@ -96,10 +96,17 @@
       "text": "Host-disk decision story `chatticus-fccc4e9a` closed. Five steps on `develop` (#318–#324). Capability matrix row 3 is Gherkin-green; live file actions still need lab UpdateStack so the throwaway account actually has `OrganizationSnapshotBucket`. Do not treat that as a new product slice until acceptance reports a hole.\n",
       "created_at": "2026-09-08T04:00:01.640264Z",
       "comment_type": "default"
+    },
+    {
+      "id": "54b8d7ee-da6e-486b-9453-207e38287faf",
+      "author": "home",
+      "text": "Live customer-path file recycle **PASS** (2026-09-08). Host-disk steps 1–5 plus throwaway UpdateStack and a fresh customer `:dev` image. Capability matrix `chatticus-3e72dc` file-actions row is green; the card stays open for the rest of the matrix.\n",
+      "created_at": "2026-09-08T09:02:25.677505Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-08T04:00:01.640264Z",
+  "updated_at": "2026-09-08T09:02:25.677505Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
