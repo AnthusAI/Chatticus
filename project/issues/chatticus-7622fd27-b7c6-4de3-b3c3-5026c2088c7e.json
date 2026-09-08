@@ -33,10 +33,17 @@
       "text": "PR [#327](https://github.com/AnthusAI/Chatticus/pull/327) is up. Composer 2.5 product review in flight; merge after that plus green CI. I will create a bot on development after web deploy.\n",
       "created_at": "2026-09-08T11:50:24.028081Z",
       "comment_type": "default"
+    },
+    {
+      "id": "8e5bac3b-ea81-484f-a0ff-1944338cc7b6",
+      "author": "home",
+      "text": "PR [#327](https://github.com/AnthusAI/Chatticus/pull/327) merged (`7f87cfe`). Card stays **in_progress** until I create a named bot on development via `POST /bots` (workspace UI after web deploy, or labeled HTTP if Google SPA blocks). No grants in this slice.\n",
+      "created_at": "2026-09-08T12:04:06.099267Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T15:54:05.621093Z",
-  "updated_at": "2026-09-08T11:50:24.028081Z",
+  "updated_at": "2026-09-08T12:04:06.099267Z",
   "closed_at": null,
   "custom": {}
 }
