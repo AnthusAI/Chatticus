@@ -52,10 +52,17 @@
       "text": "npm EACCES is fixed — Deploy Web run 34287292211 got past mkdir /.npm (`npm ci` added 390 packages). New failure is Next typecheck:\n\nweb/test-support/auth-behavior-harness.ts:170 — Window stub is not assignable (missing 207 Window properties).\n\nThat file is the Behave harness, not the SPA. next build typechecks it because web/tsconfig.json includes **/*.ts. Sending the implementer back: exclude test-support from the Next tsconfig (do not dual-cast the stub into the production compile). New PR from origin/develop; #340 already merged. Card stays open until CloudFront has the successful bundle.\n",
       "created_at": "2026-09-08T22:46:29.927200Z",
       "comment_type": "default"
+    },
+    {
+      "id": "0917b80b-e741-4a79-9c95-7968e1e7f0c1",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/342 excludes test-support from web/tsconfig.json. Composer 2.5 reviewing. Merge after review + green CI, then watch Deploy Web — that is still the DoD.\n",
+      "created_at": "2026-09-08T22:48:03.354042Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T22:25:27.517469Z",
-  "updated_at": "2026-09-08T22:46:29.927228Z",
+  "updated_at": "2026-09-08T22:48:03.354068Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
