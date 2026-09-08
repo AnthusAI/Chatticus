@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-0b0208ea-85fd-44f6-a270-26e15c9301e7",
+  "title": "A signed-in person stays signed in across a reload",
+  "description": "## Found on `chatticus-c54569`\n\nA person who already signed in with Google is sent through Google's account picker again after a reload, a new tab, or returning to `/chat`. It looks like the product will not keep them signed in.\n\nThis is not Cursor-vs-Chrome cookies (that is a separate jar). It is the SPA itself.\n\n## Why it happens\n\n`chatticus-349634` put OIDC tokens in in-memory storage only, and every Google authorization request includes `prompt=select_account`. That combination is correct **after an explicit sign-out** (the next person on a shared machine must see the chooser). It is wrong for an ordinary reload: the tab forgets the session, so the next visit is treated as a fresh sign-in and Google asks again.\n\n## What this does not change\n\n- Signing out still ends the Cognito and Google SSO session (`signoutRedirect` with `id_token_hint`).\n- Signing back in **after sign-out** still includes `prompt=select_account`.\n- Do not enable `ADMIN_NO_SRP_AUTH`. Do not add a second auth path.\n\n## Gherkin (behavior to add; keep existing sign-out scenarios)\n\n```\nFeature: Signed-in Google session survives a reload\n  As a person who already signed in with Google\n  I want the workspace to still know who I am after I refresh or return to /chat\n  So that I am not sent through Google's account picker on every visit\n\n  Scenario: Reloading the workspace keeps the signed-in session\n    Given the web SPA has an active signed-in session\n    When the person reloads the workspace\n    Then the web SPA still has that signed-in session\n    And the person is not sent through Google sign-in\n\n  Scenario: Signing back in after sign-out still prompts for account selection\n    Given the person has signed out of the web SPA\n    When the person starts Google sign-in from the web SPA\n    Then the Google authorization request includes prompt \"select_account\"\n```\n\n## Done when\n\nA signed-in person can reload `/chat` (and open it again in the same browser) and remain signed in, without Google's account picker. After they click Sign out, the next sign-in still shows the chooser. Behavior in Gherkin first. `chatticus-349634` remains true.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "phase-4"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "4d044b6a-21ee-40ac-85a9-a2d13a324d75",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree to be named `/tmp/chatticus-0b0208-session-persist` on `feat/0b0208-session-survives-reload`. Implementation not authorized until the plan is reviewed.\n\nKeep `chatticus-349634`: Cognito sign-out redirect and `prompt=select_account` after explicit sign-out. Persist the OIDC user across reload (oidc-client-ts default store is fine; in-memory-only is the defect). Gherkin first. No `ADMIN_NO_SRP_AUTH`. No second auth path.",
+      "created_at": "2026-09-08T19:42:08.057546Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-08T19:41:52.427409Z",
+  "updated_at": "2026-09-08T19:42:08.057568Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

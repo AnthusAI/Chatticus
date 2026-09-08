@@ -47,10 +47,17 @@
       "text": "Third attempt: Cursor IDE browser at dev.chattic.us/chat still unsigned (Sign in with Google). Human desktop sign-in does not share cookies with embedded browser. Stop GATE_HUMAN_GOOGLE_SIGNIN. Required: sign in inside Cursor IDE browser panel specifically, not desktop Chrome. T0 not started. Person-steps 1/6 expected gate only; 0 operator kernel vs b88c0a 4/6. ThinTurn+Web UPDATE_COMPLETE. Clock A from prior session unchanged.",
       "created_at": "2026-09-08T19:38:35.529938Z",
       "comment_type": "default"
+    },
+    {
+      "id": "a247115e-8ef9-42c2-9b5e-7d27346bae69",
+      "author": "home",
+      "text": "GATE_HUMAN_GOOGLE_SIGNIN is cleared in the Cursor IDE browser: `/chat` shows an enabled workspace (Sign out), not Sign in with Google.\n\nThe repeated Google prompt after an already-completed sign-in is a product defect, not only a cookie-jar split. OIDC tokens live in in-memory storage, so a reload looks unsigned, and every fresh authorization includes `prompt=select_account`. Filed `chatticus-0b0208` (P0 under `71e3e0`). Do not treat that loop as the human failing to sign in.\n\nThis signed-in identity already owns the seeded Anthus organization. Product owner-cap refuses a second org (`POST /organizations` 409). Continuing the unattended customer journey from this identity would reuse Anthus, which is not a customer create-org. Next person-step: Google sign-in as an identity that has never created a Chatticus org (Sign out, then Sign in, pick that account). T0 still not started. Person-steps remain 1/6 expected gate; 0 operator kernel. ThinTurn UPDATE_COMPLETE. Do not push this `pm:` while a live HTTP/UI run is about to start — board commit may stay local.",
+      "created_at": "2026-09-08T19:42:08.158401Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T18:30:57.683865Z",
-  "updated_at": "2026-09-08T19:38:35.529967Z",
+  "updated_at": "2026-09-08T19:42:08.158422Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
