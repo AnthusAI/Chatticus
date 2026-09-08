@@ -59,10 +59,17 @@
       "text": "Missing-tag exception path is in #320 (`9b10c15`); wiki hunk gone. Python CI green. Infra still red: `customer-computers-stack.test.ts:79` asserts `String(resource).includes(\":repository/\")` but CDK grants BatchGetImage on `Fn::GetAtt` of the repo ARN. Product IAM is correct (`GetAuthorizationToken` on `*`, pull on repo GetAtt). Implementer fixing the assertion only.\n",
       "created_at": "2026-09-08T00:13:18.375980Z",
       "comment_type": "default"
+    },
+    {
+      "id": "ea348ebc-6ad8-48b0-a5ab-d6d7b96a9508",
+      "author": "home",
+      "text": "Merged to develop as PR #320 (https://github.com/AnthusAI/Chatticus/pull/320, squash `1534708`). Python+infra CI green after missing-tag exception path and GetAtt IAM assertion.\n\nGherkin DoD is on `develop`. Live ACME still needs ThinTurn to pick up the new template, then `computer/push-customer-computer-image.sh` (AssumeRole, not Lambda) so `:dev` exists in the customer repo. Host start will UpdateStack then refuse until that publish. Do not live-run `browser_open` in this slice. Worktree `/tmp/chatticus-2b3c41-customer-ecr` stays until that operator push and the manager closes the issue.\n",
+      "created_at": "2026-09-08T00:26:57.163415Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T22:58:46.825272Z",
-  "updated_at": "2026-09-08T00:13:18.375980Z",
+  "updated_at": "2026-09-08T00:26:57.163415Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
