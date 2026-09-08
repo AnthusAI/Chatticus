@@ -33,10 +33,17 @@
       "text": "Plan authorized with fail-closed meter amendment. Worktree verified at `/tmp/chatticus-6a9e97-ceiling-stop` on `feat/6a9e97-ceiling-stops-computer`. When a ceiling is set, pending/error Cost Explorer days refuse new computer work (unknown must not look under-ceiling). Missing month-start rows may be $0. Org stays enabled; channels stay readable. Gherkin first, then green. No `39d8f5` / `9563cb` scope.\n",
       "created_at": "2026-09-08T19:33:37.039011Z",
       "comment_type": "default"
+    },
+    {
+      "id": "862454c9-387d-488e-9053-fdb4b556d5a5",
+      "author": "home",
+      "text": "PR [#338](https://github.com/AnthusAI/Chatticus/pull/338) is up against `develop`. Composer 2.5 product review and acceptance in flight; merge after review plus green CI. Card stays in_progress. Worktree `/tmp/chatticus-6a9e97-ceiling-stop` stays until close.\n\nDo not check out the feature branch on the primary clone; it is `develop`.",
+      "created_at": "2026-09-08T19:44:47.187896Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:24.322109Z",
-  "updated_at": "2026-09-08T19:33:37.039029Z",
+  "updated_at": "2026-09-08T19:44:47.187917Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
