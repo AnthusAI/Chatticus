@@ -13,6 +13,7 @@ from chatticus.computer_capabilities import (
     MODEL_CAPABILITY,
     WORKSPACE_CAPABILITY,
 )
+from chatticus.computer_host_disk_lifecycle import hydrate_on_boot
 from chatticus.worker.computer_worker_plane import ComputerWorkerPlane
 
 _DEFAULT_DISPLAY = ":99"
@@ -89,6 +90,7 @@ class ComputerHostBootDriver:
         *,
         tenant_id: str = "anthus",
         user_id: str = "ryan",
+        worker_id: str = "computer-host",
         display: str = _DEFAULT_DISPLAY,
         xvfb: XvfbProcess | None = None,
     ) -> None:
@@ -99,6 +101,7 @@ class ComputerHostBootDriver:
         self.plane = plane
         self.tenant_id = tenant_id
         self.user_id = user_id
+        self.worker_id = worker_id
         self.display = display
         self._xvfb = xvfb or XvfbProcess(display)
         self.readiness_order: list[str] = []
@@ -108,11 +111,19 @@ class ComputerHostBootDriver:
         """Start display, verify Chromium, and record all capability gates."""
         self.plane.set_computer_stopped(self.tenant_id, False)
         self._xvfb.start()
-        for capability in (MODEL_CAPABILITY, WORKSPACE_CAPABILITY):
-            self.plane.record_computer_capability_ready(
-                self.tenant_id, self.user_id, capability
-            )
-            self.readiness_order.append(capability)
+        self.plane.record_computer_capability_ready(
+            self.tenant_id, self.user_id, MODEL_CAPABILITY
+        )
+        self.readiness_order.append(MODEL_CAPABILITY)
+        hydrate_on_boot(
+            self.plane,
+            tenant_id=self.tenant_id,
+            worker_id=self.worker_id,
+        )
+        self.plane.record_computer_capability_ready(
+            self.tenant_id, self.user_id, WORKSPACE_CAPABILITY
+        )
+        self.readiness_order.append(WORKSPACE_CAPABILITY)
         chromium_version = verify_chromium_available(display=self.display)
         self.plane.record_computer_capability_ready(
             self.tenant_id, self.user_id, BROWSER_CAPABILITY
