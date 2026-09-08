@@ -186,9 +186,9 @@ def then_me_orgs_include_table(context: object) -> None:
                 if organization.get("name") == name
             ]
             match_label = f"name {name!r}"
-        assert len(matches) == 1, (
-            f"expected one organization with {match_label}, got {organizations}"
-        )
+        assert (
+            len(matches) == 1
+        ), f"expected one organization with {match_label}, got {organizations}"
         organization = matches[0]
         for key, value in expected_row.items():
             assert organization[key] == value
