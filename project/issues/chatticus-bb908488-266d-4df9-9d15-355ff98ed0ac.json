@@ -68,10 +68,17 @@
       "text": "Plan reviewed and **authorized** with holes closed.\n\nWorktree verified: `/tmp/chatticus-bb9084-snapshot-bucket` on `feat/bb9084-customer-snapshot-bucket` (HEAD `dc314dd`, not the primary clone). Bucket in customer-run `customer-role.yml`; ChatticusComputers has **zero** `AWS::S3::Bucket`; cross-account role stays **zero `s3:`**; task role Get/Put on the named bucket; `tenants/` prefix kept; no Anthus default; never `cdk deploy --all`.\n\n**Closed on authorize:**\n1. **S3 name length.** `chatticus-snapshots-${AWS::AccountId}-${OrganizationId}` is **69 characters** (limit 63). Use `chatticus-snapshots-${OrganizationId}` (56). Tenant id is already unique; do not add the account id.\n2. **Ghost bucket must not crash the host.** Anthus assumed role cannot HeadBucket (stays zero `s3:`). If `CHATTICUS_SNAPSHOT_BUCKET` is set but the bucket does not exist yet (customer has not re-run the template), hydrate/publish **skip without crashing** (`NoSuchBucket`), same as unset. `browser_open` must keep working.\n3. **`docs/COMPUTER_SNAPSHOTS.md` and `docs/ARCHITECTURE.md` are in the DoD**, not optional. Record which account holds packs. No wiki/board files in the product PR.\n4. **Do not grant the cross-account role any `s3:`.** Pack I/O is the ECS task role only.\n\nTear the worktree down only after the manager closes the issue.\n",
       "created_at": "2026-09-08T02:59:06.204984Z",
       "comment_type": "default"
+    },
+    {
+      "id": "cc9d5e24-048c-4973-af8c-d6fddf7b2fa9",
+      "author": "home",
+      "text": "Implementation on PR https://github.com/AnthusAI/Chatticus/pull/323 (`feat/bb9084-customer-snapshot-bucket`). Composer 2.5 review + template inversion in flight. Do not merge until review and CI are green. Worktree stays at `/tmp/chatticus-bb9084-snapshot-bucket`.\n",
+      "created_at": "2026-09-08T03:19:14.588730Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T20:09:48.784194Z",
-  "updated_at": "2026-09-08T02:59:06.204984Z",
+  "updated_at": "2026-09-08T03:19:14.588730Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
