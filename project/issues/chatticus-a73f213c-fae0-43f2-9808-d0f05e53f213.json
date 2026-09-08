@@ -31,10 +31,17 @@
       "text": "Plan approved. Writable HOME and npm_config_cache under /tmp/chatticus-bundle in webDockerBundleCommand only; assert present in docker command and absent from local tryBundle. No web-stack.ts, no Gherkin, no auth. Authorizing Composer 2.5 to create /tmp/chatticus-a73f21-web-bundle-npm on fix/a73f21-web-bundle-npm-home from origin/develop and implement.\n",
       "created_at": "2026-09-08T22:30:26.722237Z",
       "comment_type": "default"
+    },
+    {
+      "id": "9bfdb460-2df2-42f1-8f2d-2fd0d6e7f620",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/340 opened. Composer 2.5 reviewing against develop. Infra-only: HOME/npm cache in webDockerBundleCommand. Merge after review + green CI.\n",
+      "created_at": "2026-09-08T22:32:55.985777Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T22:25:27.517469Z",
-  "updated_at": "2026-09-08T22:30:26.722267Z",
+  "updated_at": "2026-09-08T22:32:55.985796Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

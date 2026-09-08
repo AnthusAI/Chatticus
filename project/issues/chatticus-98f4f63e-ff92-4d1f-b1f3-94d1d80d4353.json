@@ -24,10 +24,17 @@
       "text": "Batched into `chatticus-5e4c9a` (same worktree, one `buildUserManagerSettings` edit, one review). Manager decision: **keep localStorage** and write the tradeoff into `docs/THREAT_MODEL.md`. Not sessionStorage (hourly silent renew and next-day return are in `5e4c9a` DoD). Not httpOnly BFF in this slice.",
       "created_at": "2026-09-08T22:25:58.507484Z",
       "comment_type": "default"
+    },
+    {
+      "id": "1d62b0b0-9447-455d-a94d-b5215e1e25e4",
+      "author": "home",
+      "text": "Batched into feat/5e4c9a-session-restore. Decision stands: localStorage, recorded in docs/THREAT_MODEL.md. Token authorizes PUT /turns/{id}/grant including run_terminal.\n",
+      "created_at": "2026-09-08T22:32:55.920415Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T22:12:24.122915Z",
-  "updated_at": "2026-09-08T22:25:58.507507Z",
+  "updated_at": "2026-09-08T22:32:55.920435Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
