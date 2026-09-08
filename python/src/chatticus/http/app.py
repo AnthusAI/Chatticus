@@ -226,6 +226,19 @@ class RegateBrowseBody(BaseModel):
     url: str
 
 
+class RegateWorkspaceReadBody(BaseModel):
+    """Body for POST /turns/{turn_id}/workspace/read/regate."""
+
+    path: str
+
+
+class RegateWorkspaceWriteBody(BaseModel):
+    """Body for POST /turns/{turn_id}/workspace/write/regate."""
+
+    path: str
+    content: str = ""
+
+
 class PostMessageBody(BaseModel):
     """Body for POST /channels/{channel_id}/messages."""
 
@@ -1206,6 +1219,36 @@ def create_app(
         del principal
         try:
             state.plane.gated_browse_origin(tenant_id, turn_id, body.url)
+        except CapabilitySinkDenied as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        return {"status": "ok"}
+
+    @host_worker_router.post("/turns/{turn_id}/workspace/read/regate")
+    def worker_regate_workspace_read(
+        tenant_id: str,
+        turn_id: str,
+        body: RegateWorkspaceReadBody,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        del principal
+        try:
+            state.plane.gated_read_workspace(tenant_id, turn_id, body.path)
+        except CapabilitySinkDenied as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        return {"status": "ok"}
+
+    @host_worker_router.post("/turns/{turn_id}/workspace/write/regate")
+    def worker_regate_workspace_write(
+        tenant_id: str,
+        turn_id: str,
+        body: RegateWorkspaceWriteBody,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        del principal
+        try:
+            state.plane.gated_write_workspace(
+                tenant_id, turn_id, body.path, body.content
+            )
         except CapabilitySinkDenied as error:
             raise HTTPException(status_code=403, detail=str(error)) from error
         return {"status": "ok"}

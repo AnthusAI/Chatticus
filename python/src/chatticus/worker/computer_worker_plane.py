@@ -138,6 +138,23 @@ class ComputerWorkerPlane(Protocol):
     ) -> None:
         """Authorize one browse origin for a gated browser tool."""
 
+    def gated_read_workspace(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        path: str,
+    ) -> None:
+        """Authorize one workspace read for a gated file tool."""
+
+    def gated_write_workspace(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        path: str,
+        content: str,
+    ) -> None:
+        """Authorize one workspace write for a gated file tool."""
+
     def record_computer_hydrated(
         self,
         tenant_id: str,

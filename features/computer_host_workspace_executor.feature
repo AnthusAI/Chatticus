@@ -53,7 +53,24 @@ Feature: Workspace file tools on the computer host
     When bot "Researcher" is asked "read workspace file /workspace/private/secret.txt"
     And bot "Researcher" runs one capability-aware computerless worker turn
     Then the turn journal records a denied read_workspace tool result
+    And no computer continuation job is queued for the turn
+    And the turn is not waiting on the workspace capability
     And the household computer is stopped
+
+  Scenario: A fenced read_workspace handoff re-gates an ungranted path
+    Given the scenario host "garage-mac-1" seeds workspace file "private/secret.txt" containing "top secret"
+    And a fenced workspace read handoff with a tampered queued continuation job for "/workspace/private/secret.txt"
+    When the computer host has booted through the workspace gate
+    And a computer-capable pull worker with a workspace executor pulls that continuation job
+    Then the turn journal records a denied read_workspace tool result
+    And host "garage-mac-1" has workspace file "private/secret.txt" containing "top secret"
+
+  Scenario: A fenced write_workspace handoff re-gates an ungranted path
+    Given a fenced workspace write handoff with a tampered queued continuation job for "/workspace/private/exfil.txt" containing "stolen"
+    When the computer host has booted through the workspace gate
+    And a computer-capable pull worker with a workspace executor pulls that continuation job
+    Then the turn journal records a denied write_workspace tool result
+    And host "garage-mac-1" does not have workspace file "private/exfil.txt"
 
   Scenario: Read after relocate uses hydrated host bytes
     Given a worker registered as:

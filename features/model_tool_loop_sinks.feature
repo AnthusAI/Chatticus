@@ -21,6 +21,8 @@ Feature: Capability policy in the live model tool loop
     And bot "Researcher" runs one capability-aware computerless worker turn
     Then the turn journal records a denied read_workspace tool result
     And the denied tool result does not leak session secrets
+    And no computer continuation job is queued for the turn
+    And the turn is not waiting on the workspace capability
     And the household computer is stopped
 
   Scenario: A computerless worker denies an ungranted browse origin at the sink
