@@ -61,10 +61,17 @@
       "text": "Product review of [#328](https://github.com/AnthusAI/Chatticus/pull/328) **approves** the attach path. Sent back only to drop `test_conversation_turn_grant.py` (duplicates Gherkin) and the tautological `conversation_grant()` fixture wrapper. Merge after that lands and CI is green; then live-message a bot on development.\n",
       "created_at": "2026-09-08T12:42:43.552150Z",
       "comment_type": "default"
+    },
+    {
+      "id": "196b9ea9-46fc-4d50-83cb-042f12c6a957",
+      "author": "home",
+      "text": "[#328](https://github.com/AnthusAI/Chatticus/pull/328) merged to `develop` (`a36553b`) after product review + dropping the Gherkin-duplicating pytest. Card stays **in_progress** until I live-message a bot on development and confirm the turn carries the household conversation grant (not `no task grant`). Wait for ThinTurn development deploy of this SHA.\n",
+      "created_at": "2026-09-08T13:34:50.678727Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T20:10:07.032720Z",
-  "updated_at": "2026-09-08T12:42:43.552150Z",
+  "updated_at": "2026-09-08T13:34:50.678727Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
