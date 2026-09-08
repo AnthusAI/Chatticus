@@ -26,10 +26,17 @@
       "text": "Plan authorized. New feature `per_task_run_terminal_grant.feature` only (do not duplicate the conversation-preset deny scenario). Post the shell ask first, HTTP replace on that same turn, then run the computerless worker. No `run_terminal` in `household_conversation_grant()`. No host boot. Merge `origin/develop` if README #334 lands first. Worktree `/tmp/chatticus-7fe070-run-terminal-grant` on `feat/7fe070-per-task-run-terminal`.\n",
       "created_at": "2026-09-08T17:32:52.310251Z",
       "comment_type": "default"
+    },
+    {
+      "id": "2836f2b6-5772-47c0-b7fb-066350803a4e",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/335 against `develop`. Composer 2.5 reviewing HTTP replace → policy-allow Gherkin (same-turn ordering, no preset add, no host boot). CI python in progress — cancel if Behave sits past ~12 minutes with no next step.\n",
+      "created_at": "2026-09-08T17:56:07.707905Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T15:41:24.467703Z",
-  "updated_at": "2026-09-08T17:32:52.312007Z",
+  "updated_at": "2026-09-08T17:56:07.707932Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
