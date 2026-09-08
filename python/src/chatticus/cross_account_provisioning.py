@@ -13,6 +13,7 @@ from botocore.exceptions import ClientError
 from chatticus.models import (
     ASSISTED_SETUP_FEE_CENTS,
     AwsSetupPath,
+    ChatticusError,
     Organization,
     OrganizationStatus,
     SelfSetupCrossAccountResult,
@@ -30,6 +31,18 @@ PROVISIONING_REQUIRED_PERMISSIONS: tuple[str, ...] = (
     "logs:CreateLogGroup",
     "iam:PassRole",
 )
+
+
+class CrossAccountRoleInspectionError(ChatticusError):
+    """Live cross-account role inspection failed before validation could finish."""
+
+
+AssumeRoleCallable = Callable[..., Mapping[str, Any]]
+ListRolePoliciesCallable = Callable[..., Mapping[str, Any]]
+GetRolePolicyCallable = Callable[..., Mapping[str, Any]]
+ListAttachedRolePoliciesCallable = Callable[..., Mapping[str, Any]]
+GetPolicyCallable = Callable[..., Mapping[str, Any]]
+GetPolicyVersionCallable = Callable[..., Mapping[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -77,84 +90,110 @@ class InMemoryCrossAccountRoleInspector:
         return snapshot
 
 
-AssumeRoleCallable = Callable[..., Mapping[str, Any]]
-GetRoleCallable = Callable[..., Mapping[str, Any]]
-SimulatePrincipalPolicyCallable = Callable[..., Mapping[str, Any]]
+def _role_name_from_arn(role_arn: str) -> str:
+    """Return the IAM role name embedded in *role_arn*."""
+    return role_arn.rsplit("/", maxsplit=1)[-1]
 
 
-def _trusted_external_id_from_assume_role_policy(document: str) -> str | None:
-    """Return ExternalId from one IAM role trust policy document, if present."""
-    try:
-        parsed = json.loads(document)
-    except json.JSONDecodeError:
-        return None
+def _assume_role_failed_message(expected_external_id: str) -> str:
+    """Return the customer-facing message when AssumeRole fails during inspect."""
+    return (
+        f"The cross-account role could not be assumed with ExternalId "
+        f"{expected_external_id!r}. Re-run the Chatticus cross-account "
+        "CloudFormation template with OrganizationId set to your Chatticus "
+        "organization id."
+    )
+
+
+def _policy_read_failed_message() -> str:
+    """Return the customer-facing message when role policy reads fail."""
+    return (
+        "The cross-account role could not be inspected. Re-run the published "
+        "Chatticus cross-account template in your AWS account."
+    )
+
+
+def _iam_actions_from_policy_document(document: object) -> frozenset[str]:
+    """Collect Allow actions from one IAM policy document."""
+    if isinstance(document, str):
+        try:
+            parsed = json.loads(document)
+        except json.JSONDecodeError:
+            return frozenset()
+    elif isinstance(document, dict):
+        parsed = document
+    else:
+        return frozenset()
     statements = parsed.get("Statement", [])
     if isinstance(statements, dict):
         statements = [statements]
+    actions: set[str] = set()
     for statement in statements:
         if not isinstance(statement, dict):
             continue
         if statement.get("Effect") != "Allow":
             continue
-        condition = statement.get("Condition", {})
-        if not isinstance(condition, dict):
-            continue
-        string_equals = condition.get("StringEquals", {})
-        if not isinstance(string_equals, dict):
-            continue
-        for key, value in string_equals.items():
-            if key.endswith("ExternalId") and isinstance(value, str):
-                return value
-    return None
+        action = statement.get("Action")
+        if isinstance(action, str):
+            actions.add(action)
+        elif isinstance(action, list):
+            actions.update(item for item in action if isinstance(item, str))
+    return frozenset(actions)
 
 
-def _trusted_external_id_from_get_role(
+def _granted_permissions_from_role_policies(
     role_arn: str,
     *,
-    get_role: GetRoleCallable,
-) -> str | None:
-    """Read ExternalId from one role trust policy when GetRole is permitted."""
-    try:
-        response = get_role(RoleName=role_arn.split("/")[-1])
-    except ClientError:
-        return None
-    role = response.get("Role", {})
-    document = role.get("AssumeRolePolicyDocument", "")
-    if isinstance(document, dict):
-        return _trusted_external_id_from_assume_role_policy(json.dumps(document))
-    if isinstance(document, str):
-        return _trusted_external_id_from_assume_role_policy(document)
-    return None
-
-
-def _granted_permissions_from_simulation(
-    role_arn: str,
-    *,
-    simulate_principal_policy: SimulatePrincipalPolicyCallable,
+    list_role_policies: ListRolePoliciesCallable,
+    get_role_policy: GetRolePolicyCallable,
+    list_attached_role_policies: ListAttachedRolePoliciesCallable,
+    get_policy: GetPolicyCallable,
+    get_policy_version: GetPolicyVersionCallable,
 ) -> frozenset[str]:
-    """Return provisioning permissions allowed for one simulated role principal."""
-    response = simulate_principal_policy(
-        PolicySourceArn=role_arn,
-        ActionNames=list(PROVISIONING_REQUIRED_PERMISSIONS),
-    )
+    """Read inline and attached role policies using assumed-role credentials."""
+    role_name = _role_name_from_arn(role_arn)
     granted: set[str] = set()
-    for index, permission in enumerate(PROVISIONING_REQUIRED_PERMISSIONS):
-        results = response.get("EvaluationResults", [])
-        if index >= len(results):
+    inline_names = list_role_policies(RoleName=role_name).get("PolicyNames", [])
+    for policy_name in inline_names:
+        if not isinstance(policy_name, str):
             continue
-        decision = results[index].get("EvalDecision")
-        if decision == "allowed":
-            granted.add(permission)
+        response = get_role_policy(RoleName=role_name, PolicyName=policy_name)
+        granted.update(
+            _iam_actions_from_policy_document(response.get("PolicyDocument", {}))
+        )
+    attached = list_attached_role_policies(RoleName=role_name).get(
+        "AttachedPolicies", []
+    )
+    for policy in attached:
+        if not isinstance(policy, dict):
+            continue
+        policy_arn = policy.get("PolicyArn")
+        if not isinstance(policy_arn, str):
+            continue
+        policy_response = get_policy(PolicyArn=policy_arn)
+        policy_meta = policy_response.get("Policy", {})
+        version_id = policy_meta.get("DefaultVersionId")
+        if not isinstance(version_id, str):
+            continue
+        version_response = get_policy_version(
+            PolicyArn=policy_arn,
+            VersionId=version_id,
+        )
+        document = version_response.get("PolicyVersion", {}).get("Document", {})
+        granted.update(_iam_actions_from_policy_document(document))
     return frozenset(granted)
 
 
 @dataclass(frozen=True)
 class AwsCrossAccountRoleInspector:
-    """Live role inspector using STS AssumeRole and IAM policy simulation."""
+    """Live role inspector using STS AssumeRole and IAM policy reads."""
 
     assume_role: AssumeRoleCallable | None = None
-    get_role: GetRoleCallable | None = None
-    simulate_principal_policy: SimulatePrincipalPolicyCallable | None = None
+    list_role_policies: ListRolePoliciesCallable | None = None
+    get_role_policy: GetRolePolicyCallable | None = None
+    list_attached_role_policies: ListAttachedRolePoliciesCallable | None = None
+    get_policy: GetPolicyCallable | None = None
+    get_policy_version: GetPolicyVersionCallable | None = None
 
     def inspect_role(
         self,
@@ -163,7 +202,7 @@ class AwsCrossAccountRoleInspector:
         *,
         expected_external_id: str,
     ) -> CrossAccountRoleSnapshot:
-        """Assume the customer role and simulate required provisioning permissions."""
+        """Assume the customer role and read its IAM policies for permissions."""
         assume_role = self.assume_role or boto3.client("sts").assume_role
         try:
             response = assume_role(
@@ -171,32 +210,37 @@ class AwsCrossAccountRoleInspector:
                 RoleSessionName=f"chatticus-inspect-{account_id}",
                 ExternalId=expected_external_id,
             )
-        except ClientError:
-            get_role = self.get_role or boto3.client("iam").get_role
-            trusted_external_id = _trusted_external_id_from_get_role(
-                role_arn,
-                get_role=get_role,
-            )
-            return CrossAccountRoleSnapshot(
-                account_id=account_id,
-                role_arn=role_arn,
-                trusted_external_id=trusted_external_id,
-                granted_permissions=frozenset(),
-            )
+        except ClientError as error:
+            raise CrossAccountRoleInspectionError(
+                _assume_role_failed_message(expected_external_id)
+            ) from error
         credentials = response["Credentials"]
         session = boto3.Session(
             aws_access_key_id=str(credentials["AccessKeyId"]),
             aws_secret_access_key=str(credentials["SecretAccessKey"]),
             aws_session_token=str(credentials["SessionToken"]),
         )
-        simulate = (
-            self.simulate_principal_policy
-            or session.client("iam").simulate_principal_policy
+        iam = session.client("iam")
+        list_role_policies = self.list_role_policies or iam.list_role_policies
+        get_role_policy = self.get_role_policy or iam.get_role_policy
+        list_attached_role_policies = (
+            self.list_attached_role_policies or iam.list_attached_role_policies
         )
-        granted_permissions = _granted_permissions_from_simulation(
-            role_arn,
-            simulate_principal_policy=simulate,
-        )
+        get_policy = self.get_policy or iam.get_policy
+        get_policy_version = self.get_policy_version or iam.get_policy_version
+        try:
+            granted_permissions = _granted_permissions_from_role_policies(
+                role_arn,
+                list_role_policies=list_role_policies,
+                get_role_policy=get_role_policy,
+                list_attached_role_policies=list_attached_role_policies,
+                get_policy=get_policy,
+                get_policy_version=get_policy_version,
+            )
+        except ClientError as error:
+            raise CrossAccountRoleInspectionError(
+                _policy_read_failed_message()
+            ) from error
         return CrossAccountRoleSnapshot(
             account_id=account_id,
             role_arn=role_arn,
@@ -246,11 +290,18 @@ def validate_cross_account_role_for_self_setup(
             ),
         )
 
-    snapshot = role_inspector.inspect_role(
-        account_id,
-        cross_account_role,
-        expected_external_id=organization.tenant_id,
-    )
+    try:
+        snapshot = role_inspector.inspect_role(
+            account_id,
+            cross_account_role,
+            expected_external_id=organization.tenant_id,
+        )
+    except CrossAccountRoleInspectionError as error:
+        return SelfSetupCrossAccountResult(
+            accepted=False,
+            organization=organization,
+            message=str(error),
+        )
     expected_external_id = organization.tenant_id
     if snapshot.trusted_external_id != expected_external_id:
         trusted = snapshot.trusted_external_id
