@@ -1,9 +1,4 @@
-import {
-  InMemoryWebStorage,
-  User,
-  UserManager,
-  WebStorageStateStore,
-} from "oidc-client-ts";
+import { User, UserManager, WebStorageStateStore } from "oidc-client-ts";
 
 import {
   cognitoIssuer,
@@ -31,7 +26,7 @@ function createUserManager(config: CognitoConfig): UserManager {
   return new UserManager(buildUserManagerSettings(config));
 }
 
-/** Single in-memory UserManager for the SPA session. */
+/** Single UserManager for the SPA session. */
 export function getUserManager(): UserManager {
   if (!userManager) {
     userManager = createUserManager(cognitoConfig());
@@ -57,7 +52,7 @@ function verifiedSessionFromUser(user: User | null): VerifiedSession | null {
   };
 }
 
-/** Return the verified Cognito id_token held in memory, if any. */
+/** Return the verified Cognito id_token for the signed-in user, if any. */
 export async function getIdToken(): Promise<string | null> {
   const user = await getUserManager().getUser();
   return verifiedSessionFromUser(user)?.idToken ?? null;
@@ -97,7 +92,7 @@ export async function signOut(): Promise<void> {
   await getUserManager().removeUser();
 }
 
-/** Complete the post-logout redirect and clear any remaining in-memory state. */
+/** Complete the post-logout redirect and clear any remaining persisted state. */
 export async function completeSignOutRedirect(): Promise<void> {
   try {
     await getUserManager().signoutRedirectCallback();
@@ -155,7 +150,7 @@ export function buildUserManagerSettings(config: CognitoConfig) {
     response_type: "code",
     scope: "openid email profile",
     extraQueryParams: { identity_provider: "Google", prompt: "select_account" },
-    userStore: new WebStorageStateStore({ store: new InMemoryWebStorage() }),
+    userStore: new WebStorageStateStore({ store: window.localStorage }),
     automaticSilentRenew: true,
     accessTokenExpiringNotificationTimeInSeconds: 60,
   };
