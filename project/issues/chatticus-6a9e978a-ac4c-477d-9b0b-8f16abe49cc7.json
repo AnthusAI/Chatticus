@@ -96,10 +96,17 @@
       "text": "[#338](https://github.com/AnthusAI/Chatticus/pull/338) python CI: Behave and pytest green; **Format** failed — `black` would reformat `features/steps/me_steps.py`. Implementer running black and pushing. Do not merge until Format is green.",
       "created_at": "2026-09-08T20:35:30.814777Z",
       "comment_type": "default"
+    },
+    {
+      "id": "161335d3-9739-47a7-a97a-7321f18ddc2d",
+      "author": "home",
+      "text": "Black applied (`6c550ea`) on [#338](https://github.com/AnthusAI/Chatticus/pull/338). Prior product + me-step reviews still APPROVE. Merge when this CI run is green.",
+      "created_at": "2026-09-08T20:35:56.788319Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:24.322109Z",
-  "updated_at": "2026-09-08T20:35:30.814806Z",
+  "updated_at": "2026-09-08T20:35:56.788389Z",
   "closed_at": null,
   "right_now_summary": "A test fix is underway for the `/me` response mismatch; merge awaits green CI.",
   "right_now_updated_at": "2026-09-08T20:07:24.893533Z",
