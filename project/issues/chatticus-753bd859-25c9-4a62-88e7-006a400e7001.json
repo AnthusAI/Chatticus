@@ -26,12 +26,19 @@
       "text": "Plan authorized with three amendments: merge `origin/develop` first (README #332); split `run_terminal` into two Gherkin scenarios (checked vs unchecked); `behave` from `python/` uses `../features/web_turn_grant.feature`. Do not offer send/purchase in the form. Google SPA still blocks live UI automation — harness is the gate; browser check if a session exists, otherwise record the same named blocker as create-bot.\n",
       "created_at": "2026-09-08T17:01:57.109747Z",
       "comment_type": "default"
+    },
+    {
+      "id": "867125a0-5161-4125-ae13-b40aacc6ab7c",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/333 against `develop`. Composer 2.5 reviewing harness vs panel path, `run_terminal` opt-in, and empty-tools PUT 200. CI python in progress — cancel if Behave sits past ~12 minutes with no next step.\n",
+      "created_at": "2026-09-08T17:06:22.436083Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T15:41:24.360685Z",
-  "updated_at": "2026-09-08T17:01:57.110021Z",
+  "updated_at": "2026-09-08T17:06:22.436122Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "Composer 2.5 is planning the workspace grant form and will test it with the approved Gherkin harness.",
+  "right_now_updated_at": "2026-09-08T17:05:39.022984Z",
   "custom": {}
 }
