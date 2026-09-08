@@ -33,12 +33,19 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/333 against `develop`. Composer 2.5 reviewing harness vs panel path, `run_terminal` opt-in, and empty-tools PUT 200. CI python in progress — cancel if Behave sits past ~12 minutes with no next step.\n",
       "created_at": "2026-09-08T17:06:22.436083Z",
       "comment_type": "default"
+    },
+    {
+      "id": "a2440ab5-2e62-44cd-b9bd-b90efc49b7cf",
+      "author": "home",
+      "text": "Merged #333 to `develop` (`aa118e8`). CI python green. Live DoD still open: web deploy then try Authorize-this-turn on development. Google SPA may block; if so record that named cause (same as create-bot). Harness Gherkin already passed. Worktree stays until close.\n",
+      "created_at": "2026-09-08T17:20:28.063054Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T15:41:24.360685Z",
-  "updated_at": "2026-09-08T17:06:22.436122Z",
+  "updated_at": "2026-09-08T17:20:28.063313Z",
   "closed_at": null,
-  "right_now_summary": "Composer 2.5 is planning the workspace grant form and will test it with the approved Gherkin harness.",
-  "right_now_updated_at": "2026-09-08T17:05:39.022984Z",
+  "right_now_summary": "The grant replacement UI is under review, with tests checking its form and explicit terminal-tool option.",
+  "right_now_updated_at": "2026-09-08T17:10:30.149065Z",
   "custom": {}
 }
