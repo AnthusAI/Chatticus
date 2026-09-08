@@ -8,6 +8,7 @@ import os
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request
@@ -69,6 +70,8 @@ from chatticus.models import (
     OrganizationNameTooLongError,
     OrganizationNotFoundError,
     OrganizationOwnerCapError,
+    OrganizationSpendCeilingInvalidError,
+    OrganizationSpendCeilingRequiredError,
     OrganizationStatusTransitionError,
     PriceSensitivityAnswers,
     StaleAttemptError,
@@ -87,6 +90,7 @@ from chatticus.models import (
     pending_computer_tool_from_turn,
     primary_human_participant,
 )
+from chatticus.org_records import require_valid_monthly_aws_spend_ceiling_usd
 from chatticus.principal import Principal
 from chatticus.signup_mode import SignupMode, signup_mode_from_env
 from chatticus.waitlist_survey import beta_page_survey
@@ -404,6 +408,7 @@ class SubmitSelfSetupCrossAccountRoleBody(BaseModel):
 
     account_id: str
     cross_account_role: str
+    monthly_aws_spend_ceiling_usd: str
 
 
 class SubmitSelfSetupCrossAccountRoleResponseBody(BaseModel):
@@ -413,6 +418,47 @@ class SubmitSelfSetupCrossAccountRoleResponseBody(BaseModel):
     tenant_id: str
     name: str
     status: str
+    monthly_aws_spend_ceiling_usd: str
+
+
+class SetMonthlyAwsSpendCeilingBody(BaseModel):
+    """Body for PATCH /orgs/{tenant_id}/monthly-aws-spend-ceiling."""
+
+    monthly_aws_spend_ceiling_usd: str
+
+
+class SetMonthlyAwsSpendCeilingResponseBody(BaseModel):
+    """Response for PATCH /orgs/{tenant_id}/monthly-aws-spend-ceiling."""
+
+    tenant_id: str
+    monthly_aws_spend_ceiling_usd: str
+
+
+def _parse_monthly_aws_spend_ceiling_usd(raw: str) -> Decimal:
+    """Parse one positive monthly AWS spend ceiling from an HTTP body field."""
+    stripped = raw.strip()
+    if not stripped:
+        raise HTTPException(
+            status_code=400,
+            detail="monthly_aws_spend_ceiling_usd is required",
+        )
+    try:
+        value = Decimal(stripped)
+    except InvalidOperation as error:
+        raise HTTPException(
+            status_code=400,
+            detail="monthly_aws_spend_ceiling_usd must be a decimal number",
+        ) from error
+    try:
+        return require_valid_monthly_aws_spend_ceiling_usd(value)
+    except OrganizationSpendCeilingInvalidError as ceiling_error:
+        raise HTTPException(
+            status_code=400, detail=str(ceiling_error)
+        ) from ceiling_error
+    except OrganizationSpendCeilingRequiredError as ceiling_error:
+        raise HTTPException(
+            status_code=400, detail=str(ceiling_error)
+        ) from ceiling_error
 
 
 @dataclass
@@ -807,6 +853,9 @@ def create_app(
             raise HTTPException(
                 status_code=400, detail="cross_account_role is required"
             )
+        monthly_aws_spend_ceiling_usd = _parse_monthly_aws_spend_ceiling_usd(
+            body.monthly_aws_spend_ceiling_usd
+        )
         try:
             result = state.plane.submit_self_setup_cross_account_role(
                 tenant_id,
@@ -814,6 +863,7 @@ def create_app(
                 account_id=account_id,
                 cross_account_role=cross_account_role,
                 role_inspector=state.role_inspector or AwsCrossAccountRoleInspector(),
+                monthly_aws_spend_ceiling_usd=monthly_aws_spend_ceiling_usd,
             )
         except OrganizationNotFoundError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
@@ -822,10 +872,44 @@ def create_app(
         if not result.accepted:
             raise HTTPException(status_code=422, detail=result.message)
         organization = result.organization
+        ceiling = organization.monthly_aws_spend_ceiling_usd
+        assert ceiling is not None
         return SubmitSelfSetupCrossAccountRoleResponseBody(
             tenant_id=organization.tenant_id,
             name=organization.name,
             status=organization.status.value,
+            monthly_aws_spend_ceiling_usd=str(ceiling),
+        )
+
+    @waitlist_safe
+    @user_router.patch("/monthly-aws-spend-ceiling")
+    def set_monthly_aws_spend_ceiling_route(
+        tenant_id: str,
+        body: SetMonthlyAwsSpendCeilingBody,
+        principal: RequireUserPrincipal,
+    ) -> SetMonthlyAwsSpendCeilingResponseBody:
+        if principal.user_id is None:
+            raise HTTPException(status_code=403, detail="user credential required")
+        monthly_aws_spend_ceiling_usd = _parse_monthly_aws_spend_ceiling_usd(
+            body.monthly_aws_spend_ceiling_usd
+        )
+        try:
+            organization = state.plane.set_monthly_aws_spend_ceiling(
+                tenant_id,
+                principal.user_id,
+                monthly_aws_spend_ceiling_usd,
+            )
+        except OrganizationNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except NotOrganizationOwnerError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        except OrganizationSpendCeilingInvalidError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+        ceiling = organization.monthly_aws_spend_ceiling_usd
+        assert ceiling is not None
+        return SetMonthlyAwsSpendCeilingResponseBody(
+            tenant_id=organization.tenant_id,
+            monthly_aws_spend_ceiling_usd=str(ceiling),
         )
 
     @user_router.post("/bots")
@@ -1805,6 +1889,11 @@ def _status_for_error(error: ChatticusError) -> int:
     if isinstance(error, WaitlistRateLimitedError):
         return 429
     if isinstance(error, OrganizationNameTooLongError):
+        return 400
+    if isinstance(
+        error,
+        OrganizationSpendCeilingInvalidError | OrganizationSpendCeilingRequiredError,
+    ):
         return 400
     if isinstance(error, NotOrganizationOwnerError):
         return 403

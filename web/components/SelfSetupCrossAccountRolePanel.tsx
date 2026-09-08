@@ -24,6 +24,7 @@ export function SelfSetupCrossAccountRolePanel({
   const { refreshMe } = useMembership();
   const [accountId, setAccountId] = useState("");
   const [roleArn, setRoleArn] = useState("");
+  const [monthlySpendCeilingUsd, setMonthlySpendCeilingUsd] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +46,13 @@ export function SelfSetupCrossAccountRolePanel({
           event.preventDefault();
           const trimmedAccountId = accountId.trim();
           const trimmedRoleArn = roleArn.trim();
-          if (!trimmedAccountId || !trimmedRoleArn || submitting) {
+          const trimmedCeiling = monthlySpendCeilingUsd.trim();
+          if (
+            !trimmedAccountId ||
+            !trimmedRoleArn ||
+            !trimmedCeiling ||
+            submitting
+          ) {
             return;
           }
           setSubmitting(true);
@@ -53,6 +60,7 @@ export function SelfSetupCrossAccountRolePanel({
           void submitSelfSetupCrossAccountRole(organization.tenant_id, {
             account_id: trimmedAccountId,
             cross_account_role: trimmedRoleArn,
+            monthly_aws_spend_ceiling_usd: trimmedCeiling,
           })
             .then(() => refreshMe())
             .catch((caught) => {
@@ -85,11 +93,28 @@ export function SelfSetupCrossAccountRolePanel({
           onChange={(event) => setRoleArn(event.target.value)}
           disabled={submitting}
         />
+        <label className="sr-only" htmlFor="monthly-aws-spend-ceiling-usd">
+          Monthly AWS spend ceiling in USD
+        </label>
+        <input
+          id="monthly-aws-spend-ceiling-usd"
+          className={authFieldClassName}
+          placeholder="Monthly AWS spend ceiling (USD)"
+          inputMode="decimal"
+          value={monthlySpendCeilingUsd}
+          onChange={(event) => setMonthlySpendCeilingUsd(event.target.value)}
+          disabled={submitting}
+        />
         {error ? <p className={authErrorClassName}>{error}</p> : null}
         <button
           type="submit"
           className={authButtonClassName}
-          disabled={submitting || !accountId.trim() || !roleArn.trim()}
+          disabled={
+            submitting ||
+            !accountId.trim() ||
+            !roleArn.trim() ||
+            !monthlySpendCeilingUsd.trim()
+          }
         >
           Submit AWS setup
         </button>

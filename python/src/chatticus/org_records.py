@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
+from decimal import Decimal
 from uuid import uuid4
 
 from chatticus.cross_account_provisioning import (
@@ -33,6 +34,8 @@ from chatticus.models import (
     OrganizationNotEnabledError,
     OrganizationNotFoundError,
     OrganizationSeedConflictError,
+    OrganizationSpendCeilingInvalidError,
+    OrganizationSpendCeilingRequiredError,
     OrganizationStatus,
     OrganizationStatusTransitionError,
     SelfSetupCrossAccountResult,
@@ -40,6 +43,21 @@ from chatticus.models import (
 
 ANTHUS_TENANT_ID = "anthus"
 ANTHUS_LEGACY_USER_ID = "ryan"
+
+
+def require_valid_monthly_aws_spend_ceiling_usd(
+    monthly_aws_spend_ceiling_usd: Decimal | None,
+) -> Decimal:
+    """Return a positive monthly AWS spend ceiling or raise."""
+    if monthly_aws_spend_ceiling_usd is None:
+        raise OrganizationSpendCeilingRequiredError(
+            "monthly_aws_spend_ceiling_usd is required at provisioning."
+        )
+    if monthly_aws_spend_ceiling_usd <= 0:
+        raise OrganizationSpendCeilingInvalidError(
+            "monthly_aws_spend_ceiling_usd must be a positive USD amount."
+        )
+    return monthly_aws_spend_ceiling_usd
 
 
 def normalize_email(email: str) -> str:
@@ -293,12 +311,29 @@ class OrgRecordsKernel:
         account_id: str,
         cross_account_role: str,
         role_inspector: CrossAccountRoleInspector,
+        monthly_aws_spend_ceiling_usd: Decimal | None,
     ) -> SelfSetupCrossAccountResult:
         """Validate and accept one customer self-setup cross-account submission."""
         self.assert_may_submit_self_setup_cross_account_role(tenant_id, actor_user_id)
         organization = self.store.get_organization(tenant_id)
         if organization is None:
             raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")
+        try:
+            ceiling = require_valid_monthly_aws_spend_ceiling_usd(
+                monthly_aws_spend_ceiling_usd
+            )
+        except OrganizationSpendCeilingRequiredError as error:
+            return SelfSetupCrossAccountResult(
+                accepted=False,
+                organization=organization,
+                message=str(error),
+            )
+        except OrganizationSpendCeilingInvalidError as error:
+            return SelfSetupCrossAccountResult(
+                accepted=False,
+                organization=organization,
+                message=str(error),
+            )
         decision = validate_cross_account_role_for_self_setup(
             organization,
             account_id=account_id,
@@ -311,6 +346,7 @@ class OrgRecordsKernel:
             organization,
             account_id=account_id,
             cross_account_role=cross_account_role,
+            monthly_aws_spend_ceiling_usd=ceiling,
         )
         self.store.put_organization(provisioned)
         return SelfSetupCrossAccountResult(
@@ -318,6 +354,28 @@ class OrgRecordsKernel:
             organization=provisioned,
             message=None,
         )
+
+    def set_monthly_aws_spend_ceiling(
+        self,
+        tenant_id: str,
+        actor_user_id: str,
+        monthly_aws_spend_ceiling_usd: Decimal,
+    ) -> Organization:
+        """Set one organization's monthly AWS spend ceiling; owner-only."""
+        organization = self.store.get_organization(tenant_id)
+        if organization is None:
+            raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")
+        actor = self.store.get_membership(tenant_id, actor_user_id)
+        if actor is None or actor.role != MemberRole.OWNER:
+            raise NotOrganizationOwnerError(
+                f"User {actor_user_id!r} is not an owner of {tenant_id!r}."
+            )
+        ceiling = require_valid_monthly_aws_spend_ceiling_usd(
+            monthly_aws_spend_ceiling_usd
+        )
+        updated = replace(organization, monthly_aws_spend_ceiling_usd=ceiling)
+        self.store.put_organization(updated)
+        return updated
 
     def suspend_organization(self, tenant_id: str) -> Organization:
         """Mark one organization suspended."""

@@ -81,6 +81,11 @@ def _submit_payload(context: object) -> dict[str, str]:
     return {
         "account_id": getattr(context, "aws_account_id", CUSTOMER_ACCOUNT_ID),
         "cross_account_role": getattr(context, "aws_role_arn", CUSTOMER_ROLE_ARN),
+        "monthly_aws_spend_ceiling_usd": getattr(
+            context,
+            "monthly_aws_spend_ceiling_usd",
+            "250.00",
+        ),
     }
 
 
