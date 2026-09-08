@@ -12,7 +12,12 @@ import {
 import { deriveMembershipBranch } from "../lib/membership-state";
 import { membershipVisibleText } from "../lib/organization-membership";
 import { parseSignupMode } from "../lib/signup-mode";
+import {
+  CREATE_BOT_FORM_TITLE,
+  createBotConfirmationText,
+} from "../lib/create-bot";
 import { inviteConfirmationText } from "../lib/invitations";
+import { orgApiPath } from "../lib/paths";
 
 const statePath =
   process.env.CHATTICUS_MEMBERSHIP_UI_HARNESS_STATE ??
@@ -28,6 +33,10 @@ type HarnessState = {
   visibleText: string | null;
   inviteConfirmation: string | null;
   selfSetupError: string | null;
+  workspaceBotNames: string[];
+  createBotError: string | null;
+  createBotConfirmation: string | null;
+  createBotBlocked: boolean;
 };
 
 function emptyState(): HarnessState {
@@ -41,6 +50,10 @@ function emptyState(): HarnessState {
     visibleText: null,
     inviteConfirmation: null,
     selfSetupError: null,
+    workspaceBotNames: [],
+    createBotError: null,
+    createBotConfirmation: null,
+    createBotBlocked: false,
   };
 }
 
@@ -98,7 +111,9 @@ function renderFromMe(state: HarnessState): HarnessState {
       ? [CROSS_ACCOUNT_SELF_SETUP_FORM_TITLE, state.selfSetupError]
           .filter(Boolean)
           .join("\n")
-      : state.selfSetupError;
+      : view === "enabled-workspace"
+        ? CREATE_BOT_FORM_TITLE
+        : state.selfSetupError;
   state.visibleText = membershipVisibleTextForHarness(
     membershipViewText(view),
     me?.organizations ?? [],
@@ -190,6 +205,7 @@ function setMeEnabled(payload: { tenant_id: string; name: string }): HarnessStat
   if (!state.email) {
     throw new Error("seed a session before setting enabled membership");
   }
+  clearWorkspaceBotState(state);
   state.me = {
     email: state.email,
     user_id: "user-1",
@@ -256,6 +272,7 @@ async function refreshMeFromApi(payload: {
   state.email = payload.email ?? state.me.email;
   state.apiBase = apiBase;
   state.idToken = idToken;
+  clearWorkspaceBotState(state);
   return saveState(renderFromMe(state));
 }
 
@@ -320,6 +337,117 @@ async function submitCrossAccountSelfSetup(payload: {
   return saveState(renderFromMe(state));
 }
 
+function clearWorkspaceBotState(state: HarnessState): HarnessState {
+  state.workspaceBotNames = [];
+  state.createBotError = null;
+  state.createBotConfirmation = null;
+  state.createBotBlocked = false;
+  return state;
+}
+
+async function refreshWorkspaceBots(
+  state: HarnessState,
+  payload: {
+    api_base?: string;
+    id_token?: string;
+    tenant_id?: string;
+  },
+): Promise<void> {
+  const apiBase = payload.api_base ?? state.apiBase;
+  const idToken = payload.id_token ?? state.idToken;
+  const organization = state.me?.organizations?.find(
+    (row) => row.status === "enabled",
+  );
+  const tenantId = payload.tenant_id ?? organization?.tenant_id;
+  if (!apiBase || !idToken || !tenantId || !state.me?.user_id) {
+    throw new Error("api_base, id_token, enabled tenant, and user_id are required");
+  }
+  const response = await fetch(
+    `${apiBase}${orgApiPath(tenantId, `/users/${encodeURIComponent(state.me.user_id)}/bots`)}`,
+    { headers: { Authorization: `Bearer ${idToken}` } },
+  );
+  if (!response.ok) {
+    throw new Error(`list bots failed: ${response.status} ${await response.text()}`);
+  }
+  const body = (await response.json()) as { bots: Array<{ name: string }> };
+  state.workspaceBotNames = body.bots.map((bot) => bot.name);
+  state.apiBase = apiBase;
+  state.idToken = idToken;
+}
+
+async function loadWorkspaceBots(payload: {
+  api_base?: string;
+  id_token?: string;
+  tenant_id?: string;
+}): Promise<HarnessState> {
+  const state = loadState();
+  await refreshWorkspaceBots(state, payload);
+  return saveState(renderFromMe(state));
+}
+
+async function submitCreateBot(payload: {
+  api_base?: string;
+  id_token?: string;
+  tenant_id?: string;
+  name?: string;
+}): Promise<HarnessState> {
+  const state = loadState();
+  const apiBase = payload.api_base ?? state.apiBase;
+  const idToken = payload.id_token ?? state.idToken;
+  const organization = state.me?.organizations?.find(
+    (row) => row.status === "enabled",
+  );
+  const tenantId = payload.tenant_id ?? organization?.tenant_id;
+  const trimmed = (payload.name ?? "").trim();
+  state.createBotError = null;
+  state.createBotConfirmation = null;
+  state.createBotBlocked = false;
+  if (!trimmed) {
+    state.createBotBlocked = true;
+    return saveState(renderFromMe(state));
+  }
+  if (!apiBase || !idToken || !tenantId) {
+    throw new Error("api_base, id_token, and enabled tenant are required");
+  }
+  const response = await fetch(`${apiBase}${orgApiPath(tenantId, "/bots")}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": crypto.randomUUID(),
+    },
+    body: JSON.stringify({ name: trimmed }),
+  });
+  if (!response.ok) {
+    let detail = await response.text();
+    try {
+      const parsed = JSON.parse(detail) as { detail?: string };
+      if (parsed.detail) {
+        detail = parsed.detail;
+      }
+    } catch {
+      // keep raw body
+    }
+    state.createBotError = detail;
+    await refreshWorkspaceBots(state, {
+      api_base: apiBase,
+      id_token: idToken,
+      tenant_id: tenantId,
+    });
+    return saveState(renderFromMe(state));
+  }
+  const created = (await response.json()) as { name: string };
+  state.createBotConfirmation = createBotConfirmationText(created.name);
+  state.apiBase = apiBase;
+  state.idToken = idToken;
+  await refreshWorkspaceBots(state, {
+    api_base: apiBase,
+    id_token: idToken,
+    tenant_id: tenantId,
+  });
+  return saveState(renderFromMe(state));
+}
+
 async function main(): Promise<void> {
   const [command, payloadJson] = process.argv.slice(2);
   const payload = JSON.parse(payloadJson ?? "{}") as Record<string, string>;
@@ -359,6 +487,12 @@ async function main(): Promise<void> {
       break;
     case "submit-cross-account-self-setup":
       result = await submitCrossAccountSelfSetup(payload);
+      break;
+    case "load-workspace-bots":
+      result = await loadWorkspaceBots(payload);
+      break;
+    case "submit-create-bot":
+      result = await submitCreateBot(payload);
       break;
     default:
       throw new Error(`Unknown membership UI harness command: ${command}`);
