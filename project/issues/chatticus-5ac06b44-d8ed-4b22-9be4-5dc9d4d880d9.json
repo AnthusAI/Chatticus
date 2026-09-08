@@ -19,10 +19,17 @@
       "text": "Composer 2.5 planning. Worktree to be named `/tmp/chatticus-5ac06b-file-tools-host` on `feat/5ac06b-file-tools-on-host`. Implementation not authorized until the plan is reviewed. Do not mix `chatticus-bb9084` (snapshot bucket / customer-role.yml) into this slice. Host remains Front Door HTTP only.\n",
       "created_at": "2026-09-08T02:02:50.363831Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f82aa117-aaef-4bbb-93d7-41b6297ede20",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with holes closed.\n\nWorktree verified: `/tmp/chatticus-5ac06b-file-tools-host` on `feat/5ac06b-file-tools-on-host` (HEAD `bf13e95`, not the primary clone). One path: host `WorkspaceActionExecutor` on `ComputerHostDisk`; computerless file tools escalate; dict is not an agent-visible reader. No `customer-role.yml` / `chatticus-bb9084`. Front Door HTTP on the host.\n\n**Closed on authorize:**\n1. **Deny before summon.** Ungranted paths must fail in computerless **before** `prepare_computer_tool` / `ensure_computer` / host start. `prepare_computer_tool` always `ensure_computer` today.\n2. **`write_workspace` is a model tool in this slice**, not executor-only. Add it to the OpenAI tool schema and Gherkin, same as `read_workspace`.\n3. **First summon** uses kernel `enqueue_computer_continuation`. Do not `POST …/turns/{id}/resume` while the computer is stopped (`ComputerNotReadyError`).\n4. **Do not rewrite `computer_snapshots.feature`** protocol dict/`_snapshots` bridge. Agent-visible I/O must not use `computer.workspace`.\n5. **Gherkin is the behavior gate** for escalation, host execute, grant-deny-without-start. Do not keep duplicate pytest stories in `test_model_tool_loop_sinks.py`. Pytest stays for `workspace_paths` (and similar pure helpers).\n6. **Store unset:** file tools still read/write `CHATTICUS_LIVE_ROOT`. `HostActionExecutor` constructs `ComputerHostDisk` from `live_root_from_env()`; missing snapshot store must not crash writes.\n7. **Grant check in `prepare_computer_tool`** for file-tool paths (same moment browse origins are checked), so a pending call is never committed without a grant.\n\nTear the worktree down only after the manager closes the issue.\n",
+      "created_at": "2026-09-08T02:06:13.547343Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T02:02:42.651003Z",
-  "updated_at": "2026-09-08T02:02:50.363831Z",
+  "updated_at": "2026-09-08T02:06:13.547343Z",
   "closed_at": null,
   "custom": {}
 }
