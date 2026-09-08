@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Protocol
 
 import boto3
@@ -320,6 +321,7 @@ def organization_after_accepted_self_setup(
     *,
     account_id: str,
     cross_account_role: str,
+    monthly_aws_spend_ceiling_usd: Decimal,
 ) -> Organization:
     """Return one organization updated after accepted self-setup validation."""
     from dataclasses import replace
@@ -333,6 +335,7 @@ def organization_after_accepted_self_setup(
         setup_fee_cents=0,
         assisted_setup_session=False,
         status=OrganizationStatus.ENABLED,
+        monthly_aws_spend_ceiling_usd=monthly_aws_spend_ceiling_usd,
     )
     return provisioned
 
@@ -342,6 +345,7 @@ def organization_after_assisted_setup(
     *,
     account_id: str,
     cross_account_role: str,
+    monthly_aws_spend_ceiling_usd: Decimal,
 ) -> Organization:
     """Return one organization updated after an Anthus-assisted setup session."""
     from dataclasses import replace
@@ -355,4 +359,5 @@ def organization_after_assisted_setup(
         setup_fee_cents=ASSISTED_SETUP_FEE_CENTS,
         assisted_setup_session=True,
         status=OrganizationStatus.ENABLED,
+        monthly_aws_spend_ceiling_usd=monthly_aws_spend_ceiling_usd,
     )

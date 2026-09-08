@@ -153,6 +153,7 @@ def when_owner_submits_self_setup_for_tenant(context: object, tenant_id: str) ->
         json={
             "account_id": context.aws_account_id,
             "cross_account_role": context.aws_role_arn,
+            "monthly_aws_spend_ceiling_usd": "250.00",
         },
     )
     context.principal_response = context.self_setup_response

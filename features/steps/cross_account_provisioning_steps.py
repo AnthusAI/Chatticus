@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from behave import given, then, when
 from botocore.exceptions import ClientError
@@ -41,6 +42,7 @@ CUSTOMER_ROLE_ARN = (
 MISMATCHED_EXTERNAL_ID = "wrong-organization-id"
 MISSING_PERMISSION = PROVISIONING_REQUIRED_PERMISSIONS[0]
 NOW = datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC)
+DEFAULT_MONTHLY_AWS_SPEND_CEILING_USD = Decimal("250.00")
 
 
 def _plane(context: object) -> ControlPlane:
@@ -129,6 +131,11 @@ def when_submit_account_and_role(context: object) -> None:
         account_id=context.aws_account_id,
         cross_account_role=context.aws_role_arn,
         role_inspector=context.role_inspector,
+        monthly_aws_spend_ceiling_usd=getattr(
+            context,
+            "monthly_aws_spend_ceiling_usd",
+            DEFAULT_MONTHLY_AWS_SPEND_CEILING_USD,
+        ),
     )
 
 
