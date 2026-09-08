@@ -19,10 +19,17 @@
       "text": "Composer 2.5 planning. Worktree `/tmp/chatticus-475335-host-disk` on `feat/475335-host-disk-hydrate-publish`. Implementation not authorized until the plan is reviewed. Do not mix `chatticus-bb9084` (snapshot bucket / customer-role.yml) into this slice.\n",
       "created_at": "2026-09-08T00:37:44.562238Z",
       "comment_type": "default"
+    },
+    {
+      "id": "05b2deaf-2c10-4bde-8bb6-bb7767cc29b6",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with four holes closed.\n\nWorktree verified: `/tmp/chatticus-475335-host-disk` on `feat/475335-host-disk-hydrate-publish` (HEAD `41230a5`, not the primary clone). Hydrate-on-boot, publish-before-exit, Front Door metadata, `FilesystemSnapshotStore` in Gherkin, no `customer-role.yml` — those stand.\n\n**Closed on authorize:**\n1. **This is not step 3 or step 5.** Do not gut `ControlPlane.read_workspace` / computerless file tools / `computer.workspace`. Do not rewrite `computer_snapshots.feature` onto host disk in this PR. Dict remains what computerless tools reach until the file-tools-on-host card.\n2. **ARCHITECTURE.md:** Remove \"Fargate host worker never publishes or hydrates\" and \"workspace_ready without hydrating\". Do **not** delete the dict layer or claim agent tools reach `/workspace`. Do not leave the 3e72dc \"open decision\" sentence (host disk is decided on `chatticus-fccc4e9a`).\n3. **Relocate Gherkin needs two workers.** Relocate to the same `computer-host-1` is not a hydrate story. Recycle-with-file-bytes is in scope only if Then-steps read **host disk** after hydrate, not `plane.read_workspace`.\n4. **No snapshot bucket env → skip, do not crash.** Live `browser_open` must keep working. Do not default publish/hydrate to the Anthus `ChatticusSnapshots` bucket.\n\nTear the worktree down only after the manager closes the issue.\n",
+      "created_at": "2026-09-08T00:40:44.299774Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T00:37:32.534651Z",
-  "updated_at": "2026-09-08T00:37:44.562238Z",
+  "updated_at": "2026-09-08T00:40:44.299774Z",
   "closed_at": null,
   "custom": {}
 }
