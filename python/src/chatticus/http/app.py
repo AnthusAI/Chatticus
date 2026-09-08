@@ -194,6 +194,20 @@ class RecordCapabilityReadyBody(BaseModel):
     user_id: str
 
 
+class HostSnapshotHydratedBody(BaseModel):
+    """Body for POST /host-worker/computers/snapshot/hydrated."""
+
+    worker_id: str
+
+
+class HostSnapshotPublishBody(BaseModel):
+    """Body for POST /host-worker/computers/snapshot/publish."""
+
+    worker_id: str
+    checksum: str
+    snapshot_uri: str | None = None
+
+
 class ClaimComputerBody(BaseModel):
     """Body for POST /turns/{turn_id}/computer/claim."""
 
@@ -966,6 +980,43 @@ def create_app(
         )
         return {"capability": capability, "status": "ready"}
 
+    @host_worker_router.post("/computers/snapshot/hydrated")
+    def worker_record_snapshot_hydrated(
+        tenant_id: str,
+        body: HostSnapshotHydratedBody,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        del principal
+        computer = state.plane.computer_for_organization(tenant_id)
+        state.plane.record_host_hydrated(computer.computer_id, body.worker_id)
+        logger.info(
+            "worker_snapshot_hydrated tenant_id=%s worker_id=%s",
+            tenant_id,
+            body.worker_id,
+        )
+        return {"status": "hydrated"}
+
+    @host_worker_router.post("/computers/snapshot/publish")
+    def worker_publish_snapshot(
+        tenant_id: str,
+        body: HostSnapshotPublishBody,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        del principal
+        computer = state.plane.computer_for_organization(tenant_id)
+        state.plane.record_host_snapshot_published(
+            computer.computer_id,
+            body.worker_id,
+            body.checksum,
+            body.snapshot_uri,
+        )
+        logger.info(
+            "worker_snapshot_published tenant_id=%s worker_id=%s",
+            tenant_id,
+            body.worker_id,
+        )
+        return {"status": "published"}
+
     @host_worker_router.get("/computer")
     def worker_get_computer(
         tenant_id: str,
@@ -1698,7 +1749,7 @@ def _task_payload(task: Any) -> dict[str, Any]:
 
 
 def _computer_payload(computer: Any) -> dict[str, Any]:
-    return {
+    payload: dict[str, Any] = {
         "computer_id": computer.computer_id,
         "tenant_id": computer.tenant_id,
         "stopped": computer.stopped,
@@ -1707,7 +1758,17 @@ def _computer_payload(computer: Any) -> dict[str, Any]:
         "model_ready": computer.model_ready,
         "workspace_ready": computer.workspace_ready,
         "browser_ready": computer.browser_ready,
+        "snapshot_generation": computer.snapshot_generation,
+        "disk_dirty": computer.disk_dirty,
+        "hydrate_required": computer.hydrate_required,
     }
+    if computer.snapshot_uri is not None:
+        payload["snapshot_uri"] = computer.snapshot_uri
+    if computer.snapshot_checksum is not None:
+        payload["snapshot_checksum"] = computer.snapshot_checksum
+    if computer.intended_host_worker_id is not None:
+        payload["intended_host_worker_id"] = computer.intended_host_worker_id
+    return payload
 
 
 def _worker_turn_payload(turn: Any) -> dict[str, Any]:

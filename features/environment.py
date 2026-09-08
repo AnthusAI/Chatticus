@@ -87,6 +87,16 @@ def after_scenario(context: object, scenario: object) -> None:
     client = getattr(context, "api_client", None)
     if client is not None:
         client.close()
+    snapshot_patcher = getattr(context, "_snapshot_store_patcher", None)
+    if snapshot_patcher is not None:
+        snapshot_patcher.stop()
+    snapshot_store_root = getattr(context, "_snapshot_store_root", None)
+    if snapshot_store_root is not None:
+        from chatticus.host_snapshot_store import clear_snapshot_store_for_root
+
+        clear_snapshot_store_for_root(snapshot_store_root)
+    os.environ.pop("CHATTICUS_SNAPSHOT_STORE_ROOT", None)
+    os.environ.pop("CHATTICUS_LIVE_ROOT", None)
     snapshot_tmpdir = getattr(context, "snapshot_tmpdir", None)
     if snapshot_tmpdir:
         shutil.rmtree(snapshot_tmpdir, ignore_errors=True)
