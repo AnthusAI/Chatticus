@@ -58,6 +58,19 @@ describe("ThinTurnStack OpenAI key", () => {
         });
       });
 
+      it("grants Front Door AssumeRole on customer cross-account computer roles", () => {
+        template.hasResourceProperties("AWS::IAM::Policy", {
+          PolicyDocument: {
+            Statement: Match.arrayWith([
+              Match.objectLike({
+                Action: "sts:AssumeRole",
+                Resource: "arn:aws:iam::*:role/ChatticusOrganizationComputerRole",
+              }),
+            ]),
+          },
+        });
+      });
+
       it("sets CHATTICUS_SIGNUP_MODE to open on Anthus deployments", () => {
         template.hasResourceProperties("AWS::Lambda::Function", {
           Environment: {

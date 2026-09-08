@@ -29,13 +29,17 @@ def _wire_front_door(context: object, *, signup_mode: SignupMode) -> None:
     client = getattr(context, "api_client", None)
     if client is not None:
         client.close()
-    app = create_app(
-        context.plane,
-        invoke_key="",
-        cognito_verifier=_keys(context).verifier(),
-        signup_mode=signup_mode,
-    )
+    role_inspector = getattr(context, "role_inspector", None)
+    app_kwargs: dict[str, object] = {
+        "invoke_key": "",
+        "cognito_verifier": _keys(context).verifier(),
+        "signup_mode": signup_mode,
+    }
+    if role_inspector is not None:
+        app_kwargs["role_inspector"] = role_inspector
+    app = create_app(context.plane, **app_kwargs)
     context.api_app = app
+    context.app_state = app.state.chatticus
     context.api_client = start_test_server(app)
     context.signup_mode = signup_mode
 

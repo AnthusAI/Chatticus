@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from behave import given, then, when
+from behave import given, step, then, when
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WEB_DIR = REPO_ROOT / "web"
@@ -122,6 +122,66 @@ def then_shows_welcome(context: object) -> None:
     assert harness.get("view") == "welcome", harness
 
 
+@then("the web SPA shows the cross-account self-setup form")
+def then_shows_self_setup_form(context: object) -> None:
+    harness = context.membership_ui_harness
+    text = harness.get("visibleText") or ""
+    assert "Submit AWS account and RoleArn" in text, harness
+
+
+@when("the web SPA submits cross-account self-setup via HTTP")
+def when_web_submits_self_setup(context: object) -> None:
+    api_base = getattr(context, "web_api_base", None)
+    if api_base is None:
+        raise AssertionError("web API base is not wired for this scenario")
+    payload: dict[str, str] = {"api_base": api_base}
+    token = getattr(context, "web_id_token", None)
+    if token:
+        payload["id_token"] = token
+    context.membership_ui_harness = _run_harness(
+        "submit-cross-account-self-setup", payload
+    )
+
+
+@step(
+    "the in-memory role inspector trusts the created organization ExternalId "
+    "with full permissions"
+)
+def given_inspector_trusts_created_org(context: object) -> None:
+    from customer_cross_account_role_api_steps import (
+        _configure_role_inspector_for_tenant,
+    )
+
+    harness = context.membership_ui_harness
+    organizations = (harness.get("me") or {}).get("organizations") or []
+    assert organizations, harness
+    tenant_id = organizations[0]["tenant_id"]
+    _configure_role_inspector_for_tenant(
+        context, tenant_id, trusted_external_id=tenant_id
+    )
+
+
+@step(
+    "the in-memory role inspector trusts a mismatched ExternalId for the "
+    "created organization"
+)
+def given_inspector_mismatch_created_org(context: object) -> None:
+    from cross_account_provisioning_steps import MISMATCHED_EXTERNAL_ID
+    from customer_cross_account_role_api_steps import (
+        _configure_role_inspector_for_tenant,
+    )
+
+    harness = context.membership_ui_harness
+    organizations = (harness.get("me") or {}).get("organizations") or []
+    assert organizations, harness
+    tenant_id = organizations[0]["tenant_id"]
+    _configure_role_inspector_for_tenant(
+        context,
+        tenant_id,
+        trusted_external_id=MISMATCHED_EXTERNAL_ID,
+    )
+
+
 @then("the web SPA does not show a queue position")
 def then_no_queue_position(context: object) -> None:
     harness = context.membership_ui_harness
@@ -164,3 +224,13 @@ def then_web_shows_org_with_present_tenant_id(
     assert name in text, harness
     assert status in text, harness
     assert tenant_id in text, harness
+
+
+@then(
+    "the web SPA shows a cross-account self-setup error naming the ExternalId mismatch"
+)
+def then_web_shows_external_id_error(context: object) -> None:
+    harness = context.membership_ui_harness
+    text = (harness.get("visibleText") or "").lower()
+    assert "externalid" in text.replace(" ", ""), harness
+    assert "cloudformation" in text, harness

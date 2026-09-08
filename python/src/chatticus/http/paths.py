@@ -10,6 +10,11 @@ def org_path(tenant_id: str, suffix: str) -> str:
     return f"/orgs/{tenant_id}{suffix}"
 
 
+def org_self_setup_cross_account_role_path(tenant_id: str) -> str:
+    """Return the customer self-setup cross-account role submission path."""
+    return org_path(tenant_id, "/self-setup/cross-account-role")
+
+
 def operator_org_path(tenant_id: str, action: str) -> str:
     """Return /operator/orgs/{tenant_id}/{action} for lifecycle mutations."""
     return f"/operator/orgs/{tenant_id}/{action}"

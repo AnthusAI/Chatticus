@@ -23,6 +23,10 @@ from chatticus.computer_capabilities import (
     WORKSPACE_CAPABILITY,
 )
 from chatticus.control_plane import ControlPlane
+from chatticus.cross_account_provisioning import (
+    AwsCrossAccountRoleInspector,
+    CrossAccountRoleInspector,
+)
 from chatticus.email_sender import EmailSender
 from chatticus.escalation_handoff import EscalationRecord
 from chatticus.http.integration_test_auth import (
@@ -394,6 +398,22 @@ class OperatorOrganizationResponseBody(BaseModel):
     status: str
 
 
+class SubmitSelfSetupCrossAccountRoleBody(BaseModel):
+    """Body for POST /orgs/{tenant_id}/self-setup/cross-account-role."""
+
+    account_id: str
+    cross_account_role: str
+
+
+class SubmitSelfSetupCrossAccountRoleResponseBody(BaseModel):
+    """Successful customer self-setup cross-account role submission."""
+
+    accepted: Literal[True] = True
+    tenant_id: str
+    name: str
+    status: str
+
+
 @dataclass
 class AppState:
     """Mutable front-door state attached to each app instance."""
@@ -407,6 +427,7 @@ class AppState:
     signup_mode: SignupMode = SignupMode.INVITATION_ONLY
     open_sse_streams: int = 0
     integration_test_auth: IntegrationTestAuthConfig | None = None
+    role_inspector: CrossAccountRoleInspector | None = None
 
 
 def _verify_invoke_key(request: Request) -> None:
@@ -427,6 +448,7 @@ def create_app(
     cognito_verifier: CognitoJwtVerifier | None = None,
     signup_mode: SignupMode | None = None,
     integration_test_auth: IntegrationTestAuthConfig | None = None,
+    role_inspector: CrossAccountRoleInspector | None = None,
 ) -> FastAPI:
     """Build a FastAPI app backed by one control plane instance."""
     resolved_key = (
@@ -460,6 +482,7 @@ def create_app(
             environment=resolved_environment,
             invoke_key=resolved_key,
         ),
+        role_inspector=role_inspector or AwsCrossAccountRoleInspector(),
     )
     app = FastAPI(
         title="Chatticus control plane",
@@ -764,6 +787,44 @@ def create_app(
             invitation_id=invitation.invitation_id,
             email=invitation.email,
             expires_at=invitation.expires_at.isoformat(),
+        )
+
+    @waitlist_safe
+    @user_router.post("/self-setup/cross-account-role")
+    def submit_self_setup_cross_account_role_route(
+        tenant_id: str,
+        body: SubmitSelfSetupCrossAccountRoleBody,
+        principal: RequireUserPrincipal,
+    ) -> SubmitSelfSetupCrossAccountRoleResponseBody:
+        if principal.user_id is None:
+            raise HTTPException(status_code=403, detail="user credential required")
+        account_id = body.account_id.strip()
+        cross_account_role = body.cross_account_role.strip()
+        if not account_id:
+            raise HTTPException(status_code=400, detail="account_id is required")
+        if not cross_account_role:
+            raise HTTPException(
+                status_code=400, detail="cross_account_role is required"
+            )
+        try:
+            result = state.plane.submit_self_setup_cross_account_role(
+                tenant_id,
+                actor_user_id=principal.user_id,
+                account_id=account_id,
+                cross_account_role=cross_account_role,
+                role_inspector=state.role_inspector or AwsCrossAccountRoleInspector(),
+            )
+        except OrganizationNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except NotOrganizationOwnerError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        if not result.accepted:
+            raise HTTPException(status_code=422, detail=result.message)
+        organization = result.organization
+        return SubmitSelfSetupCrossAccountRoleResponseBody(
+            tenant_id=organization.tenant_id,
+            name=organization.name,
+            status=organization.status.value,
         )
 
     @user_router.post("/bots")

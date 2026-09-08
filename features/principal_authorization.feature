@@ -37,3 +37,9 @@ Feature: Principal authorization on the HTTP front door
     Given principal enforcement has tenant "anthus" pending for "owner@example.com"
     When GET /me is called with a valid id token for "owner@example.com"
     Then GET /me responds with status 200
+
+  Scenario: A pending owner reaches the self-setup cross-account role route
+    Given principal enforcement has tenant "anthus" pending for "owner@example.com"
+    And the in-memory role inspector trusts tenant "anthus" ExternalId with full permissions
+    When the owner submits cross-account self-setup for tenant "anthus" via HTTP
+    Then the principal response status is 200

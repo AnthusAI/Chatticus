@@ -271,15 +271,31 @@ class OrgRecordsKernel:
         self.store.put_organization(provisioned)
         return provisioned
 
+    def assert_may_submit_self_setup_cross_account_role(
+        self, tenant_id: str, actor_user_id: str
+    ) -> Membership:
+        """Return membership when the actor may submit self-setup; owner-only."""
+        organization = self.store.get_organization(tenant_id)
+        if organization is None:
+            raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")
+        membership = self.store.get_membership(tenant_id, actor_user_id)
+        if membership is None or membership.role != MemberRole.OWNER:
+            raise NotOrganizationOwnerError(
+                f"User {actor_user_id!r} is not an owner of {tenant_id!r}."
+            )
+        return membership
+
     def submit_self_setup_cross_account_role(
         self,
         tenant_id: str,
         *,
+        actor_user_id: str,
         account_id: str,
         cross_account_role: str,
         role_inspector: CrossAccountRoleInspector,
     ) -> SelfSetupCrossAccountResult:
         """Validate and accept one customer self-setup cross-account submission."""
+        self.assert_may_submit_self_setup_cross_account_role(tenant_id, actor_user_id)
         organization = self.store.get_organization(tenant_id)
         if organization is None:
             raise OrganizationNotFoundError(f"Organization {tenant_id!r} is unknown.")

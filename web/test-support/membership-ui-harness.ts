@@ -7,6 +7,7 @@ import type { VerifiedSession } from "../lib/auth";
 import {
   membershipViewText,
   resolveMembershipView,
+  CROSS_ACCOUNT_SELF_SETUP_FORM_TITLE,
 } from "../lib/membership-view";
 import { deriveMembershipBranch } from "../lib/membership-state";
 import { membershipVisibleText } from "../lib/organization-membership";
@@ -26,6 +27,7 @@ type HarnessState = {
   view: string | null;
   visibleText: string | null;
   inviteConfirmation: string | null;
+  selfSetupError: string | null;
 };
 
 function emptyState(): HarnessState {
@@ -38,6 +40,7 @@ function emptyState(): HarnessState {
     view: null,
     visibleText: null,
     inviteConfirmation: null,
+    selfSetupError: null,
   };
 }
 
@@ -70,6 +73,18 @@ function sessionPresent(email: string): VerifiedSession {
   };
 }
 
+function membershipVisibleTextForHarness(
+  viewText: string,
+  organizations: MeResponse["organizations"],
+  extraText: string | null,
+): string {
+  const base = membershipVisibleText(viewText, organizations);
+  if (!extraText) {
+    return base;
+  }
+  return `${base}\n\n${extraText}`;
+}
+
 function renderFromMe(state: HarnessState): HarnessState {
   const me = state.me;
   const branch = deriveMembershipBranch(
@@ -78,9 +93,16 @@ function renderFromMe(state: HarnessState): HarnessState {
   );
   const view = resolveMembershipView(branch, parseSignupMode(state.signupMode));
   state.view = view;
-  state.visibleText = membershipVisibleText(
+  const extraText =
+    view === "welcome"
+      ? [CROSS_ACCOUNT_SELF_SETUP_FORM_TITLE, state.selfSetupError]
+          .filter(Boolean)
+          .join("\n")
+      : state.selfSetupError;
+  state.visibleText = membershipVisibleTextForHarness(
     membershipViewText(view),
     me?.organizations ?? [],
+    extraText,
   );
   return state;
 }
@@ -237,6 +259,67 @@ async function refreshMeFromApi(payload: {
   return saveState(renderFromMe(state));
 }
 
+async function submitCrossAccountSelfSetup(payload: {
+  api_base?: string;
+  id_token?: string;
+  account_id?: string;
+  cross_account_role?: string;
+}): Promise<HarnessState> {
+  const state = loadState();
+  const apiBase = payload.api_base ?? state.apiBase;
+  const idToken = payload.id_token ?? state.idToken;
+  const organization = state.me?.organizations?.[0];
+  if (!apiBase || !idToken || !organization) {
+    throw new Error("api_base, id_token, and a pending organization are required");
+  }
+  const response = await fetch(
+    `${apiBase}/orgs/${organization.tenant_id}/self-setup/cross-account-role`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        account_id: payload.account_id ?? "123456789012",
+        cross_account_role:
+          payload.cross_account_role ??
+          "arn:aws:iam::123456789012:role/ChatticusOrganizationComputerRole",
+      }),
+    },
+  );
+  if (!response.ok) {
+    let detail = await response.text();
+    try {
+      const parsed = JSON.parse(detail) as { detail?: string };
+      if (parsed.detail) {
+        detail = parsed.detail;
+      }
+    } catch {
+      // keep raw body
+    }
+    state.selfSetupError = detail;
+    return saveState(renderFromMe(state));
+  }
+  state.selfSetupError = null;
+  const accepted = (await response.json()) as {
+    tenant_id: string;
+    name: string;
+    status: string;
+  };
+  if (state.me) {
+    state.me = {
+      ...state.me,
+      organizations: state.me.organizations.map((row) =>
+        row.tenant_id === accepted.tenant_id
+          ? { ...row, status: accepted.status as "enabled" }
+          : row,
+      ),
+    };
+  }
+  return saveState(renderFromMe(state));
+}
+
 async function main(): Promise<void> {
   const [command, payloadJson] = process.argv.slice(2);
   const payload = JSON.parse(payloadJson ?? "{}") as Record<string, string>;
@@ -273,6 +356,9 @@ async function main(): Promise<void> {
       break;
     case "refresh-me-from-api":
       result = await refreshMeFromApi(payload);
+      break;
+    case "submit-cross-account-self-setup":
+      result = await submitCrossAccountSelfSetup(payload);
       break;
     default:
       throw new Error(`Unknown membership UI harness command: ${command}`);
