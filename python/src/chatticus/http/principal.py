@@ -60,7 +60,7 @@ _WORKER_ROUTE_PATH_RE: Final = re.compile(
     r"^/orgs/[^/]+/(?:"
     r"workers/(?!register)|"
     r"bots/[^/]+/tasks/tool|"
-    r"turns/[^/]+/(?:claim|renew|waiting|resume|grant|"
+    r"turns/[^/]+/(?:claim|renew|waiting|resume|"
     r"browse/authorize|tool/denied|chunks)"
     r")"
 )

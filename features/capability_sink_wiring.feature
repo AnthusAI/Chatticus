@@ -30,13 +30,8 @@ Feature: Capability policy at live system sinks
     Then the gated workspace read is denied
 
   Scenario: The HTTP front door denies granting a missing turn
-    Given an empty control plane
-    And a worker registered over HTTP as:
-      | worker_id    | test-worker |
-      | tenant_id    | anthus      |
-      | cost_class   | local       |
-      | capabilities | cpu         |
-    When the registered worker puts a turn grant over HTTP for turn "missing-turn":
+    Given an empty control plane backed by a durable messaging store with HTTP
+    When user "ryan" of tenant "anthus" PUTs a turn grant over HTTP for turn "missing-turn":
       | field | value          |
       | tools | read_workspace |
     Then the turn grant HTTP response has status 403

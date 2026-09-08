@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from chatticus.approval_binding import StructuredConsequentialOperation
@@ -261,4 +262,51 @@ def structured_operation_exceeds_member_authority_ceiling(
             attempted,
             ceiling_bindings,
         )
+    return False
+
+
+GRANT_STANDING_ACTION_TYPE = "_grant_bounds"
+
+
+def member_authority_ceiling_from_grant_table(
+    rows: dict[str, str],
+) -> MemberAuthorityCeiling:
+    """Build one member standing ceiling from a closed grant table."""
+    from chatticus.capability_policy import parse_grant_table
+
+    grant = parse_grant_table(rows)
+    return MemberAuthorityCeiling(
+        grant_ceiling=Ceiling(
+            action_types=frozenset(grant.tools),
+            origins=grant.origins,
+            recipients=grant.recipients,
+            file_scopes=grant.file_scopes,
+            egress_classes=grant.egress_classes,
+            ingest_classes=grant.ingest_classes,
+        ),
+    )
+
+
+def grant_replace_exceeds_acting_member_standing(
+    grant: TaskCapabilityGrant,
+    *,
+    role_ceiling: Ceiling,
+    grant_bounds_ceiling: MemberAuthorityCeiling | None,
+    member_authority_ceiling_for: Callable[[str], MemberAuthorityCeiling | None],
+) -> bool:
+    """Return whether one replacement grant exceeds the acting member's standing."""
+    consequential = grant.tools & CONSEQUENTIAL_ACTION_TYPES
+    if not consequential <= role_ceiling.action_types:
+        return True
+    if grant_bounds_ceiling is not None and grant_exceeds_member_authority_ceiling(
+        grant,
+        grant_bounds_ceiling,
+    ):
+        return True
+    for tool in consequential:
+        per_action = member_authority_ceiling_for(tool)
+        if per_action is None:
+            continue
+        if grant_exceeds_member_authority_ceiling(grant, per_action):
+            return True
     return False

@@ -170,38 +170,6 @@ class HttpTurnClient:
             )
         return response.json()
 
-    def put_grant(
-        self,
-        turn_id: str,
-        *,
-        tools: list[str],
-        origins: list[str] | None = None,
-        recipients: list[str] | None = None,
-        file_scopes: list[str] | None = None,
-        egress_classes: list[str] | None = None,
-        ingest_classes: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """Attach one closed task grant to a turn."""
-        worker_id = self.worker_id or "grant-worker"
-        response = self.client.put(
-            org_path(self.tenant_id, f"/turns/{turn_id}/grant"),
-            json={
-                "tools": tools,
-                "origins": origins or [],
-                "recipients": recipients or [],
-                "file_scopes": file_scopes or [],
-                "egress_classes": egress_classes or [],
-                "ingest_classes": ingest_classes or [],
-            },
-            headers=self._auth_headers(worker_id),
-        )
-        if response.status_code >= 400:
-            raise RuntimeError(
-                f"grant PUT failed with status {response.status_code}: "
-                f"{response.text}"
-            )
-        return response.json()
-
     def authorize_browse(self, turn_id: str, url: str) -> dict[str, Any]:
         """Authorize one browse origin after the task grant allows it."""
         worker_id = self.worker_id or "browse-worker"
