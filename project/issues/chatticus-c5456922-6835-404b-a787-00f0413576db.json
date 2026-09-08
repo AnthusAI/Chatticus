@@ -19,10 +19,17 @@
       "text": "Composer 2.5 planning the unattended customer re-run (no operator kernel). Same discipline as `b88c0a`: wiki placeholders, ids in `AGENTS.local.md`, labeled deviations, stop at the first failure. Number to beat: four-of-six person-steps. Image staleness / operator repush counts as a person-step if it recurs. Plan-only until authorized. Wiki second timed entry lands on `develop` via `pm:`, not a product PR.\n",
       "created_at": "2026-09-08T18:49:09.116412Z",
       "comment_type": "default"
+    },
+    {
+      "id": "facd6fe7-81ec-414a-b6f7-5db4eec9c865",
+      "author": "home",
+      "text": "Plan authorized with amendments. Create `/tmp/chatticus-c54569-unattended` (throwaway, not a git worktree). Human Google is person-step 1, not a product defect. Do not reuse customer account `114469424841`. Do not retarget the ACME RoleArn. Wait until ThinTurn development is not `UPDATE_IN_PROGRESS` before T0. If Google sign-in is required, ask the human in this session — do not enable `ADMIN_NO_SRP_AUTH` and do not sit on OAuth. Stop at the first labeled failure. Do not close this card; wiki second entry is a later `pm:` on `develop`.\n",
+      "created_at": "2026-09-08T18:52:05.338289Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T18:30:57.683865Z",
-  "updated_at": "2026-09-08T18:49:09.116493Z",
+  "updated_at": "2026-09-08T18:52:05.338310Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
