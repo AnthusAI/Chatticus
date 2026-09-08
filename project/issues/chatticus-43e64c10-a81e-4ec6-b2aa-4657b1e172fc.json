@@ -3,7 +3,7 @@
   "title": "An organization carries a monthly AWS spend ceiling set at provisioning",
   "description": "**Phase 4 of 5.**\n\n- **Blocked by:** the account record story, in the provisioning epic\n- **Runs in parallel with:** nothing. It gates the three stories below it\n- **Unblocks:** the alert, the stop, and the display stories\n\n---\nThe customer names a number during the provisioning session, when there is a person in the call to explain what drives it. Not a default buried in settings that nobody chose.\n\nAn organization with no ceiling should not be possible after provisioning. The whole risk this epic exists for is a customer discovering a four-figure AWS line item with our name attached, and an unset ceiling is exactly the state where that happens.\n\n**Done when:** the scenarios exist and fail for the right reason.",
   "type": "story",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -18,16 +18,20 @@
       "author": "unknown",
       "text": "Feature: Organization spend ceiling\n\n  Scenario: Provisioning records a monthly ceiling\n    Given an organization being provisioned into a customer AWS account\n    When provisioning completes\n    Then the organization carries a monthly AWS spend ceiling\n\n  Scenario: An owner raises the ceiling\n    Given an enabled organization with a monthly spend ceiling\n    When its owner sets a higher ceiling\n    Then the organization carries the new ceiling\n\n  Scenario: A member who is not an owner cannot change the ceiling\n    Given an enabled organization with a monthly spend ceiling\n    When a member who is not an owner attempts to change it\n    Then the change is refused\n    And the ceiling is unchanged",
       "created_at": "2026-09-03T13:20:20.965755Z",
-      "comment_type": "default",
-      "data": {},
-      "agent": null
+      "comment_type": "default"
+    },
+    {
+      "id": "02f9c367-3af4-45fa-ac9d-a5c745d923a1",
+      "author": "home",
+      "text": "Composer 2.5 planning Gherkin for a monthly AWS spend ceiling set at provisioning (DoD: scenarios exist and fail for the right reason). Worktree `/tmp/chatticus-43e64c-spend-ceiling` on `feat/43e64c-org-spend-ceiling`. Plan-only until authorized. Priority stays P1 unless Ryan promotes the epic.\n",
+      "created_at": "2026-09-08T18:49:09.552960Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:19.873118Z",
-  "updated_at": "2026-09-03T13:20:20.965900Z",
+  "updated_at": "2026-09-08T18:49:09.552982Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "custom": {}
 }
