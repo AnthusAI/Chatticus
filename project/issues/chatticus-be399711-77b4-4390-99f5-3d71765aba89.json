@@ -19,12 +19,19 @@
       "text": "Next after `0ee0db` live PASS. Composer 2.5 planning user-router grant **replace** (not merge). Worktree `/tmp/chatticus-be3997-turn-grant-http` on `feat/be3997-turn-grant-replace`. Plan-only until authorized.\n",
       "created_at": "2026-09-08T16:19:43.598656Z",
       "comment_type": "default"
+    },
+    {
+      "id": "53187f76-a808-4e60-bc2b-35e7f90e994f",
+      "author": "home",
+      "text": "Plan reviewed. Not authorized yet.\n\nBlocking: do not treat a missing per-member `task_grant` standing row as unlimited. Reuse `MemberStanding` / role ceiling so `purchase` and `production_change` cannot be granted by a `member`. A grant-table factory into `MemberAuthorityCeiling` is fine; a second ceiling product is not.\n\nHTTP grant replace is Gherkin only — delete `test_http_grant_persists_without_workspace_execute_route` rather than re-auth it in pytest. Move `capability_sink_wiring.feature` missing-turn grant to the user route. Retire unused `WorkerPlaneClient.put_grant` worker auth with the worker PUT.\n",
+      "created_at": "2026-09-08T16:25:03.445582Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T15:41:24.244783Z",
-  "updated_at": "2026-09-08T16:19:43.598693Z",
+  "updated_at": "2026-09-08T16:25:03.445809Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "The team is planning the user-route grant replacement; implementation awaits authorization.",
+  "right_now_updated_at": "2026-09-08T16:23:15.802535Z",
   "custom": {}
 }
