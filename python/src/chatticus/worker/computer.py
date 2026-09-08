@@ -17,6 +17,7 @@ from chatticus.models import (
     ComputerWorkerHostNotReady,
     ComputerWorkerRequiresComputerCapability,
     OrganizationComputerProvisioningError,
+    OrganizationSpendCeilingExceededError,
     TurnJob,
     TurnStatus,
     pending_computer_tool_from_turn,
@@ -78,6 +79,13 @@ class ComputerWorker:
             return
         try:
             self.host_starter.start_host(claim)
+        except OrganizationSpendCeilingExceededError as exc:
+            self.plane.release_host_start_dispatch(
+                tenant_id, computer.host_start_generation
+            )
+            raise ComputerWorkerHostNotReady(
+                f"Turn {turn_id!r} computer provisioning refused: {exc}"
+            ) from exc
         except OrganizationComputerProvisioningError as exc:
             self.plane.release_host_start_dispatch(
                 tenant_id, computer.host_start_generation

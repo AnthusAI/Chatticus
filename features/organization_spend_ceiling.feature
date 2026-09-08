@@ -18,3 +18,38 @@ Feature: Organization spend ceiling
     When a member who is not an owner attempts to change it
     Then the change is refused
     And the ceiling is unchanged
+
+  Scenario: New computer work is refused past the ceiling
+    Given an enabled organization whose month-to-date spend has passed its ceiling
+    And the organization computer is stopped
+    And a human task grants:
+      | field          | value                              |
+      | tools          | browse, read_workspace             |
+      | origins        | https://docs.example.com           |
+      | recipients     |                                    |
+      | file_scopes    | /workspace/research                |
+      | egress_classes | approved_origin_fetch, file_transfer |
+    When a member asks a bot for work that needs the computer
+    Then the request is refused with a spend ceiling reason
+    And no computer is started
+
+  Scenario: The workplace stays reachable past the ceiling
+    Given an enabled organization whose month-to-date spend has passed its ceiling
+    And the organization has a channel with a readable message
+    When a member opens the workspace
+    Then they read their channels and see why work is paused
+    And the organization status is still enabled
+
+  Scenario: Raising the ceiling resumes work
+    Given an organization whose work is paused at its spend ceiling
+    And the organization computer is stopped
+    And a human task grants:
+      | field          | value                              |
+      | tools          | browse, read_workspace             |
+      | origins        | https://docs.example.com           |
+      | recipients     |                                    |
+      | file_scopes    | /workspace/research                |
+      | egress_classes | approved_origin_fetch, file_transfer |
+    When its owner raises the ceiling above current spend
+    And a member asks a bot for work that needs the computer
+    Then computer work is accepted again

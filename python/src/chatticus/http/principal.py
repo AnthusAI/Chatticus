@@ -29,6 +29,7 @@ from chatticus.operator_credentials import (
     parse_operator_bearer,
     verify_operator_bearer,
 )
+from chatticus.organization_spend import organization_computer_work_paused
 from chatticus.principal import Principal, PrincipalKind
 from chatticus.worker_credentials import parse_bearer_token
 
@@ -273,6 +274,8 @@ class MeOrganization:
     tenant_id: str
     name: str
     status: OrganizationStatus
+    computer_work_paused: bool = False
+    computer_work_paused_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -301,17 +304,28 @@ def resolve_me_from_token(
     identity = plane.sign_in(verified.email, now=now)
     plane.reconcile_pending_invitations(identity, now=now)
     organizations = plane.list_organizations_for_user(identity.user_id)
-    return MeResponse(
-        email=verified.email,
-        user_id=identity.user_id,
-        organizations=tuple(
+    as_of = now.date()
+    me_organizations: list[MeOrganization] = []
+    for organization in organizations:
+        paused, reason = organization_computer_work_paused(
+            organization,
+            plane._messaging_store,
+            plane.budget_environment,
+            as_of,
+        )
+        me_organizations.append(
             MeOrganization(
                 tenant_id=organization.tenant_id,
                 name=organization.name,
                 status=organization.status,
+                computer_work_paused=paused,
+                computer_work_paused_reason=reason,
             )
-            for organization in organizations
-        ),
+        )
+    return MeResponse(
+        email=verified.email,
+        user_id=identity.user_id,
+        organizations=tuple(me_organizations),
     )
 
 

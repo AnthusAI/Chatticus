@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import queue
 import secrets
 from collections.abc import Callable
@@ -132,6 +133,7 @@ from chatticus.models import (
     Organization,
     OrganizationNotFoundError,
     OrganizationOwnerCapError,
+    OrganizationSpendCeilingExceededError,
     OrganizationStatus,
     PendingComputerToolSnapshot,
     PriceSensitivityAnswers,
@@ -170,6 +172,7 @@ from chatticus.org_creation_limits import (
     validate_organization_name,
 )
 from chatticus.org_records import OrgRecordsKernel
+from chatticus.organization_spend import organization_computer_work_paused
 from chatticus.overnight_gated import (
     OvernightGatedResult,
 )
@@ -220,6 +223,7 @@ class ControlPlane:
         waitlist_submission_rate_limit: int | None = None,
         email_sender: EmailSender | None = None,
         waitlist_confirmation_base_url: str | None = None,
+        budget_environment: str | None = None,
     ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
@@ -301,6 +305,12 @@ class ControlPlane:
             if waitlist_confirmation_base_url is not None
             else waitlist_confirmation_base_url_from_env()
         )
+        configured_environment = (
+            budget_environment
+            or os.environ.get("CHATTICUS_ENVIRONMENT", "development").strip()
+            or "development"
+        )
+        self.budget_environment = configured_environment
         self._turn_enqueued = turn_enqueued
         self._computer_enqueued = computer_enqueued
         self._logical_enqueue_delivery_count = 0
@@ -2260,6 +2270,7 @@ class ControlPlane:
         arguments: dict[str, str],
     ) -> EscalationRecord:
         """Record that a computerless turn is ready to request a computer tool."""
+        self._refuse_if_computer_work_paused(tenant_id)
         policy = self.capability_policy_for(tenant_id, turn_id)
         member_standing = self._member_standing_for_turn(tenant_id, turn_id)
         if policy.grant is not None and tool_name == "read_workspace":
@@ -2297,6 +2308,20 @@ class ControlPlane:
         )
         self._escalations[(tenant_id, turn_id)] = record
         return record
+
+    def _refuse_if_computer_work_paused(self, tenant_id: str) -> None:
+        """Raise when month-to-date spend blocks new computer work."""
+        organization = self.get_organization(tenant_id)
+        paused, reason = organization_computer_work_paused(
+            organization,
+            self._messaging_store,
+            self.budget_environment,
+            self.now().date(),
+        )
+        if paused:
+            raise OrganizationSpendCeilingExceededError(
+                reason or "monthly AWS spend ceiling exceeded"
+            )
 
     def escalation_for(self, tenant_id: str, turn_id: str) -> EscalationRecord:
         """Return the computer-handoff record for one turn."""
@@ -2657,6 +2682,7 @@ class ControlPlane:
         if not user_id:
             msg = "host start requires a non-empty user_id"
             raise ValueError(msg)
+        self._refuse_if_computer_work_paused(tenant_id)
         self.expire_host_start_claims()
         computer = self.ensure_computer(tenant_id)
         key = (tenant_id, computer.computer_id)
