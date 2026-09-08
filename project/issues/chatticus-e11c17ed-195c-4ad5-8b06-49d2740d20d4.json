@@ -75,10 +75,17 @@
       "text": "Live DoD **stopped**, not retried.\n\nThe stall is not “the agent forgot to start.” After interrupt it ran a kernel widened-grant handoff (`set_turn_capability_grant` + `prepare_computer_tool(run_terminal)` + `enqueue_computer_continuation`) and then **polled for `run_terminal:exit=` until TimeoutError**. ComputerWorker logs already had `no ready computer host for run_terminal`. A later Dynamo read showed `workspace_ready=True`; a warm retry still produced no `tool.result`. Image push + write_workspace warmup were attempted. None of that yields journal output.\n\n**Do not poll again.** This is the same class as `HOST_IMAGE_STALE_CHROMIUM_EXECUTOR_ONLY` / host not executing a newly shipped tool: ThinTurn `8fbe6d5` has `run_terminal`; the summoned host has not committed it.\n\nDefault-grant claim is still unrun as a clean separate turn; the conversation preset was observed on human-start (`read_workspace` only) before they replaced it.\n\nAlso: every `pm:` push to `develop` retriggers ThinTurn deploy and can `UPDATE_IN_PROGRESS`-race the product deploy. That is a second stall, operator-only.\n",
       "created_at": "2026-09-08T15:35:25.032903Z",
       "comment_type": "default"
+    },
+    {
+      "id": "0477507c-737e-42b5-895d-96b1fb52a4b0",
+      "author": "home",
+      "text": "Live acceptance **BLOCKED** (`8fbe6d5`). Not a PASS. Not another poll.\n\n**Proof 1 (widened grant, kernel deviation):** human post with `enqueue_turn=False` → `set_turn_capability_grant` (`run_terminal` + `read_workspace`) → `prepare_computer_tool(run_terminal)` → continuation. Journal: `tool.call run_terminal` only. **Never** `tool.result` / `run_terminal:exit=`. ComputerWorker Lambda nacked `no ready computer host for 'run_terminal'` (expected while the Lambda has `action_executor=None` — it does not execute host tools). At least one turn `turn.failed` / recovery exhausted.\n\n**Discriminant:** after `:dev` repush, **`write_workspace` `tool.result` succeeded** on the same throwaway org. Terminal still never committed. That split fits a host task still running the **pre-`run_terminal` image** (file tools already in `:dev`; `TerminalActionExecutor` is new). It does **not** yet prove a product defect in #329.\n\n**Proof 2 (default refuses):** not captured. Cognito `AdminInitiateAuth` failed (auth flow not enabled). Human-start before widen did show preset tools `read_workspace` only — that is grant state, not a refusal sentence.\n\n**Do not** re-enable SPA `ADMIN_NO_SRP_AUTH` to force proof 2. **Do not** poll the journal again. Next operator check: Fargate task started **after** the `:dev` push that contains `terminal_action_executor.py`. If the running task is older, stop it and let host-start pull the new image. Then one handoff — not a 15-minute loop.\n\n`chatticus-9a07e7` remains the customer-facing grant path. This card still does not widen the conversation preset.\n",
+      "created_at": "2026-09-08T15:36:49.435659Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.970882Z",
-  "updated_at": "2026-09-08T15:35:25.032952Z",
+  "updated_at": "2026-09-08T15:36:49.435704Z",
   "closed_at": null,
   "right_now_summary": "Mock right-now summary for chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4.",
   "right_now_updated_at": "2026-09-08T15:29:01.793697Z",
