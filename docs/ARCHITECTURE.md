@@ -167,36 +167,34 @@ published is gone.
 
 See [Computer snapshots](COMPUTER_SNAPSHOTS.md) and [Computer manifold](COMPUTER_MANIFOLD.md) (work-kind placement; not implemented).
 
-**This section is the design target. It is not currently wired.**
-Corrected 2026-09-07 -- an earlier revision of this note called it "the
-shipping design", which overstated it.
-
-**Two file layers exist and are not connected to each other:**
+**Two file layers coexist:**
 
 1. `ControlPlane.read_workspace` / `write_workspace` operate on an
    **in-process dict** (`computer.workspace`). `put_computer` does not
-   persist it, so a ThinTurn recycle starts empty. This is what an agent's
-   tools actually reach.
+   persist it, so a ThinTurn recycle starts empty. Computerless model tools
+   and Gherkin protocol specs reach this dict today; it is not the durable
+   workplace on a summoned host.
 2. `chatticus.snapshot` (`pack_live_disk` / `unpack_live_disk`) packs **real
-   directories** -- host `/workspace` plus the Chromium profile, as
-   [Computer snapshots](COMPUTER_SNAPSHOTS.md) specifies. It is tested and
-   exercised by `python -m chatticus.snapshot`, and **no production code
-   path calls it**: the Fargate host worker never publishes or hydrates, and
-   host boot marks `workspace_ready` without hydrating from S3.
+   directories** on the summoned host -- `/workspace` plus the Chromium
+   profile, as [Computer snapshots](COMPUTER_SNAPSHOTS.md) specifies. The
+   customer computer host **hydrates on boot** and **publishes before exit**
+   when a snapshot store is configured, persisting metadata through the Front
+   Door. Host boot records `workspace_ready` only after hydrate completes.
 
-`ControlPlane.publish_snapshot` bridges the two only for Gherkin, by copying
-the dict into `plane._snapshots` so scenarios run without a host disk.
+`ControlPlane.publish_snapshot` still bridges the dict into `plane._snapshots`
+for relocate protocol specs that run without a host disk. That bridge is not
+the durable path on a running host.
 
-**So no agent can reach the container's `/workspace` today.** Whether agent
-file tools should keep using the dict or be wired to the host disk is an open
-product decision -- see `chatticus-3e72dc`.
+**Agent file tools do not read the container's `/workspace` today.** Host disk
+is the decided durable workplace (`chatticus-fccc4e9a`); wiring computerless
+ThinTurn file tools to the host is a later slice.
 
-The storage conclusions still hold as the target: `chatticus-fbae4e`
+The storage conclusions still hold: `chatticus-fbae4e`
 proposed replacing host-local disk with EFS and was **measured out** (in-VPC
 EFS ran 23-54x local for a mutating tree, ~10x read-only warm --
 `chatticus-3d5357`). `/workspace` stays on host-local disk, so publish and
-hydrate remain the intended mechanism and the snapshot library **should not
-be deleted** -- but note it is unwired rather than load-bearing today. EFS,
+hydrate remain the mechanism and the snapshot library **must not
+be deleted**. EFS,
 if ever built, is for a shared read-mostly `/org` tree only. Large artifacts
 -- datasets, model weights, screenshots -- stay objects in S3.
 

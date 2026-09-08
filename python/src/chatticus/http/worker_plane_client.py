@@ -302,6 +302,31 @@ class HttpWorkerPlane:
             json={"url": url},
         )
 
+    def record_computer_hydrated(
+        self,
+        tenant_id: str,
+        worker_id: str,
+    ) -> None:
+        del tenant_id
+        self._request(
+            "POST",
+            "/computers/snapshot/hydrated",
+            json={"worker_id": worker_id},
+        )
+
+    def publish_computer_snapshot(
+        self,
+        tenant_id: str,
+        worker_id: str,
+        checksum: str,
+    ) -> None:
+        del tenant_id
+        self._request(
+            "POST",
+            "/computers/snapshot/publish",
+            json={"worker_id": worker_id, "checksum": checksum},
+        )
+
 
 def _computer_from_payload(payload: dict[str, Any]) -> Computer:
     return Computer(
@@ -313,6 +338,12 @@ def _computer_from_payload(payload: dict[str, Any]) -> Computer:
         model_ready=payload.get("model_ready", False),
         workspace_ready=payload.get("workspace_ready", False),
         browser_ready=payload.get("browser_ready", False),
+        snapshot_uri=payload.get("snapshot_uri"),
+        snapshot_checksum=payload.get("snapshot_checksum"),
+        snapshot_generation=int(payload.get("snapshot_generation", 0)),
+        disk_dirty=payload.get("disk_dirty", False),
+        hydrate_required=payload.get("hydrate_required", False),
+        intended_host_worker_id=payload.get("intended_host_worker_id"),
     )
 
 

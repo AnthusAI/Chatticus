@@ -137,3 +137,18 @@ class ComputerWorkerPlane(Protocol):
         url: str,
     ) -> None:
         """Authorize one browse origin for a gated browser tool."""
+
+    def record_computer_hydrated(
+        self,
+        tenant_id: str,
+        worker_id: str,
+    ) -> None:
+        """Clear relocate flags after the host finished hydrating."""
+
+    def publish_computer_snapshot(
+        self,
+        tenant_id: str,
+        worker_id: str,
+        checksum: str,
+    ) -> None:
+        """Persist snapshot metadata after the host uploaded a pack."""

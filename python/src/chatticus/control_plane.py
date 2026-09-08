@@ -1158,6 +1158,77 @@ class ControlPlane:
         self._messaging_store.put_computer(computer)
         return snapshot
 
+    def record_host_snapshot_published(
+        self,
+        computer_id: str,
+        worker_id: str,
+        checksum: str,
+        snapshot_uri: str | None = None,
+    ) -> None:
+        """Persist snapshot metadata after the host uploaded a pack.
+
+        The workspace dict is not copied or persisted. Host bytes live in
+        object storage; Dynamo holds URI, checksum, and generation only.
+
+        :raises KeyError: If the computer or worker is unknown.
+        :raises WorkerDoesNotHostComputerError: If the worker is not a host
+            of this workplace.
+        :raises ComputerNotHydratedError: If relocate is waiting on another
+            host to hydrate first.
+        """
+        computer = self.computer_by_id(computer_id)
+        if computer.hydrate_required:
+            raise ComputerNotHydratedError(
+                f"Computer {computer_id!r} must be hydrated before the live "
+                "disk can be published."
+            )
+        self._require_host(computer, worker_id)
+        uri = snapshot_uri or self.snapshot_uri_for(computer)
+        computer.snapshot_uri = uri
+        computer.snapshot_checksum = checksum
+        computer.snapshot_generation += 1
+        computer.disk_dirty = False
+        worker = self._messaging_store.get_worker(computer.tenant_id, worker_id)
+        if worker is not None:
+            worker.hydrated_snapshot_generation = computer.snapshot_generation
+            self._messaging_store.put_worker(worker)
+        self._messaging_store.put_computer(computer)
+
+    def record_host_hydrated(self, computer_id: str, worker_id: str) -> None:
+        """Clear relocate flags after the host hydrated from object storage.
+
+        Live bytes are already on the host disk. The workspace dict is not
+        updated.
+
+        :raises KeyError: If the computer or worker is unknown.
+        :raises SnapshotRequiredError: If nothing has been published.
+        :raises WorkerDoesNotHostComputerError: If this worker is not the
+            intended host, or does not host the workplace.
+        """
+        computer = self.computer_by_id(computer_id)
+        if computer.snapshot_uri is None:
+            raise SnapshotRequiredError(
+                f"Computer {computer_id!r} has no published snapshot."
+            )
+        self._require_host(computer, worker_id)
+        if (
+            computer.intended_host_worker_id is not None
+            and worker_id != computer.intended_host_worker_id
+        ):
+            raise WorkerDoesNotHostComputerError(
+                f"Worker {worker_id!r} is not the intended host "
+                f"{computer.intended_host_worker_id!r} for computer "
+                f"{computer_id!r}."
+            )
+        computer.hydrate_required = False
+        computer.intended_host_worker_id = None
+        computer.disk_dirty = False
+        worker = self._messaging_store.get_worker(computer.tenant_id, worker_id)
+        if worker is not None:
+            worker.hydrated_snapshot_generation = computer.snapshot_generation
+            self._messaging_store.put_worker(worker)
+        self._messaging_store.put_computer(computer)
+
     def relocate_computer(self, computer_id: str, target_worker_id: str) -> None:
         """Point the next run at a host. Does not copy a container.
 
@@ -2619,6 +2690,25 @@ class ControlPlane:
             computer.workspace_ready = False
             computer.browser_ready = False
         self._messaging_store.put_computer(computer)
+
+    def record_computer_hydrated(self, tenant_id: str, worker_id: str) -> None:
+        """Clear relocate flags after the host finished hydrating."""
+        computer = self.computer_for_organization(tenant_id)
+        self.record_host_hydrated(computer.computer_id, worker_id)
+
+    def publish_computer_snapshot(
+        self,
+        tenant_id: str,
+        worker_id: str,
+        checksum: str,
+    ) -> None:
+        """Persist snapshot metadata after the host uploaded a pack."""
+        computer = self.computer_for_organization(tenant_id)
+        self.record_host_snapshot_published(
+            computer.computer_id,
+            worker_id,
+            checksum,
+        )
 
     def computer_capability_readiness(
         self, tenant_id: str

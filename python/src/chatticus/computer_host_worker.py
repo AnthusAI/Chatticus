@@ -8,6 +8,7 @@ import time
 
 from chatticus.chromium_action_executor import ChromiumActionExecutor
 from chatticus.computer_host_boot import ComputerHostBootDriver
+from chatticus.computer_host_disk_lifecycle import publish_before_exit
 from chatticus.host_starter import NoOpHostStarter
 from chatticus.http.client import HttpTurnClient
 from chatticus.models import TurnJob, TurnStatus
@@ -76,6 +77,17 @@ def run_host_worker_once(
     return job
 
 
+def shutdown_host_worker(
+    *,
+    plane: ComputerWorkerPlane,
+    tenant_id: str,
+    worker_id: str = "computer-host",
+) -> None:
+    """Publish a dirty disk and mark the household computer stopped."""
+    publish_before_exit(plane, tenant_id=tenant_id, worker_id=worker_id)
+    plane.set_computer_stopped(tenant_id, True)
+
+
 def main() -> None:
     """Entry point for the Fargate computer container override."""
     tenant_id = os.environ.get("CHATTICUS_TENANT_ID", "").strip()
@@ -108,16 +120,23 @@ def main() -> None:
             invoke_key=invoke_key,
         )
         turn_client = HttpTurnClient(client, tenant_id)
-        while time.monotonic() < deadline:
-            ran = run_host_worker_once(
+        try:
+            while time.monotonic() < deadline:
+                ran = run_host_worker_once(
+                    plane=plane,
+                    turn_client=turn_client,
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                )
+                if ran is not None:
+                    return
+                time.sleep(1)
+        finally:
+            shutdown_host_worker(
                 plane=plane,
-                turn_client=turn_client,
                 tenant_id=tenant_id,
-                user_id=user_id,
+                worker_id=plane.worker_id,
             )
-            if ran is not None:
-                return
-            time.sleep(1)
 
 
 if __name__ == "__main__":
