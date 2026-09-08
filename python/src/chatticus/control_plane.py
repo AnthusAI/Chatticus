@@ -53,6 +53,7 @@ from chatticus.capability_sinks import (
     execute_approved_operation_at_sink,
     gated_browse_origin,
     gated_read_workspace,
+    gated_run_terminal,
     gated_write_workspace,
     open_privileged_browser_context,
     open_untrusted_browser_context,
@@ -1485,6 +1486,18 @@ class ControlPlane:
         member_standing = self._member_standing_for_turn(tenant_id, turn_id)
         gated_write_workspace(policy, path, member_standing)
 
+    def gated_run_terminal(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        command: str,
+        cwd: str,
+    ) -> None:
+        """Authorize one granted shell command at the grant sink."""
+        policy = self.capability_policy_for(tenant_id, turn_id)
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
+        gated_run_terminal(policy, command, cwd, member_standing)
+
     def gated_browse_origin(self, tenant_id: str, turn_id: str, url: str) -> None:
         """Authorize browsing one origin before a computer tool opens it."""
         member_standing = self._member_standing_for_turn(tenant_id, turn_id)
@@ -1515,6 +1528,12 @@ class ControlPlane:
                 tool="browse",
                 origin=arguments.get("url"),
                 egress_class=EgressClass.APPROVED_ORIGIN_FETCH.value,
+            )
+        if tool_name == "run_terminal":
+            cwd = arguments.get("cwd", "/workspace").strip() or "/workspace"
+            return RequestedCapability(
+                tool="run_terminal",
+                file_path=cwd,
             )
         if tool_name in CONSEQUENTIAL_ACTION_TYPES:
             return structured_action_request(tool_name, arguments)
@@ -2166,6 +2185,11 @@ class ControlPlane:
             path = arguments.get("path", "").strip()
             if path:
                 gated_write_workspace(policy, path, member_standing)
+        if policy.grant is not None and tool_name == "run_terminal":
+            command = arguments.get("command", "").strip()
+            cwd = arguments.get("cwd", "/workspace").strip() or "/workspace"
+            if command:
+                gated_run_terminal(policy, command, cwd, member_standing)
         if policy.grant is not None and tool_name in {
             "browser_open",
             "request_computer_capability",

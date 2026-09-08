@@ -275,4 +275,14 @@ class ComputerWorker:
             except CapabilitySinkDenied as error:
                 return f"denied: {error}"
             return None
+        if tool_name == "run_terminal":
+            command = arguments.get("command", "").strip()
+            cwd = arguments.get("cwd", "/workspace").strip() or "/workspace"
+            if not command:
+                return None
+            try:
+                self.plane.gated_run_terminal(job.tenant_id, job.turn_id, command, cwd)
+            except CapabilitySinkDenied as error:
+                return f"denied: {error}"
+            return None
         return None

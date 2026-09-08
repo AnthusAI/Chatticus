@@ -8,7 +8,9 @@ from chatticus.http.client import GatedToolHttpError, HttpTurnClient
 
 FIRST_GATE_MODEL_TOOLS = frozenset({"browse"})
 
-COMPUTER_ESCALATION_TOOLS = frozenset({"read_workspace", "write_workspace"})
+COMPUTER_ESCALATION_TOOLS = frozenset(
+    {"read_workspace", "write_workspace", "run_terminal"}
+)
 
 
 @dataclass(frozen=True)
