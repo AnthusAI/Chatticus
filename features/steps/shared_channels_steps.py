@@ -201,9 +201,11 @@ def when_member_creates_organization_bot(
 def when_organization_bot_writes_file(
     context: object, bot_name: str, path: str, content: str
 ) -> None:
+    from host_workspace_helpers import seed_host_workspace_file
+
     bot = context.bots_by_name[bot_name]
     context.plane.ensure_computer(bot.tenant_id)
-    context.plane.write_workspace(bot.tenant_id, path, content)
+    seed_host_workspace_file(context, path, content, tenant_id=bot.tenant_id)
 
 
 @when(
@@ -305,18 +307,26 @@ def then_member_cannot_duplicate_organization_bot(
 def then_organization_bot_reads_file(
     context: object, bot_name: str, path: str, content: str
 ) -> None:
+    from host_workspace_helpers import read_host_workspace_file
+
     bot = context.bots_by_name[bot_name]
-    assert context.plane.read_workspace(bot.tenant_id, path) == content
+    assert read_host_workspace_file(context, path, tenant_id=bot.tenant_id) == content
 
 
 @then('"{email}" can continue file "{path}" on the organization computer')
 def then_member_continues_organization_file(
     context: object, email: str, path: str
 ) -> None:
+    from host_workspace_helpers import (
+        read_host_workspace_file,
+        seed_host_workspace_file,
+    )
+
     org = next(iter(context.orgs_by_name.values()))
     user_id = _user_id(context, email)
     del user_id
     context.plane.ensure_computer(org.tenant_id)
-    existing = context.plane.read_workspace(org.tenant_id, path)
-    assert existing is not None
-    context.plane.write_workspace(org.tenant_id, path, f"{existing}\ncontinued")
+    existing = read_host_workspace_file(context, path, tenant_id=org.tenant_id)
+    seed_host_workspace_file(
+        context, path, f"{existing}\ncontinued", tenant_id=org.tenant_id
+    )

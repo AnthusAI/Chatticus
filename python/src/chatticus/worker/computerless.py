@@ -8,6 +8,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
+from chatticus.capability_sinks import (
+    CapabilitySinkApprovalRequired,
+    CapabilitySinkDenied,
+)
+from chatticus.computer_capabilities import WORKSPACE_CAPABILITY
 from chatticus.control_plane import ControlPlane
 from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
@@ -22,6 +27,7 @@ from chatticus.vendor_ledger import (
     fake_openai_completion_usage,
 )
 from chatticus.worker.tool_dispatch import (
+    COMPUTER_ESCALATION_TOOLS,
     GatedToolCall,
     ToolDispatchResult,
     dispatch_gated_tool,
@@ -123,6 +129,10 @@ class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
         r"read workspace file (.+)$",
         re.IGNORECASE,
     )
+    _WRITE_WORKSPACE_RE = re.compile(
+        r"write workspace file (.+) containing (.+)$",
+        re.IGNORECASE,
+    )
     _BROWSE_RE = re.compile(
         r"browse (https?://\S+)",
         re.IGNORECASE,
@@ -154,6 +164,18 @@ class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
                 gated_tool_call=GatedToolCall(
                     tool_name="read_workspace",
                     arguments={"path": path},
+                ),
+            )
+        write_match = self._WRITE_WORKSPACE_RE.search(user_text)
+        if write_match is not None:
+            path = write_match.group(1).strip()
+            content = write_match.group(2).strip()
+            return CompletionOutcome(
+                text="I'll write that workspace file.",
+                usage=fake_openai_completion_usage(model=self.model),
+                gated_tool_call=GatedToolCall(
+                    tool_name="write_workspace",
+                    arguments={"path": path, "content": content},
                 ),
             )
         browse_match = self._BROWSE_RE.search(user_text)
@@ -361,8 +383,11 @@ class ComputerlessWorker:
         self.plane.remove_pending_job(job.job_id)
 
     def _handle_gated_tool_call(self, job: TurnJob, outcome: CompletionOutcome) -> None:
-        """Invoke one first-gate tool through ThinTurn HTTP sinks."""
+        """Invoke one first-gate tool or escalate file tools to the host."""
         if job.turn_id is None or outcome.gated_tool_call is None:
+            return
+        if outcome.gated_tool_call.tool_name in COMPUTER_ESCALATION_TOOLS:
+            self._escalate_file_tool(job, outcome)
             return
         turn = self.plane.turn(job.tenant_id, job.turn_id)
         bot_id = job.bot_id or turn.bot_id
@@ -376,6 +401,86 @@ class ComputerlessWorker:
             call=outcome.gated_tool_call,
         )
         answer = self._answer_for_gated_tool(outcome.text, result)
+        midpoint = max(1, len(answer) // 2)
+        self.turn_client.post_chunk(job.turn_id, answer[:midpoint])
+        self.turn_client.post_chunk(job.turn_id, answer[midpoint:], complete=True)
+        self.plane.remove_pending_job(job.job_id)
+
+    def _escalate_file_tool(self, job: TurnJob, outcome: CompletionOutcome) -> None:
+        """Grant-check, hand off file tools, and enqueue computer continuation."""
+        if job.turn_id is None or outcome.gated_tool_call is None:
+            return
+        call = outcome.gated_tool_call
+        turn = self.plane.turn(job.tenant_id, job.turn_id)
+        fence_token = turn.fence_token
+        try:
+            self.plane.evaluate_model_tool_request(
+                job.tenant_id,
+                job.turn_id,
+                call.tool_name,
+                call.arguments,
+            )
+        except CapabilitySinkApprovalRequired:
+            self.plane.record_model_gated_tool_denied(
+                job.tenant_id,
+                job.turn_id,
+                call.tool_name,
+                call.arguments,
+                "immutable approval required",
+            )
+            self._complete_denied_tool_answer(
+                job, outcome, "immutable approval required"
+            )
+            return
+        except CapabilitySinkDenied as error:
+            self.plane.record_model_gated_tool_denied(
+                job.tenant_id,
+                job.turn_id,
+                call.tool_name,
+                call.arguments,
+                str(error),
+            )
+            self._complete_denied_tool_answer(job, outcome, str(error))
+            return
+        self.plane.prepare_computer_tool(
+            job.tenant_id,
+            job.turn_id,
+            tool_name=call.tool_name,
+            arguments=dict(call.arguments),
+        )
+        self.plane.commit_pending_computer_tool(job.tenant_id, job.turn_id)
+        self.plane.enqueue_computer_continuation(job.tenant_id, job.turn_id)
+        if outcome.text.strip():
+            self.turn_client.post_chunk(job.turn_id, outcome.text)
+        if self.plane.computer_is_stopped(job.tenant_id):
+            self.plane.emit_turn_waiting(
+                job.tenant_id,
+                job.turn_id,
+                WORKSPACE_CAPABILITY,
+                fence_token=fence_token,
+            )
+            self.plane.release_turn_claim_for_waiting(
+                job.tenant_id,
+                job.turn_id,
+                fence_token=fence_token,
+            )
+        else:
+            self.plane.relinquish_computerless_ownership(job.tenant_id, job.turn_id)
+        self.plane.remove_pending_job(job.job_id)
+
+    def _complete_denied_tool_answer(
+        self,
+        job: TurnJob,
+        outcome: CompletionOutcome,
+        reason: str,
+    ) -> None:
+        """Stream one bot answer for a grant-denied file tool."""
+        if job.turn_id is None:
+            return
+        answer = self._answer_for_gated_tool(
+            outcome.text,
+            ToolDispatchResult(denied=True, reason=reason),
+        )
         midpoint = max(1, len(answer) // 2)
         self.turn_client.post_chunk(job.turn_id, answer[:midpoint])
         self.turn_client.post_chunk(job.turn_id, answer[midpoint:], complete=True)

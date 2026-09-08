@@ -202,31 +202,6 @@ class HttpTurnClient:
             )
         return response.json()
 
-    def read_workspace_gated(
-        self,
-        turn_id: str,
-        user_id: str,
-        path: str,
-    ) -> dict[str, Any]:
-        """Read one workspace path after the task grant allows it."""
-        worker_id = self.worker_id or "workspace-worker"
-        response = self.client.post(
-            org_path(self.tenant_id, f"/turns/{turn_id}/workspace/read"),
-            json={"user_id": user_id, "path": path},
-            headers=self._auth_headers(worker_id),
-        )
-        if response.status_code == 403:
-            raise GatedToolHttpError(
-                _safe_http_detail(response),
-                response.status_code,
-            )
-        if response.status_code >= 400:
-            raise RuntimeError(
-                f"workspace read POST failed with status {response.status_code}: "
-                f"{response.text}"
-            )
-        return response.json()
-
     def authorize_browse(self, turn_id: str, url: str) -> dict[str, Any]:
         """Authorize one browse origin after the task grant allows it."""
         worker_id = self.worker_id or "browse-worker"

@@ -154,6 +154,7 @@ from chatticus.models import (
     WorkerRecord,
     WorkerRegistration,
     WorkerTenantMismatchError,
+    WorkspaceHostOnlyError,
     pending_computer_tool_from_turn,
 )
 from chatticus.org_creation_limits import (
@@ -1463,12 +1464,11 @@ class ControlPlane:
         tenant_id: str,
         turn_id: str,
         path: str,
-    ) -> str | None:
-        """Read a workspace file after the task grant allows it."""
+    ) -> None:
+        """Authorize a workspace read at the grant sink."""
         policy = self.capability_policy_for(tenant_id, turn_id)
         member_standing = self._member_standing_for_turn(tenant_id, turn_id)
         gated_read_workspace(policy, path, member_standing)
-        return self.read_workspace(tenant_id, path)
 
     def gated_write_workspace(
         self,
@@ -1477,11 +1477,10 @@ class ControlPlane:
         path: str,
         content: str,
     ) -> None:
-        """Write a workspace file after the task grant allows it."""
+        """Authorize a workspace write at the grant sink."""
         policy = self.capability_policy_for(tenant_id, turn_id)
         member_standing = self._member_standing_for_turn(tenant_id, turn_id)
         gated_write_workspace(policy, path, member_standing)
-        self.write_workspace(tenant_id, path, content)
 
     def gated_browse_origin(self, tenant_id: str, turn_id: str, url: str) -> None:
         """Authorize browsing one origin before a computer tool opens it."""
@@ -1501,6 +1500,12 @@ class ControlPlane:
                 tool="read_workspace",
                 file_path=arguments.get("path"),
                 egress_class=EgressClass.APPROVED_ORIGIN_FETCH.value,
+            )
+        if tool_name == "write_workspace":
+            return RequestedCapability(
+                tool="write_workspace",
+                file_path=arguments.get("path"),
+                egress_class=EgressClass.FILE_TRANSFER.value,
             )
         if tool_name == "browse":
             return RequestedCapability(
@@ -1597,38 +1602,6 @@ class ControlPlane:
             f"denied: {reason}",
         )
         return action_id
-
-    def gated_read_workspace_for_model(
-        self,
-        tenant_id: str,
-        turn_id: str,
-        user_id: str,
-        path: str,
-    ) -> str | None:
-        """Read one workspace file and record first-gate tool journal events."""
-        action_id = self.record_model_gated_tool_call(
-            tenant_id,
-            turn_id,
-            "read_workspace",
-            {"path": path},
-        )
-        try:
-            content = self.gated_read_workspace(tenant_id, turn_id, path)
-        except CapabilitySinkDenied as error:
-            self.record_model_gated_tool_result(
-                tenant_id,
-                turn_id,
-                action_id,
-                f"denied: {error}",
-            )
-            raise
-        self.record_model_gated_tool_result(
-            tenant_id,
-            turn_id,
-            action_id,
-            f"read_workspace:{path}",
-        )
-        return content
 
     def gated_browse_origin_for_model(
         self,
@@ -1753,7 +1726,19 @@ class ControlPlane:
         )
 
     def write_workspace(self, tenant_id: str, path: str, content: str) -> None:
-        """Write a file on the organization computer."""
+        """Refuse agent-visible workspace writes on the control plane."""
+        del tenant_id, path, content
+        msg = "Workspace writes run on the summoned computer host."
+        raise WorkspaceHostOnlyError(msg)
+
+    def read_workspace(self, tenant_id: str, path: str) -> str | None:
+        """Refuse agent-visible workspace reads on the control plane."""
+        del tenant_id, path
+        msg = "Workspace reads run on the summoned computer host."
+        raise WorkspaceHostOnlyError(msg)
+
+    def seed_snapshot_workspace(self, tenant_id: str, path: str, content: str) -> None:
+        """Seed the protocol workspace dict for snapshot relocate specs."""
         computer = self.computer_for_organization(tenant_id)
         if computer.hydrate_required:
             raise ComputerNotHydratedError(
@@ -1763,17 +1748,6 @@ class ControlPlane:
         computer.workspace[path] = content
         computer.disk_dirty = True
         self._messaging_store.put_computer(computer)
-
-    def read_workspace(self, tenant_id: str, path: str) -> str | None:
-        """Read a file from the user's shared computer.
-
-        While hydrate is required, reads come from the published snapshot
-        (the object every host can see), not from a host's stale overlay.
-        """
-        computer = self.computer_for_organization(tenant_id)
-        if computer.hydrate_required and computer.snapshot_uri is not None:
-            return self._snapshots[computer.snapshot_uri].workspace.get(path)
-        return computer.workspace.get(path)
 
     def save_browser_session(self, tenant_id: str, service: str, session: str) -> None:
         """Persist a browser session on the organization computer."""
@@ -2180,13 +2154,21 @@ class ControlPlane:
     ) -> EscalationRecord:
         """Record that a computerless turn is ready to request a computer tool."""
         policy = self.capability_policy_for(tenant_id, turn_id)
+        member_standing = self._member_standing_for_turn(tenant_id, turn_id)
+        if policy.grant is not None and tool_name == "read_workspace":
+            path = arguments.get("path", "").strip()
+            if path:
+                gated_read_workspace(policy, path, member_standing)
+        if policy.grant is not None and tool_name == "write_workspace":
+            path = arguments.get("path", "").strip()
+            if path:
+                gated_write_workspace(policy, path, member_standing)
         if policy.grant is not None and tool_name in {
             "browser_open",
             "request_computer_capability",
         }:
             url = arguments.get("url", "").strip()
             if url:
-                member_standing = self._member_standing_for_turn(tenant_id, turn_id)
                 gated_browse_origin(policy, url, member_standing)
         self.turn(tenant_id, turn_id)
         computer = self.ensure_computer(tenant_id)

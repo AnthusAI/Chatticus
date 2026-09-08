@@ -6,7 +6,9 @@ from dataclasses import dataclass
 
 from chatticus.http.client import GatedToolHttpError, HttpTurnClient
 
-FIRST_GATE_MODEL_TOOLS = frozenset({"read_workspace", "browse"})
+FIRST_GATE_MODEL_TOOLS = frozenset({"browse"})
+
+COMPUTER_ESCALATION_TOOLS = frozenset({"read_workspace", "write_workspace"})
 
 
 @dataclass(frozen=True)
@@ -34,20 +36,6 @@ def dispatch_gated_tool(
     call: GatedToolCall,
 ) -> ToolDispatchResult:
     """Route one model tool call through HttpTurnClient without importing sinks."""
-    if call.tool_name == "read_workspace":
-        path = call.arguments.get("path", "").strip()
-        if not path:
-            return ToolDispatchResult(denied=True, reason="path is required")
-        try:
-            payload = turn_client.read_workspace_gated(turn_id, user_id, path)
-        except GatedToolHttpError as error:
-            return ToolDispatchResult(denied=True, reason=error.reason)
-        content = payload.get("content")
-        return ToolDispatchResult(
-            denied=False,
-            reason="",
-            content="" if content is None else str(content),
-        )
     if call.tool_name == "browse":
         url = call.arguments.get("url", "").strip()
         if not url:

@@ -15,18 +15,15 @@ Feature: Capability policy in the live model tool loop
       | egress_classes | approved_origin_fetch    |
     And turn "model-sink-turn" carries the capability grant
 
-  Scenario: A computerless worker reads a granted workspace file through HTTP sinks
-    Given the household computer workspace file "/workspace/research/notes.txt" contains "weekly"
-    When bot "Researcher" is asked "read workspace file /workspace/research/notes.txt"
-    And bot "Researcher" runs one capability-aware computerless worker turn
-    Then the bot answer includes "weekly"
-    And the turn journal records a successful read_workspace tool result
-
-  Scenario: A computerless worker denies an ungranted workspace path at the sink
+  Scenario: A computerless worker denies an ungranted workspace path before host start
+    Given the household computer is stopped
     When bot "Researcher" is asked "read workspace file /workspace/private/notes.txt"
     And bot "Researcher" runs one capability-aware computerless worker turn
     Then the turn journal records a denied read_workspace tool result
     And the denied tool result does not leak session secrets
+    And no computer continuation job is queued for the turn
+    And the turn is not waiting on the workspace capability
+    And the household computer is stopped
 
   Scenario: A computerless worker denies an ungranted browse origin at the sink
     When bot "Researcher" is asked "browse https://evil.example/collect"

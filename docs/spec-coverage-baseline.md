@@ -66,7 +66,6 @@ matches. Framework docs/openapi/redoc paths are omitted. Enumeration uses
 - `POST /orgs/{tenant_id}/turns/{turn_id}/claim`
 - `POST /orgs/{tenant_id}/turns/{turn_id}/resume`
 - `POST /orgs/{tenant_id}/turns/{turn_id}/waiting`
-- `POST /orgs/{tenant_id}/turns/{turn_id}/workspace/read`
 - `POST /orgs/{tenant_id}/workers/register`
 - `POST /orgs/{tenant_id}/workers/{worker_id}/heartbeat`
 - `PUT /orgs/{tenant_id}/turns/{turn_id}/grant`
