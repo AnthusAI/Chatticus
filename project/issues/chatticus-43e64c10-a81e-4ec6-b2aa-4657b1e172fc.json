@@ -33,10 +33,17 @@
       "text": "Plan authorized with amendments. Worktree verified at `/tmp/chatticus-43e64c-spend-ceiling` on `feat/43e64c-org-spend-ceiling`.\n\n1. Outside-in: Gherkin first, fail for the right reason, then production until `behave` is green. Do not merge a red feature (`CONTRIBUTING_AGENT.md`).\n2. One path: `POST .../self-setup/cross-account-role` requires `monthly_aws_spend_ceiling_usd`. Update `SelfSetupCrossAccountRolePanel` and the membership harness in this slice — leaving the live panel without the field is a dual path and would 422 self-setup.\n3. Retrofit existing self-setup Gherkin/HTTP fixtures in the same PR so they fail for their original reasons, not a missing ceiling.\n4. No silent default. No `6a9e97` computer-start refuse. Priority stays P1.\n5. Merge `origin/develop` first if it has moved.\n",
       "created_at": "2026-09-08T18:53:10.164360Z",
       "comment_type": "default"
+    },
+    {
+      "id": "7066bb61-f40d-4b43-9c81-e47c59f58197",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/337 against `develop`. Composer 2.5 reviewing required ceiling on self-setup + welcome panel (one path), no silent default, no `6a9e97` computer-start refuse. CI in progress — cancel if Behave sits past ~12 minutes with no next step.\n",
+      "created_at": "2026-09-08T19:08:41.095636Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:19.873118Z",
-  "updated_at": "2026-09-08T18:53:10.164381Z",
+  "updated_at": "2026-09-08T19:08:41.095659Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
