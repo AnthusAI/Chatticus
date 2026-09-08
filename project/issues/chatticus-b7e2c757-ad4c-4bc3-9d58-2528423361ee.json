@@ -1,0 +1,22 @@
+{
+  "id": "chatticus-b7e2c757-ad4c-4bc3-9d58-2528423361ee",
+  "title": "A human revokes or narrows turn authority mid-turn",
+  "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Surfaces from:** `chatticus-9a07e7` and the #333 grant UI\n\n---\n\n## The missing half of the delegation model\n\n`PUT /turns/{turn_id}/grant` is replace semantics, so **empty tools is a revocation**. The API accepts it and returns 200. `TurnGrantPanel` blocks empty submit.\n\nBlocking accidental empty submits is right. But the capability exists, works, and is unreachable — and it is the half of a delegation model you most want at the moment things go wrong.\n\n## It would actually take effect, which is what makes this worth building\n\nVerified: `capability_policy_for(tenant_id, turn_id)` is called **at each sink check** (`control_plane.py` 1426, 1543, 1555, 1567, 1575), not cached at turn start. So a mid-turn revoke bites on the **next tool call**, not on the next turn.\n\nThat matters. If the grant were read once at turn start, revoke would be theatre — the human clicks it, the agent keeps going, and the UI has lied. It is not, so revoke is a real brake.\n\n## Why now rather than later\n\n`run_terminal` is on the authorization form. A human can grant shell access to a bot working in the customer's own AWS account. The scenario to design for is: **the human grants terminal, watches the agent do something alarming, and wants it stopped now.**\n\nToday their options are to close the tab or wait. Neither stops the agent.\n\n## Suggested shape\n\n1. **A distinct revoke affordance**, not an empty form submit. Different button, different confirmation — *\"Ping loses read/write for the rest of this turn\"* — so it cannot be reached by mis-clicking the grant form.\n2. **Narrowing, not just all-or-nothing.** Replace semantics already supports dropping one tool and keeping others. Editing an active grant downward is more useful than a single revoke, and costs nothing extra at the API.\n3. **Make the effect visible in the conversation.** The grant already appends a turn event. Surface the revoke in the transcript so the agent's next refusal is explicable rather than mysterious — otherwise the human sees a bot that suddenly \"broke\".\n4. **Reachable from where the human is watching**, in one click. A brake buried in a form is not a brake.\n\n## Open question for the design\n\nWhat is the relationship between **revoke** and **stopping the turn**? If a cancel path exists, revoke is the softer option — keep reasoning, touch nothing. If it does not, revoke is the only brake in the product, which raises its priority.\n\n## Done when\n\nA human watching an active turn can withdraw or narrow authority in one deliberate action, the effect is visible in the transcript, and a Gherkin scenario covers revoke-then-tool-call denied on the same turn.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-08T18:30:39.764861Z",
+  "updated_at": "2026-09-08T18:30:39.764894Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
