@@ -42,6 +42,7 @@ from chatticus.capability_policy import (
     PolicyBrowserContext,
     RequestedCapability,
     TaskCapabilityGrant,
+    household_conversation_grant,
 )
 from chatticus.capability_sinks import (
     POLICY_KERNEL_TENANT,
@@ -2904,6 +2905,7 @@ class ControlPlane:
                 addressed_to_bot_id,
                 enqueue=enqueue_turn,
                 prompt_message_seq=message.seq,
+                prompt_author_kind=author_kind,
             )
         if idempotency_key is not None:
             turn_id = started.turn_id if started is not None else None
@@ -3314,6 +3316,7 @@ class ControlPlane:
         *,
         enqueue: bool = True,
         prompt_message_seq: int | None = None,
+        prompt_author_kind: ActorKind | None = None,
     ) -> Turn:
         turn = Turn(
             turn_id=str(uuid4()),
@@ -3326,6 +3329,12 @@ class ControlPlane:
             turn.deadline_at = self._now + self.turn_deadline
         self._messaging_store.put_turn(turn)
         self._turn_tenants[turn.turn_id] = channel.tenant_id
+        if prompt_author_kind is ActorKind.HUMAN:
+            self.set_turn_capability_grant(
+                channel.tenant_id,
+                turn.turn_id,
+                household_conversation_grant(),
+            )
         self._append_turn_event(turn, TurnEventKind.TURN_STARTED)
         if enqueue:
             job = self.enqueue_turn(

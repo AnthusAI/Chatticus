@@ -213,11 +213,15 @@ class TurnFaultDriver:
     def _resume_turn_start(self) -> None:
         channel = self.plane.channel(self.tenant_id, self.channel_id)
         messages = self.plane.list_channel_messages(self.channel_id, self.tenant_id)
-        prompt_seq = messages[-1].seq if messages else None
+        last_message = messages[-1] if messages else None
+        prompt_seq = last_message.seq if last_message is not None else None
         started = self.plane._start_turn_for_bot(
             channel,
             self.bot_id,
             prompt_message_seq=prompt_seq,
+            prompt_author_kind=(
+                last_message.author_kind if last_message is not None else None
+            ),
         )
         self.turn_id = started.turn_id
         self.job = self.plane.job_for_turn(self.tenant_id, self.turn_id)

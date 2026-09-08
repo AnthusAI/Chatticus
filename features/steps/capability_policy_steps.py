@@ -77,8 +77,9 @@ def _table_map(context: object) -> dict[str, str]:
 @given("a human task grants:")
 def given_human_task_grant(context: object) -> None:
     grant = parse_grant_table(_table_map(context))
-    policy = _policy(context)
+    policy = CapabilityPolicy()
     policy.set_grant(grant)
+    context.capability_policy = policy
     if hasattr(context, "plane"):
         context.plane.set_turn_capability_grant(
             _policy_tenant(context), _policy_turn(context), grant
