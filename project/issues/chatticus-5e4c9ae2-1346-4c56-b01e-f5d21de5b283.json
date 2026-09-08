@@ -24,10 +24,17 @@
       "text": "Composer 2.5 planning **batched** with `chatticus-98f4f6`. Worktree to be named `/tmp/chatticus-5e4c9a-session-restore` on `feat/5e4c9a-session-restore`. Implementation not authorized until the plan is reviewed.\n\n**Deploy first fact:** #339 never reached CloudFront. Last successful development web deploy is `4ba8bc2` (#338). Every later web deploy fails `npm` EACCES `/.npm` in the CDK bundling docker (`chatticus-a73f21`). Do not conclude this bug from live `dev.chattic.us` until that deploy succeeds. Instrument `getUser()` vs `verifyIdTokenClaims` in the browser after the new bundle is live — do not guess.\n\n**Code (definite regardless of instrument):** `offline_access` on scope (Cognito app client must allow refresh tokens — check CDK, one path); `prompt=select_account` only after explicit Sign out, not global; `signinSilent()` on mount before the sign-in panel. Keep `349634`. No `ADMIN_NO_SRP_AUTH`.\n\n**`98f4f6` manager decision for this slice:** option 3 — keep `localStorage`, record it in `docs/THREAT_MODEL.md` (token authorizes `PUT .../grant` including `run_terminal`; XSS on origin; standing ceiling; short lifetime). Do not build a BFF in this PR (that would stall `c54569`). Silence is the defect.",
       "created_at": "2026-09-08T22:25:58.432326Z",
       "comment_type": "default"
+    },
+    {
+      "id": "3e9e6a97-47e4-4b87-be5d-b1c441340345",
+      "author": "home",
+      "text": "Cognito does not use the OIDC offline_access scope. The SPA client already has refreshTokenValidity 30 days and authorization-code grant; Cognito issues a refresh token with openid. Allowed OAuth scopes in infra/lib/auth-stack.ts are only openid/email/profile. Adding offline_access to scope without that CDK list is invalid_scope (or a no-op). Planner must not add it. Confirm the token response already includes refresh_token; if oidc-client-ts is not using it, that is a library setting, not a missing scope.\n\ngetVerifiedSession calls verifyIdTokenClaims, which throws on exp. An expired id_token in localStorage therefore becomes an error, not a silent renew. Mount path must catch that and signinSilent() before the sign-in panel.\n\nInstrument getUser vs claim verify only after a73f21 lands a web deploy that includes #339. Live dev.chattic.us is still 4ba8bc2.\n",
+      "created_at": "2026-09-08T22:28:50.489846Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T22:17:46.277560Z",
-  "updated_at": "2026-09-08T22:25:58.432346Z",
+  "updated_at": "2026-09-08T22:28:50.489862Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
