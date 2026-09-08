@@ -108,7 +108,9 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 
 **`chatticus-8fe4c7` confirming check (2026-09-07):** the IaC pull-auth hypothesis was **falsified**. Customer tasks pull the Anthus image (repository policy already grants the customer account). They reach RUNNING, then `computer_host_worker` exits 1: customer task role `AccessDenied` on Anthus Dynamo `GetItem`. Named cause `HOST_TASK_ROLE_DYNAMO_ACCESS_DENIED`. Zero `CannotPullContainerError`. Do not add `dynamodb:*` to the customer role. Wiki placeholders; desk ids in `AGENTS.local.md`.
 
-**`chatticus-8fe4c7` closed (2026-09-07):** Front Door HTTP host (#319) plus Anthus `:dev` rebuild. Kernel `browser_open` / `about:blank` → journal `opened:about:blank`. Customer `RunTask` 1, Anthus 0. No Dynamo `AccessDenied` in the test window. Image still Anthus `:dev` (`chatticus-2b3c4173` next). Do not fold elapsed time into ~19 min.
+**`chatticus-8fe4c7` closed (2026-09-07):** Front Door HTTP host (#319) plus Anthus `:dev` rebuild. Kernel `browser_open` / `about:blank` → journal `opened:about:blank`. Customer `RunTask` 1, Anthus 0. No Dynamo `AccessDenied` in the test window. Do not fold elapsed time into ~19 min.
+
+**`chatticus-2b3c4173` (#320, on `develop`):** Customer `ChatticusComputers` declares ECR; task definition pulls `:dev` from `CUSTOMER_ACCOUNT_ID`. After ThinTurn deploy, an Anthus operator runs `computer/push-customer-computer-image.sh` (AssumeRole with `CHATTICUS_CUSTOMER_ROLE_ARN` + `CHATTICUS_ORGANIZATION_ID` from `AGENTS.local.md` — not Lambda, not ComputerWorker). Until that publish, host start refuses missing `:dev`. Do not fold elapsed time into ~19 min.
 
 | # | Row | First-pass stop | After tool-list |
 | --- | --- | --- | --- |
@@ -128,7 +130,7 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 | Dict vs host disk (decided host disk; steps 2–5 open) | `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` |
 | Agent terminal tool (build, not a sweep) | `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4` |
 | Remaining capability matrix | `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` — parked; browser host row PASS; do not live-run the rest |
-| Customer image in customer ECR | `chatticus-2b3c4173-a431-45fb-aec0-c6f4aa921b51` |
+| Customer image in customer ECR | `chatticus-2b3c4173` / #320 on `develop`; operator `push-customer-computer-image.sh` still required on the throwaway account |
 
 ## Replay (customer-shaped, once the gaps close)
 
