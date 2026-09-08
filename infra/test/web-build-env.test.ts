@@ -4,9 +4,12 @@ import { describe, it } from "node:test";
 import {
   CHATTICUS_AWS_REGION,
   WEB_BUNDLE_DOCKER_IMAGE,
+  WEB_DOCKER_BUNDLE_HOME,
+  WEB_DOCKER_NPM_CACHE,
   WEB_LOCAL_BUNDLE_AWS_CLI_CHECK,
   webBuildEnvExports,
   webDockerBundleCommand,
+  webDockerBundleHomeSetup,
   webDockerBundlingEnvironment,
   webLocalBundleCommand,
 } from "../lib/web-build-env";
@@ -37,6 +40,12 @@ describe("web bundle commands", () => {
   it("uses preinstalled aws cli in the docker image without apt-get", () => {
     const command = webDockerBundleCommand("development");
     assert.doesNotMatch(command, /apt-get/);
+    assert.match(command, /mkdir -p '\/tmp\/chatticus-bundle\/\.npm'/);
+    assert.match(command, /export HOME='\/tmp\/chatticus-bundle'/);
+    assert.match(command, /export npm_config_cache='\/tmp\/chatticus-bundle\/\.npm'/);
+    const npmCiIndex = command.indexOf("npm ci");
+    assert.ok(npmCiIndex >= 0);
+    assert.ok(command.indexOf("export HOME='/tmp/chatticus-bundle'") < npmCiIndex);
     assert.match(command, /aws ssm get-parameter/);
     assert.match(command, /export AWS_DEFAULT_REGION='us-east-1'/);
     assert.equal((command.match(/--region 'us-east-1'/g) ?? []).length, 3);
@@ -47,11 +56,23 @@ describe("web bundle commands", () => {
 
   it("uses aws cli during local tryBundle when available", () => {
     const command = webLocalBundleCommand("staging");
+    assert.doesNotMatch(command, /\/tmp\/chatticus-bundle/);
     assert.match(command, /\/chatticus\/staging\/web\/cognito-user-pool-id/);
     assert.match(command, /export AWS_DEFAULT_REGION='us-east-1'/);
     assert.equal((command.match(/--region 'us-east-1'/g) ?? []).length, 3);
     assert.match(command, /npm run build --workspace=web/);
     assert.match(WEB_LOCAL_BUNDLE_AWS_CLI_CHECK, /command -v aws/);
+  });
+});
+
+describe("webDockerBundleHomeSetup", () => {
+  it("creates writable npm cache path for docker uid 1001", () => {
+    const setup = webDockerBundleHomeSetup();
+    assert.match(setup, /mkdir -p '\/tmp\/chatticus-bundle\/\.npm'/);
+    assert.match(setup, /export HOME='\/tmp\/chatticus-bundle'/);
+    assert.match(setup, /export npm_config_cache='\/tmp\/chatticus-bundle\/\.npm'/);
+    assert.equal(WEB_DOCKER_BUNDLE_HOME, "/tmp/chatticus-bundle");
+    assert.equal(WEB_DOCKER_NPM_CACHE, "/tmp/chatticus-bundle/.npm");
   });
 });
 
