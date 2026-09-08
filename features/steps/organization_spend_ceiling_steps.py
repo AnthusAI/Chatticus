@@ -16,13 +16,15 @@ from cross_account_provisioning_steps import (
 )
 
 from chatticus.budget_rollup.models import BudgetRollupRow
-from chatticus.budget_rollup.runner import CE_STATUS_OK
+from chatticus.budget_rollup.runner import CE_STATUS_OK, CE_STATUS_PENDING
 from chatticus.computer_capabilities import WORKSPACE_CAPABILITY
+from chatticus.computer_continuation_driver import prepare_workspace_tool_continuation
 from chatticus.cross_account_provisioning import (
     PROVISIONING_REQUIRED_PERMISSIONS,
     CrossAccountRoleSnapshot,
     InMemoryCrossAccountRoleInspector,
 )
+from chatticus.host_starter import RecordingHostStarter
 from chatticus.http.client import HttpTurnClient
 from chatticus.http.paths import org_path
 from chatticus.models import (
@@ -35,6 +37,7 @@ from chatticus.organization_spend import (
     SPEND_CEILING_EXCEEDED_REASON,
     SPEND_CEILING_METER_UNAVAILABLE_REASON,
 )
+from chatticus.worker.computer import ComputerWorker
 from chatticus.worker.computerless import (
     CapabilityAwareFakeTextCompletionClient,
     ComputerlessWorker,
@@ -90,6 +93,26 @@ def _seed_mtd_above_ceiling(context: object) -> None:
             vendor_cost_usd=Decimal("0"),
             combined_report_usd=ABOVE_CEILING_MTD_USD,
             ce_status=CE_STATUS_OK,
+            alert_events=(),
+            updated_at=context.now,
+        )
+    )
+
+
+def _seed_mtd_pending(context: object) -> None:
+    organization = _organization(context)
+    rollup_date = context.now.date()
+    store = _plane(context)._messaging_store
+    _plane(context).budget_environment = BUDGET_ENVIRONMENT
+    store.put_budget_rollup_row(
+        BudgetRollupRow(
+            tenant_id=organization.tenant_id,
+            environment=BUDGET_ENVIRONMENT,
+            rollup_date=rollup_date,
+            aws_cost_usd=None,
+            vendor_cost_usd=Decimal("0"),
+            combined_report_usd=None,
+            ce_status=CE_STATUS_PENDING,
             alert_events=(),
             updated_at=context.now,
         )
@@ -156,6 +179,46 @@ def _provision_enabled_org_with_ceiling(context: object) -> None:
     assert result.accepted is True, result.message
     context.spend_ceiling_org = result.organization
     _plane(context).budget_environment = BUDGET_ENVIRONMENT
+
+
+@given("month-to-date spend rollup for today is pending")
+def given_mtd_rollup_pending(context: object) -> None:
+    _seed_mtd_pending(context)
+
+
+@given("month-to-date spend has passed the ceiling")
+def given_mtd_spend_passed_ceiling(context: object) -> None:
+    _seed_mtd_above_ceiling(context)
+
+
+@given("a queued computer continuation for workspace file read")
+def given_queued_workspace_continuation(context: object) -> None:
+    _ensure_member_and_bot(context)
+    organization = _organization(context)
+    member = context.spend_ceiling_member
+    context.computer_continuation = prepare_workspace_tool_continuation(
+        _plane(context),
+        tool_name="read_workspace",
+        arguments={"path": "/workspace/research/notes.txt"},
+        tenant_id=organization.tenant_id,
+        user_id=member.user_id,
+    )
+    _plane(context).set_computer_stopped(organization.tenant_id, True)
+    context.last_turn_id = context.computer_continuation.turn_id
+    context.policy_turn_id = context.computer_continuation.turn_id
+
+
+@when("a computer-capable worker pulls the paused spend continuation job")
+def when_computer_worker_pulls_paused_continuation(context: object) -> None:
+    setup = context.computer_continuation
+    _wire_http(context)
+    context.host_starter = RecordingHostStarter()
+    worker = ComputerWorker(
+        _plane(context),
+        HttpTurnClient(context.api_client, setup.tenant_id),
+        host_starter=context.host_starter,
+    )
+    worker.run_job(setup.continuation_job)
 
 
 @given("an organization being provisioned into a customer AWS account")
@@ -251,6 +314,7 @@ def given_organization_channel_with_message(context: object) -> None:
 
 @when("a member asks a bot for work that needs the computer")
 def when_member_asks_for_computer_work(context: object) -> None:
+    _ensure_member_and_bot(context)
     member = context.spend_ceiling_member
     tenant_id = _tenant_id(context)
     bot = context.bots_by_name[BOT_NAME]
@@ -368,6 +432,37 @@ def then_change_refused(context: object) -> None:
 def then_ceiling_unchanged(context: object) -> None:
     organization = _reload_organization(context)
     assert organization.monthly_aws_spend_ceiling_usd == DEFAULT_CEILING_USD
+
+
+@then("the request is refused with a spend meter unavailable reason")
+def then_request_refused_with_meter_unavailable_reason(context: object) -> None:
+    tenant_id = _tenant_id(context)
+    events = _plane(context).list_turn_events(tenant_id, context.last_turn_id)
+    results = [
+        event
+        for event in events
+        if event.kind == TurnEventKind.TOOL_RESULT
+        and event.body
+        and event.body.startswith("denied:")
+    ]
+    assert results
+    denied = results[-1].body.removeprefix("denied:").strip()
+    assert denied == SPEND_CEILING_METER_UNAVAILABLE_REASON
+
+
+@then("they see computer work paused for meter unavailability")
+def then_meter_unavailable_pause_visible(context: object) -> None:
+    assert context.me_response.status_code == 200
+    me_payload = context.me_response.json()
+    organizations = me_payload["organizations"]
+    assert len(organizations) == 1
+    organization = organizations[0]
+    assert organization["computer_work_paused"] is True
+    assert (
+        organization["computer_work_paused_reason"]
+        == SPEND_CEILING_METER_UNAVAILABLE_REASON
+    )
+    assert context.channels_response.status_code == 200
 
 
 @then("the request is refused with a spend ceiling reason")

@@ -9,7 +9,7 @@ import queue
 import secrets
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -2311,17 +2311,32 @@ class ControlPlane:
 
     def _refuse_if_computer_work_paused(self, tenant_id: str) -> None:
         """Raise when month-to-date spend blocks new computer work."""
-        organization = self.get_organization(tenant_id)
-        paused, reason = organization_computer_work_paused(
-            organization,
-            self._messaging_store,
-            self.budget_environment,
-            self.now().date(),
-        )
+        try:
+            organization = self.get_organization(tenant_id)
+        except OrganizationNotFoundError:
+            return
+        if organization.monthly_aws_spend_ceiling_usd is None:
+            return
+        paused, reason = self.organization_computer_work_paused_for(organization)
         if paused:
             raise OrganizationSpendCeilingExceededError(
                 reason or "monthly AWS spend ceiling exceeded"
             )
+
+    def organization_computer_work_paused_for(
+        self,
+        organization: Organization,
+        *,
+        as_of: date | None = None,
+    ) -> tuple[bool, str | None]:
+        """Return whether new computer work should be refused for spend reasons."""
+        resolved_as_of = as_of if as_of is not None else self.now().date()
+        return organization_computer_work_paused(
+            organization,
+            self._messaging_store,
+            self.budget_environment,
+            resolved_as_of,
+        )
 
     def escalation_for(self, tenant_id: str, turn_id: str) -> EscalationRecord:
         """Return the computer-handoff record for one turn."""

@@ -62,30 +62,44 @@ class ComputerWorker:
 
     def _dispatch_host_start_if_needed(
         self,
-        tenant_id: str,
-        turn_id: str,
-        user_id: str,
-    ) -> None:
-        """Invoke the host-start driver once per durable generation."""
-        claim = self.plane.request_computer_host_start(
-            tenant_id, turn_id, user_id=user_id
-        )
+        job: TurnJob,
+        *,
+        tool_name: str,
+        arguments: dict[str, str],
+        action_id: str,
+    ) -> bool:
+        """Invoke the host-start driver once per durable generation.
+
+        Return False when spend ceiling denial completed the turn visibly.
+        """
+        if job.turn_id is None or not job.user_id:
+            raise ComputerWorkerHostNotReady(
+                f"Turn {job.turn_id!r} computer continuation job has no user_id."
+            )
+        tenant_id = job.tenant_id
+        turn_id = job.turn_id
+        try:
+            claim = self.plane.request_computer_host_start(
+                tenant_id, turn_id, user_id=job.user_id
+            )
+        except OrganizationSpendCeilingExceededError as exc:
+            self._deny_continuation_for_spend_ceiling(
+                job,
+                tool_name=tool_name,
+                arguments=arguments,
+                action_id=action_id,
+                reason=str(exc),
+            )
+            return False
         computer = self.plane.computer_for_organization(tenant_id)
         if computer.host_start_dispatched_generation >= computer.host_start_generation:
-            return
+            return True
         if not self.plane.mark_host_start_dispatched(
             tenant_id, computer.host_start_generation
         ):
-            return
+            return True
         try:
             self.host_starter.start_host(claim)
-        except OrganizationSpendCeilingExceededError as exc:
-            self.plane.release_host_start_dispatch(
-                tenant_id, computer.host_start_generation
-            )
-            raise ComputerWorkerHostNotReady(
-                f"Turn {turn_id!r} computer provisioning refused: {exc}"
-            ) from exc
         except OrganizationComputerProvisioningError as exc:
             self.plane.release_host_start_dispatch(
                 tenant_id, computer.host_start_generation
@@ -100,6 +114,46 @@ class ComputerWorker:
             raise ComputerWorkerHostNotReady(
                 f"Turn {turn_id!r} host start failed: {exc}."
             ) from exc
+        return True
+
+    def _deny_continuation_for_spend_ceiling(
+        self,
+        job: TurnJob,
+        *,
+        tool_name: str,
+        arguments: dict[str, str],
+        action_id: str,
+        reason: str,
+    ) -> None:
+        """Record one denied tool.result and complete the turn without host start."""
+        if job.turn_id is None:
+            return
+        tenant_id = job.tenant_id
+        turn_id = job.turn_id
+        denied_body = f"denied: {reason}"
+        if action_id:
+            self.plane.record_model_gated_tool_result(
+                tenant_id,
+                turn_id,
+                action_id,
+                denied_body,
+            )
+        else:
+            self.plane.record_model_gated_tool_denied(
+                tenant_id,
+                turn_id,
+                tool_name,
+                arguments,
+                reason,
+            )
+        record = self.plane.ensure_computer_escalation(tenant_id, turn_id)
+        if record is not None:
+            record.result_body = denied_body
+            record.result_committed = True
+        self.plane.remove_pending_job(job.job_id)
+        turn = self.plane.turn(tenant_id, turn_id)
+        if turn.status == TurnStatus.ACTIVE:
+            self.plane.complete_computer_continuation(tenant_id, turn_id)
 
     def _host_ready_for_tool(self, job: TurnJob, tool_name: str) -> bool:
         """Return whether a real computer host can run one pending tool call."""
@@ -151,11 +205,19 @@ class ComputerWorker:
             if not unresolved and pending is None:
                 return
             tool_name = pending.tool_name if pending is not None else "computer"
+            pending_arguments = dict(pending.arguments) if pending is not None else {}
+            pending_action_id = pending.action_id if pending is not None else ""
             if not job.user_id:
                 raise ComputerWorkerHostNotReady(
                     f"Turn {job.turn_id!r} computer continuation job has no user_id."
                 )
-            self._dispatch_host_start_if_needed(job.tenant_id, job.turn_id, job.user_id)
+            if not self._dispatch_host_start_if_needed(
+                job,
+                tool_name=tool_name,
+                arguments=pending_arguments,
+                action_id=pending_action_id,
+            ):
+                return
             raise ComputerWorkerHostNotReady(
                 f"Turn {job.turn_id!r} has no ready computer host for {tool_name!r}."
             )
@@ -168,7 +230,13 @@ class ComputerWorker:
                 raise ComputerWorkerHostNotReady(
                     f"Turn {job.turn_id!r} computer continuation job has no user_id."
                 )
-            self._dispatch_host_start_if_needed(job.tenant_id, job.turn_id, job.user_id)
+            if not self._dispatch_host_start_if_needed(
+                job,
+                tool_name=tool_name,
+                arguments=dict(record.pending_call.arguments),
+                action_id=record.pending_call.action_id,
+            ):
+                return
             raise ComputerWorkerHostNotReady(
                 f"Turn {job.turn_id!r} has no ready computer host for {tool_name!r}."
             )
