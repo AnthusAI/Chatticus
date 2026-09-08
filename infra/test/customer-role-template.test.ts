@@ -41,11 +41,26 @@ describe("customer-role template publish helper", () => {
     assert.equal(serviceLinkedRoleMatches?.length, 1);
   });
 
-  it("forbids bootstrap SSM, snapshot S3, and AdministratorAccess", () => {
+  it("forbids bootstrap SSM, cross-account snapshot S3, and AdministratorAccess", () => {
     const repoTemplate = readCustomerRoleTemplate();
     assert.doesNotMatch(repoTemplate, /ssm:\*/);
     assert.doesNotMatch(repoTemplate, /s3:\*/);
     assert.doesNotMatch(repoTemplate, /AdministratorAccess/);
+    const roleSection = repoTemplate.split("ChatticusCrossAccountRole:", 1)[1] ?? "";
+    assert.doesNotMatch(roleSection, /s3:[A-Za-z*]+/);
+  });
+
+  it("declares a retained organization snapshot bucket with SnapshotBucketName output", () => {
+    const repoTemplate = readCustomerRoleTemplate();
+    assert.match(repoTemplate, /OrganizationSnapshotBucket:/);
+    assert.match(repoTemplate, /BucketName: !Sub 'chatticus-snapshots-\$\{OrganizationId\}'/);
+    assert.match(repoTemplate, /DeletionPolicy: Retain/);
+    assert.match(repoTemplate, /SnapshotBucketName:/);
+    assert.match(repoTemplate, /!Ref OrganizationSnapshotBucket/);
+    assert.match(
+      repoTemplate,
+      /OrganizationId:[\s\S]*?AllowedPattern: '\^\[a-z0-9\]\[a-z0-9\._-\]\*\$'/,
+    );
   });
 
   it("uses the stable S3 object key under provisioning/", () => {

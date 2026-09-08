@@ -20,6 +20,18 @@ from chatticus.snapshot.uri import (
 )
 
 
+def is_no_such_bucket_error(error: Exception) -> bool:
+    """Return True when *error* means the configured bucket does not exist."""
+    try:
+        from botocore.exceptions import ClientError
+    except ImportError:
+        return False
+    if not isinstance(error, ClientError):
+        return False
+    code = str(error.response.get("Error", {}).get("Code", ""))
+    return code in {"NoSuchBucket", "404"}
+
+
 class S3SnapshotStore:
     """Object store backed by the CDK snapshot bucket."""
 

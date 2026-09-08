@@ -8,6 +8,7 @@ from pathlib import Path
 from chatticus.snapshot.store import FilesystemSnapshotStore, SnapshotObjectStore
 
 _counting_stores: dict[str, SnapshotObjectStore] = {}
+_counting_stores_by_bucket: dict[str, SnapshotObjectStore] = {}
 
 
 def register_snapshot_store_for_root(root: Path, store: SnapshotObjectStore) -> None:
@@ -15,9 +16,19 @@ def register_snapshot_store_for_root(root: Path, store: SnapshotObjectStore) -> 
     _counting_stores[str(root.resolve())] = store
 
 
+def register_snapshot_store_for_bucket(bucket: str, store: SnapshotObjectStore) -> None:
+    """Return *store* from :func:`snapshot_store_from_env` for this bucket name."""
+    _counting_stores_by_bucket[bucket.strip()] = store
+
+
 def clear_snapshot_store_for_root(root: Path) -> None:
     """Drop a registered stand-in store after one scenario."""
     _counting_stores.pop(str(root.resolve()), None)
+
+
+def clear_snapshot_store_for_bucket(bucket: str) -> None:
+    """Drop a registered stand-in store for one bucket name."""
+    _counting_stores_by_bucket.pop(bucket.strip(), None)
 
 
 def live_root_from_env() -> Path:
@@ -44,6 +55,9 @@ def snapshot_store_from_env() -> SnapshotObjectStore | None:
         return FilesystemSnapshotStore(resolved)
     bucket = os.environ.get("CHATTICUS_SNAPSHOT_BUCKET", "").strip()
     if bucket:
+        registered = _counting_stores_by_bucket.get(bucket)
+        if registered is not None:
+            return registered
         from chatticus.snapshot.s3 import S3SnapshotStore
 
         return S3SnapshotStore(bucket)

@@ -8,6 +8,8 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 
+from chatticus.customer_snapshot_bucket import customer_snapshot_bucket_name
+
 CREATE_STACK_TEMPLATE_BYTE_LIMIT = 51_200
 
 CREATE_STACK_CAPABILITIES = ("CAPABILITY_IAM", "CAPABILITY_NAMED_IAM")
@@ -75,4 +77,8 @@ def customer_computers_create_stack_parameters(
     """Build CloudFormation parameters for one customer ChatticusComputers stack."""
     return [
         {"ParameterKey": "TenantId", "ParameterValue": tenant_id},
+        {
+            "ParameterKey": "SnapshotBucketName",
+            "ParameterValue": customer_snapshot_bucket_name(tenant_id),
+        },
     ]
