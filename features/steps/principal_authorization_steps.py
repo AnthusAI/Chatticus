@@ -87,6 +87,72 @@ def when_get_auth_callback(context: object) -> None:
 
 @then("the principal response status is {status:d}")
 def then_principal_response_status(context: object, status: int) -> None:
-    assert (
-        context.principal_response.status_code == status
-    ), context.principal_response.text
+    response = getattr(context, "principal_response", None) or getattr(
+        context, "self_setup_response", None
+    )
+    assert response is not None
+    assert response.status_code == status, response.text
+
+
+@given(
+    'the in-memory role inspector trusts tenant "{tenant_id}" ExternalId '
+    "with full permissions"
+)
+def given_inspector_trusts_tenant(context: object, tenant_id: str) -> None:
+    from cross_account_provisioning_steps import (
+        CUSTOMER_ACCOUNT_ID,
+        CUSTOMER_ROLE_ARN,
+        PROVISIONING_REQUIRED_PERMISSIONS,
+    )
+
+    from chatticus.cross_account_provisioning import (
+        CrossAccountRoleSnapshot,
+        InMemoryCrossAccountRoleInspector,
+    )
+    from chatticus.http.app import create_app
+
+    snapshot = CrossAccountRoleSnapshot(
+        account_id=CUSTOMER_ACCOUNT_ID,
+        role_arn=CUSTOMER_ROLE_ARN,
+        trusted_external_id=tenant_id,
+        granted_permissions=frozenset(PROVISIONING_REQUIRED_PERMISSIONS),
+    )
+    role_inspector = InMemoryCrossAccountRoleInspector(
+        {(CUSTOMER_ACCOUNT_ID, CUSTOMER_ROLE_ARN): snapshot}
+    )
+    context.role_inspector = role_inspector
+    context.aws_account_id = CUSTOMER_ACCOUNT_ID
+    context.aws_role_arn = CUSTOMER_ROLE_ARN
+    keys = cognito_test_keys(context)
+    client = getattr(context, "api_client", None)
+    if client is not None:
+        client.close()
+    context.api_app = create_app(
+        context.plane,
+        invoke_key="",
+        cognito_verifier=keys.verifier(),
+        role_inspector=role_inspector,
+    )
+    from browser_auth_helpers import wrap_browser_client
+
+    from chatticus.http.test_server import start_test_server
+
+    context.api_client = wrap_browser_client(
+        start_test_server(context.api_app),
+        context,
+    )
+
+
+@when('the owner submits cross-account self-setup for tenant "{tenant_id}" via HTTP')
+def when_owner_submits_self_setup_for_tenant(context: object, tenant_id: str) -> None:
+    email = context.seeded_org_emails[tenant_id]
+    token = mint_id_token(cognito_test_keys(context), email=email)
+    context.self_setup_response = context.raw_api_client.post(
+        org_path(tenant_id, "/self-setup/cross-account-role"),
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "account_id": context.aws_account_id,
+            "cross_account_role": context.aws_role_arn,
+        },
+    )
+    context.principal_response = context.self_setup_response

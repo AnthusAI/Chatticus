@@ -440,6 +440,7 @@ class ControlPlane:
         self,
         tenant_id: str,
         *,
+        actor_user_id: str,
         account_id: str,
         cross_account_role: str,
         role_inspector: CrossAccountRoleInspector,
@@ -447,6 +448,7 @@ class ControlPlane:
         """Validate and accept one customer self-setup cross-account submission."""
         return self._org_records.submit_self_setup_cross_account_role(
             tenant_id,
+            actor_user_id=actor_user_id,
             account_id=account_id,
             cross_account_role=cross_account_role,
             role_inspector=role_inspector,

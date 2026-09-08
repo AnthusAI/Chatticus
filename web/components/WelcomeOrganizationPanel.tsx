@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthCard, authStatusClassName } from "./AuthCard";
+import { SelfSetupCrossAccountRolePanel } from "./SelfSetupCrossAccountRolePanel";
 import { WELCOME_SCREEN_LINES, WELCOME_SCREEN_TITLE } from "../lib/membership-view";
 import type { MeOrganization } from "../lib/me";
 import { OrganizationMembershipList } from "./OrganizationMembershipList";
@@ -12,6 +13,10 @@ type WelcomeOrganizationPanelProps = {
 export function WelcomeOrganizationPanel({
   organizations,
 }: WelcomeOrganizationPanelProps) {
+  const pendingOrganization = organizations.find(
+    (organization) => organization.status === "pending",
+  );
+
   return (
     <>
       <AuthCard title={WELCOME_SCREEN_TITLE}>
@@ -22,6 +27,9 @@ export function WelcomeOrganizationPanel({
         ))}
       </AuthCard>
       <OrganizationMembershipList organizations={organizations} />
+      {pendingOrganization ? (
+        <SelfSetupCrossAccountRolePanel organization={pendingOrganization} />
+      ) : null}
     </>
   );
 }

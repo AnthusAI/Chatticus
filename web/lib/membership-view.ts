@@ -12,9 +12,12 @@ export type MembershipView =
 export const WELCOME_SCREEN_TITLE = "Welcome to Chatticus";
 
 export const WELCOME_SCREEN_LINES = [
-  "Your organization is pending enablement.",
-  "You can sign in, but the workspace unlocks once an operator enables your organization.",
+  "Your organization is pending AWS cross-account setup.",
+  "Run the Chatticus cross-account CloudFormation template in your AWS account, then submit your account id and RoleArn below.",
 ] as const;
+
+export const CROSS_ACCOUNT_SELF_SETUP_FORM_TITLE =
+  "Submit AWS account and RoleArn";
 
 export function welcomeScreenText(): string {
   return [WELCOME_SCREEN_TITLE, ...WELCOME_SCREEN_LINES].join("\n");

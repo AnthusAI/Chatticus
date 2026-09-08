@@ -80,10 +80,15 @@ The web SPA reads the matching build-time flag
 value even when the web flag is wrong.
 
 On an open-signup deployment, anyone may sign in and create an organization.
-Creating one lands it `pending`. Enabling is a deliberate act, and it is per
-**organization**, not per person: the owner then invites their own people, and
-invited members of an enabled organization never see the pending welcome
-screen.
+Creating one lands it `pending`. The owner runs the published cross-account
+CloudFormation template in their AWS account, then submits the AWS account id
+and RoleArn at `POST /orgs/{tenant_id}/self-setup/cross-account-role`. A live
+inspector validates ExternalId and required permissions; acceptance enables the
+organization and records AWS home. Operator `enable` remains break-glass: it
+marks an organization enabled without AWS home when self-setup did not run.
+Enabling is per **organization**, not per person: the owner then invites their
+own people, and invited members of an enabled organization never see the pending
+welcome screen.
 
 The alternative was enabling individuals, which makes Chatticus the
 gatekeeper for every employee of every customer forever, and builds the
