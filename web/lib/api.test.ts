@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it, mock } from "node:test";
 
 import { setIdTokenSourceForTests } from "./api-auth";
-import { createBot, listBots } from "./api";
+import { createBot, listBots, replaceTurnGrant } from "./api";
 
 const originalFetch = globalThis.fetch;
 
@@ -58,5 +58,45 @@ describe("org-scoped API calls", () => {
     assert.equal(headers["Content-Type"], "application/json");
     assert.match(headers["Idempotency-Key"], /^[0-9a-f-]{36}$/i);
     assert.deepEqual(JSON.parse(String(capturedInit?.body)), { name: "Ping" });
+  });
+
+  it("send Authorization on replaceTurnGrant", async () => {
+    setIdTokenSourceForTests(async () => "org-scoped-token");
+    let capturedUrl = "";
+    let capturedInit: RequestInit | undefined;
+    globalThis.fetch = mock.fn(async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(JSON.stringify({ turn_id: "turn-1", tools: ["browse"] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    await replaceTurnGrant(
+      { tenantId: "anthus", userId: "ryan" },
+      "turn-1",
+      {
+        tools: ["browse"],
+        origins: ["https://docs.example.com"],
+        recipients: [],
+        file_scopes: ["/workspace"],
+        egress_classes: ["approved_origin_fetch"],
+        ingest_classes: [],
+      },
+    );
+    assert.equal(capturedUrl, "/api/orgs/anthus/turns/turn-1/grant");
+    assert.equal(capturedInit?.method, "PUT");
+    const headers = capturedInit?.headers as Record<string, string>;
+    assert.equal(headers.Authorization, "Bearer org-scoped-token");
+    assert.equal(headers["Content-Type"], "application/json");
+    assert.deepEqual(JSON.parse(String(capturedInit?.body)), {
+      tools: ["browse"],
+      origins: ["https://docs.example.com"],
+      recipients: [],
+      file_scopes: ["/workspace"],
+      egress_classes: ["approved_origin_fetch"],
+      ingest_classes: [],
+    });
   });
 });

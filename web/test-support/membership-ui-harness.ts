@@ -18,6 +18,12 @@ import {
 } from "../lib/create-bot";
 import { inviteConfirmationText } from "../lib/invitations";
 import { orgApiPath } from "../lib/paths";
+import {
+  grantTableToPayload,
+  isTurnGrantPanelVisible,
+  TURN_GRANT_FORM_TITLE,
+  turnGrantConfirmationText,
+} from "../lib/turn-grant";
 
 const statePath =
   process.env.CHATTICUS_MEMBERSHIP_UI_HARNESS_STATE ??
@@ -37,6 +43,17 @@ type HarnessState = {
   createBotError: string | null;
   createBotConfirmation: string | null;
   createBotBlocked: boolean;
+  activeTurnId: string | null;
+  turnStatus: "active" | "completed" | "failed" | "reconciling" | null;
+  turnGrantFormVisible: boolean;
+  turnGrantConfirmation: string | null;
+  turnGrantError: string | null;
+  turnGrantBlocked: boolean;
+  lastSubmittedTools: string[];
+  lastGrantTable: Record<string, string> | null;
+  workspaceBotId: string | null;
+  workspaceChannelId: string | null;
+  turnGrantHttpStatus: number | null;
 };
 
 function emptyState(): HarnessState {
@@ -54,6 +71,17 @@ function emptyState(): HarnessState {
     createBotError: null,
     createBotConfirmation: null,
     createBotBlocked: false,
+    activeTurnId: null,
+    turnStatus: null,
+    turnGrantFormVisible: false,
+    turnGrantConfirmation: null,
+    turnGrantError: null,
+    turnGrantBlocked: false,
+    lastSubmittedTools: [],
+    lastGrantTable: null,
+    workspaceBotId: null,
+    workspaceChannelId: null,
+    turnGrantHttpStatus: null,
   };
 }
 
@@ -112,7 +140,9 @@ function renderFromMe(state: HarnessState): HarnessState {
           .filter(Boolean)
           .join("\n")
       : view === "enabled-workspace"
-        ? CREATE_BOT_FORM_TITLE
+        ? [CREATE_BOT_FORM_TITLE, state.turnGrantFormVisible ? TURN_GRANT_FORM_TITLE : null]
+            .filter(Boolean)
+            .join("\n")
         : state.selfSetupError;
   state.visibleText = membershipVisibleTextForHarness(
     membershipViewText(view),
@@ -342,7 +372,46 @@ function clearWorkspaceBotState(state: HarnessState): HarnessState {
   state.createBotError = null;
   state.createBotConfirmation = null;
   state.createBotBlocked = false;
+  clearTurnGrantState(state);
   return state;
+}
+
+function clearTurnGrantState(state: HarnessState): HarnessState {
+  state.activeTurnId = null;
+  state.turnStatus = null;
+  state.turnGrantFormVisible = false;
+  state.turnGrantConfirmation = null;
+  state.turnGrantError = null;
+  state.turnGrantBlocked = false;
+  state.lastSubmittedTools = [];
+  state.lastGrantTable = null;
+  state.workspaceBotId = null;
+  state.workspaceChannelId = null;
+  state.turnGrantHttpStatus = null;
+  return state;
+}
+
+function enabledOrganization(state: HarnessState) {
+  return state.me?.organizations?.find((row) => row.status === "enabled");
+}
+
+async function resolveApiContext(
+  state: HarnessState,
+  payload: {
+    api_base?: string;
+    id_token?: string;
+    tenant_id?: string;
+  },
+): Promise<{ apiBase: string; idToken: string; tenantId: string; userId: string }> {
+  const apiBase = payload.api_base ?? state.apiBase;
+  const idToken = payload.id_token ?? state.idToken;
+  const organization = enabledOrganization(state);
+  const tenantId = payload.tenant_id ?? organization?.tenant_id;
+  const userId = state.me?.user_id;
+  if (!apiBase || !idToken || !tenantId || !userId) {
+    throw new Error("api_base, id_token, enabled tenant, and user_id are required");
+  }
+  return { apiBase, idToken, tenantId, userId };
 }
 
 async function refreshWorkspaceBots(
@@ -448,6 +517,226 @@ async function submitCreateBot(payload: {
   return saveState(renderFromMe(state));
 }
 
+async function setupActiveTurn(payload: {
+  api_base?: string;
+  id_token?: string;
+  tenant_id?: string;
+  bot_name?: string;
+  message?: string;
+}): Promise<HarnessState> {
+  let state = loadState();
+  state = await refreshMeFromApi({
+    api_base: payload.api_base,
+    id_token: payload.id_token,
+    email: state.email ?? undefined,
+  });
+  const botName = payload.bot_name ?? "Researcher";
+  state = await submitCreateBot({
+    api_base: payload.api_base,
+    id_token: payload.id_token,
+    tenant_id: payload.tenant_id,
+    name: botName,
+  });
+  const { apiBase, idToken, tenantId, userId } = await resolveApiContext(state, payload);
+  const botsResponse = await fetch(
+    `${apiBase}${orgApiPath(tenantId, `/users/${encodeURIComponent(userId)}/bots`)}`,
+    { headers: { Authorization: `Bearer ${idToken}` } },
+  );
+  if (!botsResponse.ok) {
+    throw new Error(`list bots failed: ${botsResponse.status} ${await botsResponse.text()}`);
+  }
+  const botsBody = (await botsResponse.json()) as {
+    bots: Array<{ bot_id: string; name: string }>;
+  };
+  const bot = botsBody.bots.find((candidate) => candidate.name === botName);
+  if (!bot) {
+    throw new Error(`bot ${JSON.stringify(botName)} not found after create`);
+  }
+  const channelResponse = await fetch(`${apiBase}${orgApiPath(tenantId, "/channels")}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ user_id: userId, bot_ids: [bot.bot_id] }),
+  });
+  if (!channelResponse.ok) {
+    throw new Error(
+      `create channel failed: ${channelResponse.status} ${await channelResponse.text()}`,
+    );
+  }
+  const channel = (await channelResponse.json()) as { channel_id: string };
+  const messageResponse = await fetch(
+    `${apiBase}${orgApiPath(tenantId, `/channels/${encodeURIComponent(channel.channel_id)}/messages`)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        author_kind: "human",
+        author_id: userId,
+        body: payload.message ?? "hello Researcher",
+        addressed_to_bot_id: bot.bot_id,
+      }),
+    },
+  );
+  if (!messageResponse.ok) {
+    throw new Error(`post message failed: ${messageResponse.status} ${await messageResponse.text()}`);
+  }
+  const posted = (await messageResponse.json()) as { turn_id: string | null };
+  if (!posted.turn_id) {
+    throw new Error("post message did not start a turn");
+  }
+  state.workspaceBotId = bot.bot_id;
+  state.workspaceChannelId = channel.channel_id;
+  state.activeTurnId = posted.turn_id;
+  state.turnStatus = "active";
+  state.turnGrantFormVisible = isTurnGrantPanelVisible(posted.turn_id, "active");
+  state.turnGrantConfirmation = null;
+  state.turnGrantError = null;
+  state.turnGrantBlocked = false;
+  state.apiBase = apiBase;
+  state.idToken = idToken;
+  return saveState(renderFromMe(state));
+}
+
+function grantTableFromPayload(payload: Record<string, string>): Record<string, string> {
+  const table: Record<string, string> = {};
+  for (const field of [
+    "tools",
+    "origins",
+    "recipients",
+    "file_scopes",
+    "egress_classes",
+    "ingest_classes",
+  ]) {
+    if (payload[field] !== undefined) {
+      table[field] = payload[field];
+    }
+  }
+  return table;
+}
+
+async function submitTurnGrant(payload: Record<string, string>): Promise<HarnessState> {
+  const state = loadState();
+  const { apiBase, idToken, tenantId } = await resolveApiContext(state, payload);
+  const turnId = state.activeTurnId;
+  if (!turnId) {
+    throw new Error("active turn is required to replace a grant");
+  }
+  state.turnGrantConfirmation = null;
+  state.turnGrantError = null;
+  state.turnGrantBlocked = false;
+  const table = grantTableFromPayload(payload);
+  if (payload.run_terminal === "true") {
+    const tools = (table.tools ?? "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (!tools.includes("run_terminal")) {
+      tools.push("run_terminal");
+    }
+    table.tools = tools.join(", ");
+  }
+  state.lastGrantTable = table;
+  const grantPayload = grantTableToPayload(table);
+  if (grantPayload.tools.length === 0) {
+    state.turnGrantBlocked = true;
+    return saveState(renderFromMe(state));
+  }
+  const response = await fetch(
+    `${apiBase}${orgApiPath(tenantId, `/turns/${encodeURIComponent(turnId)}/grant`)}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(grantPayload),
+    },
+  );
+  if (!response.ok) {
+    let detail = await response.text();
+    try {
+      const parsed = JSON.parse(detail) as { detail?: string };
+      if (parsed.detail) {
+        detail = parsed.detail;
+      }
+    } catch {
+      // keep raw body
+    }
+    state.turnGrantError = detail;
+    return saveState(renderFromMe(state));
+  }
+  const replaced = (await response.json()) as { tools: string[] };
+  state.lastSubmittedTools = replaced.tools;
+  state.turnGrantConfirmation = turnGrantConfirmationText(replaced.tools);
+  state.apiBase = apiBase;
+  state.idToken = idToken;
+  return saveState(renderFromMe(state));
+}
+
+async function submitTurnGrantBeyondStanding(payload: Record<string, string>): Promise<HarnessState> {
+  return submitTurnGrant({
+    ...payload,
+    tools: "read_workspace, browse",
+    origins: "https://docs.example.com",
+    recipients: "",
+    file_scopes: "/workspace",
+    egress_classes: "approved_origin_fetch",
+  });
+}
+
+async function trySubmitEmptyTurnGrant(payload: Record<string, string>): Promise<HarnessState> {
+  const state = loadState();
+  state.turnGrantConfirmation = null;
+  state.turnGrantError = null;
+  state.turnGrantBlocked = false;
+  if (!state.activeTurnId) {
+    state.turnGrantBlocked = true;
+    return saveState(renderFromMe(state));
+  }
+  return submitTurnGrant({
+    ...payload,
+    tools: "",
+    origins: "",
+    recipients: "",
+    file_scopes: "",
+    egress_classes: "",
+  });
+}
+
+async function putTurnGrantHttp(payload: Record<string, string>): Promise<HarnessState> {
+  const state = loadState();
+  const { apiBase, idToken, tenantId } = await resolveApiContext(state, payload);
+  const turnId = state.activeTurnId;
+  if (!turnId) {
+    throw new Error("active turn is required");
+  }
+  const response = await fetch(
+    `${apiBase}${orgApiPath(tenantId, `/turns/${encodeURIComponent(turnId)}/grant`)}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tools: [],
+        origins: [],
+        recipients: [],
+        file_scopes: [],
+        egress_classes: [],
+        ingest_classes: [],
+      }),
+    },
+  );
+  state.turnGrantHttpStatus = response.status;
+  return saveState(state);
+}
+
 async function main(): Promise<void> {
   const [command, payloadJson] = process.argv.slice(2);
   const payload = JSON.parse(payloadJson ?? "{}") as Record<string, string>;
@@ -493,6 +782,21 @@ async function main(): Promise<void> {
       break;
     case "submit-create-bot":
       result = await submitCreateBot(payload);
+      break;
+    case "setup-active-turn":
+      result = await setupActiveTurn(payload);
+      break;
+    case "submit-turn-grant":
+      result = await submitTurnGrant(payload);
+      break;
+    case "submit-turn-grant-beyond-standing":
+      result = await submitTurnGrantBeyondStanding(payload);
+      break;
+    case "try-submit-empty-turn-grant":
+      result = await trySubmitEmptyTurnGrant(payload);
+      break;
+    case "put-turn-grant-http":
+      result = await putTurnGrantHttp(payload);
       break;
     default:
       throw new Error(`Unknown membership UI harness command: ${command}`);
