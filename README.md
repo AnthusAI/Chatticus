@@ -167,6 +167,11 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   Live on development: inspect 422 when ExternalId does not match; 403
   without a user token. Operator enable stays break-glass without AWS
   home.
+- **Enabled members create a named bot in the workspace** (#327,
+  `chatticus-7622fd`): `CreateBotPanel` → `POST /bots` → roster refresh.
+  Live on development: `LiveCreate` **200** and listed. Google SPA
+  sign-in still blocks automated UI; HTTP path is live. New bots still
+  get no task grant (`chatticus-5336ff`).
 
 ### Public sites
 
