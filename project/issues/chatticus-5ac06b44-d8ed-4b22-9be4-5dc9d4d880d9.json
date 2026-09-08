@@ -3,7 +3,7 @@
   "title": "Move agent file tools onto the computer-capable host",
   "description": "**Step 3 of the accepted `chatticus-fccc4e9a` host-disk plan.** Steps 1 (`chatticus-4ac60c71`) and 2 (`chatticus-47533582` / PR #321) are closed.\n\nMove agent file tools off the in-process `computer.workspace` dict and onto the summoned computer-capable host (a workspace executor beside `ChromiumActionExecutor`). One path: do not leave the dict readable beside host disk.\n\nGherkin, worker, Front Door HTTP. Host is `HttpWorkerPlane` only. File bytes live on `ComputerHostDisk`; ThinTurn recycle must not drop them from the agent-visible path.\n\n**Not this slice:** customer snapshot bucket / `customer-role.yml` (`chatticus-bb908488` is step 4). Gherkin may use `FilesystemSnapshotStore`. No `/workspace` EFS. No prompt tuning.\n\n## Done when\n\nAgent file read/write is specified in Gherkin against host disk (not the dict), green through the Front Door host path. `ControlPlane.read_workspace` / `write_workspace` are no longer the agent-visible workplace. No `customer-role.yml` edit.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -47,10 +47,17 @@
       "text": "Follow-up `b4f6336` on PR https://github.com/AnthusAI/Chatticus/pull/322: deny Gherkin proves no continuation; host re-gates file tools. Re-review + CI in flight. Do not merge until both are green.\n",
       "created_at": "2026-09-08T02:40:51.515507Z",
       "comment_type": "default"
+    },
+    {
+      "id": "906c1782-2acd-45ee-9b8e-97e944be60f4",
+      "author": "home",
+      "text": "**Closed.** Step 3 landed on `develop` as `6494526` / PR https://github.com/AnthusAI/Chatticus/pull/322.\n\nAgent `read_workspace` / `write_workspace` run on the summoned host (`ComputerHostDisk`). Computerless grant-checks before summon, escalates via `enqueue_computer_continuation`, waits on `workspace`. Host re-gates file paths before execute. Control-plane dict raises `WorkspaceHostOnlyError` for agent I/O (`seed_snapshot_workspace` remains protocol-only).\n\nWorktree `/tmp/chatticus-5ac06b-file-tools-host` to be removed by the implementer. Next is step 4: `chatticus-bb908488` (customer snapshot bucket in the published template).\n",
+      "created_at": "2026-09-08T02:56:08.175455Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T02:02:42.651003Z",
-  "updated_at": "2026-09-08T02:40:51.515507Z",
-  "closed_at": null,
+  "updated_at": "2026-09-08T02:56:08.203921Z",
+  "closed_at": "2026-09-08T02:56:08.203921Z",
   "custom": {}
 }
