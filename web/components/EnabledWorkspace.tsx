@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
 import type { WorkspaceMember, WorkspaceMessage } from "./workspace/types";
 import { AuthCard, authErrorClassName, authOkClassName } from "./AuthCard";
+import { CreateBotPanel } from "./CreateBotPanel";
 import { InviteMemberPanel } from "./InviteMemberPanel";
 import { TaskList } from "./TaskList";
 import { avatarActivityFromTurn, botAvatarStateFromActivity } from "../lib/avatar-state";
@@ -254,6 +255,8 @@ export function EnabledWorkspace({ activeOrg, organizations }: EnabledWorkspaceP
       </AuthCard>
 
       <InviteMemberPanel tenantId={activeOrg.tenantId} />
+
+      <CreateBotPanel activeOrg={activeOrg} onCreated={loadBots} />
 
       <WorkspacePanel
         orgLabel={`Organization: ${activeOrg.tenantId}`}
