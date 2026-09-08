@@ -19,6 +19,7 @@ from chatticus.computer_host_worker import shutdown_host_worker
 from chatticus.http.worker_plane_client import HttpWorkerPlane
 from chatticus.snapshot.host import ComputerHostDisk
 from chatticus.snapshot.store import FilesystemSnapshotStore
+from chatticus.snapshot.uri import snapshot_uri
 
 
 def _bind_snapshot_store(context: object) -> None:
@@ -80,10 +81,16 @@ def given_worker_published_computer(
         computer_id=computer_id,
         worker_id=worker_id,
     )
+    uri = snapshot_uri(
+        "anthus",
+        computer_id,
+        bucket=context.snapshot_store.bucket,
+    )
     context.plane.record_host_snapshot_published(
         computer_id,
         worker_id,
         manifest.checksum,
+        uri,
     )
 
 
