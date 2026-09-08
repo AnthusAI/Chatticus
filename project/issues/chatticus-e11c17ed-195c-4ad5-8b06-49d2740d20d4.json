@@ -68,13 +68,20 @@
       "text": "Live acceptance agent produced no work for ~1h (transcript never left the prompt). Interrupted. `8fbe6d5` ThinTurn development deploy **succeeded**. Follow-up pm deploy `0a34266` failed `UPDATE_IN_PROGRESS` (raced #329) — operator-only, not a product defect. Restarting the live run against the `8fbe6d5` stack.\n",
       "created_at": "2026-09-08T15:19:48.221518Z",
       "comment_type": "default"
+    },
+    {
+      "id": "517fd5fb-19b0-489a-a313-0c982e656b6a",
+      "author": "home",
+      "text": "Live DoD **stopped**, not retried.\n\nThe stall is not “the agent forgot to start.” After interrupt it ran a kernel widened-grant handoff (`set_turn_capability_grant` + `prepare_computer_tool(run_terminal)` + `enqueue_computer_continuation`) and then **polled for `run_terminal:exit=` until TimeoutError**. ComputerWorker logs already had `no ready computer host for run_terminal`. A later Dynamo read showed `workspace_ready=True`; a warm retry still produced no `tool.result`. Image push + write_workspace warmup were attempted. None of that yields journal output.\n\n**Do not poll again.** This is the same class as `HOST_IMAGE_STALE_CHROMIUM_EXECUTOR_ONLY` / host not executing a newly shipped tool: ThinTurn `8fbe6d5` has `run_terminal`; the summoned host has not committed it.\n\nDefault-grant claim is still unrun as a clean separate turn; the conversation preset was observed on human-start (`read_workspace` only) before they replaced it.\n\nAlso: every `pm:` push to `develop` retriggers ThinTurn deploy and can `UPDATE_IN_PROGRESS`-race the product deploy. That is a second stall, operator-only.\n",
+      "created_at": "2026-09-08T15:35:25.032903Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.970882Z",
-  "updated_at": "2026-09-08T15:19:48.221561Z",
+  "updated_at": "2026-09-08T15:35:25.032952Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "Mock right-now summary for chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4.",
+  "right_now_updated_at": "2026-09-08T15:29:01.793697Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
