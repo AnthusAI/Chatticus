@@ -1,7 +1,7 @@
 {
   "id": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
   "title": "Spend visibility and ceilings on the customer's bill",
-  "description": "**Phase 4 of 5.** Blocked by paid enablement and by cross-account provisioning.\n\nBring-your-own-AWS did not remove the runaway-cost risk. It moved it somewhere worse.\n\nThe old version of this risk was margin: a heavy organization cost Anthus more than it paid. The new version is a customer discovering an unexpected four-figure AWS line item with our name attached to it. That is a churn event, a refund conversation, and a bad reference, and it lands on the person who trusted us enough to grant a role in their production account.\n\nThe machinery already exists \u2014 authorization_ceiling.py, budget_alerts.py, budget_rollup/, cost_explorer.py. This epic points it at a per-organization cap the customer sets during provisioning, and surfaces the number in the product where they can see it.\n\n**Reframe it while building it.** Cost visibility and a hard ceiling on a beta agent that runs a Linux computer is not a safety feature bolted on afterwards. It is a reason to buy, and it belongs on the pitch page.\n\nOne design constraint: crossing the ceiling stops new computer work, not the whole organization. A member who cannot read their own channels because a budget tripped will assume the product broke.\n\n**Start with:** the ceiling on the record. Alerting and display are views over it.",
+  "description": "**Phase 4 of 5.** Blocked by paid enablement and by cross-account provisioning.\n\nBring-your-own-AWS did not remove the runaway-cost risk. It moved it somewhere worse.\n\nThe old version of this risk was margin: a heavy organization cost Anthus more than it paid. The new version is a customer discovering an unexpected four-figure AWS line item with our name attached to it. That is a churn event, a refund conversation, and a bad reference, and it lands on the person who trusted us enough to grant a role in their production account.\n\nThe machinery already exists — authorization_ceiling.py, budget_alerts.py, budget_rollup/, cost_explorer.py. This epic points it at a per-organization cap the customer sets during provisioning, and surfaces the number in the product where they can see it.\n\n**Reframe it while building it.** Cost visibility and a hard ceiling on a beta agent that runs a Linux computer is not a safety feature bolted on afterwards. It is a reason to buy, and it belongs on the pitch page.\n\nOne design constraint: crossing the ceiling stops new computer work, not the whole organization. A member who cannot read their own channels because a budget tripped will assume the product broke.\n\n**Start with:** the ceiling on the record. Alerting and display are views over it.",
   "type": "epic",
   "status": "open",
   "priority": 1,
@@ -12,12 +12,19 @@
     "phase-4"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "99880313-8e8d-4f5c-a91b-7d2768ba9ff0",
+      "author": "home",
+      "text": "## Priority argument: this epic's stories should be P0 now (2026-09-08)\n\nNot filing new work — arguing that the work already here is mispriced against the risk it carries. Raised for a deliberate call rather than letting it drift.\n\n`chatticus-43e64c` (ceiling set at provisioning), `chatticus-6a9e97` (crossing the ceiling stops new computer work), and `chatticus-39d8f5` (alerts) are **P1**. Meanwhile `chatticus-2e3e94` (budget tracking that ships with every deployment) is **P0**.\n\n## What changed today\n\nUntil this week, every organization was provisioned by an operator at a CLI. That was an accidental throttle: nobody got compute in their own AWS account without a human in the loop.\n\n`chatticus-9c8dbf`, `chatticus-070cb4` and `chatticus-7622fd` closed today. **Self-setup is the product now.** A customer can provision themselves, and agents run compute in an account the customer pays for.\n\n## Why that changes the priority rather than just the plan\n\nThis is the only item on the board where **being wrong costs someone other than us**. A missing capability produces a bot that says it cannot do something — annoying, visible, recoverable. An unenforced ceiling produces an AWS invoice the customer did not expect, in their own account, from software we told them was safe to install with a scoped role.\n\nIt also does not announce itself. Every other gap this week was found by running the system. This one is found by a customer reading their bill.\n\nAnd the exposure grew in the same week the ceiling stayed still: `run_terminal` is now grantable, and `chatticus-598be4` proved cross-account `RunTask` works. The product can start compute on someone else's bill, deliberately and by design. The brake for that is in this epic and is not built.\n\n## The narrow ask\n\nNot \"build all of it now.\" Specifically `chatticus-6a9e97` — **crossing the ceiling stops new computer work** — is the one that converts an unbounded bill into a bounded one. `chatticus-43e64c` (a ceiling exists at provisioning) is its prerequisite. Alerts and in-workspace visibility can stay P1.\n\n**Decide this before the first paying customer, not after.** The pitch page argues that Chatticus tells you every cost up front; shipping self-serve provisioning without an enforced ceiling contradicts that argument in the one place it is expensive to be wrong.",
+      "created_at": "2026-09-08T18:31:15.702195Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-03T13:15:40.991276Z",
-  "updated_at": "2026-09-03T13:15:40.991518Z",
+  "updated_at": "2026-09-08T18:31:15.702243Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
-  "custom": {},
-  "agent": null
+  "custom": {}
 }
