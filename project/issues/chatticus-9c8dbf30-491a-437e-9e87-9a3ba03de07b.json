@@ -3,7 +3,7 @@
   "title": "A pending member sees their organizations and tenant ids",
   "description": "## Found on `chatticus-b88c0a`\n\nAfter `POST /organizations` the signed-in owner lands on the welcome screen that only says the organization is pending enablement. It does not list organizations, names, or `tenant_id`. The owner cannot copy `OrganizationId` for the published CloudFormation template, and cannot tell whether create succeeded.\n\n`GET /me` already returns `organizations[].tenant_id` and `status`, but not `name`. The welcome view (`web/lib/membership-view.ts`) never renders that list.\n\n## Done when\n\nA pending (and enabled) member sees each of their organizations by **name**, **status**, and **tenant_id** without the members CLI. Behavior in Gherkin first.",
   "type": "story",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -19,10 +19,17 @@
       "text": "Opened from the b88c0a hand run. Welcome copy hid the only values the customer needs for CloudFormation.",
       "created_at": "2026-09-07T15:40:46.215030Z",
       "comment_type": "default"
+    },
+    {
+      "id": "331d9a34-94b9-45dc-b3da-e92b86e4b6ea",
+      "author": "home",
+      "text": "Next after host-disk live PASS. Composer 2.5 planning. Worktree to be named `/tmp/chatticus-9c8dbf-org-list` on `feat/9c8dbf-pending-member-sees-orgs`. Implementation not authorized until the plan is reviewed. Gherkin first: pending and enabled members see name, status, and `tenant_id` without the members CLI. `GET /me` already returns `organizations[].tenant_id` and `status`; it does not return `name`; the welcome view never renders the list.\n",
+      "created_at": "2026-09-08T10:18:17.600413Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T15:40:31.398361Z",
-  "updated_at": "2026-09-07T15:40:46.215030Z",
+  "updated_at": "2026-09-08T10:18:17.600413Z",
   "closed_at": null,
   "custom": {}
 }
