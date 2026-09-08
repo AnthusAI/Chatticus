@@ -124,11 +124,20 @@
       "text": "Self-setup `chatticus-7622fd` closed (#327). Live `POST /bots` 200 for `LiveCreate`. Remaining P0 on this epic: `chatticus-5336ff` (create_bot issues no grant).\n",
       "created_at": "2026-09-08T12:08:27.780416Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f5638b31-66a7-4b45-8b39-a2f20ffc2259",
+      "author": "home",
+      "text": "Shape 1 customer grant path is on `develop`: preset `write_workspace` (#330), user HTTP replace (#331), workspace Authorize-this-turn (#333), per-task `run_terminal` via replace Gherkin (#335). Conversation preset still has no `run_terminal`.\n\nRemaining on this epic that is not buildable in this loop:\n- `e11c17` — product shipped; live DoD is one host journal (`HOST_NOT_RUNNING`). Do not poll a stopped host.\n- `f90c39` — needs a real customer provisioning session (human).\n",
+      "created_at": "2026-09-08T18:23:33.529917Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-08T12:08:27.780416Z",
+  "updated_at": "2026-09-08T18:23:33.529971Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
