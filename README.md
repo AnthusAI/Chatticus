@@ -177,6 +177,12 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   message to Ping HTTP 200; Dynamo turn grant matched the preset.
   `POST /bots` still attaches nothing until that first human message. No
   browse, send, purchase, or `run_terminal` in the preset.
+- **Enabled members replace an active turn grant over HTTP** (#331,
+  `chatticus-be3997`): `PUT /orgs/{tenant}/turns/{id}/grant` on the
+  user route. Live on development: member PUT replaced a Ping turn grant
+  with `browse` + origin only (no union with the conversation preset).
+  Unauthenticated and worker bearer PUT 403. No web UI in this bullet
+  (`chatticus-753bd8` is the UI card).
 
 ### Public sites
 
