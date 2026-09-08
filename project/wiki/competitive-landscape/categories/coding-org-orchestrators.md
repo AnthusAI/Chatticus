@@ -16,6 +16,8 @@ High overlap on specialized desks + work graph metaphor; low–medium on product
 | [Beads](../products/beads.md) | Dolt-backed / git-ledger issue graph | Med (substrate) |
 | [Factory 2.0](../products/factory-20.md) | Missions / orchestrator + workers | High (metaphor) |
 | [Cursor Cloud Agents](../products/cursor-cloud-agents.md) | Ephemeral coding task VMs | Med |
+| [OpenAI Codex](../products/openai-codex.md) | Cloud containers + local sandbox + open harness | Med |
+| [Claude Code](../products/claude-code.md) | Coding agent; phone Firecracker durable disk | Med |
 | [Devin](../products/devin.md) | Org-delegated coding agents | Med |
 
 See also Fowler accidental blackboard / Talwrn notes on [Coordination substrates](coordination-substrates.md).

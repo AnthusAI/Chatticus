@@ -30,6 +30,10 @@ Computer use beta. Confidence: Med.
 
 ## Related wiki pages
 
+- [Claude Code](claude-code.md) — coding / phone Firecracker; **do not merge**
+
+- [Cage and lasting memory](../cage-and-lasting-memory.md)
+
 - [Manus](manus.md)
 - [OpenAI Operator](openai-operator.md)
 - [Microsoft Scout](microsoft-scout.md)
