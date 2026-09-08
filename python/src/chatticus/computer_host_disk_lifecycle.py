@@ -10,6 +10,7 @@ from chatticus.snapshot.host import ComputerHostDisk
 from chatticus.snapshot.pack import pack_checksum, pack_live_disk
 from chatticus.snapshot.s3 import is_no_such_bucket_error
 from chatticus.snapshot.store import SnapshotObjectStore
+from chatticus.snapshot.uri import snapshot_uri
 from chatticus.worker.computer_worker_plane import ComputerWorkerPlane
 
 logger = logging.getLogger("chatticus.computer_host_disk_lifecycle")
@@ -105,5 +106,15 @@ def publish_before_exit(
             )
             return False
         raise
-    plane.publish_computer_snapshot(tenant_id, worker_id, manifest.checksum)
+    uri = snapshot_uri(
+        tenant_id=tenant_id,
+        computer_id=computer.computer_id,
+        bucket=resolved_store.bucket,
+    )
+    plane.publish_computer_snapshot(
+        tenant_id,
+        worker_id,
+        manifest.checksum,
+        snapshot_uri=uri,
+    )
     return True
