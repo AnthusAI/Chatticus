@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-863f27b6-7941-4171-94f5-90886e67ae74",
+  "title": "Agent file survives a host recycle on customer disk",
+  "description": "**Step 5 of the accepted `chatticus-fccc4e9a` host-disk plan.** Steps 1–4 are closed (`4ac60c71`, `47533582`, `5ac06b`, `bb908488` / PR #323).\n\nProve the agent-visible path: a bot writes a workspace file on the summoned host; the host publishes; a later host hydrates; the bot can read the same bytes. Packs rest in the **customer** snapshot bucket (`chatticus-snapshots-{OrganizationId}`), not an Anthus dict.\n\nIn-process Gherkin already covers filesystem-store recycle. This card is the **agent-observable** close: Gherkin (and lab acceptance after the throwaway account re-runs the published template so the bucket exists).\n\n**Lab:** customer-run UpdateStack of `customer-role.yml` creates the bucket; then UpdateStack `ChatticusComputers` with `SnapshotBucketName`. Use the lab IAM user, not management root. Do not `cdk deploy --all`. Do not put `CreateBucket` on the Anthus role.\n\n## Done when\n\nA Gherkin scenario shows an agent file surviving host recycle via host disk + snapshot store (not `plane.read_workspace`). Lab throwaway has the customer bucket and one labeled kernel/live row is not required to merge Gherkin, but the card is not fully done until the operator path (UpdateStack) is recorded. No `customer-role.yml` policy expansion beyond step 4.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "a285dafe-ba7b-4bed-ba19-59bb844f30b3",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree to be named `/tmp/chatticus-863f27-file-recycle` on `feat/863f27-file-survives-host-recycle`. Implementation not authorized until the plan is reviewed. Prefer extending existing host-disk Gherkin over a duplicate recycle story. Lab UpdateStack of the customer template is operator/acceptance, not a silent `customer-role.yml` policy change.\n",
+      "created_at": "2026-09-08T03:35:13.774200Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-08T03:35:00.504757Z",
+  "updated_at": "2026-09-08T03:35:13.774200Z",
+  "closed_at": null,
+  "custom": {}
+}

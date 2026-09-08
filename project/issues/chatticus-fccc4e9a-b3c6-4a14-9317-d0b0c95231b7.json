@@ -73,10 +73,17 @@
       "text": "Step 3 closed: `chatticus-5ac06b` / PR #322 / `6494526` on `develop`. Agent file tools are on the host. Next is step 4 — `chatticus-bb908488` (customer snapshot bucket + role `s3:Get`/`s3:Put` on that named bucket; `CreateBucket` stays off the Anthus role). Step 5 remains agent-observable “file survives host recycle” after the bucket exists.\n",
       "created_at": "2026-09-08T02:56:08.216648Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f7d888db-4349-45f7-ad5d-46662df9940d",
+      "author": "home",
+      "text": "Step 4 closed: `chatticus-bb908488` / PR #323 / `342ed04` on `develop`. Next is step 5 — agent-observable file survives a host recycle, including lab UpdateStack of the customer template so the throwaway account actually has the bucket.\n",
+      "created_at": "2026-09-08T03:35:00.418312Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.946029Z",
-  "updated_at": "2026-09-08T02:56:08.216648Z",
+  "updated_at": "2026-09-08T03:35:00.418312Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
