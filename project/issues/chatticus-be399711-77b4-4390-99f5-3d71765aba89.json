@@ -3,7 +3,7 @@
   "title": "Enabled member replaces an active turn grant over HTTP",
   "description": "**Phase 1.** Parent epic `chatticus-598be4`. Child of the `chatticus-9a07e7` decision: Shape 1, per-task human grant.\n\n## What to ship\n\nAn **enabled member** (Cognito user principal) can attach a closed `TaskCapabilityGrant` to an **active turn**. Clip to that member's ceiling. Worker `PUT /turns/{id}/grant` stays worker-only.\n\n**One path: replace, not merge.** The body is a full closed grant (same as `Given a human task grants:`). It replaces `household_conversation_grant()` for that turn. Do not union tools with the conversation preset.\n\n## Constraints\n\n- Gherkin first (`turn_grant_widening.feature` or equivalent).\n- New route on **`user_router`**, not `worker_router`.\n- Deny when the grant exceeds member ceiling.\n- Do not put `run_terminal` in the conversation preset.\n- No web UI in this slice (`chatticus-753bd8`).\n\n## Gherkin\n\n```gherkin\nFeature: Enabled member replaces an active turn grant\n  As an enabled organization member\n  I want to replace the active turn's closed grant\n  So the bot may use tools I explicitly authorize for this task only\n\n  Scenario: An enabled member replaces the conversation grant on an active turn\n    Given tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n    And user \"ryan\" of tenant \"anthus\" has started a turn with the household conversation grant\n    When user \"ryan\" of tenant \"anthus\" replaces the active turn grant with:\n      | field          | value                  |\n      | tools          | read_workspace, browse |\n      | origins        | https://docs.example.com |\n      | recipients     |                        |\n      | file_scopes    | /workspace             |\n      | egress_classes | approved_origin_fetch  |\n    Then the active turn grant is exactly that table\n\n  Scenario: A grant that exceeds the member ceiling is refused\n    Given tenant \"anthus\" user \"ryan\" is enabled with a limited ceiling\n    When user \"ryan\" of tenant \"anthus\" replaces the active turn grant with tools beyond that ceiling\n    Then the request is refused\n    And the active turn still carries the household conversation grant\n\n  Scenario: Worker PUT grant remains worker-only\n    When an unauthenticated caller PUTs a turn grant on the user route\n    Then the request is refused\n```\n\n## Done when\n\nAn authenticated org member can replace the turn grant over HTTP; an unauthenticated caller cannot; a grant that exceeds ceiling is refused; worker PUT remains worker-only.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -47,11 +47,25 @@
       "text": "Merged #331 to `develop` (`0e0bd04`). CI python green without stall. Live DoD still open: user PUT replaces Dynamo grant; unauthenticated and worker bearer 403; `purchase` as member refused. Worktree stays until that check and close.\n",
       "created_at": "2026-09-08T16:43:47.439489Z",
       "comment_type": "default"
+    },
+    {
+      "id": "48f9ae84-f3c7-4061-ac86-95756592cc77",
+      "author": "home",
+      "text": "Live **PASS** on development after [#331](https://github.com/AnthusAI/Chatticus/pull/331) (`0e0bd04`). `deploy-thinturn-development` run 34252809218 **success**.\n\nHuman message to **Ping** HTTP **200**; turn `944fe5b3-598b-40d0-9cdc-c53e938cded2`. Preset grant before replace: `read_workspace`, `write_workspace`. Member PUT replace HTTP **200**; Dynamo `sk=grant` exactly `browse` + `https://docs.example.com` + `/workspace/docs` + `approved_origin_fetch` (no `write_workspace`/`read_workspace`). Unauthenticated PUT **403**, grant unchanged. Worker bearer PUT **403**, grant unchanged. Labeled deviation: Google SPA blocked; temporary Cognito `ALLOW_ADMIN_USER_PASSWORD_AUTH` + HTTP (reverted; no `ADMIN_NO_SRP_AUTH`).\n",
+      "created_at": "2026-09-08T16:46:11.179956Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "c7081b4a-642d-4213-b990-3f81df65b21c",
+      "author": "home",
+      "text": "Live PASS on development. ThinTurn `0e0bd04` / #331. Member PUT replaced Ping turn grant with `browse` + origin only (no preset union). Unauthenticated and worker bearer PUT 403; grant unchanged. Closing. Implementer should remove `/tmp/chatticus-be3997-turn-grant-http`.\n",
+      "created_at": "2026-09-08T16:46:55.931642Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T15:41:24.244783Z",
-  "updated_at": "2026-09-08T16:43:47.439533Z",
-  "closed_at": null,
+  "updated_at": "2026-09-08T16:46:56.064415Z",
+  "closed_at": "2026-09-08T16:46:56.064386Z",
   "right_now_summary": "The team is planning the user-route grant replacement; implementation awaits authorization.",
   "right_now_updated_at": "2026-09-08T16:23:15.802535Z",
   "custom": {}
