@@ -40,10 +40,17 @@
       "text": "Continued run: still GATE_HUMAN_GOOGLE_SIGNIN. Human signed in in their browser; Cursor IDE browser at dev.chattic.us/chat has no session (separate cookie jar). Agent cannot drive product steps without IDE-browser sign-in or human clicking through in their tab. T0 not started. Person-steps 1/6 (expected gate only); 0 operator kernel vs b88c0a 4/6. ThinTurn+Web UPDATE_COMPLETE. Clock A from prior session unchanged. Next: sign in inside Cursor browser OR human completes steps 1-6 in their signed-in tab and reports stop label.",
       "created_at": "2026-09-08T19:33:19.135749Z",
       "comment_type": "default"
+    },
+    {
+      "id": "e48d157c-6a82-4ce3-87da-d57bc4ee9d5c",
+      "author": "home",
+      "text": "Third attempt: Cursor IDE browser at dev.chattic.us/chat still unsigned (Sign in with Google). Human desktop sign-in does not share cookies with embedded browser. Stop GATE_HUMAN_GOOGLE_SIGNIN. Required: sign in inside Cursor IDE browser panel specifically, not desktop Chrome. T0 not started. Person-steps 1/6 expected gate only; 0 operator kernel vs b88c0a 4/6. ThinTurn+Web UPDATE_COMPLETE. Clock A from prior session unchanged.",
+      "created_at": "2026-09-08T19:38:35.529938Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T18:30:57.683865Z",
-  "updated_at": "2026-09-08T19:33:19.135773Z",
+  "updated_at": "2026-09-08T19:38:35.529967Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
