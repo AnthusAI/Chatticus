@@ -75,10 +75,17 @@
       "text": "Implementation on PR https://github.com/AnthusAI/Chatticus/pull/323 (`feat/bb9084-customer-snapshot-bucket`). Composer 2.5 review + template inversion in flight. Do not merge until review and CI are green. Worktree stays at `/tmp/chatticus-bb9084-snapshot-bucket`.\n",
       "created_at": "2026-09-08T03:19:14.588730Z",
       "comment_type": "default"
+    },
+    {
+      "id": "deb0602c-9239-4255-bde8-0f7a985f7332",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/323 **request changes**. Do not merge.\n\n1. **S3 names must be lowercase.** `customer_snapshot_bucket_name()` and `customer-role.yml` `OrganizationId` must not accept uppercase. Lowercase in the helper; constrain the template parameter (`AllowedPattern`). Fix tests/Gherkin that treat `ORGANIZATION_ID` as a valid bucket segment.\n2. **Drop the pytest that duplicates Gherkin** `test_hydrate_on_boot_skips_missing_bucket`. Ghost-bucket skip is already `features/customer_snapshot_bucket.feature`. Keep a pure helper test for `is_no_such_bucket_error` if needed.\n",
+      "created_at": "2026-09-08T03:21:27.857192Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T20:09:48.784194Z",
-  "updated_at": "2026-09-08T03:19:14.588730Z",
+  "updated_at": "2026-09-08T03:21:27.857192Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
