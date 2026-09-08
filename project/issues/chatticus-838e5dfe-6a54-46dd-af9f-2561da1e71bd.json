@@ -35,10 +35,17 @@
       "text": "Plan approved. Authorizing Composer 2.5: create /tmp/chatticus-838e5d-cognito-logout on feat/838e5d-cognito-logout from origin/develop. Gherkin first; signOut extraQueryParams client_id + logout_uri; no global identity_provider. Keep 349634 chooser. Do not merge until review + green CI + live Sign Out on development.\n",
       "created_at": "2026-09-08T23:15:40.545882Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f37fbd91-2850-4b81-a237-5567d88cf775",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/343 opened. Composer 2.5 reviewing. Merge after review + green CI, then watch Deploy Web — live Sign Out is the DoD.\n",
+      "created_at": "2026-09-08T23:17:13.947343Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T23:14:20.384423Z",
-  "updated_at": "2026-09-08T23:15:40.545976Z",
+  "updated_at": "2026-09-08T23:17:13.947371Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
