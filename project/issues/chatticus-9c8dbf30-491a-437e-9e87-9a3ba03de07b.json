@@ -26,10 +26,17 @@
       "text": "Next after host-disk live PASS. Composer 2.5 planning. Worktree to be named `/tmp/chatticus-9c8dbf-org-list` on `feat/9c8dbf-pending-member-sees-orgs`. Implementation not authorized until the plan is reviewed. Gherkin first: pending and enabled members see name, status, and `tenant_id` without the members CLI. `GET /me` already returns `organizations[].tenant_id` and `status`; it does not return `name`; the welcome view never renders the list.\n",
       "created_at": "2026-09-08T10:18:17.600413Z",
       "comment_type": "default"
+    },
+    {
+      "id": "52ecf441-8c1d-456d-9451-e2679bcdf420",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with holes closed.\n\nWorktree verified: `/tmp/chatticus-9c8dbf-org-list` on `feat/9c8dbf-pending-member-sees-orgs` (HEAD `1f0354e`, not the primary clone).\n\n**Closed on authorize:**\n1. Keep existing welcome title/copy. Render name, status, and `tenant_id` as **org rows beside that copy**, not by stuffing them into `WELCOME_SCREEN_LINES` / `welcomeScreenText`. Existing “shows the welcome screen” assertions must stay true.\n2. Enabled surface lives in `features/invite_organization.feature` (already has the enabled-workspace scenario). Do **not** add a new `web_organization_membership.feature`.\n3. `GET /me` `name` is `organization.name` from the store. No `tenant_id`-as-name fallback.\n4. Do not mix `070cb4` or `7622fd` into this PR.\n\nTear the worktree down only after the manager closes the issue.\n",
+      "created_at": "2026-09-08T10:20:27.455509Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T15:40:31.398361Z",
-  "updated_at": "2026-09-08T10:18:17.600413Z",
+  "updated_at": "2026-09-08T10:20:27.455509Z",
   "closed_at": null,
   "custom": {}
 }
