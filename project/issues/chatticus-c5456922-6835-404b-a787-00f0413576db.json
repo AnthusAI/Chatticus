@@ -26,10 +26,17 @@
       "text": "Plan authorized with amendments. Create `/tmp/chatticus-c54569-unattended` (throwaway, not a git worktree). Human Google is person-step 1, not a product defect. Do not reuse customer account `114469424841`. Do not retarget the ACME RoleArn. Wait until ThinTurn development is not `UPDATE_IN_PROGRESS` before T0. If Google sign-in is required, ask the human in this session — do not enable `ADMIN_NO_SRP_AUTH` and do not sit on OAuth. Stop at the first labeled failure. Do not close this card; wiki second entry is a later `pm:` on `develop`.\n",
       "created_at": "2026-09-08T18:52:05.338289Z",
       "comment_type": "default"
+    },
+    {
+      "id": "59758f63-4128-42e0-9248-e13b5ff10ba3",
+      "author": "home",
+      "text": "Run stopped at GATE_HUMAN_GOOGLE_SIGNIN before T0 (no product HTTP yet). Preflight OK: ThinTurn UPDATE_COMPLETE, template 7557 bytes. Clock A: new CreateAccount member in AGENTS.local.md (~6s aws-wait); lab assume-role OK after IAM policy extended for new member (lab-only, not in six). Person-steps 1/6 so far — expected human Google gate only; 0 operator kernel. T0→T_end not started. Scorecard and run-report in /tmp/chatticus-c54569-unattended/. Human: sign in at dev.chattic.us then re-dispatch to continue steps 1–6.",
+      "created_at": "2026-09-08T18:54:07.956009Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T18:30:57.683865Z",
-  "updated_at": "2026-09-08T18:52:05.338310Z",
+  "updated_at": "2026-09-08T18:54:07.956031Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
