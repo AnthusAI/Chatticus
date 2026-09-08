@@ -26,10 +26,17 @@
       "text": "Plan reviewed. Not authorized yet.\n\nBlocking: do not treat a missing per-member `task_grant` standing row as unlimited. Reuse `MemberStanding` / role ceiling so `purchase` and `production_change` cannot be granted by a `member`. A grant-table factory into `MemberAuthorityCeiling` is fine; a second ceiling product is not.\n\nHTTP grant replace is Gherkin only — delete `test_http_grant_persists_without_workspace_execute_route` rather than re-auth it in pytest. Move `capability_sink_wiring.feature` missing-turn grant to the user route. Retire unused `WorkerPlaneClient.put_grant` worker auth with the worker PUT.\n",
       "created_at": "2026-09-08T16:25:03.445582Z",
       "comment_type": "default"
+    },
+    {
+      "id": "b8362a53-a5ec-4290-9a9f-5fb9557848a9",
+      "author": "home",
+      "text": "Revised plan authorized. User-router replace; role ceiling plus recorded standing; no pytest HTTP duplicate; retire worker PUT and `put_grant`. Implement in `/tmp/chatticus-be3997-turn-grant-http` after `git fetch` / merge `origin/develop` (one `pm:` commit behind). MEMBER scenario must record `MemberRole.MEMBER` before `has a bot` (that helper defaults missing membership to OWNER).\n",
+      "created_at": "2026-09-08T16:26:44.347107Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T15:41:24.244783Z",
-  "updated_at": "2026-09-08T16:25:03.445809Z",
+  "updated_at": "2026-09-08T16:26:44.347146Z",
   "closed_at": null,
   "right_now_summary": "The team is planning the user-route grant replacement; implementation awaits authorization.",
   "right_now_updated_at": "2026-09-08T16:23:15.802535Z",
