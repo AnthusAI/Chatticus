@@ -158,6 +158,10 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   that an agent file survives relocate
   (`computer_host_workspace_recycle.feature`). Live throwaway proof is
   under **Live on development** above. Do not `cdk deploy --all`.
+- **Pending and enabled members see org name, status, and tenant_id**
+  (#325, `chatticus-9c8dbf`): `GET /me` includes `name`; welcome and
+  workspace list CloudFormation `OrganizationId` without the members CLI.
+  Live on development after the web deploy from this merge.
 
 ### Public sites
 

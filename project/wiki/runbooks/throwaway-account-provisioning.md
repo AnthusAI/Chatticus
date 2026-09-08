@@ -21,7 +21,7 @@ Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` 
 ## Person-steps (needed a human)
 
 1. **Google sign-in** at `dev.chattic.us` and **create organization** (`POST /organizations`). Operator CLI must not `members seed` the throwaway org (seed writes `aws_account_id` from the STS caller).
-2. **Copy `ORGANIZATION_ID` (`tenant_id`)** for CloudFormation `OrganizationId`. The pending welcome screen did not show name or id (`chatticus-9c8dbf`). This run used `members list --status pending`.
+2. **Copy `ORGANIZATION_ID` (`tenant_id`)** for CloudFormation `OrganizationId`. The 2026-09-07 run used `members list --status pending`. **Fixed on `develop`** (`chatticus-9c8dbf` / #325): welcome and enabled workspace show name, status, and tenant_id from `GET /me`.
 3. **GET the published YAML** and `create-stack` in the **customer** account with `AnthusAccountId=ANTHUS_ACCOUNT_ID`, `OrganizationId=ORGANIZATION_ID`, `--capabilities CAPABILITY_NAMED_IAM`.
 4. **Submit account id + RoleArn** to the control plane. There is **no customer HTTP** for `submit_self_setup_cross_account_role`. This run used a labeled operator kernel call (not seed). Kernel submit **enables** the org and writes AWS home.
 5. **Create a bot.** Enabled workspace lists bots but has **no create-bot control**. This run used kernel `create_bot` → **Ping** (also `ensure_computer` Dynamo row).
@@ -35,7 +35,7 @@ Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` 
 
 ## Instruction defects (product)
 
-- Welcome / holding page: no org name, status, or `tenant_id` (`chatticus-9c8dbf`).
+- Welcome / holding page: no org name, status, or `tenant_id` — **fixed on `develop`** (`chatticus-9c8dbf` / #325).
 - No HTTP to submit RoleArn after CFN; no live `CrossAccountRoleInspector` (Gherkin in-memory only).
 - No create-bot UI in the enabled workspace (`POST /bots` exists; UI never calls it).
 - `infra/README.md` `create-stack` example omitted `--parameters` and `CAPABILITY_NAMED_IAM`.
