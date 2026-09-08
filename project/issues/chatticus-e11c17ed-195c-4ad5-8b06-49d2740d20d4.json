@@ -26,10 +26,17 @@
       "text": "Composer 2.5 planning only. Worktree to be named `/tmp/chatticus-e11c17-terminal` on branch `feat/e11c17-agent-terminal` from `origin/develop`. Implementation not authorized until the plan names the tool, the grant, the host executor, the readiness gate, and how it stays one path with host-disk workspace (`chatticus-fccc4e9a` closed — dict vs disk is decided). Not ECS Exec. Not prompt-tuning. Do not live-run a customer computer to rediscover the gap.\n",
       "created_at": "2026-09-08T13:41:53.689082Z",
       "comment_type": "default"
+    },
+    {
+      "id": "c0701b79-4c8a-4dca-b07c-d596300d43b9",
+      "author": "home",
+      "text": "Plan reviewed, **not authorized**. Accepted: `run_terminal`, explicit grant (conversation preset stays closed), `TerminalActionExecutor` on the host, host-disk jail, computerless escalate then re-gate.\n\n**Blocking:** no `TERMINAL_CAPABILITY` / `terminal_ready`. Workspace hydrate is the gate (`capability_for_computer_tool` already maps non-browser tools there). A second flag that clears at the same time is dual-path. Gherkin waits on **workspace**, not a new terminal gate. `_ALLOWED_GATES` stays workspace|browser.\n\nWorktree exists at `/tmp/chatticus-e11c17-terminal` (behind one pm commit on `develop` — rebase on authorize).\n",
+      "created_at": "2026-09-08T13:45:17.139908Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.970882Z",
-  "updated_at": "2026-09-08T13:41:53.689082Z",
+  "updated_at": "2026-09-08T13:45:17.139908Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
