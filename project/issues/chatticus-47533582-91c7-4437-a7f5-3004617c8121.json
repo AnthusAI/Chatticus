@@ -33,10 +33,17 @@
       "text": "Implementation on PR https://github.com/AnthusAI/Chatticus/pull/321 (`feat/475335-host-disk-hydrate-publish`). Composer 2.5 review + skip-path acceptance in flight. Do not merge until review and CI are green. Worktree stays at `/tmp/chatticus-475335-host-disk`.\n",
       "created_at": "2026-09-08T01:42:14.359433Z",
       "comment_type": "default"
+    },
+    {
+      "id": "b4007078-8200-4e62-83b3-25d1da9e87c0",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/321 **request changes**. Do not merge.\n\nComposer 2.5 review found two blockers:\n\n1. **Auth:** `POST /host-worker/computers/snapshot/hydrated` and `…/publish` never call `_assert_worker_id_matches`. A co-hosted worker can publish as another host.\n2. **False-green publish:** Gherkin marks `disk_dirty` by writing the messaging store in the step. Production host writes never set that flag, so `publish_before_exit` is a no-op for real disk mutations.\n\nSkip-when-unset is in-process PASS; live development acceptance is **blocked** until this lands and deploys (expected). Worktree stays `/tmp/chatticus-475335-host-disk`.\n",
+      "created_at": "2026-09-08T01:44:14.472337Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T00:37:32.534651Z",
-  "updated_at": "2026-09-08T01:42:14.359433Z",
+  "updated_at": "2026-09-08T01:44:14.472337Z",
   "closed_at": null,
   "custom": {}
 }
