@@ -4,10 +4,6 @@
     "TenantId": {
       "Type": "String",
       "Description": "Chatticus organization tenant id."
-    },
-    "AnthusComputerImageUri": {
-      "Type": "String",
-      "Description": "Anthus ChatticusComputers ECR image URI for tag :dev."
     }
   },
   "Resources": {
@@ -225,6 +221,20 @@
         "aws:cdk:path": "ChatticusComputers/Vpc/VPCGW"
       }
     },
+    "ComputerImage67D4263C": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "EmptyOnDelete": false,
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        }
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain",
+      "Metadata": {
+        "aws:cdk:path": "ChatticusComputers/ComputerImage/Resource"
+      }
+    },
     "ClusterEB0386A7": {
       "Type": "AWS::ECS::Cluster",
       "Metadata": {
@@ -315,7 +325,53 @@
             ],
             "Essential": true,
             "Image": {
-              "Ref": "AnthusComputerImageUri"
+              "Fn::Join": [
+                "",
+                [
+                  {
+                    "Fn::Select": [
+                      4,
+                      {
+                        "Fn::Split": [
+                          ":",
+                          {
+                            "Fn::GetAtt": [
+                              "ComputerImage67D4263C",
+                              "Arn"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  ".dkr.ecr.",
+                  {
+                    "Fn::Select": [
+                      3,
+                      {
+                        "Fn::Split": [
+                          ":",
+                          {
+                            "Fn::GetAtt": [
+                              "ComputerImage67D4263C",
+                              "Arn"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  ".",
+                  {
+                    "Ref": "AWS::URLSuffix"
+                  },
+                  "/",
+                  {
+                    "Ref": "ComputerImage67D4263C"
+                  },
+                  ":dev"
+                ]
+              ]
             },
             "LogConfiguration": {
               "LogDriver": "awslogs",
@@ -387,6 +443,25 @@
           "Statement": [
             {
               "Action": [
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:BatchGetImage",
+                "ecr:GetDownloadUrlForLayer"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "ComputerImage67D4263C",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": "ecr:GetAuthorizationToken",
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": [
                 "logs:CreateLogStream",
                 "logs:PutLogEvents"
               ],
@@ -397,16 +472,6 @@
                   "Arn"
                 ]
               }
-            },
-            {
-              "Action": [
-                "ecr:BatchCheckLayerAvailability",
-                "ecr:BatchGetImage",
-                "ecr:GetAuthorizationToken",
-                "ecr:GetDownloadUrlForLayer"
-              ],
-              "Effect": "Allow",
-              "Resource": "*"
             }
           ],
           "Version": "2012-10-17"
@@ -502,6 +567,56 @@
     }
   },
   "Outputs": {
+    "ComputerRepositoryUri": {
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            {
+              "Fn::Select": [
+                4,
+                {
+                  "Fn::Split": [
+                    ":",
+                    {
+                      "Fn::GetAtt": [
+                        "ComputerImage67D4263C",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            ".dkr.ecr.",
+            {
+              "Fn::Select": [
+                3,
+                {
+                  "Fn::Split": [
+                    ":",
+                    {
+                      "Fn::GetAtt": [
+                        "ComputerImage67D4263C",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            ".",
+            {
+              "Ref": "AWS::URLSuffix"
+            },
+            "/",
+            {
+              "Ref": "ComputerImage67D4263C"
+            }
+          ]
+        ]
+      }
+    },
     "ComputerClusterName": {
       "Value": {
         "Ref": "ClusterEB0386A7"

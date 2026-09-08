@@ -64,14 +64,9 @@ def test_template_delivery_over_limit_without_url_raises() -> None:
 def test_customer_computers_create_stack_parameters() -> None:
     parameters = customer_computers_create_stack_parameters(
         tenant_id="tenant-1",
-        anthus_computer_image_uri="111.dkr.ecr.us-east-1.amazonaws.com/repo:dev",
     )
     assert parameters == [
         {"ParameterKey": "TenantId", "ParameterValue": "tenant-1"},
-        {
-            "ParameterKey": "AnthusComputerImageUri",
-            "ParameterValue": "111.dkr.ecr.us-east-1.amazonaws.com/repo:dev",
-        },
     ]
 
 
@@ -81,12 +76,13 @@ def test_committed_customer_computers_template_is_under_body_limit() -> None:
     assert len(body.encode("utf-8")) <= CREATE_STACK_TEMPLATE_BYTE_LIMIT
     assert "AWS::S3::Bucket" not in body
     assert "SnapshotBucketName" not in body
+    assert "AWS::ECR::Repository" in body
 
 
 def test_committed_template_has_no_cdk_bootstrap() -> None:
     template = load_customer_computers_template()
     parameters = template.get("Parameters", {})
-    assert set(parameters.keys()) == {"TenantId", "AnthusComputerImageUri"}
+    assert set(parameters.keys()) == {"TenantId"}
     rules = template.get("Rules", {})
     assert "CheckBootstrapVersion" not in rules
     body = json.dumps(template)

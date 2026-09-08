@@ -47,12 +47,17 @@ def test_stack_has_run_task_outputs() -> None:
             "ComputerTaskDefinitionArn": "arn:task/computer:1",
             "ComputerPublicSubnetIds": "subnet-1",
             "ComputerSecurityGroupId": "sg-1",
+            "ComputerRepositoryUri": (
+                "123456789012.dkr.ecr.us-east-1.amazonaws.com/chatticuscomputers-computerimage"
+            ),
         }
     )
     assert not stack_has_run_task_outputs(
         {
             "ComputerClusterName": "cluster-a",
             "ComputerTaskDefinitionArn": "arn:task/computer:1",
+            "ComputerPublicSubnetIds": "subnet-1",
+            "ComputerSecurityGroupId": "sg-1",
         }
     )
 
