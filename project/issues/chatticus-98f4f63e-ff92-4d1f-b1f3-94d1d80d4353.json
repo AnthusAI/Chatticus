@@ -1,0 +1,22 @@
+{
+  "id": "chatticus-98f4f63e-ff92-4d1f-b1f3-94d1d80d4353",
+  "title": "Decide and record where the human session token lives",
+  "description": "**Raised 2026-09-08**, immediately after #339 shipped session persistence. Cheap to revisit now, expensive after customers exist.\n\n---\n\n## What shipped\n\n#339 fixed a real defect: the workspace held the session in page memory only, so a reload looked unsigned and Google asked again. Correct fix, correctly diagnosed.\n\nThe session is now persisted in **`localStorage`** (`web/lib/auth.ts:153`):\n\n```ts\nuserStore: new WebStorageStateStore({ store: window.localStorage })\n```\n\nThat is the `oidc-client-ts` default and ordinary SPA practice. **This card is not \"that was wrong.\"** It is that the tradeoff has not been examined against what this particular token authorizes.\n\n## Why this token is not an ordinary SPA token\n\n`localStorage` is readable by any JavaScript running on the origin. This token authorizes `PUT /turns/{turn_id}/grant` (`http/app.py:1550`, `user_router`, `RequireUserPrincipal`).\n\nSo the chain is:\n\n**XSS on the workspace origin → read the token → grant a bot `run_terminal` → arbitrary commands on a computer running in the customer's own AWS account.**\n\nEach link is already built and proven: `run_terminal` is on the authorization form (`chatticus-e11c17`), cross-account `RunTask` works (`chatticus-82dab7`), and the grant route is customer-facing by design.\n\nServer-side ceiling enforcement limits this — `grant_replace_exceeds_acting_member_standing` means a stolen token cannot exceed *that member's* standing. That is real mitigation. It does not help when the stolen token belongs to an owner.\n\n## Why the XSS precondition is not hypothetical here\n\nThis product runs an agent that **browses the web on the user's behalf**, and `docs/THREAT_MODEL.md` already treats page content as hostile (`prompt_injection_containment.feature`, \"page content cannot add fields\"). Any path by which fetched content, tool output, or a bot-authored message renders unescaped in the workspace is an XSS vector — and this product creates more of those paths than a typical SPA.\n\n## The gap in the threat model\n\n`docs/THREAT_MODEL.md` is thorough about the **agent's** browser authority — the bot holding the user's logged-in sessions, blast radius, which connectors it may touch. It says nothing about the **human's** session token, which is the credential that grants the agent its authority in the first place.\n\nThat asymmetry is worth closing regardless of which storage option is chosen.\n\n## Options\n\n1. **`sessionStorage`.** Meets the stated requirement — a reload in the same tab stays signed in — and is strictly narrower: not shared across tabs, cleared when the tab closes. Still XSS-readable. Costs \"still signed in tomorrow\", which may be a product requirement; if so, say so.\n2. **httpOnly cookie / BFF.** The token never reaches JavaScript, so XSS cannot read it. Strongest, and the largest change. Worth pricing rather than dismissing, given what the token authorizes.\n3. **Keep `localStorage`, deliberately.** Defensible — it is the ecosystem default. Then record it in `docs/THREAT_MODEL.md` with the compensating controls named: member-standing ceiling on grants, short token lifetime, and whatever output escaping the workspace guarantees.\n\nAny of the three is fine. **Silence is the thing to fix.**\n\n## Done when\n\n`docs/THREAT_MODEL.md` records where the human session token lives, what it authorizes, and why that storage is acceptable — or the storage changes.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+  "labels": [
+    "security"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-08T22:12:24.122915Z",
+  "updated_at": "2026-09-08T22:12:24.122955Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
