@@ -19,10 +19,17 @@
       "text": "Queued, not started. After the `c54569` unattended run is in motion and `43e64c` Gherkin is authorized. The suggestion we will not skip: revoke/narrow visible in the transcript so the next tool denial reads as withdrawn authority, not a broken bot.\n",
       "created_at": "2026-09-08T18:49:09.642517Z",
       "comment_type": "default"
+    },
+    {
+      "id": "7c4151bc-8ede-412f-b3c0-5a1d37ae5f05",
+      "author": "home",
+      "text": "Queued after `e11c17` live host journal. Transcript-visible revoke. Do not start until that sequence reaches here.",
+      "created_at": "2026-09-08T22:25:59.200372Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T18:30:39.764861Z",
-  "updated_at": "2026-09-08T18:49:09.642538Z",
+  "updated_at": "2026-09-08T22:25:59.200399Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

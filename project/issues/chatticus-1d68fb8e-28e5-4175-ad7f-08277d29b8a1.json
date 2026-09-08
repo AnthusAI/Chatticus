@@ -11,10 +11,23 @@
   "labels": [
     "phase-5"
   ],
-  "dependencies": [],
-  "comments": [],
+  "dependencies": [
+    {
+      "target": "c54569",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "a04aa3a5-2c37-4252-ad35-0bf19704bb27",
+      "author": "home",
+      "text": "Not a demo. Sequence: `5e4c9a`+`98f4f6` then `c54569` on a clean build, **then this**. Wired `blocked-by c54569`.\n\nLive seed: org with ceiling and rollup rows above it; computer work; record refuse fail-closed, org enabled, banner visible, **what the member can do next**. PATCH exists; no workspace UI. Filed `chatticus-91f8f4` for owner raise through the product. If next step is contact an operator, that is a person-step for invitation-rate math.\n\nRunbook section in the same form as refuse-not-fallback (`2f2d87`). Placeholders in the wiki; ids in `AGENTS.local.md`.",
+      "created_at": "2026-09-08T22:25:58.897967Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-08T22:21:12.490291Z",
-  "updated_at": "2026-09-08T22:21:12.490325Z",
+  "updated_at": "2026-09-08T22:25:58.897983Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
