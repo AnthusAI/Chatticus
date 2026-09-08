@@ -381,7 +381,15 @@ class _FakeEcr:
         tag = imageIds[0]["imageTag"]
         if self.has_dev_tag and tag == "dev":
             return {"imageDetails": [{"imageTags": ["dev"]}]}
-        return {"imageDetails": []}
+        raise ClientError(
+            {
+                "Error": {
+                    "Code": "ImageNotFoundException",
+                    "Message": f"Images with tag {tag} not found in repository",
+                }
+            },
+            "DescribeImages",
+        )
 
     def batch_get_image(
         self,

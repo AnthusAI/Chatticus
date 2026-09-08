@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import pytest
+from botocore.exceptions import ClientError
 
 from chatticus.customer_computer_image import (
     DEV_IMAGE_TAG,
     customer_image_tag_exists,
+    is_image_not_found_error,
     publish_dev_image_from_anthus,
     repository_name_from_uri,
     require_customer_computer_image,
@@ -35,7 +37,15 @@ class _FakeEcr:
         tag = imageIds[0]["imageTag"]
         if tag in self.tags:
             return {"imageDetails": [{"imageTags": [tag]}]}
-        return {"imageDetails": []}
+        raise ClientError(
+            {
+                "Error": {
+                    "Code": "ImageNotFoundException",
+                    "Message": f"Images with tag {tag} not found in repository",
+                }
+            },
+            "DescribeImages",
+        )
 
     def batch_get_image(
         self,
@@ -90,6 +100,67 @@ def test_customer_image_tag_exists() -> None:
     assert (
         customer_image_tag_exists(
             ecr,
+            repository_name="chatticuscomputers-computerimage",
+        )
+        is False
+    )
+
+
+def test_customer_image_tag_exists_treats_image_not_found_as_missing() -> None:
+    error = ClientError(
+        {
+            "Error": {
+                "Code": "ImageNotFoundException",
+                "Message": "Images not found",
+            }
+        },
+        "DescribeImages",
+    )
+    assert is_image_not_found_error(error) is True
+
+    class _RaisingEcr:
+        def describe_images(
+            self,
+            *,
+            repositoryName: str,
+            imageIds: list[dict[str, str]],
+        ) -> dict[str, object]:
+            del repositoryName, imageIds
+            raise error
+
+    assert (
+        customer_image_tag_exists(
+            _RaisingEcr(),
+            repository_name="chatticuscomputers-computerimage",
+        )
+        is False
+    )
+
+
+def test_customer_image_tag_exists_treats_repository_not_found_as_missing() -> None:
+    error = ClientError(
+        {
+            "Error": {
+                "Code": "RepositoryNotFoundException",
+                "Message": "Repository not found",
+            }
+        },
+        "DescribeImages",
+    )
+
+    class _RaisingEcr:
+        def describe_images(
+            self,
+            *,
+            repositoryName: str,
+            imageIds: list[dict[str, str]],
+        ) -> dict[str, object]:
+            del repositoryName, imageIds
+            raise error
+
+    assert (
+        customer_image_tag_exists(
+            _RaisingEcr(),
             repository_name="chatticuscomputers-computerimage",
         )
         is False

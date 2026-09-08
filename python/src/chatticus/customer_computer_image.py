@@ -87,10 +87,15 @@ def customer_image_tag_exists(
     tag: str = DEV_IMAGE_TAG,
 ) -> bool:
     """Return whether *repository_name* has an image tagged *tag*."""
-    response = ecr_client.describe_images(
-        repositoryName=repository_name,
-        imageIds=[{"imageTag": tag}],
-    )
+    try:
+        response = ecr_client.describe_images(
+            repositoryName=repository_name,
+            imageIds=[{"imageTag": tag}],
+        )
+    except ClientError as error:
+        if is_image_not_found_error(error):
+            return False
+        raise
     image_details = response.get("imageDetails") or []
     return bool(image_details)
 

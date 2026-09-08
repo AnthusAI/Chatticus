@@ -136,7 +136,6 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 2. Sign in, create org, copy `ORGANIZATION_ID` from the product (not CLI).
 3. GET published `customer-role.yml`; `create-stack --template-body` with `AnthusAccountId` and `OrganizationId`.
 4. Submit RoleArn in-product (not kernel).
-5. After customer `ChatticusComputers` reaches `CREATE_COMPLETE`, operator runs `computer/push-customer-computer-image.sh` with `CHATTICUS_CUSTOMER_ROLE_ARN` and `CHATTICUS_ORGANIZATION_ID` (desk values in `AGENTS.local.md`). ComputerWorker never publishes; host start refuses until `:dev` exists in customer ECR.
-6. Create a bot in the workspace; send a computerless message.
+5. Create a bot in the workspace; send a computerless message.
 
 Until steps 2, 4, and 5 exist in the product, an operator still has to stand in.
