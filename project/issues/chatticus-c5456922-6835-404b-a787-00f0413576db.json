@@ -59,7 +59,7 @@
   "created_at": "2026-09-08T18:30:57.683865Z",
   "updated_at": "2026-09-08T19:42:08.158422Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "The run is paused for a fresh Google identity after a sign-in bug was found.",
+  "right_now_updated_at": "2026-09-08T19:54:15.475002Z",
   "custom": {}
 }
