@@ -130,7 +130,7 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 | Dict vs host disk (decided host disk; steps 2–5 open) | `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` |
 | Agent terminal tool (build, not a sweep) | `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4` |
 | Remaining capability matrix | `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` — parked; browser host row PASS; do not live-run the rest |
-| Customer image in customer ECR | `chatticus-2b3c4173` / #320 on `develop`; operator `push-customer-computer-image.sh` still required on the throwaway account |
+| Customer image in customer ECR | `chatticus-2b3c4173` / #320 **closed** — `:dev` published under the assumed role |
 
 ## Replay (customer-shaped, once the gaps close)
 

@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-47533582-91c7-4437-a7f5-3004617c8121",
+  "title": "Wire ComputerHostDisk hydrate and publish on the host",
+  "description": "**Step 2 of the accepted `chatticus-fccc4e9a` host-disk plan.** `chatticus-4ac60c71` (Dynamo metadata) and `chatticus-8fe4c7e1` (host that runs) and `chatticus-2b3c4173` (customer ECR) are closed.\n\n`ComputerHostDisk.hydrate` at `computer_host_worker` start; pack and publish before exit. One path: do not leave the dict readable beside host disk. `docs/ARCHITECTURE.md` drops \"design target, not currently wired\" when this lands — not before.\n\nSnapshot library is to be wired, not deleted. No `/workspace` EFS. No prompt tuning. Snapshot **bucket** in the published template is `chatticus-bb908488` (step 4) — do not mix that customer-visible template change into this slice. Gherkin may fake object storage.\n\n```\nFeature: Computer host hydrates and publishes workplace disk\n\n  Scenario: Host start hydrates from the published snapshot\n    Given a computer with snapshot metadata in Dynamo\n    When the customer computer host boots\n    Then ComputerHostDisk hydrates the live root from the published snapshot\n\n  Scenario: Host exit publishes a new snapshot generation\n    Given unpublished writes on the live disk\n    When the host worker finishes the job\n    Then a snapshot is published and snapshot metadata is stored\n```\n\n## Done when\n\nHydrate-on-boot and publish-before-exit are specified in Gherkin and green. Dict is not a second workplace reader. No `customer-role.yml` edit. No live matrix rows beyond what this card needs.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "09cdfda0-a500-4d24-92fd-14ec27e74e05",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree `/tmp/chatticus-475335-host-disk` on `feat/475335-host-disk-hydrate-publish`. Implementation not authorized until the plan is reviewed. Do not mix `chatticus-bb9084` (snapshot bucket / customer-role.yml) into this slice.\n",
+      "created_at": "2026-09-08T00:37:44.562238Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-08T00:37:32.534651Z",
+  "updated_at": "2026-09-08T00:37:44.562238Z",
+  "closed_at": null,
+  "custom": {}
+}
