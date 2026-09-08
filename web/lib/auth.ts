@@ -142,7 +142,14 @@ export async function completeSilentSignInCallback(): Promise<void> {
 export async function signOut(): Promise<void> {
   const user = await getUserManager().getUser();
   if (user?.id_token) {
-    await getUserManager().signoutRedirect({ id_token_hint: user.id_token });
+    const config = cognitoConfig();
+    await getUserManager().signoutRedirect({
+      id_token_hint: user.id_token,
+      extraQueryParams: {
+        client_id: config.clientId,
+        logout_uri: postLogoutRedirectUri(config),
+      },
+    });
     return;
   }
   await getUserManager().removeUser();
@@ -207,7 +214,6 @@ export function buildUserManagerSettings(config: CognitoConfig) {
     post_logout_redirect_uri: postLogoutRedirectUri(config),
     response_type: "code",
     scope: "openid email profile",
-    extraQueryParams: { identity_provider: "Google" },
     userStore: new WebStorageStateStore({ store: window.localStorage }),
     automaticSilentRenew: true,
     accessTokenExpiringNotificationTimeInSeconds: 60,
