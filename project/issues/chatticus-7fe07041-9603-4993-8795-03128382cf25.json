@@ -19,10 +19,17 @@
       "text": "Unblocked: `753bd8` closed (workspace grant UI live in the SPA bundle). Composer 2.5 planning the customer authority path: conversation preset still denies `run_terminal`; a human full replace that includes it is allowed by policy. Do not add `run_terminal` to `household_conversation_grant()`. Do not live-poll a stopped host. HTTP replace and the UI checkbox already exist — this card is Gherkin for that authority path. Worktree `/tmp/chatticus-7fe070-run-terminal-grant` on `feat/7fe070-per-task-run-terminal`. Plan-only until authorized.\n",
       "created_at": "2026-09-08T17:27:19.936383Z",
       "comment_type": "default"
+    },
+    {
+      "id": "25098558-4e79-41f7-8a74-04804adda78e",
+      "author": "home",
+      "text": "Plan authorized. New feature `per_task_run_terminal_grant.feature` only (do not duplicate the conversation-preset deny scenario). Post the shell ask first, HTTP replace on that same turn, then run the computerless worker. No `run_terminal` in `household_conversation_grant()`. No host boot. Merge `origin/develop` if README #334 lands first. Worktree `/tmp/chatticus-7fe070-run-terminal-grant` on `feat/7fe070-per-task-run-terminal`.\n",
+      "created_at": "2026-09-08T17:32:52.310251Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T15:41:24.467703Z",
-  "updated_at": "2026-09-08T17:27:19.936404Z",
+  "updated_at": "2026-09-08T17:32:52.312007Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
