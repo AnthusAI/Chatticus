@@ -82,13 +82,20 @@
       "text": "Live acceptance **BLOCKED** (`8fbe6d5`). Not a PASS. Not another poll.\n\n**Proof 1 (widened grant, kernel deviation):** human post with `enqueue_turn=False` → `set_turn_capability_grant` (`run_terminal` + `read_workspace`) → `prepare_computer_tool(run_terminal)` → continuation. Journal: `tool.call run_terminal` only. **Never** `tool.result` / `run_terminal:exit=`. ComputerWorker Lambda nacked `no ready computer host for 'run_terminal'` (expected while the Lambda has `action_executor=None` — it does not execute host tools). At least one turn `turn.failed` / recovery exhausted.\n\n**Discriminant:** after `:dev` repush, **`write_workspace` `tool.result` succeeded** on the same throwaway org. Terminal still never committed. That split fits a host task still running the **pre-`run_terminal` image** (file tools already in `:dev`; `TerminalActionExecutor` is new). It does **not** yet prove a product defect in #329.\n\n**Proof 2 (default refuses):** not captured. Cognito `AdminInitiateAuth` failed (auth flow not enabled). Human-start before widen did show preset tools `read_workspace` only — that is grant state, not a refusal sentence.\n\n**Do not** re-enable SPA `ADMIN_NO_SRP_AUTH` to force proof 2. **Do not** poll the journal again. Next operator check: Fargate task started **after** the `:dev` push that contains `terminal_action_executor.py`. If the running task is older, stop it and let host-start pull the new image. Then one handoff — not a 15-minute loop.\n\n`chatticus-9a07e7` remains the customer-facing grant path. This card still does not widen the conversation preset.\n",
       "created_at": "2026-09-08T15:36:49.435659Z",
       "comment_type": "default"
+    },
+    {
+      "id": "ec6a3a99-5c45-4983-b3ab-70e73dccf6b8",
+      "author": "home",
+      "text": "Operator discriminant (no journal poll): customer `ChatticusComputers` cluster **running_tasks = 0**. Customer `:dev` exists (`pushedAt` 2026-09-08 ~10:20 local). Anthus cluster also 0 (desiredCount 0, as required).\n\nNamed cause at check time: **`HOST_NOT_RUNNING`**. The ComputerWorker nack matches. Image push is not the remaining question; a host process was not up. Do not start a 15-minute journal wait. Live DoD stays blocked until a host is running **and** one `run_terminal` handoff commits `tool.result`. Product #329 stays on `develop`.\n",
+      "created_at": "2026-09-08T15:39:09.209598Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.970882Z",
-  "updated_at": "2026-09-08T15:36:49.435704Z",
+  "updated_at": "2026-09-08T15:39:09.209643Z",
   "closed_at": null,
   "right_now_summary": "Mock right-now summary for chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4.",
-  "right_now_updated_at": "2026-09-08T15:29:01.793697Z",
+  "right_now_updated_at": "2026-09-08T15:37:30.636644Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
