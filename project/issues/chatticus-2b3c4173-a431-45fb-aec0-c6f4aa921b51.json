@@ -3,7 +3,7 @@
   "title": "Customer account holds the computer image at runtime",
   "description": "**Principle follow-through, not the `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` patch.**\n\nEpic `chatticus-598be488-151d-4e57-8897-5cf6aaed50e5` decided 2026-09-07: a customer organization's account holds everything that organization's work depends on at runtime — image, files, compute.\n\n`infra/customer-role.yml` already grants the full ECR push set (`CreateRepository`, `PutImage`, `InitiateLayerUpload`, `UploadLayerPart`, `CompleteLayerUpload`, `SetRepositoryPolicy`). `chatticus-82dab7c4-a44c-4e0e-ac19-51a0c7a12d09`'s who-creates-what table said the `:dev` image lands in **that** ECR under the assumed role. `infra/lib/customer-computers-stack.ts` instead `fromRegistry(anthusComputerImageUri)`.\n\nDo not start this until `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` has a host that runs — two customer-visible computer-stack changes at once will blur the labeled stop. Template edits stay customer-visible.\n\n```\nFeature: The customer computer pulls an image from the customer's ECR\n\n  Scenario: RunTask does not depend on Anthus registry reachability\n    Given a customer ChatticusComputers stack\n    When a computer host starts\n    Then the task definition image URI is in CUSTOMER_ACCOUNT_ID\n    And the published role's push permissions are used, not leftover\n```",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -66,11 +66,18 @@
       "text": "Merged to develop as PR #320 (https://github.com/AnthusAI/Chatticus/pull/320, squash `1534708`). Python+infra CI green after missing-tag exception path and GetAtt IAM assertion.\n\nGherkin DoD is on `develop`. Live ACME still needs ThinTurn to pick up the new template, then `computer/push-customer-computer-image.sh` (AssumeRole, not Lambda) so `:dev` exists in the customer repo. Host start will UpdateStack then refuse until that publish. Do not live-run `browser_open` in this slice. Worktree `/tmp/chatticus-2b3c41-customer-ecr` stays until that operator push and the manager closes the issue.\n",
       "created_at": "2026-09-08T00:26:57.163415Z",
       "comment_type": "default"
+    },
+    {
+      "id": "d03a7f47-a96e-4f46-b617-29cdc319ba5a",
+      "author": "home",
+      "text": "DoD met. Closing.\n\nPR #320 on develop. Customer `ChatticusComputers` owns ECR; CreateStack is TenantId only. Operator `push-customer-computer-image.sh` published `:dev` under the cross-account role (lab UpdateStack first so `ComputerRepositoryUri` existed — ComputerWorker will UpdateStack on the next host start). Digest `sha256:d8a7c3094e0633ce80ffb9dc95e7a264ee539b320cf0a2e0ea12ebbb87017062`. Anthus desiredCount stays 0. No `browser_open` in this slice. Host-disk step 2 is next (`chatticus-fccc4e9a`); snapshot bucket remains `chatticus-bb9084`.\n",
+      "created_at": "2026-09-08T00:37:32.448606Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T22:58:46.825272Z",
-  "updated_at": "2026-09-08T00:26:57.163415Z",
-  "closed_at": null,
+  "updated_at": "2026-09-08T00:37:32.461638Z",
+  "closed_at": "2026-09-08T00:37:32.461638Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"

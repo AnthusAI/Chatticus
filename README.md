@@ -122,9 +122,12 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **Customer host executes `browser_open`** (`chatticus-8fe4c7`, #319, closed):
   kernel `about:blank` on development (labeled deviation from the customer
   UI). Journal `opened:about:blank`. Customer `RunTask` 1, Anthus 0. Host
-  talks to Front Door HTTP only. Image still Anthus `:dev`
-  (`chatticus-2b3c41` next). Do not fold that elapsed time into the ~19 min
+  talks to Front Door HTTP only. Do not fold that elapsed time into the ~19 min
   provision figure.
+- **Customer ECR holds `:dev`** (`chatticus-2b3c41`, #320, closed): task
+  definition pulls from the organization AWS home. Operator
+  `push-customer-computer-image.sh` published `:dev` under the assumed role
+  (not Lambda). Anthus `ChatticusComputers` desiredCount stays 0.
 
 ### On `develop`, not on `main`
 
@@ -140,7 +143,7 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   uses Front Door `/host-worker/*` (no Dynamo on the customer task role).
   Live `browser_open` / `about:blank` completed on the ACME throwaway
   account. Staging and production ComputerWorker still use the no-op host
-  starter. Image pull remains Anthus `:dev` until `chatticus-2b3c41`.
+  starter. Image pull is the customer ECR `:dev` (#320).
 
 ### Public sites
 

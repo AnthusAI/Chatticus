@@ -52,10 +52,17 @@
       "text": "`chatticus-8fe4c7e1` closed. Steps 2–5 are unblocked on the host-that-runs axis. Sequence still stands: customer image in the customer ECR (`chatticus-2b3c4173`) before another customer-stack change. Step 1 already landed (`chatticus-4ac60c71` / #318).\n",
       "created_at": "2026-09-07T23:37:41.872687Z",
       "comment_type": "default"
+    },
+    {
+      "id": "22fce9aa-930e-4d90-8717-55967451d4b9",
+      "author": "home",
+      "text": "`chatticus-2b3c4173` closed. Image is in the customer ECR. Step 1 already landed. Opening a sibling task for step 2 (host hydrate/publish). Step 4 (`chatticus-bb9084`) stays a separate customer-template slice — do not mix.\n",
+      "created_at": "2026-09-08T00:37:32.476527Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.946029Z",
-  "updated_at": "2026-09-07T23:37:41.872687Z",
+  "updated_at": "2026-09-08T00:37:32.476527Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
