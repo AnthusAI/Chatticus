@@ -3,7 +3,7 @@
   "title": "Crossing the ceiling stops new computer work, not the whole organization",
   "description": "**Phase 4 of 5.**\n\n- **Blocked by:** the ceiling story\n- **Runs in parallel with:** the alert story and the display story\n- **Unblocks:** nothing\n\n---\nThe design constraint that matters most in this epic.\n\nA member who cannot read their own channels because a budget tripped will conclude the product broke, not that they hit a limit they set. Locking the workplace over spend is the same customer experience as an outage, and it destroys the trust the ceiling was meant to protect.\n\nSo the ceiling stops the thing that costs money — new computer work — and leaves everything else reachable, including the message explaining what happened and how to raise it. This is the authorization_ceiling seam, which already refuses actions rather than removing access.\n\n**Done when:** the scenarios exist and fail for the right reason.",
   "type": "story",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -11,12 +11,7 @@
   "labels": [
     "phase-4"
   ],
-  "dependencies": [
-    {
-      "target": "43e64c",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "b8d308f1-7a96-488c-8b18-85b7c5aca56e",
@@ -24,10 +19,17 @@
       "text": "Feature: Organization spend ceiling\n\n  Scenario: New computer work is refused past the ceiling\n    Given an enabled organization whose month-to-date spend has passed its ceiling\n    When a member asks a bot for work that needs the computer\n    Then the request is refused with a spend ceiling reason\n    And no computer is started\n\n  Scenario: The workplace stays reachable past the ceiling\n    Given an enabled organization whose month-to-date spend has passed its ceiling\n    When a member opens the workspace\n    Then they read their channels and see why work is paused\n    And the organization status is still enabled\n\n  Scenario: Raising the ceiling resumes work\n    Given an organization whose work is paused at its spend ceiling\n    When its owner raises the ceiling above current spend\n    Then computer work is accepted again",
       "created_at": "2026-09-03T13:20:25.505719Z",
       "comment_type": "default"
+    },
+    {
+      "id": "0e2815b5-4ed9-4794-9c1d-8da096ddb4e6",
+      "author": "home",
+      "text": "Unblocked: `43e64c` closed (#337). Composer 2.5 planning Gherkin then implementation: crossing the monthly AWS spend ceiling refuses new computer work and leaves the workplace reachable. Do not lock channels. Do not change epic P0 (Ryan's call). Worktree `/tmp/chatticus-6a9e97-ceiling-stop` on `feat/6a9e97-ceiling-stops-computer`. Plan-only until authorized.\n",
+      "created_at": "2026-09-08T19:29:50.189723Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:24.322109Z",
-  "updated_at": "2026-09-08T18:48:34.422740Z",
+  "updated_at": "2026-09-08T19:29:50.189740Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
