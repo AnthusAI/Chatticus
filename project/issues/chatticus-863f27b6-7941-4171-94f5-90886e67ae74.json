@@ -19,10 +19,17 @@
       "text": "Composer 2.5 planning. Worktree to be named `/tmp/chatticus-863f27-file-recycle` on `feat/863f27-file-survives-host-recycle`. Implementation not authorized until the plan is reviewed. Prefer extending existing host-disk Gherkin over a duplicate recycle story. Lab UpdateStack of the customer template is operator/acceptance, not a silent `customer-role.yml` policy change.\n",
       "created_at": "2026-09-08T03:35:13.774200Z",
       "comment_type": "default"
+    },
+    {
+      "id": "6b99a53e-dff4-4448-b1d2-0285280f0411",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with holes closed.\n\nWorktree verified: `/tmp/chatticus-863f27-file-recycle` on `feat/863f27-file-survives-host-recycle` (HEAD `24e7ef8`, not the primary clone). One new feature: agent write → shutdown publish → relocate → agent read. Then-steps are journal only. Do not rewrite `computer_snapshots.feature`. No `customer-role.yml` expansion. Live Fargate is post-merge acceptance.\n\n**Closed on authorize:**\n1. **One scenario** is enough. Do not add the optional Front Door recycle duplicate.\n2. **`publish_before_exit` must send `snapshot_uri`** from the host store bucket (HTTP body already accepts it). ThinTurn `snapshot_uri_for()` still defaults to logical `chatticus` — that mismatch is this slice’s product bug.\n3. **Gherkin owns the recycle story.** No pytest copy of the agent write/read recycle. A pure helper for URI construction is fine.\n4. **Wiki/runbook is `pm:` on `develop` after merge**, not files in the product PR.\n\nTear the worktree down only after the manager closes the issue.\n",
+      "created_at": "2026-09-08T03:38:15.162982Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T03:35:00.504757Z",
-  "updated_at": "2026-09-08T03:35:13.774200Z",
+  "updated_at": "2026-09-08T03:38:15.162982Z",
   "closed_at": null,
   "custom": {}
 }
