@@ -224,7 +224,7 @@ def test_publish_snapshot_copies_disk_into_object_storage() -> None:
     plane = ControlPlane()
     computer = plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
-    plane.write_workspace("anthus", "notes.md", "weekly")
+    plane.seed_snapshot_workspace("anthus", "notes.md", "weekly")
     record = plane.publish_snapshot("household-computer", "fargate-1")
     assert record.snapshot_uri == plane.snapshot_uri_for(computer)
     assert record.workspace["notes.md"] == "weekly"
@@ -247,9 +247,9 @@ def test_dirty_disk_blocks_relocate() -> None:
     plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
     plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
-    plane.write_workspace("anthus", "notes.md", "weekly")
+    plane.seed_snapshot_workspace("anthus", "notes.md", "weekly")
     plane.publish_snapshot("household-computer", "fargate-1")
-    plane.write_workspace("anthus", "notes.md", "unsynced")
+    plane.seed_snapshot_workspace("anthus", "notes.md", "unsynced")
     with pytest.raises(ComputerDirtyError):
         plane.relocate_computer("household-computer", "garage-mac-1")
 
@@ -259,11 +259,12 @@ def test_hydrate_restores_published_disk() -> None:
     plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
     plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
-    plane.write_workspace("anthus", "notes.md", "published")
+    plane.seed_snapshot_workspace("anthus", "notes.md", "published")
     plane.publish_snapshot("household-computer", "fargate-1")
     plane.relocate_computer("household-computer", "garage-mac-1")
     plane.hydrate_computer("household-computer", "garage-mac-1")
-    assert plane.read_workspace("anthus", "notes.md") == "published"
+    computer = plane.computer_for_organization("anthus")
+    assert computer.workspace["notes.md"] == "published"
 
 
 def test_wrong_host_cannot_publish_or_hydrate() -> None:
@@ -271,7 +272,7 @@ def test_wrong_host_cannot_publish_or_hydrate() -> None:
     plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
     plane.register_worker(_worker("other-mac", computer_id="other-computer"))
-    plane.write_workspace("anthus", "notes.md", "weekly")
+    plane.seed_snapshot_workspace("anthus", "notes.md", "weekly")
     with pytest.raises(WorkerDoesNotHostComputerError):
         plane.publish_snapshot("household-computer", "other-mac")
     plane.publish_snapshot("household-computer", "fargate-1")
@@ -290,7 +291,7 @@ def test_publish_while_hydrate_required_raises() -> None:
     plane.ensure_computer("anthus", computer_id="household-computer")
     plane.register_worker(_worker("fargate-1", computer_id="household-computer"))
     plane.register_worker(_worker("garage-mac-1", computer_id="household-computer"))
-    plane.write_workspace("anthus", "notes.md", "weekly")
+    plane.seed_snapshot_workspace("anthus", "notes.md", "weekly")
     plane.publish_snapshot("household-computer", "fargate-1")
     plane.relocate_computer("household-computer", "garage-mac-1")
     with pytest.raises(ComputerNotHydratedError):

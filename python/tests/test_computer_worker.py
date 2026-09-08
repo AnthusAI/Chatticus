@@ -10,8 +10,11 @@ from chatticus.browser_waiting_continuation_driver import (
     prepare_browser_waiting_continuation,
 )
 from chatticus.capability_policy import EgressClass, TaskCapabilityGrant
-from chatticus.computer_capabilities import BROWSER_CAPABILITY
-from chatticus.computer_continuation_driver import prepare_computer_continuation
+from chatticus.computer_capabilities import BROWSER_CAPABILITY, WORKSPACE_CAPABILITY
+from chatticus.computer_continuation_driver import (
+    prepare_computer_continuation,
+    prepare_workspace_tool_continuation,
+)
 from chatticus.control_plane import ControlPlane
 from chatticus.host_starter import RecordingHostStarter
 from chatticus.http.client import HttpTurnClient
@@ -450,4 +453,39 @@ def test_computer_worker_defaults_browser_storage_partition_to_untrusted() -> No
     ).run_job(setup.continuation_job)
     assert executor.last_arguments is not None
     assert executor.last_arguments["storage_partition"] == "untrusted"
+    api.close()
+
+
+def test_computer_worker_regates_ungranted_read_workspace_before_execute() -> None:
+    plane = ControlPlane()
+    api = _client_for(plane)
+    setup = prepare_workspace_tool_continuation(
+        plane,
+        tool_name="read_workspace",
+        arguments={"path": "/workspace/research/decoy.txt"},
+    )
+    record = plane.escalation_for(setup.tenant_id, setup.turn_id)
+    record.pending_call.arguments["path"] = "/workspace/private/secret.txt"
+    for event in plane.list_turn_events(setup.tenant_id, setup.turn_id):
+        snapshot = event.pending_computer_tool
+        if event.kind == TurnEventKind.TOOL_CALL and snapshot is not None:
+            snapshot.arguments["path"] = "/workspace/private/secret.txt"
+            break
+    plane.record_computer_capability_ready(
+        setup.tenant_id, setup.user_id, WORKSPACE_CAPABILITY
+    )
+    executor = CountingComputerActionExecutor()
+    ComputerWorker(
+        plane,
+        HttpTurnClient(api, setup.tenant_id),
+        action_executor=executor,
+    ).run_job(setup.continuation_job)
+    assert executor.calls == 0
+    events = plane.list_turn_events(setup.tenant_id, setup.turn_id)
+    assert any(
+        event.kind == TurnEventKind.TOOL_RESULT
+        and event.body
+        and event.body.startswith("denied:")
+        for event in events
+    )
     api.close()

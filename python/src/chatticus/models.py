@@ -99,6 +99,10 @@ class ComputerNotHydratedError(ChatticusError):
     """The live disk is not writable until the intended host hydrates."""
 
 
+class WorkspaceHostOnlyError(ChatticusError):
+    """Workspace file bytes live on the summoned host, not the control plane."""
+
+
 class ActorKind(StrEnum):
     """Who can author a thread message."""
 

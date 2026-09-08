@@ -47,6 +47,7 @@ class AdversarialInjectionDriver:
     def __init__(self, plane: ControlPlane | None = None) -> None:
         self.plane = plane or ControlPlane()
         self.model = CompliantInjectionModel()
+        self._host_live_root = Path("/tmp/chatticus-adversarial-host")
 
     def run_sink_request(
         self,
@@ -127,7 +128,12 @@ class AdversarialInjectionDriver:
             return
         path, content = case.workspace_seed
         self.plane.ensure_computer(TENANT_ID)
-        self.plane.write_workspace(TENANT_ID, path, content)
+        from chatticus.workspace_action_executor import WorkspaceActionExecutor
+
+        WorkspaceActionExecutor(live_root=self._host_live_root).execute(
+            "write_workspace",
+            {"path": path, "content": content},
+        )
 
     def _prepare_approval(self, case: InjectionCase) -> ApprovedOperation | None:
         if case.approval_setup is None:
@@ -150,10 +156,16 @@ class AdversarialInjectionDriver:
         sink = request.sink
         args = request.arguments
         if sink == "gated_read":
-            return self.plane.gated_read_workspace(
+            self.plane.gated_read_workspace(
                 TENANT_ID,
                 TURN_ID,
                 args["path"],
+            )
+            from chatticus.workspace_action_executor import WorkspaceActionExecutor
+
+            return WorkspaceActionExecutor(live_root=self._host_live_root).execute(
+                "read_workspace",
+                {"path": args["path"]},
             )
         if sink == "gated_write":
             self.plane.gated_write_workspace(
@@ -161,6 +173,12 @@ class AdversarialInjectionDriver:
                 TURN_ID,
                 args["path"],
                 args.get("content", ""),
+            )
+            from chatticus.workspace_action_executor import WorkspaceActionExecutor
+
+            WorkspaceActionExecutor(live_root=self._host_live_root).execute(
+                "write_workspace",
+                {"path": args["path"], "content": args.get("content", "")},
             )
             return None
         if sink == "gated_browse":

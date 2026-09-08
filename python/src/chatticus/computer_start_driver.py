@@ -99,7 +99,7 @@ class SingleComputerStartDriver:
         computer_id = self._computer_id()
         computer = self.plane.computer_for_organization(self.tenant_id)
         while computer.snapshot_generation < generation:
-            self.plane.write_workspace(self.tenant_id, "notes.md", "published")
+            self.plane.seed_snapshot_workspace(self.tenant_id, "notes.md", "published")
             self.plane.publish_snapshot(computer_id, "fargate-1")
             computer = self.plane.computer_for_organization(self.tenant_id)
 

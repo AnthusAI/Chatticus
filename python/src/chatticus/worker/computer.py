@@ -175,7 +175,12 @@ class ComputerWorker:
             job.tenant_id, job.turn_id, worker_id
         ):
             return
-        denied_body = self._regate_committed_browse_url(job, record)
+        if unresolved:
+            self.plane.execute_pending_computer_action(job.tenant_id, job.turn_id)
+            record = self.plane.ensure_computer_escalation(job.tenant_id, job.turn_id)
+            if record is None:
+                return
+        denied_body = self._regate_committed_tool(job, record)
         if denied_body is not None:
             self.plane.commit_computer_tool_result(
                 job.tenant_id, job.turn_id, denied_body
@@ -187,11 +192,6 @@ class ComputerWorker:
             if turn.status == TurnStatus.ACTIVE:
                 self.plane.complete_computer_continuation(job.tenant_id, job.turn_id)
             return
-        if unresolved:
-            self.plane.execute_pending_computer_action(job.tenant_id, job.turn_id)
-            record = self.plane.ensure_computer_escalation(job.tenant_id, job.turn_id)
-            if record is None:
-                return
         if not record.result_committed:
             if record.computer_action_count == 0:
                 return
@@ -232,26 +232,47 @@ class ComputerWorker:
         )
         return arguments
 
-    def _regate_committed_browse_url(
+    def _regate_committed_tool(
         self,
         job: TurnJob,
         record: EscalationRecord,
     ) -> str | None:
-        """Re-check browse grants on committed journal args before host execute."""
+        """Re-check grants on committed journal args before host execute."""
         if job.turn_id is None:
             return None
         tool_name = record.pending_call.tool_name
         arguments = dict(record.pending_call.arguments)
-        if tool_name not in {"browser_open", "request_computer_capability"}:
+        if tool_name in {"browser_open", "request_computer_capability"}:
+            url = arguments.get("url", "").strip()
+            if not url or url == "about:blank":
+                return None
+            policy = self.plane.capability_policy_for(job.tenant_id, job.turn_id)
+            if policy.grant is None:
+                return None
+            try:
+                self.plane.gated_browse_origin(job.tenant_id, job.turn_id, url)
+            except CapabilitySinkDenied as error:
+                return f"denied: {error}"
             return None
-        url = arguments.get("url", "").strip()
-        if not url or url == "about:blank":
+        if tool_name == "read_workspace":
+            path = arguments.get("path", "").strip()
+            if not path:
+                return None
+            try:
+                self.plane.gated_read_workspace(job.tenant_id, job.turn_id, path)
+            except CapabilitySinkDenied as error:
+                return f"denied: {error}"
             return None
-        policy = self.plane.capability_policy_for(job.tenant_id, job.turn_id)
-        if policy.grant is None:
+        if tool_name == "write_workspace":
+            path = arguments.get("path", "").strip()
+            if not path:
+                return None
+            content = arguments.get("content", "")
+            try:
+                self.plane.gated_write_workspace(
+                    job.tenant_id, job.turn_id, path, content
+                )
+            except CapabilitySinkDenied as error:
+                return f"denied: {error}"
             return None
-        try:
-            self.plane.gated_browse_origin(job.tenant_id, job.turn_id, url)
-        except CapabilitySinkDenied as error:
-            return f"denied: {error}"
         return None

@@ -604,9 +604,9 @@ def given_turn_carries_grant(context: object, turn_id: str) -> None:
 
 @given('the household computer workspace file "{path}" contains "{content}"')
 def given_household_workspace_file(context: object, path: str, content: str) -> None:
-    bot = next(iter(context.bots_by_name.values()))
-    context.plane.ensure_computer(bot.tenant_id)
-    context.plane.write_workspace(bot.tenant_id, path, content)
+    from host_workspace_helpers import seed_host_workspace_file
+
+    seed_host_workspace_file(context, path, content)
 
 
 @given("an overnight task grants structured consequential actions")
@@ -640,9 +640,8 @@ def when_gated_read_workspace(
     context.gated_read_error = None
     context.gated_read_result = None
     try:
-        context.gated_read_result = context.plane.gated_read_workspace(
-            tenant_id, turn_id, path
-        )
+        context.plane.gated_read_workspace(tenant_id, turn_id, path)
+        context.gated_read_result = True
     except Exception as exc:
         context.gated_read_error = exc
 
@@ -650,6 +649,12 @@ def when_gated_read_workspace(
 @then("the gated workspace read is denied")
 def then_gated_read_denied(context: object) -> None:
     assert context.gated_read_error is not None
+
+
+@then("the gated workspace read is allowed")
+def then_gated_read_allowed(context: object) -> None:
+    assert context.gated_read_error is None
+    assert context.gated_read_result is True
 
 
 @then('the gated workspace read returns "{content}"')

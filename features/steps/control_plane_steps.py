@@ -291,11 +291,22 @@ def given_bot(context: object, tenant_id: str, user_id: str, name: str) -> None:
 def when_bot_writes_workspace(
     context: object, name: str, path: str, content: str
 ) -> None:
+    from host_workspace_helpers import seed_host_workspace_file
+
     bot = context.bots_by_name[name]
+    context.write_error = None
+    computer = context.plane.computer_for_organization(bot.tenant_id)
+    if computer.hydrate_required:
+        context.write_error = ComputerNotHydratedError(
+            f"Computer {computer.computer_id!r} must be hydrated before "
+            "the live disk can be written."
+        )
+        return
     try:
-        context.plane.write_workspace(bot.tenant_id, path, content)
-        context.write_error = None
-    except ComputerNotHydratedError as error:
+        seed_host_workspace_file(context, path, content, tenant_id=bot.tenant_id)
+        if not computer.hydrate_required:
+            context.plane.seed_snapshot_workspace(bot.tenant_id, path, content)
+    except Exception as error:
         context.write_error = error
 
 
@@ -303,8 +314,10 @@ def when_bot_writes_workspace(
 def then_bot_reads_workspace(
     context: object, name: str, path: str, content: str
 ) -> None:
+    from host_workspace_helpers import read_host_workspace_file
+
     bot = context.bots_by_name[name]
-    assert context.plane.read_workspace(bot.tenant_id, path) == content
+    assert read_host_workspace_file(context, path, tenant_id=bot.tenant_id) == content
 
 
 @then("both bots use the same computer")
@@ -368,8 +381,14 @@ def then_turn_prompt_contains_channel_text(context: object, body: str) -> None:
 
 @then('bot "{name}" cannot read "{path}" from its computer')
 def then_bot_cannot_read(context: object, name: str, path: str) -> None:
+    from host_workspace_helpers import read_host_workspace_file
+
     bot = context.bots_by_name[name]
-    assert context.plane.read_workspace(bot.tenant_id, path) is None
+    try:
+        read_host_workspace_file(context, path, tenant_id=bot.tenant_id)
+    except FileNotFoundError:
+        return
+    raise AssertionError(f"Expected bot {name!r} to miss {path!r} on the host disk.")
 
 
 @when('a bot proposes action type "{action_type}"')

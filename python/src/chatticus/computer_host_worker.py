@@ -6,9 +6,9 @@ import logging
 import os
 import time
 
-from chatticus.chromium_action_executor import ChromiumActionExecutor
 from chatticus.computer_host_boot import ComputerHostBootDriver
 from chatticus.computer_host_disk_lifecycle import publish_before_exit
+from chatticus.host_action_executor import HostActionExecutor
 from chatticus.host_starter import NoOpHostStarter
 from chatticus.http.client import HttpTurnClient
 from chatticus.models import TurnJob, TurnStatus
@@ -71,7 +71,7 @@ def run_host_worker_once(
     ComputerWorker(
         plane,
         turn_client,
-        action_executor=action_executor or ChromiumActionExecutor(),
+        action_executor=action_executor or HostActionExecutor(),
         host_starter=NoOpHostStarter(),
     ).run_job(job)
     return job

@@ -226,6 +226,19 @@ class RegateBrowseBody(BaseModel):
     url: str
 
 
+class RegateWorkspaceReadBody(BaseModel):
+    """Body for POST /turns/{turn_id}/workspace/read/regate."""
+
+    path: str
+
+
+class RegateWorkspaceWriteBody(BaseModel):
+    """Body for POST /turns/{turn_id}/workspace/write/regate."""
+
+    path: str
+    content: str = ""
+
+
 class PostMessageBody(BaseModel):
     """Body for POST /channels/{channel_id}/messages."""
 
@@ -285,13 +298,6 @@ class PutTurnGrantBody(BaseModel):
     file_scopes: list[str] = Field(default_factory=list)
     egress_classes: list[str] = Field(default_factory=list)
     ingest_classes: list[str] = Field(default_factory=list)
-
-
-class ReadWorkspaceBody(BaseModel):
-    """Body for POST /turns/{turn_id}/workspace/read."""
-
-    user_id: str
-    path: str
 
 
 class AuthorizeBrowseBody(BaseModel):
@@ -1217,6 +1223,36 @@ def create_app(
             raise HTTPException(status_code=403, detail=str(error)) from error
         return {"status": "ok"}
 
+    @host_worker_router.post("/turns/{turn_id}/workspace/read/regate")
+    def worker_regate_workspace_read(
+        tenant_id: str,
+        turn_id: str,
+        body: RegateWorkspaceReadBody,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        del principal
+        try:
+            state.plane.gated_read_workspace(tenant_id, turn_id, body.path)
+        except CapabilitySinkDenied as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        return {"status": "ok"}
+
+    @host_worker_router.post("/turns/{turn_id}/workspace/write/regate")
+    def worker_regate_workspace_write(
+        tenant_id: str,
+        turn_id: str,
+        body: RegateWorkspaceWriteBody,
+        principal: RequireWorkerPrincipal,
+    ) -> dict[str, str]:
+        del principal
+        try:
+            state.plane.gated_write_workspace(
+                tenant_id, turn_id, body.path, body.content
+            )
+        except CapabilitySinkDenied as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        return {"status": "ok"}
+
     @user_router.post("/channels")
     def create_channel(
         request: Request,
@@ -1466,32 +1502,6 @@ def create_app(
             sorted(grant.tools),
         )
         return {"turn_id": turn_id, "tools": sorted(grant.tools)}
-
-    @worker_router.post("/turns/{turn_id}/workspace/read")
-    def read_turn_workspace(
-        tenant_id: str,
-        turn_id: str,
-        body: ReadWorkspaceBody,
-    ) -> dict[str, Any]:
-        try:
-            state.plane.turn(tenant_id, turn_id)
-        except TurnNotFoundError as error:
-            raise TurnAccessDeniedError(
-                f"Tenant {tenant_id!r} cannot read workspace for turn {turn_id!r}."
-            ) from error
-        content = state.plane.gated_read_workspace_for_model(
-            tenant_id,
-            turn_id,
-            body.user_id,
-            body.path,
-        )
-        logger.info(
-            "gated_workspace_read tenant_id=%s turn_id=%s path=%s",
-            tenant_id,
-            turn_id,
-            body.path,
-        )
-        return {"content": content}
 
     @worker_router.post("/turns/{turn_id}/browse/authorize")
     def authorize_turn_browse(

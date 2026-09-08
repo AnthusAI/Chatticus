@@ -53,6 +53,23 @@ READ_WORKSPACE_TOOL = {
         },
     },
 }
+WRITE_WORKSPACE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "write_workspace",
+        "description": (
+            "Write one household workspace file when the task grant allows it."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+            },
+            "required": ["path", "content"],
+        },
+    },
+}
 BROWSE_TOOL = {
     "type": "function",
     "function": {
@@ -94,6 +111,7 @@ def computerless_worker_tools() -> list[dict[str, Any]]:
     return [
         openai_task_tool(),
         READ_WORKSPACE_TOOL,
+        WRITE_WORKSPACE_TOOL,
         BROWSE_TOOL,
         COMPUTER_CAPABILITY_TOOL,
     ]
@@ -176,6 +194,17 @@ def outcome_from_chat_completion(
                 gated_tool_call = GatedToolCall(
                     tool_name="read_workspace",
                     arguments={"path": path},
+                )
+            continue
+        if name == "write_workspace":
+            path = str(arguments.get("path", "")).strip()
+            if path:
+                gated_tool_call = GatedToolCall(
+                    tool_name="write_workspace",
+                    arguments={
+                        "path": path,
+                        "content": str(arguments.get("content", "")),
+                    },
                 )
             continue
         if name == "browse":

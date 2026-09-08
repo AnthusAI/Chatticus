@@ -11,6 +11,7 @@ from chatticus.capability_policy import (
     PolicyBrowserContext,
     TaskCapabilityGrant,
 )
+from chatticus.capability_sinks import CapabilitySinkDenied
 from chatticus.computer_capabilities import ComputerCapabilityReadiness
 from chatticus.computer_start import HostStartClaim
 from chatticus.escalation_handoff import EscalationRecord, PendingComputerToolCall
@@ -296,11 +297,49 @@ class HttpWorkerPlane:
         turn_id: str,
         url: str,
     ) -> None:
-        self._request(
-            "POST",
+        self._regate_request(
             f"/turns/{turn_id}/browse/regate",
             json={"url": url},
         )
+
+    def gated_read_workspace(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        path: str,
+    ) -> None:
+        self._regate_request(
+            f"/turns/{turn_id}/workspace/read/regate",
+            json={"path": path},
+        )
+
+    def gated_write_workspace(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        path: str,
+        content: str,
+    ) -> None:
+        self._regate_request(
+            f"/turns/{turn_id}/workspace/write/regate",
+            json={"path": path, "content": content},
+        )
+
+    def _regate_request(self, suffix: str, *, json: dict[str, str]) -> None:
+        headers = self._headers()
+        response = self.client.post(
+            org_path(self.tenant_id, f"{HOST_WORKER_PREFIX}{suffix}"),
+            json=json,
+            headers=headers,
+        )
+        if response.status_code == 403:
+            detail = response.json().get("detail", "denied")
+            raise CapabilitySinkDenied(str(detail))
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"POST {suffix} failed with status "
+                f"{response.status_code}: {response.text}"
+            )
 
     def record_computer_hydrated(
         self,
