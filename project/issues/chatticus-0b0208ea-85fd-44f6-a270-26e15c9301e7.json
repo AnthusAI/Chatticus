@@ -26,12 +26,26 @@
       "text": "Plan reviewed and **authorized** with holes closed. Human confirmed: they were signed in and a reload sent them through Google again. Treat that as the defect, not a missing sign-in.\n\nWorktree to create first, then implement: `/tmp/chatticus-0b0208-session-persist` on `feat/0b0208-session-survives-reload` from `origin/develop`. Do not touch the primary clone.\n\n**Closed on authorize:**\n1. Harness: file-backed `Storage` only. No `node-localstorage`.\n2. Production `userStore`: explicit `new WebStorageStateStore({ store: window.localStorage })`. One path. Auth is client-only (`use client` + `useEffect`). Do not keep in-memory as a dual reader.\n3. Tighten the existing after-sign-out scenario with `Given` signed out. Do not duplicate it.\n4. Step phrase: `the web SPA persisted session is cleared`.\n5. Manager runs live reload acceptance after merge to `develop` and web deploy. Keep `prompt=select_account` after explicit sign-out (`349634`).\n6. Gherkin first, then the `userStore` change. No `ADMIN_NO_SRP_AUTH`. No cookies, no second auth path.\n\nTear the worktree down only after the manager closes the issue.",
       "created_at": "2026-09-08T19:46:29.326668Z",
       "comment_type": "default"
+    },
+    {
+      "id": "2a745f51-cee2-4178-b10e-56209b953b75",
+      "author": "home",
+      "text": "PR #339 opened from worktree /tmp/chatticus-0b0208-session-persist (feat/0b0208-session-survives-reload). Gherkin + localStorage userStore. Issue open until merge.",
+      "created_at": "2026-09-08T19:58:11.966788Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "fcd7112a-c100-4af4-b424-d0a0909c1fad",
+      "author": "home",
+      "text": "PR [#339](https://github.com/AnthusAI/Chatticus/pull/339) is up against `develop`. OIDC user in `localStorage`; reload-keeps-session Gherkin; `349634` sign-out + `select_account` kept. Composer 2.5 review and acceptance in flight. Do not merge until review plus green CI. Worktree `/tmp/chatticus-0b0208-session-persist` stays until close. Human was signed in; reload was the defect — live acceptance after web deploy, not another sign-in quiz.",
+      "created_at": "2026-09-08T20:05:42.697462Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T19:41:52.427409Z",
-  "updated_at": "2026-09-08T19:46:29.326697Z",
+  "updated_at": "2026-09-08T20:05:42.697484Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "The fix is in PR #339, awaiting merge and live reload testing after deployment.",
+  "right_now_updated_at": "2026-09-08T19:59:42.010300Z",
   "custom": {}
 }
