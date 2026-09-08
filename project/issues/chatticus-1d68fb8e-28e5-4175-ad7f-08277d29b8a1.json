@@ -1,0 +1,22 @@
+{
+  "id": "chatticus-1d68fb8e-28e5-4175-ad7f-08277d29b8a1",
+  "title": "Verify the spend ceiling stops computer work on live development",
+  "description": "**Phase 5.** Not a demo. The same class of check as refuse-not-fallback.\n\n---\n\n## Why this card exists\n\n`chatticus-43e64c` and `chatticus-6a9e97` are closed, and both closed on **green CI, not live verification**. From `6a9e97`'s closing note:\n\n> Live development still needs a ThinTurn/web deploy plus an org with a ceiling and rollup rows before a member can see the banner on `dev.chattic.us`. Closing the card on green merge; live seed is a follow-up on the epic **if we want a timed demo**.\n\nClosing on green was reasonable. Framing the live run as an optional demo is the part worth revisiting, because **the ceiling is the safety property**, and this project has already established a standard for those.\n\n## The standard already set\n\n`chatticus-2f2d87` promoted refuse-not-fallback from an in-memory Gherkin scenario to a production result, and the runbook now says so explicitly:\n\n> Refuse-not-fallback (production-verified, 2026-09-07)... Cite this section for any customer-facing claim. It is not only a card comment.\n\nThat was the right call, and the reason applies here identically. Both properties protect a customer from a cost they did not agree to. Both are unfalsifiable from the outside until they fire.\n\n## Why green CI is weaker evidence here than usual\n\nEvery real defect found this week passed at one layer and broke at a seam:\n\n| Found | Green at | Broken at |\n|---|---|---|\n| Terminal missing | spec and docs | no tool existed |\n| File tools | both layers individually | never connected |\n| Customer image | role built for customer ECR | stack pulled from Anthus |\n| Host start | `RunTask` returned | task never reached RUNNING |\n\nThe ceiling has more seams than most of those: rollup rows, a deploy, an org record, the worker's refusal path, and a banner. Gherkin covers the decision logic; it does not cover whether the rollup that feeds it is actually populated in a deployed environment.\n\n## Why now\n\nThe operator throttle is gone. `chatticus-9c8dbf`, `chatticus-070cb4` and `chatticus-7622fd` closed, so a customer can self-provision, and `run_terminal` is grantable on a computer that runs cross-account. The product can start compute on someone else's bill by design. **The brake for that is this ceiling, and it has never been observed stopping anything outside a test suite.**\n\n## What to run\n\nSeed an org on development with a ceiling and rollup rows above it, then attempt computer work.\n\n- New computer work is **refused**, fail-closed.\n- The organization stays **enabled** — `6a9e97`'s whole point is that crossing the ceiling stops computer work, not the org.\n- The member sees the banner on `dev.chattic.us`.\n- Record what a member can actually do next. If the answer is \"contact an operator\", that is a person-step and belongs in the invitation-rate math alongside `chatticus-c54569`.\n\n## Related, and worth confirming in the same pass\n\n`#337`'s review noted the owner-raise Gherkin hits the kernel rather than the PATCH route. If an owner cannot raise their own ceiling through the product, hitting the ceiling converts an unbounded bill into a support ticket — a different bottleneck, not a solved problem.\n\n## Done when\n\nThe runbook has a ceiling section citable for customer-facing claims, in the same form as refuse-not-fallback: what was attempted, what was refused, what stayed enabled, and what the member could do next.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-08T22:21:12.490291Z",
+  "updated_at": "2026-09-08T22:21:12.490325Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

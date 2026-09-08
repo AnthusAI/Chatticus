@@ -54,10 +54,17 @@
       "text": "GATE_HUMAN_GOOGLE_SIGNIN is cleared in the Cursor IDE browser: `/chat` shows an enabled workspace (Sign out), not Sign in with Google.\n\nThe repeated Google prompt after an already-completed sign-in is a product defect, not only a cookie-jar split. OIDC tokens live in in-memory storage, so a reload looks unsigned, and every fresh authorization includes `prompt=select_account`. Filed `chatticus-0b0208` (P0 under `71e3e0`). Do not treat that loop as the human failing to sign in.\n\nThis signed-in identity already owns the seeded Anthus organization. Product owner-cap refuses a second org (`POST /organizations` 409). Continuing the unattended customer journey from this identity would reuse Anthus, which is not a customer create-org. Next person-step: Google sign-in as an identity that has never created a Chatticus org (Sign out, then Sign in, pick that account). T0 still not started. Person-steps remain 1/6 expected gate; 0 operator kernel. ThinTurn UPDATE_COMPLETE. Do not push this `pm:` while a live HTTP/UI run is about to start — board commit may stay local.",
       "created_at": "2026-09-08T19:42:08.158401Z",
       "comment_type": "default"
+    },
+    {
+      "id": "46a09ee3-2089-40bb-9930-b4cb697e82cc",
+      "author": "home",
+      "text": "## Sequencing: fix `chatticus-5e4c9a` before running this (2026-09-08)\n\nThis card measures person-steps under no-operator conditions, and the number to beat is four-of-six from `chatticus-b88c0a`.\n\n**A known auth defect is live right now that will contaminate that number.** `chatticus-5e4c9a`: reloading `dev.chattic.us` while signed in shows the sign-in page again. It already caused real confusion during testing about whether a login had happened at all.\n\nThe customer journey almost certainly involves reloads — after CloudFormation returns, after enablement, while waiting on a deploy. Each one currently looks like a sign-out. That leaves two bad options:\n\n- **Count it** as a person-step, and publish a number that is wrong the moment `5e4c9a` lands.\n- **Don't count it**, and the run is no longer measuring what a customer experiences.\n\nEither way the run has to be repeated. Better to fix first and measure once.\n\n## Suggested order\n\n1. **`chatticus-5e4c9a`** — the reload bug. Two definite config faults are already identified on that card (no `offline_access`, so no refresh token; `prompt: select_account` set globally, which also blocks iframe silent renew).\n2. **`chatticus-98f4f6`** — batch it with the above. Both edit `buildUserManagerSettings` in `web/lib/auth.ts`. Deciding where the session token lives and fixing scope/prompt is **one edit and one review**, not two.\n3. **This card**, on a clean build.\n\n## Not a reason to stall\n\nIf the auth fix turns out to be slow, run this anyway and **record the reload behaviour explicitly as a known defect** rather than as a customer person-step. What must not happen is the number being published without saying which it was.",
+      "created_at": "2026-09-08T22:21:32.812307Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T18:30:57.683865Z",
-  "updated_at": "2026-09-08T19:42:08.158422Z",
+  "updated_at": "2026-09-08T22:21:32.812331Z",
   "closed_at": null,
   "right_now_summary": "The run is paused for a fresh Google identity after a sign-in bug was found.",
   "right_now_updated_at": "2026-09-08T19:54:15.475002Z",
