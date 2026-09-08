@@ -52,10 +52,17 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/341 opened. Composer 2.5 reviewing against develop. Do not merge until (1) that review, (2) green CI, and (3) a73f21 test-support exclude is on develop — otherwise next build still typechecks the Behave harness and CloudFront stays on #338.\n",
       "created_at": "2026-09-08T22:47:33.350105Z",
       "comment_type": "default"
+    },
+    {
+      "id": "2691b4a3-5b18-492c-ab83-5ccab3e0b949",
+      "author": "home",
+      "text": "a73f21 closed: development web deploy succeeded on 8a21862. #339 is on CloudFront. #341 CI is green. Merge #341 after Composer 2.5 review (in flight) and rebase onto develop so the exclude is in the merge base.\n",
+      "created_at": "2026-09-08T23:03:38.583068Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T22:17:46.277560Z",
-  "updated_at": "2026-09-08T22:47:33.350146Z",
+  "updated_at": "2026-09-08T23:03:38.583095Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

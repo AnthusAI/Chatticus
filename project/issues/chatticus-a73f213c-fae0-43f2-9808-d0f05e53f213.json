@@ -3,7 +3,7 @@
   "title": "Web CDK bundling docker cannot write the npm cache",
   "description": "## Found after #339\n\nDeploy Web (development) has failed on every push since `Persist Google sign-in across workspace reload` (#339), including the #339 merge itself.\n\nLast **successful** development web deploy: `4ba8bc2` (#338, spend-ceiling merge). **#339 never reached CloudFront.** Live `dev.chattic.us` is still the #338 bundle. `chatticus-5e4c9a` cannot be concluded against that origin.\n\nFailed run example: https://github.com/AnthusAI/Chatticus/actions/runs/34285497665\n\n```\nnpm error syscall mkdir\nnpm error path /.npm\nnpm error errno EACCES\n...\nYour cache folder contains root-owned files...\nsudo chown -R 1001:1001 \"/.npm\"\nFailedToBundleAsset ... docker run --rm -u \"1001:1001\" ... public.ecr.aws/sam/build-nodejs22.x ... npm ci && npm run build --workspace=web\n```\n\nThe bundling container runs as uid 1001 with HOME effectively `/`, so `npm ci` cannot mkdir `/.npm`. Same class as `chatticus-3935c9` (region/credentials inside this docker), different fault.\n\n#338 could succeed without rebuilding this asset; #339 changed `web/lib/auth.ts` and forced a rebuild.\n\n## Done when\n\nThe docker bundle command sets a writable HOME/npm cache for uid 1001; a development web deploy of current `develop` succeeds; `dev.chattic.us` serves the commit that includes #339 (or later). Assert in `infra/` tests. No Gherkin — CDK bundling, not visitor-facing behavior.",
   "type": "bug",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -59,11 +59,25 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/342 excludes test-support from web/tsconfig.json. Composer 2.5 reviewing. Merge after review + green CI, then watch Deploy Web — that is still the DoD.\n",
       "created_at": "2026-09-08T22:48:03.354042Z",
       "comment_type": "default"
+    },
+    {
+      "id": "b620bce6-cbc9-4bae-83ad-3198234f5088",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/342 to develop as 8a21862 after Composer 2.5 APPROVE and green CI. Watching Deploy Web for this commit — card stays open until that run succeeds (npm ci already proven on #340).\n",
+      "created_at": "2026-09-08T23:00:24.696611Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "f62b4907-774d-4632-bbc0-b9bb8cf456bf",
+      "author": "home",
+      "text": "DoD met. #340 set writable HOME/npm cache (npm ci proven). #342 excluded test-support from Next typecheck. Deploy Web (development) https://github.com/AnthusAI/Chatticus/actions/runs/34288630654 succeeded on 8a21862 — Compiled successfully, asset published. CloudFront now has #339 or later. Implementer: tear down /tmp/chatticus-a73f21-web-bundle-npm.\n",
+      "created_at": "2026-09-08T23:03:38.337148Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T22:25:27.517469Z",
-  "updated_at": "2026-09-08T22:48:03.354068Z",
-  "closed_at": null,
+  "updated_at": "2026-09-08T23:03:38.462772Z",
+  "closed_at": "2026-09-08T23:03:38.462740Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {}
