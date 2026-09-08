@@ -12,8 +12,8 @@ import {
   buildUserManagerSettings,
   completeSignOutRedirect,
   getUserManager,
-  getVerifiedSession,
   resetAuthForTests,
+  restoreVerifiedSession,
   setUserManagerFactoryForTests,
   signInWithGoogle,
   signOut,
@@ -36,15 +36,22 @@ const oidcStorePath =
   process.env.CHATTICUS_AUTH_HARNESS_OIDC_STORE ??
   join(tmpdir(), "chatticus-auth-harness-oidc-store.json");
 
+const sessionStorePath =
+  process.env.CHATTICUS_AUTH_HARNESS_SESSION_STORE ??
+  join(tmpdir(), "chatticus-auth-harness-session-store.json");
+
 type HarnessState = {
   signoutRedirectCalled: boolean;
   signoutRedirectArgs: Record<string, unknown> | null;
   removeUserBeforeRedirect: boolean;
   signinRedirectCalled: boolean;
   signinExtraQueryParams: Record<string, string> | null;
+  signinSilentCalled: boolean;
   sessionCleared: boolean;
   signoutCallbackHandled: boolean;
   sessionPresent: boolean;
+  idpSessionValid: boolean;
+  expiredSessionWithRefresh: boolean;
 };
 
 function emptyState(): HarnessState {
@@ -54,16 +61,19 @@ function emptyState(): HarnessState {
     removeUserBeforeRedirect: false,
     signinRedirectCalled: false,
     signinExtraQueryParams: null,
+    signinSilentCalled: false,
     sessionCleared: false,
     signoutCallbackHandled: false,
     sessionPresent: false,
+    idpSessionValid: false,
+    expiredSessionWithRefresh: false,
   };
 }
 
 function loadState(): HarnessState {
   try {
     const raw = readFileSync(statePath, "utf8");
-    return JSON.parse(raw) as HarnessState;
+    return { ...emptyState(), ...(JSON.parse(raw) as Partial<HarnessState>) };
   } catch {
     return emptyState();
   }
@@ -102,11 +112,37 @@ function clearOidcStoreFile(): void {
   }
 }
 
+function loadSessionStore(): Record<string, string> {
+  try {
+    const raw = readFileSync(sessionStorePath, "utf8");
+    return JSON.parse(raw) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function saveSessionStore(store: Record<string, string>): void {
+  writeFileSync(sessionStorePath, JSON.stringify(store));
+}
+
+function clearSessionStoreFile(): void {
+  try {
+    unlinkSync(sessionStorePath);
+  } catch {
+    // no prior store
+  }
+}
+
 class FileBackedStorage implements Storage {
   private readonly data: Record<string, string>;
+  private readonly persist: (store: Record<string, string>) => void;
 
-  constructor(initial: Record<string, string>) {
+  constructor(
+    initial: Record<string, string>,
+    persist: (store: Record<string, string>) => void,
+  ) {
     this.data = initial;
+    this.persist = persist;
   }
 
   get length(): number {
@@ -117,7 +153,7 @@ class FileBackedStorage implements Storage {
     for (const key of Object.keys(this.data)) {
       delete this.data[key];
     }
-    saveOidcStore(this.data);
+    this.persist(this.data);
   }
 
   getItem(key: string): string | null {
@@ -130,12 +166,12 @@ class FileBackedStorage implements Storage {
 
   removeItem(key: string): void {
     delete this.data[key];
-    saveOidcStore(this.data);
+    this.persist(this.data);
   }
 
   setItem(key: string, value: string): void {
     this.data[key] = value;
-    saveOidcStore(this.data);
+    this.persist(this.data);
   }
 }
 
@@ -164,11 +200,23 @@ function verifiedSessionToken(): string {
   });
 }
 
+function expiredSessionToken(): string {
+  return fakeIdToken({
+    token_use: "id",
+    iss: cognitoIssuer(testConfig),
+    aud: testConfig.clientId,
+    exp: 1,
+    email: "person@example.com",
+    sub: "person-subject",
+  });
+}
+
 function ensureHarnessWindow(): void {
   if (typeof globalThis.window === "undefined") {
     globalThis.document = { title: "Chatticus" } as Document;
     globalThis.window = {
-      localStorage: new FileBackedStorage(loadOidcStore()),
+      localStorage: new FileBackedStorage(loadOidcStore(), saveOidcStore),
+      sessionStorage: new FileBackedStorage(loadSessionStore(), saveSessionStore),
       history: { replaceState: () => undefined },
       location: { pathname: "/chat" },
     } as Window & typeof globalThis;
@@ -204,14 +252,25 @@ function installMockUserManager(state: HarnessState): void {
     });
 
     const originalRemoveUser = manager.removeUser.bind(manager);
+    const originalStoreUser = manager.storeUser.bind(manager);
 
     manager.signoutRedirect = async (args?: Record<string, unknown>) => {
       state.signoutRedirectCalled = true;
       state.signoutRedirectArgs = args ?? null;
     };
-    manager.signinRedirect = async () => {
+    manager.signinRedirect = async (args?: { extraQueryParams?: Record<string, string> }) => {
       state.signinRedirectCalled = true;
-      state.signinExtraQueryParams = settings.extraQueryParams ?? null;
+      state.signinExtraQueryParams = args?.extraQueryParams ?? null;
+    };
+    manager.signinSilent = async () => {
+      state.signinSilentCalled = true;
+      if (!state.idpSessionValid && !state.expiredSessionWithRefresh) {
+        throw new Error("Silent sign-in failed.");
+      }
+      const user = buildSeededUser(verifiedSessionToken());
+      await originalStoreUser(user);
+      state.sessionPresent = true;
+      return user;
     };
     manager.removeUser = async () => {
       await originalRemoveUser();
@@ -238,6 +297,7 @@ function prepareHarness(state: HarnessState): HarnessState {
 function resetHarness(): HarnessState {
   clearStateFile();
   clearOidcStoreFile();
+  clearSessionStoreFile();
   delete (globalThis as { window?: Window; document?: Document }).window;
   delete (globalThis as { window?: Window; document?: Document }).document;
   const state = prepareHarness(emptyState());
@@ -245,15 +305,16 @@ function resetHarness(): HarnessState {
   return state;
 }
 
-function buildSeededUser(idToken: string): User {
+function buildSeededUser(idToken: string, refreshToken?: string, expiresAt?: number): User {
   return new User({
     id_token: idToken,
     access_token: "test-access-token",
+    refresh_token: refreshToken,
     session_state: null,
     token_type: "Bearer",
     scope: "openid email profile",
     profile: { email: "person@example.com", sub: "person-subject" },
-    expires_at: 4_000_000_000,
+    expires_at: expiresAt ?? 4_000_000_000,
   });
 }
 
@@ -262,6 +323,29 @@ async function seedSession(idToken?: string): Promise<HarnessState> {
   const token = idToken ?? verifiedSessionToken();
   await getUserManager().storeUser(buildSeededUser(token));
   state.sessionPresent = true;
+  saveState(state);
+  return state;
+}
+
+async function seedNoSession(): Promise<HarnessState> {
+  const state = prepareHarness(emptyState());
+  saveState(state);
+  return state;
+}
+
+async function seedIdpSessionOnly(): Promise<HarnessState> {
+  const state = prepareHarness(emptyState());
+  state.idpSessionValid = true;
+  saveState(state);
+  return state;
+}
+
+async function seedExpiredWithRefresh(): Promise<HarnessState> {
+  const state = prepareHarness(emptyState());
+  await getUserManager().storeUser(
+    buildSeededUser(expiredSessionToken(), "test-refresh-token", 1),
+  );
+  state.expiredSessionWithRefresh = true;
   saveState(state);
   return state;
 }
@@ -296,7 +380,7 @@ async function runReloadWorkspace(): Promise<HarnessState> {
   resetAuthForTests();
   configureEnv();
   installMockUserManager(state);
-  const session = await getVerifiedSession();
+  const session = await restoreVerifiedSession();
   state.sessionPresent = session !== null;
   saveState(state);
   return state;
@@ -315,6 +399,15 @@ async function main(): Promise<void> {
       result = await seedSession(payload.id_token);
       break;
     }
+    case "seed-no-session":
+      result = await seedNoSession();
+      break;
+    case "seed-idp-session-only":
+      result = await seedIdpSessionOnly();
+      break;
+    case "seed-expired-with-refresh":
+      result = await seedExpiredWithRefresh();
+      break;
     case "sign-out":
       result = await runSignOut();
       break;
