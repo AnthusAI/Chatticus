@@ -207,7 +207,7 @@ if ever built, is for a shared read-mostly `/org` tree only. Large artifacts
 | In-flight turn chunks | DynamoDB items with a TTL, polled by the streaming function |
 | Turn jobs, heartbeats | SQS + scheduler records |
 | Routine wake-ups, worker starts, `turn.completed` to device push | EventBridge |
-| `/workspace` and browser profile | S3 snapshot (canonical); local volume or EBS as a cache on the current host. **Which account holds the pack depends on the organization:** a customer organization's packs live in a bucket in the **customer's own AWS account**, created by the published CloudFormation template; the Anthus `ChatticusSnapshots` bucket serves **Anthus-managed organizations only**. See `chatticus-bb9084` |
+| `/workspace` and browser profile | S3 snapshot (canonical); local volume or EBS as a cache on the current host. **Which account holds the pack depends on the organization:** a customer organization's packs live in ``chatticus-snapshots-{OrganizationId}`` in the **customer's own AWS account**, created when the customer runs the published cross-account CloudFormation template (`infra/customer-role.yml`); the Anthus `ChatticusSnapshots` bucket serves **Anthus-managed organizations only**. Customer Fargate hosts receive ``CHATTICUS_SNAPSHOT_BUCKET`` from the customer ``ChatticusComputers`` stack, not from Anthus. If the bucket is missing, hydrate and publish skip without crashing the host. |
 | Secrets | Secrets Manager |
 | Object files / artifacts (screenshots, datasets, model weights) | S3 |
 

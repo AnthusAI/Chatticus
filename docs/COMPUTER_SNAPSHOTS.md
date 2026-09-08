@@ -104,10 +104,26 @@ The control-plane kernel records snapshot URI, checksum, dirty, intended
 host, and hydrate-required. Hosts pack `/workspace` and the browser profile
 into `snapshot.tar.gz` plus `manifest.json`.
 
-A **filesystem object store** is the local stand-in. Production uses the S3
-bucket created by the CDK stack `ChatticusSnapshots`. Hosts set
-`CHATTICUS_SNAPSHOT_BUCKET` to the stack output and pack with `--store s3`.
-Do not create that bucket with the AWS CLI.
+A **filesystem object store** is the local stand-in. Production uses S3:
+
+| Organization | Bucket | Who creates it |
+| --- | --- | --- |
+| Anthus-managed | CDK stack ``ChatticusSnapshots`` | Anthus deploy |
+| Customer-owned | ``chatticus-snapshots-{OrganizationId}`` in the customer account | Customer runs ``infra/customer-role.yml`` |
+
+Hosts set ``CHATTICUS_SNAPSHOT_BUCKET`` to the bucket name for their
+organization. Anthus-managed hosts read the CDK ``SnapshotBucketName``
+output. Customer Fargate hosts read the value wired by the
+``ChatticusComputers`` stack parameter of the same name. Do not create
+either bucket with the AWS CLI.
+
+Object keys keep the canonical prefix
+``tenants/{tenant_id}/computers/{computer_id}/`` inside whichever bucket
+holds the organization.
+
+If ``CHATTICUS_SNAPSHOT_BUCKET`` names a bucket that does not exist yet,
+hydrate and publish skip without crashing the host. The customer must
+re-run or update the cross-account template to create the bucket.
 
 ```bash
 cd infra

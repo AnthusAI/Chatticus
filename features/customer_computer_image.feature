@@ -8,7 +8,7 @@ Feature: Customer computer image in the organization AWS home
     When its computer is asked to start
     Then Chatticus creates the ChatticusComputers stack in the customer account
     And the committed customer ChatticusComputers template declares an ECR repository
-    And CreateStack parameters include only TenantId
+    And CreateStack parameters include TenantId and SnapshotBucketName
 
   Scenario: Missing dev tag refuses before RunTask
     Given an organization provisioned into a customer AWS account with a ChatticusComputers stack

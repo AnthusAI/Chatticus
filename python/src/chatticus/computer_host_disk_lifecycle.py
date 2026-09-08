@@ -8,6 +8,7 @@ from pathlib import Path
 from chatticus.host_snapshot_store import live_root_from_env, snapshot_store_from_env
 from chatticus.snapshot.host import ComputerHostDisk
 from chatticus.snapshot.pack import pack_checksum, pack_live_disk
+from chatticus.snapshot.s3 import is_no_such_bucket_error
 from chatticus.snapshot.store import SnapshotObjectStore
 from chatticus.worker.computer_worker_plane import ComputerWorkerPlane
 
@@ -49,7 +50,16 @@ def hydrate_on_boot(
     needs_hydrate_record = computer.hydrate_required
     try:
         disk.hydrate(tenant_id=tenant_id, computer_id=computer.computer_id)
-    except Exception:
+    except Exception as error:
+        if is_no_such_bucket_error(error):
+            logger.warning(
+                "computer_host_hydrate_skipped_missing_bucket tenant_id=%s "
+                "computer_id=%s bucket=%s",
+                tenant_id,
+                computer.computer_id,
+                resolved_store.bucket,
+            )
+            return False
         logger.exception(
             "computer_host_hydrate_failed tenant_id=%s computer_id=%s",
             tenant_id,
@@ -78,10 +88,22 @@ def publish_before_exit(
     if not host_disk_needs_publish(root, computer.snapshot_checksum):
         return False
     disk = ComputerHostDisk(root, resolved_store)
-    manifest = disk.publish(
-        tenant_id=tenant_id,
-        computer_id=computer.computer_id,
-        worker_id=worker_id,
-    )
+    try:
+        manifest = disk.publish(
+            tenant_id=tenant_id,
+            computer_id=computer.computer_id,
+            worker_id=worker_id,
+        )
+    except Exception as error:
+        if is_no_such_bucket_error(error):
+            logger.warning(
+                "computer_host_publish_skipped_missing_bucket tenant_id=%s "
+                "computer_id=%s bucket=%s",
+                tenant_id,
+                computer.computer_id,
+                resolved_store.bucket,
+            )
+            return False
+        raise
     plane.publish_computer_snapshot(tenant_id, worker_id, manifest.checksum)
     return True

@@ -67,6 +67,10 @@ def test_customer_computers_create_stack_parameters() -> None:
     )
     assert parameters == [
         {"ParameterKey": "TenantId", "ParameterValue": "tenant-1"},
+        {
+            "ParameterKey": "SnapshotBucketName",
+            "ParameterValue": "chatticus-snapshots-tenant-1",
+        },
     ]
 
 
@@ -75,14 +79,15 @@ def test_committed_customer_computers_template_is_under_body_limit() -> None:
     body = json.dumps(template, separators=(",", ":"))
     assert len(body.encode("utf-8")) <= CREATE_STACK_TEMPLATE_BYTE_LIMIT
     assert "AWS::S3::Bucket" not in body
-    assert "SnapshotBucketName" not in body
+    assert "SnapshotBucketName" in body
+    assert "CHATTICUS_SNAPSHOT_BUCKET" in body
     assert "AWS::ECR::Repository" in body
 
 
 def test_committed_template_has_no_cdk_bootstrap() -> None:
     template = load_customer_computers_template()
     parameters = template.get("Parameters", {})
-    assert set(parameters.keys()) == {"TenantId"}
+    assert set(parameters.keys()) == {"TenantId", "SnapshotBucketName"}
     rules = template.get("Rules", {})
     assert "CheckBootstrapVersion" not in rules
     body = json.dumps(template)

@@ -31,6 +31,10 @@ describe("CustomerComputersStack", () => {
           Environment: Match.arrayWith([
             { Name: "CHATTICUS_LIVE_ROOT", Value: "/var/lib/chatticus/computer" },
             {
+              Name: "CHATTICUS_SNAPSHOT_BUCKET",
+              Value: { Ref: "SnapshotBucketName" },
+            },
+            {
               Name: "CHATTICUS_TENANT_ID",
               Value: { Ref: "TenantId" },
             },
@@ -39,8 +43,9 @@ describe("CustomerComputersStack", () => {
       ]),
     });
     template.hasParameter("TenantId", { Type: "String" });
+    template.hasParameter("SnapshotBucketName", { Type: "String" });
     const parameters = template.toJSON().Parameters ?? {};
-    assert.equal(Object.keys(parameters).length, 1);
+    assert.equal(Object.keys(parameters).length, 2);
     assert.equal("AnthusComputerImageUri" in parameters, false);
     assert.equal("BootstrapVersion" in parameters, false);
     const rules = template.toJSON().Rules;
@@ -103,10 +108,41 @@ describe("CustomerComputersStack", () => {
     template.hasOutput("ComputerServiceName", {});
     template.hasOutput("ComputerPublicSubnetIds", {});
     template.hasOutput("ComputerSecurityGroupId", {});
-    const outputs = template.findOutputs("*");
-    assert.equal(
-      Object.keys(outputs).some((key) => key.includes("SnapshotBucketName")),
-      false,
+    const taskPolicies = template.findResources("AWS::IAM::Policy", {
+      Properties: Match.objectLike({
+        PolicyName: Match.stringLikeRegexp("^ComputerTaskRoleDefaultPolicy"),
+      }),
+    });
+    assert.equal(Object.keys(taskPolicies).length, 1);
+    const taskPolicy = Object.values(taskPolicies)[0] as {
+      Properties: {
+        PolicyDocument: {
+          Statement: Array<{ Action: string | string[]; Resource: unknown; Sid?: string }>;
+        };
+      };
+    };
+    const snapshotStatements = taskPolicy.Properties.PolicyDocument.Statement.filter(
+      (statement) => statement.Sid === "SnapshotReadWrite",
     );
+    assert.equal(snapshotStatements.length, 1);
+    const snapshotStatement = snapshotStatements[0];
+    const actions = Array.isArray(snapshotStatement.Action)
+      ? snapshotStatement.Action
+      : [snapshotStatement.Action];
+    assert.deepEqual(actions.sort(), ["s3:GetObject", "s3:PutObject"]);
+    assert.equal(actions.includes("s3:ListBucket"), false);
+    assert.equal(actions.includes("s3:CreateBucket"), false);
+    const resources = Array.isArray(snapshotStatement.Resource)
+      ? snapshotStatement.Resource
+      : [snapshotStatement.Resource];
+    assert.equal(resources.length, 1);
+    const resource = resources[0];
+    if (typeof resource === "string") {
+      assert.match(resource, /\$\{SnapshotBucketName\}|\$\{Bucket\}/);
+    } else {
+      assert.equal(typeof resource, "object");
+      const fnSub = (resource as Record<string, unknown>)["Fn::Sub"];
+      assert.ok(fnSub);
+    }
   });
 });

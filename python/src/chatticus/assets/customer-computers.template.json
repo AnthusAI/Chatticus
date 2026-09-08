@@ -4,6 +4,10 @@
     "TenantId": {
       "Type": "String",
       "Description": "Chatticus organization tenant id."
+    },
+    "SnapshotBucketName": {
+      "Type": "String",
+      "Description": "Organization snapshot bucket in the customer account (from the cross-account template)."
     }
   },
   "Resources": {
@@ -269,6 +273,24 @@
           "Statement": [
             {
               "Action": [
+                "s3:GetObject",
+                "s3:PutObject"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Sub": [
+                  "arn:aws:s3:::${Bucket}/*",
+                  {
+                    "Bucket": {
+                      "Ref": "SnapshotBucketName"
+                    }
+                  }
+                ]
+              },
+              "Sid": "SnapshotReadWrite"
+            },
+            {
+              "Action": [
                 "logs:CreateLogStream",
                 "logs:DescribeLogGroups",
                 "logs:DescribeLogStreams",
@@ -315,6 +337,12 @@
               {
                 "Name": "CHATTICUS_LIVE_ROOT",
                 "Value": "/var/lib/chatticus/computer"
+              },
+              {
+                "Name": "CHATTICUS_SNAPSHOT_BUCKET",
+                "Value": {
+                  "Ref": "SnapshotBucketName"
+                }
               },
               {
                 "Name": "CHATTICUS_TENANT_ID",

@@ -15,6 +15,7 @@ from cross_account_provisioning_steps import (
 
 from chatticus.customer_computer_image import publish_dev_image_from_anthus
 from chatticus.customer_computers_template import load_customer_computers_template
+from chatticus.customer_snapshot_bucket import customer_snapshot_bucket_name
 from chatticus.models import AwsSetupPath
 
 
@@ -83,13 +84,21 @@ def then_committed_template_declares_ecr_repository(context: object) -> None:
     )
 
 
-@then("CreateStack parameters include only TenantId")
-def then_create_stack_parameters_include_only_tenant_id(context: object) -> None:
+@then("CreateStack parameters include TenantId and SnapshotBucketName")
+def then_create_stack_parameters_include_tenant_and_snapshot_bucket(
+    context: object,
+) -> None:
     cloudformation = context.cloudformation_client  # type: ignore[attr-defined]
     assert len(cloudformation.create_stack_calls) == 1
     parameters = cloudformation.create_stack_calls[0].get("Parameters") or []
     assert parameters == [
-        {"ParameterKey": "TenantId", "ParameterValue": context.start_org.tenant_id}
+        {"ParameterKey": "TenantId", "ParameterValue": context.start_org.tenant_id},
+        {
+            "ParameterKey": "SnapshotBucketName",
+            "ParameterValue": customer_snapshot_bucket_name(
+                context.start_org.tenant_id
+            ),
+        },
     ]
 
 
