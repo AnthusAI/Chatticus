@@ -33,10 +33,17 @@
       "text": "Implementation on PR https://github.com/AnthusAI/Chatticus/pull/322 (`feat/5ac06b-file-tools-on-host`). Composer 2.5 review + inversion acceptance in flight. Do not merge until review and full CI `behave` are green (local run was a 23-scenario subset). Worktree stays at `/tmp/chatticus-5ac06b-file-tools-host`.\n",
       "created_at": "2026-09-08T02:29:09.607241Z",
       "comment_type": "default"
+    },
+    {
+      "id": "8c47173e-4857-4601-9b57-a481d66fafbe",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/322 **request changes**. Do not merge.\n\nIn-process acceptance PASS does not override this.\n\n1. Grant-deny Gherkin must assert **no computer continuation job** (and turn not waiting on workspace), not only that the computer is still stopped. Both `computer_host_workspace_executor.feature` and `model_tool_loop_sinks.feature` denial scenarios.\n2. Host must re-gate file-tool paths before execute, matching `_regate_committed_browse_url`. A fenced handoff with an ungranted path must not write/read host disk.\n",
+      "created_at": "2026-09-08T02:32:01.502062Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T02:02:42.651003Z",
-  "updated_at": "2026-09-08T02:29:09.607241Z",
+  "updated_at": "2026-09-08T02:32:01.502062Z",
   "closed_at": null,
   "custom": {}
 }
