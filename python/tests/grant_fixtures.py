@@ -17,13 +17,6 @@ def research_grant() -> TaskCapabilityGrant:
     )
 
 
-def conversation_grant() -> TaskCapabilityGrant:
-    """Household conversation preset attached on human-started turns."""
-    from chatticus.capability_policy import household_conversation_grant
-
-    return household_conversation_grant()
-
-
 def send_grant() -> TaskCapabilityGrant:
     """Structured send to one granted recipient."""
     return TaskCapabilityGrant(
