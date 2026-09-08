@@ -93,6 +93,14 @@ describe("SPA viewer-request rewrite", () => {
     assert.equal(request.uri, "/auth/signout-callback/index.html");
   });
 
+  it("rewrites /auth/silent-callback to its Next export index", () => {
+    const request = runViewerRequest(
+      SPA_VIEWER_REQUEST_FUNCTION,
+      viewerRequestEvent("/auth/silent-callback"),
+    );
+    assert.equal(request.uri, "/auth/silent-callback/index.html");
+  });
+
   it("does not rewrite /api paths", () => {
     assert.match(SPA_VIEWER_REQUEST_FUNCTION, /uri\.indexOf\("\/api"\) === 0/);
   });

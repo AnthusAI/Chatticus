@@ -4,9 +4,12 @@ import {
   cognitoIssuer,
   loadCognitoConfig,
   postLogoutRedirectUri,
+  silentRedirectUri,
   type CognitoConfig,
 } from "./cognito-config";
 import { verifyIdTokenClaims, type IdTokenClaims } from "./id-token";
+
+const SELECT_ACCOUNT_ON_SIGNIN_KEY = "chatticus:select_account_on_signin";
 
 let userManager: UserManager | null = null;
 let cachedConfig: CognitoConfig | null = null;
@@ -64,9 +67,57 @@ export async function getVerifiedSession(): Promise<VerifiedSession | null> {
   return verifiedSessionFromUser(user);
 }
 
+/**
+ * Restore a verified session on mount: read persisted user, renew silently
+ * when claims fail or no user is stored, without surfacing verify errors.
+ */
+export async function restoreVerifiedSession(): Promise<VerifiedSession | null> {
+  const manager = getUserManager();
+  const user = await manager.getUser();
+  if (user) {
+    try {
+      const session = verifiedSessionFromUser(user);
+      if (session) {
+        return session;
+      }
+    } catch {
+      // Expired or invalid claims — fall through to silent sign-in.
+    }
+  }
+
+  try {
+    const renewed = await manager.signinSilent();
+    return verifiedSessionFromUser(renewed);
+  } catch {
+    return null;
+  }
+}
+
+function consumeSelectAccountOnSignIn(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const flag = window.sessionStorage.getItem(SELECT_ACCOUNT_ON_SIGNIN_KEY);
+  if (flag !== "1") {
+    return false;
+  }
+  window.sessionStorage.removeItem(SELECT_ACCOUNT_ON_SIGNIN_KEY);
+  return true;
+}
+
+function markSelectAccountOnSignIn(): void {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(SELECT_ACCOUNT_ON_SIGNIN_KEY, "1");
+  }
+}
+
 /** Start Google sign-in (authorization code + PKCE). */
 export async function signInWithGoogle(): Promise<void> {
-  await getUserManager().signinRedirect();
+  const extraQueryParams: Record<string, string> = { identity_provider: "Google" };
+  if (consumeSelectAccountOnSignIn()) {
+    extraQueryParams.prompt = "select_account";
+  }
+  await getUserManager().signinRedirect({ extraQueryParams });
 }
 
 /** Complete the OAuth redirect callback and strip query params. */
@@ -80,6 +131,11 @@ export async function completeSignInRedirect(): Promise<VerifiedSession> {
     throw new Error("Sign-in did not return a verified id_token.");
   }
   return session;
+}
+
+/** Complete a silent-renew iframe callback without navigating the parent frame. */
+export async function completeSilentSignInCallback(): Promise<void> {
+  await getUserManager().signinSilentCallback();
 }
 
 /** End the Cognito and Google SSO session, then redirect back to the SPA. */
@@ -98,6 +154,7 @@ export async function completeSignOutRedirect(): Promise<void> {
     await getUserManager().signoutRedirectCallback();
   } finally {
     await getUserManager().removeUser();
+    markSelectAccountOnSignIn();
     if (typeof window !== "undefined") {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -146,10 +203,11 @@ export function buildUserManagerSettings(config: CognitoConfig) {
     authority: cognitoIssuer(config),
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
+    silent_redirect_uri: silentRedirectUri(config),
     post_logout_redirect_uri: postLogoutRedirectUri(config),
     response_type: "code",
     scope: "openid email profile",
-    extraQueryParams: { identity_provider: "Google", prompt: "select_account" },
+    extraQueryParams: { identity_provider: "Google" },
     userStore: new WebStorageStateStore({ store: window.localStorage }),
     automaticSilentRenew: true,
     accessTokenExpiringNotificationTimeInSeconds: 60,

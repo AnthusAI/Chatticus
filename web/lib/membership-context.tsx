@@ -12,7 +12,7 @@ import {
 
 import {
   bindAuthEvents,
-  getVerifiedSession,
+  restoreVerifiedSession,
   signInWithGoogle,
   signOut,
   type VerifiedSession,
@@ -67,7 +67,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
 
   const refreshSession = useCallback(async () => {
     try {
-      const nextSession = await getVerifiedSession();
+      const nextSession = await restoreVerifiedSession();
       setSession(nextSession);
       setError(null);
       await refreshMe(nextSession);

@@ -60,3 +60,8 @@ export function cognitoIssuer(config: CognitoConfig): string {
 export function postLogoutRedirectUri(config: CognitoConfig): string {
   return new URL("/auth/signout-callback", new URL(config.redirectUri).origin).href;
 }
+
+/** Silent-renew iframe callback registered on the Cognito SPA client. */
+export function silentRedirectUri(config: CognitoConfig): string {
+  return new URL("/auth/silent-callback", new URL(config.redirectUri).origin).href;
+}

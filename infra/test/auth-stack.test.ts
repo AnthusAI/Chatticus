@@ -28,7 +28,7 @@ describe("AuthStack", () => {
   for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
     describe(environmentName, () => {
       const template = synthAuthStack(environmentName);
-      const { authDomainName, callbackUrl, webPrefix } =
+      const { authDomainName, callbackUrl, silentCallbackUrl, webPrefix } =
         authStackExpectations(environmentName);
 
       it("creates a case-insensitive user pool", () => {
@@ -46,7 +46,7 @@ describe("AuthStack", () => {
           AllowedOAuthFlows: ["code"],
           AllowedOAuthFlowsUserPoolClient: true,
           SupportedIdentityProviders: ["Google"],
-          CallbackURLs: [callbackUrl],
+          CallbackURLs: [callbackUrl, silentCallbackUrl],
           RefreshTokenValidity: 43200,
           TokenValidityUnits: {
             RefreshToken: "minutes",

@@ -96,6 +96,50 @@ connector, or consequential operations proceed.
 - The full exclusion list is executable in
   `features/v1_security_policy_exclusions.feature`.
 
+## Human workspace session token
+
+The signed-in member's Cognito **id_token** (and refresh token) live in
+**`localStorage`** on the product workspace origin, via oidc-client-ts
+(`web/lib/auth.ts`). This is deliberate SPA practice: the session survives
+reload and tab return, and silent renew can run before the id_token expires.
+
+### What the token authorizes
+
+The id_token is sent as a bearer credential on user-plane API routes. It
+authorizes **`PUT /turns/{turn_id}/grant`**, which replaces the active turn
+grant — including **`run_terminal`** when the member selects it. That grant
+chain is already built: a stolen token can authorize shell commands on the
+organization computer, bounded by the **acting member's standing**
+(`grant_replace_exceeds_acting_member_standing`). An owner token carries
+owner standing.
+
+### Why XSS on the workspace origin matters
+
+`localStorage` is readable by any JavaScript on the origin. This product
+creates more paths from fetched content, tool output, and bot-authored
+messages to rendered workspace UI than a typical SPA. Any unescaped render
+is an XSS vector. Page content is already treated as hostile for the
+**agent's** browser (`prompt_injection_containment.feature`); the same
+discipline applies to the **human's** session token.
+
+### Compensating controls (accepted tradeoff)
+
+- **Member-standing ceiling** on grant replacement — a stolen token cannot
+  exceed that member's role.
+- **Short id_token lifetime** (one hour) and **refresh token bound** (thirty
+  days) on the Cognito SPA client.
+- **Output escaping** and page-content-as-data rules in the workspace UI.
+- **Approval cards** render concrete tool arguments, not model prose.
+
+### Not chosen for v1
+
+- **`sessionStorage`** — narrower XSS window but breaks cross-tab session and
+  next-day return without a visible sign-in.
+- **httpOnly cookie / BFF** — strongest against XSS reading the token; deferred
+  as a larger architectural change.
+
+This section records the tradeoff; silence was the defect.
+
 ## What a reviewer should attack
 
 Whether rule 1 is achievable at all with current models, and what the

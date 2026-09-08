@@ -6,6 +6,7 @@ import { WebStorageStateStore } from "oidc-client-ts";
 import {
   cognitoIssuer,
   loadCognitoConfig,
+  silentRedirectUri,
   type CognitoConfig,
 } from "./cognito-config";
 import { parseJwtPayload, verifyIdTokenClaims } from "./id-token";
@@ -95,16 +96,21 @@ describe("buildUserManagerSettings", () => {
     );
   });
 
-  it("always sends identity_provider=Google and prompt=select_account", () => {
+  it("sends identity_provider=Google without a global account picker prompt", () => {
     const settings = buildUserManagerSettings(testConfig);
     assert.equal(settings.extraQueryParams?.identity_provider, "Google");
-    assert.equal(settings.extraQueryParams?.prompt, "select_account");
+    assert.equal(settings.extraQueryParams?.prompt, undefined);
     assert.equal(settings.response_type, "code");
     assert.equal(settings.redirect_uri, testConfig.redirectUri);
+    assert.equal(
+      settings.silent_redirect_uri,
+      silentRedirectUri(testConfig),
+    );
     assert.equal(
       settings.post_logout_redirect_uri,
       "https://dev.chattic.us/auth/signout-callback",
     );
+    assert.equal(settings.scope, "openid email profile");
   });
 
   it("persists the OIDC user in localStorage", () => {

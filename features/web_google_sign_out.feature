@@ -30,3 +30,23 @@ Feature: Google sign-in session and sign-out in the web SPA
     Given the web SPA is completing a Cognito sign-out redirect
     When the sign-out redirect callback is handled
     Then the web SPA persisted session is cleared
+
+  Scenario: Signing in without a prior sign-out does not prompt for account selection
+    Given the web SPA has no signed-in session
+    When the person starts Google sign-in from the web SPA
+    Then the Google authorization request does not include prompt "select_account"
+    And the Google authorization request includes identity_provider "Google"
+
+  Scenario: Reloading without a persisted OIDC user restores via silent sign-in when the IdP session is valid
+    Given the web SPA IdP session is valid but no persisted OIDC user
+    When the person reloads the workspace
+    Then the web SPA attempted silent sign-in
+    And the web SPA still has that signed-in session
+    And the person is not sent through Google sign-in
+
+  Scenario: Reloading with an expired id_token renews silently before showing the sign-in panel
+    Given the web SPA has an expired id_token and a valid refresh token
+    When the person reloads the workspace
+    Then the web SPA attempted silent sign-in
+    And the web SPA still has that signed-in session
+    And the person is not sent through Google sign-in

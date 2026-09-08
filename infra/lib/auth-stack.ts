@@ -81,7 +81,10 @@ export class AuthStack extends cdk.Stack {
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE,
         ],
-        callbackUrls: [`https://${siteDomain}/auth/callback`],
+        callbackUrls: [
+          `https://${siteDomain}/auth/callback`,
+          `https://${siteDomain}/auth/silent-callback`,
+        ],
         logoutUrls: [
           `https://${siteDomain}/`,
           `https://${siteDomain}/auth/signout-callback`,

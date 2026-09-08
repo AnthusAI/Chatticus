@@ -13,6 +13,7 @@ WEB_DIR = REPO_ROOT / "web"
 HARNESS = WEB_DIR / "test-support" / "auth-behavior-harness.ts"
 HARNESS_STATE = REPO_ROOT / ".auth-harness-state.json"
 HARNESS_OIDC_STORE = REPO_ROOT / ".auth-harness-oidc-store.json"
+HARNESS_SESSION_STORE = REPO_ROOT / ".auth-harness-session-store.json"
 
 
 def _tsx_binary() -> Path:
@@ -38,6 +39,7 @@ def _run_harness(command: str, payload: dict | None = None) -> dict:
         **dict(__import__("os").environ),
         "CHATTICUS_AUTH_HARNESS_STATE": str(HARNESS_STATE),
         "CHATTICUS_AUTH_HARNESS_OIDC_STORE": str(HARNESS_OIDC_STORE),
+        "CHATTICUS_AUTH_HARNESS_SESSION_STORE": str(HARNESS_SESSION_STORE),
     }
     result = subprocess.run(
         args,
@@ -57,6 +59,21 @@ def _run_harness(command: str, payload: dict | None = None) -> dict:
 @given("the web SPA Cognito auth module")
 def given_web_spa_cognito_auth_module(context: object) -> None:
     context.web_auth_harness = _run_harness("reset")
+
+
+@given("the web SPA has no signed-in session")
+def given_no_signed_in_session(context: object) -> None:
+    context.web_auth_harness = _run_harness("seed-no-session")
+
+
+@given("the web SPA IdP session is valid but no persisted OIDC user")
+def given_idp_session_only(context: object) -> None:
+    context.web_auth_harness = _run_harness("seed-idp-session-only")
+
+
+@given("the web SPA has an expired id_token and a valid refresh token")
+def given_expired_session_with_refresh(context: object) -> None:
+    context.web_auth_harness = _run_harness("seed-expired-with-refresh")
 
 
 @given("the web SPA has an active signed-in session")
@@ -128,6 +145,28 @@ def then_still_has_signed_in_session(context: object) -> None:
 def then_not_sent_through_google_sign_in(context: object) -> None:
     harness = context.web_auth_harness
     assert harness.get("signinRedirectCalled") is not True, harness
+
+
+@then('the Google authorization request does not include prompt "{prompt}"')
+def then_sign_in_does_not_include_prompt(context: object, prompt: str) -> None:
+    harness = context.web_auth_harness
+    assert harness.get("signinRedirectCalled") is True, harness
+    extra = harness.get("signinExtraQueryParams") or {}
+    assert extra.get("prompt") != prompt, harness
+
+
+@then('the Google authorization request includes identity_provider "{provider}"')
+def then_sign_in_includes_identity_provider(context: object, provider: str) -> None:
+    harness = context.web_auth_harness
+    assert harness.get("signinRedirectCalled") is True, harness
+    extra = harness.get("signinExtraQueryParams") or {}
+    assert extra.get("identity_provider") == provider, harness
+
+
+@then("the web SPA attempted silent sign-in")
+def then_attempted_silent_sign_in(context: object) -> None:
+    harness = context.web_auth_harness
+    assert harness.get("signinSilentCalled") is True, harness
 
 
 @then('the Google authorization request includes prompt "{prompt}"')
