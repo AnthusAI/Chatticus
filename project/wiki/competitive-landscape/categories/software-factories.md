@@ -24,3 +24,10 @@ High metaphor adjacency ("farm the org, not one chat") but coding-enterprise ske
 - [Coding-org orchestrators](coding-org-orchestrators.md)
 - [Multi-desk farms](multi-desk-farms.md)
 - [Metaphors](../metaphors.md)
+
+## Related coding workers
+
+- [OpenAI Codex](../products/openai-codex.md)
+- [Claude Code](../products/claude-code.md)
+- [Cursor Cloud Agents](../products/cursor-cloud-agents.md)
+

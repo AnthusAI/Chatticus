@@ -17,6 +17,8 @@ Products where humans and (often named) agents share a **persistent computer** â
 | [OpenAI Frontier](../products/openai-frontier.md) | Coworkers with computer/tools execution | High (language) |
 | [Dust](../products/dust.md) | Shared Pods / shared virtual computer claim | Medâ€“High |
 | [Cursor Cloud Agents](../products/cursor-cloud-agents.md) | Isolated coding VMs; Grok Bot can delegate | Med |
+| [OpenAI Codex](../products/openai-codex.md) | Cloud/local coding sandboxes + open harness | Med |
+| [Claude Code](../products/claude-code.md) | Phone Firecracker durable `vda` (coding) | Med |
 | [Claude Cowork](../products/claude-cowork.md) | Local desktop computer use | Med |
 | [Manus](../products/manus.md) | Sandbox browser/shell/FS generalist | Med |
 | [Microsoft Scout](../products/microsoft-scout.md) | Desktop Autopilot + files/shell/browser | Med |

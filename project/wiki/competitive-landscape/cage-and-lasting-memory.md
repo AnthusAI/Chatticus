@@ -1,7 +1,7 @@
 # Cage and lasting memory — five-way compare
 
 **Date:** 2026-09-08  
-**Purpose:** Axes note for how Chatticus’s shared computer + lasting mind line up with Claude Code (phone), Instinct, Cursor Cloud Agents, and Grok Bot. Product dossiers stay on [product pages](index.md). Freeform research memo: `/workspace/research-cage-compare-2026-09-08.md` (outside this tree).
+**Purpose:** Axes note for how Chatticus’s shared computer + lasting mind line up with Claude Code (phone), Instinct, Cursor Cloud Agents, OpenAI Codex, and Grok Bot. Product dossiers stay on [product pages](index.md). Freeform research memo: `/workspace/research-cage-compare-2026-09-08.md` (outside this tree).
 
 **Chatticus SoT:** `docs/PRODUCT.md`, `docs/COMPUTER_SNAPSHOTS.md`, `docs/COMPUTER_MANIFOLD.md`, `docs/ARCHITECTURE.md`, and README “What is live today” on `develop` (host-disk story closed 2026-09-08; live file-recycle lab UpdateStack still open).
 
@@ -19,6 +19,7 @@ Agents are getting a **computer**. The fork is what is **durable**: the machine 
 | **Claude Code (phone)** | Block volume (`vda` reattaches) | On VM disk | No | Anthropic |
 | **Instinct** | Git bundle in S3 | `/memory` Markdown vault | No (single agent) | E2B rented |
 | **Cursor Cloud Agents** | Task VM / git + Builds | Cursor product backends | No (ephemeral workers) | Cursor |
+| **OpenAI Codex** | Task cloud env / local workspace | ChatGPT/Codex product | No (coding worker) | OpenAI |
 | **Grok Bot** | Persistent cloud PC | Per-bot + shared PC | Yes (user) | Cursor / xAI |
 
 ## Chatticus (ours)
@@ -34,6 +35,9 @@ Gates: model / workspace / browser are independent. Reads can serve from the pub
 Kanbus anchors: `chatticus-fccc4e9a` (host disk decided), `chatticus-598be488` (cross-account), `chatticus-fbae4eb4` (EFS campaign stopped), `chatticus-863f27b6` (file survives recycle — Gherkin on develop).
 
 ## Claude Code (phone)
+
+Product card: [Claude Code](products/claude-code.md). Distinct from [Claude Cowork](products/claude-cowork.md).
+
 
 - Cage: Anthropic Firecracker microVM; sealed `process_api` as PID 1; egress gateway 443 MITM.
 - Durable: tenant writable disk (`vda`) reattaches after idle reclaim; harness/skills on read-only disks.
@@ -63,6 +67,11 @@ Product card today is thin (messaging/trust framing): [Instinct](products/instin
 **vs Chatticus:** ≈ summoned host only in “spin compute for a job.” No persistent household `computer_id`, no shared org cookies, no customer-AWS ownership story. Cursor is the **distribution orbit** Grok Bot rides; Chatticus sits outside it on purpose.
 
 See [Cursor Cloud Agents](products/cursor-cloud-agents.md).
+
+
+## OpenAI Codex
+
+Coding-worker sibling to Cursor Cloud Agents: cloud isolated environments for background tasks; local OS sandbox for CLI/IDE; **open harness** (App Server) for embedders. Task lifetime, not org `computer_id`. Product card: [OpenAI Codex](products/openai-codex.md).
 
 ## Grok Bot (product twin)
 
@@ -96,5 +105,5 @@ See [Grok Bot](products/grok-bot.md) and [Shared-computer bot teams](categories/
 
 - [Metaphors](metaphors.md)
 - [Shared-computer bot teams](categories/shared-computer-bot-teams.md)
-- [Grok Bot](products/grok-bot.md) · [Instinct](products/instinct.md) · [Cursor Cloud Agents](products/cursor-cloud-agents.md) · [Claude Cowork](products/claude-cowork.md) (local Anthropic surface; not the phone Firecracker box)
+- [Grok Bot](products/grok-bot.md) · [Instinct](products/instinct.md) · [Cursor Cloud Agents](products/cursor-cloud-agents.md) · [OpenAI Codex](products/openai-codex.md) · [Claude Code](products/claude-code.md) · [Claude Cowork](products/claude-cowork.md) (local desktop; not the phone Firecracker box)
 - Design docs: `docs/PRODUCT.md`, `docs/COMPUTER_SNAPSHOTS.md`, `docs/COMPUTER_MANIFOLD.md`
