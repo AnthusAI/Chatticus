@@ -19,10 +19,17 @@
       "text": "Composer 2.5 planning. Worktree to be named `/tmp/chatticus-0b0208-session-persist` on `feat/0b0208-session-survives-reload`. Implementation not authorized until the plan is reviewed.\n\nKeep `chatticus-349634`: Cognito sign-out redirect and `prompt=select_account` after explicit sign-out. Persist the OIDC user across reload (oidc-client-ts default store is fine; in-memory-only is the defect). Gherkin first. No `ADMIN_NO_SRP_AUTH`. No second auth path.",
       "created_at": "2026-09-08T19:42:08.057546Z",
       "comment_type": "default"
+    },
+    {
+      "id": "7a1615c9-0a0a-4e5f-b1f0-f1483181a5b1",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with holes closed. Human confirmed: they were signed in and a reload sent them through Google again. Treat that as the defect, not a missing sign-in.\n\nWorktree to create first, then implement: `/tmp/chatticus-0b0208-session-persist` on `feat/0b0208-session-survives-reload` from `origin/develop`. Do not touch the primary clone.\n\n**Closed on authorize:**\n1. Harness: file-backed `Storage` only. No `node-localstorage`.\n2. Production `userStore`: explicit `new WebStorageStateStore({ store: window.localStorage })`. One path. Auth is client-only (`use client` + `useEffect`). Do not keep in-memory as a dual reader.\n3. Tighten the existing after-sign-out scenario with `Given` signed out. Do not duplicate it.\n4. Step phrase: `the web SPA persisted session is cleared`.\n5. Manager runs live reload acceptance after merge to `develop` and web deploy. Keep `prompt=select_account` after explicit sign-out (`349634`).\n6. Gherkin first, then the `userStore` change. No `ADMIN_NO_SRP_AUTH`. No cookies, no second auth path.\n\nTear the worktree down only after the manager closes the issue.",
+      "created_at": "2026-09-08T19:46:29.326668Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T19:41:52.427409Z",
-  "updated_at": "2026-09-08T19:42:08.057568Z",
+  "updated_at": "2026-09-08T19:46:29.326697Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
