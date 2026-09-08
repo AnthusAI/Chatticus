@@ -89,10 +89,17 @@
       "text": "## Principle decided 2026-09-07\n\n**A customer organization's account holds everything that organization's work depends on at runtime — image, files, compute — so that a running customer is not dependent on Anthus-side resources being reachable or correctly permissioned.**\n\nApplied:\n\n- Snapshot bucket — customer account, published template — `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac`\n- Agent files — customer host disk — `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7`\n- Computer image — customer ECR, which the published role already has push for — `chatticus-2b3c4173-a431-45fb-aec0-c6f4aa921b51` (not the `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` patch)\n\nThe Anthus-registry alternative was declined: keeping unused push permissions on a customer-facing role fails `chatticus-8a25af4a-7ae7-44e6-8229-e1d8313b712b`.\n\n`chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` confirming check **falsified** the ECR-auth hypothesis. Named cause: customer `computer_host_worker` Dynamo `GetItem` AccessDenied. Host must use the Front Door, not Anthus Dynamo from the customer task role.",
       "created_at": "2026-09-07T22:59:09.884501Z",
       "comment_type": "default"
+    },
+    {
+      "id": "0a0fcf4f-5255-4be5-96dc-76665e8243b8",
+      "author": "home",
+      "text": "Host-disk decision story `chatticus-fccc4e9a` closed. Five steps on `develop` (#318–#324). Capability matrix row 3 is Gherkin-green; live file actions still need lab UpdateStack so the throwaway account actually has `OrganizationSnapshotBucket`. Do not treat that as a new product slice until acceptance reports a hole.\n",
+      "created_at": "2026-09-08T04:00:01.640264Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-07T22:59:09.884501Z",
+  "updated_at": "2026-09-08T04:00:01.640264Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

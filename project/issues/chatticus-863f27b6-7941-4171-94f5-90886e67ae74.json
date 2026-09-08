@@ -3,7 +3,7 @@
   "title": "Agent file survives a host recycle on customer disk",
   "description": "**Step 5 of the accepted `chatticus-fccc4e9a` host-disk plan.** Steps 1–4 are closed (`4ac60c71`, `47533582`, `5ac06b`, `bb908488` / PR #323).\n\nProve the agent-visible path: a bot writes a workspace file on the summoned host; the host publishes; a later host hydrates; the bot can read the same bytes. Packs rest in the **customer** snapshot bucket (`chatticus-snapshots-{OrganizationId}`), not an Anthus dict.\n\nIn-process Gherkin already covers filesystem-store recycle. This card is the **agent-observable** close: Gherkin (and lab acceptance after the throwaway account re-runs the published template so the bucket exists).\n\n**Lab:** customer-run UpdateStack of `customer-role.yml` creates the bucket; then UpdateStack `ChatticusComputers` with `SnapshotBucketName`. Use the lab IAM user, not management root. Do not `cdk deploy --all`. Do not put `CreateBucket` on the Anthus role.\n\n## Done when\n\nA Gherkin scenario shows an agent file surviving host recycle via host disk + snapshot store (not `plane.read_workspace`). Lab throwaway has the customer bucket and one labeled kernel/live row is not required to merge Gherkin, but the card is not fully done until the operator path (UpdateStack) is recorded. No `customer-role.yml` policy expansion beyond step 4.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -33,10 +33,17 @@
       "text": "PR [#324](https://github.com/AnthusAI/Chatticus/pull/324) is up (`feat/863f27-file-survives-host-recycle` → `develop`). Composer 2.5 product review in flight; merge after that plus green CI. Live Fargate recycle stays post-merge lab acceptance (UpdateStack customer template, then Computers with SnapshotBucketName).\n",
       "created_at": "2026-09-08T03:49:36.143526Z",
       "comment_type": "default"
+    },
+    {
+      "id": "3a313f6b-41d6-4747-bf79-d07b8cb0beb1",
+      "author": "home",
+      "text": "**Closed.** Gherkin on `develop`: PR [#324](https://github.com/AnthusAI/Chatticus/pull/324) (`1fdb19f`). Agent write → host publish → relocate → read; journal-only; pack URI is `chatticus-snapshots-{OrganizationId}`. Operator UpdateStack path is recorded in `project/wiki/runbooks/throwaway-account-provisioning.md`. Live customer-account file row is acceptance after that UpdateStack, not a product PR.\n",
+      "created_at": "2026-09-08T04:00:01.575716Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T03:35:00.504757Z",
-  "updated_at": "2026-09-08T03:49:36.143526Z",
-  "closed_at": null,
+  "updated_at": "2026-09-08T04:00:01.598414Z",
+  "closed_at": "2026-09-08T04:00:01.598414Z",
   "custom": {}
 }

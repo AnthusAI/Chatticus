@@ -70,7 +70,7 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-09-07.** Git **`develop`** is ahead of **`main`** (last
+**Last updated: 2026-09-08.** Git **`develop`** is ahead of **`main`** (last
 promote: #303). Principal enforcement (#7b4616), sign-out ending the SSO session
 (#169), and the behavior-driven spec migration are on `main` and deployed across
 all three named environments. Phase 1 org-computer work (#304, #306, #308) lands
@@ -144,6 +144,15 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   Live `browser_open` / `about:blank` completed on the ACME throwaway
   account. Staging and production ComputerWorker still use the no-op host
   starter. Image pull is the customer ECR `:dev` (#320).
+- **Agent workplace files on host disk** (#318–#324, `chatticus-fccc4e9a`
+  closed): Dynamo snapshot metadata, host hydrate/publish, host
+  `read_workspace`/`write_workspace`, customer org bucket in the published
+  template, and Gherkin that an agent file survives relocate
+  (`computer_host_workspace_recycle.feature`). Packs are
+  `chatticus-snapshots-{OrganizationId}`, not an Anthus dict. Live file
+  actions in the throwaway account still need lab UpdateStack of
+  `customer-role.yml` then `ChatticusComputers` with `SnapshotBucketName`
+  (see the throwaway runbook). Do not `cdk deploy --all`.
 
 ### Public sites
 

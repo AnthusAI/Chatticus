@@ -3,7 +3,7 @@
   "title": "Decide whether agent file tools use the dict or host disk",
   "description": "**DECIDED 2026-09-07: host disk.** Ryan's call. The dict branch is rejected.\n\nParent epic: `chatticus-598be488-151d-4e57-8897-5cf6aaed50e5`. **Blocked by** `chatticus-8fe4c7e1-2043-442d-bc48-5350e7995f32` — steps 2, 3 and 5 need a host that runs. Step 1 (Dynamo snapshot fields) is a sibling task and may proceed in parallel.\n\n## Why\n\n`put_computer` does not persist `computer.workspace`, so a ThinTurn recycle drops an agent's files with no error and no signal. That is a leak shipping today, not a placeholder. Under the dict branch it would have to be fixed anyway, and persisting real state is most of the host-disk work without the benefit. The 3–5 PR cost is real; a leak is not a cheap alternative once you count fixing it. Pitch *their files, their account* requires real files. `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac`, the snapshot library, and `chatticus-fbae4eb4-df8d-42ab-af4a-2f9f0911b516` become operative on this branch.\n\n## Accepted scope — one path, no dual reader\n\nDo not leave the dict readable beside the host disk. Two readers of one logical workspace is the split brain `chatticus-fbae4eb4-df8d-42ab-af4a-2f9f0911b516` spent three days ruling out.\n\n1. Persist `snapshot_uri`, checksum, generation, `hydrate_required`, `intended_host_worker_id`, `disk_dirty` in Dynamo. **Not** the dict. Sibling task on this epic.\n2. `ComputerHostDisk.hydrate` at `computer_host_worker` start; pack and publish before exit. Needs a running host.\n3. Move agent file tools onto the computer-capable host. Gherkin, worker, HTTP.\n4. `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac` plus role `s3:Get`/`s3:Put` on the named bucket. `CreateBucket` stays off the Anthus role.\n5. Agent-observable Gherkin: a file that survives host recycle.\n\n`docs/ARCHITECTURE.md` drops \"design target, not currently wired\" when step 2 lands — **not before.** Snapshot library is to be wired, not deleted. No `/workspace` EFS. No prompt tuning.\n\n## Feature: Agent workplace files persist on host disk\n\n```\nFeature: Agent workplace files persist where the product says they do\n\n  Scenario: Host-disk branch — files survive a recycle\n    Given the product has chosen host disk for agent file tools\n    And a bot has written a file on the household computer\n    When the ThinTurn process recycles and a later host hydrates\n    Then the bot can read that file\n    And the bytes rest in the customer's snapshot bucket, not an Anthus dict\n```",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -80,11 +80,18 @@
       "text": "Step 4 closed: `chatticus-bb908488` / PR #323 / `342ed04` on `develop`. Next is step 5 — agent-observable file survives a host recycle, including lab UpdateStack of the customer template so the throwaway account actually has the bucket.\n",
       "created_at": "2026-09-08T03:35:00.418312Z",
       "comment_type": "default"
+    },
+    {
+      "id": "84b97a99-3b24-440a-8063-2e1fc3fe8da3",
+      "author": "home",
+      "text": "All five host-disk steps are on `develop`. Step 5 closed: `chatticus-863f27` / [#324](https://github.com/AnthusAI/Chatticus/pull/324). One path, no dual reader. Live throwaway file actions still wait on lab UpdateStack of the published customer template (runbook). Closing this decision story.\n",
+      "created_at": "2026-09-08T04:00:01.611954Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.946029Z",
-  "updated_at": "2026-09-08T03:35:00.418312Z",
-  "closed_at": null,
+  "updated_at": "2026-09-08T04:00:01.625512Z",
+  "closed_at": "2026-09-08T04:00:01.625512Z",
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
