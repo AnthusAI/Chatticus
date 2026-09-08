@@ -168,24 +168,29 @@ def then_me_orgs_include_table(context: object) -> None:
     expected = [
         {heading: row[heading] for heading in headings} for row in context.table
     ]
-    if "tenant_id" in headings:
-        assert sorted(organizations, key=lambda org: org["tenant_id"]) == sorted(
-            expected,
-            key=lambda org: org["tenant_id"],
-        )
-        return
     assert len(organizations) == len(expected)
     for expected_row in expected:
-        matches = [
-            organization
-            for organization in organizations
-            if organization.get("name") == expected_row.get("name")
-        ]
+        tenant_id = expected_row.get("tenant_id")
+        if tenant_id:
+            matches = [
+                organization
+                for organization in organizations
+                if organization.get("tenant_id") == tenant_id
+            ]
+            match_label = f"tenant_id {tenant_id!r}"
+        else:
+            name = expected_row.get("name")
+            matches = [
+                organization
+                for organization in organizations
+                if organization.get("name") == name
+            ]
+            match_label = f"name {name!r}"
         assert len(matches) == 1, (
-            f"expected one organization named {expected_row.get('name')!r}, "
-            f"got {organizations}"
+            f"expected one organization with {match_label}, got {organizations}"
         )
         organization = matches[0]
         for key, value in expected_row.items():
             assert organization[key] == value
-        assert organization.get("tenant_id")
+        if not tenant_id:
+            assert organization.get("tenant_id")
