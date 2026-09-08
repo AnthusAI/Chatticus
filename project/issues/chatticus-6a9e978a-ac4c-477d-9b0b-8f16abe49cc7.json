@@ -82,10 +82,17 @@
       "text": "GET /me table step fixed (`8d79d82`): subset match on listed columns so `computer_work_paused` does not break `me.feature:46`. Pushed to [#338](https://github.com/AnthusAI/Chatticus/pull/338). Re-review of that step plus new python CI in flight. Do not merge until green.",
       "created_at": "2026-09-08T20:24:29.288894Z",
       "comment_type": "default"
+    },
+    {
+      "id": "68eae432-e226-4643-9832-267dfa166461",
+      "author": "home",
+      "text": "Re-review **APPROVE** on the GET /me table-step fix (`8d79d82`). [#338](https://github.com/AnthusAI/Chatticus/pull/338) merges when python CI is green. Card stays in_progress.",
+      "created_at": "2026-09-08T20:25:06.535775Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:24.322109Z",
-  "updated_at": "2026-09-08T20:24:29.288917Z",
+  "updated_at": "2026-09-08T20:25:06.535808Z",
   "closed_at": null,
   "right_now_summary": "A test fix is underway for the `/me` response mismatch; merge awaits green CI.",
   "right_now_updated_at": "2026-09-08T20:07:24.893533Z",
