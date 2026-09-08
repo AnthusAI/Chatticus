@@ -10,12 +10,27 @@ from chatticus.models import TurnEventKind
 _SECRET_MARKERS = ("session", "cookie", "token", "password", "secret")
 
 
+def _explicit_task_grant(
+    context: object, bot: object, new_turn_id: str
+) -> object | None:
+    """Return an explicit Gherkin grant that should replace the conversation preset."""
+    policy_obj = getattr(context, "capability_policy", None)
+    if policy_obj is not None and policy_obj.grant is not None:
+        return policy_obj.grant
+    prior_turn_id = getattr(context, "policy_turn_id", None)
+    if prior_turn_id and prior_turn_id != new_turn_id and hasattr(context, "plane"):
+        prior_grant = context.plane.capability_policy_for(
+            bot.tenant_id, prior_turn_id
+        ).grant
+        if prior_grant is not None:
+            return prior_grant
+    return None
+
+
 @when('bot "{bot_name}" is asked "{message}"')
 def when_bot_is_asked_for_model_sink(
     context: object, bot_name: str, message: str
 ) -> None:
-    from capability_policy_steps import _policy
-
     from chatticus.models import ActorKind
 
     bot = context.bots_by_name[bot_name]
@@ -32,10 +47,12 @@ def when_bot_is_asked_for_model_sink(
     context.last_turn_id = turn.turn_id
     context.last_channel = channel
     context.worker_bot_id = bot.bot_id
-    grant = _policy(context).grant
+    explicit_grant = _explicit_task_grant(context, bot, turn.turn_id)
     context.policy_turn_id = turn.turn_id
-    if grant is not None:
-        context.plane.set_turn_capability_grant(bot.tenant_id, turn.turn_id, grant)
+    if explicit_grant is not None:
+        context.plane.set_turn_capability_grant(
+            bot.tenant_id, turn.turn_id, explicit_grant
+        )
 
 
 @when('bot "{bot_name}" runs one capability-aware computerless worker turn')

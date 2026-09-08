@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
+from chatticus.capability_policy import EgressClass, TaskCapabilityGrant
 from chatticus.control_plane import ControlPlane
 from chatticus.escalation_handoff import EscalationBoundary, EscalationCrash
 from chatticus.models import ActorKind, CostClass, TurnStatus, WorkerRegistration
@@ -47,6 +49,20 @@ class EscalationHandoffDriver:
         )
         assert started is not None
         self.turn_id = started.turn_id
+        browser_url = "https://mail.example"
+        parsed = urlparse(browser_url)
+        self.plane.set_turn_capability_grant(
+            self.tenant_id,
+            started.turn_id,
+            TaskCapabilityGrant(
+                tools=frozenset({"browse", "read_workspace"}),
+                origins=frozenset({f"{parsed.scheme}://{parsed.netloc}"}),
+                recipients=frozenset(),
+                file_scopes=frozenset({"/workspace"}),
+                egress_classes=frozenset({EgressClass.APPROVED_ORIGIN_FETCH.value}),
+                ingest_classes=frozenset(),
+            ),
+        )
         claimed = self.plane.claim_turn_attempt(
             self.tenant_id, started.turn_id, "computerless-worker"
         )
@@ -66,7 +82,7 @@ class EscalationHandoffDriver:
             self.tenant_id,
             started.turn_id,
             tool_name="browser_open",
-            arguments={"url": "https://mail.example"},
+            arguments={"url": browser_url},
         )
 
     def crash_at(self, boundary: EscalationBoundary) -> None:

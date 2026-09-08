@@ -135,6 +135,18 @@ class BoundConnectorOperation:
     approved: bool = False
 
 
+def household_conversation_grant() -> TaskCapabilityGrant:
+    """Return the closed grant attached when a human starts a bot turn."""
+    return TaskCapabilityGrant(
+        tools=frozenset({"read_workspace"}),
+        origins=frozenset(),
+        recipients=frozenset(),
+        file_scopes=frozenset({"/workspace"}),
+        egress_classes=frozenset({EgressClass.APPROVED_ORIGIN_FETCH.value}),
+        ingest_classes=frozenset(),
+    )
+
+
 def parse_grant_table(rows: dict[str, str]) -> TaskCapabilityGrant:
     """Build a grant from a two-column Gherkin table."""
 
