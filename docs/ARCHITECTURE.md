@@ -169,11 +169,11 @@ See [Computer snapshots](COMPUTER_SNAPSHOTS.md) and [Computer manifold](COMPUTER
 
 **Two file layers coexist:**
 
-1. `ControlPlane.read_workspace` / `write_workspace` operate on an
-   **in-process dict** (`computer.workspace`). `put_computer` does not
-   persist it, so a ThinTurn recycle starts empty. Computerless model tools
-   and Gherkin protocol specs reach this dict today; it is not the durable
-   workplace on a summoned host.
+1. `ControlPlane.read_workspace` / `write_workspace` **refuse**, raising
+   `WorkspaceHostOnlyError` ("workspace reads/writes run on the summoned
+   computer host"). There is deliberately **one reader, not two**. The
+   in-process `computer.workspace` dict survives only as
+   `seed_snapshot_workspace`, for relocate protocol specs.
 2. `chatticus.snapshot` (`pack_live_disk` / `unpack_live_disk`) packs **real
    directories** on the summoned host -- `/workspace` plus the Chromium
    profile, as [Computer snapshots](COMPUTER_SNAPSHOTS.md) specifies. The
@@ -185,9 +185,17 @@ See [Computer snapshots](COMPUTER_SNAPSHOTS.md) and [Computer manifold](COMPUTER
 for relocate protocol specs that run without a host disk. That bridge is not
 the durable path on a running host.
 
-**Agent file tools do not read the container's `/workspace` today.** Host disk
-is the decided durable workplace (`chatticus-fccc4e9a`); wiring computerless
-ThinTurn file tools to the host is a later slice.
+**Agent file tools do read the container's `/workspace` on a summoned host.**
+`HostActionExecutor` dispatches `read_workspace` and `write_workspace` to
+`WorkspaceActionExecutor`, beside the Chromium executor. Proven end to end on
+2026-09-08 against a throwaway customer organization: write, publish to
+`chatticus-snapshots-{ORGANIZATION_ID}` in the **customer's own account**, stop
+and start the host, read the file back.
+
+**The remaining gap is computerless turns.** A computerless worker has no host,
+so a file tool there hits the control-plane refusal above rather than
+escalating to a computer-capable host. Wiring that escalation is a later slice
+(`chatticus-fccc4e9a`).
 
 The storage conclusions still hold: `chatticus-fbae4e`
 proposed replacing host-local disk with EFS and was **measured out** (in-VPC
