@@ -47,10 +47,17 @@
       "text": "Acceptance **APPROVE** (Gherkin/harness) and product review **APPROVE** on [#339](https://github.com/AnthusAI/Chatticus/pull/339). LIVE-GAP until web deploy. Infra CI green; python CI still running. Merge when python is green. Card stays in_progress until merge; live reload check after deploy before close.",
       "created_at": "2026-09-08T20:06:50.829263Z",
       "comment_type": "default"
+    },
+    {
+      "id": "308d731f-b5b3-4e12-92c6-d0d8b9c51ab7",
+      "author": "home",
+      "text": "Product review **APPROVE** on [#339](https://github.com/AnthusAI/Chatticus/pull/339) (reload persist; `349634` sign-out intact). Still waiting on python CI (Behave still running on the original check). Do not merge until that job is green. Live reload check after web deploy.",
+      "created_at": "2026-09-08T20:24:29.392058Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T19:41:52.427409Z",
-  "updated_at": "2026-09-08T20:06:50.829392Z",
+  "updated_at": "2026-09-08T20:24:29.392075Z",
   "closed_at": null,
   "right_now_summary": "PR #339 is approved and awaits Python CI, merge, and a live reload check after web deployment.",
   "right_now_updated_at": "2026-09-08T20:07:18.101959Z",

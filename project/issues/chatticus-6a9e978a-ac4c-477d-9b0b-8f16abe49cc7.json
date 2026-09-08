@@ -75,12 +75,19 @@
       "text": "Acceptance **PROBLEMS** on [#338](https://github.com/AnthusAI/Chatticus/pull/338): spend-ceiling Gherkin 9/9 in the worktree, but full behave still fails `me.feature:46` (same GET /me table exact-match vs `computer_work_paused`). Live development cannot prove pause until merge + ceiling/rollup seed. Implementer already dispatched for the table-step fix. Do not merge until that lands and CI is green.",
       "created_at": "2026-09-08T20:05:44.239750Z",
       "comment_type": "default"
+    },
+    {
+      "id": "79d2aa84-3610-4fb1-9b0f-b616ec45a5f7",
+      "author": "home",
+      "text": "GET /me table step fixed (`8d79d82`): subset match on listed columns so `computer_work_paused` does not break `me.feature:46`. Pushed to [#338](https://github.com/AnthusAI/Chatticus/pull/338). Re-review of that step plus new python CI in flight. Do not merge until green.",
+      "created_at": "2026-09-08T20:24:29.288894Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:24.322109Z",
-  "updated_at": "2026-09-08T20:05:44.239771Z",
+  "updated_at": "2026-09-08T20:24:29.288917Z",
   "closed_at": null,
-  "right_now_summary": "PR #338 is approved; Python CI is still running before merge and worktree teardown.",
-  "right_now_updated_at": "2026-09-08T19:54:08.404816Z",
+  "right_now_summary": "A test fix is underway for the `/me` response mismatch; merge awaits green CI.",
+  "right_now_updated_at": "2026-09-08T20:07:24.893533Z",
   "custom": {}
 }
