@@ -11,12 +11,7 @@
   "labels": [
     "phase-1"
   ],
-  "dependencies": [
-    {
-      "target": "chatticus-070cb4a2-77ec-4cd8-a9fb-a096ae1be95f",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "83247a24-44fd-4599-b3d0-f192a525afdf",
@@ -31,10 +26,22 @@
       "text": "## The self-setup waiver cannot be fulfilled yet (2026-09-07)\n\nThis page offers two ways in, one of them *\"Run the template yourself. No setup fee.\"* The `chatticus-b88c0a` hand run found that path does not exist end to end. A customer today cannot:\n\n- see their `tenant_id` to fill in the template's `OrganizationId` parameter (`chatticus-9c8dbf` — the pending welcome screen shows neither name nor id; the run had to use operator `members list`);\n- submit the account id and RoleArn after running CloudFormation (`chatticus-070cb4` — there is no customer HTTP for `submit_self_setup_cross_account_role`; the run used a labeled operator kernel call);\n- create a bot in the enabled workspace (`chatticus-7622fd` — `POST /bots` exists, the UI never calls it).\n\nFour of the run's six person-steps needed an operator at a CLI. **\"Run it yourself\" is currently \"an operator runs it for you.\"**\n\nFlagging it here rather than only on those three stories because this page is where the promise is made, and the pitch's whole argument is that every cost is stated up front. Publishing a free self-setup option that silently requires an operator undercuts exactly the credibility the page is built on.\n\nNot proposing you change the pricing — $20/month and the $100 assisted fee look right. The dependency is on **publishing the offer**, not on choosing the numbers.",
       "created_at": "2026-09-07T16:01:25.697069Z",
       "comment_type": "default"
+    },
+    {
+      "id": "dab55d2d-13e3-4922-8cfd-edc26700a3a3",
+      "author": "home",
+      "text": "## Unblocked 2026-09-08 — the self-setup offer is now fulfillable\n\nThis card was blocked-by `chatticus-070cb4` on 2026-09-07, because the page offers *\"run the template yourself, no setup fee\"* and that path did not exist end to end: a customer could not see their `tenant_id`, could not submit their RoleArn, and could not create a bot. Four of six person-steps in the `b88c0a` provisioning run needed an operator at a CLI.\n\n**All three are now closed** — `chatticus-9c8dbf`, `chatticus-070cb4`, `chatticus-7622fd`. The dependency is satisfied and has been removed, so this card is in `kbs ready` again.\n\n**Tooling note worth knowing:** `kbs ready` kept excluding this card after `070cb4` closed. A satisfied `blocked-by` does not clear itself — it has to be removed explicitly, or the card stays invisible to the ready queue indefinitely. Anyone wiring dependencies should plan to unwire them on close.\n\n**What still needs checking before publishing the offer**, since the original objection was about promising something the product cannot do: the three stories closed on their own DoDs, but nobody has re-run the  journey end to end as a customer since. The honest claim on this page depends on the *whole path* working unattended, not on three cards being green. A repeat of that run — measuring person-steps again — is what would justify the wording.",
+      "created_at": "2026-09-08T18:29:02.898042Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:39:30.925530Z",
-  "updated_at": "2026-09-07T16:01:25.697069Z",
+  "updated_at": "2026-09-08T18:29:02.898060Z",
   "closed_at": null,
-  "custom": {}
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {
+    "project_label": "chatticus",
+    "source": "shared"
+  }
 }
