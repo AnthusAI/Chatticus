@@ -117,10 +117,17 @@
       "text": "Self-setup `chatticus-070cb4` closed (#326). Live inspect 422 on development. Next P0 hole: `chatticus-7622fd` — create a named bot from the workspace UI.\n",
       "created_at": "2026-09-08T11:36:15.464836Z",
       "comment_type": "default"
+    },
+    {
+      "id": "bd10c0ab-2ece-4deb-9e5a-c6ce45de9024",
+      "author": "home",
+      "text": "Self-setup `chatticus-7622fd` closed (#327). Live `POST /bots` 200 for `LiveCreate`. Remaining P0 on this epic: `chatticus-5336ff` (create_bot issues no grant).\n",
+      "created_at": "2026-09-08T12:08:27.780416Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:08.373478Z",
-  "updated_at": "2026-09-08T11:36:15.464836Z",
+  "updated_at": "2026-09-08T12:08:27.780416Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",

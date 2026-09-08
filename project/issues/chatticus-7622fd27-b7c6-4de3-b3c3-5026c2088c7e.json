@@ -3,7 +3,7 @@
   "title": "An enabled member creates a named bot in the workspace",
   "description": "## Found on `chatticus-b88c0a`\n\n`EnabledWorkspace` lists bots and can send a message. It never calls `POST /bots`. The hand run minted **Ping** via kernel `create_bot` so F-safe could run.\n\n## Done when\n\nAn enabled member creates a named bot from the workspace UI without the members CLI or a kernel snippet. Behavior in Gherkin first.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -40,10 +40,17 @@
       "text": "PR [#327](https://github.com/AnthusAI/Chatticus/pull/327) merged (`7f87cfe`). Card stays **in_progress** until I create a named bot on development via `POST /bots` (workspace UI after web deploy, or labeled HTTP if Google SPA blocks). No grants in this slice.\n",
       "created_at": "2026-09-08T12:04:06.099267Z",
       "comment_type": "default"
+    },
+    {
+      "id": "38a9713c-c20d-45d7-92b2-438e22b8b58d",
+      "author": "home",
+      "text": "**Closed.** PR [#327](https://github.com/AnthusAI/Chatticus/pull/327) on `develop`. I created bot `LiveCreate` on development via `POST /bots` **200**; roster listed it with Ping and Researcher. SPA Google sign-in blocked UI automation (labeled Cognito id_token deviation, reverted). Grants are `chatticus-5336ff`.\n",
+      "created_at": "2026-09-08T12:08:27.722621Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T15:54:05.621093Z",
-  "updated_at": "2026-09-08T12:04:06.099267Z",
-  "closed_at": null,
+  "updated_at": "2026-09-08T12:08:27.736012Z",
+  "closed_at": "2026-09-08T12:08:27.736012Z",
   "custom": {}
 }

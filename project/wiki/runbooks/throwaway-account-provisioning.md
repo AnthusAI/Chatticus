@@ -24,7 +24,7 @@ Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` 
 2. **Copy `ORGANIZATION_ID` (`tenant_id`)** for CloudFormation `OrganizationId`. The 2026-09-07 run used `members list --status pending`. **Fixed on `develop`** (`chatticus-9c8dbf` / #325): welcome and enabled workspace show name, status, and tenant_id from `GET /me`.
 3. **GET the published YAML** and `create-stack` in the **customer** account with `AnthusAccountId=ANTHUS_ACCOUNT_ID`, `OrganizationId=ORGANIZATION_ID`, `--capabilities CAPABILITY_NAMED_IAM`.
 4. **Submit account id + RoleArn** in-product (`chatticus-070cb4` / #326). The 2026-09-07 run used a labeled operator kernel call.
-5. **Create a bot.** Enabled workspace lists bots but has **no create-bot control**. This run used kernel `create_bot` → **Ping** (also `ensure_computer` Dynamo row).
+5. **Create a bot** from the enabled workspace (`chatticus-7622fd` / #327). The 2026-09-07 run used kernel `create_bot` → **Ping**. 2026-09-08 live: `POST /bots` **200** for `LiveCreate`; roster listed it.
 6. **Send F-safe** from the UI: `Reply with exactly: pong.` Human confirmed the turn completed. Computerless; do not wait for a computer to boot.
 
 ### Lab-only person-steps (not the customer path)
@@ -37,7 +37,7 @@ Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` 
 
 - Welcome / holding page: no org name, status, or `tenant_id` — **fixed on `develop`** (`chatticus-9c8dbf` / #325).
 - No HTTP to submit RoleArn after CFN — **fixed on `develop`** (`chatticus-070cb4` / #326). Pending owner `POST /orgs/{tenant_id}/self-setup/cross-account-role`. Live inspect is AssumeRole + inline `GetRolePolicy` (not `SimulatePrincipalPolicy`). 2026-09-08: ThinTurn+web deployed; new pending org + existing customer RoleArn returned **422** (ExternalId mismatch); unauthenticated **403**. Happy-path 200 is Gherkin; live 200 would need a second customer role stack whose OrganizationId matches that pending org — do not retarget the working throwaway role.
-- No create-bot UI in the enabled workspace (`POST /bots` exists; UI never calls it).
+- No create-bot UI in the enabled workspace — **fixed on `develop`** (`chatticus-7622fd` / #327). 2026-09-08: `POST /bots` **200** for `LiveCreate`; roster listed it. SPA Google sign-in still blocks automated UI; HTTP path is live.
 - `infra/README.md` `create-stack` example omitted `--parameters` and `CAPABILITY_NAMED_IAM`.
 - Published role CFN is scoped to `ChatticusComputers*` only. The snapshot bucket is **not** created by Chatticus inside `ChatticusComputers` under AssumeRole (that path AccessDenies: the role has no `s3:`). The bucket is declared in the customer-run published template (`chatticus-bb9084`).
 - Workspace prompt exact reply: **I can't run shell commands directly in the household workspace.** Grants were **absent** on those turns (`create_bot` still assigns none — `chatticus-5336ff`). That sentence is **not** the sink string `no task grant`; one turn never called a tool, another called `request_computer_capability` then still that prose (`STOP_NO_COMPUTER_TOOL`). Do not tune prompts.
