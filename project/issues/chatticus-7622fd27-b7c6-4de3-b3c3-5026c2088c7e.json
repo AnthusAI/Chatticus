@@ -19,10 +19,17 @@
       "text": "Next after `070cb4`. Composer 2.5 planning. Worktree to be named `/tmp/chatticus-7622fd-create-bot` on `feat/7622fd-create-bot-ui`. Implementation not authorized until the plan is reviewed. Gherkin first: enabled member creates a named bot from the workspace UI (`POST /bots` already exists). Do not mix grants (`5336ff`) unless create-without-a-name-control cannot ship without it.\n",
       "created_at": "2026-09-08T11:36:15.451580Z",
       "comment_type": "default"
+    },
+    {
+      "id": "dce81cbe-7bdd-4f44-b55c-f7bf636033c8",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with holes closed.\n\nWorktree verified: `/tmp/chatticus-7622fd-create-bot` on `feat/7622fd-create-bot-ui` (HEAD `dca2901`, not the primary clone).\n\n**Closed on authorize:**\n1. One path: `CreateBotPanel` → `POST /bots` → `listBots` refresh. No kernel/CLI leftover in the product UI.\n2. Empty name: strip; UI blocks empty submit; HTTP 400. No dual validators.\n3. Do not implement grants (`5336ff`). A created bot may still be grantless; that is the next card.\n4. Wiki runbook step 5 is `pm:` after merge, not in the product PR.\n5. After merge I will create a bot from the enabled workspace on development myself (Google SPA may need a labeled HTTP deviation).\n\nTear the worktree down only after the manager closes the issue.\n",
+      "created_at": "2026-09-08T11:37:58.840230Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T15:54:05.621093Z",
-  "updated_at": "2026-09-08T11:36:15.451580Z",
+  "updated_at": "2026-09-08T11:37:58.840230Z",
   "closed_at": null,
   "custom": {}
 }
