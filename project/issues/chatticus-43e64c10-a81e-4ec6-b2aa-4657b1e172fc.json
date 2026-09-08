@@ -3,7 +3,7 @@
   "title": "An organization carries a monthly AWS spend ceiling set at provisioning",
   "description": "**Phase 4 of 5.**\n\n- **Blocked by:** the account record story, in the provisioning epic\n- **Runs in parallel with:** nothing. It gates the three stories below it\n- **Unblocks:** the alert, the stop, and the display stories\n\n---\nThe customer names a number during the provisioning session, when there is a person in the call to explain what drives it. Not a default buried in settings that nobody chose.\n\nAn organization with no ceiling should not be possible after provisioning. The whole risk this epic exists for is a customer discovering a four-figure AWS line item with our name attached, and an unset ceiling is exactly the state where that happens.\n\n**Done when:** the scenarios exist and fail for the right reason.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -40,11 +40,18 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/337 against `develop`. Composer 2.5 reviewing required ceiling on self-setup + welcome panel (one path), no silent default, no `6a9e97` computer-start refuse. CI in progress — cancel if Behave sits past ~12 minutes with no next step.\n",
       "created_at": "2026-09-08T19:08:41.095636Z",
       "comment_type": "default"
+    },
+    {
+      "id": "332bb4c8-ea4d-4ab8-9db9-bff0c494c222",
+      "author": "home",
+      "text": "Closed. #337 merged (`3ee407b`). Ceiling is on the org record, required at self-setup (panel + HTTP), owner PATCH to raise, non-owner refused. No silent default. No computer-start refuse (`6a9e97` next). Implementer: tear down `/tmp/chatticus-43e64c-spend-ceiling`. Unwire `6a9e97` blocked-by this card.\n",
+      "created_at": "2026-09-08T19:29:49.785350Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:19.873118Z",
-  "updated_at": "2026-09-08T19:08:41.095659Z",
-  "closed_at": null,
+  "updated_at": "2026-09-08T19:29:49.904016Z",
+  "closed_at": "2026-09-08T19:29:49.903992Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {}
