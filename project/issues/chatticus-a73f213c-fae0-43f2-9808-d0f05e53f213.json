@@ -38,10 +38,24 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/340 opened. Composer 2.5 reviewing against develop. Infra-only: HOME/npm cache in webDockerBundleCommand. Merge after review + green CI.\n",
       "created_at": "2026-09-08T22:32:55.985777Z",
       "comment_type": "default"
+    },
+    {
+      "id": "5fbd9bf0-28e7-4155-8158-627b332923f3",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/340 to develop as 7ddbadf after Composer 2.5 APPROVE and green CI (infra + python). Watching Deploy Web (development) https://github.com/AnthusAI/Chatticus/actions/runs/34287292211 — card stays open until that run succeeds and CloudFront serves this commit (or later, including #339).\n",
+      "created_at": "2026-09-08T22:43:24.931823Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "45cdce4f-3c06-4da2-abdf-e0d062e45690",
+      "author": "home",
+      "text": "npm EACCES is fixed — Deploy Web run 34287292211 got past mkdir /.npm (`npm ci` added 390 packages). New failure is Next typecheck:\n\nweb/test-support/auth-behavior-harness.ts:170 — Window stub is not assignable (missing 207 Window properties).\n\nThat file is the Behave harness, not the SPA. next build typechecks it because web/tsconfig.json includes **/*.ts. Sending the implementer back: exclude test-support from the Next tsconfig (do not dual-cast the stub into the production compile). New PR from origin/develop; #340 already merged. Card stays open until CloudFront has the successful bundle.\n",
+      "created_at": "2026-09-08T22:46:29.927200Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T22:25:27.517469Z",
-  "updated_at": "2026-09-08T22:32:55.985796Z",
+  "updated_at": "2026-09-08T22:46:29.927228Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
