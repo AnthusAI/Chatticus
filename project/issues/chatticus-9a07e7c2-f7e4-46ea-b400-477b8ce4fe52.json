@@ -12,9 +12,17 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "50ff1f96-67f3-45cd-9f9b-8ea1a324ee42",
+      "author": "home",
+      "text": "Confirmed: there is **no** customer-facing grant-widening path. `PUT /orgs/{tenant}/turns/{id}/grant` is on `worker_router` (`enforce_worker_principal`). Gherkin (`thin_grant_http_steps.py`) uses worker auth headers. `web/` has zero grant references. `task_grant_for_requested_capability` builds a grant from a sink request to compare against a member ceiling — it is not an API that gives a bot more tools.\n\nThe gap stands. Do not close this card as already-answered. Do not pick one of the three shapes from this comment. `write_workspace` still looks like the accidental omission vs `run_terminal`.\n",
+      "created_at": "2026-09-08T14:14:02.526013Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-08T14:10:17.587933Z",
-  "updated_at": "2026-09-08T14:10:17.587933Z",
+  "updated_at": "2026-09-08T14:14:02.526013Z",
   "closed_at": null,
   "custom": {}
 }
