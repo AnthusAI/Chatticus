@@ -40,10 +40,17 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/331 against `develop`. Composer 2.5 reviewing standing + replace-not-merge before merge. CI python in progress — cancel and retrigger if Behave sits past ~12 minutes with no next step (known stall).\n",
       "created_at": "2026-09-08T16:34:30.929056Z",
       "comment_type": "default"
+    },
+    {
+      "id": "8543dca2-24f9-4657-b7be-51bd78f187ee",
+      "author": "home",
+      "text": "Merged #331 to `develop` (`0e0bd04`). CI python green without stall. Live DoD still open: user PUT replaces Dynamo grant; unauthenticated and worker bearer 403; `purchase` as member refused. Worktree stays until that check and close.\n",
+      "created_at": "2026-09-08T16:43:47.439489Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T15:41:24.244783Z",
-  "updated_at": "2026-09-08T16:34:30.929092Z",
+  "updated_at": "2026-09-08T16:43:47.439533Z",
   "closed_at": null,
   "right_now_summary": "The team is planning the user-route grant replacement; implementation awaits authorization.",
   "right_now_updated_at": "2026-09-08T16:23:15.802535Z",
