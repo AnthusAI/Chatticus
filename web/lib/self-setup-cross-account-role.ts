@@ -4,6 +4,7 @@ import { authorizedHeaders } from "./api-auth";
 export type SubmitSelfSetupCrossAccountRoleRequest = {
   account_id: string;
   cross_account_role: string;
+  monthly_aws_spend_ceiling_usd: string;
 };
 
 export type SubmitSelfSetupCrossAccountRoleResponse = {
@@ -11,6 +12,7 @@ export type SubmitSelfSetupCrossAccountRoleResponse = {
   tenant_id: string;
   name: string;
   status: "enabled";
+  monthly_aws_spend_ceiling_usd: string;
 };
 
 export async function submitSelfSetupCrossAccountRole(

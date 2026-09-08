@@ -311,6 +311,7 @@ async function submitCrossAccountSelfSetup(payload: {
   id_token?: string;
   account_id?: string;
   cross_account_role?: string;
+  monthly_aws_spend_ceiling_usd?: string;
 }): Promise<HarnessState> {
   const state = loadState();
   const apiBase = payload.api_base ?? state.apiBase;
@@ -332,6 +333,8 @@ async function submitCrossAccountSelfSetup(payload: {
         cross_account_role:
           payload.cross_account_role ??
           "arn:aws:iam::123456789012:role/ChatticusOrganizationComputerRole",
+        monthly_aws_spend_ceiling_usd:
+          payload.monthly_aws_spend_ceiling_usd ?? "250.00",
       }),
     },
   );

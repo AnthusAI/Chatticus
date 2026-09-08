@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -352,6 +353,14 @@ class OrganizationCreationRateLimitedError(ChatticusError):
     """Too many organization creation attempts in the current window."""
 
 
+class OrganizationSpendCeilingRequiredError(ChatticusError):
+    """Provisioning requires the customer to name a monthly AWS spend ceiling."""
+
+
+class OrganizationSpendCeilingInvalidError(ChatticusError):
+    """The monthly AWS spend ceiling is missing or not a positive USD amount."""
+
+
 class WaitlistRateLimitedError(ChatticusError):
     """Too many waitlist submissions from the same source in the current window."""
 
@@ -649,6 +658,7 @@ class Organization:
     aws_setup_path: AwsSetupPath | None = None
     setup_fee_cents: int | None = None
     assisted_setup_session: bool = False
+    monthly_aws_spend_ceiling_usd: Decimal | None = None
 
 
 @dataclass(frozen=True)

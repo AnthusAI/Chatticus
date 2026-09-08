@@ -9,6 +9,7 @@ import secrets
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from uuid import uuid4
 
 from chatticus.approval_binding import (
@@ -450,6 +451,7 @@ class ControlPlane:
         account_id: str,
         cross_account_role: str,
         role_inspector: CrossAccountRoleInspector,
+        monthly_aws_spend_ceiling_usd: Decimal | None,
     ) -> SelfSetupCrossAccountResult:
         """Validate and accept one customer self-setup cross-account submission."""
         return self._org_records.submit_self_setup_cross_account_role(
@@ -458,6 +460,20 @@ class ControlPlane:
             account_id=account_id,
             cross_account_role=cross_account_role,
             role_inspector=role_inspector,
+            monthly_aws_spend_ceiling_usd=monthly_aws_spend_ceiling_usd,
+        )
+
+    def set_monthly_aws_spend_ceiling(
+        self,
+        tenant_id: str,
+        actor_user_id: str,
+        monthly_aws_spend_ceiling_usd: Decimal,
+    ) -> Organization:
+        """Set one organization's monthly AWS spend ceiling; owner-only."""
+        return self._org_records.set_monthly_aws_spend_ceiling(
+            tenant_id,
+            actor_user_id,
+            monthly_aws_spend_ceiling_usd,
         )
 
     def assume_organization_cross_account_role(

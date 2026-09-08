@@ -3073,6 +3073,10 @@ def _organization_item(organization: Organization) -> dict[str, Any]:
         item["setup_fee_cents"] = {"N": str(organization.setup_fee_cents)}
     if organization.assisted_setup_session:
         item["assisted_setup_session"] = {"BOOL": True}
+    if organization.monthly_aws_spend_ceiling_usd is not None:
+        item["monthly_aws_spend_ceiling_usd"] = {
+            "N": str(organization.monthly_aws_spend_ceiling_usd)
+        }
     return item
 
 
@@ -3096,6 +3100,11 @@ def _organization_from_item(item: dict[str, Any]) -> Organization:
         ),
         assisted_setup_session=item.get("assisted_setup_session", {}).get(
             "BOOL", False
+        ),
+        monthly_aws_spend_ceiling_usd=(
+            Decimal(item["monthly_aws_spend_ceiling_usd"]["N"])
+            if "monthly_aws_spend_ceiling_usd" in item
+            else None
         ),
     )
 
