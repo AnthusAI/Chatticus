@@ -357,6 +357,8 @@ class MeOrganizationBody(BaseModel):
     tenant_id: str
     name: str
     status: str
+    computer_work_paused: bool = False
+    computer_work_paused_reason: str | None = None
 
 
 class MeResponseBody(BaseModel):
@@ -735,6 +737,8 @@ def create_app(
                     tenant_id=organization.tenant_id,
                     name=organization.name,
                     status=organization.status.value,
+                    computer_work_paused=organization.computer_work_paused,
+                    computer_work_paused_reason=organization.computer_work_paused_reason,
                 )
                 for organization in me.organizations
             ],

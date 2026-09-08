@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
 import type { WorkspaceMember, WorkspaceMessage } from "./workspace/types";
-import { AuthCard, authErrorClassName, authOkClassName } from "./AuthCard";
+import { AuthCard, authErrorClassName, authOkClassName, authStatusClassName } from "./AuthCard";
 import { CreateBotPanel } from "./CreateBotPanel";
 import { InviteMemberPanel } from "./InviteMemberPanel";
 import { TurnGrantPanel } from "./TurnGrantPanel";
@@ -238,9 +238,26 @@ export function EnabledWorkspace({ activeOrg, organizations }: EnabledWorkspaceP
     meta: Object.keys(bot.memory).length > 0 ? `${Object.keys(bot.memory).length} memory keys` : undefined,
   }));
 
+  const activeOrganization = organizations.find(
+    (organization) => organization.tenant_id === activeOrg.tenantId,
+  );
+
   return (
     <>
       <OrganizationMembershipList organizations={organizations} />
+
+      {activeOrganization?.computer_work_paused ? (
+        <section className="rounded-2xl bg-surface-raised p-4">
+          <p className={authErrorClassName}>
+            {activeOrganization.computer_work_paused_reason ??
+              "Computer work is paused at the monthly AWS spend ceiling."}
+          </p>
+          <p className={authStatusClassName}>
+            The workplace stays open. An owner can raise the monthly AWS spend ceiling to
+            resume computer work.
+          </p>
+        </section>
+      ) : null}
 
       <AuthCard title="Control plane">
         {health ? (
