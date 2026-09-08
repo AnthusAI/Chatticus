@@ -1,0 +1,35 @@
+{
+  "id": "chatticus-91f8f4d9-07b4-47a8-bdf3-8c421386845c",
+  "title": "An owner raises the monthly AWS spend ceiling from the workspace",
+  "description": "## Found while sequencing `chatticus-1d68fb`\n\n`PATCH /orgs/{tenant}/monthly-aws-spend-ceiling` exists (`http/app.py`) and Gherkin for `chatticus-43e64c` raises the ceiling via the **kernel**, not that route. There is no workspace control. Self-setup collects the ceiling once (`SelfSetupCrossAccountRolePanel`).\n\nIf crossing the ceiling converts an unbounded bill into **contact an operator**, that is a person-step in the invitation-rate math and the brake is not self-serve.\n\n## Gherkin (draft)\n\n```\nFeature: Owner raises the monthly AWS spend ceiling\n  As an organization owner\n  I want to raise the monthly AWS spend ceiling from the workspace\n  So that paused computer work can resume without an operator\n\n  Scenario: An owner raises the ceiling through the product\n    Given an enabled organization whose computer work is paused at its spend ceiling\n    When the owner submits a higher ceiling from the workspace\n    Then PATCH /orgs/{tenant}/monthly-aws-spend-ceiling succeeds\n    And computer work is accepted again\n\n  Scenario: A non-owner is refused\n    Given an enabled organization with a monthly spend ceiling\n    When a member who is not an owner submits a ceiling change from the workspace\n    Then the change is refused\n    And the ceiling is unchanged\n```\n\n## Done when\n\nAn owner on development raises the ceiling through the product (not the members CLI / kernel). Behavior in Gherkin first. Confirm on the `chatticus-1d68fb` live pass what a member can do next.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [
+    {
+      "target": "1d68fb",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "c4022c08-3b6d-4f11-9522-79cbdd9da4eb",
+      "author": "home",
+      "text": "Settles the #337 kernel-vs-PATCH note. Sequence after `1d68fb` records what a member can do next. Do not implement until authorized.",
+      "created_at": "2026-09-08T22:25:59.303719Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-08T22:25:27.517356Z",
+  "updated_at": "2026-09-08T22:25:59.303734Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

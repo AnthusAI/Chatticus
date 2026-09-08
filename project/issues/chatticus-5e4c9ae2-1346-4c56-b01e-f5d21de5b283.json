@@ -3,18 +3,31 @@
   "title": "Reload still shows the sign-in page when already signed in",
   "description": "**Reported still broken 2026-09-08, after #339.**\n\nSymptom, from the human: log in, reload `dev.chattic.us`, the sign-in page appears again. Pressing **Sign in with Google** returns you signed in **without re-entering credentials**.\n\nThat last detail is the diagnostic. The identity provider session is alive and valid — the app just is not using it on mount. So this is not a login problem, it is a session-restore problem.\n\n## What is already correct\n\n`membership-context.tsx` does restore on mount: a `useEffect` calls `refreshSession()` → `getVerifiedSession()` → `getUserManager().getUser()`. That path exists and #339 was right to add it. So the fix is in the code, and something downstream of it is returning nothing usable.\n\nTwo candidates, and runtime is needed to tell them apart: `getUser()` returns null, or `verifiedSessionFromUser` rejects because `verifyIdTokenClaims` throws or returns falsy. **Check that first** — one `console` reading of both in the browser settles it in a minute and prevents guessing.\n\n**Also confirm the development web deploy for #339 actually landed before concluding.** A sign-in prompt against the old build proves nothing.\n\n## Two config problems that are definite regardless\n\nBoth in `buildUserManagerSettings` (`web/lib/auth.ts`), both worth fixing whatever the immediate cause turns out to be.\n\n### 1. No refresh token, so `automaticSilentRenew` is inert\n\n```ts\nscope: \"openid email profile\",\nautomaticSilentRenew: true,\n```\n\nWithout **`offline_access`**, Cognito does not issue a refresh token, so there is nothing for silent renew to renew with. The flag is set and cannot do anything.\n\n**Consequence beyond this bug:** once the `id_token` expires — typically an hour — the user is signed out with no silent recovery. Fixing the reload path alone leaves sessions dying hourly.\n\n### 2. `prompt: \"select_account\"` is global, which also blocks iframe silent renew\n\n```ts\nextraQueryParams: { identity_provider: \"Google\", prompt: \"select_account\" },\n```\n\nThe stated requirement was to show the account chooser **after the user clicks Sign out**. This applies it to *every* authorization request.\n\nSilent renew via hidden iframe requires `prompt=none`; an account chooser cannot render in a hidden iframe, so that path fails too. Between this and the missing `offline_access`, **both** silent-renew mechanisms are closed off.\n\nApply `select_account` to the post-signout sign-in only, not to the manager's global settings.\n\n## Suggested fix\n\n1. Instrument first — is `getUser()` null, or is claim verification rejecting? Do not guess.\n2. Add `offline_access` to `scope` so a refresh token exists.\n3. Move `prompt: \"select_account\"` out of global settings onto the post-signout path.\n4. On mount, if the stored user is absent or fails verification, attempt `signinSilent()` before falling back to the sign-in panel. Given the IdP session is demonstrably valid — clicking the button proves it — this is what turns a visible sign-in into an invisible one.\n\n## Done when\n\nReloading `/chat` while signed in keeps you signed in with no button press, a session survives past `id_token` expiry without a visible prompt, and clicking **Sign out** still shows the account chooser on the next sign-in.",
   "type": "bug",
-  "status": "open",
-  "priority": 1,
+  "status": "in_progress",
+  "priority": 0,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
   "labels": [
     "auth"
   ],
-  "dependencies": [],
-  "comments": [],
+  "dependencies": [
+    {
+      "target": "0b0208",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "d3948a14-59f7-4e32-8d1c-445ffd1a7a9a",
+      "author": "home",
+      "text": "Composer 2.5 planning **batched** with `chatticus-98f4f6`. Worktree to be named `/tmp/chatticus-5e4c9a-session-restore` on `feat/5e4c9a-session-restore`. Implementation not authorized until the plan is reviewed.\n\n**Deploy first fact:** #339 never reached CloudFront. Last successful development web deploy is `4ba8bc2` (#338). Every later web deploy fails `npm` EACCES `/.npm` in the CDK bundling docker (`chatticus-a73f21`). Do not conclude this bug from live `dev.chattic.us` until that deploy succeeds. Instrument `getUser()` vs `verifyIdTokenClaims` in the browser after the new bundle is live — do not guess.\n\n**Code (definite regardless of instrument):** `offline_access` on scope (Cognito app client must allow refresh tokens — check CDK, one path); `prompt=select_account` only after explicit Sign out, not global; `signinSilent()` on mount before the sign-in panel. Keep `349634`. No `ADMIN_NO_SRP_AUTH`.\n\n**`98f4f6` manager decision for this slice:** option 3 — keep `localStorage`, record it in `docs/THREAT_MODEL.md` (token authorizes `PUT .../grant` including `run_terminal`; XSS on origin; standing ceiling; short lifetime). Do not build a BFF in this PR (that would stall `c54569`). Silence is the defect.",
+      "created_at": "2026-09-08T22:25:58.432326Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-08T22:17:46.277560Z",
-  "updated_at": "2026-09-08T22:17:46.277625Z",
+  "updated_at": "2026-09-08T22:25:58.432346Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

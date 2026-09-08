@@ -1,0 +1,35 @@
+{
+  "id": "chatticus-a73f213c-fae0-43f2-9808-d0f05e53f213",
+  "title": "Web CDK bundling docker cannot write the npm cache",
+  "description": "## Found after #339\n\nDeploy Web (development) has failed on every push since `Persist Google sign-in across workspace reload` (#339), including the #339 merge itself.\n\nLast **successful** development web deploy: `4ba8bc2` (#338, spend-ceiling merge). **#339 never reached CloudFront.** Live `dev.chattic.us` is still the #338 bundle. `chatticus-5e4c9a` cannot be concluded against that origin.\n\nFailed run example: https://github.com/AnthusAI/Chatticus/actions/runs/34285497665\n\n```\nnpm error syscall mkdir\nnpm error path /.npm\nnpm error errno EACCES\n...\nYour cache folder contains root-owned files...\nsudo chown -R 1001:1001 \"/.npm\"\nFailedToBundleAsset ... docker run --rm -u \"1001:1001\" ... public.ecr.aws/sam/build-nodejs22.x ... npm ci && npm run build --workspace=web\n```\n\nThe bundling container runs as uid 1001 with HOME effectively `/`, so `npm ci` cannot mkdir `/.npm`. Same class as `chatticus-3935c9` (region/credentials inside this docker), different fault.\n\n#338 could succeed without rebuilding this asset; #339 changed `web/lib/auth.ts` and forced a rebuild.\n\n## Done when\n\nThe docker bundle command sets a writable HOME/npm cache for uid 1001; a development web deploy of current `develop` succeeds; `dev.chattic.us` serves the commit that includes #339 (or later). Assert in `infra/` tests. No Gherkin — CDK bundling, not visitor-facing behavior.",
+  "type": "bug",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "deploy"
+  ],
+  "dependencies": [
+    {
+      "target": "5e4c9a",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "783e2567-c528-4a45-ae61-4426fd5e48c1",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree `/tmp/chatticus-a73f21-web-bundle-npm` on `fix/a73f21-web-bundle-npm-home`. Same class as `3935c9`: writable HOME/npm cache for uid 1001 in the SAM Node bundling container. Infra tests, no Gherkin. Blocks live proof of #339 and `5e4c9a`. Plan-only until authorized.",
+      "created_at": "2026-09-08T22:25:58.582055Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-08T22:25:27.517469Z",
+  "updated_at": "2026-09-08T22:25:58.582076Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
