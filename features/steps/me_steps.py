@@ -164,8 +164,28 @@ def then_me_orgs_include_status(context: object, status: str) -> None:
 def then_me_orgs_include_table(context: object) -> None:
     payload = context.me_response.json()
     organizations = payload["organizations"]
+    headings = context.table.headings
     expected = [
-        {"tenant_id": row["tenant_id"], "status": row["status"]}
-        for row in context.table
+        {heading: row[heading] for heading in headings} for row in context.table
     ]
-    assert organizations == expected
+    if "tenant_id" in headings:
+        assert sorted(organizations, key=lambda org: org["tenant_id"]) == sorted(
+            expected,
+            key=lambda org: org["tenant_id"],
+        )
+        return
+    assert len(organizations) == len(expected)
+    for expected_row in expected:
+        matches = [
+            organization
+            for organization in organizations
+            if organization.get("name") == expected_row.get("name")
+        ]
+        assert len(matches) == 1, (
+            f"expected one organization named {expected_row.get('name')!r}, "
+            f"got {organizations}"
+        )
+        organization = matches[0]
+        for key, value in expected_row.items():
+            assert organization[key] == value
+        assert organization.get("tenant_id")

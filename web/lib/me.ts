@@ -3,6 +3,7 @@ import { authorizedHeaders } from "./api-auth";
 
 export type MeOrganization = {
   tenant_id: string;
+  name: string;
   status: "pending" | "enabled" | "suspended";
 };
 

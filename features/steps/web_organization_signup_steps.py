@@ -141,3 +141,26 @@ def then_no_email_promise(context: object) -> None:
         "notify you by email",
     )
     assert not any(fragment in text for fragment in forbidden), harness
+
+
+@then(
+    'the web SPA shows organization "{name}" with status "{status}" '
+    "and tenant_id present"
+)
+def then_web_shows_org_with_present_tenant_id(
+    context: object, name: str, status: str
+) -> None:
+    harness = context.membership_ui_harness
+    text = harness.get("visibleText") or ""
+    me = harness.get("me") or {}
+    organizations = me.get("organizations") or []
+    organization = next(
+        (row for row in organizations if row.get("name") == name),
+        None,
+    )
+    assert organization is not None, harness
+    tenant_id = organization.get("tenant_id")
+    assert tenant_id, harness
+    assert name in text, harness
+    assert status in text, harness
+    assert tenant_id in text, harness

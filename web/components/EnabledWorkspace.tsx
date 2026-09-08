@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
 import type { WorkspaceMember, WorkspaceMessage } from "./workspace/types";
-import { AuthCard, authErrorClassName, authOkClassName, authStatusClassName } from "./AuthCard";
+import { AuthCard, authErrorClassName, authOkClassName } from "./AuthCard";
 import { InviteMemberPanel } from "./InviteMemberPanel";
 import { TaskList } from "./TaskList";
 import { avatarActivityFromTurn, botAvatarStateFromActivity } from "../lib/avatar-state";
@@ -18,6 +18,8 @@ import {
   type TurnEvent,
 } from "../lib/api";
 import type { ActiveOrg } from "../lib/membership-state";
+import type { MeOrganization } from "../lib/me";
+import { OrganizationMembershipList } from "./OrganizationMembershipList";
 import { openTurnStream } from "../lib/sse";
 import { isTerminalTurnEvent } from "../lib/sse-parse";
 
@@ -38,9 +40,10 @@ function turnStatusFromKind(kind: string): TurnUiStatus {
 
 type EnabledWorkspaceProps = {
   activeOrg: ActiveOrg;
+  organizations: MeOrganization[];
 };
 
-export function EnabledWorkspace({ activeOrg }: EnabledWorkspaceProps) {
+export function EnabledWorkspace({ activeOrg, organizations }: EnabledWorkspaceProps) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [bots, setBots] = useState<Bot[]>([]);
@@ -235,10 +238,9 @@ export function EnabledWorkspace({ activeOrg }: EnabledWorkspaceProps) {
 
   return (
     <>
+      <OrganizationMembershipList organizations={organizations} />
+
       <AuthCard title="Control plane">
-        <p className={authStatusClassName}>
-          Organization: <code>{activeOrg.tenantId}</code>
-        </p>
         {health ? (
           <p className={authOkClassName}>
             Health: {health.status ?? "ok"}

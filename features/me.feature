@@ -39,7 +39,9 @@ Feature: GET /me membership snapshot
     And that user has created organization "Anthus Labs"
     When GET /me is called with a valid id token for "ryan@example.com"
     Then GET /me responds with status 200
-    And GET /me organizations include one with status "pending"
+    And GET /me organizations include:
+      | name        | status  |
+      | Anthus Labs | pending |
 
   Scenario: GET /me returns an enabled organization
     Given the me front door has tenant "anthus" enabled for "owner@example.com"
@@ -48,8 +50,26 @@ Feature: GET /me membership snapshot
     And GET /me email is "owner@example.com"
     And GET /me user id is present
     And GET /me organizations include:
-      | tenant_id | status  |
-      | anthus    | enabled |
+      | name     | tenant_id | status  |
+      | Test Org | anthus    | enabled |
+
+  Scenario: GET /me returns every owned organization with name status and tenant_id
+    Given "sam@example.com" has signed in on the me front door
+    And that user has created organization "Acme Labs"
+    When the members CLI creates organization "Beta Labs" for "sam@example.com" with confirmation
+    When GET /me is called with a valid id token for "sam@example.com"
+    Then GET /me responds with status 200
+    And GET /me organizations include:
+      | name       | status  |
+      | Acme Labs  | pending |
+      | Beta Labs  | pending |
+
+  Scenario: GET /me does not expose another user's organizations
+    Given "ryan@example.com" has signed in on the me front door
+    And that user has created organization "Anthus Labs"
+    When GET /me is called with a valid id token for "sam@example.com"
+    Then GET /me responds with status 200
+    And GET /me organizations are empty
 
   Scenario: GET /me without a Cognito verifier is unavailable
     Given an HTTP front door without a Cognito verifier

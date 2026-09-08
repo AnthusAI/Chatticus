@@ -44,7 +44,7 @@ describe("deriveMembershipBranch", () => {
       deriveMembershipBranch(
         session,
         me({
-          organizations: [{ tenant_id: "tenant-b", status: "pending" }],
+          organizations: [{ tenant_id: "tenant-b", name: "Beta Labs", status: "pending" }],
         }),
       ),
       "pending",
@@ -57,8 +57,8 @@ describe("deriveMembershipBranch", () => {
         session,
         me({
           organizations: [
-            { tenant_id: "tenant-b", status: "pending" },
-            { tenant_id: "anthus", status: "enabled" },
+            { tenant_id: "tenant-b", name: "Beta Labs", status: "pending" },
+            { tenant_id: "anthus", name: "Anthus", status: "enabled" },
           ],
         }),
       ),
@@ -73,8 +73,8 @@ describe("pickActiveOrg", () => {
       pickActiveOrg(
         me({
           organizations: [
-            { tenant_id: "zeta", status: "enabled" },
-            { tenant_id: "anthus", status: "enabled" },
+            { tenant_id: "zeta", name: "Zeta Labs", status: "enabled" },
+            { tenant_id: "anthus", name: "Anthus", status: "enabled" },
           ],
         }),
       ),

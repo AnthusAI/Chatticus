@@ -15,7 +15,9 @@ Feature: Create an organization from the product
     When GET /me is called with a valid id token for "sam@example.com"
     Then GET /me responds with status 200
     And GET /me user id is present
-    And GET /me organizations include one with status "pending"
+    And GET /me organizations include:
+      | name      | status  |
+      | Acme Labs | pending |
 
   Scenario: An operator lists the pending organization after product signup
     Given "sam@example.com" has created organization "Acme Labs" via the HTTP front door
