@@ -12,6 +12,24 @@ Parameters:
     MinLength: 1
 
 Resources:
+  OrganizationSnapshotBucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub 'chatticus-snapshots-${OrganizationId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
   ChatticusCrossAccountRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -164,6 +182,9 @@ Resources:
                     'iam:AWSServiceName': 'ecs.amazonaws.com'
 
 Outputs:
+  SnapshotBucketName:
+    Description: 'Organization snapshot bucket in this AWS account'
+    Value: !Ref OrganizationSnapshotBucket
   RoleArn:
     Description: 'The ARN of the cross-account role'
     Value: !GetAtt ChatticusCrossAccountRole.Arn

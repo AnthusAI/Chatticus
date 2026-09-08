@@ -26,6 +26,12 @@ export class CustomerComputersStack extends cdk.Stack {
       description: "Chatticus organization tenant id.",
     });
 
+    const snapshotBucketName = new cdk.CfnParameter(this, "SnapshotBucketName", {
+      type: "String",
+      description:
+        "Organization snapshot bucket in the customer account (from the cross-account template).",
+    });
+
     const vpc = new ec2.Vpc(this, "Vpc", {
       maxAzs: 2,
       natGateways: 0,
@@ -51,6 +57,17 @@ export class CustomerComputersStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
       description: "Customer computer host task role (ephemeral live root only).",
     });
+    taskRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "SnapshotReadWrite",
+        actions: ["s3:GetObject", "s3:PutObject"],
+        resources: [
+          cdk.Fn.sub("arn:aws:s3:::${Bucket}/*", {
+            Bucket: snapshotBucketName.valueAsString,
+          }),
+        ],
+      }),
+    );
 
     const logGroup = new logs.LogGroup(this, "ComputerLogs", {
       retention: CHATTICUS_LOG_RETENTION,
@@ -75,6 +92,7 @@ export class CustomerComputersStack extends cdk.Stack {
       }),
       environment: {
         CHATTICUS_LIVE_ROOT: "/var/lib/chatticus/computer",
+        CHATTICUS_SNAPSHOT_BUCKET: snapshotBucketName.valueAsString,
         CHATTICUS_TENANT_ID: tenantId.valueAsString,
       },
     });
