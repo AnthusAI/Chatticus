@@ -71,18 +71,20 @@ Feature: Cross-account provisioning
 
   Scenario: A customer organization without ChatticusComputers gets the stack created then RunTask
     Given an organization provisioned into a customer AWS account without a ChatticusComputers stack
+    And the customer computer image tag dev exists
     When its computer is asked to start
     Then Chatticus creates the ChatticusComputers stack in the customer account
-    And Anthus grants cross-account ECR pull for the customer account
+    And Anthus does not grant cross-account ECR pull for the customer account
     And the instance is launched in the customer account
     And no compute for that organization runs in the Anthus account
 
   Scenario: A customer organization with an existing ChatticusComputers stack only describes it
     Given an organization provisioned into a customer AWS account with a ChatticusComputers stack
+    And the customer computer image tag dev exists
     When its computer starts
     Then Chatticus describes the ChatticusComputers stack in the customer account
     And Chatticus does not create the ChatticusComputers stack
-    And Anthus grants cross-account ECR pull for the customer account
+    And Anthus does not grant cross-account ECR pull for the customer account
     And the instance is launched in the customer account
     And no compute for that organization runs in the Anthus account
 
@@ -163,6 +165,7 @@ Feature: Cross-account provisioning
     Given an organization provisioned into a customer AWS account with a CREATE_COMPLETE ChatticusComputers stack with legacy outputs only
     When its computer is asked to start
     And the ChatticusComputers stack finishes updating
+    Given the customer computer image tag dev exists
     When its computer starts
     Then the instance is launched in the customer account
     And no compute for that organization runs in the Anthus account
@@ -175,7 +178,15 @@ Feature: Cross-account provisioning
 
   Scenario: UpdateStack no-op succeeds when subnet outputs are already present
     Given an organization provisioned into a customer AWS account with a ChatticusComputers stack
+    And the customer computer image tag dev exists
     And UpdateStack reports no changes for the customer CloudFormation client
     When its computer starts
     Then the instance is launched in the customer account
     And no compute for that organization runs in the Anthus account
+
+  Scenario: A CREATE_COMPLETE stack built for Anthus image URI is updated to customer ECR
+    Given an organization provisioned into a customer AWS account with a CREATE_COMPLETE ChatticusComputers stack with legacy outputs only
+    When its computer is asked to start
+    Then Chatticus updates the ChatticusComputers stack in the customer account
+    And the start is refused with a provisioning error
+    And no instance is launched in the Anthus account

@@ -59,8 +59,6 @@ class CustomerComputersProvisioner(Protocol):
         self,
         cloudformation_client: Any,
         organization: Organization,
-        *,
-        anthus_computer_image_uri: str,
     ) -> None:
         """Create or wait for the customer ChatticusComputers stack."""
 
@@ -72,8 +70,6 @@ class RefusingCustomerComputersProvisioner:
         self,
         cloudformation_client: Any,
         organization: Organization,
-        *,
-        anthus_computer_image_uri: str,
     ) -> None:
         """Raise when ChatticusComputers is absent."""
         try:
@@ -104,8 +100,6 @@ class AwsCustomerComputersProvisioner:
         self,
         cloudformation_client: Any,
         organization: Organization,
-        *,
-        anthus_computer_image_uri: str,
     ) -> None:
         """Create, update, or wait for ChatticusComputers in the customer account."""
         status, outputs = self._describe_stack(cloudformation_client)
@@ -113,7 +107,6 @@ class AwsCustomerComputersProvisioner:
             self._start_create_stack(
                 cloudformation_client,
                 organization,
-                anthus_computer_image_uri=anthus_computer_image_uri,
             )
             status, outputs = self._describe_stack(cloudformation_client)
             if status is None:
@@ -162,7 +155,6 @@ class AwsCustomerComputersProvisioner:
             self._start_update_stack(
                 cloudformation_client,
                 organization,
-                anthus_computer_image_uri=anthus_computer_image_uri,
             )
             status, outputs = self._describe_stack(cloudformation_client)
             if status in UPDATE_IN_PROGRESS_STATUSES:
@@ -219,28 +211,20 @@ class AwsCustomerComputersProvisioner:
     def _stack_parameters(
         self,
         organization: Organization,
-        *,
-        anthus_computer_image_uri: str,
     ) -> list[dict[str, str]]:
         return customer_computers_create_stack_parameters(
             tenant_id=organization.tenant_id,
-            anthus_computer_image_uri=anthus_computer_image_uri,
         )
 
     def _start_create_stack(
         self,
         cloudformation_client: Any,
         organization: Organization,
-        *,
-        anthus_computer_image_uri: str,
     ) -> None:
         try:
             cloudformation_client.create_stack(
                 StackName=COMPUTERS_STACK_NAME,
-                Parameters=self._stack_parameters(
-                    organization,
-                    anthus_computer_image_uri=anthus_computer_image_uri,
-                ),
+                Parameters=self._stack_parameters(organization),
                 Capabilities=create_stack_capabilities(),
                 **self._stack_delivery(),
             )
@@ -256,16 +240,11 @@ class AwsCustomerComputersProvisioner:
         self,
         cloudformation_client: Any,
         organization: Organization,
-        *,
-        anthus_computer_image_uri: str,
     ) -> None:
         try:
             cloudformation_client.update_stack(
                 StackName=COMPUTERS_STACK_NAME,
-                Parameters=self._stack_parameters(
-                    organization,
-                    anthus_computer_image_uri=anthus_computer_image_uri,
-                ),
+                Parameters=self._stack_parameters(organization),
                 Capabilities=create_stack_capabilities(),
                 **self._stack_delivery(),
             )

@@ -245,14 +245,6 @@ export function wireComputerWorkerEcsHostStart(
     computerWorkerFunction.addEnvironment(key, value);
   }
   computerWorkerFunction.addEnvironment(
-    "CHATTICUS_ANTHUS_COMPUTER_IMAGE_URI",
-    config.computerImageUri,
-  );
-  computerWorkerFunction.addEnvironment(
-    "CHATTICUS_ANTHUS_COMPUTER_REPOSITORY_NAME",
-    config.computerRepositoryName,
-  );
-  computerWorkerFunction.addEnvironment(
     "CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID",
     stack.account,
   );
@@ -297,12 +289,6 @@ export function wireComputerWorkerEcsHostStart(
     new iam.PolicyStatement({
       actions: ["sts:AssumeRole"],
       resources: ["arn:aws:iam::*:role/ChatticusOrganizationComputerRole"],
-    }),
-  );
-  computerWorkerFunction.addToRolePolicy(
-    new iam.PolicyStatement({
-      actions: ["ecr:GetRepositoryPolicy", "ecr:SetRepositoryPolicy"],
-      resources: [config.computerRepositoryArn],
     }),
   );
 

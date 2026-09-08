@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -9,9 +10,9 @@ import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 export interface CustomerComputersStackProps extends cdk.StackProps {}
 
 /**
- * Customer-account ChatticusComputers stack: Fargate host wiring without a
- * snapshot bucket or customer ECR. The container image is pulled from Anthus
- * ECR at RunTask time.
+ * Customer-account ChatticusComputers stack: Fargate host wiring with a
+ * customer-owned ECR repository. RunTask pulls :dev from the organization
+ * AWS home only.
  */
 export class CustomerComputersStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: CustomerComputersStackProps) {
@@ -25,11 +26,6 @@ export class CustomerComputersStack extends cdk.Stack {
       description: "Chatticus organization tenant id.",
     });
 
-    const anthusComputerImageUri = new cdk.CfnParameter(this, "AnthusComputerImageUri", {
-      type: "String",
-      description: "Anthus ChatticusComputers ECR image URI for tag :dev.",
-    });
-
     const vpc = new ec2.Vpc(this, "Vpc", {
       maxAzs: 2,
       natGateways: 0,
@@ -39,6 +35,12 @@ export class CustomerComputersStack extends cdk.Stack {
           subnetType: ec2.SubnetType.PUBLIC,
         },
       ],
+    });
+
+    const repository = new ecr.Repository(this, "ComputerImage", {
+      imageScanOnPush: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      emptyOnDelete: false,
     });
 
     const cluster = new ecs.Cluster(this, "Cluster", {
@@ -66,7 +68,7 @@ export class CustomerComputersStack extends cdk.Stack {
     });
 
     taskDefinition.addContainer("computer", {
-      image: ecs.ContainerImage.fromRegistry(anthusComputerImageUri.valueAsString),
+      image: ecs.ContainerImage.fromEcrRepository(repository, "dev"),
       logging: ecs.LogDrivers.awsLogs({
         logGroup,
         streamPrefix: "computer",
@@ -76,22 +78,6 @@ export class CustomerComputersStack extends cdk.Stack {
         CHATTICUS_TENANT_ID: tenantId.valueAsString,
       },
     });
-
-    const executionRole = taskDefinition.executionRole;
-    if (executionRole === undefined) {
-      throw new Error("Customer computer task definition must have an execution role.");
-    }
-    executionRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:BatchGetImage",
-          "ecr:GetAuthorizationToken",
-          "ecr:GetDownloadUrlForLayer",
-        ],
-        resources: ["*"],
-      }),
-    );
 
     const securityGroup = new ec2.SecurityGroup(this, "ComputerSecurityGroup", {
       vpc,
@@ -112,6 +98,9 @@ export class CustomerComputersStack extends cdk.Stack {
       enableExecuteCommand: true,
     });
 
+    new cdk.CfnOutput(this, "ComputerRepositoryUri", {
+      value: repository.repositoryUri,
+    });
     new cdk.CfnOutput(this, "ComputerClusterName", {
       value: cluster.clusterName,
     });

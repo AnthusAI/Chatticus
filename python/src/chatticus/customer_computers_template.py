@@ -71,13 +71,8 @@ def customer_computers_template_body() -> str:
 def customer_computers_create_stack_parameters(
     *,
     tenant_id: str,
-    anthus_computer_image_uri: str,
 ) -> list[dict[str, str]]:
     """Build CloudFormation parameters for one customer ChatticusComputers stack."""
     return [
         {"ParameterKey": "TenantId", "ParameterValue": tenant_id},
-        {
-            "ParameterKey": "AnthusComputerImageUri",
-            "ParameterValue": anthus_computer_image_uri,
-        },
     ]
