@@ -7,9 +7,9 @@ import type { VerifiedSession } from "../lib/auth";
 import {
   membershipViewText,
   resolveMembershipView,
-  welcomeScreenText,
 } from "../lib/membership-view";
 import { deriveMembershipBranch } from "../lib/membership-state";
+import { membershipVisibleText } from "../lib/organization-membership";
 import { parseSignupMode } from "../lib/signup-mode";
 import { inviteConfirmationText } from "../lib/invitations";
 
@@ -78,7 +78,10 @@ function renderFromMe(state: HarnessState): HarnessState {
   );
   const view = resolveMembershipView(branch, parseSignupMode(state.signupMode));
   state.view = view;
-  state.visibleText = membershipViewText(view);
+  state.visibleText = membershipVisibleText(
+    membershipViewText(view),
+    me?.organizations ?? [],
+  );
   return state;
 }
 
@@ -143,19 +146,24 @@ async function submitOrganization(payload: {
   }
   const created = (await response.json()) as {
     tenant_id: string;
+    name: string;
     status: string;
   };
   state.me = {
     email: state.email ?? "sam@example.com",
     user_id: "user-1",
-    organizations: [{ tenant_id: created.tenant_id, status: created.status as "pending" }],
+    organizations: [
+      {
+        tenant_id: created.tenant_id,
+        name: created.name,
+        status: created.status as "pending",
+      },
+    ],
   };
-  state.view = "welcome";
-  state.visibleText = welcomeScreenText();
   return saveState(renderFromMe(state));
 }
 
-function setMeEnabled(payload: { tenant_id: string }): HarnessState {
+function setMeEnabled(payload: { tenant_id: string; name: string }): HarnessState {
   const state = loadState();
   if (!state.email) {
     throw new Error("seed a session before setting enabled membership");
@@ -163,7 +171,13 @@ function setMeEnabled(payload: { tenant_id: string }): HarnessState {
   state.me = {
     email: state.email,
     user_id: "user-1",
-    organizations: [{ tenant_id: payload.tenant_id, status: "enabled" }],
+    organizations: [
+      {
+        tenant_id: payload.tenant_id,
+        name: payload.name,
+        status: "enabled",
+      },
+    ],
   };
   return saveState(renderFromMe(state));
 }
@@ -245,7 +259,7 @@ async function main(): Promise<void> {
       result = await submitOrganization(payload);
       break;
     case "set-me-enabled":
-      result = setMeEnabled(payload as { tenant_id: string });
+      result = setMeEnabled(payload as { tenant_id: string; name: string });
       break;
     case "submit-invitation":
       result = await submitInvitation(

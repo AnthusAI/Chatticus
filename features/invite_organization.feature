@@ -75,6 +75,16 @@ Feature: Invite people into an enabled organization
     When POST /organizations is called with a valid id token for "sam@example.com" and name "Other Labs"
     Then POST /organizations responds with status 403
 
+  Scenario: An enabled member sees organization name status and tenant id in the workspace
+    Given a Cognito-verified HTTP front door with open signup wired to the web SPA
+    And "ryan@example.com" has signed in on the me front door
+    And that user has created organization "Anthus Labs"
+    When the members CLI enables organization "Anthus Labs" with confirmation
+    And the web SPA has an enabled organization session for "ryan@example.com" in "Anthus Labs"
+    When the web SPA renders the membership shell
+    Then the web SPA shows the enabled workspace
+    And the web SPA shows organization "Anthus Labs" with status "enabled" and tenant_id present
+
   Scenario: An invited person reaches the enabled workspace in the web SPA
     Given a Cognito-verified HTTP front door with open signup wired to the web SPA
     And "ryan@example.com" has signed in on the me front door
