@@ -836,10 +836,13 @@ def create_app(
     ) -> dict[str, Any]:
         if principal.user_id is None:
             raise HTTPException(status_code=403, detail="user credential required")
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="bot name is required")
         key = (idempotency_key or "").strip() or None
         bot = state.plane.create_bot(
             tenant_id,
-            body.name,
+            name,
             creator_user_id=principal.user_id,
             idempotency_key=key,
         )

@@ -70,6 +70,18 @@ export async function listBots(org: ActiveOrg): Promise<Bot[]> {
   return body.bots;
 }
 
+export async function createBot(org: ActiveOrg, name: string): Promise<Bot> {
+  const response = await fetch(`${apiBase}${orgApiPath(org.tenantId, "/bots")}`, {
+    method: "POST",
+    headers: await authorizedHeaders({
+      "Content-Type": "application/json",
+      "Idempotency-Key": crypto.randomUUID(),
+    }),
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  return readJson<Bot>(response);
+}
+
 export async function createChannel(
   org: ActiveOrg,
   botIds: string[],
