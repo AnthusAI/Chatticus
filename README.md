@@ -170,8 +170,13 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **Enabled members create a named bot in the workspace** (#327,
   `chatticus-7622fd`): `CreateBotPanel` → `POST /bots` → roster refresh.
   Live on development: `LiveCreate` **200** and listed. Google SPA
-  sign-in still blocks automated UI; HTTP path is live. New bots still
-  get no task grant (`chatticus-5336ff`).
+  sign-in still blocks automated UI; HTTP path is live.
+- **Human-started turns attach a household conversation grant** (#328,
+  `chatticus-5336ff`): `read_workspace` on `/workspace` plus
+  `approved_origin_fetch`. Live on development: human message to Ping
+  HTTP 200; Dynamo turn grant matched the preset. `POST /bots` still
+  attaches nothing until that first human message. No browse, write,
+  send, or purchase in the preset.
 
 ### Public sites
 
