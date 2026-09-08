@@ -156,6 +156,24 @@ def gated_write_workspace(
     )
 
 
+def gated_run_terminal(
+    policy: CapabilityPolicy,
+    command: str,
+    cwd: str,
+    member_standing: MemberStanding,
+) -> None:
+    """Authorize one granted shell command at the terminal sink."""
+    _ = command
+    require_allow(
+        policy,
+        RequestedCapability(
+            tool="run_terminal",
+            file_path=cwd,
+        ),
+        member_standing,
+    )
+
+
 def gated_browse_origin(
     policy: CapabilityPolicy, url: str, member_standing: MemberStanding
 ) -> None:

@@ -35,7 +35,8 @@ WORKER_SYSTEM_PROMPT = (
     "If they ask you to use the household computer, workspace, or browser, "
     "call request_computer_capability with gate browser or workspace. "
     "Do not claim you opened a browser or read files you cannot reach. "
-    "Use read_workspace to read granted files and browse to authorize a granted origin."
+    "Use read_workspace to read granted files, run_terminal to run granted shell "
+    "commands, and browse to authorize a granted origin."
 )
 READ_WORKSPACE_TOOL = {
     "type": "function",
@@ -84,6 +85,23 @@ BROWSE_TOOL = {
         },
     },
 }
+RUN_TERMINAL_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "run_terminal",
+        "description": (
+            "Run one granted shell command on the household computer workspace."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string"},
+                "cwd": {"type": "string"},
+            },
+            "required": ["command"],
+        },
+    },
+}
 COMPUTER_CAPABILITY_TOOL = {
     "type": "function",
     "function": {
@@ -112,6 +130,7 @@ def computerless_worker_tools() -> list[dict[str, Any]]:
         openai_task_tool(),
         READ_WORKSPACE_TOOL,
         WRITE_WORKSPACE_TOOL,
+        RUN_TERMINAL_TOOL,
         BROWSE_TOOL,
         COMPUTER_CAPABILITY_TOOL,
     ]
@@ -213,6 +232,15 @@ def outcome_from_chat_completion(
                 gated_tool_call = GatedToolCall(
                     tool_name="browse",
                     arguments={"url": url},
+                )
+            continue
+        if name == "run_terminal":
+            command = str(arguments.get("command", "")).strip()
+            if command:
+                cwd = str(arguments.get("cwd", "/workspace")).strip() or "/workspace"
+                gated_tool_call = GatedToolCall(
+                    tool_name="run_terminal",
+                    arguments={"command": command, "cwd": cwd},
                 )
             continue
         if name != "request_computer_capability":
