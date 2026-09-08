@@ -1521,7 +1521,6 @@ class ControlPlane:
             return RequestedCapability(
                 tool="write_workspace",
                 file_path=arguments.get("path"),
-                egress_class=EgressClass.FILE_TRANSFER.value,
             )
         if tool_name == "browse":
             return RequestedCapability(
