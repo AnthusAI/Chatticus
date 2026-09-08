@@ -3,22 +3,22 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  InMemoryWebStorage,
   SignoutResponse,
   User,
   UserManager,
-  WebStorageStateStore,
 } from "oidc-client-ts";
 
 import {
   buildUserManagerSettings,
   completeSignOutRedirect,
+  getUserManager,
+  getVerifiedSession,
   resetAuthForTests,
   setUserManagerFactoryForTests,
   signInWithGoogle,
   signOut,
 } from "../lib/auth";
-import type { CognitoConfig } from "../lib/cognito-config";
+import { cognitoIssuer, type CognitoConfig } from "../lib/cognito-config";
 
 const testConfig: CognitoConfig = {
   userPoolId: "us-east-1_TestPool",
@@ -32,6 +32,10 @@ const statePath =
   process.env.CHATTICUS_AUTH_HARNESS_STATE ??
   join(tmpdir(), "chatticus-auth-harness-state.json");
 
+const oidcStorePath =
+  process.env.CHATTICUS_AUTH_HARNESS_OIDC_STORE ??
+  join(tmpdir(), "chatticus-auth-harness-oidc-store.json");
+
 type HarnessState = {
   signoutRedirectCalled: boolean;
   signoutRedirectArgs: Record<string, unknown> | null;
@@ -40,7 +44,7 @@ type HarnessState = {
   signinExtraQueryParams: Record<string, string> | null;
   sessionCleared: boolean;
   signoutCallbackHandled: boolean;
-  seededUser: User | null;
+  sessionPresent: boolean;
 };
 
 function emptyState(): HarnessState {
@@ -52,7 +56,7 @@ function emptyState(): HarnessState {
     signinExtraQueryParams: null,
     sessionCleared: false,
     signoutCallbackHandled: false,
-    seededUser: null,
+    sessionPresent: false,
   };
 }
 
@@ -77,6 +81,100 @@ function clearStateFile(): void {
   }
 }
 
+function loadOidcStore(): Record<string, string> {
+  try {
+    const raw = readFileSync(oidcStorePath, "utf8");
+    return JSON.parse(raw) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function saveOidcStore(store: Record<string, string>): void {
+  writeFileSync(oidcStorePath, JSON.stringify(store));
+}
+
+function clearOidcStoreFile(): void {
+  try {
+    unlinkSync(oidcStorePath);
+  } catch {
+    // no prior store
+  }
+}
+
+class FileBackedStorage implements Storage {
+  private readonly data: Record<string, string>;
+
+  constructor(initial: Record<string, string>) {
+    this.data = initial;
+  }
+
+  get length(): number {
+    return Object.keys(this.data).length;
+  }
+
+  clear(): void {
+    for (const key of Object.keys(this.data)) {
+      delete this.data[key];
+    }
+    saveOidcStore(this.data);
+  }
+
+  getItem(key: string): string | null {
+    return this.data[key] ?? null;
+  }
+
+  key(index: number): string | null {
+    return Object.keys(this.data)[index] ?? null;
+  }
+
+  removeItem(key: string): void {
+    delete this.data[key];
+    saveOidcStore(this.data);
+  }
+
+  setItem(key: string, value: string): void {
+    this.data[key] = value;
+    saveOidcStore(this.data);
+  }
+}
+
+function base64UrlJson(value: Record<string, unknown>): string {
+  return Buffer.from(JSON.stringify(value))
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function fakeIdToken(claims: Record<string, unknown>): string {
+  const header = base64UrlJson({ alg: "RS256", typ: "JWT" });
+  const payload = base64UrlJson(claims);
+  return `${header}.${payload}.signature`;
+}
+
+function verifiedSessionToken(): string {
+  return fakeIdToken({
+    token_use: "id",
+    iss: cognitoIssuer(testConfig),
+    aud: testConfig.clientId,
+    exp: 4_000_000_000,
+    email: "person@example.com",
+    sub: "person-subject",
+  });
+}
+
+function ensureHarnessWindow(): void {
+  if (typeof globalThis.window === "undefined") {
+    globalThis.document = { title: "Chatticus" } as Document;
+    globalThis.window = {
+      localStorage: new FileBackedStorage(loadOidcStore()),
+      history: { replaceState: () => undefined },
+      location: { pathname: "/chat" },
+    } as Window & typeof globalThis;
+  }
+}
+
 function configureEnv(): void {
   process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID = testConfig.userPoolId;
   process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID = testConfig.clientId;
@@ -84,13 +182,28 @@ function configureEnv(): void {
   process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI = testConfig.redirectUri;
 }
 
+function harnessOidcMetadata() {
+  const issuer = cognitoIssuer(testConfig);
+  return {
+    issuer,
+    authorization_endpoint: `${issuer}/oauth2/authorize`,
+    token_endpoint: `${issuer}/oauth2/token`,
+    end_session_endpoint: `${issuer}/logout`,
+    jwks_uri: `${issuer}/.well-known/jwks.json`,
+  };
+}
+
 function installMockUserManager(state: HarnessState): void {
+  ensureHarnessWindow();
   setUserManagerFactoryForTests(() => {
     const settings = buildUserManagerSettings(testConfig);
     const manager = new UserManager({
       ...settings,
-      userStore: new WebStorageStateStore({ store: new InMemoryWebStorage() }),
+      metadata: harnessOidcMetadata(),
+      automaticSilentRenew: false,
     });
+
+    const originalRemoveUser = manager.removeUser.bind(manager);
 
     manager.signoutRedirect = async (args?: Record<string, unknown>) => {
       state.signoutRedirectCalled = true;
@@ -100,15 +213,13 @@ function installMockUserManager(state: HarnessState): void {
       state.signinRedirectCalled = true;
       state.signinExtraQueryParams = settings.extraQueryParams ?? null;
     };
-    manager.getUser = async () => state.seededUser;
     manager.removeUser = async () => {
-      state.seededUser = null;
+      await originalRemoveUser();
       state.sessionCleared = true;
+      state.sessionPresent = false;
     };
     manager.signoutRedirectCallback = async () => {
       state.signoutCallbackHandled = true;
-      state.seededUser = null;
-      state.sessionCleared = true;
       return {} as SignoutResponse;
     };
 
@@ -119,27 +230,38 @@ function installMockUserManager(state: HarnessState): void {
 function prepareHarness(state: HarnessState): HarnessState {
   resetAuthForTests();
   configureEnv();
+  ensureHarnessWindow();
   installMockUserManager(state);
   return state;
 }
 
 function resetHarness(): HarnessState {
   clearStateFile();
+  clearOidcStoreFile();
+  delete (globalThis as { window?: Window; document?: Document }).window;
+  delete (globalThis as { window?: Window; document?: Document }).document;
   const state = prepareHarness(emptyState());
   saveState(state);
   return state;
 }
 
-function seedSession(idToken: string): HarnessState {
-  const state = prepareHarness(emptyState());
-  state.seededUser = {
+function buildSeededUser(idToken: string): User {
+  return new User({
     id_token: idToken,
+    access_token: "test-access-token",
     session_state: null,
     token_type: "Bearer",
     scope: "openid email profile",
-    profile: { email: "person@example.com" },
+    profile: { email: "person@example.com", sub: "person-subject" },
     expires_at: 4_000_000_000,
-  } as User;
+  });
+}
+
+async function seedSession(idToken?: string): Promise<HarnessState> {
+  const state = prepareHarness(emptyState());
+  const token = idToken ?? verifiedSessionToken();
+  await getUserManager().storeUser(buildSeededUser(token));
+  state.sessionPresent = true;
   saveState(state);
   return state;
 }
@@ -152,29 +274,30 @@ async function runSignOut(): Promise<HarnessState> {
 }
 
 async function runSignIn(): Promise<HarnessState> {
-  const state = prepareHarness(emptyState());
+  const state = prepareHarness(loadState());
   await signInWithGoogle();
   saveState(state);
   return state;
 }
 
-function seedSignOutCallback(): HarnessState {
-  const state = prepareHarness(emptyState());
-  state.seededUser = {
-    id_token: "session-token",
-    session_state: null,
-    token_type: "Bearer",
-    scope: "openid email profile",
-    profile: { email: "person@example.com" },
-    expires_at: 4_000_000_000,
-  } as User;
-  saveState(state);
-  return state;
+async function seedSignOutCallback(): Promise<HarnessState> {
+  return seedSession("session-token");
 }
 
 async function runCompleteSignOut(): Promise<HarnessState> {
   const state = prepareHarness(loadState());
   await completeSignOutRedirect();
+  saveState(state);
+  return state;
+}
+
+async function runReloadWorkspace(): Promise<HarnessState> {
+  const state = loadState();
+  resetAuthForTests();
+  configureEnv();
+  installMockUserManager(state);
+  const session = await getVerifiedSession();
+  state.sessionPresent = session !== null;
   saveState(state);
   return state;
 }
@@ -189,7 +312,7 @@ async function main(): Promise<void> {
       break;
     case "seed-session": {
       const payload = JSON.parse(payloadJson ?? "{}") as { id_token?: string };
-      result = seedSession(payload.id_token ?? "session-token");
+      result = await seedSession(payload.id_token);
       break;
     }
     case "sign-out":
@@ -199,16 +322,20 @@ async function main(): Promise<void> {
       result = await runSignIn();
       break;
     case "seed-signout-callback":
-      result = seedSignOutCallback();
+      result = await seedSignOutCallback();
       break;
     case "complete-sign-out":
       result = await runCompleteSignOut();
+      break;
+    case "reload-workspace":
+      result = await runReloadWorkspace();
       break;
     default:
       throw new Error(`Unknown auth harness command: ${command}`);
   }
 
   process.stdout.write(`${JSON.stringify(result)}\n`);
+  process.exit(0);
 }
 
 void main();
