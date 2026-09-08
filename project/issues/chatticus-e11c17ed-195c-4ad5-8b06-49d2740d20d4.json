@@ -40,10 +40,17 @@
       "text": "Plan authorized. Worktree verified at `/tmp/chatticus-e11c17-terminal` on `feat/e11c17-agent-terminal` (behind two pm commits — rebase onto `origin/develop` before coding).\n\n**Closed on authorize:**\n1. `run_terminal`; explicit grant; conversation preset stays closed.\n2. `TerminalActionExecutor` on the host. Not ECS Exec / SSH / Lambda.\n3. Readiness is **workspace hydrate** — no `TERMINAL_CAPABILITY` / `terminal_ready`.\n4. Gherkin first; pytest only for jail/timeout/truncation helpers.\n5. Live customer RunTask is after merge, by the manager. Do not live-run now to rediscover the gap.\n",
       "created_at": "2026-09-08T13:46:03.455061Z",
       "comment_type": "default"
+    },
+    {
+      "id": "40046ceb-f6e7-41ea-b6ef-021605b68092",
+      "author": "home",
+      "text": "PR [#329](https://github.com/AnthusAI/Chatticus/pull/329) is up. Composer 2.5 product review in flight. Watch for `TERMINAL_CAPABILITY` sneaking in, conversation-preset widening, and pytest duplicating `agent_terminal.feature`.\n",
+      "created_at": "2026-09-08T14:02:51.889591Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.970882Z",
-  "updated_at": "2026-09-08T13:46:03.455061Z",
+  "updated_at": "2026-09-08T14:02:51.889591Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
