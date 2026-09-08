@@ -54,10 +54,17 @@
       "text": "[#338](https://github.com/AnthusAI/Chatticus/pull/338) updated (`d71c9ca`). Host-start spend pause now denies the tool and completes the turn (no `ComputerWorkerHostNotReady`). Gherkin covers meter-unavailable refuse, `/me` pause, and continuation-at-host-start. Re-review and CI in flight; do not merge yet. Worktree stays.",
       "created_at": "2026-09-08T19:51:04.138781Z",
       "comment_type": "default"
+    },
+    {
+      "id": "9f9137aa-c74b-4fd8-a552-574d4fc9c331",
+      "author": "home",
+      "text": "Composer 2.5 re-review **APPROVE** on [#338](https://github.com/AnthusAI/Chatticus/pull/338). Host-start denial and meter-unavailable Gherkin close the previous REQUEST CHANGES. Infra CI green; python CI still running. Merge when python is green. Card stays in_progress until merge and worktree teardown.",
+      "created_at": "2026-09-08T19:52:50.370720Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:24.322109Z",
-  "updated_at": "2026-09-08T19:51:04.138809Z",
+  "updated_at": "2026-09-08T19:52:50.370755Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
