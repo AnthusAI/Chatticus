@@ -346,6 +346,7 @@ class MeOrganizationBody(BaseModel):
     """One organization row in GET /me."""
 
     tenant_id: str
+    name: str
     status: str
 
 
@@ -662,6 +663,7 @@ def create_app(
             organizations=[
                 MeOrganizationBody(
                     tenant_id=organization.tenant_id,
+                    name=organization.name,
                     status=organization.status.value,
                 )
                 for organization in me.organizations

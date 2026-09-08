@@ -103,7 +103,7 @@ def given_web_enabled_org_session(context: object, email: str, name: str) -> Non
     _run_harness("seed-session", {"email": email, "id_token": token})
     context.membership_ui_harness = _run_harness(
         "set-me-enabled",
-        {"tenant_id": org.tenant_id},
+        {"tenant_id": org.tenant_id, "name": org.name},
     )
 
 

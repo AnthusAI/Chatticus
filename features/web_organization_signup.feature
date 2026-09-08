@@ -18,8 +18,17 @@ Feature: Organization signup and welcome in the web SPA
     And the web SPA has a signed-in session for "sam@example.com"
     When the web SPA submits organization name "Acme Labs"
     Then the web SPA shows the welcome screen
+    And the web SPA shows organization "Acme Labs" with status "pending" and tenant_id present
     And the web SPA does not show a queue position
     And the web SPA does not promise email notification
+
+  Scenario: A pending member sees organization name status and tenant id on the welcome screen
+    Given a Cognito-verified HTTP front door with open signup wired to the web SPA
+    And the web SPA has a signed-in session for "sam@example.com"
+    When the web SPA submits organization name "Acme Labs"
+    And the web SPA refreshes membership from GET /me
+    Then the web SPA shows the welcome screen
+    And the web SPA shows organization "Acme Labs" with status "pending" and tenant_id present
 
   Scenario: Invitation-only deployment shows invite messaging without a create form
     Given the web SPA membership module with signup mode "invitation_only"

@@ -21,7 +21,7 @@ function ShellHeader() {
 }
 
 export function MembershipShell() {
-  const { authLoading, meLoading, branch, activeOrg, error } = useMembership();
+  const { authLoading, meLoading, branch, activeOrg, error, me } = useMembership();
   const signupMode = readSignupModeFromEnv();
 
   if (authLoading || (branch !== "signed-out" && meLoading)) {
@@ -58,9 +58,14 @@ export function MembershipShell() {
       {branch === "no-org" && signupMode === "invitation_only" ? (
         <NoOrganizationPanel />
       ) : null}
-      {branch === "pending" ? <WelcomeOrganizationPanel /> : null}
+      {branch === "pending" ? (
+        <WelcomeOrganizationPanel organizations={me?.organizations ?? []} />
+      ) : null}
       {branch === "enabled" && activeOrg ? (
-        <EnabledWorkspace activeOrg={activeOrg} />
+        <EnabledWorkspace
+          activeOrg={activeOrg}
+          organizations={me?.organizations ?? []}
+        />
       ) : null}
     </main>
   );

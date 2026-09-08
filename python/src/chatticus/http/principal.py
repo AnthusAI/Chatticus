@@ -271,6 +271,7 @@ class MeOrganization:
     """One organization row returned by GET /me."""
 
     tenant_id: str
+    name: str
     status: OrganizationStatus
 
 
@@ -304,7 +305,11 @@ def resolve_me_from_token(
         email=verified.email,
         user_id=identity.user_id,
         organizations=tuple(
-            MeOrganization(tenant_id=organization.tenant_id, status=organization.status)
+            MeOrganization(
+                tenant_id=organization.tenant_id,
+                name=organization.name,
+                status=organization.status,
+            )
             for organization in organizations
         ),
     )
