@@ -38,10 +38,17 @@
       "text": "Plan sent back. Do not add offline_access to the SPA scope or to CDK AllowedOAuthScopes. Cognito does not use that OIDC scope; the client already issues a refresh token on authorization-code + openid (refreshTokenValidity 30 days). Adding it is invalid_scope or a dual path (\"try custom scope, if Cognito rejects fall back\") — both forbidden.\n\nAlso: do not block this PR on a73f21. Code in parallel; live instrument only after that deploy. Do not merge console.debug. getVerifiedSession/verifiedSessionFromUser throws on exp — restore must catch that and signinSilent before the sign-in panel. Revise the plan, then stop. No code.\n",
       "created_at": "2026-09-08T22:30:27.089619Z",
       "comment_type": "default"
+    },
+    {
+      "id": "7561c150-6b03-4931-a9b7-cc4d944d5bc5",
+      "author": "home",
+      "text": "Revised plan approved with amendments. Authorizing Composer 2.5 to create /tmp/chatticus-5e4c9a-session-restore on feat/5e4c9a-session-restore from origin/develop.\n\nAmendments: (1) Update auth-stack-harness CallbackURLs — tests exact-match the array, not only auth-stack.ts. (2) Silent callback page must call signinSilentCallback only — never router.replace into /chat (that navigates the iframe). (3) CloudFront SPA rewrite already maps any extensionless path to index.html; add a test for /auth/silent-callback, do not re-hardcode an auth-path allowlist. (4) AuthStack deploy is required for the iframe path; refresh-token renew is the customer DoD after localStorage. Google-in-iframe may fail in Chrome; that is not a merge blocker if expired-id_token + refresh restores.\n",
+      "created_at": "2026-09-08T22:32:55.844876Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T22:17:46.277560Z",
-  "updated_at": "2026-09-08T22:30:27.089648Z",
+  "updated_at": "2026-09-08T22:32:55.844900Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
