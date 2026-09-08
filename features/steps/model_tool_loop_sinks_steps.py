@@ -14,6 +14,8 @@ _SECRET_MARKERS = ("session", "cookie", "token", "password", "secret")
 def when_bot_is_asked_for_model_sink(
     context: object, bot_name: str, message: str
 ) -> None:
+    from capability_policy_steps import _policy
+
     from chatticus.models import ActorKind
 
     bot = context.bots_by_name[bot_name]
@@ -30,14 +32,10 @@ def when_bot_is_asked_for_model_sink(
     context.last_turn_id = turn.turn_id
     context.last_channel = channel
     context.worker_bot_id = bot.bot_id
+    grant = _policy(context).grant
     context.policy_turn_id = turn.turn_id
-    source_grant = context.plane.capability_policy_for(
-        bot.tenant_id, "model-sink-turn"
-    ).grant
-    if source_grant is not None:
-        context.plane.set_turn_capability_grant(
-            bot.tenant_id, turn.turn_id, source_grant
-        )
+    if grant is not None:
+        context.plane.set_turn_capability_grant(bot.tenant_id, turn.turn_id, grant)
 
 
 @when('bot "{bot_name}" runs one capability-aware computerless worker turn')
@@ -87,6 +85,11 @@ def then_successful_read_workspace_journal(context: object) -> None:
     ]
     assert results
     assert not results[-1].body.startswith("denied:")
+
+
+@then("the turn journal records a denied read_workspace tool result")
+def then_denied_read_workspace_journal(context: object) -> None:
+    then_denied_tool_journal(context, "read_workspace")
 
 
 @then("the turn journal records a denied {tool_name} tool result")

@@ -25,6 +25,7 @@ class ComputerHostReadinessDriver:
 
     def boot_through_workspace(self) -> None:
         """Clear model and workspace gates, leaving browser cold."""
+        self.plane.set_computer_stopped(self.tenant_id, False)
         for capability in (MODEL_CAPABILITY, WORKSPACE_CAPABILITY):
             self.plane.record_computer_capability_ready(
                 self.tenant_id, self.user_id, capability

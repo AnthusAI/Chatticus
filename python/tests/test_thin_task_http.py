@@ -29,6 +29,7 @@ def test_computerless_worker_tools_include_task_and_computer_gate() -> None:
     assert names == {
         "task",
         "read_workspace",
+        "write_workspace",
         "browse",
         "request_computer_capability",
     }

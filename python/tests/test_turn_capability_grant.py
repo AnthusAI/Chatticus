@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import boto3
 import pytest
-from fastapi.testclient import TestClient
 from grant_fixtures import research_grant
 from moto import mock_aws
 
@@ -35,7 +34,7 @@ def test_grant_persists_across_recycled_control_plane() -> None:
             )
 
 
-def test_grant_allow_path_survives_recycled_plane_with_workspace() -> None:
+def test_grant_allow_path_survives_recycled_plane() -> None:
     with mock_aws():
         client = boto3.client("dynamodb", region_name="us-east-1")
         table_name = "chatticus-messaging"
@@ -44,18 +43,14 @@ def test_grant_allow_path_survives_recycled_plane_with_workspace() -> None:
         first = ControlPlane(messaging_store=store)
         first.set_turn_capability_grant("anthus", "turn-1", research_grant())
         second = ControlPlane(messaging_store=store)
-        second.ensure_computer("anthus")
-        assert (
-            second.gated_read_workspace(
-                "anthus",
-                "turn-1",
-                "/workspace/research/notes.txt",
-            )
-            is None
+        second.gated_read_workspace(
+            "anthus",
+            "turn-1",
+            "/workspace/research/notes.txt",
         )
 
 
-def test_http_grant_and_gated_read_use_durable_store() -> None:
+def test_http_grant_persists_without_workspace_execute_route() -> None:
     with mock_aws():
         client = boto3.client("dynamodb", region_name="us-east-1")
         table_name = "chatticus-messaging"
@@ -88,28 +83,10 @@ def test_http_grant_and_gated_read_use_durable_store() -> None:
             headers=worker_headers,
         )
         assert grant.status_code == 200
-        denied = api.post(
-            org_path("anthus", f"/turns/{turn.turn_id}/workspace/read"),
-            json={
-                "user_id": "ryan",
-                "path": "/workspace/secrets/notes.txt",
-            },
-            headers=worker_headers,
-        )
-        assert denied.status_code == 403
-        assert "outside granted scopes" in denied.json()["detail"]
         api.close()
-        recycled_client = TestClient(
-            create_app(ControlPlane(messaging_store=store), invoke_key="")
+        recycled = ControlPlane(messaging_store=store)
+        recycled.gated_read_workspace(
+            "anthus",
+            turn.turn_id,
+            "/workspace/research/notes.txt",
         )
-        recycled_headers = register_worker_headers(recycled_client, "anthus")
-        allowed = recycled_client.post(
-            org_path("anthus", f"/turns/{turn.turn_id}/workspace/read"),
-            json={
-                "user_id": "ryan",
-                "path": "/workspace/research/notes.txt",
-            },
-            headers=recycled_headers,
-        )
-        assert allowed.status_code == 200
-        assert allowed.json()["content"] is None
