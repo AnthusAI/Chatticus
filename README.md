@@ -181,8 +181,16 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   `chatticus-be3997`): `PUT /orgs/{tenant}/turns/{id}/grant` on the
   user route. Live on development: member PUT replaced a Ping turn grant
   with `browse` + origin only (no union with the conversation preset).
-  Unauthenticated and worker bearer PUT 403. No web UI in this bullet
-  (`chatticus-753bd8` is the UI card).
+  Unauthenticated and worker bearer PUT 403.
+- **Enabled members replace an active turn grant from the product
+  workspace** (#333, `chatticus-753bd8`): `TurnGrantPanel` ("Authorize
+  this turn") when a turn is active; full closed replace via the same
+  user PUT. Tools offered: browse, read/write workspace, `run_terminal`
+  **default off**. No send/purchase. Live on development: SPA bundle on
+  `dev.chattic.us` includes the panel (`aa118e8` /
+  deploy-web-development 34256447742). Google SPA sign-in still blocks
+  automated UI click-through (same as create-bot); Gherkin harness is the
+  automated gate.
 
 ### Public sites
 
