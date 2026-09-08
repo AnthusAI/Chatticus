@@ -116,10 +116,10 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 | --- | --- | --- | --- |
 | 1 | Terminal | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **Not implemented** — own card `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4`. Do not live-run. |
 | 2 | Browser | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **PASS (2026-09-07), kernel deviation.** `prepare_computer_tool(browser_open, about:blank)` + `enqueue_computer_continuation` (not computerless `browse`). Journal `tool.result` `opened:about:blank`. Customer `RunTask` 1, Anthus 0. `chatticus-8fe4c7e1` closed. Do not fold elapsed time into ~19 min. |
-| 3 | File actions | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | **Gherkin PASS on `develop` (#324 / `chatticus-863f27`).** Agent `write_workspace` → host publish → relocate → `read_workspace`; journal-only; pack URI is `chatticus-snapshots-{OrganizationId}`, not Anthus. **Live customer path not yet run** — needs the UpdateStack checklist below. |
+| 3 | File actions | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | **PASS (2026-09-08), kernel deviation.** Lab UpdateStack then write → publish → stop/start → read. Journal `write_workspace:/workspace/research/recycle-live.txt` then `read_workspace` body `persisted-by-agent-live-863f27`. Pack URI `s3://chatticus-snapshots-{ORGANIZATION_ID}/…`. Customer `RunTask`, Anthus 0. First attempt named cause `HOST_IMAGE_STALE_CHROMIUM_EXECUTOR_ONLY` — operator `push-customer-computer-image.sh` then retry. Do not fold elapsed time into ~19 min. |
 | 4 | Approvals | `APPROVAL_NO_CROSS_ACCOUNT_PATH` | No agent tool. Kernel/human binding. Not a host sweep. |
 | 5 | Spend ceiling | `SPEND_LIMIT_NOT_ENFORCED_AT_SINK` | Live model has no `purchase` tool. Token ledger is separate. Not a host sweep. |
-| 6 | Relocate | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | In-process relocate/hydrate is in the #324 recycle scenario. Live relocate still waits on the customer-bucket UpdateStack below. |
+| 6 | Relocate | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | In-process relocate/hydrate is in #324. Live **stop/start** recycle is proven in the 2026-09-08 file-actions row (host publish, hydrate, same bytes). Live relocate to a **different** worker was not a separate run. |
 
 ## Customer snapshot bucket — lab UpdateStack (after #323 / #324)
 
@@ -130,17 +130,17 @@ Gherkin on `develop` does not create the throwaway account's bucket. A lab IAM u
 3. Same principal: `update-stack` `ChatticusComputers` with parameter `SnapshotBucketName` set to that output. Do not `cdk deploy --all`. Do not `CreateBucket` on an Anthus role.
 4. Acceptance (not required to merge Gherkin): computerless write → host publish → stop/start or relocate → read the same bytes; journal `read_workspace` contains the written text.
 
-**2026-09-08 live attempt:** ThinTurn development for #324 is deployed ([run 34185334336](https://github.com/AnthusAI/Chatticus/actions/runs/34185334336)); published template is 7557 bytes and declares `OrganizationSnapshotBucket`. UpdateStack and the write/publish/read loop did **not** run. Named cause `AWS_LOGIN_SESSION_EXPIRED` — operator-only. Reauthenticate with `aws login`, then lab IAM user `chatticus-b88c0a-operator` (not management root) in `CUSTOMER_ACCOUNT_ID`.
+**2026-09-08 live PASS:** Lab IAM user `chatticus-b88c0a-operator` (not management root) via `OrganizationAccountAccessRole` in `CUSTOMER_ACCOUNT_ID`. `ChatticusCrossAccountRole` and `ChatticusComputers` both `UPDATE_COMPLETE`. Output `OrganizationSnapshotBucket` / `SnapshotBucketName` = `chatticus-snapshots-{ORGANIZATION_ID}`. `head-bucket` succeeded; pack objects present. Kernel write/publish/stop/start/read as above. Earlier `AWS_LOGIN_SESSION_EXPIRED` was operator-only and is cleared.
 
 ## Not done on this run
 
 | Step | Status |
 | --- | --- |
 | Consumer AWS signup | Skipped (lab `CreateAccount`) |
-| Customer snapshot bucket **exists** in the throwaway account | Template on `develop` (#323). Lab UpdateStack above **not yet run**. |
-| Dict vs host disk | **Closed** — five steps on `develop` (`4ac60c71` #318, `47533582` #321, `5ac06b` #322, `bb908488` #323, `863f27` #324). Live file row waits on UpdateStack. |
+| Customer snapshot bucket **exists** in the throwaway account | **Done 2026-09-08** — UpdateStack #323 template; `head-bucket` on `chatticus-snapshots-{ORGANIZATION_ID}`. |
+| Dict vs host disk | **Closed** — five steps on `develop` plus live write/publish/read (`4ac60c71` #318, `47533582` #321, `5ac06b` #322, `bb908488` #323, `863f27` #324). |
 | Agent terminal tool (build, not a sweep) | `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4` |
-| Remaining capability matrix | `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` — parked; browser host row PASS; file-actions Gherkin PASS; do not live-run the rest until UpdateStack |
+| Remaining capability matrix | `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` — parked; browser and file-actions host rows PASS; do not live-run terminal |
 | Customer image in customer ECR | `chatticus-2b3c4173` / #320 **closed** — `:dev` published under the assumed role |
 
 ## Replay (customer-shaped, once the gaps close)

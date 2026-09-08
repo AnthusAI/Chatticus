@@ -127,7 +127,15 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 - **Customer ECR holds `:dev`** (`chatticus-2b3c41`, #320, closed): task
   definition pulls from the organization AWS home. Operator
   `push-customer-computer-image.sh` published `:dev` under the assumed role
-  (not Lambda). Anthus `ChatticusComputers` desiredCount stays 0.
+  (not Lambda). Anthus `ChatticusComputers` desiredCount stays 0. Live
+  file-actions (2026-09-08) required a **repush** after host executor
+  wiring; stale `:dev` failed with `HOST_IMAGE_STALE_CHROMIUM_EXECUTOR_ONLY`.
+- **Agent workplace files survive host recycle** (`chatticus-863f27`,
+  #324, closed): live on the throwaway org (kernel deviation). Write →
+  customer-bucket publish → stop/start → read. Journal
+  `persisted-by-agent-live-863f27`. Packs in
+  `chatticus-snapshots-{ORGANIZATION_ID}`. Do not fold elapsed time into
+  the ~19 min provision figure.
 
 ### On `develop`, not on `main`
 
@@ -146,13 +154,10 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   starter. Image pull is the customer ECR `:dev` (#320).
 - **Agent workplace files on host disk** (#318–#324, `chatticus-fccc4e9a`
   closed): Dynamo snapshot metadata, host hydrate/publish, host
-  `read_workspace`/`write_workspace`, customer org bucket in the published
-  template, and Gherkin that an agent file survives relocate
-  (`computer_host_workspace_recycle.feature`). Packs are
-  `chatticus-snapshots-{OrganizationId}`, not an Anthus dict. Live file
-  actions in the throwaway account still need lab UpdateStack of
-  `customer-role.yml` then `ChatticusComputers` with `SnapshotBucketName`
-  (see the throwaway runbook). Do not `cdk deploy --all`.
+  `read_workspace`/`write_workspace`, customer org bucket, and Gherkin
+  that an agent file survives relocate
+  (`computer_host_workspace_recycle.feature`). Live throwaway proof is
+  under **Live on development** above. Do not `cdk deploy --all`.
 
 ### Public sites
 
