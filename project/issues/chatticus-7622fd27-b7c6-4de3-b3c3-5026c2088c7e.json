@@ -26,10 +26,17 @@
       "text": "Plan reviewed and **authorized** with holes closed.\n\nWorktree verified: `/tmp/chatticus-7622fd-create-bot` on `feat/7622fd-create-bot-ui` (HEAD `dca2901`, not the primary clone).\n\n**Closed on authorize:**\n1. One path: `CreateBotPanel` → `POST /bots` → `listBots` refresh. No kernel/CLI leftover in the product UI.\n2. Empty name: strip; UI blocks empty submit; HTTP 400. No dual validators.\n3. Do not implement grants (`5336ff`). A created bot may still be grantless; that is the next card.\n4. Wiki runbook step 5 is `pm:` after merge, not in the product PR.\n5. After merge I will create a bot from the enabled workspace on development myself (Google SPA may need a labeled HTTP deviation).\n\nTear the worktree down only after the manager closes the issue.\n",
       "created_at": "2026-09-08T11:37:58.840230Z",
       "comment_type": "default"
+    },
+    {
+      "id": "be96dc91-43aa-4450-bca4-d922a816a198",
+      "author": "home",
+      "text": "PR [#327](https://github.com/AnthusAI/Chatticus/pull/327) is up. Composer 2.5 product review in flight; merge after that plus green CI. I will create a bot on development after web deploy.\n",
+      "created_at": "2026-09-08T11:50:24.028081Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T15:54:05.621093Z",
-  "updated_at": "2026-09-08T11:37:58.840230Z",
+  "updated_at": "2026-09-08T11:50:24.028081Z",
   "closed_at": null,
   "custom": {}
 }
