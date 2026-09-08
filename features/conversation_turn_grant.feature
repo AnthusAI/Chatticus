@@ -29,6 +29,22 @@ Feature: Conversation task grant on human-started turns
     Then a computer continuation job is queued for the turn
     And the turn is waiting on the workspace capability
 
+  Scenario: The conversation grant allows write_workspace under /workspace
+    Given tenant "anthus" user "ryan" has a bot named "Researcher"
+    And the household computer is stopped
+    When bot "Researcher" is asked "write workspace file /workspace/research/notes.txt containing draft-content"
+    And bot "Researcher" runs one capability-aware computerless worker turn
+    Then a computer continuation job is queued for the turn
+    And the turn is waiting on the workspace capability
+
+  Scenario: The conversation grant still denies run_terminal
+    Given tenant "anthus" user "ryan" has a bot named "Researcher"
+    When a human asks the bot to run command "ls /workspace" using cwd "/workspace"
+    And bot "Researcher" runs one capability-aware computerless worker turn
+    Then the turn journal records a denied run_terminal tool result
+    And no computer continuation job is queued for the turn
+    And the turn is not waiting on the workspace capability
+
   Scenario: The conversation grant denies browse without granted origins
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
     When bot "Researcher" is asked "browse https://evil.example/collect"

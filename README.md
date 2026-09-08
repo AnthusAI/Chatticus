@@ -172,11 +172,11 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   Live on development: `LiveCreate` **200** and listed. Google SPA
   sign-in still blocks automated UI; HTTP path is live.
 - **Human-started turns attach a household conversation grant** (#328,
-  `chatticus-5336ff`): `read_workspace` on `/workspace` plus
-  `approved_origin_fetch`. Live on development: human message to Ping
-  HTTP 200; Dynamo turn grant matched the preset. `POST /bots` still
-  attaches nothing until that first human message. No browse, write,
-  send, or purchase in the preset.
+  `chatticus-5336ff`): `read_workspace` and `write_workspace` on
+  `/workspace` plus `approved_origin_fetch`. Live on development: human
+  message to Ping HTTP 200; Dynamo turn grant matched the preset.
+  `POST /bots` still attaches nothing until that first human message. No
+  browse, send, purchase, or `run_terminal` in the preset.
 
 ### Public sites
 
