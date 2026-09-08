@@ -39,6 +39,8 @@ def _org_by_name(context: object, name: str) -> object:
 
 @given("an empty organization records store")
 def given_empty_org_store(context: object) -> None:
+    from browser_auth_helpers import wire_test_http_front_door
+
     context.plane = ControlPlane(messaging_store=InMemoryMessagingStore())
     context.orgs_by_name = {}
     context.identities_by_email = {}
@@ -46,6 +48,7 @@ def given_empty_org_store(context: object) -> None:
     context.last_invitation = None
     context.last_error = None
     context.now = datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC)
+    wire_test_http_front_door(context, context.plane, invoke_key="")
 
 
 @when('"{email}" signs in for the first time')

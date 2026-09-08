@@ -18,6 +18,11 @@ def _driver(context: object) -> SingleComputerStartDriver:
 
 @given("the organization computer is stopped")
 def given_organization_computer_stopped(context: object) -> None:
+    organization = getattr(context, "spend_ceiling_org", None)
+    if organization is not None:
+        context.plane.ensure_computer(organization.tenant_id)
+        context.plane.set_computer_stopped(organization.tenant_id, True)
+        return
     driver = SingleComputerStartDriver(context.plane)
     driver.computer_id = None
     driver.given_stopped_computer()

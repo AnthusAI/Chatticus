@@ -273,6 +273,8 @@ class MeOrganization:
     tenant_id: str
     name: str
     status: OrganizationStatus
+    computer_work_paused: bool = False
+    computer_work_paused_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -301,17 +303,26 @@ def resolve_me_from_token(
     identity = plane.sign_in(verified.email, now=now)
     plane.reconcile_pending_invitations(identity, now=now)
     organizations = plane.list_organizations_for_user(identity.user_id)
-    return MeResponse(
-        email=verified.email,
-        user_id=identity.user_id,
-        organizations=tuple(
+    as_of = now.date()
+    me_organizations: list[MeOrganization] = []
+    for organization in organizations:
+        paused, reason = plane.organization_computer_work_paused_for(
+            organization,
+            as_of=as_of,
+        )
+        me_organizations.append(
             MeOrganization(
                 tenant_id=organization.tenant_id,
                 name=organization.name,
                 status=organization.status,
+                computer_work_paused=paused,
+                computer_work_paused_reason=reason,
             )
-            for organization in organizations
-        ),
+        )
+    return MeResponse(
+        email=verified.email,
+        user_id=identity.user_id,
+        organizations=tuple(me_organizations),
     )
 
 

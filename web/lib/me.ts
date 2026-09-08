@@ -5,6 +5,8 @@ export type MeOrganization = {
   tenant_id: string;
   name: string;
   status: "pending" | "enabled" | "suspended";
+  computer_work_paused?: boolean;
+  computer_work_paused_reason?: string | null;
 };
 
 export type MeResponse = {

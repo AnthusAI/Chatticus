@@ -361,6 +361,10 @@ class OrganizationSpendCeilingInvalidError(ChatticusError):
     """The monthly AWS spend ceiling is missing or not a positive USD amount."""
 
 
+class OrganizationSpendCeilingExceededError(ChatticusError):
+    """Month-to-date spend blocks new computer work for this organization."""
+
+
 class WaitlistRateLimitedError(ChatticusError):
     """Too many waitlist submissions from the same source in the current window."""
 
