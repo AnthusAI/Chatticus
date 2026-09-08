@@ -18,6 +18,8 @@ Feature: Google sign-in session and sign-out in the web SPA
     Given the web SPA has an active signed-in session with id_token "session-token"
     When the person signs out from the web SPA
     Then the web SPA begins Cognito sign-out redirect with id_token_hint "session-token"
+    And the Cognito sign-out redirect includes client_id and logout_uri
+    And the Cognito sign-out redirect does not include identity_provider
     And the web SPA does not clear the session with removeUser only
 
   Scenario: Signing back in after sign-out prompts for account selection

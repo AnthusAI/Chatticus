@@ -128,6 +128,25 @@ def then_sign_out_redirect_with_hint(context: object, token: str) -> None:
     assert args.get("id_token_hint") == token, harness
 
 
+@then("the Cognito sign-out redirect includes client_id and logout_uri")
+def then_sign_out_includes_cognito_params(context: object) -> None:
+    harness = context.web_auth_harness
+    args = harness.get("signoutRedirectArgs") or {}
+    extra = args.get("extraQueryParams") or {}
+    assert extra.get("client_id") == "test-client-id", harness
+    assert (
+        extra.get("logout_uri") == "https://dev.chattic.us/auth/signout-callback"
+    ), harness
+
+
+@then("the Cognito sign-out redirect does not include identity_provider")
+def then_sign_out_no_identity_provider(context: object) -> None:
+    harness = context.web_auth_harness
+    args = harness.get("signoutRedirectArgs") or {}
+    extra = args.get("extraQueryParams") or {}
+    assert "identity_provider" not in extra, harness
+
+
 @then("the web SPA does not clear the session with removeUser only")
 def then_not_remove_user_only(context: object) -> None:
     harness = context.web_auth_harness
