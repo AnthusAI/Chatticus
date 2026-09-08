@@ -136,6 +136,7 @@ class TurnEventKind(StrEnum):
 
     CHANNEL_MESSAGE_CREATED = "channel.message.created"
     TURN_STARTED = "turn.started"
+    TURN_GRANT_REPLACED = "turn.grant.replaced"
     TURN_WAITING = "turn.waiting"
     TURN_TOKEN = "turn.token"
     TURN_COMPLETED = "turn.completed"
@@ -289,6 +290,10 @@ class OrganizationSeedConflictError(ChatticusError):
 
 class MemberStandingRequiredError(ChatticusError):
     """An org-scoped sink could not resolve the acting member's standing."""
+
+
+class GrantExceedsMemberStandingError(ChatticusError):
+    """A task grant replacement exceeds the acting member's standing."""
 
 
 class OrganizationNotFoundError(ChatticusError):

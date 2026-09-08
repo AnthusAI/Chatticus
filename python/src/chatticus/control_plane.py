@@ -19,9 +19,12 @@ from chatticus.approval_binding import (
     StructuredConsequentialOperation,
 )
 from chatticus.authorization_ceiling import (
+    GRANT_STANDING_ACTION_TYPE,
     MemberAuthorityCeiling,
     MemberStanding,
     auto_review_rule_exceeds_member_authority_ceiling,
+    grant_replace_exceeds_acting_member_standing,
+    member_authority_ceiling_from_grant_table,
     member_authority_ceiling_from_structured_arguments,
     structured_operation_exceeds_member_authority_ceiling,
 )
@@ -117,6 +120,7 @@ from chatticus.models import (
     ContactLead,
     CostClass,
     DuplicateBotNameError,
+    GrantExceedsMemberStandingError,
     Identity,
     Invitation,
     MemberRole,
@@ -1344,6 +1348,72 @@ class ControlPlane:
             policy = CapabilityPolicy(now=self.now)
             self._capability_policies[key] = policy
         policy.set_grant(grant)
+
+    def set_member_grant_bounds_ceiling(
+        self,
+        tenant_id: str,
+        member_user_id: str,
+        *,
+        grant_table: dict[str, str],
+    ) -> None:
+        """Record one member's closed grant-table standing for replacement checks."""
+        self._member_authority_ceilings[
+            (tenant_id, member_user_id, GRANT_STANDING_ACTION_TYPE)
+        ] = member_authority_ceiling_from_grant_table(grant_table)
+
+    def replace_turn_capability_grant(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        grant: TaskCapabilityGrant,
+        *,
+        actor_user_id: str,
+    ) -> None:
+        """Replace one active turn grant after standing checks on the acting member."""
+        turn = self.turn(tenant_id, turn_id)
+        if turn.status != TurnStatus.ACTIVE:
+            msg = f"Turn {turn_id!r} is not active."
+            raise TurnTerminalError(msg)
+        membership = self.get_membership(tenant_id, actor_user_id)
+        if membership is None:
+            raise MemberStandingRequiredError(
+                f"Member {actor_user_id!r} has no standing in tenant {tenant_id!r}."
+            )
+        grant_bounds = self.member_authority_ceiling(
+            tenant_id,
+            actor_user_id,
+            GRANT_STANDING_ACTION_TYPE,
+        )
+        if grant_replace_exceeds_acting_member_standing(
+            grant,
+            role_ceiling=membership.ceiling,
+            grant_bounds_ceiling=grant_bounds,
+            member_authority_ceiling_for=lambda tool: self.member_authority_ceiling(
+                tenant_id,
+                actor_user_id,
+                tool,
+            ),
+        ):
+            raise GrantExceedsMemberStandingError(
+                f"Grant for turn {turn_id!r} exceeds member {actor_user_id!r} standing."
+            )
+        self.set_turn_capability_grant(tenant_id, turn_id, grant)
+        event_body = json.dumps(
+            {
+                "actor_user_id": actor_user_id,
+                "tools": sorted(grant.tools),
+                "origins": sorted(grant.origins),
+                "recipients": sorted(grant.recipients),
+                "file_scopes": sorted(grant.file_scopes),
+                "egress_classes": sorted(grant.egress_classes),
+                "ingest_classes": sorted(grant.ingest_classes),
+            }
+        )
+        self._append_turn_event(
+            turn,
+            TurnEventKind.TURN_GRANT_REPLACED,
+            body=event_body,
+        )
 
     def sync_household_credentials(
         self,
