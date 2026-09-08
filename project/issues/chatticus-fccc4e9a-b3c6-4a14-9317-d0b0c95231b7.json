@@ -59,10 +59,17 @@
       "text": "`chatticus-2b3c4173` closed. Image is in the customer ECR. Step 1 already landed. Opening a sibling task for step 2 (host hydrate/publish). Step 4 (`chatticus-bb9084`) stays a separate customer-template slice — do not mix.\n",
       "created_at": "2026-09-08T00:37:32.476527Z",
       "comment_type": "default"
+    },
+    {
+      "id": "c5265927-5435-44f6-80fc-a6d332bf22b9",
+      "author": "home",
+      "text": "Step 2 closed: `chatticus-47533582` / PR #321 / `17a3fb8` on `develop`. Host hydrate/publish is wired. Next is step 3 — move agent file tools onto the computer-capable host. Step 4 remains `chatticus-bb908488` (customer snapshot bucket). Do not mix the template into the file-tools slice.\n",
+      "created_at": "2026-09-08T02:02:28.630694Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.946029Z",
-  "updated_at": "2026-09-08T00:37:32.476527Z",
+  "updated_at": "2026-09-08T02:02:28.630694Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
