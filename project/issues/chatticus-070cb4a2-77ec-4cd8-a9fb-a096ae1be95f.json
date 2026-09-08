@@ -26,10 +26,17 @@
       "text": "Plan reviewed and **authorized** with holes closed.\n\nWorktree verified: `/tmp/chatticus-070cb4-submit-role` on `feat/070cb4-submit-role-arn` (HEAD `9065ecb`, not the primary clone; rebase onto `origin/develop` which has the pm authorize note).\n\n**Closed on authorize:**\n1. **One HTTP shape.** Success `200` with `accepted: true`. Inspect/validation failures `422` with the kernel `message`. Auth `403`. Do not use `200` + `accepted: false`.\n2. **One kernel, two inspectors.** `InMemory` in Gherkin; `AwsCrossAccountRoleInspector` in production. Map STS/IAM into the existing snapshot/exception catalog so messages stay one family. Do not invent a second live-only message path.\n3. **Kernel `actor_user_id` is required** (one path). Update existing kernel Gherkin steps. No dual signature.\n4. **Do not edit `infra/customer-role.yml`.** ThinTurn Front Door `sts:AssumeRole` on `ChatticusOrganizationComputerRole` is in scope.\n5. Wiki/runbook is `pm:` on `develop` after merge, not files in the product PR.\n\nTear the worktree down only after the manager closes the issue.\n",
       "created_at": "2026-09-08T10:41:20.033767Z",
       "comment_type": "default"
+    },
+    {
+      "id": "c55f44b5-d4ba-4587-ac53-d2e141b30c5b",
+      "author": "home",
+      "text": "PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) is up. Composer 2.5 product review in flight; merge after that plus green CI.\n",
+      "created_at": "2026-09-08T10:58:59.554482Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T15:54:05.599297Z",
-  "updated_at": "2026-09-08T10:41:20.033767Z",
+  "updated_at": "2026-09-08T10:58:59.554482Z",
   "closed_at": null,
   "custom": {}
 }
