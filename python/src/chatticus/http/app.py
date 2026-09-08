@@ -61,6 +61,7 @@ from chatticus.models import (
     ChatticusError,
     ComputerNotReadyError,
     CostClass,
+    GrantExceedsMemberStandingError,
     MemberStandingRequiredError,
     NotOrganizationOwnerError,
     OfferSnapshot,
@@ -1547,11 +1548,12 @@ def create_app(
             ) from error
         return _turn_payload(turn)
 
-    @worker_router.put("/turns/{turn_id}/grant")
+    @user_router.put("/turns/{turn_id}/grant")
     def put_turn_grant(
         tenant_id: str,
         turn_id: str,
         body: PutTurnGrantBody,
+        principal: RequireUserPrincipal,
     ) -> dict[str, Any]:
         try:
             state.plane.turn(tenant_id, turn_id)
@@ -1560,11 +1562,17 @@ def create_app(
                 f"Tenant {tenant_id!r} cannot grant turn {turn_id!r}."
             ) from error
         grant = grant_from_payload(body.model_dump())
-        state.plane.set_turn_capability_grant(tenant_id, turn_id, grant)
-        logger.info(
-            "turn_grant_set tenant_id=%s turn_id=%s tools=%s",
+        state.plane.replace_turn_capability_grant(
             tenant_id,
             turn_id,
+            grant,
+            actor_user_id=principal.user_id,
+        )
+        logger.info(
+            "turn_grant_set tenant_id=%s turn_id=%s actor_user_id=%s tools=%s",
+            tenant_id,
+            turn_id,
+            principal.user_id,
             sorted(grant.tools),
         )
         return {"turn_id": turn_id, "tools": sorted(grant.tools)}
@@ -1769,6 +1777,8 @@ def _status_for_error(error: ChatticusError) -> int:
     if isinstance(error, TaskAccessDeniedError):
         return 403
     if isinstance(error, MemberStandingRequiredError):
+        return 403
+    if isinstance(error, GrantExceedsMemberStandingError):
         return 403
     if isinstance(error, TaskNotFoundError):
         return 404
