@@ -140,7 +140,7 @@ Gherkin on `develop` does not create the throwaway account's bucket. A lab IAM u
 | Customer snapshot bucket **exists** in the throwaway account | **Done 2026-09-08** — UpdateStack #323 template; `head-bucket` on `chatticus-snapshots-{ORGANIZATION_ID}`. |
 | Dict vs host disk | **Closed** — five steps on `develop` plus live write/publish/read (`4ac60c71` #318, `47533582` #321, `5ac06b` #322, `bb908488` #323, `863f27` #324). |
 | Agent terminal tool (build, not a sweep) | `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4` |
-| Remaining capability matrix | `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` — parked; browser and file-actions host rows PASS; do not live-run terminal |
+| Remaining capability matrix | `chatticus-3e72dc` **closed 2026-09-08**. Browser, files, recycle proven. Terminal is the build `chatticus-e11c17`. Approvals/spend/watch recorded as non-host. |
 | Customer image in customer ECR | `chatticus-2b3c4173` / #320 **closed** — `:dev` published under the assumed role |
 
 ## Replay (customer-shaped, once the gaps close)
