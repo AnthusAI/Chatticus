@@ -1,7 +1,7 @@
 Feature: Create an organization from the product
   As someone who signed in with Google
   I want to name my organization on an open-signup deployment
-  So that it lands pending and I see the welcome screen while an operator enables it
+  So that it lands pending and I can submit AWS cross-account setup from the welcome screen
 
   Background:
     Given a Cognito-verified HTTP front door with open signup

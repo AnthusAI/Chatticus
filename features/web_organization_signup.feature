@@ -30,6 +30,35 @@ Feature: Organization signup and welcome in the web SPA
     Then the web SPA shows the welcome screen
     And the web SPA shows organization "Acme Labs" with status "pending" and tenant_id present
 
+  Scenario: A pending owner sees the cross-account self-setup form on the welcome screen
+    Given a Cognito-verified HTTP front door with open signup wired to the web SPA
+    And the customer self-setup HTTP front door is wired with an in-memory role inspector
+    And the web SPA has a signed-in session for "sam@example.com"
+    When the web SPA submits organization name "Acme Labs"
+    Then the web SPA shows the welcome screen
+    And the web SPA shows the cross-account self-setup form
+
+  Scenario: A pending owner submits RoleArn and reaches the enabled workspace
+    Given a Cognito-verified HTTP front door with open signup wired to the web SPA
+    And the customer self-setup HTTP front door is wired with an in-memory role inspector
+    And the web SPA has a signed-in session for "sam@example.com"
+    When the web SPA submits organization name "Acme Labs"
+    And the in-memory role inspector trusts the created organization ExternalId with full permissions
+    And the web SPA submits cross-account self-setup via HTTP
+    And the web SPA refreshes membership from GET /me
+    Then the web SPA shows the enabled workspace
+    And the web SPA shows organization "Acme Labs" with status "enabled" and tenant_id present
+
+  Scenario: A failed self-setup submission shows the kernel message on the welcome screen
+    Given a Cognito-verified HTTP front door with open signup wired to the web SPA
+    And the customer self-setup HTTP front door is wired with an in-memory role inspector
+    And the web SPA has a signed-in session for "sam@example.com"
+    When the web SPA submits organization name "Acme Labs"
+    And the in-memory role inspector trusts a mismatched ExternalId for the created organization
+    And the web SPA submits cross-account self-setup via HTTP
+    Then the web SPA shows the welcome screen
+    And the web SPA shows a cross-account self-setup error naming the ExternalId mismatch
+
   Scenario: Invitation-only deployment shows invite messaging without a create form
     Given the web SPA membership module with signup mode "invitation_only"
     And the web SPA has a signed-in session for "sam@example.com"

@@ -122,8 +122,10 @@ def given_role_lacks_permission(context: object) -> None:
 
 @when("they submit their AWS account id and role")
 def when_submit_account_and_role(context: object) -> None:
+    organization = context.customer_org
     context.self_setup_result = _plane(context).submit_self_setup_cross_account_role(
-        context.customer_org.tenant_id,
+        organization.tenant_id,
+        actor_user_id=organization.owner_user_id,
         account_id=context.aws_account_id,
         cross_account_role=context.aws_role_arn,
         role_inspector=context.role_inspector,

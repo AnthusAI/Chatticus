@@ -282,6 +282,12 @@ export class ThinTurnStack extends cdk.Stack {
     );
     httpFunction.addToRolePolicy(manageTurnDeadlineSchedules);
     httpFunction.addToRolePolicy(passSchedulerInvokeRole);
+    httpFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["sts:AssumeRole"],
+        resources: ["arn:aws:iam::*:role/ChatticusOrganizationComputerRole"],
+      }),
+    );
 
     deadlineFunction.addToRolePolicy(manageTurnDeadlineSchedules);
     deadlineFunction.addToRolePolicy(passSchedulerInvokeRole);
