@@ -162,6 +162,11 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   (#325, `chatticus-9c8dbf`): `GET /me` includes `name`; welcome and
   workspace list CloudFormation `OrganizationId` without the members CLI.
   Live on development after the web deploy from this merge.
+- **Pending owners submit cross-account RoleArn in-product** (#326,
+  `chatticus-070cb4`): `POST /orgs/{tenant_id}/self-setup/cross-account-role`.
+  Live on development: inspect 422 when ExternalId does not match; 403
+  without a user token. Operator enable stays break-glass without AWS
+  home.
 
 ### Public sites
 

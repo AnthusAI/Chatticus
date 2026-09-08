@@ -3,7 +3,7 @@
   "title": "An enabled member creates a named bot in the workspace",
   "description": "## Found on `chatticus-b88c0a`\n\n`EnabledWorkspace` lists bots and can send a message. It never calls `POST /bots`. The hand run minted **Ping** via kernel `create_bot` so F-safe could run.\n\n## Done when\n\nAn enabled member creates a named bot from the workspace UI without the members CLI or a kernel snippet. Behavior in Gherkin first.",
   "type": "story",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,17 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7f5c6ebb-2f1b-4565-8acb-4b1901ec0376",
+      "author": "home",
+      "text": "Next after `070cb4`. Composer 2.5 planning. Worktree to be named `/tmp/chatticus-7622fd-create-bot` on `feat/7622fd-create-bot-ui`. Implementation not authorized until the plan is reviewed. Gherkin first: enabled member creates a named bot from the workspace UI (`POST /bots` already exists). Do not mix grants (`5336ff`) unless create-without-a-name-control cannot ship without it.\n",
+      "created_at": "2026-09-08T11:36:15.451580Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-07T15:54:05.621093Z",
-  "updated_at": "2026-09-07T15:54:05.621093Z",
+  "updated_at": "2026-09-08T11:36:15.451580Z",
   "closed_at": null,
   "custom": {}
 }

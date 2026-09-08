@@ -23,7 +23,7 @@ Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` 
 1. **Google sign-in** at `dev.chattic.us` and **create organization** (`POST /organizations`). Operator CLI must not `members seed` the throwaway org (seed writes `aws_account_id` from the STS caller).
 2. **Copy `ORGANIZATION_ID` (`tenant_id`)** for CloudFormation `OrganizationId`. The 2026-09-07 run used `members list --status pending`. **Fixed on `develop`** (`chatticus-9c8dbf` / #325): welcome and enabled workspace show name, status, and tenant_id from `GET /me`.
 3. **GET the published YAML** and `create-stack` in the **customer** account with `AnthusAccountId=ANTHUS_ACCOUNT_ID`, `OrganizationId=ORGANIZATION_ID`, `--capabilities CAPABILITY_NAMED_IAM`.
-4. **Submit account id + RoleArn** to the control plane. There is **no customer HTTP** for `submit_self_setup_cross_account_role`. This run used a labeled operator kernel call (not seed). Kernel submit **enables** the org and writes AWS home.
+4. **Submit account id + RoleArn** in-product (`chatticus-070cb4` / #326). The 2026-09-07 run used a labeled operator kernel call.
 5. **Create a bot.** Enabled workspace lists bots but has **no create-bot control**. This run used kernel `create_bot` → **Ping** (also `ensure_computer` Dynamo row).
 6. **Send F-safe** from the UI: `Reply with exactly: pong.` Human confirmed the turn completed. Computerless; do not wait for a computer to boot.
 
@@ -36,7 +36,7 @@ Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` 
 ## Instruction defects (product)
 
 - Welcome / holding page: no org name, status, or `tenant_id` — **fixed on `develop`** (`chatticus-9c8dbf` / #325).
-- No HTTP to submit RoleArn after CFN; no live `CrossAccountRoleInspector` (Gherkin in-memory only).
+- No HTTP to submit RoleArn after CFN — **fixed on `develop`** (`chatticus-070cb4` / #326). Pending owner `POST /orgs/{tenant_id}/self-setup/cross-account-role`. Live inspect is AssumeRole + inline `GetRolePolicy` (not `SimulatePrincipalPolicy`). 2026-09-08: ThinTurn+web deployed; new pending org + existing customer RoleArn returned **422** (ExternalId mismatch); unauthenticated **403**. Happy-path 200 is Gherkin; live 200 would need a second customer role stack whose OrganizationId matches that pending org — do not retarget the working throwaway role.
 - No create-bot UI in the enabled workspace (`POST /bots` exists; UI never calls it).
 - `infra/README.md` `create-stack` example omitted `--parameters` and `CAPABILITY_NAMED_IAM`.
 - Published role CFN is scoped to `ChatticusComputers*` only. The snapshot bucket is **not** created by Chatticus inside `ChatticusComputers` under AssumeRole (that path AccessDenies: the role has no `s3:`). The bucket is declared in the customer-run published template (`chatticus-bb9084`).
