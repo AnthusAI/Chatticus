@@ -26,10 +26,17 @@
       "text": "Composer 2.5 planning Gherkin for a monthly AWS spend ceiling set at provisioning (DoD: scenarios exist and fail for the right reason). Worktree `/tmp/chatticus-43e64c-spend-ceiling` on `feat/43e64c-org-spend-ceiling`. Plan-only until authorized. Priority stays P1 unless Ryan promotes the epic.\n",
       "created_at": "2026-09-08T18:49:09.552960Z",
       "comment_type": "default"
+    },
+    {
+      "id": "0a755165-289d-4812-aaa0-95c688c05487",
+      "author": "home",
+      "text": "Plan authorized with amendments. Worktree verified at `/tmp/chatticus-43e64c-spend-ceiling` on `feat/43e64c-org-spend-ceiling`.\n\n1. Outside-in: Gherkin first, fail for the right reason, then production until `behave` is green. Do not merge a red feature (`CONTRIBUTING_AGENT.md`).\n2. One path: `POST .../self-setup/cross-account-role` requires `monthly_aws_spend_ceiling_usd`. Update `SelfSetupCrossAccountRolePanel` and the membership harness in this slice — leaving the live panel without the field is a dual path and would 422 self-setup.\n3. Retrofit existing self-setup Gherkin/HTTP fixtures in the same PR so they fail for their original reasons, not a missing ceiling.\n4. No silent default. No `6a9e97` computer-start refuse. Priority stays P1.\n5. Merge `origin/develop` first if it has moved.\n",
+      "created_at": "2026-09-08T18:53:10.164360Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:19.873118Z",
-  "updated_at": "2026-09-08T18:49:09.552982Z",
+  "updated_at": "2026-09-08T18:53:10.164381Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
