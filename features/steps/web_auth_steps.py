@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WEB_DIR = REPO_ROOT / "web"
 HARNESS = WEB_DIR / "test-support" / "auth-behavior-harness.ts"
 HARNESS_STATE = REPO_ROOT / ".auth-harness-state.json"
+HARNESS_OIDC_STORE = REPO_ROOT / ".auth-harness-oidc-store.json"
 
 
 def _tsx_binary() -> Path:
@@ -36,6 +37,7 @@ def _run_harness(command: str, payload: dict | None = None) -> dict:
     env = {
         **dict(__import__("os").environ),
         "CHATTICUS_AUTH_HARNESS_STATE": str(HARNESS_STATE),
+        "CHATTICUS_AUTH_HARNESS_OIDC_STORE": str(HARNESS_OIDC_STORE),
     }
     result = subprocess.run(
         args,
@@ -57,12 +59,23 @@ def given_web_spa_cognito_auth_module(context: object) -> None:
     context.web_auth_harness = _run_harness("reset")
 
 
+@given("the web SPA has an active signed-in session")
+def given_active_signed_in_session_default(context: object) -> None:
+    context.web_auth_harness = _run_harness("seed-session", {})
+
+
 @given('the web SPA has an active signed-in session with id_token "{token}"')
 def given_active_signed_in_session(context: object, token: str) -> None:
     context.web_auth_harness = _run_harness(
         "seed-session",
         {"id_token": token},
     )
+
+
+@given("the person has signed out of the web SPA")
+def given_person_signed_out(context: object) -> None:
+    _run_harness("sign-out")
+    context.web_auth_harness = _run_harness("complete-sign-out")
 
 
 @given("the web SPA is completing a Cognito sign-out redirect")
@@ -73,6 +86,11 @@ def given_completing_sign_out_redirect(context: object) -> None:
 @when("the person signs out from the web SPA")
 def when_person_signs_out(context: object) -> None:
     context.web_auth_harness = _run_harness("sign-out")
+
+
+@when("the person reloads the workspace")
+def when_person_reloads_workspace(context: object) -> None:
+    context.web_auth_harness = _run_harness("reload-workspace")
 
 
 @when("the person starts Google sign-in from the web SPA")
@@ -100,6 +118,18 @@ def then_not_remove_user_only(context: object) -> None:
     assert harness.get("removeUserBeforeRedirect") is not True, harness
 
 
+@then("the web SPA still has that signed-in session")
+def then_still_has_signed_in_session(context: object) -> None:
+    harness = context.web_auth_harness
+    assert harness.get("sessionPresent") is True, harness
+
+
+@then("the person is not sent through Google sign-in")
+def then_not_sent_through_google_sign_in(context: object) -> None:
+    harness = context.web_auth_harness
+    assert harness.get("signinRedirectCalled") is not True, harness
+
+
 @then('the Google authorization request includes prompt "{prompt}"')
 def then_sign_in_includes_prompt(context: object, prompt: str) -> None:
     harness = context.web_auth_harness
@@ -108,7 +138,7 @@ def then_sign_in_includes_prompt(context: object, prompt: str) -> None:
     assert extra.get("prompt") == prompt, harness
 
 
-@then("the web SPA in-memory session is cleared")
-def then_in_memory_session_cleared(context: object) -> None:
+@then("the web SPA persisted session is cleared")
+def then_persisted_session_cleared(context: object) -> None:
     harness = context.web_auth_harness
     assert harness.get("sessionCleared") is True, harness

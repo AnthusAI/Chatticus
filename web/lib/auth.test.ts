@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
+
+import { WebStorageStateStore } from "oidc-client-ts";
 
 import {
   cognitoIssuer,
@@ -48,6 +50,43 @@ describe("loadCognitoConfig", () => {
 });
 
 describe("buildUserManagerSettings", () => {
+  const backing: Record<string, string> = {};
+  const localStorage = {
+    get length() {
+      return Object.keys(backing).length;
+    },
+    clear() {
+      for (const key of Object.keys(backing)) {
+        delete backing[key];
+      }
+    },
+    getItem(key: string) {
+      return backing[key] ?? null;
+    },
+    key(index: number) {
+      return Object.keys(backing)[index] ?? null;
+    },
+    removeItem(key: string) {
+      delete backing[key];
+    },
+    setItem(key: string, value: string) {
+      backing[key] = value;
+    },
+  };
+  const previousWindow = globalThis.window;
+
+  before(() => {
+    globalThis.window = { localStorage } as Window & typeof globalThis;
+  });
+
+  after(() => {
+    if (previousWindow === undefined) {
+      delete (globalThis as { window?: Window }).window;
+    } else {
+      globalThis.window = previousWindow;
+    }
+  });
+
   it("uses the Cognito issuer for OIDC discovery", () => {
     const settings = buildUserManagerSettings(testConfig);
     assert.equal(
@@ -66,6 +105,11 @@ describe("buildUserManagerSettings", () => {
       settings.post_logout_redirect_uri,
       "https://dev.chattic.us/auth/signout-callback",
     );
+  });
+
+  it("persists the OIDC user in localStorage", () => {
+    const settings = buildUserManagerSettings(testConfig);
+    assert.ok(settings.userStore instanceof WebStorageStateStore);
   });
 });
 
