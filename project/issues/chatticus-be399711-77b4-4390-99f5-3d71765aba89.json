@@ -1,0 +1,22 @@
+{
+  "id": "chatticus-be399711-77b4-4390-99f5-3d71765aba89",
+  "title": "Enabled member replaces an active turn grant over HTTP",
+  "description": "**Phase 1.** Parent epic `chatticus-598be4`. Child of the `chatticus-9a07e7` decision: Shape 1, per-task human grant.\n\n## What to ship\n\nAn **enabled member** (Cognito user principal) can attach a closed `TaskCapabilityGrant` to an **active turn**. Clip to that member's ceiling. Worker `PUT /turns/{id}/grant` stays worker-only.\n\n**One path: replace, not merge.** The body is a full closed grant (same as `Given a human task grants:`). It replaces `household_conversation_grant()` for that turn. Do not union tools with the conversation preset.\n\n## Constraints\n\n- Gherkin first (`turn_grant_widening.feature` or equivalent).\n- New route on **`user_router`**, not `worker_router`.\n- Deny when the grant exceeds member ceiling.\n- Do not put `run_terminal` in the conversation preset.\n- No web UI in this slice (`chatticus-753bd8`).\n\n## Gherkin\n\n```gherkin\nFeature: Enabled member replaces an active turn grant\n  As an enabled organization member\n  I want to replace the active turn's closed grant\n  So the bot may use tools I explicitly authorize for this task only\n\n  Scenario: An enabled member replaces the conversation grant on an active turn\n    Given tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n    And user \"ryan\" of tenant \"anthus\" has started a turn with the household conversation grant\n    When user \"ryan\" of tenant \"anthus\" replaces the active turn grant with:\n      | field          | value                  |\n      | tools          | read_workspace, browse |\n      | origins        | https://docs.example.com |\n      | recipients     |                        |\n      | file_scopes    | /workspace             |\n      | egress_classes | approved_origin_fetch  |\n    Then the active turn grant is exactly that table\n\n  Scenario: A grant that exceeds the member ceiling is refused\n    Given tenant \"anthus\" user \"ryan\" is enabled with a limited ceiling\n    When user \"ryan\" of tenant \"anthus\" replaces the active turn grant with tools beyond that ceiling\n    Then the request is refused\n    And the active turn still carries the household conversation grant\n\n  Scenario: Worker PUT grant remains worker-only\n    When an unauthenticated caller PUTs a turn grant on the user route\n    Then the request is refused\n```\n\n## Done when\n\nAn authenticated org member can replace the turn grant over HTTP; an unauthenticated caller cannot; a grant that exceeds ceiling is refused; worker PUT remains worker-only.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-08T15:41:24.244783Z",
+  "updated_at": "2026-09-08T15:42:44.485355Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

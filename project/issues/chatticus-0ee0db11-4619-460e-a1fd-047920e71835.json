@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-0ee0db11-4619-460e-a1fd-047920e71835",
+  "title": "Conversation preset includes write_workspace",
+  "description": "**Phase 1.** Parent epic `chatticus-598be4`. Child of the `chatticus-9a07e7` decision (Shape 1: per-task grant; conversation baseline is a correction, not Shape 3).\n\n## Decision already made\n\n`household_conversation_grant()` currently has only `read_workspace`. A bot that can read `/workspace` but not write it is an accident, not a policy. Add **`write_workspace`** to the preset. Do **not** add `run_terminal`, `browse`, `send`, or `purchase`.\n\nFile scopes stay `/workspace`. Egress stays `approved_origin_fetch`.\n\n## Constraints\n\n- One path. Change `household_conversation_grant()` only. No dual readers.\n- Gherkin first: extend `conversation_turn_grant.feature`.\n- Explicit `Given a human task grants:` still **replaces** the preset (no merge).\n- Not the customer-facing grant HTTP (`chatticus-be3997`).\n\n## Gherkin\n\n```gherkin\nFeature: Conversation task grant on human-started turns\n  As an enabled organization member\n  I want a human message to a bot to attach a closed conversation grant\n  So that a newly created bot can act without appearing healthy and inert\n\n  Scenario: The conversation grant allows write_workspace under /workspace\n    Given tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n    And the household computer is stopped\n    When bot \"Researcher\" is asked \"write workspace file /workspace/research/notes.txt\"\n    And bot \"Researcher\" runs one capability-aware computerless worker turn\n    Then a computer continuation job is queued for the turn\n    And the turn is waiting on the workspace capability\n\n  Scenario: The conversation grant still denies run_terminal\n    Given tenant \"anthus\" user \"ryan\" has a bot named \"Researcher\"\n    When bot \"Researcher\" is asked to run a terminal command\n    And bot \"Researcher\" runs one capability-aware computerless worker turn\n    Then the turn journal records a denied run_terminal tool result\n```\n\nExisting attach/replace/deny-browse/deny-send scenarios stay. The household conversation grant assertion must include both tools.\n\n## Done when\n\nA human-started turn's grant includes `write_workspace` and `read_workspace`. Live on development: Dynamo grant tools list both. `run_terminal` still absent from the preset.",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "49fc6570-d15f-4c13-8f91-234682517bc5",
+      "author": "home",
+      "text": "Composer 2.5 planning in worktree `/tmp/chatticus-0ee0db-write-preset` on `feat/0ee0db-write-workspace-preset`. Plan-only until authorized. `run_terminal` stays out of the conversation preset.\n",
+      "created_at": "2026-09-08T15:42:55.474627Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-08T15:41:24.087260Z",
+  "updated_at": "2026-09-08T15:42:55.474648Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
