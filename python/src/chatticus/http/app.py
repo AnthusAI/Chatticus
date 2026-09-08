@@ -986,7 +986,7 @@ def create_app(
         body: HostSnapshotHydratedBody,
         principal: RequireWorkerPrincipal,
     ) -> dict[str, str]:
-        del principal
+        _assert_worker_id_matches(principal, body.worker_id)
         computer = state.plane.computer_for_organization(tenant_id)
         state.plane.record_host_hydrated(computer.computer_id, body.worker_id)
         logger.info(
@@ -1002,7 +1002,7 @@ def create_app(
         body: HostSnapshotPublishBody,
         principal: RequireWorkerPrincipal,
     ) -> dict[str, str]:
-        del principal
+        _assert_worker_id_matches(principal, body.worker_id)
         computer = state.plane.computer_for_organization(tenant_id)
         state.plane.record_host_snapshot_published(
             computer.computer_id,

@@ -50,16 +50,6 @@ def when_host_writes_workspace(
     context: object, name: str, path: str, content: str
 ) -> None:
     context.computer_hosts[name].write_workspace_file(path, content)
-    plane = getattr(context, "plane", None)
-    store = getattr(context, "messaging_store", None)
-    if plane is None or store is None:
-        return
-    try:
-        computer = plane.computer_for_organization("anthus")
-    except KeyError:
-        return
-    computer.disk_dirty = True
-    store.put_computer(computer)
 
 
 @when('host "{name}" writes browser profile file "{path}" containing "{content}"')

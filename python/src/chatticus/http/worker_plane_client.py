@@ -307,10 +307,10 @@ class HttpWorkerPlane:
         tenant_id: str,
         worker_id: str,
     ) -> None:
+        del tenant_id
         self._request(
             "POST",
             "/computers/snapshot/hydrated",
-            worker_id=worker_id,
             json={"worker_id": worker_id},
         )
 
@@ -320,10 +320,10 @@ class HttpWorkerPlane:
         worker_id: str,
         checksum: str,
     ) -> None:
+        del tenant_id
         self._request(
             "POST",
             "/computers/snapshot/publish",
-            worker_id=worker_id,
             json={"worker_id": worker_id, "checksum": checksum},
         )
 

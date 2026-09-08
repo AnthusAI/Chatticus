@@ -49,3 +49,21 @@ Feature: Computer host disk hydrate and publish
     When the customer computer host "garage-mac-1" boots through the Front Door worker plane
     And the customer computer host "garage-mac-1" boots through the Front Door worker plane
     Then the snapshot store served 1 pack download
+
+  Scenario: A host worker cannot publish snapshot metadata for another worker
+    When worker "garage-mac-1" posts snapshot publish metadata as worker "fargate-1"
+    Then snapshot metadata publish is rejected with forbidden
+
+  Scenario: The host boots without a configured snapshot store
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has computer "household-computer"
+    And a worker registered as:
+      | worker_id   | garage-mac-1       |
+      | tenant_id   | anthus             |
+      | cost_class  | local              |
+      | capabilities| computer,browser   |
+      | computer_id | household-computer |
+    When the customer computer host "garage-mac-1" boots without a snapshot store
+    Then tenant "anthus" household computer readiness reports workspace ready after model
+    And tenant "anthus" household computer readiness reports browser ready after workspace
+    And the Front Door received no snapshot hydrate or publish requests
