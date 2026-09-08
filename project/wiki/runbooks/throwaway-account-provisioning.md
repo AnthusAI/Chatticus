@@ -130,6 +130,8 @@ Gherkin on `develop` does not create the throwaway account's bucket. A lab IAM u
 3. Same principal: `update-stack` `ChatticusComputers` with parameter `SnapshotBucketName` set to that output. Do not `cdk deploy --all`. Do not `CreateBucket` on an Anthus role.
 4. Acceptance (not required to merge Gherkin): computerless write → host publish → stop/start or relocate → read the same bytes; journal `read_workspace` contains the written text.
 
+**2026-09-08 live attempt:** ThinTurn development for #324 is deployed ([run 34185334336](https://github.com/AnthusAI/Chatticus/actions/runs/34185334336)); published template is 7557 bytes and declares `OrganizationSnapshotBucket`. UpdateStack and the write/publish/read loop did **not** run. Named cause `AWS_LOGIN_SESSION_EXPIRED` — operator-only. Reauthenticate with `aws login`, then lab IAM user `chatticus-b88c0a-operator` (not management root) in `CUSTOMER_ACCOUNT_ID`.
+
 ## Not done on this run
 
 | Step | Status |
