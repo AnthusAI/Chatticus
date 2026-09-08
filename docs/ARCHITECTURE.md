@@ -50,11 +50,11 @@ A worker advertises:
 
 - `worker_id`
 - `tenant_id`
-- capabilities: `computer`, `browser`, `terminal`, `cpu` -- **note:** `terminal` is
-  advertised here but has **no agent-facing tool**. The host executor supports
-  only `browser_open` and `request_computer_capability`
-  (`chromium_action_executor.py`). Confirmed live 2026-09-07; see
-  `chatticus-3e72dc`
+- capabilities: `computer`, `browser`, `terminal`, `cpu` -- worker registration
+  advertises `terminal`; the agent tool is **`run_terminal`**, granted explicitly
+  on a human task (not the conversation preset). Host execution lives in
+  `terminal_action_executor.py`, dispatched from `HostActionExecutor` beside
+  workspace and browser executors.
 - optional `computer_id` (the workplace this process hosts)
 - cost class: `local`, `fargate`, or `ec2`
 - heartbeat timestamp
@@ -127,9 +127,10 @@ One Docker image, three hosts:
 
 The image contains Xvfb (or equivalent) virtual displays, Chromium, a shell,
 noVNC or equivalent for watch and takeover, `chatticus-worker`, and
-`chatticus-agent`. **The shell is present in the image and unreachable by an
-agent** -- no tool exposes it. A bot asked to run a shell command correctly
-answers that it cannot. v1 AWS computers run this image on **Fargate ARM64**
+`chatticus-agent`. **The shell is present in the image.** A bot reaches it only
+through the granted **`run_terminal`** tool on the summoned host; without that
+grant the honest answer is that shell commands are unavailable. v1 AWS computers
+run this image on **Fargate ARM64**
 (same architecture as Apple Silicon Docker). Scale the Fargate service to
 0 when no host is needed. Stop/start EC2 is a later host, not the v1
 path.
@@ -143,7 +144,7 @@ detail.** The container brings up its capabilities independently and
 | Gate | Needed for |
 | --- | --- |
 | Process and network | Model calls, memory, MCP and connector tools |
-| `/workspace` hydrated | File actions |
+| `/workspace` hydrated | File actions and `run_terminal` |
 | Browser profile hydrated, display and Chromium up | Browser actions |
 | Watch and takeover surface | A human watching or taking over |
 
@@ -185,9 +186,9 @@ See [Computer snapshots](COMPUTER_SNAPSHOTS.md) and [Computer manifold](COMPUTER
 for relocate protocol specs that run without a host disk. That bridge is not
 the durable path on a running host.
 
-**Agent file tools do read the container's `/workspace` on a summoned host.**
-`HostActionExecutor` dispatches `read_workspace` and `write_workspace` to
-`WorkspaceActionExecutor`, beside the Chromium executor. Proven end to end on
+**Agent file and terminal tools run on the container's `/workspace` on a summoned host.**
+`HostActionExecutor` dispatches `read_workspace`, `write_workspace`, and
+`run_terminal` to host executors beside the Chromium executor. Proven end to end on
 2026-09-08 against a throwaway customer organization: write, publish to
 `chatticus-snapshots-{ORGANIZATION_ID}` in the **customer's own account**, stop
 and start the host, read the file back.
