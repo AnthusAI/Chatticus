@@ -138,7 +138,7 @@ class BoundConnectorOperation:
 def household_conversation_grant() -> TaskCapabilityGrant:
     """Return the closed grant attached when a human starts a bot turn."""
     return TaskCapabilityGrant(
-        tools=frozenset({"read_workspace"}),
+        tools=frozenset({"read_workspace", "write_workspace"}),
         origins=frozenset(),
         recipients=frozenset(),
         file_scopes=frozenset({"/workspace"}),

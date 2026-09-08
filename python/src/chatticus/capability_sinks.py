@@ -150,7 +150,6 @@ def gated_write_workspace(
         RequestedCapability(
             tool="write_workspace",
             file_path=path,
-            egress_class=EgressClass.FILE_TRANSFER.value,
         ),
         member_standing,
     )
