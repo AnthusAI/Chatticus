@@ -11,6 +11,18 @@ export const WEB_BUNDLE_DOCKER_IMAGE =
 
 export const CHATTICUS_AWS_REGION = "us-east-1";
 
+export const WEB_DOCKER_BUNDLE_HOME = "/tmp/chatticus-bundle";
+export const WEB_DOCKER_NPM_CACHE = `${WEB_DOCKER_BUNDLE_HOME}/.npm`;
+
+/** Writable HOME and npm cache for uid 1001 in the SAM docker image. */
+export function webDockerBundleHomeSetup(): string {
+  return [
+    `mkdir -p '${WEB_DOCKER_NPM_CACHE}'`,
+    `export HOME='${WEB_DOCKER_BUNDLE_HOME}'`,
+    `export npm_config_cache='${WEB_DOCKER_NPM_CACHE}'`,
+  ].join(" && ");
+}
+
 /** Fetch public Cognito SSM parameters at bundle time (not CloudFormation tokens). */
 export function webBuildEnvExports(environmentName: ChatticusCloudEnvironment): string {
   const webPrefix = webParameterPrefix(environmentName);
@@ -38,6 +50,7 @@ export function webDockerBundleCommand(
 ): string {
   return [
     "cd /asset-input",
+    webDockerBundleHomeSetup(),
     webBuildEnvExports(environmentName),
     "npm ci",
     "npm run build --workspace=web",
