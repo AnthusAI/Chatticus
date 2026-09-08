@@ -59,12 +59,19 @@
       "text": "a73f21 closed: development web deploy succeeded on 8a21862. #339 is on CloudFront. #341 CI is green. Merge #341 after Composer 2.5 review (in flight) and rebase onto develop so the exclude is in the merge base.\n",
       "created_at": "2026-09-08T23:03:38.583068Z",
       "comment_type": "default"
+    },
+    {
+      "id": "979f180e-5488-4fc7-b651-ed1605128295",
+      "author": "home",
+      "text": "Live: human confirmed reload on development keeps the session — no Sign in with Google. That is the reported bug.\n\n#341 is on develop (0a45306). Auth deploy for silent-callback URL succeeded (run 34289137100). Web deploy of #341 was racing a pm: push; re-dispatched 34289135375. Even before that, 8a21862 had put #339 localStorage on CloudFront, which is enough for reload within id_token lifetime.\n\nStill open on this card: Sign out still shows the account chooser (349634), and session survives past one-hour id_token expiry via refresh. Do not close on reload alone.\n\nc54569 unattended run can proceed; if hourly renew is not yet proven, label it — do not count reload as a person-step.\n",
+      "created_at": "2026-09-08T23:08:38.879937Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T22:17:46.277560Z",
-  "updated_at": "2026-09-08T23:03:38.583095Z",
+  "updated_at": "2026-09-08T23:08:38.879968Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "The team is revising session restore and waiting for review before merging the fix.",
+  "right_now_updated_at": "2026-09-08T23:05:31.956379Z",
   "custom": {}
 }
