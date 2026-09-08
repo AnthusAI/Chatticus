@@ -40,10 +40,17 @@
       "text": "PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) **request changes**. HTTP/owner/Gherkin shape is right; live inspector is not.\n\n**Must fix (no `customer-role.yml` edit):**\n1. After AssumeRole, do not call `iam:SimulatePrincipalPolicy` — the published template does not grant it. Uncaught `AccessDenied` becomes HTTP 500, not 422. Inspect permissions with APIs the role already has (`GetRole`, `GetRolePolicy` / attached policies) and map `ClientError` into the kernel 422 catalog.\n2. On AssumeRole failure, do not `GetRole` as the Anthus ThinTurn caller. That cannot read a customer role. Use assumed-role credentials after a successful assume, or drop the broken fallback and still 422 with a kernel message that tells them to re-run CFN with `OrganizationId={tenant_id}`.\n",
       "created_at": "2026-09-08T11:02:06.399429Z",
       "comment_type": "default"
+    },
+    {
+      "id": "193e1950-0824-4e15-869d-5253beab44e6",
+      "author": "home",
+      "text": "PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) still **request changes** after `94c14a9`. SimulatePrincipalPolicy and Anthus GetRole are gone. Remaining: `_granted_permissions_from_role_policies` still calls `iam:GetPolicy` / `iam:GetPolicyVersion` for attached managed policies. The published template is **inline only** and does not grant those actions. Drop the attached-policy loop; `ListRolePolicies` + `GetRolePolicy` is the inspect path.\n",
+      "created_at": "2026-09-08T11:13:47.449706Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T15:54:05.599297Z",
-  "updated_at": "2026-09-08T11:02:06.399429Z",
+  "updated_at": "2026-09-08T11:13:47.449706Z",
   "closed_at": null,
   "custom": {}
 }
