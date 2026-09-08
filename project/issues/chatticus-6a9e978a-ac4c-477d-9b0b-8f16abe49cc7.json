@@ -3,7 +3,7 @@
   "title": "Crossing the ceiling stops new computer work, not the whole organization",
   "description": "**Phase 4 of 5.**\n\n- **Blocked by:** the ceiling story\n- **Runs in parallel with:** the alert story and the display story\n- **Unblocks:** nothing\n\n---\nThe design constraint that matters most in this epic.\n\nA member who cannot read their own channels because a budget tripped will conclude the product broke, not that they hit a limit they set. Locking the workplace over spend is the same customer experience as an outage, and it destroys the trust the ceiling was meant to protect.\n\nSo the ceiling stops the thing that costs money — new computer work — and leaves everything else reachable, including the message explaining what happened and how to raise it. This is the authorization_ceiling seam, which already refuses actions rather than removing access.\n\n**Done when:** the scenarios exist and fail for the right reason.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -103,11 +103,18 @@
       "text": "Black applied (`6c550ea`) on [#338](https://github.com/AnthusAI/Chatticus/pull/338). Prior product + me-step reviews still APPROVE. Merge when this CI run is green.",
       "created_at": "2026-09-08T20:35:56.788319Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f8371ef6-6a4b-42e2-8c20-9616cb48ae43",
+      "author": "home",
+      "text": "**Merged** [#338](https://github.com/AnthusAI/Chatticus/pull/338) to `develop` (`fce42af` is #339 on the same tip; spend-ceiling squash is on origin/develop). CI python+infra green. Org stays enabled; computer work pauses at ceiling fail-closed.\n\nLive development still needs a ThinTurn/web deploy plus an org with a ceiling and rollup rows before a member can see the banner on `dev.chattic.us`. Closing the card on green merge; live seed is a follow-up on the epic if we want a timed demo.\n\nTear down worktree `/tmp/chatticus-6a9e97-ceiling-stop`.",
+      "created_at": "2026-09-08T20:51:10.337360Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:24.322109Z",
-  "updated_at": "2026-09-08T20:35:56.788389Z",
-  "closed_at": null,
+  "updated_at": "2026-09-08T20:51:10.498771Z",
+  "closed_at": "2026-09-08T20:51:10.498746Z",
   "right_now_summary": "A test fix is underway for the `/me` response mismatch; merge awaits green CI.",
   "right_now_updated_at": "2026-09-08T20:07:24.893533Z",
   "custom": {}

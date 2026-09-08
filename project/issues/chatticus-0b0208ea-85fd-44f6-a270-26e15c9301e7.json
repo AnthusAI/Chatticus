@@ -61,10 +61,17 @@
       "text": "[#339](https://github.com/AnthusAI/Chatticus/pull/339) python CI failed: 543 passed, 0 failed, 1 error — `messages.feature:127` (`A computerless worker does not take a computer continuation job`) `httpx.ReadTimeout`. That scenario is not this session-persist slice. Re-running the failed job. Do not merge until that re-run is green.",
       "created_at": "2026-09-08T20:33:56.226718Z",
       "comment_type": "default"
+    },
+    {
+      "id": "89a98f61-f1f9-4b37-b91b-54f10ac9f93b",
+      "author": "home",
+      "text": "**Merged** [#339](https://github.com/AnthusAI/Chatticus/pull/339) to `develop`. Reload keeps the Google session in `localStorage`; Sign out still ends Cognito and still shows the account chooser.\n\nLIVE: wait for the development **web** deploy, then reload `/chat` while signed in. Do not treat another Google prompt before that deploy as the human failing to sign in. Card stays in_progress until that reload check.",
+      "created_at": "2026-09-08T20:51:23.222881Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T19:41:52.427409Z",
-  "updated_at": "2026-09-08T20:33:56.226740Z",
+  "updated_at": "2026-09-08T20:51:23.222905Z",
   "closed_at": null,
   "right_now_summary": "PR #339 is approved and awaits Python CI, merge, and a live reload check after web deployment.",
   "right_now_updated_at": "2026-09-08T20:07:18.101959Z",
