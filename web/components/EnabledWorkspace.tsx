@@ -7,6 +7,7 @@ import type { WorkspaceMember, WorkspaceMessage } from "./workspace/types";
 import { AuthCard, authErrorClassName, authOkClassName } from "./AuthCard";
 import { CreateBotPanel } from "./CreateBotPanel";
 import { InviteMemberPanel } from "./InviteMemberPanel";
+import { TurnGrantPanel } from "./TurnGrantPanel";
 import { TaskList } from "./TaskList";
 import { avatarActivityFromTurn, botAvatarStateFromActivity } from "../lib/avatar-state";
 import {
@@ -257,6 +258,10 @@ export function EnabledWorkspace({ activeOrg, organizations }: EnabledWorkspaceP
       <InviteMemberPanel tenantId={activeOrg.tenantId} />
 
       <CreateBotPanel activeOrg={activeOrg} onCreated={loadBots} />
+
+      {turnId && turnStatus === "active" ? (
+        <TurnGrantPanel activeOrg={activeOrg} turnId={turnId} />
+      ) : null}
 
       <WorkspacePanel
         orgLabel={`Organization: ${activeOrg.tenantId}`}

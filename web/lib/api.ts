@@ -48,6 +48,20 @@ export type Task = {
   updated_by_bot_id: string | null;
 };
 
+export type TurnGrantPayload = {
+  tools: string[];
+  origins: string[];
+  recipients: string[];
+  file_scopes: string[];
+  egress_classes: string[];
+  ingest_classes: string[];
+};
+
+export type ReplaceTurnGrantResponse = {
+  turn_id: string;
+  tools: string[];
+};
+
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const detail = await response.text();
@@ -135,4 +149,22 @@ export async function getTask(org: ActiveOrg, taskId: string): Promise<Task> {
     { headers: await authorizedHeaders() },
   );
   return readJson<Task>(response);
+}
+
+export async function replaceTurnGrant(
+  org: ActiveOrg,
+  turnId: string,
+  payload: TurnGrantPayload,
+): Promise<ReplaceTurnGrantResponse> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/turns/${encodeURIComponent(turnId)}/grant`)}`,
+    {
+      method: "PUT",
+      headers: await authorizedHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(payload),
+    },
+  );
+  return readJson<ReplaceTurnGrantResponse>(response);
 }
