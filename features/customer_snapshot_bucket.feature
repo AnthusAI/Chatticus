@@ -20,7 +20,7 @@ Feature: Customer organization snapshot bucket
 
   Scenario: The customer computer task role can read and write the organization bucket only
     Given the committed customer ChatticusComputers CloudFormation template
-    And organization snapshot bucket name "chatticus-snapshots-ORGANIZATION_ID"
+    And organization snapshot bucket name "chatticus-snapshots-a1b2c3d4-e5f6-7890-abcd-ef1234567890"
     Then the computer task role grants s3:GetObject and s3:PutObject on that bucket
     And the computer task role does not grant s3:CreateBucket
     And the computer task role does not grant s3:ListBucket

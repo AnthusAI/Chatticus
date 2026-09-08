@@ -10,14 +10,15 @@ from chatticus.customer_snapshot_bucket import (
     customer_snapshot_bucket_name,
 )
 
+_SAMPLE_ORGANIZATION_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 
-def test_customer_snapshot_bucket_name_uses_organization_id_only() -> None:
-    organization_id = "ORGANIZATION_ID"
-    assert customer_snapshot_bucket_name(organization_id) == (
-        f"{BUCKET_NAME_PREFIX}{organization_id}"
+
+def test_customer_snapshot_bucket_name_uses_lowercase_organization_id() -> None:
+    assert customer_snapshot_bucket_name(_SAMPLE_ORGANIZATION_ID) == (
+        f"{BUCKET_NAME_PREFIX}{_SAMPLE_ORGANIZATION_ID}"
     )
-    assert len(customer_snapshot_bucket_name(organization_id)) == (
-        len(BUCKET_NAME_PREFIX) + len(organization_id)
+    assert customer_snapshot_bucket_name(_SAMPLE_ORGANIZATION_ID.upper()) == (
+        f"{BUCKET_NAME_PREFIX}{_SAMPLE_ORGANIZATION_ID}"
     )
 
 

@@ -57,6 +57,10 @@ describe("customer-role template publish helper", () => {
     assert.match(repoTemplate, /DeletionPolicy: Retain/);
     assert.match(repoTemplate, /SnapshotBucketName:/);
     assert.match(repoTemplate, /!Ref OrganizationSnapshotBucket/);
+    assert.match(
+      repoTemplate,
+      /OrganizationId:[\s\S]*?AllowedPattern: '\^\[a-z0-9\]\[a-z0-9\._-\]\*\$'/,
+    );
   });
 
   it("uses the stable S3 object key under provisioning/", () => {

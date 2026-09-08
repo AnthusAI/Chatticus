@@ -6,7 +6,7 @@ import re
 
 BUCKET_NAME_PREFIX = "chatticus-snapshots-"
 _MAX_BUCKET_NAME_LENGTH = 63
-_ORGANIZATION_ID = re.compile(r"^[A-Za-z0-9._-]+$")
+_ORGANIZATION_ID = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
 
 class CustomerSnapshotBucketNameError(ValueError):
@@ -15,7 +15,7 @@ class CustomerSnapshotBucketNameError(ValueError):
 
 def customer_snapshot_bucket_name(organization_id: str) -> str:
     """Return the customer snapshot bucket name for one organization."""
-    organization = organization_id.strip()
+    organization = organization_id.strip().lower()
     if not organization:
         raise CustomerSnapshotBucketNameError("organization_id must not be empty.")
     if not _ORGANIZATION_ID.fullmatch(organization):

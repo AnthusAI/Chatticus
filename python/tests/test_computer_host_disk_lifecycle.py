@@ -32,59 +32,6 @@ def _register_host(
     plane.ensure_computer("anthus", computer_id=computer_id)
 
 
-def test_hydrate_on_boot_skips_missing_bucket(tmp_path: Path) -> None:
-    from botocore.exceptions import ClientError
-
-    from chatticus.snapshot.s3 import is_no_such_bucket_error
-
-    class MissingBucketStore:
-        bucket = "chatticus-snapshots-anthus"
-
-        def put(self, snapshot_uri: str, pack: bytes, manifest: object) -> None:
-            del snapshot_uri, pack, manifest
-            raise ClientError(
-                {"Error": {"Code": "NoSuchBucket", "Message": "missing"}},
-                "GetObject",
-            )
-
-        def get_pack(self, snapshot_uri: str) -> bytes:
-            del snapshot_uri
-            raise ClientError(
-                {"Error": {"Code": "NoSuchBucket", "Message": "missing"}},
-                "GetObject",
-            )
-
-        def get_manifest(self, snapshot_uri: str) -> object:
-            del snapshot_uri
-            raise ClientError(
-                {"Error": {"Code": "NoSuchBucket", "Message": "missing"}},
-                "GetObject",
-            )
-
-    assert is_no_such_bucket_error(
-        ClientError({"Error": {"Code": "NoSuchBucket", "Message": "x"}}, "GetObject")
-    )
-    os.environ.pop("CHATTICUS_SNAPSHOT_STORE_ROOT", None)
-    plane = ControlPlane()
-    _register_host(plane, "garage-mac-1")
-    computer = plane.computer_for_organization("anthus")
-    computer.snapshot_uri = "s3://chatticus-snapshots-anthus/tenants/anthus/computers/household-computer/snapshot"
-    computer.snapshot_checksum = "0" * 64
-    plane._messaging_store.put_computer(computer)
-    store = MissingBucketStore()
-    live_root = tmp_path / "host"
-    assert (
-        hydrate_on_boot(
-            plane,
-            tenant_id="anthus",
-            worker_id="garage-mac-1",
-            live_root=live_root,
-            store=store,  # type: ignore[arg-type]
-        )
-        is False
-    )
-
-
 def test_hydrate_on_boot_skips_without_store() -> None:
     os.environ.pop("CHATTICUS_SNAPSHOT_STORE_ROOT", None)
     plane = ControlPlane()

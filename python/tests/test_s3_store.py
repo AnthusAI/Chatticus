@@ -11,9 +11,23 @@ from moto import mock_aws
 
 from chatticus.snapshot.host import ComputerHostDisk
 from chatticus.snapshot.pack import SnapshotPackError
-from chatticus.snapshot.s3 import S3SnapshotStore
+from chatticus.snapshot.s3 import S3SnapshotStore, is_no_such_bucket_error
 from chatticus.snapshot.store import open_snapshot_store
 from chatticus.snapshot.uri import snapshot_uri
+
+
+def test_is_no_such_bucket_error() -> None:
+    from botocore.exceptions import ClientError
+
+    error = ClientError(
+        {"Error": {"Code": "NoSuchBucket", "Message": "x"}}, "GetObject"
+    )
+    assert is_no_such_bucket_error(error) is True
+    other = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "x"}}, "GetObject"
+    )
+    assert is_no_such_bucket_error(other) is False
+    assert is_no_such_bucket_error(ValueError("nope")) is False
 
 
 def test_open_s3_store_requires_cdk_bucket_name(
