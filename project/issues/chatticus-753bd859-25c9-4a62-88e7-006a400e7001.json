@@ -1,0 +1,22 @@
+{
+  "id": "chatticus-753bd859-25c9-4a62-88e7-006a400e7001",
+  "title": "Workspace UI to replace an active turn grant",
+  "description": "**Phase 1.** Parent epic `chatticus-598be4`. Blocked by `chatticus-be3997` (user-facing turn grant HTTP).\n\n## What to ship\n\nWorkspace UI for an enabled member to submit a **full closed grant** (replace, not merge) for the active turn. Distinct from consequential send/purchase approval.\n\n## Constraints\n\n- Gherkin first. Depends on the user HTTP route existing.\n- Do not invent a second grant model.\n- `run_terminal` is offered only as an explicit grant tool, never as a default checkbox that silently lands in the conversation preset.\n\n## Gherkin\n\n```gherkin\nFeature: Workspace UI to replace an active turn grant\n  As an enabled organization member\n  I want to replace the active turn grant from the product workspace\n  So I do not need the members CLI or a kernel to authorize a task\n\n  Scenario: A member submits a closed grant from the workspace\n    Given the member is signed in to the product workspace\n    And a turn is active under the household conversation grant\n    When the member submits a closed grant that includes browse to an origin\n    Then the active turn grant is exactly that closed grant\n```\n\n## Done when\n\nA member can replace the active turn grant from the product workspace without the members CLI or kernel.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-08T15:41:24.360685Z",
+  "updated_at": "2026-09-08T15:42:44.584440Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
