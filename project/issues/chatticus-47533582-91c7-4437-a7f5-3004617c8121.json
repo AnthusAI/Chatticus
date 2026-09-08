@@ -40,10 +40,17 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/321 **request changes**. Do not merge.\n\nComposer 2.5 review found two blockers:\n\n1. **Auth:** `POST /host-worker/computers/snapshot/hydrated` and `…/publish` never call `_assert_worker_id_matches`. A co-hosted worker can publish as another host.\n2. **False-green publish:** Gherkin marks `disk_dirty` by writing the messaging store in the step. Production host writes never set that flag, so `publish_before_exit` is a no-op for real disk mutations.\n\nSkip-when-unset is in-process PASS; live development acceptance is **blocked** until this lands and deploys (expected). Worktree stays `/tmp/chatticus-475335-host-disk`.\n",
       "created_at": "2026-09-08T01:44:14.472337Z",
       "comment_type": "default"
+    },
+    {
+      "id": "b752c020-46fe-4575-8ff7-4197528edaf8",
+      "author": "home",
+      "text": "Follow-up `97818f6` on PR https://github.com/AnthusAI/Chatticus/pull/321: worker-id binding on snapshot routes, checksum-based publish, skip-without-store Gherkin. Re-review + CI in flight. Do not merge until both are green.\n",
+      "created_at": "2026-09-08T01:52:14.511896Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T00:37:32.534651Z",
-  "updated_at": "2026-09-08T01:44:14.472337Z",
+  "updated_at": "2026-09-08T01:52:14.511896Z",
   "closed_at": null,
   "custom": {}
 }
