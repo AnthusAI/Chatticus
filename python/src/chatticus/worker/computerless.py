@@ -145,6 +145,14 @@ class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
         r"purchase item (\S+) from (\S+)",
         re.IGNORECASE,
     )
+    _RUN_TERMINAL_WITH_CWD_RE = re.compile(
+        r"run command (.+?) using cwd (.+)$",
+        re.IGNORECASE,
+    )
+    _RUN_TERMINAL_RE = re.compile(
+        r"run command (.+)$",
+        re.IGNORECASE,
+    )
 
     def complete(self, prompt: str) -> CompletionOutcome:
         last_line = prompt.strip().splitlines()[-1] if prompt.strip() else ""
@@ -210,6 +218,29 @@ class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
                 gated_tool_call=GatedToolCall(
                     tool_name="purchase",
                     arguments={"destination": destination, "sku": sku},
+                ),
+            )
+        run_with_cwd = self._RUN_TERMINAL_WITH_CWD_RE.search(user_text)
+        if run_with_cwd is not None:
+            command = run_with_cwd.group(1).strip()
+            cwd = run_with_cwd.group(2).strip()
+            return CompletionOutcome(
+                text="I'll run that command on the household computer.",
+                usage=fake_openai_completion_usage(model=self.model),
+                gated_tool_call=GatedToolCall(
+                    tool_name="run_terminal",
+                    arguments={"command": command, "cwd": cwd},
+                ),
+            )
+        run_match = self._RUN_TERMINAL_RE.search(user_text)
+        if run_match is not None:
+            command = run_match.group(1).strip()
+            return CompletionOutcome(
+                text="I'll run that command on the household computer.",
+                usage=fake_openai_completion_usage(model=self.model),
+                gated_tool_call=GatedToolCall(
+                    tool_name="run_terminal",
+                    arguments={"command": command, "cwd": "/workspace"},
                 ),
             )
         return super().complete(prompt)

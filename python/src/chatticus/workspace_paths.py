@@ -31,3 +31,19 @@ def workspace_relative_path(model_path: str) -> str:
         msg = f"Path {model_path!r} escapes the workspace tree."
         raise ValueError(msg)
     return relative
+
+
+def workspace_cwd_relative(model_cwd: str) -> str:
+    """Return the relative directory under the host ``workspace/`` tree for one cwd.
+
+    Model tools use ``/workspace`` or ``/workspace/research`` as working directories.
+
+    :raises ValueError: If the path escapes the workspace tree.
+    """
+    normalized = model_cwd.strip().replace("\\", "/").rstrip("/")
+    if not normalized:
+        msg = "workspace cwd is required"
+        raise ValueError(msg)
+    if normalized in {"/workspace", "workspace"}:
+        return ""
+    return workspace_relative_path(model_cwd)
