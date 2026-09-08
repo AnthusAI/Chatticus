@@ -33,10 +33,17 @@
       "text": "PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) is up. Composer 2.5 product review in flight; merge after that plus green CI.\n",
       "created_at": "2026-09-08T10:58:59.554482Z",
       "comment_type": "default"
+    },
+    {
+      "id": "6ed8c112-badc-4c87-97d3-2ddb5c117382",
+      "author": "home",
+      "text": "PR [#326](https://github.com/AnthusAI/Chatticus/pull/326) **request changes**. HTTP/owner/Gherkin shape is right; live inspector is not.\n\n**Must fix (no `customer-role.yml` edit):**\n1. After AssumeRole, do not call `iam:SimulatePrincipalPolicy` — the published template does not grant it. Uncaught `AccessDenied` becomes HTTP 500, not 422. Inspect permissions with APIs the role already has (`GetRole`, `GetRolePolicy` / attached policies) and map `ClientError` into the kernel 422 catalog.\n2. On AssumeRole failure, do not `GetRole` as the Anthus ThinTurn caller. That cannot read a customer role. Use assumed-role credentials after a successful assume, or drop the broken fallback and still 422 with a kernel message that tells them to re-run CFN with `OrganizationId={tenant_id}`.\n",
+      "created_at": "2026-09-08T11:02:06.399429Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T15:54:05.599297Z",
-  "updated_at": "2026-09-08T10:58:59.554482Z",
+  "updated_at": "2026-09-08T11:02:06.399429Z",
   "closed_at": null,
   "custom": {}
 }
