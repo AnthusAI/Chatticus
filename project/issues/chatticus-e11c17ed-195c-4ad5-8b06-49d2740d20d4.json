@@ -89,10 +89,17 @@
       "text": "Operator discriminant (no journal poll): customer `ChatticusComputers` cluster **running_tasks = 0**. Customer `:dev` exists (`pushedAt` 2026-09-08 ~10:20 local). Anthus cluster also 0 (desiredCount 0, as required).\n\nNamed cause at check time: **`HOST_NOT_RUNNING`**. The ComputerWorker nack matches. Image push is not the remaining question; a host process was not up. Do not start a 15-minute journal wait. Live DoD stays blocked until a host is running **and** one `run_terminal` handoff commits `tool.result`. Product #329 stays on `develop`.\n",
       "created_at": "2026-09-08T15:39:09.209598Z",
       "comment_type": "default"
+    },
+    {
+      "id": "19c57d6d-3a7e-4e46-aa29-05395a7a53cf",
+      "author": "home",
+      "text": "`7fe070` closed (#335): customer authority path exists — a human grant replace can include `run_terminal`; the conversation preset still does not. This card's remaining DoD is one live host journal result. Do not poll a stopped host (`HOST_NOT_RUNNING`).\n",
+      "created_at": "2026-09-08T18:09:26.772005Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.970882Z",
-  "updated_at": "2026-09-08T15:39:09.209643Z",
+  "updated_at": "2026-09-08T18:09:26.772040Z",
   "closed_at": null,
   "right_now_summary": "Mock right-now summary for chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4.",
   "right_now_updated_at": "2026-09-08T15:37:30.636644Z",
