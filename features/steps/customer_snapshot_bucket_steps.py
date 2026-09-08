@@ -307,6 +307,29 @@ def then_create_stack_includes_snapshot_bucket_name(context: object) -> None:
     ]
 
 
+@given("a customer organization snapshot bucket bound to the host worker")
+def given_customer_snapshot_bucket_bound(context: object) -> None:
+    import boto3
+    from moto import mock_aws
+
+    from chatticus.snapshot.s3 import S3SnapshotStore
+
+    bucket = customer_snapshot_bucket_name("anthus")
+    if not getattr(context, "snapshot_tmpdir", None):
+        context.snapshot_tmpdir = tempfile.mkdtemp(prefix="chatticus-customer-bucket-")
+    context.computer_hosts = {}
+    os.environ["CHATTICUS_SNAPSHOT_BUCKET"] = bucket
+    os.environ.pop("CHATTICUS_SNAPSHOT_STORE_ROOT", None)
+    context._moto = mock_aws()
+    context._moto.start()
+    client = boto3.client("s3", region_name="us-east-1")
+    client.create_bucket(Bucket=bucket)
+    store = S3SnapshotStore(bucket, client=client)
+    register_snapshot_store_for_bucket(bucket, store)
+    context.snapshot_store = store
+    context.customer_snapshot_bucket = bucket  # type: ignore[attr-defined]
+
+
 @given("CHATTICUS_SNAPSHOT_BUCKET names a bucket that does not exist yet")
 def given_ghost_snapshot_bucket(context: object) -> None:
     from computer_host_disk_lifecycle_steps import _worker_plane

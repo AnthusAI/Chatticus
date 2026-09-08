@@ -358,12 +358,17 @@ class HttpWorkerPlane:
         tenant_id: str,
         worker_id: str,
         checksum: str,
+        *,
+        snapshot_uri: str | None = None,
     ) -> None:
         del tenant_id
+        payload: dict[str, str] = {"worker_id": worker_id, "checksum": checksum}
+        if snapshot_uri is not None:
+            payload["snapshot_uri"] = snapshot_uri
         self._request(
             "POST",
             "/computers/snapshot/publish",
-            json={"worker_id": worker_id, "checksum": checksum},
+            json=payload,
         )
 
 

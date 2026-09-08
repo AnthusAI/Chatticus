@@ -96,7 +96,15 @@ def after_scenario(context: object, scenario: object) -> None:
 
         clear_snapshot_store_for_root(snapshot_store_root)
     os.environ.pop("CHATTICUS_SNAPSHOT_STORE_ROOT", None)
+    os.environ.pop("CHATTICUS_SNAPSHOT_BUCKET", None)
     os.environ.pop("CHATTICUS_LIVE_ROOT", None)
+    ghost_bucket = getattr(context, "customer_snapshot_bucket", None)
+    if ghost_bucket is None:
+        ghost_bucket = getattr(context, "ghost_snapshot_bucket", None)
+    if ghost_bucket is not None:
+        from chatticus.host_snapshot_store import clear_snapshot_store_for_bucket
+
+        clear_snapshot_store_for_bucket(ghost_bucket)
     snapshot_tmpdir = getattr(context, "snapshot_tmpdir", None)
     if snapshot_tmpdir:
         shutil.rmtree(snapshot_tmpdir, ignore_errors=True)

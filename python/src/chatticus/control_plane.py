@@ -2421,7 +2421,17 @@ class ControlPlane:
     def complete_computer_continuation(self, tenant_id: str, turn_id: str) -> None:
         """Commit the bot message and close a turn after the computer tool result."""
         turn = self.turn(tenant_id, turn_id)
+        self._release_computer_claim_for_turn(tenant_id, turn_id)
         self._complete_turn(turn, expected_fence=turn.fence_token)
+
+    def _release_computer_claim_for_turn(self, tenant_id: str, turn_id: str) -> None:
+        """Drop the computer lease when one escalated turn finishes."""
+        record = self._escalations.get((tenant_id, turn_id))
+        if record is None:
+            return
+        claim = self._computer_claims.get(record.computer_id)
+        if claim is not None and claim.turn_id == turn_id:
+            del self._computer_claims[record.computer_id]
 
     def recover_computer_escalation(self, tenant_id: str, turn_id: str) -> None:
         """Continue a crashed handoff exactly once, then complete the turn."""
@@ -2683,6 +2693,8 @@ class ControlPlane:
         tenant_id: str,
         worker_id: str,
         checksum: str,
+        *,
+        snapshot_uri: str | None = None,
     ) -> None:
         """Persist snapshot metadata after the host uploaded a pack."""
         computer = self.computer_for_organization(tenant_id)
@@ -2690,6 +2702,7 @@ class ControlPlane:
             computer.computer_id,
             worker_id,
             checksum,
+            snapshot_uri,
         )
 
     def computer_capability_readiness(

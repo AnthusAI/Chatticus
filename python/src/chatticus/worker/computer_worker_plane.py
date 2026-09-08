@@ -167,5 +167,7 @@ class ComputerWorkerPlane(Protocol):
         tenant_id: str,
         worker_id: str,
         checksum: str,
+        *,
+        snapshot_uri: str | None = None,
     ) -> None:
         """Persist snapshot metadata after the host uploaded a pack."""

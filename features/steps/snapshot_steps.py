@@ -6,9 +6,15 @@ from pathlib import Path
 
 from behave import given, then, when
 
+from chatticus.customer_snapshot_bucket import customer_snapshot_bucket_name
 from chatticus.snapshot.host import ComputerHostDisk
 from chatticus.snapshot.store import FilesystemSnapshotStore
-from chatticus.snapshot.uri import PACK_FILENAME, snapshot_object_dir, snapshot_uri
+from chatticus.snapshot.uri import (
+    LOGICAL_SNAPSHOT_BUCKET,
+    PACK_FILENAME,
+    snapshot_object_dir,
+    snapshot_uri,
+)
 
 
 class CountingSnapshotStore:
@@ -90,6 +96,22 @@ def then_store_has_pack(context: object, tenant_id: str, computer_id: str) -> No
     pack = context.snapshot_store.inner.root / snapshot_object_dir(uri) / PACK_FILENAME
     assert pack.is_file()
     assert pack.stat().st_size > 0
+
+
+@then(
+    "the snapshot store has a pack in the organization snapshot bucket for tenant "
+    '"{tenant_id}" computer "{computer_id}"'
+)
+def then_store_has_pack_in_organization_bucket(
+    context: object, tenant_id: str, computer_id: str
+) -> None:
+    organization_bucket = customer_snapshot_bucket_name(tenant_id)
+    assert organization_bucket != LOGICAL_SNAPSHOT_BUCKET
+    uri = snapshot_uri(tenant_id, computer_id, bucket=organization_bucket)
+    pack = context.snapshot_store.get_pack(uri)
+    assert len(pack) > 0
+    computer = context.plane.computer_for_organization(tenant_id)
+    assert computer.snapshot_uri == uri
 
 
 @then('host "{name}" has workspace file "{path}" containing "{content}"')

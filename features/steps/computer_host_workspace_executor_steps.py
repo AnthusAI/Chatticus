@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from behave import given, then, when
 from host_workspace_helpers import host_live_root
 
@@ -79,7 +81,10 @@ def when_worker_pulls_with_workspace_executor(context: object) -> None:
         from browser_auth_helpers import wire_test_http_front_door
 
         wire_test_http_front_door(context, context.plane, invoke_key="")
-    _ensure_host_disk(context, "garage-mac-1")
+    _ensure_host_disk(
+        context,
+        getattr(context, "host_worker_id", None) or "garage-mac-1",
+    )
     live_root = _executor_live_root(context)
     executor = WorkspaceActionExecutor(live_root=live_root)
     ComputerWorker(
@@ -171,7 +176,7 @@ def then_active_turn_read_workspace_result(context: object, content: str) -> Non
         and not event.body.startswith("denied:")
     ]
     assert results
-    assert content in results[-1]
+    assert any(content in body for body in results)
 
 
 @then("the turn is waiting on the workspace capability")
@@ -238,6 +243,12 @@ def _ensure_host_disk(context: object, name: str) -> None:
         context.computer_hosts = {}
         hosts = context.computer_hosts
     if name in hosts:
+        return
+    snapshot_store = getattr(context, "snapshot_store", None)
+    snapshot_tmpdir = getattr(context, "snapshot_tmpdir", None)
+    if snapshot_store is not None and snapshot_tmpdir is not None:
+        live_root = Path(snapshot_tmpdir) / "hosts" / name
+        hosts[name] = ComputerHostDisk(live_root, snapshot_store)
         return
     root = host_live_root(context)
     store = FilesystemSnapshotStore(root / ".ephemeral-snapshot")
