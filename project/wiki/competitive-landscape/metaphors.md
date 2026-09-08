@@ -113,3 +113,8 @@ See [Coordination substrates](categories/coordination-substrates.md). Public wik
 - [Public encyclopedia vs this tree](public-encyclopedia.md)
 - [Competitive landscape index](index.md)
 - Site drafts (unpublished): `web/content/wiki/AGENTS.md`, `web/content/wiki/names-for-the-workplace.md`
+
+## Related axes
+
+- [Cage and lasting memory](cage-and-lasting-memory.md)
+

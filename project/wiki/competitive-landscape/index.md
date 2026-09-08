@@ -24,6 +24,8 @@ Chatticus sits in the emerging **human + named bots in a shared workplace** lane
 
 Steer messaging toward **org + farm + control**, not another chat agent. See [Metaphors](metaphors.md) for claim / avoid / redefine guidance.
 
+**Cage / lasting memory axes:** [Cage and lasting memory](cage-and-lasting-memory.md) — Chatticus vs Claude Code (phone), Instinct, Cursor Cloud Agents, and Grok Bot (2026-09-08).
+
 ## Categories
 
 | Category | One-line |
