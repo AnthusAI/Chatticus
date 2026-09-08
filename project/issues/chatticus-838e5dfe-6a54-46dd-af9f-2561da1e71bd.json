@@ -42,12 +42,19 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/343 opened. Composer 2.5 reviewing. Merge after review + green CI, then watch Deploy Web — live Sign Out is the DoD.\n",
       "created_at": "2026-09-08T23:17:13.947343Z",
       "comment_type": "default"
+    },
+    {
+      "id": "6bb82752-10a6-4432-9ec0-ec064ff6ff7e",
+      "author": "home",
+      "text": "Merged https://github.com/AnthusAI/Chatticus/pull/343 as e21a6ac after Composer 2.5 APPROVE and green CI. Deploy Web (development) https://github.com/AnthusAI/Chatticus/actions/runs/34291043213 succeeded. Card stays open until a human Sign Out on dev.chattic.us returns to the workspace signed out, not the Cognito error page.\n",
+      "created_at": "2026-09-08T23:34:24.151650Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T23:14:20.384423Z",
-  "updated_at": "2026-09-08T23:17:13.947371Z",
+  "updated_at": "2026-09-08T23:34:24.151671Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "A fix is under review to restore Sign Out and prevent the Cognito error page.",
+  "right_now_updated_at": "2026-09-08T23:19:49.377391Z",
   "custom": {}
 }
