@@ -16,7 +16,7 @@ Desk AWS account ids, member-account ids, `tenant_id`s, RoleArns, and billing em
 
 This run used AWS Organizations `CreateAccount` on the existing Anthus management account for **lab consolidated billing**. It is **not** the customer funnel. Real customers stay out of this org. Pitch page, invitation rate, and the $100 setup fee should use the **Chatticus-provision** number (~19 min here) and treat AWS account signup as a separate, still-unmeasured stopwatch.
 
-Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` then `create-stack --template-body` (later `update-stack` for policy holes). Never pass CloudFront as `--template-url`. First run: **6379 bytes**. After #314: **6705 bytes**; lab `UpdateStack` `ChatticusCrossAccountRole` `UPDATE_COMPLETE`. That closed the `8a25af` IGW-describe reopen. Snapshot bucket + scoped `s3:*` is **not** another `8a25af` role hole: it is `chatticus-bb9084`, declared in the **customer-run** published template (decision 2026-09-07). The assumed role has **zero** `s3:` today (`grep -c 's3:' infra/customer-role.yml` is 0).
+Published template: GET `https://dev.chattic.us/provisioning/customer-role.yml` then `create-stack --template-body` (later `update-stack` for policy holes). Never pass CloudFront as `--template-url`. First run: **6379 bytes**. After #314: **6705 bytes**; lab `UpdateStack` `ChatticusCrossAccountRole` `UPDATE_COMPLETE`. That closed the `8a25af` IGW-describe reopen. Snapshot bucket is **not** another `8a25af` role hole: it is `chatticus-bb9084` / #323, declared in the **customer-run** published template. Bucket name `chatticus-snapshots-${OrganizationId}`. The assumed role has **zero** `s3:`. Task-role `s3:GetObject`/`s3:PutObject` is on `ChatticusComputers` after `SnapshotBucketName` is passed. Lab stacks created before #323 still need **UpdateStack** (below).
 
 ## Person-steps (needed a human)
 
@@ -116,20 +116,29 @@ Kernel path. **Do not fold elapsed times into the ~19 min figure.**
 | --- | --- | --- | --- |
 | 1 | Terminal | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **Not implemented** — own card `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4`. Do not live-run. |
 | 2 | Browser | `REFUSED_NO_CUSTOMER_COMPUTERS_STACK` | **PASS (2026-09-07), kernel deviation.** `prepare_computer_tool(browser_open, about:blank)` + `enqueue_computer_continuation` (not computerless `browse`). Journal `tool.result` `opened:about:blank`. Customer `RunTask` 1, Anthus 0. `chatticus-8fe4c7e1` closed. Do not fold elapsed time into ~19 min. |
-| 3 | File actions | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | **Not a host-disk path.** Wait on `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7`. `bb9084` is insurance for **host packs**, which agents do not write today. |
+| 3 | File actions | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | **Gherkin PASS on `develop` (#324 / `chatticus-863f27`).** Agent `write_workspace` → host publish → relocate → `read_workspace`; journal-only; pack URI is `chatticus-snapshots-{OrganizationId}`, not Anthus. **Live customer path not yet run** — needs the UpdateStack checklist below. |
 | 4 | Approvals | `APPROVAL_NO_CROSS_ACCOUNT_PATH` | No agent tool. Kernel/human binding. Not a host sweep. |
 | 5 | Spend ceiling | `SPEND_LIMIT_NOT_ENFORCED_AT_SINK` | Live model has no `purchase` tool. Token ledger is separate. Not a host sweep. |
-| 6 | Relocate | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | No agent tool. Host worker never publish/hydrate. Downstream of the file-layer pick. |
+| 6 | Relocate | `REFUSED_NO_CUSTOMER_SNAPSHOT_BUCKET` | In-process relocate/hydrate is in the #324 recycle scenario. Live relocate still waits on the customer-bucket UpdateStack below. |
+
+## Customer snapshot bucket — lab UpdateStack (after #323 / #324)
+
+Gherkin on `develop` does not create the throwaway account's bucket. A lab IAM user (not management root) must refresh the customer-run stacks. Placeholders only; desk ids stay in `AGENTS.local.md`.
+
+1. GET `https://dev.chattic.us/provisioning/customer-role.yml` (after development ThinTurn has published the #323 template).
+2. Same principal: `update-stack` on the existing cross-account role stack with `--template-body` (never CloudFront as `--template-url`). Confirm output `OrganizationSnapshotBucket` is `chatticus-snapshots-ORGANIZATION_ID` (lowercase).
+3. Same principal: `update-stack` `ChatticusComputers` with parameter `SnapshotBucketName` set to that output. Do not `cdk deploy --all`. Do not `CreateBucket` on an Anthus role.
+4. Acceptance (not required to merge Gherkin): computerless write → host publish → stop/start or relocate → read the same bytes; journal `read_workspace` contains the written text.
 
 ## Not done on this run
 
 | Step | Status |
 | --- | --- |
 | Consumer AWS signup | Skipped (lab `CreateAccount`) |
-| Customer snapshot bucket in the published template | `chatticus-bb908488-266d-4df9-9d15-355ff98ed0ac` — insurance, does not unblock file actions |
-| Dict vs host disk (decided host disk; steps 2–5 open) | `chatticus-fccc4e9a-b3c6-4a14-9317-d0b0c95231b7` |
+| Customer snapshot bucket **exists** in the throwaway account | Template on `develop` (#323). Lab UpdateStack above **not yet run**. |
+| Dict vs host disk | **Closed** — five steps on `develop` (`4ac60c71` #318, `47533582` #321, `5ac06b` #322, `bb908488` #323, `863f27` #324). Live file row waits on UpdateStack. |
 | Agent terminal tool (build, not a sweep) | `chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4` |
-| Remaining capability matrix | `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` — parked; browser host row PASS; do not live-run the rest |
+| Remaining capability matrix | `chatticus-3e72dc16-ff6f-44f2-8d3c-dd3a49f9ac52` — parked; browser host row PASS; file-actions Gherkin PASS; do not live-run the rest until UpdateStack |
 | Customer image in customer ECR | `chatticus-2b3c4173` / #320 **closed** — `:dev` published under the assumed role |
 
 ## Replay (customer-shaped, once the gaps close)
