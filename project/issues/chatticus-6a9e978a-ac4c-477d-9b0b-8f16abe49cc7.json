@@ -40,10 +40,17 @@
       "text": "PR [#338](https://github.com/AnthusAI/Chatticus/pull/338) is up against `develop`. Composer 2.5 product review and acceptance in flight; merge after review plus green CI. Card stays in_progress. Worktree `/tmp/chatticus-6a9e97-ceiling-stop` stays until close.\n\nDo not check out the feature branch on the primary clone; it is `develop`.",
       "created_at": "2026-09-08T19:44:47.187896Z",
       "comment_type": "default"
+    },
+    {
+      "id": "5ccd9cf1-620c-4ad9-8cc9-4109ba9aaa71",
+      "author": "home",
+      "text": "Composer 2.5 product review **REQUEST CHANGES** on [#338](https://github.com/AnthusAI/Chatticus/pull/338). Do not merge.\n\n1. `ComputerWorker._dispatch_host_start_if_needed`: `OrganizationSpendCeilingExceededError` is raised from `request_computer_host_start`, outside the `try` around `start_host`. Uncaught → Lambda batch failure. Mapping it to `ComputerWorkerHostNotReady` would SQS-nack forever. Fail the turn visibly (mirror computerless denial). No host start.\n\n2. Fail-closed meter (`ce_status=pending`/`error`, even when MTD is under the ceiling) is pytest-only. Add Gherkin: refuse computer work and surface `computer_work_paused` + meter-unavailable reason on GET `/me`.\n\nPublic `ControlPlane` wrapper instead of `plane._messaging_store` in `principal.py` if you touch that file. Worktree stays `/tmp/chatticus-6a9e97-ceiling-stop`.",
+      "created_at": "2026-09-08T19:47:07.911964Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:24.322109Z",
-  "updated_at": "2026-09-08T19:44:47.187917Z",
+  "updated_at": "2026-09-08T19:47:07.911994Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
