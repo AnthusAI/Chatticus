@@ -61,12 +61,19 @@
       "text": "Composer 2.5 re-review **APPROVE** on [#338](https://github.com/AnthusAI/Chatticus/pull/338). Host-start denial and meter-unavailable Gherkin close the previous REQUEST CHANGES. Infra CI green; python CI still running. Merge when python is green. Card stays in_progress until merge and worktree teardown.",
       "created_at": "2026-09-08T19:52:50.370720Z",
       "comment_type": "default"
+    },
+    {
+      "id": "423221c8-1b9c-46cb-b909-e7f0513df070",
+      "author": "home",
+      "text": "Do not merge. CI python failed: `features/me.feature:46` GET /me organizations include (exact dict) vs new `computer_work_paused` fields. Implementer fixing subset compare on the table step. Infra was green.",
+      "created_at": "2026-09-08T20:04:57.045731Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:20:24.322109Z",
-  "updated_at": "2026-09-08T19:52:50.370755Z",
+  "updated_at": "2026-09-08T20:04:57.045752Z",
   "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "PR #338 is approved; Python CI is still running before merge and worktree teardown.",
+  "right_now_updated_at": "2026-09-08T19:54:08.404816Z",
   "custom": {}
 }
