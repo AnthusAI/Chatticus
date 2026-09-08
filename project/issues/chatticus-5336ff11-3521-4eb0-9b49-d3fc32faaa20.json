@@ -40,10 +40,17 @@
       "text": "`7622fd` closed: UI and live `POST /bots` mint bots with **no grant**. This card is next. Composer 2.5 planning. Worktree to be named `/tmp/chatticus-5336ff-bot-grant` on `feat/5336ff-create-bot-grant`. Implementation not authorized until the plan picks **one** path: default grant at create, or fail visibly at create — not both, not prompt-tuning. The ACME `ls /workspace` sentence was not this bug; the gap is still a grantless healthy-looking bot.\n",
       "created_at": "2026-09-08T12:08:27.765718Z",
       "comment_type": "default"
+    },
+    {
+      "id": "df654050-73c1-4b5d-bce5-8b596c4d99a2",
+      "author": "home",
+      "text": "Plan reviewed and **authorized** with holes closed.\n\nWorktree verified: `/tmp/chatticus-5336ff-bot-grant` on `feat/5336ff-create-bot-grant` (HEAD `fb9d8f4`, not the primary clone).\n\n**Pick:** turn-start conversation grant on **human** `post_channel_message` / `_start_turn_for_bot`. Not at `POST /bots`. Not fail-at-create. Not prompt tuning.\n\n**Closed on authorize:**\n1. **One path.** Human-started turns get `household_conversation_grant()` (minimal: `read_workspace`, `/workspace`, `approved_origin_fetch`). No `browse`, `write_workspace`, `send`, or `purchase` in the preset.\n2. Explicit `Given a human task grants:` **replaces** the preset (do not merge two grants).\n3. `capability_sink_wiring` “denies when no task grant” stays for turns that were **never** human-started. Do **not** keep a human-chat scenario that expects `grant is None`.\n4. Bot-to-bot: no auto-grant.\n5. No `POST /bots` / create-bot UI changes. No wiki in the product PR.\n6. After merge I will message a live bot on development and confirm the turn has the conversation grant (not `no task grant`).\n\nTear the worktree down only after the manager closes the issue.\n",
+      "created_at": "2026-09-08T12:12:29.439650Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T20:10:07.032720Z",
-  "updated_at": "2026-09-08T12:08:27.765718Z",
+  "updated_at": "2026-09-08T12:12:29.439650Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
