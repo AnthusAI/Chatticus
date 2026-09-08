@@ -3,7 +3,7 @@
   "title": "Re-run the customer provisioning journey unattended after self-setup",
   "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing — all three self-setup stories are closed\n- **Blocks, in practice:** publishing the self-setup offer on `chatticus-b4f849`\n\n---\n\n## Why this exists\n\n`chatticus-9c8dbf`, `chatticus-070cb4` and `chatticus-7622fd` are all closed. Each met its own DoD and each was live-accepted individually.\n\n**Three green cards is not the same claim as \"the journey works unattended.\"** `chatticus-b88c0a` measured six person-steps, four of which needed an operator at a CLI. Those four each have a card that is now closed. Nobody has re-run the journey to confirm the path composes.\n\nThe original objection to publishing `chatticus-b4f849` was that the page promises something the product cannot do. That objection is only retired by a run, not by a card count.\n\n## What to run\n\nThe `chatticus-b88c0a` journey again, as a customer, **with no operator kernel calls at all.** The discipline that made the first run trustworthy applies unchanged: placeholders in the wiki, real ids in gitignored `AGENTS.local.md`, every deviation labeled, stop and record at the first failure rather than pushing through.\n\nAny operator step that turns out to still be required is a finding, not a workaround. Record it and stop — a labeled stop is a result.\n\n## What to measure\n\n- **Person-steps, again.** The number to compare against is four-of-six. If it is now zero-of-N, the self-setup offer is honest. If it is not, that is exactly what `chatticus-b4f849` needs to know before the page ships.\n- **Elapsed wall-clock**, kept separate from the ~19 min provisioning figure, which excluded consumer AWS signup and everything after.\n- **Every place the instructions were wrong.** Same as last time: the most valuable output and the easiest to skip while heads-down making it work.\n\n## Also worth confirming on this run\n\nThe image staleness seen during file-recycle acceptance (`HOST_IMAGE_STALE_CHROMIUM_EXECUTOR_ONLY`, fixed by an operator repush) was correctly judged not a product bug. But an operator repush is a **person-step per customer account**, and image updates recur. If it appears again in an unattended run, it belongs in the person-step count and in the invitation-rate math.\n\n## Done when\n\nThe runbook has a second timed entry with a person-step count taken under no-operator conditions, and `chatticus-b4f849` can cite it — or the run stops at a labeled failure and that failure has a card.",
   "type": "task",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,17 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f0e06029-8496-493a-8e45-7fcfac905d1a",
+      "author": "home",
+      "text": "Composer 2.5 planning the unattended customer re-run (no operator kernel). Same discipline as `b88c0a`: wiki placeholders, ids in `AGENTS.local.md`, labeled deviations, stop at the first failure. Number to beat: four-of-six person-steps. Image staleness / operator repush counts as a person-step if it recurs. Plan-only until authorized. Wiki second timed entry lands on `develop` via `pm:`, not a product PR.\n",
+      "created_at": "2026-09-08T18:49:09.116412Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-08T18:30:57.683865Z",
-  "updated_at": "2026-09-08T18:30:57.683898Z",
+  "updated_at": "2026-09-08T18:49:09.116493Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

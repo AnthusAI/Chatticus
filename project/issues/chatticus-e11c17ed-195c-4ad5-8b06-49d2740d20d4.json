@@ -96,10 +96,17 @@
       "text": "`7fe070` closed (#335): customer authority path exists — a human grant replace can include `run_terminal`; the conversation preset still does not. This card's remaining DoD is one live host journal result. Do not poll a stopped host (`HOST_NOT_RUNNING`).\n",
       "created_at": "2026-09-08T18:09:26.772005Z",
       "comment_type": "default"
+    },
+    {
+      "id": "16ee0de6-786a-470b-8063-b0620241e305",
+      "author": "home",
+      "text": "**HOST_NOT_RUNNING is a stopped/absent host, not an `8fe4c7` regression.**\n\n`8fe4c7` was a customer Fargate task that **started** and stayed unusable: PROVISIONING / crash loop (`HOST_TASK_ROLE_DYNAMO_ACCESS_DENIED`), `RunTask ≥ 1`, no `tool.result`. Closed after Front Door HTTP + live `browser_open` / `about:blank`.\n\nThis card's live stop is different: customer `ChatticusComputers` `running_tasks = 0`, ComputerWorker nack `no ready computer host for run_terminal`. The host was **never up**. That is a summons (start / `RunTask` after `:dev` includes `terminal_action_executor.py`), not a task that is running the old Dynamo path. Do not poll the journal. Do not treat this as `8fe4c7` reopened.\n",
+      "created_at": "2026-09-08T18:49:09.245802Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.970882Z",
-  "updated_at": "2026-09-08T18:09:26.772040Z",
+  "updated_at": "2026-09-08T18:49:09.245833Z",
   "closed_at": null,
   "right_now_summary": "Mock right-now summary for chatticus-e11c17ed-195c-4ad5-8b06-49d2740d20d4.",
   "right_now_updated_at": "2026-09-08T15:37:30.636644Z",

@@ -46,6 +46,8 @@ Use a `pm:` subject. Do not hand-edit issue JSON.
 
 Do not bundle Kanbus files into a product PR. Push the board to `develop` on its own.
 
+**Unwire `blocked-by` when you close a card.** A satisfied dependency does not clear itself. `kbs ready` keeps hiding the blocked issue until someone runs `kbs dep <blocked> remove blocked-by <closed>`. Closing without that step made `chatticus-b4f849` and `chatticus-574e4b` invisible for a day. After `kbs close`, remove every edge that listed the closed issue as `blocked-by`.
+
 ## The Order of Being
 
 All work is structured.

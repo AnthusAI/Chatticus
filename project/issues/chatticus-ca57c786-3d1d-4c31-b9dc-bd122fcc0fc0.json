@@ -19,10 +19,17 @@
       "text": "## Priority argument: this epic's stories should be P0 now (2026-09-08)\n\nNot filing new work — arguing that the work already here is mispriced against the risk it carries. Raised for a deliberate call rather than letting it drift.\n\n`chatticus-43e64c` (ceiling set at provisioning), `chatticus-6a9e97` (crossing the ceiling stops new computer work), and `chatticus-39d8f5` (alerts) are **P1**. Meanwhile `chatticus-2e3e94` (budget tracking that ships with every deployment) is **P0**.\n\n## What changed today\n\nUntil this week, every organization was provisioned by an operator at a CLI. That was an accidental throttle: nobody got compute in their own AWS account without a human in the loop.\n\n`chatticus-9c8dbf`, `chatticus-070cb4` and `chatticus-7622fd` closed today. **Self-setup is the product now.** A customer can provision themselves, and agents run compute in an account the customer pays for.\n\n## Why that changes the priority rather than just the plan\n\nThis is the only item on the board where **being wrong costs someone other than us**. A missing capability produces a bot that says it cannot do something — annoying, visible, recoverable. An unenforced ceiling produces an AWS invoice the customer did not expect, in their own account, from software we told them was safe to install with a scoped role.\n\nIt also does not announce itself. Every other gap this week was found by running the system. This one is found by a customer reading their bill.\n\nAnd the exposure grew in the same week the ceiling stayed still: `run_terminal` is now grantable, and `chatticus-598be4` proved cross-account `RunTask` works. The product can start compute on someone else's bill, deliberately and by design. The brake for that is in this epic and is not built.\n\n## The narrow ask\n\nNot \"build all of it now.\" Specifically `chatticus-6a9e97` — **crossing the ceiling stops new computer work** — is the one that converts an unbounded bill into a bounded one. `chatticus-43e64c` (a ceiling exists at provisioning) is its prerequisite. Alerts and in-workspace visibility can stay P1.\n\n**Decide this before the first paying customer, not after.** The pitch page argues that Chatticus tells you every cost up front; shipping self-serve provisioning without an enforced ceiling contradicts that argument in the one place it is expensive to be wrong.",
       "created_at": "2026-09-08T18:31:15.702195Z",
       "comment_type": "default"
+    },
+    {
+      "id": "7b8cec35-672b-4fe9-8b16-515daf9a190d",
+      "author": "home",
+      "text": "P0 vs P1 on this epic is **Ryan's call** — not absorbed here. Self-setup, grantable `run_terminal`, and cross-account `RunTask` did raise the exposure; the brake is still unbuilt.\n\nNot waiting on that call to start the narrow ask at current P1: `43e64c` (ceiling on the record at provisioning) first; `6a9e97` (stop new computer work) is now `blocked-by` `43e64c` so it does not hide after `43e64c` closes unless we unwire. `b7e2c7` stays queued behind the unattended run.\n",
+      "created_at": "2026-09-08T18:49:09.384989Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-03T13:15:40.991276Z",
-  "updated_at": "2026-09-08T18:31:15.702243Z",
+  "updated_at": "2026-09-08T18:49:09.385005Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
