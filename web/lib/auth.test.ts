@@ -96,10 +96,9 @@ describe("buildUserManagerSettings", () => {
     );
   });
 
-  it("sends identity_provider=Google without a global account picker prompt", () => {
+  it("does not attach identity_provider or account picker prompt globally", () => {
     const settings = buildUserManagerSettings(testConfig);
-    assert.equal(settings.extraQueryParams?.identity_provider, "Google");
-    assert.equal(settings.extraQueryParams?.prompt, undefined);
+    assert.equal(settings.extraQueryParams, undefined);
     assert.equal(settings.response_type, "code");
     assert.equal(settings.redirect_uri, testConfig.redirectUri);
     assert.equal(
