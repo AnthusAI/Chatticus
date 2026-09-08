@@ -33,10 +33,17 @@
       "text": "PR https://github.com/AnthusAI/Chatticus/pull/335 against `develop`. Composer 2.5 reviewing HTTP replace → policy-allow Gherkin (same-turn ordering, no preset add, no host boot). CI python in progress — cancel if Behave sits past ~12 minutes with no next step.\n",
       "created_at": "2026-09-08T17:56:07.707905Z",
       "comment_type": "default"
+    },
+    {
+      "id": "375ccf4a-b940-4404-b177-de4d787189fc",
+      "author": "home",
+      "text": "Acceptance (Composer 2.5): Gherkin PASS — worktree /tmp/chatticus-7fe070-run-terminal-grant, behave per_task_run_terminal_grant.feature + conversation_turn_grant deny scenario: 2 scenarios, 18 steps, 0 failed (~0.5s). Live HTTP optional: ThinTurn stack UPDATE_COMPLETE; health 200 on development Lambda URL; integration-test session exchange 403 (desk IAM principal not authorized for /integration-test/session). Grant PUT not attempted. PR #335 not on develop yet — live would not prove this slice even with auth. Verdict: PASS (Gherkin primary gate).",
+      "created_at": "2026-09-08T17:58:26.596950Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T15:41:24.467703Z",
-  "updated_at": "2026-09-08T17:56:07.707932Z",
+  "updated_at": "2026-09-08T17:58:26.596983Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
