@@ -28,10 +28,17 @@
       "text": "Composer 2.5 planning. Worktree to be named /tmp/chatticus-838e5d-cognito-logout on feat/838e5d-cognito-logout from origin/develop. Reproduced: /logout without client_id + identity_provider=Google 302s to /login then /error?error=Client+does+not+exist. /logout?client_id&logout_uri 302s to /auth/signout-callback. Plan-only until authorized.\n",
       "created_at": "2026-09-08T23:14:39.439261Z",
       "comment_type": "default"
+    },
+    {
+      "id": "c130bd2b-60b8-47d5-89ab-1c651b2e8c7f",
+      "author": "home",
+      "text": "Plan approved. Authorizing Composer 2.5: create /tmp/chatticus-838e5d-cognito-logout on feat/838e5d-cognito-logout from origin/develop. Gherkin first; signOut extraQueryParams client_id + logout_uri; no global identity_provider. Keep 349634 chooser. Do not merge until review + green CI + live Sign Out on development.\n",
+      "created_at": "2026-09-08T23:15:40.545882Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T23:14:20.384423Z",
-  "updated_at": "2026-09-08T23:14:39.439278Z",
+  "updated_at": "2026-09-08T23:15:40.545976Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
