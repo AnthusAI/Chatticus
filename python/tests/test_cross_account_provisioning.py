@@ -54,14 +54,10 @@ def _inspector_with_inline_policy(
         assert kwargs["PolicyName"] == "ChatticusProvisioningAndOperation"
         return {"PolicyDocument": policy_document}
 
-    def list_attached_role_policies(**kwargs: object) -> dict[str, object]:
-        return {"AttachedPolicies": []}
-
     return AwsCrossAccountRoleInspector(
         assume_role=assume_role,
         list_role_policies=list_role_policies,
         get_role_policy=get_role_policy,
-        list_attached_role_policies=list_attached_role_policies,
     )
 
 
@@ -81,7 +77,7 @@ def test_aws_inspector_reads_inline_policy_after_assume_role() -> None:
     assert snapshot.granted_permissions == frozenset(PROVISIONING_REQUIRED_PERMISSIONS)
 
 
-def test_aws_inspector_does_not_call_simulate_principal_policy() -> None:
+def test_aws_inspector_only_calls_inline_policy_apis() -> None:
     called: list[str] = []
 
     def assume_role(**kwargs: object) -> dict[str, object]:
@@ -102,34 +98,38 @@ def test_aws_inspector_does_not_call_simulate_principal_policy() -> None:
         called.append("get_role_policy")
         return {"PolicyDocument": _published_template_inline_policy()}
 
-    def list_attached_role_policies(**kwargs: object) -> dict[str, object]:
-        called.append("list_attached_role_policies")
-        return {"AttachedPolicies": []}
-
     def simulate_principal_policy(**kwargs: object) -> dict[str, object]:
         called.append("simulate_principal_policy")
         raise AssertionError("SimulatePrincipalPolicy must not be called")
+
+    def get_policy(**kwargs: object) -> dict[str, object]:
+        called.append("get_policy")
+        raise AssertionError("GetPolicy must not be called")
+
+    def get_policy_version(**kwargs: object) -> dict[str, object]:
+        called.append("get_policy_version")
+        raise AssertionError("GetPolicyVersion must not be called")
 
     inspector = AwsCrossAccountRoleInspector(
         assume_role=assume_role,
         list_role_policies=list_role_policies,
         get_role_policy=get_role_policy,
-        list_attached_role_policies=list_attached_role_policies,
     )
     assert not hasattr(inspector, "simulate_principal_policy")
+    assert not hasattr(inspector, "get_policy")
+    assert not hasattr(inspector, "get_policy_version")
+    assert not hasattr(inspector, "list_attached_role_policies")
     inspector.inspect_role(
         ACCOUNT_ID,
         ROLE_ARN,
         expected_external_id=TENANT_ID,
     )
-    assert "simulate_principal_policy" not in called
     assert called == [
         "assume_role",
         "list_role_policies",
         "get_role_policy",
-        "list_attached_role_policies",
     ]
-    _ = simulate_principal_policy
+    _ = (simulate_principal_policy, get_policy, get_policy_version)
 
 
 def test_aws_inspector_reports_missing_permission_from_inline_policy() -> None:
@@ -202,7 +202,6 @@ def test_aws_inspector_policy_read_failure_raises_inspection_error() -> None:
         assume_role=inspector.assume_role,
         list_role_policies=inspector.list_role_policies,
         get_role_policy=failing_get_role_policy,
-        list_attached_role_policies=inspector.list_attached_role_policies,
     )
     try:
         inspector.inspect_role(

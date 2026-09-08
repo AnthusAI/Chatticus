@@ -40,9 +40,6 @@ class CrossAccountRoleInspectionError(ChatticusError):
 AssumeRoleCallable = Callable[..., Mapping[str, Any]]
 ListRolePoliciesCallable = Callable[..., Mapping[str, Any]]
 GetRolePolicyCallable = Callable[..., Mapping[str, Any]]
-ListAttachedRolePoliciesCallable = Callable[..., Mapping[str, Any]]
-GetPolicyCallable = Callable[..., Mapping[str, Any]]
-GetPolicyVersionCallable = Callable[..., Mapping[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -146,11 +143,8 @@ def _granted_permissions_from_role_policies(
     *,
     list_role_policies: ListRolePoliciesCallable,
     get_role_policy: GetRolePolicyCallable,
-    list_attached_role_policies: ListAttachedRolePoliciesCallable,
-    get_policy: GetPolicyCallable,
-    get_policy_version: GetPolicyVersionCallable,
 ) -> frozenset[str]:
-    """Read inline and attached role policies using assumed-role credentials."""
+    """Read inline role policies using assumed-role credentials."""
     role_name = _role_name_from_arn(role_arn)
     granted: set[str] = set()
     inline_names = list_role_policies(RoleName=role_name).get("PolicyNames", [])
@@ -161,26 +155,6 @@ def _granted_permissions_from_role_policies(
         granted.update(
             _iam_actions_from_policy_document(response.get("PolicyDocument", {}))
         )
-    attached = list_attached_role_policies(RoleName=role_name).get(
-        "AttachedPolicies", []
-    )
-    for policy in attached:
-        if not isinstance(policy, dict):
-            continue
-        policy_arn = policy.get("PolicyArn")
-        if not isinstance(policy_arn, str):
-            continue
-        policy_response = get_policy(PolicyArn=policy_arn)
-        policy_meta = policy_response.get("Policy", {})
-        version_id = policy_meta.get("DefaultVersionId")
-        if not isinstance(version_id, str):
-            continue
-        version_response = get_policy_version(
-            PolicyArn=policy_arn,
-            VersionId=version_id,
-        )
-        document = version_response.get("PolicyVersion", {}).get("Document", {})
-        granted.update(_iam_actions_from_policy_document(document))
     return frozenset(granted)
 
 
@@ -191,9 +165,6 @@ class AwsCrossAccountRoleInspector:
     assume_role: AssumeRoleCallable | None = None
     list_role_policies: ListRolePoliciesCallable | None = None
     get_role_policy: GetRolePolicyCallable | None = None
-    list_attached_role_policies: ListAttachedRolePoliciesCallable | None = None
-    get_policy: GetPolicyCallable | None = None
-    get_policy_version: GetPolicyVersionCallable | None = None
 
     def inspect_role(
         self,
@@ -223,19 +194,11 @@ class AwsCrossAccountRoleInspector:
         iam = session.client("iam")
         list_role_policies = self.list_role_policies or iam.list_role_policies
         get_role_policy = self.get_role_policy or iam.get_role_policy
-        list_attached_role_policies = (
-            self.list_attached_role_policies or iam.list_attached_role_policies
-        )
-        get_policy = self.get_policy or iam.get_policy
-        get_policy_version = self.get_policy_version or iam.get_policy_version
         try:
             granted_permissions = _granted_permissions_from_role_policies(
                 role_arn,
                 list_role_policies=list_role_policies,
                 get_role_policy=get_role_policy,
-                list_attached_role_policies=list_attached_role_policies,
-                get_policy=get_policy,
-                get_policy_version=get_policy_version,
             )
         except ClientError as error:
             raise CrossAccountRoleInspectionError(
