@@ -52,10 +52,17 @@
       "text": "PR #320 reviewed, **not merged**. Request changes.\n\nLive ECR `DescribeImages` with a missing `:dev` tag raises `ImageNotFoundException`. `customer_image_tag_exists` treats empty `imageDetails` as missing and never catches `ClientError`. `is_image_not_found_error` is defined and unused. `_FakeEcr` returns `{\"imageDetails\": []}`, so Gherkin stays green and ACME after UpdateStack would not get `OrganizationComputerProvisioningError`.\n\nFix: treat `ImageNotFoundException` / `RepositoryNotFoundException` as missing in the helper. Make the Gherkin fake raise like AWS so behave fails without that catch.\n\nAlso drop `project/wiki` from this product PR; the runbook step lands on `develop` as `pm:` after merge.\n",
       "created_at": "2026-09-07T23:59:49.405748Z",
       "comment_type": "default"
+    },
+    {
+      "id": "8d997985-6b10-4a3b-b510-ddadeb3d26a9",
+      "author": "home",
+      "text": "Missing-tag exception path is in #320 (`9b10c15`); wiki hunk gone. Python CI green. Infra still red: `customer-computers-stack.test.ts:79` asserts `String(resource).includes(\":repository/\")` but CDK grants BatchGetImage on `Fn::GetAtt` of the repo ARN. Product IAM is correct (`GetAuthorizationToken` on `*`, pull on repo GetAtt). Implementer fixing the assertion only.\n",
+      "created_at": "2026-09-08T00:13:18.375980Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T22:58:46.825272Z",
-  "updated_at": "2026-09-07T23:59:49.405748Z",
+  "updated_at": "2026-09-08T00:13:18.375980Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
