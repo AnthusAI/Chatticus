@@ -3,7 +3,7 @@
   "title": "Decide how a customer's bot gets authority beyond read_workspace",
   "description": "**Phase 1 of 5.**\n\n- **Blocked by:** nothing\n- **Surfaces from:** `chatticus-5336ff` (grants attach on first human message) and `chatticus-e11c17` (terminal tool)\n\n---\n\n## The question\n\n**How does a customer's bot ever get more authority than `read_workspace`?**\n\n`household_conversation_grant` (`capability_policy.py:138`) is the grant attached when a human starts a bot turn:\n\n```python\ntools=frozenset({\"read_workspace\"}),\norigins=frozenset(),\nrecipients=frozenset(),\nfile_scopes=frozenset({\"/workspace\"}),\negress_classes=frozenset({APPROVED_ORIGIN_FETCH}),\ningest_classes=frozenset(),\n```\n\n**One tool.** Verified live on development by `chatticus-5336ff` — a human message to Ping returned the household preset, no browse, write, send, or purchase.\n\n## Why this matters now\n\nCapabilities are being proven through kernel paths with explicit grants. That is the right way to de-risk, and it means **\"capability proven\" and \"a customer's bot can use it\" have become different claims.** The capability matrix records the first.\n\n| Capability | Proven | In the default grant |\n|---|---|---|\n| `read_workspace` | yes | **yes** |\n| `write_workspace` | yes — live recycle, `chatticus-863f27` | **no** |\n| `browser_open` | yes — kernel deviation, `chatticus-8fe4c7` | **no** |\n| `run_terminal` | pending `chatticus-e11c17` | **no** |\n\nOn current code a customer's bot can do exactly one thing: read files under `/workspace`. Everything else on that list was proven by an operator with a widened grant.\n\n## What exists, and what appears not to\n\n**Exists:** `task_grant_for_requested_capability` (`authorization_ceiling.py:51`) and a `PUT /turns/{turn_id}/grant` route (`http/app.py:1550`).\n\n**Appears not to:** a customer-facing path to that route. It is registered on the **worker** router, and no flow in the web app was found that widens a grant. **This is the part to confirm rather than take from this card** — if such a path exists, this card closes as already-answered.\n\n## The decision, if it does not exist\n\nThree shapes, and they are genuinely different products:\n\n1. **Per-task human grant.** A bot requests, a human approves, authority is scoped to that task. Matches the delegation-ladder positioning and the existing approvals machinery. Needs a customer-facing surface that does not exist.\n2. **Per-bot standing grant.** A human configures what a bot may do once, at creation or in settings. Simpler, coarser, and it needs the create-bot UI that `chatticus-7622fd` is already about.\n3. **Widen the default preset.** Cheapest, and it moves authority from deliberate to ambient — which is the opposite of what the pitch page argues. Probably wrong for `run_terminal` specifically; arguably fine for `write_workspace`, since a bot that can read but not write its own workspace is a strange product.\n\n## Not a defect\n\nA minimal default is **correct**. `chatticus-8a25af` sets the standard that every permission should survive *\"why does an agent product need this,\"* and a bot that can open a shell on a customer's machine by default would not. The gap is that the deliberate-grant path is unbuilt, so the practical answer today is \"it does not get more authority.\"\n\n## Done when\n\nEither a customer-facing grant path is identified and recorded, or one of the three shapes above is chosen and its card exists. Also record whether `write_workspace` belongs in the default preset — it is the one that looks most like an accident rather than a policy.",
   "type": "story",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -19,10 +19,19 @@
       "text": "Confirmed: there is **no** customer-facing grant-widening path. `PUT /orgs/{tenant}/turns/{id}/grant` is on `worker_router` (`enforce_worker_principal`). Gherkin (`thin_grant_http_steps.py`) uses worker auth headers. `web/` has zero grant references. `task_grant_for_requested_capability` builds a grant from a sink request to compare against a member ceiling — it is not an API that gives a bot more tools.\n\nThe gap stands. Do not close this card as already-answered. Do not pick one of the three shapes from this comment. `write_workspace` still looks like the accidental omission vs `run_terminal`.\n",
       "created_at": "2026-09-08T14:14:02.526013Z",
       "comment_type": "default"
+    },
+    {
+      "id": "7050428f-5327-4601-bd50-320d76672221",
+      "author": "home",
+      "text": "Composer 2.5 planning only. Confirmed: no customer-facing grant-widening path (`PUT /turns/{id}/grant` is worker-only). Worktree to be named `/tmp/chatticus-9a07e7-grant-authority` on `feat/9a07e7-grant-authority` from `origin/develop`. Implementation not authorized until the plan picks **one** of the three shapes (per-task human grant, per-bot standing grant, or widen the default) and says what happens to `write_workspace`. Do not widen `run_terminal` into `household_conversation_grant()` in this card.\n",
+      "created_at": "2026-09-08T15:39:09.484274Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T14:10:17.587933Z",
-  "updated_at": "2026-09-08T14:14:02.526013Z",
+  "updated_at": "2026-09-08T15:39:09.484335Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
   "custom": {}
 }
