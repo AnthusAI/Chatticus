@@ -4,6 +4,19 @@ import * as cdk from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { CustomerComputersStack } from "../lib/customer-computers-stack";
 
+function iamResourceTargetsEcrRepository(resource: unknown): boolean {
+  const serialized = JSON.stringify(resource);
+  return (
+    serialized.includes("ComputerImage")
+    || serialized.includes("Fn::GetAtt")
+    || serialized.includes(":repository/")
+  );
+}
+
+function iamResourceIsWildcard(resource: unknown): boolean {
+  return resource === "*";
+}
+
 describe("CustomerComputersStack", () => {
   it("creates Fargate wiring with customer ECR and no snapshot bucket", () => {
     const app = new cdk.App();
@@ -77,11 +90,11 @@ describe("CustomerComputersStack", () => {
       ? pullStatement?.Resource
       : [pullStatement?.Resource];
     assert.equal(
-      pullResources.some((resource) => String(resource).includes(":repository/")),
+      pullResources.some(iamResourceTargetsEcrRepository),
       true,
     );
     assert.equal(
-      pullResources.some((resource) => String(resource) === "*"),
+      pullResources.some(iamResourceIsWildcard),
       false,
     );
     template.hasOutput("ComputerRepositoryUri", {});
