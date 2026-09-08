@@ -28,3 +28,8 @@ Products where humans and (often named) agents share a **persistent computer** â
 - [Multi-desk farms](multi-desk-farms.md)
 - [Always-on personal agents](always-on-personal-agents.md)
 - [Acting single coworkers](acting-single-coworkers.md)
+
+## Related axes
+
+- [Cage and lasting memory](../cage-and-lasting-memory.md) â€” durable pack vs durable mind vs product twin (Grok Bot)
+
