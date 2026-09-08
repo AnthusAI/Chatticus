@@ -1,0 +1,39 @@
+{
+  "id": "chatticus-838e5dfe-6a54-46dd-af9f-2561da1e71bd",
+  "title": "Sign Out lands on Cognito Client does not exist",
+  "description": "Live on development 2026-09-08. Sign Out from the workspace lands on auth-dev.chattic.us/error?error=Client+does+not+exist. Hosted UI copy: An error was encountered with the requested page.\n\nNot a missing Cognito client. The development SpaClient exists and matches SSM. Auth deploy updated CallbackURLs in place (silent-callback); it did not replace the client. Logout URLs already include /auth/signout-callback.\n\nCause reproduced with curl: Cognito hosted UI logout is GET /logout?client_id=...&logout_uri=... oidc-client-ts signoutRedirect uses OIDC end_session_endpoint with post_logout_redirect_uri and id_token_hint, and global extraQueryParams attach identity_provider=Google. Without client_id, /logout 302s to /login?identity_provider=Google (no client_id), which 302s to /error?error=Client+does+not+exist — the exact page. With client_id and logout_uri, /logout 302s to /auth/signout-callback.\n\nFix: Gherkin first. signOut() must pass extraQueryParams client_id and logout_uri. Remove identity_provider from global UserManager extraQueryParams; keep it only on signInWithGoogle. select_account only after completeSignOutRedirect. Do not send identity_provider on logout or silent renew.\n\nRelates to closed 349634 (CI-closed; this is the live hole) and 5e4c9a.\n\nDone when: Sign Out on development returns to the workspace signed out, not the Cognito error page. Next Sign in still shows the account chooser.",
+  "type": "bug",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-71e3e06b-ea10-43a8-8323-dd18d0bef0e0",
+  "labels": [
+    "auth"
+  ],
+  "dependencies": [
+    {
+      "target": "5e4c9a",
+      "type": "relates-to"
+    },
+    {
+      "target": "349634",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "b37fe6f1-5ae3-4aa6-96e9-9493337664d2",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree to be named /tmp/chatticus-838e5d-cognito-logout on feat/838e5d-cognito-logout from origin/develop. Reproduced: /logout without client_id + identity_provider=Google 302s to /login then /error?error=Client+does+not+exist. /logout?client_id&logout_uri 302s to /auth/signout-callback. Plan-only until authorized.\n",
+      "created_at": "2026-09-08T23:14:39.439261Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-08T23:14:20.384423Z",
+  "updated_at": "2026-09-08T23:14:39.439278Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
