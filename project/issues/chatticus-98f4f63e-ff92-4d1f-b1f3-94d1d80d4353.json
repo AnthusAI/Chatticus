@@ -31,10 +31,17 @@
       "text": "Batched into feat/5e4c9a-session-restore. Decision stands: localStorage, recorded in docs/THREAT_MODEL.md. Token authorizes PUT /turns/{id}/grant including run_terminal.\n",
       "created_at": "2026-09-08T22:32:55.920415Z",
       "comment_type": "default"
+    },
+    {
+      "id": "7882c209-2e98-4b40-adc0-8b4eee169c8c",
+      "author": "home",
+      "text": "THREAT_MODEL.md localStorage section is in PR #341. Close with 5e4c9a after live reload acceptance, not on green CI alone.\n",
+      "created_at": "2026-09-08T22:47:33.536179Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T22:12:24.122915Z",
-  "updated_at": "2026-09-08T22:32:55.920435Z",
+  "updated_at": "2026-09-08T22:47:33.536198Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
