@@ -191,6 +191,13 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   deploy-web-development 34256447742). Google SPA sign-in still blocks
   automated UI click-through (same as create-bot); Gherkin harness is the
   automated gate.
+- **Per-task `run_terminal` via human grant replace** (#335,
+  `chatticus-7fe070`): conversation preset stays `read_workspace` and
+  `write_workspace` only (no `run_terminal`). An enabled member
+  HTTP-replaces the active turn grant with a closed grant that includes
+  `run_terminal` and `/workspace`; policy allows the attempt (computerless
+  continuation queued, waiting on workspace). Gherkin:
+  `per_task_run_terminal_grant.feature`.
 
 ### Public sites
 
