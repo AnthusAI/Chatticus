@@ -3,7 +3,7 @@
   "title": "Per-task run_terminal via human grant replace",
   "description": "**Phase 1.** Parent epic `chatticus-598be4`. Ties `chatticus-e11c17` (`run_terminal` tool) to Shape 1: per-task human grant.\n\n`run_terminal` must **not** enter `household_conversation_grant()`. A customer bot gets a shell only when a human replaces the turn grant with one that includes `run_terminal` (and file_scopes for cwd).\n\nDepends on `chatticus-be3997` (and `chatticus-753bd8` if that is how the human submits). Live `e11c17` host proof may still be blocked on `HOST_NOT_RUNNING`; this card is the **customer authority path**, not another kernel deviation.\n\n## Gherkin\n\n```gherkin\nFeature: Per-task run_terminal via human grant replace\n  As an enabled organization member\n  I want to authorize a shell for one turn by replacing its grant\n  So a default conversation bot still cannot run_terminal\n\n  Scenario: Conversation preset still denies run_terminal\n    Given a human-started turn with the household conversation grant\n    When the bot attempts run_terminal\n    Then the turn journal records a denied run_terminal tool result\n\n  Scenario: A replaced grant that includes run_terminal is allowed by policy\n    Given a human-started turn with the household conversation grant\n    When an enabled member replaces the active turn grant with:\n      | field          | value                         |\n      | tools          | read_workspace, run_terminal  |\n      | origins        |                               |\n      | recipients     |                               |\n      | file_scopes    | /workspace                    |\n      | egress_classes | approved_origin_fetch         |\n    And the bot attempts run_terminal under /workspace\n    Then the turn is not denied for lack of run_terminal on the grant\n```\n\n## Done when\n\nGherkin shows a human-replaced turn can `run_terminal` and a conversation-preset turn cannot. Do not live-poll a stopped host to rediscover `HOST_NOT_RUNNING`.",
   "type": "story",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,9 +12,17 @@
     "phase-1"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "2ebfd1b4-3d87-466e-98ae-55850aaf6002",
+      "author": "home",
+      "text": "Unblocked: `753bd8` closed (workspace grant UI live in the SPA bundle). Composer 2.5 planning the customer authority path: conversation preset still denies `run_terminal`; a human full replace that includes it is allowed by policy. Do not add `run_terminal` to `household_conversation_grant()`. Do not live-poll a stopped host. HTTP replace and the UI checkbox already exist — this card is Gherkin for that authority path. Worktree `/tmp/chatticus-7fe070-run-terminal-grant` on `feat/7fe070-per-task-run-terminal`. Plan-only until authorized.\n",
+      "created_at": "2026-09-08T17:27:19.936383Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-08T15:41:24.467703Z",
-  "updated_at": "2026-09-08T15:42:44.908750Z",
+  "updated_at": "2026-09-08T17:27:19.936404Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
