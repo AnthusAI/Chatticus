@@ -33,10 +33,17 @@
       "text": "Plan reviewed, **not authorized**. Accepted: `run_terminal`, explicit grant (conversation preset stays closed), `TerminalActionExecutor` on the host, host-disk jail, computerless escalate then re-gate.\n\n**Blocking:** no `TERMINAL_CAPABILITY` / `terminal_ready`. Workspace hydrate is the gate (`capability_for_computer_tool` already maps non-browser tools there). A second flag that clears at the same time is dual-path. Gherkin waits on **workspace**, not a new terminal gate. `_ALLOWED_GATES` stays workspace|browser.\n\nWorktree exists at `/tmp/chatticus-e11c17-terminal` (behind one pm commit on `develop` — rebase on authorize).\n",
       "created_at": "2026-09-08T13:45:17.139908Z",
       "comment_type": "default"
+    },
+    {
+      "id": "214090ad-2e79-456b-b20f-65f1184b4d27",
+      "author": "home",
+      "text": "Plan authorized. Worktree verified at `/tmp/chatticus-e11c17-terminal` on `feat/e11c17-agent-terminal` (behind two pm commits — rebase onto `origin/develop` before coding).\n\n**Closed on authorize:**\n1. `run_terminal`; explicit grant; conversation preset stays closed.\n2. `TerminalActionExecutor` on the host. Not ECS Exec / SSH / Lambda.\n3. Readiness is **workspace hydrate** — no `TERMINAL_CAPABILITY` / `terminal_ready`.\n4. Gherkin first; pytest only for jail/timeout/truncation helpers.\n5. Live customer RunTask is after merge, by the manager. Do not live-run now to rediscover the gap.\n",
+      "created_at": "2026-09-08T13:46:03.455061Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.970882Z",
-  "updated_at": "2026-09-08T13:45:17.139908Z",
+  "updated_at": "2026-09-08T13:46:03.455061Z",
   "closed_at": null,
   "custom": {
     "project_label": "chatticus",
