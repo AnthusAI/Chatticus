@@ -1,0 +1,28 @@
+{
+  "id": "chatticus-5ac06b44-d8ed-4b22-9be4-5dc9d4d880d9",
+  "title": "Move agent file tools onto the computer-capable host",
+  "description": "**Step 3 of the accepted `chatticus-fccc4e9a` host-disk plan.** Steps 1 (`chatticus-4ac60c71`) and 2 (`chatticus-47533582` / PR #321) are closed.\n\nMove agent file tools off the in-process `computer.workspace` dict and onto the summoned computer-capable host (a workspace executor beside `ChromiumActionExecutor`). One path: do not leave the dict readable beside host disk.\n\nGherkin, worker, Front Door HTTP. Host is `HttpWorkerPlane` only. File bytes live on `ComputerHostDisk`; ThinTurn recycle must not drop them from the agent-visible path.\n\n**Not this slice:** customer snapshot bucket / `customer-role.yml` (`chatticus-bb908488` is step 4). Gherkin may use `FilesystemSnapshotStore`. No `/workspace` EFS. No prompt tuning.\n\n## Done when\n\nAgent file read/write is specified in Gherkin against host disk (not the dict), green through the Front Door host path. `ControlPlane.read_workspace` / `write_workspace` are no longer the agent-visible workplace. No `customer-role.yml` edit.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "phase-1"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "6d153180-67bf-46dd-9a63-241d03c0d10d",
+      "author": "home",
+      "text": "Composer 2.5 planning. Worktree to be named `/tmp/chatticus-5ac06b-file-tools-host` on `feat/5ac06b-file-tools-on-host`. Implementation not authorized until the plan is reviewed. Do not mix `chatticus-bb9084` (snapshot bucket / customer-role.yml) into this slice. Host remains Front Door HTTP only.\n",
+      "created_at": "2026-09-08T02:02:50.363831Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-08T02:02:42.651003Z",
+  "updated_at": "2026-09-08T02:02:50.363831Z",
+  "closed_at": null,
+  "custom": {}
+}
