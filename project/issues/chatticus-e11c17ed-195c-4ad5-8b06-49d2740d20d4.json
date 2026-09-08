@@ -61,11 +61,20 @@
       "text": "DoD line added: the live host run must say whether it used `household_conversation_grant()` or a widened grant, and if widened, that a default bot still refuses. This card does not widen the preset.\n\n[#329](https://github.com/AnthusAI/Chatticus/pull/329) product-reviewed **APPROVE**; python+infra CI green. Merging to `develop`. Live run after ThinTurn deploy: explicit (widened) grant for journal proof; separately record the conversation-preset denial.\n",
       "created_at": "2026-09-08T14:14:02.508177Z",
       "comment_type": "default"
+    },
+    {
+      "id": "7d7b341d-d603-48d4-be3e-c052eac70fb8",
+      "author": "home",
+      "text": "Live acceptance agent produced no work for ~1h (transcript never left the prompt). Interrupted. `8fbe6d5` ThinTurn development deploy **succeeded**. Follow-up pm deploy `0a34266` failed `UPDATE_IN_PROGRESS` (raced #329) — operator-only, not a product defect. Restarting the live run against the `8fbe6d5` stack.\n",
+      "created_at": "2026-09-08T15:19:48.221518Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-07T21:31:30.970882Z",
-  "updated_at": "2026-09-08T14:14:02.508177Z",
+  "updated_at": "2026-09-08T15:19:48.221561Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
   "custom": {
     "project_label": "chatticus",
     "source": "shared"
