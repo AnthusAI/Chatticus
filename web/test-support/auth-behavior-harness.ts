@@ -41,6 +41,7 @@ const sessionStorePath =
   join(tmpdir(), "chatticus-auth-harness-session-store.json");
 
 type HarnessState = {
+  cognitoLogoutNavigationUrl: string | null;
   signoutRedirectCalled: boolean;
   signoutRedirectArgs: Record<string, unknown> | null;
   removeUserBeforeRedirect: boolean;
@@ -56,6 +57,7 @@ type HarnessState = {
 
 function emptyState(): HarnessState {
   return {
+    cognitoLogoutNavigationUrl: null,
     signoutRedirectCalled: false,
     signoutRedirectArgs: null,
     removeUserBeforeRedirect: false,
@@ -211,14 +213,19 @@ function expiredSessionToken(): string {
   });
 }
 
-function ensureHarnessWindow(): void {
+function ensureHarnessWindow(state: HarnessState): void {
   if (typeof globalThis.window === "undefined") {
     globalThis.document = { title: "Chatticus" } as Document;
     globalThis.window = {
       localStorage: new FileBackedStorage(loadOidcStore(), saveOidcStore),
       sessionStorage: new FileBackedStorage(loadSessionStore(), saveSessionStore),
       history: { replaceState: () => undefined },
-      location: { pathname: "/chat" },
+      location: {
+        pathname: "/chat",
+        assign: (url: string) => {
+          state.cognitoLogoutNavigationUrl = url;
+        },
+      },
     } as Window & typeof globalThis;
   }
 }
@@ -242,7 +249,7 @@ function harnessOidcMetadata() {
 }
 
 function installMockUserManager(state: HarnessState): void {
-  ensureHarnessWindow();
+  ensureHarnessWindow(state);
   setUserManagerFactoryForTests(() => {
     const settings = buildUserManagerSettings(testConfig);
     const manager = new UserManager({
@@ -289,7 +296,7 @@ function installMockUserManager(state: HarnessState): void {
 function prepareHarness(state: HarnessState): HarnessState {
   resetAuthForTests();
   configureEnv();
-  ensureHarnessWindow();
+  ensureHarnessWindow(state);
   installMockUserManager(state);
   return state;
 }
@@ -371,6 +378,7 @@ async function seedSignOutCallback(): Promise<HarnessState> {
 async function runCompleteSignOut(): Promise<HarnessState> {
   const state = prepareHarness(loadState());
   await completeSignOutRedirect();
+  state.idpSessionValid = true;
   saveState(state);
   return state;
 }
