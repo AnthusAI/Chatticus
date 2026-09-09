@@ -70,10 +70,17 @@
       "text": "Review APPROVE on https://github.com/AnthusAI/Chatticus/pull/344. Did not merge: CI Behave sat in_progress ~40 minutes (Behave since 01:48 UTC; #343 python was 14m32s). Canceled run 34300589110. Implementer reproducing full behave hang; harness subprocess has no timeout.\n",
       "created_at": "2026-09-09T02:24:39.705243Z",
       "comment_type": "default"
+    },
+    {
+      "id": "8bd964f4-dd89-4417-8567-ff47562dd6c1",
+      "author": "home",
+      "text": "Hang cause: harness window.location.assign was only mocked when creating a new window; signOut() then hit live Cognito /logout and tsx never exited. Follow-up on https://github.com/AnthusAI/Chatticus/pull/344 always mocks assign, stops UserManager on harness exit, 30s subprocess timeout. Local full behave ~5m. Re-reviewing that commit; merge after APPROVE + green CI.\n",
+      "created_at": "2026-09-09T02:46:06.504292Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T23:14:20.384423Z",
-  "updated_at": "2026-09-09T02:24:39.705271Z",
+  "updated_at": "2026-09-09T02:46:06.504345Z",
   "closed_at": null,
   "right_now_summary": "A fix is under review to restore Sign Out and prevent the Cognito error page.",
   "right_now_updated_at": "2026-09-08T23:19:49.377391Z",
