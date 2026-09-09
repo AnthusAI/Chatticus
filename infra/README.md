@@ -218,7 +218,9 @@ sh deploy-chatticus-github-deploy.sh
 ```
 
 Copy the role ARN outputs. Do **not** store long-lived `AWS_ACCESS_KEY_ID`
-secrets for deploy workflows; OIDC assumes a role per run.
+secrets for deploy workflows; OIDC assumes a role per run. This is a hard
+control — see `docs/AWS_AUTH.md` for the full policy, verification
+commands, and legacy-key cleanup.
 
 | GitHub environment | IAM role | Stack output for `AWS_DEPLOY_ROLE_ARN` |
 | --- | --- | --- |
