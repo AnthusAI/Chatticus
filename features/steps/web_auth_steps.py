@@ -14,6 +14,7 @@ HARNESS = WEB_DIR / "test-support" / "auth-behavior-harness.ts"
 HARNESS_STATE = REPO_ROOT / ".auth-harness-state.json"
 HARNESS_OIDC_STORE = REPO_ROOT / ".auth-harness-oidc-store.json"
 HARNESS_SESSION_STORE = REPO_ROOT / ".auth-harness-session-store.json"
+HARNESS_TIMEOUT_SECONDS = 30
 
 
 def _tsx_binary() -> Path:
@@ -41,14 +42,20 @@ def _run_harness(command: str, payload: dict | None = None) -> dict:
         "CHATTICUS_AUTH_HARNESS_OIDC_STORE": str(HARNESS_OIDC_STORE),
         "CHATTICUS_AUTH_HARNESS_SESSION_STORE": str(HARNESS_SESSION_STORE),
     }
-    result = subprocess.run(
-        args,
-        cwd=WEB_DIR,
-        capture_output=True,
-        text=True,
-        check=False,
-        env=env,
-    )
+    try:
+        result = subprocess.run(
+            args,
+            cwd=WEB_DIR,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+            timeout=HARNESS_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise AssertionError(
+            f"auth harness timed out after {HARNESS_TIMEOUT_SECONDS}s ({command})"
+        ) from exc
     if result.returncode != 0:
         raise AssertionError(
             f"auth harness failed ({command}): {result.stderr or result.stdout}"
@@ -120,6 +127,36 @@ def when_sign_out_callback_handled(context: object) -> None:
     context.web_auth_harness = _run_harness("complete-sign-out")
 
 
+@then("the web SPA navigates to Cognito hosted UI logout with client_id and logout_uri")
+def then_sign_out_navigates_cognito_logout(context: object) -> None:
+    harness = context.web_auth_harness
+    url = harness.get("cognitoLogoutNavigationUrl")
+    assert url is not None, harness
+    assert "client_id=test-client-id" in url, harness
+    assert (
+        "logout_uri=" in url and "dev.chattic.us%2Fauth%2Fsignout-callback" in url
+    ), harness
+
+
+@then("the Cognito logout URL does not include identity_provider")
+def then_cognito_logout_url_no_identity_provider(context: object) -> None:
+    harness = context.web_auth_harness
+    url = harness.get("cognitoLogoutNavigationUrl") or ""
+    assert "identity_provider" not in url, harness
+
+
+@then("the web SPA does not have a signed-in session")
+def then_no_signed_in_session(context: object) -> None:
+    harness = context.web_auth_harness
+    assert harness.get("sessionPresent") is not True, harness
+
+
+@then("the web SPA did not attempt silent sign-in")
+def then_did_not_attempt_silent_sign_in(context: object) -> None:
+    harness = context.web_auth_harness
+    assert harness.get("signinSilentCalled") is not True, harness
+
+
 @then('the web SPA begins Cognito sign-out redirect with id_token_hint "{token}"')
 def then_sign_out_redirect_with_hint(context: object, token: str) -> None:
     harness = context.web_auth_harness
@@ -150,7 +187,7 @@ def then_sign_out_no_identity_provider(context: object) -> None:
 @then("the web SPA does not clear the session with removeUser only")
 def then_not_remove_user_only(context: object) -> None:
     harness = context.web_auth_harness
-    assert harness.get("signoutRedirectCalled") is True, harness
+    assert harness.get("cognitoLogoutNavigationUrl") is not None, harness
     assert harness.get("removeUserBeforeRedirect") is not True, harness
 
 
