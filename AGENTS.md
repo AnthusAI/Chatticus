@@ -203,6 +203,18 @@ AWS resources exist only as CDK in `infra/`. Do not `aws s3 mb`, create
 clusters, or click a bucket into existence. `cdk bootstrap` and
 `cdk deploy` are the allowed AWS writes.
 
+### IAM access keys (hard control)
+
+Do **not** create IAM users or mint long-lived IAM access keys in this
+repository, in CDK/Terraform/CloudFormation it deploys, or in scripts and
+workflows Chatticus ships. Prefer GitHub OIDC deploy roles
+(`infra/lib/github-deploy-stack.ts`), `sts:AssumeRole` (customer
+cross-account and operator scripts), and Identity Center–compatible
+sessions (`aws login`). Temporary keys forwarded from an existing OIDC or
+AssumeRole session (for example SAM docker bundling) are not minting; storing
+those values as standing GitHub or AWS secrets is. See `docs/AWS_AUTH.md`
+for allowed paths, verification commands, and ops cleanup of legacy keys.
+
 ## Git
 
 This repository is its own git repo. Do not commit Chatticus into the parent

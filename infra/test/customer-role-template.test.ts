@@ -50,6 +50,14 @@ describe("customer-role template publish helper", () => {
     assert.doesNotMatch(roleSection, /s3:[A-Za-z*]+/);
   });
 
+  it("does not grant IAM user or long-lived access key creation", () => {
+    const repoTemplate = readCustomerRoleTemplate();
+    assert.doesNotMatch(repoTemplate, /iam:CreateAccessKey/);
+    assert.doesNotMatch(repoTemplate, /iam:CreateUser/);
+    assert.doesNotMatch(repoTemplate, /AWS::IAM::User/);
+    assert.doesNotMatch(repoTemplate, /AWS::IAM::AccessKey/);
+  });
+
   it("declares a retained organization snapshot bucket with SnapshotBucketName output", () => {
     const repoTemplate = readCustomerRoleTemplate();
     assert.match(repoTemplate, /OrganizationSnapshotBucket:/);

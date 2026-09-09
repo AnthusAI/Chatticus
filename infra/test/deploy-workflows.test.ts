@@ -93,6 +93,14 @@ describe("deploy workflow YAML", () => {
         assert.doesNotMatch(contents, /--all/);
         assert.doesNotMatch(contents, /cdk deploy --all/);
       });
+
+      it("authenticates with GitHub OIDC role assumption only", () => {
+        assert.match(contents, /id-token:\s*write/);
+        assert.match(contents, /configure-aws-credentials@v4/);
+        assert.match(contents, /role-to-assume:/);
+        assert.doesNotMatch(contents, /secrets\.AWS_ACCESS_KEY_ID/);
+        assert.doesNotMatch(contents, /secrets\.AWS_SECRET_ACCESS_KEY/);
+      });
     });
   }
 });
