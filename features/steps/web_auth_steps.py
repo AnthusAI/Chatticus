@@ -120,6 +120,36 @@ def when_sign_out_callback_handled(context: object) -> None:
     context.web_auth_harness = _run_harness("complete-sign-out")
 
 
+@then("the web SPA navigates to Cognito hosted UI logout with client_id and logout_uri")
+def then_sign_out_navigates_cognito_logout(context: object) -> None:
+    harness = context.web_auth_harness
+    url = harness.get("cognitoLogoutNavigationUrl")
+    assert url is not None, harness
+    assert "client_id=test-client-id" in url, harness
+    assert (
+        "logout_uri=" in url and "dev.chattic.us%2Fauth%2Fsignout-callback" in url
+    ), harness
+
+
+@then("the Cognito logout URL does not include identity_provider")
+def then_cognito_logout_url_no_identity_provider(context: object) -> None:
+    harness = context.web_auth_harness
+    url = harness.get("cognitoLogoutNavigationUrl") or ""
+    assert "identity_provider" not in url, harness
+
+
+@then("the web SPA does not have a signed-in session")
+def then_no_signed_in_session(context: object) -> None:
+    harness = context.web_auth_harness
+    assert harness.get("sessionPresent") is not True, harness
+
+
+@then("the web SPA did not attempt silent sign-in")
+def then_did_not_attempt_silent_sign_in(context: object) -> None:
+    harness = context.web_auth_harness
+    assert harness.get("signinSilentCalled") is not True, harness
+
+
 @then('the web SPA begins Cognito sign-out redirect with id_token_hint "{token}"')
 def then_sign_out_redirect_with_hint(context: object, token: str) -> None:
     harness = context.web_auth_harness
@@ -150,7 +180,7 @@ def then_sign_out_no_identity_provider(context: object) -> None:
 @then("the web SPA does not clear the session with removeUser only")
 def then_not_remove_user_only(context: object) -> None:
     harness = context.web_auth_harness
-    assert harness.get("signoutRedirectCalled") is True, harness
+    assert harness.get("cognitoLogoutNavigationUrl") is not None, harness
     assert harness.get("removeUserBeforeRedirect") is not True, harness
 
 
