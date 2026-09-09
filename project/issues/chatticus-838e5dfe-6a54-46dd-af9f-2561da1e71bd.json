@@ -49,10 +49,17 @@
       "text": "Merged https://github.com/AnthusAI/Chatticus/pull/343 as e21a6ac after Composer 2.5 APPROVE and green CI. Deploy Web (development) https://github.com/AnthusAI/Chatticus/actions/runs/34291043213 succeeded. Card stays open until a human Sign Out on dev.chattic.us returns to the workspace signed out, not the Cognito error page.\n",
       "created_at": "2026-09-08T23:34:24.151650Z",
       "comment_type": "default"
+    },
+    {
+      "id": "327eed2c-6b6b-4ee0-ad0f-93ca2bb7ec0b",
+      "author": "home",
+      "text": "Live: after #343, Sign Out returns to the workspace still signed in. logout_uri works (no Cognito error page). restoreVerifiedSession then signinSilent() because the Cognito hosted-UI cookie was not cleared; oidc-client-ts still sends OIDC post_logout_redirect_uri/state/id_token_hint on /logout.\n\nFix: (1) navigate to Cognito /logout with only client_id and logout_uri — do not use oidc-client-ts signoutRedirect for that hop. Callback still removeUser + select_account flag. (2) restoreVerifiedSession must not signinSilent when that flag is set (explicit sign-out). Gherkin: after sign-out, reload does not silently restore. 349634 chooser still required.\n",
+      "created_at": "2026-09-09T01:45:54.217088Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T23:14:20.384423Z",
-  "updated_at": "2026-09-08T23:34:24.151671Z",
+  "updated_at": "2026-09-09T01:45:54.217114Z",
   "closed_at": null,
   "right_now_summary": "A fix is under review to restore Sign Out and prevent the Cognito error page.",
   "right_now_updated_at": "2026-09-08T23:19:49.377391Z",
