@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-305db64b-7b9a-49b9-9586-9a9409764bd3",
+  "title": "Interconnect: Judgment and rules \u2192 Anth.us agent skill for not sounding like AI",
+  "description": "FILE ONLY until Ryan says go \u2014 do not edit live copy yet.\n\nWhen approved, on https://chattic.us/thoughts/judgment-and-rules/ add a natural mention/link to https://anth.us/blog/an-agent-skill-for-not-sounding-like-ai/ (Limatus / Anth.us essay).\n\nWhy: Judgment and rules splits soft model judgment from hard deterministic rules. The Anth.us essay is the published tool that puts publication voice rules on the hard side. The Thoughts post currently has no Anth.us family outbound.\n\nSource: Publicist interconnect (Ryan decision: file only). Owner: Chatticus (Chattic.us-web Thoughts).",
+  "type": "chore",
+  "status": "backlog",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-09T23:43:51.866640Z",
+  "updated_at": "2026-09-09T23:43:52.460452Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
