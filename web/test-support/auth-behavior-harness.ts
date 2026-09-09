@@ -214,20 +214,23 @@ function expiredSessionToken(): string {
 }
 
 function ensureHarnessWindow(state: HarnessState): void {
-  if (typeof globalThis.window === "undefined") {
+  if (typeof globalThis.document === "undefined") {
     globalThis.document = { title: "Chatticus" } as Document;
-    globalThis.window = {
-      localStorage: new FileBackedStorage(loadOidcStore(), saveOidcStore),
-      sessionStorage: new FileBackedStorage(loadSessionStore(), saveSessionStore),
-      history: { replaceState: () => undefined },
-      location: {
-        pathname: "/chat",
-        assign: (url: string) => {
-          state.cognitoLogoutNavigationUrl = url;
-        },
-      },
-    } as Window & typeof globalThis;
   }
+  const localStorage = new FileBackedStorage(loadOidcStore(), saveOidcStore);
+  const sessionStorage = new FileBackedStorage(loadSessionStore(), saveSessionStore);
+  globalThis.window = {
+    ...(typeof globalThis.window === "undefined" ? {} : globalThis.window),
+    localStorage,
+    sessionStorage,
+    history: { replaceState: () => undefined },
+    location: {
+      pathname: "/chat",
+      assign: (url: string) => {
+        state.cognitoLogoutNavigationUrl = url;
+      },
+    },
+  } as Window & typeof globalThis;
 }
 
 function configureEnv(): void {
@@ -394,49 +397,68 @@ async function runReloadWorkspace(): Promise<HarnessState> {
   return state;
 }
 
+async function shutdownHarness(): Promise<void> {
+  try {
+    getUserManager().stopSilentRenew();
+  } catch {
+    // UserManager was never created for this command.
+  }
+  resetAuthForTests();
+}
+
 async function main(): Promise<void> {
   const [command, payloadJson] = process.argv.slice(2);
   let result: HarnessState;
 
-  switch (command) {
-    case "reset":
-      result = resetHarness();
-      break;
-    case "seed-session": {
-      const payload = JSON.parse(payloadJson ?? "{}") as { id_token?: string };
-      result = await seedSession(payload.id_token);
-      break;
+  try {
+    switch (command) {
+      case "reset":
+        result = resetHarness();
+        break;
+      case "seed-session": {
+        const payload = JSON.parse(payloadJson ?? "{}") as { id_token?: string };
+        result = await seedSession(payload.id_token);
+        break;
+      }
+      case "seed-no-session":
+        result = await seedNoSession();
+        break;
+      case "seed-idp-session-only":
+        result = await seedIdpSessionOnly();
+        break;
+      case "seed-expired-with-refresh":
+        result = await seedExpiredWithRefresh();
+        break;
+      case "sign-out":
+        result = await runSignOut();
+        break;
+      case "sign-in":
+        result = await runSignIn();
+        break;
+      case "seed-signout-callback":
+        result = await seedSignOutCallback();
+        break;
+      case "complete-sign-out":
+        result = await runCompleteSignOut();
+        break;
+      case "reload-workspace":
+        result = await runReloadWorkspace();
+        break;
+      default:
+        throw new Error(`Unknown auth harness command: ${command}`);
     }
-    case "seed-no-session":
-      result = await seedNoSession();
-      break;
-    case "seed-idp-session-only":
-      result = await seedIdpSessionOnly();
-      break;
-    case "seed-expired-with-refresh":
-      result = await seedExpiredWithRefresh();
-      break;
-    case "sign-out":
-      result = await runSignOut();
-      break;
-    case "sign-in":
-      result = await runSignIn();
-      break;
-    case "seed-signout-callback":
-      result = await seedSignOutCallback();
-      break;
-    case "complete-sign-out":
-      result = await runCompleteSignOut();
-      break;
-    case "reload-workspace":
-      result = await runReloadWorkspace();
-      break;
-    default:
-      throw new Error(`Unknown auth harness command: ${command}`);
+  } finally {
+    await shutdownHarness();
   }
 
   process.stdout.write(`${JSON.stringify(result)}\n`);
-  process.exit(0);
 }
 
-void main();
+void main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error: unknown) => {
+    console.error(error);
+    process.exit(1);
+  });

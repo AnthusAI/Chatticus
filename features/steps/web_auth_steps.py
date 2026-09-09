@@ -14,6 +14,7 @@ HARNESS = WEB_DIR / "test-support" / "auth-behavior-harness.ts"
 HARNESS_STATE = REPO_ROOT / ".auth-harness-state.json"
 HARNESS_OIDC_STORE = REPO_ROOT / ".auth-harness-oidc-store.json"
 HARNESS_SESSION_STORE = REPO_ROOT / ".auth-harness-session-store.json"
+HARNESS_TIMEOUT_SECONDS = 30
 
 
 def _tsx_binary() -> Path:
@@ -41,14 +42,20 @@ def _run_harness(command: str, payload: dict | None = None) -> dict:
         "CHATTICUS_AUTH_HARNESS_OIDC_STORE": str(HARNESS_OIDC_STORE),
         "CHATTICUS_AUTH_HARNESS_SESSION_STORE": str(HARNESS_SESSION_STORE),
     }
-    result = subprocess.run(
-        args,
-        cwd=WEB_DIR,
-        capture_output=True,
-        text=True,
-        check=False,
-        env=env,
-    )
+    try:
+        result = subprocess.run(
+            args,
+            cwd=WEB_DIR,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+            timeout=HARNESS_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise AssertionError(
+            f"auth harness timed out after {HARNESS_TIMEOUT_SECONDS}s ({command})"
+        ) from exc
     if result.returncode != 0:
         raise AssertionError(
             f"auth harness failed ({command}): {result.stderr or result.stdout}"
