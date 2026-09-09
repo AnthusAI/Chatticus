@@ -204,7 +204,7 @@
   "created_at": "2026-09-01T02:33:10.381126Z",
   "updated_at": "2026-09-05T19:55:23.078724Z",
   "closed_at": null,
-  "right_now_summary": "Phase 4 is live; only Google consent remains, while the Bedrock meter is parked.",
-  "right_now_updated_at": "2026-09-09T13:23:46.080841Z",
+  "right_now_summary": "Phase 4 is live; Google consent remains, while the Bedrock meter waits for Bedrock.",
+  "right_now_updated_at": "2026-09-09T19:59:06.773453Z",
   "custom": {}
 }

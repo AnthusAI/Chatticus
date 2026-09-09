@@ -11,12 +11,7 @@
   "labels": [
     "phase-1"
   ],
-  "dependencies": [
-    {
-      "target": "chatticus-1b3f52",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "f0e06029-8496-493a-8e45-7fcfac905d1a",
@@ -87,12 +82,19 @@
       "text": "Stopped: live Sign in after Sign Out hits Google Error 400 redirect_uri_mismatch. Filed chatticus-1b3f52. Do not count this as a customer person-step. Unattended run waits on that card.\n",
       "created_at": "2026-09-09T19:30:09.167393Z",
       "comment_type": "default"
+    },
+    {
+      "id": "4181c92e-0e22-43a3-88f5-bbc553afc428",
+      "author": "home",
+      "text": "Human cleared the never-created-org Google gate on development. 1b3f52 closed. Reload stays signed in; hourly renew still unlabeled (5e4c9a). Continuing the unattended run from /tmp/chatticus-c54569-unattended. Do not drive create-org as the Anthus owner. Number to beat: 4/6. Stop at first labeled failure. No operator kernel. No ADMIN_NO_SRP_AUTH.\n",
+      "created_at": "2026-09-09T20:22:18.228767Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T18:30:57.683865Z",
-  "updated_at": "2026-09-09T19:30:23.525526Z",
+  "updated_at": "2026-09-09T20:22:18.228797Z",
   "closed_at": null,
-  "right_now_summary": "The team is waiting for the auth fix and web deploy before rerunning the unattended customer journey.",
-  "right_now_updated_at": "2026-09-08T23:20:00.163122Z",
+  "right_now_summary": "The unattended journey stopped at a Google redirect error, which was filed for fixing.",
+  "right_now_updated_at": "2026-09-09T19:57:52.256841Z",
   "custom": {}
 }

@@ -3,7 +3,7 @@
   "title": "Google Sign in Error 400 redirect_uri_mismatch",
   "description": "Live on development 2026-09-09, immediately after Sign Out when signing back in.\n\nGoogle page: You can't sign in because this app sent an invalid request. Error 400: redirect_uri_mismatch.\n\nNot a missing Cognito SpaClient. Sign Out already returns to the workspace signed out. This is Google rejecting the OAuth redirect_uri on the hop Cognito makes to accounts.google.com.\n\nLive stack: SPA bakes https://dev.chattic.us/auth/callback. Cognito authorize is the custom auth domain. Cognito redirects Google with https://auth-dev.chattic.us/oauth2/idpresponse. Server GET of that authorize URL 302s to Google and Google 302s onward, with or without prompt=select_account. After Sign Out the SPA adds prompt=select_account on Cognito authorize; curl shows Cognito does not forward prompt to Google.\n\nNeed the Google error-details redirect_uri. Do not enable ADMIN_NO_SRP_AUTH. Do not put Google client ids, Cognito ids, or AWS account ids on this card.\n\nDone when: Sign in with Google from the signed-out development workspace completes without Google Error 400, including the first Sign in after Sign Out.",
   "type": "bug",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -24,12 +24,19 @@
       "text": "IDE-browser probe on https://dev.chattic.us after Sign Out: Sign in with Google did not show Google Error 400. It completed and restored the previous Google user (no account chooser). Live Cognito to Google idpresponse is accepted for that hop.\n\nThe 400 the human hit is a different redirect_uri than that hop, or a different host than https://dev.chattic.us. Need the Google error-details redirect_uri and the URL they started Sign in from.\n\nSilent same-account restore is not the 349634 chooser. Cognito still does not forward prompt=select_account to Google.\n",
       "created_at": "2026-09-09T19:31:42.991565Z",
       "comment_type": "default"
+    },
+    {
+      "id": "34b80cd5-d5cc-4106-933d-b38c394af5c6",
+      "author": "home",
+      "text": "Live: human signed in at development with a Google account that had never used Chatticus. No Error 400. Closing — not a standing product defect on the Cognito idpresponse hop.\n",
+      "created_at": "2026-09-09T20:22:17.920860Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-09T19:30:00.275065Z",
-  "updated_at": "2026-09-09T19:31:42.991582Z",
-  "closed_at": null,
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "updated_at": "2026-09-09T20:22:18.044113Z",
+  "closed_at": "2026-09-09T20:22:18.044084Z",
+  "right_now_summary": "The error is not reproduced; capture the failing redirect URI and sign-in start URL.",
+  "right_now_updated_at": "2026-09-09T19:58:36.702290Z",
   "custom": {}
 }
