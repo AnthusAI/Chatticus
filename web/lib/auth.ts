@@ -67,31 +67,11 @@ export async function getVerifiedSession(): Promise<VerifiedSession | null> {
   return verifiedSessionFromUser(user);
 }
 
-function selectAccountOnSignInPending(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  return window.sessionStorage.getItem(SELECT_ACCOUNT_ON_SIGNIN_KEY) === "1";
-}
-
-/** Cognito hosted UI logout URL (not OIDC end_session_endpoint). */
-export function cognitoHostedLogoutUrl(config: CognitoConfig): string {
-  const params = new URLSearchParams({
-    client_id: config.clientId,
-    logout_uri: postLogoutRedirectUri(config),
-  });
-  return `https://${config.authDomain}/logout?${params.toString()}`;
-}
-
 /**
  * Restore a verified session on mount: read persisted user, renew silently
  * when claims fail or no user is stored, without surfacing verify errors.
  */
 export async function restoreVerifiedSession(): Promise<VerifiedSession | null> {
-  if (selectAccountOnSignInPending()) {
-    return null;
-  }
-
   const manager = getUserManager();
   const user = await manager.getUser();
   if (user) {
@@ -162,9 +142,14 @@ export async function completeSilentSignInCallback(): Promise<void> {
 export async function signOut(): Promise<void> {
   const user = await getUserManager().getUser();
   if (user?.id_token) {
-    if (typeof window !== "undefined") {
-      window.location.assign(cognitoHostedLogoutUrl(cognitoConfig()));
-    }
+    const config = cognitoConfig();
+    await getUserManager().signoutRedirect({
+      id_token_hint: user.id_token,
+      extraQueryParams: {
+        client_id: config.clientId,
+        logout_uri: postLogoutRedirectUri(config),
+      },
+    });
     return;
   }
   await getUserManager().removeUser();
@@ -172,10 +157,14 @@ export async function signOut(): Promise<void> {
 
 /** Complete the post-logout redirect and clear any remaining persisted state. */
 export async function completeSignOutRedirect(): Promise<void> {
-  await getUserManager().removeUser();
-  markSelectAccountOnSignIn();
-  if (typeof window !== "undefined") {
-    window.history.replaceState({}, document.title, window.location.pathname);
+  try {
+    await getUserManager().signoutRedirectCallback();
+  } finally {
+    await getUserManager().removeUser();
+    markSelectAccountOnSignIn();
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }
 }
 
