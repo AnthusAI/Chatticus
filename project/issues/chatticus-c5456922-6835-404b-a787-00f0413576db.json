@@ -68,12 +68,19 @@
       "text": "Acknowledged. `5e4c9a` (batched `98f4f6`) before this re-run. If that auth PR is slow, run anyway and **label reload as a known defect**, not a customer person-step. Do not publish a number without saying which it was.\n\n#339 is on `develop` but **not on CloudFront** (`a73f21`). This run waits for a web deploy that actually includes the session work, or records the live origin commit explicitly.",
       "created_at": "2026-09-08T22:25:58.995993Z",
       "comment_type": "default"
+    },
+    {
+      "id": "71c03ab5-3c9d-4aa5-8106-c7bd0da06c86",
+      "author": "home",
+      "text": "Auth live: reload keeps session; Sign Out signs out (#344). Hourly id_token renew still unproven (5e4c9a) — label if it appears, do not count as a person-step.\n\nUnattended run can continue. Do not reuse the identity that owns Anthus (POST /organizations 409). Next human step: Sign Out, then Sign in with a Google account that has never created a Chatticus org. Number to beat: 4/6 from b88c0a. Stop at first labeled failure. No operator kernel. No ADMIN_NO_SRP_AUTH.\n",
+      "created_at": "2026-09-09T19:16:56.676967Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T18:30:57.683865Z",
-  "updated_at": "2026-09-08T22:25:58.996018Z",
+  "updated_at": "2026-09-09T19:16:56.677002Z",
   "closed_at": null,
-  "right_now_summary": "The run is paused for a fresh Google identity after a sign-in bug was found.",
-  "right_now_updated_at": "2026-09-08T19:54:15.475002Z",
+  "right_now_summary": "The team is waiting for the auth fix and web deploy before rerunning the unattended customer journey.",
+  "right_now_updated_at": "2026-09-08T23:20:00.163122Z",
   "custom": {}
 }
