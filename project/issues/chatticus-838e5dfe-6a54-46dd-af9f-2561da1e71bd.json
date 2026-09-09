@@ -56,10 +56,17 @@
       "text": "Live: after #343, Sign Out returns to the workspace still signed in. logout_uri works (no Cognito error page). restoreVerifiedSession then signinSilent() because the Cognito hosted-UI cookie was not cleared; oidc-client-ts still sends OIDC post_logout_redirect_uri/state/id_token_hint on /logout.\n\nFix: (1) navigate to Cognito /logout with only client_id and logout_uri — do not use oidc-client-ts signoutRedirect for that hop. Callback still removeUser + select_account flag. (2) restoreVerifiedSession must not signinSilent when that flag is set (explicit sign-out). Gherkin: after sign-out, reload does not silently restore. 349634 chooser still required.\n",
       "created_at": "2026-09-09T01:45:54.217088Z",
       "comment_type": "default"
+    },
+    {
+      "id": "43b30b0f-adda-489f-b27d-c82d11134919",
+      "author": "home",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/344 opened. Direct Cognito /logout (client_id + logout_uri only); restoreVerifiedSession skips signinSilent when the post-sign-out flag is set. Composer 2.5 reviewing. Merge after review + green CI, then watch Deploy Web. Do not close until Sign Out on development leaves the person signed out.\n",
+      "created_at": "2026-09-09T01:51:43.536109Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-08T23:14:20.384423Z",
-  "updated_at": "2026-09-09T01:45:54.217114Z",
+  "updated_at": "2026-09-09T01:51:43.536131Z",
   "closed_at": null,
   "right_now_summary": "A fix is under review to restore Sign Out and prevent the Cognito error page.",
   "right_now_updated_at": "2026-09-08T23:19:49.377391Z",
