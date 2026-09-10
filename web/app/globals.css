@@ -8,6 +8,28 @@
 @tailwind components;
 @tailwind utilities;
 
+.workspace-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .workspace-shell {
+    grid-template-columns: minmax(17rem, 21rem) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .workspace-shell {
+    grid-template-columns: minmax(18rem, 22rem) minmax(28rem, 1fr) minmax(18rem, 22rem);
+  }
+
+  .workspace-shell--collapsed {
+    grid-template-columns: minmax(18rem, 22rem) minmax(28rem, 1fr);
+  }
+}
+
 @layer components {
   .nav-link {
     position: relative;

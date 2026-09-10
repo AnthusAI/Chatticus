@@ -219,10 +219,11 @@ Feature: Channels and the message store
   Scenario: A user's channels can be listed after a Front Door recycle
     Given an empty control plane backed by a durable messaging store with HTTP
     And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has a bot named "Writer"
     When tenant "anthus" user "ryan" opens a channel with bots:
       | Researcher |
     And tenant "anthus" user "ryan" opens a channel with bots:
-      | Researcher |
+      | Writer |
     When a recycled Front Door serves the same messaging store
     Then tenant "anthus" can list channels for user "ryan":
       | 1 |
@@ -265,12 +266,13 @@ Feature: Channels and the message store
   Scenario: A user's active turns can be listed after a Front Door recycle
     Given an empty control plane backed by a durable messaging store with HTTP
     And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has a bot named "Writer"
     When tenant "anthus" user "ryan" opens a channel with bots:
       | Researcher |
     And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
     And tenant "anthus" user "ryan" opens a channel with bots:
-      | Researcher |
-    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Researcher" without enqueueing a turn job
+      | Writer |
+    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Writer" without enqueueing a turn job
     And a recycled Front Door serves the same messaging store
     Then tenant "anthus" can list active turns for user "ryan":
       | 1 |

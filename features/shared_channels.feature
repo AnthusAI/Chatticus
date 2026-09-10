@@ -11,7 +11,12 @@ Feature: Shared organization channels and teammates
       | sam@example.com  |
 
   Scenario: Two organization members read and post in one shared channel
-    Given organization "Anthus Labs" has shared channel "general"
+    Given organization "Anthus Labs" has organization bots:
+      | Researcher |
+      | Writer     |
+    And organization "Anthus Labs" has shared channel "general" with organization bots:
+      | Researcher |
+      | Writer     |
     When "ryan@example.com" posts "hello from ryan" in shared channel "general"
     And "sam@example.com" posts "hello from sam" in shared channel "general"
     Then "ryan@example.com" can read 2 messages in shared channel "general"

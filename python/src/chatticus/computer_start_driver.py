@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from chatticus.control_plane import ControlPlane
-from chatticus.models import ActorKind
+from chatticus.models import ActorKind, ChannelKind
 
 
 @dataclass
@@ -123,7 +123,11 @@ class SingleComputerStartDriver:
             self.tenant_id, "Writer", creator_user_id=self.user_id
         )
         channel = self.plane.create_channel(
-            self.tenant_id, self.user_id, [researcher.bot_id, writer.bot_id]
+            self.tenant_id,
+            self.user_id,
+            [researcher.bot_id, writer.bot_id],
+            kind=ChannelKind.NAMED,
+            name="Computer start coordination",
         )
         _, first = self.plane.post_channel_message(
             channel.channel_id,

@@ -189,7 +189,12 @@ class ThinTurnConversationClient:
         """Open a channel with POST /channels."""
         response = self._client.post(
             self._org("/channels"),
-            json={"user_id": self.user_id, "bot_ids": bot_ids},
+            json={
+                "user_id": self.user_id,
+                "bot_ids": bot_ids,
+                "kind": "direct",
+                "name": None,
+            },
             headers=self._merged_headers({"Idempotency-Key": str(uuid4())}),
         )
         if response.status_code >= 400:
@@ -199,16 +204,7 @@ class ThinTurnConversationClient:
         return response.json()
 
     def find_or_open_channel(self, bot_id: str) -> dict[str, Any]:
-        """Reuse the first channel that already includes the bot, or open one."""
-        for channel in self.list_channels():
-            participants = channel.get("participants") or []
-            actor_ids = {
-                row.get("actor_id")
-                for row in participants
-                if row.get("kind") in (ActorKind.BOT, "bot")
-            }
-            if bot_id in actor_ids:
-                return channel
+        """Open the bot's canonical direct channel."""
         return self.open_channel([bot_id])
 
     def post_message(

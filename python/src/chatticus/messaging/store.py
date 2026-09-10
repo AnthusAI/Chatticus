@@ -23,6 +23,7 @@ from chatticus.models import (
     AwsSetupPath,
     Bot,
     Channel,
+    ChannelKind,
     ChannelParticipant,
     Computer,
     ComputerPolicy,
@@ -144,6 +145,9 @@ class MessagingStore(Protocol):
 
     def put_channel(self, channel: Channel) -> None:
         """Persist channel metadata."""
+
+    def put_channel_if_absent(self, channel: Channel) -> Channel:
+        """Persist a new canonical channel or return the existing identity."""
 
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         """Load one channel."""
@@ -516,6 +520,15 @@ class InMemoryMessagingStore:
 
     def put_channel(self, channel: Channel) -> None:
         self._channels[(channel.tenant_id, channel.channel_id)] = channel
+
+    def put_channel_if_absent(self, channel: Channel) -> Channel:
+        with self._lock:
+            key = (channel.tenant_id, channel.channel_id)
+            existing = self._channels.get(key)
+            if existing is not None:
+                return existing
+            self._channels[key] = channel
+            return channel
 
     def get_channel(self, tenant_id: str, channel_id: str) -> Channel | None:
         return self._channels.get((tenant_id, channel_id))
@@ -1157,15 +1170,45 @@ class DynamoMessagingStore:
     def put_channel(self, channel: Channel) -> None:
         self.client.put_item(
             TableName=self.table_name,
-            Item={
-                "pk": {"S": self._channel_pk(channel.tenant_id, channel.channel_id)},
-                "sk": {"S": "meta"},
-                "tenant_id": {"S": channel.tenant_id},
-                "channel_id": {"S": channel.channel_id},
-                "next_seq": {"N": str(channel.next_seq)},
-                "participants": {"S": json.dumps(_participants_payload(channel))},
-            },
+            Item=self._channel_item(channel),
         )
+        self._put_channel_indexes(channel)
+
+    def put_channel_if_absent(self, channel: Channel) -> Channel:
+        try:
+            self.client.put_item(
+                TableName=self.table_name,
+                Item=self._channel_item(channel),
+                ConditionExpression="attribute_not_exists(pk)",
+            )
+        except Exception as error:
+            if getattr(error, "response", {}).get("Error", {}).get("Code") != (
+                "ConditionalCheckFailedException"
+            ):
+                raise
+            existing = self.get_channel(channel.tenant_id, channel.channel_id)
+            if existing is None:
+                raise
+            self._put_channel_indexes(existing)
+            return existing
+        self._put_channel_indexes(channel)
+        return channel
+
+    def _channel_item(self, channel: Channel) -> dict[str, Any]:
+        item = {
+            "pk": {"S": self._channel_pk(channel.tenant_id, channel.channel_id)},
+            "sk": {"S": "meta"},
+            "tenant_id": {"S": channel.tenant_id},
+            "channel_id": {"S": channel.channel_id},
+            "kind": {"S": str(channel.kind)},
+            "next_seq": {"N": str(channel.next_seq)},
+            "participants": {"S": json.dumps(_participants_payload(channel))},
+        }
+        if channel.name is not None:
+            item["name"] = {"S": channel.name}
+        return item
+
+    def _put_channel_indexes(self, channel: Channel) -> None:
         self.client.put_item(
             TableName=self.table_name,
             Item={
@@ -1211,6 +1254,8 @@ class DynamoMessagingStore:
         return Channel(
             channel_id=item["channel_id"]["S"],
             tenant_id=item["tenant_id"]["S"],
+            kind=ChannelKind(item["kind"]["S"]),
+            name=item.get("name", {}).get("S"),
             participants=participants,
             next_seq=int(item["next_seq"]["N"]),
         )

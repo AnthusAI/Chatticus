@@ -10,7 +10,7 @@ from browser_auth_helpers import cognito_test_keys, wire_test_http_front_door
 from cognito_test_support import mint_id_token
 
 from chatticus.http.paths import org_path
-from chatticus.models import ActorKind, ChannelParticipant
+from chatticus.models import ActorKind, ChannelKind, ChannelParticipant
 
 NOW = datetime(2026, 8, 31, 12, 0, 0, tzinfo=UTC)
 
@@ -117,7 +117,21 @@ def given_organization_shared_channel(
 ) -> None:
     org = _org(context, name)
     owner_id = _user_id(context, _member_emails(context)[0])
-    channel = context.plane.create_channel(org.tenant_id, owner_id, [])
+    bot_ids = []
+    for suffix in ("Coordinator", "Reviewer"):
+        bot_name = f"{channel_name} {suffix}"
+        bot = context.plane.create_bot(
+            org.tenant_id, bot_name, creator_user_id=owner_id
+        )
+        context.bots_by_name[bot_name] = bot
+        bot_ids.append(bot.bot_id)
+    channel = context.plane.create_channel(
+        org.tenant_id,
+        owner_id,
+        bot_ids,
+        kind=ChannelKind.NAMED,
+        name=channel_name,
+    )
     _store_shared_channel(
         context,
         channel_name,
@@ -149,7 +163,13 @@ def given_organization_shared_channel_with_bots(
     org = _org(context, name)
     owner_id = _user_id(context, _member_emails(context)[0])
     bot_ids = _bot_ids_from_table(context, context.table)
-    channel = context.plane.create_channel(org.tenant_id, owner_id, bot_ids)
+    channel = context.plane.create_channel(
+        org.tenant_id,
+        owner_id,
+        bot_ids,
+        kind=ChannelKind.NAMED,
+        name=channel_name,
+    )
     _store_shared_channel(
         context,
         channel_name,

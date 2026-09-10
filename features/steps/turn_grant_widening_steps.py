@@ -129,7 +129,12 @@ def given_started_turn_with_conversation_grant(
     )
     response = context.api_client.post(
         org_path(tenant_id, "/channels"),
-        json={"user_id": actor_user_id, "bot_ids": [bot.bot_id]},
+        json={
+            "user_id": actor_user_id,
+            "bot_ids": [bot.bot_id],
+            "kind": "direct",
+            "name": None,
+        },
         headers=auth_headers,
     )
     assert response.status_code == 200, response.text

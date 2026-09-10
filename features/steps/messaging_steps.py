@@ -32,6 +32,30 @@ from chatticus.worker.computerless import (
 )
 
 
+def _channel_identity_payload(
+    context: object,
+    tenant_id: str,
+    user_id: str,
+    *,
+    kind: str,
+    bot_names: list[str],
+    name: str | None = None,
+) -> dict[str, object]:
+    response = context.api_client.post(
+        org_path(tenant_id, "/channels"),
+        json={
+            "user_id": user_id,
+            "kind": kind,
+            "name": name,
+            "bot_ids": [
+                context.bots_by_name[bot_name].bot_id for bot_name in bot_names
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
 def _channel(context: object) -> object:
     if context.last_channel is None:
         raise AssertionError("No channel is open in this scenario.")
@@ -43,6 +67,128 @@ def _bot_ids(context: object, table: object) -> list[str]:
     names.extend(row.cells[0].strip() for row in table)
     names = [name for name in names if name]
     return [context.bots_by_name[name].bot_id for name in names]
+
+
+@when('tenant "{tenant_id}" user "{user_id}" opens a direct channel with bot "{name}"')
+def when_open_direct_channel(
+    context: object, tenant_id: str, user_id: str, name: str
+) -> None:
+    payload = _channel_identity_payload(
+        context,
+        tenant_id,
+        user_id,
+        kind="direct",
+        bot_names=[name],
+    )
+    context.direct_channel_payloads = [
+        *getattr(context, "direct_channel_payloads", []),
+        payload,
+    ]
+
+
+@when(
+    'tenant "{tenant_id}" user "{user_id}" creates named channel '
+    '"{channel_name}" with bots:'
+)
+def when_create_named_channel(
+    context: object, tenant_id: str, user_id: str, channel_name: str
+) -> None:
+    bot_names = [context.table.headings[0].strip()] if context.table.headings else []
+    bot_names.extend(row.cells[0].strip() for row in context.table)
+    context.named_channel_payload = _channel_identity_payload(
+        context,
+        tenant_id,
+        user_id,
+        kind="named",
+        name=channel_name,
+        bot_names=[name for name in bot_names if name],
+    )
+
+
+@then("both direct channel opens return the same channel identifier")
+def then_direct_channel_identifier_is_canonical(context: object) -> None:
+    payloads = context.direct_channel_payloads
+    assert len(payloads) == 2
+    assert payloads[0]["channel_id"] == payloads[1]["channel_id"]
+
+
+@given('a canonical direct channel already exists under identifier "{channel_id}"')
+def given_existing_canonical_direct_channel(context: object, channel_id: str) -> None:
+    researcher = context.bots_by_name["Researcher"]
+    from chatticus.models import Channel, ChannelKind, ChannelParticipant
+
+    context.plane._messaging_store.put_channel(
+        Channel(
+            channel_id=channel_id,
+            tenant_id="anthus",
+            kind=ChannelKind.DIRECT,
+            participants=[
+                ChannelParticipant(kind=ActorKind.HUMAN, actor_id="ryan"),
+                ChannelParticipant(kind=ActorKind.BOT, actor_id=researcher.bot_id),
+            ],
+        )
+    )
+
+
+@then('the direct channel open returns identifier "{channel_id}"')
+def then_direct_channel_identifier(context: object, channel_id: str) -> None:
+    assert context.direct_channel_payloads[-1]["channel_id"] == channel_id
+
+
+@then(
+    'the direct channel is unnamed with exactly user "{user_id}" and bot "{bot_name}"'
+)
+def then_direct_channel_has_canonical_identity(
+    context: object, user_id: str, bot_name: str
+) -> None:
+    payload = context.direct_channel_payloads[-1]
+    assert payload["kind"] == "direct"
+    assert payload["name"] is None
+    assert payload["participants"] == [
+        {"kind": ActorKind.HUMAN, "actor_id": user_id},
+        {
+            "kind": ActorKind.BOT,
+            "actor_id": context.bots_by_name[bot_name].bot_id,
+        },
+    ]
+
+
+@then('tenant "{tenant_id}" user "{user_id}" lists one direct channel')
+def then_user_lists_one_direct_channel(
+    context: object, tenant_id: str, user_id: str
+) -> None:
+    response = context.api_client.get(org_path(tenant_id, f"/users/{user_id}/channels"))
+    assert response.status_code == 200, response.text
+    channels = response.json()["channels"]
+    assert len(channels) == 1
+    assert channels[0]["kind"] == "direct"
+
+
+@then('tenant "{tenant_id}" user "{user_id}" lists these channel identities:')
+def then_user_lists_channel_identities(
+    context: object, tenant_id: str, user_id: str
+) -> None:
+    response = context.api_client.get(org_path(tenant_id, f"/users/{user_id}/channels"))
+    assert response.status_code == 200, response.text
+    channels = response.json()["channels"]
+    actual = []
+    for channel in channels:
+        bot_names = sorted(
+            context.plane.bot(tenant_id, participant["actor_id"]).name
+            for participant in channel["participants"]
+            if participant["kind"] == ActorKind.BOT
+        )
+        actual.append(
+            {
+                "kind": channel["kind"],
+                "name": channel["name"] or "",
+                "bots": ", ".join(bot_names),
+            }
+        )
+    expected = [dict(row.items()) for row in context.table]
+    assert sorted(actual, key=lambda row: (row["kind"], row["name"])) == sorted(
+        expected, key=lambda row: (row["kind"], row["name"])
+    )
 
 
 def _capabilities_from_table(table: object) -> frozenset[str]:
@@ -143,7 +289,12 @@ def when_open_channel(context: object, tenant_id: str, user_id: str) -> None:
     bot_ids = _bot_ids(context, context.table)
     response = context.api_client.post(
         org_path(tenant_id, "/channels"),
-        json={"user_id": user_id, "bot_ids": bot_ids},
+        json={
+            "user_id": user_id,
+            "bot_ids": bot_ids,
+            "kind": "direct" if len(bot_ids) == 1 else "named",
+            "name": None if len(bot_ids) == 1 else "Scenario channel",
+        },
     )
     assert response.status_code == 200
     ensure_messaging_user_membership(context.plane, tenant_id, user_id)
@@ -167,7 +318,12 @@ def when_open_channel_with_idempotency(
     previous = getattr(context, "idempotent_channel_id", None)
     response = context.api_client.post(
         org_path(tenant_id, "/channels"),
-        json={"user_id": user_id, "bot_ids": bot_ids},
+        json={
+            "user_id": user_id,
+            "bot_ids": bot_ids,
+            "kind": "direct" if len(bot_ids) == 1 else "named",
+            "name": None if len(bot_ids) == 1 else "Scenario channel",
+        },
         headers={"Idempotency-Key": key},
     )
     assert response.status_code == 200
@@ -197,7 +353,12 @@ def given_channel_with_named_bot(
     bot = context.bots_by_name[name]
     response = context.api_client.post(
         org_path(tenant_id, "/channels"),
-        json={"user_id": user_id, "bot_ids": [bot.bot_id]},
+        json={
+            "user_id": user_id,
+            "bot_ids": [bot.bot_id],
+            "kind": "direct",
+            "name": None,
+        },
     )
     assert response.status_code == 200
     ensure_messaging_user_membership(context.plane, tenant_id, user_id)

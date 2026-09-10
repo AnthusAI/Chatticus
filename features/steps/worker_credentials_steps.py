@@ -148,7 +148,12 @@ def when_worker_token_on_browser_route(context: object) -> None:
     headers = worker_auth_headers(context, context.last_worker_id)
     context.browser_route_response = context.api_client.post(
         org_path("anthus", "/channels"),
-        json={"user_id": "ryan", "bot_ids": []},
+        json={
+            "user_id": "ryan",
+            "bot_ids": ["not-authorized"],
+            "kind": "direct",
+            "name": None,
+        },
         headers=headers,
     )
 

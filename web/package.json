@@ -13,6 +13,7 @@
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-avatar": "^1.1.10",
+    "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-slot": "^1.2.3",
     "anthus-vultus": "https://github.com/AnthusAI/Vultus/archive/a3b6fd17341af58bb2d517b1ccf4385f19d28f72.tar.gz",
     "class-variance-authority": "^0.7.1",

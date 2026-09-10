@@ -21,7 +21,7 @@ function ShellHeader() {
 }
 
 export function MembershipShell() {
-  const { authLoading, meLoading, branch, activeOrg, error, me } = useMembership();
+  const { authLoading, meLoading, branch, activeOrg, error, me, session, signOut } = useMembership();
   const signupMode = readSignupModeFromEnv();
 
   if (authLoading || (branch !== "signed-out" && meLoading)) {
@@ -39,6 +39,17 @@ export function MembershipShell() {
         <ShellHeader />
         <SignInPanel />
       </main>
+    );
+  }
+
+  if (branch === "enabled" && activeOrg) {
+    return (
+      <EnabledWorkspace
+        activeOrg={activeOrg}
+        organizations={me?.organizations ?? []}
+        sessionEmail={session?.email ?? null}
+        onSignOut={signOut}
+      />
     );
   }
 
@@ -60,12 +71,6 @@ export function MembershipShell() {
       ) : null}
       {branch === "pending" ? (
         <WelcomeOrganizationPanel organizations={me?.organizations ?? []} />
-      ) : null}
-      {branch === "enabled" && activeOrg ? (
-        <EnabledWorkspace
-          activeOrg={activeOrg}
-          organizations={me?.organizations ?? []}
-        />
       ) : null}
     </main>
   );

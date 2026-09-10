@@ -20,12 +20,44 @@ export type Channel = {
   channel_id: string;
   tenant_id: string;
   user_id: string;
+  kind: "direct" | "named";
+  name: string | null;
+  participants: Array<{ kind: "human" | "bot"; actor_id: string }>;
+  next_seq?: number;
 };
 
 export type PostMessageResponse = {
-  message_id: string;
+  message: Message;
   turn_id: string | null;
+};
+
+export type Message = {
+  message_id: string;
+  channel_id: string;
+  tenant_id: string;
   seq: number;
+  author_kind: "human" | "bot";
+  author_id: string;
+  body: string;
+  addressed_to_bot_id: string | null;
+  created_at: string;
+};
+
+export type Turn = {
+  turn_id: string;
+  tenant_id: string;
+  channel_id: string;
+  bot_id: string;
+  status: "active" | "completed" | "failed" | "reconciling";
+  waiting_for: string | null;
+};
+
+export type Computer = {
+  computer_id: string;
+  tenant_id: string;
+  stopped: boolean;
+  policy: string;
+  host_start_generation: number;
 };
 
 export type TurnEvent = {
@@ -99,15 +131,59 @@ export async function createBot(org: ActiveOrg, name: string): Promise<Bot> {
 export async function createChannel(
   org: ActiveOrg,
   botIds: string[],
+  name?: string,
 ): Promise<Channel> {
   const response = await fetch(`${apiBase}${orgApiPath(org.tenantId, "/channels")}`, {
     method: "POST",
     headers: await authorizedHeaders({
       "Content-Type": "application/json",
+      "Idempotency-Key": crypto.randomUUID(),
     }),
-    body: JSON.stringify({ user_id: org.userId, bot_ids: botIds }),
+    body: JSON.stringify({
+      user_id: org.userId,
+      bot_ids: botIds,
+      kind: name ? "named" : "direct",
+      name: name?.trim() || null,
+    }),
   });
   return readJson<Channel>(response);
+}
+
+export async function listChannels(org: ActiveOrg): Promise<Channel[]> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/users/${encodeURIComponent(org.userId)}/channels`)}`,
+    { headers: await authorizedHeaders() },
+  );
+  const body = await readJson<{ channels: Channel[] }>(response);
+  return body.channels;
+}
+
+export async function listMessages(org: ActiveOrg, channelId: string): Promise<Message[]> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/messages`)}`,
+    { headers: await authorizedHeaders() },
+  );
+  const body = await readJson<{ messages: Message[] }>(response);
+  return body.messages;
+}
+
+export async function getActiveTurn(org: ActiveOrg, channelId: string): Promise<Turn | null> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/turn`)}`,
+    { headers: await authorizedHeaders() },
+  );
+  if (response.status === 404) {
+    return null;
+  }
+  return readJson<Turn>(response);
+}
+
+export async function getComputer(org: ActiveOrg): Promise<Computer> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/users/${encodeURIComponent(org.userId)}/computer`)}`,
+    { headers: await authorizedHeaders() },
+  );
+  return readJson<Computer>(response);
 }
 
 export async function postMessage(
