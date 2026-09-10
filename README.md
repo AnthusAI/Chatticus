@@ -70,24 +70,26 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-09-09.** Git **`develop`** is ahead of **`main`** (last
+**Last updated: 2026-09-10.** Git **`develop`** is ahead of **`main`** (last
 promote: #303). Principal enforcement (#7b4616), sign-out ending the SSO session
 (#169), and the behavior-driven spec migration are on `main` and deployed across
 all three named environments. Phase 1 org-computer work (#304, #306, #308) lands
 on `develop` first and promotes to `main` for release.
 
-### Implemented locally, not yet merged or deployed
+### Real workspace deployed to development
 
-The `codex/real-chatticus-workspace-develop` branch contains the first real
-application workspace milestone. It provides a full-viewport responsive shell,
-a unified roster of persistent bots and named multi-bot channels, durable
-conversation history, active-turn recovery and turn-scoped streaming, and a
-collapsible inspector backed by current computer and task data. Direct bot
-conversations have canonical identity; named channels store their name and
-participants and expose an addressed-bot selector.
+PR #346 squash-merged into `develop` as
+`3fb29a57457df450a2f27d120ca9f126c279e6f1`. The development Web, ThinTurn,
+and Auth deployment workflows are green. The first real application workspace
+milestone provides a full-viewport responsive shell, a unified roster of
+persistent bots and named multi-bot channels, durable conversation history,
+active-turn recovery and turn-scoped streaming, and a collapsible inspector
+backed by current computer and task data. Direct bot conversations have
+canonical identity; named channels store their name and participants and expose
+an addressed-bot selector.
 
-This work is still under local verification. It is **not** on `develop` and has
-not been verified on `dev.chattic.us`. The development audit found 180 legacy
+Authenticated live browser verification at `dev.chattic.us` is pending because
+the available browser is signed out. The development audit found 180 legacy
 channel rows: 178 direct candidates, no multi-bot named candidates, two
 human-only invalid empty channels, and one duplicate direct identity for
 AcceptLoopBot spanning five channels and 12 messages. The one-pass migration was
