@@ -125,6 +125,8 @@ def _channel_delete_operations(
     channel: LegacyChannelClassification,
     *,
     message_items: list[dict[str, Any]],
+    expected_next_seq: int | None = None,
+    require_no_active_turn: bool = False,
 ) -> list[dict[str, Any]]:
     deletes = [
         {
@@ -135,19 +137,28 @@ def _channel_delete_operations(
         }
         for item in message_items
     ]
+    metadata_delete: dict[str, Any] = {
+        "TableName": table_name,
+        "Key": {
+            "pk": {"S": f"{channel.tenant_id}#channel#{channel.channel_id}"},
+            "sk": {"S": "meta"},
+        },
+    }
+    if expected_next_seq is not None:
+        metadata_delete.update(
+            {
+                "ConditionExpression": (
+                    "next_seq = :expected AND attribute_not_exists(#kind)"
+                ),
+                "ExpressionAttributeNames": {"#kind": "kind"},
+                "ExpressionAttributeValues": {
+                    ":expected": {"N": str(expected_next_seq)}
+                },
+            }
+        )
     deletes.extend(
         [
-            {
-                "Delete": {
-                    "TableName": table_name,
-                    "Key": {
-                        "pk": {
-                            "S": f"{channel.tenant_id}#channel#{channel.channel_id}"
-                        },
-                        "sk": {"S": "meta"},
-                    },
-                }
-            },
+            {"Delete": metadata_delete},
             {
                 "Delete": {
                     "TableName": table_name,
@@ -168,6 +179,21 @@ def _channel_delete_operations(
             },
         ]
     )
+    if require_no_active_turn:
+        deletes.append(
+            {
+                "ConditionCheck": {
+                    "TableName": table_name,
+                    "Key": {
+                        "pk": {
+                            "S": f"{channel.tenant_id}#channel#{channel.channel_id}"
+                        },
+                        "sk": {"S": "active_turn"},
+                    },
+                    "ConditionExpression": "attribute_not_exists(pk)",
+                }
+            }
+        )
     return deletes
 
 
@@ -214,12 +240,21 @@ def _merge_duplicate_direct_channels(
             raise ValueError(
                 f"channel {source.channel_id!r} has an active turn and cannot be merged"
             )
+        source_metadata = client.get_item(
+            TableName=table_name,
+            Key={
+                "pk": {"S": f"{source.tenant_id}#channel#{source.channel_id}"},
+                "sk": {"S": "meta"},
+            },
+        )["Item"]
+        source_next_seq = int(source_metadata["next_seq"]["N"])
         source_messages = _message_items(client, table_name, source)
         if len(source_messages) > 10:
             raise ValueError(
                 f"channel {source.channel_id!r} has too many messages for one "
                 "atomic duplicate merge"
             )
+        expected_canonical_next_seq = next_seq
         writes: list[dict[str, Any]] = []
         for item in source_messages:
             copied = dict(item)
@@ -233,7 +268,11 @@ def _merge_duplicate_direct_channels(
             TransactItems=[
                 *writes,
                 *_channel_delete_operations(
-                    table_name, source, message_items=source_messages
+                    table_name,
+                    source,
+                    message_items=source_messages,
+                    expected_next_seq=source_next_seq,
+                    require_no_active_turn=True,
                 ),
                 {
                     "Update": {
@@ -241,8 +280,10 @@ def _merge_duplicate_direct_channels(
                         "Key": metadata_key,
                         "UpdateExpression": "SET next_seq = :next_seq",
                         "ExpressionAttributeValues": {
-                            ":next_seq": {"N": str(next_seq)}
+                            ":next_seq": {"N": str(next_seq)},
+                            ":expected": {"N": str(expected_canonical_next_seq)},
                         },
+                        "ConditionExpression": "next_seq = :expected",
                     }
                 },
             ],

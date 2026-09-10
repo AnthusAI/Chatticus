@@ -4,6 +4,7 @@ import json
 
 import boto3
 import pytest
+from botocore.exceptions import ClientError
 from moto import mock_aws
 
 from chatticus.channel_migration import (
@@ -168,3 +169,52 @@ def test_duplicate_direct_merge_rejects_an_active_source_turn() -> None:
         TableName=table_name,
         Key={"pk": {"S": "anthus#channel#source"}, "sk": {"S": "meta"}},
     ).get("Item")
+
+
+@mock_aws
+def test_duplicate_direct_merge_rechecks_active_turn_in_transaction() -> None:
+    table_name = "racing-active-channel-migration"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    channels = []
+    for channel_id in ("canonical", "source"):
+        item = _item(channel_id, ["researcher"])
+        item.update(
+            {
+                "pk": {"S": f"anthus#channel#{channel_id}"},
+                "sk": {"S": "meta"},
+                "next_seq": {"N": "1"},
+            }
+        )
+        client.put_item(TableName=table_name, Item=item)
+        channels.append(classify_legacy_channel(item))
+
+    class RacingClient:
+        def __getattr__(self, name: str) -> object:
+            return getattr(client, name)
+
+        def transact_write_items(self, **request: object) -> object:
+            client.put_item(
+                TableName=table_name,
+                Item={
+                    "pk": {"S": "anthus#channel#source"},
+                    "sk": {"S": "active_turn"},
+                    "turn_id": {"S": "turn-raced"},
+                },
+            )
+            return client.transact_write_items(**request)
+
+    with pytest.raises(ClientError, match="TransactionCanceledException"):
+        _merge_duplicate_direct_channels(
+            RacingClient(), table_name, channels, "canonical"
+        )
+
+    assert client.get_item(
+        TableName=table_name,
+        Key={"pk": {"S": "anthus#channel#source"}, "sk": {"S": "meta"}},
+    ).get("Item")
+    canonical = client.get_item(
+        TableName=table_name,
+        Key={"pk": {"S": "anthus#channel#canonical"}, "sk": {"S": "meta"}},
+    )["Item"]
+    assert canonical["next_seq"]["N"] == "1"
