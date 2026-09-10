@@ -13,12 +13,17 @@ from chatticus.models import ChannelTenantMismatchError
     "with bots:"
 )
 def when_post_org_channels(context: object, tenant_id: str, user_id: str) -> None:
-    bot_ids = [
-        context.bots_by_name[row.cells[0].strip()].bot_id for row in context.table
-    ]
+    bot_names = [heading.strip() for heading in context.table.headings]
+    bot_names.extend(row.cells[0].strip() for row in context.table)
+    bot_ids = [context.bots_by_name[name].bot_id for name in bot_names]
     response = context.api_client.post(
         org_path(tenant_id, "/channels"),
-        json={"user_id": user_id, "bot_ids": bot_ids},
+        json={
+            "user_id": user_id,
+            "bot_ids": bot_ids,
+            "kind": "direct" if len(bot_ids) == 1 else "named",
+            "name": None if len(bot_ids) == 1 else "Scenario channel",
+        },
     )
     context.last_http_response = response
     if response.status_code == 200:

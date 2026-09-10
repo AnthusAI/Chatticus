@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from chatticus.approval_binding import (
     ApprovalBindingGate,
@@ -110,6 +110,7 @@ from chatticus.models import (
     AwsSetupPath,
     Bot,
     Channel,
+    ChannelKind,
     ChannelNotFoundError,
     ChannelParticipant,
     ChannelTenantMismatchError,
@@ -124,6 +125,7 @@ from chatticus.models import (
     DuplicateBotNameError,
     GrantExceedsMemberStandingError,
     Identity,
+    InvalidChannelIdentityError,
     Invitation,
     MemberRole,
     Membership,
@@ -2945,18 +2947,36 @@ class ControlPlane:
         self,
         tenant_id: str,
         user_id: str,
-        bot_ids: list[str] | None = None,
+        bot_ids: list[str],
         *,
+        kind: ChannelKind = ChannelKind.DIRECT,
+        name: str | None = None,
         idempotency_key: str | None = None,
     ) -> Channel:
-        """Open a channel for a user and the given bots.
+        """Open a canonical direct or named channel.
 
-        The human is always a participant. Each bot must belong to the same
-        tenant and user.
+        A direct channel is deterministically identified by tenant, human, and
+        bot. A named channel has a stored name and at least two bots.
 
         :raises KeyError: If a bot id is unknown.
         :raises ActorNotInChannelError: If a bot belongs to another user.
+        :raises InvalidChannelIdentityError: If kind, name, or participants are
+            not canonical.
         """
+        unique_bot_ids = list(dict.fromkeys(bot_ids))
+        normalized_name = name.strip() if name is not None else None
+        if kind == ChannelKind.DIRECT:
+            if len(unique_bot_ids) != 1 or normalized_name is not None:
+                raise InvalidChannelIdentityError(
+                    "A direct channel requires exactly one bot and no name."
+                )
+        elif kind == ChannelKind.NAMED:
+            if len(unique_bot_ids) < 2 or not normalized_name:
+                raise InvalidChannelIdentityError(
+                    "A named channel requires a name and at least two bots."
+                )
+        else:
+            raise InvalidChannelIdentityError(f"Unknown channel kind {kind!r}.")
         if idempotency_key is not None:
             cached = self._messaging_store.get_channel_idempotency(
                 tenant_id, idempotency_key
@@ -2964,19 +2984,40 @@ class ControlPlane:
             if cached is not None:
                 return cached
         participants = [ChannelParticipant(kind=ActorKind.HUMAN, actor_id=user_id)]
-        for bot_id in bot_ids or []:
+        for bot_id in unique_bot_ids:
             bot = self._bot(tenant_id, bot_id)
             if bot.tenant_id != tenant_id:
                 raise ActorNotInChannelError(
                     f"Bot {bot_id!r} does not belong to tenant {tenant_id!r}."
                 )
             participants.append(ChannelParticipant(kind=ActorKind.BOT, actor_id=bot_id))
+        if kind == ChannelKind.DIRECT:
+            for existing in self._messaging_store.list_channels(tenant_id, user_id):
+                existing_bot_ids = [
+                    participant.actor_id
+                    for participant in existing.participants
+                    if participant.kind == ActorKind.BOT
+                ]
+                if (
+                    existing.kind == ChannelKind.DIRECT
+                    and existing_bot_ids == unique_bot_ids
+                ):
+                    return existing
+        channel_id = str(uuid4())
+        if kind == ChannelKind.DIRECT:
+            identity = json.dumps([tenant_id, user_id, unique_bot_ids[0]])
+            channel_id = str(uuid5(NAMESPACE_URL, f"chatticus:direct:{identity}"))
         channel = Channel(
-            channel_id=str(uuid4()),
+            channel_id=channel_id,
             tenant_id=tenant_id,
+            kind=kind,
+            name=normalized_name,
             participants=participants,
         )
-        self._messaging_store.put_channel(channel)
+        if kind == ChannelKind.DIRECT:
+            channel = self._messaging_store.put_channel_if_absent(channel)
+        else:
+            self._messaging_store.put_channel(channel)
         if idempotency_key is not None:
             self._messaging_store.put_channel_idempotency(
                 tenant_id, idempotency_key, channel

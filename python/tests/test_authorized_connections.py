@@ -90,7 +90,8 @@ def test_borrowed_standing_is_not_part_of_receiver_ceiling() -> None:
         CONNECTION_STANDING_ACTION_TYPE,
         arguments={"channel": "support-queue", "receiving_tenant": "partner"},
     )
-    channel = plane.create_channel("anthus", owner.user_id, [])
+    bot = plane.create_bot("anthus", "Support", creator_user_id=owner.user_id)
+    channel = plane.create_channel("anthus", owner.user_id, [bot.bot_id])
     result = plane.propose_connection(
         "anthus",
         sam.user_id,

@@ -561,7 +561,12 @@ async function setupActiveTurn(payload: {
       Authorization: `Bearer ${idToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ user_id: userId, bot_ids: [bot.bot_id] }),
+    body: JSON.stringify({
+      user_id: userId,
+      bot_ids: [bot.bot_id],
+      kind: "direct",
+      name: null,
+    }),
   });
   if (!channelResponse.ok) {
     throw new Error(

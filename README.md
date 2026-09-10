@@ -70,11 +70,32 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-09-08.** Git **`develop`** is ahead of **`main`** (last
+**Last updated: 2026-09-09.** Git **`develop`** is ahead of **`main`** (last
 promote: #303). Principal enforcement (#7b4616), sign-out ending the SSO session
 (#169), and the behavior-driven spec migration are on `main` and deployed across
 all three named environments. Phase 1 org-computer work (#304, #306, #308) lands
 on `develop` first and promotes to `main` for release.
+
+### Implemented locally, not yet merged or deployed
+
+The `codex/real-chatticus-workspace-develop` branch contains the first real
+application workspace milestone. It provides a full-viewport responsive shell,
+a unified roster of persistent bots and named multi-bot channels, durable
+conversation history, active-turn recovery and turn-scoped streaming, and a
+collapsible inspector backed by current computer and task data. Direct bot
+conversations have canonical identity; named channels store their name and
+participants and expose an addressed-bot selector.
+
+This work is still under local verification. It is **not** on `develop` and has
+not been verified on `dev.chattic.us`. The development audit found 180 legacy
+channel rows: 178 direct candidates, no multi-bot named candidates, two
+human-only invalid empty channels, and one duplicate direct identity for
+AcceptLoopBot spanning five channels and 12 messages. The one-pass migration was
+applied on 2026-09-10: the empty invalid identities were removed, all 12 messages
+were preserved in one canonical direct channel, and the post-migration audit
+found no remaining legacy, invalid, or duplicate-direct groups. Routines, bot
+configuration, approvals, live computer screenshots or controls, and separate
+Tasks, Computer, Settings, or Plugins destinations remain deferred.
 
 ### Deployed across environments
 
