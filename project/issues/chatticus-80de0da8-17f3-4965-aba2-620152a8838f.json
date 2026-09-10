@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-80de0da8-17f3-4965-aba2-620152a8838f",
+  "title": "Build full-viewport roster and durable conversation",
+  "description": "Implement the responsive three-pane /chat shell, unified bot/channel roster, search and creation controls, durable transcript loading, named-channel addressing, active-turn recovery, streaming, and terminal reconciliation.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ed7e2472-9795-414a-a699-6f8efc555815",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "e360ae29-8dad-4b23-b617-a1f084b39c87",
+      "author": "ryan",
+      "text": "Implemented locally with Gherkin-first coverage: full-viewport shell, unified searchable roster and creation flows, persistent direct-channel reuse, named-channel teammate addressing, durable history, active-turn recovery, SSE resume, and terminal reconciliation. Web verification previously passed typecheck, 45 tests, and static build before the final sheet integration; final rerun remains part of delivery.",
+      "created_at": "2026-09-10T02:53:52.344414Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "13afca30-16dc-4d49-80bf-77a45cc559c2",
+      "author": "ryan",
+      "text": "Final local gates: black and ruff pass; 106 targeted Python tests pass; canonical messaging feature set passes 30 scenarios and 222 steps; web production build, typecheck, and all 45 web tests pass. Responsive dark-mode visual inspection covered mobile roster, conversation, inspector, tablet layout, long transcript, and the three-pane composition. Development data migration is complete and the post-audit is clean.",
+      "created_at": "2026-09-10T10:09:56.041630Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-10T01:18:21.740171Z",
+  "updated_at": "2026-09-10T10:09:56.041630Z",
+  "closed_at": null,
+  "custom": {}
+}

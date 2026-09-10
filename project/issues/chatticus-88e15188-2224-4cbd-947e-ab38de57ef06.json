@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-88e15188-2224-4cbd-947e-ab38de57ef06",
+  "title": "Implement canonical direct and named channels",
+  "description": "Add executable channel-identity scenarios first, then implement channel kind/name, canonical direct lookup-or-create, persistence, HTTP payloads, and one-path legacy migration handling.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ed7e2472-9795-414a-a699-6f8efc555815",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-be9e3e",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "0367d4f8-988b-4594-9f1a-f4867ad5a228",
+      "author": "ryan",
+      "text": "Canonical channel code and Gherkin exist locally. Exact development audit: 180 legacy channel rows; 178 one-human/one-bot direct candidates; 0 multi-bot named candidates; 2 human-only invalid empty channels; one duplicate direct identity for AcceptLoopBot spanning 5 channels and 12 messages total. No migration has been applied. chatticus-be9e3e blocks this task and pre-deploy migration.",
+      "created_at": "2026-09-10T02:53:52.291695Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-10T01:18:21.715584Z",
+  "updated_at": "2026-09-10T02:53:52.291695Z",
+  "closed_at": null,
+  "custom": {}
+}
