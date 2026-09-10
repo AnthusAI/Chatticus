@@ -12,6 +12,10 @@ Warning: Editing project/ directly violates The Way. Do not read or write anythi
 
 Kanbus board and wiki commits are **project management, not product**. After `kbs` create/update/comment/close (or a wiki edit), commit those files on `develop` and push `origin develop`. **Do not open a pull request.** Do not use a feature branch or worktree. Do not wait for CI or a reviewer. A PR is for product behavior and production code (`python/`, `web/`, `infra/`, `features/`, `computer/`). See CONTRIBUTING_AGENT.md.
 
+**Agent provenance:** AI coding agents must set `KANBUS_AGENT_PLATFORM` and `KANBUS_AGENT_MODEL` (prefer also `KANBUS_AGENT_NAME` / `KANBUS_AGENT_SETTINGS`) on every `kbs create` and `kbs comment`, or pass the matching `--agent-*` flags. Humans are exempt. Details in CONTRIBUTING_AGENT.md.
+
+**Product git policy (this repo):** bots and coding agents may commit and open pull requests into `develop` (not `main`). `develop` is the continuous-integration branch; merge accepted green product work there. `main` is the release branch only — promote `develop` → `main` when you intend a release. Do not merge product work straight to `main`.
+
 ## What this project is
 
 Chatticus is a named-teammate product: persistent bots, an organization-scoped Linux

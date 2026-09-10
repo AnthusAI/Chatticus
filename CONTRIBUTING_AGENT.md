@@ -48,6 +48,32 @@ Do not bundle Kanbus files into a product PR. Push the board to `develop` on its
 
 **Unwire `blocked-by` when you close a card.** A satisfied dependency does not clear itself. `kbs ready` keeps hiding the blocked issue until someone runs `kbs dep <blocked> remove blocked-by <closed>`. Closing without that step made `chatticus-b4f849` and `chatticus-574e4b` invisible for a day. After `kbs close`, remove every edge that listed the closed issue as `blocked-by`.
 
+
+## Agent provenance (AI coding agents)
+
+AI coding agents **must** record agent provenance on every `kbs create` and `kbs comment`. Humans are exempt.
+
+Set environment variables (preferred) and/or pass flags:
+
+| Env | Flag | Required |
+| --- | --- | --- |
+| `KANBUS_AGENT_PLATFORM` | `--agent-platform` | yes (agents) |
+| `KANBUS_AGENT_MODEL` | `--agent-model` | yes (agents) |
+| `KANBUS_AGENT_NAME` | `--agent-name` | preferred |
+| `KANBUS_AGENT_SETTINGS` | `--agent-settings` | preferred (JSON string of settings) |
+
+Example:
+
+```
+export KANBUS_AGENT_PLATFORM=cursor
+export KANBUS_AGENT_MODEL=composer-2.5
+export KANBUS_AGENT_NAME=Chatticus
+kbs create "Example" --type chore
+kbs comment <id> "Progress" --agent-platform cursor --agent-model composer-2.5
+```
+
+Do not invent provenance. If you are an agent and cannot supply platform + model, do not create or comment until you can.
+
 ## The Order of Being
 
 All work is structured.
