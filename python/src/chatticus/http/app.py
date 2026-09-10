@@ -57,6 +57,7 @@ from chatticus.http.waitlist_source import waitlist_submission_source
 from chatticus.models import (
     ActorKind,
     ActorNotInChannelError,
+    ChannelKind,
     ChannelNotFoundError,
     ChannelTenantMismatchError,
     ChatticusError,
@@ -175,7 +176,9 @@ class CreateChannelBody(BaseModel):
     """Body for POST /channels."""
 
     user_id: str
-    bot_ids: list[str] = Field(default_factory=list)
+    bot_ids: list[str]
+    kind: ChannelKind
+    name: str | None
 
 
 class CreateBotBody(BaseModel):
@@ -1426,6 +1429,8 @@ def create_app(
             tenant_id,
             body.user_id,
             body.bot_ids,
+            kind=body.kind,
+            name=body.name,
             idempotency_key=key,
         )
         logger.info(
@@ -1984,11 +1989,12 @@ def _channel_payload(channel: Any) -> dict[str, Any]:
         "channel_id": channel.channel_id,
         "tenant_id": channel.tenant_id,
         "user_id": primary_human_participant(channel),
+        "kind": str(channel.kind),
+        "name": channel.name,
         "participants": [
             {"kind": participant.kind, "actor_id": participant.actor_id}
             for participant in channel.participants
         ],
-        "next_seq": channel.next_seq,
     }
 
 

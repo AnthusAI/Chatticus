@@ -25,6 +25,7 @@ from chatticus.messaging.store import (
 )
 from chatticus.models import (
     ActorKind,
+    ChannelKind,
     ComputerlessCannotExecuteComputerJob,
     ComputerNotReadyError,
     ComputerWorkerHostNotReady,
@@ -90,7 +91,13 @@ def test_list_channel_messages_after_query_skips_earlier_seq() -> None:
     api = _client_for(plane)
     researcher = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     writer = plane.create_bot("anthus", "Writer", creator_user_id="ryan")
-    channel = plane.create_channel("anthus", "ryan", [researcher.bot_id, writer.bot_id])
+    channel = plane.create_channel(
+        "anthus",
+        "ryan",
+        [researcher.bot_id, writer.bot_id],
+        kind=ChannelKind.NAMED,
+        name="Research and writing",
+    )
     api.post(
         org_path("anthus", f"/channels/{channel.channel_id}/messages"),
         json={
@@ -411,11 +418,21 @@ def test_http_list_user_channels() -> None:
     bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
     first = api.post(
         org_path("anthus", "/channels"),
-        json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
+        json={
+            "user_id": "ryan",
+            "bot_ids": [bot.bot_id],
+            "kind": "direct",
+            "name": None,
+        },
     )
     second = api.post(
         org_path("anthus", "/channels"),
-        json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
+        json={
+            "user_id": "ryan",
+            "bot_ids": [bot.bot_id],
+            "kind": "direct",
+            "name": None,
+        },
     )
     api.post(
         org_path("anthus", "/channels"),
@@ -424,6 +441,8 @@ def test_http_list_user_channels() -> None:
             "bot_ids": [
                 plane.create_bot("anthus", "Ops", creator_user_id="alex").bot_id
             ],
+            "kind": "direct",
+            "name": None,
         },
     )
     listed = api.get(
@@ -431,9 +450,10 @@ def test_http_list_user_channels() -> None:
     )
     assert listed.status_code == 200
     channels = listed.json()["channels"]
-    assert [channel["channel_id"] for channel in channels] == sorted(
-        [first.json()["channel_id"], second.json()["channel_id"]]
-    )
+    assert first.json()["channel_id"] == second.json()["channel_id"]
+    assert [channel["channel_id"] for channel in channels] == [
+        first.json()["channel_id"]
+    ]
     empty = api.get(
         org_path("other", "/users/ryan/channels"),
     )
@@ -464,9 +484,8 @@ def test_http_list_user_channels_survives_a_new_control_plane() -> None:
     )
     assert listed.status_code == 200
     channels = listed.json()["channels"]
-    assert [channel["channel_id"] for channel in channels] == sorted(
-        [first_channel.channel_id, second_channel.channel_id]
-    )
+    assert first_channel.channel_id == second_channel.channel_id
+    assert [channel["channel_id"] for channel in channels] == [first_channel.channel_id]
     api.close()
 
 
@@ -474,9 +493,11 @@ def test_http_list_user_active_turns() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
+    writer = plane.create_bot("anthus", "Writer", creator_user_id="ryan")
+    idle_bot = plane.create_bot("anthus", "Idle", creator_user_id="ryan")
     first = plane.create_channel("anthus", "ryan", [bot.bot_id])
-    second = plane.create_channel("anthus", "ryan", [bot.bot_id])
-    idle = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    second = plane.create_channel("anthus", "ryan", [writer.bot_id])
+    idle = plane.create_channel("anthus", "ryan", [idle_bot.bot_id])
     other_bot = plane.create_bot("anthus", "Ops", creator_user_id="alex")
     other_channel = plane.create_channel("anthus", "alex", [other_bot.bot_id])
     first_turn = plane.post_channel_message(
@@ -494,7 +515,7 @@ def test_http_list_user_active_turns() -> None:
         ActorKind.HUMAN,
         "ryan",
         "hello",
-        addressed_to_bot_id=bot.bot_id,
+        addressed_to_bot_id=writer.bot_id,
         enqueue_turn=False,
     )[1]
     plane.post_channel_message(
@@ -533,8 +554,9 @@ def test_http_list_user_active_turns_survives_a_new_control_plane() -> None:
     store = DynamoMessagingStore(table_name, client=client)
     first = ControlPlane(messaging_store=store)
     bot = first.create_bot("anthus", "Researcher", creator_user_id="ryan")
+    writer = first.create_bot("anthus", "Writer", creator_user_id="ryan")
     first_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
-    second_channel = first.create_channel("anthus", "ryan", [bot.bot_id])
+    second_channel = first.create_channel("anthus", "ryan", [writer.bot_id])
     first_turn = first.post_channel_message(
         first_channel.channel_id,
         "anthus",
@@ -550,7 +572,7 @@ def test_http_list_user_active_turns_survives_a_new_control_plane() -> None:
         ActorKind.HUMAN,
         "ryan",
         "hello",
-        addressed_to_bot_id=bot.bot_id,
+        addressed_to_bot_id=writer.bot_id,
         enqueue_turn=False,
     )[1]
     assert first_turn is not None
@@ -573,8 +595,9 @@ def test_http_list_user_active_turns_omits_completed() -> None:
     store = DynamoMessagingStore(table_name, client=client)
     plane = ControlPlane(messaging_store=store)
     bot = plane.create_bot("anthus", "Researcher", creator_user_id="ryan")
+    writer = plane.create_bot("anthus", "Writer", creator_user_id="ryan")
     done_channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
-    live_channel = plane.create_channel("anthus", "ryan", [bot.bot_id])
+    live_channel = plane.create_channel("anthus", "ryan", [writer.bot_id])
     done_turn = plane.post_channel_message(
         done_channel.channel_id,
         "anthus",
@@ -590,7 +613,7 @@ def test_http_list_user_active_turns_omits_completed() -> None:
         ActorKind.HUMAN,
         "ryan",
         "hello",
-        addressed_to_bot_id=bot.bot_id,
+        addressed_to_bot_id=writer.bot_id,
         enqueue_turn=False,
     )[1]
     assert done_turn is not None
@@ -1549,7 +1572,12 @@ def test_http_channel_create_idempotency_key_does_not_duplicate() -> None:
     plane = ControlPlane()
     api = _client_for(plane)
     bot, _ = _channel_with_bot(plane, "Assistant")
-    payload = {"user_id": "ryan", "bot_ids": [bot.bot_id]}
+    payload = {
+        "user_id": "ryan",
+        "bot_ids": [bot.bot_id],
+        "kind": "direct",
+        "name": None,
+    }
     headers = {"Idempotency-Key": "retry-1"}
     first = api.post(org_path("anthus", "/channels"), json=payload, headers=headers)
     second = api.post(org_path("anthus", "/channels"), json=payload, headers=headers)
@@ -1588,7 +1616,12 @@ def test_http_get_channel_survives_a_new_control_plane_in_dynamo() -> None:
     bot, channel = _channel_with_bot(first_plane, "Assistant")
     created = first_api.post(
         org_path("anthus", "/channels"),
-        json={"user_id": "ryan", "bot_ids": [bot.bot_id]},
+        json={
+            "user_id": "ryan",
+            "bot_ids": [bot.bot_id],
+            "kind": "direct",
+            "name": None,
+        },
     )
     assert created.status_code == 200
     channel_id = created.json()["channel_id"]

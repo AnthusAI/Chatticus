@@ -225,11 +225,19 @@ def test_user_org_routes_require_cognito_token() -> None:
     client = TestClient(
         create_app(plane, invoke_key="", cognito_verifier=keys.verifier())
     )
+    channel_bot = plane.create_bot(
+        ANTHUS_TENANT_ID, "Channel helper", creator_user_id="ryan"
+    )
     for path, payload in (
         (org_path(ANTHUS_TENANT_ID, "/bots"), {"user_id": "ryan", "name": "Helper"}),
         (
             org_path(ANTHUS_TENANT_ID, "/channels"),
-            {"user_id": "ryan", "bot_ids": []},
+            {
+                "user_id": "ryan",
+                "bot_ids": [channel_bot.bot_id],
+                "kind": "direct",
+                "name": None,
+            },
         ),
     ):
         denied = client.post(path, json=payload)

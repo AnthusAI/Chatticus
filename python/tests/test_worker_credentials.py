@@ -84,7 +84,12 @@ def test_browser_route_rejects_worker_bearer() -> None:
     )
     response = client.post(
         org_path("anthus", "/channels"),
-        json={"user_id": "ryan", "bot_ids": []},
+        json={
+            "user_id": "ryan",
+            "bot_ids": ["not-authorized"],
+            "kind": "direct",
+            "name": None,
+        },
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403

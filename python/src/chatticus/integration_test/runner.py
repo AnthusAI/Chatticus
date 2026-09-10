@@ -169,7 +169,12 @@ def run_smoke(
         bot_id = bot_response.json()["bot_id"]
 
         channel_key = str(uuid4())
-        channel_body = {"user_id": resolved_user, "bot_ids": [bot_id]}
+        channel_body = {
+            "user_id": resolved_user,
+            "bot_ids": [bot_id],
+            "kind": "direct",
+            "name": None,
+        }
         first_channel = client.post(
             org_path(resolved_tenant, "/channels"),
             json=channel_body,

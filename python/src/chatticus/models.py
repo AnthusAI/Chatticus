@@ -111,6 +111,13 @@ class ActorKind(StrEnum):
     BOT = "bot"
 
 
+class ChannelKind(StrEnum):
+    """Canonical identity of a conversation."""
+
+    DIRECT = "direct"
+    NAMED = "named"
+
+
 KERNEL_HUMAN_AUTHOR = "kernel"
 
 
@@ -165,6 +172,10 @@ class ChannelNotFoundError(ChatticusError):
 
 class ChannelTenantMismatchError(ChatticusError):
     """A tenant cannot read or write another tenant's channel."""
+
+
+class InvalidChannelIdentityError(ChatticusError):
+    """A channel kind, name, or participant set is not canonical."""
 
 
 class ActorNotInChannelError(ChatticusError):
@@ -528,6 +539,8 @@ class Channel:
 
     channel_id: str
     tenant_id: str
+    kind: ChannelKind = ChannelKind.DIRECT
+    name: str | None = None
     participants: list[ChannelParticipant] = field(default_factory=list)
     next_seq: int = 1
 

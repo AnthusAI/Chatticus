@@ -166,7 +166,12 @@ def when_integration_test_create_channel(context: object, bot_name: str) -> None
     bot = context.bots_by_name[bot_name]
     context.integration_test_channel_response = context.raw_api_client.post(
         org_path(tenant_id, "/channels"),
-        json={"user_id": user_id, "bot_ids": [bot["bot_id"]]},
+        json={
+            "user_id": user_id,
+            "bot_ids": [bot["bot_id"]],
+            "kind": "direct",
+            "name": None,
+        },
         headers=_integration_headers(context),
     )
     if context.integration_test_channel_response.status_code == 200:
@@ -196,7 +201,12 @@ def when_integration_test_create_channel_for_user(
     bot = context.bots_by_name[bot_name]
     context.integration_test_channel_response = context.raw_api_client.post(
         org_path(tenant_id, "/channels"),
-        json={"user_id": user_id, "bot_ids": [bot["bot_id"]]},
+        json={
+            "user_id": user_id,
+            "bot_ids": [bot["bot_id"]],
+            "kind": "direct",
+            "name": None,
+        },
         headers=_integration_headers(context),
     )
 

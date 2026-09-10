@@ -1,4 +1,4 @@
-import { User, UserManager, WebStorageStateStore } from "oidc-client-ts";
+import { User, UserManager, WebStorageStateStore, type UserManagerSettings } from "oidc-client-ts";
 
 import {
   cognitoIssuer,
@@ -216,7 +216,7 @@ export function setUserManagerFactoryForTests(
 }
 
 /** Test-only UserManager settings builder. */
-export function buildUserManagerSettings(config: CognitoConfig) {
+export function buildUserManagerSettings(config: CognitoConfig): UserManagerSettings {
   return {
     authority: cognitoIssuer(config),
     client_id: config.clientId,
