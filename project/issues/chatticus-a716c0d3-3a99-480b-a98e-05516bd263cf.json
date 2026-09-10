@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-a716c0d3-3a99-480b-a98e-05516bd263cf",
+  "title": "A member works from the real three-pane workspace",
+  "description": "As an organization member, I want a roster, durable conversation, and contextual inspector, so that I can work with Chatticus as an application rather than a demo.\n\nFeature: Real Chatticus workspace\n\nScenario: Continue a bot conversation\nGiven a member has an individual bot with committed channel history\nWhen the member selects the bot in the workspace roster\nThen the center pane shows that durable history\nAnd new messages continue the same direct channel\n\nScenario: Address a bot in a named channel\nGiven a named channel contains multiple bots\nWhen the member selects one bot in the composer and sends a message\nThen the message is added to that channel addressed to that bot\n\nScenario: Recover active work\nGiven the selected channel has an active turn\nWhen the workspace loads or reconnects\nThen committed history and active progress are restored without starting another turn",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ed7e2472-9795-414a-a699-6f8efc555815",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "12bc0e02-b690-4185-8d85-ff618da5609d",
+      "author": "ryan",
+      "text": "Implemented locally: unified bot/named-channel roster, latest committed previews, durable transcript loading, direct and named addressing, active-turn recovery, resumable turn-scoped SSE, and explicit waiting/failed/reconciling states. Not yet merged or deployed.",
+      "created_at": "2026-09-10T02:53:52.129735Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-10T01:18:06.961395Z",
+  "updated_at": "2026-09-10T02:53:52.129735Z",
+  "closed_at": null,
+  "custom": {}
+}

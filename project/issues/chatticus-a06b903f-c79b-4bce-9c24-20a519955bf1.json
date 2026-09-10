@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-a06b903f-c79b-4bce-9c24-20a519955bf1",
+  "title": "A member sees real computer and task context",
+  "description": "As an organization member, I want real computer and task context beside a conversation, so that I can understand active work without unsupported controls.\n\nFeature: Workspace context inspector\n\nScenario: Inspect an individual bot\nGiven the selected bot has task provenance and the organization has a computer\nWhen the member opens the inspector\nThen the inspector shows the real computer identity, state, policy, and host start generation\nAnd it shows tasks created or updated by that bot\n\nScenario: Inspect a named channel\nGiven the selected item is a named multi-bot channel\nWhen the member opens the inspector\nThen tasks are labeled as organization tasks\nAnd the interface does not imply tasks are linked to that channel",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ed7e2472-9795-414a-a699-6f8efc555815",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "2f604844-1f66-41ab-8385-1397dcb24700",
+      "author": "ryan",
+      "text": "Implemented locally: collapsible inspector shows current computer identity, running/stopped state, policy, and host-start generation; direct selections filter tasks by bot provenance and named channels are explicitly labeled organization tasks. Unsupported controls and mock previews remain absent.",
+      "created_at": "2026-09-10T02:53:52.184512Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-10T01:18:06.982948Z",
+  "updated_at": "2026-09-10T02:53:52.184512Z",
+  "closed_at": null,
+  "custom": {}
+}

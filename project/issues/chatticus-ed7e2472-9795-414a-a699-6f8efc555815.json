@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-ed7e2472-9795-414a-a699-6f8efc555815",
+  "title": "Real Chatticus workspace",
+  "description": "Deliver the production-quality three-pane workspace using real Chatticus capabilities. Done means direct and named channels have canonical identity, the web app loads durable conversations and active turns, computer/task context is visible, responsive and keyboard behavior is specified, all gates pass, and development deployment is verified. Excludes routines, rich bot settings, approvals, live computer takeover, and separate product routes.",
+  "type": "epic",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "d5d1db79-a288-4b71-ac19-9fdb5d5ea7c0",
+      "author": "ryan",
+      "text": "Milestone implementation exists locally on codex/real-chatticus-workspace-develop: canonical direct/named channel models and API, full-viewport responsive roster/conversation workspace, durable history and active-turn recovery, turn-scoped streaming/reconciliation, and real computer/task inspector. Gherkin coverage was added first. Work is not merged or deployed. Full gates, review, PR merge, and development verification remain; deployment is additionally blocked by chatticus-be9e3e.",
+      "created_at": "2026-09-10T02:53:52.010636Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "e18e3b04-eaa6-4da9-923b-9bfa16a6223d",
+      "author": "ryan",
+      "text": "Pre-PR milestone: development legacy migration applied and verified clean; all 12 duplicate AcceptLoopBot messages preserved in one canonical channel. Local production build, typecheck, web tests, and focused Python and Behave gates are green. PR review, merge, deployment, and live development verification remain.",
+      "created_at": "2026-09-10T10:09:56.050024Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-10T01:17:37.826124Z",
+  "updated_at": "2026-09-10T10:09:56.050024Z",
+  "closed_at": null,
+  "custom": {}
+}

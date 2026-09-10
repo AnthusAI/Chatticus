@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-1e8e78f7-7b29-4704-9b24-33f0cc0c3599",
+  "title": "A bot and a named group have canonical conversations",
+  "description": "As an organization member, I want each bot to have one durable direct conversation and named multi-bot groups to have one durable channel, so that the roster never behaves like a list of sessions.\n\nFeature: Canonical workspace conversations\n\nScenario: Reopening an individual bot\nGiven an organization member and a named bot\nWhen the member opens that bot repeatedly\nThen Chatticus returns the same direct channel\nAnd the direct channel has exactly that human and bot\n\nScenario: Opening a named multi-bot channel\nGiven an organization member and multiple named bots\nWhen the member creates a named channel with those bots\nThen the channel stores its name and participants\nAnd it is listed distinctly from individual bots",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ed7e2472-9795-414a-a699-6f8efc555815",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "d214f04b-c7d5-45ff-bebe-cd60bfb653a4",
+      "author": "ryan",
+      "text": "Local implementation and executable scenarios now cover idempotent direct channels, stored named channels and participants, and preservation of a migrated direct channel ID. Development audit found migration blockers tracked in chatticus-be9e3e; no migration has been applied.",
+      "created_at": "2026-09-10T02:53:52.070924Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-10T01:18:06.935626Z",
+  "updated_at": "2026-09-10T02:53:52.070924Z",
+  "closed_at": null,
+  "custom": {}
+}

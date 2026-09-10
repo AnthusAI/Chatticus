@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-3b2e9658-f55f-4d76-9092-bd0df85aa25c",
+  "title": "The workspace adapts without losing access",
+  "description": "As a member using different screens or assistive input, I want the workspace to remain navigable.\n\nFeature: Responsive and accessible workspace\n\nScenario: Use a narrow screen\nGiven the workspace is narrower than the desktop layout\nWhen the member opens the roster or inspector\nThen each opens as an accessible sheet\nAnd the conversation and composer remain usable\n\nScenario: Use the keyboard\nGiven the member navigates without a pointer\nWhen focus moves through roster, composer, and inspector controls\nThen focus is visible\nAnd every icon-only control has an accessible name",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ed7e2472-9795-414a-a699-6f8efc555815",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "1d6d2205-ec0a-429a-9737-52f5d408087c",
+      "author": "ryan",
+      "text": "Implemented locally: desktop three-pane layout, tablet/mobile roster and inspector sheets, independently scrolling panes, anchored composer, accessible labels, focus-visible treatment, light/dark tokens, and reduced-motion handling. Visual QA and deployed verification remain.",
+      "created_at": "2026-09-10T02:53:52.239509Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-10T01:18:07.006322Z",
+  "updated_at": "2026-09-10T02:53:52.239509Z",
+  "closed_at": null,
+  "custom": {}
+}

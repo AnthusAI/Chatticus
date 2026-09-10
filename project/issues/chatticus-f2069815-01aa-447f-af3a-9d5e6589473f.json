@@ -1,0 +1,31 @@
+{
+  "id": "chatticus-f2069815-01aa-447f-af3a-9d5e6589473f",
+  "title": "Verify, review, and deliver the real workspace",
+  "description": "Run all Python and web gates, perform responsive light/dark/reduced-motion visual QA, launch the required review and Kanbus/README agents, merge through develop, and verify the live development workspace.",
+  "type": "task",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ed7e2472-9795-414a-a699-6f8efc555815",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-be9e3e",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [
+    {
+      "id": "de75e450-e09e-41cb-8089-365a9e5a8d30",
+      "author": "ryan",
+      "text": "Local evidence so far: targeted Python messaging/auth/coverage tests passed 100 tests; migration helper tests passed 2 tests; targeted formatting/lint passed; the web typecheck, 45 tests, and production static build passed before final sheet integration. Full final gates, responsive visual QA, sub-agent review, PR/CI, merge, and live development verification remain. Deployment is blocked by chatticus-be9e3e; no legacy migration has been applied.",
+      "created_at": "2026-09-10T02:53:52.429103Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-09-10T01:18:21.784785Z",
+  "updated_at": "2026-09-10T02:53:52.429103Z",
+  "closed_at": null,
+  "custom": {}
+}

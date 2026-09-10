@@ -59,10 +59,24 @@
       "text": "Phases 0–3 landed (#197–#204) while marketing and /chat shared a repo. Product /chat tokens are on develop. Remaining document-title/hero copy is Chattic.us-web after the split. Close here.",
       "created_at": "2026-09-05T17:59:24.720971Z",
       "comment_type": "default"
+    },
+    {
+      "id": "a37051c3-b306-4c40-9410-b0e808fe60eb",
+      "author": "ryan",
+      "text": "User approved the Real Chatticus Workspace implementation: a full-viewport three-pane app with unified individual-bot and named multi-bot-channel roster, durable center conversation, and a collapsible real-data inspector for computer status and tasks. One bot has one durable direct channel, never sessions. Routines, rich bot configuration, approvals, live screenshots, and unsupported controls remain deferred.",
+      "created_at": "2026-09-10T01:17:37.778970Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "07fcbcb8-2a25-4c0e-9098-d870b774cd7b",
+      "author": "ryan",
+      "text": "2026-09-09 Real Workspace follow-on audit evidence: the development table contains 180 legacy channel rows: 178 one-human/one-bot direct candidates, 0 multi-bot named candidates, 2 human-only invalid empty channels, and one duplicate direct identity for AcceptLoopBot spanning 5 channels and 12 messages total. No migration has been applied. This is an explicit pre-deploy blocker tracked by chatticus-be9e3e.",
+      "created_at": "2026-09-10T02:53:51.944006Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-02T18:40:27.506745Z",
-  "updated_at": "2026-09-05T17:59:24.735441Z",
+  "updated_at": "2026-09-10T02:53:51.944006Z",
   "closed_at": "2026-09-05T17:59:24.735441Z",
   "custom": {}
 }
