@@ -1,0 +1,21 @@
+{
+  "id": "chatticus-4ca54c87-26c8-47ed-8847-3ba4b502721c",
+  "title": "Marketing pitch: manage AI like a team you already know how to lead",
+  "description": "FILE ONLY until Ryan says go \u2014 do not edit Chattic.us-web marketing pages yet.\n\n## Pitch north star\nIf you already know how to manage a team of people, those same collaboration skills let you be the boss of the AI \u2014 instead of worrying it will replace you.\n\nShift the whole marketing pitch a little toward **management transfer** (skills you already have as a people manager), not only \u201cshared room / office / farm.\u201d\n\n## Repo\nAnthusAI/Chattic.us-web (marketing site). Landing + supporting marketing pages. Not wiki/Thoughts desk work unless Ryan expands scope later.\n\n## Where to apply first (when approved)\n1. **Hero** (`components/Hero.tsx`) \u2014 keep brand line \u201cShared spaces for people and bots\u201d if desired; rewrite subhead so the promise is management transfer, not only \u201coffice not chat.\u201d Direction: you already know how to run a team; Chatticus is where you direct named AI teammates the same way (assign, review, approve) while the farm keeps working.\n2. **Organization story** (`components/OrganizationStory.tsx`) \u2014 make the human the manager explicitly (e.g. \u201cSeveral minds. One room. You still run the team.\u201d).\n3. **Use cases** (home `UseCases` + `/use-cases` / `page-content.ts`) \u2014 lean harder on org chart / desks you manage.\n4. **FAQ** (`components/Faq.tsx`) \u2014 add plain \u201cWill this replace me?\u201d \u2192 No: it needs someone who can manage work; Chatticus is where those skills apply to AI teammates.\n5. **Final CTA** (`components/FinalCta.tsx`) \u2014 shift from \u201ca room of their own\u201d toward \u201ca team you can run.\u201d\n6. **Meta** (`app/page-content.ts`) \u2014 description/OG carry the manager pitch, not only shared computer.\n\nFeature pages (`/features/*`) and `/beta` can stay mostly operational; emotional/job story belongs on home + use cases + FAQ.\n\n## Out of scope for this chore\nLive copy edits until Ryan says go. Thoughts/wiki interconnects are separate.\n\n## Source\nRyan (2026-09-10) via Chatticus chat. Decision: file Kanbus backlog only.",
+  "type": "chore",
+  "status": "backlog",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-10T10:49:26.710959Z",
+  "updated_at": "2026-09-10T10:49:27.286590Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
+}
