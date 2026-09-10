@@ -229,7 +229,17 @@ export function EnabledWorkspace({
           onEvent: (event) => {
             window.sessionStorage.setItem(storageKey, String(event.seq));
             setTurnEvents((current) => [...current, event]);
+            if (event.kind === "turn.waiting") {
+              setTurn((current) =>
+                current
+                  ? { ...current, waiting_for: event.body ?? "input" }
+                  : current,
+              );
+            }
             if (event.kind === "turn.token" && event.token) {
+              setTurn((current) =>
+                current ? { ...current, waiting_for: null } : current,
+              );
               setProgress((current) => current + event.token);
             }
             if (isTerminalTurnEvent(event.kind)) {
