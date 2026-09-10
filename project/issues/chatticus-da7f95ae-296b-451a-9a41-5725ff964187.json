@@ -73,10 +73,17 @@
       "text": "2026-09-09 Real Workspace follow-on audit evidence: the development table contains 180 legacy channel rows: 178 one-human/one-bot direct candidates, 0 multi-bot named candidates, 2 human-only invalid empty channels, and one duplicate direct identity for AcceptLoopBot spanning 5 channels and 12 messages total. No migration has been applied. This is an explicit pre-deploy blocker tracked by chatticus-be9e3e.",
       "created_at": "2026-09-10T02:53:51.944006Z",
       "comment_type": "default"
+    },
+    {
+      "id": "46d67b3a-f284-4d08-99f0-1d3168f6f237",
+      "author": "ryan",
+      "text": "Real Workspace follow-on delivered by PR #346, squash commit 3fb29a57457df450a2f27d120ca9f126c279e6f1. Development Web, ThinTurn, and Auth workflows are green. The borderless full-viewport application workspace is deployed; authenticated browser verification remains tracked in chatticus-f20698 because the available browser is signed out.",
+      "created_at": "2026-09-10T10:45:50.868885Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-02T18:40:27.506745Z",
-  "updated_at": "2026-09-10T02:53:51.944006Z",
+  "updated_at": "2026-09-10T10:45:50.868885Z",
   "closed_at": "2026-09-05T17:59:24.735441Z",
   "custom": {}
 }

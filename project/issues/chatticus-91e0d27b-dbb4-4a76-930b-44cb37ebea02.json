@@ -3,7 +3,7 @@
   "title": "Build real computer and task inspector",
   "description": "Implement the collapsible inspector using only current computer and task data. Filter task provenance for direct bots and label organization tasks honestly for named channels.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -17,10 +17,17 @@
       "text": "Implemented locally using existing APIs only: computer identity/state/policy/generation plus task status, evidence, close reason, and bot provenance. Named-channel tasks are labeled organization tasks because tasks have no channel relationship. Not merged or deployed.",
       "created_at": "2026-09-10T02:53:52.374859Z",
       "comment_type": "default"
+    },
+    {
+      "id": "b91738cc-1102-4dde-9194-152055c82215",
+      "author": "ryan",
+      "text": "Complete in PR #346, squash commit 3fb29a57457df450a2f27d120ca9f126c279e6f1. The green development deployments now serve the real computer and task inspector.",
+      "created_at": "2026-09-10T10:45:50.830918Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-10T01:18:21.762240Z",
-  "updated_at": "2026-09-10T02:53:52.374859Z",
-  "closed_at": null,
+  "updated_at": "2026-09-10T10:45:50.841798Z",
+  "closed_at": "2026-09-10T10:45:50.841798Z",
   "custom": {}
 }
