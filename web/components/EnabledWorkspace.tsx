@@ -218,10 +218,14 @@ export function EnabledWorkspace({
       setTurn(activeTurn);
       setTurnStatus("active");
       setTurnEvents([]);
-      setProgress("");
       setStreamError(null);
       const storageKey = `chatticus:last-event:${activeTurn.turn_id}`;
-      const lastEventId = Number(window.sessionStorage.getItem(storageKey) ?? 0);
+      const progressStorageKey = `chatticus:turn-progress:${activeTurn.turn_id}`;
+      const storedProgress = window.sessionStorage.getItem(progressStorageKey);
+      const lastEventId = storedProgress === null
+        ? 0
+        : Number(window.sessionStorage.getItem(storageKey) ?? 0);
+      setProgress(storedProgress ?? "");
       closeStreamRef.current = openTurnStream(
         activeOrg.tenantId,
         activeTurn.turn_id,
@@ -240,12 +244,21 @@ export function EnabledWorkspace({
               setTurn((current) =>
                 current ? { ...current, waiting_for: null } : current,
               );
-              setProgress((current) => current + event.token);
+              setProgress((current) => {
+                const next = current + event.token;
+                window.sessionStorage.setItem(progressStorageKey, next);
+                return next;
+              });
             }
             if (isTerminalTurnEvent(event.kind)) {
               setTurnStatus(turnStatusFromKind(event.kind));
               void reconcileMessages(activeTurn.channel_id).then(() => {
-                if (event.kind === "turn.completed") setTurn(null);
+                if (event.kind === "turn.completed") {
+                  window.sessionStorage.removeItem(storageKey);
+                  window.sessionStorage.removeItem(progressStorageKey);
+                  setProgress("");
+                  setTurn(null);
+                }
               });
             }
           },

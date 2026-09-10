@@ -7,7 +7,9 @@ import pytest
 from moto import mock_aws
 
 from chatticus.channel_migration import (
+    LegacyChannelClassification,
     _merge_duplicate_direct_channels,
+    _message_items,
     audit_legacy_channels,
     classify_legacy_channel,
 )
@@ -37,6 +39,40 @@ def test_audit_rejects_duplicate_direct_identity() -> None:
         audit_legacy_channels(
             [_item("direct-1", ["researcher"]), _item("direct-2", ["researcher"])]
         )
+
+
+def test_message_scan_reads_every_query_page() -> None:
+    class PaginatedClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def query(self, **request: object) -> dict[str, object]:
+            self.calls += 1
+            if self.calls == 1:
+                assert "ExclusiveStartKey" not in request
+                return {
+                    "Items": [{"sk": {"S": "msg#0000000002"}}],
+                    "LastEvaluatedKey": {"pk": {"S": "next"}},
+                }
+            assert request["ExclusiveStartKey"] == {"pk": {"S": "next"}}
+            return {"Items": [{"sk": {"S": "msg#0000000001"}}]}
+
+    client = PaginatedClient()
+    channel = LegacyChannelClassification(
+        tenant_id="anthus",
+        channel_id="source",
+        user_id="ryan",
+        bot_ids=("researcher",),
+        kind="direct",
+    )
+
+    items = _message_items(client, "table", channel)
+
+    assert client.calls == 2
+    assert [item["sk"]["S"] for item in items] == [
+        "msg#0000000001",
+        "msg#0000000002",
+    ]
 
 
 @mock_aws
@@ -94,6 +130,41 @@ def test_duplicate_direct_merge_preserves_messages_in_one_identity() -> None:
     assert canonical["next_seq"]["N"] == "3"
     assert [item["body"]["S"] for item in messages] == ["canonical", "source"]
     assert not client.get_item(
+        TableName=table_name,
+        Key={"pk": {"S": "anthus#channel#source"}, "sk": {"S": "meta"}},
+    ).get("Item")
+
+
+@mock_aws
+def test_duplicate_direct_merge_rejects_an_active_source_turn() -> None:
+    table_name = "active-channel-migration"
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    create_messaging_table(client, table_name)
+    channels = []
+    for channel_id in ("canonical", "source"):
+        item = _item(channel_id, ["researcher"])
+        item.update(
+            {
+                "pk": {"S": f"anthus#channel#{channel_id}"},
+                "sk": {"S": "meta"},
+                "next_seq": {"N": "1"},
+            }
+        )
+        client.put_item(TableName=table_name, Item=item)
+        channels.append(classify_legacy_channel(item))
+    client.put_item(
+        TableName=table_name,
+        Item={
+            "pk": {"S": "anthus#channel#source"},
+            "sk": {"S": "active_turn"},
+            "turn_id": {"S": "turn-1"},
+        },
+    )
+
+    with pytest.raises(ValueError, match="active turn"):
+        _merge_duplicate_direct_channels(client, table_name, channels, "canonical")
+
+    assert client.get_item(
         TableName=table_name,
         Key={"pk": {"S": "anthus#channel#source"}, "sk": {"S": "meta"}},
     ).get("Item")

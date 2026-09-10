@@ -100,15 +100,24 @@ def _parse_names(values: list[str]) -> dict[str, str]:
 def _message_items(
     client: Any, table_name: str, channel: LegacyChannelClassification
 ) -> list[dict[str, Any]]:
-    response = client.query(
-        TableName=table_name,
-        KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
-        ExpressionAttributeValues={
-            ":pk": {"S": f"{channel.tenant_id}#channel#{channel.channel_id}"},
-            ":prefix": {"S": "msg#"},
-        },
-    )
-    return sorted(response.get("Items", []), key=lambda item: item["sk"]["S"])
+    items: list[dict[str, Any]] = []
+    start_key = None
+    while True:
+        request: dict[str, Any] = {
+            "TableName": table_name,
+            "KeyConditionExpression": "pk = :pk AND begins_with(sk, :prefix)",
+            "ExpressionAttributeValues": {
+                ":pk": {"S": f"{channel.tenant_id}#channel#{channel.channel_id}"},
+                ":prefix": {"S": "msg#"},
+            },
+        }
+        if start_key is not None:
+            request["ExclusiveStartKey"] = start_key
+        response = client.query(**request)
+        items.extend(response.get("Items", []))
+        start_key = response.get("LastEvaluatedKey")
+        if not start_key:
+            return sorted(items, key=lambda item: item["sk"]["S"])
 
 
 def _channel_delete_operations(
@@ -194,6 +203,17 @@ def _merge_duplicate_direct_channels(
     for source in sorted(channels, key=lambda channel: channel.channel_id):
         if source.channel_id == canonical.channel_id:
             continue
+        active_turn = client.get_item(
+            TableName=table_name,
+            Key={
+                "pk": {"S": f"{source.tenant_id}#channel#{source.channel_id}"},
+                "sk": {"S": "active_turn"},
+            },
+        ).get("Item")
+        if active_turn is not None:
+            raise ValueError(
+                f"channel {source.channel_id!r} has an active turn and cannot be merged"
+            )
         source_messages = _message_items(client, table_name, source)
         if len(source_messages) > 10:
             raise ValueError(
