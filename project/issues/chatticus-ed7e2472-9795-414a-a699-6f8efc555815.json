@@ -24,10 +24,17 @@
       "text": "Pre-PR milestone: development legacy migration applied and verified clean; all 12 duplicate AcceptLoopBot messages preserved in one canonical channel. Local production build, typecheck, web tests, and focused Python and Behave gates are green. PR review, merge, deployment, and live development verification remain.",
       "created_at": "2026-09-10T10:09:56.050024Z",
       "comment_type": "default"
+    },
+    {
+      "id": "ad2c3595-50fb-4fdd-b800-f8f7ab0643e5",
+      "author": "ryan",
+      "text": "PR #346 squash-merged into develop as 3fb29a57457df450a2f27d120ca9f126c279e6f1. Development Web, ThinTurn, and Auth deployment workflows are green. Canonical channels, the responsive workspace, durable conversation recovery/streaming, and the real computer/task inspector are deployed. The epic remains in progress only for authenticated live browser verification at dev.chattic.us; the available browser is signed out.",
+      "created_at": "2026-09-10T10:45:50.698047Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-10T01:17:37.826124Z",
-  "updated_at": "2026-09-10T10:09:56.050024Z",
+  "updated_at": "2026-09-10T10:45:50.698047Z",
   "closed_at": null,
   "custom": {}
 }

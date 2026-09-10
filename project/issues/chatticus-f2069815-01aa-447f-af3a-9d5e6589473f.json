@@ -9,12 +9,7 @@
   "creator": null,
   "parent": "chatticus-ed7e2472-9795-414a-a699-6f8efc555815",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-be9e3e",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "de75e450-e09e-41cb-8089-365a9e5a8d30",
@@ -22,10 +17,17 @@
       "text": "Local evidence so far: targeted Python messaging/auth/coverage tests passed 100 tests; migration helper tests passed 2 tests; targeted formatting/lint passed; the web typecheck, 45 tests, and production static build passed before final sheet integration. Full final gates, responsive visual QA, sub-agent review, PR/CI, merge, and live development verification remain. Deployment is blocked by chatticus-be9e3e; no legacy migration has been applied.",
       "created_at": "2026-09-10T02:53:52.429103Z",
       "comment_type": "default"
+    },
+    {
+      "id": "f94cb990-2915-4464-b5d9-f1050524bc10",
+      "author": "ryan",
+      "text": "PR #346 passed the required review and CI gates, squash-merged into develop as 3fb29a57457df450a2f27d120ca9f126c279e6f1, and all three development deploy workflows (Web, ThinTurn, Auth) are green. Keep this task in progress only for authenticated live browser verification of sign-in, existing history, send/stream completion, named-channel behavior, computer status, and task inspector; the current browser is signed out.",
+      "created_at": "2026-09-10T10:45:50.860315Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-10T01:18:21.784785Z",
-  "updated_at": "2026-09-10T02:53:52.429103Z",
+  "updated_at": "2026-09-10T10:45:50.860315Z",
   "closed_at": null,
   "custom": {}
 }

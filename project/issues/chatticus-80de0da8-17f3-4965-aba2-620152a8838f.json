@@ -3,7 +3,7 @@
   "title": "Build full-viewport roster and durable conversation",
   "description": "Implement the responsive three-pane /chat shell, unified bot/channel roster, search and creation controls, durable transcript loading, named-channel addressing, active-turn recovery, streaming, and terminal reconciliation.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,10 +24,17 @@
       "text": "Final local gates: black and ruff pass; 106 targeted Python tests pass; canonical messaging feature set passes 30 scenarios and 222 steps; web production build, typecheck, and all 45 web tests pass. Responsive dark-mode visual inspection covered mobile roster, conversation, inspector, tablet layout, long transcript, and the three-pane composition. Development data migration is complete and the post-audit is clean.",
       "created_at": "2026-09-10T10:09:56.041630Z",
       "comment_type": "default"
+    },
+    {
+      "id": "10a35a55-f1b1-48f5-ada4-faa84c6a2138",
+      "author": "ryan",
+      "text": "Complete in PR #346, squash commit 3fb29a57457df450a2f27d120ca9f126c279e6f1. The production web build and CI gates passed, and the green development Web workflow deployed the full-viewport roster and durable conversation workspace.",
+      "created_at": "2026-09-10T10:45:50.810589Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-10T01:18:21.740171Z",
-  "updated_at": "2026-09-10T10:09:56.041630Z",
-  "closed_at": null,
+  "updated_at": "2026-09-10T10:45:50.820235Z",
+  "closed_at": "2026-09-10T10:45:50.820235Z",
   "custom": {}
 }

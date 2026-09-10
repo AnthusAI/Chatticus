@@ -3,18 +3,13 @@
   "title": "Implement canonical direct and named channels",
   "description": "Add executable channel-identity scenarios first, then implement channel kind/name, canonical direct lookup-or-create, persistence, HTTP payloads, and one-path legacy migration handling.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-ed7e2472-9795-414a-a699-6f8efc555815",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-be9e3e",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "0367d4f8-988b-4594-9f1a-f4867ad5a228",
@@ -22,10 +17,17 @@
       "text": "Canonical channel code and Gherkin exist locally. Exact development audit: 180 legacy channel rows; 178 one-human/one-bot direct candidates; 0 multi-bot named candidates; 2 human-only invalid empty channels; one duplicate direct identity for AcceptLoopBot spanning 5 channels and 12 messages total. No migration has been applied. chatticus-be9e3e blocks this task and pre-deploy migration.",
       "created_at": "2026-09-10T02:53:52.291695Z",
       "comment_type": "default"
+    },
+    {
+      "id": "64dfa9fa-395e-4491-acbb-5316b14bbbed",
+      "author": "ryan",
+      "text": "Complete in PR #346, squash commit 3fb29a57457df450a2f27d120ca9f126c279e6f1. The one-pass development migration completed without transcript loss, the stale blocker dependency was removed, and the green ThinTurn development workflow deployed the canonical API.",
+      "created_at": "2026-09-10T10:45:50.793119Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-10T01:18:21.715584Z",
-  "updated_at": "2026-09-10T02:53:52.291695Z",
-  "closed_at": null,
+  "updated_at": "2026-09-10T10:45:50.801994Z",
+  "closed_at": "2026-09-10T10:45:50.801994Z",
   "custom": {}
 }
