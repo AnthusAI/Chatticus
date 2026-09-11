@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-27f16560-fc58-4b11-8bdd-55369b15a3f7",
+  "title": "Interchangeable model vendors, selected per turn",
+  "description": "## Intent\n\nAs a Chatticus member, I want to pick which model runs this turn from every vendor this deployment can actually call, so that OpenAI, Amazon Bedrock, Anthropic, Google, or any mix of them are interchangeable at the composer — not baked into the stack.\n\n## Why\n\nDeployments differ only by credentials:\n\n- AWS-only: Bedrock (IAM), no vendor API keys\n- OpenAI fan: OpenAI key, optionally Bedrock too\n- Anthropic or Google preference: those keys\n- All: every credential the operator seeded\n\nThe worker loop must not import a vendor SDK. One catalog, one completion protocol, per-turn `model_id`. Bedrock is AWS-billed (`billed_via: aws`, `cost_usd` null). Direct OpenAI/Anthropic/Google are vendor-billed.\n\n## Not this card\n\n- Bedrock Agents / AgentCore (Chatticus owns the loop)\n- Per-organization extra keys (deployment is the unit)\n- Charging customers\n- Cursor-like last-used memory beyond this turn (can follow)\n\n## Definition of done\n\n- Gherkin in `features/turn_model_selection.feature` (catalog, persist, reject unavailable, billed_via)\n- Composer selector lists only available models and posts `model_id`\n- OpenAI, Bedrock Converse, Anthropic, and Google adapters share one tool/outcome protocol\n- Thin-turn worker IAM can invoke Bedrock; optional vendor keys light up those catalog entries\n- `f3c786` (Bedrock on the AWS meter) can close when the Bedrock path writes `billed_via=aws`\n\n## Children\n\nStories name the observable behavior. Implementation tasks sit under those stories.",
+  "type": "epic",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-11T02:00:01.456156Z",
+  "updated_at": "2026-09-11T02:00:08.153409Z",
+  "closed_at": null,
+  "custom": {}
+}
