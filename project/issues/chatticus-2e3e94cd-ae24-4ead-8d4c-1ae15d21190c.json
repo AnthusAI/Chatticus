@@ -24,10 +24,17 @@
       "text": "bcbef7 closed (#192 on develop). Remaining child f3c786 Bedrock meter stays parked until Bedrock exists; this epic stays open.",
       "created_at": "2026-09-02T18:16:50.506059Z",
       "comment_type": "default"
+    },
+    {
+      "id": "8227ef9d-be27-48cc-9af8-177c219bba38",
+      "author": "ryan",
+      "text": "Last parked child `f3c786` is closing: Bedrock turns now write `billed_via=aws` and null `cost_usd` (PR https://github.com/AnthusAI/Chatticus/pull/348). Per-org Cost Explorer split via inference-profile tags remains a known gap, not a blocker for the meter rule.",
+      "created_at": "2026-09-11T05:31:14.840508Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-09-01T03:21:17.026907Z",
-  "updated_at": "2026-09-02T18:16:50.506059Z",
+  "updated_at": "2026-09-11T05:31:14.840508Z",
   "closed_at": null,
   "custom": {}
 }

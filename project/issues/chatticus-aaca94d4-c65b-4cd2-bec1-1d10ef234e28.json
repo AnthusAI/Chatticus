@@ -3,16 +3,24 @@
   "title": "A turn records the selected model and the worker uses it",
   "description": "Feature: Per-turn model selection\n  As a Chatticus member\n  I want the model I pick on this send to be the one that answers\n  So that vendors are interchangeable at the composer, like a model selector on each turn\n\n  Scenario: Posting with a selected model stores it on the turn\n    Given the deployment has OpenAI credentials\n    And the deployment has Bedrock enabled\n    And tenant \"anthus\" user \"ryan\" has a channel with a named bot \"Assistant\"\n    When user \"ryan\" of tenant \"anthus\" posts \"hello\" addressed to bot \"Assistant\" on the channel using model \"bedrock/anthropic.claude-sonnet-4-5\"\n    Then the turn records model \"bedrock/anthropic.claude-sonnet-4-5\"\n\n  Scenario: Posting without a model uses the deployment default\n    Given the deployment has OpenAI credentials\n    And tenant \"anthus\" user \"ryan\" has a channel with a named bot \"Assistant\"\n    When user \"ryan\" of tenant \"anthus\" posts \"hello\" addressed to bot \"Assistant\" on the channel\n    Then the turn records the deployment default model\n\n  Scenario: Selecting an unavailable model is rejected\n    Given the deployment has OpenAI credentials\n    And the deployment has no Bedrock, Anthropic, or Google credentials\n    And tenant \"anthus\" user \"ryan\" has a channel with a named bot \"Assistant\"\n    When user \"ryan\" of tenant \"anthus\" posts \"hello\" addressed to bot \"Assistant\" on the channel using model \"anthropic/claude-sonnet-4-5\"\n    Then posting fails because the model is not available",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-27f16560-fc58-4b11-8bdd-55369b15a3f7",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "ddc83c5f-2b71-4a77-b81b-674c72760337",
+      "author": "ryan",
+      "text": "Turns persist `model_id`. `POST /messages` may send it; omit uses the deployment default. An id that is not in this catalog is `UnknownModelError` (HTTP 400).\n\nThe computerless worker routes through `CatalogCompletionClient` using the turn's `model_id`. Adapters share one tool/outcome protocol.\n\nGherkin: persist, default, reject unavailable in `features/turn_model_selection.feature`.\n\nProduct PR: https://github.com/AnthusAI/Chatticus/pull/348\n",
+      "created_at": "2026-09-11T05:31:14.800426Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-11T02:00:01.494673Z",
-  "updated_at": "2026-09-11T02:00:08.117191Z",
-  "closed_at": null,
+  "updated_at": "2026-09-11T05:31:14.857837Z",
+  "closed_at": "2026-09-11T05:31:14.857837Z",
   "custom": {}
 }

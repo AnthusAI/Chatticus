@@ -3,16 +3,24 @@
   "title": "The workspace composer selects from the catalog",
   "description": "Feature: Workspace model selector\n  As a Chatticus member\n  I want a model picker on the composer for this turn\n  So that I can choose among the models this deployment can call without leaving the conversation\n\n  Scenario: The composer lists available models and sends the selection\n    Given the enabled workspace web SPA for \"ryan@example.com\" in \"Anthus Labs\"\n    And the deployment catalog offers OpenAI and Bedrock models\n    When the web SPA opens the composer for bot \"Ping\"\n    Then the composer model selector lists OpenAI and Bedrock models\n    When the web SPA sends \"hello\" with the Bedrock model selected\n    Then POST /messages includes that model_id",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-27f16560-fc58-4b11-8bdd-55369b15a3f7",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "98c48c81-591a-4a4e-bd43-2cca8ac6ad43",
+      "author": "ryan",
+      "text": "The workspace composer loads `GET /models`, shows a `<select>` when the catalog is non-empty, remembers the last pick in `sessionStorage`, and posts `model_id` with the message.\n\nGherkin: `features/web_model_selector.feature`. The membership UI harness does not yet click the composer DOM; the front-door contract is what the spec asserts.\n\nProduct PR: https://github.com/AnthusAI/Chatticus/pull/348\n",
+      "created_at": "2026-09-11T05:31:14.816034Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-11T02:00:01.530324Z",
-  "updated_at": "2026-09-11T02:00:08.140060Z",
-  "closed_at": null,
+  "updated_at": "2026-09-11T05:31:14.874142Z",
+  "closed_at": "2026-09-11T05:31:14.874142Z",
   "custom": {}
 }
