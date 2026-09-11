@@ -12,9 +12,17 @@
     "phase-6"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "4a43f39c-00af-49e1-98bd-23f434634682",
+      "author": "ryan",
+      "text": "Unblocked by epic 27f165 (interchangeable vendors, selected per turn). Bedrock adapter will write billed_via=aws and null cost_usd; close this card when that path is live.",
+      "created_at": "2026-09-11T02:00:08.177329Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-01T03:21:48.669203Z",
-  "updated_at": "2026-09-01T03:21:48.669203Z",
+  "updated_at": "2026-09-11T02:00:08.177329Z",
   "closed_at": null,
   "custom": {}
 }

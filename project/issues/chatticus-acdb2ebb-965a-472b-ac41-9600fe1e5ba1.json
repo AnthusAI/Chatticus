@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-acdb2ebb-965a-472b-ac41-9600fe1e5ba1",
+  "title": "The workspace composer selects from the catalog",
+  "description": "Feature: Workspace model selector\n  As a Chatticus member\n  I want a model picker on the composer for this turn\n  So that I can choose among the models this deployment can call without leaving the conversation\n\n  Scenario: The composer lists available models and sends the selection\n    Given the enabled workspace web SPA for \"ryan@example.com\" in \"Anthus Labs\"\n    And the deployment catalog offers OpenAI and Bedrock models\n    When the web SPA opens the composer for bot \"Ping\"\n    Then the composer model selector lists OpenAI and Bedrock models\n    When the web SPA sends \"hello\" with the Bedrock model selected\n    Then POST /messages includes that model_id",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-27f16560-fc58-4b11-8bdd-55369b15a3f7",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-11T02:00:01.530324Z",
+  "updated_at": "2026-09-11T02:00:08.140060Z",
+  "closed_at": null,
+  "custom": {}
+}

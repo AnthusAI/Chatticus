@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-22fb145f-1e0e-4517-b223-e977c66129db",
+  "title": "Bedrock turns land on the AWS meter",
+  "description": "Feature: Bedrock billed via AWS\n  As a Chatticus operator\n  I want Bedrock inference on the AWS meter and never as vendor dollars\n  So that tokens are counted once and the invoice is not double-counted\n\n  Scenario: A Bedrock turn records billed_via aws and null cost\n    Given the deployment has Bedrock enabled\n    And vendor price for model \"anthropic.claude-sonnet-4-5\" is 2.00 input and 4.00 output per million tokens\n    And tenant \"anthus\" user \"ryan\" has a channel with a named bot \"Assistant\"\n    When user \"ryan\" of tenant \"anthus\" posts \"hello\" addressed to bot \"Assistant\" on the channel using model \"bedrock/anthropic.claude-sonnet-4-5\"\n    And bot \"Assistant\" runs one computerless worker turn for the selected model\n    Then the vendor ledger row for the turn has billed_via \"aws\"\n    And the vendor ledger row for the turn has null cost_usd\n\nParent check: closes the parked rule in f3c786 once the live adapter writes this row.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-27f16560-fc58-4b11-8bdd-55369b15a3f7",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-11T02:00:01.512647Z",
+  "updated_at": "2026-09-11T02:00:08.128550Z",
+  "closed_at": null,
+  "custom": {}
+}

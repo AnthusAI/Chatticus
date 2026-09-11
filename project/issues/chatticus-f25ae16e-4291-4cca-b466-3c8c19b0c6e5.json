@@ -1,0 +1,18 @@
+{
+  "id": "chatticus-f25ae16e-4291-4cca-b466-3c8c19b0c6e5",
+  "title": "A deployment offers only the models it can call",
+  "description": "Feature: Deployment model catalog\n  As a Chatticus operator\n  I want the deployment to list models from the credentials it actually has\n  So that an AWS-only household, an OpenAI shop, and a kitchen-sink deployment each see an honest selector\n\n  Scenario: An AWS-only deployment offers Bedrock models\n    Given the deployment has Bedrock enabled\n    And the deployment has no OpenAI, Anthropic, or Google credentials\n    When a member lists available models\n    Then the catalog contains only Bedrock models\n    And the default model is a Bedrock model\n\n  Scenario: An OpenAI deployment can also offer Bedrock\n    Given the deployment has OpenAI credentials\n    And the deployment has Bedrock enabled\n    When a member lists available models\n    Then the catalog contains OpenAI models\n    And the catalog contains Bedrock models\n\n  Scenario: A kitchen-sink deployment offers every seeded vendor\n    Given the deployment has OpenAI credentials\n    And the deployment has Bedrock enabled\n    And the deployment has Anthropic credentials\n    And the deployment has Google credentials\n    When a member lists available models\n    Then the catalog contains OpenAI, Bedrock, Anthropic, and Google models",
+  "type": "story",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-27f16560-fc58-4b11-8bdd-55369b15a3f7",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-11T02:00:01.477146Z",
+  "updated_at": "2026-09-11T02:00:08.165130Z",
+  "closed_at": null,
+  "custom": {}
+}
