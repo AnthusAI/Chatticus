@@ -19,12 +19,12 @@ implementation of the same behavior until the protocol is stable.
 
 ## LLM providers
 
-v1 talks to **OpenAI** (Chat Completions or Responses API with function
-calling). The agent loop depends on a small provider interface so the rest
-of Chatticus does not import a vendor SDK.
+v1 talks to whichever **LLM vendors this deployment can actually call**. OpenAI,
+Anthropic, and Google use API keys. Amazon Bedrock uses IAM. The agent loop
+depends on a small provider interface so the rest of Chatticus does not import
+a vendor SDK. A turn records one `model_id` from the deployment catalog.
 
-Amazon Bedrock is the next provider to consider. Do not add other vendors
-until OpenAI turns work end to end.
+Do not add Bedrock Agents or AgentCore; Chatticus owns the loop.
 
 ## Lambda
 

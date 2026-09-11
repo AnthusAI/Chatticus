@@ -307,8 +307,9 @@ v1 is the product Next.js app at `hey.chattic.us` (production) talking to that s
 plane, plus pull workers that can stay computerless or host the user's
 Linux computer: local Docker when a Mac is on, Fargate ARM64 that scales
 to zero when it is not. Workplace disk lives in S3 snapshots. EventBridge
-will wake routines later. The model vendor is OpenAI; Amazon Bedrock may
-follow.
+will wake routines later. The model vendor is whichever this deployment
+can call: OpenAI, Amazon Bedrock, Anthropic, and Google are interchangeable
+at the turn.
 
 Lambda is the right runtime for HTTP, auth callbacks, webhooks, routine
 wake-ups, a computerless model loop, and holding **one turn's** SSE
@@ -337,7 +338,7 @@ flowchart TB
   end
 
   S3[("S3: snapshots, screenshots")]
-  LLM["OpenAI<br/>Bedrock later"]
+  LLM["OpenAI / Bedrock<br/>Anthropic / Google"]
 
   Person --> Web --> FD
   FD --> DDB

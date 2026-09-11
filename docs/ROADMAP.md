@@ -108,7 +108,6 @@ still unmeasured because Chromium is not in the image. See
 - Skills
 - Human takeover of the computer display
 - Connector/plugin install flow
-- Amazon Bedrock as a second LLM provider (optional)
 
 ## v3
 

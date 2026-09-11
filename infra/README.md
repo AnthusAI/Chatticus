@@ -374,6 +374,25 @@ Limit changes redeploy only `ChatticusBudgets`, not snapshots.
   alert recorder does not loop.
 - OpenAI hard spend caps are **console-only** on the vendor project.
 
+## LLM vendors (per deployment)
+
+The computerless worker and GET `/models` share one catalog. A model appears
+only when this deployment can call it:
+
+| Credential | How it is enabled | Billing |
+| --- | --- | --- |
+| OpenAI API key | Existing SSM `/chatticus/{env}/thin-turn/openai-api-key` | Vendor meter |
+| Amazon Bedrock | `CHATTICUS_BEDROCK_ENABLED=1` plus IAM `bedrock:Converse` on the worker | AWS meter (`billed_via=aws`, `cost_usd` null) |
+| Anthropic API key | `ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY_PARAMETER` | Vendor meter |
+| Google API key | `GOOGLE_API_KEY` or `GOOGLE_API_KEY_PARAMETER` | Vendor meter |
+
+An AWS-only customer deployment seeds no vendor keys and uses Bedrock.
+Enable the foundation models in the Bedrock console for that account.
+
+The workspace composer lists the catalog and posts `model_id` on each
+message. POST without `model_id` uses the deployment default (OpenAI first
+when that key is present).
+
 ## Synth (no AWS credentials required)
 
 Synth validates CloudFormation templates without deploying. CI runs

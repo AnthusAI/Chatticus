@@ -5,20 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from chatticus.http.client import GatedToolHttpError, HttpTurnClient
+from chatticus.llm.types import GatedToolCall
 
 FIRST_GATE_MODEL_TOOLS = frozenset({"browse"})
 
 COMPUTER_ESCALATION_TOOLS = frozenset(
     {"read_workspace", "write_workspace", "run_terminal"}
 )
-
-
-@dataclass(frozen=True)
-class GatedToolCall:
-    """One model-requested first-gate or egress tool invocation."""
-
-    tool_name: str
-    arguments: dict[str, str]
 
 
 @dataclass(frozen=True)

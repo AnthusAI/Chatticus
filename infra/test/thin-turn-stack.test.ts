@@ -80,6 +80,26 @@ describe("ThinTurnStack OpenAI key", () => {
           },
         });
       });
+
+      it("enables Bedrock on the computerless worker", () => {
+        template.hasResourceProperties("AWS::Lambda::Function", {
+          Environment: {
+            Variables: Match.objectLike({
+              CHATTICUS_BEDROCK_ENABLED: "1",
+            }),
+          },
+        });
+        template.hasResourceProperties("AWS::IAM::Policy", {
+          PolicyDocument: {
+            Statement: Match.arrayWith([
+              Match.objectLike({
+                Action: Match.arrayWith(["bedrock:Converse"]),
+                Effect: "Allow",
+              }),
+            ]),
+          },
+        });
+      });
     });
   }
 });
