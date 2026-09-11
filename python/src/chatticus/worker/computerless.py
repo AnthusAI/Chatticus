@@ -1,11 +1,10 @@
-"""Computerless worker: one OpenAI text-only loop per turn job."""
+"""Computerless worker: one vendor-neutral text loop per turn job."""
 
 from __future__ import annotations
 
 import re
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Protocol
 
 from chatticus.capability_sinks import (
@@ -15,6 +14,7 @@ from chatticus.capability_sinks import (
 from chatticus.computer_capabilities import WORKSPACE_CAPABILITY
 from chatticus.control_plane import ControlPlane
 from chatticus.http.client import HttpTurnClient
+from chatticus.llm.types import CompletionOutcome, GatedToolCall, TaskToolCall
 from chatticus.models import (
     ComputerlessCannotExecuteComputerJob,
     OrganizationSpendCeilingExceededError,
@@ -24,52 +24,44 @@ from chatticus.models import (
 )
 from chatticus.vendor_ledger import (
     BILLED_VIA_VENDOR,
-    CompletionUsage,
     fake_openai_completion_usage,
 )
 from chatticus.worker.tool_dispatch import (
     COMPUTER_ESCALATION_TOOLS,
-    GatedToolCall,
     ToolDispatchResult,
     dispatch_gated_tool,
 )
 
 
-@dataclass(frozen=True)
-class TaskToolCall:
-    """One structured task-tool invocation from the model."""
-
-    action: str
-    arguments: dict[str, str]
-
-
-@dataclass(frozen=True)
-class CompletionOutcome:
-    """One model step: text to stream, and optional tool side effects."""
-
-    text: str
-    usage: CompletionUsage
-    wait_gate: str | None = None
-    task_tool_call: TaskToolCall | None = None
-    gated_tool_call: GatedToolCall | None = None
-
-
 class TextCompletionClient(Protocol):
-    """Minimal OpenAI-shaped client for one text completion."""
+    """One text completion against whichever vendor the turn selected."""
 
-    def complete(self, prompt: str) -> CompletionOutcome:
+    def complete(
+        self, prompt: str, *, model_id: str | None = None
+    ) -> CompletionOutcome:
         """Return the model's text answer and any capability wait."""
 
 
 class FakeTextCompletionClient:
-    """Deterministic stand-in so CI never needs a live OpenAI key."""
+    """Deterministic stand-in so CI never needs a live vendor key."""
 
-    def __init__(self, *, model: str = "gpt-5.6-luna") -> None:
+    def __init__(
+        self,
+        *,
+        model: str = "gpt-5.6-luna",
+        vendor: str = "openai",
+        billed_via: str = BILLED_VIA_VENDOR,
+    ) -> None:
         self.model = model
+        self.vendor = vendor
+        self.billed_via = billed_via
 
-    def complete(self, prompt: str) -> CompletionOutcome:
+    def complete(
+        self, prompt: str, *, model_id: str | None = None
+    ) -> CompletionOutcome:
         """Echo a short answer derived from the last line of the prompt."""
-        usage = fake_openai_completion_usage(model=self.model)
+        del model_id
+        usage = fake_openai_completion_usage(model=self.model, vendor=self.vendor)
         last_line = prompt.strip().splitlines()[-1] if prompt.strip() else ""
         lowered = last_line.lower()
         user_text = last_line
@@ -82,14 +74,16 @@ class FakeTextCompletionClient:
             return CompletionOutcome(
                 text="Here is a draft before I open the browser.",
                 usage=usage,
+                billed_via=self.billed_via,
                 wait_gate="browser",
             )
         if user_text:
             return CompletionOutcome(
                 text=f"You said: {user_text}",
                 usage=usage,
+                billed_via=self.billed_via,
             )
-        return CompletionOutcome(text="Hello", usage=usage)
+        return CompletionOutcome(text="Hello", usage=usage, billed_via=self.billed_via)
 
 
 class TaskAwareFakeTextCompletionClient(FakeTextCompletionClient):
@@ -100,7 +94,9 @@ class TaskAwareFakeTextCompletionClient(FakeTextCompletionClient):
         re.IGNORECASE,
     )
 
-    def complete(self, prompt: str) -> CompletionOutcome:
+    def complete(
+        self, prompt: str, *, model_id: str | None = None
+    ) -> CompletionOutcome:
         last_line = prompt.strip().splitlines()[-1] if prompt.strip() else ""
         lowered = last_line.lower()
         user_text = last_line
@@ -120,7 +116,7 @@ class TaskAwareFakeTextCompletionClient(FakeTextCompletionClient):
                     arguments={"title": title},
                 ),
             )
-        return super().complete(prompt)
+        return super().complete(prompt, model_id=model_id)
 
 
 class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
@@ -155,7 +151,9 @@ class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
         re.IGNORECASE,
     )
 
-    def complete(self, prompt: str) -> CompletionOutcome:
+    def complete(
+        self, prompt: str, *, model_id: str | None = None
+    ) -> CompletionOutcome:
         last_line = prompt.strip().splitlines()[-1] if prompt.strip() else ""
         lowered = last_line.lower()
         user_text = last_line
@@ -244,7 +242,7 @@ class CapabilityAwareFakeTextCompletionClient(FakeTextCompletionClient):
                     arguments={"command": command, "cwd": "/workspace"},
                 ),
             )
-        return super().complete(prompt)
+        return super().complete(prompt, model_id=model_id)
 
 
 class CountingTextCompletionClient:
@@ -254,10 +252,12 @@ class CountingTextCompletionClient:
         self.inner = inner or FakeTextCompletionClient()
         self.calls = 0
 
-    def complete(self, prompt: str) -> CompletionOutcome:
+    def complete(
+        self, prompt: str, *, model_id: str | None = None
+    ) -> CompletionOutcome:
         """Count one model call, then delegate."""
         self.calls += 1
-        return self.inner.complete(prompt)
+        return self.inner.complete(prompt, model_id=model_id)
 
 
 class RenewingTextCompletionClient:
@@ -274,7 +274,9 @@ class RenewingTextCompletionClient:
         self._renew = renew
         self._interval_seconds = interval_seconds
 
-    def complete(self, prompt: str) -> CompletionOutcome:
+    def complete(
+        self, prompt: str, *, model_id: str | None = None
+    ) -> CompletionOutcome:
         """Call the model while renewing the lease on a fixed interval."""
         stop = threading.Event()
 
@@ -286,7 +288,7 @@ class RenewingTextCompletionClient:
         thread = threading.Thread(target=renew_loop, daemon=True)
         thread.start()
         try:
-            return self.inner.complete(prompt)
+            return self.inner.complete(prompt, model_id=model_id)
         finally:
             stop.set()
             thread.join(timeout=1.0)
@@ -307,7 +309,9 @@ class SlowTextCompletionClient:
         self.advance_seconds = advance_seconds
         self.blocking_hook: Callable[[], None] | None = None
 
-    def complete(self, prompt: str) -> CompletionOutcome:
+    def complete(
+        self, prompt: str, *, model_id: str | None = None
+    ) -> CompletionOutcome:
         """Renew during the blocking window, then return the model answer."""
         if self.plane is not None and self.advance_seconds:
             mid = self.advance_seconds // 2
@@ -319,7 +323,7 @@ class SlowTextCompletionClient:
             tail = self.advance_seconds - (self.advance_seconds // 2)
             if tail:
                 self.plane.advance_seconds(tail)
-        return self.inner.complete(prompt)
+        return self.inner.complete(prompt, model_id=model_id)
 
 
 class ComputerlessWorker:
@@ -381,14 +385,16 @@ class ComputerlessWorker:
         if isinstance(client, SlowTextCompletionClient):
             client.blocking_hook = renew
             renew()
-            outcome = client.complete(prompt)
+            outcome = client.complete(prompt, model_id=turn.model_id)
         else:
-            outcome = RenewingTextCompletionClient(client, renew).complete(prompt)
+            outcome = RenewingTextCompletionClient(client, renew).complete(
+                prompt, model_id=turn.model_id
+            )
         self.plane.record_vendor_spend(
             job.tenant_id,
             job.turn_id,
             outcome.usage,
-            billed_via=BILLED_VIA_VENDOR,
+            billed_via=outcome.billed_via,
         )
         if (
             not outcome.text.strip()

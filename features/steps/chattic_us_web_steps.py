@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from behave import then, when
+from behave import given, then, when
 from sse_helpers import SseWatcher
 from worker_http_helpers import register_worker_for_http, worker_auth_headers
 
@@ -63,16 +63,41 @@ def when_web_ui_sends_message(
 ) -> None:
     channel = context.last_channel
     bot = context.bots_by_name[name]
+    payload = {
+        "author_kind": "human",
+        "author_id": user_id,
+        "body": body,
+        "addressed_to_bot_id": bot.bot_id,
+    }
+    model_id = getattr(context, "composer_model_id", None)
+    if model_id:
+        payload["model_id"] = model_id
     response = context.api_client.post(
         org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
-        json={
-            "author_kind": "human",
-            "author_id": user_id,
-            "body": body,
-            "addressed_to_bot_id": bot.bot_id,
-        },
+        json=payload,
     )
     context.web_ui_post_response = response
+    if response.status_code == 200:
+        context.last_turn_id = response.json().get("turn_id")
+
+
+@given('the web UI composer selects model "{model_id}"')
+def given_web_ui_selects_model(context: object, model_id: str) -> None:
+    context.composer_model_id = model_id
+
+
+@when('the web UI requests available models for tenant "{tenant_id}"')
+def when_web_ui_lists_models(context: object, tenant_id: str) -> None:
+    response = context.api_client.get(org_path(tenant_id, "/models"))
+    context.web_ui_models_response = response
+
+
+@then('the web UI model list includes "{model_id}"')
+def then_web_ui_model_list_includes(context: object, model_id: str) -> None:
+    response = context.web_ui_models_response
+    assert response.status_code == 200, response.text
+    ids = [item["model_id"] for item in response.json()["models"]]
+    assert model_id in ids, ids
 
 
 @then("the message is accepted by the thin-turn front door")

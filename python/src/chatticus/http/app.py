@@ -54,6 +54,7 @@ from chatticus.http.sse import (
     turn_event_payload,
 )
 from chatticus.http.waitlist_source import waitlist_submission_source
+from chatticus.llm.catalog import option_payload
 from chatticus.models import (
     ActorKind,
     ActorNotInChannelError,
@@ -262,6 +263,7 @@ class PostMessageBody(BaseModel):
         default=True,
         description="When false, start the addressed turn without a cpu SQS job.",
     )
+    model_id: str | None = None
 
 
 class PostChunkBody(BaseModel):
@@ -966,6 +968,16 @@ def create_app(
         bots = state.plane.list_bots(tenant_id)
         return {"bots": [_bot_payload(bot) for bot in bots]}
 
+    @user_router.get("/models")
+    def list_models(tenant_id: str) -> dict[str, Any]:
+        del tenant_id
+        catalog = state.plane.model_catalog
+        default = catalog.default()
+        return {
+            "models": [option_payload(option) for option in catalog.available()],
+            "default_model_id": default.model_id if default is not None else None,
+        }
+
     @user_router.get("/users/{user_id}/channels")
     def list_user_channels(
         tenant_id: str,
@@ -1491,6 +1503,7 @@ def create_app(
             addressed_to_bot_id=body.addressed_to_bot_id,
             enqueue_turn=body.enqueue_turn,
             idempotency_key=key,
+            model_id=body.model_id,
         )
         turn_id = started.turn_id if started is not None else None
         logger.info(
@@ -2014,6 +2027,7 @@ def _turn_payload(turn: Any) -> dict[str, Any]:
         "bot_id": turn.bot_id,
         "status": turn.status.value,
         "waiting_for": turn.waiting_for,
+        "model_id": turn.model_id,
         "pending_computer_tool": pending,
     }
 

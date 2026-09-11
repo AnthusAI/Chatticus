@@ -27,16 +27,19 @@ import {
   listBots,
   listChannels,
   listMessages,
+  listModels,
   listTasks,
   postMessage,
   type Bot,
   type Channel,
   type Computer,
   type Message,
+  type ModelOption,
   type Task,
   type Turn,
   type TurnEvent,
 } from "../lib/api";
+import { MODEL_SELECTOR_LABEL, rememberModelId, rememberedModelId } from "../lib/composer-model";
 import { avatarActivityFromTurn, botAvatarStateFromActivity } from "../lib/avatar-state";
 import type { ActiveOrg } from "../lib/membership-state";
 import type { MeOrganization } from "../lib/me";
@@ -130,6 +133,8 @@ export function EnabledWorkspace({
   const [createMode, setCreateMode] = useState<"bot" | "channel">("bot");
   const [createName, setCreateName] = useState("");
   const [createBotIds, setCreateBotIds] = useState<string[]>([]);
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState("");
   const closeStreamRef = useRef<(() => void) | null>(null);
 
   const roster = useMemo(() => buildRoster(bots, channels), [bots, channels]);
@@ -161,9 +166,10 @@ export function EnabledWorkspace({
         listBots(activeOrg),
         listChannels(activeOrg),
       ]);
-      const [loadedTasks, loadedComputer] = await Promise.all([
+      const [loadedTasks, loadedComputer, loadedModels] = await Promise.all([
         listTasks(activeOrg).catch(() => []),
         getComputer(activeOrg).catch(() => null),
+        listModels(activeOrg).catch(() => ({ models: [], default_model_id: null })),
       ]);
       const entries = await Promise.all(
         loadedChannels.map(async (channel) => [channel.channel_id, await listMessages(activeOrg, channel.channel_id)] as const),
@@ -172,6 +178,13 @@ export function EnabledWorkspace({
       setChannels(loadedChannels);
       setTasks(loadedTasks);
       setComputer(loadedComputer);
+      setModels(loadedModels.models);
+      setSelectedModelId(
+        rememberedModelId(
+          loadedModels.models.map((option) => option.model_id),
+          loadedModels.default_model_id,
+        ),
+      );
       setMessagesByChannel(Object.fromEntries(entries));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Workspace failed to load");
@@ -311,7 +324,14 @@ export function EnabledWorkspace({
     setSending(true);
     setStreamError(null);
     try {
-      const response = await postMessage(activeOrg, selectedChannelId, draft.trim(), addressedBotId);
+      const response = await postMessage(
+        activeOrg,
+        selectedChannelId,
+        draft.trim(),
+        addressedBotId,
+        selectedModelId || null,
+      );
+      if (selectedModelId) rememberModelId(selectedModelId);
       setMessagesByChannel((current) => ({
         ...current,
         [selectedChannelId]: [...(current[selectedChannelId] ?? []), response.message],
@@ -523,6 +543,23 @@ export function EnabledWorkspace({
                   <span className="text-surface-foreground/55">To</span>
                   <select className="bg-transparent font-semibold outline-none" value={addressedBotId} onChange={(event) => setAddressedBotId(event.target.value)} aria-label="Teammate to address">
                     {selectedItem.bots.map((bot) => <option key={bot.bot_id} value={bot.bot_id}>{bot.name}</option>)}
+                  </select>
+                </label>
+              ) : null}
+              {models.length > 0 ? (
+                <label className="mb-1 ml-1 inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-xs font-semibold">
+                  <span className="text-surface-foreground/55">{MODEL_SELECTOR_LABEL}</span>
+                  <select
+                    className="bg-transparent font-semibold outline-none"
+                    value={selectedModelId}
+                    onChange={(event) => setSelectedModelId(event.target.value)}
+                    aria-label="Model for this turn"
+                  >
+                    {models.map((option) => (
+                      <option key={option.model_id} value={option.model_id}>
+                        {option.display_name}
+                      </option>
+                    ))}
                   </select>
                 </label>
               ) : null}
