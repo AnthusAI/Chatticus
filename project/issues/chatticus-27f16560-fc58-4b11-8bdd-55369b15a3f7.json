@@ -10,9 +10,17 @@
   "parent": null,
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "4e31766d-5c24-4cd6-9b10-7a36c2b7d1b4",
+      "author": "ryan",
+      "text": "Implementation is on https://github.com/AnthusAI/Chatticus/pull/348 (draft, against `develop`).\n\nChildren: catalog from credentials (`f25ae1`), turn `model_id` (`aaca94`), Bedrock on the AWS meter (`22fb14`), composer selector (`acdb2e`). Closing those stories now that the Gherkin is green. This epic stays in progress until the PR lands on `develop`.\n",
+      "created_at": "2026-09-11T05:31:14.824227Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-09-11T02:00:01.456156Z",
-  "updated_at": "2026-09-11T02:00:08.153409Z",
+  "updated_at": "2026-09-11T05:31:14.824227Z",
   "closed_at": null,
   "custom": {}
 }
