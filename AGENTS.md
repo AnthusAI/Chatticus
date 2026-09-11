@@ -33,8 +33,10 @@ Do not describe this product as a clone, port, or copy of any third-party
 agent product. Do not use third-party product names for Chatticus bots, the
 computer, skills, routines, or the worker protocol.
 
-v1's LLM is **OpenAI**. Amazon Bedrock may follow. Do not assume or add an
-xAI client. The model vendor is not the product name.
+v1's LLM is whichever vendors the **deployment can call**. OpenAI, Amazon
+Bedrock, Anthropic, and Google are interchangeable at the turn: the composer
+picks a `model_id` from the catalog. Do not assume or add an xAI client.
+The model vendor is not the product name.
 
 ## Behavior-driven design (outside-in, for real)
 

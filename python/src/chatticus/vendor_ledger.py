@@ -51,10 +51,12 @@ class VendorLedgerRow:
     recorded_at: datetime
 
 
-def fake_openai_completion_usage(*, model: str) -> CompletionUsage:
+def fake_openai_completion_usage(
+    *, model: str, vendor: str = "openai"
+) -> CompletionUsage:
     """Return deterministic usage for fake completion clients."""
     return CompletionUsage(
-        vendor="openai",
+        vendor=vendor,
         model=model,
         input_tokens=FAKE_COMPLETION_INPUT_TOKENS,
         output_tokens=FAKE_COMPLETION_OUTPUT_TOKENS,

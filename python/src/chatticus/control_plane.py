@@ -90,6 +90,7 @@ from chatticus.escalation_handoff import (
     EscalationRecord,
     PendingComputerToolCall,
 )
+from chatticus.llm.catalog import ModelCatalog
 from chatticus.messaging.store import (
     InMemoryMessagingStore,
     MessagingStore,
@@ -226,6 +227,7 @@ class ControlPlane:
         email_sender: EmailSender | None = None,
         waitlist_confirmation_base_url: str | None = None,
         budget_environment: str | None = None,
+        model_catalog: ModelCatalog | None = None,
     ) -> None:
         """
         :param heartbeat_timeout: Stale workers are ignored after this interval.
@@ -289,6 +291,7 @@ class ControlPlane:
         self._computer_claims: dict[str, ComputerOwnershipClaim] = {}
         self._host_starts: dict[tuple[str, str], HostStartClaim] = {}
         self._jobs: list[TurnJob] = []
+        self.model_catalog = model_catalog or ModelCatalog()
         self._messaging_store = messaging_store or InMemoryMessagingStore()
         self._org_records = OrgRecordsKernel(self._messaging_store)
         self._org_creation_rate_limit = (
@@ -3046,6 +3049,7 @@ class ControlPlane:
         *,
         enqueue_turn: bool = True,
         idempotency_key: str | None = None,
+        model_id: str | None = None,
     ) -> tuple[Message, Turn | None]:
         """Append a committed message and start a cpu turn when addressed.
 
@@ -3091,12 +3095,14 @@ class ControlPlane:
         self._fault(TurnBoundary.MESSAGE_COMMIT, CrashWindow.AFTER)
         started: Turn | None = None
         if addressed_to_bot_id is not None:
+            selected = self.model_catalog.resolve(model_id)
             started = self._start_turn_for_bot(
                 channel,
                 addressed_to_bot_id,
                 enqueue=enqueue_turn,
                 prompt_message_seq=message.seq,
                 prompt_author_kind=author_kind,
+                model_id=selected.model_id if selected is not None else None,
             )
         if idempotency_key is not None:
             turn_id = started.turn_id if started is not None else None
@@ -3508,6 +3514,7 @@ class ControlPlane:
         enqueue: bool = True,
         prompt_message_seq: int | None = None,
         prompt_author_kind: ActorKind | None = None,
+        model_id: str | None = None,
     ) -> Turn:
         turn = Turn(
             turn_id=str(uuid4()),
@@ -3515,6 +3522,7 @@ class ControlPlane:
             channel_id=channel.channel_id,
             bot_id=bot_id,
             prompt_message_seq=prompt_message_seq,
+            model_id=model_id,
         )
         if enqueue and self.recovery_enabled:
             turn.deadline_at = self._now + self.turn_deadline

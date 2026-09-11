@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it, mock } from "node:test";
 
 import { setIdTokenSourceForTests } from "./api-auth";
-import { createBot, listBots, replaceTurnGrant } from "./api";
+import { createBot, listBots, listModels, postMessage, replaceTurnGrant } from "./api";
 
 const originalFetch = globalThis.fetch;
 
@@ -97,6 +97,72 @@ describe("org-scoped API calls", () => {
       file_scopes: ["/workspace"],
       egress_classes: ["approved_origin_fetch"],
       ingest_classes: [],
+    });
+  });
+
+  it("send Authorization on listModels", async () => {
+    setIdTokenSourceForTests(async () => "org-scoped-token");
+    let capturedUrl = "";
+    globalThis.fetch = mock.fn(async (input) => {
+      capturedUrl = String(input);
+      return new Response(
+        JSON.stringify({
+          models: [
+            {
+              model_id: "openai/gpt-5.6-luna",
+              vendor: "openai",
+              display_name: "GPT-5.6 Luna",
+              billed_via: "vendor",
+            },
+          ],
+          default_model_id: "openai/gpt-5.6-luna",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    const payload = await listModels({ tenantId: "anthus", userId: "ryan" });
+    assert.equal(capturedUrl, "/api/orgs/anthus/models");
+    assert.equal(payload.default_model_id, "openai/gpt-5.6-luna");
+  });
+
+  it("includes model_id on postMessage when selected", async () => {
+    setIdTokenSourceForTests(async () => "org-scoped-token");
+    let capturedInit: RequestInit | undefined;
+    globalThis.fetch = mock.fn(async (_input, init) => {
+      capturedInit = init;
+      return new Response(
+        JSON.stringify({
+          message: {
+            message_id: "m1",
+            channel_id: "c1",
+            tenant_id: "anthus",
+            seq: 1,
+            author_kind: "human",
+            author_id: "ryan",
+            body: "hello",
+            addressed_to_bot_id: "bot-1",
+            created_at: "2026-09-10T00:00:00Z",
+          },
+          turn_id: "turn-1",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    await postMessage(
+      { tenantId: "anthus", userId: "ryan" },
+      "c1",
+      "hello",
+      "bot-1",
+      "bedrock/anthropic.claude-sonnet-4-5",
+    );
+    assert.deepEqual(JSON.parse(String(capturedInit?.body)), {
+      author_kind: "human",
+      author_id: "ryan",
+      body: "hello",
+      addressed_to_bot_id: "bot-1",
+      model_id: "bedrock/anthropic.claude-sonnet-4-5",
     });
   });
 });

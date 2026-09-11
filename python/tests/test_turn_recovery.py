@@ -263,8 +263,10 @@ def test_renewing_completion_client_renews_during_blocking_call() -> None:
         renewals += 1
 
     class BlockingCompletionClient:
-        def complete(self, prompt: str) -> CompletionOutcome:
-            del prompt
+        def complete(
+            self, prompt: str, *, model_id: str | None = None
+        ) -> CompletionOutcome:
+            del prompt, model_id
             time.sleep(0.05)
             return FakeTextCompletionClient().complete("hello")
 

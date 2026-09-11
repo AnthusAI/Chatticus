@@ -78,6 +78,8 @@ The conversation object, and what a human message starts.
 | `bot_turns.feature` | A bot turn pins to the user's computer; duplicate names rejected. |
 | `realtime_api.feature` | Turn-scoped SSE: watch, reconnect, cross-tenant deny, waiting gate. |
 | `demo_cli.feature` | Same story from the CLI: post, watch tokens, reconnect, list in-flight. |
+| `turn_model_selection.feature` | The deployment catalog and per-turn `model_id`. Vendors are interchangeable. |
+| `web_model_selector.feature` | The workspace lists models and posts the one the member picked. |
 
 **Gaps**
 
@@ -195,6 +197,7 @@ Crashes do not duplicate work or leave two actors.
 | File | Role in the story |
 |------|-------------------|
 | `chattic_us_web.feature` | Product workspace: roster and chat over the same-origin API. |
+| `web_model_selector.feature` | Composer posts the selected `model_id`. |
 | `web_task_list.feature` | (also chapter 7) household task list in the UI. |
 
 ### 12. Operator surfaces
