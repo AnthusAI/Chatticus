@@ -50,6 +50,19 @@ export type Turn = {
   bot_id: string;
   status: "active" | "completed" | "failed" | "reconciling";
   waiting_for: string | null;
+  model_id?: string | null;
+};
+
+export type ModelOption = {
+  model_id: string;
+  vendor: string;
+  display_name: string;
+  billed_via: string;
+};
+
+export type ModelsResponse = {
+  models: ModelOption[];
+  default_model_id: string | null;
 };
 
 export type Computer = {
@@ -186,12 +199,30 @@ export async function getComputer(org: ActiveOrg): Promise<Computer> {
   return readJson<Computer>(response);
 }
 
+export async function listModels(org: ActiveOrg): Promise<ModelsResponse> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, "/models")}`,
+    { headers: await authorizedHeaders() },
+  );
+  return readJson<ModelsResponse>(response);
+}
+
 export async function postMessage(
   org: ActiveOrg,
   channelId: string,
   body: string,
   addressedToBotId: string,
+  modelId?: string | null,
 ): Promise<PostMessageResponse> {
+  const payload: Record<string, string> = {
+    author_kind: "human",
+    author_id: org.userId,
+    body,
+    addressed_to_bot_id: addressedToBotId,
+  };
+  if (modelId) {
+    payload.model_id = modelId;
+  }
   const response = await fetch(
     `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/messages`)}`,
     {
@@ -199,12 +230,7 @@ export async function postMessage(
       headers: await authorizedHeaders({
         "Content-Type": "application/json",
       }),
-      body: JSON.stringify({
-        author_kind: "human",
-        author_id: org.userId,
-        body,
-        addressed_to_bot_id: addressedToBotId,
-      }),
+      body: JSON.stringify(payload),
     },
   );
   return readJson<PostMessageResponse>(response);

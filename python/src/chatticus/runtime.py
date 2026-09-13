@@ -12,6 +12,8 @@ from chatticus.email_sender import (
     email_sender_from_env,
     waitlist_confirmation_base_url_from_env,
 )
+from chatticus.llm.catalog import catalog_from_credentials
+from chatticus.llm.credentials import credentials_from_env, default_model_id_from_env
 from chatticus.messaging.store import DynamoMessagingStore
 from chatticus.models import ComputerPolicy, TurnJob
 from chatticus.turn_recovery import TurnDeadlineScheduler
@@ -48,6 +50,10 @@ def plane_from_env() -> ControlPlane:
         wall_clock=True,
         email_sender=email_sender_from_env(),
         waitlist_confirmation_base_url=waitlist_confirmation_base_url_from_env(),
+        model_catalog=catalog_from_credentials(
+            credentials_from_env(),
+            default_model_id=default_model_id_from_env(),
+        ),
     )
 
 

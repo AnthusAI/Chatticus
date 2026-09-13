@@ -1156,7 +1156,12 @@ def test_completion_client_from_env_without_key_is_fake(
         "chatticus.worker.openai_completion.load_local_env",
         lambda: None,
     )
+    monkeypatch.setattr("chatticus.llm.local_env.load_local_env", lambda: None)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("CHATTICUS_BEDROCK_ENABLED", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY_PARAMETER", raising=False)
     client = completion_client_from_env()
     assert isinstance(client, FakeTextCompletionClient)
 

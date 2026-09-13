@@ -186,23 +186,20 @@ integration.
 - Roadmap strip, shorter than page 1's (there's less to report). I
   checked `python/src/chatticus/worker/openai_completion.py` so this
   page doesn't have to guess:
-  - **True today**: the worker calls one model through a defined
-    `TextCompletionClient` interface (there's already a
-    `FakeTextCompletionClient` used for tests) — the seam for a second
-    implementation exists.
-  - **Not true today, don't imply otherwise**: only one implementation
-    exists, and it's hardcoded to OpenAI's API
-    (`DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"`, a direct call to
-    `api.openai.com`). There is no Anthropic client, no local-model
-    client, no SageMaker client, and no per-org/per-bot provider
-    selection anywhere in the codebase as of this writing.
-  - **Designed next**: an Anthropic, local-hardware, or SageMaker
-    implementation of that same interface, plus whatever config surface
-    lets an organization choose one.
+  - **True today**: the computerless worker calls a vendor-neutral
+    `TextCompletionClient`. The deployment catalog lists OpenAI, Amazon
+    Bedrock, Anthropic, and Google when that process has the matching
+    credentials. The composer picks a `model_id` per turn. Bedrock
+    lands on the AWS meter (`billed_via=aws`).
+  - **Not true today, don't imply otherwise**: there is still no
+    local-model client, no SageMaker client, and no per-organization
+    extra keys on top of the deployment catalog. Availability is
+    per deployment, not per household.
+  - **Designed next**: local-hardware or SageMaker as another catalog
+    entry, plus any per-org key overlay if that product slice is chosen.
   - Honest one-line version for the page: "The worker already runs
-    behind an interface built to be swapped out. Only one implementation
-    exists today — that's the gap this page is describing, not one
-    we've already closed."
+    behind an interface built to be swapped out. This deployment's
+    credentials decide which vendors appear on the turn selector."
 - CTA: back to the Evidence section's migration-help link (`GET
   MIGRATION HELP` -> anth.us) — same promise, same place to ask.
 

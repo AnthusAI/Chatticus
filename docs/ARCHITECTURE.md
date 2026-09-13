@@ -27,8 +27,8 @@ Control plane (AWS, serverless)
         +----------+----------+
                    |
                    v
-            OpenAI API
-            (Bedrock later)
+            OpenAI / Bedrock /
+            Anthropic / Google
 ```
 
 The control plane accepts work, stores tenant state, and enqueues turns.
@@ -246,9 +246,11 @@ escalates on its own. See challenge 5 in
 
 1. Load bot memory, conversation, skills, and the tool list (MCP + computer
    actions + tools from the model provider).
-2. Call the configured LLM provider with function calling. v1 uses OpenAI.
-   Amazon Bedrock is a later option. The agent talks to a provider interface,
-   not a vendor-specific SDK from the rest of the loop.
+2. Call the configured LLM provider with function calling. The agent talks
+   to a provider interface, not a vendor-specific SDK from the rest of the
+   loop. The turn's `model_id` selects one entry from the deployment catalog:
+   OpenAI, Amazon Bedrock, Anthropic, or Google, depending on which
+   credentials the deployment has.
 3. Execute tool calls on the worker (or pause for approval).
 4. POST coalesced output chunks (roughly every 250 milliseconds, not one
    per token), screenshots, and approval cards to the control-plane front

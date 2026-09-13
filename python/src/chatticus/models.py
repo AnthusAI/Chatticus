@@ -104,6 +104,10 @@ class WorkspaceHostOnlyError(ChatticusError):
     """Workspace file bytes live on the summoned host, not the control plane."""
 
 
+class UnknownModelError(ChatticusError):
+    """The selected model is not available on this deployment."""
+
+
 class ActorKind(StrEnum):
     """Who can author a thread message."""
 
@@ -592,6 +596,7 @@ class Turn:
     pending_computer_action_id: str | None = None
     pending_computer_tool_name: str | None = None
     prompt_message_seq: int | None = None
+    model_id: str | None = None
 
 
 @dataclass(frozen=True)

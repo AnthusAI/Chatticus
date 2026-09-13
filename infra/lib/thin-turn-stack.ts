@@ -185,6 +185,7 @@ export class ThinTurnStack extends cdk.Stack {
       CHATTICUS_SIGNUP_MODE: signupModeForEnvironment(environmentName),
       OPENAI_MODEL: "gpt-5.6-luna",
       OPENAI_API_KEY_PARAMETER: openAiParameterName,
+      CHATTICUS_BEDROCK_ENABLED: "1",
     };
 
     const turnDeadlineSchedulerEnv: Record<string, string> = {
@@ -325,7 +326,7 @@ export class ThinTurnStack extends cdk.Stack {
       memorySize: 512,
       logRetention: CHATTICUS_LOG_RETENTION,
       timeout: cdk.Duration.seconds(120),
-      description: "SQS computerless worker: one OpenAI text loop per turn job.",
+      description: "SQS computerless worker: one vendor-neutral text loop per turn job.",
       environment: {
         ...sharedEnv,
         CHATTICUS_INVOKE_KEY: invokeSecret.secretValue.unsafeUnwrap(),
@@ -335,6 +336,20 @@ export class ThinTurnStack extends cdk.Stack {
     table.grantReadWriteData(workerFunction);
     turnQueue.grantConsumeMessages(workerFunction);
     openaiParameter.grantRead(workerFunction);
+    workerFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream",
+          "bedrock:Converse",
+          "bedrock:ConverseStream",
+        ],
+        resources: [
+          `arn:aws:bedrock:${this.region}::foundation-model/*`,
+          `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/*`,
+        ],
+      }),
+    );
     workerFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],

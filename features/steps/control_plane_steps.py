@@ -9,6 +9,7 @@ from browser_auth_helpers import wire_test_http_front_door
 
 from chatticus.control_plane import ControlPlane
 from chatticus.http.paths import org_path
+from chatticus.llm.catalog import catalog_from_credentials
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.models import (
     AutoReviewRuleKind,
@@ -48,6 +49,9 @@ def _registration_from_table(table: object) -> WorkerRegistration:
 @given("an empty control plane")
 def given_empty_control_plane(context: object) -> None:
     context.plane = ControlPlane(heartbeat_timeout=timedelta(seconds=30))
+    creds = getattr(context, "deployment_credentials", None)
+    if creds is not None:
+        context.plane.model_catalog = catalog_from_credentials(creds)
     wire_test_http_front_door(context, context.plane, invoke_key="")
     context.bots_by_name = {}
     context.last_job = None
