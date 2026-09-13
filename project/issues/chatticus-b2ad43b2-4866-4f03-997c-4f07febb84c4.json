@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-b2ad43b2-4866-4f03-997c-4f07febb84c4",
+  "title": "Non-terminal SSE stream disconnect leaves turn permanently stuck in Working state",
+  "description": "In sse.ts and EnabledWorkspace.tsx, if an SSE connection is dropped by the network or CloudFront before a terminal event arrives, the client only records streamError without attempting reconnect or reconciling the turn, leaving the UI permanently hanging in Working/Responding state.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-13T13:58:29.154394Z",
+  "updated_at": "2026-09-13T13:58:29.154431Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Antigravity"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
