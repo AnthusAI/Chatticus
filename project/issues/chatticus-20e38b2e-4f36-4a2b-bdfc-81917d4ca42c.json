@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "title": "Acceptance testing and interactive workspace hardening",
+  "description": "Full acceptance testing of Chatticus workspace on develop and deployed cloud environments, fixing front-end lifecycle and interaction defects.",
+  "type": "epic",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-13T13:23:30.868757Z",
+  "updated_at": "2026-09-13T13:23:30.868791Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Antigravity"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-38a48c0d-50b8-4521-9951-1c652d804880",
+  "title": "Top-level workspace error banner cannot be dismissed",
+  "description": "When workspace loading, bot creation, or channel creation fails, the error banner at the top of the chat area has no dismiss button or auto-clear mechanism and remains visible permanently.",
+  "type": "bug",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-13T13:23:36.887523Z",
+  "updated_at": "2026-09-13T13:23:36.887557Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Antigravity"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
