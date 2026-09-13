@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-1e52306b-d3f6-463d-a3e9-44d2c7d10798",
+  "title": "Conversation header permanently displays Completed state after turn completes",
+  "description": "In EnabledWorkspace, when a turn finishes with turn.completed, turnStatus is set to 'completed' and is never cleared. visibleTurnState permanently displays 'Completed' in the conversation header until switching channels.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-13T13:23:36.623331Z",
+  "updated_at": "2026-09-13T13:23:36.623364Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Antigravity"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

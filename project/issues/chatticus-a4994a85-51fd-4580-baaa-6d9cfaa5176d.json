@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-a4994a85-51fd-4580-baaa-6d9cfaa5176d",
+  "title": "Failed turn state is never cleared and leaves trapped UI and stale storage",
+  "description": "In EnabledWorkspace, turn.failed events are not cleaned up in the terminal event handler. The turn object is not reset, and sessionStorage keys for turn progress and last event ID persist indefinitely.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-13T13:23:36.711405Z",
+  "updated_at": "2026-09-13T13:23:36.711436Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Antigravity"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
