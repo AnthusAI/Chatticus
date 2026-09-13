@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-cafdb771-4dc8-4860-992c-4fffbf1eb83d",
+  "title": "Conversation view lacks auto-scrolling during streaming turn and message arrival",
+  "description": "The conversation scroll container in EnabledWorkspace.tsx does not anchor or scroll to the bottom when new streaming tokens arrive or when long conversations load, forcing users to manually scroll to read streaming responses.",
+  "type": "bug",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-13T13:58:29.256770Z",
+  "updated_at": "2026-09-13T13:58:29.256810Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Antigravity"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
