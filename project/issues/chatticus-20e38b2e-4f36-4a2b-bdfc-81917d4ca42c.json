@@ -24,10 +24,24 @@
         "name": "Chatticus",
         "settings": {}
       }
+    },
+    {
+      "id": "f0b1645e-6749-40e9-a3fb-a3c21a453b28",
+      "author": "box",
+      "text": "Composer 2.5 batch kicked off 2026-09-14 (Chatticus):\n\n1. Workspace turn/stream UX (develop): https://cursor.com/agents/bc-94f37f6f-ad93-4b27-931d-e3fe8659fe76 \u2014 targets 1e5230, c80b09, a4994a, b2ad43, cea55d, cafdb7, 6a51e1, 38a48c, 235efc guard\n2. Dynamo list_messages pagination: https://cursor.com/agents/bc-4d6f0148-00ed-4b56-b6cf-0450e8f584f8 \u2014 targets 267e86\n\n5e4c9a left alone (reload\u2192sign-in not reproduced).",
+      "created_at": "2026-09-14T13:23:21.416685Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-13T13:23:30.868757Z",
-  "updated_at": "2026-09-14T13:17:02.931553Z",
+  "updated_at": "2026-09-14T13:23:21.416810Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
