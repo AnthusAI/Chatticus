@@ -1303,19 +1303,25 @@ class DynamoMessagingStore:
     def list_messages(
         self, tenant_id: str, channel_id: str, after_seq: int = 0
     ) -> list[Message]:
-        response = self.client.query(
-            TableName=self.table_name,
-            KeyConditionExpression="pk = :pk AND sk > :sk",
-            ExpressionAttributeValues={
+        messages: list[Message] = []
+        query_kwargs: dict[str, Any] = {
+            "TableName": self.table_name,
+            "KeyConditionExpression": "pk = :pk AND sk > :sk",
+            "ExpressionAttributeValues": {
                 ":pk": {"S": self._channel_pk(tenant_id, channel_id)},
                 ":sk": {"S": f"msg#{after_seq:010d}"},
             },
-        )
-        messages: list[Message] = []
-        for item in response.get("Items", []):
-            if not item["sk"]["S"].startswith("msg#"):
-                continue
-            messages.append(_message_from_item(item))
+        }
+        while True:
+            response = self.client.query(**query_kwargs)
+            for item in response.get("Items", []):
+                if not item["sk"]["S"].startswith("msg#"):
+                    continue
+                messages.append(_message_from_item(item))
+            last_key = response.get("LastEvaluatedKey")
+            if last_key is None:
+                break
+            query_kwargs["ExclusiveStartKey"] = last_key
         return sorted(messages, key=lambda message: message.seq)
 
     def put_turn(self, turn: Turn, *, expected_fence: int | None = None) -> None:
@@ -1532,19 +1538,25 @@ class DynamoMessagingStore:
     def list_turn_events(
         self, tenant_id: str, turn_id: str, after_seq: int = 0
     ) -> list[TurnEvent]:
-        response = self.client.query(
-            TableName=self.table_name,
-            KeyConditionExpression="pk = :pk AND sk > :sk",
-            ExpressionAttributeValues={
+        events: list[TurnEvent] = []
+        query_kwargs: dict[str, Any] = {
+            "TableName": self.table_name,
+            "KeyConditionExpression": "pk = :pk AND sk > :sk",
+            "ExpressionAttributeValues": {
                 ":pk": {"S": self._turn_pk(tenant_id, turn_id)},
                 ":sk": {"S": f"evt#{after_seq:010d}"},
             },
-        )
-        events: list[TurnEvent] = []
-        for item in response.get("Items", []):
-            if not item["sk"]["S"].startswith("evt#"):
-                continue
-            events.append(_turn_event_from_item(item))
+        }
+        while True:
+            response = self.client.query(**query_kwargs)
+            for item in response.get("Items", []):
+                if not item["sk"]["S"].startswith("evt#"):
+                    continue
+                events.append(_turn_event_from_item(item))
+            last_key = response.get("LastEvaluatedKey")
+            if last_key is None:
+                break
+            query_kwargs["ExclusiveStartKey"] = last_key
         return sorted(events, key=lambda event: event.seq)
 
     def put_turn_chunk(
@@ -1585,18 +1597,24 @@ class DynamoMessagingStore:
         return True
 
     def list_turn_chunks(self, tenant_id: str, turn_id: str) -> list[str]:
-        response = self.client.query(
-            TableName=self.table_name,
-            KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
-            ExpressionAttributeValues={
+        chunks: list[tuple[int, str]] = []
+        query_kwargs: dict[str, Any] = {
+            "TableName": self.table_name,
+            "KeyConditionExpression": "pk = :pk AND begins_with(sk, :prefix)",
+            "ExpressionAttributeValues": {
                 ":pk": {"S": self._turn_pk(tenant_id, turn_id)},
                 ":prefix": {"S": "chunk#"},
             },
-        )
-        chunks: list[tuple[int, str]] = []
-        for item in response.get("Items", []):
-            seq = int(item["sk"]["S"].split("#", 1)[1])
-            chunks.append((seq, item["token"]["S"]))
+        }
+        while True:
+            response = self.client.query(**query_kwargs)
+            for item in response.get("Items", []):
+                seq = int(item["sk"]["S"].split("#", 1)[1])
+                chunks.append((seq, item["token"]["S"]))
+            last_key = response.get("LastEvaluatedKey")
+            if last_key is None:
+                break
+            query_kwargs["ExclusiveStartKey"] = last_key
         return [token for _, token in sorted(chunks, key=lambda pair: pair[0])]
 
     def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
