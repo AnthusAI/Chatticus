@@ -3,7 +3,7 @@
   "title": "Quick channel switching causes stale in-flight turn stream to hijack active conversation",
   "description": "In EnabledWorkspace.tsx selectItem(), asynchronous listMessages and getActiveTurn calls have no cancellation or request-generation checks. If a user quickly switches from Bot A to Bot B, Bot A's slower response resolves after Bot B is selected and starts streaming into Bot B's conversation view.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,25 @@
         "name": "Chatticus",
         "settings": {}
       }
+    },
+    {
+      "id": "22042b6a-efa2-402d-9eea-6da968714c04",
+      "author": "box",
+      "text": "Merged to develop via PR #350 (ef5e38d). Stream/selection generation guards.",
+      "created_at": "2026-09-14T13:32:08.595290Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-13T13:58:29.032518Z",
-  "updated_at": "2026-09-14T13:16:57.865572Z",
-  "closed_at": null,
+  "updated_at": "2026-09-14T13:32:09.565417Z",
+  "closed_at": "2026-09-14T13:32:09.565275Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

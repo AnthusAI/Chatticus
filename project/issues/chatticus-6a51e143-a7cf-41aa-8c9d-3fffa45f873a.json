@@ -3,7 +3,7 @@
   "title": "Bot and channel creation panel missing form semantics and Enter key submission",
   "description": "The Add bot or channel drawer uses non-form container elements and does not submit on Enter key press in the input field. In addition, toggle buttons and sign out button lack explicit type='button' attributes.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,25 @@
         "name": "Chatticus",
         "settings": {}
       }
+    },
+    {
+      "id": "3e3aec13-843b-456e-afe5-1f6468942150",
+      "author": "box",
+      "text": "Merged to develop via PR #350 (ef5e38d). Create panel is a form; Enter submits.",
+      "created_at": "2026-09-14T13:32:17.338686Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-13T13:23:36.798370Z",
-  "updated_at": "2026-09-14T13:17:00.097409Z",
-  "closed_at": null,
+  "updated_at": "2026-09-14T13:32:18.330548Z",
+  "closed_at": "2026-09-14T13:32:18.330392Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

@@ -3,7 +3,7 @@
   "title": "Failed turn state is never cleared and leaves trapped UI and stale storage",
   "description": "In EnabledWorkspace, turn.failed events are not cleaned up in the terminal event handler. The turn object is not reset, and sessionStorage keys for turn progress and last event ID persist indefinitely.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,25 @@
         "name": "Chatticus",
         "settings": {}
       }
+    },
+    {
+      "id": "e2a7d824-a493-4901-b2dc-1b07f90fc765",
+      "author": "box",
+      "text": "Merged to develop via PR #350 (ef5e38d). Failed turns clear bubble + streamError.",
+      "created_at": "2026-09-14T13:32:10.290289Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-13T13:23:36.711405Z",
-  "updated_at": "2026-09-14T13:16:56.400503Z",
-  "closed_at": null,
+  "updated_at": "2026-09-14T13:32:11.290700Z",
+  "closed_at": "2026-09-14T13:32:11.290535Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

@@ -3,7 +3,7 @@
   "title": "Non-terminal SSE stream disconnect leaves turn permanently stuck in Working state",
   "description": "In sse.ts and EnabledWorkspace.tsx, if an SSE connection is dropped by the network or CloudFront before a terminal event arrives, the client only records streamError without attempting reconnect or reconciling the turn, leaving the UI permanently hanging in Working/Responding state.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,25 @@
         "name": "Chatticus",
         "settings": {}
       }
+    },
+    {
+      "id": "25887c0d-bf37-4845-82a0-ccac5f693da9",
+      "author": "box",
+      "text": "Merged to develop via PR #350 (ef5e38d). Disconnect parks turn UI.",
+      "created_at": "2026-09-14T13:32:12.072980Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-13T13:58:29.154394Z",
-  "updated_at": "2026-09-14T13:16:57.143936Z",
-  "closed_at": null,
+  "updated_at": "2026-09-14T13:32:13.053377Z",
+  "closed_at": "2026-09-14T13:32:13.053251Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},
