@@ -59,6 +59,68 @@ export function tasksForSelection(tasks: Task[], item: RosterItem | null): Task[
   );
 }
 
+export type TurnUiStatus = "active" | "completed" | "failed" | "reconciling" | null;
+
+export type VisibleTurnState =
+  | "streaming"
+  | "waiting"
+  | "completed"
+  | "failed"
+  | "reconciling"
+  | null;
+
+export function resolveVisibleTurnState(
+  turnStatus: TurnUiStatus,
+  turn: { waiting_for: string | null } | null,
+  progress: string,
+): VisibleTurnState {
+  if (turnStatus === "failed") {
+    return "failed";
+  }
+  if (turnStatus === "reconciling") {
+    return "reconciling";
+  }
+  if (turnStatus === "completed") {
+    return turn !== null ? "completed" : null;
+  }
+  if (turn?.waiting_for) {
+    return "waiting";
+  }
+  if (turn && progress) {
+    return "streaming";
+  }
+  return null;
+}
+
+export function isComposerSendBlocked(sending: boolean, turn: unknown | null): boolean {
+  return sending || turn !== null;
+}
+
+export const TRANSCRIPT_STICK_THRESHOLD_PX = 100;
+
+export function transcriptDistanceFromBottom(
+  scrollTop: number,
+  scrollHeight: number,
+  clientHeight: number,
+): number {
+  return scrollHeight - scrollTop - clientHeight;
+}
+
+export function shouldStickTranscriptScroll(
+  channelChanged: boolean,
+  distanceFromBottomPx: number,
+  thresholdPx: number = TRANSCRIPT_STICK_THRESHOLD_PX,
+): boolean {
+  if (channelChanged) {
+    return true;
+  }
+  return distanceFromBottomPx <= thresholdPx;
+}
+
+export function shouldClearTurnBubbleAfterTerminal(kind: string): boolean {
+  return kind === "turn.completed" || kind === "turn.failed";
+}
+
 export function turnPresentation(
   state: "streaming" | "waiting" | "completed" | "failed" | "reconciling",
 ): string {
