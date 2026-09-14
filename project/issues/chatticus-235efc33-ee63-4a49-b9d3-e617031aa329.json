@@ -10,16 +10,32 @@
   "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "ab146dee-d9af-44f0-be17-f844edfcdd01",
+      "author": "box",
+      "text": "Triage 2026-09-14 (Chatticus): LIVE NOT REPRODUCED on AcceptLoopBot; CODE still risky.\n\nLive: while `triage-concurrent-1` was active, Send stayed disabled; `triage-concurrent-2` only went after the first turn finished (fast AcceptLoopBot turn \u2014 may have overlapped with `sending===true`).\n\nCode: composer `disabled={!draft.trim() || sending}` and `handleSend` only guards `sending`, not `turn` / `turnStatus === \"active\"`. After POST returns, a second send is allowed while the stream is still open.\n\nKeep open as P2 latent: disable send while an active turn stream is open, or queue; re-test on a slow bot.",
+      "created_at": "2026-09-14T13:16:58.643319Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
   "created_at": "2026-09-13T13:23:36.979879Z",
-  "updated_at": "2026-09-13T13:23:36.979916Z",
+  "updated_at": "2026-09-14T13:16:58.643438Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
   "agent": {
     "platform": "antigravity",
     "model": "gemini-3.1-pro",
-    "name": "Antigravity"
-  },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {}
+    "name": "Antigravity",
+    "settings": {}
+  }
 }

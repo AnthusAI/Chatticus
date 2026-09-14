@@ -1,7 +1,7 @@
 {
   "id": "chatticus-5e4c9ae2-1346-4c56-b01e-f5d21de5b283",
   "title": "Reload still shows the sign-in page when already signed in",
-  "description": "**Reported still broken 2026-09-08, after #339.**\n\nSymptom, from the human: log in, reload `dev.chattic.us`, the sign-in page appears again. Pressing **Sign in with Google** returns you signed in **without re-entering credentials**.\n\nThat last detail is the diagnostic. The identity provider session is alive and valid — the app just is not using it on mount. So this is not a login problem, it is a session-restore problem.\n\n## What is already correct\n\n`membership-context.tsx` does restore on mount: a `useEffect` calls `refreshSession()` → `getVerifiedSession()` → `getUserManager().getUser()`. That path exists and #339 was right to add it. So the fix is in the code, and something downstream of it is returning nothing usable.\n\nTwo candidates, and runtime is needed to tell them apart: `getUser()` returns null, or `verifiedSessionFromUser` rejects because `verifyIdTokenClaims` throws or returns falsy. **Check that first** — one `console` reading of both in the browser settles it in a minute and prevents guessing.\n\n**Also confirm the development web deploy for #339 actually landed before concluding.** A sign-in prompt against the old build proves nothing.\n\n## Two config problems that are definite regardless\n\nBoth in `buildUserManagerSettings` (`web/lib/auth.ts`), both worth fixing whatever the immediate cause turns out to be.\n\n### 1. No refresh token, so `automaticSilentRenew` is inert\n\n```ts\nscope: \"openid email profile\",\nautomaticSilentRenew: true,\n```\n\nWithout **`offline_access`**, Cognito does not issue a refresh token, so there is nothing for silent renew to renew with. The flag is set and cannot do anything.\n\n**Consequence beyond this bug:** once the `id_token` expires — typically an hour — the user is signed out with no silent recovery. Fixing the reload path alone leaves sessions dying hourly.\n\n### 2. `prompt: \"select_account\"` is global, which also blocks iframe silent renew\n\n```ts\nextraQueryParams: { identity_provider: \"Google\", prompt: \"select_account\" },\n```\n\nThe stated requirement was to show the account chooser **after the user clicks Sign out**. This applies it to *every* authorization request.\n\nSilent renew via hidden iframe requires `prompt=none`; an account chooser cannot render in a hidden iframe, so that path fails too. Between this and the missing `offline_access`, **both** silent-renew mechanisms are closed off.\n\nApply `select_account` to the post-signout sign-in only, not to the manager's global settings.\n\n## Suggested fix\n\n1. Instrument first — is `getUser()` null, or is claim verification rejecting? Do not guess.\n2. Add `offline_access` to `scope` so a refresh token exists.\n3. Move `prompt: \"select_account\"` out of global settings onto the post-signout path.\n4. On mount, if the stored user is absent or fails verification, attempt `signinSilent()` before falling back to the sign-in panel. Given the IdP session is demonstrably valid — clicking the button proves it — this is what turns a visible sign-in into an invisible one.\n\n## Done when\n\nReloading `/chat` while signed in keeps you signed in with no button press, a session survives past `id_token` expiry without a visible prompt, and clicking **Sign out** still shows the account chooser on the next sign-in.",
+  "description": "**Reported still broken 2026-09-08, after #339.**\n\nSymptom, from the human: log in, reload `dev.chattic.us`, the sign-in page appears again. Pressing **Sign in with Google** returns you signed in **without re-entering credentials**.\n\nThat last detail is the diagnostic. The identity provider session is alive and valid \u2014 the app just is not using it on mount. So this is not a login problem, it is a session-restore problem.\n\n## What is already correct\n\n`membership-context.tsx` does restore on mount: a `useEffect` calls `refreshSession()` \u2192 `getVerifiedSession()` \u2192 `getUserManager().getUser()`. That path exists and #339 was right to add it. So the fix is in the code, and something downstream of it is returning nothing usable.\n\nTwo candidates, and runtime is needed to tell them apart: `getUser()` returns null, or `verifiedSessionFromUser` rejects because `verifyIdTokenClaims` throws or returns falsy. **Check that first** \u2014 one `console` reading of both in the browser settles it in a minute and prevents guessing.\n\n**Also confirm the development web deploy for #339 actually landed before concluding.** A sign-in prompt against the old build proves nothing.\n\n## Two config problems that are definite regardless\n\nBoth in `buildUserManagerSettings` (`web/lib/auth.ts`), both worth fixing whatever the immediate cause turns out to be.\n\n### 1. No refresh token, so `automaticSilentRenew` is inert\n\n```ts\nscope: \"openid email profile\",\nautomaticSilentRenew: true,\n```\n\nWithout **`offline_access`**, Cognito does not issue a refresh token, so there is nothing for silent renew to renew with. The flag is set and cannot do anything.\n\n**Consequence beyond this bug:** once the `id_token` expires \u2014 typically an hour \u2014 the user is signed out with no silent recovery. Fixing the reload path alone leaves sessions dying hourly.\n\n### 2. `prompt: \"select_account\"` is global, which also blocks iframe silent renew\n\n```ts\nextraQueryParams: { identity_provider: \"Google\", prompt: \"select_account\" },\n```\n\nThe stated requirement was to show the account chooser **after the user clicks Sign out**. This applies it to *every* authorization request.\n\nSilent renew via hidden iframe requires `prompt=none`; an account chooser cannot render in a hidden iframe, so that path fails too. Between this and the missing `offline_access`, **both** silent-renew mechanisms are closed off.\n\nApply `select_account` to the post-signout sign-in only, not to the manager's global settings.\n\n## Suggested fix\n\n1. Instrument first \u2014 is `getUser()` null, or is claim verification rejecting? Do not guess.\n2. Add `offline_access` to `scope` so a refresh token exists.\n3. Move `prompt: \"select_account\"` out of global settings onto the post-signout path.\n4. On mount, if the stored user is absent or fails verification, attempt `signinSilent()` before falling back to the sign-in panel. Given the IdP session is demonstrably valid \u2014 clicking the button proves it \u2014 this is what turns a visible sign-in into an invisible one.\n\n## Done when\n\nReloading `/chat` while signed in keeps you signed in with no button press, a session survives past `id_token` expiry without a visible prompt, and clicking **Sign out** still shows the account chooser on the next sign-in.",
   "type": "bug",
   "status": "in_progress",
   "priority": 0,
@@ -21,71 +21,104 @@
     {
       "id": "d3948a14-59f7-4e32-8d1c-445ffd1a7a9a",
       "author": "home",
-      "text": "Composer 2.5 planning **batched** with `chatticus-98f4f6`. Worktree to be named `/tmp/chatticus-5e4c9a-session-restore` on `feat/5e4c9a-session-restore`. Implementation not authorized until the plan is reviewed.\n\n**Deploy first fact:** #339 never reached CloudFront. Last successful development web deploy is `4ba8bc2` (#338). Every later web deploy fails `npm` EACCES `/.npm` in the CDK bundling docker (`chatticus-a73f21`). Do not conclude this bug from live `dev.chattic.us` until that deploy succeeds. Instrument `getUser()` vs `verifyIdTokenClaims` in the browser after the new bundle is live — do not guess.\n\n**Code (definite regardless of instrument):** `offline_access` on scope (Cognito app client must allow refresh tokens — check CDK, one path); `prompt=select_account` only after explicit Sign out, not global; `signinSilent()` on mount before the sign-in panel. Keep `349634`. No `ADMIN_NO_SRP_AUTH`.\n\n**`98f4f6` manager decision for this slice:** option 3 — keep `localStorage`, record it in `docs/THREAT_MODEL.md` (token authorizes `PUT .../grant` including `run_terminal`; XSS on origin; standing ceiling; short lifetime). Do not build a BFF in this PR (that would stall `c54569`). Silence is the defect.",
+      "text": "Composer 2.5 planning **batched** with `chatticus-98f4f6`. Worktree to be named `/tmp/chatticus-5e4c9a-session-restore` on `feat/5e4c9a-session-restore`. Implementation not authorized until the plan is reviewed.\n\n**Deploy first fact:** #339 never reached CloudFront. Last successful development web deploy is `4ba8bc2` (#338). Every later web deploy fails `npm` EACCES `/.npm` in the CDK bundling docker (`chatticus-a73f21`). Do not conclude this bug from live `dev.chattic.us` until that deploy succeeds. Instrument `getUser()` vs `verifyIdTokenClaims` in the browser after the new bundle is live \u2014 do not guess.\n\n**Code (definite regardless of instrument):** `offline_access` on scope (Cognito app client must allow refresh tokens \u2014 check CDK, one path); `prompt=select_account` only after explicit Sign out, not global; `signinSilent()` on mount before the sign-in panel. Keep `349634`. No `ADMIN_NO_SRP_AUTH`.\n\n**`98f4f6` manager decision for this slice:** option 3 \u2014 keep `localStorage`, record it in `docs/THREAT_MODEL.md` (token authorizes `PUT .../grant` including `run_terminal`; XSS on origin; standing ceiling; short lifetime). Do not build a BFF in this PR (that would stall `c54569`). Silence is the defect.",
       "created_at": "2026-09-08T22:25:58.432326Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     },
     {
       "id": "3e9e6a97-47e4-4b87-be5d-b1c441340345",
       "author": "home",
       "text": "Cognito does not use the OIDC offline_access scope. The SPA client already has refreshTokenValidity 30 days and authorization-code grant; Cognito issues a refresh token with openid. Allowed OAuth scopes in infra/lib/auth-stack.ts are only openid/email/profile. Adding offline_access to scope without that CDK list is invalid_scope (or a no-op). Planner must not add it. Confirm the token response already includes refresh_token; if oidc-client-ts is not using it, that is a library setting, not a missing scope.\n\ngetVerifiedSession calls verifyIdTokenClaims, which throws on exp. An expired id_token in localStorage therefore becomes an error, not a silent renew. Mount path must catch that and signinSilent() before the sign-in panel.\n\nInstrument getUser vs claim verify only after a73f21 lands a web deploy that includes #339. Live dev.chattic.us is still 4ba8bc2.\n",
       "created_at": "2026-09-08T22:28:50.489846Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     },
     {
       "id": "231da8d0-f6ad-4d56-9704-91687d7fa57a",
       "author": "home",
-      "text": "Plan sent back. Do not add offline_access to the SPA scope or to CDK AllowedOAuthScopes. Cognito does not use that OIDC scope; the client already issues a refresh token on authorization-code + openid (refreshTokenValidity 30 days). Adding it is invalid_scope or a dual path (\"try custom scope, if Cognito rejects fall back\") — both forbidden.\n\nAlso: do not block this PR on a73f21. Code in parallel; live instrument only after that deploy. Do not merge console.debug. getVerifiedSession/verifiedSessionFromUser throws on exp — restore must catch that and signinSilent before the sign-in panel. Revise the plan, then stop. No code.\n",
+      "text": "Plan sent back. Do not add offline_access to the SPA scope or to CDK AllowedOAuthScopes. Cognito does not use that OIDC scope; the client already issues a refresh token on authorization-code + openid (refreshTokenValidity 30 days). Adding it is invalid_scope or a dual path (\"try custom scope, if Cognito rejects fall back\") \u2014 both forbidden.\n\nAlso: do not block this PR on a73f21. Code in parallel; live instrument only after that deploy. Do not merge console.debug. getVerifiedSession/verifiedSessionFromUser throws on exp \u2014 restore must catch that and signinSilent before the sign-in panel. Revise the plan, then stop. No code.\n",
       "created_at": "2026-09-08T22:30:27.089619Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     },
     {
       "id": "7561c150-6b03-4931-a9b7-cc4d944d5bc5",
       "author": "home",
-      "text": "Revised plan approved with amendments. Authorizing Composer 2.5 to create /tmp/chatticus-5e4c9a-session-restore on feat/5e4c9a-session-restore from origin/develop.\n\nAmendments: (1) Update auth-stack-harness CallbackURLs — tests exact-match the array, not only auth-stack.ts. (2) Silent callback page must call signinSilentCallback only — never router.replace into /chat (that navigates the iframe). (3) CloudFront SPA rewrite already maps any extensionless path to index.html; add a test for /auth/silent-callback, do not re-hardcode an auth-path allowlist. (4) AuthStack deploy is required for the iframe path; refresh-token renew is the customer DoD after localStorage. Google-in-iframe may fail in Chrome; that is not a merge blocker if expired-id_token + refresh restores.\n",
+      "text": "Revised plan approved with amendments. Authorizing Composer 2.5 to create /tmp/chatticus-5e4c9a-session-restore on feat/5e4c9a-session-restore from origin/develop.\n\nAmendments: (1) Update auth-stack-harness CallbackURLs \u2014 tests exact-match the array, not only auth-stack.ts. (2) Silent callback page must call signinSilentCallback only \u2014 never router.replace into /chat (that navigates the iframe). (3) CloudFront SPA rewrite already maps any extensionless path to index.html; add a test for /auth/silent-callback, do not re-hardcode an auth-path allowlist. (4) AuthStack deploy is required for the iframe path; refresh-token renew is the customer DoD after localStorage. Google-in-iframe may fail in Chrome; that is not a merge blocker if expired-id_token + refresh restores.\n",
       "created_at": "2026-09-08T22:32:55.844876Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     },
     {
       "id": "814f4b2e-88ad-46fe-b783-a2895976c056",
       "author": "home",
-      "text": "PR https://github.com/AnthusAI/Chatticus/pull/341 opened. Composer 2.5 reviewing against develop. Do not merge until (1) that review, (2) green CI, and (3) a73f21 test-support exclude is on develop — otherwise next build still typechecks the Behave harness and CloudFront stays on #338.\n",
+      "text": "PR https://github.com/AnthusAI/Chatticus/pull/341 opened. Composer 2.5 reviewing against develop. Do not merge until (1) that review, (2) green CI, and (3) a73f21 test-support exclude is on develop \u2014 otherwise next build still typechecks the Behave harness and CloudFront stays on #338.\n",
       "created_at": "2026-09-08T22:47:33.350105Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     },
     {
       "id": "2691b4a3-5b18-492c-ab83-5ccab3e0b949",
       "author": "home",
       "text": "a73f21 closed: development web deploy succeeded on 8a21862. #339 is on CloudFront. #341 CI is green. Merge #341 after Composer 2.5 review (in flight) and rebase onto develop so the exclude is in the merge base.\n",
       "created_at": "2026-09-08T23:03:38.583068Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     },
     {
       "id": "979f180e-5488-4fc7-b651-ed1605128295",
       "author": "home",
-      "text": "Live: human confirmed reload on development keeps the session — no Sign in with Google. That is the reported bug.\n\n#341 is on develop (0a45306). Auth deploy for silent-callback URL succeeded (run 34289137100). Web deploy of #341 was racing a pm: push; re-dispatched 34289135375. Even before that, 8a21862 had put #339 localStorage on CloudFront, which is enough for reload within id_token lifetime.\n\nStill open on this card: Sign out still shows the account chooser (349634), and session survives past one-hour id_token expiry via refresh. Do not close on reload alone.\n\nc54569 unattended run can proceed; if hourly renew is not yet proven, label it — do not count reload as a person-step.\n",
+      "text": "Live: human confirmed reload on development keeps the session \u2014 no Sign in with Google. That is the reported bug.\n\n#341 is on develop (0a45306). Auth deploy for silent-callback URL succeeded (run 34289137100). Web deploy of #341 was racing a pm: push; re-dispatched 34289135375. Even before that, 8a21862 had put #339 localStorage on CloudFront, which is enough for reload within id_token lifetime.\n\nStill open on this card: Sign out still shows the account chooser (349634), and session survives past one-hour id_token expiry via refresh. Do not close on reload alone.\n\nc54569 unattended run can proceed; if hourly renew is not yet proven, label it \u2014 do not count reload as a person-step.\n",
       "created_at": "2026-09-08T23:08:38.879937Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     },
     {
       "id": "1c80aaaf-2981-48c5-bae3-835918fe0a33",
       "author": "home",
-      "text": "Live Sign Out check for 349634 failed: Cognito error Client does not exist. Not a missing client — oidc-client-ts logout URL. Filed chatticus-838e5d P0. Human can return to /chat; localStorage was not cleared because signout-callback never ran.\n",
+      "text": "Live Sign Out check for 349634 failed: Cognito error Client does not exist. Not a missing client \u2014 oidc-client-ts logout URL. Filed chatticus-838e5d P0. Human can return to /chat; localStorage was not cleared because signout-callback never ran.\n",
       "created_at": "2026-09-08T23:14:39.522563Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     },
     {
       "id": "58417584-f659-49f0-8f65-5c78622073bf",
       "author": "home",
-      "text": "Live Sign Out confirmed (838e5d closed, #344). Reload already confirmed. Remaining on this card: session survives past one-hour id_token expiry via refresh. Do not close until that is proven or explicitly labeled. c54569 may run; if hourly renew appears, label it — do not count as a customer person-step.\n",
+      "text": "Live Sign Out confirmed (838e5d closed, #344). Reload already confirmed. Remaining on this card: session survives past one-hour id_token expiry via refresh. Do not close until that is proven or explicitly labeled. c54569 may run; if hourly renew appears, label it \u2014 do not count as a customer person-step.\n",
       "created_at": "2026-09-09T19:16:55.900385Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "894de37f-3291-492c-b3cd-9b90d7a29307",
+      "author": "box",
+      "text": "Triage 2026-09-14 (Chatticus): LIVE NOT REPRODUCED for cold reload \u2192 sign-in wall.\n\nHard reload on https://dev.chattic.us/chat while signed in returned the three-pane workspace with Sign out visible (no Google sign-in screen). Matches earlier 2026-09-14 live QA.\n\nRemaining card scope (if any): prove silent renew / hourly token refresh under `web/lib/auth.ts` (`signinSilent`), long-history restore edge cases from the PR #341 era. Suggest: lower urgency or close reload symptom; keep a narrower story for silent-renew proof if still wanted.",
+      "created_at": "2026-09-14T13:17:02.330593Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-08T22:17:46.277560Z",
-  "updated_at": "2026-09-09T19:16:55.900417Z",
+  "updated_at": "2026-09-14T13:17:02.330713Z",
   "closed_at": null,
   "right_now_summary": "Reload now preserves sessions, but sign-out fails with a Cognito client error and hourly renewal is unverified.",
   "right_now_updated_at": "2026-09-08T23:19:44.524464Z",
-  "custom": {}
+  "custom": {},
+  "agent": null
 }

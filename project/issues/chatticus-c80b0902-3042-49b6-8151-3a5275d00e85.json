@@ -10,16 +10,32 @@
   "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "fd247fb5-d6e3-44e7-acc7-aa01170b5cf9",
+      "author": "box",
+      "text": "Triage 2026-09-14 (Chatticus): CONFIRMED race in code (fast switch not forced live).\n\n`selectItem` aborts the stream and clears turn state, but `startTurnStream`\u2019s `onEvent` \u2192 `reconcileMessages(...).then(() => { setTurn(null); ... })` is not generation-guarded. A late then() from the previous channel can clear the newly started turn or apply stale reconcile. Same class of bug if token handlers race past abort.\n\nFix: stream/generation token per selection; ignore events and reconcile callbacks whose generation !== current.",
+      "created_at": "2026-09-14T13:16:57.865441Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
   "created_at": "2026-09-13T13:58:29.032518Z",
-  "updated_at": "2026-09-13T13:58:29.032565Z",
+  "updated_at": "2026-09-14T13:16:57.865572Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
   "agent": {
     "platform": "antigravity",
     "model": "gemini-3.1-pro",
-    "name": "Antigravity"
-  },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {}
+    "name": "Antigravity",
+    "settings": {}
+  }
 }

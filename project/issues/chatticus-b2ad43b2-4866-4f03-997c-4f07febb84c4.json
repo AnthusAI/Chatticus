@@ -10,16 +10,32 @@
   "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "c7b4f05d-7be7-4ccc-9618-1227ece80920",
+      "author": "box",
+      "text": "Triage 2026-09-14 (Chatticus): CONFIRMED in code (SSE kill not forced live).\n\n`web/lib/sse.ts`: mid-stream error calls `onError` then `onClose`. `EnabledWorkspace` only `setStreamError(...)` \u2014 it does not set `turnStatus` to failed, clear `turn`, or stop showing \u201cWorking\u2026\u201d. Abort without a terminal event leaves `turnStatus === \"active\"` and `turn` non-null.\n\nFix: on stream error/unexpected close without terminal event, mark reconciling or failed, clear or park the active turn UI, and optionally attempt one resume via Last-Event-ID.",
+      "created_at": "2026-09-14T13:16:57.143791Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
   "created_at": "2026-09-13T13:58:29.154394Z",
-  "updated_at": "2026-09-13T13:58:29.154431Z",
+  "updated_at": "2026-09-14T13:16:57.143936Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
   "agent": {
     "platform": "antigravity",
     "model": "gemini-3.1-pro",
-    "name": "Antigravity"
-  },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {}
+    "name": "Antigravity",
+    "settings": {}
+  }
 }
