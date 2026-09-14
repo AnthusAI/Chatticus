@@ -4,17 +4,16 @@ import {
   Check,
   ChevronDown,
   CircleAlert,
-  Clock3,
   Computer as ComputerIcon,
   Menu,
   PanelRight,
   Plus,
   Search,
-  Send,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { ChatticusAssistantRuntime } from "./assistant-ui/ChatticusAssistantRuntime";
 import { BotAvatarView } from "./BotAvatarView";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -48,10 +47,7 @@ import {
   latestMessage,
   resolveVisibleTurnState,
   shouldClearTurnBubbleAfterTerminal,
-  shouldStickTranscriptScroll,
   tasksForSelection,
-  transcriptDistanceFromBottom,
-  TRANSCRIPT_STICK_THRESHOLD_PX,
   turnPresentation,
   type RosterItem,
   type TurnUiStatus,
@@ -119,7 +115,6 @@ export function EnabledWorkspace({
   const [computer, setComputer] = useState<Computer | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [addressedBotId, setAddressedBotId] = useState<string>("");
-  const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -139,11 +134,11 @@ export function EnabledWorkspace({
   const closeStreamRef = useRef<(() => void) | null>(null);
   const streamGenerationRef = useRef(0);
   const selectionLoadRef = useRef(0);
-  const transcriptScrollRef = useRef<HTMLDivElement>(null);
-  const transcriptStickToBottomRef = useRef(true);
-  const previousTranscriptChannelRef = useRef<string | null>(null);
-
   const roster = useMemo(() => buildRoster(bots, channels), [bots, channels]);
+  const botNameById = useMemo(
+    () => new Map(bots.map((bot) => [bot.bot_id, bot.name])),
+    [bots],
+  );
   const selectedItem = roster.find((item) => item.id === selectedItemId) ?? null;
   const selectedChannelId = channelIdForItem(selectedItem);
   const selectedMessages = selectedChannelId ? messagesByChannel[selectedChannelId] ?? [] : [];
@@ -188,35 +183,6 @@ export function EnabledWorkspace({
 
   useEffect(() => void loadWorkspace(), [loadWorkspace]);
   useEffect(() => () => closeStreamRef.current?.(), []);
-  useEffect(() => {
-    const node = transcriptScrollRef.current;
-    if (!node) {
-      return;
-    }
-    transcriptStickToBottomRef.current = true;
-    const onScroll = () => {
-      transcriptStickToBottomRef.current = shouldStickTranscriptScroll(
-        false,
-        transcriptDistanceFromBottom(node.scrollTop, node.scrollHeight, node.clientHeight),
-        TRANSCRIPT_STICK_THRESHOLD_PX,
-      );
-    };
-    node.addEventListener("scroll", onScroll, { passive: true });
-    return () => node.removeEventListener("scroll", onScroll);
-  }, [selectedChannelId]);
-
-  useLayoutEffect(() => {
-    const node = transcriptScrollRef.current;
-    if (!node) {
-      return;
-    }
-    const channelChanged = previousTranscriptChannelRef.current !== selectedChannelId;
-    previousTranscriptChannelRef.current = selectedChannelId;
-    if (channelChanged || transcriptStickToBottomRef.current) {
-      node.scrollTop = node.scrollHeight;
-      transcriptStickToBottomRef.current = true;
-    }
-  }, [selectedChannelId, selectedMessages, progress, turn, turnEvents.length]);
   useEffect(() => {
     const desktopRoster = window.matchMedia("(min-width: 768px)");
     const desktopInspector = window.matchMedia("(min-width: 1280px)");
@@ -385,33 +351,44 @@ export function EnabledWorkspace({
     [activeOrg, startTurnStream],
   );
 
-  async function handleSend() {
-    if (!selectedItem || !selectedChannelId || !addressedBotId || composerSendBlocked || !draft.trim()) return;
-    setSending(true);
-    setStreamError(null);
-    try {
-      const response = await postMessage(activeOrg, selectedChannelId, draft.trim(), addressedBotId);
-      setMessagesByChannel((current) => ({
-        ...current,
-        [selectedChannelId]: [...(current[selectedChannelId] ?? []), response.message],
-      }));
-      setDraft("");
-      if (response.turn_id) {
-        startTurnStream({
-          turn_id: response.turn_id,
-          tenant_id: activeOrg.tenantId,
-          channel_id: selectedChannelId,
-          bot_id: addressedBotId,
-          status: "active",
-          waiting_for: null,
-        });
+  const handleSendMessage = useCallback(
+    async (body: string) => {
+      if (!selectedItem || !selectedChannelId || !addressedBotId || composerSendBlocked) {
+        return;
       }
-    } catch (caught) {
-      setStreamError(caught instanceof Error ? caught.message : "Message failed to send");
-    } finally {
-      setSending(false);
-    }
-  }
+      setSending(true);
+      setStreamError(null);
+      try {
+        const response = await postMessage(activeOrg, selectedChannelId, body, addressedBotId);
+        setMessagesByChannel((current) => ({
+          ...current,
+          [selectedChannelId]: [...(current[selectedChannelId] ?? []), response.message],
+        }));
+        if (response.turn_id) {
+          startTurnStream({
+            turn_id: response.turn_id,
+            tenant_id: activeOrg.tenantId,
+            channel_id: selectedChannelId,
+            bot_id: addressedBotId,
+            status: "active",
+            waiting_for: null,
+          });
+        }
+      } catch (caught) {
+        setStreamError(caught instanceof Error ? caught.message : "Message failed to send");
+      } finally {
+        setSending(false);
+      }
+    },
+    [
+      activeOrg,
+      addressedBotId,
+      composerSendBlocked,
+      selectedChannelId,
+      selectedItem,
+      startTurnStream,
+    ],
+  );
 
   async function handleCreate() {
     if (!createName.trim()) return;
@@ -580,60 +557,58 @@ export function EnabledWorkspace({
             </button>
           </div>
         ) : null}
-        <div ref={transcriptScrollRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 sm:px-5">
-          {!selectedItem ? <EmptyState title="Choose a teammate" body="Open a bot or named channel from the roster to continue its durable conversation." /> : null}
-          {selectedItem && selectedMessages.length === 0 && !turn ? <EmptyState title={`Start with ${selectedItem.label}`} body={selectedItem.kind === "channel" ? "Choose which participating bot should answer, then send the first message." : "This is the bot’s one ongoing conversation with you."} /> : null}
-          {selectedItem && selectedMessages.length > 0 ? (
-            <ol className="mx-auto flex w-full max-w-3xl flex-col gap-3 py-5">
-              {selectedMessages.map((message) => {
-                const authorBot = bots.find((bot) => bot.bot_id === message.author_id);
-                return (
-                  <li key={message.message_id} className={`flex ${message.author_kind === "human" ? "justify-end" : "justify-start"}`}>
-                    <article className="max-w-[86%] rounded-3xl bg-surface-raised px-4 py-3 text-sm leading-6 sm:max-w-[76%]">
-                      {message.author_kind === "bot" ? <p className="mb-1 text-xs font-bold">{authorBot?.name ?? "Bot"}</p> : null}
-                      <p className="whitespace-pre-wrap">{message.body}</p>
-                      <time className="mt-1 block font-mono text-[0.58rem] text-surface-foreground/40">{formatTime(message.created_at)}</time>
-                    </article>
-                  </li>
-                );
-              })}
-              {turn ? (
-                <li className="flex justify-start">
-                  <article className="max-w-[86%] rounded-3xl bg-surface-raised px-4 py-3 text-sm leading-6 sm:max-w-[76%]">
-                    <p className="mb-1 text-xs font-bold">{bots.find((bot) => bot.bot_id === turn.bot_id)?.name ?? "Bot"}</p>
-                    {progress ? <p className="whitespace-pre-wrap">{progress}</p> : <p className="flex items-center gap-2 text-surface-foreground/55"><Clock3 size={15} aria-hidden="true" />{turn.waiting_for ? `Waiting for ${turn.waiting_for}` : turnStatus === "reconciling" ? "Reconciling committed messages…" : turnStatus === "failed" ? "Turn failed" : "Working…"}</p>}
-                  </article>
-                </li>
-              ) : null}
-            </ol>
-          ) : null}
-        </div>
-        {selectedItem ? (
-          <div className="p-3 pt-0 sm:p-5 sm:pt-0">
-            <form className="mx-auto max-w-3xl rounded-3xl bg-surface-raised p-2" onSubmit={(event) => { event.preventDefault(); void handleSend(); }}>
-              {selectedItem.kind === "channel" ? (
-                <label className="mb-1 inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-xs font-semibold">
-                  <span className="text-surface-foreground/55">To</span>
-                  <select className="bg-transparent font-semibold outline-none" value={addressedBotId} onChange={(event) => setAddressedBotId(event.target.value)} aria-label="Teammate to address">
-                    {selectedItem.bots.map((bot) => <option key={bot.bot_id} value={bot.bot_id}>{bot.name}</option>)}
-                  </select>
-                </label>
-              ) : null}
-              <div className="flex items-end gap-2">
-                <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void handleSend(); } }} rows={1} placeholder={`Message ${selectedItem.label}`} className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm outline-none placeholder:text-surface-foreground/40 focus-visible:ring-0" />
-                <Button type="submit" size="icon" className="shrink-0 shadow-none" disabled={!draft.trim() || composerSendBlocked} aria-label="Send message"><Send size={17} aria-hidden="true" /></Button>
-              </div>
-              {streamError ? (
-                <div role="alert" className="flex items-start gap-2 px-3 pb-2 text-xs text-clay">
-                  <span className="min-w-0 flex-1">{streamError}</span>
-                  <button type="button" className="shrink-0 rounded-lg p-1 hover:bg-clay/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25" aria-label="Dismiss stream error" onClick={() => setStreamError(null)}>
-                    <X size={14} aria-hidden="true" />
-                  </button>
-                </div>
-              ) : null}
-            </form>
+        {!selectedItem ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 sm:px-5">
+            <EmptyState
+              title="Choose a teammate"
+              body="Open a bot or named channel from the roster to continue its durable conversation."
+            />
           </div>
-        ) : null}
+        ) : (
+          <ChatticusAssistantRuntime
+            className="min-h-0 flex-1"
+            messages={selectedMessages}
+            turn={turn}
+            progress={progress}
+            turnStatus={turnStatus}
+            isSendDisabled={composerSendBlocked}
+            botNameById={botNameById}
+            onSendMessage={handleSendMessage}
+            threadProps={{
+              composerPlaceholder: `Message ${selectedItem.label}`,
+              streamError,
+              onDismissStreamError: () => setStreamError(null),
+              emptyState: (
+                <EmptyState
+                  title={`Start with ${selectedItem.label}`}
+                  body={
+                    selectedItem.kind === "channel"
+                      ? "Choose which participating bot should answer, then send the first message."
+                      : "This is the bot’s one ongoing conversation with you."
+                  }
+                />
+              ),
+              composerAccessory:
+                selectedItem.kind === "channel"
+                  ? (
+                    <label className="mb-2 inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-xs font-semibold">
+                      <span className="text-surface-foreground/55">To</span>
+                      <select
+                        className="bg-transparent font-semibold outline-none"
+                        value={addressedBotId}
+                        onChange={(event) => setAddressedBotId(event.target.value)}
+                        aria-label="Teammate to address"
+                      >
+                        {selectedItem.bots.map((bot) => (
+                          <option key={bot.bot_id} value={bot.bot_id}>{bot.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )
+                  : undefined,
+            }}
+          />
+        )}
       </section>
       {!inspectorCollapsed ? <div className="workspace-inspector hidden min-h-0 xl:block">{inspectorPane}</div> : null}
 
