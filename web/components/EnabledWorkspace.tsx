@@ -44,10 +44,14 @@ import { openTurnStream } from "../lib/sse";
 import { isTerminalTurnEvent } from "../lib/sse-parse";
 import {
   buildRoster,
+  isComposerSendBlocked,
   latestMessage,
+  resolveVisibleTurnState,
+  shouldClearTurnBubbleAfterTerminal,
   tasksForSelection,
   turnPresentation,
   type RosterItem,
+  type TurnUiStatus,
 } from "../lib/workspace-state";
 type EnabledWorkspaceProps = {
   activeOrg: ActiveOrg;
@@ -55,7 +59,6 @@ type EnabledWorkspaceProps = {
   sessionEmail: string | null;
   onSignOut: () => Promise<void>;
 };
-type TurnUiStatus = "active" | "completed" | "failed" | "reconciling" | null;
 
 function formatTime(value?: string): string {
   if (!value) return "";
@@ -131,6 +134,9 @@ export function EnabledWorkspace({
   const [createName, setCreateName] = useState("");
   const [createBotIds, setCreateBotIds] = useState<string[]>([]);
   const closeStreamRef = useRef<(() => void) | null>(null);
+  const streamGenerationRef = useRef(0);
+  const selectionLoadRef = useRef(0);
+  const transcriptScrollRef = useRef<HTMLDivElement>(null);
 
   const roster = useMemo(() => buildRoster(bots, channels), [bots, channels]);
   const selectedItem = roster.find((item) => item.id === selectedItemId) ?? null;
@@ -140,18 +146,8 @@ export function EnabledWorkspace({
     item.label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
   const visibleTasks = tasksForSelection(tasks, selectedItem);
-  const visibleTurnState =
-    turnStatus === "failed"
-      ? "failed"
-      : turnStatus === "reconciling"
-        ? "reconciling"
-        : turnStatus === "completed"
-          ? "completed"
-          : turn?.waiting_for
-            ? "waiting"
-            : turn && progress
-              ? "streaming"
-              : null;
+  const visibleTurnState = resolveVisibleTurnState(turnStatus, turn, progress);
+  const composerSendBlocked = isComposerSendBlocked(sending, turn);
 
   const loadWorkspace = useCallback(async () => {
     setLoading(true);
@@ -165,9 +161,14 @@ export function EnabledWorkspace({
         listTasks(activeOrg).catch(() => []),
         getComputer(activeOrg).catch(() => null),
       ]);
-      const entries = await Promise.all(
-        loadedChannels.map(async (channel) => [channel.channel_id, await listMessages(activeOrg, channel.channel_id)] as const),
+      const messageResults = await Promise.allSettled(
+        loadedChannels.map((channel) => listMessages(activeOrg, channel.channel_id)),
       );
+      const entries = loadedChannels.map((channel, index) => {
+        const result = messageResults[index];
+        const messages = result.status === "fulfilled" ? result.value : [];
+        return [channel.channel_id, messages] as const;
+      });
       setBots(loadedBots);
       setChannels(loadedChannels);
       setTasks(loadedTasks);
@@ -182,6 +183,13 @@ export function EnabledWorkspace({
 
   useEffect(() => void loadWorkspace(), [loadWorkspace]);
   useEffect(() => () => closeStreamRef.current?.(), []);
+  useEffect(() => {
+    const node = transcriptScrollRef.current;
+    if (!node) {
+      return;
+    }
+    node.scrollTop = node.scrollHeight;
+  }, [selectedChannelId, selectedMessages, progress, turn, turnEvents.length]);
   useEffect(() => {
     const desktopRoster = window.matchMedia("(min-width: 768px)");
     const desktopInspector = window.matchMedia("(min-width: 1280px)");
@@ -215,6 +223,26 @@ export function EnabledWorkspace({
   const startTurnStream = useCallback(
     (activeTurn: Turn) => {
       closeStreamRef.current?.();
+      const streamGeneration = (streamGenerationRef.current += 1);
+      const isCurrentStream = () => streamGeneration === streamGenerationRef.current;
+      let sawTerminalEvent = false;
+
+      const clearStoredTurnProgress = (storageKey: string, progressStorageKey: string) => {
+        window.sessionStorage.removeItem(storageKey);
+        window.sessionStorage.removeItem(progressStorageKey);
+      };
+
+      const parkStreamWithoutTerminal = (message: string) => {
+        if (!isCurrentStream()) {
+          return;
+        }
+        setStreamError(message);
+        setTurn(null);
+        setTurnStatus(null);
+        setTurnEvents([]);
+        setProgress("");
+      };
+
       setTurn(activeTurn);
       setTurnStatus("active");
       setTurnEvents([]);
@@ -231,6 +259,9 @@ export function EnabledWorkspace({
         activeTurn.turn_id,
         {
           onEvent: (event) => {
+            if (!isCurrentStream()) {
+              return;
+            }
             window.sessionStorage.setItem(storageKey, String(event.seq));
             setTurnEvents((current) => [...current, event]);
             if (event.kind === "turn.waiting") {
@@ -251,18 +282,34 @@ export function EnabledWorkspace({
               });
             }
             if (isTerminalTurnEvent(event.kind)) {
+              sawTerminalEvent = true;
               setTurnStatus(turnStatusFromKind(event.kind));
               void reconcileMessages(activeTurn.channel_id).then(() => {
-                if (event.kind === "turn.completed") {
-                  window.sessionStorage.removeItem(storageKey);
-                  window.sessionStorage.removeItem(progressStorageKey);
+                if (!isCurrentStream()) {
+                  return;
+                }
+                if (shouldClearTurnBubbleAfterTerminal(event.kind)) {
+                  clearStoredTurnProgress(storageKey, progressStorageKey);
                   setProgress("");
                   setTurn(null);
+                  setTurnStatus(null);
+                  setTurnEvents([]);
+                }
+                if (event.kind === "turn.failed") {
+                  setStreamError(event.body ?? "Turn failed");
                 }
               });
             }
           },
-          onError: (caught) => setStreamError(caught.message),
+          onError: (caught) => {
+            parkStreamWithoutTerminal(caught.message);
+          },
+          onClose: () => {
+            if (!isCurrentStream() || sawTerminalEvent) {
+              return;
+            }
+            parkStreamWithoutTerminal("Turn stream disconnected");
+          },
         },
         lastEventId,
       );
@@ -272,6 +319,8 @@ export function EnabledWorkspace({
 
   const selectItem = useCallback(
     async (item: RosterItem) => {
+      streamGenerationRef.current += 1;
+      const selectionLoadToken = (selectionLoadRef.current += 1);
       setError(null);
       let channel = item.channel;
       if (item.kind === "bot" && !channel) {
@@ -297,6 +346,9 @@ export function EnabledWorkspace({
           listMessages(activeOrg, channel.channel_id),
           getActiveTurn(activeOrg, channel.channel_id),
         ]);
+        if (selectionLoadToken !== selectionLoadRef.current) {
+          return;
+        }
         setMessagesByChannel((current) => ({ ...current, [channel!.channel_id]: committed }));
         if (activeTurn) startTurnStream(activeTurn);
       } catch (caught) {
@@ -307,7 +359,7 @@ export function EnabledWorkspace({
   );
 
   async function handleSend() {
-    if (!selectedItem || !selectedChannelId || !addressedBotId || sending || !draft.trim()) return;
+    if (!selectedItem || !selectedChannelId || !addressedBotId || composerSendBlocked || !draft.trim()) return;
     setSending(true);
     setStreamError(null);
     try {
@@ -371,10 +423,16 @@ export function EnabledWorkspace({
         </Button>
       </div>
       {createOpen ? (
-        <div className="mb-3 rounded-2xl bg-surface p-3">
+        <form
+          className="mb-3 rounded-2xl bg-surface p-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleCreate();
+          }}
+        >
           <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-surface-raised p-1">
-            <button className={`rounded-lg px-2 py-2 text-xs font-bold ${createMode === "bot" ? "bg-surface" : ""}`} onClick={() => setCreateMode("bot")}>Bot</button>
-            <button className={`rounded-lg px-2 py-2 text-xs font-bold ${createMode === "channel" ? "bg-surface" : ""}`} onClick={() => setCreateMode("channel")}>Channel</button>
+            <button type="button" className={`rounded-lg px-2 py-2 text-xs font-bold ${createMode === "bot" ? "bg-surface" : ""}`} onClick={() => setCreateMode("bot")}>Bot</button>
+            <button type="button" className={`rounded-lg px-2 py-2 text-xs font-bold ${createMode === "channel" ? "bg-surface" : ""}`} onClick={() => setCreateMode("channel")}>Channel</button>
           </div>
           <Input value={createName} onChange={(event) => setCreateName(event.target.value)} placeholder={createMode === "bot" ? "Bot name" : "Channel name"} className="h-10 rounded-xl bg-surface-raised px-3" />
           {createMode === "channel" ? (
@@ -387,8 +445,8 @@ export function EnabledWorkspace({
               ))}
             </div>
           ) : null}
-          <Button className="mt-3 w-full shadow-none" size="sm" onClick={() => void handleCreate()}>{createMode === "bot" ? "Create bot" : "Create channel"}</Button>
-        </div>
+          <Button type="submit" className="mt-3 w-full shadow-none" size="sm">{createMode === "bot" ? "Create bot" : "Create channel"}</Button>
+        </form>
       ) : null}
       <label className="relative mb-3 block">
         <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-surface-foreground/45" size={17} aria-hidden="true" />
@@ -486,8 +544,16 @@ export function EnabledWorkspace({
           </div>
           <Button variant="ghost" size="icon" aria-label="Open conversation inspector" onClick={() => { setInspectorOpen(true); setInspectorCollapsed(false); }}><PanelRight size={19} aria-hidden="true" /></Button>
         </header>
-        {error ? <div role="alert" className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-clay/15 px-3 py-2 text-xs"><CircleAlert size={16} aria-hidden="true" />{error}</div> : null}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 sm:px-5">
+        {error ? (
+          <div role="alert" className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-clay/15 px-3 py-2 text-xs">
+            <CircleAlert size={16} aria-hidden="true" className="shrink-0" />
+            <span className="min-w-0 flex-1">{error}</span>
+            <button type="button" className="shrink-0 rounded-lg p-1 hover:bg-clay/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25" aria-label="Dismiss error" onClick={() => setError(null)}>
+              <X size={14} aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
+        <div ref={transcriptScrollRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 sm:px-5">
           {!selectedItem ? <EmptyState title="Choose a teammate" body="Open a bot or named channel from the roster to continue its durable conversation." /> : null}
           {selectedItem && selectedMessages.length === 0 && !turn ? <EmptyState title={`Start with ${selectedItem.label}`} body={selectedItem.kind === "channel" ? "Choose which participating bot should answer, then send the first message." : "This is the bot’s one ongoing conversation with you."} /> : null}
           {selectedItem && selectedMessages.length > 0 ? (
@@ -528,9 +594,16 @@ export function EnabledWorkspace({
               ) : null}
               <div className="flex items-end gap-2">
                 <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void handleSend(); } }} rows={1} placeholder={`Message ${selectedItem.label}`} className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm outline-none placeholder:text-surface-foreground/40 focus-visible:ring-0" />
-                <Button type="submit" size="icon" className="shrink-0 shadow-none" disabled={!draft.trim() || sending} aria-label="Send message"><Send size={17} aria-hidden="true" /></Button>
+                <Button type="submit" size="icon" className="shrink-0 shadow-none" disabled={!draft.trim() || composerSendBlocked} aria-label="Send message"><Send size={17} aria-hidden="true" /></Button>
               </div>
-              {streamError ? <p role="alert" className="px-3 pb-2 text-xs text-clay">{streamError}</p> : null}
+              {streamError ? (
+                <div role="alert" className="flex items-start gap-2 px-3 pb-2 text-xs text-clay">
+                  <span className="min-w-0 flex-1">{streamError}</span>
+                  <button type="button" className="shrink-0 rounded-lg p-1 hover:bg-clay/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25" aria-label="Dismiss stream error" onClick={() => setStreamError(null)}>
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                </div>
+              ) : null}
             </form>
           </div>
         ) : null}
