@@ -10,9 +10,24 @@
   "parent": null,
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "1b6d45b0-e287-422f-b47c-6e588174869e",
+      "author": "box",
+      "text": "Spike merged to develop 1940914. Next: chatticus-da146e (multi-bot / tools / waiting) after live smoke on dev.",
+      "created_at": "2026-09-14T13:55:16.663503Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
   "created_at": "2026-09-14T13:42:30.374345Z",
-  "updated_at": "2026-09-14T13:42:30.374587Z",
+  "updated_at": "2026-09-14T13:55:16.663629Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
