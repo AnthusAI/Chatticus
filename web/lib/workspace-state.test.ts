@@ -4,6 +4,7 @@ import {
   isComposerSendBlocked,
   resolveVisibleTurnState,
   shouldClearTurnBubbleAfterTerminal,
+  shouldStickTranscriptScroll,
   turnPresentation,
 } from "./workspace-state";
 
@@ -50,5 +51,16 @@ describe("shouldClearTurnBubbleAfterTerminal", () => {
 describe("turnPresentation", () => {
   it("labels header states for humans", () => {
     assert.equal(turnPresentation("completed"), "Completed");
+  });
+});
+
+describe("shouldStickTranscriptScroll", () => {
+  it("always sticks when the channel selection changed", () => {
+    assert.equal(shouldStickTranscriptScroll(true, 500), true);
+  });
+
+  it("sticks only when the viewport was near the bottom", () => {
+    assert.equal(shouldStickTranscriptScroll(false, 100), true);
+    assert.equal(shouldStickTranscriptScroll(false, 101), false);
   });
 });
