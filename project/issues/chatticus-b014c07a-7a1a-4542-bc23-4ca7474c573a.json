@@ -1,0 +1,26 @@
+{
+  "id": "chatticus-b014c07a-7a1a-4542-bc23-4ca7474c573a",
+  "title": "Spike: assistant-ui ExternalStoreRuntime on one DM channel",
+  "description": "## Goal\nProve assistant-ui in Chatticus web without replacing the backend.\n\n## Scope\n1. Add `@assistant-ui/react` (+ CLI shadcn-styled Thread if needed)\n2. Map Chatticus `Message` + streaming turn progress \u2192 ThreadMessageLike via convertMessage\n3. Wire `onNew` \u2192 existing `postMessage` + `openTurnStream` / startTurnStream behavior\n4. Replace conversation transcript+composer in EnabledWorkspace (or a feature-flagged subcomponent) for a single selected bot DM\n5. Keep roster, inspector, computer, org auth as-is\n\n## Done when\n- npm install + typecheck/tests pass\n- Dev can open a bot DM and send/stream with assistant-ui Thread\n- PR to develop documents mapping + known gaps (multi-bot channel address, tools, approvals)\n\n## Refs\nhttps://www.assistant-ui.com/docs/runtimes/custom/external-store",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-004bf0b3-60ed-4d06-bbfa-670cd707191e",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-14T13:42:30.892069Z",
+  "updated_at": "2026-09-14T13:42:30.892245Z",
+  "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "cursor",
+    "model": "grok-4.6",
+    "name": "Chatticus",
+    "settings": {}
+  }
+}
