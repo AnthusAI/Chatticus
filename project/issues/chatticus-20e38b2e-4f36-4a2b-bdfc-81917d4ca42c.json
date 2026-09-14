@@ -38,10 +38,24 @@
         "name": "Chatticus",
         "settings": {}
       }
+    },
+    {
+      "id": "f50a7f59-80c0-459a-a55f-842394f8c378",
+      "author": "box",
+      "text": "UX batch PR review 2026-09-14: https://github.com/AnthusAI/Chatticus/pull/350 (branch cursor/workspace-ux-bugfixes-fe76).\n\nLooks good for 1e5230, c80b09, a4994a, b2ad43, cea55d, 6a51e1, 38a48c, 235efc. Sent Composer 2.5 back on cafdb7: always-scroll must become stick-to-bottom so reading history mid-stream is not yanked. Waiting on that follow-up before merge recommendation.",
+      "created_at": "2026-09-14T13:27:56.107965Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-13T13:23:30.868757Z",
-  "updated_at": "2026-09-14T13:23:21.416810Z",
+  "updated_at": "2026-09-14T13:27:56.108088Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
