@@ -10,16 +10,32 @@
   "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "76dda400-cc52-4b75-83f7-af6f55957467",
+      "author": "box",
+      "text": "Triage 2026-09-14 (Chatticus): CONFIRMED live + code.\n\nLive on https://dev.chattic.us/chat with AcceptLoopBot: after turn finished, conversation header kept showing \u201cCompleted\u201d without switching channels.\n\nCode (`web/components/EnabledWorkspace.tsx`): on `turn.completed`, `setTurnStatus(\"completed\")` then clears `turn`/`progress`, but never resets `turnStatus` to null. `visibleTurnState` therefore stays `\"completed\"` until `selectItem`. Fix: clear `turnStatus` (and preferably drop the completed presentation) after reconcile, or auto-clear after a short delay / on next idle.",
+      "created_at": "2026-09-14T13:16:54.905313Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
   "created_at": "2026-09-13T13:23:36.623331Z",
-  "updated_at": "2026-09-13T13:23:36.623364Z",
+  "updated_at": "2026-09-14T13:16:54.905465Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
   "agent": {
     "platform": "antigravity",
     "model": "gemini-3.1-pro",
-    "name": "Antigravity"
-  },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {}
+    "name": "Antigravity",
+    "settings": {}
+  }
 }

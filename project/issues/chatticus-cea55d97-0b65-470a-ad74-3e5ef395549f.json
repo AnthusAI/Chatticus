@@ -10,16 +10,32 @@
   "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "26ee84c7-0659-4f9c-b128-b03e64e6f3d8",
+      "author": "box",
+      "text": "Triage 2026-09-14 (Chatticus): CONFIRMED in code.\n\n`loadWorkspace` uses `Promise.all` over `listMessages` for every channel. One rejected `listMessages` rejects the whole batch and hits the outer catch (\u201cWorkspace failed to load\u201d), so no bots/channels/messages apply even though earlier fetches succeeded. Tasks/computer already use `.catch(() => \u2026)` but channel messages do not.\n\nFix: per-channel `.catch` (empty list + surface partial error), or `Promise.allSettled`, and still render roster.",
+      "created_at": "2026-09-14T13:17:01.599253Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
   "created_at": "2026-09-13T13:58:29.357976Z",
-  "updated_at": "2026-09-13T13:58:29.358018Z",
+  "updated_at": "2026-09-14T13:17:01.599375Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
   "agent": {
     "platform": "antigravity",
     "model": "gemini-3.1-pro",
-    "name": "Antigravity"
-  },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {}
+    "name": "Antigravity",
+    "settings": {}
+  }
 }

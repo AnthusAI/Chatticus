@@ -10,16 +10,32 @@
   "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "23bf8b3b-5ff5-41ba-809a-6d1b5efded29",
+      "author": "box",
+      "text": "Triage 2026-09-14 (Chatticus): CONFIRMED live + code.\n\nLive: create panel name field + Enter left the panel open; no bot created; primary button still visible.\n\nCode: create UI is a `div` + `Input` + click `Button`, not a `<form>`, and the name `Input` has no Enter `onKeyDown`. Contrast: message composer uses a form + Enter-to-send.\n\nFix: wrap create controls in a form with `onSubmit` \u2192 `handleCreate`, or add Enter handler on the name field.",
+      "created_at": "2026-09-14T13:17:00.097273Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
   "created_at": "2026-09-13T13:23:36.798370Z",
-  "updated_at": "2026-09-13T13:23:36.798403Z",
+  "updated_at": "2026-09-14T13:17:00.097409Z",
   "closed_at": null,
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
   "agent": {
     "platform": "antigravity",
     "model": "gemini-3.1-pro",
-    "name": "Antigravity"
-  },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {}
+    "name": "Antigravity",
+    "settings": {}
+  }
 }
