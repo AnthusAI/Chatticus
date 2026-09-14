@@ -3,7 +3,7 @@
   "title": "Conversation header permanently displays Completed state after turn completes",
   "description": "In EnabledWorkspace, when a turn finishes with turn.completed, turnStatus is set to 'completed' and is never cleared. visibleTurnState permanently displays 'Completed' in the conversation header until switching channels.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,25 @@
         "name": "Chatticus",
         "settings": {}
       }
+    },
+    {
+      "id": "0c6096de-96a0-475f-ac53-d274d6599ff0",
+      "author": "box",
+      "text": "Merged to develop via PR #350 branch (ef5e38d). Header no longer sticks on Completed.",
+      "created_at": "2026-09-14T13:32:06.940142Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-13T13:23:36.623331Z",
-  "updated_at": "2026-09-14T13:16:54.905465Z",
-  "closed_at": null,
+  "updated_at": "2026-09-14T13:32:07.900986Z",
+  "closed_at": "2026-09-14T13:32:07.900852Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

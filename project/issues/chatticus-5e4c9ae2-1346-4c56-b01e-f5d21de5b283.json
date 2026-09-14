@@ -112,10 +112,24 @@
         "name": "Chatticus",
         "settings": {}
       }
+    },
+    {
+      "id": "3af002d9-5cb7-46c7-b7b4-f15672bb0f98",
+      "author": "box",
+      "text": "Not in PR #349/#350 merge. Reload\u2192sign-in still not reproduced; leave open only if silent-renew proof is still wanted.",
+      "created_at": "2026-09-14T13:32:22.714760Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-08T22:17:46.277560Z",
-  "updated_at": "2026-09-14T13:17:02.330713Z",
+  "updated_at": "2026-09-14T13:32:22.714886Z",
   "closed_at": null,
   "right_now_summary": "Reload now preserves sessions, but sign-out fails with a Cognito client error and hourly renewal is unverified.",
   "right_now_updated_at": "2026-09-08T23:19:44.524464Z",

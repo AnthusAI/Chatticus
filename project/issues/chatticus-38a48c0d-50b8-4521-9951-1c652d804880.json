@@ -3,7 +3,7 @@
   "title": "Top-level workspace error banner cannot be dismissed",
   "description": "When workspace loading, bot creation, or channel creation fails, the error banner at the top of the chat area has no dismiss button or auto-clear mechanism and remains visible permanently.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,25 @@
         "name": "Chatticus",
         "settings": {}
       }
+    },
+    {
+      "id": "60ad84ae-a949-4c43-9ce8-134cc4ef3676",
+      "author": "box",
+      "text": "Merged to develop via PR #350 (ef5e38d). Dismissible error and streamError alerts.",
+      "created_at": "2026-09-14T13:32:19.079601Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-13T13:23:36.887523Z",
-  "updated_at": "2026-09-14T13:16:59.390383Z",
-  "closed_at": null,
+  "updated_at": "2026-09-14T13:32:20.114997Z",
+  "closed_at": "2026-09-14T13:32:20.114852Z",
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {},

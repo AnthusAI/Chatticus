@@ -52,10 +52,24 @@
         "name": "Chatticus",
         "settings": {}
       }
+    },
+    {
+      "id": "bf2a8e85-ff53-4a6c-9fcb-9254c011afec",
+      "author": "box",
+      "text": "Merged to develop 2026-09-14 at ef5e38d:\n- PR #349 Dynamo pagination (267e86) + list_turn_events/chunks\n- PR #350 workspace UX batch (1e5230, c80b09, a4994a, b2ad43, cea55d, cafdb7, 6a51e1, 38a48c, 235efc)\n\nClosed those Kanbus bugs. 5e4c9a left open (reload symptom not reproduced).",
+      "created_at": "2026-09-14T13:32:23.339236Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-13T13:23:30.868757Z",
-  "updated_at": "2026-09-14T13:27:56.108088Z",
+  "updated_at": "2026-09-14T13:32:23.339361Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
