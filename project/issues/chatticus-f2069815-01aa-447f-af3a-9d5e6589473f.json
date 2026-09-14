@@ -3,7 +3,7 @@
   "title": "Verify, review, and deliver the real workspace",
   "description": "Run all Python and web gates, perform responsive light/dark/reduced-motion visual QA, launch the required review and Kanbus/README agents, merge through develop, and verify the live development workspace.",
   "type": "task",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -16,18 +16,39 @@
       "author": "ryan",
       "text": "Local evidence so far: targeted Python messaging/auth/coverage tests passed 100 tests; migration helper tests passed 2 tests; targeted formatting/lint passed; the web typecheck, 45 tests, and production static build passed before final sheet integration. Full final gates, responsive visual QA, sub-agent review, PR/CI, merge, and live development verification remain. Deployment is blocked by chatticus-be9e3e; no legacy migration has been applied.",
       "created_at": "2026-09-10T02:53:52.429103Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
     },
     {
       "id": "f94cb990-2915-4464-b5d9-f1050524bc10",
       "author": "ryan",
       "text": "PR #346 passed the required review and CI gates, squash-merged into develop as 3fb29a57457df450a2f27d120ca9f126c279e6f1, and all three development deploy workflows (Web, ThinTurn, Auth) are green. Keep this task in progress only for authenticated live browser verification of sign-in, existing history, send/stream completion, named-channel behavior, computer status, and task inspector; the current browser is signed out.",
       "created_at": "2026-09-10T10:45:50.860315Z",
-      "comment_type": "default"
+      "comment_type": "default",
+      "data": {},
+      "agent": null
+    },
+    {
+      "id": "8ebc336a-76e8-4a73-b498-5cddcf65a615",
+      "author": "box",
+      "text": "Live authenticated browser QA on https://dev.chattic.us/chat (2026-09-14, Chatticus box desktop, signed in as ryan@anth.us):\n\n1. History PASS \u2014 AcceptLoopBot opened durable prior messages (snippet: \u201chelo?\u201d).\n2. Send/stream PASS \u2014 sent `live-qa-probe-2026-09-14`; bot replied \u201cNoted: **live-qa-probe-2026-09-14**.\u201d\n3. Computer/task inspector PASS with caveat \u2014 Computer State Running; after opening the conversation Tasks showed \u201cNo matching tasks\u201d (Exercise-86731778 was visible before opening). Possible conversation-scoped task filter; not a blocker for workspace delivery.\n4. Named channel \u2014 no multi-bot named channel in roster (bot DMs only); did not create one.\n\nRecommend close this verification task. Parent epic chatticus-ed7e24 can close if Ryan agrees MVP delivery is done (deferred: routines UI, rich bot config, approvals UI, live screenshots).",
+      "created_at": "2026-09-14T12:32:35.749660Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "cursor",
+        "model": "grok-4.6",
+        "name": "Chatticus",
+        "settings": {}
+      }
     }
   ],
   "created_at": "2026-09-10T01:18:21.784785Z",
-  "updated_at": "2026-09-10T10:45:50.860315Z",
-  "closed_at": null,
-  "custom": {}
+  "updated_at": "2026-09-14T12:32:36.516960Z",
+  "closed_at": "2026-09-14T12:32:36.516803Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": null
 }
