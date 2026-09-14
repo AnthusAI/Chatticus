@@ -96,6 +96,27 @@ export function isComposerSendBlocked(sending: boolean, turn: unknown | null): b
   return sending || turn !== null;
 }
 
+export const TRANSCRIPT_STICK_THRESHOLD_PX = 100;
+
+export function transcriptDistanceFromBottom(
+  scrollTop: number,
+  scrollHeight: number,
+  clientHeight: number,
+): number {
+  return scrollHeight - scrollTop - clientHeight;
+}
+
+export function shouldStickTranscriptScroll(
+  channelChanged: boolean,
+  distanceFromBottomPx: number,
+  thresholdPx: number = TRANSCRIPT_STICK_THRESHOLD_PX,
+): boolean {
+  if (channelChanged) {
+    return true;
+  }
+  return distanceFromBottomPx <= thresholdPx;
+}
+
 export function shouldClearTurnBubbleAfterTerminal(kind: string): boolean {
   return kind === "turn.completed" || kind === "turn.failed";
 }

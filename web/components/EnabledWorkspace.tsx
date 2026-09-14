@@ -13,7 +13,7 @@ import {
   Send,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { BotAvatarView } from "./BotAvatarView";
 import { Button } from "./ui/button";
@@ -48,7 +48,10 @@ import {
   latestMessage,
   resolveVisibleTurnState,
   shouldClearTurnBubbleAfterTerminal,
+  shouldStickTranscriptScroll,
   tasksForSelection,
+  transcriptDistanceFromBottom,
+  TRANSCRIPT_STICK_THRESHOLD_PX,
   turnPresentation,
   type RosterItem,
   type TurnUiStatus,
@@ -137,6 +140,8 @@ export function EnabledWorkspace({
   const streamGenerationRef = useRef(0);
   const selectionLoadRef = useRef(0);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
+  const transcriptStickToBottomRef = useRef(true);
+  const previousTranscriptChannelRef = useRef<string | null>(null);
 
   const roster = useMemo(() => buildRoster(bots, channels), [bots, channels]);
   const selectedItem = roster.find((item) => item.id === selectedItemId) ?? null;
@@ -188,7 +193,29 @@ export function EnabledWorkspace({
     if (!node) {
       return;
     }
-    node.scrollTop = node.scrollHeight;
+    transcriptStickToBottomRef.current = true;
+    const onScroll = () => {
+      transcriptStickToBottomRef.current = shouldStickTranscriptScroll(
+        false,
+        transcriptDistanceFromBottom(node.scrollTop, node.scrollHeight, node.clientHeight),
+        TRANSCRIPT_STICK_THRESHOLD_PX,
+      );
+    };
+    node.addEventListener("scroll", onScroll, { passive: true });
+    return () => node.removeEventListener("scroll", onScroll);
+  }, [selectedChannelId]);
+
+  useLayoutEffect(() => {
+    const node = transcriptScrollRef.current;
+    if (!node) {
+      return;
+    }
+    const channelChanged = previousTranscriptChannelRef.current !== selectedChannelId;
+    previousTranscriptChannelRef.current = selectedChannelId;
+    if (channelChanged || transcriptStickToBottomRef.current) {
+      node.scrollTop = node.scrollHeight;
+      transcriptStickToBottomRef.current = true;
+    }
   }, [selectedChannelId, selectedMessages, progress, turn, turnEvents.length]);
   useEffect(() => {
     const desktopRoster = window.matchMedia("(min-width: 768px)");
