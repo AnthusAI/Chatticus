@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
 import {
+  getSendBlockMessage,
+  getSendBlockReason,
   isComposerSendBlocked,
   resolveVisibleTurnState,
   shouldClearTurnBubbleAfterTerminal,
@@ -32,7 +34,57 @@ describe("resolveVisibleTurnState", () => {
   });
 });
 
-describe("isComposerSendBlocked", () => {
+describe("getSendBlockReason", () => {
+  afterEach(() => {
+    // No cleanup needed for this test
+  });
+
+  it("blocks when no bot is selected", () => {
+    assert.equal(getSendBlockReason(false, null, ""), "no-bot-selected");
+  });
+
+  it("blocks when sending is already in progress", () => {
+    assert.equal(getSendBlockReason(true, null, "bot-123"), "sending");
+  });
+
+  it("blocks when waiting for a turn to complete", () => {
+    assert.equal(getSendBlockReason(false, { turn_id: "t1" }, "bot-123"), "waiting-for-turn");
+  });
+
+  it("allows sending when a bot is selected and no turn is active", () => {
+    assert.equal(getSendBlockReason(false, null, "bot-123"), null);
+  });
+
+  it("prioritizes no-bot-selected over other conditions", () => {
+    // Even if sending=true and turn exists, if no bot is selected, that's the primary blocker
+    assert.equal(getSendBlockReason(true, { turn_id: "t1" }, ""), "no-bot-selected");
+  });
+
+  it("prioritizes sending over waiting-for-turn", () => {
+    // When actively sending, that takes priority over waiting for a turn
+    assert.equal(getSendBlockReason(true, { turn_id: "t1" }, "bot-123"), "sending");
+  });
+});
+
+describe("getSendBlockMessage", () => {
+  it("returns null when sending is allowed", () => {
+    assert.equal(getSendBlockMessage(null), null);
+  });
+
+  it("provides a message for no-bot-selected", () => {
+    assert.equal(getSendBlockMessage("no-bot-selected"), "Select a bot to start the conversation.");
+  });
+
+  it("provides a message for sending", () => {
+    assert.equal(getSendBlockMessage("sending"), "Message is being sent…");
+  });
+
+  it("provides a message for waiting-for-turn", () => {
+    assert.equal(getSendBlockMessage("waiting-for-turn"), "Waiting for the bot to finish responding.");
+  });
+});
+
+describe("isComposerSendBlocked (backward compatibility)", () => {
   it("blocks while sending or while a turn bubble is open", () => {
     assert.equal(isComposerSendBlocked(true, null), true);
     assert.equal(isComposerSendBlocked(false, { turn_id: "t1" }), true);
