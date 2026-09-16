@@ -3,7 +3,7 @@
   "title": "The web app has no CI job, so its tests never run",
   "description": "**Found 2026-09-16 while reviewing a delegated web change.**\n\n`.github/workflows/ci.yml` defines exactly two jobs: `python` and `infra`. The string `web` appears in it **zero times**.\n\nSo the web app has **no CI gate at all** — not tests, not lint, not typecheck. `web/package.json` defines all three scripts and nothing runs them.\n\n## Why this matters now\n\n- `web/lib/*.test.ts` currently holds **64 passing tests** that no pipeline executes. They protect the turn-grant payload builder, which is the code path deciding what authority a bot receives.\n- [PR #353](https://github.com/AnthusAI/Chatticus/pull/353) is a web-only change to exactly that code. **CI will pass it without running a single web test.**\n- Two web changes merged in the last week (#351 assistant-ui spike, #346 the real workspace) were likewise ungated.\n\nA test suite nobody runs is worse than no suite: it reads as coverage in review and catches nothing.\n\n## What to build\n\nA third job in `.github/workflows/ci.yml`, modelled on the existing `infra` job (lines 55-76) — same `actions/checkout@v4`, `actions/setup-node@v4` with `node-version: \"22\"`, `cache: npm`, `cache-dependency-path: package-lock.json`, and `npm ci` at the root, since this is an npm workspace.\n\nThen, with `working-directory: web`:\n\n1. `npm test`\n2. `npm run lint`\n3. `npm run typecheck`\n\n## Expect typecheck to be the interesting one\n\n`npm run typecheck` may fail on first run. **If it does, report the errors — do not delete the step, do not add `continue-on-error`, and do not weaken `tsconfig`.** A gate that cannot fail is not a gate. If the errors are real, they become a separate card and this one lands with the two steps that do pass, plus a note.\n\nDo not \"fix\" type errors by casting to `any` or adding `@ts-ignore`.\n\n## Constraints\n\n- Do not change `web/package.json` scripts.\n- Do not touch the `python` or `infra` jobs.\n- Do not change any application code. This card is CI configuration only.\n- Keep the job independent of the others so a web failure does not mask a python failure.\n\n## Verification\n\nPush the branch and read the actual run. **Do not report success from reading YAML** — this project has repeatedly found things that were green at one layer and broken at a seam. The evidence is a run URL and its job results.\n\n## Done when\n\nA `web` job appears in CI, runs on the same triggers as the others, executes the suite, and demonstrably fails when a web test fails. Prove that last part deliberately if it is cheap to do so.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -39,8 +39,8 @@
     }
   ],
   "created_at": "2026-09-16T12:10:08.158951Z",
-  "updated_at": "2026-09-16T12:50:41.816473Z",
-  "closed_at": null,
+  "updated_at": "2026-09-16T13:40:34.041075Z",
+  "closed_at": "2026-09-16T13:40:34.041050Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-opus-5",

@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-a7e53a15-0724-4503-a9b9-502343918ea0",
+  "title": "Assistant UI viewport turnAnchor pins top instead of sticking to bottom during streaming",
+  "description": "In web/components/assistant-ui/ChatticusAssistantThread.tsx, ThreadPrimitive.Viewport is configured with turnAnchor=\"top\". When an assistant response streams in longer than the viewport height, the viewport anchors to the top of the turn rather than autoscrolling to the bottom as new chunks arrive. The user has to manually scroll down to read the ongoing stream, regressing the stick-to-bottom behavior implemented in PR #350.",
+  "type": "bug",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "004bf0",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-09-16T13:41:03.151801Z",
+  "updated_at": "2026-09-16T13:41:08.925627Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
