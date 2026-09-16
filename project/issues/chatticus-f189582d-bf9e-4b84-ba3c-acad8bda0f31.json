@@ -3,7 +3,7 @@
   "title": "Composer send button disappears during active turns causing layout shift",
   "description": "In web/components/assistant-ui/ChatticusAssistantThread.tsx, AuiIf wraps ComposerPrimitive.Send with condition state => !state.thread.isRunning. When a turn is active or sending, the Send button is completely unmounted from the DOM rather than being rendered in a disabled or loading state. This causes layout jitter in the composer footer and leaves no visual feedback indicating that a turn is running.",
   "type": "bug",
-  "status": "open",
+  "status": "in_progress",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -17,7 +17,7 @@
   ],
   "comments": [],
   "created_at": "2026-09-16T13:40:57.775703Z",
-  "updated_at": "2026-09-16T13:41:08.815866Z",
+  "updated_at": "2026-09-16T14:06:41.316052Z",
   "closed_at": null,
   "agent": {
     "platform": "antigravity",
