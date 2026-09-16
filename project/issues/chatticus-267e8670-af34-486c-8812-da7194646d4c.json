@@ -17,12 +17,10 @@
       "text": "Triage 2026-09-14 (Chatticus): CONFIRMED in code (no live Dynamo load needed).\n\n`DynamoMessageStore.list_messages` in `python/src/chatticus/messaging/store.py` issues a single `query` and returns `Items` only. It never loops on `LastEvaluatedKey` / `ExclusiveStartKey`. Sibling store methods (e.g. org list/scan nearby in the same file) already paginate correctly.\n\nImpact: channels whose message query exceeds ~1MB / page size silently truncate history. Fix: paginate like the other store queries; consider a UI/API page size for very long threads.",
       "created_at": "2026-09-14T13:16:55.658572Z",
       "comment_type": "default",
-      "data": {},
       "agent": {
         "platform": "cursor",
         "model": "grok-4.6",
-        "name": "Chatticus",
-        "settings": {}
+        "name": "Chatticus"
       }
     },
     {
@@ -31,25 +29,34 @@
       "text": "Merged to develop via git merge of cursor/chatticus-267e86-84f8 (PR #349). develop tip ef5e38d.",
       "created_at": "2026-09-14T13:32:05.197997Z",
       "comment_type": "default",
-      "data": {},
       "agent": {
         "platform": "cursor",
         "model": "grok-4.6",
-        "name": "Chatticus",
-        "settings": {}
+        "name": "Chatticus"
+      }
+    },
+    {
+      "id": "47c6e169-7d5f-4baf-b962-52a01b816c77",
+      "author": "home",
+      "text": "## Delegation postmortem — I duplicated work already done (2026-09-16)\n\n**This card was already closed on 2026-09-14** by agent Antigravity (gemini-3.1-pro), and `develop` already carries the pagination fix — the same `LastEvaluatedKey` loop matching `list_roster_user_ids`. I delegated it anyway.\n\n**Cause, and it is entirely mine:** I read the board from a stale local checkout. At session start I ran `git log` and `git status` but **not `git pull`**, so my listing showed this card open when upstream had closed it two days earlier. The first thing the rebase conflict told me was `status: closed, closed_at: 2026-09-14`.\n\nNot the sub-agent's fault in any part. It did exactly what the spec said, and its implementation was essentially identical to the one already merged — which is some evidence the spec was good.\n\n**Process fix: pull before reading the board, every time.** A `kbs list` against a stale checkout is not the board, it is a snapshot of whenever you last synced. This card cost one delegation and one review cycle; a longer-running one could cost a conflicting implementation.\n\n## What was salvaged\n\nThe upstream fix landed **without a test** — `grep -c LastEvaluatedKey python/tests/test_messaging.py` on `origin/develop` returns 0. So the pagination loop is currently unprotected, and a future refactor could collapse it back to a single query and silently truncate transcripts again with nothing failing.\n\n[PR #352](https://github.com/AnthusAI/Chatticus/pull/352) adds **only that regression test**, no production change. Verified meaningful rather than tautological: it fails with `assert 1 == 2` against a single-query implementation and passes against the one on `develop`. Full suite 634 passed, 3 skipped; black and ruff clean.\n\n**This card stays closed.** The PR is a test-only follow-up, not a reopening.",
+      "created_at": "2026-09-16T11:37:11.024847Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
       }
     }
   ],
   "created_at": "2026-09-13T13:58:29.459572Z",
-  "updated_at": "2026-09-14T13:32:06.201762Z",
+  "updated_at": "2026-09-16T11:37:11.024865Z",
   "closed_at": "2026-09-14T13:32:06.201597Z",
-  "right_now_summary": null,
-  "right_now_updated_at": null,
-  "custom": {},
   "agent": {
     "platform": "antigravity",
     "model": "gemini-3.1-pro",
-    "name": "Antigravity",
-    "settings": {}
-  }
+    "name": "Antigravity"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
 }
