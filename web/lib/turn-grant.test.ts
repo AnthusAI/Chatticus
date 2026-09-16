@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  buildRevokePayload,
   buildTurnGrantPayload,
   DEFAULT_TURN_GRANT_FORM,
   grantTableToPayload,
@@ -63,5 +64,33 @@ describe("turn grant payload builder", () => {
       turnGrantConfirmationText(["browse", "read_workspace"]),
       "Turn grant updated: browse, read_workspace.",
     );
+  });
+});
+
+describe("turn grant revocation", () => {
+  it("buildRevokePayload() returns every field as an empty array", () => {
+    const payload = buildRevokePayload();
+    assert.deepEqual(payload.tools, []);
+    assert.deepEqual(payload.origins, []);
+    assert.deepEqual(payload.recipients, []);
+    assert.deepEqual(payload.file_scopes, []);
+    assert.deepEqual(payload.egress_classes, []);
+    assert.deepEqual(payload.ingest_classes, []);
+  });
+
+  it("turnGrantConfirmationText([]) returns the revocation message and does not contain 'Turn grant updated'", () => {
+    const message = turnGrantConfirmationText([]);
+    assert.equal(message.includes("Turn grant updated"), false);
+    assert.match(message, /revoked/i);
+    assert.notEqual(message.trim(), "");
+  });
+
+  it("turnGrantConfirmationText(['read_workspace']) still returns the existing updated message", () => {
+    const message = turnGrantConfirmationText(["read_workspace"]);
+    assert.equal(message, "Turn grant updated: read_workspace.");
+  });
+
+  it("buildTurnGrantPayload(DEFAULT_TURN_GRANT_FORM) still returns null (guard intact)", () => {
+    assert.equal(buildTurnGrantPayload(DEFAULT_TURN_GRANT_FORM), null);
   });
 });

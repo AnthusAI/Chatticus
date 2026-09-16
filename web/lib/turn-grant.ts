@@ -49,6 +49,17 @@ export function grantTableToPayload(table: Record<string, string>): TurnGrantPay
   };
 }
 
+export function buildRevokePayload(): TurnGrantPayload {
+  return {
+    tools: [],
+    origins: [],
+    recipients: [],
+    file_scopes: [],
+    egress_classes: [],
+    ingest_classes: [],
+  };
+}
+
 export function buildTurnGrantPayload(form: TurnGrantFormState): TurnGrantPayload | null {
   const tools: string[] = [];
   if (form.browse) {
@@ -93,6 +104,9 @@ export function buildTurnGrantPayload(form: TurnGrantFormState): TurnGrantPayloa
 }
 
 export function turnGrantConfirmationText(tools: readonly string[]): string {
+  if (tools.length === 0) {
+    return "Turn authority revoked. The bot can use no tools for the rest of this turn.";
+  }
   const sorted = [...tools].sort();
   return `Turn grant updated: ${sorted.join(", ")}.`;
 }
