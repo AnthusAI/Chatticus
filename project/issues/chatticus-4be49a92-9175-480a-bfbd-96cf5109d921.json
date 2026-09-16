@@ -24,10 +24,22 @@
         "model": "claude-opus-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "3c9e41c1-161e-449d-aa6a-95a032e7af61",
+      "author": "home",
+      "text": "Unblocked: 6bd49c merged as b6ee906. The server now emits a heartbeat comment every 15s, so the idle-timeout disconnects this card was mostly reacting to should largely stop happening. Do this one next, and note what changed for it:\n\n1. The common case is now a stream that stays open. A reconnect path here is for genuine network drops, not routine CDN timeouts — so a small bounded retry is right, not an aggressive one.\n2. The server now emits `turn.reconciling` when IT gives up after 10 minutes of worker silence. That arrives as a terminal event, so `sawTerminalEvent` is true and `parkStreamWithoutTerminal` does NOT fire. Do not add client retry logic for that case; it is already handled and the client re-reads committed state.\n3. What remains for this card is the non-terminal close: a socket dropping mid-turn with no terminal event. Retry with the stored `Last-Event-ID` a small bounded number of times with backoff, keep the turn on screen while retrying rather than blanking it, and park only when the retries are exhausted — with an honest message.\n\nThe `sessionStorage` lastEventId machinery already exists and is read only when a stream is first opened.\n",
+      "created_at": "2026-09-16T21:42:42.495409Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-16T16:47:57.293572Z",
-  "updated_at": "2026-09-16T16:48:46.830861Z",
+  "updated_at": "2026-09-16T21:42:42.495442Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
