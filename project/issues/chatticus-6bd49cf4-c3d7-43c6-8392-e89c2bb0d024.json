@@ -12,9 +12,22 @@
     "backend"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "b0bf31ba-69f5-4b9a-b8b2-3aee77bfb2d8",
+      "author": "home",
+      "text": "First attempt REJECTED and closed unmerged: PR #361. Recording why, so the next attempt does not repeat it.\n\n**Wrong base.** The branch was cut from `main`, 349 commits behind `develop`. Cherry-picking it onto develop conflicts in `python/src/chatticus/http/app.py`, which has changed substantially since. Every test result reported on that branch ran against two-week-old code and proved nothing about develop.\n\nWorth noting for my own accuracy: I first read `git diff develop branch` and alarmed that the PR deleted 474 files. That was a two-dot diff — it shows how the branches DIFFER, not what merging does. GitHub reported the PR as 4 files, +311/-3, and a squash would have applied only that. Merging would not have deleted anything. The wrong base was still disqualifying, for the reason above.\n\n**The deadman timeout was backwards and caused a worse bug than the one it fixed.** It used `state.plane.turn_deadline` (120s), documented as \"how long an active turn may run WITHOUT RENEWAL\" — a lease-renewal deadline, not a maximum duration; `handle_turn_deadline` exists to renew it. Used as an absolute stream lifetime, every turn longer than two minutes had its stream closed while perfectly healthy — exactly the slow-tool-call case the heartbeat exists to protect. The heartbeat would hold the connection open for 120 seconds and then kill it deliberately. It also closed with a bare `return`, so on the client (4be49a) `parkStreamWithoutTerminal` fires and wipes the user's in-progress answer.\n\n**Correct shape, for the next attempt:** an INACTIVITY timeout, not total-elapsed. Close only when no real events have arrived for the window; reset on every yielded event; the heartbeat must NOT reset it, or the deadman never fires. An actively streaming turn must never be closed regardless of duration. Emit a terminal event carrying a reason before returning, never a bare return.\n\n**The backoff test had no teeth** — the attempt's own notes said disabling backoff left it passing. Two other checks depended on a real 30-second read timeout and on a test that hung rather than failed; a hanging test hangs CI. All timing must be driven by injected clocks.\n\nRe-dispatched with these constraints. The first re-dispatch died on a quota limit before doing any work.\n",
+      "created_at": "2026-09-16T20:52:41.832773Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-16T16:48:25.092398Z",
-  "updated_at": "2026-09-16T16:48:25.092433Z",
+  "updated_at": "2026-09-16T20:52:41.832792Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
