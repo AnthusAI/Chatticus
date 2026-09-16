@@ -10,7 +10,12 @@ import {
   type CognitoConfig,
 } from "./cognito-config";
 import { parseJwtPayload, verifyIdTokenClaims } from "./id-token";
-import { buildUserManagerSettings } from "./auth";
+import {
+  buildUserManagerSettings,
+  resetAuthForTests,
+  restoreVerifiedSession,
+  setUserManagerFactoryForTests,
+} from "./auth";
 
 const testConfig: CognitoConfig = {
   userPoolId: "us-east-1_TestPool",
@@ -175,5 +180,235 @@ describe("parseJwtPayload", () => {
   it("decodes base64url payloads", () => {
     const token = fakeIdToken({ sub: "abc" });
     assert.deepEqual(parseJwtPayload(token), { sub: "abc" });
+  });
+});
+
+describe("restoreVerifiedSession", () => {
+  const localStorageBacking: Record<string, string> = {};
+  const localStorage = {
+    get length() {
+      return Object.keys(localStorageBacking).length;
+    },
+    clear() {
+      for (const key of Object.keys(localStorageBacking)) {
+        delete localStorageBacking[key];
+      }
+    },
+    getItem(key: string) {
+      return localStorageBacking[key] ?? null;
+    },
+    key(index: number) {
+      return Object.keys(localStorageBacking)[index] ?? null;
+    },
+    removeItem(key: string) {
+      delete localStorageBacking[key];
+    },
+    setItem(key: string, value: string) {
+      localStorageBacking[key] = value;
+    },
+  };
+
+  const sessionStorageBacking: Record<string, string> = {};
+  const sessionStorage = {
+    get length() {
+      return Object.keys(sessionStorageBacking).length;
+    },
+    clear() {
+      for (const key of Object.keys(sessionStorageBacking)) {
+        delete sessionStorageBacking[key];
+      }
+    },
+    getItem(key: string) {
+      return sessionStorageBacking[key] ?? null;
+    },
+    key(index: number) {
+      return Object.keys(sessionStorageBacking)[index] ?? null;
+    },
+    removeItem(key: string) {
+      delete sessionStorageBacking[key];
+    },
+    setItem(key: string, value: string) {
+      sessionStorageBacking[key] = value;
+    },
+  };
+
+  const previousWindow = globalThis.window;
+
+  before(() => {
+    globalThis.window = { localStorage, sessionStorage } as Window & typeof globalThis;
+    process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID = testConfig.userPoolId;
+    process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID = testConfig.clientId;
+    process.env.NEXT_PUBLIC_COGNITO_AUTH_DOMAIN = testConfig.authDomain;
+    process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI = testConfig.redirectUri;
+  });
+
+  after(() => {
+    if (previousWindow === undefined) {
+      delete (globalThis as { window?: Window }).window;
+    } else {
+      globalThis.window = previousWindow;
+    }
+    delete process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID;
+    delete process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID;
+    delete process.env.NEXT_PUBLIC_COGNITO_AUTH_DOMAIN;
+    delete process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI;
+  });
+
+  function afterEachTest() {
+    resetAuthForTests();
+    setUserManagerFactoryForTests(null);
+    localStorage.clear();
+    sessionStorage.clear();
+  }
+
+  it("branch 1: returns null when selectAccountOnSignInPending is true, without calling getUser or signinSilent", async () => {
+    sessionStorage.setItem("chatticus:select_account_on_signin", "1");
+
+    const calls = { getUser: 0, signinSilent: 0 };
+    const mockUserManager = {
+      getUser: async () => {
+        calls.getUser++;
+        throw new Error("getUser should not be called");
+      },
+      signinSilent: async () => {
+        calls.signinSilent++;
+        throw new Error("signinSilent should not be called");
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setUserManagerFactoryForTests(() => mockUserManager as any);
+
+    const result = await restoreVerifiedSession();
+
+    assert.equal(result, null, "should return null");
+    assert.equal(calls.getUser, 0, "getUser should not be called");
+    assert.equal(calls.signinSilent, 0, "signinSilent should not be called");
+
+    afterEachTest();
+  });
+
+  it("branch 2: returns verified session when stored user verifies fine, without calling signinSilent", async () => {
+    const validToken = fakeIdToken({
+      token_use: "id",
+      iss: cognitoIssuer(testConfig),
+      aud: testConfig.clientId,
+      exp: 4_000_000_000,
+      email: "user@example.com",
+    });
+
+    const calls = { signinSilent: 0 };
+    const mockUser = { id_token: validToken };
+    const mockUserManager = {
+      getUser: async () => mockUser,
+      signinSilent: async () => {
+        calls.signinSilent++;
+        throw new Error("signinSilent should not be called");
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setUserManagerFactoryForTests(() => mockUserManager as any);
+
+    const result = await restoreVerifiedSession();
+
+    assert.ok(result, "should return a session");
+    assert.equal(result.idToken, validToken, "should return the same id_token");
+    assert.equal(result.claims.email, "user@example.com", "should have email claim");
+    assert.equal(calls.signinSilent, 0, "signinSilent should not be called");
+
+    afterEachTest();
+  });
+
+  it("branch 3: calls signinSilent when stored user's claims throw Token expired", async () => {
+    const expiredToken = fakeIdToken({
+      token_use: "id",
+      iss: cognitoIssuer(testConfig),
+      aud: testConfig.clientId,
+      exp: 1,
+    });
+
+    const renewedToken = fakeIdToken({
+      token_use: "id",
+      iss: cognitoIssuer(testConfig),
+      aud: testConfig.clientId,
+      exp: 4_000_000_000,
+      email: "renewed@example.com",
+    });
+
+    const calls = { signinSilent: 0 };
+    const mockUser = { id_token: expiredToken };
+    const renewedUser = { id_token: renewedToken };
+
+    const mockUserManager = {
+      getUser: async () => mockUser,
+      signinSilent: async () => {
+        calls.signinSilent++;
+        return renewedUser;
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setUserManagerFactoryForTests(() => mockUserManager as any);
+
+    const result = await restoreVerifiedSession();
+
+    assert.ok(result, "should return a renewed session");
+    assert.equal(result.idToken, renewedToken, "should return renewed id_token");
+    assert.equal(result.claims.email, "renewed@example.com", "should have renewed email");
+    assert.equal(calls.signinSilent, 1, "signinSilent should be called once");
+
+    afterEachTest();
+  });
+
+  it("branch 4: calls signinSilent when getUser resolves null", async () => {
+    const renewedToken = fakeIdToken({
+      token_use: "id",
+      iss: cognitoIssuer(testConfig),
+      aud: testConfig.clientId,
+      exp: 4_000_000_000,
+      email: "newuser@example.com",
+    });
+
+    const calls = { signinSilent: 0 };
+    const renewedUser = { id_token: renewedToken };
+
+    const mockUserManager = {
+      getUser: async () => null,
+      signinSilent: async () => {
+        calls.signinSilent++;
+        return renewedUser;
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setUserManagerFactoryForTests(() => mockUserManager as any);
+
+    const result = await restoreVerifiedSession();
+
+    assert.ok(result, "should return a session from signinSilent");
+    assert.equal(result.idToken, renewedToken, "should return renewed id_token");
+    assert.equal(result.claims.email, "newuser@example.com", "should have email");
+    assert.equal(calls.signinSilent, 1, "signinSilent should be called once");
+
+    afterEachTest();
+  });
+
+  it("branch 5: returns null when signinSilent rejects, without throwing", async () => {
+    const mockUserManager = {
+      getUser: async () => null,
+      signinSilent: async () => {
+        throw new Error("Silent sign-in failed");
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setUserManagerFactoryForTests(() => mockUserManager as any);
+
+    const result = await restoreVerifiedSession();
+
+    assert.equal(result, null, "should return null on signinSilent error");
+
+    afterEachTest();
   });
 });
