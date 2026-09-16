@@ -3,7 +3,7 @@
   "title": "getIdToken throws Token expired instead of renewing, on every API call",
   "description": "**Reported by a separate analysis session 2026-09-16; CONFIRMED and reproduced live by me the same day.**\n\n`getIdToken` (`web/lib/auth.ts:59`) calls `verifiedSessionFromUser`, which calls `verifyIdTokenClaims`, which **throws** `Error(\"Token expired.\")` once `exp <= now`. The `?? null` guards a null return, not a throw. `authorizedHeaders` (`web/lib/api-auth.ts`) awaits it on **every** API request, so the throw propagates into every caller in `api.ts`.\n\n## Reproduced live on dev.chattic.us\n\nForced the stored `id_token` payload `exp` into the past while deliberately leaving `expires_at` intact — simulating a renew timer that never fired — then clicked a channel without reloading. The workspace rendered an error banner reading literally:\n\n    Token expired.\n\nThat is the raw internal exception string from `verifyIdTokenClaims` shown to a person. The token was **not** renewed; the state does not recover without a reload.\n\n## Correction to the original report\n\nThe report claimed the crash comes \"after 1 hour of active usage.\" That is very likely wrong for the common case. `buildUserManagerSettings` sets `automaticSilentRenew: true` with `accessTokenExpiringNotificationTimeInSeconds: 60`, so a healthy foreground tab renews about a minute *before* expiry and `getIdToken` never sees an expired token.\n\nThe real trigger is **whenever that timer does not fire or its renewal fails**:\n- the machine sleeps and wakes past expiry\n- the tab is backgrounded and the browser throttles its timers\n- one silent renew fails transiently (`addSilentRenewError` is bound to an error handler, and nothing retries)\n\nSo this is not \"every session at 60 minutes.\" It is \"every session that was interrupted,\" which is most laptop sessions.\n\n## Why our new tests did not catch it\n\n`restoreVerifiedSession` catches this exact throw and calls `signinSilent()` — and now has six tests (`8724cd`, PR #357). `getIdToken` sits two lines above it, does the same verification, and has **no** such catch and no test. The asymmetry between those two functions *is* the bug.\n\n## Suggested fix\n\nGive `getIdToken` the same recovery `restoreVerifiedSession` already has: catch the verify failure, attempt `signinSilent()`, and only then give up. Consider having both call one shared helper so they cannot drift apart again.\n\nWhatever surfaces to the person must not be the string `Token expired.` — that is an internal diagnostic, not a message.\n\n## Done when\n\nWith an expired stored `id_token` and no reload, an API-triggering interaction renews silently and succeeds. If renewal genuinely fails, the person sees a real message and a way back, not a raw exception. A test covers the expired-token path through `getIdToken`, and it fails when the catch is removed.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,10 +12,23 @@
     "auth"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f375574c-7144-4e04-97a2-d8435e95932c",
+      "author": "home",
+      "text": "Merged 2026-09-16 as 4e73451 (PR #358). Delegated to a Haiku sub-agent, accepted with one addition.\n\nThe fix: a shared `getVerifiedSessionWithSilentRenewal` helper — read stored user, verify, on failure attempt signinSilent, never throw — now used by getIdToken and restoreVerifiedSession. The `selectAccountOnSignInPending()` short-circuit correctly stayed exclusive to restoreVerifiedSession, so sign-out still shows the account chooser. No existing test was modified.\n\nReview: I ran four mutations myself rather than trusting the report. All four new getIdToken tests have teeth, each failing alongside its restoreVerifiedSession counterpart — renewal-catch removed, no-stored-user path removed, early-return removed.\n\nMy addition: getVerifiedSession was the third session reader and was left calling verifiedSessionFromUser directly, so it still carried the throw this card was filed about. It has ZERO references anywhere in the repo, which is precisely why it would have been the one to drift — the next caller would inherit the old bug silently. Routed through the helper. Worth deciding separately whether an exported function with no callers should exist at all.\n\nProcess note, recorded because it cost real time: two background sub-agents and I were sharing one git working tree, and the second agent checked out its branch mid-review, so my first mutation run tested the wrong source and I wrongly concluded a test had no teeth. Redone in an isolated `git worktree`, where it failed correctly. Review of delegated work belongs in a separate worktree whenever another agent is running.\n\nNot yet verified live. The original defect was reproduced on dev.chattic.us by forcing an expired stored id_token; re-running that probe after the web deploy would confirm the fix end to end rather than only in unit tests.\n",
+      "created_at": "2026-09-16T17:21:22.569817Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-16T16:47:22.104704Z",
-  "updated_at": "2026-09-16T16:47:22.104738Z",
-  "closed_at": null,
+  "updated_at": "2026-09-16T17:21:22.632692Z",
+  "closed_at": "2026-09-16T17:21:22.632673Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-opus-5",

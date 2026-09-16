@@ -3,7 +3,7 @@
   "title": "TurnGrantPanel is never mounted, so turn authority controls do not exist in the app",
   "description": "**Reported by a separate analysis session 2026-09-16; CONFIRMED by me the same day. This is the most serious of that batch.**\n\n`web/components/TurnGrantPanel.tsx` is imported by **nothing**. Verified:\n\n    grep -rn \"TurnGrantPanel\" web --include=*.tsx --include=*.ts\n    -> only web/lib/turn-grant.ts (isTurnGrantPanelVisible)\n       and web/test-support/membership-ui-harness.ts\n\n`inspectorPane` in `EnabledWorkspace.tsx:494` renders exactly two sections, Computer and Tasks. The component has never been mounted in the Next.js app.\n\nSo `PUT /turns/{turn_id}/grant` exists on the backend, the panel exists, the Gherkin exists — and a person using dev.chattic.us has no way to reach any of it.\n\n## I merged a feature into dead code today\n\n`b7e2c7` (PR #353, merged as bae2261 on 2026-09-16) added `buildRevokePayload` and a Revoke button **to this unmounted component**. I reviewed that PR, caught a weak test in it, and did not check that anything renders the thing I was reviewing. The card's own \"done when\" was written in terms of the panel's behavior, which the harness satisfies without the app ever mounting it.\n\n`b51151` (revoke button styling) is moot until this is fixed — there is no button on screen to restyle.\n\n## The structural problem, which matters more than the fix\n\n`features/web_turn_grant.feature` passes. It passes because `membership-ui-harness.ts` imports `isTurnGrantPanelVisible` from `web/lib/turn-grant.ts` — the pure logic module — and never touches the React component. Our behavior tests therefore prove that *the logic is correct*, not that *the product does anything*.\n\nThat gap will keep producing this defect. Every feature whose harness exercises a `lib/` module while the component is unwired looks finished and ships as nothing. Worth deciding how we close it in general, not just here: some check that a component with a feature file is actually reachable from a route.\n\n## Done when\n\nThe panel is reachable in the running app for an active turn, a person can narrow or revoke authority from it and see the result, and something fails if the component stops being mounted. The last clause is the point — without it this recurs.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,10 +12,23 @@
     "web"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "86116c90-811e-4e08-85b7-5416cc7c6ec4",
+      "author": "home",
+      "text": "Merged 2026-09-16 as b7132a4 (PR #359). Delegated to a Haiku sub-agent, accepted after rewriting its guard.\n\nThe panel is now mounted in the EnabledWorkspace inspector pane, after Tasks, gated on the existing isTurnGrantPanelVisible helper. TurnGrantPanel.tsx and turn-grant.ts were not modified — pure wiring, as specified.\n\nTwo changes I made in review:\n\n1. The mounting used `turn!.turn_id`, a non-null assertion. Narrowing on `turn` directly removes it while keeping the helper as the gate.\n\n2. The regression guard was four regexes pinning the exact source formatting of EnabledWorkspace.tsx. It was brittle enough to be actively harmful: my edit above — strictly better code, one fewer assertion — made two guard tests fail. A guard that breaks on correct refactors teaches people to edit the guard, which is how it stops guarding. Rewrote it whitespace- and argument-agnostic, asserting only what this card is about, and verified all four assertions still fail when the panel is unmounted.\n\nHonest limit, documented in the test file itself: the guard reads source TEXT. It cannot tell a mounted component from one inside an unreachable branch. It catches the regression that actually happened — the component being orphaned — and nothing stronger. The agent reported it as \"confirms the guard works correctly,\" which overstates what source matching can prove; I had asked it to say if it could only approximate mounting, and it did not.\n\nThe real problem is filed as 77c09b: our behavior tests drive lib/ modules while components stay unwired, so a finished-looking feature can ship as nothing. The open question there — which OTHER components are currently orphaned — matters more than this card did.\n\nb51151 (revoke button styling) is now unblocked; there is finally a rendered button to look at.\n\nNOT YET VERIFIED LIVE. Confirming this needs an active turn on dev.chattic.us, which means starting real bot work. Worth doing deliberately rather than as a side effect: open the inspector during an active turn and confirm the panel appears, narrows, and revokes.\n",
+      "created_at": "2026-09-16T17:21:42.871727Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-16T16:47:40.659045Z",
-  "updated_at": "2026-09-16T16:47:40.659084Z",
-  "closed_at": null,
+  "updated_at": "2026-09-16T17:21:42.959862Z",
+  "closed_at": "2026-09-16T17:21:42.959842Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-opus-5",
