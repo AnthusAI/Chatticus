@@ -45,7 +45,8 @@ import { isTerminalTurnEvent } from "../lib/sse-parse";
 import { formatTime } from "../lib/time";
 import {
   buildRoster,
-  isComposerSendBlocked,
+  getSendBlockMessage,
+  getSendBlockReason,
   latestMessage,
   resolveVisibleTurnState,
   shouldClearTurnBubbleAfterTerminal,
@@ -145,7 +146,8 @@ export function EnabledWorkspace({
   );
   const visibleTasks = tasksForSelection(tasks, selectedItem);
   const visibleTurnState = resolveVisibleTurnState(turnStatus, turn, progress);
-  const composerSendBlocked = isComposerSendBlocked(sending, turn);
+  const sendBlockReason = getSendBlockReason(sending, turn, addressedBotId);
+  const sendBlockMessage = getSendBlockMessage(sendBlockReason);
 
   const loadWorkspace = useCallback(async () => {
     setLoading(true);
@@ -357,7 +359,7 @@ export function EnabledWorkspace({
 
   const handleSendMessage = useCallback(
     async (body: string) => {
-      if (!selectedItem || !selectedChannelId || !addressedBotId || composerSendBlocked) {
+      if (!selectedItem || !selectedChannelId || sendBlockReason !== null) {
         return;
       }
       setSending(true);
@@ -387,7 +389,7 @@ export function EnabledWorkspace({
     [
       activeOrg,
       addressedBotId,
-      composerSendBlocked,
+      sendBlockReason,
       selectedChannelId,
       selectedItem,
       startTurnStream,
@@ -581,13 +583,14 @@ export function EnabledWorkspace({
             turn={turn}
             progress={progress}
             turnStatus={turnStatus}
-            isSendDisabled={composerSendBlocked}
+            isSendDisabled={sendBlockReason !== null}
             botNameById={botNameById}
             onSendMessage={handleSendMessage}
             threadProps={{
               composerPlaceholder: `Message ${selectedItem.label}`,
               streamError,
               onDismissStreamError: () => setStreamError(null),
+              sendBlockMessage,
               emptyState: (
                 <EmptyState
                   title={`Start with ${selectedItem.label}`}

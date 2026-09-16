@@ -92,8 +92,56 @@ export function resolveVisibleTurnState(
   return null;
 }
 
-export function isComposerSendBlocked(sending: boolean, turn: unknown | null): boolean {
-  return sending || turn !== null;
+/**
+ * Reasons why the send composer might be blocked.
+ * null means sending is permitted.
+ */
+export type SendBlockReason = "sending" | "waiting-for-turn" | "no-bot-selected" | null;
+
+/**
+ * Determines why sending a message is blocked, if at all.
+ * Separates different blocking reasons so users understand the state.
+ *
+ * @param sending - Whether a message send is already in progress
+ * @param turn - The active turn object, if any
+ * @param addressedBotId - The ID of the bot this message would be sent to
+ * @returns The reason sending is blocked, or null if sending is allowed
+ */
+export function getSendBlockReason(
+  sending: boolean,
+  turn: unknown | null,
+  addressedBotId: string,
+): SendBlockReason {
+  if (!addressedBotId) {
+    return "no-bot-selected";
+  }
+  if (sending) {
+    return "sending";
+  }
+  if (turn !== null) {
+    return "waiting-for-turn";
+  }
+  return null;
+}
+
+/**
+ * Gets the user-facing message for a send block reason.
+ *
+ * @param reason - The block reason from getSendBlockReason
+ * @returns A human-readable message explaining why sending is blocked, or null if not blocked
+ */
+export function getSendBlockMessage(reason: SendBlockReason): string | null {
+  if (reason === null) {
+    return null;
+  }
+  switch (reason) {
+    case "no-bot-selected":
+      return "Select a bot to start the conversation.";
+    case "sending":
+      return "Message is being sent…";
+    case "waiting-for-turn":
+      return "Waiting for the bot to finish responding.";
+  }
 }
 
 export const TRANSCRIPT_STICK_THRESHOLD_PX = 100;
