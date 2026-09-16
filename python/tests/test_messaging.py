@@ -2103,3 +2103,83 @@ def test_complete_turn_completed_turn_uses_event_message_seq() -> None:
     message = plane._complete_turn(turn)
     assert message.seq == completed_event.message_seq
     api.close()
+
+
+def test_list_messages_reads_every_query_page() -> None:
+    """Test that list_messages paginates through all results."""
+
+    class PaginatedClient:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.query_kwargs_history = []
+
+        def query(self, **request: object) -> dict[str, object]:
+            self.calls += 1
+            self.query_kwargs_history.append(request)
+            if self.calls == 1:
+                assert "ExclusiveStartKey" not in request
+                return {
+                    "Items": [
+                        {
+                            "message_id": {"S": "msg-1"},
+                            "channel_id": {"S": "ch-1"},
+                            "tenant_id": {"S": "tenant-1"},
+                            "seq": {"N": "2"},
+                            "author_kind": {"S": "human"},
+                            "author_id": {"S": "user-1"},
+                            "body": {"S": "First message"},
+                            "addressed_to_bot_id": {"S": ""},
+                            "created_at": {"S": "2024-01-01T00:00:00"},
+                            "sk": {"S": "msg#0000000002"},
+                        }
+                    ],
+                    "LastEvaluatedKey": {
+                        "pk": {"S": "next"},
+                        "sk": {"S": "msg#0000000002"},
+                    },
+                }
+            assert request["ExclusiveStartKey"] == {
+                "pk": {"S": "next"},
+                "sk": {"S": "msg#0000000002"},
+            }
+            return {
+                "Items": [
+                    {
+                        "message_id": {"S": "msg-0"},
+                        "channel_id": {"S": "ch-1"},
+                        "tenant_id": {"S": "tenant-1"},
+                        "seq": {"N": "1"},
+                        "author_kind": {"S": "human"},
+                        "author_id": {"S": "user-1"},
+                        "body": {"S": "Second message"},
+                        "addressed_to_bot_id": {"S": ""},
+                        "created_at": {"S": "2024-01-01T00:01:00"},
+                        "sk": {"S": "msg#0000000001"},
+                    }
+                ]
+            }
+
+    client = PaginatedClient()
+    store = DynamoMessagingStore("test-table", client=client)
+    messages = store.list_messages("tenant-1", "ch-1", after_seq=0)
+
+    # Assert all calls made
+    assert client.calls == 2
+
+    # Assert both messages are in result
+    assert len(messages) == 2
+    assert messages[0].message_id == "msg-0"
+    assert messages[1].message_id == "msg-1"
+
+    # Assert first call has no ExclusiveStartKey
+    assert "ExclusiveStartKey" not in client.query_kwargs_history[0]
+
+    # Assert second call uses ExclusiveStartKey from first response
+    assert client.query_kwargs_history[1]["ExclusiveStartKey"] == {
+        "pk": {"S": "next"},
+        "sk": {"S": "msg#0000000002"},
+    }
+
+    # Assert result is sorted by seq
+    seqs = [msg.seq for msg in messages]
+    assert seqs == sorted(seqs)
