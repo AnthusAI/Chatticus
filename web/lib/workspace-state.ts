@@ -144,18 +144,6 @@ export function getSendBlockMessage(reason: SendBlockReason): string | null {
   }
 }
 
-/**
- * Checks if sending is blocked (for backward compatibility).
- * Replaced by getSendBlockReason for more detailed blocking information.
- * Note: This function only checks 'sending' and 'turn', not 'addressedBotId'.
- * Use getSendBlockReason for a complete check.
- *
- * @deprecated Use getSendBlockReason instead for detailed blocking reasons
- */
-export function isComposerSendBlocked(sending: boolean, turn: unknown | null): boolean {
-  return sending || turn !== null;
-}
-
 export const TRANSCRIPT_STICK_THRESHOLD_PX = 100;
 
 export function transcriptDistanceFromBottom(

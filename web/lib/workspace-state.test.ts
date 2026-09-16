@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 import {
   getSendBlockMessage,
   getSendBlockReason,
-  isComposerSendBlocked,
   resolveVisibleTurnState,
   shouldClearTurnBubbleAfterTerminal,
   shouldStickTranscriptScroll,
@@ -35,10 +34,6 @@ describe("resolveVisibleTurnState", () => {
 });
 
 describe("getSendBlockReason", () => {
-  afterEach(() => {
-    // No cleanup needed for this test
-  });
-
   it("blocks when no bot is selected", () => {
     assert.equal(getSendBlockReason(false, null, ""), "no-bot-selected");
   });
@@ -81,14 +76,6 @@ describe("getSendBlockMessage", () => {
 
   it("provides a message for waiting-for-turn", () => {
     assert.equal(getSendBlockMessage("waiting-for-turn"), "Waiting for the bot to finish responding.");
-  });
-});
-
-describe("isComposerSendBlocked (backward compatibility)", () => {
-  it("blocks while sending or while a turn bubble is open", () => {
-    assert.equal(isComposerSendBlocked(true, null), true);
-    assert.equal(isComposerSendBlocked(false, { turn_id: "t1" }), true);
-    assert.equal(isComposerSendBlocked(false, null), false);
   });
 });
 
