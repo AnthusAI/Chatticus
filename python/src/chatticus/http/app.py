@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import secrets
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
@@ -342,6 +343,9 @@ class AppState:
     signup_mode: SignupMode = SignupMode.INVITATION_ONLY
     open_sse_streams: int = 0
     integration_test_auth: IntegrationTestAuthConfig | None = None
+    sse_heartbeat_interval: float = 15.0  # Seconds between heartbeat comments
+    sse_min_poll_interval: float = 0.05  # Minimum poll interval (50ms)
+    sse_max_poll_interval: float = 1.0  # Maximum poll interval (1s)
 
 
 def _verify_invoke_key(request: Request) -> None:
@@ -361,6 +365,9 @@ def create_app(
     cognito_verifier: CognitoJwtVerifier | None = None,
     signup_mode: SignupMode | None = None,
     integration_test_auth: IntegrationTestAuthConfig | None = None,
+    sse_heartbeat_interval: float | None = None,
+    sse_min_poll_interval: float | None = None,
+    sse_max_poll_interval: float | None = None,
 ) -> FastAPI:
     """Build a FastAPI app backed by one control plane instance."""
     resolved_key = (
@@ -388,6 +395,9 @@ def create_app(
             environment=resolved_environment,
             invoke_key=resolved_key,
         ),
+        sse_heartbeat_interval=sse_heartbeat_interval or 15.0,
+        sse_min_poll_interval=sse_min_poll_interval or 0.05,
+        sse_max_poll_interval=sse_max_poll_interval or 1.0,
     )
     app = FastAPI(
         title="Chatticus control plane",
@@ -1243,6 +1253,19 @@ def create_app(
                 replay_from,
             )
             try:
+                # Timing for heartbeat, backoff, and deadman timeout
+                stream_start_time = time.monotonic()
+                last_heartbeat_time = stream_start_time
+                poll_interval = state.sse_min_poll_interval  # Start at 50ms
+                min_poll_interval = state.sse_min_poll_interval  # Floor: 50ms
+                max_poll_interval = state.sse_max_poll_interval  # Ceiling: 1s
+                heartbeat_interval = (
+                    state.sse_heartbeat_interval
+                )  # Emit heartbeat every 15s
+                deadman_timeout = (
+                    state.plane.turn_deadline.total_seconds()
+                )  # 120s by default
+
                 while True:
                     if await request.is_disconnected():
                         logger.info(
@@ -1251,12 +1274,36 @@ def create_app(
                             turn_id,
                         )
                         return
+
+                    # Check deadman timeout
+                    elapsed = time.monotonic() - stream_start_time
+                    if elapsed > deadman_timeout:
+                        logger.info(
+                            "sse_deadman_timeout tenant_id=%s turn_id=%s elapsed=%.1f",
+                            tenant_id,
+                            turn_id,
+                            elapsed,
+                        )
+                        return
+
+                    # Emit heartbeat comment if interval has passed
+                    current_time = time.monotonic()
+                    if current_time - last_heartbeat_time >= heartbeat_interval:
+                        yield ": heartbeat\n\n"
+                        last_heartbeat_time = current_time
+
                     events = state.plane.list_turn_events(
                         tenant_id, turn_id, replay_from
                     )
                     if not events:
-                        await asyncio.sleep(0.05)
+                        # Backoff: increase poll interval on idle, cap at max
+                        poll_interval = min(poll_interval * 1.5, max_poll_interval)
+                        await asyncio.sleep(poll_interval)
                         continue
+
+                    # Reset backoff on activity
+                    poll_interval = min_poll_interval
+
                     for event in events:
                         yield format_turn_event_sse(event)
                         replay_from = event.seq
