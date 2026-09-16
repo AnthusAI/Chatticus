@@ -3,7 +3,7 @@
   "title": "Send button is enabled while the send handler silently discards the message",
   "description": "**Reported by a separate analysis session 2026-09-16; CONFIRMED in code by me the same day.**\n\n`handleSendMessage` (`EnabledWorkspace.tsx:358`) returns silently:\n\n    if (!selectedItem || !selectedChannelId || !addressedBotId || composerSendBlocked) return;\n\n## The precise mechanism, which the original report did not name\n\n`addressedBotId` is `useState<string>(\"\")` — it starts **falsy** (`EnabledWorkspace.tsx:113`).\n\nThe send button's disabled state is `isSendDisabled={composerSendBlocked}`, and `isComposerSendBlocked(sending, turn)` is only:\n\n    return sending || turn !== null;\n\n`addressedBotId` is **not** part of it.\n\nSo the guard rejects on a condition the disabled state does not cover. The button is **enabled**, fully clickable, and does nothing. That is the defect: the predicate that decides whether sending is possible and the predicate that decides whether the control looks possible disagree. Either one alone would be fine.\n\nThe same applies to Enter in the composer, which routes to the same handler.\n\n## Why it matters beyond the annoyance\n\nA person's first impression of a channel with no bot yet, or during the window before the bot selection resolves, is a send button that swallows their message with no explanation. There is nothing to read, nothing to retry, and no reason to believe the product works.\n\n## Suggested fix\n\nMake the two predicates one. If sending is impossible, the control must show it, and the reason must be legible — \"no bot in this channel\" is a different message from \"waiting for the current turn.\" Do not solve this by only adding an error banner after the click; the control should not invite a click it will discard.\n\n## Done when\n\nThere is no state where the send control is enabled and pressing it does nothing. Each blocked reason surfaces its own message. A test covers the empty-`addressedBotId` case specifically, since that is the state a channel starts in.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,10 +12,23 @@
     "web"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "2a19d177-5d78-40d6-bdd6-8e788d3ca7f0",
+      "author": "home",
+      "text": "Merged 2026-09-16 as 7b92ca2 (PR #360). Delegated to a Haiku sub-agent, accepted with one removal.\n\nThe fix: `getSendBlockReason(sending, turn, addressedBotId)` returns a specific reason — \"no-bot-selected\", \"sending\", \"waiting-for-turn\", or null — and `getSendBlockMessage` maps each to copy shown near the composer. The disabled state and the handler guard are now literally the same expression (`sendBlockReason !== null`), which is the actual fix: the two predicates can no longer disagree.\n\nReview: the agent ran two mutations; I ran the other four. All six tests have teeth, including both priority-order cases.\n\nMy removal: the agent kept `isComposerSendBlocked` \"for backward compatibility\" after switching the component to the new predicate, leaving it with zero production callers and only its own test. That is the same pattern found on f10266 an hour earlier, and worse here — it is precisely the predicate MISSING the addressedBotId check, so a future caller picking it up reintroduces this exact bug. Deleted it and its test. Also dropped a no-op `afterEach` that cleaned up nothing.\n\nReport inaccuracy worth noting: the agent claimed it modified ChatticusAssistantRuntime.tsx; the diff shows it did not (the prop passes through threadProps). Second report from these agents that overstated what was done — verify diffs, not summaries.\n\nResidual filed as 3ab5a4: the guard still opens with `!selectedChannelId`, which the predicate does not cover, and the composer is not gated on a channel existing. Same defect class, different falsy value. Deliberately not folded in here because the right behavior depends on whether a bot can exist without a direct channel — an unresolved question, recorded on that card.\n",
+      "created_at": "2026-09-16T20:52:26.727555Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-16T16:48:25.001450Z",
-  "updated_at": "2026-09-16T16:48:25.001486Z",
-  "closed_at": null,
+  "updated_at": "2026-09-16T20:52:26.800189Z",
+  "closed_at": "2026-09-16T20:52:26.800158Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-opus-5",
