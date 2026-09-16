@@ -11,6 +11,7 @@ import {
   authStatusClassName,
 } from "./AuthCard";
 import {
+  buildRevokePayload,
   buildTurnGrantPayload,
   CONVERSATION_PRESET_TOOLS,
   DEFAULT_TURN_GRANT_FORM,
@@ -151,6 +152,28 @@ export function TurnGrantPanel({ activeOrg, turnId }: TurnGrantPanelProps) {
           Replace turn grant
         </button>
       </form>
+      <button
+        type="button"
+        className={authButtonClassName}
+        disabled={submitting}
+        onClick={() => {
+          setSubmitting(true);
+          setError(null);
+          setConfirmation(null);
+          void replaceTurnGrant(activeOrg, turnId, buildRevokePayload())
+            .then(() => {
+              setConfirmation(turnGrantConfirmationText([]));
+            })
+            .catch((caught) => {
+              setError(caught instanceof Error ? caught.message : "revoke failed");
+            })
+            .finally(() => {
+              setSubmitting(false);
+            });
+        }}
+      >
+        Revoke turn authority
+      </button>
     </AuthCard>
   );
 }
