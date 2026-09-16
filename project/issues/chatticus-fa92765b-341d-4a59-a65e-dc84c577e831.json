@@ -1,0 +1,46 @@
+{
+  "id": "chatticus-fa92765b-341d-4a59-a65e-dc84c577e831",
+  "title": "SSE turn stream polls DynamoDB at 50ms with no backoff or deadman timeout",
+  "description": "In python/src/chatticus/http/app.py, the stream_turn endpoint polls state.plane.list_turn_events(tenant_id, turn_id, replay_from) inside a while True loop sleeping only 0.05 seconds (20 polls per second). At 20 queries/sec, every active SSE stream issues 1,200 DynamoDB Query requests per minute. If a worker hangs or crashes without emitting a terminal event, the stream generator loops indefinitely until client disconnect or the 15-minute Lambda limit (up to 18,000 queries per abandoned turn). Introduce adaptive backoff and a deadman timeout.",
+  "type": "bug",
+  "status": "closed",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "6bd49c",
+      "type": "relates-to"
+    }
+  ],
+  "comments": [
+    {
+      "id": "b03276df-4c27-4992-af71-42553b2e3559",
+      "author": "home",
+      "text": "Duplicate of chatticus-6bd49c.",
+      "created_at": "2026-09-16T19:31:39.384754Z",
+      "comment_type": "default",
+      "data": {},
+      "agent": {
+        "platform": "antigravity",
+        "model": "gemini-3.1-pro",
+        "name": "Chatticus",
+        "settings": {}
+      }
+    }
+  ],
+  "created_at": "2026-09-16T19:28:38.577417Z",
+  "updated_at": "2026-09-16T19:31:39.384835Z",
+  "closed_at": "2026-09-16T19:31:19.177293Z",
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {},
+  "agent": {
+    "platform": "antigravity",
+    "model": "gemini-3.1-pro",
+    "name": "Chatticus",
+    "settings": {}
+  }
+}
