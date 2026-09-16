@@ -1,0 +1,40 @@
+{
+  "id": "chatticus-4be49a92-9175-480a-bfbd-96cf5109d921",
+  "title": "SSE disconnect wipes the in-progress turn instead of reconnecting",
+  "description": "**Reported by a separate analysis session 2026-09-16; CONFIRMED in code by me the same day.**\n\n`EnabledWorkspace.tsx:302` — on SSE close without a terminal event, `parkStreamWithoutTerminal` runs and clears everything:\n\n    setStreamError(message); setTurn(null); setTurnStatus(null);\n    setTurnEvents([]); setProgress(\"\");\n\nThere is no reconnect attempt. The bot's in-progress response is wiped from the screen the moment the connection drops.\n\n## This is a regression trade, not virgin ground\n\n`b2ad43` (\"non-terminal SSE disconnect leaves turn permanently stuck in Working\") was closed by introducing exactly this function. That fix swapped \"stuck in Working forever\" for \"your answer vanishes.\" Both are wrong; the second is arguably worse, because the work is still happening on the server and the person now has no sign of it.\n\nThe machinery to do better is already built and unused: `openTurnStream` accepts `Last-Event-ID` (`web/lib/sse.ts:28`), and `sessionStorage` already records `lastEventId` per turn. Today that is read only when a stream is first opened, never after a drop.\n\n## Connected to the SSE polling card\n\nThe server's stream generator emits **nothing** between events — it sleeps 50ms and loops. A stream with no bytes flowing is exactly what an idle timeout kills, so this disconnect path is not an edge case, it fires routinely on any turn with a slow tool call. Fixing the heartbeat there removes most of the disconnects this card mishandles. Treat the two together.\n\n## Suggested fix\n\nOn a non-terminal close, retry with the stored `Last-Event-ID` a small bounded number of times with backoff before parking. Keep the turn on screen while retrying, showing that it is reconnecting rather than blanking it. Park only when the retries are exhausted, and say what happened.\n\n## Done when\n\nA stream dropped mid-turn without a terminal event reconnects and resumes from the last event id, the transcript is not cleared while that is in flight, and exhausting the retries leaves an honest message rather than an empty pane.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [
+    "web"
+  ],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "be8e2d6d-fa66-4478-82df-1931d2fbcb6c",
+      "author": "home",
+      "text": "Pair with 6bd49c. The server's stream generator emits no bytes between events, which is what causes the idle-timeout disconnects this card then handles by wiping the transcript. Fixing only this card means reconnecting constantly against a cause we left in place; fixing only 6bd49c leaves real drops still wiping the screen. Sequence the heartbeat first.",
+      "created_at": "2026-09-16T16:48:37.809294Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
+  "created_at": "2026-09-16T16:47:57.293572Z",
+  "updated_at": "2026-09-16T16:48:37.809309Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-opus-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
