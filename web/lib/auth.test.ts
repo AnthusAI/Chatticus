@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { after, before, describe, it } from "node:test";
+import { after, afterEach, before, describe, it } from "node:test";
 
 import { WebStorageStateStore } from "oidc-client-ts";
 
@@ -254,12 +254,15 @@ describe("restoreVerifiedSession", () => {
     delete process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI;
   });
 
-  function afterEachTest() {
+  // Must be a hook, not a trailing call in each test body: a thrown assertion
+  // would otherwise skip cleanup and leak the mock factory and the
+  // select-account flag into the next test, turning one failure into four.
+  afterEach(() => {
     resetAuthForTests();
     setUserManagerFactoryForTests(null);
     localStorage.clear();
     sessionStorage.clear();
-  }
+  });
 
   it("branch 1: returns null when selectAccountOnSignInPending is true, without calling getUser or signinSilent", async () => {
     sessionStorage.setItem("chatticus:select_account_on_signin", "1");
@@ -284,8 +287,6 @@ describe("restoreVerifiedSession", () => {
     assert.equal(result, null, "should return null");
     assert.equal(calls.getUser, 0, "getUser should not be called");
     assert.equal(calls.signinSilent, 0, "signinSilent should not be called");
-
-    afterEachTest();
   });
 
   it("branch 2: returns verified session when stored user verifies fine, without calling signinSilent", async () => {
@@ -316,8 +317,6 @@ describe("restoreVerifiedSession", () => {
     assert.equal(result.idToken, validToken, "should return the same id_token");
     assert.equal(result.claims.email, "user@example.com", "should have email claim");
     assert.equal(calls.signinSilent, 0, "signinSilent should not be called");
-
-    afterEachTest();
   });
 
   it("branch 3: calls signinSilent when stored user's claims throw Token expired", async () => {
@@ -357,8 +356,6 @@ describe("restoreVerifiedSession", () => {
     assert.equal(result.idToken, renewedToken, "should return renewed id_token");
     assert.equal(result.claims.email, "renewed@example.com", "should have renewed email");
     assert.equal(calls.signinSilent, 1, "signinSilent should be called once");
-
-    afterEachTest();
   });
 
   it("branch 4: calls signinSilent when getUser resolves null", async () => {
@@ -390,8 +387,36 @@ describe("restoreVerifiedSession", () => {
     assert.equal(result.idToken, renewedToken, "should return renewed id_token");
     assert.equal(result.claims.email, "newuser@example.com", "should have email");
     assert.equal(calls.signinSilent, 1, "signinSilent should be called once");
+  });
 
-    afterEachTest();
+  it("branch 6: calls signinSilent when the stored user has no id_token", async () => {
+    const renewedToken = fakeIdToken({
+      token_use: "id",
+      iss: cognitoIssuer(testConfig),
+      aud: testConfig.clientId,
+      exp: 4_000_000_000,
+      email: "fallthrough@example.com",
+    });
+
+    const calls = { signinSilent: 0 };
+    const mockUserManager = {
+      // verifiedSessionFromUser returns null here rather than throwing, so this
+      // exercises the implicit fallthrough, not the catch.
+      getUser: async () => ({}),
+      signinSilent: async () => {
+        calls.signinSilent++;
+        return { id_token: renewedToken };
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setUserManagerFactoryForTests(() => mockUserManager as any);
+
+    const result = await restoreVerifiedSession();
+
+    assert.ok(result, "should return a session from signinSilent");
+    assert.equal(result.claims.email, "fallthrough@example.com");
+    assert.equal(calls.signinSilent, 1, "signinSilent should be called once");
   });
 
   it("branch 5: returns null when signinSilent rejects, without throwing", async () => {
@@ -408,7 +433,5 @@ describe("restoreVerifiedSession", () => {
     const result = await restoreVerifiedSession();
 
     assert.equal(result, null, "should return null on signinSilent error");
-
-    afterEachTest();
   });
 });
