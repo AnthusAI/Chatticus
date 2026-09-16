@@ -12,22 +12,34 @@ import { Clock3, Send } from "lucide-react";
 import type { FC, ReactNode } from "react";
 
 import { Button } from "../ui/button";
+import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const ChatticusTextPart: TextMessagePartComponent = ({ text }) => (
   <p className="whitespace-pre-wrap">{text}</p>
 );
 
-const ChatticusUserMessage: FC = () => (
-  <MessagePrimitive.Root
-    className="flex justify-end px-1"
-    data-role="user"
-  >
-    <div className="max-w-[86%] rounded-3xl bg-surface-raised px-4 py-3 text-sm leading-6 sm:max-w-[76%]">
-      <MessagePrimitive.Parts components={{ Text: ChatticusTextPart }} />
-    </div>
-  </MessagePrimitive.Root>
-);
+const ChatticusUserMessage: FC = () => {
+  const createdAt = useAuiState(
+    (state) => (state.message.metadata?.custom?.createdAt as string | undefined) ?? state.message.createdAt,
+  );
+
+  return (
+    <MessagePrimitive.Root
+      className="flex justify-end px-1"
+      data-role="user"
+    >
+      <div className="max-w-[86%] rounded-3xl bg-surface-raised px-4 py-3 text-sm leading-6 sm:max-w-[76%]">
+        <MessagePrimitive.Parts components={{ Text: ChatticusTextPart }} />
+        {createdAt ? (
+          <time className="mt-1 block font-mono text-[0.58rem] text-surface-foreground/40">
+            {formatTime(createdAt)}
+          </time>
+        ) : null}
+      </div>
+    </MessagePrimitive.Root>
+  );
+};
 
 const ChatticusAssistantMessage: FC = () => {
   const authorBotName = useAuiState(
@@ -36,7 +48,13 @@ const ChatticusAssistantMessage: FC = () => {
   const isStreamingShell = useAuiState(
     (state) => Boolean(state.message.metadata?.custom?.isStreamingShell),
   );
+  const isStreaming = useAuiState(
+    (state) => Boolean(state.message.metadata?.custom?.isStreaming),
+  );
   const isRunning = useAuiState((state) => state.message.status?.type === "running");
+  const createdAt = useAuiState(
+    (state) => (state.message.metadata?.custom?.createdAt as string | undefined) ?? state.message.createdAt,
+  );
 
   return (
     <MessagePrimitive.Root className="flex justify-start px-1" data-role="assistant">
@@ -50,6 +68,11 @@ const ChatticusAssistantMessage: FC = () => {
         ) : (
           <MessagePrimitive.Parts components={{ Text: ChatticusTextPart }} />
         )}
+        {!isStreaming && createdAt ? (
+          <time className="mt-1 block font-mono text-[0.58rem] text-surface-foreground/40">
+            {formatTime(createdAt)}
+          </time>
+        ) : null}
       </article>
     </MessagePrimitive.Root>
   );

@@ -30,6 +30,18 @@ export function buildChatticusThreadMessages(
   if (!turn) {
     return committed;
   }
+
+  const latest = messages[messages.length - 1];
+  const botAlreadyCommitted =
+    (turnStatus === "reconciling" || turnStatus === "completed") &&
+    Boolean(latest) &&
+    latest.author_kind === "bot" &&
+    latest.author_id === turn.bot_id;
+
+  if (botAlreadyCommitted) {
+    return committed;
+  }
+
   return [
     ...committed,
     {
@@ -76,6 +88,8 @@ export function convertChatticusThreadMessage(
       metadata: {
         custom: {
           authorBotName,
+          createdAt: message.created_at,
+          isStreaming: false,
         },
       },
     };
@@ -94,6 +108,7 @@ export function convertChatticusThreadMessage(
       custom: {
         authorBotName,
         isStreamingShell: !item.body,
+        isStreaming: true,
       },
     },
   };
