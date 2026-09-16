@@ -91,6 +91,7 @@ export type ChatticusAssistantThreadProps = {
   composerAccessory?: ReactNode;
   streamError?: string | null;
   onDismissStreamError?: () => void;
+  sendBlockMessage?: string | null;
   className?: string;
 };
 
@@ -100,6 +101,7 @@ export function ChatticusAssistantThread({
   composerAccessory,
   streamError,
   onDismissStreamError,
+  sendBlockMessage,
   className,
 }: ChatticusAssistantThreadProps) {
   const hasMessages = useAuiState((state) => state.thread.messages.length > 0);
@@ -150,6 +152,11 @@ export function ChatticusAssistantThread({
                       Dismiss
                     </button>
                   ) : null}
+                </div>
+              ) : null}
+              {sendBlockMessage ? (
+                <div role="status" className="px-3 pb-2 text-xs text-surface-foreground/55">
+                  {sendBlockMessage}
                 </div>
               ) : null}
             </ComposerPrimitive.Root>
