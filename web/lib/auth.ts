@@ -55,16 +55,42 @@ function verifiedSessionFromUser(user: User | null): VerifiedSession | null {
   };
 }
 
+/**
+ * Internal helper: read stored user, verify it, and on failure attempt silent renewal.
+ * Returns verified session or null if no session can be obtained.
+ * Does not throw.
+ */
+async function getVerifiedSessionWithSilentRenewal(): Promise<VerifiedSession | null> {
+  const manager = getUserManager();
+  const user = await manager.getUser();
+  if (user) {
+    try {
+      const session = verifiedSessionFromUser(user);
+      if (session) {
+        return session;
+      }
+    } catch {
+      // Expired or invalid claims — fall through to silent sign-in.
+    }
+  }
+
+  try {
+    const renewed = await manager.signinSilent();
+    return verifiedSessionFromUser(renewed);
+  } catch {
+    return null;
+  }
+}
+
 /** Return the verified Cognito id_token for the signed-in user, if any. */
 export async function getIdToken(): Promise<string | null> {
-  const user = await getUserManager().getUser();
-  return verifiedSessionFromUser(user)?.idToken ?? null;
+  const session = await getVerifiedSessionWithSilentRenewal();
+  return session?.idToken ?? null;
 }
 
 /** Return verified session claims for the signed-in user. */
 export async function getVerifiedSession(): Promise<VerifiedSession | null> {
-  const user = await getUserManager().getUser();
-  return verifiedSessionFromUser(user);
+  return getVerifiedSessionWithSilentRenewal();
 }
 
 function selectAccountOnSignInPending(): boolean {
@@ -92,25 +118,7 @@ export async function restoreVerifiedSession(): Promise<VerifiedSession | null> 
     return null;
   }
 
-  const manager = getUserManager();
-  const user = await manager.getUser();
-  if (user) {
-    try {
-      const session = verifiedSessionFromUser(user);
-      if (session) {
-        return session;
-      }
-    } catch {
-      // Expired or invalid claims — fall through to silent sign-in.
-    }
-  }
-
-  try {
-    const renewed = await manager.signinSilent();
-    return verifiedSessionFromUser(renewed);
-  } catch {
-    return null;
-  }
+  return getVerifiedSessionWithSilentRenewal();
 }
 
 function consumeSelectAccountOnSignIn(): boolean {
