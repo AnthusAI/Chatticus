@@ -6,7 +6,8 @@ import asyncio
 import logging
 import os
 import secrets
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Literal
@@ -80,6 +81,7 @@ from chatticus.models import (
     TaskNotFoundError,
     TurnAccessDeniedError,
     TurnClaimDeniedError,
+    TurnEvent,
     TurnEventKind,
     TurnNotFoundError,
     TurnNotWaitingError,
@@ -466,6 +468,28 @@ def _parse_monthly_aws_spend_ceiling_usd(raw: str) -> Decimal:
         ) from ceiling_error
 
 
+class StreamClock:
+    """Time source for SSE streams, injectable so tests need no real waiting."""
+
+    def now(self) -> float:
+        """Return a monotonic timestamp in seconds."""
+        return time.monotonic()
+
+    async def sleep(self, seconds: float) -> None:
+        """Wait for the given number of seconds."""
+        await asyncio.sleep(seconds)
+
+
+@dataclass
+class StreamTiming:
+    """Tunables for one turn stream's heartbeat, poll backoff, and give-up point."""
+
+    heartbeat_interval: float = 15.0
+    idle_timeout: float = 600.0
+    min_poll_interval: float = 0.05
+    max_poll_interval: float = 1.0
+
+
 @dataclass
 class AppState:
     """Mutable front-door state attached to each app instance."""
@@ -480,6 +504,8 @@ class AppState:
     open_sse_streams: int = 0
     integration_test_auth: IntegrationTestAuthConfig | None = None
     role_inspector: CrossAccountRoleInspector | None = None
+    stream_clock: StreamClock = field(default_factory=StreamClock)
+    stream_timing: StreamTiming = field(default_factory=StreamTiming)
 
 
 def _verify_invoke_key(request: Request) -> None:
@@ -501,6 +527,8 @@ def create_app(
     signup_mode: SignupMode | None = None,
     integration_test_auth: IntegrationTestAuthConfig | None = None,
     role_inspector: CrossAccountRoleInspector | None = None,
+    stream_clock: StreamClock | None = None,
+    stream_timing: StreamTiming | None = None,
 ) -> FastAPI:
     """Build a FastAPI app backed by one control plane instance."""
     resolved_key = (
@@ -535,6 +563,8 @@ def create_app(
             invoke_key=resolved_key,
         ),
         role_inspector=role_inspector or AwsCrossAccountRoleInspector(),
+        stream_clock=stream_clock or StreamClock(),
+        stream_timing=stream_timing or StreamTiming(),
     )
     app = FastAPI(
         title="Chatticus control plane",
@@ -1756,7 +1786,7 @@ def create_app(
         last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
     ) -> StreamingResponse:
         try:
-            state.plane.turn(tenant_id, turn_id)
+            watched_turn = state.plane.turn(tenant_id, turn_id)
         except TurnNotFoundError as error:
             raise TurnAccessDeniedError(
                 f"Tenant {tenant_id!r} cannot watch turn {turn_id!r}."
@@ -1775,6 +1805,11 @@ def create_app(
                 turn_id,
                 replay_from,
             )
+            clock = state.stream_clock
+            timing = state.stream_timing
+            poll_interval = timing.min_poll_interval
+            last_event_at = clock.now()
+            next_heartbeat_at = last_event_at + timing.heartbeat_interval
             try:
                 while True:
                     if await request.is_disconnected():
@@ -1784,12 +1819,54 @@ def create_app(
                             turn_id,
                         )
                         return
+
+                    now = clock.now()
+                    idle_for = now - last_event_at
+                    if idle_for >= timing.idle_timeout:
+                        logger.info(
+                            "sse_idle_timeout tenant_id=%s turn_id=%s idle=%.1f",
+                            tenant_id,
+                            turn_id,
+                            idle_for,
+                        )
+                        # turn.reconciling, not turn.failed: the stream gave up,
+                        # which says nothing about whether the turn failed. The
+                        # client re-reads committed state instead of being told
+                        # an outcome we do not know. Carry the last real seq so
+                        # a resume does not rewind.
+                        yield format_turn_event_sse(
+                            TurnEvent(
+                                event_id=secrets.token_hex(16),
+                                tenant_id=tenant_id,
+                                turn_id=turn_id,
+                                channel_id=watched_turn.channel_id,
+                                seq=replay_from,
+                                kind=TurnEventKind.TURN_RECONCILING,
+                                body="Stream idle; reconcile from committed state.",
+                            )
+                        )
+                        return
+
+                    if now >= next_heartbeat_at:
+                        # A comment frame: ignored by the client parser, but it
+                        # puts bytes on the wire so idle timeouts upstream do
+                        # not kill a legitimately quiet stream. Deliberately
+                        # does NOT touch last_event_at - it is our traffic, not
+                        # the worker's, and resetting would disable the timeout.
+                        yield ": heartbeat\n\n"
+                        next_heartbeat_at = now + timing.heartbeat_interval
+
                     events = state.plane.list_turn_events(
                         tenant_id, turn_id, replay_from
                     )
                     if not events:
-                        await asyncio.sleep(0.05)
+                        await clock.sleep(poll_interval)
+                        poll_interval = min(
+                            poll_interval * 2.0, timing.max_poll_interval
+                        )
                         continue
+                    poll_interval = timing.min_poll_interval
+                    last_event_at = clock.now()
                     for event in events:
                         yield format_turn_event_sse(event)
                         replay_from = event.seq
