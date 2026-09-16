@@ -90,8 +90,7 @@ export async function getIdToken(): Promise<string | null> {
 
 /** Return verified session claims for the signed-in user. */
 export async function getVerifiedSession(): Promise<VerifiedSession | null> {
-  const user = await getUserManager().getUser();
-  return verifiedSessionFromUser(user);
+  return getVerifiedSessionWithSilentRenewal();
 }
 
 function selectAccountOnSignInPending(): boolean {
