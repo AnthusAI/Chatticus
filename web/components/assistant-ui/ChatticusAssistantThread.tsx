@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  AuiIf,
   ComposerPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
@@ -109,7 +108,6 @@ export function ChatticusAssistantThread({
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
       <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col">
         <ThreadPrimitive.Viewport
-          turnAnchor="top"
           className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 sm:px-5"
         >
           {!hasMessages && emptyState ? (
@@ -128,18 +126,16 @@ export function ChatticusAssistantThread({
                   className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm outline-none placeholder:text-surface-foreground/40"
                   aria-label="Message input"
                 />
-                <AuiIf condition={(state) => !state.thread.isRunning}>
-                  <ComposerPrimitive.Send asChild>
-                    <Button
-                      type="submit"
-                      size="icon"
-                      className="shrink-0 shadow-none"
-                      aria-label="Send message"
-                    >
-                      <Send size={17} aria-hidden="true" />
-                    </Button>
-                  </ComposerPrimitive.Send>
-                </AuiIf>
+                <ComposerPrimitive.Send asChild>
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="shrink-0 shadow-none"
+                    aria-label="Send message"
+                  >
+                    <Send size={17} aria-hidden="true" />
+                  </Button>
+                </ComposerPrimitive.Send>
               </div>
               {streamError ? (
                 <div role="alert" className="flex items-start gap-2 px-3 pb-2 text-xs text-clay">
