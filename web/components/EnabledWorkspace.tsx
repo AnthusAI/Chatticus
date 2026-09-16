@@ -18,6 +18,7 @@ import { BotAvatarView } from "./BotAvatarView";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Sheet } from "./ui/sheet";
+import { TurnGrantPanel } from "./TurnGrantPanel";
 import {
   createBot,
   createChannel,
@@ -53,6 +54,7 @@ import {
   type RosterItem,
   type TurnUiStatus,
 } from "../lib/workspace-state";
+import { isTurnGrantPanelVisible } from "../lib/turn-grant";
 type EnabledWorkspaceProps = {
   activeOrg: ActiveOrg;
   organizations: MeOrganization[];
@@ -533,6 +535,9 @@ export function EnabledWorkspace({
             {visibleTasks.length === 0 ? <p className="rounded-2xl bg-surface p-4 text-xs text-surface-foreground/55">No matching tasks.</p> : null}
           </div>
         </section>
+        {isTurnGrantPanelVisible(turn?.turn_id ?? null, turnStatus) ? (
+          <TurnGrantPanel activeOrg={activeOrg} turnId={turn!.turn_id} />
+        ) : null}
       </div>
     </aside>
   );
