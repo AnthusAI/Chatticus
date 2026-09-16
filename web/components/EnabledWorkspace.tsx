@@ -41,6 +41,7 @@ import type { ActiveOrg } from "../lib/membership-state";
 import type { MeOrganization } from "../lib/me";
 import { openTurnStream } from "../lib/sse";
 import { isTerminalTurnEvent } from "../lib/sse-parse";
+import { formatTime } from "../lib/time";
 import {
   buildRoster,
   isComposerSendBlocked,
@@ -59,12 +60,7 @@ type EnabledWorkspaceProps = {
   onSignOut: () => Promise<void>;
 };
 
-function formatTime(value?: string): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return "";
-  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
-}
+
 
 function turnStatusFromKind(kind: string): TurnUiStatus {
   if (kind === "turn.completed") return "completed";
@@ -206,9 +202,7 @@ export function EnabledWorkspace({
         listTasks(activeOrg).catch(() => tasks),
         getComputer(activeOrg).catch(() => computer),
       ]);
-      setMessagesByChannel((current) => ({ ...current, [channelId]: committed }));
-      setTasks(refreshedTasks);
-      setComputer(refreshedComputer);
+      return { committed, refreshedTasks, refreshedComputer };
     },
     [activeOrg, computer, tasks],
   );
@@ -277,9 +271,17 @@ export function EnabledWorkspace({
             if (isTerminalTurnEvent(event.kind)) {
               sawTerminalEvent = true;
               setTurnStatus(turnStatusFromKind(event.kind));
-              void reconcileMessages(activeTurn.channel_id).then(() => {
+              void reconcileMessages(activeTurn.channel_id).then((result) => {
                 if (!isCurrentStream()) {
                   return;
+                }
+                if (result) {
+                  setMessagesByChannel((current) => ({
+                    ...current,
+                    [activeTurn.channel_id]: result.committed,
+                  }));
+                  setTasks(result.refreshedTasks);
+                  setComputer(result.refreshedComputer);
                 }
                 if (shouldClearTurnBubbleAfterTerminal(event.kind)) {
                   clearStoredTurnProgress(storageKey, progressStorageKey);
