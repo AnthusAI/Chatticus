@@ -12,6 +12,7 @@ import {
 import { parseJwtPayload, verifyIdTokenClaims } from "./id-token";
 import {
   buildUserManagerSettings,
+  getIdToken,
   resetAuthForTests,
   restoreVerifiedSession,
   setUserManagerFactoryForTests,
@@ -431,6 +432,195 @@ describe("restoreVerifiedSession", () => {
     setUserManagerFactoryForTests(() => mockUserManager as any);
 
     const result = await restoreVerifiedSession();
+
+    assert.equal(result, null, "should return null on signinSilent error");
+  });
+});
+
+describe("getIdToken", () => {
+  const localStorageBacking: Record<string, string> = {};
+  const localStorage = {
+    get length() {
+      return Object.keys(localStorageBacking).length;
+    },
+    clear() {
+      for (const key of Object.keys(localStorageBacking)) {
+        delete localStorageBacking[key];
+      }
+    },
+    getItem(key: string) {
+      return localStorageBacking[key] ?? null;
+    },
+    key(index: number) {
+      return Object.keys(localStorageBacking)[index] ?? null;
+    },
+    removeItem(key: string) {
+      delete localStorageBacking[key];
+    },
+    setItem(key: string, value: string) {
+      localStorageBacking[key] = value;
+    },
+  };
+
+  const sessionStorageBacking: Record<string, string> = {};
+  const sessionStorage = {
+    get length() {
+      return Object.keys(sessionStorageBacking).length;
+    },
+    clear() {
+      for (const key of Object.keys(sessionStorageBacking)) {
+        delete sessionStorageBacking[key];
+      }
+    },
+    getItem(key: string) {
+      return sessionStorageBacking[key] ?? null;
+    },
+    key(index: number) {
+      return Object.keys(sessionStorageBacking)[index] ?? null;
+    },
+    removeItem(key: string) {
+      delete sessionStorageBacking[key];
+    },
+    setItem(key: string, value: string) {
+      sessionStorageBacking[key] = value;
+    },
+  };
+
+  const previousWindow = globalThis.window;
+
+  before(() => {
+    globalThis.window = { localStorage, sessionStorage } as Window & typeof globalThis;
+    process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID = testConfig.userPoolId;
+    process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID = testConfig.clientId;
+    process.env.NEXT_PUBLIC_COGNITO_AUTH_DOMAIN = testConfig.authDomain;
+    process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI = testConfig.redirectUri;
+  });
+
+  after(() => {
+    if (previousWindow === undefined) {
+      delete (globalThis as { window?: Window }).window;
+    } else {
+      globalThis.window = previousWindow;
+    }
+    delete process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID;
+    delete process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID;
+    delete process.env.NEXT_PUBLIC_COGNITO_AUTH_DOMAIN;
+    delete process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI;
+  });
+
+  afterEach(() => {
+    resetAuthForTests();
+    setUserManagerFactoryForTests(null);
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it("returns valid stored token without calling signinSilent", async () => {
+    const validToken = fakeIdToken({
+      token_use: "id",
+      iss: cognitoIssuer(testConfig),
+      aud: testConfig.clientId,
+      exp: 4_000_000_000,
+      email: "user@example.com",
+    });
+
+    const calls = { signinSilent: 0 };
+    const mockUser = { id_token: validToken };
+    const mockUserManager = {
+      getUser: async () => mockUser,
+      signinSilent: async () => {
+        calls.signinSilent++;
+        throw new Error("signinSilent should not be called");
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setUserManagerFactoryForTests(() => mockUserManager as any);
+
+    const result = await getIdToken();
+
+    assert.equal(result, validToken, "should return the valid id_token");
+    assert.equal(calls.signinSilent, 0, "signinSilent should not be called");
+  });
+
+  it("renews silently when stored token is expired", async () => {
+    const expiredToken = fakeIdToken({
+      token_use: "id",
+      iss: cognitoIssuer(testConfig),
+      aud: testConfig.clientId,
+      exp: 1,
+    });
+
+    const renewedToken = fakeIdToken({
+      token_use: "id",
+      iss: cognitoIssuer(testConfig),
+      aud: testConfig.clientId,
+      exp: 4_000_000_000,
+      email: "renewed@example.com",
+    });
+
+    const calls = { signinSilent: 0 };
+    const mockUser = { id_token: expiredToken };
+    const renewedUser = { id_token: renewedToken };
+
+    const mockUserManager = {
+      getUser: async () => mockUser,
+      signinSilent: async () => {
+        calls.signinSilent++;
+        return renewedUser;
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setUserManagerFactoryForTests(() => mockUserManager as any);
+
+    const result = await getIdToken();
+
+    assert.equal(result, renewedToken, "should return renewed id_token");
+    assert.equal(calls.signinSilent, 1, "signinSilent should be called once");
+  });
+
+  it("renews silently when no stored user exists", async () => {
+    const renewedToken = fakeIdToken({
+      token_use: "id",
+      iss: cognitoIssuer(testConfig),
+      aud: testConfig.clientId,
+      exp: 4_000_000_000,
+      email: "newuser@example.com",
+    });
+
+    const calls = { signinSilent: 0 };
+    const renewedUser = { id_token: renewedToken };
+
+    const mockUserManager = {
+      getUser: async () => null,
+      signinSilent: async () => {
+        calls.signinSilent++;
+        return renewedUser;
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setUserManagerFactoryForTests(() => mockUserManager as any);
+
+    const result = await getIdToken();
+
+    assert.equal(result, renewedToken, "should return renewed id_token");
+    assert.equal(calls.signinSilent, 1, "signinSilent should be called once");
+  });
+
+  it("returns null when signinSilent fails, without throwing", async () => {
+    const mockUserManager = {
+      getUser: async () => null,
+      signinSilent: async () => {
+        throw new Error("Silent sign-in failed");
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setUserManagerFactoryForTests(() => mockUserManager as any);
+
+    const result = await getIdToken();
 
     assert.equal(result, null, "should return null on signinSilent error");
   });
