@@ -12,9 +12,22 @@
     "testing"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "307d0425-755f-45e4-9de1-4b5e11b3d328",
+      "author": "home",
+      "text": "## Orphan survey run 2026-09-16 — the cheap question answered\n\nChecked every component under `web/components/` for whether anything imports it, by import path rather than by name, excluding tests.\n\n**`TurnGrantPanel` was not the only one. Three more components are imported by nothing.** But they are not three more broken features — they split into two very different categories, and the distinction is the useful part.\n\n### Superseded dead code — cleanup, not defects\n\n- `components/CreateBotPanel.tsx` — `EnabledWorkspace` does bot creation inline (`createBot` appears 6 times there).\n- `components/TaskList.tsx` — `EnabledWorkspace` renders tasks inline (`visibleTasks`).\n\nBoth were replaced by inline implementations and never deleted. No user-visible gap. Deleting them removes two decoys from exactly the search that found `930da7`.\n\n(Also unimported: `components/ui/accordion.tsx` and `components/ui/badge.tsx`. Unused shadcn primitives from a UI kit — not a product concern, ignore.)\n\n### A real gap, filed separately\n\n- `components/InviteMemberPanel.tsx` is orphaned **and is the only caller of `web/lib/invitations.ts`**. The panel and its entire API client are unreachable from the running app.\n\nMeanwhile `NoOrganizationPanel` — which IS mounted, via `MembershipShell` — tells a person: \"Ask an operator to invite you before using the workspace.\"\n\nSo the product instructs people to request an invite from an operator who has no way to send one from the product. That sits directly on the beta path.\n\n### What this says about the structural question\n\nThe `930da7` pattern is real but not epidemic: one genuine unreachable feature, one more found here, two stale leftovers. That is a small enough number to fix by hand now, and it argues for a cheap automated check rather than a large testing-infrastructure project. An import-graph check that flags any component under `components/` that nothing reaches would have caught all four, costs almost nothing, and does not require a render-capable test setup.\n\nSuggest narrowing this card to that check, and treating the render-capable test suite as a separate, larger decision rather than the prerequisite.\n",
+      "created_at": "2026-09-16T18:38:08.034262Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-16T17:02:11.891944Z",
-  "updated_at": "2026-09-16T17:02:11.891986Z",
+  "updated_at": "2026-09-16T18:38:08.034277Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
