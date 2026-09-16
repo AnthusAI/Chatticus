@@ -80,6 +80,7 @@ from chatticus.models import (
     TaskNotFoundError,
     TurnAccessDeniedError,
     TurnClaimDeniedError,
+    TurnEvent,
     TurnEventKind,
     TurnNotFoundError,
     TurnNotWaitingError,
@@ -489,6 +490,18 @@ def _verify_invoke_key(request: Request) -> None:
     expected = request.app.state.chatticus.invoke_key
     if expected and request.headers.get(INVOKE_HEADER) != expected:
         raise HTTPException(status_code=403, detail="invoke key required")
+
+
+class _StreamClock:
+    """Injectable clock for stream_turn timing. Allows tests to control time."""
+
+    async def now(self) -> float:
+        """Return current time as seconds since epoch."""
+        return datetime.now(UTC).timestamp()
+
+    async def sleep(self, seconds: float) -> None:
+        """Sleep for the given number of seconds."""
+        await asyncio.sleep(seconds)
 
 
 def create_app(
@@ -1776,6 +1789,21 @@ def create_app(
                 replay_from,
             )
             try:
+                # Clock interface for testing: allows injecting time/sleep
+                clock = _StreamClock()
+
+                # Inactivity timeout: 120 seconds with no real events
+                inactivity_timeout = 120.0
+                last_real_event_at = await clock.now()
+
+                # Heartbeat: emit every 15 seconds to prevent idle timeout
+                heartbeat_interval = 15.0
+                next_heartbeat_at = last_real_event_at + heartbeat_interval
+
+                # Idle backoff: grow from 50ms floor to 1s ceiling
+                poll_interval = 0.05
+                max_poll_interval = 1.0
+
                 while True:
                     if await request.is_disconnected():
                         logger.info(
@@ -1784,12 +1812,51 @@ def create_app(
                             turn_id,
                         )
                         return
+
+                    now = await clock.now()
+
+                    # Check inactivity deadline
+                    if now - last_real_event_at > inactivity_timeout:
+                        elapsed = now - last_real_event_at
+                        logger.info(
+                            "sse_inactivity_timeout tenant_id=%s turn_id=%s "
+                            "elapsed=%.1f",
+                            tenant_id,
+                            turn_id,
+                            elapsed,
+                        )
+                        # Emit terminal event with reason
+                        timeout_event = TurnEvent(
+                            event_id=secrets.token_hex(16),
+                            tenant_id=tenant_id,
+                            turn_id=turn_id,
+                            channel_id=state.plane.turn(tenant_id, turn_id).channel_id,
+                            seq=0,
+                            kind=TurnEventKind.TURN_FAILED,
+                            body="Stream timeout due to inactivity",
+                        )
+                        yield format_turn_event_sse(timeout_event)
+                        return
+
+                    # Emit heartbeat comment if due
+                    if now >= next_heartbeat_at:
+                        yield ": heartbeat\n\n"
+                        next_heartbeat_at = now + heartbeat_interval
+
+                    # Poll for events with backoff
                     events = state.plane.list_turn_events(
                         tenant_id, turn_id, replay_from
                     )
                     if not events:
-                        await asyncio.sleep(0.05)
+                        await clock.sleep(poll_interval)
+                        # Grow the poll interval while idle
+                        poll_interval = min(poll_interval * 1.2, max_poll_interval)
                         continue
+
+                    # Got events; reset backoff and update last event time
+                    poll_interval = 0.05
+                    last_real_event_at = await clock.now()
+
                     for event in events:
                         yield format_turn_event_sse(event)
                         replay_from = event.seq
