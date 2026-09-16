@@ -12,9 +12,22 @@
     "web"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "c52e25d0-6326-4b06-be36-56cb3a50be35",
+      "author": "home",
+      "text": "Blocked by 930da7: this component is not mounted anywhere in the app, so there is no on-screen button to restyle. Fix the mounting first; the styling decision should then be made against the real rendered panel rather than the source.",
+      "created_at": "2026-09-16T16:48:37.714377Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-16T15:56:48.638138Z",
-  "updated_at": "2026-09-16T15:56:48.638169Z",
+  "updated_at": "2026-09-16T16:48:37.714402Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
