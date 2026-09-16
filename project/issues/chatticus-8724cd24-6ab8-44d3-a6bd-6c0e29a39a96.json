@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-8724cd24-6ab8-44d3-a6bd-6c0e29a39a96",
+  "title": "restoreVerifiedSession has no test coverage",
+  "description": "**Found 2026-09-16 while proving silent renew live for `5e4c9a`.**\n\n`restoreVerifiedSession` in `web/lib/auth.ts` decides whether a signed-in person stays signed in past `id_token` expiry. It was proven correct live. It has **zero** unit coverage — `web/lib/auth.test.ts` does not mention it once. The web CI job landed yesterday (`282ac3`, PR #354), so a test here will now actually run on every PR.\n\n**Branches to cover, all in `restoreVerifiedSession`**\n\n1. `selectAccountOnSignInPending()` is true → returns `null` without touching the manager. Assert `getUser` and `signinSilent` were never called; a regression that skips this makes Sign out stop showing the account chooser.\n2. Stored user verifies → returns that session and **does not** call `signinSilent`. Asserting the absence matters: renewing on every mount would be a silent performance and rate-limit regression.\n3. Stored user's claims throw `Token expired` → `signinSilent()` is called and its user is returned. This is the hourly-renewal path and the reason the card exists.\n4. No stored user at all (`getUser` resolves `null`) → `signinSilent()` is called.\n5. `signinSilent()` rejects → returns `null`, does not throw. The caller renders the sign-in panel; an exception escaping here would white-screen the mount.\n\n**How to fake it**\n\nInject or module-mock the `UserManager` so `getUser` and `signinSilent` are controllable spies. Build the expired case by re-encoding a JWT payload with a past `exp` and keeping any third segment — `verifyIdTokenClaims` does not check the signature, which `web/lib/id-token.ts:13` states outright. Do not reach the network; there must be no real Cognito call in a unit test.\n\n**Done when**\n\n`npm test` in `web/` covers all five branches, and each test fails if its branch is deleted from `restoreVerifiedSession`. Verify that last part by actually deleting the branch and watching the test go red — do not assume it.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-86aec8e5-4ec6-44f0-b839-5c86218f1087",
+  "labels": [
+    "auth"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-16T16:06:48.836351Z",
+  "updated_at": "2026-09-16T16:06:48.836401Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-opus-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
