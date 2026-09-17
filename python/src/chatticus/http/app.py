@@ -468,6 +468,14 @@ def _parse_monthly_aws_spend_ceiling_usd(raw: str) -> Decimal:
         ) from ceiling_error
 
 
+def _turn_is_parked(state: AppState, tenant_id: str, turn_id: str) -> bool:
+    """Return whether the turn is blocked on a gate rather than stalled."""
+    try:
+        return state.plane.turn(tenant_id, turn_id).waiting_for is not None
+    except TurnNotFoundError:
+        return False
+
+
 class StreamClock:
     """Time source for SSE streams, injectable so tests need no real waiting."""
 
@@ -1822,6 +1830,16 @@ def create_app(
 
                     now = clock.now()
                     idle_for = now - last_event_at
+                    if idle_for >= timing.idle_timeout and _turn_is_parked(
+                        state, tenant_id, turn_id
+                    ):
+                        # A turn waiting on a gate is healthy, not stalled: the
+                        # control plane's own watchdog reschedules rather than
+                        # reclaiming it (see handle_turn_deadline). Silence here
+                        # is expected for as long as the gate takes, so treat
+                        # the parked state as activity and keep streaming.
+                        last_event_at = now
+                        idle_for = 0.0
                     if idle_for >= timing.idle_timeout:
                         logger.info(
                             "sse_idle_timeout tenant_id=%s turn_id=%s idle=%.1f",
