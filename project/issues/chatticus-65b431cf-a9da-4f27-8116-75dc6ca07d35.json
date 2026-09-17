@@ -4,7 +4,7 @@
   "description": "**Found 2026-09-17 while working out how long-running tool calls should behave. Blocks recursive sub-agents.**\n\n`attempt_lease` is 60s and `turn_deadline` is 120s (`control_plane.py:263-264`). A worker must renew or the watchdog reclaims its turn.\n\nThe wrapper for surviving a long blocking call already exists: `RenewingTextCompletionClient` (`worker/computerless.py:263`) runs a thread renewing every 30s. It is used in exactly ONE place — `computerless.py:386`, around the model completion — and its `finally` stops the renewal thread the moment `complete()` returns.\n\nTool dispatch runs after that, with no renewal active. `grep renew python/src/chatticus/worker/tool_dispatch.py` returns nothing. `_handle_gated_tool_call` calls `dispatch_gated_tool(...)` inline and synchronously.\n\n**So any inline tool call taking more than ~60s loses its lease, and the watchdog marks the turn reconciling at 120s while the worker is healthy and still working.**\n\nThis is not biting today only because the inline gated tools are cheap. It bites the moment a tool does real work — and a sub-agent that recursively calls other tools and agents is the case this was raised for. On the current code that turn is reclaimed at two minutes regardless of anything the SSE layer does.\n\n## What to do\n\nGeneralize the renewal from \"a model completion\" to \"any blocking operation the worker performs on behalf of a turn\" — a `renewing(renew, interval)` context manager, with tool dispatch inside it. Keep the 30s interval; it is comfortably under the 60s lease.\n\nNote `SlowTextCompletionClient` at `computerless.py:381` takes a different path via `blocking_hook`. Whatever shape this takes should not leave two ways to renew.\n\n## Done when\n\nA tool call that blocks for several minutes keeps its turn: the lease stays live, the watchdog does not reclaim it, and the turn completes normally. A test proves it with a deliberately slow tool, and fails if the renewal is removed.\n\nRelated: [[6bd49c]] gave the SSE stream a 10-minute inactivity window. That window is irrelevant while this bug exists, because the turn is reclaimed at 120s first.",
   "type": "bug",
   "status": "open",
-  "priority": 0,
+  "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
@@ -12,9 +12,22 @@
     "backend"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7596283f-7a85-412c-bd3b-5fb0346d1e93",
+      "author": "home",
+      "text": "**Correcting my own priority on this card, after checking what actually runs inline.**\n\nI filed this P0 on the reasoning that a long inline tool call loses its lease. The mechanism is real, but I did not check how reachable it is. `dispatch_gated_tool` (`worker/tool_dispatch.py`) handles exactly ONE tool — `browse` — and even that only calls `turn_client.authorize_browse(...)` and returns the URL as content. Every other tool name falls through to `deny_model_tool`. There is no inline tool today that does substantial work.\n\nSo this is currently **unreachable**, not merely \"not biting\". Dropping to P1.\n\nWhat does not change: the moment a tool does real work on this path, a call over ~60s loses its lease and the watchdog reclaims a healthy turn at 120s. The fix is small and belongs with whatever adds the first such tool.\n\n**Sequencing that I got wrong:** I wrote that this blocks the sub-agent work. It only blocks it if sub-agents run as inline blocking calls — which is exactly the question `c7abd6` is there to settle. If sub-agents park on a gate instead, inline calls stay short and this stays unreachable. So `c7abd6` should be answered first; this card's urgency follows from that answer rather than preceding it.\n\n`78bf6e` stays blocked-by this one regardless: keying the stream on the lease requires the lease to be renewed for as long as work legitimately runs, whichever shape that work takes.\n",
+      "created_at": "2026-09-17T12:15:52.141036Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-17T12:03:40.789972Z",
-  "updated_at": "2026-09-17T12:03:40.790011Z",
+  "updated_at": "2026-09-17T12:15:52.231986Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

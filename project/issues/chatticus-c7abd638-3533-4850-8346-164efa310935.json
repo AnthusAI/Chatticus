@@ -12,9 +12,22 @@
     "design"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "9692904b-ef76-4ea6-9610-abfa27f242e5",
+      "author": "home",
+      "text": "This should be answered before `65b431`, not after. I originally sequenced them the other way round.\n\nChecked what runs inline today: `dispatch_gated_tool` handles only `browse`, and only to authorize a URL. Every other tool is denied. So there is no long inline tool call to protect yet, and `65b431` is currently unreachable rather than urgent.\n\nThat makes this card the deciding one. If sub-agents run as inline blocking calls, `65b431` becomes a prerequisite and lease renewal has to cover arbitrarily long work. If they park on a gate — the shape `_escalate_file_tool` and `emit_turn_waiting` already use — inline calls stay short, `65b431` stays a small latent fix, and the duration problem does not exist rather than being raised.\n\nThe answer here determines the priority of the other two cards, so it is worth settling deliberately rather than discovering by implementation.\n",
+      "created_at": "2026-09-17T12:16:01.818185Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-17T12:03:57.796425Z",
-  "updated_at": "2026-09-17T12:03:57.796460Z",
+  "updated_at": "2026-09-17T12:16:01.818201Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
