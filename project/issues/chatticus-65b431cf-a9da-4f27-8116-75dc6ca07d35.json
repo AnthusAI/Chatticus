@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-65b431cf-a9da-4f27-8116-75dc6ca07d35",
+  "title": "Worker does not renew its lease during tool execution",
+  "description": "**Found 2026-09-17 while working out how long-running tool calls should behave. Blocks recursive sub-agents.**\n\n`attempt_lease` is 60s and `turn_deadline` is 120s (`control_plane.py:263-264`). A worker must renew or the watchdog reclaims its turn.\n\nThe wrapper for surviving a long blocking call already exists: `RenewingTextCompletionClient` (`worker/computerless.py:263`) runs a thread renewing every 30s. It is used in exactly ONE place — `computerless.py:386`, around the model completion — and its `finally` stops the renewal thread the moment `complete()` returns.\n\nTool dispatch runs after that, with no renewal active. `grep renew python/src/chatticus/worker/tool_dispatch.py` returns nothing. `_handle_gated_tool_call` calls `dispatch_gated_tool(...)` inline and synchronously.\n\n**So any inline tool call taking more than ~60s loses its lease, and the watchdog marks the turn reconciling at 120s while the worker is healthy and still working.**\n\nThis is not biting today only because the inline gated tools are cheap. It bites the moment a tool does real work — and a sub-agent that recursively calls other tools and agents is the case this was raised for. On the current code that turn is reclaimed at two minutes regardless of anything the SSE layer does.\n\n## What to do\n\nGeneralize the renewal from \"a model completion\" to \"any blocking operation the worker performs on behalf of a turn\" — a `renewing(renew, interval)` context manager, with tool dispatch inside it. Keep the 30s interval; it is comfortably under the 60s lease.\n\nNote `SlowTextCompletionClient` at `computerless.py:381` takes a different path via `blocking_hook`. Whatever shape this takes should not leave two ways to renew.\n\n## Done when\n\nA tool call that blocks for several minutes keeps its turn: the lease stays live, the watchdog does not reclaim it, and the turn completes normally. A test proves it with a deliberately slow tool, and fails if the renewal is removed.\n\nRelated: [[6bd49c]] gave the SSE stream a 10-minute inactivity window. That window is irrelevant while this bug exists, because the turn is reclaimed at 120s first.",
+  "type": "bug",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-598be488-151d-4e57-8897-5cf6aaed50e5",
+  "labels": [
+    "backend"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-17T12:03:40.789972Z",
+  "updated_at": "2026-09-17T12:03:40.790011Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-opus-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
