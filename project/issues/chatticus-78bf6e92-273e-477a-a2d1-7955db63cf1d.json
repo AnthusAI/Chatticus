@@ -1,0 +1,32 @@
+{
+  "id": "chatticus-78bf6e92-273e-477a-a2d1-7955db63cf1d",
+  "title": "Key stream give-up on the turn lease instead of a fixed window",
+  "description": "**Follow-on to `6bd49c`, raised 2026-09-17. Do NOT start this before `65b431`.**\n\n`6bd49c` gave the turn stream a fixed 10-minute inactivity window before it gives up. A fixed window is the wrong mechanism once legitimate silence can be long: any number picked is either too short for real work or too long to detect a dead worker.\n\nThe system already has an authoritative liveness signal. A working worker renews its lease (`renew_turn_lease`, `control_plane.py:3178`), and a parked turn carries `waiting_for`. The watchdog decides exactly this way (`handle_turn_deadline`, `control_plane.py:3232`): waiting means healthy, lease valid means healthy, otherwise recover.\n\n## What to do\n\nReplace the fixed window with the same test. On the idle backoff cadence — not every poll — re-read the turn record and give up only when it is still `ACTIVE`, `waiting_for` is None, and `lease_expires_at` has lapsed past a grace margin.\n\nGains:\n- Work of any duration streams for as long as the worker keeps renewing. No ceiling to tune.\n- A genuinely dead worker is detected in roughly lease time (60-120s) instead of 10 minutes.\n- One definition of \"alive\", shared with the watchdog, so the two cannot drift apart. The 10-minute constant disappears.\n\n## Why the ordering is strict\n\nToday the lease lapses during legitimate tool work, because the worker does not renew while a tool runs (`65b431`). Keying the stream on the lease before fixing that would make the stream give up on healthy turns — worse than the fixed window it replaces.\n\n## Already partly done\n\nThe `waiting_for` half shipped separately as a defect fix: the 10-minute window did not check for parked turns, so a turn waiting on a human longer than 10 minutes drew a spurious `turn.reconciling` while the control plane considered it healthy. `_turn_is_parked` in `http/app.py` now guards that. This card is the remaining half — the lease check that lets the fixed window be deleted.\n\n## Done when\n\n`stream_turn` has no fixed inactivity constant, gives up only on a lapsed lease for a turn that is neither parked nor terminal, and a test covers a long-running turn that keeps renewing and is never closed.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
+  "labels": [
+    "backend"
+  ],
+  "dependencies": [
+    {
+      "target": "chatticus-65b431",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-09-17T12:04:14.956649Z",
+  "updated_at": "2026-09-17T12:04:21.873248Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-opus-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
