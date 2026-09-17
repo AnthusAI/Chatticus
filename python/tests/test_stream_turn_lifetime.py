@@ -80,9 +80,14 @@ _MAX_FRAMES = 2000
 
 
 def _read_stream(
-    api: Any, tenant_id: str, turn_id: str
+    api: Any, tenant_id: str, turn_id: str, stop_after: int | None = None
 ) -> tuple[list[str], list[dict]]:
-    """Return (raw lines, parsed events). Fails if the server never closes."""
+    """Return (raw lines, parsed events).
+
+    Reads until the server closes. Fails if it never does - unless `stop_after`
+    is given, which returns once that many frames have arrived. Use that only
+    for streams that are SUPPOSED to stay open, where closing would be the bug.
+    """
     raw: list[str] = []
     events: list[dict] = []
     frames = 0
@@ -105,6 +110,12 @@ def _read_stream(
                 while "\n\n" in buffer:
                     frame, buffer = buffer.split("\n\n", 1)
                     frames += 1
+                    if stop_after is not None and frames >= stop_after:
+                        for line in frame.split("\n"):
+                            raw.append(line)
+                            if line.startswith("data:"):
+                                events.append(json.loads(line[5:].strip()))
+                        return raw, events
                     if frames > _MAX_FRAMES:
                         raise AssertionError(
                             f"stream produced over {_MAX_FRAMES} frames "
@@ -247,3 +258,34 @@ def test_poll_interval_resets_to_the_floor_when_events_arrive() -> None:
     after = clock.sleeps[12]
     assert before > 0.05, f"expected backoff to have grown, got {before}"
     assert after == 0.05, f"expected a reset to the floor after an event, got {after}"
+
+
+def test_a_turn_parked_on_a_gate_is_not_treated_as_stalled() -> None:
+    """A waiting turn is healthy: the plane's own watchdog refuses to reclaim it."""
+    plane = ControlPlane()
+    clock = FakeClock()
+    api = start_authed_test_server(
+        plane,
+        environment=None,
+        invoke_key="",
+        stream_clock=clock,
+        stream_timing=StreamTiming(heartbeat_interval=5.0, idle_timeout=30.0),
+    )
+    turn_id, _channel_id = _start_turn(api, plane)
+
+    # Park the turn on a gate, exactly as a worker does when it escalates.
+    turn = plane.turn("anthus", turn_id)
+    plane.emit_turn_waiting(
+        "anthus", turn_id, "computer_ready", fence_token=turn.fence_token
+    )
+
+    # The stream SHOULD stay open here, so read a bounded slice rather than
+    # waiting for a close that must never come.
+    raw, events = _read_stream(api, "anthus", turn_id, stop_after=25)
+    api.close()
+
+    # Heartbeats keep flowing, but the stream must never claim the turn stalled.
+    assert [line for line in raw if line.startswith(":")], "expected heartbeats"
+    assert not [
+        event for event in events if event["kind"] == TurnEventKind.TURN_RECONCILING
+    ], "a parked turn must not be reported as stalled"
