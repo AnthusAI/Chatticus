@@ -13,10 +13,15 @@ BUDGETS_DEPLOY_SCRIPT = INFRA / "deploy-chatticus-budgets.sh"
 SNAPSHOTS_DEPLOY_SCRIPT = INFRA / "deploy-chatticus-snapshots.sh"
 ORG_SPEND_DEPLOY_SCRIPT = INFRA / "deploy-chatticus-org-spend-alarm.sh"
 
+THINTURN_DEPLOY_SCRIPTS = (
+    INFRA / "deploy-chatticus-thinturn-development.sh",
+    INFRA / "deploy-chatticus-thinturn-staging.sh",
+    INFRA / "deploy-chatticus-thinturn-production.sh",
+)
+
 OTHER_DEPLOY_SCRIPTS = (
     INFRA / "deploy-chatticus-dns.sh",
     INFRA / "deploy-chatticus-github-deploy.sh",
-    INFRA / "deploy-chatticus-thinturn-development.sh",
     INFRA / "deploy-chatticus-web-development.sh",
     INFRA / "deploy-chatticus-web-staging.sh",
     INFRA / "deploy-chatticus-web-production.sh",
@@ -127,6 +132,29 @@ def test_other_deploy_scripts_do_not_source_budgets_context() -> None:
         text = script.read_text()
         assert "budgets-deploy-context.sh" not in text, script.name
         assert "BUDGETS_CDK_CONTEXT" not in text, script.name
+
+
+def test_thinturn_deploy_scripts_pass_budgets_context() -> None:
+    # The daily rollup Lambda exists only when budget context reaches the
+    # ThinTurn stack (chatticus-26f253). Without this no environment has one
+    # and the spend ceiling cannot trip on real spend.
+    for script in THINTURN_DEPLOY_SCRIPTS:
+        text = script.read_text()
+        assert ". ./budgets-deploy-context.sh" in text, script.name
+        assert "${BUDGETS_CDK_CONTEXT}" in text, script.name
+        assert "deploy --all" not in text, script.name
+
+
+def test_thinturn_workflows_supply_budget_values() -> None:
+    for environment in ("development", "staging", "production"):
+        workflow = (
+            INFRA.parent
+            / ".github"
+            / "workflows"
+            / f"deploy-thinturn-{environment}.yml"
+        ).read_text()
+        assert "vars.CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD" in workflow, environment
+        assert "secrets.CHATTICUS_BUDGETS_NOTIFICATION_EMAIL" in workflow, environment
 
 
 def test_org_spend_alarm_deploy_script_not_present() -> None:
