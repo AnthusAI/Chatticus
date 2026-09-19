@@ -194,6 +194,33 @@ A brand-new account reports nothing for roughly a day while Cost Explorer
 populates. Say so in the runbook, or the first quiet day reads as a
 broken alarm.
 
+## Customer-account organizations: read the whole account
+
+An organization that runs in its own AWS account (cross-account setup) is not
+attributed by tags. The account boundary already separates its spend, so the
+daily rollup assumes that organization's `ChatticusOrganizationComputerRole`
+and reads the account's total `UnblendedCost` for the day. The role therefore
+needs `ce:GetCostAndUsage` (in `infra/customer-role.yml`, and required by
+self-setup), and the rollup Lambda needs `sts:AssumeRole` on that role name.
+
+Two prerequisites sit on the customer side and are person-steps:
+
+- Cost Explorer must be enabled in the customer account. Enabling it for the
+  first time is a console action and the data takes about a day to appear.
+- The customer must run the current published template, which carries the
+  permission. A role without it fails self-setup.
+
+A read that fails (assume-role denied, permission missing, Cost Explorer not
+enabled) writes the day as `ce_status=error` with no dollar figure, never as
+zero. `error` and `pending` both make the meter unavailable, and an
+organization with a ceiling and an unavailable meter has new computer work
+refused. Days Cost Explorer has not populated stay `pending`.
+
+Organizations Anthus hosts in its own account still use the tag path below.
+That path reports an organization it cannot attribute as zero, and nothing yet
+applies the `chatticus:tenant` tag, so a hosted organization's ceiling does
+not track real spend (`chatticus-9ac621`).
+
 ## Per-organization attribution
 
 Tagged AWS resources attribute cleanly. Vendor spend attributes cleanly,

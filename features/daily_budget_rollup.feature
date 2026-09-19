@@ -88,3 +88,35 @@ Feature: Daily budget rollup
     When the daily budget rollup runs for 2026-08-31
     Then the budget rollup for tenant "other-org" environment "development" on 2026-08-31 has aws_cost_usd 0.00
     And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 7.00
+
+  Scenario: A customer-account organization's spend is read from its own account
+    Given organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account spent 12.50 USD on 2026-08-31
+    When the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "acme" environment "development" on 2026-08-31 has aws_cost_usd 12.50
+    And the budget rollup for tenant "acme" environment "development" on 2026-08-31 has combined_report_usd 12.50
+    And the budget rollup for tenant "acme" environment "development" on 2026-08-31 has ce_status "ok"
+
+  Scenario: A customer account that cannot be read is not reported as zero
+    Given organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account cannot be read
+    When the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "acme" environment "development" on 2026-08-31 has null aws_cost_usd
+    And the budget rollup for tenant "acme" environment "development" on 2026-08-31 has ce_status "error"
+    And the budget rollup for tenant "acme" environment "development" on 2026-08-31 has null combined_report_usd
+
+  Scenario: A customer account whose data is still loading stays pending
+    Given organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account has no data for 2026-08-31
+    When the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "acme" environment "development" on 2026-08-31 has null aws_cost_usd
+    And the budget rollup for tenant "acme" environment "development" on 2026-08-31 has ce_status "pending"
+
+  Scenario: One unreadable customer account does not stop other organizations
+    Given Cost Explorer reports 5.00 USD for tenant "anthus" on 2026-08-31
+    And organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account cannot be read
+    When the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "acme" environment "development" on 2026-08-31 has ce_status "error"
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 5.00
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "ok"

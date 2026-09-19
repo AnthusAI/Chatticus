@@ -77,6 +77,21 @@ Feature: Organization spend ceiling
     Then the request is refused with a spend meter unavailable reason
     And no computer is started
 
+  Scenario: New computer work is refused while the spend meter could not be read
+    Given an enabled organization with a monthly spend ceiling
+    And month-to-date spend rollup for today could not be read
+    And the organization computer is stopped
+    And a human task grants:
+      | field          | value                              |
+      | tools          | browse, read_workspace             |
+      | origins        | https://docs.example.com           |
+      | recipients     |                                    |
+      | file_scopes    | /workspace/research                |
+      | egress_classes | approved_origin_fetch, file_transfer |
+    When a member asks a bot for work that needs the computer
+    Then the request is refused with a spend meter unavailable reason
+    And no computer is started
+
   Scenario: The workplace shows meter unavailable pause
     Given an enabled organization with a monthly spend ceiling
     And month-to-date spend rollup for today is pending
