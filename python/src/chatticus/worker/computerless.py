@@ -404,6 +404,17 @@ class ComputerlessWorker:
             self._handle_task_tool_call(job, outcome)
             return
         if outcome.wait_gate is not None:
+            pause_reason = self.plane.computer_work_pause_reason(job.tenant_id)
+            if pause_reason is not None:
+                self.plane.record_model_gated_tool_denied(
+                    job.tenant_id,
+                    job.turn_id,
+                    "request_computer_capability",
+                    {"gate": outcome.wait_gate},
+                    pause_reason,
+                )
+                self._complete_denied_tool_answer(job, outcome, pause_reason)
+                return
             if outcome.text.strip():
                 self.turn_client.post_chunk(job.turn_id, outcome.text)
             self.turn_client.post_waiting(job.turn_id, outcome.wait_gate)
