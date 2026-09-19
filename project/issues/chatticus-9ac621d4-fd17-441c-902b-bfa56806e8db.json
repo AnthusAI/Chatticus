@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-9ac621d4-fd17-441c-902b-bfa56806e8db",
+  "title": "The spend meter cannot see a customer's AWS spend and reports zero as ok",
+  "description": "Found 2026-09-19 after the daily rollup finally ran on development (chatticus-26f253). The Lambda works and writes real rows, but the number in them is not real spend.\n\n## Evidence\n- Invoked chatticus-development-daily-budget-rollup once. Wrote anthus / 2026-09-18: ce_status=ok, aws_cost_usd=0, combined=0.\n- Cost Explorer for the same day, whole account (335163751677): $22.35 unblended. Grouped by tag chatticus:tenant: one group, the untagged bucket ('chatticus:tenant$'), holding all $22.35. Nothing attributes to any tenant.\n- Cost allocation tags in the account: chatticus:environment is Inactive; chatticus:tenant and chatticus:component are not registered at all.\n- Nothing in infra/lib or python/src applies a chatticus:tenant tag to any resource (grep finds only the reader in cost_explorer.py). BUDGETS.md says summoned Fargate tasks are tagged with tenant_id; no code does that.\n\n## Two separate defects\n1. Wrong account. The ceiling exists so a customer is not surprised by their own AWS bill (43e64c). cost_explorer.py builds one boto3 Cost Explorer client in the account the Lambda runs in (Anthus). The runner never assumes a customer role or uses aws_account_id, and infra/customer-role.yml has no ce: permission. For a cross-account organization the meter therefore cannot see any of its spend, ever.\n2. Silent false negative. Spend Cost Explorer cannot attribute becomes Decimal('0') with ce_status=ok (runner.py: costs_by_tenant.get(tenant_id, Decimal('0'))). organization_spend treats ok rows as truth, so an unattributed org reads as under its ceiling. The fail-closed design in 6a9e97 covers pending/error days; it does not cover 'ok but empty'.\n\n## Options (needs Ryan)\n- For cross-account orgs, follow BUDGETS.md's own rule (one account per deployment, the account boundary does the work, no tags needed): assume the customer role and read the account's total UnblendedCost. Needs ce:GetCostAndUsage added to customer-role.yml (existing customers must update their stack), Cost Explorer enabled in each customer account, and a rollup step that iterates orgs by aws_account_id.\n- For Anthus-hosted orgs: apply chatticus:tenant / chatticus:environment tags to the resources, then activate them in the Billing console (a person-step; activation is not retroactive). Shared spend needs an apportionment rule.\n- Independently: decide whether an org with a ceiling but no working spend source should read as meter unavailable (paused, fail closed) instead of $0.\n\n## Done when\nA real day of spend in an organization's account appears in its rollup row, and an org whose spend cannot be read is not reported as $0 ok. Until then the ceiling must not be cited to customers.",
+  "type": "bug",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-19T17:16:56.139043Z",
+  "updated_at": "2026-09-19T17:16:56.139091Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

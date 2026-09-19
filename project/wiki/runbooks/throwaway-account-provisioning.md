@@ -67,7 +67,7 @@ Later customer-account `CreateStack` / `RunTask` (`chatticus-82dab7`) does not u
 
 **Citable claim:** when month-to-date spend recorded in the rollup rows meets the organization's ceiling, a member's request for computer work is **refused with a stated reason**, **no computer is started**, and the organization **stays enabled**.
 
-**Not yet citable:** "Chatticus stops computer spend at your ceiling." The rollup job that turns real AWS spend into those rows is **not deployed in any environment** (`chatticus-26f253`), so today the ceiling can only trip on hand-seeded rows. Do not make the second claim to a customer until that card is closed.
+**Not yet citable:** "Chatticus stops computer spend at your ceiling." Two blockers, both found in this run. (1) The rollup job that turns AWS spend into those rows was not deployed anywhere; it is deployed on development since 2026-09-19 (`chatticus-26f253`). (2) The number it writes is not real spend (`chatticus-9ac621`): on 2026-09-18 the account spent $22.35 while the row read `aws=0, ce_status=ok`. The meter reads only the Anthus account, never a customer's, and nothing tags spend by tenant, so today the ceiling can only trip on hand-seeded rows. Do not make the customer-facing claim until 9ac621 is closed.
 
 **What was attempted:** org `anthus` on development (Anthus's own organization, not a customer account). Ceiling set to 100 and one rollup row for the day written as `ce_status=ok`, combined spend 150, both directly through the control plane; both removed afterward. A member then asked a bot to open the household browser.
 
