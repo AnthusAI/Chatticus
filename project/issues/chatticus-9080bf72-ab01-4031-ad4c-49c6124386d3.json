@@ -12,9 +12,22 @@
     "ci"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "bfb9076b-ab0e-461f-bf46-30369251d22a",
+      "author": "home",
+      "text": "PR #366 opens the fix: git rm --cached web/tsconfig.tsbuildinfo, ignore *.tsbuildinfo. Nothing else references the file; CI runs tsc --noEmit. Verified typecheck leaves no tracked changes. Closing on merge.",
+      "created_at": "2026-09-19T14:51:28.907726Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-16T17:21:54.955507Z",
-  "updated_at": "2026-09-16T17:21:54.955531Z",
+  "updated_at": "2026-09-19T14:51:28.907993Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

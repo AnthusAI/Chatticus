@@ -24,10 +24,22 @@
         "model": "claude-opus-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "74761e30-1bb2-437d-922f-1a1bf7700dcb",
+      "author": "home",
+      "text": "PR #367 adds web/lib/component-reachability.test.ts: import-graph walk from app/ routes AND the root package.json exports, failing for any unreached file under components/. Survey today: zero orphans (the earlier cleanup removed them). Caught in review of my own first draft: components/workspace/* and components/ui/* look orphaned from web/ alone but are exported to the marketing package (#294), so deleting them would have broken it; exports are therefore roots. Mutation-checked: a planted orphan fails it, and removing the TurnGrantPanel import from EnabledWorkspace fails it naming TurnGrantPanel (the 930da7 regression). Closing on merge. The render-capable test suite stays a separate, larger decision.",
+      "created_at": "2026-09-19T14:51:29.044679Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-16T17:02:11.891944Z",
-  "updated_at": "2026-09-16T18:38:08.034277Z",
+  "updated_at": "2026-09-19T14:51:29.044699Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
