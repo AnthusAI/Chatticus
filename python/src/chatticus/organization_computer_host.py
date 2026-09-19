@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 import boto3
 
 from chatticus.computer_start import HostStartClaim
+from chatticus.cost_explorer import TENANT_TAG_KEY
 from chatticus.cross_account_assume_role import (
     AssumeRoleCallable,
     attempt_cross_account_assume_role,
@@ -138,20 +139,39 @@ def run_fargate_task(
                 "assignPublicIp": "ENABLED",
             }
         },
-        tags=[
-            {"key": "tenant_id", "value": claim.tenant_id},
-            {"key": "computer_id", "value": claim.computer_id},
-            {
-                "key": "host_start_generation",
-                "value": str(claim.host_start_count),
-            },
-        ],
+        tags=host_task_tags(claim),
         **_run_task_overrides(claim),
     )
     failures = (response or {}).get("failures") or []
     tasks = (response or {}).get("tasks") or []
     if failures or not tasks:
         raise RuntimeError(f"ecs.run_task returned no tasks failures={failures!r}")
+
+
+def host_task_tags(
+    claim: HostStartClaim, environ: Mapping[str, str] | None = None
+) -> list[dict[str, str]]:
+    """Tags for one computer task: the standard cost tags plus its organization.
+
+    ``chatticus:tenant`` is the key the daily rollup groups spend by, so it
+    must match ``cost_explorer.TENANT_TAG_KEY``. Environment and installation
+    come from the starter's own configuration and are left off when unset.
+    """
+    env = os.environ if environ is None else environ
+    tags = [
+        {"key": "chatticus:application", "value": "Chatticus"},
+        {"key": "chatticus:component", "value": "computer"},
+        {"key": TENANT_TAG_KEY, "value": claim.tenant_id},
+        {"key": "computer_id", "value": claim.computer_id},
+        {"key": "host_start_generation", "value": str(claim.host_start_count)},
+    ]
+    environment = env.get("CHATTICUS_ENVIRONMENT", "").strip()
+    if environment:
+        tags.append({"key": "chatticus:environment", "value": environment})
+    installation = env.get("CHATTICUS_INSTALLATION_NAME", "").strip()
+    if installation:
+        tags.append({"key": "chatticus:installation", "value": installation})
+    return tags
 
 
 def _run_task_overrides(claim: HostStartClaim) -> dict[str, object]:

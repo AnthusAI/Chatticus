@@ -94,6 +94,13 @@ describe("deploy workflow YAML", () => {
         assert.doesNotMatch(contents, /cdk deploy --all/);
       });
 
+      it("passes the installation name so the stack keeps its chatticus:installation tag", () => {
+        assert.match(
+          contents,
+          /CHATTICUS_INSTALLATION_NAME: \$\{\{ vars\.CHATTICUS_INSTALLATION_NAME \}\}/,
+        );
+      });
+
       it("authenticates with GitHub OIDC role assumption only", () => {
         assert.match(contents, /id-token:\s*write/);
         assert.match(contents, /configure-aws-credentials@v4/);

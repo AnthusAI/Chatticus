@@ -44,6 +44,8 @@ export interface ThinTurnStackProps extends cdk.StackProps {
   budgetsAlertsTopicArn?: string;
   /** Account monthly AWS budget limit; required for the daily rollup Lambda. */
   budgetsMonthlyLimitUsd?: number;
+  /** Installation name tagged onto computer tasks at run time (chatticus:installation). */
+  installationName?: string;
 }
 
 export class ThinTurnStack extends cdk.Stack {
@@ -60,7 +62,6 @@ export class ThinTurnStack extends cdk.Stack {
     const integrationPrefix = integrationTestParameterPrefix(environmentName);
     const openAiParameterName = openAiApiKeyParameterName(environmentName);
     const retainData = environmentName !== "development";
-    cdk.Tags.of(this).add("chatticus:environment", environmentName);
 
     const pythonRoot = path.join(__dirname, "../../python");
     const lambdaWebAdapterLayer = lambda.LayerVersion.fromLayerVersionArn(
@@ -179,6 +180,7 @@ export class ThinTurnStack extends cdk.Stack {
 
     const sharedEnv: Record<string, string> = {
       CHATTICUS_ENVIRONMENT: environmentName,
+      ...(props.installationName ? { CHATTICUS_INSTALLATION_NAME: props.installationName } : {}),
       CHATTICUS_MESSAGING_TABLE: table.tableName,
       CHATTICUS_TURN_QUEUE_URL: turnQueue.queueUrl,
       CHATTICUS_COMPUTER_TURN_QUEUE_URL: computerTurnQueue.queueUrl,

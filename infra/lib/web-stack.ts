@@ -64,7 +64,6 @@ export class WebStack extends cdk.Stack {
     const webPrefix = webParameterPrefix(environmentName);
     const thinTurnPrefix = thinTurnParameterPrefix(environmentName);
     const retainData = environmentName !== "development";
-    cdk.Tags.of(this).add("chatticus:environment", environmentName);
     if (!retainData) {
       cdk.Aspects.of(this).add(
         new CustomResourceProviderLogRetentionAspect(CHATTICUS_LOG_RETENTION),

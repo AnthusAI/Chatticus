@@ -16,6 +16,7 @@ export function synthThinTurnStack(
   options?: {
     budgetsAlertsTopicArn?: string;
     budgetsMonthlyLimitUsd?: number;
+    installationName?: string;
   },
 ): Template {
   const app = new cdk.App();
@@ -24,6 +25,7 @@ export function synthThinTurnStack(
     chatticusEnvironment: environmentName,
     budgetsAlertsTopicArn: options?.budgetsAlertsTopicArn,
     budgetsMonthlyLimitUsd: options?.budgetsMonthlyLimitUsd,
+    installationName: options?.installationName,
   });
   return Template.fromStack(stack);
 }
