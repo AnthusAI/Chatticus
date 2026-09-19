@@ -3,7 +3,7 @@
   "title": "tsconfig.tsbuildinfo is tracked, so typecheck dirties the tree and blocks pulls",
   "description": "**Noticed 2026-09-16 when it blocked a `git pull` mid-session.**\n\n`web/tsconfig.tsbuildinfo` is a TypeScript incremental build cache, and it is tracked in git. Running `npm run typecheck` rewrites it, so the working tree goes dirty on every typecheck and `git pull` then aborts with \"Your local changes would be overwritten by merge.\"\n\nThis costs every agent and every person the same detour, and it produces meaningless diffs in commits when someone stages it by habit.\n\nFix: remove it from version control and add it to `.gitignore`. Confirm nothing in CI depends on it being present — the `web` job runs `tsc --noEmit`, which does not need a committed cache.\n\nSmall, but it wastes a step every single session.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -27,8 +27,8 @@
     }
   ],
   "created_at": "2026-09-16T17:21:54.955507Z",
-  "updated_at": "2026-09-19T14:51:28.907993Z",
-  "closed_at": null,
+  "updated_at": "2026-09-19T15:11:32.172071Z",
+  "closed_at": "2026-09-19T15:11:32.171667Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-opus-5",
