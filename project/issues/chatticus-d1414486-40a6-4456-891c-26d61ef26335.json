@@ -12,9 +12,22 @@
     "phase-5"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f7155728-4c87-4f28-abc4-a0b6bb475ad9",
+      "author": "home",
+      "text": "Fixed in #365 (a135ffa), merged to develop with green CI. The computerless worker now checks the ceiling before parking on the wait gate: denied tool.result plus a completed turn with the spend reason, no computer started; new Gherkin scenario fails without the fix. Card stays open until the dev deploy and a live re-run confirm the member sees the refusal. The stuck live turn 579633e0 is not resolved by this fix.",
+      "created_at": "2026-09-19T14:18:13.427171Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-19T13:01:43.164595Z",
-  "updated_at": "2026-09-19T13:01:43.164767Z",
+  "updated_at": "2026-09-19T14:18:13.427199Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
