@@ -43,3 +43,4 @@ var/
 project/events/
 project/.overlay/
 project/.cache/
+*.tsbuildinfo
