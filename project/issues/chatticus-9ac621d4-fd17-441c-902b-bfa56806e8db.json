@@ -48,10 +48,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "d93249fb-67a3-4604-af54-5a746288744f",
+      "author": "home",
+      "text": "#373 merged (8242145) and deployed to development (ThinTurn, Web, Auth all succeeded). Verified live: stack-level tags on ChatticusThinTurn/Web/Auth, and the tags on the rollup Lambda and the DynamoDB table, are chatticus:application=Chatticus, chatticus:component, chatticus:environment=development, chatticus:installation='Anthus AI Solutions'; CHATTICUS_INSTALLATION_NAME reached the Lambda. Cost Explorer does not list the new keys yet (about a day). Run-time task tags (chatticus:tenant on computer tasks) are covered by pytest only; no host runs on development. Remaining: activate the tags (new P1 card, this account is the Organizations management account so it can), the lab role update, and the first real host start to check task tags.",
+      "created_at": "2026-09-19T19:01:48.448025Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T17:16:56.139043Z",
-  "updated_at": "2026-09-19T18:48:16.864133Z",
+  "updated_at": "2026-09-19T19:01:48.448056Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
