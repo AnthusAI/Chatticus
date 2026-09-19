@@ -2311,19 +2311,24 @@ class ControlPlane:
         self._escalations[(tenant_id, turn_id)] = record
         return record
 
-    def _refuse_if_computer_work_paused(self, tenant_id: str) -> None:
-        """Raise when month-to-date spend blocks new computer work."""
+    def computer_work_pause_reason(self, tenant_id: str) -> str | None:
+        """Return why new computer work is blocked by spend, or None."""
         try:
             organization = self.get_organization(tenant_id)
         except OrganizationNotFoundError:
-            return
+            return None
         if organization.monthly_aws_spend_ceiling_usd is None:
-            return
+            return None
         paused, reason = self.organization_computer_work_paused_for(organization)
-        if paused:
-            raise OrganizationSpendCeilingExceededError(
-                reason or "monthly AWS spend ceiling exceeded"
-            )
+        if not paused:
+            return None
+        return reason or "monthly AWS spend ceiling exceeded"
+
+    def _refuse_if_computer_work_paused(self, tenant_id: str) -> None:
+        """Raise when month-to-date spend blocks new computer work."""
+        reason = self.computer_work_pause_reason(tenant_id)
+        if reason is not None:
+            raise OrganizationSpendCeilingExceededError(reason)
 
     def organization_computer_work_paused_for(
         self,
