@@ -4,7 +4,7 @@
   "description": "**Found 2026-09-16 while reviewing the fix for `9e4589`. That fix is correct; this is the part of the same defect class it did not cover.**\n\n`9e4589` was about the send control being enabled while `handleSendMessage` silently discarded the message. The fix aligned the disabled state and the guard on one `getSendBlockReason` predicate covering `sending`, an active `turn`, and `addressedBotId`.\n\nThe guard still opens with two conditions that predicate does **not** cover:\n\n    if (!selectedItem || !selectedChannelId || sendBlockReason !== null) return;\n\n`selectedItem` is safe — the composer only renders inside the `selectedItem ?` branch.\n\n`selectedChannelId` is **not** safe. In `EnabledWorkspace.tsx` the composer renders whenever `selectedItem` is truthy, with no check that a channel exists:\n\n    {!selectedItem ? (<EmptyState .../>) : (<ChatticusAssistantRuntime ... />)}\n\nand `selectedChannelId = channelIdForItem(selectedItem)` returns `item?.channel?.channel_id ?? null`. The `RosterItem` type explicitly allows this for bots:\n\n    | { kind: \"bot\"; ...; channel: Channel | null; ... }\n\n`directChannelForBot` returns null when no direct channel exists for that bot yet. So a bot with no direct conversation renders a working-looking composer with an enabled send button that discards the message — the original bug, reached by a different falsy value.\n\n## What I verified and what I did not\n\nVERIFIED in code: the composer is not gated on a channel; the guard rejects on `!selectedChannelId`; the type permits null; `directChannelForBot` returns null when absent.\n\nNOT VERIFIED: whether this state is reachable in practice. It depends on whether a bot can exist without a direct channel — i.e. whether anything creates one at bot-creation time. I did not find such a path in `control_plane.py`, but I did not chase it to a conclusion. **Settle that first.** If direct channels are always created with the bot, this is a latent trap, not a live bug, and the fix is to make the type say so. If they are not, this is live and hits the first message to any newly created bot, which is close to the worst place to have it.\n\n## Why it should not simply be folded into getSendBlockReason\n\nThe right behavior differs by answer. If the state is reachable, a person needs to understand that there is no conversation yet — possibly the send should create the channel rather than refuse. If it is unreachable, adding a blocked reason for it is dead UI and a misleading message. Decide the model before adding copy.\n\n## Done when\n\nIt is established whether a bot can exist without a direct channel, and either the composer cannot be shown in a state where sending silently fails, or the type no longer permits the state and the guard no longer needs the check.",
   "type": "bug",
   "status": "open",
-  "priority": 1,
+  "priority": 3,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-20e38b2e-4f36-4a2b-bdfc-81917d4ca42c",
@@ -12,9 +12,22 @@
     "web"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "6e555cc0-fe64-4645-a1ae-df9c9b18c8e4",
+      "author": "home",
+      "text": "Settled the open question from the card: the state is NOT reachable. No server path creates a direct channel at bot creation, but the web client does it lazily before selection: EnabledWorkspace.selectItem (line ~352) calls createChannel for a bot item with no channel and only THEN calls setSelectedItemId; if createChannel fails it sets the error and returns without selecting, so no composer renders. selectedItem therefore implies a channel for bot items (channel items always carry one). Conclusion: latent trap, not a live bug. No copy or blocked reason needed (would be dead UI). Remaining work is small: let the type say so (a selected roster item carries a non-null channel) so the '!selectedChannelId' guard is not a silent-discard path. Recommend lowering to P3.",
+      "created_at": "2026-09-19T14:21:52.236030Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-16T18:46:33.705805Z",
-  "updated_at": "2026-09-16T18:46:33.705845Z",
+  "updated_at": "2026-09-19T14:21:52.337150Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
