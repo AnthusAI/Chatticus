@@ -339,7 +339,13 @@ cd infra
 sh deploy-chatticus-budgets.sh
 ```
 
-Only `deploy-chatticus-budgets.sh` sources `budgets-deploy-context.sh`.
+`deploy-chatticus-budgets.sh` and the three ThinTurn deploy scripts source
+`budgets-deploy-context.sh`; no other script does. ThinTurn needs it because the
+daily rollup Lambda exists only when budget context reaches that stack. The CI
+workflows pass the limit from the repository variable
+`CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD` and the email from the secret
+`CHATTICUS_BUDGETS_NOTIFICATION_EMAIL`. A ThinTurn deploy with neither set
+removes an existing rollup, so keep both set.
 That script requires both env vars and never runs `cdk deploy` without
 them. Never `cdk deploy --all`.
 
