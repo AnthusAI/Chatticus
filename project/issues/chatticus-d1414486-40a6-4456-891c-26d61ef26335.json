@@ -3,7 +3,7 @@
   "title": "A browser-gated turn past the spend ceiling waits silently instead of being refused",
   "description": "Found in the live run of chatticus-1d68fb (dev, 2026-09-19).\n\nRepro: org anthus with ceiling 100 and today's ok rollup row at 150 (GET /me correctly reports status=enabled, computer_work_paused=true, reason 'monthly AWS spend ceiling exceeded'). Ask ExerciseBot-0b7a36c3 'Open the household browser and tell me the title of example.com'.\n\nObserved: the bot streams a draft, the worker parks the turn via POST /turns/{id}/waiting (gate=browser). No ceiling check on that path: control_plane.emit_turn_waiting and the wait_turn route in http/app.py never call _refuse_if_computer_work_paused; enforcement exists only in prepare_computer_tool and request_computer_host_start, which this path did not reach. Turn 579633e0-ca09-4475-9d92-119afe7e5bd2 stayed status=active, waiting_for=browser, past its deadline (13:00:43Z), with no continuation queued and no ECS task started. The thread showed 'Waiting for the bot to finish responding' and the composer stayed blocked.\n\nGood: fail-closed (no computer started), org stayed enabled. Bad: no refusal, no reason in the thread, no terminal event, member cannot send in that thread. Fix: refuse (denied tool result, complete the turn) at the waiting gate when paused, mirroring the host-start denial in 6a9e97, with Gherkin driving the /waiting path. Also decide what ends an active turn parked past its deadline.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,23 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "2cc0f100-7602-4d9b-84fa-575f0a919e54",
+      "author": "home",
+      "text": "Verified live on dev after the #365 deploy (2026-09-19, org anthus, ceiling 100 / rollup 150, seeded then cleaned up). ExerciseBot-0c867d51 asked to open the household browser now answers 'Here is a draft before I need the computer. denied: monthly AWS spend ceiling exceeded'. The turn completes, the composer stays usable, no ECS task started, computer queue empty, org still enabled. Fix confirmed; closing.",
+      "created_at": "2026-09-19T14:23:26.043949Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T13:01:43.164595Z",
-  "updated_at": "2026-09-19T14:18:13.427199Z",
-  "closed_at": null,
+  "updated_at": "2026-09-19T14:23:26.128469Z",
+  "closed_at": "2026-09-19T14:23:26.128435Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5",

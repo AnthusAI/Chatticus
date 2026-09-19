@@ -36,10 +36,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "a3c66c4c-7f6d-433e-8f3f-719b64d88d5c",
+      "author": "home",
+      "text": "Re-run after #365 deployed: refusal now surfaces to the member in the thread (PASS), no computer started (PASS), org enabled (PASS), /me reports the pause (PASS). Remaining failure: workspace banner absent, tracked in a106ea. Still open on this card: restore the banner, then write the runbook section (attempted, refused, stayed enabled, member's next step = contact an operator until 91f8f4).",
+      "created_at": "2026-09-19T14:23:26.210576Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-08T22:21:12.490291Z",
-  "updated_at": "2026-09-19T13:01:43.247821Z",
+  "updated_at": "2026-09-19T14:23:26.210595Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,
