@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-26f253c8-7c58-46aa-869b-e158f7653641",
+  "title": "The daily spend rollup is not deployed anywhere, so the ceiling cannot trip on real spend",
+  "description": "Found in the live run of chatticus-1d68fb (2026-09-19).\n\nThe spend ceiling decides from month-to-date rollup rows (organization_spend.month_to_date_combined_spend_usd). Days with no row count as $0. The daily rollup Lambda (chatticus.budget_rollup.lambda_handler) is what writes those rows, and it does not exist in any environment:\n\n- aws lambda get-function chatticus-{development,staging,production}-daily-budget-rollup: ResourceNotFoundException in all three.\n- No schedule group chatticus-{env}-budget-rollup in any environment.\n- infra/lib/thin-turn-stack.ts creates the function and its EventBridge schedule only inside if (props.budgetsMonthlyLimitUsd !== undefined). infra/bin/chatticus.ts fills that from readBudgetsConfig, which needs CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD and CHATTICUS_BUDGETS_NOTIFICATION_EMAIL (set together; the script refuses invented defaults). The CI workflows deploy-thinturn-{env}.yml run deploy-chatticus-thinturn-{env}.sh and never set them.\n- No rollup rows exist for anthus on development for the last 20 days.\n\nEffect: the refusal path works (proved live, #365/#368 and the run on 1d68fb) but only when rows are hand-seeded. On real spend the meter always reads $0, so no organization can ever be paused. The brake the customer-billing risk depends on is not connected to spend.\n\nAlso a hazard: a CI ThinTurn deploy without the config would remove the rollup function if it were ever deployed by hand with the config.\n\nNeeds a person: the monthly limit and the notification email for each environment are product decisions (Ryan). Then: supply them to the CI deploy path (Actions secrets/vars and the deploy scripts) so the rollup Lambda, its schedule, and the alerts topic are part of every ThinTurn deploy, confirm Cost Explorer is enabled on the account, wait one rollup cycle and confirm real rows appear. BUDGETS.md notes a new account reports nothing for about a day.\n\nDone when: a scheduled rollup has written real rows on development and the ceiling decision reads them.",
+  "type": "bug",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-19T15:17:40.699866Z",
+  "updated_at": "2026-09-19T15:17:40.699908Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

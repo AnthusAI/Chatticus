@@ -63,6 +63,27 @@ Cite this section for any customer-facing claim. It is not only a card comment.
 
 Later customer-account `CreateStack` / `RunTask` (`chatticus-82dab7`) does not unwind this: Anthus desiredCount stays 0; there is still no Anthus fallback.
 
+## Spend ceiling (live run on development, 2026-09-19; `chatticus-1d68fb`)
+
+**Citable claim:** when month-to-date spend recorded in the rollup rows meets the organization's ceiling, a member's request for computer work is **refused with a stated reason**, **no computer is started**, and the organization **stays enabled**.
+
+**Not yet citable:** "Chatticus stops computer spend at your ceiling." The rollup job that turns real AWS spend into those rows is **not deployed in any environment** (`chatticus-26f253`), so today the ceiling can only trip on hand-seeded rows. Do not make the second claim to a customer until that card is closed.
+
+**What was attempted:** org `anthus` on development (Anthus's own organization, not a customer account). Ceiling set to 100 and one rollup row for the day written as `ce_status=ok`, combined spend 150, both directly through the control plane; both removed afterward. A member then asked a bot to open the household browser.
+
+| Check | Result |
+| --- | --- |
+| `GET /me` for the organization | `status=enabled`, `computer_work_paused=true`, reason `monthly AWS spend ceiling exceeded` |
+| First attempt (before `#365`) | **Not refused.** The turn parked on the browser gate and stayed active past its deadline; the composer stayed blocked. Defect `chatticus-d14144`. |
+| Same request after `#365` | Bot replied "...denied: monthly AWS spend ceiling exceeded"; turn completed; composer usable |
+| Computer host tasks in the computers cluster | **0** |
+| Computer turn queue depth | **0** |
+| Organization status after | **enabled** |
+| Banner in the workspace | **Absent** before `#368` (dropped by the workspace rewrite, `chatticus-a106ea`); **present** after, showing the reason and "You can still read your channels and message bots. Ask an operator if this looks wrong or you need computer work sooner." |
+| What the member can do next | **Nothing in the product.** Contact an operator. An owner can raise the ceiling through `PATCH /orgs/{tenant}/monthly-aws-spend-ceiling`, but there is no workspace control (`chatticus-91f8f4`). This is a person-step for the invitation-rate math, alongside `chatticus-c54569`. |
+
+**Not verified live:** the structured file-tool path and the host-start-after-resume path (Gherkin only); the owner raise through the PATCH route; a customer-account organization (only the Anthus home organization was exercised); the rollup feed (above).
+
 ## F-computer (`chatticus-2f2d87`, closed 2026-09-07)
 
 Attempted after F-safe. **Do not fold this elapsed time into the ~19 min figure.** The safety property for this attempt is [Refuse-not-fallback](#refuse-not-fallback-production-verified-2026-09-07).

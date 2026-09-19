@@ -3,7 +3,7 @@
   "title": "Restore the spend-ceiling banner dropped by the workspace rewrite",
   "description": "Found while preparing chatticus-1d68fb.\n\n#338 (6a9e97) added a workspace banner shown when GET /me reports computer_work_paused for the active org. Commit 3fb29a5 (#346, real workspace) removed it: web/components/EnabledWorkspace.tsx no longer references computer_work_paused, and only the MeOrganization type in web/lib/me.ts still carries the fields. A member past the ceiling gets refused turns with no explanation in the workspace.\n\nGreen at the API layer, broken at the UI seam. Restore the banner (with computer_work_paused_reason) in the new workspace layout, with a web test that renders it from a /me fixture. Blocks the 'member sees the banner' check in 1d68fb.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,23 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "fe1aebe5-f632-4340-bed3-336201efe09c",
+      "author": "home",
+      "text": "Verified live on dev after the #368 deploy (2026-09-19; ceiling 100 / rollup 150 seeded, then cleaned up): the workspace shows 'Computer work is paused / monthly AWS spend ceiling exceeded / You can still read your channels and message bots. Ask an operator if this looks wrong or you need computer work sooner.' Visible as soon as /me arrives, even while the roster is still loading. Closing.",
+      "created_at": "2026-09-19T15:16:17.780190Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T12:50:28.033118Z",
-  "updated_at": "2026-09-19T14:53:41.676080Z",
-  "closed_at": null,
+  "updated_at": "2026-09-19T15:16:17.879286Z",
+  "closed_at": "2026-09-19T15:16:17.879268Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5",
