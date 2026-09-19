@@ -12,9 +12,22 @@
     "phase-5"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "fb003fb6-db3c-4e63-88cf-4204e93047d4",
+      "author": "home",
+      "text": "Values from Ryan: $50/month, notify ryan@anth.us (one account hosts all three environments, so one budget). Done so far: (1) redeployed ChatticusBudgets by hand (no CI workflow exists for it): AWS budget chatticus-monthly-aws 100 -> 50, verified. (2) FOUND: the alerts topic had ZERO subscribers. The original email subscription was never confirmed and SNS purged it, so no budget or rollup alert has ever reached anyone. Re-subscribed ryan@anth.us with aws sns subscribe (outside CloudFormation, which still believes its own subscription exists); status PendingConfirmation, Ryan must click the confirmation link. (3) GitHub repo variable CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD=50 and secret CHATTICUS_BUDGETS_NOTIFICATION_EMAIL set (email not committed). (4) PR #369 makes the three ThinTurn deploys pass them; synth verified (with context: rollup Lambda + schedule, limit 50; without: neither). Hazard recorded in the PR: a ThinTurn deploy without the values removes an existing rollup. Remaining: merge, deploy, invoke the rollup once, confirm real rows, confirm the scheduled 06:00 UTC run. Cost Explorer must be enabled on the account; a new account reports nothing for about a day (BUDGETS.md).",
+      "created_at": "2026-09-19T16:15:35.058926Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-19T15:17:40.699866Z",
-  "updated_at": "2026-09-19T15:17:40.699908Z",
+  "updated_at": "2026-09-19T16:15:35.058959Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
