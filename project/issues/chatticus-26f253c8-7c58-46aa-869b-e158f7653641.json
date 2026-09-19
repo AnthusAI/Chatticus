@@ -24,10 +24,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "1e6708b0-4261-4746-8b71-64c7abbb1f6f",
+      "author": "home",
+      "text": "#369 merged (a guard test, test_other_deploy_scripts_do_not_source_budgets_context, forbade the change; it protected the very gap, since the README runbook said to redeploy ThinTurn for the rollup but the scripts could not pass it the context; updated on purpose, other scripts still asserted not to source it). First real deploy of the rollup FAILED on dev: CloudFormation could not create DailyBudgetRollupSchedule (NotFound) and rolled ChatticusThinTurn back (UPDATE_ROLLBACK_COMPLETE, dev intact). Cause: the schedule named its group by a literal string, so no dependency edge and the schedule was attempted before the group existed (no ScheduleGroup event precedes it). This IaC had never been deployed anywhere. Fix in PR #370 (schedule uses the group's ref) with an infra test proven to fail on the literal. Note: my first draft of that test failed for the wrong reason (two schedule groups in the stack) and would have passed a broken fix; corrected and re-proven. develop is currently in the broken state, so pushes to it redeploy and roll back until #370 lands.",
+      "created_at": "2026-09-19T16:56:52.190673Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T15:17:40.699866Z",
-  "updated_at": "2026-09-19T16:15:35.058959Z",
+  "updated_at": "2026-09-19T16:56:52.190707Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
