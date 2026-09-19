@@ -60,10 +60,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "f2c8b4c8-7523-4940-92c1-246ff99ba7cf",
+      "author": "home",
+      "text": "Tried to update the lab role stack myself (Ryan authorized waiving the runbook's 'not management root' rule for this one throwaway account). AWS refused before anything changed: sts:AssumeRole into 114469424841 failed with 'Roles may not be assumed by root accounts.' This session is signed in as the management account root, so it cannot reach OrganizationAccountAccessRole at all; that is why the runbook names a non-root lab operator. Nothing was written, no credentials created or stored. Read-only finding: Cost Explorer already holds data for the lab account (read from the management account): about 0.0016 USD on 2026-09-18, so a working read should return roughly that. Ryan cannot access the lab account today. Route for a human: sign in as the ROOT USER of the lab account itself (password reset through the account's forward-only alias email, listed in AGENTS.local.md), then CloudFormation console > stack ChatticusCrossAccountRole > Update > Replace current template > Upload the published customer-role.yml (kept the existing parameter values for AnthusAccountId and OrganizationId), acknowledge IAM capabilities, submit. Then invoke chatticus-development-daily-budget-rollup and expect the ACME row (e5157208...) for the last day to read about 0.0016 instead of error. Sent Ryan the template file.",
+      "created_at": "2026-09-19T19:07:42.110804Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T17:16:56.139043Z",
-  "updated_at": "2026-09-19T19:01:48.448056Z",
+  "updated_at": "2026-09-19T19:07:42.110836Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
