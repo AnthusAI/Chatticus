@@ -159,6 +159,23 @@ describe("ThinTurnStack daily budget rollup", () => {
   });
 });
 
+describe("ThinTurnStack installation name", () => {
+  it("gives Lambdas the installation name so computer tasks can be tagged with it", () => {
+    const template = synthThinTurnStack("development", { installationName: "Anthus AI Solutions" });
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: {
+        Variables: Match.objectLike({ CHATTICUS_INSTALLATION_NAME: "Anthus AI Solutions" }),
+      },
+    });
+  });
+
+  it("sets no installation variable when none is configured", () => {
+    const template = synthThinTurnStack("development");
+    const serialized = JSON.stringify(template.toJSON());
+    assert.equal(serialized.includes("CHATTICUS_INSTALLATION_NAME"), false);
+  });
+});
+
 describe("ThinTurnStack without budget context", () => {
   it("omits daily rollup Lambdas", () => {
     const template = synthThinTurnStack("development");

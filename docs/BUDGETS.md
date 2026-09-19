@@ -85,21 +85,45 @@ and become what breaks a single client's spend down internally.
 
 | Tag | Values | On |
 | --- | --- | --- |
-| `chatticus:environment` | development, staging, production | Per-environment stacks |
-| `chatticus:component` | front-door, computer, web, snapshots, dns | Every stack |
-| `chatticus:tenant` | An organization's `tenant_id` | Organization-attributable resources |
+| `chatticus:application` | `Chatticus` | Every stack and every computer task |
+| `chatticus:environment` | development, staging, production; `shared` for stacks that are not per-environment | Every stack and every computer task |
+| `chatticus:installation` | The installation's readable name, for example `Anthus AI Solutions` | Every stack and every computer task, when configured |
+| `chatticus:component` | thin-turn, web, auth, computer, snapshots, dns, budgets, deploy, integration-test | Every stack (a computer task is `computer`) |
+| `chatticus:tenant` | An organization's `tenant_id` | Computer tasks, at run time |
 
-The third one still pays for itself: a computer is organization-wide, so
-tagging the summoned Fargate task with its `tenant_id` makes
-per-organization cost a Cost Explorer query rather than something we
-build.
+The **installation** is one deployment of Chatticus, named by the operator
+(`CHATTICUS_INSTALLATION_NAME`, a GitHub Actions variable in CI). It is not an
+organization: one installation serves many organizations, and only computer
+tasks carry an organization, in `chatticus:tenant`. `lib/tagging.ts` holds the
+stack registry and refuses to synthesize a stack it has not classified, so a
+new stack cannot ship untagged. The installation name is optional; deploying
+without it warns and **removes** the tag from an already-tagged stack, so keep
+the variable set for every deploy path, including local scripts.
 
-Two honest limits. A cost allocation tag does not appear in Cost Explorer
-until activated in the Billing console, and **activation is not
-retroactive**, so it belongs in the deployment runbook rather than in
-someone's memory. And `ChatticusSnapshots` and `ChatticusComputers` are
-deliberately not per-environment, so they are reported as a shared
-remainder rather than apportioned by guesswork.
+The tenant tag pays for itself: a computer is organization-wide, so tagging
+the summoned Fargate task with its `tenant_id` makes per-organization cost a
+Cost Explorer query rather than something we build. Only tenant-tagged spend
+(computers) is attributed to an organization. Shared infrastructure is
+reported as overhead, not apportioned by guesswork.
+
+### Activating the tags (person-step)
+
+A cost allocation tag does not appear in Cost Explorer until it is activated,
+and **activation is not retroactive**, so it belongs in the deployment
+runbook rather than in someone's memory.
+
+1. Deploy so the tags exist on billed resources. A new key can take about a
+   day to show up as activatable.
+2. In the Billing console (Cost allocation tags), or with
+   `aws ce update-cost-allocation-tags-status`, activate `chatticus:tenant`
+   and `chatticus:environment` at minimum, and `chatticus:application`,
+   `chatticus:installation` and `chatticus:component` for reporting. In an AWS
+   Organization only the management account can do this.
+3. Until `chatticus:tenant` is active the rollup reads a hosted organization
+   as `ce_status=error`, which pauses computer work for one with a ceiling.
+
+`ChatticusSnapshots` and `ChatticusComputers` are deliberately not
+per-environment, so they carry `chatticus:environment=shared`.
 
 ## Where a turn's tokens and cost are written
 
