@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-d706d7f7-4b88-4518-ae2d-328e180012fc",
+  "title": "Activate the chatticus cost allocation tags once Cost Explorer lists them",
+  "description": "Follow-up to PR #373 (tags) for chatticus-9ac621. A cost allocation tag does not appear in Cost Explorer until it is activated, activation is not retroactive, and until chatticus:tenant is active the rollup reads every hosted organization as ce_status=error (fail closed).\n\n## State on 2026-09-19 (after #373 deployed to development)\n- Verified: the tags are on the deployed stacks (ChatticusThinTurn, ChatticusWeb, ChatticusAuth), on a Lambda, and on the DynamoDB table: chatticus:application=Chatticus, chatticus:component, chatticus:environment=development, chatticus:installation=Anthus AI Solutions.\n- aws ce list-cost-allocation-tags does not list the new keys yet (only chatticus:environment and chatticus:repo, both Inactive). New keys take about a day to be discovered.\n- Account 335163751677 is the AWS Organization's management account (o-0u3nze7ya8), so it can activate tags itself.\n- NOT verified: the run-time tags on computer tasks (chatticus:tenant etc.). No host runs on development (computerCount=0); covered by pytest only. The first real host start should be checked with aws ecs list-tags-for-resource.\n\n## To do (on or after 2026-09-20)\n1. aws ce list-cost-allocation-tags: confirm chatticus:application, chatticus:installation, chatticus:component, chatticus:tenant are listed. chatticus:tenant only appears once a tenant-tagged task has run; if it is missing, start one computer and check its task tags first.\n2. Activate (billing setting, needs Ryan's OK): aws ce update-cost-allocation-tags-status --cost-allocation-tags-status TagKey=chatticus:environment,Status=Active TagKey=chatticus:tenant,Status=Active TagKey=chatticus:application,Status=Active TagKey=chatticus:installation,Status=Active TagKey=chatticus:component,Status=Active\n3. Invoke chatticus-development-daily-budget-rollup and confirm hosted organizations move from ce_status=error to ok. Research whether Cost Explorer's tag backfill is worth requesting so earlier days are covered.\n\n## Done when\nchatticus:tenant is Active, and a hosted organization's rollup row reads ok with a real figure.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-19T19:01:48.366951Z",
+  "updated_at": "2026-09-19T19:01:48.366997Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
