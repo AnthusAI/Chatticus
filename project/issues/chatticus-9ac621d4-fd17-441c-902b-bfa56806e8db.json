@@ -36,10 +36,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "3e8aab15-32b3-48b2-b6af-8e6bda607b70",
+      "author": "home",
+      "text": "#372 merged (3d8f203) and deployed to development. Verified live: the rollup now writes the hosted org anthus as ce_status=error, aws=None, combined=None (was ok/0 while the account spent 22.35); logs show tenant_cost_tag_inactive for each hosted org. None of the dev orgs has a ceiling, so nothing is paused. FIRST REAL CUSTOMER-ACCOUNT ATTEMPT (org 'ACME Corp' e5157208..., lab account 114469424841): the rollup successfully assumed ChatticusOrganizationComputerRole (Lambda IAM, ExternalId, and the assume-role path all work), then Cost Explorer returned AccessDeniedException: that lab role predates the change and lacks ce:GetCostAndUsage. Row is error, fail closed, as designed. TO FINISH VERIFYING (needs Ryan, I have no credentials for the lab account): (1) update the lab role stack from the republished template https://dev.chattic.us/provisioning/customer-role.yml (params AnthusAccountId and OrganizationId=e5157208-b7b6-41ae-8345-9863979db262, capability CAPABILITY_NAMED_IAM); (2) enable Cost Explorer in account 114469424841 if it is not already (console). Then invoke the rollup and expect a real number for that account. PR #373 (tags: application/environment/installation/component, tenant on computer tasks) is open; after it deploys the keys appear within about a day and chatticus:tenant must be activated in Billing, at which point hosted orgs read real spend.",
+      "created_at": "2026-09-19T18:48:16.864107Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T17:16:56.139043Z",
-  "updated_at": "2026-09-19T18:03:19.366871Z",
+  "updated_at": "2026-09-19T18:48:16.864133Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
