@@ -217,6 +217,8 @@ export function EnabledWorkspace({
       const streamGeneration = (streamGenerationRef.current += 1);
       const isCurrentStream = () => streamGeneration === streamGenerationRef.current;
       let sawTerminalEvent = false;
+      let retryCount = 0;
+      const MAX_RETRIES = 4;
 
       const clearStoredTurnProgress = (storageKey: string, progressStorageKey: string) => {
         window.sessionStorage.removeItem(storageKey);
@@ -234,84 +236,107 @@ export function EnabledWorkspace({
         setProgress("");
       };
 
-      setTurn(activeTurn);
-      setTurnStatus("active");
-      setTurnEvents([]);
-      setStreamError(null);
       const storageKey = `chatticus:last-event:${activeTurn.turn_id}`;
       const progressStorageKey = `chatticus:turn-progress:${activeTurn.turn_id}`;
-      const storedProgress = window.sessionStorage.getItem(progressStorageKey);
-      const lastEventId = storedProgress === null
-        ? 0
-        : Number(window.sessionStorage.getItem(storageKey) ?? 0);
-      setProgress(storedProgress ?? "");
-      closeStreamRef.current = openTurnStream(
-        activeOrg.tenantId,
-        activeTurn.turn_id,
-        {
-          onEvent: (event) => {
-            if (!isCurrentStream()) {
-              return;
-            }
-            window.sessionStorage.setItem(storageKey, String(event.seq));
-            setTurnEvents((current) => [...current, event]);
-            if (event.kind === "turn.waiting") {
-              setTurn((current) =>
-                current
-                  ? { ...current, waiting_for: event.body ?? "input" }
-                  : current,
-              );
-            }
-            if (event.kind === "turn.token" && event.token) {
-              setTurn((current) =>
-                current ? { ...current, waiting_for: null } : current,
-              );
-              setProgress((current) => {
-                const next = current + event.token;
-                window.sessionStorage.setItem(progressStorageKey, next);
-                return next;
-              });
-            }
-            if (isTerminalTurnEvent(event.kind)) {
-              sawTerminalEvent = true;
-              setTurnStatus(turnStatusFromKind(event.kind));
-              void reconcileMessages(activeTurn.channel_id).then((result) => {
-                if (!isCurrentStream()) {
-                  return;
-                }
-                if (result) {
-                  setMessagesByChannel((current) => ({
-                    ...current,
-                    [activeTurn.channel_id]: result.committed,
-                  }));
-                  setTasks(result.refreshedTasks);
-                  setComputer(result.refreshedComputer);
-                }
-                if (shouldClearTurnBubbleAfterTerminal(event.kind)) {
-                  clearStoredTurnProgress(storageKey, progressStorageKey);
-                  setProgress("");
-                  setTurn(null);
-                  setTurnStatus(null);
-                  setTurnEvents([]);
-                }
-                if (event.kind === "turn.failed") {
-                  setStreamError(event.body ?? "Turn failed");
-                }
-              });
-            }
+
+      const openStreamWithRetry = () => {
+        if (!isCurrentStream()) {
+          return;
+        }
+        setTurn(activeTurn);
+        if (retryCount === 0) {
+          setTurnStatus("active");
+          setTurnEvents([]);
+        }
+        setStreamError(null);
+        const storedProgress = window.sessionStorage.getItem(progressStorageKey);
+        const lastEventId = storedProgress === null
+          ? 0
+          : Number(window.sessionStorage.getItem(storageKey) ?? 0);
+        setProgress(storedProgress ?? "");
+        closeStreamRef.current = openTurnStream(
+          activeOrg.tenantId,
+          activeTurn.turn_id,
+          {
+            onEvent: (event) => {
+              if (!isCurrentStream()) {
+                return;
+              }
+              retryCount = 0;
+              window.sessionStorage.setItem(storageKey, String(event.seq));
+              setTurnEvents((current) => [...current, event]);
+              if (event.kind === "turn.waiting") {
+                setTurn((current) =>
+                  current
+                    ? { ...current, waiting_for: event.body ?? "input" }
+                    : current,
+                );
+              }
+              if (event.kind === "turn.token" && event.token) {
+                setTurn((current) =>
+                  current ? { ...current, waiting_for: null } : current,
+                );
+                setProgress((current) => {
+                  const next = current + event.token;
+                  window.sessionStorage.setItem(progressStorageKey, next);
+                  return next;
+                });
+              }
+              if (isTerminalTurnEvent(event.kind)) {
+                sawTerminalEvent = true;
+                setTurnStatus(turnStatusFromKind(event.kind));
+                void reconcileMessages(activeTurn.channel_id).then((result) => {
+                  if (!isCurrentStream()) {
+                    return;
+                  }
+                  if (result) {
+                    setMessagesByChannel((current) => ({
+                      ...current,
+                      [activeTurn.channel_id]: result.committed,
+                    }));
+                    setTasks(result.refreshedTasks);
+                    setComputer(result.refreshedComputer);
+                  }
+                  if (shouldClearTurnBubbleAfterTerminal(event.kind)) {
+                    clearStoredTurnProgress(storageKey, progressStorageKey);
+                    setProgress("");
+                    setTurn(null);
+                    setTurnStatus(null);
+                    setTurnEvents([]);
+                  }
+                  if (event.kind === "turn.failed") {
+                    setStreamError(event.body ?? "Turn failed");
+                  }
+                });
+              }
+            },
+            onError: (caught) => {
+              if (retryCount < MAX_RETRIES) {
+                retryCount++;
+                const delay = Math.pow(2, retryCount - 1) * 1000;
+                setTimeout(() => openStreamWithRetry(), delay);
+              } else {
+                parkStreamWithoutTerminal(caught.message);
+              }
+            },
+            onClose: () => {
+              if (!isCurrentStream() || sawTerminalEvent) {
+                return;
+              }
+              if (retryCount < MAX_RETRIES) {
+                retryCount++;
+                const delay = Math.pow(2, retryCount - 1) * 1000;
+                setTimeout(() => openStreamWithRetry(), delay);
+              } else {
+                parkStreamWithoutTerminal("Connection lost");
+              }
+            },
           },
-          onError: (caught) => {
-            parkStreamWithoutTerminal(caught.message);
-          },
-          onClose: () => {
-            if (!isCurrentStream() || sawTerminalEvent) {
-              return;
-            }
-            parkStreamWithoutTerminal("Turn stream disconnected");
-          },
-        },
-        lastEventId,
-      );
+          lastEventId,
+        );
+      };
+
+      openStreamWithRetry();
     },
     [activeOrg.tenantId, reconcileMessages],
   );
