@@ -33,6 +33,14 @@ Feature: Organization spend ceiling
     Then the request is refused with a spend ceiling reason
     And no computer is started
 
+  Scenario: A turn that waits on the browser is refused past the ceiling
+    Given an enabled organization whose month-to-date spend has passed its ceiling
+    And the organization computer is stopped
+    When a member asks a bot to open the household browser
+    Then the request is refused with a spend ceiling reason
+    And the turn is completed rather than left waiting
+    And no computer is started
+
   Scenario: The workplace stays reachable past the ceiling
     Given an enabled organization whose month-to-date spend has passed its ceiling
     And the organization has a channel with a readable message
