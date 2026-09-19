@@ -443,7 +443,7 @@ export class ThinTurnStack extends cdk.Stack {
       rollupFunction.grantInvoke(rollupSchedulerRole);
       new scheduler.CfnSchedule(this, "DailyBudgetRollupSchedule", {
         name: `chatticus-${environmentName}-daily-budget-rollup`,
-        groupName: rollupScheduleGroup.name ?? rollupScheduleGroupName,
+        groupName: rollupScheduleGroup.ref,
         scheduleExpression: "cron(0 6 * * ? *)",
         scheduleExpressionTimezone: "UTC",
         flexibleTimeWindow: { mode: "OFF" },
