@@ -119,6 +119,21 @@ describe("ThinTurnStack daily budget rollup", () => {
     });
   });
 
+  it("references its schedule group so CloudFormation creates the group first", () => {
+    // A literal group name gives CloudFormation no dependency edge, so it tried to
+    // create the schedule before the group and failed with NotFound (chatticus-26f253).
+    const groups = template.findResources("AWS::Scheduler::ScheduleGroup", {
+      Properties: { Name: "chatticus-development-budget-rollup" },
+    });
+    const schedules = template.findResources("AWS::Scheduler::Schedule", {
+      Properties: { ScheduleExpression: "cron(0 6 * * ? *)" },
+    });
+    const groupIds = Object.keys(groups);
+    assert.equal(groupIds.length, 1);
+    assert.equal(Object.keys(schedules).length, 1);
+    assert.deepEqual(Object.values(schedules)[0].Properties.GroupName, { Ref: groupIds[0] });
+  });
+
   it("records AWS Budgets alerts without republishing rollup messages", () => {
     template.hasResourceProperties("AWS::Lambda::Function", {
       Handler: "chatticus.budget_rollup.alert_recorder.handler",
