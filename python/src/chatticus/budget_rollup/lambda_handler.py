@@ -10,7 +10,7 @@ from typing import Any
 
 from chatticus.budget_alerts import SnsBudgetAlertsPublisher
 from chatticus.budget_rollup.runner import run_daily_rollup
-from chatticus.cost_explorer import Boto3CostExplorerReader
+from chatticus.cost_explorer import Boto3AccountSpendReader, Boto3CostExplorerReader
 from chatticus.messaging.store import DynamoMessagingStore
 
 logger = logging.getLogger("chatticus.budget_rollup")
@@ -34,6 +34,7 @@ def handler(_event: dict[str, Any], _context: object) -> None:
 
     store = DynamoMessagingStore(table_name)
     cost_explorer = Boto3CostExplorerReader(client=boto3.client("ce"))
+    account_spend = Boto3AccountSpendReader(sts_client=boto3.client("sts"))
     alerts = None
     if topic_arn:
         alerts = SnsBudgetAlertsPublisher(
@@ -48,6 +49,7 @@ def handler(_event: dict[str, Any], _context: object) -> None:
     run_daily_rollup(
         store=store,
         cost_explorer=cost_explorer,
+        account_spend=account_spend,
         alerts=alerts,
         environment=environment,
         rollup_date=rollup_date,

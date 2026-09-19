@@ -16,7 +16,11 @@ from cross_account_provisioning_steps import (
 )
 
 from chatticus.budget_rollup.models import BudgetRollupRow
-from chatticus.budget_rollup.runner import CE_STATUS_OK, CE_STATUS_PENDING
+from chatticus.budget_rollup.runner import (
+    CE_STATUS_ERROR,
+    CE_STATUS_OK,
+    CE_STATUS_PENDING,
+)
 from chatticus.computer_capabilities import WORKSPACE_CAPABILITY
 from chatticus.computer_continuation_driver import prepare_workspace_tool_continuation
 from chatticus.cross_account_provisioning import (
@@ -100,7 +104,7 @@ def _seed_mtd_above_ceiling(context: object) -> None:
     )
 
 
-def _seed_mtd_pending(context: object) -> None:
+def _seed_mtd_unknown(context: object, ce_status: str) -> None:
     organization = _organization(context)
     rollup_date = context.now.date()
     store = _plane(context)._messaging_store
@@ -113,7 +117,7 @@ def _seed_mtd_pending(context: object) -> None:
             aws_cost_usd=None,
             vendor_cost_usd=Decimal("0"),
             combined_report_usd=None,
-            ce_status=CE_STATUS_PENDING,
+            ce_status=ce_status,
             alert_events=(),
             updated_at=context.now,
         )
@@ -184,7 +188,12 @@ def _provision_enabled_org_with_ceiling(context: object) -> None:
 
 @given("month-to-date spend rollup for today is pending")
 def given_mtd_rollup_pending(context: object) -> None:
-    _seed_mtd_pending(context)
+    _seed_mtd_unknown(context, CE_STATUS_PENDING)
+
+
+@given("month-to-date spend rollup for today could not be read")
+def given_mtd_rollup_unreadable(context: object) -> None:
+    _seed_mtd_unknown(context, CE_STATUS_ERROR)
 
 
 @given("month-to-date spend has passed the ceiling")

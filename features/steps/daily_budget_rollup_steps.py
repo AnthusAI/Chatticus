@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -13,7 +14,7 @@ from chatticus.budget_alerts import FakeBudgetAlertsPublisher
 from chatticus.budget_rollup.alert_recorder import record_budget_alert_from_sns
 from chatticus.budget_rollup.runner import ROLLUP_ALERT_SOURCE, run_daily_rollup
 from chatticus.control_plane import ControlPlane
-from chatticus.cost_explorer import FakeCostExplorerReader
+from chatticus.cost_explorer import FakeAccountSpendReader, FakeCostExplorerReader
 from chatticus.messaging.store import InMemoryMessagingStore
 from chatticus.vendor_ledger import (
     BILLED_VIA_AWS,
@@ -34,6 +35,8 @@ def _rollup_harness(context: object) -> None:
     context.budget_environment = "development"
     context.monthly_limit_usd = Decimal("100")
     context.cost_explorer = FakeCostExplorerReader()
+    context.account_spend = FakeAccountSpendReader()
+    context.customer_org = None
     context.budget_alerts = FakeBudgetAlertsPublisher()
     context.vendor_spend_by_tenant_day: dict[tuple[str, str], Decimal] = {}
 
@@ -59,6 +62,49 @@ def given_enabled_org(context: object, name: str, tenant_id: str) -> None:
         now=context.now,
     )
     context.orgs_by_name[name] = org
+
+
+CUSTOMER_ACCOUNT_ID = "111122223333"
+
+
+@given('organization "{name}" with tenant "{tenant_id}" runs in its own AWS account')
+def given_org_in_own_account(context: object, name: str, tenant_id: str) -> None:
+    org = _plane(context).admin_seed_organization(
+        tenant_id,
+        "owner@example.com",
+        name=name,
+        now=context.now,
+    )
+    org = replace(
+        org,
+        aws_account_id=CUSTOMER_ACCOUNT_ID,
+        aws_cross_account_role=(
+            f"arn:aws:iam::{CUSTOMER_ACCOUNT_ID}:role/ChatticusOrganizationComputerRole"
+        ),
+        aws_external_id=tenant_id,
+    )
+    context.messaging_store.put_organization(org)
+    context.orgs_by_name[name] = org
+    context.customer_org = org
+
+
+@given("its own account spent {amount} USD on {day}")
+def given_own_account_spend(context: object, amount: str, day: str) -> None:
+    context.account_spend.set_total(
+        context.customer_org.aws_account_id, date.fromisoformat(day), Decimal(amount)
+    )
+
+
+@given("its own account cannot be read")
+def given_own_account_unreadable(context: object) -> None:
+    context.account_spend.fail_account(context.customer_org.aws_account_id)
+
+
+@given("its own account has no data for {day}")
+def given_own_account_no_data(context: object, day: str) -> None:
+    context.account_spend.set_day_pending(
+        context.customer_org.aws_account_id, date.fromisoformat(day)
+    )
 
 
 @given('Cost Explorer reports {amount} USD for tenant "{tenant_id}" on {day}')
@@ -142,6 +188,7 @@ def when_daily_rollup_runs(context: object, day: str) -> None:
     run_daily_rollup(
         store=context.messaging_store,
         cost_explorer=context.cost_explorer,
+        account_spend=context.account_spend,
         alerts=context.budget_alerts,
         environment=context.budget_environment,
         rollup_date=rollup_date,

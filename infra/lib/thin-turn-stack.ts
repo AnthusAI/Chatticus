@@ -428,6 +428,12 @@ export class ThinTurnStack extends cdk.Stack {
           resources: ["*"],
         }),
       );
+      rollupFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["sts:AssumeRole"],
+          resources: ["arn:aws:iam::*:role/ChatticusOrganizationComputerRole"],
+        }),
+      );
       if (budgetsAlertsTopicArn) {
         rollupFunction.addToRolePolicy(
           new iam.PolicyStatement({
