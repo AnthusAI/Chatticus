@@ -39,7 +39,6 @@ export class AuthStack extends cdk.Stack {
     const siteDomain = WEB_SITE_DOMAINS[environmentName];
     const webPrefix = webParameterPrefix(environmentName);
     const retainData = environmentName !== "development";
-    cdk.Tags.of(this).add("chatticus:environment", environmentName);
 
     const googleOAuth = secretsmanager.Secret.fromSecretNameV2(
       this,

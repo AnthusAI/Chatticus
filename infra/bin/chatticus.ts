@@ -17,6 +17,7 @@ import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
 import { websiteDeploySourceForApp } from "../lib/web-bundle-stub";
 import { WebStack } from "../lib/web-stack";
+import { applyStandardTags, readInstallationName } from "../lib/tagging";
 
 const app = new cdk.App();
 
@@ -26,6 +27,7 @@ const env: cdk.Environment = {
 };
 
 const budgetsConfig = readBudgetsConfig(app);
+const installationName = readInstallationName();
 
 let budgetsStack: BudgetsStack | undefined;
 if (budgetsConfig) {
@@ -67,6 +69,7 @@ for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
     chatticusEnvironment: environmentName,
     budgetsAlertsTopicArn,
     budgetsMonthlyLimitUsd: budgetsConfig?.monthlyLimitUsd,
+    installationName,
     description:
       `Zero-idle computerless turn (${environmentName}): DynamoDB, SQS, ` +
       "Lambda SSE front door.",
@@ -120,4 +123,8 @@ if (
     description:
       "Scheduled Lambda smoke tests against one named thin-turn environment.",
   });
+}
+
+for (const stack of app.node.children.filter(cdk.Stack.isStack)) {
+  applyStandardTags(stack, installationName);
 }

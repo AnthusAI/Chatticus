@@ -36,4 +36,5 @@ jobs:
         env:
           CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD: ${{ vars.CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD }}
           CHATTICUS_BUDGETS_NOTIFICATION_EMAIL: ${{ secrets.CHATTICUS_BUDGETS_NOTIFICATION_EMAIL }}
+          CHATTICUS_INSTALLATION_NAME: ${{ vars.CHATTICUS_INSTALLATION_NAME }}
         run: sh deploy-chatticus-thinturn-development.sh
