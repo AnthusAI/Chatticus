@@ -6,11 +6,15 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
-from chatticus.budget_rollup.runner import CE_STATUS_OK, CE_STATUS_PENDING
+from chatticus.budget_rollup.runner import (
+    CE_STATUS_ERROR,
+    CE_STATUS_OK,
+    CE_STATUS_PENDING,
+)
 from chatticus.messaging.store import MessagingStore
 from chatticus.models import Organization
 
-MTD_UNKNOWN_CE_STATUSES = frozenset({CE_STATUS_PENDING, "error"})
+MTD_UNKNOWN_CE_STATUSES = frozenset({CE_STATUS_PENDING, CE_STATUS_ERROR})
 
 SPEND_CEILING_EXCEEDED_REASON = "monthly AWS spend ceiling exceeded"
 SPEND_CEILING_METER_UNAVAILABLE_REASON = (

@@ -113,6 +113,21 @@ describe("ThinTurnStack daily budget rollup", () => {
     });
   });
 
+  it("lets the rollup assume a customer organization role to read its spend", () => {
+    template.hasResourceProperties("AWS::IAM::Policy", {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: "sts:AssumeRole",
+            Effect: "Allow",
+            Resource: "arn:aws:iam::*:role/ChatticusOrganizationComputerRole",
+          }),
+        ]),
+      },
+      Roles: Match.arrayWith([Match.objectLike({ Ref: Match.stringLikeRegexp("DailyBudgetRollupServiceRole") })]),
+    });
+  });
+
   it("schedules one daily EventBridge Scheduler rollup", () => {
     template.hasResourceProperties("AWS::Scheduler::Schedule", {
       ScheduleExpression: "cron(0 6 * * ? *)",
