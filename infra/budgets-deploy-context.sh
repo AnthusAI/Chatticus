@@ -1,6 +1,7 @@
 #!/bin/sh
 # Set BUDGETS_CDK_CONTEXT for CDK deploy when budget env vars are set.
-# Source only from deploy-chatticus-budgets.sh. Refuses partial config and invented defaults.
+# Sourced by deploy-chatticus-budgets.sh and the ThinTurn deploy scripts (which deploy the
+# daily rollup only when this is set). Refuses partial config and invented defaults.
 set -eu
 
 MONTHLY_USD="${CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD:-}"
