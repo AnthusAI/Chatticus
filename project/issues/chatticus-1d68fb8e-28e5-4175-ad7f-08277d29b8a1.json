@@ -24,10 +24,22 @@
       "text": "Not a demo. Sequence: `5e4c9a`+`98f4f6` then `c54569` on a clean build, **then this**. Wired `blocked-by c54569`.\n\nLive seed: org with ceiling and rollup rows above it; computer work; record refuse fail-closed, org enabled, banner visible, **what the member can do next**. PATCH exists; no workspace UI. Filed `chatticus-91f8f4` for owner raise through the product. If next step is contact an operator, that is a person-step for invitation-rate math.\n\nRunbook section in the same form as refuse-not-fallback (`2f2d87`). Placeholders in the wiki; ids in `AGENTS.local.md`.",
       "created_at": "2026-09-08T22:25:58.897967Z",
       "comment_type": "default"
+    },
+    {
+      "id": "7e59bfa6-c265-44cb-8eb7-ae304b0e525b",
+      "author": "home",
+      "text": "Live run 2026-09-19 on dev (org anthus, ceiling 100, rollup 150; seeded and fully cleaned up via scratchpad ceiling_seed.py). Results: GET /me = enabled + computer_work_paused + reason (PASS). Org stayed enabled (PASS). No computer/ECS task started, fail-closed (PASS). Refusal did NOT surface: browser-gated turn parked silently, see the new bug filed from this run (FAIL). Banner absent, removed by 3fb29a5 (FAIL), tracked in a106ea. Member's next step today: none in product; contact an operator (91f8f4 for owner raise). Runbook section not yet written; wait for the two fixes then re-run.",
+      "created_at": "2026-09-19T13:01:43.247802Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-08T22:21:12.490291Z",
-  "updated_at": "2026-09-08T22:25:58.897983Z",
+  "updated_at": "2026-09-19T13:01:43.247821Z",
   "closed_at": null,
   "right_now_summary": null,
   "right_now_updated_at": null,

@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-d1414486-40a6-4456-891c-26d61ef26335",
+  "title": "A browser-gated turn past the spend ceiling waits silently instead of being refused",
+  "description": "Found in the live run of chatticus-1d68fb (dev, 2026-09-19).\n\nRepro: org anthus with ceiling 100 and today's ok rollup row at 150 (GET /me correctly reports status=enabled, computer_work_paused=true, reason 'monthly AWS spend ceiling exceeded'). Ask ExerciseBot-0b7a36c3 'Open the household browser and tell me the title of example.com'.\n\nObserved: the bot streams a draft, the worker parks the turn via POST /turns/{id}/waiting (gate=browser). No ceiling check on that path: control_plane.emit_turn_waiting and the wait_turn route in http/app.py never call _refuse_if_computer_work_paused; enforcement exists only in prepare_computer_tool and request_computer_host_start, which this path did not reach. Turn 579633e0-ca09-4475-9d92-119afe7e5bd2 stayed status=active, waiting_for=browser, past its deadline (13:00:43Z), with no continuation queued and no ECS task started. The thread showed 'Waiting for the bot to finish responding' and the composer stayed blocked.\n\nGood: fail-closed (no computer started), org stayed enabled. Bad: no refusal, no reason in the thread, no terminal event, member cannot send in that thread. Fix: refuse (denied tool result, complete the turn) at the waiting gate when paused, mirroring the host-start denial in 6a9e97, with Gherkin driving the /waiting path. Also decide what ends an active turn parked past its deadline.",
+  "type": "bug",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-19T13:01:43.164595Z",
+  "updated_at": "2026-09-19T13:01:43.164767Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
