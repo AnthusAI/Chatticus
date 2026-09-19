@@ -24,10 +24,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "45db0ab5-c1ae-4cc1-8b9d-8c8b080f9dc1",
+      "author": "home",
+      "text": "#371 merged (8185fcf); dev ThinTurn and Web deploys both succeeded. Verified on development: (1) the deployed ChatticusThinTurn template gives the rollup role ce:GetCostAndUsage and sts:AssumeRole on arn:aws:iam::*:role/ChatticusOrganizationComputerRole; (2) the published template at https://dev.chattic.us/provisioning/customer-role.yml now carries the CostExplorerRead statement (ce:GetCostAndUsage); (3) the rollup was invoked again with the new code: 200, no error, anthus row refreshed (hosted tag path unchanged, still ok/0). Note: IAM's endpoint was unreachable from this machine, so (1) was read from CloudFormation, not IAM. NOT verified: a real customer-account read (needs an organization with the updated role plus Cost Explorer enabled in its account). Still open on this card: hosted organizations (tag path reads an unattributable org as $0 ok; needs Ryan's decision between applying and activating tags, or a fail-closed rule for hosted orgs).",
+      "created_at": "2026-09-19T18:03:19.366825Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T17:16:56.139043Z",
-  "updated_at": "2026-09-19T17:47:40.869861Z",
+  "updated_at": "2026-09-19T18:03:19.366871Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
