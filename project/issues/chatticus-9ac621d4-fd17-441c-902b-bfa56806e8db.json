@@ -12,9 +12,22 @@
     "phase-5"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "0891390f-3a81-48a2-9ac2-7f11d2e6bd89",
+      "author": "home",
+      "text": "Ryan approved: read a customer account's whole spend through its role (no existing customers, so updating the role stack is free) and treat an unreadable meter as unavailable (paused, fail closed). PR #371 implements both for cross-account organizations: the rollup assumes the org's ChatticusOrganizationComputerRole and reads total UnblendedCost; a failed read is ce_status=error with no figure, never zero; error already makes the meter unavailable so an org with a ceiling is refused computer work (new Gherkin covers it). customer-role.yml gains ce:GetCostAndUsage, self-setup requires it, the rollup Lambda may sts:AssumeRole. Guards mutation-checked. STILL OPEN on this card: (1) hosted organizations (in the Anthus account) still use the tag path, which reports an unattributable org as $0 ok, and nothing applies the chatticus:tenant tag; the home org anthus has no ceiling so it is unaffected today, but the same defect applies if it gets one. Needs a decision: apply tags and activate them in Billing (person-step), or give hosted orgs a fail-closed rule. (2) The first real customer-account read is unverified: it needs an organization with the updated role and Cost Explorer enabled in its account. (3) Customer prerequisites are person-steps: enable Cost Explorer (console, ~1 day to populate) and run the current template; the web stack republishes the template on deploy. Machine note: local full behave hit ENOSPC because this Mac's data volume is at 100% (kanbus-router-worktrees 6.8 GB and /private/tmp/kanbus-router-live-r2 1.8 GB are not from this work); affected features (126 scenarios) pass locally and full behave runs in CI.",
+      "created_at": "2026-09-19T17:47:40.869828Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-19T17:16:56.139043Z",
-  "updated_at": "2026-09-19T17:16:56.139091Z",
+  "updated_at": "2026-09-19T17:47:40.869861Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
