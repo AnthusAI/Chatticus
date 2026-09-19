@@ -120,3 +120,26 @@ Feature: Daily budget rollup
     Then the budget rollup for tenant "acme" environment "development" on 2026-08-31 has ce_status "error"
     And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 5.00
     And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "ok"
+
+  Scenario: A hosted organization is unreadable while the tenant cost tag is not active
+    Given the tenant cost tag is not active in Cost Explorer
+    And Cost Explorer reports 5.00 USD for tenant "anthus" on 2026-08-31
+    When the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has null aws_cost_usd
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "error"
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has null combined_report_usd
+
+  Scenario: A customer-account organization does not depend on the tenant cost tag
+    Given the tenant cost tag is not active in Cost Explorer
+    And organization "Acme" with tenant "acme" runs in its own AWS account
+    And its own account spent 12.50 USD on 2026-08-31
+    When the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "acme" environment "development" on 2026-08-31 has aws_cost_usd 12.50
+    And the budget rollup for tenant "acme" environment "development" on 2026-08-31 has ce_status "ok"
+
+  Scenario: An active tenant cost tag with no spend for a hosted organization reads as zero
+    Given Cost Explorer returns zero attributed AWS spend on 2026-08-31
+    When the daily budget rollup runs for 2026-08-31
+    Then the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has aws_cost_usd 0
+    And the budget rollup for tenant "anthus" environment "development" on 2026-08-31 has ce_status "ok"
+

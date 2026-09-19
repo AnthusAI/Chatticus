@@ -1,10 +1,13 @@
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from botocore.exceptions import ClientError
 
 from chatticus.cost_explorer import (
     AccountSpendUnreadableError,
+    Boto3CostExplorerReader,
     account_day_from_response,
 )
 from chatticus.cross_account_provisioning import PROVISIONING_REQUIRED_PERMISSIONS
@@ -38,3 +41,37 @@ def test_customer_role_template_grants_every_required_permission() -> None:
         if f"'{permission}'" not in text
     ]
     assert missing == []
+
+
+class _StubCostExplorer:
+    def __init__(self, tags: object) -> None:
+        self._tags = tags
+
+    def get_cost_and_usage(self, **_kwargs: object) -> dict[str, object]:
+        return {"ResultsByTime": [{"Groups": []}]}
+
+    def list_cost_allocation_tags(self, **_kwargs: object) -> dict[str, object]:
+        if isinstance(self._tags, Exception):
+            raise self._tags
+        return {"CostAllocationTags": self._tags}
+
+
+def _tag_active(tags: object) -> bool:
+    reader = Boto3CostExplorerReader(client=_StubCostExplorer(tags))
+    day = reader.daily_costs_by_tenant(
+        environment="development", rollup_date=date(2026, 9, 18)
+    )
+    return day.tenant_tag_active
+
+
+def test_tenant_tag_reads_active_when_cost_explorer_lists_it() -> None:
+    assert _tag_active([{"TagKey": "chatticus:tenant", "Status": "Active"}]) is True
+
+
+def test_tenant_tag_reads_inactive_when_cost_explorer_does_not_list_it() -> None:
+    assert _tag_active([]) is False
+
+
+def test_tenant_tag_reads_inactive_when_the_lookup_fails() -> None:
+    denied = ClientError({"Error": {"Code": "AccessDeniedException"}}, "ListTags")
+    assert _tag_active(denied) is False

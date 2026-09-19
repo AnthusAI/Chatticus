@@ -119,6 +119,11 @@ def given_ce_tenant_cost(
     )
 
 
+@given("the tenant cost tag is not active in Cost Explorer")
+def given_tenant_tag_inactive(context: object) -> None:
+    context.cost_explorer.set_tenant_tag_active(False)
+
+
 @given("Cost Explorer has no data for {day}")
 def given_ce_no_data(context: object, day: str) -> None:
     context.cost_explorer.set_day_pending(

@@ -38,6 +38,9 @@ class _FakeCostExplorerClient:
         self.calls.append(kwargs)
         return self.response
 
+    def list_cost_allocation_tags(self, **_kwargs: object) -> dict[str, object]:
+        return {"CostAllocationTags": [{"TagKey": "chatticus:tenant"}]}
+
 
 def test_highest_band_crossed_returns_top_band_only() -> None:
     assert _highest_band_crossed(Decimal("55"), Decimal("100"), (50, 80, 100)) == 50
@@ -77,6 +80,7 @@ def test_boto3_cost_explorer_empty_groups_is_zero_not_pending() -> None:
     )
     assert result.pending is False
     assert result.costs_by_tenant == {}
+    assert result.tenant_tag_active is True
 
 
 def test_run_daily_rollup_treats_quiet_ce_day_as_zero_not_pending() -> None:

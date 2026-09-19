@@ -105,7 +105,7 @@ describe("ThinTurnStack daily budget rollup", () => {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: Match.arrayWith(["ce:GetCostAndUsage"]),
+            Action: Match.arrayWith(["ce:GetCostAndUsage", "ce:ListCostAllocationTags"]),
             Effect: "Allow",
           }),
         ]),
