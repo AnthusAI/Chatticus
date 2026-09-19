@@ -48,10 +48,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "e1a0c617-4155-417e-8d82-342f2beadbac",
+      "author": "home",
+      "text": "Ryan confirmed the SNS email subscription (2026-09-19). Verified: ryan@anth.us on the ChatticusBudgets alerts topic now has a real subscription ARN, no longer PendingConfirmation. Budget and rollup alerts on that topic now reach him. Note the subscription was created with aws sns subscribe, outside CloudFormation (CFN still holds its own purged one); a future ChatticusBudgets redeploy will not remove it.",
+      "created_at": "2026-09-19T18:09:26.026168Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T15:17:40.699866Z",
-  "updated_at": "2026-09-19T17:17:08.473201Z",
+  "updated_at": "2026-09-19T18:09:26.026193Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
