@@ -32,6 +32,7 @@ from chatticus.models import (
     NotOrganizationOwnerError,
     OrganizationStatus,
     TurnEventKind,
+    TurnStatus,
 )
 from chatticus.organization_spend import (
     SPEND_CEILING_EXCEEDED_REASON,
@@ -312,8 +313,7 @@ def given_organization_channel_with_message(context: object) -> None:
     context.spend_ceiling_channel_id = channel.channel_id
 
 
-@when("a member asks a bot for work that needs the computer")
-def when_member_asks_for_computer_work(context: object) -> None:
+def _member_asks_bot(context: object, text: str) -> None:
     _ensure_member_and_bot(context)
     member = context.spend_ceiling_member
     tenant_id = _tenant_id(context)
@@ -329,7 +329,7 @@ def when_member_asks_for_computer_work(context: object) -> None:
         tenant_id,
         ActorKind.HUMAN,
         member.user_id,
-        "read workspace file /workspace/research/notes.txt",
+        text,
         addressed_to_bot_id=bot.bot_id,
     )
     assert turn is not None
@@ -350,6 +350,16 @@ def when_member_asks_for_computer_work(context: object) -> None:
         CapabilityAwareFakeTextCompletionClient(),
     )
     worker.complete_pending_for_bot(bot.bot_id)
+
+
+@when("a member asks a bot for work that needs the computer")
+def when_member_asks_for_computer_work(context: object) -> None:
+    _member_asks_bot(context, "read workspace file /workspace/research/notes.txt")
+
+
+@when("a member asks a bot to open the household browser")
+def when_member_asks_to_open_household_browser(context: object) -> None:
+    _member_asks_bot(context, "research this and open the household browser")
 
 
 @when("a member opens the workspace")
@@ -536,3 +546,10 @@ def then_computer_work_accepted_again(context: object) -> None:
         and "computer" in job.required_capabilities
     ]
     assert jobs
+
+
+@then("the turn is completed rather than left waiting")
+def then_turn_completed_not_waiting(context: object) -> None:
+    turn = _plane(context).turn(_tenant_id(context), context.last_turn_id)
+    assert turn.waiting_for is None
+    assert turn.status == TurnStatus.COMPLETED
