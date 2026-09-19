@@ -3,7 +3,7 @@
   "title": "Decide how sub-agent tool calls hold a turn: blocking lease or parked gate",
   "description": "**Design question raised 2026-09-17: we plan to support tool calls that are sub-agents, which recursively call further tools and agents. Those can run for hours.**\n\n`65b431` makes minutes safe by renewing the lease during tool execution. It does not make hours safe, and holding a lease for hours is the wrong shape:\n\n- The parent worker is pinned for the whole duration doing nothing but renewing.\n- If the parent crashes, the lease lapses and the turn is reclaimed even though the sub-agent is still working.\n- The lease stops meaning \"this worker is alive\" and starts standing in for \"something somewhere is alive,\" which is not what the watchdog checks.\n\nThe codebase already has the better shape. `_escalate_file_tool` (`worker/computerless.py`) hands work to the computer host, and `emit_turn_waiting` (`control_plane.py:3331`) parks the turn on a named gate. The watchdog explicitly tolerates that state — `if turn.waiting_for is not None: reschedule; return` (`control_plane.py:3237`) — so a parked turn is never reclaimed, however long the gate takes.\n\n## The question to settle\n\nShould a sub-agent tool call be modelled as a blocking call the parent makes, or as another unit of work that reports back through a gate?\n\nThe second is what the escalation path already does for host tools, and it removes the duration problem entirely rather than raising a limit. It also gives recursion somewhere sensible to live: a sub-agent's own turn can park on its own gates without its parent holding anything.\n\nCosts to weigh honestly: a gate needs a resumption path (`resume_waiting_turn` exists at `control_plane.py:3365`), nested turns need their spend attributed to the right org, and cancellation has to propagate down the tree. None of that is free, and a blocking call with a renewed lease is genuinely simpler for shallow cases.\n\n## Not a decision to make from the code alone\n\nThis wants a human call on the model before implementation. Recording the shape and the evidence so the decision is made deliberately rather than by whichever path is easiest at the time.\n\n## Done when\n\nThe model is decided and written down, with the resumption, attribution, and cancellation consequences stated.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,23 @@
         "model": "claude-opus-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "8737b5c4-3ca6-4f71-a233-118a95e48c9c",
+      "author": "home",
+      "text": "**Decision (2026-09-19): Sub-agents park on a gate.**\n\nSub-agent tool calls use the gate model — `emit_turn_waiting` followed by resumption — not a blocking call the parent makes. This matches the shape `_escalate_file_tool` already uses for host tools.\n\nConsequences:\n- `65b431` becomes a small preventative fix rather than a blocker. Inline tool calls stay short, so the lease renewal bug is unreachable unless someone deliberately adds a long inline tool.\n- `78bf6e` remains blocked-by `65b431` for the lease check, but is no longer blocked by the model decision.\n- The resumption, spend attribution for nested turns, and cancellation propagation all become real work, but are orthogonal to the lease.\n",
+      "created_at": "2026-09-19T12:23:38.004966Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-haiku-4-5-20251001",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-17T12:03:57.796425Z",
-  "updated_at": "2026-09-17T12:16:01.818201Z",
-  "closed_at": null,
+  "updated_at": "2026-09-19T12:23:38.131840Z",
+  "closed_at": "2026-09-19T12:23:38.131818Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-opus-5",

@@ -24,10 +24,22 @@
         "model": "claude-opus-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "384d9e82-90be-41fa-89c2-709370add2ad",
+      "author": "home",
+      "text": "**Decision logged on c7abd6 (2026-09-19): sub-agents park on gates.**\n\nThis means inline tool calls stay short and this bug is currently unreachable. Remains P1: a small preventative fix for whenever someone adds substantial work to the inline path — which should not happen, but the guard is cheap and catches mistakes.\n\nRelated: `78bf6e` (lease-based stream give-up) remains blocked-by this.\n",
+      "created_at": "2026-09-19T12:23:38.214383Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-haiku-4-5-20251001",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-17T12:03:40.789972Z",
-  "updated_at": "2026-09-17T12:15:52.231986Z",
+  "updated_at": "2026-09-19T12:23:38.214401Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
