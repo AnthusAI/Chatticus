@@ -92,8 +92,10 @@ def _aws_spend_for(
     """Return one organization's AWS dollars and the meter status for the day.
 
     An organization in its own AWS account is read through that account. A
-    read that fails is ``error``, never zero: an unreadable meter must not look
-    like an organization that spent nothing.
+    hosted organization is read by its tenant tag, which Cost Explorer only
+    reports once the tag is an active cost allocation tag. A read that fails,
+    or a tag that is not active, is ``error``, never zero: an unreadable meter
+    must not look like an organization that spent nothing.
     """
     if organization.aws_cross_account_role:
         if account_spend is None:
@@ -114,6 +116,13 @@ def _aws_spend_for(
         return day.total_usd, CE_STATUS_OK
     if ce_result.pending:
         return None, CE_STATUS_PENDING
+    if not ce_result.tenant_tag_active:
+        logger.warning(
+            "tenant_cost_tag_inactive tenant_id=%s reason=%s",
+            organization.tenant_id,
+            "chatticus:tenant is not an active cost allocation tag",
+        )
+        return None, CE_STATUS_ERROR
     return ce_result.costs_by_tenant.get(organization.tenant_id, Decimal("0")), (
         CE_STATUS_OK
     )

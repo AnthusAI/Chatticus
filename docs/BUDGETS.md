@@ -216,10 +216,14 @@ zero. `error` and `pending` both make the meter unavailable, and an
 organization with a ceiling and an unavailable meter has new computer work
 refused. Days Cost Explorer has not populated stay `pending`.
 
-Organizations Anthus hosts in its own account still use the tag path below.
-That path reports an organization it cannot attribute as zero, and nothing yet
-applies the `chatticus:tenant` tag, so a hosted organization's ceiling does
-not track real spend (`chatticus-9ac621`).
+Organizations Anthus hosts in its own account are read by the
+`chatticus:tenant` tag, which Cost Explorer only reports once that tag is an
+**active cost allocation tag**. The rollup asks Cost Explorer whether it is
+active. If it is not, the day is written as `ce_status=error` with no figure,
+never as zero, because an absent tenant would otherwise be indistinguishable
+from an organization that spent nothing. When the tag is active, an absent
+tenant is a genuine zero. The rollup role needs `ce:ListCostAllocationTags`
+for the check, and a failed lookup also counts as not active.
 
 ## Per-organization attribution
 
