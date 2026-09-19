@@ -3,7 +3,7 @@
   "title": "Behavior tests validate lib modules while components stay unwired",
   "description": "**Raised 2026-09-16 out of `930da7`, where a fully built and fully tested feature shipped as nothing.**\n\n`TurnGrantPanel` had a component, a `lib/turn-grant.ts` module, unit tests, a harness path, and `features/web_turn_grant.feature`. All green. Nothing imported the component, so the product had no turn authority controls at all. I merged a change into it (PR #353) without noticing.\n\n## Why everything was green\n\n`web/test-support/membership-ui-harness.ts` imports `isTurnGrantPanelVisible` from `web/lib/turn-grant.ts` — the pure logic — and never touches the React component. The Gherkin therefore proves *the logic is right*, not *the product does anything*.\n\nThis is not specific to turn grants. Any feature whose harness drives a `lib/` module while the component stays unwired will look finished and ship as nothing. We should assume this has happened more than once; `930da7` is simply the one we found.\n\n## What we put in as a stopgap, and why it is not the answer\n\n`web/lib/turn-grant-wiring.test.ts` asserts, by reading `EnabledWorkspace.tsx` as **text**, that the panel is imported, rendered and gated. It catches the exact regression that happened. It cannot distinguish a mounted component from one inside an unreachable branch, because it never renders anything.\n\nIt also showed the failure mode of this technique immediately: as first written it pinned exact formatting, and a strictly better refactor — removing a non-null assertion, putting props on separate lines — made it fail. A guard that breaks on correct refactors teaches people to edit the guard, which is how it stops guarding. It has been loosened and its limits are documented in the file, but it remains a proxy.\n\n## The actual question to settle\n\nHow do we make \"the component is reachable in the running app\" a thing that can fail? Options worth weighing, no decision implied:\n- A render-capable test setup for the web suite, so a component can be mounted and asserted rather than grepped.\n- A browser-level acceptance pass over the real deployed app for each feature file, rather than a harness standing in for the UI.\n- A structural check that every component with a feature file is reachable from a route.\n\nWhatever we choose should also answer the cheaper question: **which other components are currently orphaned?** That is a survey someone can run today, and it should probably happen before we design anything.\n\n## Done when\n\nAn orphaned component fails something automatically, and we know whether `TurnGrantPanel` was the only one.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -39,8 +39,8 @@
     }
   ],
   "created_at": "2026-09-16T17:02:11.891944Z",
-  "updated_at": "2026-09-19T14:51:29.044699Z",
-  "closed_at": null,
+  "updated_at": "2026-09-19T15:11:32.319674Z",
+  "closed_at": "2026-09-19T15:11:32.319639Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-opus-5",
