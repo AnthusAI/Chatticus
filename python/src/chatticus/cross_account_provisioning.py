@@ -31,6 +31,7 @@ PROVISIONING_REQUIRED_PERMISSIONS: tuple[str, ...] = (
     "ecr:GetAuthorizationToken",
     "logs:CreateLogGroup",
     "iam:PassRole",
+    "ce:GetCostAndUsage",
 )
 
 
