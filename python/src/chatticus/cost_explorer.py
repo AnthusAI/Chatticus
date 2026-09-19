@@ -16,6 +16,8 @@ from chatticus.models import Organization
 
 logger = logging.getLogger("chatticus.cost_explorer")
 
+TENANT_TAG_KEY = "chatticus:tenant"
+
 
 class CostExplorerReader(Protocol):
     """Read tenant-attributed AWS spend for one calendar day."""
@@ -149,6 +151,7 @@ class CostExplorerDayResult:
 
     pending: bool
     costs_by_tenant: dict[str, Decimal]
+    tenant_tag_active: bool = True
 
 
 class FakeCostExplorerReader:
@@ -157,6 +160,11 @@ class FakeCostExplorerReader:
     def __init__(self) -> None:
         self._pending_days: set[tuple[str, date]] = set()
         self._costs: dict[tuple[str, str, date], Decimal] = {}
+        self._tenant_tag_active = True
+
+    def set_tenant_tag_active(self, active: bool) -> None:
+        """Set whether the tenant cost allocation tag is active in Cost Explorer."""
+        self._tenant_tag_active = active
 
     def set_day_pending(self, environment: str, rollup_date: date) -> None:
         """Mark one environment day as still populating in Cost Explorer."""
@@ -190,7 +198,11 @@ class FakeCostExplorerReader:
             for (env, tenant_id, day), amount in self._costs.items()
             if env == environment and day == rollup_date
         }
-        return CostExplorerDayResult(pending=False, costs_by_tenant=costs)
+        return CostExplorerDayResult(
+            pending=False,
+            costs_by_tenant=costs,
+            tenant_tag_active=self._tenant_tag_active,
+        )
 
 
 @dataclass
@@ -212,7 +224,7 @@ class Boto3CostExplorerReader:
             Granularity="DAILY",
             Metrics=["UnblendedCost"],
             GroupBy=[
-                {"Type": "TAG", "Key": "chatticus:tenant"},
+                {"Type": "TAG", "Key": TENANT_TAG_KEY},
             ],
             Filter={
                 "Tags": {
@@ -224,19 +236,40 @@ class Boto3CostExplorerReader:
         results = response.get("ResultsByTime") or []
         if not results:
             return CostExplorerDayResult(pending=True, costs_by_tenant={})
+        tag_active = self._tenant_tag_active()
         groups = results[0].get("Groups") or []
         if not groups:
-            return CostExplorerDayResult(pending=False, costs_by_tenant={})
+            return CostExplorerDayResult(
+                pending=False, costs_by_tenant={}, tenant_tag_active=tag_active
+            )
         costs: dict[str, Decimal] = {}
         for group in groups:
             keys = group.get("Keys") or []
             if not keys:
                 continue
             tenant_key = keys[0]
-            prefix = "chatticus:tenant$"
+            prefix = f"{TENANT_TAG_KEY}$"
             if not tenant_key.startswith(prefix):
                 continue
             tenant_id = tenant_key[len(prefix) :]
             amount_raw = group["Metrics"]["UnblendedCost"]["Amount"]
             costs[tenant_id] = Decimal(amount_raw)
-        return CostExplorerDayResult(pending=False, costs_by_tenant=costs)
+        return CostExplorerDayResult(
+            pending=False, costs_by_tenant=costs, tenant_tag_active=tag_active
+        )
+
+    def _tenant_tag_active(self) -> bool:
+        """Report whether Cost Explorer can group by the tenant tag at all.
+
+        A tag that is not an active cost allocation tag never appears in
+        results, so an absent tenant is unknowable rather than zero. A failed
+        lookup counts as not active: the meter must not look fine unverified.
+        """
+        try:
+            response = self.client.list_cost_allocation_tags(
+                Status="Active", TagKeys=[TENANT_TAG_KEY]
+            )
+        except (BotoCoreError, ClientError) as error:
+            logger.warning("tenant_tag_lookup_failed reason=%s", error)
+            return False
+        return bool(response.get("CostAllocationTags"))
