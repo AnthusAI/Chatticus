@@ -36,10 +36,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "bfd6de02-a071-40a3-8e2e-6ddaf4323c25",
+      "author": "home",
+      "text": "#370 merged; dev ThinTurn deploy succeeded (UPDATE_COMPLETE). Verified on development: Lambda chatticus-development-daily-budget-rollup exists with limit 50 and CHATTICUS_ENVIRONMENT=development; schedule ENABLED cron(0 6 * * ? *) UTC. Invoked once: 200, no error, wrote a real row (anthus, 2026-09-18, ce_status=ok). So the rollup now runs and the ceiling decision reads its rows. BUT the row says $0 while the account spent $22.35 that day; the meter cannot attribute or see spend. Filed chatticus-9ac621 (P0) for that. Still to observe on this card: the first scheduled 06:00 UTC run (2026-09-20). Leaving open until then; the deployment part of the original bug is fixed.",
+      "created_at": "2026-09-19T17:17:08.473179Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T15:17:40.699866Z",
-  "updated_at": "2026-09-19T16:56:52.190707Z",
+  "updated_at": "2026-09-19T17:17:08.473201Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
