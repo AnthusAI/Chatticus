@@ -77,4 +77,10 @@ if CLUSTER="$(read_stack_output ComputerClusterName)" && [ -n "${CLUSTER}" ]; th
   fi
 fi
 
-npx cdk deploy ChatticusThinTurnProduction --exclusively --require-approval never ${CDK_CONTEXT}
+# Budget rollup: sets BUDGETS_CDK_CONTEXT only when both budget env vars are set,
+# refuses partial config, and adds nothing when neither is set.
+# shellcheck source=budgets-deploy-context.sh
+. ./budgets-deploy-context.sh
+
+# shellcheck disable=SC2086
+npx cdk deploy ChatticusThinTurnProduction --exclusively --require-approval never ${CDK_CONTEXT} ${BUDGETS_CDK_CONTEXT}
