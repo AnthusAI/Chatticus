@@ -12,9 +12,22 @@
     "phase-5"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "a736c680-4a56-4fab-81b1-81ed347d49ca",
+      "author": "home",
+      "text": "PR #368 restores the banner as its own component (ComputerPausedNotice), mounted between the conversation header and the error bar. Copy deliberately differs from #338: it no longer says an owner can raise the ceiling (no product control exists, 91f8f4); it says the workspace is still usable and to ask an operator. First real render test in the web suite (react-dom/server; tsx needs a test-only global React because tsconfig uses jsx: preserve). Mutation-checked: removing the mount from EnabledWorkspace fails the wiring test. Closing after merge and a live check on dev.",
+      "created_at": "2026-09-19T14:53:41.676054Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-19T12:50:28.033118Z",
-  "updated_at": "2026-09-19T12:50:28.033335Z",
+  "updated_at": "2026-09-19T14:53:41.676080Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
