@@ -72,10 +72,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "6ed040e8-c374-45e2-9494-553626e26141",
+      "author": "home",
+      "text": "CORRECTION to my previous comment. The lab accounts' alias emails do not receive mail (Ryan confirmed), so the root-user password-reset route I described does not work and is unnecessary. Access already exists through IAM Identity Center (instance ssoins-72232c750a1bc1a6, identity store d-90667ff283, ACTIVE): users ryan and derek have AdministratorAccess, Billing and ReadOnlyAccess on all three accounts (335163751677, 114469424841 chatticus-b88c0a-throwaway, 699258776559 chatticus-c54569-throwaway). Ryan simply has not been logging in through the access portal; this session and his console use are signed in as the management account ROOT user, which AWS will not let assume roles ('Roles may not be assumed by root accounts'). Route: sign in to the Identity Center access portal as ryan (start URL is normally https://d-90667ff283.awsapps.com/start, confirm under IAM Identity Center > Settings), pick chatticus-b88c0a-throwaway > AdministratorAccess > Management console, then CloudFormation > ChatticusCrossAccountRole > Update > replace template with customer-role.yml, keep parameters, acknowledge IAM. Alternative that lets an agent do it: aws configure sso (profile for that account, AdministratorAccess) then aws sso login; that is also the documented non-root path in docs/AWS_AUTH.md and gets daily work off root. Note: account 699258776559 (c54569 throwaway) also exists; spend since 9/14 on the b88c0a account is about 0.009 USD.",
+      "created_at": "2026-09-20T13:25:27.123256Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T17:16:56.139043Z",
-  "updated_at": "2026-09-19T19:07:42.110836Z",
+  "updated_at": "2026-09-20T13:25:27.123282Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
