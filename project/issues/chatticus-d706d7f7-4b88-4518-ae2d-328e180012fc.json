@@ -12,9 +12,22 @@
     "phase-5"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "8fc0d437-01f5-4efb-8a56-1321b834974c",
+      "author": "home",
+      "text": "Dependency (2026-09-20): Ryan plans to make a new account the Organization's management account (see the new card 'Move Chatticus workloads out of the AWS management account'). Only the payer/management account can activate cost allocation tags, so if that move happens soon, do this activation in the new management account after it, rather than in 335163751677 now. If the move is not imminent, activate from 335163751677 as planned; tags survive the move, only the activation setting would need repeating.",
+      "created_at": "2026-09-20T13:26:58.417822Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-19T19:01:48.366951Z",
-  "updated_at": "2026-09-19T19:01:48.366997Z",
+  "updated_at": "2026-09-20T13:26:58.417845Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-bc4fd719-8fa8-4e7a-815d-f22c96ce81ae",
+  "title": "Move Chatticus workloads out of the AWS management account",
+  "description": "Ryan plans to create a new account to serve as the AWS Organization's management account, so that 335163751677 (which runs Chatticus dev/staging/prod and the Auritus stack) holds workloads only. Captured 2026-09-20; not scheduled.\n\n## Why it matters to Chatticus\n- 335163751677 is today both the management account and the workload account, and this session and the console run as its ROOT user. AWS refuses AssumeRole by root ('Roles may not be assumed by root accounts'), which blocked updating the lab role stack (9ac621). Identity Center users exist (ryan, derek) but are not what is used day to day.\n- Cost allocation tags (chatticus:*) can only be activated by the payer/management account. Card d706d7 (activate tags) should therefore be done in the NEW management account after the move, not before.\n- The rollup reads Cost Explorer inside the workload account; as a member account that depends on the management account allowing linked-account Cost Explorer access. Verify after the move.\n\n## Shape of the move (verify each against current AWS docs before starting)\n- An organization cannot change its management account. Create the new organization in the new account, remove or close the members of the old one, delete the old organization, then invite 335163751677 into the new one. The workload account id does not change, so the account id in customer-role.yml (AnthusAccountId), the GitHub deploy roles and the ChatticusBudgets budget stay valid.\n- The two throwaway accounts (114469424841, 699258776559) were created through Organizations with alias emails that cannot receive mail. Leaving an organization needs standalone payment details, so closing them is simpler than moving them. The dev org record 'ACME Corp' (e5157208...) points at 114469424841 and can be deleted or repointed.\n- IAM Identity Center is tied to the organization: recreate users and permission sets (ryan, derek; AdministratorAccess, Billing, ReadOnlyAccess) in the new one.\n- Unknown, to check first: whether Cost Explorer history follows the account across organizations; whether the Identity Center instance must be deleted before the old organization; billing/credits/support-plan carryover.\n\n## After the move\n- Create a proper lab account in the new organization with a working plus-address email and re-run the customer-account spend check from 9ac621 (expect the real figure for that account).\n- Activate the chatticus:* cost allocation tags from the new management account (d706d7).\n- Confirm the rollup still reads spend, and update docs/AWS_AUTH.md and AGENTS.local.md (account ids, portal URL).",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-20T13:26:58.330712Z",
+  "updated_at": "2026-09-20T13:26:58.330761Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
