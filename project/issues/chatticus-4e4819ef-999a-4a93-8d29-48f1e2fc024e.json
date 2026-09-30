@@ -24,10 +24,22 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "9c2ccf4b-3437-4298-9b85-26a0b4d6aef3",
+      "author": "home",
+      "text": "Started 2026-09-30 (Ryan: start the zone move; reminded that this project is IaC only). Approach: the zone and its records are a reviewed CDK stack, never hand-made. (1) DONE: cdk bootstrap in the management account (CDKToolkit CREATE_COMPLETE v32), the one AWS write so far. (2) IN PROGRESS: new stack ChatticusManagementDns (PublicHostedZone chattic.us, RemovalPolicy RETAIN, termination protection) holding the 18 records exported read-only from the legacy zone: 8 names x A/AAAA aliases to CloudFront (hosted zone Z2FDTNDATAQYW2, no health evaluation) and the two ACM validation CNAMEs. Record data is generated from the live export and asserted uniform. Tests assert every record and that apex NS/SOA are NOT declared (Route 53 owns them). Instantiated only with -c managementDns=true so it never appears in a legacy synth. The 8 web/auth/marketing alias records are TRANSITIONAL: each environment's names are replaced by NS delegations as that environment moves (per the delegation decision). (3) After merge: deploy once from Ryan's non-root SSO session with a guard, then verify every name with dig against the four new name servers BEFORE anything points at them. The registrar NS change stays Ryan's.",
+      "created_at": "2026-09-30T21:04:42.383754Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-30T20:00:32.237024Z",
-  "updated_at": "2026-09-30T20:07:37.065567Z",
+  "updated_at": "2026-09-30T21:04:42.383797Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
