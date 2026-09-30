@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-43e3361e-f5cd-4c61-907e-3df2aee40018",
+  "title": "Raising the ceiling makes the workspace reload everything",
+  "description": "Found in the live check of 91f8f4 on dev (2026-09-30), after #374 merged. Submitting the raise form showed 'Loading conversations...' in the roster: the workspace refetched everything.\n\nCause: membership-context.activeOrg = pickActiveOrg(me) returns a NEW object on every /me fetch, and EnabledWorkspace.loadWorkspace is useCallback(..., [activeOrg]) driving a useEffect that calls setLoading(true) and refetches bots, channels, every channel's messages, tasks. My reloadMe (added in #374 specifically so the workspace would not be disturbed) therefore triggers a full reload. It does not unmount, but it is exactly the disturbance it was meant to avoid, and on this deployment it is about 45 message requests. No test covered it (no React renderer in the web suite).\n\nFix: keep the activeOrg reference stable while tenantId and userId are unchanged (a pure helper, unit-tested), so a reloaded /me with the same organization does not re-run the workspace load. Verify live: select a conversation, raise the ceiling, the conversation stays selected and no roster reload happens.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "web"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-30T21:12:36.968683Z",
+  "updated_at": "2026-09-30T21:12:36.968724Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
