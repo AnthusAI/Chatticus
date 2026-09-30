@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-8db911da-9759-4137-b388-b313bb16824c",
+  "title": "Decide which account owns chattic.us DNS and how environment subdomains are delegated",
+  "description": "A decision for Ryan, blocking the first real deploy into a new account. ChatticusWeb and ChatticusAuth take a hosted zone and an ACM certificate from ChatticusDns (bin/chatticus.ts), which today lives in the legacy account together with the chattic.us zone. A new account cannot deploy Web or Auth until it has its own zone or certificate.\n\nOptions: (1) keep the apex zone in one account (the management account is usual, or legacy until retired) and delegate dev./staging./auth-dev. style subdomains to a hosted zone in each environment account by NS records, each account issuing its own certificate; (2) move the whole zone to a new account; (3) one shared DNS account. Also decide the production hostnames (production currently serves hey.chattic.us), and note Google OAuth redirect URIs and the Cognito custom auth domains (auth-dev.chattic.us etc.) must be re-registered per environment.\n\nRecommend (1) with subdomain delegation: least disturbance to the live zone, each environment account self-contained. Needs Ryan's answer.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-30T19:57:46.473207Z",
+  "updated_at": "2026-09-30T19:57:46.473247Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

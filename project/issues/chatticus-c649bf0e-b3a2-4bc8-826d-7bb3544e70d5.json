@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-c649bf0e-b3a2-4bc8-826d-7bb3544e70d5",
+  "title": "Cut the development GitHub environment over to the new account",
+  "description": "Change the development GitHub environment's AWS_DEPLOY_ROLE_ARN secret to the new account's role so pushes to develop deploy there, after the development environment is verified. Reversible by setting the secret back. Then repoint dev.chattic.us, leave legacy development running until confident, then retire it. Needs explicit approval from Ryan at the moment of the switch.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-30T19:57:48.670078Z",
+  "updated_at": "2026-09-30T19:57:48.670110Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
