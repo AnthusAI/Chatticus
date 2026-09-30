@@ -11,15 +11,23 @@
   "labels": [
     "infra"
   ],
-  "dependencies": [
+  "dependencies": [],
+  "comments": [
     {
-      "target": "chatticus-4e4819ef-999a-4a93-8d29-48f1e2fc024e",
-      "type": "blocked-by"
+      "id": "3911d8b7-b95e-485b-a26d-674ee7b9f55c",
+      "author": "home",
+      "text": "Started 2026-09-30 (Ryan: start the development deploy). Unblocked: deploy role and OIDC verified (911dac), zone moved to the management account (4e4819 steps 1-4). PLAN from a read-only survey of the stacks:\n\nFINDINGS\n- The legacy design gives Web and Auth ONE shared hosted zone and ONE wildcard certificate (chattic.us, *.chattic.us, www) from ChatticusDns. That cannot exist across accounts: a wildcard's validation record lives at the top of chattic.us, in the management zone. Per the delegation decision each environment account needs its own small zones and certificates for ITS names: for development two zones (dev.chattic.us for Web, auth-dev.chattic.us for Auth), each certificate validated inside its own delegated zone, plus NS delegation records in the management zone. Cognito's custom domain also needs an A record on the parent domain chattic.us, which the management zone has (marketing apex).\n- CloudFront alternate domain names and Cognito custom domains are unique WORLDWIDE. A second distribution cannot claim dev.chattic.us while legacy development still holds it, so the new environment cannot use the real hostnames until legacy releases them.\n- What a person must seed in a new account: the Google OAuth secret chatticus/development/oauth/google (read at DEPLOY time by the auth stack, so it must exist before it deploys) and its redirect URIs; the OpenAI key as an SSM SecureString /chatticus/development/thin-turn/openai-api-key (read at RUNTIME only, deploy does not need it; a dedicated OpenAI project per deployment per BUDGETS.md). ThinTurn itself needs no seeds to deploy.\n- Every environment account needs its own copies of the shared stacks (Budgets, Snapshots, Computers); each environment account becomes the account that customers trust (AnthusAccountId is the account running that environment's workers, which is natural).\n\nCODE WORK (IaC only, Gherkin/tests first)\n1. An account mode for the CDK app, -c chatticusAccountEnvironment=development, that builds only that environment's stacks plus its own shared stacks, and leaves the legacy three-environment default untouched.\n2. An environment DNS stack: the two delegated zones and their certificates; Web and Auth get their own zone and certificate (today they share one).\n3. Hostnames come from configuration (context) instead of being fixed per environment, one code path.\n\nPROVING THEN CUTOVER (recommended): deploy first under temporary hostnames (dev2.chattic.us and auth-dev2.chattic.us) delegated to the dev account, verify a real sign-in and message there, and only then cut over to the real names after legacy releases them. Dev downtime at that moment is acceptable.\n\nNEEDS RYAN: (1) agree the dev2 proving hostnames; (2) a monthly budget amount for the new dev account (the  whole-account number does not apply); (3) a dedicated OpenAI project key and the Google OAuth secret and redirect URIs, seeded by Ryan in the dev account with his own SSO session so the values never pass through an agent; exact commands will be provided.",
+      "created_at": "2026-09-30T23:08:11.702625Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
-  "comments": [],
   "created_at": "2026-09-30T19:57:47.744703Z",
-  "updated_at": "2026-09-30T21:01:34.340551Z",
+  "updated_at": "2026-09-30T23:08:11.702658Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
