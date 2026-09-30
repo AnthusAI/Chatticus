@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -21,6 +22,7 @@ import { fetchMe, type MeResponse } from "./me";
 import {
   deriveMembershipBranch,
   pickActiveOrg,
+  reuseActiveOrg,
   type ActiveOrg,
   type MembershipBranch,
 } from "./membership-state";
@@ -110,7 +112,9 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
   }, [refreshSession]);
 
   const branch = deriveMembershipBranch(session, me);
-  const activeOrg = me ? pickActiveOrg(me) : null;
+  const activeOrgRef = useRef<ActiveOrg | null>(null);
+  const activeOrg = reuseActiveOrg(activeOrgRef.current, me ? pickActiveOrg(me) : null);
+  activeOrgRef.current = activeOrg;
 
   const value = useMemo<MembershipState>(
     () => ({
