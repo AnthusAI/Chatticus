@@ -35,6 +35,8 @@ export function synthAuthStack(
   const stack = new AuthStack(app, AUTH_STACK_IDS[environmentName], {
     env: testEnv,
     chatticusEnvironment: environmentName,
+    siteDomain: WEB_SITE_DOMAINS[environmentName],
+    authDomainName: AUTH_DOMAIN_NAMES[environmentName],
     hostedZone,
     siteCertificate,
     budgetsAlertsTopicArn,

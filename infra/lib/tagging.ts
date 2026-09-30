@@ -29,6 +29,8 @@ const SHARED_STACKS: Record<string, string> = {
   ChatticusGitHubDeploy: "deploy",
   ChatticusAccountDeploy: "deploy",
   ChatticusManagementDns: "dns",
+  ChatticusEnvironmentZones: "dns",
+  ChatticusEnvironmentCertificates: "dns",
   ChatticusIntegrationTest: "integration-test",
 };
 
@@ -38,10 +40,16 @@ const ENVIRONMENT_STACKS: Array<[Record<ChatticusCloudEnvironment, string>, stri
   [AUTH_STACK_IDS, "auth"],
 ];
 
-/** Component and environment for one stack id; throws for a stack nobody classified. */
-export function stackTagsFor(stackId: string): StackTags {
+/**
+ * Component and environment for one stack id; throws for a stack nobody
+ * classified. In a dedicated environment account every stack, including the
+ * ones that are shared in the legacy account, belongs to that environment.
+ */
+export function stackTagsFor(stackId: string, dedicatedEnvironment?: ChatticusCloudEnvironment): StackTags {
   const shared = SHARED_STACKS[stackId];
-  if (shared !== undefined) return { component: shared, environment: SHARED_ENVIRONMENT };
+  if (shared !== undefined) {
+    return { component: shared, environment: dedicatedEnvironment ?? SHARED_ENVIRONMENT };
+  }
   for (const [ids, component] of ENVIRONMENT_STACKS) {
     for (const environment of CHATTICUS_CLOUD_ENVIRONMENTS) {
       if (ids[environment] === stackId) return { component, environment };
@@ -70,8 +78,12 @@ export function readInstallationName(
 }
 
 /** Tag one stack (and everything taggable in it) with the standard Chatticus cost tags. */
-export function applyStandardTags(stack: cdk.Stack, installation: string | undefined): void {
-  const { component, environment } = stackTagsFor(stack.node.id);
+export function applyStandardTags(
+  stack: cdk.Stack,
+  installation: string | undefined,
+  dedicatedEnvironment?: ChatticusCloudEnvironment,
+): void {
+  const { component, environment } = stackTagsFor(stack.node.id, dedicatedEnvironment);
   const tags = cdk.Tags.of(stack);
   tags.add(TAG_APPLICATION, APPLICATION_NAME);
   tags.add(TAG_COMPONENT, component);

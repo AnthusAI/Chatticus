@@ -36,6 +36,25 @@ export const WEB_SITE_DOMAINS: Record<ChatticusCloudEnvironment, string> = {
   production: "hey.chattic.us",
 };
 
+export interface EnvironmentHostnames {
+  siteDomain: string;
+  authDomain: string;
+}
+
+/**
+ * Hostnames of an environment that runs in its own dedicated account. CloudFront
+ * alternate domain names and Cognito custom domains are unique worldwide, so an
+ * environment moving out of the legacy account cannot reuse a name the legacy
+ * environment still holds: development takes new names and legacy's dev names
+ * are retired with it. Staging and production keep their names and can only be
+ * deployed once legacy has released them.
+ */
+export const DEDICATED_ACCOUNT_HOSTNAMES: Record<ChatticusCloudEnvironment, EnvironmentHostnames> = {
+  development: { siteDomain: "develop.chattic.us", authDomain: "auth-develop.chattic.us" },
+  staging: { siteDomain: "staging.chattic.us", authDomain: "auth-staging.chattic.us" },
+  production: { siteDomain: "hey.chattic.us", authDomain: "auth.chattic.us" },
+};
+
 /** CloudFront ``enabled`` on ChatticusWeb* stacks (disable staging/prod without destroy). */
 export const WEB_CLOUDFRONT_ENABLED: Record<ChatticusCloudEnvironment, boolean> = {
   development: true,
