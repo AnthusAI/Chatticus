@@ -3,7 +3,10 @@ import { describe, it } from "node:test";
 
 import type { VerifiedSession } from "./auth";
 import type { MeResponse } from "./me";
-import { deriveMembershipBranch, pickActiveOrg } from "./membership-state";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { deriveMembershipBranch, pickActiveOrg, reuseActiveOrg } from "./membership-state";
 
 const session: VerifiedSession = {
   idToken: "token",
@@ -80,5 +83,36 @@ describe("pickActiveOrg", () => {
       ),
       { tenantId: "anthus", userId: "user-1" },
     );
+  });
+});
+
+describe("reuseActiveOrg", () => {
+  const first = { tenantId: "acme", userId: "user-1" };
+
+  it("keeps the same object when a reloaded /me names the same organization and user", () => {
+    const reloaded = { tenantId: "acme", userId: "user-1" };
+    assert.notEqual(reloaded, first);
+    assert.equal(reuseActiveOrg(first, reloaded), first);
+  });
+
+  it("returns the new organization when the tenant or the user changes", () => {
+    const otherTenant = { tenantId: "beta", userId: "user-1" };
+    const otherUser = { tenantId: "acme", userId: "user-2" };
+    assert.equal(reuseActiveOrg(first, otherTenant), otherTenant);
+    assert.equal(reuseActiveOrg(first, otherUser), otherUser);
+  });
+
+  it("passes through a first organization and a lost one", () => {
+    assert.equal(reuseActiveOrg(null, first), first);
+    assert.equal(reuseActiveOrg(first, null), null);
+    assert.equal(reuseActiveOrg(null, null), null);
+  });
+});
+
+describe("membership context wiring", () => {
+  it("derives activeOrg through reuseActiveOrg so a reloaded /me does not reload the workspace", () => {
+    const source = readFileSync(join(__dirname, "membership-context.tsx"), "utf8");
+    assert.match(source, /reuseActiveOrg\(/);
+    assert.doesNotMatch(source, /const activeOrg = me \? pickActiveOrg\(me\) : null;/);
   });
 });
