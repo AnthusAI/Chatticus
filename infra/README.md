@@ -430,11 +430,21 @@ verify workflow takes no role ARN input and prints no account identifiers.
 ## The chattic.us zone (management account)
 
 The zone lives in the management account (decision on chatticus-4e4819). Its
-records are the stack's data, reproduced from the legacy zone and locked by a
-golden snapshot in `test/fixtures/`. They are transitional: as each
-environment moves, its names are replaced by NS delegations to a small zone in
-that environment's account, and the snapshot is deleted once the legacy zone is
-retired. Route 53 creates the apex NS and SOA itself, so they are not
-declared. Nothing points at this zone until every name is verified against its
-four name servers (dig) and the name servers are changed at the registrar, a
-step made by hand outside AWS.
+records are not in the repository: they are read at deploy time from a local
+Route 53 export kept outside it, because account-specific CloudFront hosts
+never enter a committed file (see `test_committed_tree_does_not_embed_account_origins`).
+
+1. Export the legacy zone with the legacy SSO profile (take the hosted zone id
+   from `AGENTS.local.md`):
+   `aws route53 list-resource-record-sets --profile legacy --hosted-zone-id ZONE_ID --output json > ~/chatticus-local/chattic-us-zone.json`
+2. `sh deploy-chatticus-management-dns.sh ~/chatticus-local/chattic-us-zone.json`
+   with the management account's credentials.
+3. Verify every name with `dig` against the four name servers in the stack
+   output before anything points at them. The registrar change is made by hand,
+   outside AWS, only after that.
+
+The stack reproduces every record faithfully or refuses: an unsupported type,
+or an alias that does not target CloudFront, fails the deploy instead of being
+dropped. The apex NS and SOA are skipped because Route 53 creates them. The
+records are transitional: as each environment moves, its names are replaced by
+NS delegations to a small zone in that environment's account.
