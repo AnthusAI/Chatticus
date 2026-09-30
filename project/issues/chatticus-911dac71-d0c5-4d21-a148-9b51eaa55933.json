@@ -12,9 +12,22 @@
     "infra"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f36b23dd-9902-4525-811e-24e094ab90fc",
+      "author": "home",
+      "text": "Started 2026-09-30 (Ryan: start the bootstrap card). Approach: (1) cdk bootstrap each account with its non-root SSO profile, development first, verify, then staging and production; (2) code: a new ChatticusAccountDeploy stack reusing the existing createGithubDeployRole (exported) plus an OIDC provider created in the account, one role per account for its own environment, with a test of the trust; (3) a verify workflow (workflow_dispatch, role ARN as an input, NOT the AWS_DEPLOY_ROLE_ARN secret) that assumes the new role through real OIDC and prints the account, so no existing GitHub environment secret is changed and legacy keeps deploying to legacy. The stack is merged to develop before it is deployed, so deployed infra matches develop.",
+      "created_at": "2026-09-30T20:07:38.454881Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-30T19:57:45.309326Z",
-  "updated_at": "2026-09-30T19:57:45.309384Z",
+  "updated_at": "2026-09-30T20:07:38.454914Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",

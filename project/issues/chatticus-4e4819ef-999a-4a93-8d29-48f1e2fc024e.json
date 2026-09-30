@@ -12,9 +12,22 @@
     "infra"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "f5818cac-f6e6-4f27-87bf-6c8eb702ed63",
+      "author": "home",
+      "text": "DECIDED by Ryan (2026-09-30): the main chattic.us zone lives in the management account AND each environment's names are DELEGATED to small zones in that environment's own account (option (a) on this card): development gets dev. and auth-dev. zones in chatticus-development, staging gets staging. and auth-staging., production gets hey. and auth.. The management zone holds the apex, www (marketing), and NS delegation records for those six names; the environment accounts issue their own CloudFront certificates validated inside their own delegated zones, so no cross-account record writing is needed at deploy time. Consequence for the first environment deploy (fd3724): the ChatticusDns stack must become per-account (it currently creates the apex zone and a certificate for the apex), and the delegation NS records are a one-time step in the management zone per name, done once the environment account's zone exists and before its distribution is pointed at. Sequencing stays: zone move first (this card), then delegations as each environment is brought up.",
+      "created_at": "2026-09-30T20:07:37.065540Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-30T20:00:32.237024Z",
-  "updated_at": "2026-09-30T20:00:32.237060Z",
+  "updated_at": "2026-09-30T20:07:37.065567Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
