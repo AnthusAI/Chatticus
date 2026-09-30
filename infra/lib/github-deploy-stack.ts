@@ -45,14 +45,14 @@ const TRUSTED_PRODUCTION_WORKFLOW_REFS = [
   `${GITHUB_REPOSITORY}/.github/workflows/deploy-auth-production.yml@*`,
 ] as const;
 
-type GithubDeployEnvironment = "development" | "staging" | "production";
+export type GithubDeployEnvironment = "development" | "staging" | "production";
 
-function createGithubDeployRole(
+export function createGithubDeployRole(
   scope: Construct,
   id: string,
   roleName: string,
   description: string,
-  githubProvider: iam.IOpenIdConnectProvider,
+  githubProviderArn: string,
   githubEnvironment: GithubDeployEnvironment,
 ): iam.Role {
   const role = new iam.Role(scope, id, {
@@ -83,7 +83,7 @@ function createGithubDeployRole(
     // GitHub environment name; this still gives per-environment isolation
     // (development/staging/production can't assume each other's role),
     // just not per-workflow-file isolation within an environment.
-    assumedBy: new iam.WebIdentityPrincipal(githubProvider.openIdConnectProviderArn, {
+    assumedBy: new iam.WebIdentityPrincipal(githubProviderArn, {
       StringEquals: {
         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
       },
@@ -126,7 +126,7 @@ export class GitHubDeployStack extends cdk.Stack {
       "GithubActionsDeploy",
       "chatticus-github-actions-deploy",
       "GitHub Actions OIDC deploy: development ThinTurn, Web, and Auth workflows.",
-      githubProvider,
+      githubProvider.openIdConnectProviderArn,
       "development",
     );
 
@@ -135,7 +135,7 @@ export class GitHubDeployStack extends cdk.Stack {
       "GithubActionsDeployStaging",
       "chatticus-github-actions-deploy-staging",
       "GitHub Actions OIDC deploy: staging ThinTurn, Web, and Auth workflows.",
-      githubProvider,
+      githubProvider.openIdConnectProviderArn,
       "staging",
     );
 
@@ -144,7 +144,7 @@ export class GitHubDeployStack extends cdk.Stack {
       "GithubActionsDeployProduction",
       "chatticus-github-actions-deploy-production",
       "GitHub Actions OIDC deploy: production ThinTurn, Web, and Auth workflows.",
-      githubProvider,
+      githubProvider.openIdConnectProviderArn,
       "production",
     );
 

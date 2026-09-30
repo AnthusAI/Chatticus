@@ -13,6 +13,7 @@ operations.
 | `ChatticusComputers` | VPC, ECR, ECS cluster, Fargate ARM64 task definition, service (count 0 by default) |
 | `ChatticusDns` | Route 53 hosted zone for `chattic.us`, ACM certificate (`chattic.us`, `*.chattic.us`, `www.chattic.us`) |
 | `ChatticusGitHubDeploy` | GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production) |
+| `ChatticusAccountDeploy` | In a dedicated environment account only: the GitHub OIDC provider and that account's single deploy role. Not deployed in the legacy account |
 | `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE function URL |
 | `ChatticusThinTurnStaging` | Staging thin turn (same shape; deployed from `main`) |
 | `ChatticusThinTurnProduction` | Production thin turn (gated deploy of a staging-proven release; never implied by a git branch) |
@@ -402,3 +403,25 @@ npx cdk synth ChatticusWebStaging
 
 `ChatticusSnapshots` and `ChatticusComputers` are shared account stacks;
 synth them only when those definitions change. Never `cdk deploy --all`.
+
+## Dedicated environment accounts (chatticus-development, -staging, -production)
+
+The move out of the legacy account (epic chatticus-2e4d79) gives each
+environment its own AWS account. Legacy keeps `ChatticusGitHubDeploy` (three
+roles, one account) until it is retired. A dedicated account needs three
+one-time steps, each run with that account's own non-root SSO credentials and
+never the legacy account's:
+
+1. `npx cdk bootstrap aws://ACCOUNT_ID/us-east-1 --profile PROFILE`
+2. `sh deploy-chatticus-account-deploy.sh development|staging|production` deploys
+   `ChatticusAccountDeploy`: the GitHub OIDC provider (a new account has none)
+   and the one deploy role trusting only that environment's GitHub OIDC claim.
+3. Set a GitHub **environment secret** named `AWS_NEW_ACCOUNT_DEPLOY_ROLE_ARN` on
+   the matching GitHub environment from the stack output, then dispatch
+   `verify-account-deploy-role.yml` for that environment. It assumes the role
+   through real OIDC and confirms the account is bootstrapped.
+
+The live `AWS_DEPLOY_ROLE_ARN` secret is what decides which account a deploy
+workflow targets, so it is left alone until the cutover card: nothing here
+changes where any existing workflow deploys. This repository is public, so the
+verify workflow takes no role ARN input and prints no account identifiers.
