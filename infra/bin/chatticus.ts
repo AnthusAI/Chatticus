@@ -11,6 +11,7 @@ import {
 } from "../lib/environments";
 import { readBudgetsConfig } from "../lib/budgets-config";
 import { BudgetsStack } from "../lib/budgets-stack";
+import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
 import { IntegrationTestStack } from "../lib/integration-test-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
@@ -98,6 +99,25 @@ for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
     description:
       `Cognito user pool (${environmentName}) with Google federation and ` +
       "custom auth domain for SPA authorization code + PKCE.",
+  });
+}
+
+const githubDeployEnvironment = app.node.tryGetContext("githubDeployEnvironment");
+if (typeof githubDeployEnvironment === "string" && githubDeployEnvironment.length > 0) {
+  if (
+    !CHATTICUS_CLOUD_ENVIRONMENTS.includes(
+      githubDeployEnvironment as (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number],
+    )
+  ) {
+    throw new Error(
+      `Unknown githubDeployEnvironment '${githubDeployEnvironment}'. ` +
+        `Expected one of: ${CHATTICUS_CLOUD_ENVIRONMENTS.join(", ")}`,
+    );
+  }
+  new AccountGitHubDeployStack(app, "ChatticusAccountDeploy", {
+    env,
+    githubEnvironment: githubDeployEnvironment as (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number],
+    description: `GitHub Actions OIDC provider and ${githubDeployEnvironment} deploy role for this environment account.`,
   });
 }
 

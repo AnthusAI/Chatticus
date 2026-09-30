@@ -62,6 +62,19 @@ describe("GitHubDeployStack", () => {
     assert.equal(subClaim(condition), `${GITHUB_SUB_PREFIX}:environment:production`);
   });
 
+  it("federates every role through the account's existing GitHub OIDC provider", () => {
+    const expectedProvider = "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com";
+    for (const roleName of [
+      "chatticus-github-actions-deploy",
+      "chatticus-github-actions-deploy-staging",
+      "chatticus-github-actions-deploy-production",
+    ]) {
+      const policy = roleAssumeRolePolicy(template, roleName);
+      const statement = (policy.Statement as Array<{ Principal: { Federated: string } }>)[0];
+      assert.equal(statement.Principal.Federated, expectedProvider, roleName);
+    }
+  });
+
   it("does not cross-trust staging or production environment claims on development", () => {
     const condition = federatedPrincipalConditions(
       roleAssumeRolePolicy(template, "chatticus-github-actions-deploy"),
