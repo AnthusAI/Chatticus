@@ -80,7 +80,7 @@ Later customer-account `CreateStack` / `RunTask` (`chatticus-82dab7`) does not u
 | Computer turn queue depth | **0** |
 | Organization status after | **enabled** |
 | Banner in the workspace | **Absent** before `#368` (dropped by the workspace rewrite, `chatticus-a106ea`); **present** after, showing the reason and "You can still read your channels and message bots. Ask an operator if this looks wrong or you need computer work sooner." |
-| What the member can do next | **Nothing in the product.** Contact an operator. An owner can raise the ceiling through `PATCH /orgs/{tenant}/monthly-aws-spend-ceiling`, but there is no workspace control (`chatticus-91f8f4`). This is a person-step for the invitation-rate math, alongside `chatticus-c54569`. |
+| What the member can do next | **An owner can raise the ceiling from the workspace** (live on development 2026-09-30, `chatticus-91f8f4`): while computer work is paused the owner sees a "Raise the monthly AWS spend ceiling" form, the change goes through `PATCH /orgs/{tenant}/monthly-aws-spend-ceiling`, and the pause lifts when the cause was the ceiling. A member who is not an owner sees that an owner can raise it; there is no operator step. **Limit:** when the pause is "spend unavailable" rather than "ceiling exceeded", raising the ceiling does not resume work, yet the form is still offered (`chatticus-619ba0`). |
 
 **Not verified live:** the structured file-tool path and the host-start-after-resume path (Gherkin only); the owner raise through the PATCH route; a customer-account organization (only the Anthus home organization was exercised); the rollup feed (above).
 
