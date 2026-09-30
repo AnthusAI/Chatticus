@@ -3,7 +3,7 @@
   "title": "An owner raises the monthly AWS spend ceiling from the workspace",
   "description": "## Found while sequencing `chatticus-1d68fb`\n\n`PATCH /orgs/{tenant}/monthly-aws-spend-ceiling` exists (`http/app.py`) and Gherkin for `chatticus-43e64c` raises the ceiling via the **kernel**, not that route. There is no workspace control. Self-setup collects the ceiling once (`SelfSetupCrossAccountRolePanel`).\n\nIf crossing the ceiling converts an unbounded bill into **contact an operator**, that is a person-step in the invitation-rate math and the brake is not self-serve.\n\n## Gherkin (draft)\n\n```\nFeature: Owner raises the monthly AWS spend ceiling\n  As an organization owner\n  I want to raise the monthly AWS spend ceiling from the workspace\n  So that paused computer work can resume without an operator\n\n  Scenario: An owner raises the ceiling through the product\n    Given an enabled organization whose computer work is paused at its spend ceiling\n    When the owner submits a higher ceiling from the workspace\n    Then PATCH /orgs/{tenant}/monthly-aws-spend-ceiling succeeds\n    And computer work is accepted again\n\n  Scenario: A non-owner is refused\n    Given an enabled organization with a monthly spend ceiling\n    When a member who is not an owner submits a ceiling change from the workspace\n    Then the change is refused\n    And the ceiling is unchanged\n```\n\n## Done when\n\nAn owner on development raises the ceiling through the product (not the members CLI / kernel). Behavior in Gherkin first. Confirm on the `chatticus-1d68fb` live pass what a member can do next.",
   "type": "story",
-  "status": "open",
+  "status": "in_progress",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,28 @@
       "text": "Settles the #337 kernel-vs-PATCH note. Sequence after `1d68fb` records what a member can do next. Do not implement until authorized.",
       "created_at": "2026-09-08T22:25:59.303719Z",
       "comment_type": "default"
+    },
+    {
+      "id": "57e38f93-a695-461f-a1e6-18a5a47fec38",
+      "author": "home",
+      "text": "Started 2026-09-30 (Ryan approved). Findings before coding: (1) the PATCH route has no Gherkin coverage at all; the 43e64c scenarios use the kernel. (2) GET /me gives the web app neither the user's role nor the ceiling, so the UI cannot tell an owner from a member. Plan: /me adds role and, for owners only, monthly_aws_spend_ceiling_usd; HTTP-level Gherkin for owner raise, non-owner refusal, invalid amount; a raise control inside the paused notice for owners (members see guidance to ask an owner instead of 'ask an operator'); web Gherkin through the harness. Known limit I will record: when the pause is 'meter unavailable' rather than 'ceiling exceeded', raising the ceiling does not resume work.",
+      "created_at": "2026-09-30T19:29:54.116959Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-08T22:25:27.517356Z",
-  "updated_at": "2026-09-08T22:25:59.303734Z",
+  "updated_at": "2026-09-30T19:29:54.116995Z",
   "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
   "right_now_summary": null,
   "right_now_updated_at": null,
   "custom": {}
