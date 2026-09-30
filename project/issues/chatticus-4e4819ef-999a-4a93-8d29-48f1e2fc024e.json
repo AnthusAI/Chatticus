@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-4e4819ef-999a-4a93-8d29-48f1e2fc024e",
+  "title": "Move the chattic.us hosted zone to the management account",
+  "description": "Ryan decided (2026-09-30, closed 8db911): the chattic.us zone lives in the new management account. Route 53 cannot move a zone between accounts; the process is to create a new zone there, copy the records, verify, then change the name servers at the registrar (outside Route 53, Ryan only).\n\n## Steps\n1. Create the hosted zone in the management account (profile management). Note the four new name servers.\n2. Copy the 20 record sets verbatim (aliases to CloudFront, the two ACM validation CNAMEs; the NS and SOA at the apex are created by Route 53 itself and must NOT be copied). No MX or TXT exist.\n3. Verify with dig against each new name server that every name returns the same answer as the live zone.\n4. Ryan changes the NS records at the registrar to the new four. The apex NS TTL is 172800 (48h), so both zones must serve identical records until old resolvers age out; keep the legacy zone until then.\n5. Only after a quiet period remove the legacy zone. It is owned by the ChatticusDns stack, so that stack must not be deleted or destroyed while it still matters; do not delete the zone by hand.\n\n## Consequences and traps (from the read-only survey)\n- Legacy CloudFormation stacks own record sets in the OLD zone: ChatticusMarketing (4), each ChatticusWeb* and ChatticusAuth* (2 each). After the name-server switch the old zone is no longer authoritative, so a legacy deploy that replaces a CloudFront distribution and its alias record would silently not take effect and could cause an outage. Freeze any legacy change that replaces a distribution during the switch window, or do the switch when the environments have moved.\n- The marketing site is a separate private repo (Chattic.us-web, stack ChatticusMarketing, apex and www and its ACM validation records). This repo cannot change it. That repo needs its own plan for records in a zone in another account; raise it with Ryan before the switch. Its ACM certificates renew through the validation CNAMEs, so those two records MUST exist in the new zone.\n- Environment accounts each need a certificate for their own names (CloudFront requires us-east-1) and alias records. Options: (a) delegate each environment's names to a small zone in that account by NS records in the management zone (dev., auth-dev. for development, etc.; no cross-account writes at deploy time; recommended), or (b) keep every record in the management zone and have the environment accounts write them through a cross-account role. Needs Ryan's choice before the first environment deploy.\n- Google OAuth redirect URIs and the Cognito custom auth domains are tied to the auth hostnames and must be re-registered per environment when those move.\n\n## Done when\nThe management-account zone answers every name identically, the registrar points at it, dig from outside confirms it, the marketing site and dev/staging/hey/auth hostnames still resolve, and the legacy zone is left in place until the quiet period ends.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-30T20:00:32.237024Z",
+  "updated_at": "2026-09-30T20:00:32.237060Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
