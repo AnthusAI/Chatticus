@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-309a7e16-3b77-4280-be33-0b9ec41d38fd",
+  "title": "The rollup's tag-activation check cannot work from a member account",
+  "description": "Found 2026-09-30 after the AWS reorg (peer session 'Rearrange AWS accounts'). The old workload account is now a MEMBER of a new Organization, and only the management account may manage cost allocation tags.\n\n## Evidence\n- Invoked chatticus-development-daily-budget-rollup from the legacy (member) account. It logged: tenant_tag_lookup_failed reason=AccessDeniedException ... ListCostAllocationTags: 'Linked account doesn't have access to cost allocation tags.' The same call from the management profile succeeds (empty list; Cost Explorer was just enabled there and needs about 24h).\n- cost_explorer.py (#372) asks ce:ListCostAllocationTags whether chatticus:tenant is active, and treats any failed lookup as NOT active (fail closed, ce_status=error). That was right while the workload account was the management account; it cannot succeed from a member account.\n\n## Effect\nSafe (fails closed) but permanent: after the tags are activated in the management account (d706d7), hosted organizations would still read error, so the meter never becomes real for them.\n\n## Constraint found while looking for a replacement\nce:GetTags works from the linked account. For an inactive tag it returns only [\"\"] (the empty value). It would return real values once a tag is active and tagged resources have billed. But chatticus:tenant only gets real values after a tenant-tagged computer task has run, so a hosted organization with a ceiling that has never run a computer would read as not active and be refused its first computer (chicken and egg). No hosted organization has a ceiling today (customer-account organizations are read another way), so this is latent, not live.\n\n## Options (needs a decision; do not build until the tags are active and the positive case can be observed)\n1. Replace the check with ce:GetTags on chatticus:tenant (values present means active). Keep fail closed. Accept the first-computer chicken and egg, or\n2. Drop per-tenant liveness from the check and use an installation-wide tag (chatticus:installation or environment) as the 'tags are active' signal, since the operator activates them together; an absent tenant then reads as a real zero, or\n3. Make the activation an explicit deploy-time setting the operator flips when done.\nRecommend 2.\n\n## Done when\nAfter activation in the management account, a hosted organization's rollup row reads ok with a real figure from the member account, and the decision on the chicken and egg is recorded.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-ca57c786-3d1d-4c31-b9dc-bd122fcc0fc0",
+  "labels": [
+    "phase-5"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-30T19:13:38.309500Z",
+  "updated_at": "2026-09-30T19:13:38.309664Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
