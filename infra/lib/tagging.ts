@@ -28,6 +28,7 @@ const SHARED_STACKS: Record<string, string> = {
   ChatticusDns: "dns",
   ChatticusGitHubDeploy: "deploy",
   ChatticusAccountDeploy: "deploy",
+  ChatticusManagementDns: "dns",
   ChatticusIntegrationTest: "integration-test",
 };
 

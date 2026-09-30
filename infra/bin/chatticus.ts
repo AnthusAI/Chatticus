@@ -13,6 +13,7 @@ import { readBudgetsConfig } from "../lib/budgets-config";
 import { BudgetsStack } from "../lib/budgets-stack";
 import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
+import { ManagementDnsStack, loadZoneRecords } from "../lib/management-dns-stack";
 import { IntegrationTestStack } from "../lib/integration-test-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
@@ -99,6 +100,20 @@ for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
     description:
       `Cognito user pool (${environmentName}) with Google federation and ` +
       "custom auth domain for SPA authorization code + PKCE.",
+  });
+}
+
+if (app.node.tryGetContext("managementDns") === "true") {
+  const zoneRecordsFile = app.node.tryGetContext("zoneRecordsFile");
+  if (typeof zoneRecordsFile !== "string" || zoneRecordsFile.length === 0) {
+    throw new Error(
+      "managementDns needs -c zoneRecordsFile=PATH, a local Route 53 record export kept outside the repository.",
+    );
+  }
+  new ManagementDnsStack(app, "ChatticusManagementDns", {
+    env,
+    records: loadZoneRecords(zoneRecordsFile),
+    description: "Route 53 hosted zone for chattic.us, owned by the management account.",
   });
 }
 
