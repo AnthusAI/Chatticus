@@ -19,6 +19,12 @@ import {
 import { inviteConfirmationText } from "../lib/invitations";
 import { orgApiPath } from "../lib/paths";
 import {
+  parseSpendCeilingInput,
+  spendCeilingConfirmationText,
+  spendCeilingErrorText,
+  spendCeilingViewText,
+} from "../lib/spend-ceiling";
+import {
   grantTableToPayload,
   isTurnGrantPanelVisible,
   TURN_GRANT_FORM_TITLE,
@@ -54,6 +60,9 @@ type HarnessState = {
   workspaceBotId: string | null;
   workspaceChannelId: string | null;
   turnGrantHttpStatus: number | null;
+  spendCeilingConfirmation: string | null;
+  spendCeilingError: string | null;
+  spendCeilingBlocked: boolean;
 };
 
 function emptyState(): HarnessState {
@@ -82,6 +91,9 @@ function emptyState(): HarnessState {
     workspaceBotId: null,
     workspaceChannelId: null,
     turnGrantHttpStatus: null,
+    spendCeilingConfirmation: null,
+    spendCeilingError: null,
+    spendCeilingBlocked: false,
   };
 }
 
@@ -140,7 +152,13 @@ function renderFromMe(state: HarnessState): HarnessState {
           .filter(Boolean)
           .join("\n")
       : view === "enabled-workspace"
-        ? [CREATE_BOT_FORM_TITLE, state.turnGrantFormVisible ? TURN_GRANT_FORM_TITLE : null]
+        ? [
+            CREATE_BOT_FORM_TITLE,
+            state.turnGrantFormVisible ? TURN_GRANT_FORM_TITLE : null,
+            spendCeilingViewText(enabledOrganization(state)),
+            state.spendCeilingConfirmation,
+            state.spendCeilingError,
+          ]
             .filter(Boolean)
             .join("\n")
         : state.selfSetupError;
@@ -230,7 +248,12 @@ async function submitOrganization(payload: {
   return saveState(renderFromMe(state));
 }
 
-function setMeEnabled(payload: { tenant_id: string; name: string }): HarnessState {
+function setMeEnabled(payload: {
+  tenant_id: string;
+  name: string;
+  role?: string;
+  paused?: string;
+}): HarnessState {
   const state = loadState();
   if (!state.email) {
     throw new Error("seed a session before setting enabled membership");
@@ -244,6 +267,8 @@ function setMeEnabled(payload: { tenant_id: string; name: string }): HarnessStat
         tenant_id: payload.tenant_id,
         name: payload.name,
         status: "enabled",
+        role: payload.role === "member" ? "member" : "owner",
+        computer_work_paused: payload.paused === "true",
       },
     ],
   };
@@ -686,6 +711,42 @@ async function submitTurnGrant(payload: Record<string, string>): Promise<Harness
   return saveState(renderFromMe(state));
 }
 
+async function submitSpendCeiling(payload: Record<string, string>): Promise<HarnessState> {
+  const state = loadState();
+  const { apiBase, idToken, tenantId } = await resolveApiContext(state, payload);
+  state.spendCeilingConfirmation = null;
+  state.spendCeilingError = null;
+  state.spendCeilingBlocked = false;
+  const parsed = parseSpendCeilingInput(payload.amount ?? "");
+  if (!parsed.ok) {
+    state.spendCeilingBlocked = true;
+    state.spendCeilingError = parsed.message;
+    return saveState(renderFromMe(state));
+  }
+  const response = await fetch(`${apiBase}${orgApiPath(tenantId, "/monthly-aws-spend-ceiling")}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ monthly_aws_spend_ceiling_usd: parsed.amount }),
+  });
+  if (!response.ok) {
+    state.spendCeilingError = spendCeilingErrorText(new Error(`HTTP ${response.status}: ${await response.text()}`));
+    return saveState(renderFromMe(state));
+  }
+  const saved = (await response.json()) as { monthly_aws_spend_ceiling_usd: string };
+  state.spendCeilingConfirmation = spendCeilingConfirmationText(saved.monthly_aws_spend_ceiling_usd);
+  state.apiBase = apiBase;
+  state.idToken = idToken;
+  const meResponse = await fetch(`${apiBase}/me`, { headers: { Authorization: `Bearer ${idToken}` } });
+  if (!meResponse.ok) {
+    throw new Error(`GET /me failed: ${meResponse.status} ${await meResponse.text()}`);
+  }
+  state.me = (await meResponse.json()) as MeResponse;
+  return saveState(renderFromMe(state));
+}
+
 async function submitTurnGrantBeyondStanding(payload: Record<string, string>): Promise<HarnessState> {
   return submitTurnGrant({
     ...payload,
@@ -796,6 +857,9 @@ async function main(): Promise<void> {
       break;
     case "submit-turn-grant":
       result = await submitTurnGrant(payload);
+      break;
+    case "submit-spend-ceiling":
+      result = await submitSpendCeiling(payload);
       break;
     case "submit-turn-grant-beyond-standing":
       result = await submitTurnGrantBeyondStanding(payload);

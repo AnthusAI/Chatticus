@@ -13,7 +13,7 @@ function organization(
   name: string,
   status: MeOrganization["status"] = "pending",
 ): MeOrganization {
-  return { tenant_id, name, status };
+  return { tenant_id, name, status, role: "owner" };
 }
 
 describe("sortOrganizationMembershipRows", () => {

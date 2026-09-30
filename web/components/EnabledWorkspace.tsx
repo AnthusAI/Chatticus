@@ -62,6 +62,7 @@ type EnabledWorkspaceProps = {
   organizations: MeOrganization[];
   sessionEmail: string | null;
   onSignOut: () => Promise<void>;
+  onReloadMembership: () => Promise<void>;
 };
 
 
@@ -107,6 +108,7 @@ export function EnabledWorkspace({
   organizations,
   sessionEmail,
   onSignOut,
+  onReloadMembership,
 }: EnabledWorkspaceProps) {
   const [bots, setBots] = useState<Bot[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -586,7 +588,7 @@ export function EnabledWorkspace({
           </div>
           <Button variant="ghost" size="icon" aria-label="Open conversation inspector" onClick={() => { setInspectorOpen(true); setInspectorCollapsed(false); }}><PanelRight size={19} aria-hidden="true" /></Button>
         </header>
-        <ComputerPausedNotice organization={activeOrganization} />
+        <ComputerPausedNotice organization={activeOrganization} activeOrg={activeOrg} onCeilingRaised={onReloadMembership} />
         {error ? (
           <div role="alert" className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-clay/15 px-3 py-2 text-xs">
             <CircleAlert size={16} aria-hidden="true" className="shrink-0" />

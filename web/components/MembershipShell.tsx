@@ -21,7 +21,7 @@ function ShellHeader() {
 }
 
 export function MembershipShell() {
-  const { authLoading, meLoading, branch, activeOrg, error, me, session, signOut } = useMembership();
+  const { authLoading, meLoading, branch, activeOrg, error, me, session, signOut, reloadMe } = useMembership();
   const signupMode = readSignupModeFromEnv();
 
   if (authLoading || (branch !== "signed-out" && meLoading)) {
@@ -49,6 +49,7 @@ export function MembershipShell() {
         organizations={me?.organizations ?? []}
         sessionEmail={session?.email ?? null}
         onSignOut={signOut}
+        onReloadMembership={reloadMe}
       />
     );
   }
