@@ -48,10 +48,22 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "39d03164-682c-4078-8b2e-e16cb41e6854",
+      "author": "home",
+      "text": "STEP 4 DONE 2026-09-30. Ryan changed the four name servers at the registrar. The .us registry showed the change about 11 minutes later (the earlier check still showed the old set, which is normal registrar latency). Verified from outside afterwards: registry delegation = the four new name servers; all eight names (apex, www, dev, staging, hey, auth-dev, auth-staging, auth) resolve A and AAAA through 8.8.8.8 and return HTTP 200; SOA primary shows the NEW zone at 8.8.8.8 and 1.1.1.1 while 9.9.9.9 still serves its cached OLD delegation (expected; both zones hold identical records, verified, so there is no outage window). REMAINING (step 5): after the old delegation has aged out (up to about 48 hours, so on or after 2026-10-02) confirm all three public resolvers answer from the new zone, then leave the legacy zone in place: it is owned by the ChatticusDns stack in the legacy account and is removed with that stack when the legacy environments are retired, never by hand. Until then do not deploy a legacy change that REPLACES a CloudFront distribution (192cad tracks the marketing stack's records). Rollback if ever needed: restore the four legacy name servers at the registrar.",
+      "created_at": "2026-09-30T22:09:00.517588Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-30T20:00:32.237024Z",
-  "updated_at": "2026-09-30T21:52:18.431383Z",
+  "updated_at": "2026-09-30T22:09:00.517626Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
