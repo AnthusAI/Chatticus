@@ -27,7 +27,6 @@ import {
   thinTurnParameterPrefix,
   WEB_CLOUDFRONT_ENABLED,
   webParameterPrefix,
-  WEB_SITE_DOMAINS,
 } from "./environments";
 import {
   CHATTICUS_LOG_RETENTION,
@@ -37,6 +36,7 @@ import { webDockerBundleCommand, webDockerBundlingEnvironment, webLocalBundleCom
 
 export interface WebStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
+  siteDomain: string;
   hostedZone: route53.IHostedZone;
   siteCertificate: acm.ICertificate;
   frontDoorFunctionUrl: lambda.IFunctionUrl;
@@ -60,7 +60,7 @@ export class WebStack extends cdk.Stack {
     super(scope, id, props);
 
     const environmentName = props.chatticusEnvironment;
-    const siteDomain = WEB_SITE_DOMAINS[environmentName];
+    const siteDomain = props.siteDomain;
     const webPrefix = webParameterPrefix(environmentName);
     const thinTurnPrefix = thinTurnParameterPrefix(environmentName);
     const retainData = environmentName !== "development";
@@ -165,13 +165,13 @@ export class WebStack extends cdk.Stack {
               ],
               bundling: {
                 image: cdk.DockerImage.fromRegistry(WEB_BUNDLE_DOCKER_IMAGE),
-                command: ["bash", "-c", webDockerBundleCommand(environmentName)],
+                command: ["bash", "-c", webDockerBundleCommand(environmentName, siteDomain)],
                 environment: webDockerBundlingEnvironment(),
                 local: {
                   tryBundle(outputDir: string): boolean {
                     try {
                       execSync(
-                        `${WEB_LOCAL_BUNDLE_AWS_CLI_CHECK} && ${webLocalBundleCommand(environmentName)}`,
+                        `${WEB_LOCAL_BUNDLE_AWS_CLI_CHECK} && ${webLocalBundleCommand(environmentName, siteDomain)}`,
                         {
                           cwd: repoRoot,
                           stdio: "inherit",
