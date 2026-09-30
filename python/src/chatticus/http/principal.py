@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Final
 
@@ -273,6 +274,8 @@ class MeOrganization:
     tenant_id: str
     name: str
     status: OrganizationStatus
+    role: MemberRole
+    monthly_aws_spend_ceiling_usd: Decimal | None = None
     computer_work_paused: bool = False
     computer_work_paused_reason: str | None = None
 
@@ -310,11 +313,18 @@ def resolve_me_from_token(
             organization,
             as_of=as_of,
         )
+        membership = plane.get_membership(organization.tenant_id, identity.user_id)
+        assert membership is not None
+        is_owner = membership.role == MemberRole.OWNER
         me_organizations.append(
             MeOrganization(
                 tenant_id=organization.tenant_id,
                 name=organization.name,
                 status=organization.status,
+                role=membership.role,
+                monthly_aws_spend_ceiling_usd=(
+                    organization.monthly_aws_spend_ceiling_usd if is_owner else None
+                ),
                 computer_work_paused=paused,
                 computer_work_paused_reason=reason,
             )

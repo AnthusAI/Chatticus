@@ -244,3 +244,25 @@ export async function replaceTurnGrant(
   );
   return readJson<ReplaceTurnGrantResponse>(response);
 }
+
+export type SetSpendCeilingResponse = {
+  tenant_id: string;
+  monthly_aws_spend_ceiling_usd: string;
+};
+
+export async function setMonthlyAwsSpendCeiling(
+  org: ActiveOrg,
+  amount: string,
+): Promise<SetSpendCeilingResponse> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, "/monthly-aws-spend-ceiling")}`,
+    {
+      method: "PATCH",
+      headers: await authorizedHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({ monthly_aws_spend_ceiling_usd: amount }),
+    },
+  );
+  return readJson<SetSpendCeilingResponse>(response);
+}

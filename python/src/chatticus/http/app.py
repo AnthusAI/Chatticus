@@ -362,6 +362,8 @@ class MeOrganizationBody(BaseModel):
     tenant_id: str
     name: str
     status: str
+    role: str
+    monthly_aws_spend_ceiling_usd: str | None = None
     computer_work_paused: bool = False
     computer_work_paused_reason: str | None = None
 
@@ -778,6 +780,12 @@ def create_app(
                     tenant_id=organization.tenant_id,
                     name=organization.name,
                     status=organization.status.value,
+                    role=organization.role.value,
+                    monthly_aws_spend_ceiling_usd=(
+                        str(organization.monthly_aws_spend_ceiling_usd)
+                        if organization.monthly_aws_spend_ceiling_usd is not None
+                        else None
+                    ),
                     computer_work_paused=organization.computer_work_paused,
                     computer_work_paused_reason=organization.computer_work_paused_reason,
                 )

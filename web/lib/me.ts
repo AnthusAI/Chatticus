@@ -5,6 +5,8 @@ export type MeOrganization = {
   tenant_id: string;
   name: string;
   status: "pending" | "enabled" | "suspended";
+  role: "owner" | "member";
+  monthly_aws_spend_ceiling_usd?: string | null;
   computer_work_paused?: boolean;
   computer_work_paused_reason?: string | null;
 };

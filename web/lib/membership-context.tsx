@@ -36,6 +36,7 @@ type MembershipState = {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshMe: () => Promise<void>;
+  reloadMe: () => Promise<void>;
 };
 
 const MembershipContext = createContext<MembershipState | null>(null);
@@ -63,6 +64,10 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
     } finally {
       setMeLoading(false);
     }
+  }, []);
+
+  const reloadMe = useCallback(async () => {
+    setMe(await fetchMe());
   }, []);
 
   const refreshSession = useCallback(async () => {
@@ -129,8 +134,9 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
       refreshMe: async () => {
         await refreshMe(session);
       },
+      reloadMe,
     }),
-    [activeOrg, authLoading, branch, error, me, meLoading, refreshMe, session],
+    [activeOrg, authLoading, branch, error, me, meLoading, refreshMe, reloadMe, session],
   );
 
   return (
