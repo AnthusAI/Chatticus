@@ -24,10 +24,22 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "7d72088c-add3-4fc0-9f73-8d4c7d8bdb1e",
+      "author": "home",
+      "text": "2026-09-30: Ryan chose the hostname 'develop' (read as: develop.chattic.us and auth-develop.chattic.us as the development environment's permanent names, which also removes the proving-then-rename step; legacy's dev.chattic.us is simply retired with legacy). PR #378 implements the code half, nothing deployed yet: -c chatticusAccountEnvironment=ENV builds one environment's stacks plus its own shared stacks; ChatticusEnvironmentZones (two delegated zones) and ChatticusEnvironmentCertificates (one certificate per name, validated in its own zone; separate from the zones because validation cannot finish before the NS delegation exists); hostnames are explicit inputs to web, auth and the web build; guarded deploy-chatticus-dedicated-account.sh (refuses the legacy account). Legacy verified unchanged: 13 of 13 legacy templates byte-identical against a clean develop worktree. DEPLOY ORDER (infra/README.md): budgets, snapshots, computers; zones; delegate both names from the management zone (a reviewed change to ChatticusManagementDns) and wait for dig; certificates; thin-turn; PERSON seeds the Google OAuth secret chatticus/development/oauth/google and the OpenAI key in the dev account with their own SSO session; then auth; then web (web build reads the Cognito ids auth publishes). STILL NEEDED FROM RYAN: a monthly budget amount for the new dev account (question 2), and the two secrets (question 3). Google OAuth redirect URIs must include https://auth-develop.chattic.us/oauth2/idpresponse.",
+      "created_at": "2026-09-30T23:18:44.728236Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-30T19:57:47.744703Z",
-  "updated_at": "2026-09-30T23:08:11.702658Z",
+  "updated_at": "2026-09-30T23:18:44.728262Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
