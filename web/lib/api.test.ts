@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it, mock } from "node:test";
 
 import { setIdTokenSourceForTests } from "./api-auth";
-import { createBot, listBots, replaceTurnGrant } from "./api";
+import { createBot, listBots, replaceTurnGrant, setMonthlyAwsSpendCeiling } from "./api";
 
 const originalFetch = globalThis.fetch;
 
@@ -25,6 +25,41 @@ describe("org-scoped API calls", () => {
 
     await listBots({ tenantId: "anthus", userId: "ryan" });
     assert.deepEqual(capturedHeaders, { Authorization: "Bearer org-scoped-token" });
+  });
+
+  it("PATCH the monthly ceiling to the organization route with the session token", async () => {
+    setIdTokenSourceForTests(async () => "org-scoped-token");
+    let capturedUrl = "";
+    let capturedInit: RequestInit | undefined;
+    globalThis.fetch = mock.fn(async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(JSON.stringify({ tenant_id: "acme", monthly_aws_spend_ceiling_usd: "500" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    const saved = await setMonthlyAwsSpendCeiling({ tenantId: "acme", userId: "ryan" }, "500");
+    assert.equal(saved.monthly_aws_spend_ceiling_usd, "500");
+    assert.equal(capturedUrl, "/api/orgs/acme/monthly-aws-spend-ceiling");
+    assert.equal(capturedInit?.method, "PATCH");
+    const headers = capturedInit?.headers as Record<string, string>;
+    assert.equal(headers.Authorization, "Bearer org-scoped-token");
+    assert.equal(headers["Content-Type"], "application/json");
+    assert.deepEqual(JSON.parse(String(capturedInit?.body)), { monthly_aws_spend_ceiling_usd: "500" });
+  });
+
+  it("surface a refused ceiling change as an HTTP error the form can explain", async () => {
+    setIdTokenSourceForTests(async () => "org-scoped-token");
+    globalThis.fetch = mock.fn(
+      async () => new Response('{"detail":"not an owner"}', { status: 403 }),
+    ) as typeof fetch;
+
+    await assert.rejects(
+      setMonthlyAwsSpendCeiling({ tenantId: "acme", userId: "ryan" }, "500"),
+      /HTTP 403/,
+    );
   });
 
   it("send Authorization and Idempotency-Key on createBot", async () => {

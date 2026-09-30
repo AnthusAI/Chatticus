@@ -33,7 +33,6 @@ from chatticus.http.client import HttpTurnClient
 from chatticus.http.paths import org_path
 from chatticus.models import (
     ActorKind,
-    NotOrganizationOwnerError,
     OrganizationStatus,
     TurnEventKind,
     TurnStatus,
@@ -385,28 +384,47 @@ def when_member_opens_workspace(context: object) -> None:
     )
 
 
-@when("its owner raises the ceiling above current spend")
-def when_owner_raises_ceiling_above_spend(context: object) -> None:
+OWNER_EMAIL = "owner@example.com"
+
+
+def _patch_ceiling(context: object, email: str, amount: str) -> None:
+    if getattr(context, "api_client", None) is None:
+        _wire_http(context)
+    token = mint_id_token(context.cognito_test_keys, email=email)
+    context.ceiling_response = context.api_client.patch(
+        org_path(_tenant_id(context), "/monthly-aws-spend-ceiling"),
+        headers={"Authorization": f"Bearer {token}"},
+        json={"monthly_aws_spend_ceiling_usd": amount},
+    )
+
+
+def _accept_member(context: object) -> None:
     organization = _organization(context)
     owner = context.spend_ceiling_owner
-    updated = _plane(context).set_monthly_aws_spend_ceiling(
+    member = _plane(context).sign_in(MEMBER_EMAIL, now=context.now)
+    invitation = _plane(context).invite_by_email(
         organization.tenant_id,
         owner.user_id,
-        HIGHER_CEILING_USD,
+        MEMBER_EMAIL,
+        now=context.now,
     )
-    context.spend_ceiling_org = updated
+    _plane(context).accept_invitation(
+        invitation.invitation_id,
+        member,
+        now=context.now,
+    )
+
+
+@when("its owner raises the ceiling above current spend")
+def when_owner_raises_ceiling_above_spend(context: object) -> None:
+    _patch_ceiling(context, OWNER_EMAIL, str(HIGHER_CEILING_USD))
+    assert context.ceiling_response.status_code == 200, context.ceiling_response.text
 
 
 @when("its owner sets a higher ceiling")
 def when_owner_sets_higher_ceiling(context: object) -> None:
-    organization = _organization(context)
-    owner = context.spend_ceiling_owner
-    updated = _plane(context).set_monthly_aws_spend_ceiling(
-        organization.tenant_id,
-        owner.user_id,
-        HIGHER_CEILING_USD,
-    )
-    context.spend_ceiling_org = updated
+    _patch_ceiling(context, OWNER_EMAIL, str(HIGHER_CEILING_USD))
+    assert context.ceiling_response.status_code == 200, context.ceiling_response.text
 
 
 @then("the organization carries the new ceiling")
@@ -417,34 +435,34 @@ def then_org_carries_new_ceiling(context: object) -> None:
 
 @when("a member who is not an owner attempts to change it")
 def when_member_attempts_change_ceiling(context: object) -> None:
-    organization = _organization(context)
-    owner = context.spend_ceiling_owner
-    member = _plane(context).sign_in("member@example.com", now=context.now)
-    invitation = _plane(context).invite_by_email(
-        organization.tenant_id,
-        owner.user_id,
-        "member@example.com",
-        now=context.now,
+    _accept_member(context)
+    _patch_ceiling(context, MEMBER_EMAIL, str(HIGHER_CEILING_USD))
+
+
+@when('its owner submits a ceiling of "{amount}"')
+def when_owner_submits_ceiling(context: object, amount: str) -> None:
+    _patch_ceiling(context, OWNER_EMAIL, amount)
+
+
+@when("the owner opens the workspace")
+def when_owner_opens_workspace(context: object) -> None:
+    if getattr(context, "api_client", None) is None:
+        _wire_http(context)
+    token = mint_id_token(context.cognito_test_keys, email=OWNER_EMAIL)
+    context.me_response = context.api_client.get(
+        "/me",
+        headers={"Authorization": f"Bearer {token}"},
     )
-    _plane(context).accept_invitation(
-        invitation.invitation_id,
-        member,
-        now=context.now,
-    )
-    context.last_error = None
-    try:
-        _plane(context).set_monthly_aws_spend_ceiling(
-            organization.tenant_id,
-            member.user_id,
-            HIGHER_CEILING_USD,
-        )
-    except NotOrganizationOwnerError as error:
-        context.last_error = error
 
 
 @then("the change is refused")
 def then_change_refused(context: object) -> None:
-    assert isinstance(context.last_error, NotOrganizationOwnerError), context.last_error
+    assert context.ceiling_response.status_code == 403, context.ceiling_response.text
+
+
+@then("the change is rejected as invalid")
+def then_change_rejected_as_invalid(context: object) -> None:
+    assert context.ceiling_response.status_code == 400, context.ceiling_response.text
 
 
 @then("the ceiling is unchanged")
@@ -562,3 +580,31 @@ def then_turn_completed_not_waiting(context: object) -> None:
     turn = _plane(context).turn(_tenant_id(context), context.last_turn_id)
     assert turn.waiting_for is None
     assert turn.status == TurnStatus.COMPLETED
+
+
+def _me_organization(context: object) -> dict:
+    assert context.me_response.status_code == 200, context.me_response.text
+    organizations = context.me_response.json()["organizations"]
+    assert len(organizations) == 1
+    return organizations[0]
+
+
+@then("the workspace data says the signed-in user is an owner")
+def then_workspace_data_says_owner(context: object) -> None:
+    assert _me_organization(context)["role"] == "owner"
+
+
+@then("the workspace data says the signed-in user is a member")
+def then_workspace_data_says_member(context: object) -> None:
+    assert _me_organization(context)["role"] == "member"
+
+
+@then("the workspace data shows the ceiling {amount}")
+def then_workspace_data_shows_ceiling(context: object, amount: str) -> None:
+    shown = _me_organization(context)["monthly_aws_spend_ceiling_usd"]
+    assert Decimal(shown) == Decimal(amount), shown
+
+
+@then("the workspace data does not show the ceiling")
+def then_workspace_data_hides_ceiling(context: object) -> None:
+    assert _me_organization(context)["monthly_aws_spend_ceiling_usd"] is None
