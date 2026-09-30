@@ -13,6 +13,7 @@ import { readBudgetsConfig } from "../lib/budgets-config";
 import { BudgetsStack } from "../lib/budgets-stack";
 import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
+import { ManagementDnsStack } from "../lib/management-dns-stack";
 import { IntegrationTestStack } from "../lib/integration-test-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
@@ -99,6 +100,13 @@ for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
     description:
       `Cognito user pool (${environmentName}) with Google federation and ` +
       "custom auth domain for SPA authorization code + PKCE.",
+  });
+}
+
+if (app.node.tryGetContext("managementDns") === "true") {
+  new ManagementDnsStack(app, "ChatticusManagementDns", {
+    env,
+    description: "Route 53 hosted zone for chattic.us, owned by the management account.",
   });
 }
 

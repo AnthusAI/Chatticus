@@ -14,6 +14,7 @@ operations.
 | `ChatticusDns` | Route 53 hosted zone for `chattic.us`, ACM certificate (`chattic.us`, `*.chattic.us`, `www.chattic.us`) |
 | `ChatticusGitHubDeploy` | GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production) |
 | `ChatticusAccountDeploy` | In a dedicated environment account only: the GitHub OIDC provider and that account's single deploy role. Not deployed in the legacy account |
+| `ChatticusManagementDns` | In the management account only: the `chattic.us` public hosted zone and its records (retained on stack deletion, termination-protected). Deployed once with `sh deploy-chatticus-management-dns.sh`; instantiated only with `-c managementDns=true` |
 | `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE function URL |
 | `ChatticusThinTurnStaging` | Staging thin turn (same shape; deployed from `main`) |
 | `ChatticusThinTurnProduction` | Production thin turn (gated deploy of a staging-proven release; never implied by a git branch) |
@@ -425,3 +426,15 @@ The live `AWS_DEPLOY_ROLE_ARN` secret is what decides which account a deploy
 workflow targets, so it is left alone until the cutover card: nothing here
 changes where any existing workflow deploys. This repository is public, so the
 verify workflow takes no role ARN input and prints no account identifiers.
+
+## The chattic.us zone (management account)
+
+The zone lives in the management account (decision on chatticus-4e4819). Its
+records are the stack's data, reproduced from the legacy zone and locked by a
+golden snapshot in `test/fixtures/`. They are transitional: as each
+environment moves, its names are replaced by NS delegations to a small zone in
+that environment's account, and the snapshot is deleted once the legacy zone is
+retired. Route 53 creates the apex NS and SOA itself, so they are not
+declared. Nothing points at this zone until every name is verified against its
+four name servers (dig) and the name servers are changed at the registrar, a
+step made by hand outside AWS.

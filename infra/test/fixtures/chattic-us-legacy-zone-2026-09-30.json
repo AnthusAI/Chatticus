@@ -1,0 +1,166 @@
+[
+  {
+    "Name": "_104cb2754a66d47b2f837a6980802ff8.chattic.us.",
+    "Type": "CNAME",
+    "TTL": 300,
+    "ResourceRecords": [
+      {
+        "Value": "_d19de9eb69dbb1f35ae0fe37c7a4f0b3.jkddzztszm.acm-validations.aws."
+      }
+    ]
+  },
+  {
+    "Name": "_f3ee14ea611741f8a5770cb9e1fb5655.www.chattic.us.",
+    "Type": "CNAME",
+    "TTL": 300,
+    "ResourceRecords": [
+      {
+        "Value": "_7d1efa15cc5c77e84232073aa235c501.jkddzztszm.acm-validations.aws."
+      }
+    ]
+  },
+  {
+    "Name": "auth-dev.chattic.us.",
+    "Type": "A",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d3pxae0fk95qv8.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "auth-dev.chattic.us.",
+    "Type": "AAAA",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d3pxae0fk95qv8.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "auth-staging.chattic.us.",
+    "Type": "A",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d3mjnl9gysjyje.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "auth-staging.chattic.us.",
+    "Type": "AAAA",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d3mjnl9gysjyje.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "auth.chattic.us.",
+    "Type": "A",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d1eww0h0lp17rx.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "auth.chattic.us.",
+    "Type": "AAAA",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d1eww0h0lp17rx.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "chattic.us.",
+    "Type": "A",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d2jp75rstyi891.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "chattic.us.",
+    "Type": "AAAA",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d2jp75rstyi891.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "dev.chattic.us.",
+    "Type": "A",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d3gds8al0gg3jl.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "dev.chattic.us.",
+    "Type": "AAAA",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d3gds8al0gg3jl.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "hey.chattic.us.",
+    "Type": "A",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d2snq0rcvb1rdz.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "hey.chattic.us.",
+    "Type": "AAAA",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d2snq0rcvb1rdz.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "staging.chattic.us.",
+    "Type": "A",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d3qbbvyz091u6f.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "staging.chattic.us.",
+    "Type": "AAAA",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d3qbbvyz091u6f.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "www.chattic.us.",
+    "Type": "A",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d2jp75rstyi891.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  },
+  {
+    "Name": "www.chattic.us.",
+    "Type": "AAAA",
+    "AliasTarget": {
+      "HostedZoneId": "Z2FDTNDATAQYW2",
+      "DNSName": "d2jp75rstyi891.cloudfront.net.",
+      "EvaluateTargetHealth": false
+    }
+  }
+]
