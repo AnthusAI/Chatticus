@@ -3,7 +3,7 @@
   "title": "Bootstrap CDK and create a GitHub deploy role in each chatticus-* account",
   "description": "Ryan (2026-09-30): set up the same CI/CD in the new per-environment accounts: CI in GitHub Actions, CD by CDK deploy through GitHub OIDC. This card is the foundation and needs no DNS or data decisions.\n\n## Findings (read-only, 2026-09-30)\n- chatticus-development, -staging and -production are empty: no CDKToolkit stack, no OIDC provider, no stacks. Non-root SSO sessions (AdministratorAccess) work for all three.\n- infra/lib/github-deploy-stack.ts cannot be reused as is: it IMPORTS the GitHub OIDC provider (fromOpenIdConnectProviderArn, which must already exist) and creates all three environment roles in ONE account. A new account needs the provider created and only its own environment's role.\n- Trust is by the OIDC sub claim pinned to the repo's immutable owner/repo ids plus environment:NAME (see the long comment in that file); keep that, it was root-caused once already.\n- The CDK account is chosen from the credentials (CDK_DEFAULT_ACCOUNT in bin/chatticus.ts), so deploying to a different account needs no code change: a workflow's AWS_DEPLOY_ROLE_ARN environment secret decides where it deploys. That secret is therefore the cutover switch, not something to change early.\n\n## Plan\n1. cdk bootstrap aws://ACCOUNT/us-east-1 in each account (AGENTS.md allows bootstrap and deploy as the only AWS writes).\n2. A stack that creates the OIDC provider (one per account) and ONE deploy role trusting environment:<that account's environment> only, with a test that asserts the trust, and the legacy stack left untouched until legacy is retired. Deploy it once per account locally with the SSO profile (the documented one-time path).\n3. Do NOT change any AWS_DEPLOY_ROLE_ARN secret here; workflows keep deploying to legacy until the cutover card.\n\n## Done when\nIn each account: CDKToolkit is CREATE_COMPLETE, the deploy role exists, and a dispatch of a no-op check (sts get-caller-identity through OIDC from GitHub Actions) succeeds without touching legacy.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -24,11 +24,23 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "cffba984-397e-4456-982b-4ca9d368d256",
+      "author": "home",
+      "text": "DONE 2026-09-30. (1) cdk bootstrap in chatticus-development, -staging, -production: CDKToolkit CREATE_COMPLETE, version 32 (same as legacy); legacy untouched. (2) #375 merged (133920e): ChatticusAccountDeploy, deployed once per account from Ryan's non-root SSO session with an account guard: one GitHub OIDC provider (audience sts.amazonaws.com) and ONE role chatticus-github-actions-deploy per account, trust pinned to the repository ids plus that account's own environment claim (verified by reading the deployed trust policies: development/staging/production each trust only their own), AdministratorAccess attached as in legacy, no IAM users or keys created, standard tags applied. (3) masked GitHub ENVIRONMENT secret AWS_NEW_ACCOUNT_DEPLOY_ROLE_ARN set on development, staging and production; the live AWS_DEPLOY_ROLE_ARN secrets were NOT touched, so every existing workflow still deploys to legacy. (4) REAL OIDC verified from GitHub Actions for all three environments: role assumed, CDKToolkit CREATE_COMPLETE, zero 12-digit identifiers in the public logs. How it was verified: verify-account-deploy-role.yml is workflow_dispatch-only and GitHub only allows dispatching a workflow that exists on the default branch (main), which gets it only at the next develop-to-main release (that push also auto-deploys staging and production to legacy, so it was not forced). Instead a throwaway branch carried a push-triggered copy; both branches were deleted. After the next release the workflow can be dispatched as designed. FINDING filed separately: none of the three GitHub environments restricts which branches may use it.",
+      "created_at": "2026-09-30T21:01:31.413467Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-30T19:57:45.309326Z",
-  "updated_at": "2026-09-30T20:07:38.454914Z",
-  "closed_at": null,
+  "updated_at": "2026-09-30T21:01:33.373730Z",
+  "closed_at": "2026-09-30T21:01:33.373678Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",

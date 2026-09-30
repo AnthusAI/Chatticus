@@ -13,17 +13,13 @@
   ],
   "dependencies": [
     {
-      "target": "chatticus-911dac71-d0c5-4d21-a148-9b51eaa55933",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-4e4819ef-999a-4a93-8d29-48f1e2fc024e",
       "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-09-30T19:57:47.744703Z",
-  "updated_at": "2026-09-30T20:00:33.484797Z",
+  "updated_at": "2026-09-30T21:01:34.340551Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
