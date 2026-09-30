@@ -36,10 +36,22 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "fe61840c-02e9-4dc8-aa86-efd8b1891968",
+      "author": "home",
+      "text": "#374 merged (f8e3447) and deployed to dev. LIVE CHECK 2026-09-30 as ryan@anth.us on dev.chattic.us: the paused notice shows the raise form for the owner, prefilled with the current ceiling; entering 500 and submitting went through the real PATCH route (ceiling read back as 500) and showed 'Monthly AWS spend ceiling is now $500.' Two findings, filed separately: chatticus-43e336 (reloadMe triggers a full workspace reload; needs a fix) and chatticus-619ba0 (form offered when raising cannot help: on dev the pause was 'spend unavailable', so work stayed paused). Seed removed, dev org back to no ceiling. Leaving this card open until the reload bug is fixed and the flow re-verified.",
+      "created_at": "2026-09-30T21:12:40.639569Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-08T22:25:27.517356Z",
-  "updated_at": "2026-09-30T19:29:54.116995Z",
+  "updated_at": "2026-09-30T21:12:40.639609Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
