@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-911dac71-d0c5-4d21-a148-9b51eaa55933",
+  "title": "Bootstrap CDK and create a GitHub deploy role in each chatticus-* account",
+  "description": "Ryan (2026-09-30): set up the same CI/CD in the new per-environment accounts: CI in GitHub Actions, CD by CDK deploy through GitHub OIDC. This card is the foundation and needs no DNS or data decisions.\n\n## Findings (read-only, 2026-09-30)\n- chatticus-development, -staging and -production are empty: no CDKToolkit stack, no OIDC provider, no stacks. Non-root SSO sessions (AdministratorAccess) work for all three.\n- infra/lib/github-deploy-stack.ts cannot be reused as is: it IMPORTS the GitHub OIDC provider (fromOpenIdConnectProviderArn, which must already exist) and creates all three environment roles in ONE account. A new account needs the provider created and only its own environment's role.\n- Trust is by the OIDC sub claim pinned to the repo's immutable owner/repo ids plus environment:NAME (see the long comment in that file); keep that, it was root-caused once already.\n- The CDK account is chosen from the credentials (CDK_DEFAULT_ACCOUNT in bin/chatticus.ts), so deploying to a different account needs no code change: a workflow's AWS_DEPLOY_ROLE_ARN environment secret decides where it deploys. That secret is therefore the cutover switch, not something to change early.\n\n## Plan\n1. cdk bootstrap aws://ACCOUNT/us-east-1 in each account (AGENTS.md allows bootstrap and deploy as the only AWS writes).\n2. A stack that creates the OIDC provider (one per account) and ONE deploy role trusting environment:<that account's environment> only, with a test that asserts the trust, and the legacy stack left untouched until legacy is retired. Deploy it once per account locally with the SSO profile (the documented one-time path).\n3. Do NOT change any AWS_DEPLOY_ROLE_ARN secret here; workflows keep deploying to legacy until the cutover card.\n\n## Done when\nIn each account: CDKToolkit is CREATE_COMPLETE, the deploy role exists, and a dispatch of a no-op check (sts get-caller-identity through OIDC from GitHub Actions) succeeds without touching legacy.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-30T19:57:45.309326Z",
+  "updated_at": "2026-09-30T19:57:45.309384Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

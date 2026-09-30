@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-7ebd5779-1a78-498f-a17d-b2b0349e3bcd",
+  "title": "Repeat the move for staging, then production",
+  "description": "After development is cut over and stable: bootstrap-and-role (already done per account by the first card), then the environment deploy, verification and cutover for chatticus-staging and chatticus-production, in that order. Production also needs a data and Cognito user plan (users cannot be exported with passwords; Google federation re-links by email). Do not start until development has run in its new account for a while.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-09-30T19:57:49.856652Z",
+  "updated_at": "2026-09-30T19:57:49.856686Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
