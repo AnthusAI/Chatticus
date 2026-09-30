@@ -14,6 +14,7 @@ operations.
 | `ChatticusDns` | Route 53 hosted zone for `chattic.us`, ACM certificate (`chattic.us`, `*.chattic.us`, `www.chattic.us`) |
 | `ChatticusGitHubDeploy` | GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production) |
 | `ChatticusAccountDeploy` | In a dedicated environment account only: the GitHub OIDC provider and that account's single deploy role. Not deployed in the legacy account |
+| `ChatticusManagementDns` | In the management account only: the `chattic.us` public hosted zone and its records (retained on stack deletion, termination-protected). Deployed once with `sh deploy-chatticus-management-dns.sh`; instantiated only with `-c managementDns=true` |
 | `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE function URL |
 | `ChatticusThinTurnStaging` | Staging thin turn (same shape; deployed from `main`) |
 | `ChatticusThinTurnProduction` | Production thin turn (gated deploy of a staging-proven release; never implied by a git branch) |
@@ -425,3 +426,25 @@ The live `AWS_DEPLOY_ROLE_ARN` secret is what decides which account a deploy
 workflow targets, so it is left alone until the cutover card: nothing here
 changes where any existing workflow deploys. This repository is public, so the
 verify workflow takes no role ARN input and prints no account identifiers.
+
+## The chattic.us zone (management account)
+
+The zone lives in the management account (decision on chatticus-4e4819). Its
+records are not in the repository: they are read at deploy time from a local
+Route 53 export kept outside it, because account-specific CloudFront hosts
+never enter a committed file (see `test_committed_tree_does_not_embed_account_origins`).
+
+1. Export the legacy zone with the legacy SSO profile (take the hosted zone id
+   from `AGENTS.local.md`):
+   `aws route53 list-resource-record-sets --profile legacy --hosted-zone-id ZONE_ID --output json > ~/chatticus-local/chattic-us-zone.json`
+2. `sh deploy-chatticus-management-dns.sh ~/chatticus-local/chattic-us-zone.json`
+   with the management account's credentials.
+3. Verify every name with `dig` against the four name servers in the stack
+   output before anything points at them. The registrar change is made by hand,
+   outside AWS, only after that.
+
+The stack reproduces every record faithfully or refuses: an unsupported type,
+or an alias that does not target CloudFront, fails the deploy instead of being
+dropped. The apex NS and SOA are skipped because Route 53 creates them. The
+records are transitional: as each environment moves, its names are replaced by
+NS delegations to a small zone in that environment's account.
