@@ -24,10 +24,22 @@
         "model": "claude-sonnet-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "07f61069-8035-4c92-85d1-8cd645713f95",
+      "author": "home",
+      "text": "2026-09-30: Ryan approved activating the tags. Attempted from the NEW management account (profile Endymion, signed in as ryan, AdministratorAccess). Blocked before any change: ce ListCostAllocationTags returns AccessDeniedException 'User not enabled for cost explorer access'. Cost Explorer has never been enabled in the new management account, and enabling it is a console-only first-time action (no API or CLI for it). Nothing was written. NEXT, for Ryan: sign in to the Endymion management account and open Billing and Cost Management > Cost Explorer once, which enables it (data then takes about a day to populate, and it is unknown whether the legacy account's September history carries over). Then confirm the keys are listed and run: aws ce update-cost-allocation-tags-status --profile Endymion --cost-allocation-tags-status TagKey=chatticus:application,Status=Active TagKey=chatticus:environment,Status=Active TagKey=chatticus:installation,Status=Active TagKey=chatticus:component,Status=Active. chatticus:tenant still cannot be activated until a tagged computer task has run. Note: the tags on the legacy stacks are unchanged; only the activation setting moves with the payer. The rollup reads inside the legacy account, so check after enablement that the member account can still use Cost Explorer (linked-account access is a management-account setting).",
+      "created_at": "2026-09-30T19:10:44.021106Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T19:01:48.366951Z",
-  "updated_at": "2026-09-20T13:26:58.417845Z",
+  "updated_at": "2026-09-30T19:10:44.021135Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
