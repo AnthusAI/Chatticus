@@ -3,7 +3,7 @@
   "title": "Move Chatticus workloads out of the AWS management account",
   "description": "Ryan plans to create a new account to serve as the AWS Organization's management account, so that 335163751677 (which runs Chatticus dev/staging/prod and the Auritus stack) holds workloads only. Captured 2026-09-20; not scheduled.\n\n## Why it matters to Chatticus\n- 335163751677 is today both the management account and the workload account, and this session and the console run as its ROOT user. AWS refuses AssumeRole by root ('Roles may not be assumed by root accounts'), which blocked updating the lab role stack (9ac621). Identity Center users exist (ryan, derek) but are not what is used day to day.\n- Cost allocation tags (chatticus:*) can only be activated by the payer/management account. Card d706d7 (activate tags) should therefore be done in the NEW management account after the move, not before.\n- The rollup reads Cost Explorer inside the workload account; as a member account that depends on the management account allowing linked-account Cost Explorer access. Verify after the move.\n\n## Shape of the move (verify each against current AWS docs before starting)\n- An organization cannot change its management account. Create the new organization in the new account, remove or close the members of the old one, delete the old organization, then invite 335163751677 into the new one. The workload account id does not change, so the account id in customer-role.yml (AnthusAccountId), the GitHub deploy roles and the ChatticusBudgets budget stay valid.\n- The two throwaway accounts (114469424841, 699258776559) were created through Organizations with alias emails that cannot receive mail. Leaving an organization needs standalone payment details, so closing them is simpler than moving them. The dev org record 'ACME Corp' (e5157208...) points at 114469424841 and can be deleted or repointed.\n- IAM Identity Center is tied to the organization: recreate users and permission sets (ryan, derek; AdministratorAccess, Billing, ReadOnlyAccess) in the new one.\n- Unknown, to check first: whether Cost Explorer history follows the account across organizations; whether the Identity Center instance must be deleted before the old organization; billing/credits/support-plan carryover.\n\n## After the move\n- Create a proper lab account in the new organization with a working plus-address email and re-run the customer-account spend check from 9ac621 (expect the real figure for that account).\n- Activate the chatticus:* cost allocation tags from the new management account (d706d7).\n- Confirm the rollup still reads spend, and update docs/AWS_AUTH.md and AGENTS.local.md (account ids, portal URL).",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -12,10 +12,23 @@
     "phase-5"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "60dd635e-9435-458e-ad81-e7931c92eab1",
+      "author": "home",
+      "text": "Done 2026-09-30 (Ryan, with an agent). New management account with a new AWS Organization and an IAM Identity Center organization instance (us-east-1). Users ryan and derek in group Administrators (AdministratorAccess on every account); permission sets AdministratorAccess (12h), ReadOnlyAccess, Billing. Created member accounts chatticus-production, chatticus-staging, chatticus-development (root emails are rap+ plus-addresses Ryan controls). The legacy workload account joined the new organization as member 'legacy'; the old organization and its Identity Center were deleted only after the root login was re-proven, and the standalone window was seconds. Identity Center access to legacy verified (sees ChatticusThinTurn and all buckets). The two former lab accounts were given reachable root emails and removed from the old org; they will be invited once the organization account limit (5; increase to 20 requested) is raised. Account ids, portal URL and CLI profiles (Endymion = management, legacy, chatticus-*) are in AGENTS.local.md, not here. Legacy root and its CLI profiles are now emergency-only. New-org SCP DenyLeaveAndCloseAccount is attached at root (denies leaving and self-closure only). Remaining: invite the two lab accounts, delete legacy's root access key, set legacy billing/security contacts, activate cost tags from the new management account (d706d7), and move Chatticus workloads (new card).",
+      "created_at": "2026-09-30T19:07:52.637909Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-opus-5-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-09-20T13:26:58.330712Z",
-  "updated_at": "2026-09-20T13:26:58.330761Z",
-  "closed_at": null,
+  "updated_at": "2026-09-30T19:07:54.575854Z",
+  "closed_at": "2026-09-30T19:07:54.575801Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5",
