@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import * as cdk from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
+import { DELEGATIONS } from "../lib/dns-delegations";
+import { DEDICATED_ACCOUNT_HOSTNAMES } from "../lib/environments";
 import {
   CLOUDFRONT_ALIAS_HOSTED_ZONE_ID,
   type ExportedRecordSet,
@@ -99,5 +101,73 @@ describe("ManagementDnsStack refuses what it cannot reproduce faithfully", () =>
 
   it("rejects a file that is not a Route 53 record set export", () => {
     assert.throws(() => loadZoneRecords(join(__dirname, "fixtures", "..", "..", "package.json")), /not a Route 53 record set export/);
+  });
+});
+
+describe("ManagementDnsStack delegations", () => {
+  const records = loadZoneRecords(EXAMPLE_EXPORT);
+  const four = ["ns-1.awsdns-01.com", "ns-2.awsdns-02.net", "ns-3.awsdns-03.org", "ns-4.awsdns-04.co.uk"];
+  const synthWith = (delegations: Array<{ name: string; nameServers: string[] }>) => {
+    const app = new cdk.App();
+    const stack = new ManagementDnsStack(app, "ChatticusManagementDns", {
+      env: { account: "333333333333", region: "us-east-1" },
+      records,
+      delegations,
+    });
+    return Template.fromStack(stack);
+  };
+
+  it("hands a subdomain to the four name servers of its own zone with a short TTL", () => {
+    const template = synthWith([{ name: "develop.chattic.us", nameServers: four }]);
+    template.hasResourceProperties("AWS::Route53::RecordSet", {
+      Name: "develop.chattic.us.",
+      Type: "NS",
+      TTL: "300",
+      ResourceRecords: four,
+    });
+    template.resourceCountIs("AWS::Route53::RecordSet", 5 + 1);
+  });
+
+  it("adds no NS records when nothing is delegated", () => {
+    const template = synthWith([]);
+    template.resourceCountIs("AWS::Route53::RecordSet", 5);
+  });
+
+  it("refuses a name outside the zone, a name that already has records, and a wrong number of name servers", () => {
+    assert.throws(() => synthWith([{ name: "develop.example.com", nameServers: four }]), /not a subdomain of chattic\.us/);
+    assert.throws(() => synthWith([{ name: "app.chattic.us", nameServers: four }]), /already has records at that name/);
+    assert.throws(() => synthWith([{ name: "develop.chattic.us", nameServers: four.slice(0, 3) }]), /needs the four name servers/);
+  });
+});
+
+describe("the committed delegations", () => {
+  it("delegate exactly the development environment's two names, once each", () => {
+    const names = DELEGATIONS.map((delegation) => delegation.name).sort();
+    assert.deepEqual(names, [DEDICATED_ACCOUNT_HOSTNAMES.development.authDomain, DEDICATED_ACCOUNT_HOSTNAMES.development.siteDomain].sort());
+    assert.equal(new Set(names).size, names.length);
+  });
+
+  it("each carry four distinct Route 53 name servers", () => {
+    for (const delegation of DELEGATIONS) {
+      assert.equal(new Set(delegation.nameServers).size, 4, delegation.name);
+      for (const server of delegation.nameServers) {
+        assert.match(server, /^ns-\d+\.awsdns-\d+\.(com|net|org|co\.uk)$/, server);
+      }
+    }
+  });
+
+  it("do not share a name server between the two zones", () => {
+    const all = DELEGATIONS.flatMap((delegation) => delegation.nameServers);
+    assert.equal(new Set(all).size, all.length);
+  });
+
+  it("can be applied on top of the example export without colliding", () => {
+    const app = new cdk.App();
+    const stack = new ManagementDnsStack(app, "ChatticusManagementDns", {
+      env: { account: "333333333333", region: "us-east-1" },
+      records: loadZoneRecords(EXAMPLE_EXPORT),
+      delegations: DELEGATIONS,
+    });
+    Template.fromStack(stack).resourceCountIs("AWS::Route53::RecordSet", 5 + DELEGATIONS.length);
   });
 });
