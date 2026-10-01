@@ -16,7 +16,7 @@ import {
 
 describe("webBuildEnvExports", () => {
   it("fails closed when SSM values are missing", () => {
-    const script = webBuildEnvExports("development");
+    const script = webBuildEnvExports("development", "dev.chattic.us");
     assert.match(script, /cognito-user-pool-id/);
     assert.match(script, /cognito-app-client-id/);
     assert.match(script, /cognito-auth-domain/);
@@ -25,7 +25,7 @@ describe("webBuildEnvExports", () => {
   });
 
   it("sets AWS region for SSM lookups inside docker bundling", () => {
-    const script = webBuildEnvExports("production");
+    const script = webBuildEnvExports("production", "hey.chattic.us");
     assert.match(script, /export AWS_DEFAULT_REGION='us-east-1'/);
     assert.equal(
       (script.match(/--region 'us-east-1'/g) ?? []).length,
@@ -38,7 +38,7 @@ describe("webBuildEnvExports", () => {
 
 describe("web bundle commands", () => {
   it("uses preinstalled aws cli in the docker image without apt-get", () => {
-    const command = webDockerBundleCommand("development");
+    const command = webDockerBundleCommand("development", "dev.chattic.us");
     assert.doesNotMatch(command, /apt-get/);
     assert.match(command, /mkdir -p '\/tmp\/chatticus-bundle\/\.npm'/);
     assert.match(command, /export HOME='\/tmp\/chatticus-bundle'/);
@@ -55,7 +55,7 @@ describe("web bundle commands", () => {
   });
 
   it("uses aws cli during local tryBundle when available", () => {
-    const command = webLocalBundleCommand("staging");
+    const command = webLocalBundleCommand("staging", "staging.chattic.us");
     assert.doesNotMatch(command, /\/tmp\/chatticus-bundle/);
     assert.match(command, /\/chatticus\/staging\/web\/cognito-user-pool-id/);
     assert.match(command, /export AWS_DEFAULT_REGION='us-east-1'/);
