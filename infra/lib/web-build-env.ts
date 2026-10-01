@@ -1,6 +1,5 @@
 import {
   ChatticusCloudEnvironment,
-  WEB_SITE_DOMAINS,
   signupModeForEnvironment,
   webParameterPrefix,
 } from "./environments";
@@ -24,9 +23,8 @@ export function webDockerBundleHomeSetup(): string {
 }
 
 /** Fetch public Cognito SSM parameters at bundle time (not CloudFormation tokens). */
-export function webBuildEnvExports(environmentName: ChatticusCloudEnvironment): string {
+export function webBuildEnvExports(environmentName: ChatticusCloudEnvironment, siteDomain: string): string {
   const webPrefix = webParameterPrefix(environmentName);
-  const siteDomain = WEB_SITE_DOMAINS[environmentName];
   return [
     `export AWS_DEFAULT_REGION='${CHATTICUS_AWS_REGION}'`,
     `export NEXT_PUBLIC_COGNITO_USER_POOL_ID="$(aws ssm get-parameter --region '${CHATTICUS_AWS_REGION}' --name '${webPrefix}/cognito-user-pool-id' --query 'Parameter.Value' --output text)"`,
@@ -47,11 +45,12 @@ export function webBuildEnvExports(environmentName: ChatticusCloudEnvironment): 
 
 export function webDockerBundleCommand(
   environmentName: ChatticusCloudEnvironment,
+  siteDomain: string,
 ): string {
   return [
     "cd /asset-input",
     webDockerBundleHomeSetup(),
-    webBuildEnvExports(environmentName),
+    webBuildEnvExports(environmentName, siteDomain),
     "npm ci",
     "npm run build --workspace=web",
     "cp -r web/out/. /asset-output/",
@@ -60,9 +59,10 @@ export function webDockerBundleCommand(
 
 export function webLocalBundleCommand(
   environmentName: ChatticusCloudEnvironment,
+  siteDomain: string,
 ): string {
   return [
-    webBuildEnvExports(environmentName),
+    webBuildEnvExports(environmentName, siteDomain),
     "npm ci",
     "npm run build --workspace=web",
   ].join(" && ");

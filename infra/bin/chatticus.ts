@@ -2,11 +2,14 @@
 import * as cdk from "aws-cdk-lib";
 import { ComputerStack } from "../lib/computer-stack";
 import { DnsStack } from "../lib/dns-stack";
+import { buildDedicatedAccountStacks, readDedicatedEnvironment } from "../lib/dedicated-account-stacks";
 import { AuthStack } from "../lib/auth-stack";
 import {
+  AUTH_DOMAIN_NAMES,
   AUTH_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
   THIN_TURN_STACK_IDS,
+  WEB_SITE_DOMAINS,
   WEB_STACK_IDS,
 } from "../lib/environments";
 import { readBudgetsConfig } from "../lib/budgets-config";
@@ -31,76 +34,94 @@ const env: cdk.Environment = {
 const budgetsConfig = readBudgetsConfig(app);
 const installationName = readInstallationName();
 
-let budgetsStack: BudgetsStack | undefined;
-if (budgetsConfig) {
-  budgetsStack = new BudgetsStack(app, "ChatticusBudgets", {
+function buildLegacyAccountStacks(): void {
+  let budgetsStack: BudgetsStack | undefined;
+  if (budgetsConfig) {
+    budgetsStack = new BudgetsStack(app, "ChatticusBudgets", {
+      env,
+      monthlyLimitUsd: budgetsConfig.monthlyLimitUsd,
+      notificationEmails: budgetsConfig.notificationEmails,
+      description: "Account-level AWS spend budget and alerts.",
+    });
+  }
+
+  const snapshots = new SnapshotStack(app, "ChatticusSnapshots", {
     env,
-    monthlyLimitUsd: budgetsConfig.monthlyLimitUsd,
-    notificationEmails: budgetsConfig.notificationEmails,
-    description: "Account-level AWS spend budget and alerts.",
+    description: "Canonical S3 store for Chatticus computer snapshots.",
   });
+
+  const budgetsAlertsTopicArn = budgetsStack?.alertsTopic.topicArn;
+
+  new ComputerStack(app, "ChatticusComputers", {
+    env,
+    description: "ECS cluster, ECR, and Fargate task definition for computer hosts.",
+    snapshotBucket: snapshots.bucket,
+  });
+
+  const dns = new DnsStack(app, "ChatticusDns", {
+    env,
+    description: "Route 53 hosted zone and ACM certificate for chattic.us.",
+  });
+
+  new GitHubDeployStack(app, "ChatticusGitHubDeploy", {
+    env,
+    description:
+      "GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production).",
+  });
+
+  for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
+    const thinTurn = new ThinTurnStack(app, THIN_TURN_STACK_IDS[environmentName], {
+      env,
+      chatticusEnvironment: environmentName,
+      budgetsAlertsTopicArn,
+      budgetsMonthlyLimitUsd: budgetsConfig?.monthlyLimitUsd,
+      installationName,
+      description:
+        `Zero-idle computerless turn (${environmentName}): DynamoDB, SQS, ` +
+        "Lambda SSE front door.",
+    });
+
+    const web = new WebStack(app, WEB_STACK_IDS[environmentName], {
+      env,
+      chatticusEnvironment: environmentName,
+      siteDomain: WEB_SITE_DOMAINS[environmentName],
+      hostedZone: dns.hostedZone,
+      siteCertificate: dns.siteCertificate,
+      frontDoorFunctionUrl: thinTurn.frontDoorFunctionUrl,
+      invokeSecret: thinTurn.invokeSecret,
+      websiteDeploySource: websiteDeploySourceForApp(),
+      description:
+        `Next.js UI (${environmentName}) on CloudFront with same-origin /api/* ` +
+        "proxy to the thin-turn function URL.",
+    });
+    web.addDependency(thinTurn);
+
+    new AuthStack(app, AUTH_STACK_IDS[environmentName], {
+      env,
+      chatticusEnvironment: environmentName,
+      siteDomain: WEB_SITE_DOMAINS[environmentName],
+      authDomainName: AUTH_DOMAIN_NAMES[environmentName],
+      hostedZone: dns.hostedZone,
+      siteCertificate: dns.siteCertificate,
+      budgetsAlertsTopicArn,
+      description:
+        `Cognito user pool (${environmentName}) with Google federation and ` +
+        "custom auth domain for SPA authorization code + PKCE.",
+    });
+  }
 }
 
-const snapshots = new SnapshotStack(app, "ChatticusSnapshots", {
-  env,
-  description: "Canonical S3 store for Chatticus computer snapshots.",
-});
-
-const budgetsAlertsTopicArn = budgetsStack?.alertsTopic.topicArn;
-
-new ComputerStack(app, "ChatticusComputers", {
-  env,
-  description: "ECS cluster, ECR, and Fargate task definition for computer hosts.",
-  snapshotBucket: snapshots.bucket,
-});
-
-const dns = new DnsStack(app, "ChatticusDns", {
-  env,
-  description: "Route 53 hosted zone and ACM certificate for chattic.us.",
-});
-
-new GitHubDeployStack(app, "ChatticusGitHubDeploy", {
-  env,
-  description:
-    "GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production).",
-});
-
-for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
-  const thinTurn = new ThinTurnStack(app, THIN_TURN_STACK_IDS[environmentName], {
+const dedicatedEnvironment = readDedicatedEnvironment(app);
+if (dedicatedEnvironment !== undefined) {
+  buildDedicatedAccountStacks(app, {
     env,
-    chatticusEnvironment: environmentName,
-    budgetsAlertsTopicArn,
-    budgetsMonthlyLimitUsd: budgetsConfig?.monthlyLimitUsd,
+    environmentName: dedicatedEnvironment,
+    budgetsConfig,
     installationName,
-    description:
-      `Zero-idle computerless turn (${environmentName}): DynamoDB, SQS, ` +
-      "Lambda SSE front door.",
-  });
-
-  const web = new WebStack(app, WEB_STACK_IDS[environmentName], {
-    env,
-    chatticusEnvironment: environmentName,
-    hostedZone: dns.hostedZone,
-    siteCertificate: dns.siteCertificate,
-    frontDoorFunctionUrl: thinTurn.frontDoorFunctionUrl,
-    invokeSecret: thinTurn.invokeSecret,
     websiteDeploySource: websiteDeploySourceForApp(),
-    description:
-      `Next.js UI (${environmentName}) on CloudFront with same-origin /api/* ` +
-      "proxy to the thin-turn function URL.",
   });
-  web.addDependency(thinTurn);
-
-  new AuthStack(app, AUTH_STACK_IDS[environmentName], {
-    env,
-    chatticusEnvironment: environmentName,
-    hostedZone: dns.hostedZone,
-    siteCertificate: dns.siteCertificate,
-    budgetsAlertsTopicArn,
-    description:
-      `Cognito user pool (${environmentName}) with Google federation and ` +
-      "custom auth domain for SPA authorization code + PKCE.",
-  });
+} else {
+  buildLegacyAccountStacks();
 }
 
 if (app.node.tryGetContext("managementDns") === "true") {
@@ -161,5 +182,5 @@ if (
 }
 
 for (const stack of app.node.children.filter(cdk.Stack.isStack)) {
-  applyStandardTags(stack, installationName);
+  applyStandardTags(stack, installationName, dedicatedEnvironment);
 }

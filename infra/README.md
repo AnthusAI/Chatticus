@@ -14,6 +14,7 @@ operations.
 | `ChatticusDns` | Route 53 hosted zone for `chattic.us`, ACM certificate (`chattic.us`, `*.chattic.us`, `www.chattic.us`) |
 | `ChatticusGitHubDeploy` | GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production) |
 | `ChatticusAccountDeploy` | In a dedicated environment account only: the GitHub OIDC provider and that account's single deploy role. Not deployed in the legacy account |
+| `ChatticusEnvironmentZones`, `ChatticusEnvironmentCertificates` | In a dedicated environment account only: the two delegated zones for that environment's web and auth names, and one certificate per name validated inside its own zone |
 | `ChatticusManagementDns` | In the management account only: the `chattic.us` public hosted zone and its records (retained on stack deletion, termination-protected). Deployed once with `sh deploy-chatticus-management-dns.sh`; instantiated only with `-c managementDns=true` |
 | `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE function URL |
 | `ChatticusThinTurnStaging` | Staging thin turn (same shape; deployed from `main`) |
@@ -448,3 +449,31 @@ or an alias that does not target CloudFront, fails the deploy instead of being
 dropped. The apex NS and SOA are skipped because Route 53 creates them. The
 records are transitional: as each environment moves, its names are replaced by
 NS delegations to a small zone in that environment's account.
+
+## Deploying an environment into its dedicated account
+
+Everything is built with `-c chatticusAccountEnvironment=ENV`, which produces
+only that environment's stacks plus its own copies of the shared stacks, never
+the legacy account's. The default (no context) still builds the legacy
+three-environment account and is unchanged. Development is named
+`develop.chattic.us` and `auth-develop.chattic.us`: CloudFront alternate domain
+names and Cognito custom domains are unique worldwide, so a name the legacy
+environment still holds cannot be reused. Staging and production keep their
+names and can only be deployed after legacy releases them.
+
+Deploy one stack at a time, in this order, with that account's own credentials
+(`sh deploy-chatticus-dedicated-account.sh ENV STACK`, which refuses the legacy
+account):
+
+1. `budgets` (needs `CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD` and
+   `CHATTICUS_BUDGETS_NOTIFICATION_EMAIL`), `snapshots`, `computers`
+2. `zones`, then read the two name-server outputs
+3. Delegate both names from the management zone (a reviewed change to
+   `ChatticusManagementDns`), and wait until `dig` shows the delegation
+4. `certificates` (validation cannot finish before step 3)
+5. `thin-turn` (needs no seeded secrets to deploy)
+6. **A person seeds** the Google OAuth secret `chatticus/ENV/oauth/google`
+   (read by the auth stack while deploying) and, for live turns, the OpenAI
+   SecureString parameter, in that account with their own session
+7. `auth`, then `web` (the web build reads the Cognito ids the auth stack
+   publishes, so auth comes first)
