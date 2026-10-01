@@ -60,17 +60,29 @@
         "model": "claude-opus-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "7f56fac0-ded0-4655-a385-c77a0e2d0a84",
+      "author": "home",
+      "text": "2026-10-01: Ryan confirmed Cost Explorer works in the new management account. Listed there now: chatticus:application, :component, :environment, :installation (all were Inactive) plus an unrelated older chatticus:repo (left alone, not part of this scheme). ACTIVATED the four from the management account (profile Endymion, non-root) per Ryan's earlier approval: update-cost-allocation-tags-status returned no errors and a read-back shows all four Active. Activation is not retroactive and takes up to about a day to show up in cost data, so per-tag breakdowns will start appearing from now on, not for earlier spend. NOT DONE: chatticus:tenant is still not listed in Cost Explorer. It only appears once a computer task carrying that tag has run (the tag is applied to Fargate tasks at run time, #373), and no host runs yet in any account. Card stays open for that one key: after the first tagged computer run, list the tags, activate chatticus:tenant, then re-run the rollup. Related: 309a7e (the rollup's tag-active check cannot run from a member account) still blocks hosted organizations reading real spend even after tenant is active.",
+      "created_at": "2026-10-01T18:43:13.511881Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-19T19:01:48.366951Z",
-  "updated_at": "2026-10-01T18:40:18.737955Z",
+  "updated_at": "2026-10-01T18:43:13.511927Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5",
     "name": "Chatticus"
   },
-  "right_now_summary": "Cost Explorer now works in the new management account, but tenant tags await a tagged task and approval to activate",
-  "right_now_updated_at": "2026-10-01T18:40:21.100385Z",
+  "right_now_summary": "Four cost tags are active; chatticus:tenant awaits a tagged task before activation and rollup testing.",
+  "right_now_updated_at": "2026-10-01T18:43:14.948115Z",
   "custom": {}
 }
