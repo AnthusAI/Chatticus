@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import * as cdk from "aws-cdk-lib";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import { Construct } from "constructs";
+import type { Delegation } from "./dns-delegations";
 
 export const ZONE_NAME = "chattic.us";
 export const CLOUDFRONT_ALIAS_HOSTED_ZONE_ID = "Z2FDTNDATAQYW2";
@@ -45,13 +46,14 @@ function constructId(record: ExportedRecordSet): string {
 
 export interface ManagementDnsStackProps extends cdk.StackProps {
   records: readonly ExportedRecordSet[];
+  delegations?: readonly Delegation[];
 }
 
 export class ManagementDnsStack extends cdk.Stack {
   public readonly hostedZone: route53.PublicHostedZone;
 
   constructor(scope: Construct, id: string, props: ManagementDnsStackProps) {
-    const { records, ...stackProps } = props;
+    const { records, delegations = [], ...stackProps } = props;
     super(scope, id, { ...stackProps, terminationProtection: true });
 
     this.hostedZone = new route53.PublicHostedZone(this, "Zone", { zoneName: ZONE_NAME });
@@ -84,6 +86,25 @@ export class ManagementDnsStack extends cdk.Stack {
       } else {
         throw new Error(`Unsupported record ${record.Type} ${record.Name}; add support and a test before moving it.`);
       }
+    }
+
+    const recordedNames = new Set(records.map((record) => record.Name.replace(/\.$/, "")));
+    for (const delegation of delegations) {
+      if (!delegation.name.endsWith(`.${ZONE_NAME}`)) {
+        throw new Error(`Delegation ${delegation.name} is not a subdomain of ${ZONE_NAME}.`);
+      }
+      if (recordedNames.has(delegation.name)) {
+        throw new Error(`Cannot delegate ${delegation.name}: the zone already has records at that name.`);
+      }
+      if (delegation.nameServers.length !== 4) {
+        throw new Error(`Delegation ${delegation.name} needs the four name servers of its zone, got ${delegation.nameServers.length}.`);
+      }
+      new route53.NsRecord(this, `Delegation${delegation.name.replace(/[^A-Za-z0-9]/g, "")}`, {
+        zone: this.hostedZone,
+        recordName: delegation.name,
+        values: [...delegation.nameServers],
+        ttl: cdk.Duration.seconds(300),
+      });
     }
 
     new cdk.CfnOutput(this, "NameServers", {
