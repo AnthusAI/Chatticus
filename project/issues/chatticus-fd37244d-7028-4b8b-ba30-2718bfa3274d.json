@@ -36,10 +36,22 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "82db7f56-4244-4422-95c9-2ea96d61c9fb",
+      "author": "home",
+      "text": "2026-10-01: #378 merged (a338ae9). DEPLOYED to chatticus-development (guarded script, development credentials, not legacy): ChatticusSnapshots, ChatticusComputers (VPC with NO NAT gateways, empty ECR repo, Fargate service at desired count 0), ChatticusEnvironmentZones. Verified: two delegated zones develop.chattic.us and auth-develop.chattic.us each holding only NS and SOA, stacks tagged chatticus:environment=development (so the dedicated-account tag override works), nothing deployed with legacy credentials. Delegation is PR #379 (NS records in ChatticusManagementDns as reviewed IaC; committed name servers verified equal to the live zones). NEXT: merge #379, deploy ChatticusManagementDns once from the management session, dig both names through public resolvers, then deploy ChatticusEnvironmentCertificates, then ChatticusThinTurn. BLOCKED ON RYAN for Auth and Web: the Google OAuth secret and OpenAI key seeded from his own session (exact commands to follow), the Google redirect URI https://auth-develop.chattic.us/oauth2/idpresponse, and a budget amount for the new account (ChatticusBudgets not deployed yet). Housekeeping noted: dedicated-account deploys write account-specific availability-zone lookups into the tracked infra/cdk.context.json in the working tree; restore it, never commit it.",
+      "created_at": "2026-10-01T00:28:34.445119Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-30T19:57:47.744703Z",
-  "updated_at": "2026-09-30T23:18:44.728262Z",
+  "updated_at": "2026-10-01T00:28:34.445155Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
