@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-02713a0c-394d-4aa3-a018-7625e0a16d6e",
+  "title": "Give the new development account its own monthly budget",
+  "description": "The dev environment is serving in chatticus-development (fd3724) without a ChatticusBudgets stack because no amount has been chosen. The old whole-account $50 budget does not apply. Needs from Ryan: the monthly amount (the email stays ryan@anth.us). Then: sh deploy-chatticus-dedicated-account.sh development budgets with CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD and CHATTICUS_BUDGETS_NOTIFICATION_EMAIL set, confirm the SNS email subscription, and redeploy ThinTurn with the same variables so the daily rollup Lambda and its schedule exist in this account (ThinTurn only creates them when the limit is passed). The GitHub variable and secret already hold the old values; the dedicated deploy path does not read them until the cutover.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-02T02:57:39.695611Z",
+  "updated_at": "2026-10-02T02:57:39.695650Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "The team is waiting for Ryan to choose the monthly budget before deploying the dedicated account setup.",
+  "right_now_updated_at": "2026-10-02T02:57:41.191904Z",
+  "custom": {}
+}

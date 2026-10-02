@@ -3,7 +3,7 @@
   "title": "Deploy the development environment into chatticus-development",
   "description": "First real environment in a new account, as the proving ground (per 2e4d79). ThinTurn, Web and Auth development plus the per-account shared stacks the app needs (Snapshots, Computers, Budgets). Start empty: new DynamoDB, new Cognito user pool, new queues; no data copied yet. Legacy development is not touched and keeps serving dev.chattic.us until cutover.\n\nNeeds: the bootstrap and deploy-role card, and the DNS decision. Also decide the account id the customer role template trusts (AnthusAccountId) for this environment, and set CHATTICUS_INSTALLATION_NAME and the budgets values for the account. Verify by a real sign-in and message on the new environment's own hostname before anything is repointed.",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -84,17 +84,29 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "86e96b90-e241-4954-842a-0082c0f7485f",
+      "author": "home",
+      "text": "DONE 2026-10-01. VERIFIED END TO END on https://develop.chattic.us, driven in the browser pane with Ryan: Sign in with Google goes straight to Google's account chooser (redirect auth-develop.chattic.us/oauth2/idpresponse, no Cognito page, no username/password anywhere), Ryan picked ryan@anth.us, landed on the app signed in; the new pool holds one EXTERNAL_PROVIDER stub and zero native users. A newly created organization is 'pending' (the customer path asks for an AWS account id and role); the operator step python -m chatticus.members enable (status only, no computer) enabled 'Anthus AI Solutions' in the DEV account only; the workspace then opened, a bot 'Ping' was created through the UI, a message sent, and Ping answered via OpenAI ('Hello from the new development account-nice to meet you!'), stored in the dev account's own DynamoDB. In chatticus-development: ChatticusSnapshots, Computers (no NAT gateways, desired count 0), EnvironmentZones, EnvironmentCertificates (both issued), ThinTurn, Auth, Web; delegation in ChatticusManagementDns; AccountDeploy role verified by OIDC earlier. NOT in this card (filed or already carded): GitHub cutover and legacy dev retirement (c649bf), staging and production (7ebd57), tenant cost tag and the member-account tag check (d706d7, 309a7e), ECS host-start context, the budget for the new account. Legacy was never touched.",
+      "created_at": "2026-10-02T02:57:25.622604Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-30T19:57:47.744703Z",
-  "updated_at": "2026-10-02T01:28:24.047854Z",
-  "closed_at": null,
+  "updated_at": "2026-10-02T02:57:29.050920Z",
+  "closed_at": "2026-10-02T02:57:29.050851Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "Chatticus"
   },
-  "right_now_summary": "The development environment is live, but it awaits a real Google sign-in, a test message, and an OpenAI key.",
-  "right_now_updated_at": "2026-10-02T01:28:26.078625Z",
+  "right_now_summary": "The new development environment is live and verified; budget setup, GitHub cutover, and legacy retirement remain.",
+  "right_now_updated_at": "2026-10-02T02:57:30.365807Z",
   "custom": {}
 }
