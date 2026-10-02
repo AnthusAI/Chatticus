@@ -3,7 +3,7 @@
   "title": "Decide whether Chatticus keeps Cognito as the Google sign-in broker",
   "description": "Raised by Ryan 2026-10-01, mid-deploy of the development environment (fd3724): 'I never wanted a Cognito User pool. We're using Google for authentication.'\n\n## Fact\nThe existing design (card 0df6cb, closed; infra/lib/auth-stack.ts) puts a Cognito user pool BETWEEN the app and Google: Google is the only identity provider but Cognito is the OIDC broker the web app talks to (authorization code + PKCE, a public app client with no secret, custom domain auth-dev/-staging/auth). The API verifies Cognito-issued ID tokens (CognitoJwtVerifier, resolve_me_from_token); identity is keyed on verified email, never the Cognito sub. The Google redirect URI /oauth2/idpresponse belongs to Cognito. Legacy development, staging and production all work this way, and the design predates the migration. It was carried into the new dedicated-account stack unchanged; Ryan was not asked.\n\n## State at the moment of the objection\nChatticusAuth was just deployed into chatticus-development: one user pool with ZERO users, one app client, the Google identity provider, the custom domain auth-develop.chattic.us, two alias records, three SSM parameters. Web is NOT deployed (it reads the Cognito ids from SSM). Nothing depends on it yet. Cognito costs nothing at idle and has a free tier far above this use.\n\n## Options\nA. Keep Cognito (status quo): no code change; consistent with legacy; the new dev environment finishes as designed.\nB. Remove Cognito and have the app use Google directly. Work: web OIDC settings (buildUserManagerSettings authority, silent renew, sign-out), the API's token verifier (verify Google ID tokens: issuer, audience, JWKS), drop AuthStack plus its zone, certificate, SSM parameters and DNS, new redirect URIs. CAUTION (to be verified before committing): as far as I know Google's web-application OAuth clients require a client secret at the token step, which a browser app cannot hold, and that is the usual reason a broker like Cognito sits in the middle; the browser-only alternative is Google Identity Services, which returns short-lived ID tokens without refresh. That would change the session and sign-out behaviour users see.\nC. Keep Cognito for now, schedule B as its own piece of work after the environment moves.\n\n## Needs\nRyan's choice. Until then: do not deploy the dev web stack; do not change legacy. If B is chosen the just-deployed dev auth stack is torn down through CDK (no users, no data to lose).",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -36,17 +36,29 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "8f4c7c2c-326e-48e6-b93b-cc8fdbfdaad0",
+      "author": "home",
+      "text": "DECIDED by Ryan 2026-10-01: separate sign-in per product; Cognito stays as the broker; users are managed in Google; no Cognito-managed users. Verified on the new dev environment (see fd3724): Google is the only way in, the app goes straight to Google, the hosted page has no password form, the pool holds only Google-created stubs. The sibling survey showed apricity login uses the same browser-flow pattern (a future chatticus login would need a second public app client with a loopback redirect) and auritus login uses native passwords, which is not wanted. Closing.",
+      "created_at": "2026-10-02T02:57:33.972308Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-10-02T00:18:59.913771Z",
-  "updated_at": "2026-10-02T00:48:34.942687Z",
-  "closed_at": null,
+  "updated_at": "2026-10-02T02:57:36.958178Z",
+  "closed_at": "2026-10-02T02:57:36.958124Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "Chatticus"
   },
-  "right_now_summary": "Awaiting Ryan’s decision on whether to keep Cognito as Google’s sign-in broker.",
-  "right_now_updated_at": "2026-10-02T00:48:36.058606Z",
+  "right_now_summary": "Chatticus will keep Cognito as its Google sign-in broker, with separate product sign-in and no managed users.",
+  "right_now_updated_at": "2026-10-02T02:57:38.549321Z",
   "custom": {}
 }

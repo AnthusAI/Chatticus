@@ -1,0 +1,27 @@
+{
+  "id": "chatticus-664714a5-6ad3-46e4-903f-ce0a23ce3a9d",
+  "title": "Pass the ECS host-start context in the dedicated-account deploy script",
+  "description": "The legacy ThinTurn deploy script reads the ChatticusComputers outputs (cluster, task definition, subnets, security groups, roles) and passes computerHostStart context so the worker can start a Fargate host. deploy-chatticus-dedicated-account.sh does not, so a computer host cannot start in a dedicated account. Nothing needs it today (computerCount is 0 and no image is pushed). Do it when the first computer is needed, with a test, and push the computer image to the account's own ECR repository first.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-2e4d7971-dc29-4555-86de-b416edf42b03",
+  "labels": [
+    "infra"
+  ],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-02T02:57:43.451406Z",
+  "updated_at": "2026-10-02T02:57:43.451446Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "The dedicated-account script lacks host-start context and image pushing, but computers are not yet needed.",
+  "right_now_updated_at": "2026-10-02T02:57:45.802763Z",
+  "custom": {}
+}
