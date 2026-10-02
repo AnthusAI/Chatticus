@@ -12,16 +12,29 @@
     "infra"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "e301efac-6666-4d13-bda3-e3a25aaa3a97",
+      "author": "home",
+      "text": "Ryan (2026-10-01): 'We need to use Cognito. We do not want a Cognito User pool. We do not want to be responsible for managing Cognito users.' Interpreted as: Cognito as the broker, but no Cognito-managed users. Evidence from the code and the deployed dev pool (chatticus-development): selfSignUpEnabled false, signInAliases email only, no MFA, app client supports ONLY the Google identity provider with the authorization-code flow and no secret, no native password flows (ExplicitAuthFlows null), 0 users. So nobody can create, sign in as, or administer a Cognito-native user; the only way a record exists is a Google sign-in creating a federated shadow record (email, sub, no password, no lifecycle). Membership and roles live in DynamoDB, not Cognito. A user pool is the container Cognito requires to broker an external provider and issue the OIDC tokens the app and API consume; Cognito identity pools give AWS credentials, not these tokens, so there is no 'Cognito without a user pool' for this flow. Remaining responsibility is small: shadow records accumulate one per person who has signed in (a person's deletion request would mean deleting their shadow record). The only way to have no Cognito resource at all is option B (Google directly), a real change with the client-secret caveat. AWAITING Ryan's confirmation that the broker-only pool is acceptable; if so the dev environment continues with web.",
+      "created_at": "2026-10-02T00:42:42.121044Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
+    }
+  ],
   "created_at": "2026-10-02T00:18:59.913771Z",
-  "updated_at": "2026-10-02T00:18:59.913804Z",
+  "updated_at": "2026-10-02T00:42:42.121074Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "Chatticus"
   },
-  "right_now_summary": "Ryan must decide whether to keep Cognito before the development web stack is deployed.",
-  "right_now_updated_at": "2026-10-02T00:19:01.863737Z",
+  "right_now_summary": "Ryan must confirm that Cognito may broker Google sign-in without managing native users.",
+  "right_now_updated_at": "2026-10-02T00:42:43.845364Z",
   "custom": {}
 }
