@@ -35,4 +35,4 @@ jobs:
         working-directory: infra
         env:
           CHATTICUS_INSTALLATION_NAME: ${{ vars.CHATTICUS_INSTALLATION_NAME }}
-        run: sh deploy-chatticus-auth-development.sh
+        run: sh deploy-chatticus-dedicated-account.sh development auth
