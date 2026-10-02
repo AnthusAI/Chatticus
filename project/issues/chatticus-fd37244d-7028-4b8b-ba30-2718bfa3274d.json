@@ -60,17 +60,29 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "2ecc4deb-6c9f-46f6-92ca-89bdeff751f1",
+      "author": "home",
+      "text": "2026-10-01 PAUSED at auth/web: Ryan objected that he never wanted a Cognito user pool (he understood sign-in as Google directly). See the new decision card chatticus-dd1fdd. The dev auth stack was already deployed (empty user pool, zero users). Web not deployed. Waiting on his choice.",
+      "created_at": "2026-10-02T00:19:03.329642Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-30T19:57:47.744703Z",
-  "updated_at": "2026-10-01T00:53:36.134078Z",
+  "updated_at": "2026-10-02T00:19:03.329689Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "Chatticus"
   },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "Deployment awaits Ryan’s choice between Cognito and direct Google sign-in; the development auth stack is deployed.",
+  "right_now_updated_at": "2026-10-02T00:19:05.402921Z",
   "custom": {}
 }
