@@ -15,7 +15,7 @@ const EXPECTED_DEPLOY_WORKFLOWS: Record<
 > = {
   "deploy-auth-development.yml": {
     environment: "development",
-    script: "deploy-chatticus-auth-development.sh",
+    script: "deploy-chatticus-dedicated-account.sh development auth",
     pushBranch: "develop",
   },
   "deploy-auth-staging.yml": {
@@ -30,7 +30,7 @@ const EXPECTED_DEPLOY_WORKFLOWS: Record<
   },
   "deploy-thinturn-development.yml": {
     environment: "development",
-    script: "deploy-chatticus-thinturn-development.sh",
+    script: "deploy-chatticus-dedicated-account.sh development thin-turn",
     pushBranch: "develop",
   },
   "deploy-thinturn-staging.yml": {
@@ -45,7 +45,7 @@ const EXPECTED_DEPLOY_WORKFLOWS: Record<
   },
   "deploy-web-development.yml": {
     environment: "development",
-    script: "deploy-chatticus-web-development.sh",
+    script: "deploy-chatticus-dedicated-account.sh development web",
     pushBranch: "develop",
   },
   "deploy-web-staging.yml": {
