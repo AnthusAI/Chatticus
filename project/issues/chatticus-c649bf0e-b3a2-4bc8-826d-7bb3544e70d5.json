@@ -12,16 +12,28 @@
     "infra"
   ],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "dc1bafad-820b-4ff7-9f8f-d9f39f113b3c",
+      "author": "home",
+      "text": "Development cutover done: PR 380 merged, development environment AWS_DEPLOY_ROLE_ARN now targets the dedicated development account, and the three development deploy workflows ran green and updated ChatticusThinTurn, ChatticusWeb and ChatticusAuth there. Legacy dev left running pending approval to retire. Ryan still needs to confirm the SNS email subscription in the dev account. Next: staging and production.",
+      "created_at": "2026-10-02T10:34:03.569928Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5"
+      }
+    }
+  ],
   "created_at": "2026-09-30T19:57:48.670078Z",
-  "updated_at": "2026-10-02T02:57:31.845090Z",
+  "updated_at": "2026-10-02T10:34:03.569951Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "Chatticus"
   },
-  "right_now_summary": "The team is waiting for Ryan’s approval before switching development deployments to the new account.",
-  "right_now_updated_at": "2026-10-02T02:57:32.998781Z",
+  "right_now_summary": "Development now deploys to the new AWS account; legacy dev remains running while Ryan confirms the SNS email",
+  "right_now_updated_at": "2026-10-02T10:34:05.720301Z",
   "custom": {}
 }
