@@ -141,9 +141,13 @@ describe("ManagementDnsStack delegations", () => {
 });
 
 describe("the committed delegations", () => {
-  it("delegate exactly the development environment's two names, once each", () => {
+  it("delegate exactly every environment's two names, once each", () => {
     const names = DELEGATIONS.map((delegation) => delegation.name).sort();
-    assert.deepEqual(names, [DEDICATED_ACCOUNT_HOSTNAMES.development.authDomain, DEDICATED_ACCOUNT_HOSTNAMES.development.siteDomain].sort());
+    const expected = Object.values(DEDICATED_ACCOUNT_HOSTNAMES)
+      .flatMap((hostnames) => [hostnames.siteDomain, hostnames.authDomain])
+      .sort();
+    assert.deepEqual(names, expected);
+    assert.equal(expected.length, 6);
     assert.equal(new Set(names).size, names.length);
   });
 
