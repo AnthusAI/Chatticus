@@ -72,17 +72,29 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "7e47aa91-cc6d-431a-90d3-de0afdbb9ac8",
+      "author": "home",
+      "text": "2026-10-01: DEV ENVIRONMENT SERVING from chatticus-development at https://develop.chattic.us. Cognito question resolved by Ryan (broker-only Google sign-in, separate pool per product, no managed users) and verified: the app sends identity_provider=Google, and the hosted Cognito page reached directly has no forms and no username/password inputs, only a Google button. Web deployed with the guarded script and development credentials. Verified from outside: develop.chattic.us resolves through Google, Cloudflare and Quad9; GET / 200, /chat/ 200, /api/health 200, /provisioning/customer-role.yml 200; certificate CN=develop.chattic.us issued by Amazon (valid to 2027-04); the built bundle references auth-develop.chattic.us and develop.chattic.us/auth/callback and contains ZERO references to the legacy auth-dev name. REMAINING for this card's done-when (a real sign-in and message on the new hostname): Ryan signs in with Google at https://develop.chattic.us (a new account has no organization, signup mode is open so he creates one), and seeds the OpenAI SecureString /chatticus/development/thin-turn/openai-api-key so a message can be answered. Then: budget amount from Ryan, ChatticusBudgets, redeploy ThinTurn for the rollup Lambda; dedicated-script host-start context; later the customer-role template trust (AnthusAccountId) for this account, GitHub cutover (c649bf), and legacy dev retirement. Sign-in addresses: develop.chattic.us, auth-develop.chattic.us.",
+      "created_at": "2026-10-02T01:28:24.047820Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-09-30T19:57:47.744703Z",
-  "updated_at": "2026-10-02T00:19:03.329689Z",
+  "updated_at": "2026-10-02T01:28:24.047854Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "Chatticus"
   },
-  "right_now_summary": "Deployment awaits Ryan’s choice between Cognito and direct Google sign-in; the development auth stack is deployed.",
-  "right_now_updated_at": "2026-10-02T00:19:05.402921Z",
+  "right_now_summary": "The development environment is live, but it awaits a real Google sign-in, a test message, and an OpenAI key.",
+  "right_now_updated_at": "2026-10-02T01:28:26.078625Z",
   "custom": {}
 }

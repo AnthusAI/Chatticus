@@ -21,7 +21,7 @@
     "model": "claude-opus-5-5",
     "name": "Chatticus"
   },
-  "right_now_summary": "Development auth is deployed, but cutover awaits Ryan’s Cognito or direct Google sign-in decision.",
-  "right_now_updated_at": "2026-10-02T00:48:37.234771Z",
+  "right_now_summary": "Development now runs in its new account and awaits sign-in, message, and OpenAI key checks.",
+  "right_now_updated_at": "2026-10-02T01:28:28.356871Z",
   "custom": {}
 }
