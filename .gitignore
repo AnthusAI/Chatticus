@@ -11,7 +11,7 @@ htmlcov/
 dist/
 build/
 # Node
-node_modules/
+node_modules
 .next/
 out/
 web/generated/
