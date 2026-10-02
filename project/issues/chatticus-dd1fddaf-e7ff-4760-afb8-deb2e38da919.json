@@ -24,17 +24,29 @@
         "model": "claude-sonnet-5-5",
         "name": "Chatticus"
       }
+    },
+    {
+      "id": "acf001dd-ede8-48fa-b80f-3a164e01ba81",
+      "author": "home",
+      "text": "2026-10-01: Ryan interrupted the dev web deploy to ask about a 'chatticus login' CLI like apricity login / kanbus login / auritus login. FINDINGS (read-only survey of sibling repos and the legacy account): (1) There is NO chatticus CLI with a login command in this repo today (no console script in python/pyproject; tooling is 'python -m chatticus.members' plus a live-acceptance script and demo CLI that authenticate as a WORKER with a minted credential, card d71ed5). (2) apricity login is a browser flow against a Cognito hosted domain with a public client and a loopback redirect (Cognito-authenticated, refresh token kept in the OS keychain): the same mechanism a future chatticus login would use against the Chatticus pool, which supports Google only. (3) auritus login uses native Cognito username and password (USER_PASSWORD_AUTH): a pool of real managed users, the kind Ryan does not want. (4) kanbus login: no login command found in the README or AGENTS. (5) There is no shared Anthus sign-in: the legacy account holds about 19 Cognito pools, separate per product (Chatticus 3, Kanbus 2, Auritus several, Amplify-generated ones). OPEN QUESTION for Ryan: does he want ONE shared sign-in across Anthus products instead of a pool per product? If so the new dev environment should point at that shared pool and not create another. The dev auth stack (empty pool, zero users) is deployed; the dev web stack is deliberately NOT deployed pending his answer. If a chatticus login CLI is wanted, the Chatticus pool needs a second public app client with a loopback redirect.",
+      "created_at": "2026-10-02T00:48:34.942657Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "Chatticus"
+      }
     }
   ],
   "created_at": "2026-10-02T00:18:59.913771Z",
-  "updated_at": "2026-10-02T00:42:42.121074Z",
+  "updated_at": "2026-10-02T00:48:34.942687Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "Chatticus"
   },
-  "right_now_summary": "Ryan must confirm that Cognito may broker Google sign-in without managing native users.",
-  "right_now_updated_at": "2026-10-02T00:42:43.845364Z",
+  "right_now_summary": "Awaiting Ryan’s decision on whether to keep Cognito as Google’s sign-in broker.",
+  "right_now_updated_at": "2026-10-02T00:48:36.058606Z",
   "custom": {}
 }
