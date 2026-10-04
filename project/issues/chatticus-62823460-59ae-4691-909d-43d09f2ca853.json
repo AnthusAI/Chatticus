@@ -32,7 +32,7 @@
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "Voice control is deployed to development and awaits sign-in and device tests before wider rollout.",
+  "right_now_updated_at": "2026-10-04T18:05:41.215617Z",
   "custom": {}
 }

@@ -1,4 +1,4 @@
-import type { Bot, Channel } from "./api";
+import type { Bot, Channel, Message } from "./api";
 import { channelBotIds, directChannelForBot } from "./workspace-state";
 
 /** Where an addressed line goes: the open named channel, or the teammate's direct conversation. */
@@ -14,6 +14,7 @@ export type VoiceRoute =
   | { kind: "send"; botId: string; body: string; destination: VoiceDestination }
   | { kind: "select"; botId: string }
   | { kind: "stopListening" }
+  | { kind: "stopSpeaking" }
   | { kind: "notice"; text: string }
   | { kind: "discard" };
 
@@ -22,6 +23,11 @@ export interface VoiceWorkspace {
   channels: Channel[];
   selectedId: string | null;
   busyChannelIds: string[];
+  /**
+   * Whether the line began while a reply was being spoken (or just after).
+   * Such a line may be the browser hearing itself, so only stop commands act.
+   */
+  overlapsSpeech?: boolean;
 }
 
 export interface VoiceEnvironment {
@@ -32,6 +38,19 @@ export interface VoiceEnvironment {
 export type VoiceAvailability = { available: true } | { available: false; reason: string };
 
 const STOP_LISTENING_PHRASES = ["stop listening", "stop listening please"];
+const STOP_SPEAKING_PHRASES = [
+  "stop",
+  "stop please",
+  "quiet",
+  "quiet please",
+  "stop talking",
+  "skip",
+  "that's enough",
+];
+
+/** The most a spoken reply says before pointing to the screen. */
+export const MAX_SPOKEN_REPLY_CHARACTERS = 300;
+const REST_ON_SCREEN = "The rest is on screen.";
 const SELECT_PREFIXES = ["switch to ", "talk to "];
 
 export function voiceAvailability(environment: VoiceEnvironment): VoiceAvailability {
@@ -201,6 +220,11 @@ export function routeVoiceLine(text: string, workspace: VoiceWorkspace): VoiceRo
   if (STOP_LISTENING_PHRASES.includes(normalized)) {
     return { kind: "stopListening" };
   }
+  if (workspace.overlapsSpeech) {
+    return STOP_SPEAKING_PHRASES.includes(normalized)
+      ? { kind: "stopSpeaking" }
+      : { kind: "discard" };
+  }
   const selectPrefix = SELECT_PREFIXES.find((prefix) => normalized.startsWith(prefix));
   if (selectPrefix) {
     const bot = findBotBySpokenName(workspace.bots, normalized.slice(selectPrefix.length), true);
@@ -220,4 +244,102 @@ export function routeVoiceLine(text: string, workspace: VoiceWorkspace): VoiceRo
     return { kind: "notice", text: `${name} is still working. Say it again when ${name} is done.` };
   }
   return { kind: "send", botId: addressed.bot.bot_id, body, destination };
+}
+
+const MAX_SPEAKABLE_INPUT_CHARACTERS = 2_000;
+
+function speakableText(markdown: string): string {
+  const inlineCode: string[] = [];
+  const withoutCode = markdown
+    .slice(0, MAX_SPEAKABLE_INPUT_CHARACTERS)
+    .replace(/```[\s\S]*?```/g, "\nthe code on screen.\n")
+    .replace(/```[\s\S]*$/, "\nthe code on screen.\n")
+    .replace(/`([^`\n]*)`/g, (_match, code: string) => {
+      inlineCode.push(code);
+      return `\u0000${inlineCode.length - 1}\u0000`;
+    });
+  return withoutCode
+    .replace(/!?\[([^\]\n]*)\]\([^)\s]*\)/g, "$1")
+    .replace(/https?:\/\/[^\s)]+?(?=[.,;:!?)]*(?:\s|$))/g, "the link on screen")
+    .replace(/^[ \t]{0,3}(?:#{1,6}|>|[-*+]|\d+[.)])[ \t]+/gm, "")
+    .replace(/\*\*([^*\n]+)\*\*/g, "$1")
+    .replace(/(^|[^\w])__([^_\n]+)__(?=[^\w]|$)/g, "$1$2")
+    .replace(/(^|[^\w*])\*([^*\s][^*\n]*?)\*(?=[^\w*]|$)/g, "$1$2")
+    .replace(/(^|[^\w])_([^_\s][^_\n]*?)_(?=[^\w]|$)/g, "$1$2")
+    .replace(/~~([^~\n]+)~~/g, "$1")
+    .replace(/\u0000(\d+)\u0000/g, (_match, index: string) => inlineCode[Number(index)] ?? "")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => (/[.!?:;]$/.test(line) ? line : `${line}.`))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function sentencesWithin(text: string, maximumCharacters: number): string {
+  if (text.length <= maximumCharacters) {
+    return text;
+  }
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  let kept = "";
+  for (const sentence of sentences) {
+    const next = kept ? `${kept} ${sentence}` : sentence;
+    if (kept && next.length > maximumCharacters) {
+      break;
+    }
+    kept = next;
+  }
+  if (kept.length > maximumCharacters) {
+    kept = `${kept.slice(0, maximumCharacters).replace(/\s+\S*$/, "")}…`;
+  }
+  return `${kept} ${REST_ON_SCREEN}`;
+}
+
+/** What the browser says aloud for a teammate's reply. */
+export function spokenReply(botName: string, body: string): string {
+  return `${botName} says: ${sentencesWithin(speakableText(body), MAX_SPOKEN_REPLY_CHARACTERS)}`;
+}
+
+/** What the browser says aloud when a teammate's turn fails. */
+export function spokenFailure(botName: string, reason: string): string {
+  return `${botName} could not answer. ${sentencesWithin(speakableText(reason), MAX_SPOKEN_REPLY_CHARACTERS)}`;
+}
+
+/** The bot's committed answer to a turn: its newest message after the prompt. */
+export function replyForEndedTurn(
+  turn: { bot_id: string; prompt_message_seq?: number | null },
+  committed: Message[],
+): Message | null {
+  return (
+    [...committed]
+      .sort((left, right) => right.seq - left.seq)
+      .find(
+        (message) =>
+          message.author_kind === "bot" &&
+          message.author_id === turn.bot_id &&
+          (turn.prompt_message_seq == null || message.seq > turn.prompt_message_seq),
+      ) ?? null
+  );
+}
+
+export type TurnEndOutcome =
+  | { kind: "completed"; body: string }
+  | { kind: "failed"; reason: string };
+
+/**
+ * What to say when a turn this browser was watching in the open conversation
+ * ends, or ``null`` while listening is off.
+ */
+export function turnEndAnnouncement(ending: {
+  listening: boolean;
+  botName: string;
+  outcome: TurnEndOutcome;
+}): string | null {
+  if (!ending.listening) {
+    return null;
+  }
+  return ending.outcome.kind === "completed"
+    ? spokenReply(ending.botName, ending.outcome.body)
+    : spokenFailure(ending.botName, ending.outcome.reason);
 }

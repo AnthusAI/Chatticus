@@ -14,7 +14,8 @@ export const VOICE_THREAD_COUNT = 2;
 
 export interface VoiceSessionHandlers {
   onPartial: (text: string) => void;
-  onLine: (text: string) => void;
+  /** A completed line, with the wall-clock time (ms) its speech began. */
+  onLine: (text: string, startedAtMs: number) => void;
   onProgress: (fraction: number) => void;
   onError: (error: Error) => void;
 }
@@ -61,6 +62,7 @@ export async function startVoiceSession(
   handlers: VoiceSessionHandlers,
   keyterms: string[],
 ): Promise<VoiceSession> {
+  let listeningStartedAt = Date.now();
   const microphone: MicTranscriber = await withPresentedCoreCount(VOICE_THREAD_COUNT, async () => {
     const { MicTranscriber, ModelArch } = await loadMoonshine();
     const loaded = new MicTranscriber()
@@ -68,7 +70,7 @@ export async function startVoiceSession(
       .modelArch(ModelArch.TinyStreaming)
       .onProgress((fraction) => handlers.onProgress(fraction))
       .onText((text) => handlers.onPartial(text))
-      .onLine((line) => handlers.onLine(line.text))
+      .onLine((line) => handlers.onLine(line.text, listeningStartedAt + line.startTime * 1000))
       .onError((error) => handlers.onError(error));
     await loaded.load();
     return loaded;
@@ -78,6 +80,7 @@ export async function startVoiceSession(
       microphone.setKeyterms(keyterms);
     }
     await microphone.start();
+    listeningStartedAt = Date.now();
   } catch (error) {
     microphone.close();
     throw error;

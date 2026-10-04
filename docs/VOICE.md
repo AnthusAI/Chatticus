@@ -315,17 +315,29 @@ behavior, so it starts as Gherkin in `features/`.
 
 ### 4. Speaking back is functional
 
-Bots answer in text in the channel, as they do today. Voice output reads a
-**short spoken summary**: the first sentence, or "Ada finished; 3 files
-changed". It does not read the whole message.
+Bots answer in text in the channel, as they do today. While listening is on,
+the browser also speaks the reply when a turn it was watching in the open
+conversation ends. It never reads history (`features/web_voice_control.feature`):
 
-- **Start with `speechSynthesis`:** the Web Speech API built into the browser.
-  It needs no download and costs nothing.
-- **Upgrade if needed:** Moonshine's Kokoro voice (about 110 MB, Apache-2.0)
-  is an opt-in for a consistent voice across browsers.
-- **Half duplex:** STT ignores input while TTS speaks, and barge-in is off.
-  Moonshine itself defaults barge-in off because of echo. "Quiet" still works
-  between sentences.
+- **What is said.** "Ada says: ..." for a reply, and "Ada could not answer.
+  <reason>" for a failed turn.
+  - Markdown, links and code become plain words ("the link on screen", "the
+    code on screen").
+  - Replies are capped at about 300 characters, ending at a sentence, followed
+    by "The rest is on screen."
+- **Voice.** `speechSynthesis`, the Web Speech API built into the browser: no
+  download, no cost.
+  - Text is spoken a sentence at a time, because Chrome cuts long utterances
+    off.
+  - A watchdog ends the speaking state if the engine goes quiet.
+  - The tap that starts listening also unlocks speech on iOS.
+  - Moonshine's Kokoro voice (about 110 MB, Apache-2.0) remains the opt-in
+    upgrade for one consistent voice.
+- **Hands-free stop, without hearing itself.** The microphone stays open while
+  a reply is spoken, so "stop", "quiet", "stop talking" or "skip" interrupts it.
+  - Any line that *began* while a reply was being spoken, or within half a
+    second of it, is treated as possibly the browser hearing itself.
+  - Only stop commands act on such a line. Nothing else is sent.
 
 ### 5. Server side changes
 
