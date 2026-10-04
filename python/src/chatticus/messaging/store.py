@@ -691,9 +691,7 @@ class InMemoryMessagingStore:
 
     def set_latest_turn(self, turn: Turn) -> None:
         with self._lock:
-            self._latest_channel_turns[(turn.tenant_id, turn.channel_id)] = (
-                turn.turn_id
-            )
+            self._latest_channel_turns[(turn.tenant_id, turn.channel_id)] = turn.turn_id
 
     def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
         with self._lock:
