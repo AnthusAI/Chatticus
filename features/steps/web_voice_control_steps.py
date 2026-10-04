@@ -139,14 +139,10 @@ def when_member_starts_listening(context: object) -> None:
     context.voice_outcome = _run_voice_harness(context, "availability")
 
 
-
-
-
 @then("nothing leaves the browser")
 def then_nothing_leaves(context: object) -> None:
     outcome = context.voice_outcome
     assert outcome["kind"] == "discard", outcome
-
 
 
 @then("listening stops")
