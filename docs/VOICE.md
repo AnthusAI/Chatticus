@@ -469,7 +469,8 @@ What follows:
   - On a 10-core machine the default pool burns about a sixth of a core in
     silence.
   - A pool of two costs about 3.9x less in silence (16.2% to 4.2%) and 2.6x
-    less during speech (31.6% to 12.0%), with no latency loss.
+    less during speech (31.6% to 12.0%). Latency differences between pool
+    sizes are within run-to-run variance (about 0.15 s).
   - The package does not expose the pool size. The spike overrides
     `navigator.hardwareConcurrency` before the module loads.
   - The product needs a supported setting (`chatticus-070c91`).
