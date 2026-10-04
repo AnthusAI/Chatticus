@@ -22,6 +22,17 @@ def _clear_invoke_key_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _no_openai_credentials_unless_live(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if request.node.get_closest_marker("live_openai") is not None:
+        return
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY_PARAMETER", raising=False)
+    monkeypatch.setattr("chatticus.openai_client.load_dotenv", lambda *a, **k: False)
+
+
+@pytest.fixture(autouse=True)
 def _deployment_aws_account(monkeypatch: pytest.MonkeyPatch) -> None:
     account_id = "111122223333"
     monkeypatch.setenv("CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID", account_id)

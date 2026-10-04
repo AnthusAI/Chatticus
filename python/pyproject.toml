@@ -52,6 +52,7 @@ line-length = 88
 target-version = ["py312"]
 
 [tool.pytest.ini_options]
+addopts = "-m 'not live_openai'"
 markers = [
     "live_openai: calls the live OpenAI API when OPENAI_API_KEY is set",
 ]
