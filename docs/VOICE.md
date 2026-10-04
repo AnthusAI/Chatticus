@@ -204,6 +204,8 @@ threshold) rather than AgentFlow's embedding model.
 - Its Gemma Terms of Use need a licence review before we ship it from our
   own CDN.
 - A closed grammar is more predictable for control anyway.
+- The matcher reads the whole completed line and prefers the longest match,
+  so "stop listening" never triggers "stop" (turn cancel).
 
 We can still borrow `AgentFlow`'s dialog shape (`confirm`, `choose`,
 global "cancel") or use `AgentFlow` with `use_embeddings(false)`.
