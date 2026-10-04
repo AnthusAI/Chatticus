@@ -17,17 +17,24 @@
       "text": "Research (2026-10-04, earendil-works/pi @ 2003871, packages 1.0.2, MIT; @mariozechner/* deprecated): session format v3 = header + entry tree (id/parentId) of message, model_change, thinking_level_change, usage, compaction, branch_summary, custom, custom_message, context_edit, label, session_info; system prompt and tools live in the transcript as system messages. Messages: user (no author field), assistant (text/thinking/toolCall blocks, usage+cost, stopReason, errorMessage), toolResult. SessionManager.inMemory(cwd, opts, entries) lets a host own storage -> one DynamoDB item per entry. Events: agent/turn/message start-update-end with text/thinking/toolcall deltas, tool_execution_*, agent_settled; RPC wire is delta-only. tool_call hook is awaited and can block (approvals). Bash/read/write/edit take pluggable operations -> Pi can run outside the computer while its tools execute on it. Node >= 22.19, ESM; Lambda viability unverified. pi-durable has a pluggable Storage interface but is experimental.\n\nDECISION (human, 2026-10-04): one Pi session per bot per channel. A bot's own turns are native Pi messages; human and other-bot channel messages are injected as custom_message entries with attribution in the content.",
       "created_at": "2026-10-04T18:35:40.642973Z",
       "comment_type": "default"
+    },
+    {
+      "id": "94f56a49-6cc0-476a-96cc-e8434bfc2e8f",
+      "author": "home",
+      "text": "Storage decision (human, 2026-10-04): Pi sessions are stored in DynamoDB, not JSONL files on EFS. One item per Pi session entry (session key = tenant + channel + bot; sort by append order; the item holds the entry verbatim: id, parentId, type, payload), so Pi's format is preserved and a .jsonl export is one line per item. Lambdas stay out of any VPC (no NAT, no IPv6 dependency); matches 'the transcript is DynamoDB' and zero idle cost. The worker loads entries into SessionManager.inMemory(...) per turn and writes back the entries Pi appended (diff, since entry_appended does not fire for ordinary messages), with conditional writes on the turn fence. Entries over the 400 KB item limit offload to S3 with a pointer. pi-durable's Storage interface is the likely long-term backend once it is stable.",
+      "created_at": "2026-10-04T18:57:58.711029Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-04T18:31:58.379533Z",
-  "updated_at": "2026-10-04T18:35:40.642991Z",
+  "updated_at": "2026-10-04T18:57:58.711056Z",
   "closed_at": null,
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "The team is testing a Pi-based Lambda harness with DynamoDB sessions, streaming events, and message attribution.",
-  "right_now_updated_at": "2026-10-04T18:35:45.243300Z",
+  "right_now_summary": "The team is testing a DynamoDB-backed Pi turn in a headless Lambda.",
+  "right_now_updated_at": "2026-10-04T18:58:03.325402Z",
   "custom": {}
 }
