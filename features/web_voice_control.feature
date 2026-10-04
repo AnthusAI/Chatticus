@@ -161,3 +161,42 @@ Feature: Talking to teammates by voice
     When the microphone is lost with the reason "The microphone was disconnected."
     Then the voice session is "error"
     And the member is told "The microphone was disconnected."
+
+  Scenario: Capture is not resumed while a reply is being spoken
+    Given a reply is being spoken
+    When the system suspends the capture audio engine
+    Then capture is left suspended
+
+  Scenario: Capture is resumed after a reply has been spoken
+    When the system suspends the capture audio engine
+    Then capture is woken
+
+  Scenario: A line heard during a reply that is not a stop command does not stop the reply
+    Given a reply is being spoken
+    When the member says "Please don't stop now."
+    Then speaking does not stop
+    And nothing leaves the browser
+
+  Scenario: The watchdog does not end speech that has not started yet
+    When the speech engine reports idle 600 milliseconds after speech was queued and nothing has started
+    Then the watchdog leaves the speech running
+
+  Scenario: The watchdog ends speech that never starts after a grace period
+    When the speech engine reports idle 5000 milliseconds after speech was queued and nothing has started
+    Then the watchdog ends the speech
+
+  Scenario: The watchdog ends speech that started and then went quiet
+    When the speech engine reports idle 600 milliseconds after speech was queued and speech had started
+    Then the watchdog ends the speech
+
+  Scenario: The watchdog never ends speech the engine is still producing
+    When the speech engine reports busy 9000 milliseconds after speech was queued and speech had started
+    Then the watchdog leaves the speech running
+
+  Scenario: Speech that ended early says why
+    When speech ends because of "deadline: the reply ran past its expected length"
+    Then the browser says "Speech stopped: deadline: the reply ran past its expected length"
+
+  Scenario: Speech that finished on its own says nothing
+    When speech ends because of "finished"
+    Then the browser says nothing

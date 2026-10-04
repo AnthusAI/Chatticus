@@ -327,3 +327,12 @@ export function phaseAfterSessionEvent(
   }
   return { phase, note: `Voice hiccup: ${event.message}` };
 }
+
+/**
+ * Whether the capture audio engine may be woken. While the device is
+ * speaking, iOS suspends capture on purpose; waking it takes the audio
+ * session back for recording and cuts the speech off, so capture waits.
+ */
+export function captureMayResume(state: { speaking: boolean; engineState: string }): boolean {
+  return !state.speaking && state.engineState !== "running" && state.engineState !== "closed";
+}

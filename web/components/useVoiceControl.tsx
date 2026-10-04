@@ -15,6 +15,7 @@ import {
 import { startVoiceSession, type VoiceSession } from "../lib/voice-session";
 import {
   speak as speakAloud,
+  speechEndNote,
   speechDeadlineMs,
   stopSpeaking as stopSpeakingAloud,
 } from "../lib/voice-speech";
@@ -33,7 +34,7 @@ export interface VoiceControl {
   listening: boolean;
   speaking: boolean;
   speak: (text: string) => void;
-  stopSpeaking: () => void;
+  stopSpeaking: (reason?: string) => void;
   stop: () => Promise<void>;
   composerAction: ReactNode;
   composerStatus: ReactNode;
@@ -70,21 +71,29 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     await session?.stop();
   }, []);
 
-  const endSpeechWindow = useCallback(() => {
+  const endSpeechWindow = useCallback((reason: string) => {
     const speechWindow = speechWindowRef.current;
+    const wasSpeaking = Boolean(speechWindow && speechWindow.endedAt === null);
     if (speechWindow && speechWindow.endedAt === null) {
       speechWindow.endedAt = Date.now();
     }
     setSpeaking(false);
-    void sessionRef.current?.resumeCapture().then((woken) => {
+    const session = sessionRef.current;
+    session?.holdCapture(false);
+    void session?.resumeCapture().then((woken) => {
       if (woken) setNote("Microphone woke up after speech. Go ahead.");
     });
+    const endNote = wasSpeaking ? speechEndNote(reason) : null;
+    if (endNote) setNote(endNote);
   }, []);
 
-  const stopSpeaking = useCallback(() => {
-    stopSpeakingAloud();
-    endSpeechWindow();
-  }, [endSpeechWindow]);
+  const stopSpeaking = useCallback(
+    (reason: string = "stopped with the button") => {
+      stopSpeakingAloud();
+      endSpeechWindow(reason);
+    },
+    [endSpeechWindow],
+  );
 
   const speak = useCallback(
     (text: string) => {
@@ -96,14 +105,17 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
         expectedEndedAt: startedAt + speechDeadlineMs(text),
       };
       setSpeaking(true);
+      sessionRef.current?.holdCapture(true);
       const started = speakAloud(text, {
         onStart: () => setSpeaking(true),
         onEnd: endSpeechWindow,
+        onReplaced: () => setNote(speechEndNote("replaced by newer speech")),
         onError: (error) => setNote(`Speech failed: ${error}`),
       });
       if (!started) {
         speechWindowRef.current = previousWindow;
         setSpeaking(false);
+        sessionRef.current?.holdCapture(false);
         setNote("This browser cannot speak replies.");
       }
     },
@@ -117,7 +129,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
 
   const stop = useCallback(async () => {
     setPhase((current) => (current === "listening" || current === "loading" ? "idle" : current));
-    stopSpeaking();
+    stopSpeaking("the voice conversation was turned off");
     await closeSession();
   }, [closeSession, stopSpeaking]);
 

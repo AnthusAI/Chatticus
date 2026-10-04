@@ -1,6 +1,7 @@
 import {
   lineOverlapsSpeechWindow,
   lineStartedAtMs,
+  captureMayResume,
   phaseAfterSessionEvent,
   replyForEndedTurn,
   routeVoiceLine,
@@ -8,7 +9,7 @@ import {
   voiceAvailability,
   voiceButtonPresentation,
 } from "../lib/voice-control";
-import { speechDeadlineMs } from "../lib/voice-speech";
+import { speechDeadlineMs, speechEndNote, speechWatchdogShouldEnd } from "../lib/voice-speech";
 import type { Bot, Channel } from "../lib/api";
 
 const input = JSON.parse(process.argv[2] ?? "{}") as {
@@ -20,7 +21,10 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
     | "announceTurnEnd"
     | "announceEndedTurn"
     | "hearAfterSpeech"
-    | "lineStart";
+    | "lineStart"
+    | "captureResume"
+    | "watchdog"
+    | "speechEndNote";
   spokenText?: string;
   spokenAtMs?: number;
   spokenEndedAtMs?: number | null;
@@ -41,6 +45,10 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
   line?: string;
   phase?: import("../lib/voice-control").VoicePhase;
   speaking?: boolean;
+  engineState?: string;
+  started?: boolean;
+  millisecondsSinceQueued?: number;
+  engineBusy?: boolean;
   event?: import("../lib/voice-control").VoiceSessionEvent;
 };
 
@@ -71,6 +79,23 @@ if (input.action === "hear") {
       startedAtMs,
     ),
   });
+} else if (input.action === "captureResume") {
+  output = {
+    resumes: captureMayResume({
+      speaking: input.speaking ?? false,
+      engineState: input.engineState ?? "running",
+    }),
+  };
+} else if (input.action === "watchdog") {
+  output = {
+    ends: speechWatchdogShouldEnd({
+      started: input.started ?? false,
+      millisecondsSinceQueued: input.millisecondsSinceQueued ?? 0,
+      engineBusy: input.engineBusy ?? false,
+    }),
+  };
+} else if (input.action === "speechEndNote") {
+  output = { note: speechEndNote(input.reason ?? "finished") };
 } else if (input.action === "lineStart") {
   output = { startedAtMs: lineStartedAtMs(input.completedAtMs ?? 0, input.durationSeconds ?? 0) };
 } else if (input.action === "buttonPresentation") {

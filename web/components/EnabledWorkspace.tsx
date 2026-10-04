@@ -513,7 +513,7 @@ export function EnabledWorkspace({
   const voiceKeytermList = useMemo(() => voiceKeyterms(bots), [bots]);
   const stopVoiceRef = useRef<() => Promise<void>>(async () => undefined);
   const speakingRef = useRef(false);
-  const stopSpeakingRef = useRef<() => void>(() => undefined);
+  const stopSpeakingRef = useRef<(reason?: string) => void>(() => undefined);
 
   const handleVoiceLine = useCallback(
     async (text: string, line: { overlapsSpeech: boolean }): Promise<string> => {
@@ -526,7 +526,7 @@ export function EnabledWorkspace({
         overlapsSpeech: line.overlapsSpeech || speakingRef.current,
       });
       if (route.kind === "stopSpeaking") {
-        stopSpeakingRef.current();
+        stopSpeakingRef.current("you said stop");
         return "Stopped speaking.";
       }
       if (route.kind === "discard") {
