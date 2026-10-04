@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-62823460-59ae-4691-909d-43d09f2ca853",
+  "title": "Voice control in the web workspace via on-device Moonshine",
+  "description": "As a human running a software factory from hey.chattic.us, I want to talk to my bots hands-free for as long as I like, so that I can orchestrate work by voice without paying for a live multimodal stream.\n\nPrinciple: functional, cheap, intelligent voice control -- not a human impersonation. Listening, VAD, transcription, and common commands run on-device in the browser (Moonshine). Cloud/AI activity happens only when the user actually says something that needs a bot, and then it is an ordinary one-turn request.\n\nNot included: a persistent audio stream to a cloud model, WebSockets, realtime multimodal APIs, human-like voice persona.",
+  "type": "epic",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T12:07:17.074929Z",
+  "updated_at": "2026-10-04T12:07:25.538305Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude_code",
+    "model": "Opus 5.5",
+    "name": "Claude"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

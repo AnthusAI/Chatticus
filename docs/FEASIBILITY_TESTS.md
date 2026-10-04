@@ -27,3 +27,11 @@ challenge 5 and is the smallest thing that is actually Chatticus.
 Do it using challenge 1's transport result in
 [Design challenges](DESIGN_CHALLENGES.md). Do not let it absorb the
 spikes: a measurement that becomes a feature is a measurement nobody trusts.
+
+## Voice: on-device listening in the browser
+
+Four tests gate voice control in the web workspace: browser cost of
+always-on listening, Safari and iOS, cross-origin isolation against
+sign-in, and accuracy on our vocabulary. Each is written out, with its
+failure branch, in [Voice](VOICE.md#feasibility-tests). The spike is Kanbus
+story `chatticus-a2000f`.
