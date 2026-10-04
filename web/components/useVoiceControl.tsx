@@ -56,12 +56,16 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     await closeSession();
   }, [closeSession]);
 
-  const handleLine = useCallback((text: string) => {
+  const handleLine = useCallback((text: string, generation: number) => {
     setPartial("");
     lineQueueRef.current = lineQueueRef.current.then(
       () =>
         new Promise<void>((resolve) => {
           setTimeout(() => {
+            if (generation !== generationRef.current) {
+              resolve();
+              return;
+            }
             void Promise.resolve(onLineRef.current(text))
               .then((lineNote) => setNote(lineNote))
               .catch((error: unknown) =>
@@ -102,7 +106,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
             void closeSession();
           },
           onLine: (text) => {
-            if (generation === generationRef.current) handleLine(text);
+            if (generation === generationRef.current) handleLine(text, generation);
           },
         },
         keytermsRef.current,

@@ -481,7 +481,12 @@ export function EnabledWorkspace({
       if (!channelId) {
         return `Could not open the conversation with ${botName}.`;
       }
-      const activeTurn = await getActiveTurn(activeOrg, channelId).catch(() => null);
+      let activeTurn: Turn | null;
+      try {
+        activeTurn = await getActiveTurn(activeOrg, channelId);
+      } catch {
+        return `Could not check whether ${botName} is free, so that line was not sent.`;
+      }
       if (activeTurn) {
         return `${botName} is still working. Say it again when ${botName} is done.`;
       }
