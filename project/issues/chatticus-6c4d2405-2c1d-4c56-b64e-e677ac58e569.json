@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-6c4d2405-2c1d-4c56-b64e-e677ac58e569",
+  "title": "Spike: one Chatticus turn driven by the Pi SDK with sessions in DynamoDB",
+  "description": "Throwaway spike (spikes/pi-harness-<id>/) answering, with measurements:\n1. Can @earendil-works/pi-coding-agent's SDK run headless in a Node 22 Lambda (bundle size, cold start, ~/.pi avoidance via SessionManager.inMemory + SettingsManager.inMemory + explicit model runtime)?\n2. Round-trip: load a bot-per-channel session from stored entries, run one prompt on OpenAI gpt-5-nano, capture the new entries (message_end/entry_appended or getEntries diff) and write them back; reload and continue.\n3. Map Pi events onto the one-turn stream: which events, delta vs snapshot, size per turn.\n4. Inject another participant's message as a custom_message and confirm the model sees the attribution.\n5. Gate a tool via pi.on('tool_call') (block with a reason) and point bash at a remote executor via BashOperations.\nResults go into a design note (docs/PI_HARNESS.md) before any product code.",
+  "type": "story",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-9f09c5ef-b99a-4837-adff-5de3a87f0151",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T18:35:41.955362Z",
+  "updated_at": "2026-10-04T18:35:41.955402Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude_code",
+    "model": "Opus 5.5",
+    "name": "Claude"
+  },
+  "right_now_summary": "The team is testing a Pi SDK Lambda harness with DynamoDB sessions, event streaming, message attribution, and tool",
+  "right_now_updated_at": "2026-10-04T18:35:43.238441Z",
+  "custom": {}
+}
