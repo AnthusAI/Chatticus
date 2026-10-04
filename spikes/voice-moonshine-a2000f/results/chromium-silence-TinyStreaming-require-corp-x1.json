@@ -1,0 +1,22 @@
+{
+  "engine": "chromium",
+  "fixture": "silence",
+  "architecture": "TinyStreaming",
+  "coep": "require-corp",
+  "loops": 1,
+  "crossOriginIsolated": true,
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+  "loadSeconds": 3.7979150000000375,
+  "errors": [],
+  "consoleErrors": [],
+  "browserProcessTreeCpuPercentOfOneCore": 16.5,
+  "peakBrowserProcessTreeRssMb": 1014,
+  "wallSeconds": 72.40354999999981,
+  "computeBusyPercentOfOneThread": 2.3,
+  "passCount": 137,
+  "passP50Ms": 10,
+  "passP95Ms": 12,
+  "passMaxMs": 43,
+  "maximumTimerGapMs": 53,
+  "lines": []
+}

@@ -193,7 +193,7 @@ deterministic grammar matched on the transcript handles them in the browser:
 | "stop" / "cancel the turn" | Cancel the running turn. Closing the stream alone does not stop the worker, so this needs a turn-cancel POST, which does not exist yet | One POST |
 | "repeat that" / "read it" | Re-speak the last reply | No |
 | "status" / "what's running" | Read out turn status and the task list (`listTasks`) | One cheap GET, no model |
-| Answering a pending HITL request ("approve, blue seven", "deny", "option two") | Response to that request (section 3a) | One POST, no model |
+| Answering a pending HITL request ("approve, maple falcon", "deny", "option two") | Response to that request (section 3a) | One POST, no model |
 | "send" / "scratch that" | Send or clear a dictated draft | No |
 | "stop listening" | Turn the microphone off | No |
 
@@ -266,7 +266,7 @@ request carries an action contract for a consequential class (`send`,
   `resource_refs` and Chatticus's own `StructuredConsequentialOperation`
   (destination and payload), never from the model-authored `message`.
 - **The code.** The card shows a confirmation code bound to `request_id`,
-  for example "blue seven".
+  for example "maple falcon" (two words, never digits; see test 4).
   - **How it reaches the card:** a human-session-only read that the bot's
     credentials cannot reach. It is never on the turn stream, in a channel
     row, in the transcript, or in TTS output, so a bot cannot relay it.
@@ -378,9 +378,10 @@ stack sets neither header, and no CSP.
 | Addressed instruction | One ordinary turn, the same as typing it |
 | One-time model download | About 58 MB of CloudFront egress per user per model version (Tiny plus WASM). About 155 MB with the Small opt-in |
 
-**Client side:** the cost is CPU and battery. Natively, Tiny Streaming uses
-about 8% of one Apple M3 core. WASM will be slower by an amount nobody has
-published. That is the main thing the spike has to measure.
+**Client side:** the cost is CPU, memory and battery. Measured in the
+browser (see [Spike results](#spike-results)): Tiny Streaming with a
+two-thread pool costs about 4% of one core in silence and 12% while someone
+is talking, on top of about 650 MB of memory.
 
 ## Feasibility tests
 
@@ -410,6 +411,109 @@ These gate the build. Spike code is throwaway, as in
    - Measure command-match rate and false addressing with and without
      `setKeyterms`.
    - If it fails: move to Small Streaming, or use spelled-input for ids.
+
+## Spike results
+
+From `spikes/voice-moonshine-a2000f/` (Kanbus `chatticus-a2000f`), run on
+2026-10-04.
+
+**Setup**
+
+| | |
+|---|---|
+| Machine | Apple M1 Max (10 cores, 32 GB), macOS 26.6 |
+| Package | `@moonshine-ai/moonshine-wasm` 0.1.5 |
+| Browsers | Headless Chromium 153, and WebKit 26.6 (the engine of Safari 26.6), both through Playwright |
+| Fixture | 12 synthetic utterances (macOS `say`) with 4 s gaps, 72 s in total |
+| Method | The fixture is fed into a streaming transcriber at real-time pace, calling `transcribe()` every 50 ms, as `MicTranscriber` does |
+
+The live-microphone path itself (`MicTranscriber` and its AudioWorklet) was
+not exercised headless.
+
+### Test 1: browser cost of always-on listening
+
+Chromium figures are for the whole browser process tree. A blank page costs
+0.2% CPU and 353 MB.
+
+| Configuration | Silence, CPU | Speech, CPU | Peak memory (whole tree) | End of speech to completed line |
+|---|---|---|---|---|
+| Tiny, default pool (10 threads on this machine) | 16.5% of a core | 33% | about 1.0 GB | median 0.66 s, max 0.89 s |
+| Tiny, pool of 4 | 7.1% | 17.3% | about 1.0 GB | median 0.68 s, max 0.83 s |
+| **Tiny, pool of 2** | **4.2%** | **12%** | **about 1.0 GB** | **median 0.6 s, max 0.95 s** |
+| Small, pool of 2 | -- | 30% | about 1.6 GB | 0.67 to 1.29 s |
+| WebKit, Tiny, default pool | -- | main-thread compute 5.5% | about 190 MB (content process not measured) | median 0.63 s, max 0.81 s |
+
+**Sustained run, Tiny, pool of 2, 12 minutes (10 loops):**
+
+- All 120 lines completed.
+- CPU averaged 11.1% of a core.
+- Memory stayed flat at about 1.0 GB for the whole tree, with no growth.
+- Latency held: median 0.66 s, 95th percentile 0.91 s, max 0.96 s.
+
+What follows:
+
+- **Thread pool.** Emscripten sizes the WASM thread pool to
+  `navigator.hardwareConcurrency`, and ONNX Runtime's workers spin while
+  idle. On a 10-core machine that burns about a sixth of a core in silence.
+  - A pool of two cuts the cost by roughly 4x with no latency loss.
+  - The package does not expose the pool size. The spike overrides
+    `navigator.hardwareConcurrency` before the module loads.
+  - The product needs a supported setting. Raise this upstream with
+    Moonshine, or build the WASM ourselves with a fixed pool and spinning
+    disabled.
+- **Memory.** About 650 MB above a blank page for Tiny, regardless of thread
+  count. That is the main open risk for iOS.
+- **Latency.** Lines complete about 0.6 s after the speaker stops. 0.5 s of
+  that is the VAD's averaging window, which is tunable
+  (`vad_window_duration`).
+- **Not measured yet:**
+  - background-tab throttling of a live microphone;
+  - battery drain;
+  - a 60-minute run in a real browser on a real microphone.
+
+  These need a manual run of `page/index.html`.
+
+### Test 2: Safari and iOS
+
+- **Desktop WebKit 26.6 works under COOP `same-origin` plus COEP
+  `require-corp`:** `crossOriginIsolated` is true, the model loads in 5.9 s,
+  and latency matches Chromium.
+- **COEP `credentialless` does not isolate WebKit,** and Moonshine's
+  `Transcriber.load` then hangs **silently** instead of throwing. So:
+  - Safari needs `require-corp`.
+  - The app must check `crossOriginIsolated` before it loads anything.
+- **iOS Safari on a device has not been tested.** The open question is
+  memory, not compatibility.
+
+### Test 3: cross-origin isolation against sign-in
+
+Not run. It needs the development stack, not the spike.
+
+### Test 4: accuracy on our vocabulary
+
+Synthetic speech is an upper bound; real rooms will do worse.
+
+| Model | Key terms | Result |
+|---|---|---|
+| Tiny | none | 10 of 12 right. "Approve, blue seven" was heard as "Approve, 27", and "voice moonshine" as "voice moon china" |
+| Tiny | set | 11 of 12 in the single run. "Moonshine" was still "Moon China" |
+| Tiny | set, 10 loops | The confirmation code was right in 8 of 10 loops. Twice "blue seven" became "27". "Moonshine" was right in 1 of 10 |
+| Small | set | 12 of 12 |
+
+Every teammate name and every command was recognized in every run.
+
+Consequences for the design:
+
+- **Confirmation codes are words, never digits.** The model normalizes
+  spoken numbers ("blue seven" became "27"). Use two words drawn from a list
+  chosen for unambiguous transcription, for example "maple falcon".
+  - Add the pending code's words to the key terms while the request is open.
+  - Compare in a normalized form: case, punctuation and spacing ignored.
+- **A misheard code is not an attack.** It asks the human to repeat. The
+  attempt limit has to allow for transcription errors, and the card always
+  remains clickable.
+- **Plan for fuzzy matching.** Terms the model does not know will need it,
+  or spelled input.
 
 ## Build order
 
