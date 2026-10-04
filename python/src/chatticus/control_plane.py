@@ -1516,6 +1516,7 @@ class ControlPlane:
             prompt_message_seq=message.seq,
         )
         self._messaging_store.put_turn(turn)
+        self._messaging_store.set_latest_turn(turn)
         self._turn_tenants[turn_id] = tenant_id
         return turn
 
@@ -3558,6 +3559,7 @@ class ControlPlane:
         if enqueue and self.recovery_enabled:
             turn.deadline_at = self._now + self.turn_deadline
         self._messaging_store.put_turn(turn)
+        self._messaging_store.set_latest_turn(turn)
         self._turn_tenants[turn.turn_id] = channel.tenant_id
         if prompt_author_kind is ActorKind.HUMAN:
             self.set_turn_capability_grant(

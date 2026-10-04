@@ -48,7 +48,7 @@ const ChatticusFailedReply: FC<{ authorBotName?: string }> = ({ authorBotName })
   return (
     <MessagePrimitive.Root className="flex justify-start px-1" data-role="assistant" data-failed="true">
       <article
-        role="alert"
+        role="status"
         className="max-w-[86%] rounded-3xl bg-clay/15 px-4 py-3 text-sm leading-6 sm:max-w-[76%]"
       >
         {authorBotName ? <p className="mb-1 text-xs font-bold">{authorBotName}</p> : null}
@@ -63,6 +63,7 @@ const ChatticusFailedReply: FC<{ authorBotName?: string }> = ({ authorBotName })
             type="button"
             variant="ghost"
             className="mt-2 h-8 gap-1.5 rounded-full px-3 text-xs"
+            aria-label={`Retry: send your message to ${authorBotName ?? "the bot"} again`}
             onClick={retry}
           >
             <RotateCcw size={14} aria-hidden="true" />

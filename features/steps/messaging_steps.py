@@ -1563,3 +1563,48 @@ def then_latest_turn_names_prompt(context: object, body: str) -> None:
     rows = messages["messages"] if isinstance(messages, dict) else messages
     prompt = next(row for row in rows if row["seq"] == prompt_seq)
     assert prompt["body"] == body, prompt
+
+
+@when('the open turn is remembered as "{label}"')
+def when_remember_open_turn(context: object, label: str) -> None:
+    remembered = getattr(context, "remembered_turn_ids", {})
+    remembered[label] = _turn_id(context)
+    context.remembered_turn_ids = remembered
+
+
+@when('a worker claims the turn remembered as "{label}"')
+def when_worker_claims_remembered_turn(context: object, label: str) -> None:
+    channel = _channel(context)
+    turn_id = context.remembered_turn_ids[label]
+    worker_id = "overlap-worker"
+    register_worker_for_http(context, channel.tenant_id, worker_id)
+    response = context.api_client.post(
+        org_path(channel.tenant_id, f"/turns/{turn_id}/claim"),
+        json={"worker_id": worker_id},
+        headers=worker_auth_headers(context, worker_id),
+    )
+    assert response.status_code == 200, response.text
+
+
+@then('the latest turn on the open channel is addressed to bot "{name}"')
+def then_latest_turn_bot(context: object, name: str) -> None:
+    channel = _channel(context)
+    response = context.api_client.get(
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/turns/latest"),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["bot_id"] == context.bots_by_name[name].bot_id
+
+
+@when('tenant "{tenant_id}" reads the latest turn on the open channel')
+def when_tenant_reads_latest_turn(context: object, tenant_id: str) -> None:
+    channel = _channel(context)
+    context.latest_turn_response = context.api_client.get(
+        org_path(tenant_id, f"/channels/{channel.channel_id}/turns/latest"),
+    )
+
+
+@then("the latest turn is not found")
+def then_latest_turn_not_found(context: object) -> None:
+    response = context.latest_turn_response
+    assert response.status_code in (403, 404), response.text

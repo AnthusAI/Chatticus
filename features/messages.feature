@@ -266,6 +266,27 @@ Feature: Channels and the message store
     And tenant "anthus" reads the latest turn on the open channel as failed with reason "The model provider refused the request: the account is out of credits or over its quota."
     And the latest turn names the message "hello" as its prompt
 
+  Scenario: The newest of two overlapping turns is the channel's latest turn
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has a bot named "Writer"
+    When tenant "anthus" user "ryan" opens a channel with bots:
+      | Researcher |
+      | Writer     |
+    And user "ryan" of tenant "anthus" posts "first" addressed to bot "Researcher" on the channel
+    And the open turn is remembered as "older"
+    And user "ryan" of tenant "anthus" posts "second" addressed to bot "Writer" on the channel
+    And a worker claims the turn remembered as "older"
+    Then the latest turn on the open channel is addressed to bot "Writer"
+
+  Scenario: Another tenant cannot read a channel's latest turn
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
+    And another tenant "other" knows the channel identifier
+    When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel
+    And tenant "other" reads the latest turn on the open channel
+    Then the latest turn is not found
+
   Scenario: A waiting turn can be read after a Front Door recycle
     Given an empty control plane backed by a durable messaging store with HTTP
     And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"

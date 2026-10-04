@@ -130,7 +130,7 @@ export function EnabledWorkspace({
   const [turnEvents, setTurnEvents] = useState<TurnEvent[]>([]);
   const [progress, setProgress] = useState("");
   const [streamError, setStreamError] = useState<string | null>(null);
-  const [failedTurn, setFailedTurn] = useState<FailedTurn | null>(null);
+  const [latestEndedTurn, setLatestEndedTurn] = useState<Turn | null>(null);
   const [lastProgressAt, setLastProgressAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
   const [rosterOpen, setRosterOpen] = useState(false);
@@ -144,6 +144,7 @@ export function EnabledWorkspace({
   const streamGenerationRef = useRef(0);
   const selectionLoadRef = useRef(0);
   const sendingRef = useRef(false);
+  const sendGenerationRef = useRef(0);
   const selectedItemIdRef = useRef<string | null>(null);
   const roster = useMemo(() => buildRoster(bots, channels), [bots, channels]);
   const botNameById = useMemo(
@@ -152,7 +153,10 @@ export function EnabledWorkspace({
   );
   const selectedItem = roster.find((item) => item.id === selectedItemId) ?? null;
   const selectedChannelId = channelIdForItem(selectedItem);
-  const selectedMessages = selectedChannelId ? messagesByChannel[selectedChannelId] ?? [] : [];
+  const selectedMessages = useMemo(
+    () => (selectedChannelId ? messagesByChannel[selectedChannelId] ?? [] : []),
+    [messagesByChannel, selectedChannelId],
+  );
   const visibleRoster = roster.filter((item) =>
     item.label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
@@ -317,21 +321,12 @@ export function EnabledWorkspace({
                     setTurnEvents([]);
                   }
                   if (event.kind === "turn.failed") {
-                    const committed = result?.committed ?? [];
-                    const lastHumanSeq = committed
-                      .filter((message) => message.author_kind === "human")
-                      .reduce((highest, message) => Math.max(highest, message.seq), 0);
-                    const failure = failedTurnForConversation(
-                      {
+                    if (activeTurn.prompt_message_seq != null) {
+                      setLatestEndedTurn({
                         ...activeTurn,
                         status: "failed",
                         terminal_reason: event.body ?? null,
-                        prompt_message_seq: activeTurn.prompt_message_seq ?? lastHumanSeq,
-                      },
-                      committed,
-                    );
-                    if (failure) {
-                      setFailedTurn(failure);
+                      });
                     } else {
                       setStreamError(event.body ?? "Turn failed");
                     }
@@ -388,7 +383,7 @@ export function EnabledWorkspace({
       }
       setSelectedItemId(item.id);
       selectedItemIdRef.current = item.id;
-      setFailedTurn(null);
+      setLatestEndedTurn(null);
       setAddressedBotId(item.bots[0]?.bot_id ?? "");
       setRosterOpen(false);
       setTurn(null);
@@ -409,9 +404,13 @@ export function EnabledWorkspace({
         if (activeTurn) {
           startTurnStream(activeTurn);
         } else {
+          const sendGeneration = sendGenerationRef.current;
           const latestTurn = await getLatestTurn(activeOrg, openedChannel.channel_id).catch(() => null);
-          if (selectionLoadToken === selectionLoadRef.current) {
-            setFailedTurn(failedTurnForConversation(latestTurn, committed));
+          if (
+            selectionLoadToken === selectionLoadRef.current &&
+            sendGeneration === sendGenerationRef.current
+          ) {
+            setLatestEndedTurn(latestTurn);
           }
         }
       } catch (caught) {
@@ -425,9 +424,10 @@ export function EnabledWorkspace({
   const postToChannel = useCallback(
     async (channelId: string, botId: string, body: string): Promise<boolean> => {
       sendingRef.current = true;
+      sendGenerationRef.current += 1;
       setSending(true);
       setStreamError(null);
-      setFailedTurn(null);
+      setLatestEndedTurn(null);
       try {
         const response = await postMessage(activeOrg, channelId, body, botId);
         setMessagesByChannel((current) => ({
@@ -442,6 +442,7 @@ export function EnabledWorkspace({
             bot_id: botId,
             status: "active",
             waiting_for: null,
+            prompt_message_seq: response.message.seq,
           });
         }
         return true;
@@ -544,17 +545,26 @@ export function EnabledWorkspace({
     [postToChannel, selectedChannelId],
   );
 
-  useEffect(() => {
-    setLastProgressAt(Date.now());
-  }, [turn?.turn_id, progress]);
+  const activeTurnId = turn?.turn_id ?? null;
 
   useEffect(() => {
-    if (!turn) {
+    const startedAt = Date.now();
+    setLastProgressAt(startedAt);
+    setNow(startedAt);
+  }, [activeTurnId, progress]);
+
+  useEffect(() => {
+    if (!activeTurnId) {
       return;
     }
     const timer = window.setInterval(() => setNow(Date.now()), 5_000);
     return () => window.clearInterval(timer);
-  }, [turn]);
+  }, [activeTurnId]);
+
+  const failedTurn = useMemo(
+    () => (turn ? null : failedTurnForConversation(latestEndedTurn, selectedMessages)),
+    [latestEndedTurn, selectedMessages, turn],
+  );
 
   const turnIsSlow = Boolean(turn) && !progress && isTurnSlow(now - lastProgressAt);
 

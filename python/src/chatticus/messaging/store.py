@@ -178,6 +178,9 @@ class MessagingStore(Protocol):
     def get_latest_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
         """Return the most recently started turn on a channel, in any status."""
 
+    def set_latest_turn(self, turn: Turn) -> None:
+        """Record ``turn`` as the most recently started turn on its channel."""
+
     def claim_turn_attempt(
         self,
         tenant_id: str,
@@ -584,7 +587,6 @@ class InMemoryMessagingStore:
         key = (turn.tenant_id, turn.channel_id)
         if turn.status == TurnStatus.ACTIVE:
             self._active_channel_turns[key] = turn.turn_id
-            self._latest_channel_turns[key] = turn.turn_id
             return
         if self._active_channel_turns.get(key) == turn.turn_id:
             del self._active_channel_turns[key]
@@ -686,6 +688,12 @@ class InMemoryMessagingStore:
         if turn_id is None:
             return None
         return self.get_turn(tenant_id, turn_id)
+
+    def set_latest_turn(self, turn: Turn) -> None:
+        with self._lock:
+            self._latest_channel_turns[(turn.tenant_id, turn.channel_id)] = (
+                turn.turn_id
+            )
 
     def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
         with self._lock:
@@ -1387,6 +1395,18 @@ class DynamoMessagingStore:
             return None
         return turn
 
+    def set_latest_turn(self, turn: Turn) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._channel_pk(turn.tenant_id, turn.channel_id)},
+                "sk": {"S": "latest_turn"},
+                "tenant_id": {"S": turn.tenant_id},
+                "channel_id": {"S": turn.channel_id},
+                "turn_id": {"S": turn.turn_id},
+            },
+        )
+
     def get_latest_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
         response = self.client.get_item(
             TableName=self.table_name,
@@ -1406,18 +1426,14 @@ class DynamoMessagingStore:
             "sk": {"S": "active_turn"},
         }
         if turn.status == TurnStatus.ACTIVE:
-            pointer = {
-                "tenant_id": {"S": turn.tenant_id},
-                "channel_id": {"S": turn.channel_id},
-                "turn_id": {"S": turn.turn_id},
-            }
             self.client.put_item(
                 TableName=self.table_name,
-                Item={**key, **pointer},
-            )
-            self.client.put_item(
-                TableName=self.table_name,
-                Item={**key, "sk": {"S": "latest_turn"}, **pointer},
+                Item={
+                    **key,
+                    "tenant_id": {"S": turn.tenant_id},
+                    "channel_id": {"S": turn.channel_id},
+                    "turn_id": {"S": turn.turn_id},
+                },
             )
             return
         try:
