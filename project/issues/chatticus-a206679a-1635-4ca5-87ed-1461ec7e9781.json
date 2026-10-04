@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-a206679a-1635-4ca5-87ed-1461ec7e9781",
+  "title": "A model-provider error leaves the turn silent instead of showing a failure",
+  "description": "2026-10-04 on develop.chattic.us: a message to the Ping bot (sent by voice, but the path is the ordinary POST /messages turn) got no reply. The ComputerlessWorker logged OpenAI 429 Too Many Requests twice (HTTPStatusError from openai_completion.py:308 via computerless.py:386, raised out of lambda_handler.py:138). The member saw nothing: no failure, no retry notice. Expected: the turn ends visibly as failed with a readable reason (for example 'The model provider refused the request: quota exceeded'), per the turn recovery features. Root cause of the 429 itself is the OpenAI account being out of credits (also breaks Kanbus summaries and the live OpenAI pytest tests).",
+  "type": "bug",
+  "status": "in_progress",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T17:14:34.098157Z",
+  "updated_at": "2026-10-04T17:31:23.320680Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude_code",
+    "model": "Opus 5.5",
+    "name": "Claude"
+  },
+  "right_now_summary": "A provider quota error leaves the turn silent instead of showing a clear failure message.",
+  "right_now_updated_at": "2026-10-04T17:31:24.677507Z",
+  "custom": {}
+}
