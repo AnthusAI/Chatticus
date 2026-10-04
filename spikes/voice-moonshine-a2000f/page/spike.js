@@ -18,10 +18,60 @@ const localCommands = [
   { phrases: ["deny", "reject"], effect: "Deny the pending request. One POST, no model." },
 ];
 
+const levelElement = document.getElementById("level");
+const diagnosticsElement = document.getElementById("diagnostics");
+const counters = { partials: 0, lines: 0, peakLevel: 0 };
+let meterStream;
+let meterContext;
+
+function renderDiagnostics() {
+  const context = microphone?.audioContext ?? meterContext;
+  const track = microphone?.mediaStream?.getAudioTracks()[0] ?? meterStream?.getAudioTracks()[0];
+  diagnosticsElement.textContent = [
+    `isolated: ${self.crossOriginIsolated}`,
+    `audio: ${context ? `${context.state} @ ${context.sampleRate} Hz` : "none"}`,
+    `mic: ${track ? `${track.label || "unnamed"}${track.muted ? " (muted by the OS)" : ""}` : "none"}`,
+    `peak level: ${counters.peakLevel.toFixed(3)}`,
+    `partials: ${counters.partials}`,
+    `lines: ${counters.lines}`,
+  ].join("  |  ");
+}
+
+async function startMeter() {
+  meterStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  meterContext = new AudioContext();
+  await meterContext.resume();
+  const analyser = meterContext.createAnalyser();
+  analyser.fftSize = 1024;
+  meterContext.createMediaStreamSource(meterStream).connect(analyser);
+  const samples = new Float32Array(analyser.fftSize);
+  const tick = () => {
+    if (!meterContext) return;
+    analyser.getFloatTimeDomainData(samples);
+    let sumOfSquares = 0;
+    for (const sample of samples) sumOfSquares += sample * sample;
+    const rootMeanSquare = Math.sqrt(sumOfSquares / samples.length);
+    counters.peakLevel = Math.max(counters.peakLevel, rootMeanSquare);
+    levelElement.style.width = `${Math.min(100, rootMeanSquare * 400)}%`;
+    renderDiagnostics();
+    requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+function stopMeter() {
+  meterStream?.getTracks().forEach((track) => track.stop());
+  meterContext?.close();
+  meterContext = undefined;
+  levelElement.style.width = "0%";
+}
+
+window.addEventListener("error", (event) => setStatus(`Page error: ${event.message}`, true));
+window.addEventListener("unhandledrejection", (event) => setStatus(`Unhandled error: ${event.reason?.message ?? event.reason}`, true));
+
 let microphone;
 let loadedThreadCount;
 let listeningStartedAt;
-let lastAddressee;
 
 function setStatus(text, warning = false) {
   statusElement.textContent = text;
@@ -31,6 +81,7 @@ function setStatus(text, warning = false) {
 function normalize(text) {
   return text
     .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
     .replace(/[^\p{L}\p{N}\s']/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -74,13 +125,13 @@ function classify(text) {
   const command = localCommands
     .flatMap((entry) => entry.phrases.map((phrase) => ({ phrase, effect: entry.effect })))
     .sort((left, right) => right.phrase.length - left.phrase.length)
-    .find(({ phrase }) => normalized === phrase);
+    .find(({ phrase }) => normalized === phrase || normalized === `${phrase} please`);
   if (command) return { kind: "local", detail: command.effect };
   const option = normalized.match(/^option (\d+|one|two|three|four|five)$/);
   if (option) {
     return { kind: "local", detail: `Choose option ${option[1]} on the pending request. One POST, no model.` };
   }
-  const approval = normalized.match(/^approve (.+)$/);
+  const approval = normalized.match(/^approve ([a-z]+ [a-z]+)$/);
   if (approval) {
     return { kind: "local", detail: `Answer the pending request with code "${approval[1]}". One POST, no model.` };
   }
@@ -93,7 +144,6 @@ function classify(text) {
   const spokenAsAddress = /^\s*[\p{L}']+\s*,/u.test(text);
   const teammate = matchTeammate(firstWord, spokenAsAddress);
   if (teammate && rest.length > 0) {
-    lastAddressee = teammate.name;
     return { kind: "sent", detail: `Would post to ${teammate.name} (${teammate.how}): one ordinary turn.` };
   }
   return { kind: "discarded", detail: "Not addressed to a teammate. Never leaves the tab." };
@@ -131,15 +181,25 @@ async function startListening() {
   startButton.disabled = true;
   architectureSelect.disabled = true;
   threadsInput.disabled = true;
-  const { MicTranscriber, ModelArch } = await import("/pkg/index.js");
+  let moonshine;
+  try {
+    moonshine = await import("/pkg/index.js");
+  } catch (error) {
+    setStatus(`Could not load Moonshine: ${error.message ?? error}`, true);
+    startButton.disabled = false;
+    return;
+  }
+  const { MicTranscriber, ModelArch } = moonshine;
   microphone = new MicTranscriber()
     .language("en")
     .modelArch(ModelArch[architectureSelect.value])
     .onProgress((fraction) => setStatus(`Downloading model: ${Math.round(fraction * 100)}%`))
     .onText((text) => {
+      counters.partials += 1;
       partialElement.textContent = text;
     })
     .onLine((line) => {
+      counters.lines += 1;
       partialElement.textContent = "";
       appendLine(line);
     })
@@ -152,6 +212,7 @@ async function startListening() {
     await microphone.start();
     listeningStartedAt = performance.now();
     stopButton.disabled = false;
+    startMeter().catch((error) => setStatus(`Level meter unavailable: ${error.message ?? error}`, true));
     setStatus(`Listening with ${architectureSelect.value} on ${threadCount} threads. Speak normally; lines complete after a short pause.`);
   } catch (error) {
     setStatus(`Could not start: ${error.message ?? error}`, true);
@@ -161,6 +222,7 @@ async function startListening() {
 
 async function stopListening() {
   if (!microphone) return;
+  stopMeter();
   await microphone.stop();
   microphone.close();
   microphone = undefined;

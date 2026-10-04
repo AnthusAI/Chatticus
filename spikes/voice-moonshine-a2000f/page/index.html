@@ -75,6 +75,8 @@
   .detail { grid-column: 2; font-size: 13px; color: var(--muted); }
   li.discarded .heard { color: var(--discarded); }
   .hint { font-size: 13px; color: var(--muted); }
+  .meter { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; margin: 8px 0; }
+  #level { height: 100%; width: 0%; background: var(--sent); transition: width 80ms linear; }
   code { font-size: 13px; }
 </style>
 </head>
@@ -97,6 +99,8 @@
       <label>Teammates <input id="teammates" value="Ada, Grace" style="width: 140px"></label>
     </div>
     <p id="status">Idle. The model downloads on first start and is cached after that.</p>
+    <div class="meter" aria-label="Microphone level"><div id="level"></div></div>
+    <p id="diagnostics" class="hint"></p>
     <p class="hint">Try: "Ada, open a pull request for the voice spike." / "Switch to Grace." / "Repeat that." / "Approve, maple falcon." / or just talk to someone in the room.</p>
   </section>
 

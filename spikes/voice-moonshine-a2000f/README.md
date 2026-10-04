@@ -34,7 +34,13 @@ describes:
   answer such as "approve, maple falcon" or "option 2".
 - **Discarded:** anything else.
 
-Nothing leaves the tab. Run `npm run serve` and open http://localhost:4173 in
+The diagnostics line under the level meter shows isolation, the audio
+context state, the microphone in use, the peak input level, and partial and
+line counts. It reads private `MicTranscriber` fields, which is acceptable for
+a spike only.
+
+Nothing leaves the tab. The server listens on 127.0.0.1 only. Run
+`npm run serve` and open http://localhost:4173 in
 Chrome or Safari; `localhost` counts as a secure context, so the browser will
 ask for microphone access.
 
@@ -74,6 +80,13 @@ VOICE_SPIKE_ENGINE=chromium VOICE_SPIKE_THREADS=2 node run.mjs
 | `VOICE_SPIKE_COEP` | `require-corp`, `credentialless`, `none` | `require-corp` |
 | `VOICE_SPIKE_LOOPS` | Times to repeat the fixture | `1` |
 | `VOICE_SPIKE_KEYTERMS` | `on`, `off` | `on` |
+| `VOICE_SPIKE_PKG_DIR` | Serve `/pkg/` from a local Moonshine build instead of the npm package | the npm 0.1.5 `dist/` |
+| `VOICE_SPIKE_NATIVE_THREADS`, `VOICE_SPIKE_NATIVE_SPINNING` | Pass `ort_intra_op_threads` / `ort_allow_spinning`, which only a local Moonshine fork build understands (`chatticus-070c91`) | unset |
+
+Results with `-fork-` in the name came from an **unpublished local Moonshine
+build** (branch `feature/wasm-thread-control`, `chatticus-070c91`), not the npm
+package. They show that the first version of those options did not reduce CPU;
+see that task.
 
 `python3 scripts/summarize.py` recomputes latency, CPU, memory and
 misrecognitions from every file in `results/`.
