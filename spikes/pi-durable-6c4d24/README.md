@@ -61,7 +61,7 @@ node scripts/cost.ts
 | `scripts/phase4-events.ts` | `watchEvents()` batches per turn and their sizes; another participant's attributed message; an approval-style `beforeTool` block; a non-owner message delivered during a busy turn through a mailbox and admitted as a steer | `phase4-events.json` |
 | `scripts/fence-loss.ts` | Raising the fence while an owner is mid tool call: its next commit fails with `OwnershipLost` (not `StorageRejected`), the poisoned owner makes no further commit, tool start or model request, and the next owner finishes the turn | `fence-loss.json`, `fence-loss-executions.jsonl` |
 | `scripts/limits.ts` | The 100-item limit is rejected before sending on both storages; the 400 KB item and 4 MB transaction limits only bind the DynamoDB-only storage | `limits-indexed.json`, `limits-dynamodb.json` |
-| `scripts/orphans.ts` | A rejected or fenced-out commit leaves no S3 object; a crashed attempt's object at the same key is replaced | `orphans.json` |
+| `scripts/orphans.ts` | A rejected or fenced-out commit leaves no S3 object; a crashed attempt's object at the same key is replaced; a reference sweeper deletes unreferenced objects only when META.seq >= seq or OWNER.fence > fence | `orphans.json` |
 | `scripts/s3-conditional.ts` | moto honors `If-None-Match: *` (412 on overwrite) | `s3-conditional.json` |
 | `scripts/cost.ts` | One plain and one tool turn on each storage: request units, S3 requests, resident bytes, reopen and transcript-read cost | `cost.json` |
 
