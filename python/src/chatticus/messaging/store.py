@@ -175,6 +175,12 @@ class MessagingStore(Protocol):
     def get_active_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
         """Return the active turn on a channel, if any."""
 
+    def get_latest_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
+        """Return the most recently started turn on a channel, in any status."""
+
+    def set_latest_turn(self, turn: Turn) -> None:
+        """Record ``turn`` as the most recently started turn on its channel."""
+
     def claim_turn_attempt(
         self,
         tenant_id: str,
@@ -500,6 +506,7 @@ class InMemoryMessagingStore:
         self._tasks: dict[tuple[str, str], Task] = {}
         self._turn_grants: dict[tuple[str, str], TaskCapabilityGrant] = {}
         self._active_channel_turns: dict[tuple[str, str], str] = {}
+        self._latest_channel_turns: dict[tuple[str, str], str] = {}
         self._identities_by_email: dict[str, Identity] = {}
         self._identities_by_user: dict[str, Identity] = {}
         self._organizations: dict[str, Organization] = {}
@@ -675,6 +682,16 @@ class InMemoryMessagingStore:
         if turn is None or turn.status != TurnStatus.ACTIVE:
             return None
         return turn
+
+    def get_latest_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
+        turn_id = self._latest_channel_turns.get((tenant_id, channel_id))
+        if turn_id is None:
+            return None
+        return self.get_turn(tenant_id, turn_id)
+
+    def set_latest_turn(self, turn: Turn) -> None:
+        with self._lock:
+            self._latest_channel_turns[(turn.tenant_id, turn.channel_id)] = turn.turn_id
 
     def put_bot(self, bot: Bot, *, reserve_name: bool = False) -> None:
         with self._lock:
@@ -1375,6 +1392,31 @@ class DynamoMessagingStore:
         if turn is None or turn.status != TurnStatus.ACTIVE:
             return None
         return turn
+
+    def set_latest_turn(self, turn: Turn) -> None:
+        self.client.put_item(
+            TableName=self.table_name,
+            Item={
+                "pk": {"S": self._channel_pk(turn.tenant_id, turn.channel_id)},
+                "sk": {"S": "latest_turn"},
+                "tenant_id": {"S": turn.tenant_id},
+                "channel_id": {"S": turn.channel_id},
+                "turn_id": {"S": turn.turn_id},
+            },
+        )
+
+    def get_latest_turn(self, tenant_id: str, channel_id: str) -> Turn | None:
+        response = self.client.get_item(
+            TableName=self.table_name,
+            Key={
+                "pk": {"S": self._channel_pk(tenant_id, channel_id)},
+                "sk": {"S": "latest_turn"},
+            },
+        )
+        item = response.get("Item")
+        if item is None:
+            return None
+        return self.get_turn(tenant_id, item["turn_id"]["S"])
 
     def _sync_active_channel_turn(self, turn: Turn) -> None:
         key = {

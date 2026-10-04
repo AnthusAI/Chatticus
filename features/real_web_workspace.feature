@@ -41,6 +41,28 @@ Feature: Real Chatticus workspace
       | failed      | Failed       |
       | reconciling | Reconciling  |
 
+  Scenario: A failed turn stays in the conversation with its reason and a retry
+    Given a real workspace conversation whose latest turn failed after the member said "hello" with reason "The model provider refused the request: the account is out of credits or over its quota."
+    When the real workspace shows that conversation
+    Then the conversation ends with a failed reply from "Researcher" saying "The model provider refused the request: the account is out of credits or over its quota."
+    And the failed reply offers to send "hello" again
+
+  Scenario: A failed turn that the conversation has moved past is not shown
+    Given a real workspace conversation whose latest turn failed after the member said "hello" with reason "The model provider rejected the API key."
+    And the member has since said "are you there?"
+    When the real workspace shows that conversation
+    Then the conversation shows no failed reply
+
+  Scenario Outline: A turn with no progress says when it is taking longer than expected
+    Given a real workspace turn has shown no progress for <seconds> seconds
+    When the real workspace shows that conversation
+    Then the working reply says "<text>"
+
+    Examples:
+      | seconds | text                                                |
+      | 10      | Working…                                            |
+      | 60      | Still working. This is taking longer than expected. |
+
   Scenario Outline: Roster loading failures and empty results remain explicit
     Given the real workspace roster is "<state>"
     When the real workspace presents the roster

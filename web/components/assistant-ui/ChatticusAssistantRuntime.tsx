@@ -13,10 +13,15 @@ import {
   convertChatticusThreadMessage,
   textFromAppendMessageContent,
   type ChatticusThreadMessage,
+  type FailedTurn,
 } from "@/lib/assistant-ui-bridge";
 import type { TurnUiStatus } from "@/lib/workspace-state";
 
-import { ChatticusAssistantThread, type ChatticusAssistantThreadProps } from "./ChatticusAssistantThread";
+import {
+  ChatticusAssistantThread,
+  RetryFailedTurnContext,
+  type ChatticusAssistantThreadProps,
+} from "./ChatticusAssistantThread";
 
 export type ChatticusAssistantRuntimeProps = {
   messages: Message[];
@@ -26,6 +31,9 @@ export type ChatticusAssistantRuntimeProps = {
   isSendDisabled: boolean;
   botNameById: ReadonlyMap<string, string>;
   onSendMessage: (text: string) => Promise<void>;
+  failedTurn?: FailedTurn | null;
+  turnIsSlow?: boolean;
+  onRetryFailedTurn?: (failure: FailedTurn) => Promise<void>;
   threadProps?: Omit<ChatticusAssistantThreadProps, "className">;
   className?: string;
 };
@@ -38,12 +46,23 @@ function ChatticusAssistantRuntimeInner({
   isSendDisabled,
   botNameById,
   onSendMessage,
+  failedTurn = null,
+  turnIsSlow = false,
+  onRetryFailedTurn,
   threadProps,
   className,
 }: ChatticusAssistantRuntimeProps) {
   const threadMessages = useMemo(
-    () => buildChatticusThreadMessages(messages, turn, progress, turnStatus),
-    [messages, progress, turn, turnStatus],
+    () =>
+      buildChatticusThreadMessages(messages, turn, progress, turnStatus, failedTurn, turnIsSlow),
+    [failedTurn, messages, progress, turn, turnIsSlow, turnStatus],
+  );
+  const retryFailedTurn = useMemo(
+    () =>
+      failedTurn && onRetryFailedTurn && !isSendDisabled
+        ? () => void onRetryFailedTurn(failedTurn)
+        : null,
+    [failedTurn, isSendDisabled, onRetryFailedTurn],
   );
 
   const isRunning = isSendDisabled;
@@ -74,7 +93,9 @@ function ChatticusAssistantRuntimeInner({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <ChatticusAssistantThread className={className} {...threadProps} />
+      <RetryFailedTurnContext.Provider value={retryFailedTurn}>
+        <ChatticusAssistantThread className={className} {...threadProps} />
+      </RetryFailedTurnContext.Provider>
     </AssistantRuntimeProvider>
   );
 }

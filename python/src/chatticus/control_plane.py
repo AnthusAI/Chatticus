@@ -1516,6 +1516,7 @@ class ControlPlane:
             prompt_message_seq=message.seq,
         )
         self._messaging_store.put_turn(turn)
+        self._messaging_store.set_latest_turn(turn)
         self._turn_tenants[turn_id] = tenant_id
         return turn
 
@@ -3319,6 +3320,10 @@ class ControlPlane:
         """Return the active turn on a channel, if any."""
         return self._messaging_store.get_active_turn(tenant_id, channel_id)
 
+    def latest_turn_for_channel(self, tenant_id: str, channel_id: str) -> Turn | None:
+        """Return the most recently started turn on a channel, in any status."""
+        return self._messaging_store.get_latest_turn(tenant_id, channel_id)
+
     def turn_prompt(self, tenant_id: str, turn_id: str) -> str:
         """Build a text-only prompt from bot memory plus channel messages.
 
@@ -3554,6 +3559,7 @@ class ControlPlane:
         if enqueue and self.recovery_enabled:
             turn.deadline_at = self._now + self.turn_deadline
         self._messaging_store.put_turn(turn)
+        self._messaging_store.set_latest_turn(turn)
         self._turn_tenants[turn.turn_id] = channel.tenant_id
         if prompt_author_kind is ActorKind.HUMAN:
             self.set_turn_capability_grant(

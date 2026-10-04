@@ -158,6 +158,7 @@ describe("convertChatticusThreadMessage", () => {
         body: "Partial",
         waitingFor: null,
         turnStatus: "active",
+        slow: false,
       },
       botNames,
     );
@@ -177,6 +178,7 @@ describe("convertChatticusThreadMessage", () => {
         body: "",
         waitingFor: "approval",
         turnStatus: "active",
+        slow: false,
       },
       botNames,
     );

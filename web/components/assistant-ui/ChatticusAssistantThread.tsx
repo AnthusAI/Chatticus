@@ -7,8 +7,8 @@ import {
   type TextMessagePartComponent,
   useAuiState,
 } from "@assistant-ui/react";
-import { Clock3, Send } from "lucide-react";
-import type { FC, ReactNode } from "react";
+import { AlertTriangle, Clock3, RotateCcw, Send } from "lucide-react";
+import { createContext, useContext, type FC, type ReactNode } from "react";
 
 import { Button } from "../ui/button";
 import { formatTime } from "@/lib/time";
@@ -40,6 +40,41 @@ const ChatticusUserMessage: FC = () => {
   );
 };
 
+/** Re-sends the message behind the failed reply, or null when retry is unavailable. */
+export const RetryFailedTurnContext = createContext<(() => void) | null>(null);
+
+const ChatticusFailedReply: FC<{ authorBotName?: string }> = ({ authorBotName }) => {
+  const retry = useContext(RetryFailedTurnContext);
+  return (
+    <MessagePrimitive.Root className="flex justify-start px-1" data-role="assistant" data-failed="true">
+      <article
+        role="status"
+        className="max-w-[86%] rounded-3xl bg-clay/15 px-4 py-3 text-sm leading-6 sm:max-w-[76%]"
+      >
+        {authorBotName ? <p className="mb-1 text-xs font-bold">{authorBotName}</p> : null}
+        <p className="flex items-start gap-2 text-clay">
+          <AlertTriangle size={15} className="mt-1 shrink-0" aria-hidden="true" />
+          <span className="min-w-0">
+            <MessagePrimitive.Parts components={{ Text: ChatticusTextPart }} />
+          </span>
+        </p>
+        {retry ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-2 h-8 gap-1.5 rounded-full px-3 text-xs"
+            aria-label={`Retry: send your message to ${authorBotName ?? "the bot"} again`}
+            onClick={retry}
+          >
+            <RotateCcw size={14} aria-hidden="true" />
+            Retry
+          </Button>
+        ) : null}
+      </article>
+    </MessagePrimitive.Root>
+  );
+};
+
 const ChatticusAssistantMessage: FC = () => {
   const authorBotName = useAuiState(
     (state) => state.message.metadata?.custom?.authorBotName as string | undefined,
@@ -54,6 +89,11 @@ const ChatticusAssistantMessage: FC = () => {
   const createdAt = useAuiState(
     (state) => (state.message.metadata?.custom?.createdAt as string | undefined) ?? state.message.createdAt,
   );
+  const failed = useAuiState((state) => Boolean(state.message.metadata?.custom?.failed));
+
+  if (failed) {
+    return <ChatticusFailedReply authorBotName={authorBotName} />;
+  }
 
   return (
     <MessagePrimitive.Root className="flex justify-start px-1" data-role="assistant">

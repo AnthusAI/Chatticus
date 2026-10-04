@@ -4,7 +4,13 @@ import {
   tasksForSelection,
   turnPresentation,
 } from "../lib/workspace-state";
-import type { Bot, Channel, Message, Task } from "../lib/api";
+import type { Bot, Channel, Message, Task, Turn } from "../lib/api";
+import {
+  buildChatticusThreadMessages,
+  convertChatticusThreadMessage,
+  failedTurnForConversation,
+  isTurnSlow,
+} from "../lib/assistant-ui-bridge";
 
 const input = JSON.parse(process.argv[2] ?? "{}") as {
   action: string;
@@ -17,6 +23,8 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
   body?: string;
   turn?: { status: string; waiting_for: string | null } | null;
   state?: "streaming" | "waiting" | "completed" | "failed" | "reconciling" | "loading" | "empty" | "error";
+  latestTurn?: Turn | null;
+  activeTurn?: (Turn & { silentSeconds?: number }) | null;
 };
 
 const bots = input.bots ?? [];
@@ -61,6 +69,29 @@ if (input.action === "roster") {
     iconControlsNamed: true,
     focusRing: true,
   };
+} else if (input.action === "thread") {
+  const activeTurn = input.activeTurn ?? null;
+  const items = buildChatticusThreadMessages(
+    [...(input.messages ?? [])].sort((left, right) => left.seq - right.seq),
+    activeTurn,
+    "",
+    activeTurn ? "active" : null,
+    failedTurnForConversation(input.latestTurn ?? null, input.messages ?? []),
+    activeTurn ? isTurnSlow((activeTurn.silentSeconds ?? 0) * 1000) : false,
+  );
+  const botNameById = new Map(bots.map((bot) => [bot.bot_id, bot.name]));
+  output = items.map((item) => {
+    const converted = convertChatticusThreadMessage(item, botNameById);
+    const custom = (converted.metadata?.custom ?? {}) as Record<string, unknown>;
+    const first = Array.isArray(converted.content) ? converted.content[0] : undefined;
+    return {
+      role: converted.role,
+      text: first && typeof first === "object" && "text" in first ? first.text : null,
+      failed: Boolean(custom.failed),
+      retryBody: (custom.retryBody as string | undefined) ?? null,
+      authorBotName: (custom.authorBotName as string | undefined) ?? null,
+    };
+  });
 } else if (input.action === "turn-presentation") {
   output = turnPresentation(input.state as "streaming" | "waiting" | "completed" | "failed" | "reconciling");
 } else if (input.action === "roster-presentation") {
