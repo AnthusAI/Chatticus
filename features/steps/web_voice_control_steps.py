@@ -353,16 +353,6 @@ def when_recognizer_reports(context: object, message: str) -> None:
     )
 
 
-@when('the microphone is lost with the reason "{message}"')
-def when_microphone_lost(context: object, message: str) -> None:
-    context.voice_session_change = _run_voice_harness(
-        context,
-        "sessionEvent",
-        phase=context.voice_session_phase,
-        event={"kind": "microphoneLost", "message": message},
-    )
-
-
 @then('the voice session is "{phase}"')
 def then_voice_session_phase(context: object, phase: str) -> None:
     assert context.voice_session_change["phase"] == phase, context.voice_session_change
@@ -422,24 +412,70 @@ def then_speaking_does_not_stop(context: object) -> None:
     assert context.voice_outcome["kind"] != "stopSpeaking", context.voice_outcome
 
 
-@when("the system suspends the capture audio engine")
-def when_capture_suspended(context: object) -> None:
+@when(
+    "the capture engine {engine}, the microphone is {track} and audio arrived "
+    "{milliseconds:d} milliseconds ago"
+)
+def when_capture_watched(
+    context: object, engine: str, track: str, milliseconds: int
+) -> None:
     context.voice_capture = _run_voice_harness(
         context,
-        "captureResume",
-        speaking=getattr(context, "voice_speaking", False),
-        engineState="suspended",
+        "captureWatch",
+        engineState="suspended" if engine == "is suspended" else "running",
+        trackMuted=track == "muted",
+        trackEnded=track == "ended",
+        millisecondsSinceFrame=milliseconds,
     )
 
 
-@then("capture is left suspended")
-def then_capture_left_suspended(context: object) -> None:
-    assert context.voice_capture["resumes"] is False, context.voice_capture
+@then("capture is left alone")
+def then_capture_left_alone(context: object) -> None:
+    assert context.voice_capture["problem"] is None, context.voice_capture
 
 
-@then("capture is woken")
-def then_capture_woken(context: object) -> None:
-    assert context.voice_capture["resumes"] is True, context.voice_capture
+@then('capture is restored because "{reason}"')
+def then_capture_restored_because(context: object, reason: str) -> None:
+    assert context.voice_capture["problem"] == reason, context.voice_capture
+
+
+def _capture_conditions(conditions: str) -> dict[str, object]:
+    return {
+        "engineState": "running" if "muted" in conditions else "suspended",
+        "trackMuted": "muted" in conditions,
+        "resumeWorks": "wakes on request" in conditions
+        and "does not wake" not in conditions,
+        "rebuildNeedsGesture": "needs a tap" in conditions,
+    }
+
+
+def _restore_capture(context: object, inGesture: bool) -> None:
+    outcome = _run_voice_harness(
+        context,
+        "captureRestore",
+        capture=context.voice_capture_conditions,
+        inGesture=inGesture,
+    )
+    context.voice_capture = outcome
+    context.voice_presentation = outcome["button"]
+
+
+@when("capture is restored and {conditions}")
+def when_capture_restored(context: object, conditions: str) -> None:
+    context.voice_capture_conditions = _capture_conditions(conditions)
+    _restore_capture(context, inGesture=False)
+
+
+@when("the member taps the voice button")
+def when_member_taps_voice_button(context: object) -> None:
+    _restore_capture(context, inGesture=True)
+
+
+@then('capture is "{kind}" and the member is told "{note}"')
+def then_capture_outcome(context: object, kind: str, note: str) -> None:
+    outcome = context.voice_capture
+    assert outcome["kind"] == kind, outcome
+    assert outcome["note"] == note, outcome
 
 
 @when(

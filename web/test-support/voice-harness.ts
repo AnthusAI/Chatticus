@@ -1,7 +1,8 @@
 import {
   lineOverlapsSpeechWindow,
   lineStartedAtMs,
-  captureMayResume,
+  captureRestoreNote,
+  captureWatchProblem,
   phaseAfterSessionEvent,
   replyForEndedTurn,
   routeVoiceLine,
@@ -9,6 +10,7 @@ import {
   voiceAvailability,
   voiceButtonPresentation,
 } from "../lib/voice-control";
+import { restoreCapture } from "../lib/voice-capture-restore";
 import { speechDeadlineMs, speechEndNote, speechWatchdogShouldEnd } from "../lib/voice-speech";
 import type { Bot, Channel } from "../lib/api";
 
@@ -22,7 +24,8 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
     | "announceEndedTurn"
     | "hearAfterSpeech"
     | "lineStart"
-    | "captureResume"
+    | "captureWatch"
+    | "captureRestore"
     | "watchdog"
     | "speechEndNote";
   spokenText?: string;
@@ -46,6 +49,16 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
   phase?: import("../lib/voice-control").VoicePhase;
   speaking?: boolean;
   engineState?: string;
+  trackMuted?: boolean;
+  trackEnded?: boolean;
+  millisecondsSinceFrame?: number;
+  inGesture?: boolean;
+  capture?: {
+    engineState: string;
+    trackMuted: boolean;
+    resumeWorks: boolean;
+    rebuildNeedsGesture: boolean;
+  };
   started?: boolean;
   millisecondsSinceQueued?: number;
   engineBusy?: boolean;
@@ -53,6 +66,7 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
 };
 
 let output: unknown;
+let pendingOutput: Promise<unknown> | undefined;
 if (input.action === "hear") {
   output = routeVoiceLine(input.line ?? "", {
     bots: input.bots ?? [],
@@ -79,13 +93,45 @@ if (input.action === "hear") {
       startedAtMs,
     ),
   });
-} else if (input.action === "captureResume") {
+} else if (input.action === "captureWatch") {
   output = {
-    resumes: captureMayResume({
-      speaking: input.speaking ?? false,
+    problem: captureWatchProblem({
       engineState: input.engineState ?? "running",
+      tracks: [{ readyState: input.trackEnded ? "ended" : "live", muted: input.trackMuted ?? false }],
+      millisecondsSinceFrame: input.millisecondsSinceFrame ?? 0,
     }),
   };
+} else if (input.action === "captureRestore") {
+  const fake = {
+    engineState: input.capture?.engineState ?? "running",
+    muted: input.capture?.trackMuted ?? false,
+    frames: 0,
+  };
+  pendingOutput = restoreCapture({
+    resume: async () => {
+      if (input.capture?.resumeWorks) fake.engineState = "running";
+    },
+    snapshot: () => ({
+      engineState: fake.engineState,
+      tracks: [{ readyState: "live", muted: fake.muted }],
+    }),
+    frameCount: () => fake.frames,
+    rebuild: async () => {
+      if (input.capture?.rebuildNeedsGesture && !input.inGesture) {
+        throw new Error("The browser needs a tap to reopen the microphone.");
+      }
+      fake.engineState = "running";
+      fake.muted = false;
+    },
+    sleep: async () => {
+      if (fake.engineState === "running") fake.frames += 1;
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    },
+  }).then((outcome) => ({
+    ...outcome,
+    note: captureRestoreNote(outcome),
+    button: voiceButtonPresentation(outcome.kind === "needsTap" ? "needsTap" : "listening", false),
+  }));
 } else if (input.action === "watchdog") {
   output = {
     ends: speechWatchdogShouldEnd({
@@ -134,4 +180,6 @@ if (input.action === "hear") {
   );
 }
 
-process.stdout.write(JSON.stringify(output));
+void Promise.resolve(pendingOutput ?? output).then((result) =>
+  process.stdout.write(JSON.stringify(result)),
+);

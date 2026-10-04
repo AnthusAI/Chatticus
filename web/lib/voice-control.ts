@@ -264,7 +264,13 @@ export function lineStartedAtMs(completedAtMs: number, durationSeconds: number):
   return completedAtMs - durationSeconds * 1000;
 }
 
-export type VoicePhase = "idle" | "loading" | "listening" | "unavailable" | "error";
+export type VoicePhase =
+  | "idle"
+  | "loading"
+  | "listening"
+  | "needsTap"
+  | "unavailable"
+  | "error";
 
 export interface VoiceButtonPresentation {
   icon: "AudioLines";
@@ -300,6 +306,16 @@ export function voiceButtonPresentation(
       pulsing: false,
     };
   }
+  if (phase === "needsTap") {
+    return {
+      icon: "AudioLines",
+      label: "Tap to keep talking",
+      look: "alert",
+      pressed: false,
+      disabled: false,
+      pulsing: false,
+    };
+  }
   return {
     icon: "AudioLines",
     label: "Start voice conversation",
@@ -310,29 +326,76 @@ export function voiceButtonPresentation(
   };
 }
 
-/**
- * Something the capture session reported. Only ``microphoneLost`` means audio
- * is no longer being captured; recognizer trouble is per-pass and capture
- * carries on.
- */
-export type VoiceSessionEvent =
-  { kind: "recognizerTrouble"; message: string } | { kind: "microphoneLost"; message: string };
+/** Something the capture session reported; recognizer trouble is per-pass and capture carries on. */
+export type VoiceSessionEvent = { kind: "recognizerTrouble"; message: string };
 
 export function phaseAfterSessionEvent(
   phase: VoicePhase,
   event: VoiceSessionEvent,
 ): { phase: VoicePhase; note: string } {
-  if (event.kind === "microphoneLost") {
-    return { phase: "error", note: event.message };
-  }
   return { phase, note: `Voice hiccup: ${event.message}` };
 }
 
+/** How long capture may deliver no audio before it is treated as stopped. */
+export const CAPTURE_STALL_MS = 1_500;
+
 /**
- * Whether the capture audio engine may be woken. While the device is
- * speaking, iOS suspends capture on purpose; waking it takes the audio
- * session back for recording and cuts the speech off, so capture waits.
+ * Why capture should be restored right now, or null while it is healthy. Runs
+ * continuously, speech or not: nothing here pauses capture around a reply.
  */
-export function captureMayResume(state: { speaking: boolean; engineState: string }): boolean {
-  return !state.speaking && state.engineState !== "running" && state.engineState !== "closed";
+export function captureWatchProblem(watch: {
+  engineState: string;
+  tracks: CaptureTrackState[];
+  millisecondsSinceFrame: number;
+}): string | null {
+  return captureHealthProblem({
+    engineState: watch.engineState,
+    tracks: watch.tracks,
+    framesArrived: watch.millisecondsSinceFrame < CAPTURE_STALL_MS,
+  });
+}
+
+export interface CaptureTrackState {
+  readyState: string;
+  muted: boolean;
+}
+
+export interface CaptureSnapshot {
+  engineState: string;
+  tracks: CaptureTrackState[];
+  /** Whether audio chunks arrived during the check; null when they cannot be counted. */
+  framesArrived: boolean | null;
+}
+
+/** Why capture is not really listening, or null when the engine runs, a track is live and unmuted, and audio arrives. */
+export function captureHealthProblem(snapshot: CaptureSnapshot): string | null {
+  if (snapshot.engineState !== "running") {
+    return `the audio engine is ${snapshot.engineState}`;
+  }
+  if (!snapshot.tracks.some((track) => track.readyState === "live")) {
+    return "the microphone track ended";
+  }
+  if (!snapshot.tracks.some((track) => track.readyState === "live" && !track.muted)) {
+    return "the system muted the microphone";
+  }
+  if (snapshot.framesArrived === false) {
+    return "no audio is arriving";
+  }
+  return null;
+}
+
+export type CaptureRestoreOutcome =
+  | { kind: "listening" }
+  | { kind: "restarted" }
+  | { kind: "needsTap"; reason: string };
+
+/** What the status line says about how capture came back after speech. */
+export function captureRestoreNote(outcome: CaptureRestoreOutcome): string {
+  if (outcome.kind === "listening") {
+    return "Listening again.";
+  }
+  if (outcome.kind === "restarted") {
+    return "Microphone restarted after speech.";
+  }
+  return `Tap to keep talking: ${outcome.reason}`;
 }

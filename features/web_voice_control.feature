@@ -147,6 +147,7 @@ Feature: Talking to teammates by voice
       | loading     | quiet       | AudioLines | Loading voice model      | neutral | disabled    |
       | listening   | quiet       | AudioLines | End voice conversation   | active  | pressed     |
       | listening   | speaking    | AudioLines | End voice conversation   | active  | pressed     |
+      | needsTap    | quiet       | AudioLines | Tap to keep talking      | alert   | not pressed |
       | error       | quiet       | AudioLines | Start voice conversation | alert   | not pressed |
       | unavailable | quiet       | AudioLines | Start voice conversation | alert   | not pressed |
 
@@ -156,20 +157,46 @@ Feature: Talking to teammates by voice
     Then the voice session is "listening"
     And the member is told "Voice hiccup: Decode failed on one pass."
 
-  Scenario: Losing the microphone ends the voice conversation and says why
-    Given the voice session is "listening"
-    When the microphone is lost with the reason "The microphone was disconnected."
-    Then the voice session is "error"
-    And the member is told "The microphone was disconnected."
-
-  Scenario: Capture is not resumed while a reply is being spoken
+  Scenario: Capture keeps listening while a reply is being spoken
     Given a reply is being spoken
-    When the system suspends the capture audio engine
-    Then capture is left suspended
+    When the capture engine runs, the microphone is live and audio arrived 100 milliseconds ago
+    Then capture is left alone
 
-  Scenario: Capture is resumed after a reply has been spoken
-    When the system suspends the capture audio engine
-    Then capture is woken
+  Scenario: Capture that stops delivering audio is noticed whether or not a reply is spoken
+    Given a reply is being spoken
+    When the capture engine runs, the microphone is live and audio arrived 2000 milliseconds ago
+    Then capture is restored because "no audio is arriving"
+
+  Scenario: A suspended capture engine is noticed
+    When the capture engine is suspended, the microphone is live and audio arrived 100 milliseconds ago
+    Then capture is restored because "the audio engine is suspended"
+
+  Scenario: A muted microphone track is not treated as listening
+    When the capture engine runs, the microphone is muted and audio arrived 100 milliseconds ago
+    Then capture is restored because "the system muted the microphone"
+
+  Scenario: An ended microphone track is not treated as listening
+    When the capture engine runs, the microphone is ended and audio arrived 100 milliseconds ago
+    Then capture is restored because "the microphone track ended"
+
+  Scenario: Capture that comes back on its own after a wake-up says it is listening again
+    When capture is restored and the engine wakes on request
+    Then capture is "listening" and the member is told "Listening again."
+
+  Scenario: Capture that does not come back is restarted from a fresh microphone stream
+    When capture is restored and the engine does not wake and a restart is allowed
+    Then capture is "restarted" and the member is told "Microphone restarted after speech."
+
+  Scenario: A muted track that a wake-up does not fix is restarted
+    When capture is restored and the microphone is muted and a restart is allowed
+    Then capture is "restarted" and the member is told "Microphone restarted after speech."
+
+  Scenario: When a restart needs a tap, the button asks for one and the tap resumes listening
+    When capture is restored and the engine does not wake and a restart needs a tap
+    Then capture is "needsTap" and the member is told "Tap to keep talking: The browser needs a tap to reopen the microphone."
+    And the voice button shows the "AudioLines" icon labelled "Tap to keep talking"
+    When the member taps the voice button
+    Then capture is "restarted" and the member is told "Microphone restarted after speech."
 
   Scenario: A line heard during a reply that is not a stop command does not stop the reply
     Given a reply is being spoken
