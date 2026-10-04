@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import os
 
+import httpx
 import pytest
 
+from chatticus.voice import understanding as understanding_module
 from chatticus.voice.understanding import (
     MAX_RECENT_LINE_CHARACTERS,
     OpenAIUserUnderstanding,
@@ -78,6 +80,124 @@ class _FailingUnderstanding:
 def test_a_failed_understanding_takes_the_line_as_heard() -> None:
     result = understand_or_take_as_heard(_FailingUnderstanding(), " deploy it ", [])
     assert result == Understanding(text="deploy it", degraded=True)
+
+
+_OPENAI_REQUEST = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+
+
+def _fake_openai_post(
+    monkeypatch: pytest.MonkeyPatch,
+    response: httpx.Response | Exception,
+) -> dict:
+    captured: dict = {}
+
+    def _post(url: str, **kwargs: object) -> httpx.Response:
+        captured["url"] = url
+        captured.update(kwargs)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(understanding_module.httpx, "post", _post)
+    return captured
+
+
+def _openai_response(content: str, **extra: object) -> httpx.Response:
+    return httpx.Response(
+        200,
+        request=_OPENAI_REQUEST,
+        json={"choices": [{"message": {"content": content}}], **extra},
+    )
+
+
+def test_openai_understanding_returns_the_repaired_line_and_usage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_openai_post(
+        monkeypatch,
+        _openai_response(
+            json.dumps({"understood": "Ping, tell me something."}),
+            usage={"prompt_tokens": 120, "completion_tokens": 9},
+        ),
+    )
+    result = OpenAIUserUnderstanding("sk-test").understand(
+        "ping tell me some thing", []
+    )
+    assert result.text == "Ping, tell me something."
+    assert result.degraded is False
+    assert result.usage is not None
+    assert result.usage.vendor == "openai"
+    assert result.usage.model == "gpt-5-nano"
+    assert result.usage.input_tokens == 120
+    assert result.usage.output_tokens == 9
+
+
+def test_openai_understanding_returns_empty_text_for_filler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_openai_post(monkeypatch, _openai_response(json.dumps({"understood": ""})))
+    result = understand_or_take_as_heard(
+        OpenAIUserUnderstanding("sk-test"), "um uh", []
+    )
+    assert result.text == ""
+    assert result.degraded is False
+
+
+def test_openai_understanding_rejects_content_that_is_not_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_openai_post(monkeypatch, _openai_response("Sure, here you go."))
+    with pytest.raises(ValueError):
+        OpenAIUserUnderstanding("sk-test").understand("hello there", [])
+
+
+def test_openai_understanding_without_the_expected_key_takes_the_line_as_heard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_openai_post(monkeypatch, _openai_response(json.dumps({"text": "hi"})))
+    result = understand_or_take_as_heard(
+        OpenAIUserUnderstanding("sk-test"), "  hello there ", []
+    )
+    assert result.text == "hello there"
+    assert result.degraded is True
+
+
+def test_a_timeout_takes_the_line_as_heard(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_openai_post(monkeypatch, httpx.ReadTimeout("slow", request=_OPENAI_REQUEST))
+    result = understand_or_take_as_heard(
+        OpenAIUserUnderstanding("sk-test"), "  ping hello ", []
+    )
+    assert result.text == "ping hello"
+    assert result.degraded is True
+
+
+def test_an_http_error_status_takes_the_line_as_heard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_openai_post(
+        monkeypatch, httpx.Response(500, request=_OPENAI_REQUEST, text="boom")
+    )
+    result = understand_or_take_as_heard(
+        OpenAIUserUnderstanding("sk-test"), "ping hello", []
+    )
+    assert result.text == "ping hello"
+    assert result.degraded is True
+
+
+def test_openai_understanding_request_asks_for_minimal_json_from_nano(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _fake_openai_post(
+        monkeypatch, _openai_response(json.dumps({"understood": "Hello."}))
+    )
+    OpenAIUserUnderstanding("sk-test").understand("hello", [])
+    body = captured["json"]
+    assert captured["url"] == "https://api.openai.com/v1/chat/completions"
+    assert captured["headers"] == {"Authorization": "Bearer sk-test"}
+    assert body["model"] == "gpt-5-nano"
+    assert body["reasoning_effort"] == "minimal"
+    assert body["response_format"] == {"type": "json_object"}
+    assert body["messages"][1]["content"].endswith("<transcript>\nhello\n</transcript>")
 
 
 @pytest.mark.live_openai

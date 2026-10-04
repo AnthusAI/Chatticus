@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import logging
 
+import httpx
 import pytest
 
 from chatticus.vendor_prices import TEST_VENDOR_MODEL
 from chatticus.worker import openai_completion
+from chatticus.worker.model_provider_errors import (
+    OUT_OF_QUOTA_REASON,
+    REJECTED_KEY_REASON,
+    permanent_model_provider_failure,
+)
 from chatticus.worker.openai_completion import (
     WORKER_SYSTEM_PROMPT,
     OpenAITextCompletionClient,
@@ -17,6 +23,7 @@ from chatticus.worker.openai_completion import (
 )
 
 DEFAULT_OPENAI_MODEL = "gpt-5-nano"
+_OPENAI_REQUEST = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
 
 
 def test_worker_system_prompt_tells_the_model_when_to_call_the_gate() -> None:
@@ -112,3 +119,93 @@ def test_lowest_reasoning_effort_matches_what_each_model_accepts() -> None:
     assert lowest_reasoning_effort("gpt-5.6-luna") == "none"
     assert lowest_reasoning_effort("gpt-6-luna") == "none"
     assert lowest_reasoning_effort("gpt-5.1") == "none"
+
+
+def _fake_openai_post(
+    monkeypatch: pytest.MonkeyPatch,
+    response: httpx.Response,
+) -> None:
+    def _post(url: str, **kwargs: object) -> httpx.Response:
+        return response
+
+    monkeypatch.setattr(openai_completion.httpx, "post", _post)
+
+
+def _openai_response(status: int, **kwargs: object) -> httpx.Response:
+    return httpx.Response(status, request=_OPENAI_REQUEST, **kwargs)
+
+
+def _complete_expecting_provider_error(
+    monkeypatch: pytest.MonkeyPatch, response: httpx.Response
+) -> Exception:
+    _fake_openai_post(monkeypatch, response)
+    with pytest.raises(httpx.HTTPStatusError) as raised:
+        OpenAITextCompletionClient("sk-test").complete("Say hi.")
+    return raised.value
+
+
+def test_a_successful_completion_carries_text_and_usage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_openai_post(
+        monkeypatch,
+        _openai_response(
+            200,
+            json={
+                "usage": {"prompt_tokens": 30, "completion_tokens": 4},
+                "choices": [{"message": {"content": "Hi there."}}],
+            },
+        ),
+    )
+    outcome = OpenAITextCompletionClient("sk-test").complete("Say hi.")
+    assert outcome.text == "Hi there."
+    assert outcome.usage.model == "gpt-5-nano"
+    assert outcome.usage.input_tokens == 30
+    assert outcome.usage.output_tokens == 4
+
+
+def test_insufficient_quota_from_the_completion_call_is_permanent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    error = _complete_expecting_provider_error(
+        monkeypatch,
+        _openai_response(429, json={"error": {"code": "insufficient_quota"}}),
+    )
+    failure = permanent_model_provider_failure(error)
+    assert failure is not None
+    assert failure.reason == OUT_OF_QUOTA_REASON
+
+
+def test_a_rejected_key_from_the_completion_call_is_permanent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    error = _complete_expecting_provider_error(
+        monkeypatch,
+        _openai_response(401, json={"error": {"code": "invalid_api_key"}}),
+    )
+    failure = permanent_model_provider_failure(error)
+    assert failure is not None
+    assert failure.reason == REJECTED_KEY_REASON
+
+
+def test_server_errors_and_rate_limits_from_the_completion_call_are_temporary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server_error = _complete_expecting_provider_error(
+        monkeypatch, _openai_response(500, json={"error": {"code": "server_error"}})
+    )
+    rate_limited = _complete_expecting_provider_error(
+        monkeypatch,
+        _openai_response(429, json={"error": {"code": "rate_limit_exceeded"}}),
+    )
+    assert permanent_model_provider_failure(server_error) is None
+    assert permanent_model_provider_failure(rate_limited) is None
+
+
+def test_a_non_json_error_body_from_the_completion_call_is_temporary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    error = _complete_expecting_provider_error(
+        monkeypatch, _openai_response(401, text="<html>bad gateway</html>")
+    )
+    assert permanent_model_provider_failure(error) is None
