@@ -73,17 +73,30 @@ IDs are zero-padded to 16 digits so key order is ID order.
 - **Ancestry-aware entries.** Reads walk the fork chain (`parent.at` caps
   each ancestor) and query `l1` newest-first per conversation.
 - **Point-in-time documents.** A read queries `V#<id>#` downward from the
-  requested seq until it finds a base, then applies the deltas. For
-  current-only documents the storage deletes revisions below a new base
-  after the commit. If that fails, the old revisions stay as harmless
-  garbage.
+  requested seq (for a current read, the record's latest revision seq) until
+  it finds a base, then applies the deltas. For current-only documents the
+  storage deletes revisions below a new base after the transaction has
+  landed. That cleanup is best effort: it retries unprocessed deletes with
+  bounded backoff, never fails the commit, and anything left behind is
+  garbage that no read reaches.
 - **One commit is one `TransactWriteItems`.** It writes every record, a
   record plus a revision for each changed document, an update of `META`
   conditioned on `seq = <last seq this owner saw>`, and, when fenced, a
-  `ConditionCheck` that `OWNER.fence = <my fence>`.
+  `ConditionCheck` that `OWNER.fence = <my fence>`. `META` also stores the
+  commit's random token.
+- **Idempotent retries.** The transaction carries that token as its
+  `ClientRequestToken`, and the storage itself retries throttling, timeouts
+  and `TransactionConflict` with the same token. If a retry finds the `META`
+  condition failed, it re-reads `META`: when the stored token is its own,
+  the first attempt landed and only the response was lost, so the commit
+  counts as done. The spike's SDK client uses `maxAttempts: 1`. That was
+  load-bearing in the first version, where an SDK retry after a lost
+  response would have come back as a false "another owner committed".
+  Production must keep SDK retries off for `TransactWriteItems` (or make
+  them reuse the token) and leave retrying to the storage as above.
 - **Reads before writing.** Document changes need the document's current
-  record (retired? version?) and address occupancy. Measured average: 1.2
-  to 2.1 read round trips per commit.
+  record (retired? version?) and address occupancy. Measured average: 1.6
+  to 2.4 read round trips per commit.
 - **Size limits are checked before sending.** More than 100 items, more than
   4 MB, or an item over 400 KB becomes `StorageRejected`. pi-durable treats
   that as "nothing committed".
@@ -92,7 +105,19 @@ IDs are zero-padded to 16 digits so key order is ID order.
 
 - `claimOwnership(fence)` raises `OWNER.fence` if the new value is higher.
 - The storage then commits only with `fence = mine`. An owner that has lost
-  the fence gets `StorageRejected: Owner fence moved` and cannot write.
+  the fence gets `OwnershipLost: Owner fence moved` and cannot write. So does
+  an owner whose `META` condition fails for someone else's commit, or whose
+  transaction keeps hitting `TransactionConflict` (for example against a
+  concurrent `claimOwnership`).
+- `OwnershipLost` is deliberately **not** a `StorageRejected`. pi-durable
+  treats `StorageRejected` as an ordinary rollback and keeps going; any other
+  commit error poisons the Session. Measured (`scripts/fence-loss.ts`): the
+  fence was raised while the stale owner's tool was running. Its next commit
+  failed with `OwnershipLost`, after which it made no further commit
+  attempt, started no tool and sent no model request in the 18 s observed.
+  Its `submission.wait()` never settled, so a host must close a stale owner
+  itself rather than wait for it. The next owner resumed and finished the
+  turn.
 - The `META` sequence condition is a second, fence-free guard: two handles
   can never interleave commits even when both claim the same fence.
 - The Chatticus per-turn fence maps onto this directly. An attempt claims the
@@ -102,37 +127,47 @@ IDs are zero-padded to 16 digits so key order is ID order.
 ## Results
 
 All runs used moto 5.2.3 as the local DynamoDB. Amazon DynamoDB Local was
-requested, but its image did not finish pulling in this session. The
+requested, but it never answered on port 8000 in this session. The
 conformance suite should be rerun against it before any product work.
+
+Neither moto nor DynamoDB Local exercises `TransactionConflict`,
+throttling, SDK retries or per-partition throughput limits. The retry,
+idempotency-token and ownership-loss paths above are therefore untested
+against real behavior. Only a run against a real table covers them.
 
 | Test | Result |
 |---|---|
 | pi-durable storage conformance suite | **23 of 23 pass**, first run, no changes needed to the suite |
 | Owner 1 answers, owner 2 reopens and continues | Pass. Owner 2 answered "teal" to "what is my favourite colour?" |
 | Resubmit the same `requestId` | The original submission id comes back, already `done`. 0 commits |
-| Stale owner commits after a newer fence | Rejected (`Owner fence moved`). Stale fence claim rejected |
+| Stale owner commits after a newer fence | Rejected with `OwnershipLost` (`Owner fence moved`). Stale fence claim rejected |
+| Fence raised while an owner is mid tool call | The stale owner's next commit failed with `OwnershipLost`; it then did nothing more. The next owner reran the replay-safe tool and finished |
 | Lambda-to-computer handoff | Pass (below) |
-| Kill mid model stream | Pass. The partial (363 chars) became a `pi.assistant` entry with `stopReason: aborted`, then the same messages were resent and answered |
+| Kill mid model stream | Pass. The partial (295 chars) became a `pi.assistant` entry with `stopReason: aborted`, then the same messages were resent and answered |
 | Kill mid tool call, `replay: "safe"` | The tool reran on the new owner: started twice, finished once. One result |
 | Kill mid tool call, `replay: "unsafe"` | No rerun. The model got an `interrupted` error result: "Tool run_terminal was interrupted and may have partially run" |
 | Attributed message from another participant | Pass. "The deploy window is Friday at 3pm, and Bea told us." |
 | Approval-style gate | Pass. A `beforeTool` hook returned `{ block }`. The model got "Tool call blocked: needs approval: ..." and asked for confirmation |
-| Non-owner message during a busy turn | Pass through a mailbox (below). A direct commit from a second handle was rejected |
+| Non-owner message during a busy turn | Pass through a mailbox (below). A direct commit from a second handle was rejected (`OwnershipLost: Commit sequence moved`) |
 | 101 items, 4.2 MB, 410 KB item | Each rejected before sending |
 
 ### Per turn (gpt-5-nano)
 
 | Turn | Commits | Max items per commit | Bytes written | Stream batches | Stream bytes |
 |---|---|---|---|---|---|
-| First turn, new conversation | 8 | 13 | 17 KB | -- | -- |
-| Plain answer | 6 to 7 | 9 | 10 to 14 KB | 5 | 10 KB |
-| One tool call (3 s tool, streamed output) | 31 | 9 | 51 KB | 18 | 32 KB |
-| Tool call blocked | 18 | 9 | 42 KB | 10 | 32 KB |
-| Tool call plus a mid-turn steer | 21 | 10 | 39 KB | 13 | 31 KB |
+| First turn, new conversation | 9 | 13 | 18 KB | -- | -- |
+| Plain answer | 7 | 9 | 13 to 15 KB | 5 | 11 KB |
+| One tool call (3 s tool, streamed output) | 19 | 9 | 33 KB | 11 | 21 KB |
+| Tool call blocked | 19 | 9 | 42 KB | 11 | 31 KB |
+| Tool call plus a mid-turn steer | 20 | 10 | 42 KB | 12 | 29 KB |
+
+The commit count of a tool turn depends on how many 100 ms progress
+windows the tool's output and the streamed answer span; an earlier run of
+the same tool turn took 31 commits.
 
 - Reopening an existing conversation took 7 read round trips and no commits.
-- The largest item was 18 KB: a `pi.live` revision during a long streamed
-  answer.
+- The largest item was 14 KB: a `pi.live` revision during a long streamed
+  answer (18 KB in an earlier run).
 - No real commit came near 100 items. The largest number of items in one
   commit grows with the number of tool calls in one model response
   (roughly calls + 4). So a response with about 95 parallel tool calls would
@@ -140,7 +175,8 @@ conformance suite should be rerun against it before any product work.
 - A single entry over 400 KB, for example a very long answer or a huge tool
   result, would be rejected. pi-durable already truncates tool output
   (`outputLimits`). Model answers have no such cap.
-- Commit latency against moto was 10 to 25 ms p50 and 26 to 105 ms p95.
+- Commit latency against moto was 12.1 to 32.6 ms p50 and 33.3 to 174.1 ms
+  p95 across the phase scripts.
   **This is not representative** of DynamoDB in a region, where a
   transaction of this size is typically tens of milliseconds. Partials
   commit at most every 100 ms, so commit latency limits how fast the
@@ -156,17 +192,23 @@ What ran (`scripts/handoff.ts`):
 1. Owner A (fence 1, "Lambda", no executor for computer tools) admitted the
    message with `requestId`. The model called `run_terminal`. A's tool
    implementation does not execute: it signals "parked" and waits for its
-   invocation to be cancelled. A closed the Harness 2.6 s after opening.
+   invocation to be cancelled. A parked 2.6 s after opening and closed.
 2. After A closed, the generation task was `waiting` on `tools` and the tool
    task was `running` at checkpoint `execute`. Owner B saw that tool task as
    `pending` at `execute`.
 3. Owner B (fence 2, "computer") opened the same storage and called
    `resume()`. The tool ran **once**. The model got the result and answered
-   with the real output, 2.5 s after B opened.
+   with the real output, 3.3 s after B opened.
 4. One transcript: user, system, assistant (tool call), tool result,
    assistant. The provider session id (`pi.provider`) was the same for A and
    B, so the provider prompt cache carries over.
-5. A handle still holding fence 1 then tried to commit and was rejected.
+5. A handle still holding fence 1 then tried to commit and was rejected with
+   `OwnershipLost`.
+
+"Exactly once" held here because owner A never reached the tool's real
+`execute()` work: it parked before doing anything. A real computer tool
+still needs its own idempotency marker, because a computer owner that
+crashes mid-execution looks identical to a parked call.
 
 The pi-durable mechanisms that make this work:
 
@@ -300,6 +342,13 @@ the staged plan, which this note recommends:
 - Partition growth: local indexes cap an item collection at 10 GB per
   conversation. Compaction keeps old entries, so very long-lived channels
   need a reset-to-new-storage policy.
+- Document reads are not point-in-time snapshots across round trips.
+  Memory and SQLite read a document atomically; here a read takes the
+  record and then queries revisions. The range is now pinned to the
+  record's latest revision seq, and a current read that finds its base
+  deleted by a concurrent post-commit cleanup re-reads up to three times.
+  That tolerates the race but does not remove it; a reader slower than
+  three successive base replacements would still fail.
 - Throttle: partials and tool output commit at most every 100 ms. The stream
   can only be as smooth as commit latency allows.
 - API stability of an experimental 1.0.x package, and how far we depend on

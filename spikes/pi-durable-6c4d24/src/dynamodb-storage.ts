@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
 	BatchGetItemCommand,
 	BatchWriteItemCommand,
@@ -49,12 +49,44 @@ type StoredTask = TaskRecord<JsonValue, JsonValue, JsonValue>;
 type TableName = "conversation" | "entry" | "task" | "submission" | "document";
 type DocumentRevision = DocumentContent & { readonly seq: Seq };
 type DocumentAction = { create?: DocumentCreate; content?: DocumentContent; retire: boolean };
-type StoredDocumentItem = { record: DocumentRecord; latestVersion: number | undefined };
+type StoredDocumentItem = { record: DocumentRecord; latestVersion: number | undefined; latestSeq: number | undefined };
 
 const TRANSACTION_ITEM_LIMIT = 100;
 const TRANSACTION_BYTE_LIMIT = 4 * 1024 * 1024;
 const ITEM_BYTE_LIMIT = 400 * 1024;
 const QUERY_PAGE_SIZE = 100;
+const TRANSACTION_ATTEMPTS = 4;
+const CLEANUP_ATTEMPTS = 5;
+const MATERIALIZE_ATTEMPTS = 3;
+const RETRYABLE_ERRORS = new Set([
+	"ThrottlingException",
+	"ProvisionedThroughputExceededException",
+	"RequestLimitExceeded",
+	"InternalServerError",
+	"ServiceUnavailable",
+	"TransactionInProgressException",
+	"TimeoutError",
+	"ECONNRESET",
+	"ETIMEDOUT",
+	"EPIPE",
+]);
+const TRANSIENT_CANCELLATIONS = new Set(["TransactionConflict", "ThrottlingError", "ProvisionedThroughputExceeded"]);
+
+const backoff = (attempt: number): Promise<void> =>
+	new Promise((resolve) => setTimeout(resolve, Math.min(1000, 25 * 2 ** attempt) * (0.5 + Math.random())));
+
+/**
+ * This owner can no longer commit: a newer owner raised the fence or committed to the storage.
+ *
+ * Deliberately not a `StorageRejected`: pi-durable treats `StorageRejected` as an ordinary rollback and keeps running,
+ * while any other commit error poisons the Session, so the stale owner stops calling models and running tools.
+ */
+export class OwnershipLost extends Error {
+	constructor(message: string, options?: ErrorOptions) {
+		super(message, options);
+		this.name = "OwnershipLost";
+	}
+}
 
 /** Measurements of one successful or rejected commit, for the spike's reports. */
 export type CommitMeasurement = {
@@ -67,6 +99,8 @@ export type CommitMeasurement = {
 	readonly preReads: number;
 	readonly milliseconds: number;
 	readonly rejected?: string;
+	readonly transactionAttempts?: number;
+	readonly cleanupError?: string;
 };
 
 /** Options for one DynamoDB-backed pi-durable storage, which is one partition of the shared table. */
@@ -244,6 +278,13 @@ export class DynamoDbStorage implements Storage {
 			milliseconds: performance.now() - started,
 			...partial,
 		});
+		let transactionAttempts = 0;
+		let committed: {
+			transactionItems: number;
+			transactionBytes: number;
+			largestItemBytes: number;
+			cleanups: RevisionCleanup[];
+		};
 		try {
 			const detached = parse<StorageWrite[]>(encode(writes));
 			const resolved = await this.resolveDocumentCopies(detached);
@@ -264,17 +305,26 @@ export class DynamoDbStorage implements Storage {
 			if (largestItemBytes > ITEM_BYTE_LIMIT) {
 				throw new StorageRejected(`Commit writes a ${largestItemBytes} byte item; DynamoDB allows ${ITEM_BYTE_LIMIT}`);
 			}
-			await this.transact(plan.items);
+			transactionAttempts = await this.transact(plan.items, plan.token);
 			this.seq = seq;
 			this.nextId = Math.max(this.nextId, plan.highestId + 1);
-			const measurement = measure({ seq, transactionItems: plan.items.length, transactionBytes, largestItemBytes });
-			this.record(measurement);
-			await this.cleanRevisions(plan.cleanups);
-			return seq as Seq;
+			committed = { transactionItems: plan.items.length, transactionBytes, largestItemBytes, cleanups: plan.cleanups };
 		} catch (error) {
-			this.record(measure({ rejected: (error as Error).message }));
+			this.record(measure({ rejected: `${(error as Error).name}: ${(error as Error).message}`, transactionAttempts }));
 			throw error;
 		}
+		const cleanupError = await this.cleanRevisionsBestEffort(committed.cleanups);
+		this.record(
+			measure({
+				seq,
+				transactionItems: committed.transactionItems,
+				transactionBytes: committed.transactionBytes,
+				largestItemBytes: committed.largestItemBytes,
+				transactionAttempts,
+				...(cleanupError === undefined ? {} : { cleanupError }),
+			}),
+		);
+		return seq as Seq;
 	}
 
 	private record(measurement: CommitMeasurement): void {
@@ -282,28 +332,77 @@ export class DynamoDbStorage implements Storage {
 		this.onCommit?.(measurement);
 	}
 
-	private async transact(entries: readonly PlannedItem[]): Promise<void> {
+	/**
+	 * Send one commit's transaction, retrying transient failures with the same idempotency token.
+	 *
+	 * The client is built with `maxAttempts: 1`, so every retry happens here, where it is visible: the same
+	 * `ClientRequestToken` makes DynamoDB apply a resent transaction at most once (within ten minutes), and
+	 * `META.token` records which commit last moved the sequence, so a retry whose first attempt landed but whose
+	 * response was lost is recognized as committed instead of being reported as a conflict.
+	 *
+	 * @returns The number of attempts used.
+	 */
+	private async transact(entries: readonly PlannedItem[], token: string): Promise<number> {
+		for (let attempt = 1; ; attempt++) {
+			try {
+				await this.client.send(
+					new TransactWriteItemsCommand({
+						TransactItems: entries.map((entry) => entry.request),
+						ClientRequestToken: token,
+					}),
+				);
+				return attempt;
+			} catch (error) {
+				const name = (error as Error).name;
+				const code = (error as { code?: string }).code;
+				if (name !== "TransactionCanceledException") {
+					const retryable = RETRYABLE_ERRORS.has(name) || (code !== undefined && RETRYABLE_ERRORS.has(code));
+					if (retryable && attempt < TRANSACTION_ATTEMPTS) {
+						await backoff(attempt);
+						continue;
+					}
+					if (await this.committedWithToken(token)) return attempt;
+					throw error;
+				}
+				const reasons = (error as { CancellationReasons?: { Code?: string }[] }).CancellationReasons ?? [];
+				const conditionFailures = entries.filter((_, index) => reasons[index]?.Code === "ConditionalCheckFailed");
+				if (conditionFailures.some((entry) => entry.role === "owner")) {
+					throw new OwnershipLost("Owner fence moved: this owner is stale", { cause: error });
+				}
+				if (conditionFailures.some((entry) => entry.role === "meta")) {
+					if (await this.committedWithToken(token)) return attempt;
+					throw new OwnershipLost("Commit sequence moved: another owner committed to this storage", {
+						cause: error,
+					});
+				}
+				const recordFailure = conditionFailures.find((entry) => entry.role === "record" && entry.id !== undefined);
+				if (recordFailure !== undefined) {
+					const existing = await this.getItem(`R#${pad(recordFailure.id!)}`);
+					const table = existing === undefined ? "another record" : text(existing, "t");
+					throw new StorageRejected(`ID ${recordFailure.id} already belongs to ${table}`, { cause: error });
+				}
+				const transient = reasons.some((reason) => reason.Code !== undefined && TRANSIENT_CANCELLATIONS.has(reason.Code));
+				if (transient && attempt < TRANSACTION_ATTEMPTS) {
+					await backoff(attempt);
+					continue;
+				}
+				if (transient) {
+					throw new OwnershipLost(
+						`Transaction kept conflicting after ${attempt} attempts (${reasons.map((reason) => reason.Code ?? "None").join(",")})`,
+						{ cause: error },
+					);
+				}
+				throw new StorageRejected(`Transaction was cancelled: ${(error as Error).message}`, { cause: error });
+			}
+		}
+	}
+
+	private async committedWithToken(token: string): Promise<boolean> {
 		try {
-			await this.client.send(
-				new TransactWriteItemsCommand({ TransactItems: entries.map((entry) => entry.request) }),
-			);
-		} catch (error) {
-			if ((error as Error).name !== "TransactionCanceledException") throw error;
-			const reasons = (error as { CancellationReasons?: { Code?: string }[] }).CancellationReasons ?? [];
-			const failedEntries = entries.filter((_, index) => reasons[index]?.Code === "ConditionalCheckFailed");
-			if (failedEntries.some((entry) => entry.role === "owner")) {
-				throw new StorageRejected("Owner fence moved: this owner is stale", { cause: error });
-			}
-			const failed = failedEntries[0];
-			if (failed?.role === "meta") {
-				throw new StorageRejected("Commit sequence moved: another owner committed to this storage", { cause: error });
-			}
-			if (failed?.role === "record" && failed.id !== undefined) {
-				const existing = await this.getItem(`R#${pad(failed.id)}`);
-				const table = existing === undefined ? "another record" : text(existing, "t");
-				throw new StorageRejected(`ID ${failed.id} already belongs to ${table}`, { cause: error });
-			}
-			throw new StorageRejected(`Transaction was cancelled: ${(error as Error).message}`, { cause: error });
+			const meta = await this.getItem("META");
+			return meta !== undefined && text(meta, "token") === token;
+		} catch {
+			return false;
 		}
 	}
 
@@ -312,7 +411,8 @@ export class DynamoDbStorage implements Storage {
 		actions: ReadonlyMap<DocumentId, DocumentAction>,
 		existingDocuments: ReadonlyMap<DocumentId, StoredDocumentItem>,
 		seq: number,
-	): { items: PlannedItem[]; highestId: number; cleanups: RevisionCleanup[] } {
+	): { items: PlannedItem[]; highestId: number; cleanups: RevisionCleanup[]; token: string } {
+		const token = randomUUID();
 		const items: PlannedItem[] = [];
 		const cleanups: RevisionCleanup[] = [];
 		let highestId = 0;
@@ -348,11 +448,12 @@ export class DynamoDbStorage implements Storage {
 			const currentOnly = isCurrentOnly(record);
 			const writesRevision = action.content !== undefined && !(action.retire && currentOnly);
 			const latestVersion = writesRevision ? action.content!.version : existing?.latestVersion;
+			const latestSeq = writesRevision ? seq : existing?.latestSeq;
 			items.push(
 				this.planned("record", id, {
 					Put: {
 						TableName: this.tableName,
-						Item: this.documentItem(record, latestVersion),
+						Item: this.documentItem(record, latestVersion, latestSeq),
 						ConditionExpression:
 							action.create !== undefined ? "attribute_not_exists(pk)" : "attribute_exists(pk) AND t = :t",
 						...(action.create !== undefined ? {} : { ExpressionAttributeValues: { ":t": { S: "document" } } }),
@@ -382,13 +483,15 @@ export class DynamoDbStorage implements Storage {
 			":expected": { N: String(this.seq) },
 			":seq": { N: String(seq) },
 			":nextId": { N: String(Math.max(this.nextId, highestId + 1)) },
+			":token": { S: token },
 		};
 		items.push(
 			this.planned("meta", undefined, {
 				Update: {
 					TableName: this.tableName,
 					Key: { pk: { S: this.pk }, sk: { S: "META" } },
-					UpdateExpression: "SET seq = :seq, nextId = :nextId",
+					UpdateExpression: "SET seq = :seq, nextId = :nextId, #token = :token",
+					ExpressionAttributeNames: { "#token": "token" },
 					ConditionExpression: "seq = :expected",
 					ExpressionAttributeValues: metaValues,
 				},
@@ -406,7 +509,7 @@ export class DynamoDbStorage implements Storage {
 				}),
 			);
 		}
-		return { items, highestId, cleanups };
+		return { items, highestId, cleanups, token };
 	}
 
 	private planned(role: PlannedItem["role"], id: number | undefined, request: TransactWriteItem): PlannedItem {
@@ -457,7 +560,7 @@ export class DynamoDbStorage implements Storage {
 		return item;
 	}
 
-	private documentItem(record: DocumentRecord, latestVersion: number | undefined): Item {
+	private documentItem(record: DocumentRecord, latestVersion: number | undefined, latestSeq: number | undefined): Item {
 		const item: Item = {
 			pk: { S: this.pk },
 			sk: { S: `R#${pad(record.id)}` },
@@ -467,7 +570,26 @@ export class DynamoDbStorage implements Storage {
 			l2: { S: `DA#${digest(recordAddressKey(record))}#${pad(record.id)}` },
 		};
 		if (latestVersion !== undefined) item.ver = { N: String(latestVersion) };
+		if (latestSeq !== undefined) item.last = { N: String(latestSeq) };
 		return item;
+	}
+
+	/**
+	 * Delete revisions a committed base or retirement made unreachable. Runs after the transaction landed and never
+	 * fails the commit: anything left behind is garbage that reads never reach.
+	 *
+	 * @returns The error text when some revisions were left behind.
+	 */
+	private async cleanRevisionsBestEffort(cleanups: readonly RevisionCleanup[]): Promise<string | undefined> {
+		if (cleanups.length === 0) return undefined;
+		try {
+			await this.cleanRevisions(cleanups);
+			return undefined;
+		} catch (error) {
+			const message = `${(error as Error).name}: ${(error as Error).message}`;
+			process.stderr.write(`[dynamodb-storage] revision cleanup left garbage: ${message}\n`);
+			return message;
+		}
 	}
 
 	private async cleanRevisions(cleanups: readonly RevisionCleanup[]): Promise<void> {
@@ -482,13 +604,17 @@ export class DynamoDbStorage implements Storage {
 				keys.push({ pk: item.pk!, sk: item.sk! });
 			}
 			for (let index = 0; index < keys.length; index += 25) {
-				await this.client.send(
-					new BatchWriteItemCommand({
-						RequestItems: {
-							[this.tableName]: keys.slice(index, index + 25).map((Key) => ({ DeleteRequest: { Key } })),
-						},
-					}),
-				);
+				let requests: { DeleteRequest: { Key: Item } }[] | undefined = keys
+					.slice(index, index + 25)
+					.map((Key) => ({ DeleteRequest: { Key } }));
+				for (let attempt = 1; requests !== undefined && requests.length > 0; attempt++) {
+					if (attempt > CLEANUP_ATTEMPTS) throw new Error(`${requests.length} revision deletes still unprocessed`);
+					if (attempt > 1) await backoff(attempt);
+					const response = await this.client.send(
+						new BatchWriteItemCommand({ RequestItems: { [this.tableName]: requests } }),
+					);
+					requests = response.UnprocessedItems?.[this.tableName] as typeof requests;
+				}
 			}
 		}
 	}
@@ -605,6 +731,7 @@ export class DynamoDbStorage implements Storage {
 				existingDocuments.set(id, {
 					record: parse<DocumentRecord>(text(item, "v")!),
 					latestVersion: number(item, "ver"),
+					latestSeq: number(item, "last"),
 				});
 			}
 		}
@@ -843,40 +970,51 @@ export class DynamoDbStorage implements Storage {
 		this.closed = true;
 	}
 
+	/**
+	 * Materialize one document at a point. The revision range is pinned to the latest revision seq read from the
+	 * record in the same attempt. A current read of a current-only document that races its owner's post-commit
+	 * cleanup can still find its base deleted; that case re-reads from the record, a bounded number of times.
+	 */
 	private async materialize(id: number, at: DocumentPoint): Promise<StoredDocument | undefined> {
-		const item = await this.getItem(`R#${pad(id)}`);
-		if (item === undefined || text(item, "t") !== "document") return undefined;
-		const record = parse<DocumentRecord>(text(item, "v")!);
-		if (at !== "current" && isCurrentOnly(record)) {
-			throw new Error(`Document ${id} does not retain historical content`);
-		}
-		if (!isAliveAt(record, at)) return undefined;
-		const high = at === "current" ? `V#${pad(id)}#~` : `V#${pad(id)}#${pad(at)}`;
-		const newestFirst: DocumentRevision[] = [];
-		for await (const revisionItem of this.iterate(undefined, `V#${pad(id)}#`, high, false)) {
-			const content = parse<DocumentContent>(text(revisionItem, "c")!);
-			const seq = Number(text(revisionItem, "sk")!.slice(-16)) as Seq;
-			newestFirst.push({ ...content, seq } as DocumentRevision);
-			if (content.kind === "base") break;
-		}
-		const base = newestFirst.at(-1);
-		if (base?.kind !== "base") throw new Error(`Document ${id} is missing a required base`);
-		const deltas = newestFirst.slice(0, -1).reverse();
-		const batches = function* (): Generator<readonly Op[]> {
-			for (const revision of deltas) {
-				if (revision.kind !== "delta" || revision.version !== base.version) {
-					throw new Error(`Document ${id} crosses a stored version boundary without a base`);
-				}
-				yield revision.ops;
+		for (let attempt = 1; ; attempt++) {
+			const item = await this.getItem(`R#${pad(id)}`);
+			if (item === undefined || text(item, "t") !== "document") return undefined;
+			const record = parse<DocumentRecord>(text(item, "v")!);
+			if (at !== "current" && isCurrentOnly(record)) {
+				throw new Error(`Document ${id} does not retain historical content`);
 			}
-		};
-		const value = applyImmutableBatches(base.value, batches()) as JsonObject;
-		return {
-			record,
-			version: base.version,
-			value: parse<JsonObject>(encode(value)),
-			deltasSinceBase: deltas.length,
-		};
+			if (!isAliveAt(record, at)) return undefined;
+			const pinned = at === "current" ? number(item, "last") : at;
+			const high = pinned === undefined ? `V#${pad(id)}#~` : `V#${pad(id)}#${pad(pinned)}`;
+			const newestFirst: DocumentRevision[] = [];
+			for await (const revisionItem of this.iterate(undefined, `V#${pad(id)}#`, high, false)) {
+				const content = parse<DocumentContent>(text(revisionItem, "c")!);
+				const seq = Number(text(revisionItem, "sk")!.slice(-16)) as Seq;
+				newestFirst.push({ ...content, seq } as DocumentRevision);
+				if (content.kind === "base") break;
+			}
+			const base = newestFirst.at(-1);
+			if (base?.kind !== "base") {
+				if (at === "current" && attempt < MATERIALIZE_ATTEMPTS) continue;
+				throw new Error(`Document ${id} is missing a required base`);
+			}
+			const deltas = newestFirst.slice(0, -1).reverse();
+			const batches = function* (): Generator<readonly Op[]> {
+				for (const revision of deltas) {
+					if (revision.kind !== "delta" || revision.version !== base.version) {
+						throw new Error(`Document ${id} crosses a stored version boundary without a base`);
+					}
+					yield revision.ops;
+				}
+			};
+			const value = applyImmutableBatches(base.value, batches()) as JsonObject;
+			return {
+				record,
+				version: base.version,
+				value: parse<JsonObject>(encode(value)),
+				deltasSinceBase: deltas.length,
+			};
+		}
 	}
 
 	private async *visibleEntries(

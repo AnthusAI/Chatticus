@@ -1,0 +1,71 @@
+{
+  "storageId": "tenant-1#bot-ada#fence-loss-7c06315e",
+  "stale": {
+    "submissionOutcome": "still waiting after 15 s",
+    "rejectedCommits": [
+      "OwnershipLost: Owner fence moved: this owner is stale"
+    ],
+    "successfulCommits": 11,
+    "toolStartsAfterFence": 0,
+    "executionsByStale": [
+      {
+        "phase": "started",
+        "owner": "stale",
+        "taskId": 12,
+        "command": "make test",
+        "at": 1791142505438
+      },
+      {
+        "phase": "finished",
+        "owner": "stale",
+        "taskId": 12,
+        "command": "make test",
+        "at": 1791142509441
+      }
+    ],
+    "millisecondsObservedAfterFence": 18004
+  },
+  "staleClose": "closed",
+  "next": {
+    "status": "done",
+    "executions": [
+      {
+        "phase": "started",
+        "owner": "next",
+        "taskId": 12,
+        "command": "make test",
+        "at": 1791142523562
+      },
+      {
+        "phase": "finished",
+        "owner": "next",
+        "taskId": 12,
+        "command": "make test",
+        "at": 1791142523765
+      },
+      {
+        "phase": "started",
+        "owner": "next",
+        "taskId": 16,
+        "command": "make lint",
+        "at": 1791142525769
+      },
+      {
+        "phase": "finished",
+        "owner": "next",
+        "taskId": 16,
+        "command": "make lint",
+        "at": 1791142525971
+      }
+    ],
+    "transcript": [
+      "#7 pi.user user: Use run_terminal to run `make test`, then run `make lint` with run_terminal too, then report both outputs.",
+      "#10 pi.system system: ",
+      "#11 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"make test\"})",
+      "#13 pi.tool-result toolResult: ran: make test (exit 0, nonce 6d616b65)",
+      "#15 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"make lint\"})",
+      "#17 pi.tool-result toolResult: ran: make lint (exit 0, nonce 6d616b65)",
+      "#19 pi.assistant assistant(stop): [thinking] - make test: ran: make test (exit 0, nonce 6d616b65)\n- make lint: ran: make lint (exit 0, nonce 6d616b65)"
+    ]
+  }
+}

@@ -1,32 +1,32 @@
 
- RUN  v4.1.11 /Users/home/Projects/Chattic.us/.claude/worktrees/agent-ac15d227f76fbcac9/spikes/pi-durable-6c4d24
+ RUN  v4.1.11 spikes/pi-durable-6c4d24
 
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > reserves ID 1 for the immutable root conversation 29ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > commits mixed table writes atomically and rolls all of them back on failure 57ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > detaches retained writes and every returned record 40ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > detaches prototype-like JSON keys without changing object prototypes 21ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes entries committed out of ID order 35ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > continues an entry cursor below its last item after a newer commit 41ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > paginates conversations by opaque cursor in ascending ID order 29ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > filters and pages conversations by durable owner edges 41ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > scans deep fork history newest-first through every ancestor cap 253ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > replaces complete task records and pages filtered task scans 58ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > stores owners and scans waiting and completing tasks by status 55ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes request IDs per conversation and replaces complete submission records 101ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > stores passive write submissions without input-only lifecycle states 44ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > reconstructs rewindable documents and preserves half-open incarnations 168ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > streams long document tails across root replacement deltas 1071ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > copies stored document bases independently and rejects ambiguous sources 238ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > uses bases for version transitions and rejects historical reads of current-only documents 114ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes logical addresses and exact-scope scans independently 129ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps document lifecycle failures atomic and gives create-plus-retire an empty lifetime 74ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > rolls back record tables and secondary indexes when a document command fails 258ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps indexed string identities lossless 139ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps one global record ID namespace and rejects exhausted ID minting 43ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > rejects every operation after close 13ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > reserves ID 1 for the immutable root conversation 22ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > commits mixed table writes atomically and rolls all of them back on failure 36ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > detaches retained writes and every returned record 31ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > detaches prototype-like JSON keys without changing object prototypes 15ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes entries committed out of ID order 21ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > continues an entry cursor below its last item after a newer commit 28ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > paginates conversations by opaque cursor in ascending ID order 17ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > filters and pages conversations by durable owner edges 24ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > scans deep fork history newest-first through every ancestor cap 200ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > replaces complete task records and pages filtered task scans 37ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > stores owners and scans waiting and completing tasks by status 60ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes request IDs per conversation and replaces complete submission records 76ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > stores passive write submissions without input-only lifecycle states 31ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > reconstructs rewindable documents and preserves half-open incarnations 118ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > streams long document tails across root replacement deltas 686ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > copies stored document bases independently and rejects ambiguous sources 164ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > uses bases for version transitions and rejects historical reads of current-only documents 79ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes logical addresses and exact-scope scans independently 115ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps document lifecycle failures atomic and gives create-plus-retire an empty lifetime 55ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > rolls back record tables and secondary indexes when a document command fails 60ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps indexed string identities lossless 88ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps one global record ID namespace and rejects exhausted ID minting 30ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > rejects every operation after close 11ms
 
  Test Files  1 passed (1)
       Tests  23 passed (23)
-   Start at  15:26:08
-   Duration  3.35s (transform 38ms, setup 0ms, import 188ms, tests 3.07s, environment 0ms)
+   Start at  15:35:37
+   Duration  2.30s (transform 32ms, setup 0ms, import 182ms, tests 2.03s, environment 0ms)
 

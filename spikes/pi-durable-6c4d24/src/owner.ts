@@ -1,4 +1,5 @@
 import { appendFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Type } from "@earendil-works/pi-ai";
@@ -23,7 +24,8 @@ export const context: Context = BACKGROUND_CONTEXT;
 export const TABLE_NAME = "pi-durable-spike";
 export const MODEL = { provider: "openai", modelId: "gpt-5-nano" } as const;
 
-if (process.env.OPENAI_API_KEY === undefined) config({ path: "/Users/home/Projects/Chattic.us/.env", quiet: true });
+const DEFAULT_ENV_FILE = fileURLToPath(new URL("../../../.env", import.meta.url));
+if (process.env.OPENAI_API_KEY === undefined) config({ path: process.env.CHATTICUS_ENV_FILE ?? DEFAULT_ENV_FILE, quiet: true });
 
 /** Where every real execution of a computer tool is recorded, one JSON line each, so duplicates are countable. */
 export const executionLog = (): string => process.env.PI_SPIKE_EXECUTION_LOG ?? "";

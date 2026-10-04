@@ -33,12 +33,13 @@ export PI_SPIKE_DYNAMODB_ENDPOINT=http://127.0.0.1:5555
 npx tsc --noEmit
 npx vitest --run test/dynamodb-storage.test.ts   # Phase 1
 
-export OPENAI_API_KEY=...   # or it is read from /Users/home/Projects/Chattic.us/.env
+export OPENAI_API_KEY=...   # or set CHATTICUS_ENV_FILE; the default is the repo-root .env
 node scripts/phase2-turns.ts
 node scripts/handoff.ts
 node scripts/phase3-crash.ts
 node scripts/phase4-events.ts
 node scripts/limits.ts
+node scripts/fence-loss.ts
 ```
 
 ## What each piece proves
@@ -51,6 +52,7 @@ node scripts/limits.ts
 | `scripts/handoff.ts` | A Lambda-like owner (no computer) admits the message, runs until the model calls `run_terminal`, parks the call and closes; a computer owner with the next fence resumes the same tool task, runs it once and finishes the turn; the Lambda's late commit is rejected | `handoff.json`, `handoff-executions.jsonl` |
 | `scripts/phase3-crash.ts` | `SIGKILL` of a separate owner process mid model stream and mid tool call (replay `safe` and `unsafe`); a new owner resumes | `phase3-crash.json`, `phase3-*-executions.jsonl` |
 | `scripts/phase4-events.ts` | `watchEvents()` batches per turn and their sizes; another participant's attributed message; an approval-style `beforeTool` block; a non-owner message delivered during a busy turn through a mailbox and admitted as a steer | `phase4-events.json` |
+| `scripts/fence-loss.ts` | Raising the fence while an owner is mid tool call: its next commit fails with `OwnershipLost` (not `StorageRejected`), the poisoned owner makes no further commit, tool start or model request, and the next owner finishes the turn | `fence-loss.json`, `fence-loss-executions.jsonl` |
 | `scripts/limits.ts` | The 100-item, 4 MB and 400 KB limits are detected and rejected before the transaction is sent | `limits.json` |
 
 Commit latencies in the results are against a local emulator and say
