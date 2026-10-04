@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-66f1895c-60e1-469e-9a47-9cc68a238140",
+  "title": "Turn cancel: a POST that stops a running turn",
+  "description": "So the voice 'stop' command (and a UI stop) actually stops the worker. New server behavior; starts as Gherkin in features/. See docs/VOICE.md, Design > 5 and Build order step 4.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-62823460-59ae-4691-909d-43d09f2ca853",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T13:39:19.981282Z",
+  "updated_at": "2026-10-04T13:39:19.981314Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude_code",
+    "model": "Opus 5.5",
+    "name": "Claude"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

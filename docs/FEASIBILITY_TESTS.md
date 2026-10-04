@@ -30,8 +30,17 @@ spikes: a measurement that becomes a feature is a measurement nobody trusts.
 
 ## Voice: on-device listening in the browser
 
-Four tests gate voice control in the web workspace: browser cost of
-always-on listening, Safari and iOS, cross-origin isolation against
-sign-in, and accuracy on our vocabulary. Each is written out, with its
-failure branch, in [Voice](VOICE.md#feasibility-tests). The spike is Kanbus
-story `chatticus-a2000f`.
+The spike (`chatticus-a2000f`) ran tests 1 and 2 from
+[Voice](VOICE.md#feasibility-tests) headless, and test 4 only partially
+(12 synthetic utterances). The results are in
+[Voice](VOICE.md#spike-results). These parts are still open, each with the
+failure branch written in that document:
+
+- A live microphone in a real browser for 60 minutes, foreground and
+  background, with battery drain measured.
+- iOS Safari on a device, where the question is memory: about 650 MB above a
+  blank page.
+- Cross-origin isolation (COOP `same-origin` plus COEP `require-corp`)
+  against the Google and Cognito sign-in and the Vultus avatar.
+- Test 4 as specified: about 50 real recordings, false-addressing rates,
+  and phonetic name matching.
