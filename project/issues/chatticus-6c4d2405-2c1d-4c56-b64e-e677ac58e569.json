@@ -10,16 +10,24 @@
   "parent": "chatticus-9f09c5ef-b99a-4837-adff-5de3a87f0151",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "081ed8e0-4b69-4a27-a599-e3466c4b9cfd",
+      "author": "home",
+      "text": "Spike complete on branch claude/pi-durable-spike-6c4d24 (PR #391): review fixes (idempotent ClientRequestToken commits, OwnershipLost on fence loss with a stale owner that stops, best-effort cleanup) and the S3-plus-DynamoDB-index storage (23/23 conformance, all phase scripts incl. handoff pass on moto; index items <= 361 bytes; 410 KB entry and 4.2 MB commit now work). Open: real-AWS run (needs human go-ahead), snapshot object, orphan sweeper, defer-to-computer path, no-owner human messages, fewer commits per turn.",
+      "created_at": "2026-10-04T19:56:07.164755Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-10-04T18:35:41.955362Z",
-  "updated_at": "2026-10-04T19:03:39.467665Z",
+  "updated_at": "2026-10-04T19:56:07.164803Z",
   "closed_at": null,
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "The team is measuring a DynamoDB-backed turn flow, including recovery, tools, and Lambda cold starts.",
-  "right_now_updated_at": "2026-10-04T19:03:41.683111Z",
+  "right_now_summary": "The spike passes local tests; AWS validation and several follow-up paths still need work.",
+  "right_now_updated_at": "2026-10-04T19:56:09.201941Z",
   "custom": {}
 }
