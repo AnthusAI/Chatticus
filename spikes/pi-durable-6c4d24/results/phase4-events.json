@@ -1,0 +1,246 @@
+{
+  "storageId": "tenant-1#bot-ada#channel-a54d71d8",
+  "attributedWrite": {
+    "submissionId": 8,
+    "status": "done"
+  },
+  "attributionTurn": {
+    "status": "done",
+    "answer": "The deploy window is Friday at 3pm, and Bea told us.",
+    "stream": {
+      "snapshotBytes": 407,
+      "batches": 5,
+      "eventKinds": {
+        "message_start": 3,
+        "message_end": 3,
+        "submission": 2,
+        "run_start": 1,
+        "turn_start": 1,
+        "message_update": 1,
+        "turn_end": 1,
+        "run_end": 1,
+        "usage_changed": 1
+      },
+      "totalBytes": 9916,
+      "batchBytesP50": 1145,
+      "batchBytesMax": 4310,
+      "firstBatches": [
+        "message_start,message_end,submission,run_start,turn_start",
+        "message_start,message_end",
+        "message_start",
+        "message_update",
+        "message_end,turn_end,run_end,submission,usage_changed"
+      ]
+    },
+    "commits": {
+      "commits": 7,
+      "rejected": [],
+      "writeKinds": {
+        "entry": 3,
+        "submission": 2,
+        "task": 4,
+        "document.change": 6
+      },
+      "maxTransactionItems": 9,
+      "maxTransactionBytes": 5682,
+      "totalTransactionBytes": 13604,
+      "maxItemBytes": 3919,
+      "preReadsPerCommit": 1.5714285714285714,
+      "commitMillisecondsP50": 19,
+      "commitMillisecondsP95": 34.4
+    }
+  },
+  "toolTurn": {
+    "status": "done",
+    "answer": "Output from ls /srv: (empty)\nExit status: 0",
+    "stream": {
+      "snapshotBytes": 5197,
+      "batches": 18,
+      "eventKinds": {
+        "message_start": 6,
+        "message_end": 6,
+        "submission": 2,
+        "run_start": 1,
+        "turn_start": 3,
+        "message_update": 3,
+        "usage_changed": 3,
+        "tool_execution_start": 2,
+        "tool_execution_update": 2,
+        "tool_execution_end": 2,
+        "turn_end": 3,
+        "run_end": 1
+      },
+      "totalBytes": 32365,
+      "batchBytesP50": 531,
+      "batchBytesMax": 5624,
+      "firstBatches": [
+        "message_start,message_end,submission,run_start,turn_start",
+        "message_start",
+        "message_update",
+        "message_end,usage_changed",
+        "tool_execution_start",
+        "tool_execution_update",
+        "tool_execution_end,message_start,message_end",
+        "turn_end,turn_start",
+        "message_start",
+        "message_update",
+        "message_end,usage_changed",
+        "tool_execution_start"
+      ]
+    },
+    "commits": {
+      "commits": 31,
+      "rejected": [],
+      "writeKinds": {
+        "entry": 6,
+        "submission": 2,
+        "task": 24,
+        "document.change": 24
+      },
+      "maxTransactionItems": 9,
+      "maxTransactionBytes": 7526,
+      "totalTransactionBytes": 51013,
+      "maxItemBytes": 5503,
+      "preReadsPerCommit": 1.4516129032258065,
+      "commitMillisecondsP50": 16.4,
+      "commitMillisecondsP95": 38.7
+    }
+  },
+  "gatedTurn": {
+    "status": "done",
+    "answer": "The command was blocked for safety and couldn’t be executed; it requires explicit approval. Want me to verify /srv/build (e.g., ls -ld /srv/build) or proceed once you confirm?",
+    "stream": {
+      "snapshotBytes": 19143,
+      "batches": 10,
+      "eventKinds": {
+        "message_start": 4,
+        "message_end": 4,
+        "submission": 2,
+        "run_start": 1,
+        "turn_start": 2,
+        "message_update": 3,
+        "usage_changed": 2,
+        "tool_execution_end": 1,
+        "turn_end": 2,
+        "run_end": 1
+      },
+      "totalBytes": 31881,
+      "batchBytesP50": 1567,
+      "batchBytesMax": 8725,
+      "firstBatches": [
+        "message_start,message_end,submission,run_start,turn_start",
+        "message_start",
+        "message_update",
+        "message_end,usage_changed",
+        "tool_execution_end,message_start,message_end",
+        "turn_end,turn_start",
+        "message_start",
+        "message_update",
+        "message_update",
+        "message_end,turn_end,run_end,submission,usage_changed"
+      ]
+    },
+    "commits": {
+      "commits": 18,
+      "rejected": [],
+      "writeKinds": {
+        "entry": 4,
+        "submission": 2,
+        "task": 13,
+        "document.change": 14
+      },
+      "maxTransactionItems": 9,
+      "maxTransactionBytes": 10627,
+      "totalTransactionBytes": 42215,
+      "maxItemBytes": 8520,
+      "preReadsPerCommit": 1.4444444444444444,
+      "commitMillisecondsP50": 18.6,
+      "commitMillisecondsP95": 37.7
+    }
+  },
+  "nonOwnerMutation": {
+    "directCommitWhileOwned": "rejected: Commit sequence moved: another owner committed to this storage",
+    "posted": "msg-0660de27",
+    "admittedAsSteer": [
+      "msg-0660de27"
+    ]
+  },
+  "mailboxTurn": {
+    "status": "done",
+    "answer": "Make build completed successfully (exit code 0). The build server is in eu-west-1, as Bea requested.",
+    "stream": {
+      "snapshotBytes": 34046,
+      "batches": 13,
+      "eventKinds": {
+        "message_start": 5,
+        "message_end": 5,
+        "submission": 5,
+        "run_start": 1,
+        "turn_start": 2,
+        "inbox_update": 2,
+        "message_update": 3,
+        "usage_changed": 2,
+        "tool_execution_start": 1,
+        "tool_execution_update": 1,
+        "tool_execution_end": 1,
+        "turn_end": 2,
+        "run_end": 1
+      },
+      "totalBytes": 31356,
+      "batchBytesP50": 587,
+      "batchBytesMax": 7090,
+      "firstBatches": [
+        "message_start,message_end,submission,run_start,turn_start",
+        "message_start",
+        "submission,inbox_update",
+        "message_update",
+        "message_end,usage_changed",
+        "tool_execution_start",
+        "tool_execution_update",
+        "tool_execution_end,message_start,message_end",
+        "message_start,message_end,turn_end,submission,inbox_update,turn_start",
+        "message_start",
+        "message_update",
+        "message_update"
+      ]
+    },
+    "commits": {
+      "commits": 21,
+      "rejected": [],
+      "writeKinds": {
+        "entry": 5,
+        "submission": 5,
+        "task": 14,
+        "document.change": 18
+      },
+      "maxTransactionItems": 10,
+      "maxTransactionBytes": 8628,
+      "totalTransactionBytes": 38586,
+      "maxItemBytes": 6542,
+      "preReadsPerCommit": 1.5714285714285714,
+      "commitMillisecondsP50": 20.1,
+      "commitMillisecondsP95": 41.3
+    }
+  },
+  "transcript": [
+    "#7 chatticus.message user: [from Bea] The deploy window moved to Friday 3pm.",
+    "#9 pi.user user: When is the deploy window now, and which teammate told us? One sentence.",
+    "#12 pi.system system: ",
+    "#13 pi.assistant assistant(stop): [thinking] The deploy window is Friday at 3pm, and Bea told us.",
+    "#14 pi.user user: Use run_terminal to run `ls /srv`, then report the output.",
+    "#17 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"ls /srv\"})",
+    "#19 pi.tool-result toolResult: ran: ls /srv (exit 0, nonce 6c73202f)",
+    "#21 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"ls /srv\"})",
+    "#23 pi.tool-result toolResult: ran: ls /srv (exit 0, nonce 6c73202f)",
+    "#25 pi.assistant assistant(stop): [thinking] Output from ls /srv: (empty)\nExit status: 0",
+    "#26 pi.user user: Use run_terminal to run exactly `rm -rf /srv/build`. Report what happened.",
+    "#29 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"rm -rf /srv/build\"})",
+    "#31 pi.tool-result toolResult: <harness>\n[error] Tool call blocked: needs approval: rm -rf /srv/build\n</harness>",
+    "#33 pi.assistant assistant(stop): [thinking] The command was blocked for safety and couldn’t be executed; it requires explicit approval. Want me to verify /srv/build (e.g., ls -ld /srv/build) or",
+    "#34 pi.user user: Use run_terminal to run `make build`, then summarize for the channel in two sentences.",
+    "#38 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"make build\"})",
+    "#40 pi.tool-result toolResult: ran: make build (exit 0, nonce 6d616b65)",
+    "#41 pi.user user: [from Bea] Also mention that the build server is in eu-west-1.",
+    "#43 pi.assistant assistant(stop): [thinking] Make build completed successfully (exit code 0). The build server is in eu-west-1, as Bea requested."
+  ]
+}

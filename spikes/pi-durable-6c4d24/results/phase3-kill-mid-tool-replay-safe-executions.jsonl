@@ -1,0 +1,3 @@
+{"phase":"started","owner":"owner-1","taskId":12,"command":"make test","at":1791141800848}
+{"phase":"started","owner":"owner-2","taskId":12,"command":"make test","at":1791141801158}
+{"phase":"finished","owner":"owner-2","taskId":12,"command":"make test","at":1791141801360}

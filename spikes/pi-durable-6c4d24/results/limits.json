@@ -1,0 +1,46 @@
+[
+  {
+    "name": "98 entries in one commit (99 items with META)",
+    "outcome": "committed as seq 2",
+    "measurement": {
+      "seq": 2,
+      "writes": 98,
+      "writeKinds": {
+        "entry": 98
+      },
+      "transactionItems": 99,
+      "transactionBytes": 18931,
+      "largestItemBytes": 193,
+      "preReads": 0,
+      "milliseconds": 185.39383300000003
+    }
+  },
+  {
+    "name": "100 entries in one commit (101 items with META)",
+    "outcome": "StorageRejected: Commit needs 101 transaction items; DynamoDB allows 100"
+  },
+  {
+    "name": "one 390 KB entry",
+    "outcome": "committed as seq 3",
+    "measurement": {
+      "seq": 3,
+      "writes": 1,
+      "writeKinds": {
+        "entry": 1
+      },
+      "transactionItems": 2,
+      "transactionBytes": 399569,
+      "largestItemBytes": 399544,
+      "preReads": 0,
+      "milliseconds": 14.195540999999992
+    }
+  },
+  {
+    "name": "one 410 KB entry",
+    "outcome": "StorageRejected: Commit writes a 420024 byte item; DynamoDB allows 409600"
+  },
+  {
+    "name": "twelve 350 KB entries (4.2 MB)",
+    "outcome": "StorageRejected: Commit needs 4303033 bytes; DynamoDB allows 4194304"
+  }
+]
