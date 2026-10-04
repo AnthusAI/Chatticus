@@ -54,10 +54,27 @@ class SseWatcher:
         self.tenant_id = tenant_id
         self.after_seq = after_seq
         self.events: list[dict[str, Any]] = []
-        self.closed = False
+        self._closed = threading.Event()
         self._stop = False
         self._thread: threading.Thread | None = None
         self._response: object | None = None
+
+    @property
+    def closed(self) -> bool:
+        """Whether the server ended the stream or the watcher stopped reading."""
+        return self._closed.is_set()
+
+    @closed.setter
+    def closed(self, value: bool) -> None:
+        if value:
+            self._closed.set()
+        else:
+            self._closed.clear()
+
+    def wait_until_closed(self, *, timeout: float = 5.0) -> None:
+        """Block until the stream has ended or timeout."""
+        if not self._closed.wait(timeout):
+            raise AssertionError(f"The stream did not end: {self.events}")
 
     def start(self) -> None:
         """Start reading the stream in a background thread."""
@@ -83,13 +100,6 @@ class SseWatcher:
                             frame, buffer = buffer.split("\n\n", 1)
                             for event in parse_sse_frames(frame + "\n\n"):
                                 self.events.append(event)
-                                if event.get("kind") in (
-                                    "turn.completed",
-                                    "turn.failed",
-                                    "turn.reconciling",
-                                ):
-                                    self.closed = True
-                                    return
             finally:
                 self.closed = True
 
