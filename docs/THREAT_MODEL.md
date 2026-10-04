@@ -113,6 +113,10 @@ follow:
   than 1.5 times the length) is discarded in favour of the transcript as heard.
   The posted line still reaches a bot as a human message, so approvals remain
   the control for anything consequential.
+- **Residual:** the two-extra-word allowance still lets a steered rewrite
+  insert a short negation ("don't", "do not") that flips the meaning. The
+  status line shows both what was heard and what was sent, so the member can
+  catch it; a stricter check is open if this is seen in practice.
 
 ## Human workspace session token
 

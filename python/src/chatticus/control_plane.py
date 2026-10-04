@@ -1101,6 +1101,10 @@ class ControlPlane:
             now=self.now(),
         )
 
+    def list_vendor_ledger_rows(self, tenant_id: str) -> list[VendorLedgerRow]:
+        """Return every vendor spend row recorded for an organization."""
+        return list(self._messaging_store.list_vendor_ledger_rows_for_tenant(tenant_id))
+
     def vendor_ledger_row(self, tenant_id: str, turn_id: str) -> VendorLedgerRow | None:
         """Load one vendor spend ledger row for a turn."""
         return self._messaging_store.get_vendor_ledger_row(tenant_id, turn_id)

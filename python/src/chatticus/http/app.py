@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Literal
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -1646,6 +1647,21 @@ def create_app(
         understanding = understand_or_take_as_heard(
             state.understanding(), body.transcript, recent
         )
+        if understanding.usage is not None:
+            spend_id = f"voice:{uuid4()}"
+            try:
+                state.plane.record_vendor_spend(
+                    tenant_id,
+                    spend_id,
+                    understanding.usage,
+                    billed_via=BILLED_VIA_VENDOR,
+                )
+            except Exception as error:
+                logger.warning(
+                    "voice_understanding_spend_not_recorded tenant_id=%s error=%s",
+                    tenant_id,
+                    type(error).__name__,
+                )
         logger.info(
             "voice_line_understood tenant_id=%s channel_id=%s heard_chars=%s "
             "understood_chars=%s degraded=%s",
@@ -1671,13 +1687,6 @@ def create_app(
             addressed_to_bot_id=body.addressed_to_bot_id,
             idempotency_key=key,
         )
-        if started is not None and understanding.usage is not None:
-            state.plane.record_vendor_spend(
-                tenant_id,
-                started.turn_id,
-                understanding.usage,
-                billed_via=BILLED_VIA_VENDOR,
-            )
         return {
             "understood": understanding.text,
             "degraded": understanding.degraded,

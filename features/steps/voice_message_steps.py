@@ -64,6 +64,18 @@ def given_understanding_hears_with_usage(
     )
 
 
+@given(
+    'the understand-the-user step finds no message in "{transcript}" '
+    "using {input_tokens:d} input and {output_tokens:d} output tokens"
+)
+def given_understanding_finds_nothing_with_usage(
+    context: object, transcript: str, input_tokens: int, output_tokens: int
+) -> None:
+    given_understanding_hears_with_usage(
+        context, transcript, "", input_tokens, output_tokens
+    )
+
+
 @given("the understand-the-user step is unavailable")
 def given_understanding_unavailable(context: object) -> None:
     _understanding(context).unavailable = True
@@ -218,16 +230,27 @@ def then_understanding_not_asked(context: object) -> None:
 
 
 @then(
-    "the turn's vendor spend includes {input_tokens:d} input and "
-    "{output_tokens:d} output tokens"
+    "the organization has a voice understanding spend entry of {input_tokens:d} "
+    "input and {output_tokens:d} output tokens"
 )
-def then_turn_spend_includes(
+def then_voice_spend_entry(
     context: object, input_tokens: int, output_tokens: int
 ) -> None:
+    channel = context.last_channel
+    rows = [
+        row
+        for row in context.plane.list_vendor_ledger_rows(channel.tenant_id)
+        if row.turn_id.startswith("voice:")
+    ]
+    assert len(rows) == 1, rows
+    assert rows[0].input_tokens == input_tokens, rows[0]
+    assert rows[0].output_tokens == output_tokens, rows[0]
+
+
+@then("the turn for that message has no spend from the understanding call")
+def then_turn_has_no_understanding_spend(context: object) -> None:
     channel = context.last_channel
     row = context.plane.vendor_ledger_row(
         channel.tenant_id, context.voice_message_response["turn_id"]
     )
-    assert row is not None
-    assert row.input_tokens >= input_tokens, row
-    assert row.output_tokens >= output_tokens, row
+    assert row is None, row

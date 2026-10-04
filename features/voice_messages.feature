@@ -47,10 +47,17 @@ Feature: Understanding what the member meant before a voice line is sent
     When user "ryan" of tenant "anthus" says "yes" to bot "Ping" on the channel
     Then the latest message on the channel is "yes" from user "ryan"
 
-  Scenario: The understanding call is recorded as spend on the turn it starts
+  Scenario: The understanding call is recorded as its own spend entry
     Given the understand-the-user step hears "status please" as "Status, please." using 300 input and 12 output tokens
     When user "ryan" of tenant "anthus" says "status please" to bot "Ping" on the channel
-    Then the turn's vendor spend includes 300 input and 12 output tokens
+    Then the organization has a voice understanding spend entry of 300 input and 12 output tokens
+    And the turn for that message has no spend from the understanding call
+
+  Scenario: The understanding call is recorded even when nothing is sent
+    Given the understand-the-user step finds no message in "um" using 120 input and 4 output tokens
+    When user "ryan" of tenant "anthus" says "um" to bot "Ping" on the channel
+    Then no message is posted for that line
+    And the organization has a voice understanding spend entry of 120 input and 4 output tokens
 
   Scenario: A line for a bot outside the channel is refused before understanding
     Given tenant "anthus" user "ryan" has a bot named "Outsider"
