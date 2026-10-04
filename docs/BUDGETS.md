@@ -145,6 +145,12 @@ The log line is derived from the row, so the two cannot disagree. The
 rule to hold: **DynamoDB is what you bill from, logs are what you debug
 from.**
 
+Not every row is a turn. Model calls made outside a turn, such as the voice
+understand-the-user step (`docs/VOICE.md`), are recorded under their own id
+with a `voice:` prefix in the row's `turn_id` field. Rollups sum every row
+per organization; anything that joins ledger rows to turns must skip those
+ids.
+
 ### Logging this is effectively free
 
 The cost worry is misplaced, and the numbers say so plainly. At household
