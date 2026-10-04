@@ -143,6 +143,13 @@ This replaced an earlier design where a line had to start with a teammate's
 name. In use that was painful (2026-10-04), so it was removed along with the
 name matching. Turning listening on is now the consent to send what is said.
 
+**Privacy changed with it.** The earlier promise that unaddressed speech never
+leaves the browser no longer holds. While listening is on, every completed line
+in the room, including people talking to each other, is sent to the server and
+to OpenAI for understanding, and is posted to the open conversation unless it
+is only filler. Listening is off by default and stays visibly on while active;
+"stop listening" or the mic button ends it.
+
 **Model choice:** English Tiny Streaming is the default (45 MB). Small is an
 opt-in for accuracy (142 MB). Medium is too large to download in a tab.
 `setKeyterms` is fed the teammates' names.

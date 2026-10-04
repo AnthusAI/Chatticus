@@ -9,7 +9,6 @@ import { startVoiceSession, type VoiceSession } from "../lib/voice-session";
 import {
   speak as speakAloud,
   stopSpeaking as stopSpeakingAloud,
-  announceListening,
 } from "../lib/voice-speech";
 
 type VoicePhase = "idle" | "loading" | "listening" | "unavailable" | "error";
@@ -208,7 +207,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
       aria-pressed={listening}
       disabled={loading}
       onClick={() => {
-        if (!listening) announceListening((error) => setNote(`Speech failed: ${error}`));
+        if (!listening) speak("Listening.");
         void (listening ? stop() : start());
       }}
     >

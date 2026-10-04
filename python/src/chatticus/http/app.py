@@ -96,10 +96,12 @@ from chatticus.models import (
 from chatticus.org_records import require_valid_monthly_aws_spend_ceiling_usd
 from chatticus.principal import Principal
 from chatticus.signup_mode import SignupMode, signup_mode_from_env
+from chatticus.vendor_ledger import BILLED_VIA_VENDOR
 from chatticus.voice.understanding import (
     RECENT_LINES_FOR_UNDERSTANDING,
     RecentLine,
     UserUnderstanding,
+    understand_or_take_as_heard,
     user_understanding_from_env,
 )
 from chatticus.waitlist_survey import beta_page_survey
@@ -1607,9 +1609,28 @@ def create_app(
             body.author_id,
             principal_user_id=principal.user_id,
         )
-        recent_messages = state.plane.list_channel_messages(channel_id, tenant_id, 0)[
-            -RECENT_LINES_FOR_UNDERSTANDING:
-        ]
+        channel = state.plane.require_channel_post(
+            channel_id,
+            tenant_id,
+            ActorKind.HUMAN,
+            body.author_id,
+            body.addressed_to_bot_id,
+        )
+        key = (idempotency_key or "").strip() or None
+        if key is not None:
+            earlier = state.plane.post_for_idempotency_key(tenant_id, key)
+            if earlier is not None:
+                earlier_message, earlier_turn = earlier
+                return {
+                    "understood": earlier_message.body,
+                    "degraded": False,
+                    "message": _message_payload(earlier_message),
+                    "turn_id": earlier_turn.turn_id if earlier_turn else None,
+                }
+        recent_after = max(0, channel.next_seq - 1 - RECENT_LINES_FOR_UNDERSTANDING)
+        recent_messages = state.plane.list_channel_messages(
+            channel_id, tenant_id, recent_after
+        )[-RECENT_LINES_FOR_UNDERSTANDING:]
         bot_names = {bot.bot_id: bot.name for bot in state.plane.list_bots(tenant_id)}
         recent = [
             RecentLine(
@@ -1622,29 +1643,44 @@ def create_app(
             )
             for message in recent_messages
         ]
-        understood = state.understanding().understand(body.transcript, recent)
+        understanding = understand_or_take_as_heard(
+            state.understanding(), body.transcript, recent
+        )
         logger.info(
             "voice_line_understood tenant_id=%s channel_id=%s heard_chars=%s "
-            "understood_chars=%s",
+            "understood_chars=%s degraded=%s",
             tenant_id,
             channel_id,
             len(body.transcript),
-            len(understood),
+            len(understanding.text),
+            understanding.degraded,
         )
-        if not understood:
-            return {"understood": "", "message": None, "turn_id": None}
-        key = (idempotency_key or "").strip() or None
+        if not understanding.text:
+            return {
+                "understood": "",
+                "degraded": understanding.degraded,
+                "message": None,
+                "turn_id": None,
+            }
         message, started = state.plane.post_channel_message(
             channel_id,
             tenant_id,
             ActorKind.HUMAN,
             body.author_id,
-            understood,
+            understanding.text,
             addressed_to_bot_id=body.addressed_to_bot_id,
             idempotency_key=key,
         )
+        if started is not None and understanding.usage is not None:
+            state.plane.record_vendor_spend(
+                tenant_id,
+                started.turn_id,
+                understanding.usage,
+                billed_via=BILLED_VIA_VENDOR,
+            )
         return {
-            "understood": understood,
+            "understood": understanding.text,
+            "degraded": understanding.degraded,
             "message": _message_payload(message),
             "turn_id": started.turn_id if started is not None else None,
         }

@@ -6,7 +6,8 @@ from behave import given, then, when
 
 from chatticus.http.paths import org_path
 from chatticus.models import ActorKind
-from chatticus.voice.understanding import RecentLine
+from chatticus.vendor_ledger import CompletionUsage
+from chatticus.voice.understanding import RecentLine, Understanding
 
 
 class ScriptedUserUnderstanding:
@@ -14,11 +15,18 @@ class ScriptedUserUnderstanding:
 
     def __init__(self) -> None:
         self.meanings: dict[str, str] = {}
+        self.usages: dict[str, CompletionUsage] = {}
+        self.unavailable = False
         self.calls: list[tuple[str, list[RecentLine]]] = []
 
-    def understand(self, transcript: str, recent: list[RecentLine]) -> str:
+    def understand(self, transcript: str, recent: list[RecentLine]) -> Understanding:
         self.calls.append((transcript, list(recent)))
-        return self.meanings.get(transcript, transcript)
+        if self.unavailable:
+            raise RuntimeError("model provider unavailable")
+        return Understanding(
+            text=self.meanings.get(transcript, transcript),
+            usage=self.usages.get(transcript),
+        )
 
 
 def _understanding(context: object) -> ScriptedUserUnderstanding:
@@ -33,6 +41,32 @@ def _understanding(context: object) -> ScriptedUserUnderstanding:
 @given('the understand-the-user step hears "{transcript}" as "{meaning}"')
 def given_understanding_hears(context: object, transcript: str, meaning: str) -> None:
     _understanding(context).meanings[transcript] = meaning
+
+
+@given(
+    'the understand-the-user step hears "{transcript}" as "{meaning}" '
+    "using {input_tokens:d} input and {output_tokens:d} output tokens"
+)
+def given_understanding_hears_with_usage(
+    context: object,
+    transcript: str,
+    meaning: str,
+    input_tokens: int,
+    output_tokens: int,
+) -> None:
+    understanding = _understanding(context)
+    understanding.meanings[transcript] = meaning
+    understanding.usages[transcript] = CompletionUsage(
+        vendor="openai",
+        model="gpt-5-nano",
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+
+
+@given("the understand-the-user step is unavailable")
+def given_understanding_unavailable(context: object) -> None:
+    _understanding(context).unavailable = True
 
 
 @given('the understand-the-user step finds no message in "{transcript}"')
@@ -128,3 +162,72 @@ def then_no_message_posted(context: object) -> None:
 @then("no turn starts for that line")
 def then_no_turn_starts(context: object) -> None:
     assert context.voice_message_response["turn_id"] is None
+
+
+def _try_to_say(context: object, tenant_id: str, transcript: str, name: str) -> None:
+    _understanding(context)
+    channel = context.last_channel
+    bot = context.bots_by_name[name]
+    context.voice_message_http = context.api_client.post(
+        org_path(tenant_id, f"/channels/{channel.channel_id}/voice-messages"),
+        json={
+            "author_id": "ryan",
+            "transcript": transcript,
+            "addressed_to_bot_id": bot.bot_id,
+        },
+    )
+
+
+@when(
+    'user "{user_id}" of tenant "{tenant_id}" tries to say "{transcript}" '
+    'to bot "{name}" on the channel'
+)
+def when_member_tries_to_say(
+    context: object, user_id: str, tenant_id: str, transcript: str, name: str
+) -> None:
+    _try_to_say(context, tenant_id, transcript, name)
+
+
+@when(
+    'user "{user_id}" of tenant "{tenant_id}" tries to say a {length:d}-character '
+    'line to bot "{name}" on the channel'
+)
+def when_member_tries_to_say_long_line(
+    context: object, user_id: str, tenant_id: str, length: int, name: str
+) -> None:
+    _try_to_say(context, tenant_id, "a" * length, name)
+
+
+@then("the voice line is refused as forbidden")
+def then_voice_line_forbidden(context: object) -> None:
+    assert (
+        context.voice_message_http.status_code == 403
+    ), context.voice_message_http.text
+
+
+@then("the voice line is refused as invalid")
+def then_voice_line_invalid(context: object) -> None:
+    assert (
+        context.voice_message_http.status_code == 422
+    ), context.voice_message_http.text
+
+
+@then("the understand-the-user step was not asked")
+def then_understanding_not_asked(context: object) -> None:
+    assert context.scripted_understanding.calls == []
+
+
+@then(
+    "the turn's vendor spend includes {input_tokens:d} input and "
+    "{output_tokens:d} output tokens"
+)
+def then_turn_spend_includes(
+    context: object, input_tokens: int, output_tokens: int
+) -> None:
+    channel = context.last_channel
+    row = context.plane.vendor_ledger_row(
+        channel.tenant_id, context.voice_message_response["turn_id"]
+    )
+    assert row is not None
+    assert row.input_tokens >= input_tokens, row
+    assert row.output_tokens >= output_tokens, row

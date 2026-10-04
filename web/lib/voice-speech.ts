@@ -23,22 +23,6 @@ export function isSpeechAvailable(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
-/**
- * Says "Listening." inside the tap that starts listening. iOS and Chrome only
- * let a page speak after speech has started within a user gesture, and an
- * audible confirmation shows at once whether this device can speak at all.
- */
-export function announceListening(onError?: (error: string) => void): void {
-  if (!isSpeechAvailable()) {
-    onError?.("This browser cannot speak.");
-    return;
-  }
-  const utterance = new SpeechSynthesisUtterance("Listening.");
-  utterance.lang = "en-US";
-  utterance.onerror = (event) => onError?.(event.error);
-  window.speechSynthesis.speak(utterance);
-}
-
 function clearWatchdog(): void {
   if (watchdog !== undefined) {
     window.clearInterval(watchdog);

@@ -225,6 +225,7 @@ export async function postMessage(
 
 export type VoiceMessageResponse = {
   understood: string;
+  degraded: boolean;
   message: Message | null;
   turn_id: string | null;
 };

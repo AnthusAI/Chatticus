@@ -456,8 +456,8 @@ export function EnabledWorkspace({
     async (
       channelId: string,
       botId: string,
-      send: () => Promise<{ message: Message | null; turn_id: string | null }>,
-    ): Promise<{ message: Message | null } | null> => {
+      send: () => Promise<{ message: Message | null; turn_id: string | null; degraded?: boolean }>,
+    ): Promise<{ message: Message | null; degraded: boolean } | null> => {
       sendingRef.current = true;
       sendGenerationRef.current += 1;
       setSending(true);
@@ -466,8 +466,9 @@ export function EnabledWorkspace({
       try {
         const response = await send();
         const posted = response.message;
+        const degraded = Boolean(response.degraded);
         if (!posted) {
-          return { message: null };
+          return { message: null, degraded };
         }
         setMessagesByChannel((current) => ({
           ...current,
@@ -484,7 +485,7 @@ export function EnabledWorkspace({
             prompt_message_seq: posted.seq,
           });
         }
-        return { message: posted };
+        return { message: posted, degraded };
       } catch (caught) {
         setStreamError(caught instanceof Error ? caught.message : "Message failed to send");
         return null;
@@ -563,15 +564,21 @@ export function EnabledWorkspace({
       if (selectedItemIdRef.current !== targetItemId) {
         return `You switched conversations, so that line was not sent to ${botName}.`;
       }
+      if (sendingRef.current) {
+        return "Still sending the last message. Say it again in a moment.";
+      }
       const delivered = await deliverPost(channelId, route.botId, () =>
         postVoiceMessage(activeOrg, channelId, route.transcript, route.botId),
       );
       if (!delivered) {
         return `Could not send to ${botName}.`;
       }
-      return delivered.message
-        ? `Heard "${route.transcript}". Sent to ${botName}: "${delivered.message.body}"`
-        : `Heard "${route.transcript}". Nothing to send.`;
+      if (!delivered.message) {
+        return `Heard "${route.transcript}". Nothing to send.`;
+      }
+      return delivered.degraded
+        ? `Heard "${route.transcript}". Sent to ${botName} as heard.`
+        : `Heard "${route.transcript}". Sent to ${botName}: "${delivered.message.body}"`;
     },
     [activeOrg, addressedBotId, bots, botNameById, channels, deliverPost, selectedChannelId, selectedItemId, turn],
   );
