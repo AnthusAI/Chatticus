@@ -3367,6 +3367,36 @@ class ControlPlane:
             expected_fence=fence_token,
         )
 
+    def fail_turn_for_worker(
+        self,
+        tenant_id: str,
+        turn_id: str,
+        reason: str,
+        *,
+        fence_token: int,
+    ) -> TurnEvent:
+        """End an active turn as failed on behalf of its fenced owner.
+
+        Used when the worker knows retrying cannot help, such as a model
+        provider that is out of quota. The reason is shown to the member.
+
+        :raises TurnNotFoundError: If the turn is unknown.
+        :raises StaleAttemptError: If the fence does not match the owner.
+        :raises TurnTerminalError: If the turn is no longer active.
+        """
+        turn = self.turn(tenant_id, turn_id)
+        if turn.fence_token != fence_token:
+            raise StaleAttemptError(
+                f"Turn {turn_id!r} rejected fence {fence_token} "
+                f"(current {turn.fence_token})."
+            )
+        if turn.status != TurnStatus.ACTIVE:
+            msg = f"Turn {turn_id!r} is not active."
+            raise TurnTerminalError(msg)
+        turn.claimed_by_worker_id = None
+        turn.lease_expires_at = None
+        return self._fail_turn(turn, reason)
+
     def resume_waiting_turn(self, tenant_id: str, turn_id: str) -> TurnJob:
         """Re-enqueue a waiting turn only when the household computer is running.
 
@@ -3789,17 +3819,18 @@ class ControlPlane:
         if self._visibility_renewer is not None:
             self._visibility_renewer(job)
 
-    def _fail_turn(self, turn: Turn, reason: str) -> None:
+    def _fail_turn(self, turn: Turn, reason: str) -> TurnEvent:
         turn.status = TurnStatus.FAILED
         turn.terminal_reason = reason
         self._messaging_store.put_turn(turn)
         self._deadline_scheduler.cancel(turn.tenant_id, turn.turn_id)
-        self._append_turn_event(
+        event = self._append_turn_event(
             turn,
             TurnEventKind.TURN_FAILED,
             body=reason,
         )
         self._signal_turn_subscribers(turn.turn_id, None)
+        return event
 
     def _mark_turn_reconciling(self, turn: Turn, reason: str) -> None:
         turn.status = TurnStatus.RECONCILING

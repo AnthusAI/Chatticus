@@ -295,6 +295,13 @@ class WaitTurnBody(BaseModel):
     fence_token: int
 
 
+class FailTurnBody(BaseModel):
+    """Body for POST /turns/{turn_id}/failed."""
+
+    reason: str
+    fence_token: int
+
+
 class InvokeTaskToolBody(BaseModel):
     """Body for POST /bots/{bot_id}/tasks/tool."""
 
@@ -1651,6 +1658,26 @@ def create_app(
             body.gate,
         )
         return {"status": "ok", "kind": event.kind, "gate": body.gate}
+
+    @worker_router.post("/turns/{turn_id}/failed")
+    def fail_turn(
+        tenant_id: str,
+        turn_id: str,
+        body: FailTurnBody,
+    ) -> dict[str, str]:
+        event = state.plane.fail_turn_for_worker(
+            tenant_id,
+            turn_id,
+            body.reason,
+            fence_token=body.fence_token,
+        )
+        logger.info(
+            "turn_failed tenant_id=%s turn_id=%s reason=%s",
+            tenant_id,
+            turn_id,
+            body.reason,
+        )
+        return {"status": "ok", "kind": event.kind}
 
     @worker_router.post("/turns/{turn_id}/resume")
     def resume_turn(
