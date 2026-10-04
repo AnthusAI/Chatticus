@@ -146,4 +146,4 @@ def then_web_ui_receives_turn_completed(context: object) -> None:
 
 @then("the web UI turn stream is closed")
 def then_web_ui_turn_stream_closed(context: object) -> None:
-    assert context.sse_watcher.closed
+    context.sse_watcher.wait_until_closed(timeout=5.0)

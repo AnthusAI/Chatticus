@@ -9,7 +9,6 @@ import { startVoiceSession, type VoiceSession } from "../lib/voice-session";
 import {
   speak as speakAloud,
   stopSpeaking as stopSpeakingAloud,
-  unlockSpeech,
 } from "../lib/voice-speech";
 
 type VoicePhase = "idle" | "loading" | "listening" | "unavailable" | "error";
@@ -88,10 +87,12 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
       const started = speakAloud(text, {
         onStart: () => setSpeaking(true),
         onEnd: endSpeechWindow,
+        onError: (error) => setNote(`Speech failed: ${error}`),
       });
       if (!started) {
         speechWindowRef.current = previousWindow;
         setSpeaking(false);
+        setNote("This browser cannot speak replies.");
       }
     },
     [endSpeechWindow],
@@ -206,7 +207,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
       aria-pressed={listening}
       disabled={loading}
       onClick={() => {
-        if (!listening) unlockSpeech();
+        if (!listening) speak("Listening.");
         void (listening ? stop() : start());
       }}
     >
@@ -223,7 +224,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
   } else if (listening && speaking) {
     statusText = "Speaking. Say \"stop\" to interrupt.";
   } else if (listening) {
-    statusText = partial ? `Hearing: ${partial}` : note ?? "Listening. Start with a teammate's name.";
+    statusText = partial ? `Hearing: ${partial}` : note ?? "Listening. Talk to your teammate.";
   } else if (note) {
     statusText = note;
   }

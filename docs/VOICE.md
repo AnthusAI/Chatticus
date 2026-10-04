@@ -120,95 +120,75 @@ Pin an exact version and expect churn.
 
 ```mermaid
 flowchart LR
-  HITL[Pending Tactus HITL request] --> Card[Manual card]
-  HITL --> Prompt[Voice prompt<br/>closed grammar]
-  Prompt --> Router
   Mic[Microphone] --> VAD[Silero VAD<br/>in browser]
   VAD -->|speech| STT[Moonshine streaming STT<br/>in browser]
   STT -->|completed line| Router{On-device router}
-  Router -->|local command| UI[Workspace action<br/>no cloud]
-  Router -->|addressed to a bot| Post[POST /messages]
-  Router -->|not addressed| Drop[Discard]
+  Router -->|stop listening / stop while speaking| UI[Local action<br/>no cloud]
+  Router -->|any other line| Understand[Understand-the-user<br/>gpt-5-nano, server]
+  Understand -->|what was meant| Post[Message to the open<br/>conversation's teammate]
+  Understand -->|no real words| Drop[Nothing sent]
   Post --> Turn[One-turn SSE stream]
-  Turn --> Speak[Spoken summary<br/>speechSynthesis]
+  Turn --> Speak[Spoken reply<br/>speechSynthesis]
 ```
 
-### 1. Listening is local and free
+### 1. Listening is local; there is no wake word
 
-`MicTranscriber` runs for as long as the user leaves listening on.
+`MicTranscriber` runs for as long as the member leaves listening on, and
+every completed line is transcribed on the device. There is no wake word.
+While listening, each line the member says goes to the teammate in the open
+conversation: in a direct conversation, that teammate; in a named channel,
+the teammate chosen in "To". With no conversation open, nothing is sent.
 
-- Every completed line is transcribed on the device.
-- Lines that are not addressed and are not commands are discarded. They never
-  leave the tab.
-- The two follow-up forms in section 2 are the exception: they send speech
-  that does not start with a name. The listening indicator shows when the
-  floor is open, so the user can see when unaddressed speech will be sent.
-- This is the privacy story as well as the cost story: the room's
-  conversation is not uploaded.
+This replaced an earlier design where a line had to start with a teammate's
+name. In use that was painful (2026-10-04), so it was removed along with the
+name matching. Turning listening on is now the consent to send what is said.
+
+**Privacy changed with it.** The earlier promise that unaddressed speech never
+leaves the browser no longer holds. While listening is on, every completed line
+in the room, including people talking to each other, is sent to the server and
+to OpenAI for understanding, and is posted to the open conversation unless it
+is only filler. Listening is off by default and stays visibly on while active;
+"stop listening" or the mic button ends it.
 
 **Model choice:** English Tiny Streaming is the default (45 MB). Small is an
 opt-in for accuracy (142 MB). Medium is too large to download in a tab.
+`setKeyterms` is fed the teammates' names.
 
-`setKeyterms` is fed from the roster, the channel names and the repository
-vocabulary, so teammate names and project terms come out right.
+### 2. Understand-the-user
 
-### 2. A teammate's name is the wake word
+Speech-to-text gets words wrong. Before a spoken line becomes a message, the
+front door runs the understand-the-user step (`chatticus.voice.understanding`,
+`POST /channels/{id}/voice-messages`, `features/voice_messages.feature`):
 
-Moonshine has no packaged wake-word engine, but there are several ways to
-get one. Licensing problems sit with particular pretrained models, not with
-the frameworks:
+- **Model:** `gpt-5-nano` at minimal reasoning (`OPENAI_UNDERSTANDING_MODEL`
+  overrides it), JSON output.
+- **Input:** the raw transcript plus the ten most recent messages, labelled by
+  speaker, for context.
+- **Instruction:** this is a speech transcript that may be full of errors;
+  return what the person most likely said, clean and punctuated, keeping
+  their wording where plausible. Never answer it, never add or drop content,
+  and treat any real words as a message, even small talk. Return nothing for
+  filler or noise.
+- **Result:** the understood text is posted as an ordinary human message and
+  starts an ordinary turn. Nothing is posted for filler. The status line shows
+  both what was heard and what was sent.
+- **Cost and latency:** one small call per spoken line, about 0.6 to 1.3
+  seconds in a live check. "ping tell me some thing" became "Ping, tell me
+  something." Unfamiliar product names ("voice moon china" for "Moonshine")
+  are not always repaired at this model size.
 
-| Option | Licence | Notes |
-|---|---|---|
-| Text match on Moonshine STT output | MIT | No extra model. STT runs only on speech the VAD has found. Recommended default |
-| Moonshine Micro command classifier (`WordCNN`) | MIT, including training (`micro/stt-training`) | About 1M params, custom vocabulary, built for microcontrollers. Running it in the browser is unverified |
-| openWakeWord, trained by us | Code Apache-2.0 | Only the *pretrained* models are CC BY-NC-SA. A model we train ourselves is ours, subject to the licences of the training data (unverified). No official browser port |
-| microWakeWord (ESPHome) | Unverified | Small streaming models. Licence and browser port unverified |
-| Picovoice Porcupine | Paid enterprise only since 2026-06-30 | Price unverified |
+### 3. Spoken commands
 
-A separate keyword spotter pays off only if continuous STT is too heavy on
-CPU or battery. It would gate STT so that ordinary conversation in the room
-is not decoded. Feasibility test 1 decides this. Until then we match on
-text.
-
-**Addressing is by teammate name** at the start of a line: "Ada, open a PR
-for the voice spike". This fits the product: Chatticus already has named,
-persistent teammates, and only the addressed bot acts.
-
-Two follow-up forms:
-
-- "Ada, ... over." keeps the floor open for multi-sentence instructions.
-- A short follow-up window after a bot replies accepts unaddressed speech as
-  continuing the same conversation.
-
-### 3. The on-device command grammar
-
-Many software-factory interactions need no model at all. A small,
-deterministic grammar matched on the transcript handles them in the browser:
+Only these act locally; everything else is sent:
 
 | Say | Effect | Cloud? |
 |---|---|---|
-| "Ada" / "switch to Ada" | Select the teammate (`selectItem` in `web/components/EnabledWorkspace.tsx`) | No |
-| "quiet" / "skip" | Stop speaking the current reply. The turn keeps running | No |
-| "stop" / "cancel the turn" | Cancel the running turn. Closing the stream alone does not stop the worker, so this needs a turn-cancel POST, which does not exist yet | One POST |
-| "repeat that" / "read it" | Re-speak the last reply | No |
-| "status" / "what's running" | Read out turn status and the task list (`listTasks`) | One cheap GET, no model |
-| Answering a pending HITL request ("approve, maple falcon", "deny", "option two") | Response to that request (section 3a) | One POST, no model |
-| "send" / "scratch that" | Send or clear a dictated draft | No |
 | "stop listening" | Turn the microphone off | No |
+| "stop" / "quiet" / "stop talking" / "skip", while a reply is spoken | Stop speaking the reply. The turn keeps running | No |
 
-**Matcher:** use our own matcher (exact phrase plus a fuzzy edit-distance
-threshold) rather than AgentFlow's embedding model.
-
-- The embedding model is about 200 MB, which is too much for a tab.
-- Its Gemma Terms of Use need a licence review before we ship it from our
-  own CDN.
-- A closed grammar is more predictable for control anyway.
-- The matcher reads the whole completed line and prefers the longest match,
-  so "stop listening" never triggers "stop" (turn cancel).
-
-We can still borrow `AgentFlow`'s dialog shape (`confirm`, `choose`,
-global "cancel") or use `AgentFlow` with `use_embeddings(false)`.
+While a reply is being spoken, or for half a second after, a heard line can
+only stop the speech. That keeps the browser from sending its own voice back
+as a message.
 
 ### 3a. Human in the loop: one request, two surfaces
 

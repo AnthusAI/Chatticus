@@ -18,6 +18,7 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
   bots?: Bot[];
   channels?: Channel[];
   selectedId?: string | null;
+  addressedBotId?: string | null;
   busyChannelIds?: string[];
   environment?: { crossOriginIsolated: boolean; hasMicrophone: boolean };
   line?: string;
@@ -29,6 +30,7 @@ if (input.action === "hear") {
     bots: input.bots ?? [],
     channels: input.channels ?? [],
     selectedId: input.selectedId ?? null,
+    addressedBotId: input.addressedBotId ?? null,
     busyChannelIds: input.busyChannelIds ?? [],
     overlapsSpeech: input.overlapsSpeech ?? false,
   });

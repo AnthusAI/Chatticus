@@ -96,6 +96,28 @@ connector, or consequential operations proceed.
 - The full exclusion list is executable in
   `features/v1_security_policy_exclusions.feature`.
 
+## Voice input
+
+While a member has listening on, every line the browser transcribes is sent
+to the front door, then to OpenAI for the understand-the-user step, and posted
+to the open conversation as a human message (`docs/VOICE.md`). Two risks
+follow:
+
+- **The room is uploaded.** People talking near the microphone become messages.
+  Listening is opt-in, visibly on, and ends with "stop listening" or the mic
+  button.
+- **The rewrite could be steered.** The step sees recent bot messages, which may
+  carry text from the web. They are passed as quoted data with an instruction
+  to ignore instructions in them, each line is capped, and an understanding
+  that grows well beyond what was heard (more than two extra words, or more
+  than 1.5 times the length) is discarded in favour of the transcript as heard.
+  The posted line still reaches a bot as a human message, so approvals remain
+  the control for anything consequential.
+- **Residual:** the two-extra-word allowance still lets a steered rewrite
+  insert a short negation ("don't", "do not") that flips the meaning. The
+  status line shows both what was heard and what was sent, so the member can
+  catch it; a stricter check is open if this is seen in practice.
+
 ## Human workspace session token
 
 The signed-in member's Cognito **id_token** (and refresh token) live in

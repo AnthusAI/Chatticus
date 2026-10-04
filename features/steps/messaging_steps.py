@@ -1055,7 +1055,7 @@ def then_receives_terminal_event(context: object, user_id: str) -> None:
 
 @then("the turn stream ends")
 def then_turn_stream_ends(context: object) -> None:
-    assert context.sse_watcher.closed
+    context.sse_watcher.wait_until_closed(timeout=5.0)
 
 
 @then("no connection remains open for the channel or chat tab")

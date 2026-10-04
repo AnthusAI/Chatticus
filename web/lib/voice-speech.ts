@@ -8,10 +8,12 @@
  */
 
 const WATCHDOG_INTERVAL_MS = 500;
+const SPEAK_AFTER_CANCEL_MS = 80;
 
 export interface SpeechHandlers {
   onStart: () => void;
   onEnd: () => void;
+  onError?: (error: string) => void;
 }
 
 let currentSpeech = 0;
@@ -19,19 +21,6 @@ let watchdog: number | undefined;
 
 export function isSpeechAvailable(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window;
-}
-
-/**
- * iOS only lets a page speak after speech has started inside a user gesture,
- * so the tap that starts listening speaks a silent space.
- */
-export function unlockSpeech(): void {
-  if (!isSpeechAvailable()) {
-    return;
-  }
-  const silent = new SpeechSynthesisUtterance(" ");
-  silent.volume = 0;
-  window.speechSynthesis.speak(silent);
 }
 
 function clearWatchdog(): void {
@@ -48,7 +37,10 @@ export function speak(text: string, handlers: SpeechHandlers): boolean {
   }
   const speech = (currentSpeech += 1);
   clearWatchdog();
-  window.speechSynthesis.cancel();
+  const mustCancel = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+  if (mustCancel) {
+    window.speechSynthesis.cancel();
+  }
   const sentences = text.split(/(?<=[.!?…])\s+/).filter((sentence) => sentence.trim());
   let ended = false;
   const finish = () => {
@@ -59,29 +51,42 @@ export function speak(text: string, handlers: SpeechHandlers): boolean {
     clearWatchdog();
     handlers.onEnd();
   };
-  sentences.forEach((sentence, index) => {
-    const utterance = new SpeechSynthesisUtterance(sentence);
-    utterance.lang = "en-US";
-    if (index === 0) {
-      utterance.onstart = () => {
-        if (speech === currentSpeech) handlers.onStart();
+  const queueSentences = () => {
+    if (speech !== currentSpeech) {
+      return;
+    }
+    sentences.forEach((sentence, index) => {
+      const utterance = new SpeechSynthesisUtterance(sentence);
+      utterance.lang = "en-US";
+      if (index === 0) {
+        utterance.onstart = () => {
+          if (speech === currentSpeech) handlers.onStart();
+        };
+      }
+      if (index === sentences.length - 1) {
+        utterance.onend = finish;
+      }
+      utterance.onerror = (event) => {
+        if (event.error !== "canceled" && event.error !== "interrupted") {
+          handlers.onError?.(event.error);
+        }
+        if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+          finish();
+        }
       };
-    }
-    if (index === sentences.length - 1) {
-      utterance.onend = finish;
-    }
-    utterance.onerror = () => {
+      window.speechSynthesis.speak(utterance);
+    });
+    watchdog = window.setInterval(() => {
       if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
         finish();
       }
-    };
-    window.speechSynthesis.speak(utterance);
-  });
-  watchdog = window.setInterval(() => {
-    if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-      finish();
-    }
-  }, WATCHDOG_INTERVAL_MS);
+    }, WATCHDOG_INTERVAL_MS);
+  };
+  if (mustCancel) {
+    window.setTimeout(queueSentences, SPEAK_AFTER_CANCEL_MS);
+  } else {
+    queueSentences();
+  }
   return true;
 }
 

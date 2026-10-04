@@ -1101,6 +1101,10 @@ class ControlPlane:
             now=self.now(),
         )
 
+    def list_vendor_ledger_rows(self, tenant_id: str) -> list[VendorLedgerRow]:
+        """Return every vendor spend row recorded for an organization."""
+        return list(self._messaging_store.list_vendor_ledger_rows_for_tenant(tenant_id))
+
     def vendor_ledger_row(self, tenant_id: str, turn_id: str) -> VendorLedgerRow | None:
         """Load one vendor spend ledger row for a turn."""
         return self._messaging_store.get_vendor_ledger_row(tenant_id, turn_id)
@@ -3110,6 +3114,40 @@ class ControlPlane:
                 tenant_id, idempotency_key, message, turn_id
             )
         return message, started
+
+    def require_channel_post(
+        self,
+        channel_id: str,
+        tenant_id: str,
+        author_kind: ActorKind,
+        author_id: str,
+        addressed_to_bot_id: str,
+    ) -> Channel:
+        """Return the channel when this author may post to this bot on it.
+
+        Runs the same checks as :meth:`post_channel_message`, so a caller can
+        verify a post before doing paid work for it.
+
+        :raises ChannelNotFoundError: If the channel is unknown.
+        :raises ChannelTenantMismatchError: If the tenant does not own the
+            channel.
+        :raises ActorNotInChannelError: If the author or addressee is not a
+            participant.
+        """
+        channel = self._require_channel_tenant(channel_id, tenant_id)
+        self._require_participant(channel, author_kind, author_id)
+        self._require_participant(channel, ActorKind.BOT, addressed_to_bot_id)
+        return channel
+
+    def post_for_idempotency_key(
+        self, tenant_id: str, idempotency_key: str
+    ) -> tuple[Message, Turn | None] | None:
+        """Return the message and turn an earlier post with this key created."""
+        cached = self._messaging_store.get_post_idempotency(tenant_id, idempotency_key)
+        if cached is None:
+            return None
+        message, turn_id = cached
+        return message, self.turn(tenant_id, turn_id) if turn_id is not None else None
 
     def list_channel_messages(
         self,
