@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -280,6 +281,20 @@ def outcome_from_chat_completion(
     return CompletionOutcome(text=text, usage=usage)
 
 
+_FIRST_GENERATION_GPT_5_MODEL = re.compile(
+    r"^gpt-5(-mini|-nano)?(-\d{4}-\d{2}-\d{2})?$"
+)
+
+
+def lowest_reasoning_effort(model: str) -> str:
+    """Return the least reasoning effort ``model`` accepts.
+
+    The first GPT-5 models (gpt-5, gpt-5-mini, gpt-5-nano) accept ``minimal``
+    but not ``none``; later models accept ``none`` but not ``minimal``.
+    """
+    return "minimal" if _FIRST_GENERATION_GPT_5_MODEL.match(model) else "none"
+
+
 class OpenAITextCompletionClient:
     """One-shot Chat Completions call against OpenAI."""
 
@@ -301,7 +316,7 @@ class OpenAITextCompletionClient:
                 "tools": computerless_worker_tools(),
                 "tool_choice": "auto",
                 "max_completion_tokens": 256,
-                "reasoning_effort": "minimal",
+                "reasoning_effort": lowest_reasoning_effort(self.model),
             },
             timeout=60.0,
         )

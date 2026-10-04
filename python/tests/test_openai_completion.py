@@ -11,6 +11,7 @@ from chatticus.worker import openai_completion
 from chatticus.worker.openai_completion import (
     WORKER_SYSTEM_PROMPT,
     OpenAITextCompletionClient,
+    lowest_reasoning_effort,
     outcome_from_chat_completion,
     usage_from_chat_completion,
 )
@@ -101,3 +102,13 @@ def test_completion_request_uses_settings_gpt_5_nano_accepts(
     assert captured["reasoning_effort"] == "minimal"
     assert captured["tool_choice"] == "auto"
     assert captured["tools"]
+
+
+def test_lowest_reasoning_effort_matches_what_each_model_accepts() -> None:
+    assert lowest_reasoning_effort("gpt-5-nano") == "minimal"
+    assert lowest_reasoning_effort("gpt-5-mini") == "minimal"
+    assert lowest_reasoning_effort("gpt-5") == "minimal"
+    assert lowest_reasoning_effort("gpt-5-nano-2025-08-07") == "minimal"
+    assert lowest_reasoning_effort("gpt-5.6-luna") == "none"
+    assert lowest_reasoning_effort("gpt-6-luna") == "none"
+    assert lowest_reasoning_effort("gpt-5.1") == "none"
