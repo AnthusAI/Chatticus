@@ -3395,7 +3395,7 @@ class ControlPlane:
             raise TurnTerminalError(msg)
         turn.claimed_by_worker_id = None
         turn.lease_expires_at = None
-        return self._fail_turn(turn, reason)
+        return self._fail_turn(turn, reason, expected_fence=fence_token)
 
     def resume_waiting_turn(self, tenant_id: str, turn_id: str) -> TurnJob:
         """Re-enqueue a waiting turn only when the household computer is running.
@@ -3819,15 +3819,18 @@ class ControlPlane:
         if self._visibility_renewer is not None:
             self._visibility_renewer(job)
 
-    def _fail_turn(self, turn: Turn, reason: str) -> TurnEvent:
+    def _fail_turn(
+        self, turn: Turn, reason: str, *, expected_fence: int | None = None
+    ) -> TurnEvent:
         turn.status = TurnStatus.FAILED
         turn.terminal_reason = reason
-        self._messaging_store.put_turn(turn)
+        self._messaging_store.put_turn(turn, expected_fence=expected_fence)
         self._deadline_scheduler.cancel(turn.tenant_id, turn.turn_id)
         event = self._append_turn_event(
             turn,
             TurnEventKind.TURN_FAILED,
             body=reason,
+            expected_fence=expected_fence,
         )
         self._signal_turn_subscribers(turn.turn_id, None)
         return event

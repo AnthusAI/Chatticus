@@ -27,6 +27,7 @@ Feature: A failed model call ends the turn honestly
       | status | code                | reason                                                                                  |
       | 429    | insufficient_quota  | The model provider refused the request: the account is out of credits or over its quota. |
       | 401    | invalid_api_key     | The model provider rejected the API key.                                                 |
+      | 403    | model_access_denied | The model provider denied access to the configured model.                                |
       | 400    | unsupported_value   | The model provider rejected the request as invalid.                                      |
 
   Scenario Outline: A temporary provider error leaves the turn for a retry
@@ -42,6 +43,13 @@ Feature: A failed model call ends the turn honestly
       | 429    | rate_limit_exceeded |
       | 500    | server_error        |
       | 503    | overloaded          |
+
+  Scenario: An error response without the provider's error body is treated as temporary
+    Given the model provider answers every request with status 403 and no error body
+    When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel
+    And bot "Assistant" runs one computerless worker turn against that provider
+    Then the worker reports a temporary model provider failure
+    And the turn is still active
 
   Scenario: A worker without the current fence cannot fail the turn
     Given a worker owns an active turn

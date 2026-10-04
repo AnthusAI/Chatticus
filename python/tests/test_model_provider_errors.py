@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 
 from chatticus.worker.model_provider_errors import (
+    ACCESS_DENIED_REASON,
     INVALID_REQUEST_REASON,
     OUT_OF_QUOTA_REASON,
     REJECTED_KEY_REASON,
@@ -37,19 +38,30 @@ def test_rate_limiting_without_a_quota_code_is_temporary() -> None:
     assert permanent_model_provider_failure(_status_error(429, text="busy")) is None
 
 
-def test_rejected_credentials_and_invalid_requests_are_permanent() -> None:
-    assert permanent_model_provider_failure(_status_error(401)).reason == (
-        REJECTED_KEY_REASON
-    )
-    assert permanent_model_provider_failure(_status_error(403)).reason == (
-        REJECTED_KEY_REASON
-    )
-    assert permanent_model_provider_failure(_status_error(400)).reason == (
-        INVALID_REQUEST_REASON
-    )
-    assert permanent_model_provider_failure(_status_error(404)).reason == (
-        INVALID_REQUEST_REASON
-    )
+def _provider_error(status: int, code: str) -> httpx.HTTPStatusError:
+    return _status_error(status, json={"error": {"code": code}})
+
+
+def test_rejected_credentials_denied_access_and_invalid_requests_are_permanent() -> (
+    None
+):
+    assert permanent_model_provider_failure(
+        _provider_error(401, "invalid_api_key")
+    ).reason == (REJECTED_KEY_REASON)
+    assert permanent_model_provider_failure(
+        _provider_error(403, "unsupported_country_region_territory")
+    ).reason == (ACCESS_DENIED_REASON)
+    assert permanent_model_provider_failure(
+        _provider_error(400, "unsupported_value")
+    ).reason == (INVALID_REQUEST_REASON)
+    assert permanent_model_provider_failure(
+        _provider_error(404, "model_not_found")
+    ).reason == (INVALID_REQUEST_REASON)
+
+
+def test_client_errors_without_a_provider_error_body_are_temporary() -> None:
+    assert permanent_model_provider_failure(_status_error(403, text="<html/>")) is None
+    assert permanent_model_provider_failure(_status_error(400)) is None
 
 
 def test_server_errors_and_network_faults_are_temporary() -> None:

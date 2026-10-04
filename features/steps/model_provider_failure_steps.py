@@ -19,7 +19,7 @@ from chatticus.worker.model_provider_errors import TemporaryModelProviderError
 class FailingModelProviderClient:
     """A completion client whose provider answers every call with one error."""
 
-    def __init__(self, status: int, code: str) -> None:
+    def __init__(self, status: int, code: str | None) -> None:
         self.status = status
         self.code = code
         self.calls = 0
@@ -50,6 +50,13 @@ def _turn(context: object) -> object:
 )
 def given_failing_model_provider(context: object, status: int, code: str) -> None:
     context.failing_provider = FailingModelProviderClient(status, code)
+
+
+@given(
+    "the model provider answers every request with status {status:d} and no error body"
+)
+def given_failing_model_provider_without_body(context: object, status: int) -> None:
+    context.failing_provider = FailingModelProviderClient(status, None)
 
 
 @when('bot "{name}" runs one computerless worker turn against that provider')

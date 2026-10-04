@@ -298,7 +298,7 @@ class WaitTurnBody(BaseModel):
 class FailTurnBody(BaseModel):
     """Body for POST /turns/{turn_id}/failed."""
 
-    reason: str
+    reason: str = Field(min_length=1, max_length=500)
     fence_token: int
 
 

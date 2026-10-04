@@ -175,8 +175,9 @@ When the model provider answers with an error that a retry cannot fix (the
 account is out of quota, the key is rejected, the request is invalid), the
 worker ends the turn through the fenced `POST /turns/{id}/failed` with a
 member-facing reason, and the queued job is dropped. Temporary errors (rate
-limiting, an unavailable provider, a network fault) leave the turn active for
-the queue to retry. See `features/model_provider_failures.feature`.
+limiting, an unavailable provider, a network fault, or an error response
+without the provider's error body) leave the turn active; the queue retries
+it once the worker's lease expires. See `features/model_provider_failures.feature`.
 
 ### Waiting is a state, not dead air
 

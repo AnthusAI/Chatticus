@@ -1,9 +1,11 @@
 """Classify model provider failures as permanent or temporary.
 
-A permanent failure cannot succeed on retry (no quota, a rejected key, an
-invalid request), so the turn should fail at once with a reason a person can
-act on. A temporary failure (rate limiting, an unavailable provider, a
-network fault) should leave the turn for the queue to retry.
+A permanent failure cannot succeed on retry (no quota, a rejected key, no
+access to the model, an invalid request), so the turn should fail at once
+with a reason a person can act on. Only responses that carry the provider's
+JSON error body count as permanent, so a stray proxy page cannot end a turn.
+A temporary failure (rate limiting, an unavailable provider, a network
+fault) should leave the turn for the queue to retry.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ OUT_OF_QUOTA_REASON = (
     "the account is out of credits or over its quota."
 )
 REJECTED_KEY_REASON = "The model provider rejected the API key."
+ACCESS_DENIED_REASON = "The model provider denied access to the configured model."
 INVALID_REQUEST_REASON = "The model provider rejected the request as invalid."
 
 
@@ -55,11 +58,15 @@ def permanent_model_provider_failure(
         return None
     status = error.response.status_code
     code = _provider_error_code(error.response)
+    if not code:
+        return None
     if status == 429 and code == "insufficient_quota":
         return PermanentModelProviderFailure(OUT_OF_QUOTA_REASON)
-    if status in (401, 403):
+    if status == 401:
         return PermanentModelProviderFailure(REJECTED_KEY_REASON)
-    if status in (400, 404, 422):
+    if status == 403:
+        return PermanentModelProviderFailure(ACCESS_DENIED_REASON)
+    if status in (400, 404):
         return PermanentModelProviderFailure(INVALID_REQUEST_REASON)
     return None
 
