@@ -63,3 +63,29 @@ describe("editDistance", () => {
     assert.equal(editDistance("", "ada"), 3);
   });
 });
+
+describe("spokenReply", () => {
+  const { spokenReply, spokenFailure } = voiceControl;
+
+  it("reads a fenced code block as a pointer to the screen", () => {
+    assert.equal(
+      spokenReply("Ada", "Run this:\n```bash\nnpm test\n```\nThen tell me."),
+      "Ada says: Run this: the code on screen Then tell me.",
+    );
+  });
+
+  it("reads a markdown link by its text and drops list markers", () => {
+    assert.equal(
+      spokenReply("Ada", "- Opened [the pull request](https://example.com/pr/1).\n- Ran tests."),
+      "Ada says: Opened the pull request. Ran tests.",
+    );
+  });
+
+  it("keeps a short reply whole", () => {
+    assert.equal(spokenReply("Grace", "Done."), "Grace says: Done.");
+  });
+
+  it("names the teammate when a turn fails", () => {
+    assert.equal(spokenFailure("Grace", "Out of quota."), "Grace could not answer. Out of quota.");
+  });
+});

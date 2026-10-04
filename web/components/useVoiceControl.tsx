@@ -6,6 +6,11 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Button } from "./ui/button";
 import { voiceAvailability } from "../lib/voice-control";
 import { startVoiceSession, type VoiceSession } from "../lib/voice-session";
+import {
+  speak as speakAloud,
+  stopSpeaking as stopSpeakingAloud,
+  unlockSpeech,
+} from "../lib/voice-speech";
 
 type VoicePhase = "idle" | "loading" | "listening" | "unavailable" | "error";
 
@@ -17,6 +22,9 @@ export interface UseVoiceControlOptions {
 
 export interface VoiceControl {
   listening: boolean;
+  speaking: boolean;
+  speak: (text: string) => void;
+  stopSpeaking: () => void;
   stop: () => Promise<void>;
   composerAction: ReactNode;
   composerStatus: ReactNode;
@@ -27,6 +35,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
   const [downloadFraction, setDownloadFraction] = useState(0);
   const [partial, setPartial] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  const [speaking, setSpeaking] = useState(false);
   const sessionRef = useRef<VoiceSession | null>(null);
   const onLineRef = useRef(onLine);
   const keytermsRef = useRef(keyterms);
@@ -51,10 +60,23 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     await session?.stop();
   }, []);
 
+  const stopSpeaking = useCallback(() => {
+    stopSpeakingAloud();
+    setSpeaking(false);
+  }, []);
+
+  const speak = useCallback((text: string) => {
+    speakAloud(text, {
+      onStart: () => setSpeaking(true),
+      onEnd: () => setSpeaking(false),
+    });
+  }, []);
+
   const stop = useCallback(async () => {
     setPhase((current) => (current === "listening" || current === "loading" ? "idle" : current));
+    stopSpeaking();
     await closeSession();
-  }, [closeSession]);
+  }, [closeSession, stopSpeaking]);
 
   const handleLine = useCallback((text: string, generation: number) => {
     setPartial("");
@@ -67,7 +89,9 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
               return;
             }
             void Promise.resolve(onLineRef.current(text))
-              .then((lineNote) => setNote(lineNote))
+              .then((lineNote) => {
+                if (lineNote) setNote(lineNote);
+              })
               .catch((error: unknown) =>
                 setNote(error instanceof Error ? error.message : "That line could not be handled."),
               )
@@ -142,7 +166,10 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
       aria-label={listening ? "Stop listening" : "Start listening"}
       aria-pressed={listening}
       disabled={loading}
-      onClick={() => void (listening ? stop() : start())}
+      onClick={() => {
+        if (!listening) unlockSpeech();
+        void (listening ? stop() : start());
+      }}
     >
       {listening ? <Mic size={17} aria-hidden="true" /> : <MicOff size={17} aria-hidden="true" />}
     </Button>
@@ -154,6 +181,8 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
       downloadFraction > 0 && downloadFraction < 1
         ? `Loading voice model: ${Math.round(downloadFraction * 100)}%`
         : "Loading voice model...";
+  } else if (listening && speaking) {
+    statusText = "Speaking. Say \"stop\" to interrupt.";
   } else if (listening) {
     statusText = partial ? `Hearing: ${partial}` : note ?? "Listening. Start with a teammate's name.";
   } else if (note) {
@@ -173,5 +202,5 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     </div>
   ) : null;
 
-  return { listening, stop, composerAction, composerStatus };
+  return { listening, speaking, speak, stopSpeaking, stop, composerAction, composerStatus };
 }

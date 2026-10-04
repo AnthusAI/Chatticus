@@ -59,7 +59,7 @@ import {
   type TurnUiStatus,
 } from "../lib/workspace-state";
 import { isTurnGrantPanelVisible } from "../lib/turn-grant";
-import { routeVoiceLine, voiceKeyterms } from "../lib/voice-control";
+import { routeVoiceLine, spokenFailure, spokenReply, voiceKeyterms } from "../lib/voice-control";
 import { failedTurnForConversation, isTurnSlow, type FailedTurn } from "../lib/assistant-ui-bridge";
 type EnabledWorkspaceProps = {
   activeOrg: ActiveOrg;
@@ -469,6 +469,8 @@ export function EnabledWorkspace({
 
   const voiceKeytermList = useMemo(() => voiceKeyterms(bots), [bots]);
   const stopVoiceRef = useRef<() => Promise<void>>(async () => undefined);
+  const speakingRef = useRef(false);
+  const stopSpeakingRef = useRef<() => void>(() => undefined);
 
   const handleVoiceLine = useCallback(
     async (text: string): Promise<string> => {
@@ -477,9 +479,16 @@ export function EnabledWorkspace({
         channels,
         selectedId: selectedItemId,
         busyChannelIds: turn && selectedChannelId ? [selectedChannelId] : [],
+        speaking: speakingRef.current,
       });
+      if (route.kind === "stopSpeaking") {
+        stopSpeakingRef.current();
+        return "Stopped speaking.";
+      }
       if (route.kind === "discard") {
-        return `Heard "${text}". Not addressed to a teammate, so it stayed in this browser.`;
+        return speakingRef.current
+          ? ""
+          : `Heard "${text}". Not addressed to a teammate, so it stayed in this browser.`;
       }
       if (route.kind === "notice") {
         return route.text;
@@ -571,7 +580,42 @@ export function EnabledWorkspace({
   const voice = useVoiceControl({ keyterms: voiceKeytermList, onLine: handleVoiceLine });
   useEffect(() => {
     stopVoiceRef.current = voice.stop;
-  }, [voice.stop]);
+    stopSpeakingRef.current = voice.stopSpeaking;
+    speakingRef.current = voice.speaking;
+  }, [voice.stop, voice.stopSpeaking, voice.speaking]);
+
+  const spokenMarkRef = useRef<{ channelId: string | null; seq: number; failedTurnId: string | null }>({
+    channelId: null,
+    seq: 0,
+    failedTurnId: null,
+  });
+  const { listening: voiceListening, speak: speakReplyAloud } = voice;
+
+  useEffect(() => {
+    const latestSeq = selectedMessages.reduce((highest, message) => Math.max(highest, message.seq), 0);
+    const mark = spokenMarkRef.current;
+    const failedTurnId = failedTurn?.turnId ?? null;
+    if (!voiceListening || mark.channelId !== selectedChannelId) {
+      spokenMarkRef.current = { channelId: selectedChannelId, seq: latestSeq, failedTurnId };
+      return;
+    }
+    const newBotReplies = selectedMessages.filter(
+      (message) => message.seq > mark.seq && message.author_kind === "bot",
+    );
+    spokenMarkRef.current = {
+      channelId: selectedChannelId,
+      seq: Math.max(mark.seq, latestSeq),
+      failedTurnId,
+    };
+    const newest = newBotReplies[newBotReplies.length - 1];
+    if (newest) {
+      speakReplyAloud(spokenReply(botNameById.get(newest.author_id) ?? "Your teammate", newest.body));
+    } else if (failedTurn && failedTurnId !== mark.failedTurnId) {
+      speakReplyAloud(
+        spokenFailure(botNameById.get(failedTurn.botId) ?? "Your teammate", failedTurn.reason),
+      );
+    }
+  }, [botNameById, failedTurn, selectedChannelId, selectedMessages, speakReplyAloud, voiceListening]);
 
   async function handleCreate() {
     if (!createName.trim()) return;
