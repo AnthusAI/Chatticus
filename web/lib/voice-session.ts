@@ -17,12 +17,43 @@ export interface VoiceSessionHandlers {
   /** A completed line, with the wall-clock time (ms) its speech began. */
   onLine: (text: string, startedAtMs: number) => void;
   onProgress: (fraction: number) => void;
-  onError: (error: Error) => void;
+  /** Trouble with one recognition pass; capture continues. */
+  onRecognizerTrouble: (error: Error) => void;
+  /** Capture can no longer continue: the microphone track ended or the audio engine closed. */
+  onMicrophoneLost: (reason: string) => void;
 }
 
 export interface VoiceSession {
   setKeyterms: (keyterms: string[]) => void;
   stop: () => Promise<void>;
+  /** Wakes the audio engine if the system suspended or interrupted it, as iOS does around speech. */
+  resumeCapture: () => Promise<void>;
+}
+
+interface CaptureInternals {
+  mediaStream?: MediaStream;
+  audioContext?: AudioContext;
+}
+
+function captureInternals(microphone: MicTranscriber): CaptureInternals {
+  return microphone as unknown as CaptureInternals;
+}
+
+async function releaseCapture(microphone: MicTranscriber): Promise<void> {
+  const { mediaStream, audioContext } = captureInternals(microphone);
+  try {
+    await microphone.stop();
+  } catch {
+    if (audioContext && audioContext.state !== "closed") {
+      await audioContext.close().catch(() => undefined);
+    }
+  }
+  mediaStream?.getTracks().forEach((track) => track.stop());
+  try {
+    microphone.close();
+  } catch {
+    return;
+  }
 }
 
 type MoonshineModule = typeof import("@moonshine-ai/moonshine-wasm");
@@ -34,12 +65,12 @@ export function moonshineBaseUrl(): string {
 }
 
 function loadMoonshine(): Promise<MoonshineModule> {
-  moonshineModule ??= import(
-    /* webpackIgnore: true */ `${moonshineBaseUrl()}index.js`
-  ).catch((error: unknown) => {
-    moonshineModule = undefined;
-    throw error;
-  }) as Promise<MoonshineModule>;
+  moonshineModule ??= import(/* webpackIgnore: true */ `${moonshineBaseUrl()}index.js`).catch(
+    (error: unknown) => {
+      moonshineModule = undefined;
+      throw error;
+    },
+  ) as Promise<MoonshineModule>;
   return moonshineModule;
 }
 
@@ -71,7 +102,7 @@ export async function startVoiceSession(
       .onProgress((fraction) => handlers.onProgress(fraction))
       .onText((text) => handlers.onPartial(text))
       .onLine((line) => handlers.onLine(line.text, listeningStartedAt + line.startTime * 1000))
-      .onError((error) => handlers.onError(error));
+      .onError((error) => handlers.onRecognizerTrouble(error));
     await loaded.load();
     return loaded;
   });
@@ -82,14 +113,42 @@ export async function startVoiceSession(
     await microphone.start();
     listeningStartedAt = Date.now();
   } catch (error) {
-    microphone.close();
+    await releaseCapture(microphone);
     throw error;
   }
+  let stopped = false;
+  const { mediaStream, audioContext } = captureInternals(microphone);
+  const resumeCapture = async () => {
+    if (
+      !stopped &&
+      audioContext &&
+      audioContext.state !== "running" &&
+      audioContext.state !== "closed"
+    ) {
+      await audioContext.resume().catch(() => undefined);
+    }
+  };
+  mediaStream?.getAudioTracks().forEach((track) => {
+    track.addEventListener("ended", () => {
+      if (!stopped) {
+        handlers.onMicrophoneLost("The microphone stopped. Start the voice conversation again.");
+      }
+    });
+  });
+  audioContext?.addEventListener("statechange", () => {
+    if (stopped) return;
+    if (audioContext.state === "closed") {
+      handlers.onMicrophoneLost("The audio engine stopped. Start the voice conversation again.");
+    } else {
+      void resumeCapture();
+    }
+  });
   return {
     setKeyterms: (nextKeyterms) => microphone.setKeyterms(nextKeyterms),
+    resumeCapture,
     stop: async () => {
-      await microphone.stop();
-      microphone.close();
+      stopped = true;
+      await releaseCapture(microphone);
     },
   };
 }

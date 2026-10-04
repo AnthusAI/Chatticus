@@ -157,6 +157,10 @@ def then_no_message(context: object) -> None:
 
 @then('the member is told "{notice}"')
 def then_member_told(context: object, notice: str) -> None:
+    change = getattr(context, "voice_session_change", None)
+    if change is not None:
+        assert change["note"] == notice, change
+        return
     outcome = context.voice_outcome
     assert outcome["kind"] == "notice", outcome
     assert outcome["text"] == notice, outcome
@@ -304,3 +308,63 @@ def then_sent_for_understanding(context: object, text: str, name: str) -> None:
     assert outcome["kind"] == "send", outcome
     assert outcome["transcript"] == text, outcome
     assert outcome["botId"] == _bot_id(context, name), outcome
+
+
+@when('the voice session is "{phase}" and the browser is "{speech}"')
+def when_voice_session_and_speech(context: object, phase: str, speech: str) -> None:
+    context.voice_presentation = _run_voice_harness(
+        context, "buttonPresentation", phase=phase, speaking=speech == "speaking"
+    )
+
+
+@then('the voice button shows the "{icon}" icon labelled "{label}"')
+def then_voice_button_icon_label(context: object, icon: str, label: str) -> None:
+    presentation = context.voice_presentation
+    assert presentation["icon"] == icon, presentation
+    assert presentation["label"] == label, presentation
+
+
+@then('the voice button looks "{look}"')
+def then_voice_button_look(context: object, look: str) -> None:
+    assert context.voice_presentation["look"] == look, context.voice_presentation
+
+
+@then('the voice button is "{state}"')
+def then_voice_button_state(context: object, state: str) -> None:
+    presentation = context.voice_presentation
+    actual = (
+        "disabled"
+        if presentation["disabled"]
+        else "pressed" if presentation["pressed"] else "not pressed"
+    )
+    assert actual == state, presentation
+
+
+@given('the voice session is "{phase}"')
+def given_voice_session_phase(context: object, phase: str) -> None:
+    context.voice_session_phase = phase
+
+
+@when('the speech recognizer reports "{message}"')
+def when_recognizer_reports(context: object, message: str) -> None:
+    context.voice_session_change = _run_voice_harness(
+        context,
+        "sessionEvent",
+        phase=context.voice_session_phase,
+        event={"kind": "recognizerTrouble", "message": message},
+    )
+
+
+@when('the microphone is lost with the reason "{message}"')
+def when_microphone_lost(context: object, message: str) -> None:
+    context.voice_session_change = _run_voice_harness(
+        context,
+        "sessionEvent",
+        phase=context.voice_session_phase,
+        event={"kind": "microphoneLost", "message": message},
+    )
+
+
+@then('the voice session is "{phase}"')
+def then_voice_session_phase(context: object, phase: str) -> None:
+    assert context.voice_session_change["phase"] == phase, context.voice_session_change

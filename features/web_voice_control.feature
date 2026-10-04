@@ -107,3 +107,30 @@ Feature: Talking to teammates by voice
     Given a line began while a reply was being spoken
     When the member says "Grace, please review the release branch."
     Then nothing leaves the browser
+
+  Scenario Outline: The voice button always says what the session is doing
+    When the voice session is "<phase>" and the browser is "<speech>"
+    Then the voice button shows the "<icon>" icon labelled "<label>"
+    And the voice button looks "<look>"
+    And the voice button is "<pressed>"
+
+    Examples:
+      | phase       | speech      | icon       | label                    | look    | pressed     |
+      | idle        | quiet       | AudioLines | Start voice conversation | neutral | not pressed |
+      | loading     | quiet       | AudioLines | Loading voice model      | neutral | disabled    |
+      | listening   | quiet       | AudioLines | End voice conversation   | active  | pressed     |
+      | listening   | speaking    | AudioLines | End voice conversation   | active  | pressed     |
+      | error       | quiet       | AudioLines | Start voice conversation | alert   | not pressed |
+      | unavailable | quiet       | AudioLines | Start voice conversation | alert   | not pressed |
+
+  Scenario: A speech recognition hiccup does not end the voice conversation
+    Given the voice session is "listening"
+    When the speech recognizer reports "Decode failed on one pass."
+    Then the voice session is "listening"
+    And the member is told "Voice hiccup: Decode failed on one pass."
+
+  Scenario: Losing the microphone ends the voice conversation and says why
+    Given the voice session is "listening"
+    When the microphone is lost with the reason "The microphone was disconnected."
+    Then the voice session is "error"
+    And the member is told "The microphone was disconnected."

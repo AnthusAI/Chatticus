@@ -1,13 +1,21 @@
 import {
+  phaseAfterSessionEvent,
   replyForEndedTurn,
   routeVoiceLine,
   turnEndAnnouncement,
   voiceAvailability,
+  voiceButtonPresentation,
 } from "../lib/voice-control";
 import type { Bot, Channel } from "../lib/api";
 
 const input = JSON.parse(process.argv[2] ?? "{}") as {
-  action: "hear" | "availability" | "announceTurnEnd" | "announceEndedTurn";
+  action:
+    | "hear"
+    | "buttonPresentation"
+    | "sessionEvent"
+    | "availability"
+    | "announceTurnEnd"
+    | "announceEndedTurn";
   turn?: { bot_id: string; prompt_message_seq: number | null };
   committed?: import("../lib/api").Message[];
   overlapsSpeech?: boolean;
@@ -22,6 +30,9 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
   busyChannelIds?: string[];
   environment?: { crossOriginIsolated: boolean; hasMicrophone: boolean };
   line?: string;
+  phase?: import("../lib/voice-control").VoicePhase;
+  speaking?: boolean;
+  event?: import("../lib/voice-control").VoiceSessionEvent;
 };
 
 let output: unknown;
@@ -34,6 +45,13 @@ if (input.action === "hear") {
     busyChannelIds: input.busyChannelIds ?? [],
     overlapsSpeech: input.overlapsSpeech ?? false,
   });
+} else if (input.action === "buttonPresentation") {
+  output = voiceButtonPresentation(input.phase ?? "idle", input.speaking ?? false);
+} else if (input.action === "sessionEvent") {
+  output = phaseAfterSessionEvent(
+    input.phase ?? "idle",
+    input.event ?? { kind: "recognizerTrouble", message: "" },
+  );
 } else if (input.action === "announceTurnEnd") {
   output = {
     spoken: turnEndAnnouncement({
