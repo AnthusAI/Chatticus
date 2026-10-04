@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-c13dd6a5-8912-4e68-aad9-8499682f7ece",
+  "title": "Client switches session on handoff, voice follows",
+  "description": "As a member, I want the app to open the target session on a handoff and keep my voice session with it, so that speaking continues with the new bot.\n\nFeature: Client handoff\n  Scenario: Handoff switches the open session\n    Given voice listening is on in /\n    When turn.handoff names /ops/deploy\n    Then /ops/deploy is open\n    And spoken lines go to its bot\n    And a replayed handoff does not switch again\n\nVoice is locked to one session; no per-utterance routing.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-d2699af8-e73c-4099-833e-5556caa7003c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T22:04:11.610811Z",
+  "updated_at": "2026-10-04T22:04:11.610845Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "The client opens the target session on handoff and keeps voice with its bot.",
+  "right_now_updated_at": "2026-10-04T22:04:12.679771Z",
+  "custom": {}
+}

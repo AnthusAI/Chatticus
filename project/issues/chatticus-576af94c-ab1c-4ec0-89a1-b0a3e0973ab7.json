@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-576af94c-ab1c-4ec0-89a1-b0a3e0973ab7",
+  "title": "Namespace paths on channels",
+  "description": "As a member, I want each session to have a hierarchical path (/, /ops/deploy), so that sessions are organized and addressable.\n\nFeature: Session paths\n  Scenario: A channel has a unique path within its tenant\n    Given a channel at /ops/deploy\n    When another channel in the same tenant is given /ops/deploy\n    Then it is rejected\n\nSee docs/SESSION_NAMESPACE.md.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-d2699af8-e73c-4099-833e-5556caa7003c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T22:04:06.206856Z",
+  "updated_at": "2026-10-04T22:04:06.206886Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "The team is defining unique hierarchical paths for channels within each tenant.",
+  "right_now_updated_at": "2026-10-04T22:04:07.847746Z",
+  "custom": {}
+}

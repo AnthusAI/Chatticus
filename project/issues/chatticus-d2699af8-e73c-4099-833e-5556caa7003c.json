@@ -1,0 +1,24 @@
+{
+  "id": "chatticus-d2699af8-e73c-4099-833e-5556caa7003c",
+  "title": "Session namespace and handoff",
+  "description": "Sessions (channels) live in a hierarchical path namespace. A bot connects the user to another session with connect_user(path); the client switches and voice follows. A lazy context-block mechanism renders a session directory into each model call. Design: docs/SESSION_NAMESPACE.md. Definition of Done: all child stories closed, behavior specified in features/.",
+  "type": "epic",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T22:03:42.443056Z",
+  "updated_at": "2026-10-04T22:03:42.443097Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5"
+  },
+  "right_now_summary": "The team is defining session handoffs, hierarchical paths, and fresh context rendering while refining directory limits.",
+  "right_now_updated_at": "2026-10-04T22:04:24.160650Z",
+  "custom": {}
+}

@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-f792f37c-6ed7-460c-94a5-e78f9bb0b139",
+  "title": "Cache-aware prompt assembly order",
+  "description": "As an operator, I want a stable prefix, then lazy blocks, then the tail, in deterministic order, so that provider prefix caching keeps working.\n\nFeature: Prompt assembly order\n  Scenario: Blocks do not disturb the cached prefix\n    Given a system prompt and tools\n    When blocks render with unchanged data\n    Then the assembled prefix is byte-identical across calls\n    And blocks sit after tools and before the conversation tail",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-d2699af8-e73c-4099-833e-5556caa7003c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T22:04:20.170483Z",
+  "updated_at": "2026-10-04T22:04:20.170519Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "The prompt assembly order is being defined to preserve a stable cached prefix.",
+  "right_now_updated_at": "2026-10-04T22:04:21.596541Z",
+  "custom": {}
+}

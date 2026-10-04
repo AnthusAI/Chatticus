@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-2f9eae0f-c93e-48ad-8777-b95cb639564e",
+  "title": "Handoff tool and turn.handoff event",
+  "description": "As a member, I want a bot to connect me to another session, so that I reach the right bot without bots messaging each other.\n\nFeature: Handoff\n  Scenario: A bot connects the user to another session\n    Given a session at /ops/deploy exists\n    When the bot calls connect_user with /ops/deploy\n    Then the turn stream carries turn.handoff with that path\n    And a reconnect or reload still finds the handoff\n\nSee docs/SESSION_NAMESPACE.md.",
+  "type": "story",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-d2699af8-e73c-4099-833e-5556caa7003c",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T22:04:08.647448Z",
+  "updated_at": "2026-10-04T22:04:08.647481Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "Chatticus"
+  },
+  "right_now_summary": "The handoff tool and event are being defined to connect users to another session and preserve that link.",
+  "right_now_updated_at": "2026-10-04T22:04:10.285245Z",
+  "custom": {}
+}
