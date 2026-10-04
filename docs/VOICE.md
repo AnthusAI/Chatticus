@@ -120,6 +120,9 @@ Pin an exact version and expect churn.
 
 ```mermaid
 flowchart LR
+  HITL[Pending Tactus HITL request] --> Card[Manual card]
+  HITL --> Prompt[Voice prompt<br/>closed grammar]
+  Prompt --> Router
   Mic[Microphone] --> VAD[Silero VAD<br/>in browser]
   VAD -->|speech| STT[Moonshine streaming STT<br/>in browser]
   STT -->|completed line| Router{On-device router}
@@ -137,6 +140,9 @@ flowchart LR
 - Every completed line is transcribed on the device.
 - Lines that are not addressed and are not commands are discarded. They never
   leave the tab.
+- The two follow-up forms in section 2 are the exception: they send speech
+  that does not start with a name. The listening indicator shows when the
+  floor is open, so the user can see when unaddressed speech will be sent.
 - This is the privacy story as well as the cost story: the room's
   conversation is not uploaded.
 
@@ -182,11 +188,12 @@ deterministic grammar matched on the transcript handles them in the browser:
 
 | Say | Effect | Cloud? |
 |---|---|---|
-| "Ada" / "switch to Ada" | Select the teammate (`handleSelectBot`) | No |
-| "stop" / "cancel" | Close the current turn stream, stop speaking | No (or one POST if we add turn cancel) |
+| "Ada" / "switch to Ada" | Select the teammate (`selectItem` in `web/components/EnabledWorkspace.tsx`) | No |
+| "quiet" / "skip" | Stop speaking the current reply. The turn keeps running | No |
+| "stop" / "cancel the turn" | Cancel the running turn. Closing the stream alone does not stop the worker, so this needs a turn-cancel POST, which does not exist yet | One POST |
 | "repeat that" / "read it" | Re-speak the last reply | No |
 | "status" / "what's running" | Read out turn status and the task list (`listTasks`) | One cheap GET, no model |
-| "approve, blue seven" / "deny" | `POST /approvals/{id}` with the on-screen code | One POST, no model |
+| Answering a pending HITL request ("approve, blue seven", "deny", "option two") | Response to that request (section 3a) | One POST, no model |
 | "send" / "scratch that" | Send or clear a dictated draft | No |
 | "stop listening" | Turn the microphone off | No |
 
@@ -201,41 +208,96 @@ threshold) rather than AgentFlow's embedding model.
 We can still borrow `AgentFlow`'s dialog shape (`confirm`, `choose`,
 global "cancel") or use `AgentFlow` with `use_embeddings(false)`.
 
-**Approvals by voice are in scope.** The design must keep the rules in
-[Approval](APPROVAL.md) intact:
+### 3a. Human in the loop: one request, two surfaces
 
-- The human approves a **concrete operation**, not a model-authored summary.
-- An approval authorizes only that immutable operation.
-- Presence is guaranteed only by interactive review in the web tab.
+Agents ask humans questions through Tactus human-in-the-loop (HITL)
+primitives. Voice does not get its own approval system. It is one more Tactus
+HITL **channel**, presented in the web tab alongside the manual UI, and both
+render the same request.
 
-Audio adds threats a click does not have:
+**What Tactus already provides.** References are to
+`/Users/home/Projects/Tactus/tactus` at the time of writing.
 
-- someone else in the room;
-- a video or call playing through the speakers;
-- the bot's own TTS output;
-- a prompt-injected bot telling the human what to say.
+| Area | What exists |
+|---|---|
+| Primitives (`primitives/human.py`) | `approve`, `input`, `select`, `review`, `escalate`, `upload`, `multiple`, `custom`, `notify` |
+| Request data (`protocols/control.py`, `ControlRequest`) | `request_type`, `message`, `options[{label, value, style, description}]`, `default_value`, `timeout_seconds` |
+| Action contract | `action_key`, `resource_refs`, `preconditions`, `expires_at`, `response_schema` (JSON Schema), `ui_schema` |
+| Response data (`ControlResponse`) | `value`, `channel_id`, `responder_id` |
+| Delivery (`adapters/control_loop.py`) | Sends to every capable channel. **The first response wins**, and the other channels get `cancel`. Waits are durable checkpoints, and request ids are deterministic, so replay is idempotent |
 
-So a voice approval works like this:
+There is no voice channel in Tactus yet. Chatticus does not reference Tactus
+on `develop` yet either; that integration is in progress.
 
-1. **The operation is on screen.** The approval card shows the exact
-   operation (destination and payload). Any spoken read-back of it is
-   rendered deterministically on the client from the approval payload.
-   Model text never drives the read-back.
-2. **The confirmation carries a short code shown only on screen.** The card
-   shows a fresh code of two or three words or digits. TTS never speaks it,
-   and the turn stream never carries it, so a bot cannot relay it.
-   "Approve, blue seven" proves that someone is looking at this card.
-3. **The confirmation is bound to the approval id.** The confirmation posts
-   the existing `POST /approvals/{id}` with the code and
-   `input_modality: "voice"` for the audit record. The server checks that the
-   code matches the one it issued. A spoken "approve" without the code does
-   nothing.
-4. **The tab must be visible.** The microphone is muted while TTS speaks
-   (half duplex), and approvals are refused while the tab is hidden.
+**The voice presenter.** It is a web-tab presenter for the same pending
+request the manual card shows.
 
-The web app has no approval UI yet, so voice approvals depend on that work.
-The challenge code adds a server-side field to approvals, so it starts as
-Gherkin in `features/` like any other behavior.
+1. **Prompt.** The request is rendered from the structured fields
+   (`request_type`, `options`, `ui_schema`, `resource_refs`) into a short,
+   deterministic spoken prompt: "Ada asks: approve sending the release
+   notes to the team list? Say approve or deny." The free-text `message` is
+   shown on the card. It is spoken only for non-consequential request types.
+2. **Grammar per request.** Each request type gets a closed grammar built
+   from its schema:
+   - `approve`: approve or deny.
+   - `select`: the option labels, or "option two".
+   - `input`: dictated free text, read back, then "send".
+   - `review`: approve or reject, plus a spoken comment.
+   - `upload`, `multiple` and rich `custom` components: the presenter
+     declares no voice support, so they stay on the card.
+3. **Answer.** The utterance is mapped to a value and validated against
+   `response_schema` in the browser. It is then posted as an ordinary
+   response with `channel_id="voice"` and the signed-in human as
+   `responder_id`.
+4. **Race.** The manual card and the voice prompt are two presenters of one
+   request. Whichever answers first wins. The other is cancelled: the card
+   closes, or the voice prompt stops speaking and drops its grammar.
+
+**Consequential approvals keep the [Approval](APPROVAL.md) rules.** When a
+request carries an action contract for a consequential class (`send`,
+`publish`, `purchase`, `delete`, `production_change`), these hold:
+
+- **What is spoken.** The spoken and displayed operation comes from
+  `resource_refs` and Chatticus's own `StructuredConsequentialOperation`
+  (destination and payload), never from the model-authored `message`.
+- **The code.** The card shows a confirmation code bound to `request_id`,
+  for example "blue seven".
+  - **How it reaches the card:** a human-session-only read that the bot's
+    credentials cannot reach. It is never on the turn stream, in a channel
+    row, in the transcript, or in TTS output, so a bot cannot relay it.
+  - **Rules:** single-use, it expires with the request (`expires_at`), and
+    three wrong attempts void the request so it must be re-issued.
+- **The check.** The server rejects a voice response without the matching
+  code, and re-checks `preconditions` and `expires_at` itself, because
+  Tactus passes them through without enforcing them.
+
+**What the code proves, and what it does not.**
+
+- **It proves** that whoever spoke can see this card right now. That defeats
+  the bot's own TTS, a prompt-injected bot coaching the human, and audio from
+  a video.
+- **It does not prove** that the signed-in user is the speaker. Someone else
+  in the room, or a screen-share on a call, can read the code aloud. Voice
+  approval assumes the signed-in user controls the room the microphone hears.
+  If that is not acceptable for a class, that class requires a click (open
+  question below).
+- **Client-side checks:** half duplex (the microphone is muted while TTS
+  speaks) and "no voice answers while the tab is hidden". These are hygiene,
+  not security controls.
+- **`channel_id="voice"`** is audit metadata claimed by the client. It is
+  never a policy input.
+
+**Upstream work in Tactus.**
+
+- The control loop's capability filter checks only approval, input, review
+  and escalation. A voice channel needs to be able to opt out of `select`,
+  `inputs` and `upload` by capability.
+- The SSE channel leaves `responder_id` empty. It should be set.
+
+**Depends on.** The web app has no HITL or approval UI yet, and Chatticus has
+not yet wired Tactus HITL into turns. Voice answers come after the manual
+card, through the same request. The confirmation code is new server
+behavior, so it starts as Gherkin in `features/`.
 
 ### 4. Speaking back is functional
 
@@ -255,8 +317,9 @@ changed". It does not read the whole message.
 
 Almost none. A voice message is a human message. Two small additions:
 
-- **Idempotency:** send an `Idempotency-Key` on voice posts. The API accepts
-  it, but `web/lib/api.ts` does not send it today.
+- **Idempotency:** `postMessage` in `web/lib/api.ts` does not send an
+  `Idempotency-Key`, although `createBot` and `createChannel` do. Voice posts
+  need one, because a retried line must not become two turns.
 - **Origin tag:** an optional `input_modality: "voice"` on the message, so a
   bot can allow for transcription errors and write a speakable first sentence.
 
@@ -274,7 +337,9 @@ stack sets neither header, and no CSP.
 - COOP `same-origin` breaks any popup-based sign-in. A redirect flow is
   unaffected. Verify the Google and Cognito sign-in.
 - COEP `require-corp` blocks any cross-origin image, font or script that
-  lacks CORP/CORS headers.
+  lacks CORP/CORS headers. COEP `credentialless` relaxes this for no-cors
+  subresources. Whether Moonshine's threaded build and Safari accept it is
+  part of feasibility test 3.
 - The cross-origin-isolation headers can be scoped to `/chat` if needed.
 
 **Model files:** host them ourselves, versioned, in the web bucket.
@@ -291,9 +356,9 @@ stack sets neither header, and no CSP.
 |---|---|
 | Microphone on, silence or unaddressed talk | $0 |
 | Local command ("switch to Ada", "repeat", "stop") | $0 |
-| Status or approval command | One Lambda invocation, no model |
+| Status command, or an answer to a HITL request | One Lambda invocation, no model |
 | Addressed instruction | One ordinary turn, the same as typing it |
-| One-time model download | About 58 MB of CloudFront egress per user per model version |
+| One-time model download | About 58 MB of CloudFront egress per user per model version (Tiny plus WASM). About 155 MB with the Small opt-in |
 
 **Client side:** the cost is CPU and battery. Natively, Tiny Streaming uses
 about 8% of one Apple M3 core. WASM will be slower by an amount nobody has
@@ -340,7 +405,9 @@ Each step is a Kanbus story with Gherkin first.
 4. **Local command grammar:** select, stop, repeat, send, scratch, stop
    listening.
 5. **Spoken summaries** through `speechSynthesis`.
-6. **Voice approvals and status:** after the web approval UI exists.
+6. **A voice presenter for Tactus HITL requests:** after the manual HITL
+   card exists in the web app. Includes the confirmation code for
+   consequential approvals.
 7. **Optional:** Kokoro voice, Small model, non-English models.
 
 ## Open questions

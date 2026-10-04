@@ -33,5 +33,5 @@ spikes: a measurement that becomes a feature is a measurement nobody trusts.
 Four tests gate voice control in the web workspace: browser cost of
 always-on listening, Safari and iOS, cross-origin isolation against
 sign-in, and accuracy on our vocabulary. Each is written out, with its
-failure branch, in [Voice](VOICE.md#feasibility-tests). Spike code lives in
-`spikes/voice-moonshine-a2000f/`.
+failure branch, in [Voice](VOICE.md#feasibility-tests). The spike is Kanbus
+story `chatticus-a2000f`.
