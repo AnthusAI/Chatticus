@@ -23,7 +23,7 @@ from chatticus.worker.tool_dispatch import GatedToolCall
 
 logger = logging.getLogger("chatticus.worker.openai")
 
-DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
+DEFAULT_OPENAI_MODEL = "gpt-5-nano"
 _OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
 _ALLOWED_GATES = frozenset({"workspace", "browser"})
 WORKER_SYSTEM_PROMPT = (
@@ -301,7 +301,7 @@ class OpenAITextCompletionClient:
                 "tools": computerless_worker_tools(),
                 "tool_choice": "auto",
                 "max_completion_tokens": 256,
-                "reasoning_effort": "none",
+                "reasoning_effort": "minimal",
             },
             timeout=60.0,
         )

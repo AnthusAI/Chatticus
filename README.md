@@ -263,7 +263,7 @@ flowchart LR
   DDB[("DynamoDB: messages, chunks, roster")]
   SQS["SQS turn jobs"]
   W["Computerless worker Lambda"]
-  OA["OpenAI<br/>gpt-5.6-luna"]
+  OA["OpenAI<br/>gpt-5-nano"]
 
   Caller --> CF --> FD
   FD --> DDB

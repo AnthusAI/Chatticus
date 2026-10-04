@@ -64,7 +64,7 @@ class TextCompletionClient(Protocol):
 class FakeTextCompletionClient:
     """Deterministic stand-in so CI never needs a live OpenAI key."""
 
-    def __init__(self, *, model: str = "gpt-5.6-luna") -> None:
+    def __init__(self, *, model: str = "gpt-5-nano") -> None:
         self.model = model
 
     def complete(self, prompt: str) -> CompletionOutcome:

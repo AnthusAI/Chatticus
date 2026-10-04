@@ -13,7 +13,7 @@ from chatticus.worker.openai_completion import (
     usage_from_chat_completion,
 )
 
-DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
+DEFAULT_OPENAI_MODEL = "gpt-5-nano"
 
 
 def test_worker_system_prompt_tells_the_model_when_to_call_the_gate() -> None:
