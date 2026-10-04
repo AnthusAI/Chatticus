@@ -27,6 +27,7 @@ import {
   thinTurnParameterPrefix,
   WEB_CLOUDFRONT_ENABLED,
   webParameterPrefix,
+  WEB_CROSS_ORIGIN_ISOLATION,
 } from "./environments";
 import {
   CHATTICUS_LOG_RETENTION,
@@ -95,6 +96,18 @@ export class WebStack extends cdk.Stack {
       comment: "SPA fallback status for S3 paths; never rewrite /api responses.",
     });
 
+    const crossOriginIsolationHeaders = WEB_CROSS_ORIGIN_ISOLATION[environmentName]
+      ? new cloudfront.ResponseHeadersPolicy(this, "CrossOriginIsolationHeaders", {
+          comment: `Chatticus ${environmentName} cross-origin isolation for on-device voice.`,
+          customHeadersBehavior: {
+            customHeaders: [
+              { header: "Cross-Origin-Opener-Policy", value: "same-origin", override: true },
+              { header: "Cross-Origin-Embedder-Policy", value: "require-corp", override: true },
+            ],
+          },
+        })
+      : undefined;
+
     const distribution = new cloudfront.Distribution(this, "SiteDistribution", {
       enabled: WEB_CLOUDFRONT_ENABLED[environmentName],
       comment: `Chatticus ${environmentName} web UI and same-origin /api front door.`,
@@ -106,6 +119,7 @@ export class WebStack extends cdk.Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        responseHeadersPolicy: crossOriginIsolationHeaders,
         functionAssociations: [
           {
             function: spaViewerRequest,

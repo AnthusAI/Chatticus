@@ -20,6 +20,7 @@ import { Input } from "./ui/input";
 import { Sheet } from "./ui/sheet";
 import { ComputerPausedNotice } from "./ComputerPausedNotice";
 import { TurnGrantPanel } from "./TurnGrantPanel";
+import { useVoiceControl } from "./useVoiceControl";
 import {
   createBot,
   createChannel,
@@ -57,6 +58,7 @@ import {
   type TurnUiStatus,
 } from "../lib/workspace-state";
 import { isTurnGrantPanelVisible } from "../lib/turn-grant";
+import { routeVoiceLine, voiceKeyterms } from "../lib/voice-control";
 type EnabledWorkspaceProps = {
   activeOrg: ActiveOrg;
   organizations: MeOrganization[];
@@ -345,7 +347,7 @@ export function EnabledWorkspace({
   );
 
   const selectItem = useCallback(
-    async (item: RosterItem) => {
+    async (item: RosterItem): Promise<Channel | null> => {
       streamGenerationRef.current += 1;
       const selectionLoadToken = (selectionLoadRef.current += 1);
       setError(null);
@@ -357,7 +359,7 @@ export function EnabledWorkspace({
           setMessagesByChannel((current) => ({ ...current, [channel!.channel_id]: [] }));
         } catch (caught) {
           setError(caught instanceof Error ? caught.message : "Conversation failed to open");
-          return;
+          return null;
         }
       }
       setSelectedItemId(item.id);
@@ -367,19 +369,52 @@ export function EnabledWorkspace({
       setTurnStatus(null);
       setProgress("");
       closeStreamRef.current?.();
-      if (!channel) return;
+      if (!channel) return null;
+      const openedChannel = channel;
       try {
         const [committed, activeTurn] = await Promise.all([
           listMessages(activeOrg, channel.channel_id),
           getActiveTurn(activeOrg, channel.channel_id),
         ]);
         if (selectionLoadToken !== selectionLoadRef.current) {
-          return;
+          return openedChannel;
         }
-        setMessagesByChannel((current) => ({ ...current, [channel!.channel_id]: committed }));
+        setMessagesByChannel((current) => ({ ...current, [openedChannel.channel_id]: committed }));
         if (activeTurn) startTurnStream(activeTurn);
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "Conversation failed to load");
+      }
+      return openedChannel;
+    },
+    [activeOrg, startTurnStream],
+  );
+
+  const postToChannel = useCallback(
+    async (channelId: string, botId: string, body: string): Promise<boolean> => {
+      setSending(true);
+      setStreamError(null);
+      try {
+        const response = await postMessage(activeOrg, channelId, body, botId);
+        setMessagesByChannel((current) => ({
+          ...current,
+          [channelId]: [...(current[channelId] ?? []), response.message],
+        }));
+        if (response.turn_id) {
+          startTurnStream({
+            turn_id: response.turn_id,
+            tenant_id: activeOrg.tenantId,
+            channel_id: channelId,
+            bot_id: botId,
+            status: "active",
+            waiting_for: null,
+          });
+        }
+        return true;
+      } catch (caught) {
+        setStreamError(caught instanceof Error ? caught.message : "Message failed to send");
+        return false;
+      } finally {
+        setSending(false);
       }
     },
     [activeOrg, startTurnStream],
@@ -390,39 +425,62 @@ export function EnabledWorkspace({
       if (!selectedItem || !selectedChannelId || sendBlockReason !== null) {
         return;
       }
-      setSending(true);
-      setStreamError(null);
-      try {
-        const response = await postMessage(activeOrg, selectedChannelId, body, addressedBotId);
-        setMessagesByChannel((current) => ({
-          ...current,
-          [selectedChannelId]: [...(current[selectedChannelId] ?? []), response.message],
-        }));
-        if (response.turn_id) {
-          startTurnStream({
-            turn_id: response.turn_id,
-            tenant_id: activeOrg.tenantId,
-            channel_id: selectedChannelId,
-            bot_id: addressedBotId,
-            status: "active",
-            waiting_for: null,
-          });
-        }
-      } catch (caught) {
-        setStreamError(caught instanceof Error ? caught.message : "Message failed to send");
-      } finally {
-        setSending(false);
-      }
+      await postToChannel(selectedChannelId, addressedBotId, body);
     },
-    [
-      activeOrg,
-      addressedBotId,
-      sendBlockReason,
-      selectedChannelId,
-      selectedItem,
-      startTurnStream,
-    ],
+    [addressedBotId, postToChannel, sendBlockReason, selectedChannelId, selectedItem],
   );
+
+  const voiceKeytermList = useMemo(() => voiceKeyterms(bots), [bots]);
+  const stopVoiceRef = useRef<() => Promise<void>>(async () => undefined);
+
+  const handleVoiceLine = useCallback(
+    async (text: string): Promise<string> => {
+      const route = routeVoiceLine(text, {
+        bots,
+        channels,
+        selectedId: selectedItemId,
+        busyChannelIds: turn && selectedChannelId ? [selectedChannelId] : [],
+      });
+      if (route.kind === "discard") {
+        return `Heard "${text}". Not addressed to a teammate, so it stayed in this browser.`;
+      }
+      if (route.kind === "notice") {
+        return route.text;
+      }
+      if (route.kind === "stopListening") {
+        await stopVoiceRef.current();
+        return "Stopped listening.";
+      }
+      const botName = botNameById.get(route.botId) ?? "that teammate";
+      const botItem = roster.find((item) => item.kind === "bot" && item.bot.bot_id === route.botId);
+      if (route.kind === "select") {
+        if (botItem) await selectItem(botItem);
+        return `Opened the conversation with ${botName}.`;
+      }
+      if (sending) {
+        return "Still sending the last message. Say it again in a moment.";
+      }
+      let channelId: string | null = null;
+      if (route.destination.kind === "channel") {
+        channelId = route.destination.channelId;
+        setAddressedBotId(route.botId);
+      } else if (botItem) {
+        channelId =
+          selectedItemId === botItem.id ? botItem.channel?.channel_id ?? null : (await selectItem(botItem))?.channel_id ?? null;
+      }
+      if (!channelId) {
+        return `Could not open the conversation with ${botName}.`;
+      }
+      const sent = await postToChannel(channelId, route.botId, route.body);
+      return sent ? `Sent to ${botName}: "${route.body}"` : `Could not send to ${botName}.`;
+    },
+    [bots, botNameById, channels, postToChannel, roster, selectItem, selectedChannelId, selectedItemId, sending, turn],
+  );
+
+  const voice = useVoiceControl({ keyterms: voiceKeytermList, onLine: handleVoiceLine });
+  useEffect(() => {
+    stopVoiceRef.current = voice.stop;
+  }, [voice.stop]);
 
   async function handleCreate() {
     if (!createName.trim()) return;
@@ -620,6 +678,8 @@ export function EnabledWorkspace({
               streamError,
               onDismissStreamError: () => setStreamError(null),
               sendBlockMessage,
+              composerActions: voice.composerAction,
+              composerStatus: voice.composerStatus,
               emptyState: (
                 <EmptyState
                   title={`Start with ${selectedItem.label}`}

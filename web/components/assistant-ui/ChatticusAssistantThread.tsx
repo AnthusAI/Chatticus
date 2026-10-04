@@ -89,6 +89,8 @@ export type ChatticusAssistantThreadProps = {
   emptyState?: ReactNode;
   composerPlaceholder?: string;
   composerAccessory?: ReactNode;
+  composerActions?: ReactNode;
+  composerStatus?: ReactNode;
   streamError?: string | null;
   onDismissStreamError?: () => void;
   sendBlockMessage?: string | null;
@@ -99,6 +101,8 @@ export function ChatticusAssistantThread({
   emptyState,
   composerPlaceholder = "Send a message...",
   composerAccessory,
+  composerActions,
+  composerStatus,
   streamError,
   onDismissStreamError,
   sendBlockMessage,
@@ -128,6 +132,7 @@ export function ChatticusAssistantThread({
                   className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm outline-none placeholder:text-surface-foreground/40"
                   aria-label="Message input"
                 />
+                {composerActions}
                 <ComposerPrimitive.Send asChild>
                   <Button
                     type="submit"
@@ -159,6 +164,7 @@ export function ChatticusAssistantThread({
                   {sendBlockMessage}
                 </div>
               ) : null}
+              {composerStatus}
             </ComposerPrimitive.Root>
           </ThreadPrimitive.ViewportFooter>
         </ThreadPrimitive.Viewport>

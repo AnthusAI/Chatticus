@@ -8,7 +8,11 @@ import {
   CUSTOMER_ROLE_TEMPLATE_OBJECT_KEY,
   provisioningParameterPrefix,
 } from "../lib/customer-role-template";
-import { WEB_CLOUDFRONT_ENABLED, WEB_SITE_DOMAINS } from "../lib/environments";
+import {
+  WEB_CLOUDFRONT_ENABLED,
+  WEB_CROSS_ORIGIN_ISOLATION,
+  WEB_SITE_DOMAINS,
+} from "../lib/environments";
 import {
   deployWebsiteAssets,
   listAssetRelativeFiles,
@@ -145,4 +149,31 @@ describe("WebStack single-domain routing (post marketing split, chatticus-3926bc
     });
     assert.equal(apexRecords.length, 0);
   });
+});
+
+describe("WebStack cross-origin isolation for on-device voice", () => {
+  for (const environmentName of ["development", "staging", "production"] as const) {
+    it(`${WEB_CROSS_ORIGIN_ISOLATION[environmentName] ? "isolates" : "does not isolate"} ${environmentName}`, () => {
+      const template = synthWebStack(environmentName);
+      const policies = template.findResources("AWS::CloudFront::ResponseHeadersPolicy");
+      if (!WEB_CROSS_ORIGIN_ISOLATION[environmentName]) {
+        assert.equal(Object.keys(policies).length, 0);
+        return;
+      }
+      template.hasResourceProperties("AWS::CloudFront::ResponseHeadersPolicy", {
+        ResponseHeadersPolicyConfig: {
+          CustomHeadersConfig: {
+            Items: [
+              { Header: "Cross-Origin-Opener-Policy", Value: "same-origin", Override: true },
+              { Header: "Cross-Origin-Embedder-Policy", Value: "require-corp", Override: true },
+            ],
+          },
+        },
+      });
+      const distribution = Object.values(
+        template.findResources("AWS::CloudFront::Distribution"),
+      )[0] as { Properties: { DistributionConfig: { DefaultCacheBehavior: { ResponseHeadersPolicyId?: unknown } } } };
+      assert.ok(distribution.Properties.DistributionConfig.DefaultCacheBehavior.ResponseHeadersPolicyId);
+    });
+  }
 });

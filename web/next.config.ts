@@ -19,6 +19,23 @@ const nextConfig: NextConfig = {
     // fall back to). next dev has no CloudFront in front of it.
     return [{ source: "/", destination: "/chat", permanent: false }];
   },
+  async headers() {
+    if (!isDev) {
+      return [];
+    }
+    // Local dev only: on-device voice (docs/VOICE.md) needs SharedArrayBuffer,
+    // which needs a cross-origin isolated page. Production sets the same
+    // headers at CloudFront, since a static export ignores headers().
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     if (!isDev) {
       return [];

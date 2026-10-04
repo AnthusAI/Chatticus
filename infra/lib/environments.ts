@@ -62,6 +62,18 @@ export const WEB_CLOUDFRONT_ENABLED: Record<ChatticusCloudEnvironment, boolean> 
   production: true,
 };
 
+/**
+ * Whether the web UI is served cross-origin isolated (COOP same-origin, COEP
+ * require-corp). On-device voice needs it for the threaded WASM build
+ * (docs/VOICE.md). Development only until the isolation check against sign-in
+ * passes (chatticus-604bb6).
+ */
+export const WEB_CROSS_ORIGIN_ISOLATION: Record<ChatticusCloudEnvironment, boolean> = {
+  development: true,
+  staging: false,
+  production: false,
+};
+
 export function thinTurnParameterPrefix(environment: ChatticusCloudEnvironment): string {
   return `/chatticus/${environment}/thin-turn`;
 }
