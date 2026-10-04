@@ -266,21 +266,21 @@ item between index keys (a delete plus a put). One run each, same prompts
 |---|---|---|---|---|---|---|
 | Plain answer | DynamoDB-only | 7 | 120 | 46 | 0 | **$0.081** |
 | Plain answer | S3 + index | 7 | 99 | 42 | 7 | **$0.102** |
-| One tool call | DynamoDB-only | 43 | 641 | 254 | 0 | **$0.432** ($0.313 at 31 commits) |
-| One tool call | S3 + index | 31 | 392 | 143 | 31 | **$0.418** |
+| One tool call | DynamoDB-only | 31 | 479 | 182 | 0 | **$0.322** |
+| One tool call | S3 + index | 30 | 382 | 141 | 30 | **$0.406** |
 
 Per commit, the S3-plus-index storage costs about $0.0000135 to $0.0000146
-and the DynamoDB-only storage about $0.0000101 to $0.0000115: **the index
-version costs about 30% more in requests**. The reason: at these payload
+and the DynamoDB-only storage about $0.0000104 to $0.0000115: **the index
+version costs about 25 to 30% more in requests**. The reason: at these payload
 sizes (a few KB per commit) WRUs are set by the per-item minimum, not by the
 payload, so moving the payload out of DynamoDB saves only 2 to 3 WRU per
 commit, while each commit adds one S3 PUT ($0.000005, the price of 8 WRU).
 
 | Resident data after setup and both turns | DynamoDB-only | S3 + index |
 |---|---|---|
-| DynamoDB billable bytes (items + 100 bytes each, times local indexes) | 72 KB | 25 KB |
-| S3 bytes | 0 | 51 KB (39 objects) |
-| Per 1,000 turns per month (setup spread over the two turns) | **$0.0090** | **$0.0037** |
+| DynamoDB billable bytes (items + 100 bytes each, times local indexes) | 62 KB | 25 KB |
+| S3 bytes | 0 | 53 KB (38 objects) |
+| Per 1,000 turns per month (setup spread over the two turns) | **$0.0073** | **$0.0035** |
 
 Storage per GB-month of conversation: DynamoDB-only pays $0.25 on every
 billable byte, including the copies in three local indexes; the index
@@ -288,10 +288,11 @@ version pays $0.25 on a third as many DynamoDB bytes and $0.023 on the rest.
 
 So:
 
-- **For short turns, the index version is not cheaper.** Its extra request
-  cost per tool turn (about $0.0001) equals its storage saving (about
-  $0.0000053 per turn per month) after about 20 months of retention; for a
-  plain turn, after about 4 months.
+- **For short turns, the index version is not cheaper at first.** Its extra
+  request cost per tool turn ($0.000084) equals its storage saving
+  ($0.0000059 per turn per month) after about 14 months of retention; for a
+  plain turn ($0.000021 against $0.0000016 a month), after about 13 months.
+  See the household projection below.
 - **It wins when payloads are large or kept long:** long answers, large tool
   output, images, and years of history. It also removes the 400 KB item and
   4 MB transaction limits, which is a correctness gain, not a cost one.
@@ -303,6 +304,87 @@ So:
   proportion), fewer index items per commit (the `pi.live` revision plus its
   record update are 2 of the typical 9), and the snapshot object above so
   that cold reads do not grow with history.
+
+## Long-term storage
+
+**Decision:** payloads stay in S3 and DynamoDB is only the index. The
+concern is not the cost of one turn but storage that compounds: every turn
+ever taken stays resident and billed every month. DynamoDB charges $0.25
+per GB-month for every billable byte, including each local-index copy; S3
+Standard charges $0.023.
+
+### Projection for one household
+
+100 plain turns and 20 tool turns a day. Bytes per turn are the measured
+resident growth from `scripts/cost.ts` (`results/cost.json`, one run each,
+first-turn setup subtracted):
+
+| Per turn | DynamoDB-only | S3 + index: DynamoDB | S3 + index: S3 |
+|---|---|---|---|
+| Plain | 21,144 - 8,632 = 12,512 B | 12,848 - 8,357 = 4,491 B | 12,965 - 1,250 = 11,715 B |
+| Tool call (31 and 30 commits) | 62,294 - 21,144 = 41,150 B | 24,941 - 12,848 = 12,093 B | 52,759 - 12,965 = 39,794 B |
+| Per day (100 plain + 20 tool) | 1,251,200 + 823,000 = 2,074,200 B | 449,100 + 241,860 = 690,960 B | 1,171,500 + 795,880 = 1,967,380 B |
+| Per 30-day month, GiB (/ 2^30) | 0.0580 | 0.0193 | 0.0550 |
+
+The stored data after N months is N times the monthly growth. The bill for
+month N is that stock times the price. The cumulative bill is the price
+times the monthly growth times N(N+1)/2. Prices as cited above; the 25 GB
+DynamoDB free tier is per account and ignored.
+
+| After | Stored: DynamoDB-only | Stored: S3 + index | Bill that month: DynamoDB-only | Bill that month: S3 + index | Cumulative: DynamoDB-only | Cumulative: S3 + index |
+|---|---|---|---|---|---|---|
+| 1 month | 0.058 GiB | 0.019 + 0.055 GiB | 0.058 x 0.25 = $0.014 | 0.019 x 0.25 + 0.055 x 0.023 = $0.006 | $0.014 | $0.006 |
+| 12 months | 0.695 GiB | 0.232 + 0.660 GiB | $0.174 | $0.073 | 0.25 x 0.0580 x 78 = $1.13 | (0.25 x 0.0193 + 0.023 x 0.0550) x 78 = $0.48 |
+| 36 months | 2.086 GiB | 0.695 + 1.979 GiB | $0.522 | $0.219 | 0.25 x 0.0580 x 666 = $9.65 | (0.25 x 0.0193 + 0.023 x 0.0550) x 666 = $4.06 |
+
+Requests for the same household are about $0.44 a month (DynamoDB-only)
+and $0.55 (S3 + index), flat over time: 100 x $0.0000808 + 20 x $0.000322
+a day against 100 x $0.000102 + 20 x $0.000406. The S3 layout's monthly bill
+(storage plus requests) drops below DynamoDB-only's around month 14 and its
+cumulative bill around month 26. That crossover comes earlier with
+any stage-2 item below; with item (2), the DynamoDB part stops growing.
+
+### Stage-2 requirements
+
+1. **S3 lifecycle.** Commit and segment objects of conversations that have
+   been idle (for example 30 days) move to S3 Intelligent-Tiering or
+   Glacier Instant Retrieval. Both keep millisecond reads, so a returning
+   conversation needs no restore. Never expire `commits/` or `segments/`.
+2. **Compaction of idle conversations.** When a conversation has been idle
+   and has no live task, a job folds its commit objects into one segment
+   object and replaces its per-record index items with one manifest item,
+   so the DynamoDB footprint per conversation stays roughly constant.
+
+   ```text
+   s3://<bucket>/conversations/<storage>/segments/<throughSeq:012>.json
+     { "throughSeq": 4812, "records": { "<id>": <record> }, "revisions": { "<doc>": [<base>, <deltas>...] } }
+
+   DynamoDB pk = PI#<storage>, sk = MANIFEST
+     { "segment": "segments/000000004812.json", "throughSeq": 4812, "bytes": 1834221,
+       "liveTasks": 0, "nextId": 90311, "requestIds": "<bloom or hash set of recent requestIds>" }
+   ```
+
+   Reads resolve through the manifest. An id with an `R#<id>` item is read
+   as today, from the commit object it points at. Without one, and with
+   `id` at or below the segment's range, it is read from the segment, which
+   is fetched once and cached. Ordered scans (entries, tasks, submissions,
+   documents) merge the segment's sorted lists with the index queries above
+   `throughSeq`. The first commit after reopening writes index items again,
+   only for new records. Compaction itself runs as an owner holding the
+   fence: it writes the segment, then in one transaction deletes the folded
+   index items (in batches of under 100) and writes `MANIFEST`. A crash
+   leaves either the old index or the new manifest, never neither. Folded
+   commit objects are deleted only after the manifest commits.
+3. **DynamoDB Standard-IA for the index table.** Standard-IA trades lower
+   storage price for higher request price. Evaluate it once compaction
+   exists, because the index's balance of request cost to storage cost
+   decides it.
+4. **Fewer commits per turn.** Commits dominate request cost: 7 for a plain
+   turn, 30 or more for a tool turn, most of them 100 ms partial and
+   tool-output updates of `pi.live`. Options: a longer partial throttle in
+   pi-durable, coalescing live updates when nobody is watching the stream,
+   and fewer index items per commit (the `pi.live` revision and its record
+   update are 2 of a typical 9).
 
 ## The Lambda-to-computer handoff
 
@@ -437,12 +519,13 @@ it cleanly.
 
 One measured result contradicts the reason given for the S3 move: at
 Chatticus's payload sizes, keeping payloads out of DynamoDB does **not**
-lower per-turn cost; it raises request cost by about 30% and lowers storage
-cost by about 60%, breaking even after roughly 4 (plain) to 20 (tool)
+lower per-turn cost; it raises request cost by about 25 to 30% and lowers
+storage cost by about 60%, breaking even after roughly 13 (plain) to 14 (tool)
 months of retention. The S3 layout is still the better default because it
 removes the 400 KB and 4 MB limits and its cost advantage grows with
 payload size and retention, but it should not be justified as a per-turn
-saving.
+saving. The decision to keep it rests on long-term storage (see
+[Long-term storage](#long-term-storage)).
 
 The staged plan stands:
 

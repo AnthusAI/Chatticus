@@ -5,7 +5,7 @@ import { commitKey } from "../src/indexed-storage.ts";
 import { type MeterSnapshot, meterDelta, residentBytes } from "../src/meter.ts";
 import { type Backend, BUCKET, context, openOwner, type Owner, TABLE_NAME } from "../src/owner.ts";
 import { summarize, writeResult } from "../src/report.ts";
-import { createLocalClient, createLocalS3, type Item } from "../src/table.ts";
+import { createLocalClient, createLocalS3, ensureBucket, type Item } from "../src/table.ts";
 
 const client = createLocalClient();
 const s3 = createLocalS3();
@@ -72,7 +72,9 @@ async function measure(backend: Backend) {
 		s3BytesPut: 0,
 		largestIndexItemBytes: 0,
 	});
-	const plain = await turn(first, "Name three primary colours. One line.", "cost-1");
+	const afterSetup = residentBytes(await partitionItems(storageId));
+	const objectsAfterSetup = await objectBytes(storageId);
+	const plain = await turn(first,"Name three primary colours. One line.", "cost-1");
 	const afterPlain = residentBytes(await partitionItems(storageId));
 	const objectsAfterPlain = await objectBytes(storageId);
 	const tool = await turn(first, "Use run_terminal to run `ls /srv`, then report the output in one line.", "cost-2");
@@ -99,6 +101,8 @@ async function measure(backend: Backend) {
 		plain,
 		tool,
 		resident: {
+			dynamoBillableBytesAfterSetup: afterSetup,
+			s3AfterSetup: objectsAfterSetup,
 			dynamoBillableBytesAfterPlainTurn: afterPlain,
 			s3AfterPlainTurn: objectsAfterPlain,
 			dynamoBillableBytesAfterBothTurns: residentBytes(items),
@@ -111,6 +115,7 @@ async function measure(backend: Backend) {
 	};
 }
 
+await ensureBucket(s3, BUCKET);
 const results = [await measure("dynamodb"), await measure("indexed")];
 writeResult("cost.json", results);
 console.log(JSON.stringify(results, null, 2));
