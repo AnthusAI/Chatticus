@@ -72,7 +72,7 @@ Feature: Talking to teammates by voice
     When the member asks to start listening
     Then listening is unavailable because "This browser does not offer a microphone."
 
-  Scenario: A teammate's reply is spoken while listening is on
+  Scenario: A teammate's reply is spoken when their turn ends while listening
     Given voice listening is on
     When "Ada" replies "The pull request is open."
     Then the browser says "Ada says: The pull request is open."
@@ -82,10 +82,24 @@ Feature: Talking to teammates by voice
     When "Ada" replies "The pull request is open."
     Then the browser says nothing
 
-  Scenario: Formatting, links and code are not read aloud
+  Scenario: A reply in a conversation that is not open is not spoken
     Given voice listening is on
-    When "Ada" replies "**Done.** See https://github.com/AnthusAI/Chatticus/pull/388 and run `npm test`."
-    Then the browser says "Ada says: Done. See the link on screen and run npm test."
+    And the conversation with "Ada" is not open
+    When "Ada" replies "The pull request is open."
+    Then the browser says nothing
+
+  Scenario Outline: Formatting, links and code are spoken as plain words
+    Given voice listening is on
+    When "Ada" replies "<reply>"
+    Then the browser says "<spoken>"
+
+    Examples:
+      | reply                                                                                 | spoken                                                           |
+      | **Done.** See https://github.com/AnthusAI/Chatticus/pull/388 and run `npm test`.      | Ada says: Done. See the link on screen and run npm test.         |
+      | - Opened [the pull request](https://example.com/pr/1).\n- Ran the tests.              | Ada says: Opened the pull request. Ran the tests.                |
+      | Run this:\n```bash\nnpm test\n```\nThen tell me.                                      | Ada says: Run this: the code on screen. Then tell me.            |
+      | Renamed `my_test_file` to my_test_file_two.                                           | Ada says: Renamed my_test_file to my_test_file_two.              |
+      | Version 1.2 is out.                                                                   | Ada says: Version 1.2 is out.                                    |
 
   Scenario: A long reply is cut short with a pointer to the screen
     Given voice listening is on
@@ -107,4 +121,9 @@ Feature: Talking to teammates by voice
   Scenario: While a reply is being spoken, other speech is ignored
     Given a reply is being spoken
     When the member says "Ada, open a pull request for the voice spike."
+    Then nothing leaves the browser
+
+  Scenario: The tail of a spoken reply heard after it ends is not acted on
+    Given a line began while a reply was being spoken
+    When the member says "Grace, please review the release branch."
     Then nothing leaves the browser

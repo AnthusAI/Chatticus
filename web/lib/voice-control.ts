@@ -23,8 +23,11 @@ export interface VoiceWorkspace {
   channels: Channel[];
   selectedId: string | null;
   busyChannelIds: string[];
-  /** Whether a reply is being spoken; only stop commands are acted on meanwhile. */
-  speaking?: boolean;
+  /**
+   * Whether the line began while a reply was being spoken (or just after).
+   * Such a line may be the browser hearing itself, so only stop commands act.
+   */
+  overlapsSpeech?: boolean;
 }
 
 export interface VoiceEnvironment {
@@ -217,7 +220,7 @@ export function routeVoiceLine(text: string, workspace: VoiceWorkspace): VoiceRo
   if (STOP_LISTENING_PHRASES.includes(normalized)) {
     return { kind: "stopListening" };
   }
-  if (workspace.speaking) {
+  if (workspace.overlapsSpeech) {
     return STOP_SPEAKING_PHRASES.includes(normalized)
       ? { kind: "stopSpeaking" }
       : { kind: "discard" };
@@ -243,14 +246,32 @@ export function routeVoiceLine(text: string, workspace: VoiceWorkspace): VoiceRo
   return { kind: "send", botId: addressed.bot.bot_id, body, destination };
 }
 
+const MAX_SPEAKABLE_INPUT_CHARACTERS = 2_000;
+
 function speakableText(markdown: string): string {
-  return markdown
-    .replace(/```[\s\S]*?```/g, " the code on screen ")
-    .replace(/`([^`]*)`/g, "$1")
-    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/https?:\/\/\S+?(?=[\s)]|[.,;:!?](?:\s|$)|$)/g, "the link on screen")
-    .replace(/^\s{0,3}(?:#{1,6}|>|[-*+]|\d+[.)])\s+/gm, "")
-    .replace(/(\*\*|__|\*|_|~~)(\S(?:[\s\S]*?\S)?)\1/g, "$2")
+  const inlineCode: string[] = [];
+  const withoutCode = markdown
+    .slice(0, MAX_SPEAKABLE_INPUT_CHARACTERS)
+    .replace(/```[\s\S]*?```/g, "\nthe code on screen.\n")
+    .replace(/`([^`\n]*)`/g, (_match, code: string) => {
+      inlineCode.push(code);
+      return `\u0000${inlineCode.length - 1}\u0000`;
+    });
+  return withoutCode
+    .replace(/!?\[([^\]\n]*)\]\([^)\s]*\)/g, "$1")
+    .replace(/https?:\/\/[^\s)]+?(?=[.,;:!?]*(?:\s|$))/g, "the link on screen")
+    .replace(/^[ \t]{0,3}(?:#{1,6}|>|[-*+]|\d+[.)])[ \t]+/gm, "")
+    .replace(/\*\*([^*\n]+)\*\*/g, "$1")
+    .replace(/(^|[^\w])__([^_\n]+)__(?=[^\w]|$)/g, "$1$2")
+    .replace(/(^|[^\w*])\*([^*\s][^*\n]*?)\*(?=[^\w*]|$)/g, "$1$2")
+    .replace(/(^|[^\w])_([^_\s][^_\n]*?)_(?=[^\w]|$)/g, "$1$2")
+    .replace(/~~([^~\n]+)~~/g, "$1")
+    .replace(/\u0000(\d+)\u0000/g, (_match, index: string) => inlineCode[Number(index)] ?? "")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => (/[.!?:;]$/.test(line) ? line : `${line}.`))
+    .join(" ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -259,18 +280,19 @@ function sentencesWithin(text: string, maximumCharacters: number): string {
   if (text.length <= maximumCharacters) {
     return text;
   }
-  const sentences = text.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g) ?? [text];
+  const sentences = text.split(/(?<=[.!?])\s+/);
   let kept = "";
   for (const sentence of sentences) {
-    if (kept && (kept + sentence).length > maximumCharacters) {
+    const next = kept ? `${kept} ${sentence}` : sentence;
+    if (kept && next.length > maximumCharacters) {
       break;
     }
-    kept += sentence;
+    kept = next;
   }
-  if (!kept) {
-    kept = `${text.slice(0, maximumCharacters).replace(/\s+\S*$/, "")}…`;
+  if (kept.length > maximumCharacters) {
+    kept = `${kept.slice(0, maximumCharacters).replace(/\s+\S*$/, "")}…`;
   }
-  return `${kept.trim()} ${REST_ON_SCREEN}`;
+  return `${kept} ${REST_ON_SCREEN}`;
 }
 
 /** What the browser says aloud for a teammate's reply. */
@@ -280,5 +302,27 @@ export function spokenReply(botName: string, body: string): string {
 
 /** What the browser says aloud when a teammate's turn fails. */
 export function spokenFailure(botName: string, reason: string): string {
-  return `${botName} could not answer. ${reason}`;
+  return `${botName} could not answer. ${sentencesWithin(speakableText(reason), MAX_SPOKEN_REPLY_CHARACTERS)}`;
+}
+
+export type TurnEndOutcome =
+  | { kind: "completed"; body: string }
+  | { kind: "failed"; reason: string };
+
+/**
+ * What to say when a turn this browser was watching ends, or ``null`` when
+ * nothing should be said: listening is off, or the conversation is not open.
+ */
+export function turnEndAnnouncement(ending: {
+  listening: boolean;
+  conversationOpen: boolean;
+  botName: string;
+  outcome: TurnEndOutcome;
+}): string | null {
+  if (!ending.listening || !ending.conversationOpen) {
+    return null;
+  }
+  return ending.outcome.kind === "completed"
+    ? spokenReply(ending.botName, ending.outcome.body)
+    : spokenFailure(ending.botName, ending.outcome.reason);
 }

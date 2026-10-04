@@ -59,7 +59,7 @@ import {
   type TurnUiStatus,
 } from "../lib/workspace-state";
 import { isTurnGrantPanelVisible } from "../lib/turn-grant";
-import { routeVoiceLine, spokenFailure, spokenReply, voiceKeyterms } from "../lib/voice-control";
+import { routeVoiceLine, turnEndAnnouncement, voiceKeyterms } from "../lib/voice-control";
 import { failedTurnForConversation, isTurnSlow, type FailedTurn } from "../lib/assistant-ui-bridge";
 type EnabledWorkspaceProps = {
   activeOrg: ActiveOrg;
@@ -145,6 +145,9 @@ export function EnabledWorkspace({
   const selectionLoadRef = useRef(0);
   const sendingRef = useRef(false);
   const sendGenerationRef = useRef(0);
+  const voiceListeningRef = useRef(false);
+  const speakAloudRef = useRef<(text: string) => void>(() => undefined);
+  const botNameByIdRef = useRef<ReadonlyMap<string, string>>(new Map());
   const selectedItemIdRef = useRef<string | null>(null);
   const roster = useMemo(() => buildRoster(bots, channels), [bots, channels]);
   const botNameById = useMemo(
@@ -320,6 +323,38 @@ export function EnabledWorkspace({
                     setTurnStatus(null);
                     setTurnEvents([]);
                   }
+                  const botName = botNameByIdRef.current.get(activeTurn.bot_id) ?? "Your teammate";
+                  const reply =
+                    event.kind === "turn.completed"
+                      ? [...(result?.committed ?? [])]
+                          .reverse()
+                          .find(
+                            (message) =>
+                              message.author_kind === "bot" &&
+                              message.author_id === activeTurn.bot_id &&
+                              (activeTurn.prompt_message_seq == null ||
+                                message.seq > activeTurn.prompt_message_seq),
+                          )
+                      : undefined;
+                  const announcement =
+                    event.kind === "turn.failed"
+                      ? turnEndAnnouncement({
+                          listening: voiceListeningRef.current,
+                          conversationOpen: true,
+                          botName,
+                          outcome: { kind: "failed", reason: event.body ?? "The turn failed." },
+                        })
+                      : reply
+                        ? turnEndAnnouncement({
+                            listening: voiceListeningRef.current,
+                            conversationOpen: true,
+                            botName,
+                            outcome: { kind: "completed", body: reply.body },
+                          })
+                        : null;
+                  if (announcement) {
+                    speakAloudRef.current(announcement);
+                  }
                   if (event.kind === "turn.failed") {
                     if (activeTurn.prompt_message_seq != null) {
                       setLatestEndedTurn({
@@ -473,20 +508,20 @@ export function EnabledWorkspace({
   const stopSpeakingRef = useRef<() => void>(() => undefined);
 
   const handleVoiceLine = useCallback(
-    async (text: string): Promise<string> => {
+    async (text: string, line: { overlapsSpeech: boolean }): Promise<string> => {
       const route = routeVoiceLine(text, {
         bots,
         channels,
         selectedId: selectedItemId,
         busyChannelIds: turn && selectedChannelId ? [selectedChannelId] : [],
-        speaking: speakingRef.current,
+        overlapsSpeech: line.overlapsSpeech || speakingRef.current,
       });
       if (route.kind === "stopSpeaking") {
         stopSpeakingRef.current();
         return "Stopped speaking.";
       }
       if (route.kind === "discard") {
-        return speakingRef.current
+        return line.overlapsSpeech || speakingRef.current
           ? ""
           : `Heard "${text}". Not addressed to a teammate, so it stayed in this browser.`;
       }
@@ -584,38 +619,11 @@ export function EnabledWorkspace({
     speakingRef.current = voice.speaking;
   }, [voice.stop, voice.stopSpeaking, voice.speaking]);
 
-  const spokenMarkRef = useRef<{ channelId: string | null; seq: number; failedTurnId: string | null }>({
-    channelId: null,
-    seq: 0,
-    failedTurnId: null,
-  });
-  const { listening: voiceListening, speak: speakReplyAloud } = voice;
-
   useEffect(() => {
-    const latestSeq = selectedMessages.reduce((highest, message) => Math.max(highest, message.seq), 0);
-    const mark = spokenMarkRef.current;
-    const failedTurnId = failedTurn?.turnId ?? null;
-    if (!voiceListening || mark.channelId !== selectedChannelId) {
-      spokenMarkRef.current = { channelId: selectedChannelId, seq: latestSeq, failedTurnId };
-      return;
-    }
-    const newBotReplies = selectedMessages.filter(
-      (message) => message.seq > mark.seq && message.author_kind === "bot",
-    );
-    spokenMarkRef.current = {
-      channelId: selectedChannelId,
-      seq: Math.max(mark.seq, latestSeq),
-      failedTurnId,
-    };
-    const newest = newBotReplies[newBotReplies.length - 1];
-    if (newest) {
-      speakReplyAloud(spokenReply(botNameById.get(newest.author_id) ?? "Your teammate", newest.body));
-    } else if (failedTurn && failedTurnId !== mark.failedTurnId) {
-      speakReplyAloud(
-        spokenFailure(botNameById.get(failedTurn.botId) ?? "Your teammate", failedTurn.reason),
-      );
-    }
-  }, [botNameById, failedTurn, selectedChannelId, selectedMessages, speakReplyAloud, voiceListening]);
+    voiceListeningRef.current = voice.listening;
+    speakAloudRef.current = voice.speak;
+    botNameByIdRef.current = botNameById;
+  }, [botNameById, voice.listening, voice.speak]);
 
   async function handleCreate() {
     if (!createName.trim()) return;

@@ -19,7 +19,7 @@ def _run_voice_harness(context: object, action: str, **values: object) -> dict:
         "channels": context.voice_channels,
         "selectedId": getattr(context, "voice_selected_id", None),
         "busyChannelIds": getattr(context, "voice_busy_channel_ids", []),
-        "speaking": getattr(context, "voice_speaking", False),
+        "overlapsSpeech": getattr(context, "voice_speaking", False),
         "environment": getattr(
             context,
             "voice_environment",
@@ -76,6 +76,7 @@ def given_voice_teammates(context: object, first: str, second: str) -> None:
     context.voice_busy_channel_ids = []
     context.voice_speaking = False
     context.voice_listening = False
+    context.voice_conversation_open = True
 
 
 @given('the named channel "{name}" with "{first}" and "{second}" is open')
@@ -201,16 +202,31 @@ def given_reply_being_spoken(context: object) -> None:
     context.voice_speaking = True
 
 
-@when('"{name}" replies "{body}"')
-def when_teammate_replies(context: object, name: str, body: str) -> None:
-    context.voice_reply_body = body
+@given("a line began while a reply was being spoken")
+def given_line_began_during_speech(context: object) -> None:
+    context.voice_speaking = True
+
+
+@given('the conversation with "{name}" is not open')
+def given_conversation_not_open(context: object, name: str) -> None:
+    context.voice_conversation_open = False
+
+
+def _announce(context: object, name: str, **outcome: str) -> None:
     context.voice_spoken = _run_voice_harness(
         context,
-        "speakReply",
+        "announceTurnEnd",
         botName=name,
-        body=body,
         listening=context.voice_listening,
+        conversationOpen=context.voice_conversation_open,
+        **outcome,
     )["spoken"]
+
+
+@when('"{name}" replies "{body}"')
+def when_teammate_replies(context: object, name: str, body: str) -> None:
+    context.voice_reply_body = body.replace("\\n", "\n")
+    _announce(context, name, body=context.voice_reply_body)
 
 
 @when('"{name}" replies with a reply of {count:d} sentences')
@@ -220,24 +236,12 @@ def when_teammate_replies_long(context: object, name: str, count: int) -> None:
         for index in range(1, count + 1)
     )
     context.voice_reply_body = body
-    context.voice_spoken = _run_voice_harness(
-        context,
-        "speakReply",
-        botName=name,
-        body=body,
-        listening=context.voice_listening,
-    )["spoken"]
+    _announce(context, name, body=body)
 
 
 @when('the turn for "{name}" fails with reason "{reason}"')
 def when_turn_fails(context: object, name: str, reason: str) -> None:
-    context.voice_spoken = _run_voice_harness(
-        context,
-        "speakFailure",
-        botName=name,
-        reason=reason,
-        listening=context.voice_listening,
-    )["spoken"]
+    _announce(context, name, reason=reason)
 
 
 @then('the browser says "{text}"')

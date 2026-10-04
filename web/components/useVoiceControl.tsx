@@ -14,10 +14,16 @@ import {
 
 type VoicePhase = "idle" | "loading" | "listening" | "unavailable" | "error";
 
+const SPEECH_OVERLAP_MARGIN_MS = 500;
+
 export interface UseVoiceControlOptions {
   keyterms: string[];
-  /** Handles a completed line and returns a short note about what happened to it. */
-  onLine: (text: string) => Promise<string> | string;
+  /**
+   * Handles a completed line and returns a short note about what happened to
+   * it. ``overlapsSpeech`` is true when the line began while a reply was being
+   * spoken, or just after, so it may be the browser hearing itself.
+   */
+  onLine: (text: string, line: { overlapsSpeech: boolean }) => Promise<string> | string;
 }
 
 export interface VoiceControl {
@@ -36,6 +42,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
   const [partial, setPartial] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
+  const speechWindowRef = useRef<{ startedAt: number; endedAt: number | null } | null>(null);
   const sessionRef = useRef<VoiceSession | null>(null);
   const onLineRef = useRef(onLine);
   const keytermsRef = useRef(keyterms);
@@ -60,16 +67,41 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     await session?.stop();
   }, []);
 
-  const stopSpeaking = useCallback(() => {
-    stopSpeakingAloud();
+  const endSpeechWindow = useCallback(() => {
+    const speechWindow = speechWindowRef.current;
+    if (speechWindow && speechWindow.endedAt === null) {
+      speechWindow.endedAt = Date.now();
+    }
     setSpeaking(false);
   }, []);
 
-  const speak = useCallback((text: string) => {
-    speakAloud(text, {
-      onStart: () => setSpeaking(true),
-      onEnd: () => setSpeaking(false),
-    });
+  const stopSpeaking = useCallback(() => {
+    stopSpeakingAloud();
+    endSpeechWindow();
+  }, [endSpeechWindow]);
+
+  const speak = useCallback(
+    (text: string) => {
+      speechWindowRef.current = { startedAt: Date.now(), endedAt: null };
+      setSpeaking(true);
+      speakAloud(text, {
+        onStart: () => setSpeaking(true),
+        onEnd: endSpeechWindow,
+      });
+    },
+    [endSpeechWindow],
+  );
+
+  const lineOverlapsSpeech = useCallback((startedAtMs: number) => {
+    const speechWindow = speechWindowRef.current;
+    if (!speechWindow) {
+      return false;
+    }
+    const endedAt = speechWindow.endedAt ?? Number.POSITIVE_INFINITY;
+    return (
+      startedAtMs >= speechWindow.startedAt - SPEECH_OVERLAP_MARGIN_MS &&
+      startedAtMs <= endedAt + SPEECH_OVERLAP_MARGIN_MS
+    );
   }, []);
 
   const stop = useCallback(async () => {
@@ -78,7 +110,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     await closeSession();
   }, [closeSession, stopSpeaking]);
 
-  const handleLine = useCallback((text: string, generation: number) => {
+  const handleLine = useCallback((text: string, overlapsSpeech: boolean, generation: number) => {
     setPartial("");
     lineQueueRef.current = lineQueueRef.current.then(
       () =>
@@ -88,7 +120,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
               resolve();
               return;
             }
-            void Promise.resolve(onLineRef.current(text))
+            void Promise.resolve(onLineRef.current(text, { overlapsSpeech }))
               .then((lineNote) => {
                 if (lineNote) setNote(lineNote);
               })
@@ -129,8 +161,10 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
             setNote(error.message);
             void closeSession();
           },
-          onLine: (text) => {
-            if (generation === generationRef.current) handleLine(text, generation);
+          onLine: (text, startedAtMs) => {
+            if (generation === generationRef.current) {
+              handleLine(text, lineOverlapsSpeech(startedAtMs), generation);
+            }
           },
         },
         keytermsRef.current,
@@ -146,7 +180,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
       setPhase("error");
       setNote(error instanceof Error ? error.message : "Voice failed to start");
     }
-  }, [closeSession, handleLine]);
+  }, [closeSession, handleLine, lineOverlapsSpeech]);
 
   useEffect(
     () => () => {
