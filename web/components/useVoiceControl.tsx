@@ -5,15 +5,19 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 
 import { Button } from "./ui/button";
 import {
+  lineOverlapsSpeechWindow,
   phaseAfterSessionEvent,
   voiceAvailability,
   voiceButtonPresentation,
+  type SpeechWindow,
   type VoicePhase,
 } from "../lib/voice-control";
 import { startVoiceSession, type VoiceSession } from "../lib/voice-session";
-import { speak as speakAloud, stopSpeaking as stopSpeakingAloud } from "../lib/voice-speech";
-
-const SPEECH_OVERLAP_MARGIN_MS = 500;
+import {
+  speak as speakAloud,
+  speechDeadlineMs,
+  stopSpeaking as stopSpeakingAloud,
+} from "../lib/voice-speech";
 
 export interface UseVoiceControlOptions {
   keyterms: string[];
@@ -41,10 +45,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
   const [partial, setPartial] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
-  const speechWindowRef = useRef<{
-    startedAt: number;
-    endedAt: number | null;
-  } | null>(null);
+  const speechWindowRef = useRef<SpeechWindow | null>(null);
   const sessionRef = useRef<VoiceSession | null>(null);
   const onLineRef = useRef(onLine);
   const keytermsRef = useRef(keyterms);
@@ -75,7 +76,9 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
       speechWindow.endedAt = Date.now();
     }
     setSpeaking(false);
-    void sessionRef.current?.resumeCapture();
+    void sessionRef.current?.resumeCapture().then((woken) => {
+      if (woken) setNote("Microphone woke up after speech. Go ahead.");
+    });
   }, []);
 
   const stopSpeaking = useCallback(() => {
@@ -86,7 +89,12 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
   const speak = useCallback(
     (text: string) => {
       const previousWindow = speechWindowRef.current;
-      speechWindowRef.current = { startedAt: Date.now(), endedAt: null };
+      const startedAt = Date.now();
+      speechWindowRef.current = {
+        startedAt,
+        endedAt: null,
+        expectedEndedAt: startedAt + speechDeadlineMs(text),
+      };
       setSpeaking(true);
       const started = speakAloud(text, {
         onStart: () => setSpeaking(true),
@@ -102,17 +110,10 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     [endSpeechWindow],
   );
 
-  const lineOverlapsSpeech = useCallback((startedAtMs: number) => {
-    const speechWindow = speechWindowRef.current;
-    if (!speechWindow) {
-      return false;
-    }
-    const endedAt = speechWindow.endedAt ?? Number.POSITIVE_INFINITY;
-    return (
-      startedAtMs >= speechWindow.startedAt - SPEECH_OVERLAP_MARGIN_MS &&
-      startedAtMs <= endedAt + SPEECH_OVERLAP_MARGIN_MS
-    );
-  }, []);
+  const lineOverlapsSpeech = useCallback(
+    (startedAtMs: number) => lineOverlapsSpeechWindow(speechWindowRef.current, startedAtMs),
+    [],
+  );
 
   const stop = useCallback(async () => {
     setPhase((current) => (current === "listening" || current === "loading" ? "idle" : current));

@@ -225,7 +225,6 @@ def _announce(context: object, name: str, **outcome: str) -> None:
     context.voice_spoken = _run_voice_harness(
         context,
         "announceTurnEnd",
-        botName=name,
         listening=context.voice_listening,
         **outcome,
     )["spoken"]
@@ -266,7 +265,7 @@ def then_browser_says_nothing(context: object) -> None:
 def then_browser_says_first_sentences(context: object) -> None:
     spoken = context.voice_spoken
     assert spoken is not None
-    assert spoken.startswith("Ada says: Sentence number 1 "), spoken
+    assert spoken.startswith("Sentence number 1 "), spoken
     assert "Sentence number 12" not in spoken, spoken
 
 
@@ -295,7 +294,6 @@ def when_turn_ends_with_answer(context: object, name: str, answer: str) -> None:
     context.voice_spoken = _run_voice_harness(
         context,
         "announceEndedTurn",
-        botName=name,
         listening=context.voice_listening,
         turn={"bot_id": _bot_id(context, name), "prompt_message_seq": 1},
         committed=committed,
@@ -368,3 +366,52 @@ def when_microphone_lost(context: object, message: str) -> None:
 @then('the voice session is "{phase}"')
 def then_voice_session_phase(context: object, phase: str) -> None:
     assert context.voice_session_change["phase"] == phase, context.voice_session_change
+
+
+@given('"{name}" replied "{body}", which was spoken from 0 seconds to {end:d} seconds')
+def given_reply_spoken_and_ended(
+    context: object, name: str, body: str, end: int
+) -> None:
+    context.voice_spoken_text = body
+    context.voice_spoken_ended_ms = end * 1000
+
+
+@given('"{name}" replied "{body}", which was spoken but never reported finishing')
+def given_reply_spoken_never_finished(context: object, name: str, body: str) -> None:
+    context.voice_spoken_text = body
+    context.voice_spoken_ended_ms = None
+
+
+@when(
+    'the member speaks "{line}" for {duration:d} seconds, '
+    "finishing {completed:d} seconds in"
+)
+def when_member_speaks_after_reply(
+    context: object, line: str, duration: int, completed: int
+) -> None:
+    context.voice_outcome = _run_voice_harness(
+        context,
+        "hearAfterSpeech",
+        line=line,
+        spokenText=context.voice_spoken_text,
+        spokenAtMs=0,
+        spokenEndedAtMs=context.voice_spoken_ended_ms,
+        completedAtMs=completed * 1000,
+        durationSeconds=duration,
+        overlapsSpeech=False,
+    )
+
+
+@when("a line lasting {duration:d} seconds finishes {completed:d} seconds in")
+def when_line_finishes(context: object, duration: int, completed: int) -> None:
+    context.voice_line_start = _run_voice_harness(
+        context,
+        "lineStart",
+        completedAtMs=completed * 1000,
+        durationSeconds=duration,
+    )["startedAtMs"]
+
+
+@then("the line is placed {seconds:d} seconds in")
+def then_line_placed(context: object, seconds: int) -> None:
+    assert context.voice_line_start == seconds * 1000, context.voice_line_start

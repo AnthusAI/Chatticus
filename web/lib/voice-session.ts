@@ -1,5 +1,7 @@
 import type { MicTranscriber } from "@moonshine-ai/moonshine-wasm";
 
+import { lineStartedAtMs } from "./voice-control";
+
 /** Must match the exact `@moonshine-ai/moonshine-wasm` version in package.json. */
 export const MOONSHINE_VERSION = "0.1.5";
 
@@ -26,8 +28,11 @@ export interface VoiceSessionHandlers {
 export interface VoiceSession {
   setKeyterms: (keyterms: string[]) => void;
   stop: () => Promise<void>;
-  /** Wakes the audio engine if the system suspended or interrupted it, as iOS does around speech. */
-  resumeCapture: () => Promise<void>;
+  /**
+   * Wakes the audio engine if the system suspended or interrupted it, as iOS
+   * does around speech. Resolves true when it had to be woken.
+   */
+  resumeCapture: () => Promise<boolean>;
 }
 
 interface CaptureInternals {
@@ -93,7 +98,6 @@ export async function startVoiceSession(
   handlers: VoiceSessionHandlers,
   keyterms: string[],
 ): Promise<VoiceSession> {
-  let listeningStartedAt = Date.now();
   const microphone: MicTranscriber = await withPresentedCoreCount(VOICE_THREAD_COUNT, async () => {
     const { MicTranscriber, ModelArch } = await loadMoonshine();
     const loaded = new MicTranscriber()
@@ -101,7 +105,7 @@ export async function startVoiceSession(
       .modelArch(ModelArch.TinyStreaming)
       .onProgress((fraction) => handlers.onProgress(fraction))
       .onText((text) => handlers.onPartial(text))
-      .onLine((line) => handlers.onLine(line.text, listeningStartedAt + line.startTime * 1000))
+      .onLine((line) => handlers.onLine(line.text, lineStartedAtMs(Date.now(), line.duration)))
       .onError((error) => handlers.onRecognizerTrouble(error));
     await loaded.load();
     return loaded;
@@ -111,22 +115,25 @@ export async function startVoiceSession(
       microphone.setKeyterms(keyterms);
     }
     await microphone.start();
-    listeningStartedAt = Date.now();
   } catch (error) {
     await releaseCapture(microphone);
     throw error;
   }
   let stopped = false;
   const { mediaStream, audioContext } = captureInternals(microphone);
-  const resumeCapture = async () => {
-    if (
-      !stopped &&
-      audioContext &&
-      audioContext.state !== "running" &&
-      audioContext.state !== "closed"
-    ) {
-      await audioContext.resume().catch(() => undefined);
+  const resumeCapture = async (): Promise<boolean> => {
+    if (stopped) {
+      return false;
     }
+    if (mediaStream?.getAudioTracks().some((track) => track.readyState === "ended")) {
+      handlers.onMicrophoneLost("The microphone stopped. Start the voice conversation again.");
+      return false;
+    }
+    if (audioContext && audioContext.state !== "running" && audioContext.state !== "closed") {
+      await audioContext.resume().catch(() => undefined);
+      return true;
+    }
+    return false;
   };
   mediaStream?.getAudioTracks().forEach((track) => {
     track.addEventListener("ended", () => {

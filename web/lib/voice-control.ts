@@ -187,13 +187,13 @@ function sentencesWithin(text: string, maximumCharacters: number): string {
 }
 
 /** What the browser says aloud for a teammate's reply. */
-export function spokenReply(botName: string, body: string): string {
-  return `${botName} says: ${sentencesWithin(speakableText(body), MAX_SPOKEN_REPLY_CHARACTERS)}`;
+export function spokenReply(body: string): string {
+  return sentencesWithin(speakableText(body), MAX_SPOKEN_REPLY_CHARACTERS);
 }
 
 /** What the browser says aloud when a teammate's turn fails. */
-export function spokenFailure(botName: string, reason: string): string {
-  return `${botName} could not answer. ${sentencesWithin(speakableText(reason), MAX_SPOKEN_REPLY_CHARACTERS)}`;
+export function spokenFailure(reason: string): string {
+  return `That did not work. ${sentencesWithin(speakableText(reason), MAX_SPOKEN_REPLY_CHARACTERS)}`;
 }
 
 /** The bot's committed answer to a turn: its newest message after the prompt. */
@@ -222,15 +222,46 @@ export type TurnEndOutcome =
  */
 export function turnEndAnnouncement(ending: {
   listening: boolean;
-  botName: string;
   outcome: TurnEndOutcome;
 }): string | null {
   if (!ending.listening) {
     return null;
   }
   return ending.outcome.kind === "completed"
-    ? spokenReply(ending.botName, ending.outcome.body)
-    : spokenFailure(ending.botName, ending.outcome.reason);
+    ? spokenReply(ending.outcome.body)
+    : spokenFailure(ending.outcome.reason);
+}
+
+export const SPEECH_OVERLAP_MARGIN_MS = 500;
+
+/** When a spoken reply began and ended, and when it should have ended if the engine never says. */
+export interface SpeechWindow {
+  startedAt: number;
+  endedAt: number | null;
+  expectedEndedAt: number;
+}
+
+export function lineOverlapsSpeechWindow(
+  speechWindow: SpeechWindow | null,
+  lineStartedAtMs: number,
+): boolean {
+  if (!speechWindow) {
+    return false;
+  }
+  const endedAt = speechWindow.endedAt ?? speechWindow.expectedEndedAt;
+  return (
+    lineStartedAtMs >= speechWindow.startedAt - SPEECH_OVERLAP_MARGIN_MS &&
+    lineStartedAtMs <= endedAt + SPEECH_OVERLAP_MARGIN_MS
+  );
+}
+
+/**
+ * When a line began, by the wall clock. The recognizer's own timeline stops
+ * while the audio engine is suspended around speech, so it drifts behind the
+ * clock and would place later lines inside the reply that was being spoken.
+ */
+export function lineStartedAtMs(completedAtMs: number, durationSeconds: number): number {
+  return completedAtMs - durationSeconds * 1000;
 }
 
 export type VoicePhase = "idle" | "loading" | "listening" | "unavailable" | "error";

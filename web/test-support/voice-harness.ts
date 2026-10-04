@@ -1,4 +1,6 @@
 import {
+  lineOverlapsSpeechWindow,
+  lineStartedAtMs,
   phaseAfterSessionEvent,
   replyForEndedTurn,
   routeVoiceLine,
@@ -6,6 +8,7 @@ import {
   voiceAvailability,
   voiceButtonPresentation,
 } from "../lib/voice-control";
+import { speechDeadlineMs } from "../lib/voice-speech";
 import type { Bot, Channel } from "../lib/api";
 
 const input = JSON.parse(process.argv[2] ?? "{}") as {
@@ -15,12 +18,18 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
     | "sessionEvent"
     | "availability"
     | "announceTurnEnd"
-    | "announceEndedTurn";
+    | "announceEndedTurn"
+    | "hearAfterSpeech"
+    | "lineStart";
+  spokenText?: string;
+  spokenAtMs?: number;
+  spokenEndedAtMs?: number | null;
+  completedAtMs?: number;
+  durationSeconds?: number;
   turn?: { bot_id: string; prompt_message_seq: number | null };
   committed?: import("../lib/api").Message[];
   overlapsSpeech?: boolean;
   listening?: boolean;
-  botName?: string;
   body?: string;
   reason?: string;
   bots?: Bot[];
@@ -45,6 +54,25 @@ if (input.action === "hear") {
     busyChannelIds: input.busyChannelIds ?? [],
     overlapsSpeech: input.overlapsSpeech ?? false,
   });
+} else if (input.action === "hearAfterSpeech") {
+  const startedAtMs = lineStartedAtMs(input.completedAtMs ?? 0, input.durationSeconds ?? 0);
+  output = routeVoiceLine(input.line ?? "", {
+    bots: input.bots ?? [],
+    channels: input.channels ?? [],
+    selectedId: input.selectedId ?? null,
+    addressedBotId: input.addressedBotId ?? null,
+    busyChannelIds: input.busyChannelIds ?? [],
+    overlapsSpeech: lineOverlapsSpeechWindow(
+      {
+        startedAt: input.spokenAtMs ?? 0,
+        endedAt: input.spokenEndedAtMs ?? null,
+        expectedEndedAt: (input.spokenAtMs ?? 0) + speechDeadlineMs(input.spokenText ?? ""),
+      },
+      startedAtMs,
+    ),
+  });
+} else if (input.action === "lineStart") {
+  output = { startedAtMs: lineStartedAtMs(input.completedAtMs ?? 0, input.durationSeconds ?? 0) };
 } else if (input.action === "buttonPresentation") {
   output = voiceButtonPresentation(input.phase ?? "idle", input.speaking ?? false);
 } else if (input.action === "sessionEvent") {
@@ -56,7 +84,6 @@ if (input.action === "hear") {
   output = {
     spoken: turnEndAnnouncement({
       listening: input.listening ?? false,
-      botName: input.botName ?? "",
       outcome:
         input.reason !== undefined
           ? { kind: "failed", reason: input.reason }
@@ -72,8 +99,7 @@ if (input.action === "hear") {
     spoken: reply
       ? turnEndAnnouncement({
           listening: input.listening ?? false,
-          botName: input.botName ?? "",
-          outcome: { kind: "completed", body: reply.body },
+              outcome: { kind: "completed", body: reply.body },
         })
       : null,
   };
