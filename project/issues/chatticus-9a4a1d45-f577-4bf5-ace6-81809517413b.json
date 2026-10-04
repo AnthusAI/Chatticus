@@ -1,0 +1,33 @@
+{
+  "id": "chatticus-9a4a1d45-f577-4bf5-ace6-81809517413b",
+  "title": "Research Moonshine on-device voice stack for the web workspace",
+  "description": "Inventory Moonshine STT/VAD/intent/TTS components, browser support, licensing, and maturity. Map them onto the one-turn, scale-to-zero architecture and propose a design with costs. Deliverable: docs/VOICE.md research note.",
+  "type": "task",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-62823460-59ae-4691-909d-43d09f2ca853",
+  "labels": [],
+  "dependencies": [],
+  "comments": [
+    {
+      "id": "39b3f56e-fb63-4053-b547-e663348550a1",
+      "author": "home",
+      "text": "Research written to docs/VOICE.md (uncommitted in branch claude/moonshine-voice-support-221dff). Key findings: Moonshine Voice 0.1.5 ships @moonshine-ai/moonshine-wasm (MIT) with streaming STT + embedded Silero VAD + TTS + AgentFlow; English Tiny Streaming is ~45 MB. Needs COOP/COEP (SharedArrayBuffer). No wake word, no hosted API, Safari/iOS untested. Recommended design: always-on local STT, teammate name as wake word, deterministic local command grammar, only addressed lines become ordinary POST /messages turns, speechSynthesis for short spoken summaries. Four feasibility tests gate the build.",
+      "created_at": "2026-10-04T12:13:47.237336Z",
+      "comment_type": "default"
+    }
+  ],
+  "created_at": "2026-10-04T12:07:21.876981Z",
+  "updated_at": "2026-10-04T12:25:10.517927Z",
+  "closed_at": "2026-10-04T12:25:10.517890Z",
+  "agent": {
+    "platform": "claude_code",
+    "model": "Opus 5.5",
+    "name": "Claude"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
