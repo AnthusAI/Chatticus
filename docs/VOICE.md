@@ -216,7 +216,7 @@ HITL **channel**, presented in the web tab alongside the manual UI, and both
 render the same request.
 
 **What Tactus already provides.** References are to
-`/Users/home/Projects/Tactus/tactus` at the time of writing.
+the Tactus repository (`tactus/` package) at the time of writing.
 
 | Area | What exists |
 |---|---|
@@ -246,9 +246,12 @@ request the manual card shows.
    - `upload`, `multiple` and rich `custom` components: the presenter
      declares no voice support, so they stay on the card.
 3. **Answer.** The utterance is mapped to a value and validated against
-   `response_schema` in the browser. It is then posted as an ordinary
-   response with `channel_id="voice"` and the signed-in human as
-   `responder_id`.
+   `response_schema` in the browser. It is then posted through the same
+   endpoint the card uses, with `channel_id="voice"` and the signed-in human
+   as `responder_id`. There is one answer path, not two. When Tactus HITL is
+   wired into turns, `POST /approvals/{id}` ([Messaging](MESSAGING.md))
+   becomes the host-side delivery of a Tactus `ControlResponse` for any
+   request type, rather than a parallel approval system.
 4. **Race.** The manual card and the voice prompt are two presenters of one
    request. Whichever answers first wins. The other is cancelled: the card
    closes, or the voice prompt stops speaking and drops its grammar.
@@ -267,9 +270,18 @@ request carries an action contract for a consequential class (`send`,
     row, in the transcript, or in TTS output, so a bot cannot relay it.
   - **Rules:** single-use, it expires with the request (`expires_at`), and
     three wrong attempts void the request so it must be re-issued.
-- **The check.** The server rejects a voice response without the matching
-  code, and re-checks `preconditions` and `expires_at` itself, because
-  Tactus passes them through without enforcing them.
+- **The check does not depend on the channel.** The server requires the
+  matching code on **every** response to a consequential request, whether it
+  came from a click or from speech. The card submits the code it displays
+  along with the click. Voice requires the human to say it. Because the
+  check never reads `channel_id`, a response cannot skip it by claiming to
+  come from the card.
+- **What the server proves, and what only the client enforces.** The server
+  proves that the response came from a human session that could read the
+  code. That the human *looked at the card and said the code* is enforced
+  only by the client's voice grammar.
+- **Freshness.** The server re-checks `preconditions` and `expires_at`
+  itself, because Tactus passes them through without enforcing them.
 
 **What the code proves, and what it does not.**
 
@@ -291,7 +303,7 @@ request carries an action contract for a consequential class (`send`,
 
 - The control loop's capability filter checks only approval, input, review
   and escalation. A voice channel needs to be able to opt out of `select`,
-  `inputs` and `upload` by capability.
+  `input` and `upload` by capability.
 - The SSE channel leaves `responder_id` empty. It should be set.
 
 **Depends on.** The web app has no HITL or approval UI yet, and Chatticus has
@@ -310,21 +322,24 @@ changed". It does not read the whole message.
 - **Upgrade if needed:** Moonshine's Kokoro voice (about 110 MB, Apache-2.0)
   is an opt-in for a consistent voice across browsers.
 - **Half duplex:** STT ignores input while TTS speaks, and barge-in is off.
-  Moonshine itself defaults barge-in off because of echo. "Stop" still works
+  Moonshine itself defaults barge-in off because of echo. "Quiet" still works
   between sentences.
 
 ### 5. Server side changes
 
-Almost none. A voice message is a human message. Two small additions:
+A voice message is a human message, so the turn path does not change. Each
+of these is new server behavior and starts as Gherkin:
 
 - **Idempotency:** `postMessage` in `web/lib/api.ts` does not send an
   `Idempotency-Key`, although `createBot` and `createChannel` do. Voice posts
   need one, because a retried line must not become two turns.
 - **Origin tag:** an optional `input_modality: "voice"` on the message, so a
   bot can allow for transcription errors and write a speakable first sentence.
-
-That tag is the only cross-cutting change. It needs a Gherkin scenario before
-it lands.
+  It is metadata and never a policy input.
+- **Turn cancel:** a POST that cancels a running turn, so "stop" actually stops
+  the worker.
+- **Confirmation code:** issuing, reading and checking the code on
+  consequential HITL requests (section 3a).
 
 ### 6. Hosting changes
 
@@ -355,7 +370,8 @@ stack sets neither header, and no CSP.
 | Activity | Cloud cost |
 |---|---|
 | Microphone on, silence or unaddressed talk | $0 |
-| Local command ("switch to Ada", "repeat", "stop") | $0 |
+| Local command ("switch to Ada", "repeat", "quiet") | $0 |
+| "Stop" (turn cancel) | One POST, no model. Saves the rest of the turn |
 | Status command, or an answer to a HITL request | One Lambda invocation, no model |
 | Addressed instruction | One ordinary turn, the same as typing it |
 | One-time model download | About 58 MB of CloudFront egress per user per model version (Tiny plus WASM). About 155 MB with the Small opt-in |
@@ -402,8 +418,8 @@ Each step is a Kanbus story with Gherkin first.
    Nothing is sent automatically.
 3. **Continuous listening with addressing:** sends when a line is addressed
    to a named teammate, with a visible transcript and a listening indicator.
-4. **Local command grammar:** select, stop, repeat, send, scratch, stop
-   listening.
+4. **Local command grammar:** select, quiet, repeat, send, scratch, stop
+   listening. "Stop" (turn cancel) follows once the turn-cancel POST exists.
 5. **Spoken summaries** through `speechSynthesis`.
 6. **A voice presenter for Tactus HITL requests:** after the manual HITL
    card exists in the web app. Includes the confirmation code for
