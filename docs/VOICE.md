@@ -154,6 +154,12 @@ is only filler. Listening is off by default and stays visibly on while active;
 opt-in for accuracy (142 MB). Medium is too large to download in a tab.
 `setKeyterms` is fed the teammates' names.
 
+**Locked to one session.** A voice session talks to the bot of the currently
+open session. There is no per-utterance routing: never infer at speech time
+which bot a line is for. If the open session changes (for example when a bot
+hands the member to another session), voice follows it. See
+[Session namespace](SESSION_NAMESPACE.md).
+
 ### 2. Understand-the-user
 
 Speech-to-text gets words wrong. Before a spoken line becomes a message, the
