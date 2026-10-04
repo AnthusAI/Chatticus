@@ -44,3 +44,4 @@ project/events/
 project/.overlay/
 project/.cache/
 *.tsbuildinfo
+web/public/vendor/
