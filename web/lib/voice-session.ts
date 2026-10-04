@@ -73,10 +73,15 @@ export async function startVoiceSession(
     await loaded.load();
     return loaded;
   });
-  if (keyterms.length > 0) {
-    microphone.setKeyterms(keyterms);
+  try {
+    if (keyterms.length > 0) {
+      microphone.setKeyterms(keyterms);
+    }
+    await microphone.start();
+  } catch (error) {
+    microphone.close();
+    throw error;
   }
-  await microphone.start();
   return {
     setKeyterms: (nextKeyterms) => microphone.setKeyterms(nextKeyterms),
     stop: async () => {

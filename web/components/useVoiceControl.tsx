@@ -40,12 +40,37 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     sessionRef.current?.setKeyterms(keyterms);
   }, [keyterms]);
 
-  const stop = useCallback(async () => {
+  const generationRef = useRef(0);
+  const lineQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const closeSession = useCallback(async () => {
+    generationRef.current += 1;
     const session = sessionRef.current;
     sessionRef.current = null;
     setPartial("");
-    setPhase((current) => (current === "listening" || current === "loading" ? "idle" : current));
     await session?.stop();
+  }, []);
+
+  const stop = useCallback(async () => {
+    setPhase((current) => (current === "listening" || current === "loading" ? "idle" : current));
+    await closeSession();
+  }, [closeSession]);
+
+  const handleLine = useCallback((text: string) => {
+    setPartial("");
+    lineQueueRef.current = lineQueueRef.current.then(
+      () =>
+        new Promise<void>((resolve) => {
+          setTimeout(() => {
+            void Promise.resolve(onLineRef.current(text))
+              .then((lineNote) => setNote(lineNote))
+              .catch((error: unknown) =>
+                setNote(error instanceof Error ? error.message : "That line could not be handled."),
+              )
+              .finally(resolve);
+          }, 0);
+        }),
+    );
   }, []);
 
   const start = useCallback(async () => {
@@ -58,34 +83,49 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
       setNote(availability.reason);
       return;
     }
+    await closeSession();
+    const generation = generationRef.current;
     setPhase("loading");
     setNote(null);
     setDownloadFraction(0);
     try {
-      sessionRef.current = await startVoiceSession(
+      const session = await startVoiceSession(
         {
-          onPartial: (text) => setPartial(text),
+          onPartial: (text) => {
+            if (generation === generationRef.current) setPartial(text);
+          },
           onProgress: (fraction) => setDownloadFraction(fraction),
           onError: (error) => {
+            if (generation !== generationRef.current) return;
             setPhase("error");
             setNote(error.message);
+            void closeSession();
           },
           onLine: (text) => {
-            setPartial("");
-            void Promise.resolve(onLineRef.current(text)).then((lineNote) => setNote(lineNote));
+            if (generation === generationRef.current) handleLine(text);
           },
         },
         keytermsRef.current,
       );
+      if (generation !== generationRef.current) {
+        await session.stop();
+        return;
+      }
+      sessionRef.current = session;
       setPhase("listening");
     } catch (error) {
-      sessionRef.current = null;
+      if (generation !== generationRef.current) return;
       setPhase("error");
       setNote(error instanceof Error ? error.message : "Voice failed to start");
     }
-  }, []);
+  }, [closeSession, handleLine]);
 
-  useEffect(() => () => void sessionRef.current?.stop(), []);
+  useEffect(
+    () => () => {
+      void closeSession();
+    },
+    [closeSession],
+  );
 
   const listening = phase === "listening";
   const loading = phase === "loading";

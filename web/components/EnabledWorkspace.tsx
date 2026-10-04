@@ -138,6 +138,8 @@ export function EnabledWorkspace({
   const closeStreamRef = useRef<(() => void) | null>(null);
   const streamGenerationRef = useRef(0);
   const selectionLoadRef = useRef(0);
+  const sendingRef = useRef(false);
+  const selectedItemIdRef = useRef<string | null>(null);
   const roster = useMemo(() => buildRoster(bots, channels), [bots, channels]);
   const botNameById = useMemo(
     () => new Map(bots.map((bot) => [bot.bot_id, bot.name])),
@@ -363,6 +365,7 @@ export function EnabledWorkspace({
         }
       }
       setSelectedItemId(item.id);
+      selectedItemIdRef.current = item.id;
       setAddressedBotId(item.bots[0]?.bot_id ?? "");
       setRosterOpen(false);
       setTurn(null);
@@ -391,6 +394,7 @@ export function EnabledWorkspace({
 
   const postToChannel = useCallback(
     async (channelId: string, botId: string, body: string): Promise<boolean> => {
+      sendingRef.current = true;
       setSending(true);
       setStreamError(null);
       try {
@@ -414,6 +418,7 @@ export function EnabledWorkspace({
         setStreamError(caught instanceof Error ? caught.message : "Message failed to send");
         return false;
       } finally {
+        sendingRef.current = false;
         setSending(false);
       }
     },
@@ -457,24 +462,39 @@ export function EnabledWorkspace({
         if (botItem) await selectItem(botItem);
         return `Opened the conversation with ${botName}.`;
       }
-      if (sending) {
+      if (sendingRef.current) {
         return "Still sending the last message. Say it again in a moment.";
       }
       let channelId: string | null = null;
+      let targetItemId: string | null = null;
       if (route.destination.kind === "channel") {
         channelId = route.destination.channelId;
+        targetItemId = `channel:${channelId}`;
         setAddressedBotId(route.botId);
       } else if (botItem) {
+        targetItemId = botItem.id;
         channelId =
-          selectedItemId === botItem.id ? botItem.channel?.channel_id ?? null : (await selectItem(botItem))?.channel_id ?? null;
+          selectedItemIdRef.current === botItem.id
+            ? botItem.channel?.channel_id ?? null
+            : (await selectItem(botItem))?.channel_id ?? null;
       }
       if (!channelId) {
         return `Could not open the conversation with ${botName}.`;
       }
+      const activeTurn = await getActiveTurn(activeOrg, channelId).catch(() => null);
+      if (activeTurn) {
+        return `${botName} is still working. Say it again when ${botName} is done.`;
+      }
+      if (selectedItemIdRef.current !== targetItemId) {
+        return `You switched conversations, so that line was not sent to ${botName}.`;
+      }
+      if (sendingRef.current) {
+        return "Still sending the last message. Say it again in a moment.";
+      }
       const sent = await postToChannel(channelId, route.botId, route.body);
       return sent ? `Sent to ${botName}: "${route.body}"` : `Could not send to ${botName}.`;
     },
-    [bots, botNameById, channels, postToChannel, roster, selectItem, selectedChannelId, selectedItemId, sending, turn],
+    [activeOrg, bots, botNameById, channels, postToChannel, roster, selectItem, selectedChannelId, selectedItemId, turn],
   );
 
   const voice = useVoiceControl({ keyterms: voiceKeytermList, onLine: handleVoiceLine });

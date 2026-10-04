@@ -23,9 +23,6 @@ const nextConfig: NextConfig = {
     if (!isDev) {
       return [];
     }
-    // Local dev only: on-device voice (docs/VOICE.md) needs SharedArrayBuffer,
-    // which needs a cross-origin isolated page. Production sets the same
-    // headers at CloudFront, since a static export ignores headers().
     return [
       {
         source: "/:path*",

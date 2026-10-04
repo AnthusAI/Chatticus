@@ -29,6 +29,14 @@ Feature: Talking to teammates by voice
     When the member says "Add the tests to the branch."
     Then nothing leaves the browser
 
+  Scenario: A teammate's name used as an ordinary word is not an address
+    When the member says "Grace period ends on Friday."
+    Then nothing leaves the browser
+
+  Scenario: A word that only roughly sounds like a name is not an address
+    When the member says "Gross, I spilled my coffee."
+    Then nothing leaves the browser
+
   Scenario: Speech that is not addressed to a teammate never leaves the browser
     When the member says "I think we should get lunch after this meeting."
     Then nothing leaves the browser

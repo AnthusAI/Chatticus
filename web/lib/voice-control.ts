@@ -84,6 +84,28 @@ export function soundex(word: string): string {
   return `${key}000`.slice(0, 4);
 }
 
+/** Number of single-letter edits between two words. */
+export function editDistance(left: string, right: string): number {
+  let previousRow = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const currentRow = [leftIndex];
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      currentRow.push(
+        Math.min(
+          previousRow[rightIndex] + 1,
+          currentRow[rightIndex - 1] + 1,
+          previousRow[rightIndex - 1] + substitutionCost,
+        ),
+      );
+    }
+    previousRow = currentRow;
+  }
+  return previousRow[right.length];
+}
+
+const MAXIMUM_MISHEARD_NAME_EDITS = 2;
+
 /** Words to bias the speech-to-text decoder towards: the teammates' names. */
 export function voiceKeyterms(bots: Bot[]): string[] {
   return [...new Set(bots.map((bot) => bot.name.trim()).filter(Boolean))];
@@ -100,9 +122,14 @@ function findBotBySpokenName(
     return exact ?? null;
   }
   const key = soundex(normalizedName);
-  const soundsAlike = bots.filter(
-    (bot) => !normalizeSpokenText(bot.name).includes(" ") && soundex(bot.name) === key,
-  );
+  const soundsAlike = bots.filter((bot) => {
+    const botName = normalizeSpokenText(bot.name);
+    return (
+      !botName.includes(" ") &&
+      soundex(botName) === key &&
+      editDistance(botName, normalizedName) <= MAXIMUM_MISHEARD_NAME_EDITS
+    );
+  });
   return soundsAlike.length === 1 ? soundsAlike[0] : null;
 }
 
@@ -117,7 +144,7 @@ function addressedBot(
       continue;
     }
     const after = trimmed.slice(name.length);
-    if (after === "" || /^[\s,.:;!?]/.test(after)) {
+    if (after === "" || /^\s*[,.:;!?]/.test(after)) {
       return { bot, remainder: after };
     }
   }
@@ -159,10 +186,12 @@ function destinationFor(
 }
 
 /**
- * Decides what a completed line of speech does. Exact teammate names always
- * address; a name that only sounds like a teammate's counts when the
- * transcript punctuates it as an address ("Grays, run the tests"), so that
- * ordinary words ("Add the tests") are not mistaken for a name.
+ * Decides what a completed line of speech does. A teammate is addressed only
+ * when the line is just their name or the transcript punctuates the name as
+ * an address ("Ada, open a pull request"), so a name used as an ordinary word
+ * ("Grace period ends Friday") stays in the browser. A name that only sounds
+ * like a teammate's ("Grays, run the tests") counts when it is also within a
+ * couple of letters of it, so rough matches ("Gross, ...") do not.
  */
 export function routeVoiceLine(text: string, workspace: VoiceWorkspace): VoiceRoute {
   const normalized = normalizeSpokenText(text);
