@@ -318,6 +318,19 @@ conversation ends. It never reads history (`features/web_voice_control.feature`)
   - Any line that *began* while a reply was being spoken, or within half a
     second of it, is treated as possibly the browser hearing itself.
   - Only stop commands act on such a line. Nothing else is sent.
+- **Half-duplex on iOS while the device talks.** iOS suspends or interrupts
+  the capture audio engine when speech starts. Waking it takes the audio
+  session back for recording and cuts the speech off after a fraction of a
+  second, so capture is never resumed while a reply is being spoken. It is
+  woken when speech ends.
+  - Tradeoff: voice "stop" cannot barge in on iOS while speaking, because
+    capture is suspended. The on-screen button still stops speech.
+  - The speech watchdog also waits out a grace period before the first
+    utterance starts, because iOS briefly reports an idle engine right after
+    `speak()`.
+- **Why speech ended early.** Every path that ends speech names its reason
+  (button, voice command, newer speech, deadline, watchdog, engine error), and
+  an early end shows "Speech stopped: <reason>" in the composer status.
 
 ### 5. Server side changes
 

@@ -1,6 +1,6 @@
 import type { MicTranscriber } from "@moonshine-ai/moonshine-wasm";
 
-import { lineStartedAtMs } from "./voice-control";
+import { captureMayResume, lineStartedAtMs } from "./voice-control";
 
 /** Must match the exact `@moonshine-ai/moonshine-wasm` version in package.json. */
 export const MOONSHINE_VERSION = "0.1.5";
@@ -33,6 +33,8 @@ export interface VoiceSession {
    * does around speech. Resolves true when it had to be woken.
    */
   resumeCapture: () => Promise<boolean>;
+  /** While held, capture is never woken: the device is speaking and iOS suspends capture on purpose. */
+  holdCapture: (held: boolean) => void;
 }
 
 interface CaptureInternals {
@@ -120,6 +122,7 @@ export async function startVoiceSession(
     throw error;
   }
   let stopped = false;
+  let held = false;
   const { mediaStream, audioContext } = captureInternals(microphone);
   const resumeCapture = async (): Promise<boolean> => {
     if (stopped) {
@@ -129,7 +132,7 @@ export async function startVoiceSession(
       handlers.onMicrophoneLost("The microphone stopped. Start the voice conversation again.");
       return false;
     }
-    if (audioContext && audioContext.state !== "running" && audioContext.state !== "closed") {
+    if (audioContext && captureMayResume({ speaking: held, engineState: audioContext.state })) {
       await audioContext.resume().catch(() => undefined);
       return true;
     }
@@ -153,6 +156,9 @@ export async function startVoiceSession(
   return {
     setKeyterms: (nextKeyterms) => microphone.setKeyterms(nextKeyterms),
     resumeCapture,
+    holdCapture: (nextHeld) => {
+      held = nextHeld;
+    },
     stop: async () => {
       stopped = true;
       await releaseCapture(microphone);

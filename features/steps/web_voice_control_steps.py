@@ -415,3 +415,61 @@ def when_line_finishes(context: object, duration: int, completed: int) -> None:
 @then("the line is placed {seconds:d} seconds in")
 def then_line_placed(context: object, seconds: int) -> None:
     assert context.voice_line_start == seconds * 1000, context.voice_line_start
+
+
+@then("speaking does not stop")
+def then_speaking_does_not_stop(context: object) -> None:
+    assert context.voice_outcome["kind"] != "stopSpeaking", context.voice_outcome
+
+
+@when("the system suspends the capture audio engine")
+def when_capture_suspended(context: object) -> None:
+    context.voice_capture = _run_voice_harness(
+        context,
+        "captureResume",
+        speaking=getattr(context, "voice_speaking", False),
+        engineState="suspended",
+    )
+
+
+@then("capture is left suspended")
+def then_capture_left_suspended(context: object) -> None:
+    assert context.voice_capture["resumes"] is False, context.voice_capture
+
+
+@then("capture is woken")
+def then_capture_woken(context: object) -> None:
+    assert context.voice_capture["resumes"] is True, context.voice_capture
+
+
+@when(
+    "the speech engine reports {engine} {elapsed:d} milliseconds after speech was "
+    "queued and {progress}"
+)
+def when_engine_reports(
+    context: object, engine: str, elapsed: int, progress: str
+) -> None:
+    context.voice_watchdog = _run_voice_harness(
+        context,
+        "watchdog",
+        engineBusy=engine == "busy",
+        millisecondsSinceQueued=elapsed,
+        started=progress == "speech had started",
+    )
+
+
+@then("the watchdog leaves the speech running")
+def then_watchdog_leaves_running(context: object) -> None:
+    assert context.voice_watchdog["ends"] is False, context.voice_watchdog
+
+
+@then("the watchdog ends the speech")
+def then_watchdog_ends(context: object) -> None:
+    assert context.voice_watchdog["ends"] is True, context.voice_watchdog
+
+
+@when('speech ends because of "{reason}"')
+def when_speech_ends_because(context: object, reason: str) -> None:
+    context.voice_spoken = _run_voice_harness(context, "speechEndNote", reason=reason)[
+        "note"
+    ]
