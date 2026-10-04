@@ -2,48 +2,50 @@
   "engine": "chromium",
   "fixture": "speech",
   "threadPool": 2,
+  "keyterms": [],
   "architecture": "TinyStreaming",
-  "coep": "credentialless",
+  "coep": "require-corp",
   "loops": 1,
+  "outcome": "done",
   "crossOriginIsolated": true,
   "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
-  "loadSeconds": 5.287334999999962,
+  "loadSeconds": 3.923015000000596,
   "errors": [],
   "consoleErrors": [],
-  "browserProcessTreeCpuPercentOfOneCore": 11.6,
-  "peakBrowserProcessTreeRssMb": 1011,
-  "wallSeconds": 72.41097999999951,
-  "computeBusyPercentOfOneThread": 10.5,
-  "passCount": 136,
-  "passP50Ms": 12,
+  "browserProcessTreeCpuPercentOfOneCore": 12.9,
+  "peakBrowserProcessTreeRssMb": 1010,
+  "wallSeconds": 72.40822499999963,
+  "computeBusyPercentOfOneThread": 11.2,
+  "passCount": 137,
+  "passP50Ms": 15,
   "passP95Ms": 165,
-  "passMaxMs": 211,
-  "maximumTimerGapMs": 212,
+  "passMaxMs": 222,
+  "maximumTimerGapMs": 223,
   "lines": [
     {
       "heard": "Ada, open a pull request for the voice spike against develop.",
       "expected": "Ada, open a pull request for the voice spike against develop.",
-      "secondsAfterSpeechEnded": 0.5
+      "secondsAfterSpeechEnded": 0.49
     },
     {
       "heard": "Switch to grace.",
       "expected": "Switch to Grace.",
-      "secondsAfterSpeechEnded": 0.81
+      "secondsAfterSpeechEnded": 0.78
     },
     {
       "heard": "Grace, what is the status of the release branch?",
       "expected": "Grace, what is the status of the release branch?",
-      "secondsAfterSpeechEnded": 0.56
+      "secondsAfterSpeechEnded": 0.77
     },
     {
       "heard": "I think we should get lunch after this meeting.",
       "expected": "I think we should get lunch after this meeting.",
-      "secondsAfterSpeechEnded": 0.65
+      "secondsAfterSpeechEnded": 0.92
     },
     {
       "heard": "Repeat that.",
       "expected": "Repeat that.",
-      "secondsAfterSpeechEnded": 0.65
+      "secondsAfterSpeechEnded": 0.72
     },
     {
       "heard": "Ada, rename the branch to voice moon china and push it.",
@@ -56,29 +58,29 @@
       "secondsAfterSpeechEnded": 0.43
     },
     {
-      "heard": "Approve, blue seven.",
+      "heard": "Approve, 27.",
       "expected": "Approve, blue seven.",
-      "secondsAfterSpeechEnded": 0.76
+      "secondsAfterSpeechEnded": 0.75
     },
     {
       "heard": "Option 2",
       "expected": "Option two.",
-      "secondsAfterSpeechEnded": 0.72
+      "secondsAfterSpeechEnded": 0.67
     },
     {
       "heard": "Grace, run the behave suite and tell me which scenarios fail.",
       "expected": "Grace, run the behave suite and tell me which scenarios fail.",
-      "secondsAfterSpeechEnded": 0.87
+      "secondsAfterSpeechEnded": 0.62
     },
     {
       "heard": "Did you see the game last night?",
       "expected": "Did you see the game last night?",
-      "secondsAfterSpeechEnded": 0.58
+      "secondsAfterSpeechEnded": 0.8
     },
     {
       "heard": "Scratch that,",
       "expected": "Scratch that.",
-      "secondsAfterSpeechEnded": 0.47
+      "secondsAfterSpeechEnded": 0.85
     }
   ]
 }

@@ -30,8 +30,9 @@ spikes: a measurement that becomes a feature is a measurement nobody trusts.
 
 ## Voice: on-device listening in the browser
 
-The spike (`chatticus-a2000f`) ran tests 1, 2 and 4 from
-[Voice](VOICE.md#feasibility-tests) headless. The results are in
+The spike (`chatticus-a2000f`) ran tests 1 and 2 from
+[Voice](VOICE.md#feasibility-tests) headless, and test 4 only partially
+(12 synthetic utterances). The results are in
 [Voice](VOICE.md#spike-results). These parts are still open, each with the
 failure branch written in that document:
 
@@ -41,3 +42,5 @@ failure branch written in that document:
   blank page.
 - Cross-origin isolation (COOP `same-origin` plus COEP `require-corp`)
   against the Google and Cognito sign-in and the Vultus avatar.
+- Test 4 as specified: about 50 real recordings, false-addressing rates,
+  and phonetic name matching.

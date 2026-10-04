@@ -380,8 +380,8 @@ stack sets neither header, and no CSP.
 
 **Client side:** the cost is CPU, memory and battery. Measured in the
 browser (see [Spike results](#spike-results)): Tiny Streaming with a
-two-thread pool costs about 4% of one core in silence and 12% while someone
-is talking, on top of about 650 MB of memory.
+two-thread pool costs about 4% of one core in digital silence and 12% while
+someone is talking, on top of about 650 MB of memory.
 
 ## Feasibility tests
 
@@ -430,80 +430,106 @@ From `spikes/voice-moonshine-a2000f/` (Kanbus `chatticus-a2000f`), run on
 The live-microphone path itself (`MicTranscriber` and its AudioWorklet) was
 not exercised headless.
 
+Every figure below comes from a JSON file in `results/`. Run
+`python3 scripts/summarize.py` to recompute them.
+
+Files ending in `-kon` that have no `keyterms` field were produced before the
+key-terms switch existed. At that point key terms were always set.
+
 ### Test 1: browser cost of always-on listening
 
-Chromium figures are for the whole browser process tree. A blank page costs
-0.2% CPU and 353 MB.
+Chromium CPU and memory are for the whole browser process tree. A blank page
+costs 0.1% of a core and 353 MB. WebKit's content process is not a child of
+the runner, so its CPU and memory could not be measured.
 
-| Configuration | Silence, CPU | Speech, CPU | Peak memory (whole tree) | End of speech to completed line |
-|---|---|---|---|---|
-| Tiny, default pool (10 threads on this machine) | 16.5% of a core | 33% | about 1.0 GB | median 0.66 s, max 0.89 s |
-| Tiny, pool of 4 | 7.1% | 17.3% | about 1.0 GB | median 0.68 s, max 0.83 s |
-| **Tiny, pool of 2** | **4.2%** | **12%** | **about 1.0 GB** | **median 0.6 s, max 0.95 s** |
-| Small, pool of 2 | -- | 30% | about 1.6 GB | 0.67 to 1.29 s |
-| WebKit, Tiny, default pool | -- | main-thread compute 5.5% | about 190 MB (content process not measured) | median 0.63 s, max 0.81 s |
+"Main-thread time" is wall time spent inside `addAudio` and `transcribe()` on
+the page's main thread. It leaves out the worker threads, so it is **not**
+comparable with process-tree CPU.
+
+| Configuration | Silence, tree CPU | Speech, tree CPU | Speech, main-thread time | Peak tree memory | Completed line after speech ends |
+|---|---|---|---|---|---|
+| Tiny, default pool (10) | 16.2% of a core | 31.6% | 5.4% | about 1.0 GB | median 0.61 s, max 0.80 s |
+| Tiny, pool of 4 | 7.1% | 17.3% | 7.6% | about 1.0 GB | median 0.68 s, max 0.83 s |
+| **Tiny, pool of 2** | **4.2%** | **12.0%** | **10.3%** | **about 1.0 GB** | **median 0.59 s, max 0.95 s** |
+| Small, pool of 2 | -- | 30.3% | 29.4% | about 1.6 GB | median 0.93 s, max 1.29 s |
+| WebKit, Tiny, default pool (8) | not measured | not measured | 5.3% | not measured | median 0.66 s, max 0.85 s |
 
 **Sustained run, Tiny, pool of 2, 12 minutes (10 loops):**
 
 - All 120 lines completed.
-- CPU averaged 11.1% of a core.
-- Memory stayed flat at about 1.0 GB for the whole tree, with no growth.
+- Tree CPU averaged 11.1% of a core.
+- Memory stayed flat at about 1.0 GB, with no growth.
 - Latency held: median 0.66 s, 95th percentile 0.91 s, max 0.96 s.
 
 What follows:
 
 - **Thread pool.** Emscripten sizes the WASM thread pool to
   `navigator.hardwareConcurrency`, and ONNX Runtime's workers spin while
-  idle. On a 10-core machine that burns about a sixth of a core in silence.
-  - A pool of two cuts the cost by roughly 4x with no latency loss.
+  idle.
+  - On a 10-core machine the default pool burns about a sixth of a core in
+    silence.
+  - A pool of two costs about 3.9x less in silence (16.2% to 4.2%) and 2.6x
+    less during speech (31.6% to 12.0%), with no latency loss.
   - The package does not expose the pool size. The spike overrides
     `navigator.hardwareConcurrency` before the module loads.
-  - The product needs a supported setting. Raise this upstream with
-    Moonshine, or build the WASM ourselves with a fixed pool and spinning
-    disabled.
+  - The product needs a supported setting (`chatticus-070c91`).
+- **Silence is a lower bound.** The silence fixture is digital zeros. A real
+  microphone's noise floor, or a quiet room, may trigger the VAD more often.
 - **Memory.** About 650 MB above a blank page for Tiny, regardless of thread
   count. That is the main open risk for iOS.
 - **Latency.** Lines complete about 0.6 s after the speaker stops. 0.5 s of
   that is the VAD's averaging window, which is tunable
   (`vad_window_duration`).
-- **Not measured yet:**
+- **Not measured yet** (`chatticus-7605d6`):
   - background-tab throttling of a live microphone;
   - battery drain;
-  - a 60-minute run in a real browser on a real microphone.
-
-  These need a manual run of `page/index.html`.
+  - a 60-minute run on a real microphone.
 
 ### Test 2: Safari and iOS
 
 - **Desktop WebKit 26.6 works under COOP `same-origin` plus COEP
-  `require-corp`:** `crossOriginIsolated` is true, the model loads in 5.9 s,
+  `require-corp`:** `crossOriginIsolated` is true, the model loads in 3.6 s,
   and latency matches Chromium.
-- **COEP `credentialless` does not isolate WebKit,** and Moonshine's
-  `Transcriber.load` then hangs **silently** instead of throwing. So:
+- **COEP `credentialless`.** Chromium is isolated under it (median
+  0.74 s), but WebKit is not, and Moonshine's `Transcriber.load` then hangs
+  **silently** instead of throwing (`results/webkit-credentialless-probe.txt`).
+  So:
   - Safari needs `require-corp`.
   - The app must check `crossOriginIsolated` before it loads anything.
-- **iOS Safari on a device has not been tested.** The open question is
-  memory, not compatibility.
+- **iOS Safari on a device has not been tested** (`chatticus-eddc14`). The
+  open question is memory, not compatibility.
 
 ### Test 3: cross-origin isolation against sign-in
 
-Not run. It needs the development stack, not the spike.
+Not run. It needs the development stack (`chatticus-604bb6`).
 
-### Test 4: accuracy on our vocabulary
+### Test 4: accuracy on our vocabulary (partial)
 
+The test as specified (about 50 real recordings, false-addressing rates)
+has **not** been run. This is a first pass over 12 synthetic utterances.
 Synthetic speech is an upper bound; real rooms will do worse.
 
-| Model | Key terms | Result |
-|---|---|---|
-| Tiny | none | 10 of 12 right. "Approve, blue seven" was heard as "Approve, 27", and "voice moonshine" as "voice moon china" |
-| Tiny | set | 11 of 12 in the single run. "Moonshine" was still "Moon China" |
-| Tiny | set, 10 loops | The confirmation code was right in 8 of 10 loops. Twice "blue seven" became "27". "Moonshine" was right in 1 of 10 |
-| Small | set | 12 of 12 |
+Differences in case and punctuation are ignored.
 
-Every teammate name and every command was recognized in every run.
+| Model and key terms | Runs | Errors |
+|---|---|---|
+| Tiny, no key terms | 1 | "blue seven" heard as "27"; "Moonshine" heard as "moon china" |
+| Tiny, key terms | 5 single runs (Chromium pools 10 / 4 / 2, `credentialless`, WebKit) | "Moonshine" heard as "Moon China" every time; nothing else |
+| Tiny, key terms | 10-loop sustained run | Code "blue seven" heard as "27" 2 of 10; "Grace" heard as "grays" 2 of 10; "Moonshine" right 1 of 10 |
+| Small, key terms | 1 | None |
+
+In every Tiny run, "Option two" came back as "Option 2".
 
 Consequences for the design:
 
+- **Teammate names are not perfect even with key terms.** "Grace" was
+  misheard 2 times in 10, and names are the wake word.
+  - Match names phonetically (for example "grays" is close enough to
+    "Grace"), against the roster only.
+  - Choose teammate names that are hard to mishear, and warn when a new bot's
+    name sounds like an existing one.
+- **The grammar must accept digits as well as number words.** The model
+  writes numbers as digits ("Option 2").
 - **Confirmation codes are words, never digits.** The model normalizes
   spoken numbers ("blue seven" became "27"). Use two words drawn from a list
   chosen for unambiguous transcription, for example "maple falcon".
@@ -512,8 +538,8 @@ Consequences for the design:
 - **A misheard code is not an attack.** It asks the human to repeat. The
   attempt limit has to allow for transcription errors, and the card always
   remains clickable.
-- **Plan for fuzzy matching.** Terms the model does not know will need it,
-  or spelled input.
+- **Plan for fuzzy matching or spelled input** for terms the model does not
+  know, such as "Moonshine".
 
 ## Build order
 

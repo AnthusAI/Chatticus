@@ -58,6 +58,10 @@ VOICE_SPIKE_ENGINE=chromium VOICE_SPIKE_THREADS=2 node run.mjs
 | `VOICE_SPIKE_THREADS` | Overrides `navigator.hardwareConcurrency`, which sizes the WASM thread pool | the machine's core count |
 | `VOICE_SPIKE_COEP` | `require-corp`, `credentialless`, `none` | `require-corp` |
 | `VOICE_SPIKE_LOOPS` | Times to repeat the fixture | `1` |
+| `VOICE_SPIKE_KEYTERMS` | `on`, `off` | `on` |
+
+`python3 scripts/summarize.py` recomputes latency, CPU, memory and
+misrecognitions from every file in `results/`.
 
 The model files come from `download.moonshine.ai` and are cached by the
 browser.

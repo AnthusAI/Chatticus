@@ -8,12 +8,13 @@ const threadOverride = query.get("threads");
 if (threadOverride) {
   Object.defineProperty(Navigator.prototype, "hardwareConcurrency", { get: () => Number(threadOverride) });
 }
-const keyterms = ["Ada", "Grace", "develop", "behave", "Moonshine", "blue seven"];
+const keyterms = query.get("keyterms") === "off" ? [] : ["Ada", "Grace", "develop", "behave", "Moonshine", "blue seven"];
 const state = {
   crossOriginIsolated: self.crossOriginIsolated,
   userAgent: navigator.userAgent,
   architecture: architectureName,
   hardwareConcurrency: navigator.hardwareConcurrency,
+  keyterms,
   phase: "starting",
   errors: [],
 };
@@ -52,7 +53,7 @@ async function run() {
   const loadStarted = performance.now();
   const transcriber = await Transcriber.load({ language: "en", modelArch: ModelArch[architectureName] });
   state.loadSeconds = (performance.now() - loadStarted) / 1000;
-  transcriber.setKeyterms(keyterms);
+  if (keyterms.length > 0) transcriber.setKeyterms(keyterms);
   const stream = transcriber.createStream();
   const lines = [];
   const passDurations = [];

@@ -9,6 +9,7 @@ const loops = Number(process.env.VOICE_SPIKE_LOOPS ?? 1);
 const coep = process.env.VOICE_SPIKE_COEP ?? "require-corp";
 const fixtureMode = process.env.VOICE_SPIKE_FIXTURE ?? "speech";
 const threads = process.env.VOICE_SPIKE_THREADS ?? "";
+const keytermsMode = process.env.VOICE_SPIKE_KEYTERMS ?? "on";
 const port = 5200 + Math.floor(Math.random() * 500);
 
 function processTreeUsage(rootProcessId) {
@@ -49,7 +50,7 @@ const page = await browser.newPage();
 const consoleErrors = [];
 page.on("console", (message) => message.type() === "error" && consoleErrors.push(message.text()));
 page.on("pageerror", (error) => consoleErrors.push(String(error)));
-await page.goto(`http://localhost:${port}/page/feed.html?arch=${architecture}&loops=${loops}&fixture=${fixtureMode}&threads=${threads}`);
+await page.goto(`http://localhost:${port}/page/feed.html?arch=${architecture}&loops=${loops}&fixture=${fixtureMode}&threads=${threads}&keyterms=${keytermsMode}`);
 
 let state;
 let feedingBaseline;
@@ -77,6 +78,7 @@ const result = {
   engine: engineName,
   fixture: fixtureMode,
   threadPool: fullState.hardwareConcurrency,
+  keyterms: fullState.keyterms,
   architecture,
   coep,
   loops,
@@ -92,7 +94,7 @@ const result = {
   peakBrowserProcessTreeRssMb: Math.round(peakRssMb),
   ...fullState.result,
 };
-const resultPath = `results/${engineName}-${fixtureMode}-${architecture}-${coep}-x${loops}-t${fullState.hardwareConcurrency}.json`;
+const resultPath = `results/${engineName}-${fixtureMode}-${architecture}-${coep}-x${loops}-t${fullState.hardwareConcurrency}-k${keytermsMode}.json`;
 writeFileSync(resultPath, JSON.stringify(result, null, 2) + "\n");
 console.log(JSON.stringify({ ...result, lines: undefined }, null, 2));
 for (const line of result.lines ?? []) {
