@@ -1519,6 +1519,20 @@ def create_app(
             raise HTTPException(status_code=404, detail="turn not found")
         return _turn_payload(turn)
 
+    @user_router.get("/channels/{channel_id}/turns/latest")
+    def get_channel_latest_turn(
+        tenant_id: str,
+        channel_id: str,
+    ) -> dict[str, Any]:
+        try:
+            state.plane.channel(tenant_id, channel_id)
+        except ChannelNotFoundError as error:
+            raise HTTPException(status_code=404, detail="channel not found") from error
+        turn = state.plane.latest_turn_for_channel(tenant_id, channel_id)
+        if turn is None:
+            raise HTTPException(status_code=404, detail="turn not found")
+        return _turn_payload(turn)
+
     @user_router.post("/channels/{channel_id}/messages")
     def post_message(
         request: Request,
@@ -2145,6 +2159,8 @@ def _turn_payload(turn: Any) -> dict[str, Any]:
         "status": turn.status.value,
         "waiting_for": turn.waiting_for,
         "pending_computer_tool": pending,
+        "terminal_reason": turn.terminal_reason,
+        "prompt_message_seq": turn.prompt_message_seq,
     }
 
 

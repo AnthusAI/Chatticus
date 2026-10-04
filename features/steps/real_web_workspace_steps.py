@@ -338,3 +338,98 @@ def then_named_icon_controls(context: object) -> None:
 @then("keyboard focus remains visible")
 def then_visible_focus(context: object) -> None:
     assert context.workspace_result["focusRing"] is True
+
+
+def _human_message(seq: int, body: str) -> dict[str, object]:
+    return {
+        "message_id": f"message-{seq}",
+        "channel_id": "channel-direct",
+        "tenant_id": "tenant-1",
+        "seq": seq,
+        "author_kind": "human",
+        "author_id": "user-1",
+        "body": body,
+        "addressed_to_bot_id": "bot-1",
+        "created_at": "2026-09-09T20:00:00+00:00",
+    }
+
+
+@given(
+    "a real workspace conversation whose latest turn failed after the member said "
+    '"{body}" with reason "{reason}"'
+)
+def given_failed_latest_turn(context: object, body: str, reason: str) -> None:
+    context.workspace_bots = [_bot("Researcher", 1)]
+    context.workspace_channels = [_channel(None, ["bot-1"], "channel-direct")]
+    context.workspace_messages = [_human_message(1, body)]
+    context.workspace_latest_turn = {
+        "turn_id": "turn-1",
+        "tenant_id": "tenant-1",
+        "channel_id": "channel-direct",
+        "bot_id": "bot-1",
+        "status": "failed",
+        "waiting_for": None,
+        "terminal_reason": reason,
+        "prompt_message_seq": 1,
+    }
+    context.workspace_active_turn = None
+
+
+@given('the member has since said "{body}"')
+def given_member_said_more(context: object, body: str) -> None:
+    next_seq = len(context.workspace_messages) + 1
+    context.workspace_messages.append(_human_message(next_seq, body))
+
+
+@given("a real workspace turn has shown no progress for {seconds:d} seconds")
+def given_silent_active_turn(context: object, seconds: int) -> None:
+    context.workspace_bots = [_bot("Researcher", 1)]
+    context.workspace_channels = [_channel(None, ["bot-1"], "channel-direct")]
+    context.workspace_messages = [_human_message(1, "hello")]
+    context.workspace_latest_turn = None
+    context.workspace_active_turn = {
+        "turn_id": "turn-1",
+        "tenant_id": "tenant-1",
+        "channel_id": "channel-direct",
+        "bot_id": "bot-1",
+        "status": "active",
+        "waiting_for": None,
+        "silentSeconds": seconds,
+    }
+
+
+@when("the real workspace shows that conversation")
+def when_show_conversation(context: object) -> None:
+    context.workspace_result = _run(
+        context,
+        "thread",
+        messages=context.workspace_messages,
+        latestTurn=context.workspace_latest_turn,
+        activeTurn=context.workspace_active_turn,
+    )
+
+
+@then('the conversation ends with a failed reply from "{name}" saying "{reason}"')
+def then_failed_reply(context: object, name: str, reason: str) -> None:
+    last = context.workspace_result[-1]
+    assert last["role"] == "assistant", last
+    assert last["failed"] is True, last
+    assert last["authorBotName"] == name, last
+    assert last["text"] == reason, last
+
+
+@then('the failed reply offers to send "{body}" again')
+def then_failed_reply_retry(context: object, body: str) -> None:
+    assert context.workspace_result[-1]["retryBody"] == body
+
+
+@then("the conversation shows no failed reply")
+def then_no_failed_reply(context: object) -> None:
+    assert not any(item["failed"] for item in context.workspace_result)
+
+
+@then('the working reply says "{text}"')
+def then_working_reply(context: object, text: str) -> None:
+    last = context.workspace_result[-1]
+    assert last["role"] == "assistant", last
+    assert last["text"] == text, last

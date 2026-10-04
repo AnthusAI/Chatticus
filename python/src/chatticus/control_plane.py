@@ -3319,6 +3319,10 @@ class ControlPlane:
         """Return the active turn on a channel, if any."""
         return self._messaging_store.get_active_turn(tenant_id, channel_id)
 
+    def latest_turn_for_channel(self, tenant_id: str, channel_id: str) -> Turn | None:
+        """Return the most recently started turn on a channel, in any status."""
+        return self._messaging_store.get_latest_turn(tenant_id, channel_id)
+
     def turn_prompt(self, tenant_id: str, turn_id: str) -> str:
         """Build a text-only prompt from bot memory plus channel messages.
 

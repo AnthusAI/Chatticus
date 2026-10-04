@@ -1535,3 +1535,31 @@ def then_no_duplicate_output(context: object) -> None:
         if message["author_kind"] == ActorKind.BOT
     ]
     assert bot_bodies == ["ok"]
+
+
+@then(
+    'tenant "{tenant_id}" reads the latest turn on the open channel as failed '
+    'with reason "{reason}"'
+)
+def then_latest_turn_failed(context: object, tenant_id: str, reason: str) -> None:
+    channel = _channel(context)
+    response = context.api_client.get(
+        org_path(tenant_id, f"/channels/{channel.channel_id}/turns/latest"),
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["status"] == "failed", payload
+    assert payload["terminal_reason"] == reason, payload
+    context.latest_turn_payload = payload
+
+
+@then('the latest turn names the message "{body}" as its prompt')
+def then_latest_turn_names_prompt(context: object, body: str) -> None:
+    channel = _channel(context)
+    prompt_seq = context.latest_turn_payload["prompt_message_seq"]
+    messages = context.api_client.get(
+        org_path(channel.tenant_id, f"/channels/{channel.channel_id}/messages"),
+    ).json()
+    rows = messages["messages"] if isinstance(messages, dict) else messages
+    prompt = next(row for row in rows if row["seq"] == prompt_seq)
+    assert prompt["body"] == body, prompt

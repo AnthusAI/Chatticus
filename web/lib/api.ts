@@ -50,6 +50,8 @@ export type Turn = {
   bot_id: string;
   status: "active" | "completed" | "failed" | "reconciling";
   waiting_for: string | null;
+  terminal_reason?: string | null;
+  prompt_message_seq?: number | null;
 };
 
 export type Computer = {
@@ -170,6 +172,17 @@ export async function listMessages(org: ActiveOrg, channelId: string): Promise<M
 export async function getActiveTurn(org: ActiveOrg, channelId: string): Promise<Turn | null> {
   const response = await fetch(
     `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/turn`)}`,
+    { headers: await authorizedHeaders() },
+  );
+  if (response.status === 404) {
+    return null;
+  }
+  return readJson<Turn>(response);
+}
+
+export async function getLatestTurn(org: ActiveOrg, channelId: string): Promise<Turn | null> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/turns/latest`)}`,
     { headers: await authorizedHeaders() },
   );
   if (response.status === 404) {

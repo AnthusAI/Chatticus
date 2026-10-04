@@ -255,6 +255,17 @@ Feature: Channels and the message store
     And a recycled Front Door serves the same messaging store
     Then tenant "anthus" cannot read an active turn on the open channel
 
+  Scenario: A failed turn is still the channel's latest turn after a Front Door recycle
+    Given an empty control plane backed by a durable messaging store with HTTP
+    And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"
+    And the model provider answers every request with status 429 and error code "insufficient_quota"
+    When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Researcher" on the channel
+    And bot "Researcher" runs one computerless worker turn against that provider
+    And a recycled Front Door serves the same messaging store
+    Then tenant "anthus" cannot read an active turn on the open channel
+    And tenant "anthus" reads the latest turn on the open channel as failed with reason "The model provider refused the request: the account is out of credits or over its quota."
+    And the latest turn names the message "hello" as its prompt
+
   Scenario: A waiting turn can be read after a Front Door recycle
     Given an empty control plane backed by a durable messaging store with HTTP
     And tenant "anthus" user "ryan" has a channel with a named bot "Researcher"
