@@ -1,9 +1,9 @@
 {
   "id": "chatticus-6c4d2405-2c1d-4c56-b64e-e677ac58e569",
-  "title": "Spike: one Chatticus turn driven by the Pi SDK with sessions in DynamoDB",
-  "description": "Throwaway spike (spikes/pi-harness-6c4d24/) answering, with measurements:\n1. Can @earendil-works/pi-coding-agent's SDK run headless in a Node 22 Lambda outside any VPC (bundle size, cold start, no ~/.pi writes via SessionManager.inMemory + SettingsManager.inMemory + explicit model runtime)?\n2. DynamoDB session round-trip: load a bot-per-channel session from DynamoDB items (one item per Pi entry, verbatim), run one prompt on OpenAI gpt-5-nano, detect the appended entries (getEntries diff), write them back with a conditional put on the turn fence; reload and continue; export the items as a valid Pi .jsonl.\n3. Map Pi events onto the one-turn stream: which events, delta vs snapshot, size per turn.\n4. Inject another participant's message as a custom_message and confirm the model sees the attribution.\n5. Gate a tool via pi.on('tool_call') (block with a reason) and point bash at a remote executor via BashOperations.\n6. Entry sizes: largest realistic entries (tool output, images) versus the 400 KB item limit.\nResults go into docs/PI_HARNESS.md before any product code.",
+  "title": "Spike: pi-durable on a DynamoDB Storage backend, driven per turn",
+  "description": "Throwaway spike (spikes/pi-durable-6c4d24/). Prove, with measurements, before any product code:\n1. A DynamoDB implementation of pi-durable's Storage interface passes its storage conformance suite (registerStorageConformance), locally against DynamoDB Local.\n2. One storage per bot conversation; a short-lived owner (simulating the turn Lambda) opens it, submits a user message with a requestId, runs a turn on OpenAI gpt-5-nano, commits, closes; a second owner reopens and continues.\n3. Crash mid-turn (kill the owner during the model call and during a tool call); the next owner resumes unfinished tasks from checkpoints; idempotent requestId resubmission returns the original.\n4. watchEvents()/commit operations mapped onto the one-turn stream (event kinds, sizes).\n5. Another participant's message injected with attribution; a tool call gated (approval) and a tool executed remotely.\n6. Later, in AWS (needs the human's go-ahead): cold start and bundle size of the owner in a Node 22 Lambda outside any VPC.\nResults go into docs/PI_HARNESS.md.",
   "type": "story",
-  "status": "open",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,14 +12,14 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-10-04T18:35:41.955362Z",
-  "updated_at": "2026-10-04T18:57:59.960055Z",
+  "updated_at": "2026-10-04T19:03:39.467665Z",
   "closed_at": null,
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "The team is measuring whether Pi can run one DynamoDB-backed turn in a headless Lambda.",
-  "right_now_updated_at": "2026-10-04T18:58:01.977394Z",
+  "right_now_summary": "The team is measuring a DynamoDB-backed turn flow, including recovery, tools, and Lambda cold starts.",
+  "right_now_updated_at": "2026-10-04T19:03:41.683111Z",
   "custom": {}
 }

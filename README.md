@@ -70,11 +70,38 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-09-09.** Git **`develop`** is ahead of **`main`** (last
+**Last updated: 2026-10-04.** Git **`develop`** is ahead of **`main`** (last
 promote: #303). Principal enforcement (#7b4616), sign-out ending the SSO session
 (#169), and the behavior-driven spec migration are on `main` and deployed across
 all three named environments. Phase 1 org-computer work (#304, #306, #308) lands
 on `develop` first and promotes to `main` for release.
+
+The development environment is **[develop.chattic.us](https://develop.chattic.us)**
+in the `chatticus-development` account. `dev.chattic.us` is the stale legacy
+deployment; older proofs below that name it ran there.
+
+### Voice and turn failures on development (2026-10-04)
+
+On `develop` and deployed to development only; not on `main`.
+
+- **Voice control** (#385, chatticus-a8066a): the workspace listens on-device
+  with Moonshine; nothing leaves the tab until a line is addressed to a
+  teammate by name, and then it is an ordinary one-turn message. A small local
+  command grammar runs without a bot. COOP/COEP headers are on the development
+  distribution only (chatticus-604bb6). Design: [Voice](docs/VOICE.md).
+- **Spoken replies** (#389, chatticus-12096f): while listening, the open
+  conversation's reply is read aloud with browser `speechSynthesis`, cleaned
+  of markdown and capped. "Stop" silences it hands-free, and other speech is
+  ignored while it talks so the bot does not hear itself.
+- **Failure you can see** (#387, #388): a permanent model-provider error fails
+  the turn at once with a readable reason; the failed reply stays visible with
+  that reason and a Retry; `GET /channels/{id}/turns/latest` recovers it; a
+  slow turn shows a notice.
+- **Model**: the worker uses OpenAI `gpt-5-nano`.
+
+Still open on voice (epic chatticus-628234): a 60-minute live-mic and battery
+run, an iOS device test, and COOP/COEP against sign-in before staging and
+production get the headers.
 
 ### Implemented locally, not yet merged or deployed
 
@@ -101,7 +128,7 @@ Tasks, Computer, Settings, or Plugins destinations remain deferred.
 
 | Environment | ThinTurn API (enforcement) | Cognito Auth (sign-out) | Web bundle |
 | --- | --- | --- | --- |
-| development (`dev.chattic.us`) | Live — CloudFront → Lambda | Live — `logoutUrls` + `/auth/signout-callback` | Live — product `/chat` at `/` (CF enabled; marketing moved to `AnthusAI/Chattic.us-web`, chatticus-3926bc) |
+| development (`develop.chattic.us`) | Live — CloudFront → Lambda | Live — `logoutUrls` + `/auth/signout-callback` | Live — product `/chat` at `/` (CF enabled; marketing moved to `AnthusAI/Chattic.us-web`, chatticus-3926bc) |
 | staging (`staging.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
 | production (`hey.chattic.us`) | Live — Lambda URL | Live — `logoutUrls` + callback | Deployed — S3 bundle staged, **CF dark by design** |
 
@@ -125,7 +152,7 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   [Operator org seed](docs/OPERATOR_ORG_SEED.md).
 - **Customer cross-account template** (#308): `infra/customer-role.yml` is
   published at
-  `https://dev.chattic.us/provisioning/customer-role.yml` (SSM:
+  `https://develop.chattic.us/provisioning/customer-role.yml` (SSM:
   `/chatticus/development/provisioning/customer-role-template-url`). Runbook:
   [infra/README.md](infra/README.md). Staging and production hostnames stay
   CF-dark; do not treat their template URLs as a customer onboarding path yet.
@@ -225,13 +252,13 @@ workspace. Operator org records are DynamoDB data, not CDK; see
 | Host | Role | Notes |
 | --- | --- | --- |
 | [chattic.us](https://chattic.us) | Marketing (private `AnthusAI/Chattic.us-web` repo) | Updates, Agent Zoo, and the Markus wiki at `/wiki`; same-origin `/api` to this repo's thin-turn front door |
-| [dev.chattic.us](https://dev.chattic.us) | Development product + API | Same-origin `/api`; product `/chat` at `/` |
+| [develop.chattic.us](https://develop.chattic.us) | Development product + API | Same-origin `/api`; product `/chat` at `/` |
 | [hey.chattic.us](https://hey.chattic.us) | Production product (planned) | Web CloudFront **disabled** (stack exists, dark) |
 | [staging.chattic.us](https://staging.chattic.us) | Staging (planned) | Web CloudFront **disabled** |
 
 ### Live acceptance gate
 
-Live stack proof is manual: sign in at [dev.chattic.us](https://dev.chattic.us)
+Live stack proof is manual: sign in at [develop.chattic.us](https://develop.chattic.us)
 and send a message.
 
 Named deploy workflows (`deploy-thinturn-development.yml`,
@@ -444,7 +471,7 @@ ruff check src ../features tests
 The deployed thin turn is exercised against a **named cloud environment**
 (CloudFront on development only today), not against an in-process queue.
 GitHub CI (`behave`, `pytest`) uses in-memory stores and moto. Live stack
-proof is manual: sign in at [dev.chattic.us](https://dev.chattic.us) and
+proof is manual: sign in at [develop.chattic.us](https://develop.chattic.us) and
 send a message.
 
 Watch one live conversation as a human (tokens on stdout, committed reply
