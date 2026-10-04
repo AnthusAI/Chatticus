@@ -71,3 +71,40 @@ Feature: Talking to teammates by voice
     Given the browser offers no microphone
     When the member asks to start listening
     Then listening is unavailable because "This browser does not offer a microphone."
+
+  Scenario: A teammate's reply is spoken while listening is on
+    Given voice listening is on
+    When "Ada" replies "The pull request is open."
+    Then the browser says "Ada says: The pull request is open."
+
+  Scenario: Nothing is spoken while listening is off
+    Given voice listening is off
+    When "Ada" replies "The pull request is open."
+    Then the browser says nothing
+
+  Scenario: Formatting, links and code are not read aloud
+    Given voice listening is on
+    When "Ada" replies "**Done.** See https://github.com/AnthusAI/Chatticus/pull/388 and run `npm test`."
+    Then the browser says "Ada says: Done. See the link on screen and run npm test."
+
+  Scenario: A long reply is cut short with a pointer to the screen
+    Given voice listening is on
+    When "Ada" replies with a reply of 12 sentences
+    Then the browser says only the first sentences of the reply
+    And the browser ends with "The rest is on screen."
+
+  Scenario: A failed turn's reason is spoken
+    Given voice listening is on
+    When the turn for "Ada" fails with reason "The model provider rejected the API key."
+    Then the browser says "Ada could not answer. The model provider rejected the API key."
+
+  Scenario: Saying stop while a reply is being spoken stops speaking
+    Given a reply is being spoken
+    When the member says "Stop."
+    Then speaking stops
+    And no message is sent
+
+  Scenario: While a reply is being spoken, other speech is ignored
+    Given a reply is being spoken
+    When the member says "Ada, open a pull request for the voice spike."
+    Then nothing leaves the browser

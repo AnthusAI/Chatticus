@@ -19,6 +19,7 @@ def _run_voice_harness(context: object, action: str, **values: object) -> dict:
         "channels": context.voice_channels,
         "selectedId": getattr(context, "voice_selected_id", None),
         "busyChannelIds": getattr(context, "voice_busy_channel_ids", []),
+        "speaking": getattr(context, "voice_speaking", False),
         "environment": getattr(
             context,
             "voice_environment",
@@ -73,6 +74,8 @@ def given_voice_teammates(context: object, first: str, second: str) -> None:
     context.voice_channels = []
     context.voice_selected_id = None
     context.voice_busy_channel_ids = []
+    context.voice_speaking = False
+    context.voice_listening = False
 
 
 @given('the named channel "{name}" with "{first}" and "{second}" is open')
@@ -181,3 +184,85 @@ def then_unavailable(context: object, reason: str) -> None:
         "available": False,
         "reason": reason,
     }, context.voice_outcome
+
+
+@given("voice listening is on")
+def given_listening_on(context: object) -> None:
+    context.voice_listening = True
+
+
+@given("voice listening is off")
+def given_listening_off(context: object) -> None:
+    context.voice_listening = False
+
+
+@given("a reply is being spoken")
+def given_reply_being_spoken(context: object) -> None:
+    context.voice_speaking = True
+
+
+@when('"{name}" replies "{body}"')
+def when_teammate_replies(context: object, name: str, body: str) -> None:
+    context.voice_reply_body = body
+    context.voice_spoken = _run_voice_harness(
+        context,
+        "speakReply",
+        botName=name,
+        body=body,
+        listening=context.voice_listening,
+    )["spoken"]
+
+
+@when('"{name}" replies with a reply of {count:d} sentences')
+def when_teammate_replies_long(context: object, name: str, count: int) -> None:
+    body = " ".join(
+        f"Sentence number {index} explains one more detail of the work."
+        for index in range(1, count + 1)
+    )
+    context.voice_reply_body = body
+    context.voice_spoken = _run_voice_harness(
+        context,
+        "speakReply",
+        botName=name,
+        body=body,
+        listening=context.voice_listening,
+    )["spoken"]
+
+
+@when('the turn for "{name}" fails with reason "{reason}"')
+def when_turn_fails(context: object, name: str, reason: str) -> None:
+    context.voice_spoken = _run_voice_harness(
+        context,
+        "speakFailure",
+        botName=name,
+        reason=reason,
+        listening=context.voice_listening,
+    )["spoken"]
+
+
+@then('the browser says "{text}"')
+def then_browser_says(context: object, text: str) -> None:
+    assert context.voice_spoken == text, context.voice_spoken
+
+
+@then("the browser says nothing")
+def then_browser_says_nothing(context: object) -> None:
+    assert context.voice_spoken is None, context.voice_spoken
+
+
+@then("the browser says only the first sentences of the reply")
+def then_browser_says_first_sentences(context: object) -> None:
+    spoken = context.voice_spoken
+    assert spoken is not None
+    assert spoken.startswith("Ada says: Sentence number 1 "), spoken
+    assert "Sentence number 12" not in spoken, spoken
+
+
+@then('the browser ends with "{text}"')
+def then_browser_ends_with(context: object, text: str) -> None:
+    assert context.voice_spoken.endswith(text), context.voice_spoken
+
+
+@then("speaking stops")
+def then_speaking_stops(context: object) -> None:
+    assert context.voice_outcome == {"kind": "stopSpeaking"}, context.voice_outcome
