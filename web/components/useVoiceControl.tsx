@@ -82,12 +82,17 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
 
   const speak = useCallback(
     (text: string) => {
+      const previousWindow = speechWindowRef.current;
       speechWindowRef.current = { startedAt: Date.now(), endedAt: null };
       setSpeaking(true);
-      speakAloud(text, {
+      const started = speakAloud(text, {
         onStart: () => setSpeaking(true),
         onEnd: endSpeechWindow,
       });
+      if (!started) {
+        speechWindowRef.current = previousWindow;
+        setSpeaking(false);
+      }
     },
     [endSpeechWindow],
   );

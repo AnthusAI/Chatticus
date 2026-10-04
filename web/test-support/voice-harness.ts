@@ -1,11 +1,17 @@
-import { routeVoiceLine, turnEndAnnouncement, voiceAvailability } from "../lib/voice-control";
+import {
+  replyForEndedTurn,
+  routeVoiceLine,
+  turnEndAnnouncement,
+  voiceAvailability,
+} from "../lib/voice-control";
 import type { Bot, Channel } from "../lib/api";
 
 const input = JSON.parse(process.argv[2] ?? "{}") as {
-  action: "hear" | "availability" | "announceTurnEnd";
+  action: "hear" | "availability" | "announceTurnEnd" | "announceEndedTurn";
+  turn?: { bot_id: string; prompt_message_seq: number | null };
+  committed?: import("../lib/api").Message[];
   overlapsSpeech?: boolean;
   listening?: boolean;
-  conversationOpen?: boolean;
   botName?: string;
   body?: string;
   reason?: string;
@@ -30,13 +36,26 @@ if (input.action === "hear") {
   output = {
     spoken: turnEndAnnouncement({
       listening: input.listening ?? false,
-      conversationOpen: input.conversationOpen ?? true,
       botName: input.botName ?? "",
       outcome:
         input.reason !== undefined
           ? { kind: "failed", reason: input.reason }
           : { kind: "completed", body: input.body ?? "" },
     }),
+  };
+} else if (input.action === "announceEndedTurn") {
+  const reply = replyForEndedTurn(
+    input.turn ?? { bot_id: "", prompt_message_seq: null },
+    input.committed ?? [],
+  );
+  output = {
+    spoken: reply
+      ? turnEndAnnouncement({
+          listening: input.listening ?? false,
+          botName: input.botName ?? "",
+          outcome: { kind: "completed", body: reply.body },
+        })
+      : null,
   };
 } else {
   output = voiceAvailability(

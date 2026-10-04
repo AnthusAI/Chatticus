@@ -76,7 +76,6 @@ def given_voice_teammates(context: object, first: str, second: str) -> None:
     context.voice_busy_channel_ids = []
     context.voice_speaking = False
     context.voice_listening = False
-    context.voice_conversation_open = True
 
 
 @given('the named channel "{name}" with "{first}" and "{second}" is open')
@@ -207,9 +206,31 @@ def given_line_began_during_speech(context: object) -> None:
     context.voice_speaking = True
 
 
-@given('the conversation with "{name}" is not open')
-def given_conversation_not_open(context: object, name: str) -> None:
-    context.voice_conversation_open = False
+@given(
+    'the member asked "{name}" "{prompt}" in a channel where "{other}" '
+    'also answered "{other_answer}"'
+)
+def given_shared_channel_answers(
+    context: object, name: str, prompt: str, other: str, other_answer: str
+) -> None:
+    def message(seq: int, kind: str, author: str, body: str) -> dict[str, object]:
+        return {
+            "message_id": f"message-{seq}",
+            "channel_id": "channel-release",
+            "tenant_id": "tenant-1",
+            "seq": seq,
+            "author_kind": kind,
+            "author_id": author,
+            "body": body,
+            "addressed_to_bot_id": None,
+            "created_at": "2026-10-04T18:00:00+00:00",
+        }
+
+    context.voice_committed = [
+        message(1, "human", "user-1", prompt),
+        message(2, "bot", _bot_id(context, other), other_answer),
+    ]
+    context.voice_turn_bot = name
 
 
 def _announce(context: object, name: str, **outcome: str) -> None:
@@ -218,7 +239,6 @@ def _announce(context: object, name: str, **outcome: str) -> None:
         "announceTurnEnd",
         botName=name,
         listening=context.voice_listening,
-        conversationOpen=context.voice_conversation_open,
         **outcome,
     )["spoken"]
 
@@ -270,3 +290,25 @@ def then_browser_ends_with(context: object, text: str) -> None:
 @then("speaking stops")
 def then_speaking_stops(context: object) -> None:
     assert context.voice_outcome == {"kind": "stopSpeaking"}, context.voice_outcome
+
+
+@when('the turn for "{name}" ends with Ada\'s answer "{answer}"')
+def when_turn_ends_with_answer(context: object, name: str, answer: str) -> None:
+    committed = [
+        *context.voice_committed,
+        {
+            **context.voice_committed[-1],
+            "message_id": "message-3",
+            "seq": 3,
+            "author_id": _bot_id(context, name),
+            "body": answer,
+        },
+    ]
+    context.voice_spoken = _run_voice_harness(
+        context,
+        "announceEndedTurn",
+        botName=name,
+        listening=context.voice_listening,
+        turn={"bot_id": _bot_id(context, name), "prompt_message_seq": 1},
+        committed=committed,
+    )["spoken"]

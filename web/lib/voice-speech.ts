@@ -41,10 +41,10 @@ function clearWatchdog(): void {
   }
 }
 
-/** Speaks ``text``, replacing anything already being spoken. */
-export function speak(text: string, handlers: SpeechHandlers): void {
+/** Speaks ``text``, replacing anything already being spoken; false when nothing will be said. */
+export function speak(text: string, handlers: SpeechHandlers): boolean {
   if (!isSpeechAvailable() || !text.trim()) {
-    return;
+    return false;
   }
   const speech = (currentSpeech += 1);
   clearWatchdog();
@@ -70,7 +70,11 @@ export function speak(text: string, handlers: SpeechHandlers): void {
     if (index === sentences.length - 1) {
       utterance.onend = finish;
     }
-    utterance.onerror = finish;
+    utterance.onerror = () => {
+      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+        finish();
+      }
+    };
     window.speechSynthesis.speak(utterance);
   });
   watchdog = window.setInterval(() => {
@@ -78,6 +82,7 @@ export function speak(text: string, handlers: SpeechHandlers): void {
       finish();
     }
   }, WATCHDOG_INTERVAL_MS);
+  return true;
 }
 
 export function stopSpeaking(): void {

@@ -59,7 +59,12 @@ import {
   type TurnUiStatus,
 } from "../lib/workspace-state";
 import { isTurnGrantPanelVisible } from "../lib/turn-grant";
-import { routeVoiceLine, turnEndAnnouncement, voiceKeyterms } from "../lib/voice-control";
+import {
+  replyForEndedTurn,
+  routeVoiceLine,
+  turnEndAnnouncement,
+  voiceKeyterms,
+} from "../lib/voice-control";
 import { failedTurnForConversation, isTurnSlow, type FailedTurn } from "../lib/assistant-ui-bridge";
 type EnabledWorkspaceProps = {
   activeOrg: ActiveOrg;
@@ -326,29 +331,19 @@ export function EnabledWorkspace({
                   const botName = botNameByIdRef.current.get(activeTurn.bot_id) ?? "Your teammate";
                   const reply =
                     event.kind === "turn.completed"
-                      ? [...(result?.committed ?? [])]
-                          .reverse()
-                          .find(
-                            (message) =>
-                              message.author_kind === "bot" &&
-                              message.author_id === activeTurn.bot_id &&
-                              (activeTurn.prompt_message_seq == null ||
-                                message.seq > activeTurn.prompt_message_seq),
-                          )
-                      : undefined;
+                      ? replyForEndedTurn(activeTurn, result?.committed ?? [])
+                      : null;
                   const announcement =
                     event.kind === "turn.failed"
                       ? turnEndAnnouncement({
                           listening: voiceListeningRef.current,
-                          conversationOpen: true,
                           botName,
                           outcome: { kind: "failed", reason: event.body ?? "The turn failed." },
                         })
                       : reply
                         ? turnEndAnnouncement({
                             listening: voiceListeningRef.current,
-                            conversationOpen: true,
-                            botName,
+                              botName,
                             outcome: { kind: "completed", body: reply.body },
                           })
                         : null;

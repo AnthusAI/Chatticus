@@ -63,4 +63,3 @@ describe("editDistance", () => {
     assert.equal(editDistance("", "ada"), 3);
   });
 });
-

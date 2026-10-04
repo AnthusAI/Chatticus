@@ -82,11 +82,11 @@ Feature: Talking to teammates by voice
     When "Ada" replies "The pull request is open."
     Then the browser says nothing
 
-  Scenario: A reply in a conversation that is not open is not spoken
+  Scenario: The spoken reply is the teammate's own answer to that turn
     Given voice listening is on
-    And the conversation with "Ada" is not open
-    When "Ada" replies "The pull request is open."
-    Then the browser says nothing
+    And the member asked "Ada" "Status?" in a channel where "Grace" also answered "Nothing new."
+    When the turn for "Ada" ends with Ada's answer "All green."
+    Then the browser says "Ada says: All green."
 
   Scenario Outline: Formatting, links and code are spoken as plain words
     Given voice listening is on
@@ -100,6 +100,8 @@ Feature: Talking to teammates by voice
       | Run this:\n```bash\nnpm test\n```\nThen tell me.                                      | Ada says: Run this: the code on screen. Then tell me.            |
       | Renamed `my_test_file` to my_test_file_two.                                           | Ada says: Renamed my_test_file to my_test_file_two.              |
       | Version 1.2 is out.                                                                   | Ada says: Version 1.2 is out.                                    |
+      | Merged (see https://example.com/pr/2).                                                | Ada says: Merged (see the link on screen).                       |
+      | Here:\n```bash\nnpm test                                                              | Ada says: Here: the code on screen.                              |
 
   Scenario: A long reply is cut short with a pointer to the screen
     Given voice listening is on

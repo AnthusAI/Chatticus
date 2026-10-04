@@ -1,4 +1,4 @@
-import type { Bot, Channel } from "./api";
+import type { Bot, Channel, Message } from "./api";
 import { channelBotIds, directChannelForBot } from "./workspace-state";
 
 /** Where an addressed line goes: the open named channel, or the teammate's direct conversation. */
@@ -253,13 +253,14 @@ function speakableText(markdown: string): string {
   const withoutCode = markdown
     .slice(0, MAX_SPEAKABLE_INPUT_CHARACTERS)
     .replace(/```[\s\S]*?```/g, "\nthe code on screen.\n")
+    .replace(/```[\s\S]*$/, "\nthe code on screen.\n")
     .replace(/`([^`\n]*)`/g, (_match, code: string) => {
       inlineCode.push(code);
       return `\u0000${inlineCode.length - 1}\u0000`;
     });
   return withoutCode
     .replace(/!?\[([^\]\n]*)\]\([^)\s]*\)/g, "$1")
-    .replace(/https?:\/\/[^\s)]+?(?=[.,;:!?]*(?:\s|$))/g, "the link on screen")
+    .replace(/https?:\/\/[^\s)]+?(?=[.,;:!?)]*(?:\s|$))/g, "the link on screen")
     .replace(/^[ \t]{0,3}(?:#{1,6}|>|[-*+]|\d+[.)])[ \t]+/gm, "")
     .replace(/\*\*([^*\n]+)\*\*/g, "$1")
     .replace(/(^|[^\w])__([^_\n]+)__(?=[^\w]|$)/g, "$1$2")
@@ -305,21 +306,37 @@ export function spokenFailure(botName: string, reason: string): string {
   return `${botName} could not answer. ${sentencesWithin(speakableText(reason), MAX_SPOKEN_REPLY_CHARACTERS)}`;
 }
 
+/** The bot's committed answer to a turn: its newest message after the prompt. */
+export function replyForEndedTurn(
+  turn: { bot_id: string; prompt_message_seq?: number | null },
+  committed: Message[],
+): Message | null {
+  return (
+    [...committed]
+      .sort((left, right) => right.seq - left.seq)
+      .find(
+        (message) =>
+          message.author_kind === "bot" &&
+          message.author_id === turn.bot_id &&
+          (turn.prompt_message_seq == null || message.seq > turn.prompt_message_seq),
+      ) ?? null
+  );
+}
+
 export type TurnEndOutcome =
   | { kind: "completed"; body: string }
   | { kind: "failed"; reason: string };
 
 /**
- * What to say when a turn this browser was watching ends, or ``null`` when
- * nothing should be said: listening is off, or the conversation is not open.
+ * What to say when a turn this browser was watching in the open conversation
+ * ends, or ``null`` while listening is off.
  */
 export function turnEndAnnouncement(ending: {
   listening: boolean;
-  conversationOpen: boolean;
   botName: string;
   outcome: TurnEndOutcome;
 }): string | null {
-  if (!ending.listening || !ending.conversationOpen) {
+  if (!ending.listening) {
     return null;
   }
   return ending.outcome.kind === "completed"
