@@ -19,6 +19,7 @@ def _run_voice_harness(context: object, action: str, **values: object) -> dict:
         "channels": context.voice_channels,
         "selectedId": getattr(context, "voice_selected_id", None),
         "busyChannelIds": getattr(context, "voice_busy_channel_ids", []),
+        "overlapsSpeech": getattr(context, "voice_speaking", False),
         "environment": getattr(
             context,
             "voice_environment",
@@ -73,6 +74,8 @@ def given_voice_teammates(context: object, first: str, second: str) -> None:
     context.voice_channels = []
     context.voice_selected_id = None
     context.voice_busy_channel_ids = []
+    context.voice_speaking = False
+    context.voice_listening = False
 
 
 @given('the named channel "{name}" with "{first}" and "{second}" is open')
@@ -181,3 +184,131 @@ def then_unavailable(context: object, reason: str) -> None:
         "available": False,
         "reason": reason,
     }, context.voice_outcome
+
+
+@given("voice listening is on")
+def given_listening_on(context: object) -> None:
+    context.voice_listening = True
+
+
+@given("voice listening is off")
+def given_listening_off(context: object) -> None:
+    context.voice_listening = False
+
+
+@given("a reply is being spoken")
+def given_reply_being_spoken(context: object) -> None:
+    context.voice_speaking = True
+
+
+@given("a line began while a reply was being spoken")
+def given_line_began_during_speech(context: object) -> None:
+    context.voice_speaking = True
+
+
+@given(
+    'the member asked "{name}" "{prompt}" in a channel where "{other}" '
+    'also answered "{other_answer}"'
+)
+def given_shared_channel_answers(
+    context: object, name: str, prompt: str, other: str, other_answer: str
+) -> None:
+    def message(seq: int, kind: str, author: str, body: str) -> dict[str, object]:
+        return {
+            "message_id": f"message-{seq}",
+            "channel_id": "channel-release",
+            "tenant_id": "tenant-1",
+            "seq": seq,
+            "author_kind": kind,
+            "author_id": author,
+            "body": body,
+            "addressed_to_bot_id": None,
+            "created_at": "2026-10-04T18:00:00+00:00",
+        }
+
+    context.voice_committed = [
+        message(1, "human", "user-1", prompt),
+        message(2, "bot", _bot_id(context, other), other_answer),
+    ]
+    context.voice_turn_bot = name
+
+
+def _announce(context: object, name: str, **outcome: str) -> None:
+    context.voice_spoken = _run_voice_harness(
+        context,
+        "announceTurnEnd",
+        botName=name,
+        listening=context.voice_listening,
+        **outcome,
+    )["spoken"]
+
+
+@when('"{name}" replies "{body}"')
+def when_teammate_replies(context: object, name: str, body: str) -> None:
+    context.voice_reply_body = body.replace("\\n", "\n")
+    _announce(context, name, body=context.voice_reply_body)
+
+
+@when('"{name}" replies with a reply of {count:d} sentences')
+def when_teammate_replies_long(context: object, name: str, count: int) -> None:
+    body = " ".join(
+        f"Sentence number {index} explains one more detail of the work."
+        for index in range(1, count + 1)
+    )
+    context.voice_reply_body = body
+    _announce(context, name, body=body)
+
+
+@when('the turn for "{name}" fails with reason "{reason}"')
+def when_turn_fails(context: object, name: str, reason: str) -> None:
+    _announce(context, name, reason=reason)
+
+
+@then('the browser says "{text}"')
+def then_browser_says(context: object, text: str) -> None:
+    assert context.voice_spoken == text, context.voice_spoken
+
+
+@then("the browser says nothing")
+def then_browser_says_nothing(context: object) -> None:
+    assert context.voice_spoken is None, context.voice_spoken
+
+
+@then("the browser says only the first sentences of the reply")
+def then_browser_says_first_sentences(context: object) -> None:
+    spoken = context.voice_spoken
+    assert spoken is not None
+    assert spoken.startswith("Ada says: Sentence number 1 "), spoken
+    assert "Sentence number 12" not in spoken, spoken
+
+
+@then('the browser ends with "{text}"')
+def then_browser_ends_with(context: object, text: str) -> None:
+    assert context.voice_spoken.endswith(text), context.voice_spoken
+
+
+@then("speaking stops")
+def then_speaking_stops(context: object) -> None:
+    assert context.voice_outcome == {"kind": "stopSpeaking"}, context.voice_outcome
+
+
+@when('the turn for "{name}" ends with Ada\'s answer "{answer}"')
+def when_turn_ends_with_answer(context: object, name: str, answer: str) -> None:
+    committed = [
+        *context.voice_committed,
+        {
+            **context.voice_committed[-1],
+            "message_id": "message-3",
+            "seq": 3,
+            "author_id": _bot_id(context, name),
+            "body": answer,
+        },
+    ]
+    context.voice_spoken = _run_voice_harness(
+        context,
+        "announceEndedTurn",
+        botName=name,
+        listening=context.voice_listening,
+        turn={"bot_id": _bot_id(context, name), "prompt_message_seq": 1},
+        committed=committed,
+    )["spoken"]

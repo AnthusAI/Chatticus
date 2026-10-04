@@ -140,7 +140,7 @@ Do not declare worker-protocol work done if `behave` or `pytest` is failing.
 
 Those gates are in-process. They use in-memory stores and moto. They do
 not prove a CloudFront origin, SQS, or Lambda. To check the real stack,
-sign in at [dev.chattic.us](https://dev.chattic.us) and send a message.
+sign in at [develop.chattic.us](https://develop.chattic.us) and send a message.
 
 ## Computer and Lambda
 

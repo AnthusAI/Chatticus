@@ -3,7 +3,7 @@
   "title": "Show a failed turn in the conversation with its reason and a Retry",
   "description": "Web half of chatticus-a20667. Today turn.failed clears the bot bubble and shows the reason as small dismissable text under the composer; after a reload nothing is shown.\n\nFeature: A failed turn stays visible\n  Scenario: A failed turn keeps a bubble with the reason\n    Given a turn fails with reason \"The model provider refused the request: the account is out of credits or over its quota.\"\n    Then the conversation shows a failed reply with that reason\n    And the member can retry the message\n  Scenario: Retrying re-sends the original message as a new turn\n  Scenario: A failed turn is still shown after the page reloads\n  Scenario: A turn with no progress for a while says it is taking longer than expected\n\nNeeds an API to read the latest turn of a channel even when it is no longer active (GET /channels/{id}/turn 404s for non-active turns).",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -12,14 +12,14 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-10-04T17:38:18.027633Z",
-  "updated_at": "2026-10-04T17:57:04.441161Z",
-  "closed_at": null,
+  "updated_at": "2026-10-04T18:56:04.141582Z",
+  "closed_at": "2026-10-04T18:56:04.141502Z",
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "Failed turns now remain visible with their reason and a retry option, even after reloads.",
-  "right_now_updated_at": "2026-10-04T17:57:05.704428Z",
+  "right_now_summary": "The team is adding persistent failed-turn bubbles with reasons and a retry option.",
+  "right_now_updated_at": "2026-10-04T18:56:05.890579Z",
   "custom": {}
 }
