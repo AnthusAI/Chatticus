@@ -6,7 +6,12 @@ import type { Bot, Channel, Message } from "./api";
  * what the member meant to the teammate in the open conversation.
  */
 export type VoiceRoute =
-  | { kind: "send"; botId: string; channelId: string | null; transcript: string }
+  | {
+      kind: "send";
+      botId: string;
+      channelId: string | null;
+      transcript: string;
+    }
   | { kind: "stopListening" }
   | { kind: "stopSpeaking" }
   | { kind: "notice"; text: string }
@@ -51,10 +56,16 @@ const REST_ON_SCREEN = "The rest is on screen.";
 
 export function voiceAvailability(environment: VoiceEnvironment): VoiceAvailability {
   if (!environment.crossOriginIsolated) {
-    return { available: false, reason: "Voice needs this page to be cross-origin isolated." };
+    return {
+      available: false,
+      reason: "Voice needs this page to be cross-origin isolated.",
+    };
   }
   if (!environment.hasMicrophone) {
-    return { available: false, reason: "This browser does not offer a microphone." };
+    return {
+      available: false,
+      reason: "This browser does not offer a microphone.",
+    };
   }
   return { available: true };
 }
@@ -109,12 +120,18 @@ export function routeVoiceLine(text: string, workspace: VoiceWorkspace): VoiceRo
   }
   const botId = workspace.selectedId ? workspace.addressedBotId : null;
   if (!botId) {
-    return { kind: "notice", text: "Open a conversation to talk to a teammate." };
+    return {
+      kind: "notice",
+      text: "Open a conversation to talk to a teammate.",
+    };
   }
   const channelId = openChannelId(workspace, botId);
   if (channelId && workspace.busyChannelIds.includes(channelId)) {
     const name = workspace.bots.find((bot) => bot.bot_id === botId)?.name ?? "Your teammate";
-    return { kind: "notice", text: `${name} is still working. Say it again when ${name} is done.` };
+    return {
+      kind: "notice",
+      text: `${name} is still working. Say it again when ${name} is done.`,
+    };
   }
   return { kind: "send", botId, channelId, transcript: text.trim() };
 }
@@ -170,13 +187,13 @@ function sentencesWithin(text: string, maximumCharacters: number): string {
 }
 
 /** What the browser says aloud for a teammate's reply. */
-export function spokenReply(botName: string, body: string): string {
-  return `${botName} says: ${sentencesWithin(speakableText(body), MAX_SPOKEN_REPLY_CHARACTERS)}`;
+export function spokenReply(body: string): string {
+  return sentencesWithin(speakableText(body), MAX_SPOKEN_REPLY_CHARACTERS);
 }
 
 /** What the browser says aloud when a teammate's turn fails. */
-export function spokenFailure(botName: string, reason: string): string {
-  return `${botName} could not answer. ${sentencesWithin(speakableText(reason), MAX_SPOKEN_REPLY_CHARACTERS)}`;
+export function spokenFailure(reason: string): string {
+  return `That did not work. ${sentencesWithin(speakableText(reason), MAX_SPOKEN_REPLY_CHARACTERS)}`;
 }
 
 /** The bot's committed answer to a turn: its newest message after the prompt. */
@@ -197,8 +214,7 @@ export function replyForEndedTurn(
 }
 
 export type TurnEndOutcome =
-  | { kind: "completed"; body: string }
-  | { kind: "failed"; reason: string };
+  { kind: "completed"; body: string } | { kind: "failed"; reason: string };
 
 /**
  * What to say when a turn this browser was watching in the open conversation
@@ -206,13 +222,108 @@ export type TurnEndOutcome =
  */
 export function turnEndAnnouncement(ending: {
   listening: boolean;
-  botName: string;
   outcome: TurnEndOutcome;
 }): string | null {
   if (!ending.listening) {
     return null;
   }
   return ending.outcome.kind === "completed"
-    ? spokenReply(ending.botName, ending.outcome.body)
-    : spokenFailure(ending.botName, ending.outcome.reason);
+    ? spokenReply(ending.outcome.body)
+    : spokenFailure(ending.outcome.reason);
+}
+
+export const SPEECH_OVERLAP_MARGIN_MS = 500;
+
+/** When a spoken reply began and ended, and when it should have ended if the engine never says. */
+export interface SpeechWindow {
+  startedAt: number;
+  endedAt: number | null;
+  expectedEndedAt: number;
+}
+
+export function lineOverlapsSpeechWindow(
+  speechWindow: SpeechWindow | null,
+  lineStartedAtMs: number,
+): boolean {
+  if (!speechWindow) {
+    return false;
+  }
+  const endedAt = speechWindow.endedAt ?? speechWindow.expectedEndedAt;
+  return (
+    lineStartedAtMs >= speechWindow.startedAt - SPEECH_OVERLAP_MARGIN_MS &&
+    lineStartedAtMs <= endedAt + SPEECH_OVERLAP_MARGIN_MS
+  );
+}
+
+/**
+ * When a line began, by the wall clock. The recognizer's own timeline stops
+ * while the audio engine is suspended around speech, so it drifts behind the
+ * clock and would place later lines inside the reply that was being spoken.
+ */
+export function lineStartedAtMs(completedAtMs: number, durationSeconds: number): number {
+  return completedAtMs - durationSeconds * 1000;
+}
+
+export type VoicePhase = "idle" | "loading" | "listening" | "unavailable" | "error";
+
+export interface VoiceButtonPresentation {
+  icon: "AudioLines";
+  label: string;
+  look: "neutral" | "active" | "alert";
+  pressed: boolean;
+  disabled: boolean;
+  pulsing: boolean;
+}
+
+/** What the voice button looks like for a session phase; one icon, so state shows in look and label. */
+export function voiceButtonPresentation(
+  phase: VoicePhase,
+  speaking: boolean,
+): VoiceButtonPresentation {
+  if (phase === "listening") {
+    return {
+      icon: "AudioLines",
+      label: "End voice conversation",
+      look: "active",
+      pressed: true,
+      disabled: false,
+      pulsing: speaking,
+    };
+  }
+  if (phase === "loading") {
+    return {
+      icon: "AudioLines",
+      label: "Loading voice model",
+      look: "neutral",
+      pressed: false,
+      disabled: true,
+      pulsing: false,
+    };
+  }
+  return {
+    icon: "AudioLines",
+    label: "Start voice conversation",
+    look: phase === "idle" ? "neutral" : "alert",
+    pressed: false,
+    disabled: false,
+    pulsing: false,
+  };
+}
+
+/**
+ * Something the capture session reported. Only ``microphoneLost`` means audio
+ * is no longer being captured; recognizer trouble is per-pass and capture
+ * carries on.
+ */
+export type VoiceSessionEvent =
+  { kind: "recognizerTrouble"; message: string } | { kind: "microphoneLost"; message: string };
+
+export function phaseAfterSessionEvent(
+  phase: VoicePhase,
+  event: VoiceSessionEvent,
+): { phase: VoicePhase; note: string } {
+  if (event.kind === "microphoneLost") {
+    return { phase: "error", note: event.message };
+  }
+  return { phase, note: `Voice hiccup: ${event.message}` };
 }

@@ -157,6 +157,10 @@ def then_no_message(context: object) -> None:
 
 @then('the member is told "{notice}"')
 def then_member_told(context: object, notice: str) -> None:
+    change = getattr(context, "voice_session_change", None)
+    if change is not None:
+        assert change["note"] == notice, change
+        return
     outcome = context.voice_outcome
     assert outcome["kind"] == "notice", outcome
     assert outcome["text"] == notice, outcome
@@ -221,7 +225,6 @@ def _announce(context: object, name: str, **outcome: str) -> None:
     context.voice_spoken = _run_voice_harness(
         context,
         "announceTurnEnd",
-        botName=name,
         listening=context.voice_listening,
         **outcome,
     )["spoken"]
@@ -262,7 +265,7 @@ def then_browser_says_nothing(context: object) -> None:
 def then_browser_says_first_sentences(context: object) -> None:
     spoken = context.voice_spoken
     assert spoken is not None
-    assert spoken.startswith("Ada says: Sentence number 1 "), spoken
+    assert spoken.startswith("Sentence number 1 "), spoken
     assert "Sentence number 12" not in spoken, spoken
 
 
@@ -291,7 +294,6 @@ def when_turn_ends_with_answer(context: object, name: str, answer: str) -> None:
     context.voice_spoken = _run_voice_harness(
         context,
         "announceEndedTurn",
-        botName=name,
         listening=context.voice_listening,
         turn={"bot_id": _bot_id(context, name), "prompt_message_seq": 1},
         committed=committed,
@@ -304,3 +306,112 @@ def then_sent_for_understanding(context: object, text: str, name: str) -> None:
     assert outcome["kind"] == "send", outcome
     assert outcome["transcript"] == text, outcome
     assert outcome["botId"] == _bot_id(context, name), outcome
+
+
+@when('the voice session is "{phase}" and the browser is "{speech}"')
+def when_voice_session_and_speech(context: object, phase: str, speech: str) -> None:
+    context.voice_presentation = _run_voice_harness(
+        context, "buttonPresentation", phase=phase, speaking=speech == "speaking"
+    )
+
+
+@then('the voice button shows the "{icon}" icon labelled "{label}"')
+def then_voice_button_icon_label(context: object, icon: str, label: str) -> None:
+    presentation = context.voice_presentation
+    assert presentation["icon"] == icon, presentation
+    assert presentation["label"] == label, presentation
+
+
+@then('the voice button looks "{look}"')
+def then_voice_button_look(context: object, look: str) -> None:
+    assert context.voice_presentation["look"] == look, context.voice_presentation
+
+
+@then('the voice button is "{state}"')
+def then_voice_button_state(context: object, state: str) -> None:
+    presentation = context.voice_presentation
+    actual = (
+        "disabled"
+        if presentation["disabled"]
+        else "pressed" if presentation["pressed"] else "not pressed"
+    )
+    assert actual == state, presentation
+
+
+@given('the voice session is "{phase}"')
+def given_voice_session_phase(context: object, phase: str) -> None:
+    context.voice_session_phase = phase
+
+
+@when('the speech recognizer reports "{message}"')
+def when_recognizer_reports(context: object, message: str) -> None:
+    context.voice_session_change = _run_voice_harness(
+        context,
+        "sessionEvent",
+        phase=context.voice_session_phase,
+        event={"kind": "recognizerTrouble", "message": message},
+    )
+
+
+@when('the microphone is lost with the reason "{message}"')
+def when_microphone_lost(context: object, message: str) -> None:
+    context.voice_session_change = _run_voice_harness(
+        context,
+        "sessionEvent",
+        phase=context.voice_session_phase,
+        event={"kind": "microphoneLost", "message": message},
+    )
+
+
+@then('the voice session is "{phase}"')
+def then_voice_session_phase(context: object, phase: str) -> None:
+    assert context.voice_session_change["phase"] == phase, context.voice_session_change
+
+
+@given('"{name}" replied "{body}", which was spoken from 0 seconds to {end:d} seconds')
+def given_reply_spoken_and_ended(
+    context: object, name: str, body: str, end: int
+) -> None:
+    context.voice_spoken_text = body
+    context.voice_spoken_ended_ms = end * 1000
+
+
+@given('"{name}" replied "{body}", which was spoken but never reported finishing')
+def given_reply_spoken_never_finished(context: object, name: str, body: str) -> None:
+    context.voice_spoken_text = body
+    context.voice_spoken_ended_ms = None
+
+
+@when(
+    'the member speaks "{line}" for {duration:d} seconds, '
+    "finishing {completed:d} seconds in"
+)
+def when_member_speaks_after_reply(
+    context: object, line: str, duration: int, completed: int
+) -> None:
+    context.voice_outcome = _run_voice_harness(
+        context,
+        "hearAfterSpeech",
+        line=line,
+        spokenText=context.voice_spoken_text,
+        spokenAtMs=0,
+        spokenEndedAtMs=context.voice_spoken_ended_ms,
+        completedAtMs=completed * 1000,
+        durationSeconds=duration,
+        overlapsSpeech=False,
+    )
+
+
+@when("a line lasting {duration:d} seconds finishes {completed:d} seconds in")
+def when_line_finishes(context: object, duration: int, completed: int) -> None:
+    context.voice_line_start = _run_voice_harness(
+        context,
+        "lineStart",
+        completedAtMs=completed * 1000,
+        durationSeconds=duration,
+    )["startedAtMs"]
+
+
+@then("the line is placed {seconds:d} seconds in")
+def then_line_placed(context: object, seconds: int) -> None:
+    assert context.voice_line_start == seconds * 1000, context.voice_line_start

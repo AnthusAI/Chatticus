@@ -1,19 +1,23 @@
 "use client";
 
-import { Mic, MicOff } from "lucide-react";
+import { AudioLines } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "./ui/button";
-import { voiceAvailability } from "../lib/voice-control";
+import {
+  lineOverlapsSpeechWindow,
+  phaseAfterSessionEvent,
+  voiceAvailability,
+  voiceButtonPresentation,
+  type SpeechWindow,
+  type VoicePhase,
+} from "../lib/voice-control";
 import { startVoiceSession, type VoiceSession } from "../lib/voice-session";
 import {
   speak as speakAloud,
+  speechDeadlineMs,
   stopSpeaking as stopSpeakingAloud,
 } from "../lib/voice-speech";
-
-type VoicePhase = "idle" | "loading" | "listening" | "unavailable" | "error";
-
-const SPEECH_OVERLAP_MARGIN_MS = 500;
 
 export interface UseVoiceControlOptions {
   keyterms: string[];
@@ -41,7 +45,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
   const [partial, setPartial] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
-  const speechWindowRef = useRef<{ startedAt: number; endedAt: number | null } | null>(null);
+  const speechWindowRef = useRef<SpeechWindow | null>(null);
   const sessionRef = useRef<VoiceSession | null>(null);
   const onLineRef = useRef(onLine);
   const keytermsRef = useRef(keyterms);
@@ -72,6 +76,9 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
       speechWindow.endedAt = Date.now();
     }
     setSpeaking(false);
+    void sessionRef.current?.resumeCapture().then((woken) => {
+      if (woken) setNote("Microphone woke up after speech. Go ahead.");
+    });
   }, []);
 
   const stopSpeaking = useCallback(() => {
@@ -82,7 +89,12 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
   const speak = useCallback(
     (text: string) => {
       const previousWindow = speechWindowRef.current;
-      speechWindowRef.current = { startedAt: Date.now(), endedAt: null };
+      const startedAt = Date.now();
+      speechWindowRef.current = {
+        startedAt,
+        endedAt: null,
+        expectedEndedAt: startedAt + speechDeadlineMs(text),
+      };
       setSpeaking(true);
       const started = speakAloud(text, {
         onStart: () => setSpeaking(true),
@@ -98,17 +110,10 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     [endSpeechWindow],
   );
 
-  const lineOverlapsSpeech = useCallback((startedAtMs: number) => {
-    const speechWindow = speechWindowRef.current;
-    if (!speechWindow) {
-      return false;
-    }
-    const endedAt = speechWindow.endedAt ?? Number.POSITIVE_INFINITY;
-    return (
-      startedAtMs >= speechWindow.startedAt - SPEECH_OVERLAP_MARGIN_MS &&
-      startedAtMs <= endedAt + SPEECH_OVERLAP_MARGIN_MS
-    );
-  }, []);
+  const lineOverlapsSpeech = useCallback(
+    (startedAtMs: number) => lineOverlapsSpeechWindow(speechWindowRef.current, startedAtMs),
+    [],
+  );
 
   const stop = useCallback(async () => {
     setPhase((current) => (current === "listening" || current === "loading" ? "idle" : current));
@@ -161,10 +166,23 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
             if (generation === generationRef.current) setPartial(text);
           },
           onProgress: (fraction) => setDownloadFraction(fraction),
-          onError: (error) => {
+          onRecognizerTrouble: (error) => {
             if (generation !== generationRef.current) return;
-            setPhase("error");
-            setNote(error.message);
+            setNote(
+              phaseAfterSessionEvent("listening", {
+                kind: "recognizerTrouble",
+                message: error.message,
+              }).note,
+            );
+          },
+          onMicrophoneLost: (reason) => {
+            if (generation !== generationRef.current) return;
+            const change = phaseAfterSessionEvent("listening", {
+              kind: "microphoneLost",
+              message: reason,
+            });
+            setPhase(change.phase);
+            setNote(change.note);
             void closeSession();
           },
           onLine: (text, startedAtMs) => {
@@ -197,21 +215,32 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
 
   const listening = phase === "listening";
   const loading = phase === "loading";
+  const presentation = voiceButtonPresentation(phase, speaking);
+  const lookClassName = {
+    neutral: "",
+    active: "bg-cobalt text-white hover:bg-cobalt/90",
+    alert: "text-clay ring-2 ring-clay",
+  }[presentation.look];
   const composerAction = (
     <Button
       type="button"
       size="icon"
-      variant={listening ? "default" : "ghost"}
-      className="shrink-0 shadow-none"
-      aria-label={listening ? "Stop listening" : "Start listening"}
-      aria-pressed={listening}
-      disabled={loading}
+      variant="ghost"
+      className={`shrink-0 shadow-none ${lookClassName}`}
+      aria-label={presentation.label}
+      title={presentation.label}
+      aria-pressed={presentation.pressed}
+      disabled={presentation.disabled}
       onClick={() => {
         if (!listening) speak("Listening.");
         void (listening ? stop() : start());
       }}
     >
-      {listening ? <Mic size={17} aria-hidden="true" /> : <MicOff size={17} aria-hidden="true" />}
+      <AudioLines
+        size={17}
+        aria-hidden="true"
+        className={presentation.pulsing ? "animate-pulse" : undefined}
+      />
     </Button>
   );
 
@@ -222,9 +251,11 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
         ? `Loading voice model: ${Math.round(downloadFraction * 100)}%`
         : "Loading voice model...";
   } else if (listening && speaking) {
-    statusText = "Speaking. Say \"stop\" to interrupt.";
+    statusText = 'Speaking. Say "stop" to interrupt.';
   } else if (listening) {
-    statusText = partial ? `Hearing: ${partial}` : note ?? "Listening. Talk to your teammate.";
+    statusText = partial
+      ? `Hearing: ${partial}`
+      : (note ?? "Voice conversation on. Talk to your teammate.");
   } else if (note) {
     statusText = note;
   }
@@ -242,5 +273,13 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     </div>
   ) : null;
 
-  return { listening, speaking, speak, stopSpeaking, stop, composerAction, composerStatus };
+  return {
+    listening,
+    speaking,
+    speak,
+    stopSpeaking,
+    stop,
+    composerAction,
+    composerStatus,
+  };
 }

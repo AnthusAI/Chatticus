@@ -53,7 +53,12 @@ Feature: Talking to teammates by voice
   Scenario: A teammate's reply is spoken when their turn ends while listening
     Given voice listening is on
     When "Ada" replies "The pull request is open."
-    Then the browser says "Ada says: The pull request is open."
+    Then the browser says "The pull request is open."
+
+  Scenario: Only the reply is spoken, never the teammate's name
+    Given voice listening is on
+    When "Grace" replies "Nothing new."
+    Then the browser says "Nothing new."
 
   Scenario: Nothing is spoken while listening is off
     Given voice listening is off
@@ -64,7 +69,7 @@ Feature: Talking to teammates by voice
     Given voice listening is on
     And the member asked "Ada" "Status?" in a channel where "Grace" also answered "Nothing new."
     When the turn for "Ada" ends with Ada's answer "All green."
-    Then the browser says "Ada says: All green."
+    Then the browser says "All green."
 
   Scenario Outline: Formatting, links and code are spoken as plain words
     Given voice listening is on
@@ -73,13 +78,13 @@ Feature: Talking to teammates by voice
 
     Examples:
       | reply                                                                                 | spoken                                                           |
-      | **Done.** See https://github.com/AnthusAI/Chatticus/pull/388 and run `npm test`.      | Ada says: Done. See the link on screen and run npm test.         |
-      | - Opened [the pull request](https://example.com/pr/1).\n- Ran the tests.              | Ada says: Opened the pull request. Ran the tests.                |
-      | Run this:\n```bash\nnpm test\n```\nThen tell me.                                      | Ada says: Run this: the code on screen. Then tell me.            |
-      | Renamed `my_test_file` to my_test_file_two.                                           | Ada says: Renamed my_test_file to my_test_file_two.              |
-      | Version 1.2 is out.                                                                   | Ada says: Version 1.2 is out.                                    |
-      | Merged (see https://example.com/pr/2).                                                | Ada says: Merged (see the link on screen).                       |
-      | Here:\n```bash\nnpm test                                                              | Ada says: Here: the code on screen.                              |
+      | **Done.** See https://github.com/AnthusAI/Chatticus/pull/388 and run `npm test`.      | Done. See the link on screen and run npm test.         |
+      | - Opened [the pull request](https://example.com/pr/1).\n- Ran the tests.              | Opened the pull request. Ran the tests.                |
+      | Run this:\n```bash\nnpm test\n```\nThen tell me.                                      | Run this: the code on screen. Then tell me.            |
+      | Renamed `my_test_file` to my_test_file_two.                                           | Renamed my_test_file to my_test_file_two.              |
+      | Version 1.2 is out.                                                                   | Version 1.2 is out.                                    |
+      | Merged (see https://example.com/pr/2).                                                | Merged (see the link on screen).                       |
+      | Here:\n```bash\nnpm test                                                              | Here: the code on screen.                              |
 
   Scenario: A long reply is cut short with a pointer to the screen
     Given voice listening is on
@@ -90,7 +95,7 @@ Feature: Talking to teammates by voice
   Scenario: A failed turn's reason is spoken
     Given voice listening is on
     When the turn for "Ada" fails with reason "The model provider rejected the API key."
-    Then the browser says "Ada could not answer. The model provider rejected the API key."
+    Then the browser says "That did not work. The model provider rejected the API key."
 
   Scenario: Saying stop while a reply is being spoken stops speaking
     Given a reply is being spoken
@@ -107,3 +112,52 @@ Feature: Talking to teammates by voice
     Given a line began while a reply was being spoken
     When the member says "Grace, please review the release branch."
     Then nothing leaves the browser
+
+  Scenario: After a spoken reply ends, the next line goes to the same teammate
+    Given the direct conversation with "Ada" is open
+    And "Ada" replied "The pull request is open.", which was spoken from 0 seconds to 8 seconds
+    When the member speaks "now merge it" for 2 seconds, finishing 12 seconds in
+    Then "now merge it" is sent to "Ada" for understanding
+
+  Scenario: A reply whose end is never reported stops blocking the member after its expected length
+    Given the direct conversation with "Ada" is open
+    And "Ada" replied "The pull request is open.", which was spoken but never reported finishing
+    When the member speaks "now merge it" for 2 seconds, finishing 40 seconds in
+    Then "now merge it" is sent to "Ada" for understanding
+
+  Scenario: A reply whose end is never reported still guards against the browser hearing itself
+    Given the direct conversation with "Ada" is open
+    And "Ada" replied "The pull request is open.", which was spoken but never reported finishing
+    When the member speaks "the pull request is open" for 2 seconds, finishing 4 seconds in
+    Then nothing leaves the browser
+
+  Scenario: A line is placed in time by the clock, not by the recognizer's own timeline
+    When a line lasting 3 seconds finishes 20 seconds in
+    Then the line is placed 17 seconds in
+
+  Scenario Outline: The voice button always says what the session is doing
+    When the voice session is "<phase>" and the browser is "<speech>"
+    Then the voice button shows the "<icon>" icon labelled "<label>"
+    And the voice button looks "<look>"
+    And the voice button is "<pressed>"
+
+    Examples:
+      | phase       | speech      | icon       | label                    | look    | pressed     |
+      | idle        | quiet       | AudioLines | Start voice conversation | neutral | not pressed |
+      | loading     | quiet       | AudioLines | Loading voice model      | neutral | disabled    |
+      | listening   | quiet       | AudioLines | End voice conversation   | active  | pressed     |
+      | listening   | speaking    | AudioLines | End voice conversation   | active  | pressed     |
+      | error       | quiet       | AudioLines | Start voice conversation | alert   | not pressed |
+      | unavailable | quiet       | AudioLines | Start voice conversation | alert   | not pressed |
+
+  Scenario: A speech recognition hiccup does not end the voice conversation
+    Given the voice session is "listening"
+    When the speech recognizer reports "Decode failed on one pass."
+    Then the voice session is "listening"
+    And the member is told "Voice hiccup: Decode failed on one pass."
+
+  Scenario: Losing the microphone ends the voice conversation and says why
+    Given the voice session is "listening"
+    When the microphone is lost with the reason "The microphone was disconnected."
+    Then the voice session is "error"
+    And the member is told "The microphone was disconnected."

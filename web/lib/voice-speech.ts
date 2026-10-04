@@ -10,6 +10,14 @@
 const WATCHDOG_INTERVAL_MS = 500;
 const SPEAK_AFTER_CANCEL_MS = 80;
 
+const DEADLINE_BASE_MS = 4_000;
+const DEADLINE_PER_CHARACTER_MS = 120;
+
+/** The longest a spoken text is trusted to take; past it the engine is assumed to have gone quiet. */
+export function speechDeadlineMs(text: string): number {
+  return DEADLINE_BASE_MS + text.length * DEADLINE_PER_CHARACTER_MS;
+}
+
 export interface SpeechHandlers {
   onStart: () => void;
   onEnd: () => void;
@@ -18,6 +26,7 @@ export interface SpeechHandlers {
 
 let currentSpeech = 0;
 let watchdog: number | undefined;
+let deadline: number | undefined;
 
 export function isSpeechAvailable(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window;
@@ -27,6 +36,10 @@ function clearWatchdog(): void {
   if (watchdog !== undefined) {
     window.clearInterval(watchdog);
     watchdog = undefined;
+  }
+  if (deadline !== undefined) {
+    window.clearTimeout(deadline);
+    deadline = undefined;
   }
 }
 
@@ -81,6 +94,12 @@ export function speak(text: string, handlers: SpeechHandlers): boolean {
         finish();
       }
     }, WATCHDOG_INTERVAL_MS);
+    deadline = window.setTimeout(() => {
+      if (speech === currentSpeech) {
+        window.speechSynthesis.cancel();
+        finish();
+      }
+    }, speechDeadlineMs(text));
   };
   if (mustCancel) {
     window.setTimeout(queueSentences, SPEAK_AFTER_CANCEL_MS);

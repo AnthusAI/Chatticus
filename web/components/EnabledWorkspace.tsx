@@ -153,7 +153,6 @@ export function EnabledWorkspace({
   const sendGenerationRef = useRef(0);
   const voiceListeningRef = useRef(false);
   const speakAloudRef = useRef<(text: string) => void>(() => undefined);
-  const botNameByIdRef = useRef<ReadonlyMap<string, string>>(new Map());
   const selectedItemIdRef = useRef<string | null>(null);
   const roster = useMemo(() => buildRoster(bots, channels), [bots, channels]);
   const botNameById = useMemo(
@@ -329,7 +328,6 @@ export function EnabledWorkspace({
                     setTurnStatus(null);
                     setTurnEvents([]);
                   }
-                  const botName = botNameByIdRef.current.get(activeTurn.bot_id) ?? "Your teammate";
                   const reply =
                     event.kind === "turn.completed"
                       ? replyForEndedTurn(activeTurn, result?.committed ?? [])
@@ -338,13 +336,11 @@ export function EnabledWorkspace({
                     event.kind === "turn.failed"
                       ? turnEndAnnouncement({
                           listening: voiceListeningRef.current,
-                          botName,
                           outcome: { kind: "failed", reason: event.body ?? "The turn failed." },
                         })
                       : reply
                         ? turnEndAnnouncement({
                             listening: voiceListeningRef.current,
-                              botName,
                             outcome: { kind: "completed", body: reply.body },
                           })
                         : null;
@@ -534,7 +530,9 @@ export function EnabledWorkspace({
         return "Stopped speaking.";
       }
       if (route.kind === "discard") {
-        return "";
+        return text.trim() && (line.overlapsSpeech || speakingRef.current)
+          ? `Ignored while speaking: "${text.trim()}"`
+          : "";
       }
       if (route.kind === "notice") {
         return route.text;
@@ -627,8 +625,7 @@ export function EnabledWorkspace({
   useEffect(() => {
     voiceListeningRef.current = voice.listening;
     speakAloudRef.current = voice.speak;
-    botNameByIdRef.current = botNameById;
-  }, [botNameById, voice.listening, voice.speak]);
+  }, [voice.listening, voice.speak]);
 
   async function handleCreate() {
     if (!createName.trim()) return;
