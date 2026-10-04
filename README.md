@@ -152,7 +152,7 @@ workspace. Operator org records are DynamoDB data, not CDK; see
   [Operator org seed](docs/OPERATOR_ORG_SEED.md).
 - **Customer cross-account template** (#308): `infra/customer-role.yml` is
   published at
-  `https://dev.chattic.us/provisioning/customer-role.yml` (SSM:
+  `https://develop.chattic.us/provisioning/customer-role.yml` (SSM:
   `/chatticus/development/provisioning/customer-role-template-url`). Runbook:
   [infra/README.md](infra/README.md). Staging and production hostnames stay
   CF-dark; do not treat their template URLs as a customer onboarding path yet.
