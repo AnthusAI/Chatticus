@@ -1,8 +1,6 @@
-{"phase":"started","owner":"stale","taskId":12,"command":"make test","at":1791143209160}
-{"phase":"finished","owner":"stale","taskId":12,"command":"make test","at":1791143213163}
-{"phase":"started","owner":"next","taskId":12,"command":"make test","at":1791143227416}
-{"phase":"finished","owner":"next","taskId":12,"command":"make test","at":1791143227618}
-{"phase":"started","owner":"next","taskId":16,"command":"make test","at":1791143229676}
-{"phase":"finished","owner":"next","taskId":16,"command":"make test","at":1791143229878}
-{"phase":"started","owner":"next","taskId":20,"command":"make lint","at":1791143231699}
-{"phase":"finished","owner":"next","taskId":20,"command":"make lint","at":1791143231902}
+{"phase":"started","owner":"stale","taskId":12,"command":"make test","at":1791144232300}
+{"phase":"finished","owner":"stale","taskId":12,"command":"make test","at":1791144236302}
+{"phase":"started","owner":"next","taskId":12,"command":"make test","at":1791144250499}
+{"phase":"finished","owner":"next","taskId":12,"command":"make test","at":1791144250701}
+{"phase":"started","owner":"next","taskId":16,"command":"make lint","at":1791144252485}
+{"phase":"finished","owner":"next","taskId":16,"command":"make lint","at":1791144252687}

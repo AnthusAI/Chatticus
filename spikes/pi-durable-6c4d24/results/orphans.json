@@ -1,5 +1,5 @@
 {
-  "storageId": "orphans#8e222550",
+  "storageId": "orphans#ae2c30c0",
   "rejectedTransaction": {
     "outcome": "StorageRejected: ID 1 already belongs to conversation",
     "objectLeftAtKey": false
@@ -13,5 +13,29 @@
   },
   "nextOwnerSeesEntries": [
     "note"
-  ]
+  ],
+  "sweeper": {
+    "rule": "read META and OWNER first; delete an unreferenced object only when META.seq >= seq or OWNER.fence > fence",
+    "metaSeq": 3,
+    "ownerFence": 2,
+    "decisions": {
+      "000000000002-00000001.json": "deleted: META.seq 3 >= seq 2",
+      "000000000009-00000001.json": "deleted: OWNER.fence 2 > fence 1",
+      "000000000009-00000002.json": "kept: seq 9 > META.seq 3 and fence 2 is still the owner fence"
+    },
+    "objectsRemaining": [
+      {
+        "key": "conversations/orphans-sweep%23407e73c6/commits/000000000002-00000001.json",
+        "exists": false
+      },
+      {
+        "key": "conversations/orphans-sweep%23407e73c6/commits/000000000009-00000001.json",
+        "exists": false
+      },
+      {
+        "key": "conversations/orphans-sweep%23407e73c6/commits/000000000009-00000002.json",
+        "exists": true
+      }
+    ]
+  }
 }

@@ -46,7 +46,9 @@ import {
 import {
 	addressKey,
 	backoff,
+	CommitOutcomeUnknown,
 	type CommitMeasurement,
+	type CommitState,
 	cursorAfter,
 	digest,
 	encode,
@@ -249,7 +251,7 @@ export class IndexedStorage implements Storage {
 			}
 			const object: CommitObject = { seq, fence, token, writes: resolved };
 			const body = encode(object);
-			await this.putCommitObject(key, body, token);
+			await this.putCommitObject(key, seq, body, token);
 			objectWritten = true;
 			transactionAttempts = await this.transact(plan.items, token);
 			this.commits.set(key, Promise.resolve(parse<CommitObject>(body)));
@@ -266,7 +268,8 @@ export class IndexedStorage implements Storage {
 			);
 			return seq as Seq;
 		} catch (error) {
-			if (objectWritten && (error instanceof StorageRejected || error instanceof OwnershipLost)) {
+			const outcomeUnknown = error instanceof CommitOutcomeUnknown;
+			if (objectWritten && !outcomeUnknown && (error instanceof StorageRejected || error instanceof OwnershipLost)) {
 				await this.deleteOrphan(key);
 			}
 			this.record(measure({ rejected: `${(error as Error).name}: ${(error as Error).message}`, transactionAttempts }));
@@ -282,9 +285,13 @@ export class IndexedStorage implements Storage {
 	/**
 	 * Write the commit object without ever overwriting a key. A key is only ever written by this owner (its fence is
 	 * in the key), so an existing object is either this commit's own earlier attempt (same token: keep it) or this
-	 * owner's orphan from a commit whose transaction failed (replace it).
+	 * owner's orphan from a commit whose transaction failed (replace it, but only after reading META and finding that
+	 * the sequence is not committed: an object at or below META.seq is committed data and is never deleted). A 409
+	 * ConditionalRequestConflict means a concurrent write to the same key is still in flight, which with the fence in
+	 * the key can only be this owner's own earlier attempt; it is transient, so it is retried with backoff and the
+	 * next attempt resolves to a 412 with the same token or a successful write.
 	 */
-	private async putCommitObject(key: string, body: string, token: string): Promise<void> {
+	private async putCommitObject(key: string, seq: number, body: string, token: string): Promise<void> {
 		for (let attempt = 1; ; attempt++) {
 			try {
 				this.meter.s3Puts++;
@@ -304,7 +311,18 @@ export class IndexedStorage implements Storage {
 				if (status === 412 && attempt < 3) {
 					const existing = await this.fetchCommit(key, false);
 					if (existing.token === token) return;
+					const meta = await this.getItem("META");
+					const committedSeq = meta === undefined ? 0 : number(meta, "seq")!;
+					if (committedSeq >= seq) {
+						throw new OwnershipLost(`Object ${key} belongs to an already committed sequence; refusing to replace it`, {
+							cause: error,
+						});
+					}
 					await this.deleteOrphan(key);
+					continue;
+				}
+				if (status === 409 && attempt < TRANSACTION_ATTEMPTS) {
+					await backoff(attempt);
 					continue;
 				}
 				if (RETRYABLE_ERRORS.has((error as Error).name) && attempt < TRANSACTION_ATTEMPTS) {
@@ -348,7 +366,13 @@ export class IndexedStorage implements Storage {
 						await backoff(attempt);
 						continue;
 					}
-					if (await this.committedWithToken(token)) return attempt;
+					const state = await this.committedWithToken(token);
+					if (state === "committed") return attempt;
+					if (state === "unknown") {
+						throw new CommitOutcomeUnknown("Commit outcome unknown: the response was lost and the check failed", {
+							cause: error,
+						});
+					}
 					throw error;
 				}
 				const reasons = (error as { CancellationReasons?: { Code?: string }[] }).CancellationReasons ?? [];
@@ -357,7 +381,13 @@ export class IndexedStorage implements Storage {
 					throw new OwnershipLost("Owner fence moved: this owner is stale", { cause: error });
 				}
 				if (conditionFailures.some((entry) => entry.role === "meta")) {
-					if (await this.committedWithToken(token)) return attempt;
+					const state = await this.committedWithToken(token);
+					if (state === "committed") return attempt;
+					if (state === "unknown") {
+						throw new CommitOutcomeUnknown("Commit outcome unknown: the sequence check failed and the token read failed", {
+							cause: error,
+						});
+					}
 					throw new OwnershipLost("Commit sequence moved: another owner committed to this storage", {
 						cause: error,
 					});
@@ -381,12 +411,12 @@ export class IndexedStorage implements Storage {
 		}
 	}
 
-	private async committedWithToken(token: string): Promise<boolean> {
+	private async committedWithToken(token: string): Promise<CommitState> {
 		try {
 			const meta = await this.getItem("META");
-			return meta !== undefined && text(meta, "token") === token;
+			return meta !== undefined && text(meta, "token") === token ? "committed" : "not-committed";
 		} catch {
-			return false;
+			return "unknown";
 		}
 	}
 

@@ -114,8 +114,14 @@ Every record item carries a pointer `c` (commit seq), `f` (fence) and `p`
 2. `PutObject` the commit object with `If-None-Match: *`, so a key is never
    overwritten. The fence in the key means only this owner ever writes it.
    If the key already exists with this commit's token, it is this commit's
-   own earlier attempt. If it has another token, it is this owner's orphan
-   from a commit whose transaction failed; it is deleted and replaced.
+   own earlier attempt. If it has another token, the storage reads `META`:
+   when `META.seq >= seq` the object is committed data and the commit fails
+   with `OwnershipLost` without deleting anything; otherwise it is this
+   owner's orphan from a commit whose transaction failed, and it is deleted
+   and replaced. An S3 409 `ConditionalRequestConflict` means a concurrent
+   write to the same key is still in flight, which with the fence in the key
+   can only be this owner's own earlier attempt; it is retried with backoff
+   and resolves to a success or a same-token 412.
 3. One `TransactWriteItems` with the index items, the `META` update
    conditioned on `seq = <last seq this owner saw>` (which also stores the
    token), and, when fenced, a `ConditionCheck` on `OWNER.fence`.
@@ -123,7 +129,12 @@ Every record item carries a pointer `c` (commit seq), `f` (fence) and `p`
    itself retries throttling, timeouts and `TransactionConflict` with the
    same token. If a retry finds the `META` condition failed, it re-reads
    `META`: when the stored token is its own, the first attempt landed and
-   only the response was lost, so the commit counts as done.
+   only the response was lost, so the commit counts as done. The check has
+   three outcomes: committed, not committed, or unknown (the read itself
+   failed). Unknown throws `CommitOutcomeUnknown`, an `OwnershipLost`
+   subtype that is fatal to the Session, and the storage does not delete the
+   object: it may be committed, so it is left for the next owner to find and
+   for the sweeper.
 5. The SDK client uses `maxAttempts: 1`. In the first version that was
    load-bearing: an SDK retry after a lost response would have come back as
    a false "another owner committed". Production must keep SDK retries off
@@ -141,15 +152,26 @@ invisible.
 | Fence moved before the transaction | `OwnershipLost`; the object is deleted | Object gone |
 | Crash between `PutObject` and the transaction | The object stays as an orphan. The next commit by the same owner at that seq replaces it; another owner uses a different key | Replaced and committed |
 | `PutObject` fails | Nothing committed; pi-durable sees a plain error and poisons the Session | -- |
-| Transaction outcome unknown after retries | The token check decides; if still unknown, a plain error poisons the Session. A landed commit is then found by the next owner | Not reproducible on moto |
+| Transaction outcome unknown after retries | The token check decides; if still unknown, `CommitOutcomeUnknown` poisons the Session and the object is kept. A landed commit is then found by the next owner | Not reproducible on moto |
 | Object deleted or unreadable after commit | Reads of those records fail. This must not happen: no lifecycle rule may expire `commits/` | -- |
 
-**Orphan rule.** A sweeper may delete `commits/<seq>-<fence>.json` when the
-partition's `META.seq` is at least `seq` and no index item points at
-`(seq, fence)`, or when `seq > META.seq` and the object is more than one
-hour old (its owner is dead or fenced out). An S3 lifecycle rule cannot
-express "unreferenced", so it is a small scheduled job. Orphans arise only
-from a crash between steps 2 and 3, so the job can be rare.
+**Orphan rule.** The sweeper reads `META` and `OWNER` first, then checks
+references, so the values it acts on can only be older than the truth in the
+safe direction (both only rise). It may delete `commits/<seq>-<fence>.json`
+only when no index item points at `(seq, fence)` and either of these holds:
+
+1. `META.seq >= seq`. The commit's `META` condition needs
+   `META.seq = seq - 1`, so a late commit of this seq can never succeed.
+2. `OWNER.fence > fence`. Fences only rise, so the commit's `ConditionCheck`
+   on `OWNER.fence = fence` can never succeed.
+
+There is no time-based clause. An object with `seq > META.seq` whose fence is
+still the current `OWNER.fence` may be an in-flight commit of a live (or
+momentarily stalled) owner and is kept; it becomes deletable by clause 1 or 2
+as soon as the sequence passes it or a new owner raises the fence.
+`results/orphans.json` shows both clauses and the kept case. An S3 lifecycle
+rule cannot express "unreferenced", so the sweeper is a small scheduled job.
+Orphans arise only from a crash between steps 2 and 3, so it can be rare.
 
 ## Ownership and the fence
 
@@ -240,7 +262,12 @@ it needs every visible entry, so a fresh owner fetches one object per commit
 that holds an entry, about 4 to 5 per turn of history. A periodic snapshot
 object (`conversations/<id>/snapshots/<seq>.json` holding the visible entries
 and current documents) would make that one GET plus the recent commits. It
-is not implemented in the spike; it should be before production.
+is not implemented in the spike; it should be before production. Request
+cost is flat per turn only with that snapshot object. Without it (the spike
+as built), a fresh owner's first model request fetches about 4 to 5 commit
+objects per turn of history, so GETs and first-token latency grow linearly
+with conversation length. The cost projections below count only the spike's
+two-turn runs and omit these growing GETs.
 
 ## Cost: DynamoDB-only versus S3 data with a DynamoDB index
 
@@ -292,6 +319,18 @@ So:
   request cost per tool turn ($0.000084) equals its storage saving
   ($0.0000059 per turn per month) after about 14 months of retention; for a
   plain turn ($0.000021 against $0.0000016 a month), after about 13 months.
+  Formula: break-even months = extra request cost per turn / storage saved
+  per turn per month. Extra request cost is S3 + index minus DynamoDB-only
+  from `results/cost.json` at $0.625/M WRU, $0.125/M RRU, $0.005 per 1,000
+  PUTs: plain $0.000102125 - $0.00008075 = $0.0000214, tool $0.000406375 -
+  $0.000322125 = $0.0000843. Storage saved per month is (DynamoDB-only bytes
+  x $0.25 - index bytes x $0.25 - S3 bytes x $0.023) / 2^30 using the
+  per-turn bytes in the projection table: plain (12,512 x 0.25 - 4,491 x 0.25
+  - 11,715 x 0.023) / 2^30 = $0.0000016, tool (41,150 x 0.25 - 12,093 x 0.25
+  - 39,794 x 0.023) / 2^30 = $0.0000059. Break-even: 0.0000214 / 0.0000016 =
+  13.2 months (plain), 0.0000843 / 0.0000059 = 14.2 months (tool). An earlier
+  report of about 4 and 20 months was wrong and appears nowhere else; the
+  figures here use 2^30 bytes per GB (with 10^9, 12.3 and 13.3 months).
   See the household projection below.
 - **It wins when payloads are large or kept long:** long answers, large tool
   output, images, and years of history. It also removes the 400 KB item and
@@ -338,7 +377,8 @@ DynamoDB free tier is per account and ignored.
 | 36 months | 2.086 GiB | 0.695 + 1.979 GiB | $0.522 | $0.219 | 0.25 x 0.0580 x 666 = $9.65 | (0.25 x 0.0193 + 0.023 x 0.0550) x 666 = $4.06 |
 
 Requests for the same household are about $0.44 a month (DynamoDB-only)
-and $0.55 (S3 + index), flat over time: 100 x $0.0000808 + 20 x $0.000322
+and $0.55 (S3 + index), flat over time only with the snapshot object (without
+it the S3 layout's GETs grow with history, at $0.0000004 each): 100 x $0.0000808 + 20 x $0.000322
 a day against 100 x $0.000102 + 20 x $0.000406. The S3 layout's monthly bill
 (storage plus requests) drops below DynamoDB-only's around month 14 and its
 cumulative bill around month 26. That crossover comes earlier with

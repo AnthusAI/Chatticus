@@ -89,6 +89,21 @@ export class OwnershipLost extends Error {
 	}
 }
 
+/**
+ * A commit whose outcome could not be determined: the transaction response was lost and the follow-up read failed.
+ * Fatal like `OwnershipLost` (the Session is poisoned and the next owner finds out what landed), and callers must not
+ * delete anything the commit may have made visible.
+ */
+export class CommitOutcomeUnknown extends OwnershipLost {
+	constructor(message: string, options?: ErrorOptions) {
+		super(message, options);
+		this.name = "CommitOutcomeUnknown";
+	}
+}
+
+/** Whether a commit with a given token landed: it did, it did not, or the check itself failed. */
+export type CommitState = "committed" | "not-committed" | "unknown";
+
 /** Measurements of one successful or rejected commit, for the spike's reports. */
 export type CommitMeasurement = {
 	readonly seq: number | undefined;
@@ -364,7 +379,13 @@ export class DynamoDbStorage implements Storage {
 						await backoff(attempt);
 						continue;
 					}
-					if (await this.committedWithToken(token)) return attempt;
+					const state = await this.committedWithToken(token);
+					if (state === "committed") return attempt;
+					if (state === "unknown") {
+						throw new CommitOutcomeUnknown("Commit outcome unknown: the response was lost and the check failed", {
+							cause: error,
+						});
+					}
 					throw error;
 				}
 				const reasons = (error as { CancellationReasons?: { Code?: string }[] }).CancellationReasons ?? [];
@@ -373,7 +394,13 @@ export class DynamoDbStorage implements Storage {
 					throw new OwnershipLost("Owner fence moved: this owner is stale", { cause: error });
 				}
 				if (conditionFailures.some((entry) => entry.role === "meta")) {
-					if (await this.committedWithToken(token)) return attempt;
+					const state = await this.committedWithToken(token);
+					if (state === "committed") return attempt;
+					if (state === "unknown") {
+						throw new CommitOutcomeUnknown("Commit outcome unknown: the sequence check failed and the token read failed", {
+							cause: error,
+						});
+					}
 					throw new OwnershipLost("Commit sequence moved: another owner committed to this storage", {
 						cause: error,
 					});
@@ -400,12 +427,12 @@ export class DynamoDbStorage implements Storage {
 		}
 	}
 
-	private async committedWithToken(token: string): Promise<boolean> {
+	private async committedWithToken(token: string): Promise<CommitState> {
 		try {
 			const meta = await this.getItem("META");
-			return meta !== undefined && text(meta, "token") === token;
+			return meta !== undefined && text(meta, "token") === token ? "committed" : "not-committed";
 		} catch {
-			return false;
+			return "unknown";
 		}
 	}
 

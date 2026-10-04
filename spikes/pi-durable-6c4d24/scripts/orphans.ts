@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { GetItemCommand, QueryCommand } from "@aws-sdk/client-dynamodb";
+import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { type EntryId, ROOT_CONVERSATION_ID } from "@earendil-works/pi-durable";
 import { commitKey, IndexedStorage } from "../src/indexed-storage.ts";
 import { BUCKET, claimFence, context, TABLE_NAME } from "../src/owner.ts";
@@ -67,6 +68,77 @@ result.staleOwnerAfterFenceMoved = { outcome: staleCommit, objectLeftAtKey: awai
 const next = await open(2);
 const page = await next.scanEntries({ conversationId: ROOT_CONVERSATION_ID }, 10, undefined, context);
 result.nextOwnerSeesEntries = page.items.map((entry) => entry.kind);
+
+const sweepId = `orphans-sweep#${randomUUID().slice(0, 8)}`;
+await claimFence(sweepId, 1);
+const first = await IndexedStorage.open({ client, s3, tableName: TABLE_NAME, bucket: BUCKET, storageId: sweepId, fence: 1 });
+await first.commit([{ type: "conversation", value: { id: ROOT_CONVERSATION_ID } }], context);
+const plantCrashedObject = (seq: number, fence: number) =>
+	s3.send(
+		new PutObjectCommand({
+			Bucket: BUCKET,
+			Key: commitKey(sweepId, seq, fence),
+			Body: JSON.stringify({ seq, fence, token: `crashed-${seq}-${fence}`, writes: [] }),
+		}),
+	);
+await plantCrashedObject(2, 1);
+await plantCrashedObject(9, 1);
+await claimFence(sweepId, 2);
+const second = await IndexedStorage.open({ client, s3, tableName: TABLE_NAME, bucket: BUCKET, storageId: sweepId, fence: 2 });
+await second.commit(
+	[{ type: "entry", value: { id: await second.mintId<EntryId>(), conversationId: ROOT_CONVERSATION_ID, kind: "a" } }],
+	context,
+);
+await second.commit(
+	[{ type: "entry", value: { id: await second.mintId<EntryId>(), conversationId: ROOT_CONVERSATION_ID, kind: "b" } }],
+	context,
+);
+await plantCrashedObject(9, 2);
+
+const sweepKeys = [commitKey(sweepId, 2, 1), commitKey(sweepId, 9, 1), commitKey(sweepId, 9, 2)];
+const sweepOnce = async () => {
+	const pk = { S: `PI#${sweepId}` };
+	const metaItem = await client.send(new GetItemCommand({ TableName: TABLE_NAME, Key: { pk, sk: { S: "META" } }, ConsistentRead: true }));
+	const ownerItem = await client.send(new GetItemCommand({ TableName: TABLE_NAME, Key: { pk, sk: { S: "OWNER" } }, ConsistentRead: true }));
+	const metaSeq = Number(metaItem.Item?.seq?.N ?? 0);
+	const ownerFence = Number(ownerItem.Item?.fence?.N ?? 0);
+	const referenced = new Set<string>();
+	let startKey: Record<string, any> | undefined;
+	do {
+		const response = await client.send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				KeyConditionExpression: "pk = :pk",
+				ExpressionAttributeValues: { ":pk": pk },
+				ExclusiveStartKey: startKey,
+				ConsistentRead: true,
+			}),
+		);
+		for (const item of response.Items ?? []) {
+			if (item.c?.N !== undefined && item.f?.N !== undefined) referenced.add(commitKey(sweepId, Number(item.c.N), Number(item.f.N)));
+		}
+		startKey = response.LastEvaluatedKey;
+	} while (startKey !== undefined);
+	const decisions: Record<string, string> = {};
+	for (const key of sweepKeys) {
+		const name = key.split("/").at(-1)!;
+		const [seq, fence] = name.replace(".json", "").split("-").map(Number);
+		if (referenced.has(key)) decisions[name] = "kept: referenced by the index";
+		else if (metaSeq >= seq) decisions[name] = `deleted: META.seq ${metaSeq} >= seq ${seq}`;
+		else if (ownerFence > fence) decisions[name] = `deleted: OWNER.fence ${ownerFence} > fence ${fence}`;
+		else decisions[name] = `kept: seq ${seq} > META.seq ${metaSeq} and fence ${fence} is still the owner fence`;
+		if (decisions[name].startsWith("deleted")) {
+			await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+		}
+	}
+	return { metaSeq, ownerFence, decisions };
+};
+const sweep = await sweepOnce();
+result.sweeper = {
+	rule: "read META and OWNER first; delete an unreferenced object only when META.seq >= seq or OWNER.fence > fence",
+	...sweep,
+	objectsRemaining: await Promise.all(sweepKeys.map(async (key) => ({ key, exists: await exists(key) }))),
+};
 
 writeResult("orphans.json", result);
 console.log(JSON.stringify(result, null, 2));
