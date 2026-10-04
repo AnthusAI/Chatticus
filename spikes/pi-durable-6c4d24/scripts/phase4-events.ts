@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DeleteItemCommand, PutItemCommand, QueryCommand } from "@aws-sdk/client-dynamodb";
 import { type AgentEvent, AssistantEntry, watchEvents } from "@earendil-works/pi-durable";
-import { DynamoDbStorage } from "../src/dynamodb-storage.ts";
-import { context, openOwner, type Owner, TABLE_NAME, transcript } from "../src/owner.ts";
+import { context, openOwner, openStorage, type Owner, TABLE_NAME, transcript } from "../src/owner.ts";
 import { summarize, writeResult } from "../src/report.ts";
 import { createLocalClient } from "../src/table.ts";
 
@@ -132,7 +131,7 @@ result.gatedTurn = await observedTurn(
 	"ryan-3",
 );
 
-const intruder = await DynamoDbStorage.open({ client, tableName: TABLE_NAME, storageId });
+const intruder = await openStorage(storageId, undefined);
 const mailboxTurn = await observedTurn(
 	owner,
 	"Use run_terminal to run `make build`, then summarize for the channel in two sentences.",

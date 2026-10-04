@@ -1,10 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { DynamoDbStorage } from "../src/dynamodb-storage.ts";
-import { context, openOwner, TABLE_NAME, transcript } from "../src/owner.ts";
+import { claimFence, context, openOwner, transcript } from "../src/owner.ts";
 import { RESULTS_DIRECTORY, writeResult } from "../src/report.ts";
-import { createLocalClient } from "../src/table.ts";
 
 const storageId = `tenant-1#bot-ada#fence-loss-${randomUUID().slice(0, 8)}`;
 const log = join(RESULTS_DIRECTORY, "fence-loss-executions.jsonl");
@@ -34,7 +32,7 @@ const waited = submission.wait(context).then(
 	(error: Error) => `rejected: ${error.name}: ${error.message}`,
 );
 while (!readLog().some((event) => event.phase === "started")) await new Promise((resolve) => setTimeout(resolve, 50));
-await DynamoDbStorage.claimOwnership({ client: createLocalClient(), tableName: TABLE_NAME, storageId, fence: 2 });
+await claimFence(storageId, 2);
 const fencedAt = Date.now();
 const staleOutcome = await Promise.race([
 	waited,

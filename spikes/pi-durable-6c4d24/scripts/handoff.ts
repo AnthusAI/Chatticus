@@ -2,10 +2,8 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { AssistantEntry, ProviderDoc } from "@earendil-works/pi-durable";
-import { DynamoDbStorage } from "../src/dynamodb-storage.ts";
-import { context, openOwner, type Owner, TABLE_NAME, transcript } from "../src/owner.ts";
+import { context, openOwner, openStorage, type Owner, transcript } from "../src/owner.ts";
 import { RESULTS_DIRECTORY, summarize, writeResult } from "../src/report.ts";
-import { createLocalClient } from "../src/table.ts";
 
 const storageId = `tenant-1#bot-ada#channel-${randomUUID().slice(0, 8)}`;
 const log = join(RESULTS_DIRECTORY, "handoff-executions.jsonl");
@@ -55,7 +53,7 @@ result.lambda = {
 	tasksWhenParked: await tasks(lambda),
 	providerSession: (await lambda.harness.snapshot(ProviderDoc, lambda.root.id, context)) ?? null,
 };
-const zombie = await DynamoDbStorage.open({ client: createLocalClient(), tableName: TABLE_NAME, storageId, fence: 1 });
+const zombie = await openStorage(storageId, 1);
 const closing = performance.now();
 await lambda.close();
 result.lambdaClose = {

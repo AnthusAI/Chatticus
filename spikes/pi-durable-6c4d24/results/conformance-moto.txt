@@ -1,32 +1,55 @@
 
  RUN  v4.1.11 spikes/pi-durable-6c4d24
 
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > reserves ID 1 for the immutable root conversation 22ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > commits mixed table writes atomically and rolls all of them back on failure 36ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > detaches retained writes and every returned record 31ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > detaches prototype-like JSON keys without changing object prototypes 15ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes entries committed out of ID order 21ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > continues an entry cursor below its last item after a newer commit 28ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > paginates conversations by opaque cursor in ascending ID order 17ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > filters and pages conversations by durable owner edges 24ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > scans deep fork history newest-first through every ancestor cap 200ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > replaces complete task records and pages filtered task scans 37ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > stores owners and scans waiting and completing tasks by status 60ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes request IDs per conversation and replaces complete submission records 76ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > stores passive write submissions without input-only lifecycle states 31ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > reconstructs rewindable documents and preserves half-open incarnations 118ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > streams long document tails across root replacement deltas 686ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > copies stored document bases independently and rejects ambiguous sources 164ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > uses bases for version transitions and rejects historical reads of current-only documents 79ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes logical addresses and exact-scope scans independently 115ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps document lifecycle failures atomic and gives create-plus-retire an empty lifetime 55ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > rolls back record tables and secondary indexes when a document command fails 60ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps indexed string identities lossless 88ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps one global record ID namespace and rejects exhausted ID minting 30ms
- ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > rejects every operation after close 11ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > reserves ID 1 for the immutable root conversation 37ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > reserves ID 1 for the immutable root conversation 60ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > commits mixed table writes atomically and rolls all of them back on failure 128ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > commits mixed table writes atomically and rolls all of them back on failure 88ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > detaches retained writes and every returned record 79ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > detaches retained writes and every returned record 77ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > detaches prototype-like JSON keys without changing object prototypes 39ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes entries committed out of ID order 52ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > detaches prototype-like JSON keys without changing object prototypes 53ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > indexes entries committed out of ID order 80ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > continues an entry cursor below its last item after a newer commit 60ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > paginates conversations by opaque cursor in ascending ID order 48ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > filters and pages conversations by durable owner edges 68ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > continues an entry cursor below its last item after a newer commit 90ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > paginates conversations by opaque cursor in ascending ID order 93ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > filters and pages conversations by durable owner edges 72ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > scans deep fork history newest-first through every ancestor cap 500ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > replaces complete task records and pages filtered task scans 69ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > stores owners and scans waiting and completing tasks by status 65ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > scans deep fork history newest-first through every ancestor cap 477ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes request IDs per conversation and replaces complete submission records 163ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > replaces complete task records and pages filtered task scans 137ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > stores passive write submissions without input-only lifecycle states 75ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > stores owners and scans waiting and completing tasks by status 116ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > reconstructs rewindable documents and preserves half-open incarnations 323ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > indexes request IDs per conversation and replaces complete submission records 199ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > stores passive write submissions without input-only lifecycle states 98ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > reconstructs rewindable documents and preserves half-open incarnations 418ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > streams long document tails across root replacement deltas 1909ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > copies stored document bases independently and rejects ambiguous sources 476ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > uses bases for version transitions and rejects historical reads of current-only documents 240ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > indexes logical addresses and exact-scope scans independently 236ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > streams long document tails across root replacement deltas 2460ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps document lifecycle failures atomic and gives create-plus-retire an empty lifetime 165ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > rolls back record tables and secondary indexes when a document command fails 150ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps indexed string identities lossless 217ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > copies stored document bases independently and rejects ambiguous sources 555ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > keeps one global record ID namespace and rejects exhausted ID minting 61ms
+ ✓ test/dynamodb-storage.test.ts > DynamoDbStorage > rejects every operation after close 16ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > uses bases for version transitions and rejects historical reads of current-only documents 149ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > indexes logical addresses and exact-scope scans independently 143ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > keeps document lifecycle failures atomic and gives create-plus-retire an empty lifetime 88ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > rolls back record tables and secondary indexes when a document command fails 100ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > keeps indexed string identities lossless 530ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > keeps one global record ID namespace and rejects exhausted ID minting 65ms
+ ✓ test/indexed-storage.test.ts > IndexedStorage > rejects every operation after close 19ms
 
- Test Files  1 passed (1)
-      Tests  23 passed (23)
-   Start at  15:35:37
-   Duration  2.30s (transform 32ms, setup 0ms, import 182ms, tests 2.03s, environment 0ms)
+ Test Files  2 passed (2)
+      Tests  46 passed (46)
+   Start at  15:46:23
+   Duration  6.55s (transform 91ms, setup 0ms, import 468ms, tests 11.39s, environment 0ms)
 

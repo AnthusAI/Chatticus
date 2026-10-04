@@ -1,7 +1,6 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
 	BatchGetItemCommand,
-	BatchWriteItemCommand,
 	type DynamoDBClient,
 	GetItemCommand,
 	PutItemCommand,
@@ -10,6 +9,7 @@ import {
 	TransactWriteItemsCommand,
 	UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import type { Context, JsonValue } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { applyImmutableBatches, type Op } from "@earendil-works/chord/delta";
@@ -43,71 +43,55 @@ import {
 	type TaskQuery,
 	type TaskRecord,
 } from "@earendil-works/pi-durable";
-import { Meter } from "./meter.ts";
+import {
+	addressKey,
+	backoff,
+	type CommitMeasurement,
+	cursorAfter,
+	digest,
+	encode,
+	isAliveAt,
+	isCurrentOnly,
+	number,
+	OwnershipLost,
+	pad,
+	page,
+	parse,
+	RETRYABLE_ERRORS,
+	recordAddressKey,
+	scopeKey,
+	TRANSACTION_ATTEMPTS,
+	TRANSACTION_ITEM_LIMIT,
+	TRANSIENT_CANCELLATIONS,
+	text,
+} from "./dynamodb-storage.ts";
+import { itemSize, Meter } from "./meter.ts";
 import type { Item } from "./table.ts";
 
 type StoredTask = TaskRecord<JsonValue, JsonValue, JsonValue>;
 type TableName = "conversation" | "entry" | "task" | "submission" | "document";
-type DocumentRevision = DocumentContent & { readonly seq: Seq };
-type DocumentAction = { create?: DocumentCreate; content?: DocumentContent; retire: boolean };
+type DocumentAction = { create?: DocumentCreate; content?: DocumentContent; retire: boolean; position?: number };
 type StoredDocumentItem = { record: DocumentRecord; latestVersion: number | undefined; latestSeq: number | undefined };
+type RecordWrite = Extract<StorageWrite, { type: TableName }>;
 
-export const TRANSACTION_ITEM_LIMIT = 100;
-export const TRANSACTION_BYTE_LIMIT = 4 * 1024 * 1024;
-export const ITEM_BYTE_LIMIT = 400 * 1024;
-export const QUERY_PAGE_SIZE = 100;
-export const TRANSACTION_ATTEMPTS = 4;
-const CLEANUP_ATTEMPTS = 5;
-const MATERIALIZE_ATTEMPTS = 3;
-export const RETRYABLE_ERRORS = new Set([
-	"ThrottlingException",
-	"ProvisionedThroughputExceededException",
-	"RequestLimitExceeded",
-	"InternalServerError",
-	"ServiceUnavailable",
-	"TransactionInProgressException",
-	"TimeoutError",
-	"ECONNRESET",
-	"ETIMEDOUT",
-	"EPIPE",
-]);
-export const TRANSIENT_CANCELLATIONS = new Set(["TransactionConflict", "ThrottlingError", "ProvisionedThroughputExceeded"]);
-
-export const backoff = (attempt: number): Promise<void> =>
-	new Promise((resolve) => setTimeout(resolve, Math.min(1000, 25 * 2 ** attempt) * (0.5 + Math.random())));
-
-/**
- * This owner can no longer commit: a newer owner raised the fence or committed to the storage.
- *
- * Deliberately not a `StorageRejected`: pi-durable treats `StorageRejected` as an ordinary rollback and keeps running,
- * while any other commit error poisons the Session, so the stale owner stops calling models and running tools.
- */
-export class OwnershipLost extends Error {
-	constructor(message: string, options?: ErrorOptions) {
-		super(message, options);
-		this.name = "OwnershipLost";
-	}
-}
-
-/** Measurements of one successful or rejected commit, for the spike's reports. */
-export type CommitMeasurement = {
-	readonly seq: number | undefined;
-	readonly writes: number;
-	readonly writeKinds: Readonly<Record<string, number>>;
-	readonly transactionItems: number;
-	readonly transactionBytes: number;
-	readonly largestItemBytes: number;
-	readonly preReads: number;
-	readonly milliseconds: number;
-	readonly rejected?: string;
-	readonly transactionAttempts?: number;
-	readonly cleanupError?: string;
+/** The immutable S3 object of one commit: every write of that commit, in order. */
+export type CommitObject = {
+	readonly seq: number;
+	readonly fence: number;
+	readonly token: string;
+	readonly writes: readonly StorageWrite[];
 };
 
-/** Options for one DynamoDB-backed pi-durable storage, which is one partition of the shared table. */
-export type DynamoDbStorageOptions = {
+/** Where one record or revision lives: the commit object `(seq, fence)` and the write's position in it. */
+type Pointer = { readonly seq: number; readonly fence: number; readonly position: number };
+
+const REVISION_PAGE_SIZE = 32;
+
+export type IndexedStorageOptions = {
 	readonly client: DynamoDBClient;
+	readonly s3: S3Client;
 	readonly tableName: string;
+	readonly bucket: string;
 	/** Partition identity, for example `tenant#bot#channel`. */
 	readonly storageId: string;
 	/** When set, every commit carries a condition that the partition's owner fence still equals this value. */
@@ -115,106 +99,69 @@ export type DynamoDbStorageOptions = {
 	readonly onCommit?: (measurement: CommitMeasurement) => void;
 };
 
-export const pad = (value: number): string => String(value).padStart(16, "0");
-export const digest = (value: string): string => createHash("sha256").update(value).digest("base64url");
-export const parse = <T>(text: string): T => JSON.parse(text) as T;
-export const encode = (value: unknown): string => JSON.stringify(value);
-
-export const scopeKey = (scope: DocumentRecord["scope"]): string => {
-	switch (scope.kind) {
-		case "session":
-			return encode(["session"]);
-		case "conversation":
-			return encode(["conversation", scope.conversationId]);
-		case "task":
-			return encode(["task", scope.taskId]);
-	}
-};
-
-export const addressKey = (address: DocumentAddress): string =>
-	encode([address.kind, scopeKey(address.scope), address.key === undefined ? ["singleton"] : ["family", address.key]]);
-
-export const recordAddressKey = (record: DocumentRecord | DocumentCreate): string =>
-	addressKey({ kind: record.kind, scope: record.scope, key: record.key });
-
-export const isAliveAt = (record: DocumentRecord, at: DocumentPoint): boolean => {
-	if (at === "current") return record.retiredAt === undefined;
-	return record.createdAt <= at && (record.retiredAt === undefined || at < record.retiredAt);
-};
-
-export const isCurrentOnly = (record: DocumentRecord | DocumentCreate): boolean =>
-	record.scope.kind !== "conversation" || record.history === "latest";
-
-export const cursorAfter = (cursor: Cursor | undefined): number | undefined => {
-	const after = cursor?.after;
-	if (after === undefined) return undefined;
-	if (typeof after !== "number" || !Number.isSafeInteger(after)) throw new TypeError("Invalid storage cursor");
-	return after;
-};
-
-export const page = <T extends { readonly id: number }>(values: readonly T[], limit: number): Page<T, Cursor> => {
-	const items = values.slice(0, limit);
-	if (values.length <= limit) return { items };
-	return { items, next: { after: items.at(-1)!.id } };
-};
-
-const itemBytes = (item: Item): number => {
-	let total = 0;
-	for (const [name, value] of Object.entries(item)) {
-		total += Buffer.byteLength(name);
-		if (value.S !== undefined) total += Buffer.byteLength(value.S);
-		else if (value.N !== undefined) total += value.N.length;
-		else total += 8;
-	}
-	return total;
-};
-
-export const text = (item: Item, name: string): string | undefined => item[name]?.S;
-export const number = (item: Item, name: string): number | undefined =>
-	item[name]?.N === undefined ? undefined : Number(item[name]!.N);
+/**
+ * Commit object key by convention: `conversations/<storage>/commits/<seq:012>-<fence:08>.json`.
+ *
+ * The fence in the key makes every key writable by exactly one owner, so an owner can always replace its own
+ * orphan and two owners racing for one sequence never collide on a key.
+ *
+ * @param storageId Storage identity.
+ * @param seq Commit sequence.
+ * @param fence Fence of the committing owner, 0 when unfenced.
+ * @returns The S3 key.
+ */
+export const commitKey = (storageId: string, seq: number, fence: number): string =>
+	`conversations/${encodeURIComponent(storageId)}/commits/${String(seq).padStart(12, "0")}-${String(fence).padStart(8, "0")}.json`;
 
 /**
- * pi-durable `Storage` on one DynamoDB partition.
+ * pi-durable `Storage` with the data in S3 and only an index in DynamoDB.
  *
- * Every record lives at `R#<id>` so the Session-global ID namespace is enforced by key. Ordered and filtered
- * scans use three local secondary indexes, which are strongly consistent. Document revisions live at
- * `V#<document>#<seq>`. `META` holds the commit sequence and the ID high-water mark; every commit updates it
- * under a condition on the sequence this owner last saw, so two owners can never interleave commits.
+ * Every `commit()` writes one immutable S3 object holding all its writes, then one small `TransactWriteItems` that
+ * makes it visible: index items pointing at `(seq, fence, position)`, plus `META` (sequence, ID high-water mark,
+ * idempotency token) and the owner-fence check. Readers only follow the index, so an object without a committed
+ * transaction is never read.
  */
-export class DynamoDbStorage implements Storage {
+export class IndexedStorage implements Storage {
 	readonly measurements: CommitMeasurement[] = [];
 	readonly meter = new Meter();
 	private readonly client: DynamoDBClient;
+	private readonly s3: S3Client;
 	private readonly tableName: string;
+	private readonly bucket: string;
+	private readonly storageId: string;
 	private readonly pk: string;
 	private readonly fence: number | undefined;
 	private readonly onCommit: ((measurement: CommitMeasurement) => void) | undefined;
+	private readonly commits = new Map<string, Promise<CommitObject>>();
 	private seq = 0;
 	private nextId = 2;
 	private closed = false;
 	private preReads = 0;
 
-	/** Read round trips this storage has made, including the reads a commit needed before its transaction. */
-	get reads(): number {
-		return this.preReads;
-	}
-
-	private constructor(options: DynamoDbStorageOptions) {
+	private constructor(options: IndexedStorageOptions) {
 		this.client = options.client;
+		this.s3 = options.s3;
 		this.tableName = options.tableName;
+		this.bucket = options.bucket;
+		this.storageId = options.storageId;
 		this.pk = `PI#${options.storageId}`;
 		this.fence = options.fence;
 		this.onCommit = options.onCommit;
 	}
 
+	/** Read round trips to DynamoDB this storage has made. */
+	get reads(): number {
+		return this.preReads;
+	}
+
 	/**
-	 * Open (and on first use create) one storage partition and load its commit sequence and ID high-water mark.
+	 * Open (and on first use create) one storage and load its commit sequence and ID high-water mark.
 	 *
 	 * @param options Storage options.
 	 * @returns The open storage.
 	 */
-	static async open(options: DynamoDbStorageOptions): Promise<DynamoDbStorage> {
-		const storage = new DynamoDbStorage(options);
+	static async open(options: IndexedStorageOptions): Promise<IndexedStorage> {
+		const storage = new IndexedStorage(options);
 		await storage.load();
 		return storage;
 	}
@@ -245,6 +192,7 @@ export class DynamoDbStorage implements Storage {
 		const meta = await this.getItem("META");
 		if (meta === undefined) {
 			try {
+				this.meter.writes([{ pk: { S: this.pk }, sk: { S: "META" } }]);
 				await this.client.send(
 					new PutItemCommand({
 						TableName: this.tableName,
@@ -267,6 +215,7 @@ export class DynamoDbStorage implements Storage {
 		const started = performance.now();
 		const preReadsBefore = this.preReads;
 		const seq = this.seq + 1;
+		const fence = this.fence ?? 0;
 		const writeKinds: Record<string, number> = {};
 		for (const write of writes) writeKinds[write.type] = (writeKinds[write.type] ?? 0) + 1;
 		const measure = (partial: Partial<CommitMeasurement>): CommitMeasurement => ({
@@ -281,19 +230,16 @@ export class DynamoDbStorage implements Storage {
 			...partial,
 		});
 		let transactionAttempts = 0;
-		let committed: {
-			transactionItems: number;
-			transactionBytes: number;
-			largestItemBytes: number;
-			cleanups: RevisionCleanup[];
-		};
+		let objectWritten = false;
+		const key = commitKey(this.storageId, seq, fence);
 		try {
 			const detached = parse<StorageWrite[]>(encode(writes));
 			const resolved = await this.resolveDocumentCopies(detached);
 			this.checkBatchIds(resolved);
 			const actions = this.prepareDocumentActions(resolved);
 			const existingDocuments = await this.checkDocumentActions(actions);
-			const plan = this.planTransaction(resolved, actions, existingDocuments, seq);
+			const token = randomUUID();
+			const plan = this.planTransaction(resolved, actions, existingDocuments, seq, fence, token);
 			const transactionBytes = plan.items.reduce((sum, entry) => sum + entry.bytes, 0);
 			const largestItemBytes = plan.items.reduce((max, entry) => Math.max(max, entry.bytes), 0);
 			if (plan.items.length > TRANSACTION_ITEM_LIMIT) {
@@ -301,32 +247,31 @@ export class DynamoDbStorage implements Storage {
 					`Commit needs ${plan.items.length} transaction items; DynamoDB allows ${TRANSACTION_ITEM_LIMIT}`,
 				);
 			}
-			if (transactionBytes > TRANSACTION_BYTE_LIMIT) {
-				throw new StorageRejected(`Commit needs ${transactionBytes} bytes; DynamoDB allows ${TRANSACTION_BYTE_LIMIT}`);
-			}
-			if (largestItemBytes > ITEM_BYTE_LIMIT) {
-				throw new StorageRejected(`Commit writes a ${largestItemBytes} byte item; DynamoDB allows ${ITEM_BYTE_LIMIT}`);
-			}
-			transactionAttempts = await this.transact(plan.items, plan.token);
+			const object: CommitObject = { seq, fence, token, writes: resolved };
+			const body = encode(object);
+			await this.putCommitObject(key, body, token);
+			objectWritten = true;
+			transactionAttempts = await this.transact(plan.items, token);
+			this.commits.set(key, Promise.resolve(parse<CommitObject>(body)));
 			this.seq = seq;
 			this.nextId = Math.max(this.nextId, plan.highestId + 1);
-			committed = { transactionItems: plan.items.length, transactionBytes, largestItemBytes, cleanups: plan.cleanups };
+			this.record(
+				measure({
+					seq,
+					transactionItems: plan.items.length,
+					transactionBytes: transactionBytes + Buffer.byteLength(body),
+					largestItemBytes,
+					transactionAttempts,
+				}),
+			);
+			return seq as Seq;
 		} catch (error) {
+			if (objectWritten && (error instanceof StorageRejected || error instanceof OwnershipLost)) {
+				await this.deleteOrphan(key);
+			}
 			this.record(measure({ rejected: `${(error as Error).name}: ${(error as Error).message}`, transactionAttempts }));
 			throw error;
 		}
-		const cleanupError = await this.cleanRevisionsBestEffort(committed.cleanups);
-		this.record(
-			measure({
-				seq,
-				transactionItems: committed.transactionItems,
-				transactionBytes: committed.transactionBytes,
-				largestItemBytes: committed.largestItemBytes,
-				transactionAttempts,
-				...(cleanupError === undefined ? {} : { cleanupError }),
-			}),
-		);
-		return seq as Seq;
 	}
 
 	private record(measurement: CommitMeasurement): void {
@@ -335,14 +280,53 @@ export class DynamoDbStorage implements Storage {
 	}
 
 	/**
-	 * Send one commit's transaction, retrying transient failures with the same idempotency token.
-	 *
-	 * The client is built with `maxAttempts: 1`, so every retry happens here, where it is visible: the same
-	 * `ClientRequestToken` makes DynamoDB apply a resent transaction at most once (within ten minutes), and
-	 * `META.token` records which commit last moved the sequence, so a retry whose first attempt landed but whose
-	 * response was lost is recognized as committed instead of being reported as a conflict.
-	 *
-	 * @returns The number of attempts used.
+	 * Write the commit object without ever overwriting a key. A key is only ever written by this owner (its fence is
+	 * in the key), so an existing object is either this commit's own earlier attempt (same token: keep it) or this
+	 * owner's orphan from a commit whose transaction failed (replace it).
+	 */
+	private async putCommitObject(key: string, body: string, token: string): Promise<void> {
+		for (let attempt = 1; ; attempt++) {
+			try {
+				this.meter.s3Puts++;
+				this.meter.s3BytesPut += Buffer.byteLength(body);
+				await this.s3.send(
+					new PutObjectCommand({
+						Bucket: this.bucket,
+						Key: key,
+						Body: body,
+						ContentType: "application/json",
+						IfNoneMatch: "*",
+					}),
+				);
+				return;
+			} catch (error) {
+				const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+				if (status === 412 && attempt < 3) {
+					const existing = await this.fetchCommit(key, false);
+					if (existing.token === token) return;
+					await this.deleteOrphan(key);
+					continue;
+				}
+				if (RETRYABLE_ERRORS.has((error as Error).name) && attempt < TRANSACTION_ATTEMPTS) {
+					await backoff(attempt);
+					continue;
+				}
+				throw error;
+			}
+		}
+	}
+
+	private async deleteOrphan(key: string): Promise<void> {
+		try {
+			await this.s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+		} catch (error) {
+			process.stderr.write(`[indexed-storage] orphan ${key} left for the sweeper: ${(error as Error).message}\n`);
+		}
+	}
+
+	/**
+	 * Send the index transaction, retrying transient failures with the same idempotency token (see the
+	 * DynamoDB-only storage for the rationale; the protocol is identical).
 	 */
 	private async transact(entries: readonly PlannedItem[], token: string): Promise<number> {
 		for (let attempt = 1; ; attempt++) {
@@ -390,10 +374,7 @@ export class DynamoDbStorage implements Storage {
 					continue;
 				}
 				if (transient) {
-					throw new OwnershipLost(
-						`Transaction kept conflicting after ${attempt} attempts (${reasons.map((reason) => reason.Code ?? "None").join(",")})`,
-						{ cause: error },
-					);
+					throw new OwnershipLost(`Transaction kept conflicting after ${attempt} attempts`, { cause: error });
 				}
 				throw new StorageRejected(`Transaction was cancelled: ${(error as Error).message}`, { cause: error });
 			}
@@ -414,26 +395,30 @@ export class DynamoDbStorage implements Storage {
 		actions: ReadonlyMap<DocumentId, DocumentAction>,
 		existingDocuments: ReadonlyMap<DocumentId, StoredDocumentItem>,
 		seq: number,
-	): { items: PlannedItem[]; highestId: number; cleanups: RevisionCleanup[]; token: string } {
-		const token = randomUUID();
+		fence: number,
+		token: string,
+	): { items: PlannedItem[]; highestId: number } {
 		const items: PlannedItem[] = [];
-		const cleanups: RevisionCleanup[] = [];
 		let highestId = 0;
-		const lastRecordWrite = new Map<number, Exclude<StorageWrite, { type: `document.${string}` }>>();
-		for (const write of writes) {
+		const lastRecordWrite = new Map<number, { write: RecordWrite; position: number }>();
+		writes.forEach((write, position) => {
 			if (write.type === "conversation" || write.type === "entry" || write.type === "task" || write.type === "submission") {
-				lastRecordWrite.set(write.value.id, write);
+				lastRecordWrite.set(write.value.id, { write, position });
 			}
-		}
-		for (const write of lastRecordWrite.values()) {
+		});
+		const pointer = (position: number): Item => ({
+			c: { N: String(seq) },
+			f: { N: String(fence) },
+			p: { N: String(position) },
+		});
+		for (const { write, position } of lastRecordWrite.values()) {
 			highestId = Math.max(highestId, write.value.id);
-			const item = this.recordItem(write, seq);
 			const once = write.type === "conversation" || write.type === "entry";
 			items.push(
 				this.planned("record", write.value.id, {
 					Put: {
 						TableName: this.tableName,
-						Item: item,
+						Item: { ...this.recordItem(write), ...pointer(position) },
 						ConditionExpression: once ? "attribute_not_exists(pk)" : "attribute_not_exists(pk) OR t = :t",
 						...(once ? {} : { ExpressionAttributeValues: { ":t": { S: write.type } } }),
 					},
@@ -444,19 +429,27 @@ export class DynamoDbStorage implements Storage {
 			highestId = Math.max(highestId, id);
 			const existing = existingDocuments.get(id);
 			const baseRecord: DocumentRecord =
-				action.create !== undefined
-					? ({ ...action.create, createdAt: seq } as DocumentRecord)
-					: existing!.record;
+				action.create !== undefined ? ({ ...action.create, createdAt: seq } as DocumentRecord) : existing!.record;
 			const record: DocumentRecord = action.retire ? { ...baseRecord, retiredAt: seq as Seq } : baseRecord;
 			const currentOnly = isCurrentOnly(record);
 			const writesRevision = action.content !== undefined && !(action.retire && currentOnly);
+			const item: Item = {
+				pk: { S: this.pk },
+				sk: { S: `R#${pad(id)}` },
+				t: { S: "document" },
+				v: { S: encode(record) },
+				l1: { S: `D#${digest(scopeKey(record.scope))}#${pad(id)}` },
+				l2: { S: `DA#${digest(recordAddressKey(record))}#${pad(id)}` },
+			};
 			const latestVersion = writesRevision ? action.content!.version : existing?.latestVersion;
+			if (latestVersion !== undefined) item.ver = { N: String(latestVersion) };
 			const latestSeq = writesRevision ? seq : existing?.latestSeq;
+			if (latestSeq !== undefined) item.last = { N: String(latestSeq) };
 			items.push(
 				this.planned("record", id, {
 					Put: {
 						TableName: this.tableName,
-						Item: this.documentItem(record, latestVersion, latestSeq),
+						Item: item,
 						ConditionExpression:
 							action.create !== undefined ? "attribute_not_exists(pk)" : "attribute_exists(pk) AND t = :t",
 						...(action.create !== undefined ? {} : { ExpressionAttributeValues: { ":t": { S: "document" } } }),
@@ -471,23 +464,14 @@ export class DynamoDbStorage implements Storage {
 							Item: {
 								pk: { S: this.pk },
 								sk: { S: `V#${pad(id)}#${pad(seq)}` },
-								c: { S: encode(action.content) },
+								b: { N: action.content!.kind === "base" ? "1" : "0" },
+								...pointer(action.position!),
 							},
 						},
 					}),
 				);
 			}
-			if (action.create === undefined && currentOnly) {
-				if (action.retire) cleanups.push({ id, belowSeq: seq + 1 });
-				else if (action.content?.kind === "base") cleanups.push({ id, belowSeq: seq });
-			}
 		}
-		const metaValues: Item = {
-			":expected": { N: String(this.seq) },
-			":seq": { N: String(seq) },
-			":nextId": { N: String(Math.max(this.nextId, highestId + 1)) },
-			":token": { S: token },
-		};
 		items.push(
 			this.planned("meta", undefined, {
 				Update: {
@@ -496,7 +480,12 @@ export class DynamoDbStorage implements Storage {
 					UpdateExpression: "SET seq = :seq, nextId = :nextId, #token = :token",
 					ExpressionAttributeNames: { "#token": "token" },
 					ConditionExpression: "seq = :expected",
-					ExpressionAttributeValues: metaValues,
+					ExpressionAttributeValues: {
+						":expected": { N: String(this.seq) },
+						":seq": { N: String(seq) },
+						":nextId": { N: String(Math.max(this.nextId, highestId + 1)) },
+						":token": { S: token },
+					},
 				},
 			}),
 		);
@@ -512,32 +501,24 @@ export class DynamoDbStorage implements Storage {
 				}),
 			);
 		}
-		return { items, highestId, cleanups, token };
+		return { items, highestId };
 	}
 
 	private planned(role: PlannedItem["role"], id: number | undefined, request: TransactWriteItem): PlannedItem {
-		const item = request.Put?.Item ?? request.Update?.ExpressionAttributeValues ?? {};
 		const meterItem =
 			request.Put?.Item ??
 			(request.Update !== undefined ? { ...request.Update.Key, ...request.Update.ExpressionAttributeValues } : undefined) ??
 			request.ConditionCheck?.Key ??
 			{};
-		return { role, id, request, bytes: itemBytes(item), meterItem };
+		return { role, id, request, bytes: itemSize(meterItem), meterItem };
 	}
 
-	private recordItem(
-		write: Exclude<StorageWrite, { type: `document.${string}` }>,
-		seq: number,
-	): Item {
+	private recordItem(write: RecordWrite): Item {
 		const id = write.value.id;
-		const item: Item = {
-			pk: { S: this.pk },
-			sk: { S: `R#${pad(id)}` },
-			t: { S: write.type },
-			v: { S: encode(write.value) },
-		};
+		const item: Item = { pk: { S: this.pk }, sk: { S: `R#${pad(id)}` }, t: { S: write.type } };
 		switch (write.type) {
 			case "conversation": {
+				item.v = { S: encode(write.value) };
 				item.l1 = { S: `C#${pad(id)}` };
 				const owner = write.value.owner;
 				if (owner !== undefined) {
@@ -547,15 +528,20 @@ export class DynamoDbStorage implements Storage {
 				break;
 			}
 			case "entry":
-				item.s = { N: String(seq) };
+				item.cv = { N: String(write.value.conversationId) };
 				item.l1 = { S: `E#${pad(write.value.conversationId)}#${pad(id)}` };
 				if (write.value.head !== undefined) item.l2 = { S: `H#${pad(write.value.conversationId)}#${pad(id)}` };
 				break;
 			case "task":
+				item.cv = { N: String(write.value.conversationId) };
+				item.k = { S: encode(write.value.kind) };
+				item.ab = { N: write.value.abortRequested ? "1" : "0" };
+				item.bg = { N: write.value.background ? "1" : "0" };
 				item.l1 = { S: `T#${pad(id)}` };
 				item.l2 = { S: `TS#${write.value.state.status}#${pad(id)}` };
 				break;
 			case "submission":
+				item.cv = { N: String(write.value.conversationId) };
 				item.l1 = { S: `S#${pad(id)}` };
 				item.l2 = { S: `SS#${write.value.status}#${pad(id)}` };
 				if (write.value.requestId !== undefined) {
@@ -566,66 +552,6 @@ export class DynamoDbStorage implements Storage {
 				break;
 		}
 		return item;
-	}
-
-	private documentItem(record: DocumentRecord, latestVersion: number | undefined, latestSeq: number | undefined): Item {
-		const item: Item = {
-			pk: { S: this.pk },
-			sk: { S: `R#${pad(record.id)}` },
-			t: { S: "document" },
-			v: { S: encode(record) },
-			l1: { S: `D#${digest(scopeKey(record.scope))}#${pad(record.id)}` },
-			l2: { S: `DA#${digest(recordAddressKey(record))}#${pad(record.id)}` },
-		};
-		if (latestVersion !== undefined) item.ver = { N: String(latestVersion) };
-		if (latestSeq !== undefined) item.last = { N: String(latestSeq) };
-		return item;
-	}
-
-	/**
-	 * Delete revisions a committed base or retirement made unreachable. Runs after the transaction landed and never
-	 * fails the commit: anything left behind is garbage that reads never reach.
-	 *
-	 * @returns The error text when some revisions were left behind.
-	 */
-	private async cleanRevisionsBestEffort(cleanups: readonly RevisionCleanup[]): Promise<string | undefined> {
-		if (cleanups.length === 0) return undefined;
-		try {
-			await this.cleanRevisions(cleanups);
-			return undefined;
-		} catch (error) {
-			const message = `${(error as Error).name}: ${(error as Error).message}`;
-			process.stderr.write(`[dynamodb-storage] revision cleanup left garbage: ${message}\n`);
-			return message;
-		}
-	}
-
-	private async cleanRevisions(cleanups: readonly RevisionCleanup[]): Promise<void> {
-		for (const cleanup of cleanups) {
-			const keys: Item[] = [];
-			for await (const item of this.iterate(
-				undefined,
-				`V#${pad(cleanup.id)}#`,
-				`V#${pad(cleanup.id)}#${pad(cleanup.belowSeq - 1)}`,
-				true,
-			)) {
-				keys.push({ pk: item.pk!, sk: item.sk! });
-			}
-			for (let index = 0; index < keys.length; index += 25) {
-				let requests: { DeleteRequest: { Key: Item } }[] | undefined = keys
-					.slice(index, index + 25)
-					.map((Key) => ({ DeleteRequest: { Key } }));
-				for (let attempt = 1; requests !== undefined && requests.length > 0; attempt++) {
-					if (attempt > CLEANUP_ATTEMPTS) throw new Error(`${requests.length} revision deletes still unprocessed`);
-					if (attempt > 1) await backoff(attempt);
-					this.meter.writes(requests.map((request) => request.DeleteRequest.Key));
-					const response = await this.client.send(
-						new BatchWriteItemCommand({ RequestItems: { [this.tableName]: requests } }),
-					);
-					requests = response.UnprocessedItems?.[this.tableName] as typeof requests;
-				}
-			}
-		}
 	}
 
 	private async resolveDocumentCopies(writes: StorageWrite[]): Promise<StorageWrite[]> {
@@ -689,9 +615,9 @@ export class DynamoDbStorage implements Storage {
 
 	private prepareDocumentActions(writes: readonly StorageWrite[]): Map<DocumentId, DocumentAction> {
 		const actions = new Map<DocumentId, DocumentAction>();
-		for (const write of writes) {
+		writes.forEach((write, position) => {
 			if (write.type !== "document.create" && write.type !== "document.change" && write.type !== "document.retire") {
-				continue;
+				return;
 			}
 			const id = write.type === "document.create" ? write.record.id : write.id;
 			let action = actions.get(id);
@@ -706,17 +632,19 @@ export class DynamoDbStorage implements Storage {
 					}
 					action.create = write.record;
 					action.content = write.content;
+					action.position = position;
 					break;
 				case "document.change":
 					if (action.content !== undefined) throw new Error(`Document ${id} has more than one content command`);
 					action.content = write.content;
+					action.position = position;
 					break;
 				case "document.retire":
 					if (action.retire) throw new Error(`Document ${id} is retired more than once`);
 					action.retire = true;
 					break;
 			}
-		}
+		});
 		return actions;
 	}
 
@@ -759,8 +687,13 @@ export class DynamoDbStorage implements Storage {
 			let live = liveCounts.get(key);
 			const currentId =
 				live === undefined || action.retire
-					? (await this.findDocument({ kind: address.kind, scope: address.scope, key: address.key }, "current", BACKGROUND_CONTEXT))
-							?.id
+					? (
+							await this.findDocument(
+								{ kind: address.kind, scope: address.scope, key: address.key },
+								"current",
+								BACKGROUND_CONTEXT,
+							)
+						)?.id
 					: undefined;
 			if (live === undefined) live = currentId === undefined ? 0 : 1;
 			if (action.retire && currentId === id) live--;
@@ -781,7 +714,8 @@ export class DynamoDbStorage implements Storage {
 
 	async conversation(id: ConversationId, _context: Context): Promise<ConversationRecord | undefined> {
 		this.assertOpen();
-		return this.readRecord<ConversationRecord>(id, "conversation");
+		const item = await this.getItem(`R#${pad(id)}`);
+		return item === undefined || text(item, "t") !== "conversation" ? undefined : parse(text(item, "v")!);
 	}
 
 	async scanConversations(
@@ -791,15 +725,19 @@ export class DynamoDbStorage implements Storage {
 		_context: Context,
 	): Promise<Page<ConversationRecord, Cursor>> {
 		this.assertOpen();
-		const after = cursorAfter(cursor);
 		const [index, prefix] =
 			query.ownerTaskId !== undefined
 				? (["l2", `CT#${pad(query.ownerTaskId)}#`] as const)
 				: query.ownerConversationId !== undefined
 					? (["l3", `CC#${pad(query.ownerConversationId)}#`] as const)
 					: (["l1", "C#"] as const);
-		return this.scanAscending<ConversationRecord>(index, prefix, after, limit, (value) =>
-			query.ownerConversationId === undefined || value.owner?.conversationId === query.ownerConversationId,
+		const items = await this.scanIndex(index, prefix, cursorAfter(cursor), limit, (item) => {
+			const value = parse<ConversationRecord>(text(item, "v")!);
+			return query.ownerConversationId === undefined || value.owner?.conversationId === query.ownerConversationId;
+		});
+		return page(
+			items.map((item) => parse<ConversationRecord>(text(item, "v")!)),
+			limit,
 		);
 	}
 
@@ -818,11 +756,15 @@ export class DynamoDbStorage implements Storage {
 		if (context === undefined) return this.readEntry(idOrConversationId as EntryId);
 		if (typeof idOrContext !== "number") throw new TypeError("Storage.entry() requires an entry ID");
 		let current = await this.requireConversation(idOrConversationId as ConversationId);
-		const found = await this.readEntry(idOrContext as EntryId);
-		if (found === undefined) return undefined;
+		const item = await this.getItem(`R#${pad(idOrContext)}`);
+		if (item === undefined || text(item, "t") !== "entry") return undefined;
+		const entryConversation = number(item, "cv")!;
 		let upper = Number.POSITIVE_INFINITY;
 		while (true) {
-			if (found.entry.conversationId === current.id) return found.entry.id <= upper ? found : undefined;
+			if (entryConversation === current.id) {
+				if (idOrContext > upper) return undefined;
+				return { entry: await this.resolve<EntryRecord>(item), commitSeq: number(item, "c")! as Seq };
+			}
 			if (current.parent === undefined) return undefined;
 			upper = Math.min(upper, current.parent.at);
 			current = await this.requireConversation(current.parent.conversationId);
@@ -839,8 +781,9 @@ export class DynamoDbStorage implements Storage {
 		let upper = atOrBeforeEntryId ?? Number.POSITIVE_INFINITY;
 		while (true) {
 			const high = Number.isFinite(upper) ? `H#${pad(current.id)}#${pad(upper)}` : `H#${pad(current.id)}#~`;
-			for await (const item of this.iterate("l2", `H#${pad(current.id)}#`, high, false, 1)) {
-				const entry = parse<EntryRecord>(text(item, "v")!);
+			for await (const items of this.pages("l2", `H#${pad(current.id)}#`, high, false, 1)) {
+				if (items.length === 0) continue;
+				const entry = await this.resolve<EntryRecord>(items[0]!);
 				return { ...entry, head: entry.head! };
 			}
 			if (current.parent === undefined) return undefined;
@@ -859,12 +802,28 @@ export class DynamoDbStorage implements Storage {
 		const after = cursorAfter(cursor);
 		const maxEntryId =
 			after === undefined ? query.maxEntryId : Math.min(query.maxEntryId ?? Number.POSITIVE_INFINITY, after - 1);
-		const visible: EntryRecord[] = [];
-		for await (const entry of this.visibleEntries(query.conversationId, query.minEntryId, maxEntryId)) {
-			visible.push(entry);
-			if (visible.length > limit) break;
+		const minEntryId = query.minEntryId ?? Number.NEGATIVE_INFINITY;
+		const visible: Item[] = [];
+		let current = await this.requireConversation(query.conversationId);
+		let upper = maxEntryId ?? Number.POSITIVE_INFINITY;
+		outer: while (true) {
+			const prefix = `E#${pad(current.id)}#`;
+			const low = Number.isFinite(minEntryId) && minEntryId > 0 ? `${prefix}${pad(minEntryId)}` : prefix;
+			const high = Number.isFinite(upper) ? `${prefix}${pad(upper)}` : `${prefix}~`;
+			if (!(Number.isFinite(upper) && upper < 0)) {
+				for await (const items of this.pages("l1", low, high, false, Math.min(limit + 1, 100))) {
+					for (const item of items) {
+						visible.push(item);
+						if (visible.length > limit) break outer;
+					}
+				}
+			}
+			if (current.parent === undefined) break;
+			upper = Math.min(upper, current.parent.at);
+			if (upper < minEntryId) break;
+			current = await this.requireConversation(current.parent.conversationId);
 		}
-		return page(visible, limit);
+		return page(await Promise.all(visible.map((item) => this.resolve<EntryRecord>(item))), limit);
 	}
 
 	async task(id: TaskId, _context: Context): Promise<StoredTask | undefined> {
@@ -879,20 +838,21 @@ export class DynamoDbStorage implements Storage {
 		_context: Context,
 	): Promise<Page<StoredTask, Cursor>> {
 		this.assertOpen();
-		const after = cursorAfter(cursor);
 		const [index, prefix] =
 			query.status === undefined ? (["l1", "T#"] as const) : (["l2", `TS#${query.status}#`] as const);
-		return this.scanAscending<StoredTask>(
+		const kind = query.kind === undefined ? undefined : encode(query.kind);
+		const items = await this.scanIndex(
 			index,
 			prefix,
-			after,
+			cursorAfter(cursor),
 			limit,
-			(value) =>
-				(query.conversationId === undefined || value.conversationId === query.conversationId) &&
-				(query.kind === undefined || value.kind === query.kind) &&
-				(query.abortRequested === undefined || value.abortRequested === query.abortRequested) &&
-				(query.background === undefined || value.background === query.background),
+			(item) =>
+				(query.conversationId === undefined || number(item, "cv") === query.conversationId) &&
+				(kind === undefined || text(item, "k") === kind) &&
+				(query.abortRequested === undefined || (number(item, "ab") === 1) === query.abortRequested) &&
+				(query.background === undefined || (number(item, "bg") === 1) === query.background),
 		);
+		return page(await Promise.all(items.map((item) => this.resolve<StoredTask>(item))), limit);
 	}
 
 	async submission(id: SubmissionId, _context: Context): Promise<SubmissionRecord | undefined> {
@@ -907,16 +867,16 @@ export class DynamoDbStorage implements Storage {
 		_context: Context,
 	): Promise<Page<SubmissionRecord, Cursor>> {
 		this.assertOpen();
-		const after = cursorAfter(cursor);
 		const [index, prefix] =
 			query.status === undefined ? (["l1", "S#"] as const) : (["l2", `SS#${query.status}#`] as const);
-		return this.scanAscending<SubmissionRecord>(
+		const items = await this.scanIndex(
 			index,
 			prefix,
-			after,
+			cursorAfter(cursor),
 			limit,
-			(value) => query.conversationId === undefined || value.conversationId === query.conversationId,
+			(item) => query.conversationId === undefined || number(item, "cv") === query.conversationId,
 		);
+		return page(await Promise.all(items.map((item) => this.resolve<SubmissionRecord>(item))), limit);
 	}
 
 	async submissionByRequest(
@@ -926,9 +886,11 @@ export class DynamoDbStorage implements Storage {
 	): Promise<SubmissionRecord | undefined> {
 		this.assertOpen();
 		const prefix = `SR#${pad(conversationId)}#${digest(encode(requestId))}#`;
-		for await (const item of this.iterate("l3", prefix, `${prefix}~`, false)) {
-			const value = parse<SubmissionRecord>(text(item, "v")!);
-			if (value.requestId === requestId && value.conversationId === conversationId) return value;
+		for await (const items of this.pages("l3", prefix, `${prefix}~`, false)) {
+			for (const item of items) {
+				const value = await this.resolve<SubmissionRecord>(item);
+				if (value.requestId === requestId && value.conversationId === conversationId) return value;
+			}
 		}
 		return undefined;
 	}
@@ -941,10 +903,12 @@ export class DynamoDbStorage implements Storage {
 		this.assertOpen();
 		const key = addressKey(address);
 		const prefix = `DA#${digest(key)}#`;
-		for await (const item of this.iterate("l2", prefix, `${prefix}~`, true)) {
-			const record = parse<DocumentRecord>(text(item, "v")!);
-			if (recordAddressKey(record) !== key) continue;
-			if (isAliveAt(record, at)) return record;
+		for await (const items of this.pages("l2", prefix, `${prefix}~`, true)) {
+			for (const item of items) {
+				const record = parse<DocumentRecord>(text(item, "v")!);
+				if (recordAddressKey(record) !== key) continue;
+				if (isAliveAt(record, at)) return record;
+			}
 		}
 		return undefined;
 	}
@@ -961,17 +925,18 @@ export class DynamoDbStorage implements Storage {
 		_context: Context,
 	): Promise<Page<DocumentRecord, Cursor>> {
 		this.assertOpen();
-		const after = cursorAfter(cursor);
 		const scope = scopeKey(query.scope);
-		return this.scanAscending<DocumentRecord>(
-			"l1",
-			`D#${digest(scope)}#`,
-			after,
-			limit,
-			(record) =>
+		const items = await this.scanIndex("l1", `D#${digest(scope)}#`, cursorAfter(cursor), limit, (item) => {
+			const record = parse<DocumentRecord>(text(item, "v")!);
+			return (
 				scopeKey(record.scope) === scope &&
 				(query.kind === undefined || record.kind === query.kind) &&
-				isAliveAt(record, query.at),
+				isAliveAt(record, query.at)
+			);
+		});
+		return page(
+			items.map((item) => parse<DocumentRecord>(text(item, "v")!)),
+			limit,
 		);
 	}
 
@@ -980,100 +945,125 @@ export class DynamoDbStorage implements Storage {
 	}
 
 	/**
-	 * Materialize one document at a point. The revision range is pinned to the latest revision seq read from the
-	 * record in the same attempt. A current read of a current-only document that races its owner's post-commit
-	 * cleanup can still find its base deleted; that case re-reads from the record, a bounded number of times.
+	 * Materialize one document at a point: the revision index from the pinned seq (the record's latest revision for a
+	 * current read) down to the newest base, then the referenced commit objects fetched in parallel. Nothing is ever
+	 * deleted, so this is a consistent point-in-time read.
 	 */
 	private async materialize(id: number, at: DocumentPoint): Promise<StoredDocument | undefined> {
-		for (let attempt = 1; ; attempt++) {
-			const item = await this.getItem(`R#${pad(id)}`);
-			if (item === undefined || text(item, "t") !== "document") return undefined;
-			const record = parse<DocumentRecord>(text(item, "v")!);
-			if (at !== "current" && isCurrentOnly(record)) {
-				throw new Error(`Document ${id} does not retain historical content`);
-			}
-			if (!isAliveAt(record, at)) return undefined;
-			const pinned = at === "current" ? number(item, "last") : at;
-			const high = pinned === undefined ? `V#${pad(id)}#~` : `V#${pad(id)}#${pad(pinned)}`;
-			const newestFirst: DocumentRevision[] = [];
-			for await (const revisionItem of this.iterate(undefined, `V#${pad(id)}#`, high, false)) {
-				const content = parse<DocumentContent>(text(revisionItem, "c")!);
-				const seq = Number(text(revisionItem, "sk")!.slice(-16)) as Seq;
-				newestFirst.push({ ...content, seq } as DocumentRevision);
-				if (content.kind === "base") break;
-			}
-			const base = newestFirst.at(-1);
-			if (base?.kind !== "base") {
-				if (at === "current" && attempt < MATERIALIZE_ATTEMPTS) continue;
-				throw new Error(`Document ${id} is missing a required base`);
-			}
-			const deltas = newestFirst.slice(0, -1).reverse();
-			const batches = function* (): Generator<readonly Op[]> {
-				for (const revision of deltas) {
-					if (revision.kind !== "delta" || revision.version !== base.version) {
-						throw new Error(`Document ${id} crosses a stored version boundary without a base`);
-					}
-					yield revision.ops;
-				}
-			};
-			const value = applyImmutableBatches(base.value, batches()) as JsonObject;
-			return {
-				record,
-				version: base.version,
-				value: parse<JsonObject>(encode(value)),
-				deltasSinceBase: deltas.length,
-			};
+		const item = await this.getItem(`R#${pad(id)}`);
+		if (item === undefined || text(item, "t") !== "document") return undefined;
+		const record = parse<DocumentRecord>(text(item, "v")!);
+		if (at !== "current" && isCurrentOnly(record)) {
+			throw new Error(`Document ${id} does not retain historical content`);
 		}
+		if (!isAliveAt(record, at)) return undefined;
+		const pinned = at === "current" ? number(item, "last") : at;
+		const high = pinned === undefined ? `V#${pad(id)}#~` : `V#${pad(id)}#${pad(pinned)}`;
+		const newestFirst: Item[] = [];
+		outer: for await (const items of this.pages(undefined, `V#${pad(id)}#`, high, false, REVISION_PAGE_SIZE)) {
+			for (const revision of items) {
+				newestFirst.push(revision);
+				if (number(revision, "b") === 1) break outer;
+			}
+		}
+		if (newestFirst.length === 0 || number(newestFirst.at(-1)!, "b") !== 1) {
+			throw new Error(`Document ${id} is missing a required base`);
+		}
+		const contents = await Promise.all(
+			newestFirst.reverse().map(async (revision) => {
+				const object = await this.fetchCommit(this.keyOf(revision), true);
+				const write = object.writes[number(revision, "p")!]!;
+				return (write as { content: DocumentContent }).content;
+			}),
+		);
+		const base = contents[0]!;
+		if (base.kind !== "base") throw new Error(`Document ${id} is missing a required base`);
+		const deltas = contents.slice(1);
+		const batches = function* (): Generator<readonly Op[]> {
+			for (const revision of deltas) {
+				if (revision.kind !== "delta" || revision.version !== base.version) {
+					throw new Error(`Document ${id} crosses a stored version boundary without a base`);
+				}
+				yield revision.ops;
+			}
+		};
+		const value = applyImmutableBatches(base.value, batches()) as JsonObject;
+		return { record, version: base.version, value: parse<JsonObject>(encode(value)), deltasSinceBase: deltas.length };
 	}
 
-	private async *visibleEntries(
-		conversationId: ConversationId,
-		minEntryId: number = Number.NEGATIVE_INFINITY,
-		maxEntryId: number = Number.POSITIVE_INFINITY,
-	): AsyncGenerator<EntryRecord> {
-		let current = await this.requireConversation(conversationId);
-		let upper = maxEntryId;
-		while (true) {
-			const prefix = `E#${pad(current.id)}#`;
-			const low = Number.isFinite(minEntryId) && minEntryId > 0 ? `${prefix}${pad(minEntryId)}` : prefix;
-			const high = Number.isFinite(upper) ? `${prefix}${pad(upper)}` : `${prefix}~`;
-			if (!(Number.isFinite(upper) && upper < 0)) {
-				for await (const item of this.iterate("l1", low, high, false)) {
-					yield parse<EntryRecord>(text(item, "v")!);
-				}
-			}
-			if (current.parent === undefined) break;
-			upper = Math.min(upper, current.parent.at);
-			if (upper < minEntryId) break;
-			current = await this.requireConversation(current.parent.conversationId);
-		}
+	private keyOf(item: Item): string {
+		return commitKey(this.storageId, number(item, "c")!, number(item, "f")!);
 	}
 
-	private async scanAscending<T extends { readonly id: number }>(
+	private async resolve<T>(item: Item): Promise<T> {
+		const object = await this.fetchCommit(this.keyOf(item), true);
+		const write = object.writes[number(item, "p")!] as unknown as { value: T };
+		return parse<T>(encode(write.value));
+	}
+
+	/**
+	 * Fetch one immutable commit object, cached for the life of this owner. Objects never change, so the cache
+	 * needs no invalidation.
+	 */
+	private fetchCommit(key: string, cache: boolean): Promise<CommitObject> {
+		const cached = this.commits.get(key);
+		if (cached !== undefined) return cached;
+		const loading = (async () => {
+			this.meter.s3Gets++;
+			const response = await this.s3.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+			return parse<CommitObject>(await response.Body!.transformToString());
+		})();
+		if (cache) {
+			this.commits.set(key, loading);
+			loading.catch(() => this.commits.delete(key));
+		}
+		return loading;
+	}
+
+	private async readRecord<T>(id: number, table: TableName): Promise<T | undefined> {
+		const item = await this.getItem(`R#${pad(id)}`);
+		if (item === undefined || text(item, "t") !== table) return undefined;
+		return this.resolve<T>(item);
+	}
+
+	private async readEntry(id: EntryId): Promise<{ readonly entry: EntryRecord; readonly commitSeq: Seq } | undefined> {
+		const item = await this.getItem(`R#${pad(id)}`);
+		if (item === undefined || text(item, "t") !== "entry") return undefined;
+		return { entry: await this.resolve<EntryRecord>(item), commitSeq: number(item, "c")! as Seq };
+	}
+
+	private async requireConversation(id: ConversationId): Promise<ConversationRecord> {
+		const item = await this.getItem(`R#${pad(id)}`);
+		if (item === undefined || text(item, "t") !== "conversation") throw new Error(`Unknown conversation: ${id}`);
+		return parse<ConversationRecord>(text(item, "v")!);
+	}
+
+	private async scanIndex(
 		index: "l1" | "l2" | "l3",
 		prefix: string,
 		after: number | undefined,
 		limit: number,
-		accept: (value: T) => boolean,
-	): Promise<Page<T, Cursor>> {
+		accept: (item: Item) => boolean,
+	): Promise<Item[]> {
 		const low = after === undefined ? prefix : `${prefix}${pad(after + 1)}`;
-		const values: T[] = [];
-		for await (const item of this.iterate(index, low, `${prefix}~`, true)) {
-			const value = parse<T>(text(item, "v")!);
-			if (!accept(value)) continue;
-			values.push(value);
-			if (values.length > limit) break;
+		const accepted: Item[] = [];
+		for await (const items of this.pages(index, low, `${prefix}~`, true)) {
+			for (const item of items) {
+				if (!accept(item)) continue;
+				accepted.push(item);
+				if (accepted.length > limit) return accepted;
+			}
 		}
-		return page(values, limit);
+		return accepted;
 	}
 
-	private async *iterate(
+	private async *pages(
 		index: "l1" | "l2" | "l3" | undefined,
 		low: string,
 		high: string,
 		forward: boolean,
-		pageSize = QUERY_PAGE_SIZE,
-	): AsyncGenerator<Item> {
+		pageSize = 100,
+	): AsyncGenerator<Item[]> {
 		const keyName = index ?? "sk";
 		let startKey: Item | undefined;
 		do {
@@ -1092,7 +1082,7 @@ export class DynamoDbStorage implements Storage {
 				}),
 			);
 			this.meter.read(response.Items ?? [], false);
-			for (const item of response.Items ?? []) yield item;
+			yield response.Items ?? [];
 			startKey = response.LastEvaluatedKey;
 		} while (startKey !== undefined);
 	}
@@ -1112,7 +1102,8 @@ export class DynamoDbStorage implements Storage {
 			let keys: Item[] | undefined = sortKeys
 				.slice(index, index + 100)
 				.map((sk) => ({ pk: { S: this.pk }, sk: { S: sk } }));
-			while (keys !== undefined && keys.length > 0) {
+			for (let attempt = 1; keys !== undefined && keys.length > 0; attempt++) {
+				if (attempt > 1) await backoff(attempt);
 				this.preReads++;
 				const response = await this.client.send(
 					new BatchGetItemCommand({ RequestItems: { [this.tableName]: { Keys: keys, ConsistentRead: true } } }),
@@ -1125,26 +1116,8 @@ export class DynamoDbStorage implements Storage {
 		return found;
 	}
 
-	private async readRecord<T>(id: number, table: TableName): Promise<T | undefined> {
-		const item = await this.getItem(`R#${pad(id)}`);
-		if (item === undefined || text(item, "t") !== table) return undefined;
-		return parse<T>(text(item, "v")!);
-	}
-
-	private async readEntry(id: EntryId): Promise<{ readonly entry: EntryRecord; readonly commitSeq: Seq } | undefined> {
-		const item = await this.getItem(`R#${pad(id)}`);
-		if (item === undefined || text(item, "t") !== "entry") return undefined;
-		return { entry: parse<EntryRecord>(text(item, "v")!), commitSeq: number(item, "s")! as Seq };
-	}
-
-	private async requireConversation(id: ConversationId): Promise<ConversationRecord> {
-		const conversation = await this.readRecord<ConversationRecord>(id, "conversation");
-		if (conversation === undefined) throw new Error(`Unknown conversation: ${id}`);
-		return conversation;
-	}
-
 	private assertOpen(): void {
-		if (this.closed) throw new Error("DynamoDbStorage is closed");
+		if (this.closed) throw new Error("IndexedStorage is closed");
 	}
 }
 
@@ -1155,5 +1128,3 @@ type PlannedItem = {
 	readonly bytes: number;
 	readonly meterItem: Item;
 };
-
-type RevisionCleanup = { readonly id: number; readonly belowSeq: number };

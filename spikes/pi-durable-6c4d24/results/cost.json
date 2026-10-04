@@ -1,0 +1,224 @@
+[
+  {
+    "backend": "dynamodb",
+    "storageId": "tenant-1#bot-ada#cost-dynamodb-bd9f2c32",
+    "setup": {
+      "dynamoRequests": 19,
+      "writeRequestUnits": 37,
+      "readRequestUnits": 18,
+      "s3Puts": 0,
+      "s3Gets": 0,
+      "s3BytesPut": 0,
+      "largestIndexItemBytes": 344
+    },
+    "plain": {
+      "status": "done",
+      "milliseconds": 3531,
+      "requests": {
+        "dynamoRequests": 54,
+        "writeRequestUnits": 120,
+        "readRequestUnits": 46,
+        "s3Puts": 0,
+        "s3Gets": 0,
+        "s3BytesPut": 0,
+        "largestIndexItemBytes": 3973
+      },
+      "commits": {
+        "commits": 7,
+        "rejected": [],
+        "writeKinds": {
+          "entry": 3,
+          "submission": 2,
+          "task": 4,
+          "document.change": 6
+        },
+        "maxTransactionItems": 9,
+        "maxTransactionBytes": 5733,
+        "totalTransactionBytes": 14571,
+        "maxItemBytes": 3973,
+        "preReadsPerCommit": 2,
+        "commitMillisecondsP50": 41.1,
+        "commitMillisecondsP95": 58.7
+      }
+    },
+    "tool": {
+      "status": "done",
+      "milliseconds": 20611,
+      "requests": {
+        "dynamoRequests": 263,
+        "writeRequestUnits": 641,
+        "readRequestUnits": 254,
+        "s3Puts": 0,
+        "s3Gets": 0,
+        "s3BytesPut": 0,
+        "largestIndexItemBytes": 5112
+      },
+      "commits": {
+        "commits": 43,
+        "rejected": [],
+        "writeKinds": {
+          "entry": 8,
+          "submission": 2,
+          "task": 34,
+          "document.change": 33
+        },
+        "maxTransactionItems": 9,
+        "maxTransactionBytes": 6982,
+        "totalTransactionBytes": 68425,
+        "maxItemBytes": 5112,
+        "preReadsPerCommit": 1.7906976744186047,
+        "commitMillisecondsP50": 24.1,
+        "commitMillisecondsP95": 63.6
+      }
+    },
+    "resident": {
+      "dynamoBillableBytesAfterPlainTurn": 22002,
+      "s3AfterPlainTurn": {
+        "objects": 0,
+        "bytes": 0
+      },
+      "dynamoBillableBytesAfterBothTurns": 71988,
+      "dynamoItems": 34,
+      "largestResidentItemBytes": 5323,
+      "s3AfterBothTurns": {
+        "objects": 0,
+        "bytes": 0
+      }
+    },
+    "reopen": {
+      "milliseconds": 33,
+      "requests": {
+        "dynamoRequests": 7,
+        "writeRequestUnits": 0,
+        "readRequestUnits": 7,
+        "s3Puts": 0,
+        "s3Gets": 0,
+        "s3BytesPut": 0,
+        "largestIndexItemBytes": 0
+      }
+    },
+    "transcriptRead": {
+      "milliseconds": 10,
+      "requests": {
+        "dynamoRequests": 2,
+        "writeRequestUnits": 0,
+        "readRequestUnits": 7,
+        "s3Puts": 0,
+        "s3Gets": 0,
+        "s3BytesPut": 0,
+        "largestIndexItemBytes": 0
+      }
+    }
+  },
+  {
+    "backend": "indexed",
+    "storageId": "tenant-1#bot-ada#cost-indexed-23e6e133",
+    "setup": {
+      "dynamoRequests": 20,
+      "writeRequestUnits": 38,
+      "readRequestUnits": 18,
+      "s3Puts": 1,
+      "s3Gets": 0,
+      "s3BytesPut": 1250,
+      "largestIndexItemBytes": 343
+    },
+    "plain": {
+      "status": "done",
+      "milliseconds": 2188,
+      "requests": {
+        "dynamoRequests": 48,
+        "writeRequestUnits": 99,
+        "readRequestUnits": 42,
+        "s3Puts": 7,
+        "s3Gets": 0,
+        "s3BytesPut": 10690,
+        "largestIndexItemBytes": 343
+      },
+      "commits": {
+        "commits": 7,
+        "rejected": [],
+        "writeKinds": {
+          "entry": 3,
+          "submission": 2,
+          "task": 4,
+          "document.change": 6
+        },
+        "maxTransactionItems": 9,
+        "maxTransactionBytes": 5808,
+        "totalTransactionBytes": 15852,
+        "maxItemBytes": 340,
+        "preReadsPerCommit": 1.5714285714285714,
+        "commitMillisecondsP50": 36.7,
+        "commitMillisecondsP95": 53.6
+      }
+    },
+    "tool": {
+      "status": "done",
+      "milliseconds": 15142,
+      "requests": {
+        "dynamoRequests": 171,
+        "writeRequestUnits": 392,
+        "readRequestUnits": 143,
+        "s3Puts": 31,
+        "s3Gets": 0,
+        "s3BytesPut": 39559,
+        "largestIndexItemBytes": 343
+      },
+      "commits": {
+        "commits": 31,
+        "rejected": [],
+        "writeKinds": {
+          "entry": 6,
+          "submission": 2,
+          "task": 24,
+          "document.change": 24
+        },
+        "maxTransactionItems": 9,
+        "maxTransactionBytes": 6988,
+        "totalTransactionBytes": 59882,
+        "maxItemBytes": 340,
+        "preReadsPerCommit": 1.4516129032258065,
+        "commitMillisecondsP50": 31.3,
+        "commitMillisecondsP95": 64.7
+      }
+    },
+    "resident": {
+      "dynamoBillableBytesAfterPlainTurn": 12848,
+      "s3AfterPlainTurn": {
+        "objects": 8,
+        "bytes": 11940
+      },
+      "dynamoBillableBytesAfterBothTurns": 25133,
+      "dynamoItems": 60,
+      "largestResidentItemBytes": 462,
+      "s3AfterBothTurns": {
+        "objects": 39,
+        "bytes": 51499
+      }
+    },
+    "reopen": {
+      "milliseconds": 43,
+      "requests": {
+        "dynamoRequests": 7,
+        "writeRequestUnits": 0,
+        "readRequestUnits": 7,
+        "s3Puts": 0,
+        "s3Gets": 0,
+        "s3BytesPut": 0,
+        "largestIndexItemBytes": 0
+      }
+    },
+    "transcriptRead": {
+      "milliseconds": 28,
+      "requests": {
+        "dynamoRequests": 2,
+        "writeRequestUnits": 0,
+        "readRequestUnits": 2,
+        "s3Puts": 0,
+        "s3Gets": 9,
+        "s3BytesPut": 0,
+        "largestIndexItemBytes": 0
+      }
+    }
+  }
+]

@@ -18,11 +18,51 @@ import {
 } from "@earendil-works/pi-durable";
 import { config } from "dotenv";
 import { DynamoDbStorage } from "./dynamodb-storage.ts";
-import { createLocalClient, ensureTable } from "./table.ts";
+import { IndexedStorage } from "./indexed-storage.ts";
+import { createLocalClient, createLocalS3, ensureBucket, ensureTable } from "./table.ts";
 
 export const context: Context = BACKGROUND_CONTEXT;
 export const TABLE_NAME = "pi-durable-spike";
 export const MODEL = { provider: "openai", modelId: "gpt-5-nano" } as const;
+export const BUCKET = "pi-durable-spike";
+
+/** Which storage the owners use: `indexed` (S3 data, DynamoDB index; the default) or `dynamodb` (everything in DynamoDB). */
+export const BACKEND: "indexed" | "dynamodb" = process.env.PI_SPIKE_BACKEND === "dynamodb" ? "dynamodb" : "indexed";
+
+export type SpikeStorage = DynamoDbStorage | IndexedStorage;
+export type Backend = "indexed" | "dynamodb";
+
+/**
+ * Open one storage of the selected backend, optionally fenced.
+ *
+ * @param storageId Storage identity.
+ * @param fence Owner fence, or undefined for an unfenced handle.
+ * @returns The open storage.
+ */
+export async function openStorage(
+	storageId: string,
+	fence: number | undefined,
+	backend: Backend = BACKEND,
+): Promise<SpikeStorage> {
+	const client = createLocalClient();
+	await ensureTable(client, TABLE_NAME);
+	if (backend === "dynamodb") return DynamoDbStorage.open({ client, tableName: TABLE_NAME, storageId, fence });
+	const s3 = createLocalS3();
+	await ensureBucket(s3, BUCKET);
+	return IndexedStorage.open({ client, s3, tableName: TABLE_NAME, bucket: BUCKET, storageId, fence });
+}
+
+/**
+ * Raise the owner fence of one storage (the same `OWNER` item for both backends).
+ *
+ * @param storageId Storage identity.
+ * @param fence New fence.
+ */
+export async function claimFence(storageId: string, fence: number): Promise<void> {
+	const client = createLocalClient();
+	await ensureTable(client, TABLE_NAME);
+	await DynamoDbStorage.claimOwnership({ client, tableName: TABLE_NAME, storageId, fence });
+}
 
 const DEFAULT_ENV_FILE = fileURLToPath(new URL("../../../.env", import.meta.url));
 if (process.env.OPENAI_API_KEY === undefined) config({ path: process.env.CHATTICUS_ENV_FILE ?? DEFAULT_ENV_FILE, quiet: true });
@@ -45,12 +85,14 @@ export type OwnerOptions = {
 	readonly onParked?: () => void;
 	/** Replay policy of `run_terminal`; the default is `safe`. */
 	readonly replay?: "safe" | "unsafe";
+	/** Storage backend; the default comes from `PI_SPIKE_BACKEND`. */
+	readonly backend?: Backend;
 };
 
 export type Owner = {
 	readonly harness: Harness;
 	readonly root: Conversation;
-	readonly storage: DynamoDbStorage;
+	readonly storage: SpikeStorage;
 	close(): Promise<void>;
 };
 
@@ -135,15 +177,8 @@ function extensions(options: OwnerOptions): Extension[] {
  * @returns The open owner.
  */
 export async function openOwner(options: OwnerOptions): Promise<Owner> {
-	const client = createLocalClient();
-	await ensureTable(client, TABLE_NAME);
-	await DynamoDbStorage.claimOwnership({ client, tableName: TABLE_NAME, storageId: options.storageId, fence: options.fence });
-	const storage = await DynamoDbStorage.open({
-		client,
-		tableName: TABLE_NAME,
-		storageId: options.storageId,
-		fence: options.fence,
-	});
+	await claimFence(options.storageId, options.fence);
+	const storage = await openStorage(options.storageId, options.fence, options.backend);
 	const models = createModels();
 	models.setProvider(openaiProvider());
 	const registry = createRegistry();

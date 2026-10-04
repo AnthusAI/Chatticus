@@ -1,0 +1,17 @@
+{
+  "storageId": "orphans#8e222550",
+  "rejectedTransaction": {
+    "outcome": "StorageRejected: ID 1 already belongs to conversation",
+    "objectLeftAtKey": false
+  },
+  "orphanFromCrashedAttemptAtSameKey": {
+    "outcome": "committed as seq 2"
+  },
+  "staleOwnerAfterFenceMoved": {
+    "outcome": "OwnershipLost: Owner fence moved: this owner is stale",
+    "objectLeftAtKey": false
+  },
+  "nextOwnerSeesEntries": [
+    "note"
+  ]
+}

@@ -1,3 +1,4 @@
+import { CreateBucketCommand, HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import {
 	type AttributeValue,
 	CreateTableCommand,
@@ -7,6 +8,32 @@ import {
 } from "@aws-sdk/client-dynamodb";
 
 export const LOCAL_ENDPOINT = process.env.PI_SPIKE_DYNAMODB_ENDPOINT ?? "http://127.0.0.1:5555";
+export const S3_ENDPOINT = process.env.PI_SPIKE_S3_ENDPOINT ?? "http://127.0.0.1:5555";
+
+/** S3 client pointed at the local moto endpoint, path-style, with dummy credentials; never real AWS. */
+export function createLocalS3(): S3Client {
+	return new S3Client({
+		endpoint: S3_ENDPOINT,
+		region: "us-east-1",
+		forcePathStyle: true,
+		credentials: { accessKeyId: "spike", secretAccessKey: "spike" },
+		maxAttempts: 1,
+	});
+}
+
+/**
+ * Create the commit-object bucket when it does not exist.
+ *
+ * @param s3 S3 client.
+ * @param bucket Bucket name.
+ */
+export async function ensureBucket(s3: S3Client, bucket: string): Promise<void> {
+	try {
+		await s3.send(new HeadBucketCommand({ Bucket: bucket }));
+	} catch {
+		await s3.send(new CreateBucketCommand({ Bucket: bucket }));
+	}
+}
 
 /** Client pointed at the local moto endpoint with dummy credentials; never real AWS. */
 export function createLocalClient(): DynamoDBClient {

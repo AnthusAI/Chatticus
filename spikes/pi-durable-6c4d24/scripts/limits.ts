@@ -1,14 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { EntryId, StorageWrite } from "@earendil-works/pi-durable";
 import { ROOT_CONVERSATION_ID } from "@earendil-works/pi-durable";
-import { DynamoDbStorage } from "../src/dynamodb-storage.ts";
-import { context, TABLE_NAME } from "../src/owner.ts";
+import { BACKEND, context, openStorage } from "../src/owner.ts";
 import { writeResult } from "../src/report.ts";
-import { createLocalClient, ensureTable } from "../src/table.ts";
 
-const client = createLocalClient();
-await ensureTable(client, TABLE_NAME);
-const storage = await DynamoDbStorage.open({ client, tableName: TABLE_NAME, storageId: `limits#${randomUUID()}` });
+const storage = await openStorage(`limits#${randomUUID()}`, undefined);
 await storage.commit([{ type: "conversation", value: { id: ROOT_CONVERSATION_ID } }], context);
 
 async function attempt(name: string, writes: StorageWrite[]) {
@@ -41,5 +37,5 @@ results.push(
 		await Promise.all(Array.from({ length: 12 }, () => entry(350 * 1024))),
 	),
 );
-writeResult("limits.json", results);
+writeResult(`limits-${BACKEND}.json`, results);
 console.log(JSON.stringify(results, null, 2));

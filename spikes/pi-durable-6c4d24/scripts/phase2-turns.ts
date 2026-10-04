@@ -1,9 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { AssistantEntry } from "@earendil-works/pi-durable";
-import { DynamoDbStorage } from "../src/dynamodb-storage.ts";
-import { context, openOwner, TABLE_NAME, transcript } from "../src/owner.ts";
+import { claimFence, context, openOwner, openStorage, transcript } from "../src/owner.ts";
 import { summarize, writeResult } from "../src/report.ts";
-import { createLocalClient } from "../src/table.ts";
 
 const storageId = `tenant-1#bot-ada#channel-${randomUUID().slice(0, 8)}`;
 
@@ -69,8 +67,7 @@ result.turn2 = {
 result.transcript = await transcript(second);
 await second.close();
 
-const client = createLocalClient();
-const stale = await DynamoDbStorage.open({ client, tableName: TABLE_NAME, storageId, fence: 1 });
+const stale = await openStorage(storageId, 1);
 try {
 	await stale.commit([], context);
 	result.staleOwnerCommit = "accepted (unexpected)";
@@ -78,7 +75,7 @@ try {
 	result.staleOwnerCommit = `rejected: ${(error as Error).name}: ${(error as Error).message}`;
 }
 try {
-	await DynamoDbStorage.claimOwnership({ client, tableName: TABLE_NAME, storageId, fence: 1 });
+	await claimFence(storageId, 1);
 	result.staleFenceClaim = "accepted (unexpected)";
 } catch (error) {
 	result.staleFenceClaim = `rejected: ${(error as Error).name}`;

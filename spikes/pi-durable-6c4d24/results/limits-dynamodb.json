@@ -12,7 +12,7 @@
       "transactionBytes": 18973,
       "largestItemBytes": 193,
       "preReads": 0,
-      "milliseconds": 154.20645800000003,
+      "milliseconds": 626.843125,
       "transactionAttempts": 1
     }
   },
@@ -33,7 +33,7 @@
       "transactionBytes": 399611,
       "largestItemBytes": 399544,
       "preReads": 0,
-      "milliseconds": 12.010125000000016,
+      "milliseconds": 23.995874999999955,
       "transactionAttempts": 1
     }
   },
