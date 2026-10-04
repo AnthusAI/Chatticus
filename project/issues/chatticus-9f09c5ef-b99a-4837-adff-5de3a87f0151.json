@@ -38,17 +38,24 @@
       "text": "STAGED PLAN (agreed with the human, 2026-10-04):\n1. Spike chatticus-6c4d24 proves pi-durable on a DynamoDB Storage backend with one short-lived owner per turn, the Lambda-to-computer handoff, and crash resume. No product code before it reports.\n2. If it holds: a TypeScript conversation service embedding pi-durable owns everything conversational - messages, turns, approvals, tasks and grants as pi-durable documents, and the per-turn stream (fed from watchEvents). Python keeps organizations, auth, membership, budgets, routines and computer lifecycle, and talks to the conversation service over HTTP. Only the TypeScript side reads or writes Pi storage (no dual readers).\n3. Then decide whether the rest of the control plane moves to TypeScript, based on what remains and how stable pi-durable's API has become.",
       "created_at": "2026-10-04T19:22:23.737525Z",
       "comment_type": "default"
+    },
+    {
+      "id": "ac847488-ac59-4ff9-b7e9-0f16c5c8fffc",
+      "author": "home",
+      "text": "STORAGE DECISION (human, 2026-10-04): payloads in S3 by convention, DynamoDB only as the index - chosen for long-term storage cost, which compounds in DynamoDB. Spike result (moto, spike meter): requests cost ~30% more per turn with S3 (each PUT ~ 8 WRU; WRUs are set by item minimums), storage ~60% less; break-even ~4 months (plain turn) / ~20 months (tool turn); transcripts are kept indefinitely, so S3 wins over time and removes the 400 KB / 4 MB limits. Stage-2 requirements: (1) S3 lifecycle moves idle conversations' commit objects to Intelligent-Tiering or Glacier Instant Retrieval; (2) compaction folds an idle conversation's commits into one segment object and replaces its per-record index items with a manifest, so DynamoDB footprint stays ~constant per conversation; (3) consider the DynamoDB Standard-IA table class for the index; (4) cut commits per turn (pi-durable's 100 ms partial throttle drives 7-31 commits/turn).",
+      "created_at": "2026-10-04T19:56:05.207204Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-04T18:31:58.379533Z",
-  "updated_at": "2026-10-04T19:22:23.737550Z",
+  "updated_at": "2026-10-04T19:56:05.207231Z",
   "closed_at": null,
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "The team is testing pi-durable on DynamoDB before building the conversation service.",
-  "right_now_updated_at": "2026-10-04T19:22:25.062013Z",
+  "right_now_summary": "The pi-durable spike passes local tests, while AWS validation and follow-up work remain.",
+  "right_now_updated_at": "2026-10-04T19:56:10.386832Z",
   "custom": {}
 }

@@ -1,0 +1,40 @@
+{
+  "label": "lost-retryable",
+  "payload": {
+    "action": "lost-response",
+    "errorName": "TimeoutError",
+    "skip": 2
+  },
+  "wallMs": 3906,
+  "durationMs": 3422.25,
+  "billedMs": 3423,
+  "initMs": null,
+  "maxMemoryMB": 161,
+  "body": {
+    "cold": false,
+    "invocationCount": 2,
+    "processAgeMilliseconds": 23208,
+    "ssmMilliseconds": 0,
+    "handlerMilliseconds": 3417.8,
+    "heapUsedMB": 127.3,
+    "result": {
+      "injectedErrorName": "TimeoutError",
+      "dropped": 1,
+      "turnStatus": "done",
+      "committedCommits": 8,
+      "commitsThatNeededMoreThanOneAttempt": 1,
+      "transactAttemptsPerCommit": [
+        1,
+        1,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "transactionRequestsSent": 9,
+      "transactionErrors": 1
+    }
+  }
+}

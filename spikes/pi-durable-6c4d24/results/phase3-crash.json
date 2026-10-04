@@ -1,0 +1,276 @@
+[
+  {
+    "scenario": "kill-mid-model-stream",
+    "storageId": "tenant-1#bot-ada#crash-kill-mid-model-stream-c251805d",
+    "killedAt": "partial text of 262 chars committed after 10345 ms",
+    "submissionId": 8,
+    "liveAtReopen": {
+      "generationPartialTextLength": 262,
+      "tools": null
+    },
+    "tasksAtReopen": [
+      {
+        "id": 9,
+        "kind": "pi.generation",
+        "status": "pending",
+        "phase": "request"
+      }
+    ],
+    "settled": "done",
+    "resumeMilliseconds": 13646,
+    "executions": [],
+    "entryKinds": [
+      {
+        "id": 7,
+        "kind": "pi.user"
+      },
+      {
+        "id": 10,
+        "kind": "pi.system"
+      },
+      {
+        "id": 11,
+        "kind": "pi.assistant",
+        "stopReason": "aborted"
+      },
+      {
+        "id": 12,
+        "kind": "pi.assistant",
+        "stopReason": "stop"
+      }
+    ],
+    "transcript": [
+      "#7 pi.user user: Write about 250 words on why lighthouses were painted in stripes. No tools.",
+      "#10 pi.system system: ",
+      "#11 pi.assistant assistant(aborted): [thinking] Lighthouses were painted in stripes not for decoration, but for practical, daylight navigation. The light is a nighttime guide, but mariners rely on ",
+      "#12 pi.assistant assistant(stop): [thinking] Stripes on lighthouses aren’t decorative; they’re daymarks—the patterns that help mariners identify a lighthouse in daylight. Before electronics and "
+    ],
+    "resumerCommits": {
+      "commits": 19,
+      "rejected": [],
+      "writeKinds": {
+        "task": 3,
+        "entry": 2,
+        "document.change": 19,
+        "submission": 1
+      },
+      "maxTransactionItems": 9,
+      "maxTransactionBytes": 17518,
+      "totalTransactionBytes": 60309,
+      "maxItemBytes": 355,
+      "preReadsPerCommit": 1.894736842105263,
+      "commitMillisecondsP50": 56.1,
+      "commitMillisecondsP95": 92
+    }
+  },
+  {
+    "scenario": "kill-mid-tool-replay-safe",
+    "storageId": "tenant-1#bot-ada#crash-kill-mid-tool-replay-safe-7e2d5dcd",
+    "killedAt": "tool execution started after 2648 ms",
+    "submissionId": 8,
+    "liveAtReopen": {
+      "generationPartialTextLength": 0,
+      "tools": [
+        {
+          "callId": "call_HquvP19tP60H7Osb52aee7Yo|fc_086fdd58494d107c016ac2ad65d77087d2be9cd50739cd3cdf",
+          "name": "run_terminal",
+          "taskId": 12,
+          "status": "running",
+          "output": "$ make test\n"
+        }
+      ]
+    },
+    "tasksAtReopen": [
+      {
+        "id": 9,
+        "kind": "pi.generation",
+        "status": "waiting",
+        "phase": "tools"
+      },
+      {
+        "id": 12,
+        "kind": "pi.tool",
+        "status": "pending",
+        "phase": "execute"
+      }
+    ],
+    "settled": "done",
+    "resumeMilliseconds": 2784,
+    "executions": [
+      {
+        "phase": "started",
+        "owner": "owner-1",
+        "taskId": 12,
+        "command": "make test",
+        "at": 1791143270181
+      },
+      {
+        "phase": "started",
+        "owner": "owner-2",
+        "taskId": 12,
+        "command": "make test",
+        "at": 1791143270658
+      },
+      {
+        "phase": "finished",
+        "owner": "owner-2",
+        "taskId": 12,
+        "command": "make test",
+        "at": 1791143270861
+      }
+    ],
+    "entryKinds": [
+      {
+        "id": 7,
+        "kind": "pi.user"
+      },
+      {
+        "id": 10,
+        "kind": "pi.system"
+      },
+      {
+        "id": 11,
+        "kind": "pi.assistant",
+        "stopReason": "toolUse"
+      },
+      {
+        "id": 13,
+        "kind": "pi.tool-result",
+        "isError": false,
+        "data": {
+          "diagnostics": []
+        }
+      },
+      {
+        "id": 15,
+        "kind": "pi.assistant",
+        "stopReason": "stop"
+      }
+    ],
+    "transcript": [
+      "#7 pi.user user: Use run_terminal to run `make test`, then report its output in one line.",
+      "#10 pi.system system: ",
+      "#11 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"make test\"})",
+      "#13 pi.tool-result toolResult: ran: make test (exit 0, nonce 6d616b65)",
+      "#15 pi.assistant assistant(stop): [thinking] ran: make test (exit 0, nonce 6d616b65)"
+    ],
+    "resumerCommits": {
+      "commits": 13,
+      "rejected": [],
+      "writeKinds": {
+        "task": 9,
+        "document.change": 9,
+        "entry": 2,
+        "submission": 1
+      },
+      "maxTransactionItems": 9,
+      "maxTransactionBytes": 5883,
+      "totalTransactionBytes": 20798,
+      "maxItemBytes": 359,
+      "preReadsPerCommit": 1.3076923076923077,
+      "commitMillisecondsP50": 47.9,
+      "commitMillisecondsP95": 96.8
+    }
+  },
+  {
+    "scenario": "kill-mid-tool-replay-unsafe",
+    "storageId": "tenant-1#bot-ada#crash-kill-mid-tool-replay-unsafe-831c29c5",
+    "killedAt": "tool execution started after 2237 ms",
+    "submissionId": 8,
+    "liveAtReopen": {
+      "generationPartialTextLength": 0,
+      "tools": [
+        {
+          "callId": "call_4Upev5RTbXqWNA2jrpQian4f|fc_00a4801694b8d049016ac2ad6b26ec87d2a0e6dd0acdf91cf9",
+          "name": "run_terminal",
+          "taskId": 12,
+          "status": "running",
+          "output": "$ make deploy\n"
+        }
+      ]
+    },
+    "tasksAtReopen": [
+      {
+        "id": 9,
+        "kind": "pi.generation",
+        "status": "waiting",
+        "phase": "tools"
+      },
+      {
+        "id": 12,
+        "kind": "pi.tool",
+        "status": "pending",
+        "phase": "execute"
+      }
+    ],
+    "settled": "done",
+    "resumeMilliseconds": 5761,
+    "executions": [
+      {
+        "phase": "started",
+        "owner": "owner-1",
+        "taskId": 12,
+        "command": "make deploy",
+        "at": 1791143275536
+      }
+    ],
+    "entryKinds": [
+      {
+        "id": 7,
+        "kind": "pi.user"
+      },
+      {
+        "id": 10,
+        "kind": "pi.system"
+      },
+      {
+        "id": 11,
+        "kind": "pi.assistant",
+        "stopReason": "toolUse"
+      },
+      {
+        "id": 13,
+        "kind": "pi.tool-result",
+        "isError": true,
+        "data": {
+          "diagnostics": [
+            {
+              "severity": "error",
+              "code": "interrupted",
+              "message": "Tool run_terminal was interrupted and may have partially run"
+            }
+          ]
+        }
+      },
+      {
+        "id": 15,
+        "kind": "pi.assistant",
+        "stopReason": "stop"
+      }
+    ],
+    "transcript": [
+      "#7 pi.user user: Use run_terminal to run `make deploy`, then report its output in one line.",
+      "#10 pi.system system: ",
+      "#11 pi.assistant assistant(toolUse): [thinking] toolCall run_terminal({\"command\":\"make deploy\"})",
+      "#13 pi.tool-result toolResult: $ make deploy\n <harness>\n[error] Tool run_terminal was interrupted and may have partially run\n</harness>",
+      "#15 pi.assistant assistant(stop): [thinking] make deploy output: <harness> [error] Tool run_terminal was interrupted and may have partially run </harness>"
+    ],
+    "resumerCommits": {
+      "commits": 11,
+      "rejected": [],
+      "writeKinds": {
+        "task": 9,
+        "entry": 2,
+        "document.change": 7,
+        "submission": 1
+      },
+      "maxTransactionItems": 9,
+      "maxTransactionBytes": 9018,
+      "totalTransactionBytes": 25671,
+      "maxItemBytes": 361,
+      "preReadsPerCommit": 1.1818181818181819,
+      "commitMillisecondsP50": 63.9,
+      "commitMillisecondsP95": 787
+    }
+  }
+]

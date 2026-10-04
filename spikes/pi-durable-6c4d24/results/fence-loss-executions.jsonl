@@ -1,0 +1,6 @@
+{"phase":"started","owner":"stale","taskId":12,"command":"make test","at":1791144232300}
+{"phase":"finished","owner":"stale","taskId":12,"command":"make test","at":1791144236302}
+{"phase":"started","owner":"next","taskId":12,"command":"make test","at":1791144250499}
+{"phase":"finished","owner":"next","taskId":12,"command":"make test","at":1791144250701}
+{"phase":"started","owner":"next","taskId":16,"command":"make lint","at":1791144252485}
+{"phase":"finished","owner":"next","taskId":16,"command":"make lint","at":1791144252687}
