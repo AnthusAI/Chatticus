@@ -1,0 +1,22 @@
+{
+  "name": "pi-durable-6c4d24-aws",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway CDK app for the pi-durable AWS run (stack ChatticusPiDurableSpike). Deploy, measure, destroy.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "synth": "cdk synth"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ssm": "3.1146.0",
+    "aws-cdk-lib": "^2.215.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "aws-cdk": "^2.215.0",
+    "esbuild": "0.25.12",
+    "tsx": "^4.20.5",
+    "typescript": "^5.7.3"
+  }
+}

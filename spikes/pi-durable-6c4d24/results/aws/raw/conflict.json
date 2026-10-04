@@ -1,0 +1,276 @@
+{
+  "label": "conflict",
+  "payload": {
+    "action": "conflict",
+    "trials": 20
+  },
+  "wallMs": 4514,
+  "durationMs": 4018.1,
+  "billedMs": 4019,
+  "initMs": null,
+  "maxMemoryMB": 162,
+  "body": {
+    "cold": false,
+    "invocationCount": 4,
+    "processAgeMilliseconds": 31222,
+    "ssmMilliseconds": 0,
+    "handlerMilliseconds": 4016.5,
+    "heapUsedMB": 129.6,
+    "result": [
+      {
+        "trial": 0,
+        "A": "committed",
+        "B": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed,None]"
+        ],
+        "transactionsSent": 2,
+        "finalSeq": 2
+      },
+      {
+        "trial": 1,
+        "A": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "B": "committed",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed]"
+        ],
+        "transactionsSent": 2,
+        "finalSeq": 2
+      },
+      {
+        "trial": 2,
+        "A": "committed",
+        "B": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict,None]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed,None]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      },
+      {
+        "trial": 3,
+        "A": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "B": "committed",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed]"
+        ],
+        "transactionsSent": 2,
+        "finalSeq": 2
+      },
+      {
+        "trial": 4,
+        "A": "committed",
+        "B": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed,None]"
+        ],
+        "transactionsSent": 2,
+        "finalSeq": 2
+      },
+      {
+        "trial": 5,
+        "A": "committed",
+        "B": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed,None]"
+        ],
+        "transactionsSent": 2,
+        "finalSeq": 2
+      },
+      {
+        "trial": 6,
+        "A": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "B": "committed",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,None]",
+          "TransactionCanceledException[None,TransactionConflict,None]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed]"
+        ],
+        "transactionsSent": 4,
+        "finalSeq": 2
+      },
+      {
+        "trial": 7,
+        "A": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "B": "committed",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      },
+      {
+        "trial": 8,
+        "A": "committed",
+        "B": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed,None]"
+        ],
+        "transactionsSent": 2,
+        "finalSeq": 2
+      },
+      {
+        "trial": 9,
+        "A": "committed",
+        "B": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict,None]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed,None]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      },
+      {
+        "trial": 10,
+        "A": "committed",
+        "B": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed,None]"
+        ],
+        "transactionsSent": 2,
+        "finalSeq": 2
+      },
+      {
+        "trial": 11,
+        "A": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "B": "committed",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      },
+      {
+        "trial": 12,
+        "A": "committed",
+        "B": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict,None]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed,None]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      },
+      {
+        "trial": 13,
+        "A": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "B": "committed",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      },
+      {
+        "trial": 14,
+        "A": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "B": "committed",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      },
+      {
+        "trial": 15,
+        "A": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "B": "committed",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      },
+      {
+        "trial": 16,
+        "A": "committed",
+        "B": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict,None]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed,None]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      },
+      {
+        "trial": 17,
+        "A": "committed",
+        "B": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict,None]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed,None]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      },
+      {
+        "trial": 18,
+        "A": "committed",
+        "B": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict,None]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed,None]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      },
+      {
+        "trial": 19,
+        "A": "OwnershipLost: Commit sequence moved: another owner committed to this storage",
+        "B": "committed",
+        "committedCount": 1,
+        "ownershipLostCount": 1,
+        "transactionErrors": [
+          "TransactionCanceledException[TransactionConflict,TransactionConflict]",
+          "TransactionCanceledException[ConditionalCheckFailed,ConditionalCheckFailed]"
+        ],
+        "transactionsSent": 3,
+        "finalSeq": 2
+      }
+    ]
+  }
+}

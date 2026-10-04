@@ -344,6 +344,90 @@ So:
   record update are 2 of the typical 9), and the snapshot object above so
   that cold reads do not grow with history.
 
+## AWS run
+
+Run on 2026-10-04 against real AWS in the Chatticus development account
+(us-east-1, the ThinTurn stack's region), approved by the human for this run
+only. A throwaway CDK app (`spikes/pi-durable-6c4d24/aws/`, stack
+`ChatticusPiDurableSpike`) deployed one on-demand table with the spike's
+index schema, one S3 bucket (block public access, SSL enforced), and one Node
+22 arm64 Lambda (1024 MB, no VPC, 120 s timeout, the owner code bundled with
+esbuild). The Lambda read the existing development OpenAI parameter and ran
+`gpt-5-nano`; SDK `maxAttempts` was 1. The stack was destroyed afterwards
+(`describe-stacks`, `head-bucket` and `describe-table` all report not found).
+Raw invoke records are in `results/aws/raw/`, the roll-up in
+`results/aws/summary.json`. Conformance was not re-run on AWS.
+
+**Finding before any measurement:** real DynamoDB rejected the table because
+local secondary index names must be at least 3 characters; moto accepted
+`l1`, `l2` and `l3`. The indexes are now named `l1-index` and so on (the
+attribute names are unchanged).
+
+| Measurement | moto (local) | AWS (Lambda to DynamoDB and S3, us-east-1) |
+|---|---|---|
+| Cold start, init | n/a | 421 to 597 ms (3 runs) |
+| Cold plain turn, handler duration | n/a | 3.79 s and 3.80 s (init 0.57 and 0.60 s; wall 5.0 s) |
+| Cold tool turn, handler duration | n/a | 11.3 s (init 0.42 s) |
+| SSM key fetch (cold only) | n/a | 145 to 156 ms |
+| Open (claim fence, load, harness, root) | 43 ms | 138 to 156 ms warm (p50), 347 to 407 ms cold |
+| Warm plain turn, duration | n/a | p50 3.2 s (2.5 to 4.7 s, 10 runs), 8 commits |
+| Warm tool turn, duration | n/a | 7.4 to 10.6 s (3 runs), 27 to 29 commits (the tool was instant here) |
+| Commit latency, p50 / p95 | 31 to 75 ms / 54 to 787 ms | **64 ms / 103 ms** (plain), 60 ms / 84 ms (tool); 164 commits pooled; max 131 ms |
+| S3 `PutObject` p50 | n/a | 29 ms (p95 about 44 ms) |
+| `TransactWriteItems` p50 | n/a | 23 ms (p95 about 35 to 39 ms) |
+| Max Lambda memory | n/a | 160 to 161 MB of 1024 MB |
+
+Model time dominates every turn: a plain turn is about 8 commits of about 64
+ms (roughly 0.5 s of the 3 s). Commit latency is a S3 PUT plus a transaction
+plus about 10 ms of owner work, and it stayed well below the 100 ms partial
+window at p95. Cold-start cost (about 0.5 s init plus about 0.2 s SSM and
+0.25 s extra open) is small next to the model call.
+
+**Consumed capacity versus the meter** (`ReturnConsumedCapacity: TOTAL` on
+every call, one fresh conversation per invoke, per turn without the open):
+
+| Turn | Commits | WRU actual (meter) | RRU actual (meter) | S3 PUT | S3 GET |
+|---|---|---|---|---|---|
+| Plain, mean of 10 | 8 | 102 (99) | 42 (42) | 7 | 0 |
+| Tool, mean of 3 | 28 | 359 (346) | 127 (127) | 27 | 0 |
+
+The meter's read estimate is exact and its write estimate is low by 3 to 4%
+(index-key moves, as predicted). Opening a new conversation additionally
+costs 39 WRU and 22 RRU. Updated request cost per 1,000 turns with actual
+capacity at $0.625/M WRU, $0.125/M RRU and $0.005 per 1,000 PUTs: plain
+**$0.104** (was $0.102), tool **$0.375** for 28 commits (was $0.406 for 30
+commits; about $0.0000134 per commit, unchanged). The cost table stands; the
+meter can be trusted to within 5%.
+
+**Lost response** (`results/aws/raw/lost-*.json`). A request handler hook
+let the third `TransactWriteItems` of a plain turn commit and then raised an
+error instead of returning the response, with `maxAttempts: 1`.
+
+- Error `TimeoutError` (retryable): the storage retried with the same
+  `ClientRequestToken`, DynamoDB returned success, the commit counted once
+  (9 transactions sent, 8 commits, attempts per commit `[1,1,2,1,...]`).
+- Error with a non-retryable name: the storage read `META`, found its own
+  token, and counted the commit as committed without resending (8 sent, 8
+  commits). Both turns finished `done` with sequence numbers unbroken, so no
+  commit was lost or doubled.
+
+**Forced conflict** (`results/aws/raw/conflict.json`). 20 trials: two handles
+on the same conversation at the same sequence committed concurrently. In all
+20, exactly one committed and the other raised `OwnershipLost` ("Commit
+sequence moved"); the final sequence was always 2. Real `TransactionConflict`
+cancellations happened in 13 of 20 trials (the storage retried, then saw the
+failed sequence condition); in the other 7 the loser was rejected by the
+sequence condition directly. moto never produced either behavior.
+
+**Bundle.** The Lambda bundle with the AWS SDK clients included is 4.93 MB
+unminified and 2.05 MB minified; with `@aws-sdk/*` left to the Lambda
+runtime it is 737 KB minified. The `pi-ai` OpenAI provider did not drag in
+the other providers (subpath imports tree-shake).
+
+Cost of the run: well under $1 (a few cents of Lambda, a few thousand
+requests, DynamoDB on-demand, minutes of storage); the stack's bucket and
+table were deleted, and the leftover log groups were deleted by hand.
+
 ## Long-term storage
 
 **Decision:** payloads stay in S3 and DynamoDB is only the index. The

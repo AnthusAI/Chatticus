@@ -141,7 +141,7 @@ function terminalTool(options: OwnerOptions) {
 	});
 }
 
-function extensions(options: OwnerOptions): Extension[] {
+export function extensions(options: OwnerOptions): Extension[] {
 	const blocked = new Set(options.blockedCommands ?? []);
 	return [
 		defineExtension({

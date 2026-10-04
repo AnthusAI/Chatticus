@@ -61,7 +61,7 @@ export async function ensureTable(client: DynamoDBClient, tableName: string): Pr
 		}
 	}
 	const indexAttribute = (name: string) => ({
-		IndexName: name,
+		IndexName: `${name}-index`,
 		KeySchema: [
 			{ AttributeName: "pk", KeyType: "HASH" as const },
 			{ AttributeName: name, KeyType: "RANGE" as const },

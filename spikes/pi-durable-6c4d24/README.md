@@ -5,7 +5,7 @@ It asks whether `@earendil-works/pi-durable` can be the durable engine of a
 Chatticus conversation, with its data in S3 (one immutable object per
 commit), a small index in DynamoDB, and one short-lived owner per turn. The design note is [`docs/PI_HARNESS.md`](../../docs/PI_HARNESS.md).
 
-Nothing here touches AWS. Every script talks to local DynamoDB and S3
+Nothing here touches AWS except the throwaway CDK app in `aws/`, which was deployed, measured and destroyed once with explicit approval (results in `results/aws/`, summary in `docs/PI_HARNESS.md`). Every script in `scripts/` talks to local DynamoDB and S3
 endpoints (moto, path-style) with dummy credentials. The model calls go to OpenAI `gpt-5-nano`.
 
 Packages are the published npm releases, pinned exactly:

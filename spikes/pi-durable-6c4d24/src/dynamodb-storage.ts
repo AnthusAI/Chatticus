@@ -1108,7 +1108,7 @@ export class DynamoDbStorage implements Storage {
 			const response = await this.client.send(
 				new QueryCommand({
 					TableName: this.tableName,
-					IndexName: index,
+					IndexName: `${index}-index`,
 					ConsistentRead: true,
 					KeyConditionExpression: "pk = :pk AND #k BETWEEN :low AND :high",
 					ExpressionAttributeNames: { "#k": keyName },
