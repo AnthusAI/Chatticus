@@ -10,9 +10,17 @@
   "parent": "chatticus-62823460-59ae-4691-909d-43d09f2ca853",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "8de9fe3f-1024-4d8a-86a6-46908fc89b65",
+      "author": "home",
+      "text": "2026-10-04: the human tested the interactive demo (spikes/voice-moonshine-a2000f, npm 0.1.5, Tiny, 2 threads) on a real microphone in their own browser and it transcribed and routed speech correctly. A headless probe through Chromium's fake mic also routes all fixture lines; mic open about 2 s after the model is cached. Still open: 60-minute run, background tab, battery.",
+      "created_at": "2026-10-04T16:09:34.706009Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-10-04T13:27:14.759294Z",
-  "updated_at": "2026-10-04T13:27:14.759321Z",
+  "updated_at": "2026-10-04T16:09:34.706029Z",
   "closed_at": null,
   "agent": {
     "platform": "claude_code",
