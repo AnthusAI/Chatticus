@@ -3,17 +3,37 @@
   "title": "Spike: Moonshine WASM feasibility for always-on browser listening",
   "description": "Run the four feasibility tests in docs/VOICE.md with throwaway code under spikes/.\n\nFeature: Always-on voice listening is feasible in the browser\n  Scenario: Moonshine Tiny Streaming runs under cross-origin isolation\n    Given a page served with COOP same-origin and COEP require-corp\n    And Moonshine model files served same-origin\n    When the page transcribes recorded speech with Tiny Streaming\n    Then completed lines arrive and end-of-speech-to-line latency is recorded\n    And CPU and memory over a sustained run are recorded\n    And the results are written to docs/VOICE.md\n\nNot included: production code in web/, infra changes.",
   "type": "story",
-  "status": "closed",
+  "status": "in_progress",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-62823460-59ae-4691-909d-43d09f2ca853",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "99aba1ee-cb54-4e08-8575-60987aa593b7",
+      "author": "home",
+      "text": "Interim results (Apple M1 Max, macOS 26.6, @moonshine-ai/moonshine-wasm 0.1.5, Tiny Streaming, real-time fixture feed, 12 synthetic utterances):\n- COOP same-origin + COEP require-corp: crossOriginIsolated in Chromium 153 and WebKit 26.6. Model load 3.7 s (Chromium) / 5.9 s (WebKit), ~51 MB.\n- End-of-speech to completed line: median ~0.6 s, max < 1 s, both engines (0.5 s of that is the VAD window).\n- CPU, Chromium process tree: default pool (10 threads) 16.5% of a core in silence, 33% in speech -- ORT worker spinning. Pool forced to 2 threads: 4.2% silence, 12% speech, latency unchanged. Blank page baseline 0.2%.\n- Memory: ~+650 MB over a 353 MB blank page for Tiny, independent of thread count. Small: ~1.6 GB peak.\n- Accuracy: Tiny 11/12 with keyterms ('Moonshine' -> 'Moon China'); without keyterms 'Approve, blue seven' -> 'Approve, 27'. Small 12/12 but 0.7-1.3 s latency and 29% main-thread compute.\n- COEP credentialless: Chromium isolated, WebKit NOT isolated; Transcriber.load hangs silently. Safari requires require-corp; app must check crossOriginIsolated first.\nSustained 12-minute run in progress.",
+      "created_at": "2026-10-04T13:15:36.785909Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "00da746e-9ce3-4f98-99c6-2e0f6f1d788c",
+      "author": "home",
+      "text": "Final results (docs/VOICE.md, Spike results; M1 Max, moonshine-wasm 0.1.5, Tiny Streaming):\n- Tiny, pool of 2: 4.2% of a core in silence, 12.0% in speech (default pool of 10: 16.2% / 31.6%); line completes median 0.59 s, max 0.95 s after speech ends.\n- 12-min sustained run (120 lines): avg 11.1% CPU, memory flat ~1.0 GB (~650 MB over blank page), p95 0.91 s, max 0.96 s.\n- WebKit 26.6 works under COOP same-origin + COEP require-corp (load 3.6 s, latency matches). COEP credentialless: Chromium isolated, WebKit not, and Transcriber.load hangs silently -> require-corp and check crossOriginIsolated first.\n- Accuracy (12 synthetic utterances): Tiny+keyterms misheard 'blue seven'->'27' 2/10 and 'Grace'->'grays' 2/10 in sustained run; Small clean but 0.93 s median, 30% CPU, 1.6 GB.\nNot run: live mic/background/battery (7605d6), iOS device (eddc14), sign-in under COEP (604bb6). Closes when PR #384 merges.",
+      "created_at": "2026-10-04T13:39:32.209481Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude_code",
+        "model": "Opus 5.5",
+        "name": "Claude"
+      }
+    }
+  ],
   "created_at": "2026-10-04T12:25:05.494189Z",
-  "updated_at": "2026-10-04T16:33:40.256124Z",
-  "closed_at": "2026-10-04T16:33:40.256092Z",
+  "updated_at": "2026-10-04T13:39:32.209513Z",
+  "closed_at": null,
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",

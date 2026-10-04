@@ -1,0 +1,37 @@
+{
+  "engine": "chromium",
+  "fixture": "silence",
+  "threadPool": 10,
+  "keyterms": [
+    "Ada",
+    "Grace",
+    "develop",
+    "behave",
+    "Moonshine",
+    "blue seven"
+  ],
+  "build": "fork",
+  "nativeOptions": {
+    "ort_intra_op_threads": "2",
+    "ort_allow_spinning": "false"
+  },
+  "architecture": "TinyStreaming",
+  "coep": "require-corp",
+  "loops": 1,
+  "outcome": "done",
+  "crossOriginIsolated": true,
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+  "loadSeconds": 3.922640000000596,
+  "errors": [],
+  "consoleErrors": [],
+  "browserProcessTreeCpuPercentOfOneCore": 13.8,
+  "peakBrowserProcessTreeRssMb": 975,
+  "wallSeconds": 72.40339500000327,
+  "computeBusyPercentOfOneThread": 2.2,
+  "passCount": 137,
+  "passP50Ms": 10,
+  "passP95Ms": 12,
+  "passMaxMs": 30,
+  "maximumTimerGapMs": 53,
+  "lines": []
+}
