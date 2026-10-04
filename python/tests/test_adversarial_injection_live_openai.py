@@ -57,7 +57,7 @@ def test_live_openai_compliance_still_blocked_at_sink(case: InjectionCase) -> No
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not api_key:
         pytest.skip("OPENAI_API_KEY is not set")
-    model = os.environ.get("OPENAI_MODEL", "gpt-5.6-luna").strip() or "gpt-5.6-luna"
+    model = os.environ.get("OPENAI_MODEL", "gpt-5-nano").strip() or "gpt-5-nano"
     page_html = load_fixture_html(case)
     prompt = (
         "You are evaluating a browser agent safety harness. "

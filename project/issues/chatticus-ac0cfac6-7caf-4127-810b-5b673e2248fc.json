@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-ac0cfac6-7caf-4127-810b-5b673e2248fc",
+  "title": "TurnJobs queue redelivers forever: no DLQ, no maxReceiveCount",
+  "description": "Found while tracing chatticus-a20667. control_plane.py:3779 _job_for_turn reads self._jobs, empty in the deadline Lambda (plane_from_env), so handle_turn_deadline's recovery re-enqueue is a no-op; and infra/lib/thin-turn-stack.ts:85 TurnJobs has no dead-letter queue or maxReceiveCount, so a failing job is retried every visibility timeout (~180s) for the 4-day retention, calling the model provider each time.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T17:34:24.211983Z",
+  "updated_at": "2026-10-04T17:34:24.212014Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude_code",
+    "model": "Opus 5.5",
+    "name": "Claude"
+  },
+  "right_now_summary": "Failed TurnJobs retry every 180 seconds for four days, with no DLQ or maximum receive limit.",
+  "right_now_updated_at": "2026-10-04T17:34:26.272304Z",
+  "custom": {}
+}

@@ -192,7 +192,7 @@ integration.
     implementation exists.
   - **Not true today, don't imply otherwise**: only one implementation
     exists, and it's hardcoded to OpenAI's API
-    (`DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"`, a direct call to
+    (`DEFAULT_OPENAI_MODEL = "gpt-5-nano"`, a direct call to
     `api.openai.com`). There is no Anthropic client, no local-model
     client, no SageMaker client, and no per-org/per-bot provider
     selection anywhere in the codebase as of this writing.

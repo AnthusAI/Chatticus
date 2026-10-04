@@ -145,6 +145,24 @@ class HttpTurnClient:
                 f"{response.text}"
             )
 
+    def post_failed(self, turn_id: str, reason: str) -> None:
+        """End the fenced turn as failed with a reason the member can read."""
+        if self.fence_token is None:
+            raise RuntimeError("claim the turn before posting a failure")
+        worker_id = self.worker_id
+        if worker_id is None:
+            raise RuntimeError("claim the turn before posting a failure")
+        response = self.client.post(
+            org_path(self.tenant_id, f"/turns/{turn_id}/failed"),
+            json={"reason": reason, "fence_token": self.fence_token},
+            headers=self._auth_headers(worker_id),
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"failed POST failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+
     def invoke_task_tool(
         self,
         bot_id: str,

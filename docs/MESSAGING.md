@@ -165,7 +165,19 @@ server-sent events are sufficient and a WebSocket is not needed.
 | `attempt.claimed` | A worker became the fenced owner of the turn | no |
 | `attempt.relinquished` | The previous owner dropped the fence before continuation | no |
 | `turn.completed` | Chunks are joined into one row | yes, one row |
+| `turn.failed` | The turn ended without an answer. `body` is a reason the member can read, for example that the model provider is out of quota | no |
+| `turn.reconciling` | The outcome is uncertain; the client reloads committed state | no |
 | `approval.required` | A proposed action is blocked | the proposal, not the action |
+
+### A failed model call fails the turn at once
+
+When the model provider answers with an error that a retry cannot fix (the
+account is out of quota, the key is rejected, the request is invalid), the
+worker ends the turn through the fenced `POST /turns/{id}/failed` with a
+member-facing reason, and the queued job is dropped. Temporary errors (rate
+limiting, an unavailable provider, a network fault, or an error response
+without the provider's error body) leave the turn active; the queue retries
+it once the worker's lease expires. See `features/model_provider_failures.feature`.
 
 ### Waiting is a state, not dead air
 

@@ -27,6 +27,11 @@ from chatticus.vendor_ledger import (
     CompletionUsage,
     fake_openai_completion_usage,
 )
+from chatticus.worker.model_provider_errors import (
+    TemporaryModelProviderError,
+    is_model_provider_error,
+    permanent_model_provider_failure,
+)
 from chatticus.worker.tool_dispatch import (
     COMPUTER_ESCALATION_TOOLS,
     GatedToolCall,
@@ -64,7 +69,7 @@ class TextCompletionClient(Protocol):
 class FakeTextCompletionClient:
     """Deterministic stand-in so CI never needs a live OpenAI key."""
 
-    def __init__(self, *, model: str = "gpt-5.6-luna") -> None:
+    def __init__(self, *, model: str = "gpt-5-nano") -> None:
         self.model = model
 
     def complete(self, prompt: str) -> CompletionOutcome:
@@ -378,12 +383,22 @@ class ComputerlessWorker:
             self._renew_lease(job)
 
         client = self.completion_client
-        if isinstance(client, SlowTextCompletionClient):
-            client.blocking_hook = renew
-            renew()
-            outcome = client.complete(prompt)
-        else:
-            outcome = RenewingTextCompletionClient(client, renew).complete(prompt)
+        try:
+            if isinstance(client, SlowTextCompletionClient):
+                client.blocking_hook = renew
+                renew()
+                outcome = client.complete(prompt)
+            else:
+                outcome = RenewingTextCompletionClient(client, renew).complete(prompt)
+        except Exception as error:
+            if not is_model_provider_error(error):
+                raise
+            permanent = permanent_model_provider_failure(error)
+            if permanent is None:
+                raise TemporaryModelProviderError(str(error)) from error
+            self.turn_client.post_failed(job.turn_id, permanent.reason)
+            self.plane.remove_pending_job(job.job_id)
+            return
         self.plane.record_vendor_spend(
             job.tenant_id,
             job.turn_id,

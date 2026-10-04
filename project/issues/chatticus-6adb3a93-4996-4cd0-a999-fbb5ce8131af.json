@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-6adb3a93-4996-4cd0-a999-fbb5ce8131af",
+  "title": "Deadline recovery never re-enqueues in the cloud: _job_for_turn reads an in-memory job list",
+  "description": "Found while tracing chatticus-a20667. control_plane.py:3779 _job_for_turn reads self._jobs, empty in the deadline Lambda (plane_from_env), so handle_turn_deadline's recovery re-enqueue is a no-op; and infra/lib/thin-turn-stack.ts:85 TurnJobs has no dead-letter queue or maxReceiveCount, so a failing job is retried every visibility timeout (~180s) for the 4-day retention, calling the model provider each time.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": null,
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T17:34:22.468645Z",
+  "updated_at": "2026-10-04T17:34:22.468688Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude_code",
+    "model": "Opus 5.5",
+    "name": "Claude"
+  },
+  "right_now_summary": "Deadline recovery cannot re-enqueue jobs, and failing jobs retry every 180 seconds for four days.",
+  "right_now_updated_at": "2026-10-04T17:34:24.178121Z",
+  "custom": {}
+}
