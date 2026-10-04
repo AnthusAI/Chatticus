@@ -10,16 +10,24 @@
   "parent": null,
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "fda78245-6e00-4a9d-b559-36dd4d87b197",
+      "author": "home",
+      "text": "Trace (2026-10-04): openai_completion.py:308 raise_for_status escapes ComputerlessWorker.run_job (computerless.py:386) and lambda_handler.py:138 -- no classification, no turn.failed. SQS (TurnJobs, no DLQ, no maxReceiveCount, no reportBatchItemFailures) redelivers every ~180s. Only the deadline watchdog fails the turn (~5 min) with 'recovery attempts exhausted'. Web: on turn.failed the bubble is cleared (shouldClearTurnBubbleAfterTerminal) and the reason is small streamError text with Dismiss only; reload shows nothing (GET /channels/{id}/turn 404s for non-active turns, no message row). Plan: (1) worker classifies provider errors (insufficient_quota/401/400 permanent; other 429/5xx/timeouts retryable, bounded) and fails the turn immediately with code + readable reason via a fenced worker endpoint; (2) UI keeps a failed bubble with the reason and Retry, also after reload.",
+      "created_at": "2026-10-04T17:34:20.474217Z",
+      "comment_type": "default"
+    }
+  ],
   "created_at": "2026-10-04T17:14:34.098157Z",
-  "updated_at": "2026-10-04T17:31:23.320680Z",
+  "updated_at": "2026-10-04T17:34:20.474236Z",
   "closed_at": null,
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "A provider quota error leaves the turn silent instead of showing a clear failure message.",
-  "right_now_updated_at": "2026-10-04T17:31:24.677507Z",
+  "right_now_summary": "Provider errors escape the worker, leaving users with silent turns and no failure message or retry option.",
+  "right_now_updated_at": "2026-10-04T17:34:22.428517Z",
   "custom": {}
 }
