@@ -223,6 +223,40 @@ export async function postMessage(
   return readJson<PostMessageResponse>(response);
 }
 
+export type VoiceMessageResponse = {
+  understood: string;
+  message: Message | null;
+  turn_id: string | null;
+};
+
+/**
+ * Sends a raw spoken transcript. The server's understand-the-user step works
+ * out what the member meant and posts that, or nothing when nothing was meant.
+ */
+export async function postVoiceMessage(
+  org: ActiveOrg,
+  channelId: string,
+  transcript: string,
+  addressedToBotId: string,
+): Promise<VoiceMessageResponse> {
+  const response = await fetch(
+    `${apiBase}${orgApiPath(org.tenantId, `/channels/${encodeURIComponent(channelId)}/voice-messages`)}`,
+    {
+      method: "POST",
+      headers: await authorizedHeaders({
+        "Content-Type": "application/json",
+        "Idempotency-Key": crypto.randomUUID(),
+      }),
+      body: JSON.stringify({
+        author_id: org.userId,
+        transcript,
+        addressed_to_bot_id: addressedToBotId,
+      }),
+    },
+  );
+  return readJson<VoiceMessageResponse>(response);
+}
+
 export async function listTasks(org: ActiveOrg): Promise<Task[]> {
   const response = await fetch(
     `${apiBase}${orgApiPath(org.tenantId, `/users/${encodeURIComponent(org.userId)}/tasks`)}`,

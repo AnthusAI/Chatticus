@@ -26,6 +26,7 @@ import {
   createChannel,
   getActiveTurn,
   getLatestTurn,
+  postVoiceMessage,
   getComputer,
   listBots,
   listChannels,
@@ -451,18 +452,26 @@ export function EnabledWorkspace({
     [activeOrg, startTurnStream],
   );
 
-  const postToChannel = useCallback(
-    async (channelId: string, botId: string, body: string): Promise<boolean> => {
+  const deliverPost = useCallback(
+    async (
+      channelId: string,
+      botId: string,
+      send: () => Promise<{ message: Message | null; turn_id: string | null }>,
+    ): Promise<{ message: Message | null } | null> => {
       sendingRef.current = true;
       sendGenerationRef.current += 1;
       setSending(true);
       setStreamError(null);
       setLatestEndedTurn(null);
       try {
-        const response = await postMessage(activeOrg, channelId, body, botId);
+        const response = await send();
+        const posted = response.message;
+        if (!posted) {
+          return { message: null };
+        }
         setMessagesByChannel((current) => ({
           ...current,
-          [channelId]: [...(current[channelId] ?? []), response.message],
+          [channelId]: [...(current[channelId] ?? []), posted],
         }));
         if (response.turn_id) {
           startTurnStream({
@@ -472,19 +481,26 @@ export function EnabledWorkspace({
             bot_id: botId,
             status: "active",
             waiting_for: null,
-            prompt_message_seq: response.message.seq,
+            prompt_message_seq: posted.seq,
           });
         }
-        return true;
+        return { message: posted };
       } catch (caught) {
         setStreamError(caught instanceof Error ? caught.message : "Message failed to send");
-        return false;
+        return null;
       } finally {
         sendingRef.current = false;
         setSending(false);
       }
     },
-    [activeOrg, startTurnStream],
+    [activeOrg.tenantId, startTurnStream],
+  );
+
+  const postToChannel = useCallback(
+    async (channelId: string, botId: string, body: string): Promise<boolean> =>
+      (await deliverPost(channelId, botId, () => postMessage(activeOrg, channelId, body, botId))) !==
+      null,
+    [activeOrg, deliverPost],
   );
 
   const handleSendMessage = useCallback(
@@ -508,6 +524,7 @@ export function EnabledWorkspace({
         bots,
         channels,
         selectedId: selectedItemId,
+        addressedBotId: addressedBotId || null,
         busyChannelIds: turn && selectedChannelId ? [selectedChannelId] : [],
         overlapsSpeech: line.overlapsSpeech || speakingRef.current,
       });
@@ -516,9 +533,7 @@ export function EnabledWorkspace({
         return "Stopped speaking.";
       }
       if (route.kind === "discard") {
-        return line.overlapsSpeech || speakingRef.current
-          ? ""
-          : `Heard "${text}". Not addressed to a teammate, so it stayed in this browser.`;
+        return "";
       }
       if (route.kind === "notice") {
         return route.text;
@@ -527,30 +542,14 @@ export function EnabledWorkspace({
         await stopVoiceRef.current();
         return "Stopped listening.";
       }
-      const botName = botNameById.get(route.botId) ?? "that teammate";
-      const botItem = roster.find((item) => item.kind === "bot" && item.bot.bot_id === route.botId);
-      if (route.kind === "select") {
-        if (botItem) await selectItem(botItem);
-        return `Opened the conversation with ${botName}.`;
+      const botName = botNameById.get(route.botId) ?? "your teammate";
+      const channelId = selectedChannelId;
+      const targetItemId = selectedItemIdRef.current;
+      if (!channelId) {
+        return "Open a conversation to talk to a teammate.";
       }
       if (sendingRef.current) {
         return "Still sending the last message. Say it again in a moment.";
-      }
-      let channelId: string | null = null;
-      let targetItemId: string | null = null;
-      if (route.destination.kind === "channel") {
-        channelId = route.destination.channelId;
-        targetItemId = `channel:${channelId}`;
-        setAddressedBotId(route.botId);
-      } else if (botItem) {
-        targetItemId = botItem.id;
-        channelId =
-          selectedItemIdRef.current === botItem.id
-            ? botItem.channel?.channel_id ?? null
-            : (await selectItem(botItem))?.channel_id ?? null;
-      }
-      if (!channelId) {
-        return `Could not open the conversation with ${botName}.`;
       }
       let activeTurn: Turn | null;
       try {
@@ -564,13 +563,17 @@ export function EnabledWorkspace({
       if (selectedItemIdRef.current !== targetItemId) {
         return `You switched conversations, so that line was not sent to ${botName}.`;
       }
-      if (sendingRef.current) {
-        return "Still sending the last message. Say it again in a moment.";
+      const delivered = await deliverPost(channelId, route.botId, () =>
+        postVoiceMessage(activeOrg, channelId, route.transcript, route.botId),
+      );
+      if (!delivered) {
+        return `Could not send to ${botName}.`;
       }
-      const sent = await postToChannel(channelId, route.botId, route.body);
-      return sent ? `Sent to ${botName}: "${route.body}"` : `Could not send to ${botName}.`;
+      return delivered.message
+        ? `Heard "${route.transcript}". Sent to ${botName}: "${delivered.message.body}"`
+        : `Heard "${route.transcript}". Nothing to send.`;
     },
-    [activeOrg, bots, botNameById, channels, postToChannel, roster, selectItem, selectedChannelId, selectedItemId, turn],
+    [activeOrg, addressedBotId, bots, botNameById, channels, deliverPost, selectedChannelId, selectedItemId, turn],
   );
 
   const handleRetryFailedTurn = useCallback(

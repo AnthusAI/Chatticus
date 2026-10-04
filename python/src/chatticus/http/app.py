@@ -96,6 +96,12 @@ from chatticus.models import (
 from chatticus.org_records import require_valid_monthly_aws_spend_ceiling_usd
 from chatticus.principal import Principal
 from chatticus.signup_mode import SignupMode, signup_mode_from_env
+from chatticus.voice.understanding import (
+    RECENT_LINES_FOR_UNDERSTANDING,
+    RecentLine,
+    UserUnderstanding,
+    user_understanding_from_env,
+)
 from chatticus.waitlist_survey import beta_page_survey
 from chatticus.worker_credentials import parse_bearer_token
 
@@ -251,6 +257,14 @@ class RegateWorkspaceWriteBody(BaseModel):
 
     path: str
     content: str = ""
+
+
+class VoiceMessageBody(BaseModel):
+    """Body for POST /channels/{channel_id}/voice-messages."""
+
+    author_id: str
+    transcript: str = Field(min_length=1, max_length=2000)
+    addressed_to_bot_id: str
 
 
 class PostMessageBody(BaseModel):
@@ -523,6 +537,13 @@ class AppState:
     role_inspector: CrossAccountRoleInspector | None = None
     stream_clock: StreamClock = field(default_factory=StreamClock)
     stream_timing: StreamTiming = field(default_factory=StreamTiming)
+    user_understanding: UserUnderstanding | None = None
+
+    def understanding(self) -> UserUnderstanding:
+        """Return the understand-the-user step, creating it on first use."""
+        if self.user_understanding is None:
+            self.user_understanding = user_understanding_from_env()
+        return self.user_understanding
 
 
 def _verify_invoke_key(request: Request) -> None:
@@ -1570,6 +1591,62 @@ def create_app(
         return {
             "message": _message_payload(message),
             "turn_id": turn_id,
+        }
+
+    @user_router.post("/channels/{channel_id}/voice-messages")
+    def post_voice_message(
+        request: Request,
+        tenant_id: str,
+        channel_id: str,
+        body: VoiceMessageBody,
+        principal: RequireUserPrincipal,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    ) -> dict[str, Any]:
+        assert_integration_test_user_id(
+            request,
+            body.author_id,
+            principal_user_id=principal.user_id,
+        )
+        recent_messages = state.plane.list_channel_messages(channel_id, tenant_id, 0)[
+            -RECENT_LINES_FOR_UNDERSTANDING:
+        ]
+        bot_names = {bot.bot_id: bot.name for bot in state.plane.list_bots(tenant_id)}
+        recent = [
+            RecentLine(
+                speaker=(
+                    bot_names.get(message.author_id, "Teammate")
+                    if message.author_kind == ActorKind.BOT
+                    else "Person"
+                ),
+                text=message.body,
+            )
+            for message in recent_messages
+        ]
+        understood = state.understanding().understand(body.transcript, recent)
+        logger.info(
+            "voice_line_understood tenant_id=%s channel_id=%s heard_chars=%s "
+            "understood_chars=%s",
+            tenant_id,
+            channel_id,
+            len(body.transcript),
+            len(understood),
+        )
+        if not understood:
+            return {"understood": "", "message": None, "turn_id": None}
+        key = (idempotency_key or "").strip() or None
+        message, started = state.plane.post_channel_message(
+            channel_id,
+            tenant_id,
+            ActorKind.HUMAN,
+            body.author_id,
+            understood,
+            addressed_to_bot_id=body.addressed_to_bot_id,
+            idempotency_key=key,
+        )
+        return {
+            "understood": understood,
+            "message": _message_payload(message),
+            "turn_id": started.turn_id if started is not None else None,
         }
 
     @user_router.get("/channels/{channel_id}/messages")

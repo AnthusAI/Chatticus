@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-64b6ecd3-3879-4557-be1c-4ca18e1fcfd5",
+  "title": "Conversational voice: no wake word, an understand-the-user step, and spoken replies that work",
+  "description": "Human feedback 2026-10-04 on develop.chattic.us: replies were never spoken (text worked); the wake word is painful.\n\nFeature: Talking with a teammate by voice\n  Scenario: Every line I say goes to the open conversation, no wake word\n  Scenario: The understand-the-user step turns a noisy transcript into what I meant, using recent messages\n  Scenario: Filler or noise is not sent\n  Scenario: The raw transcript is kept alongside the understood message\n  Scenario: Stop listening still works; while a reply is spoken only stop/quiet act\n  Scenario: Speaking says 'Listening.' when the mic starts, and speech errors are shown\n\nUnderstand-the-user: gpt-5-nano, minimal reasoning, told the input is a speech-to-text transcript that may be full of errors, given the last ~10 messages, returns what the human most likely said (empty for filler); runs server-side in the front door before the message is posted.",
+  "type": "story",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-62823460-59ae-4691-909d-43d09f2ca853",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-04T19:36:53.070954Z",
+  "updated_at": "2026-10-04T19:36:53.070992Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude_code",
+    "model": "Opus 5.5",
+    "name": "Claude"
+  },
+  "right_now_summary": "Voice replies are silent, and the wake word makes conversations painful.",
+  "right_now_updated_at": "2026-10-04T19:36:54.225102Z",
+  "custom": {}
+}

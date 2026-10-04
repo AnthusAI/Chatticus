@@ -18,6 +18,7 @@ def _run_voice_harness(context: object, action: str, **values: object) -> dict:
         "bots": context.voice_bots,
         "channels": context.voice_channels,
         "selectedId": getattr(context, "voice_selected_id", None),
+        "addressedBotId": getattr(context, "voice_addressed_bot_id", None),
         "busyChannelIds": getattr(context, "voice_busy_channel_ids", []),
         "overlapsSpeech": getattr(context, "voice_speaking", False),
         "environment": getattr(
@@ -89,15 +90,33 @@ def given_open_named_channel(
         )
     )
     context.voice_selected_id = f"channel:{channel_id}"
+    context.voice_addressed_bot_id = _bot_id(context, first)
+
+
+def _direct_channel_id(context: object, name: str) -> str:
+    channel_id = f"channel-direct-{name.lower()}"
+    if not any(c["channel_id"] == channel_id for c in context.voice_channels):
+        context.voice_channels.append(
+            _voice_channel(channel_id, None, [_bot_id(context, name)])
+        )
+    return channel_id
+
+
+@given('the direct conversation with "{name}" is open')
+def given_direct_conversation_open(context: object, name: str) -> None:
+    _direct_channel_id(context, name)
+    context.voice_selected_id = f"bot:{_bot_id(context, name)}"
+    context.voice_addressed_bot_id = _bot_id(context, name)
+
+
+@given('"{name}" is chosen to answer in that channel')
+def given_teammate_chosen(context: object, name: str) -> None:
+    context.voice_addressed_bot_id = _bot_id(context, name)
 
 
 @given('"{name}" is already working on a turn in the direct conversation')
 def given_teammate_busy(context: object, name: str) -> None:
-    channel_id = f"channel-direct-{name.lower()}"
-    context.voice_channels.append(
-        _voice_channel(channel_id, None, [_bot_id(context, name)])
-    )
-    context.voice_busy_channel_ids = [channel_id]
+    context.voice_busy_channel_ids = [_direct_channel_id(context, name)]
 
 
 @given("the page is not cross-origin isolated")
@@ -120,30 +139,7 @@ def when_member_starts_listening(context: object) -> None:
     context.voice_outcome = _run_voice_harness(context, "availability")
 
 
-@then('a message "{body}" is sent to "{name}"')
-def then_message_sent(context: object, body: str, name: str) -> None:
-    outcome = context.voice_outcome
-    assert outcome["kind"] == "send", outcome
-    assert outcome["body"] == body, outcome
-    assert outcome["botId"] == _bot_id(context, name), outcome
 
-
-@then('it goes to the direct conversation with "{name}"')
-def then_goes_to_direct(context: object, name: str) -> None:
-    outcome = context.voice_outcome
-    assert outcome["destination"] == {
-        "kind": "direct",
-        "botId": _bot_id(context, name),
-    }, outcome
-
-
-@then('it goes to the named channel "{name}"')
-def then_goes_to_named(context: object, name: str) -> None:
-    outcome = context.voice_outcome
-    assert outcome["destination"] == {
-        "kind": "channel",
-        "channelId": f"channel-{name.lower()}",
-    }, outcome
 
 
 @then("nothing leaves the browser")
@@ -151,14 +147,6 @@ def then_nothing_leaves(context: object) -> None:
     outcome = context.voice_outcome
     assert outcome["kind"] == "discard", outcome
 
-
-@then('"{name}" is selected')
-def then_teammate_selected(context: object, name: str) -> None:
-    outcome = context.voice_outcome
-    assert outcome == {
-        "kind": "select",
-        "botId": _bot_id(context, name),
-    }, outcome
 
 
 @then("listening stops")
@@ -312,3 +300,11 @@ def when_turn_ends_with_answer(context: object, name: str, answer: str) -> None:
         turn={"bot_id": _bot_id(context, name), "prompt_message_seq": 1},
         committed=committed,
     )["spoken"]
+
+
+@then('"{text}" is sent to "{name}" for understanding')
+def then_sent_for_understanding(context: object, text: str, name: str) -> None:
+    outcome = context.voice_outcome
+    assert outcome["kind"] == "send", outcome
+    assert outcome["transcript"] == text, outcome
+    assert outcome["botId"] == _bot_id(context, name), outcome
