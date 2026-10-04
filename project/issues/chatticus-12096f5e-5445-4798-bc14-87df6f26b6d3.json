@@ -3,23 +3,36 @@
   "title": "Voice replies: speak bot answers while listening, hands-free stop",
   "description": "Second voice slice (docs/VOICE.md section 4). Browser speechSynthesis (no download, no cost). While listening is on, the bot's reply in the open conversation (and a failed turn's reason) is spoken, cleaned of markdown/links/code and capped with 'The rest is on screen.' While speaking, only stop/quiet/stop talking are acted on (no self-triggered sends); iOS speech is unlocked by the mic tap.\n\nFeature: Hearing teammates' replies\n  Scenario: A reply in the open conversation is spoken while listening\n  Scenario: Markdown, links and code are not read aloud\n  Scenario: A long reply is cut short with a pointer to the screen\n  Scenario: A failed turn's reason is spoken\n  Scenario: Saying stop while a reply is spoken stops speaking\n  Scenario: While a reply is spoken, other speech is ignored\n  Scenario: Nothing is spoken when listening is off",
   "type": "story",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-62823460-59ae-4691-909d-43d09f2ca853",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "c01d43e3-25ea-4eff-8a0f-040ea9a05a22",
+      "author": "home",
+      "text": "Merged in #389 and live on development (https://develop.chattic.us). Browser speechSynthesis speaks the open conversation's reply (and a failed turn's reason) while listening, cleaned of markdown/links/code and capped with a pointer to the screen; stop/quiet/stop talking silence it hands-free; self-hearing protection ignores other speech while speaking. Closing.",
+      "created_at": "2026-10-04T19:17:46.887188Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude_code",
+        "model": "Opus 5.5",
+        "name": "Claude"
+      }
+    }
+  ],
   "created_at": "2026-10-04T18:05:37.218517Z",
-  "updated_at": "2026-10-04T18:05:37.218552Z",
-  "closed_at": null,
+  "updated_at": "2026-10-04T19:17:50.036043Z",
+  "closed_at": "2026-10-04T19:17:50.036015Z",
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "Browser speech now reads cleaned bot replies and errors while listening, with stop commands silencing speech.",
-  "right_now_updated_at": "2026-10-04T18:05:38.903618Z",
+  "right_now_summary": "Voice replies are live on development, with hands-free stopping and protection from self-triggered sends.",
+  "right_now_updated_at": "2026-10-04T19:17:51.755373Z",
   "custom": {}
 }

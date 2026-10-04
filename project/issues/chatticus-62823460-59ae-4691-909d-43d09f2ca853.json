@@ -22,17 +22,29 @@
         "model": "Opus 5.5",
         "name": "Claude"
       }
+    },
+    {
+      "id": "8051b69c-fc28-4efa-9700-56329baff3ff",
+      "author": "home",
+      "text": "## Milestone: voice is live on development (2026-10-04)\n\nDevelopment is now **https://develop.chattic.us** (chatticus-development account); `dev.chattic.us` is the stale legacy deployment.\n\n**Live on develop / development**\n- #383 `docs/VOICE.md` research; #384 Moonshine WASM spike and results.\n- #385 voice in the workspace: on-device Moonshine STT, teammate names as the wake word, local command grammar. COOP/COEP on the **development distribution only**. Story chatticus-a8066a closed.\n- #389 spoken replies via browser `speechSynthesis`, hands-free stop, self-hearing protection. Story chatticus-12096f closed.\n- Related turn work: #387 gpt-5-nano and a permanent model-provider error fails the turn at once with a readable reason (#386 folded in); #388 failed reply stays visible with reason and Retry, `GET /channels/{id}/turns/latest`, slow-turn notice.\n\n**Still open**\n- chatticus-7605d6 live-mic 60-minute run (Chrome/Safari, foreground/background, battery)\n- chatticus-eddc14 iOS Safari on a device (Moonshine Tiny memory/load)\n- chatticus-604bb6 COOP/COEP vs sign-in and Vultus: development now runs with the headers; staging/production still off\n- chatticus-070c91 Moonshine fork: thread-pool size / no-spin option (in progress)\n- chatticus-2804d5 busy teammate elsewhere / switched conversation wiring\n- chatticus-0fcfa8 phonetic roster matching and confusable-name warning\n- chatticus-46b47f word-only confirmation codes\n- chatticus-66f189 turn cancel POST\n- chatticus-d39faf Idempotency-Key on postMessage\n- chatticus-057250 Tactus upstream voice HITL channel\n",
+      "created_at": "2026-10-04T19:18:14.307438Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude_code",
+        "model": "Opus 5.5",
+        "name": "Claude"
+      }
     }
   ],
   "created_at": "2026-10-04T12:07:17.074929Z",
-  "updated_at": "2026-10-04T13:39:32.729152Z",
+  "updated_at": "2026-10-04T19:18:14.307472Z",
   "closed_at": null,
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "Voice control is deployed to develop, but sign-in and desktop, iPad, and iPhone testing still await the human.",
-  "right_now_updated_at": "2026-10-04T19:36:56.314315Z",
+  "right_now_summary": "Voice control is live on development, with device, sign-in, and reliability testing still needed.",
+  "right_now_updated_at": "2026-10-04T19:18:15.768649Z",
   "custom": {}
 }

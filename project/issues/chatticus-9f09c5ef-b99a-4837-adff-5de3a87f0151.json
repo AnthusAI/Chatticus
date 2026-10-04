@@ -24,17 +24,31 @@
       "text": "Storage decision (human, 2026-10-04): Pi sessions are stored in DynamoDB, not JSONL files on EFS. One item per Pi session entry (session key = tenant + channel + bot; sort by append order; the item holds the entry verbatim: id, parentId, type, payload), so Pi's format is preserved and a .jsonl export is one line per item. Lambdas stay out of any VPC (no NAT, no IPv6 dependency); matches 'the transcript is DynamoDB' and zero idle cost. The worker loads entries into SessionManager.inMemory(...) per turn and writes back the entries Pi appended (diff, since entry_appended does not fire for ordinary messages), with conditional writes on the turn fence. Entries over the 400 KB item limit offload to S3 with a pointer. pi-durable's Storage interface is the likely long-term backend once it is stable.",
       "created_at": "2026-10-04T18:57:58.711029Z",
       "comment_type": "default"
+    },
+    {
+      "id": "56cd9acf-286b-410b-9c57-5b3eb72c5e5e",
+      "author": "home",
+      "text": "DECISION (human, 2026-10-04, after earendil.com/posts/pi-durable): build on pi-durable as the engine, not the coding agent's session layer. pi-durable gives durable tasks with checkpoints and crash resume, idempotent requestId submissions, documents committed atomically with the transcript, multiple humans steering the same agents, and a pluggable Storage interface with a conformance suite. Target mapping: a DynamoDB Storage backend; one storage per bot conversation (bot x channel); the turn Lambda becomes that storage's single owner for the turn under the existing fence lease, resumes unfinished tasks, commits, exits; per-turn SSE stream fed from watchEvents() (no sockets). If it holds, pi-durable's durability replaces Chatticus's turn/attempt/lease/recovery machinery and its entries become the transcript. Accepted risk: experimental API.",
+      "created_at": "2026-10-04T19:03:34.947860Z",
+      "comment_type": "default"
+    },
+    {
+      "id": "9f895b82-65c2-40e2-828e-e622b537e229",
+      "author": "home",
+      "text": "STAGED PLAN (agreed with the human, 2026-10-04):\n1. Spike chatticus-6c4d24 proves pi-durable on a DynamoDB Storage backend with one short-lived owner per turn, the Lambda-to-computer handoff, and crash resume. No product code before it reports.\n2. If it holds: a TypeScript conversation service embedding pi-durable owns everything conversational - messages, turns, approvals, tasks and grants as pi-durable documents, and the per-turn stream (fed from watchEvents). Python keeps organizations, auth, membership, budgets, routines and computer lifecycle, and talks to the conversation service over HTTP. Only the TypeScript side reads or writes Pi storage (no dual readers).\n3. Then decide whether the rest of the control plane moves to TypeScript, based on what remains and how stable pi-durable's API has become.",
+      "created_at": "2026-10-04T19:22:23.737525Z",
+      "comment_type": "default"
     }
   ],
   "created_at": "2026-10-04T18:31:58.379533Z",
-  "updated_at": "2026-10-04T18:57:58.711056Z",
+  "updated_at": "2026-10-04T19:22:23.737550Z",
   "closed_at": null,
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "The team is testing a DynamoDB-backed Pi turn in a headless Lambda.",
-  "right_now_updated_at": "2026-10-04T18:58:03.325402Z",
+  "right_now_summary": "The team is testing pi-durable on DynamoDB before building the conversation service.",
+  "right_now_updated_at": "2026-10-04T19:22:25.062013Z",
   "custom": {}
 }

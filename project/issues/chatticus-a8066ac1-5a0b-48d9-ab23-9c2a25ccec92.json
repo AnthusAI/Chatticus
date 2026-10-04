@@ -3,7 +3,7 @@
   "title": "Voice in the workspace: continuous listening that talks to teammates by name",
   "description": "First integration slice of docs/VOICE.md into the hey.chattic.us workspace (build order steps 2-4). On-device Moonshine Tiny; only addressed lines leave the tab, as ordinary POST /messages turns.\n\nFeature: Talk to teammates by voice in the workspace\n  Scenario: A line addressed to a teammate becomes a message to that teammate\n    Given I am in the workspace with teammates Ada and Grace\n    And voice listening is on\n    When I say \"Ada, open a pull request for the voice spike\"\n    Then a message \"open a pull request for the voice spike\" is posted to Ada\n  Scenario: Speech that is not addressed to a teammate never leaves the browser\n    When I say \"I think we should get lunch\"\n    Then no message is posted\n  Scenario: Switching teammates by voice makes no cloud call\n    When I say \"switch to Grace\"\n    Then Grace is the selected teammate\n  Scenario: Saying stop listening turns the microphone off\n  Scenario: Voice is unavailable when the page cannot be cross-origin isolated\n\nNot included: spoken replies (TTS), HITL/approval answers, turn cancel, the Moonshine fork.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -22,17 +22,29 @@
       "text": "Merged in PR #385 and deployed to develop.chattic.us (chatticus-development account). Verified: COOP same-origin + COEP require-corp on /chat/, page crossOriginIsolated, moonshine.wasm served application/wasm, worker text/javascript, no console errors. Note: dev.chattic.us is the stale legacy deployment. Awaiting the human's sign-in and device test (desktop, iPad, iPhone); sign-in with the headers is chatticus-604bb6.",
       "created_at": "2026-10-04T17:07:02.334871Z",
       "comment_type": "default"
+    },
+    {
+      "id": "9df22d8b-3b8b-4dc0-bf8a-1a36e91d18e0",
+      "author": "home",
+      "text": "Merged in #385 and deployed to development (https://develop.chattic.us). On-device Moonshine Tiny listening, teammate names as the wake word, local command grammar; only addressed lines leave the tab as ordinary POST /messages turns. COOP/COEP is on the development distribution only (staging/production off; chatticus-604bb6). Closing.",
+      "created_at": "2026-10-04T19:17:32.270128Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude_code",
+        "model": "Opus 5.5",
+        "name": "Claude"
+      }
     }
   ],
   "created_at": "2026-10-04T16:09:36.350135Z",
-  "updated_at": "2026-10-04T17:07:02.334896Z",
-  "closed_at": null,
+  "updated_at": "2026-10-04T19:17:35.982016Z",
+  "closed_at": "2026-10-04T19:17:35.981917Z",
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": null,
-  "right_now_updated_at": null,
+  "right_now_summary": "The voice feature is deployed to develop and awaits sign-in and device testing on desktop, iPad, and iPhone.",
+  "right_now_updated_at": "2026-10-04T19:17:37.880245Z",
   "custom": {}
 }
