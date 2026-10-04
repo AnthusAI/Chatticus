@@ -1,10 +1,110 @@
 <!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Voice spike</title></head>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Spike</title>
+<style>
+  :root {
+    --background: #f7f7f5;
+    --surface: #ffffff;
+    --text: #1d1d1b;
+    --muted: #6b6b66;
+    --border: #e2e2dc;
+    --accent: #2f5bd3;
+    --sent: #1f7a4d;
+    --local: #2f5bd3;
+    --discarded: #8a8a84;
+    --warning: #b4541a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: #161615;
+      --surface: #1f1f1d;
+      --text: #ecece8;
+      --muted: #9a9a94;
+      --border: #33332f;
+      --accent: #7d9cf0;
+      --sent: #5cc492;
+      --local: #7d9cf0;
+      --discarded: #77776f;
+      --warning: #e39a5f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lede { color: var(--muted); margin: 0 0 20px; }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  button {
+    font: inherit;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  button[disabled] { opacity: 0.5; cursor: default; }
+  button.secondary { background: transparent; color: var(--accent); }
+  label { color: var(--muted); font-size: 14px; }
+  select, input { font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  #status { font-size: 14px; color: var(--muted); }
+  #status.warning { color: var(--warning); }
+  #partial { min-height: 1.5em; font-size: 18px; color: var(--muted); font-style: italic; }
+  ol#lines { list-style: none; margin: 0; padding: 0; }
+  ol#lines li { padding: 10px 0; border-top: 1px solid var(--border); display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; }
+  ol#lines li:first-child { border-top: none; }
+  .tag { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tag.sent { color: var(--sent); }
+  .tag.local { color: var(--local); }
+  .tag.discarded { color: var(--discarded); }
+  .detail { grid-column: 2; font-size: 13px; color: var(--muted); }
+  li.discarded .heard { color: var(--discarded); }
+  .hint { font-size: 13px; color: var(--muted); }
+  code { font-size: 13px; }
+</style>
+</head>
 <body>
-<h1>Moonshine voice spike</h1>
-<button id="start">Start listening</button>
-<pre id="log"></pre>
+<main>
+  <h1>Chatticus voice spike</h1>
+  <p class="lede">Everything below runs in this tab. Nothing is sent anywhere: "sent" shows what <em>would</em> become a message to that teammate.</p>
+
+  <section class="panel">
+    <div class="controls">
+      <button id="start">Start listening</button>
+      <button id="stop" class="secondary" disabled>Stop</button>
+      <label>Model
+        <select id="arch">
+          <option value="TinyStreaming" selected>Tiny (about 50 MB)</option>
+          <option value="SmallStreaming">Small (about 140 MB)</option>
+        </select>
+      </label>
+      <label>Threads <input id="threads" type="number" min="1" max="16" value="2" style="width: 56px"></label>
+      <label>Teammates <input id="teammates" value="Ada, Grace" style="width: 140px"></label>
+    </div>
+    <p id="status">Idle. The model downloads on first start and is cached after that.</p>
+    <p class="hint">Try: "Ada, open a pull request for the voice spike." / "Switch to Grace." / "Repeat that." / "Approve, maple falcon." / or just talk to someone in the room.</p>
+  </section>
+
+  <section class="panel">
+    <div id="partial"></div>
+    <ol id="lines"></ol>
+  </section>
+</main>
 <script type="module" src="/page/spike.js"></script>
 </body>
 </html>

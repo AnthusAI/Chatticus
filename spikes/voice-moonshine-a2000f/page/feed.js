@@ -5,6 +5,11 @@ const architectureName = query.get("arch") ?? "TinyStreaming";
 const loops = Number(query.get("loops") ?? 1);
 const fixtureMode = query.get("fixture") ?? "speech";
 const threadOverride = query.get("threads");
+const nativeThreads = query.get("nativeThreads");
+const nativeSpinning = query.get("nativeSpinning");
+const nativeOptions = {};
+if (nativeThreads) nativeOptions.ort_intra_op_threads = nativeThreads;
+if (nativeSpinning) nativeOptions.ort_allow_spinning = nativeSpinning;
 if (threadOverride) {
   Object.defineProperty(Navigator.prototype, "hardwareConcurrency", { get: () => Number(threadOverride) });
 }
@@ -14,6 +19,7 @@ const state = {
   userAgent: navigator.userAgent,
   architecture: architectureName,
   hardwareConcurrency: navigator.hardwareConcurrency,
+  nativeOptions,
   keyterms,
   phase: "starting",
   errors: [],
@@ -51,7 +57,11 @@ async function run() {
   }
   state.phase = "loading";
   const loadStarted = performance.now();
-  const transcriber = await Transcriber.load({ language: "en", modelArch: ModelArch[architectureName] });
+  const transcriber = await Transcriber.load({
+    language: "en",
+    modelArch: ModelArch[architectureName],
+    options: Object.keys(nativeOptions).length ? nativeOptions : undefined,
+  });
   state.loadSeconds = (performance.now() - loadStarted) / 1000;
   if (keyterms.length > 0) transcriber.setKeyterms(keyterms);
   const stream = transcriber.createStream();

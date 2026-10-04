@@ -1,0 +1,97 @@
+{
+  "engine": "chromium",
+  "fixture": "speech",
+  "threadPool": 10,
+  "keyterms": [
+    "Ada",
+    "Grace",
+    "develop",
+    "behave",
+    "Moonshine",
+    "blue seven"
+  ],
+  "build": "fork",
+  "nativeOptions": {
+    "ort_intra_op_threads": "2"
+  },
+  "architecture": "TinyStreaming",
+  "coep": "require-corp",
+  "loops": 1,
+  "outcome": "done",
+  "crossOriginIsolated": true,
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+  "loadSeconds": 3.2860099999979138,
+  "errors": [],
+  "consoleErrors": [],
+  "browserProcessTreeCpuPercentOfOneCore": 30.6,
+  "peakBrowserProcessTreeRssMb": 972,
+  "wallSeconds": 72.40816000000015,
+  "computeBusyPercentOfOneThread": 5.7,
+  "passCount": 137,
+  "passP50Ms": 11,
+  "passP95Ms": 73,
+  "passMaxMs": 101,
+  "maximumTimerGapMs": 101,
+  "lines": [
+    {
+      "heard": "Ada, open a pull request for the voice spike against develop.",
+      "expected": "Ada, open a pull request for the voice spike against develop.",
+      "secondsAfterSpeechEnded": 0.37
+    },
+    {
+      "heard": "Switch to Grace.",
+      "expected": "Switch to Grace.",
+      "secondsAfterSpeechEnded": 0.61
+    },
+    {
+      "heard": "Grace, what is the status of the release branch?",
+      "expected": "Grace, what is the status of the release branch?",
+      "secondsAfterSpeechEnded": 0.85
+    },
+    {
+      "heard": "I think we should get lunch after this meeting.",
+      "expected": "I think we should get lunch after this meeting.",
+      "secondsAfterSpeechEnded": 0.52
+    },
+    {
+      "heard": "Repeat that.",
+      "expected": "Repeat that.",
+      "secondsAfterSpeechEnded": 0.56
+    },
+    {
+      "heard": "Ada, rename the branch to voice moon china and push it.",
+      "expected": "Ada, rename the branch to voice moonshine and push it.",
+      "secondsAfterSpeechEnded": 0.49
+    },
+    {
+      "heard": "Stop listening.",
+      "expected": "Stop listening.",
+      "secondsAfterSpeechEnded": 0.76
+    },
+    {
+      "heard": "Approve, blue seven.",
+      "expected": "Approve, blue seven.",
+      "secondsAfterSpeechEnded": 0.53
+    },
+    {
+      "heard": "Option 2",
+      "expected": "Option two.",
+      "secondsAfterSpeechEnded": 0.53
+    },
+    {
+      "heard": "Grace, run the behave suite and tell me which scenarios fail.",
+      "expected": "Grace, run the behave suite and tell me which scenarios fail.",
+      "secondsAfterSpeechEnded": 0.75
+    },
+    {
+      "heard": "Did you see the game last night?",
+      "expected": "Did you see the game last night?",
+      "secondsAfterSpeechEnded": 0.84
+    },
+    {
+      "heard": "Scratch that.",
+      "expected": "Scratch that.",
+      "secondsAfterSpeechEnded": 0.75
+    }
+  ]
+}

@@ -10,6 +10,9 @@ const coep = process.env.VOICE_SPIKE_COEP ?? "require-corp";
 const fixtureMode = process.env.VOICE_SPIKE_FIXTURE ?? "speech";
 const threads = process.env.VOICE_SPIKE_THREADS ?? "";
 const keytermsMode = process.env.VOICE_SPIKE_KEYTERMS ?? "on";
+const nativeThreads = process.env.VOICE_SPIKE_NATIVE_THREADS ?? "";
+const nativeSpinning = process.env.VOICE_SPIKE_NATIVE_SPINNING ?? "";
+const buildLabel = process.env.VOICE_SPIKE_PKG_DIR ? "fork" : "npm";
 const port = 5200 + Math.floor(Math.random() * 500);
 
 function processTreeUsage(rootProcessId) {
@@ -50,7 +53,7 @@ const page = await browser.newPage();
 const consoleErrors = [];
 page.on("console", (message) => message.type() === "error" && consoleErrors.push(message.text()));
 page.on("pageerror", (error) => consoleErrors.push(String(error)));
-await page.goto(`http://localhost:${port}/page/feed.html?arch=${architecture}&loops=${loops}&fixture=${fixtureMode}&threads=${threads}&keyterms=${keytermsMode}`);
+await page.goto(`http://localhost:${port}/page/feed.html?arch=${architecture}&loops=${loops}&fixture=${fixtureMode}&threads=${threads}&keyterms=${keytermsMode}&nativeThreads=${nativeThreads}&nativeSpinning=${nativeSpinning}`);
 
 let state;
 let feedingBaseline;
@@ -79,6 +82,8 @@ const result = {
   fixture: fixtureMode,
   threadPool: fullState.hardwareConcurrency,
   keyterms: fullState.keyterms,
+  build: buildLabel,
+  nativeOptions: fullState.nativeOptions,
   architecture,
   coep,
   loops,
@@ -94,7 +99,7 @@ const result = {
   peakBrowserProcessTreeRssMb: Math.round(peakRssMb),
   ...fullState.result,
 };
-const resultPath = `results/${engineName}-${fixtureMode}-${architecture}-${coep}-x${loops}-t${fullState.hardwareConcurrency}-k${keytermsMode}.json`;
+const resultPath = `results/${engineName}-${fixtureMode}-${architecture}-${coep}-x${loops}-t${fullState.hardwareConcurrency}-k${keytermsMode}${buildLabel === "fork" ? `-fork-n${nativeThreads || "default"}-s${nativeSpinning || "default"}` : ""}.json`;
 writeFileSync(resultPath, JSON.stringify(result, null, 2) + "\n");
 console.log(JSON.stringify({ ...result, lines: undefined }, null, 2));
 for (const line of result.lines ?? []) {

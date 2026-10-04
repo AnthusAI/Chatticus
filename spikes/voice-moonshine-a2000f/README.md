@@ -23,8 +23,23 @@ It samples CPU time and resident memory for Chromium's whole browser process
 tree, and writes a JSON result to `results/`. WebKit's content process is
 not a child of the runner, so only the in-page figures are valid for WebKit.
 
-`page/index.html` and `page/spike.js` are the live-microphone version
-(`MicTranscriber`), for manual runs in a real browser.
+`page/index.html` and `page/spike.js` are an interactive live-microphone demo
+(`MicTranscriber`). Every completed line is routed the way docs/VOICE.md
+describes:
+
+- **Sent:** the line starts with a teammate's name. Exact names always
+  count. A phonetic match counts only when the transcript puts a comma after
+  the word, as it does for a name spoken as an address.
+- **Local command:** the line is in the closed command grammar, or is an
+  answer such as "approve, maple falcon" or "option 2".
+- **Discarded:** anything else.
+
+Nothing leaves the tab. Run `npm run serve` and open http://localhost:4173 in
+Chrome or Safari; `localhost` counts as a secure context, so the browser will
+ask for microphone access.
+
+`scripts/live-mic-probe.mjs` drives the same demo headless, using Chromium's
+fake microphone fed with the fixture. It needs the server running.
 
 ## Fixture
 
