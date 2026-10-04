@@ -3,7 +3,7 @@
   "title": "Spike: Moonshine WASM feasibility for always-on browser listening",
   "description": "Run the four feasibility tests in docs/VOICE.md with throwaway code under spikes/.\n\nFeature: Always-on voice listening is feasible in the browser\n  Scenario: Moonshine Tiny Streaming runs under cross-origin isolation\n    Given a page served with COOP same-origin and COEP require-corp\n    And Moonshine model files served same-origin\n    When the page transcribes recorded speech with Tiny Streaming\n    Then completed lines arrive and end-of-speech-to-line latency is recorded\n    And CPU and memory over a sustained run are recorded\n    And the results are written to docs/VOICE.md\n\nNot included: production code in web/, infra changes.",
   "type": "story",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -32,8 +32,8 @@
     }
   ],
   "created_at": "2026-10-04T12:25:05.494189Z",
-  "updated_at": "2026-10-04T13:39:32.209513Z",
-  "closed_at": null,
+  "updated_at": "2026-10-04T16:33:55.767812Z",
+  "closed_at": "2026-10-04T16:33:55.767781Z",
   "agent": {
     "platform": "claude_code",
     "model": "Opus 5.5",
