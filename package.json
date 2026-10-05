@@ -4,7 +4,8 @@
   "private": true,
   "workspaces": [
     "web",
-    "infra"
+    "infra",
+    "conversation"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

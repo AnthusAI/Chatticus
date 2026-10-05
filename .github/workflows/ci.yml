@@ -110,3 +110,44 @@ jobs:
       - name: Build
         working-directory: web
         run: npm run build
+
+  conversation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install moto server
+        run: python -m pip install "moto[server]==5.2.3"
+
+      - name: Start moto in the background
+        run: |
+          nohup moto_server -p 5555 > moto.log 2>&1 &
+          for i in $(seq 1 30); do
+            if (echo > /dev/tcp/127.0.0.1/5555) 2>/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat moto.log
+          exit 1
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: conversation
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: conversation
+        env:
+          CHATTICUS_TEST_AWS_ENDPOINT: http://127.0.0.1:5555
+        run: npm test

@@ -1,0 +1,25 @@
+{
+  "name": "@chatticus/conversation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1146.0",
+    "@aws-sdk/client-s3": "3.1146.0",
+    "@earendil-works/chord": "1.0.2",
+    "@earendil-works/pi-ai": "1.0.2",
+    "@earendil-works/pi-durable": "1.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "24.6.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}
