@@ -49,6 +49,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
   const [speaking, setSpeaking] = useState(false);
   const speechWindowRef = useRef<SpeechWindow | null>(null);
   const sessionRef = useRef<VoiceSession | null>(null);
+  const speakingRef = useRef(false);
   const onLineRef = useRef(onLine);
   const keytermsRef = useRef(keyterms);
 
@@ -78,7 +79,9 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     if (speechWindow && speechWindow.endedAt === null) {
       speechWindow.endedAt = Date.now();
     }
+    speakingRef.current = false;
     setSpeaking(false);
+    sessionRef.current?.speechEnded();
     const endNote = wasSpeaking ? speechEndNote(reason) : null;
     if (endNote) setNote(endNote);
   }, []);
@@ -100,16 +103,22 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
         endedAt: null,
         expectedEndedAt: startedAt + speechDeadlineMs(text),
       };
+      speakingRef.current = true;
       setSpeaking(true);
       const started = speakAloud(text, {
-        onStart: () => setSpeaking(true),
+        onStart: () => {
+          speakingRef.current = true;
+          setSpeaking(true);
+        },
         onEnd: endSpeechWindow,
         onReplaced: () => setNote(speechEndNote("replaced by newer speech")),
         onError: (error) => setNote(`Speech failed: ${error}`),
       });
       if (!started) {
         speechWindowRef.current = previousWindow;
+        speakingRef.current = false;
         setSpeaking(false);
+        sessionRef.current?.speechEnded();
         setNote("This browser cannot speak replies.");
       }
     },
@@ -193,6 +202,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
           },
         },
         keytermsRef.current,
+        () => speakingRef.current,
       );
       if (generation !== generationRef.current) {
         await session.stop();

@@ -446,14 +446,17 @@ def _capture_conditions(conditions: str) -> dict[str, object]:
         "resumeWorks": "wakes on request" in conditions
         and "does not wake" not in conditions,
         "rebuildNeedsGesture": "needs a tap" in conditions,
+        "rebuildsInLastMinute": 3 if "3 restarts already" in conditions else 0,
     }
 
 
 def _restore_capture(context: object, inGesture: bool) -> None:
+    conditions = dict(context.voice_capture_conditions)
     outcome = _run_voice_harness(
         context,
-        "captureRestore",
-        capture=context.voice_capture_conditions,
+        "tapRestore" if inGesture else "captureRestore",
+        capture=conditions,
+        rebuildsInLastMinute=conditions.pop("rebuildsInLastMinute"),
         inGesture=inGesture,
     )
     context.voice_capture = outcome
@@ -469,6 +472,42 @@ def when_capture_restored(context: object, conditions: str) -> None:
 @when("the member taps the voice button")
 def when_member_taps_voice_button(context: object) -> None:
     _restore_capture(context, inGesture=True)
+
+
+@then("the microphone was requested and the engine resumed before any await")
+def then_microphone_requested_before_await(context: object) -> None:
+    calls = context.voice_capture["callsBeforeAnyAwait"]
+    assert calls == ["getUserMedia", "resume"], calls
+
+
+@when("the capture engine is suspended while the reply plays and then the reply ends")
+def when_suspended_during_speech(context: object) -> None:
+    context.voice_speech_recovery = _run_voice_harness(
+        context, "captureWatchSpeech", engineState="suspended"
+    )
+
+
+@when("audio stops arriving while the reply plays and then the reply ends")
+def when_stalled_during_speech(context: object) -> None:
+    context.voice_speech_recovery = _run_voice_harness(
+        context,
+        "captureWatchSpeech",
+        engineState="running",
+        millisecondsSinceFrame=2000,
+    )
+
+
+@then("no resume or microphone request happens while the reply plays")
+def then_no_recovery_during_speech(context: object) -> None:
+    assert (
+        context.voice_speech_recovery["callsDuringSpeech"] == []
+    ), context.voice_speech_recovery
+
+
+@then("capture recovery runs once the reply ends")
+def then_recovery_after_speech(context: object) -> None:
+    calls = context.voice_speech_recovery["callsAfterSpeech"]
+    assert len(calls) == 1, context.voice_speech_recovery
 
 
 @then('capture is "{kind}" and the member is told "{note}"')

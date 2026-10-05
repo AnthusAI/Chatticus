@@ -10,7 +10,12 @@ import {
   voiceAvailability,
   voiceButtonPresentation,
 } from "../lib/voice-control";
-import { restoreCapture } from "../lib/voice-capture-restore";
+import {
+  rebuildsAllowed,
+  restoreCapture,
+  restoreCaptureFromTap,
+} from "../lib/voice-capture-restore";
+import { createCaptureWatch } from "../lib/voice-capture-watch";
 import { speechDeadlineMs, speechEndNote, speechWatchdogShouldEnd } from "../lib/voice-speech";
 import type { Bot, Channel } from "../lib/api";
 
@@ -26,6 +31,8 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
     | "lineStart"
     | "captureWatch"
     | "captureRestore"
+    | "captureWatchSpeech"
+    | "tapRestore"
     | "watchdog"
     | "speechEndNote";
   spokenText?: string;
@@ -59,6 +66,7 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
     resumeWorks: boolean;
     rebuildNeedsGesture: boolean;
   };
+  rebuildsInLastMinute?: number;
   started?: boolean;
   millisecondsSinceQueued?: number;
   engineBusy?: boolean;
@@ -101,36 +109,92 @@ if (input.action === "hear") {
       millisecondsSinceFrame: input.millisecondsSinceFrame ?? 0,
     }),
   };
-} else if (input.action === "captureRestore") {
+} else if (input.action === "captureRestore" || input.action === "tapRestore") {
   const fake = {
     engineState: input.capture?.engineState ?? "running",
     muted: input.capture?.trackMuted ?? false,
     frames: 0,
   };
-  pendingOutput = restoreCapture({
+  const calls: string[] = [];
+  const rebuildTimes = Array.from({ length: input.rebuildsInLastMinute ?? 0 }, () => 0);
+  const dependencies = {
     resume: async () => {
+      calls.push("resume");
       if (input.capture?.resumeWorks) fake.engineState = "running";
     },
     snapshot: () => ({
       engineState: fake.engineState,
-      tracks: [{ readyState: "live", muted: fake.muted }],
+      tracks: [{ readyState: "live" as const, muted: fake.muted }],
     }),
     frameCount: () => fake.frames,
     rebuild: async () => {
+      calls.push("rebuild");
       if (input.capture?.rebuildNeedsGesture && !input.inGesture) {
         throw new Error("The browser needs a tap to reopen the microphone.");
       }
       fake.engineState = "running";
       fake.muted = false;
     },
+    rebuildAllowed: () => rebuildsAllowed(rebuildTimes, 1),
     sleep: async () => {
       if (fake.engineState === "running") fake.frames += 1;
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
     },
-  }).then((outcome) => ({
+  };
+  const finish = (outcome: import("../lib/voice-control").CaptureRestoreOutcome) => ({
     ...outcome,
     note: captureRestoreNote(outcome),
     button: voiceButtonPresentation(outcome.kind === "needsTap" ? "needsTap" : "listening", false),
+  });
+  if (input.action === "captureRestore") {
+    pendingOutput = restoreCapture(dependencies).then(finish);
+  } else {
+    const stream = { getTracks: () => [] } as unknown as MediaStream;
+    const pending = restoreCaptureFromTap({
+      ...dependencies,
+      openMicrophone: async () => {
+        calls.push("getUserMedia");
+        return stream;
+      },
+    });
+    const callsBeforeAnyAwait = [...calls];
+    pendingOutput = pending.then((outcome) => ({
+      ...finish(outcome),
+      callsBeforeAnyAwait,
+    }));
+  }
+} else if (input.action === "captureWatchSpeech") {
+  const calls: string[] = [];
+  const state = { speaking: true, stalled: true, suspended: input.engineState === "suspended" };
+  const watch = createCaptureWatch({
+    isStopped: () => false,
+    isSpeaking: () => state.speaking,
+    problem: () =>
+      state.suspended
+        ? captureWatchProblem({
+            engineState: "suspended",
+            tracks: [{ readyState: "live", muted: false }],
+            millisecondsSinceFrame: 0,
+          })
+        : captureWatchProblem({
+            engineState: "running",
+            tracks: [{ readyState: "live", muted: false }],
+            millisecondsSinceFrame: input.millisecondsSinceFrame ?? 0,
+          }),
+    restore: async () => {
+      calls.push(state.suspended ? "resume" : "getUserMedia");
+      return { kind: "listening" as const };
+    },
+    report: () => undefined,
+  });
+  watch.check();
+  watch.check();
+  const callsDuringSpeech = [...calls];
+  state.speaking = false;
+  watch.speechEnded();
+  pendingOutput = new Promise((resolve) => setTimeout(resolve, 0)).then(() => ({
+    callsDuringSpeech,
+    callsAfterSpeech: [...calls],
   }));
 } else if (input.action === "watchdog") {
   output = {

@@ -1,6 +1,12 @@
 import type { MicTranscriber } from "@moonshine-ai/moonshine-wasm";
 
-import { restoreCapture } from "./voice-capture-restore";
+import {
+  CAPTURE_REBUILD_WINDOW_MS,
+  rebuildsAllowed,
+  restoreCapture,
+  restoreCaptureFromTap,
+} from "./voice-capture-restore";
+import { createCaptureWatch } from "./voice-capture-watch";
 import {
   captureWatchProblem,
   lineStartedAtMs,
@@ -37,11 +43,14 @@ export interface VoiceSession {
    * Brings capture back and proves it is listening: the engine runs, a track
    * is live and unmuted, and audio is arriving. If not, capture is rebuilt
    * from a fresh microphone stream, reusing the loaded model; if the browser
-   * refuses, the outcome asks for a tap (call this again from one). Capture is
-   * also watched continuously and restored on its own when audio stops
-   * arriving, whether or not the device is speaking.
+   * refuses, the outcome asks for a tap (call this again from one, synchronously
+   * inside the click handler: the microphone is requested before any await).
+   * Capture is also watched continuously and restored on its own when audio
+   * stops arriving, but never while a reply is being spoken.
    */
   restoreCapture: () => Promise<CaptureRestoreOutcome>;
+  /** Speech ended by any path: checks capture once immediately. */
+  speechEnded: () => void;
 }
 
 interface RecognizerStreamInternals {
@@ -130,6 +139,7 @@ function configureMicrophone(
 export async function startVoiceSession(
   handlers: VoiceSessionHandlers,
   keyterms: string[],
+  isSpeaking: () => boolean = () => false,
 ): Promise<VoiceSession> {
   const { MicTranscriber: MicTranscriberClass, ModelArch } = await loadMoonshine();
   const firstMicrophone: MicTranscriber = await withPresentedCoreCount(
@@ -160,7 +170,7 @@ export async function startVoiceSession(
   let framesDelivered = 0;
   let framesCountable = false;
   let lastFrameAtMs = Date.now();
-  let needsTap = false;
+  let rebuildTimesMs: number[] = [];
   let restoring: Promise<CaptureRestoreOutcome> | undefined;
 
   const attachCapture = () => {
@@ -179,13 +189,34 @@ export async function startVoiceSession(
   };
   attachCapture();
 
-  const rebuildCapture = async () => {
+  const startWithOpenedStream = async (fresh: MicTranscriber, openedStream?: MediaStream) => {
+    const mediaDevices = navigator.mediaDevices;
+    if (!openedStream || !mediaDevices) {
+      await fresh.start();
+      return;
+    }
+    const original = mediaDevices.getUserMedia.bind(mediaDevices);
+    let handedOver = false;
+    mediaDevices.getUserMedia = (constraints) => {
+      if (handedOver) return original(constraints);
+      handedOver = true;
+      return Promise.resolve(openedStream);
+    };
+    try {
+      await fresh.start();
+    } finally {
+      mediaDevices.getUserMedia = original;
+    }
+  };
+
+  const rebuildCapture = async (openedStream?: MediaStream) => {
+    rebuildTimesMs = [...rebuildTimesMs.filter((time) => Date.now() - time < CAPTURE_REBUILD_WINDOW_MS), Date.now()];
     await releaseCapture(microphone);
     const fresh = configureMicrophone(MicTranscriberClass, handlers).useTranscriber(
       loadedTranscriber as unknown as Parameters<MicTranscriber["useTranscriber"]>[0],
     );
     try {
-      await fresh.start();
+      await startWithOpenedStream(fresh, openedStream);
     } catch (error) {
       await releaseCapture(fresh);
       throw error;
@@ -198,8 +229,7 @@ export async function startVoiceSession(
     attachCapture();
   };
 
-  const restoreCaptureOnce = () =>
-    restoreCapture({
+  const captureDependencies = () => ({
       resume: async () => {
         const { audioContext } = captureInternals(microphone);
         if (audioContext && audioContext.state !== "running" && audioContext.state !== "closed") {
@@ -218,48 +248,61 @@ export async function startVoiceSession(
       },
       frameCount: () => (framesCountable ? framesDelivered : null),
       rebuild: rebuildCapture,
+      rebuildAllowed: () => rebuildsAllowed(rebuildTimesMs, Date.now()),
       sleep: waitMilliseconds,
-    });
+  });
 
-  const restoreOnce = () => {
+  const restoreCaptureOnce = () => restoreCapture(captureDependencies());
+
+  const restoreCaptureFromTapOnce = () => {
+    rebuildTimesMs = [];
+    return restoreCaptureFromTap({
+      ...captureDependencies(),
+      openMicrophone: () => navigator.mediaDevices.getUserMedia({ audio: true }),
+    });
+  };
+
+  const restoreOnce = (fromTap: boolean) => {
     if (stopped) {
       return Promise.resolve<CaptureRestoreOutcome>({
         kind: "needsTap",
         reason: "the voice conversation is off",
       });
     }
-    restoring ??= restoreCaptureOnce().finally(() => {
+    restoring ??= (fromTap ? restoreCaptureFromTapOnce() : restoreCaptureOnce()).finally(() => {
       restoring = undefined;
       lastFrameAtMs = Date.now();
     });
     return restoring;
   };
 
-  const watchdog = window.setInterval(() => {
-    if (stopped || needsTap || restoring) return;
-    const { mediaStream, audioContext } = captureInternals(microphone);
-    const problem = captureWatchProblem({
-      engineState: audioContext?.state ?? "closed",
-      tracks: (mediaStream?.getAudioTracks() ?? []).map((track) => ({
-        readyState: track.readyState,
-        muted: track.muted,
-      })),
-      millisecondsSinceFrame: framesCountable ? Date.now() - lastFrameAtMs : 0,
-    });
-    if (problem === null) return;
-    void restoreOnce().then((outcome) => {
-      needsTap = outcome.kind === "needsTap";
-      if (!stopped) handlers.onCaptureRestored(outcome);
-    });
-  }, CAPTURE_WATCH_INTERVAL_MS);
+  const watch = createCaptureWatch({
+    isStopped: () => stopped,
+    isSpeaking,
+    problem: () => {
+      const { mediaStream, audioContext } = captureInternals(microphone);
+      return captureWatchProblem({
+        engineState: audioContext?.state ?? "closed",
+        tracks: (mediaStream?.getAudioTracks() ?? []).map((track) => ({
+          readyState: track.readyState,
+          muted: track.muted,
+        })),
+        millisecondsSinceFrame: framesCountable ? Date.now() - lastFrameAtMs : 0,
+      });
+    },
+    restore: () => restoreOnce(false),
+    report: (outcome) => handlers.onCaptureRestored(outcome),
+  });
+  const watchdog = window.setInterval(watch.check, CAPTURE_WATCH_INTERVAL_MS);
 
   return {
     setKeyterms: (nextKeyterms) => loadedTranscriber && microphone.setKeyterms(nextKeyterms),
     restoreCapture: async () => {
-      const outcome = await restoreOnce();
-      needsTap = outcome.kind === "needsTap";
+      const outcome = await restoreOnce(true);
+      watch.recordOutcome(outcome);
       return outcome;
     },
+    speechEnded: watch.speechEnded,
     stop: async () => {
       stopped = true;
       window.clearInterval(watchdog);

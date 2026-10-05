@@ -227,3 +227,24 @@ Feature: Talking to teammates by voice
   Scenario: Speech that finished on its own says nothing
     When speech ends because of "finished"
     Then the browser says nothing
+
+  Scenario: Tapping asks for the microphone before any await so the tap still counts as the gesture
+    When capture is restored and the engine does not wake and a restart needs a tap
+    And the member taps the voice button
+    Then the microphone was requested and the engine resumed before any await
+
+  Scenario: Capture that keeps stalling after restarts stops cycling and asks for a tap
+    When capture is restored and the engine does not wake and a restart is allowed and 3 restarts already happened in the last minute
+    Then capture is "needsTap" and the member is told "Tap to keep talking: the microphone keeps stalling"
+
+  Scenario: A capture engine suspended by a spoken reply is left alone until speech ends
+    Given a reply is being spoken
+    When the capture engine is suspended while the reply plays and then the reply ends
+    Then no resume or microphone request happens while the reply plays
+    And capture recovery runs once the reply ends
+
+  Scenario: Stalled audio frames during a spoken reply are not acted on until speech ends
+    Given a reply is being spoken
+    When audio stops arriving while the reply plays and then the reply ends
+    Then no resume or microphone request happens while the reply plays
+    And capture recovery runs once the reply ends
