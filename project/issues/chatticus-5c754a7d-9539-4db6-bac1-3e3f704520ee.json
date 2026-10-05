@@ -10,16 +10,28 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "e515597d-963a-4546-b057-fdf98420c824",
+      "author": "home",
+      "text": "Progress: #418 (TS-12) fixed audit items 4 (organizations empty steps) and 6 (members CLI steps run the real CLI); #417 (TS-41) delivered item 5 (production Dynamo store, rate limit in domain code); #416 rewrote the org_path_routing steps onto real routes. Remaining: items 1 (stub routes) 2, 3, 7, 8, 9.",
+      "created_at": "2026-10-05T23:26:44.790683Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5"
+      }
+    }
+  ],
   "created_at": "2026-10-05T22:27:46.472966Z",
-  "updated_at": "2026-10-05T22:27:46.472999Z",
+  "updated_at": "2026-10-05T23:26:44.790707Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The team is fixing vacuous ported tests and adding real storage, handlers, and assertions before rehearsal begins.",
-  "right_now_updated_at": "2026-10-05T22:27:47.941453Z",
+  "right_now_summary": "Audit fixes landed for organizations, CLI steps, DynamoDB storage, and routing; policy, Cognito, assertion, and",
+  "right_now_updated_at": "2026-10-05T23:26:46.186035Z",
   "custom": {}
 }
