@@ -82,12 +82,22 @@ export class HttpClient {
 
 	async streamTurnEvents(
 		turnId: string,
-		organizationPath: string,
+		organizationPathOrAfterSeq?: string | number,
 		onEvent?: (event: Record<string, unknown>) => void,
 		stopAfterTokenCount?: number,
 		timeout: number = 120,
 		afterSeq?: number,
 	): Promise<TurnWatchOutcome> {
+		// Support both old and new calling conventions
+		let orgPath = "/orgs/anthus";
+		let actualAfterSeq = afterSeq;
+
+		if (typeof organizationPathOrAfterSeq === "string") {
+			orgPath = organizationPathOrAfterSeq;
+		} else if (typeof organizationPathOrAfterSeq === "number") {
+			actualAfterSeq = organizationPathOrAfterSeq;
+		}
+
 		const outcome: TurnWatchOutcome = {
 			events: [],
 			tokens: [],
@@ -96,11 +106,11 @@ export class HttpClient {
 		};
 
 		const headers: Record<string, string> = {};
-		if (afterSeq) {
-			headers["last-event-id"] = String(afterSeq);
+		if (actualAfterSeq) {
+			headers["last-event-id"] = String(actualAfterSeq);
 		}
 
-		const path = `${organizationPath}/turns/${turnId}/stream`;
+		const path = `${orgPath}/turns/${turnId}/stream`;
 		const response = await this.stream(path, { headers });
 
 		if (!response.ok) {
@@ -172,5 +182,9 @@ export class HttpClient {
 		}
 
 		return outcome;
+	}
+
+	async streamTurnEventsUntilToken(turnId: string, stopAfterTokenCount: number): Promise<TurnWatchOutcome> {
+		return this.streamTurnEvents(turnId, "/orgs/anthus", undefined, stopAfterTokenCount, 5, undefined);
 	}
 }
