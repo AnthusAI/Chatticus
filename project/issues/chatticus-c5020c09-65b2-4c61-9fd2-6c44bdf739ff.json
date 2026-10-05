@@ -9,12 +9,7 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-47e16097-86d7-4819-8f21-32b6073062e2",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "fac3b91e-2655-4ccb-a27d-df205f03ce38",
@@ -25,14 +20,14 @@
     }
   ],
   "created_at": "2026-10-05T15:44:42.763081Z",
-  "updated_at": "2026-10-05T17:50:08.031511Z",
+  "updated_at": "2026-10-05T19:22:04.487734Z",
   "closed_at": "2026-10-05T17:50:08.031370Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "Cognito verification and principal resolution were merged, with the Cognito feature covered in cucumber-js.",
-  "right_now_updated_at": "2026-10-05T17:50:09.504977Z",
+  "right_now_summary": "Cognito verification, principal resolution, and Cognito feature tests were merged as pull request #404.",
+  "right_now_updated_at": "2026-10-05T19:22:06.019098Z",
   "custom": {}
 }

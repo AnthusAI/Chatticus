@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-796f6219-e810-4c71-b099-601fbb28aeab",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:46:36.041290Z",
-  "updated_at": "2026-10-05T15:50:35.392029Z",
+  "updated_at": "2026-10-05T19:22:19.405586Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The orphan sweeper and session snapshot work awaits a verified prototype before implementation.",
-  "right_now_updated_at": "2026-10-05T15:50:37.254694Z",
+  "right_now_summary": "The orphan sweeper and session snapshot implementation still needs its prototype and tests.",
+  "right_now_updated_at": "2026-10-05T19:22:21.303289Z",
   "custom": {}
 }
