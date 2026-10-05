@@ -21,6 +21,7 @@ import type { StartedAppServer } from "./http-server.ts";
 import { FakeClock } from "./clock.ts";
 import { SequentialIdSource } from "./clock.ts";
 import { QueueRecorder } from "./queues.ts";
+import type { MembersCliProcessResult } from "./members-cli-process.ts";
 
 let scenarioCounter = 0;
 
@@ -62,7 +63,8 @@ export class ChatticusWorld extends World {
 	createOrganizationResponse: RecordedResponse | null = null;
 	inviteResponse: RecordedResponse | null = null;
 	createdOrganizationName: string | null = null;
-	membersCliListing: Organization[] | null = null;
+	membersCliResult: MembersCliProcessResult | null = null;
+	seededBotId: string | null = null;
 	httpServer: StartedAppServer | null = null;
 	webApiBase: string | null = null;
 	webIdToken: string | null = null;
