@@ -209,7 +209,7 @@ real behavior. Only a run against a real table covers them.
 
 | Test | Result |
 |---|---|
-| pi-durable storage conformance suite | **23 of 23 pass** for the S3-plus-index storage, and 23 of 23 for the DynamoDB-only baseline (`results/conformance-moto.txt`, 46 tests) |
+| pi-durable storage conformance suite | **23 of 23 pass** for the production S3-plus-index storage in `conversation/src/storage/indexed-storage.ts`, in CI (job `conversation`) against moto. The spike's copy failed 10 cases on an index-name bug that the production copy fixes. |
 | Owner 1 answers, owner 2 reopens and continues | Pass. Owner 2 answered "teal" to "what is my favourite colour?" |
 | Resubmit the same `requestId` | The original submission id comes back, already `done`. 0 commits |
 | Stale owner commits after a newer fence | Rejected with `OwnershipLost` (`Owner fence moved`). Stale fence claim rejected |
