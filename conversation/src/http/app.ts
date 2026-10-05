@@ -1,6 +1,15 @@
 import { Hono } from "hono";
 import { statusFor, DomainError } from "./errors.ts";
 import { timingSafeEqual } from "crypto";
+import type { IdTokenVerifier } from "../auth/cognito.ts";
+import type { SignupMode } from "../domain/signup-mode.ts";
+import { ORGANIZATION_CREATION_RATE_LIMIT } from "../domain/creation-limits.ts";
+import type { MessagingStore } from "../store/messaging-store.ts";
+import { PrincipalHttpError } from "../auth/principal.ts";
+import { declareRoute } from "./route-audience.ts";
+import { getMeHandler } from "./routes/me.ts";
+import { createOrganizationHandler } from "./routes/organizations.ts";
+import { createInvitationHandler, createInvitationMembershipCache } from "./routes/invitations.ts";
 
 export interface Clock {
 	now(): Date;
@@ -22,6 +31,9 @@ export interface AppDeps {
 	store: unknown;
 	invokeKey: string | null;
 	environment?: string;
+	verifier?: IdTokenVerifier | null;
+	signupMode?: SignupMode;
+	organizationCreationRateLimit?: number;
 }
 
 /**
@@ -72,6 +84,9 @@ export function createApp(deps: AppDeps): Hono {
 			const status = statusFor(err);
 			return c.json({ detail: err.message }, status as any);
 		}
+		if (err instanceof PrincipalHttpError) {
+			return c.json({ detail: err.detail }, err.status as any);
+		}
 		throw err;
 	});
 
@@ -111,6 +126,29 @@ export function createApp(deps: AppDeps): Hono {
 			messages: [],
 		});
 	});
+
+	const store = deps.store as MessagingStore;
+	const verifier = deps.verifier ?? null;
+	const membershipCache = createInvitationMembershipCache(deps.clock);
+
+	declareRoute(app, { method: "GET", path: "/me", audience: "user" }, (c) =>
+		getMeHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier }),
+	);
+
+	declareRoute(app, { method: "POST", path: "/organizations", audience: "user" }, (c) =>
+		createOrganizationHandler(c, {
+			store,
+			clock: deps.clock,
+			ids: deps.ids,
+			verifier,
+			signupMode: deps.signupMode ?? "invitation_only",
+			organizationCreationRateLimit: deps.organizationCreationRateLimit ?? ORGANIZATION_CREATION_RATE_LIMIT,
+		}),
+	);
+
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/invitations", audience: "user" }, (c) =>
+		createInvitationHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier, membershipCache }),
+	);
 
 	return app;
 }

@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from behave import given, then, when
 from cognito_test_support import mint_id_token
-from me_steps import _keys
+from me_front_door_steps import _keys
 from organization_steps import _org_by_name, _plane
 
 from chatticus.control_plane import ControlPlane

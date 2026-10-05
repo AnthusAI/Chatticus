@@ -55,3 +55,22 @@ export class ApiClient {
 		return response;
 	}
 }
+
+/** One HTTP response read once, so several steps can inspect its status and JSON body. */
+export type RecordedResponse = {
+	status: number;
+	text: string;
+	json: any;
+};
+
+/** Read a response body once into a RecordedResponse. */
+export async function recordResponse(response: Response): Promise<RecordedResponse> {
+	const text = await response.text();
+	let json: any = null;
+	try {
+		json = JSON.parse(text);
+	} catch {
+		json = null;
+	}
+	return { status: response.status, text, json };
+}

@@ -10,6 +10,10 @@ features/pi_session_ownership.feature
 features/cognito_principal.feature
 features/channel_mailbox_and_log.feature
 features/organizations.feature
+features/me.feature
+features/create_organization.feature
+features/organization_creation_caps.feature
+features/invite_organization.feature
 features/browser_context_policy.feature
 features/page_content_authority.feature
 features/prompt_injection_containment.feature

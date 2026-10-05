@@ -257,6 +257,24 @@ export class NotOrganizationOwnerError extends DomainError {
 	}
 }
 
+export class InvitationExpiredError extends DomainError {
+	constructor(message: string) {
+		super("invitation_expired", message);
+	}
+}
+
+export class InvitationNotPendingError extends DomainError {
+	constructor(message: string) {
+		super("invitation_not_pending", message);
+	}
+}
+
+export class LastOwnerCannotBeDemotedError extends DomainError {
+	constructor(message: string) {
+		super("last_owner_cannot_be_demoted", message);
+	}
+}
+
 export class OrganizationOwnerCapError extends DomainError {
 	constructor(message: string) {
 		super("organization_owner_cap", message);
@@ -327,6 +345,9 @@ export function statusFor(error: unknown): number {
 		return 404;
 	}
 	if (error instanceof OrganizationOwnerCapError) {
+		return 409;
+	}
+	if (error instanceof OrganizationStatusTransitionError) {
 		return 409;
 	}
 	if (error instanceof OrganizationCreationRateLimitedError) {

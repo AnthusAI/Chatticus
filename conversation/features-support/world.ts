@@ -6,12 +6,14 @@ import { Decimal } from "../src/budget/decimal.ts";
 import type { Organization as BudgetOrganization } from "../src/budget/models.ts";
 import type { Identity, Organization, Invitation } from "../src/domain/organizations.ts";
 import type { MessagingStore } from "../src/store/messaging-store.ts";
+import { InMemoryMessagingStore } from "./in-memory-messaging-store.ts";
 import { FakeBudgetAlertsPublisher } from "./fakes/fake-budget-alerts.ts";
 import { FakeAccountSpendReader, FakeCostExplorerReader } from "./fakes/fake-cost-explorer.ts";
 import type { FakePrincipalDirectory } from "./fakes/fake-principal-directory.ts";
 import type { CognitoTestKeys } from "./test-jwt.ts";
 import { localDynamoClient, ScenarioMessagingTable } from "./messaging-table.ts";
-import { ApiClient } from "./api.ts";
+import { ApiClient, type RecordedResponse } from "./api.ts";
+import type { StartedAppServer } from "./http-server.ts";
 import { FakeClock } from "./clock.ts";
 import { SequentialIdSource } from "./clock.ts";
 import { QueueRecorder } from "./queues.ts";
@@ -52,6 +54,15 @@ export class ChatticusWorld extends World {
 	botsById: Map<string, { botId: string; name: string; tenantId: string }> | null = null;
 	botsByName: Map<string, { botId: string; name: string; tenantId: string }> | null = null;
 	lastHttpResponse: Response | null = null;
+	meResponse: RecordedResponse | null = null;
+	createOrganizationResponse: RecordedResponse | null = null;
+	inviteResponse: RecordedResponse | null = null;
+	createdOrganizationName: string | null = null;
+	membersCliListing: Organization[] | null = null;
+	httpServer: StartedAppServer | null = null;
+	webApiBase: string | null = null;
+	webIdToken: string | null = null;
+	membershipUiHarness: Record<string, any> | null = null;
 	lastChannel: { channelId: string; tenantId: string } | null = null;
 	lastTurnId: string | null = null;
 	messageError: Error | Response | null = null;
@@ -103,55 +114,15 @@ export class ChatticusWorld extends World {
 	}
 
 	createInMemoryStore(): MessagingStore {
-		const identities = new Map<string, Identity>();
-		const organizations = new Map<string, Organization>();
-		const memberships = new Map<string, Map<string, any>>();
-		const invitations = new Map<string, Invitation>();
+		return new InMemoryMessagingStore();
+	}
 
-		return {
-			async getIdentityByEmail(email: string): Promise<Identity | null> {
-				return identities.get(email) ?? null;
-			},
-			async putIdentity(identity: Identity): Promise<void> {
-				identities.set(identity.email, identity);
-			},
-			async getOrganization(tenantId: string): Promise<Organization | null> {
-				return organizations.get(tenantId) ?? null;
-			},
-			async putOrganization(organization: Organization): Promise<void> {
-				organizations.set(organization.tenantId, organization);
-			},
-			async getMembership(tenantId: string, userId: string): Promise<any> {
-				const tenantMemberships = memberships.get(tenantId);
-				return tenantMemberships?.get(userId) ?? null;
-			},
-			async putMembership(membership: any): Promise<void> {
-				if (!memberships.has(membership.tenantId)) {
-					memberships.set(membership.tenantId, new Map());
-				}
-				memberships.get(membership.tenantId)!.set(membership.userId, membership);
-			},
-			async listMemberships(tenantId: string): Promise<any[]> {
-				const tenantMemberships = memberships.get(tenantId);
-				return tenantMemberships ? Array.from(tenantMemberships.values()) : [];
-			},
-			async getInvitation(invitationId: string): Promise<Invitation | null> {
-				return invitations.get(invitationId) ?? null;
-			},
-			async putInvitation(invitation: Invitation): Promise<void> {
-				invitations.set(invitation.invitationId, invitation);
-			},
-			async listOrganizationsForUser(userId: string): Promise<Organization[]> {
-				const result: Organization[] = [];
-				for (const org of organizations.values()) {
-					const membership = memberships.get(org.tenantId)?.get(userId);
-					if (membership) {
-						result.push(org);
-					}
-				}
-				return result;
-			},
-		};
+	/** The scenario's single messaging store, shared by the HTTP app and direct domain steps. */
+	messagingStore(): MessagingStore {
+		if (this.inMemoryStore === null) {
+			this.inMemoryStore = this.createInMemoryStore();
+		}
+		return this.inMemoryStore;
 	}
 }
 
