@@ -4,6 +4,7 @@
  */
 
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
+import { formatIsoDateTime } from "./util.ts";
 
 export interface Membership {
 	tenantId: string;
@@ -26,7 +27,7 @@ export function encode(value: Membership): Item {
 		tenant_id: { S: value.tenantId },
 		user_id: { S: value.userId },
 		role: { S: value.role },
-		joined_at: { S: value.joinedAt.toISOString() },
+		joined_at: { S: formatIsoDateTime(value.joinedAt) },
 	};
 }
 

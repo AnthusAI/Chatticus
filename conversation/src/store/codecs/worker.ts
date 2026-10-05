@@ -4,6 +4,7 @@
  */
 
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
+import { formatIsoDateTime, stringifyPythonStyle } from "./util.ts";
 
 export interface Worker {
 	workerId: string;
@@ -30,9 +31,9 @@ export function encode(value: Worker): Item {
 		worker_id: { S: value.workerId },
 		tenant_id: { S: value.tenantId },
 		cost_class: { S: value.costClass },
-		capabilities: { S: JSON.stringify(value.capabilities.sort()) },
+		capabilities: { S: stringifyPythonStyle(value.capabilities.sort()) },
 		token_hash: { S: value.tokenHash },
-		last_heartbeat_at: { S: value.lastHeartbeatAt.toISOString() },
+		last_heartbeat_at: { S: formatIsoDateTime(value.lastHeartbeatAt) },
 	};
 
 	if (value.computerId !== undefined) {

@@ -4,6 +4,7 @@
  */
 
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
+import { stringifyPythonStyle } from "./util.ts";
 
 export interface Bot {
 	botId: string;
@@ -26,7 +27,7 @@ export function encode(value: Bot): Item {
 		tenant_id: { S: value.tenantId },
 		bot_id: { S: value.botId },
 		name: { S: value.name },
-		memory: { S: JSON.stringify(value.memory) },
+		memory: { S: stringifyPythonStyle(value.memory) },
 	};
 }
 

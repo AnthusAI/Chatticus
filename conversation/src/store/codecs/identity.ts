@@ -4,6 +4,7 @@
  */
 
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
+import { formatIsoDateTime } from "./util.ts";
 
 export interface Identity {
 	userId: string;
@@ -24,7 +25,7 @@ export function encode(value: Identity): Item {
 		sk: { S: "identity" },
 		user_id: { S: value.userId },
 		email: { S: value.email },
-		created_at: { S: value.createdAt.toISOString() },
+		created_at: { S: formatIsoDateTime(value.createdAt) },
 	};
 }
 

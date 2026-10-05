@@ -4,6 +4,7 @@
  */
 
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
+import { formatIsoDateTime } from "./util.ts";
 
 export interface Invitation {
 	invitationId: string;
@@ -34,7 +35,7 @@ export function encode(value: Invitation): Item {
 		role: { S: value.role },
 		status: { S: value.status },
 		expires_at: { N: String(Math.floor(value.expiresAt.getTime() / 1000)) },
-		created_at: { S: value.createdAt.toISOString() },
+		created_at: { S: formatIsoDateTime(value.createdAt) },
 	};
 }
 

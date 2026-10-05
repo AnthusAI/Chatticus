@@ -4,6 +4,7 @@
  */
 
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
+import { formatIsoDateTime } from "./util.ts";
 
 export interface Organization {
 	tenantId: string;
@@ -35,7 +36,7 @@ export function encode(value: Organization): Item {
 		name: { S: value.name },
 		status: { S: value.status },
 		owner_user_id: { S: value.ownerUserId },
-		created_at: { S: value.createdAt.toISOString() },
+		created_at: { S: formatIsoDateTime(value.createdAt) },
 	};
 
 	if (value.awsAccountId !== undefined) {
