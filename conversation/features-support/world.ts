@@ -133,6 +133,15 @@ export class ChatticusWorld extends World {
 				}
 				return result;
 			},
+			async listPendingInvitationsForEmail(email: string): Promise<Invitation[]> {
+				const result: Invitation[] = [];
+				for (const invitation of invitations.values()) {
+					if (invitation.email === email && invitation.status === "pending") {
+						result.push(invitation);
+					}
+				}
+				return result;
+			},
 		};
 	}
 }

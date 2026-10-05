@@ -12,4 +12,5 @@ export interface MessagingStore {
 	getInvitation(invitationId: string): Promise<Invitation | null>;
 	putInvitation(invitation: Invitation): Promise<void>;
 	listOrganizationsForUser(userId: string): Promise<Organization[]>;
+	listPendingInvitationsForEmail(email: string): Promise<Invitation[]>;
 }

@@ -1,6 +1,11 @@
 import { Hono } from "hono";
 import { statusFor, DomainError } from "./errors.ts";
 import { timingSafeEqual } from "crypto";
+import type { IdTokenVerifier } from "../auth/cognito.ts";
+import type { SignupMode } from "../domain/signup-mode.ts";
+import { getMeHandler } from "./routes/me.ts";
+import { createOrganizationHandler } from "./routes/organizations.ts";
+import { createInvitationHandler } from "./routes/invitations.ts";
 
 export interface Clock {
 	now(): Date;
@@ -22,6 +27,8 @@ export interface AppDeps {
 	store: unknown;
 	invokeKey: string | null;
 	environment?: string;
+	verifier?: IdTokenVerifier | null;
+	signupMode?: SignupMode;
 }
 
 /**
@@ -109,6 +116,38 @@ export function createApp(deps: AppDeps): Hono {
 	app.get("/orgs/:tenant_id/channels/:channel_id/messages", (c) => {
 		return c.json({
 			messages: [],
+		});
+	});
+
+	const store = deps.store as any;
+
+	app.get("/api/me", async (c) => {
+		return getMeHandler(c, {
+			store,
+			clock: deps.clock,
+			ids: deps.ids,
+			verifier: deps.verifier || null,
+		});
+	});
+
+	app.post("/api/organizations", async (c) => {
+		return createOrganizationHandler(c, {
+			store,
+			clock: deps.clock,
+			ids: deps.ids,
+			verifier: deps.verifier || null,
+			signupMode: deps.signupMode || "invitation_only",
+		});
+	});
+
+	app.post("/orgs/:tenant_id/invitations", async (c) => {
+		const tenantId = c.req.param("tenant_id");
+		return createInvitationHandler(c, {
+			store,
+			clock: deps.clock,
+			ids: deps.ids,
+			userId: null,
+			tenantId,
 		});
 	});
 
