@@ -19,7 +19,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "Slice 1 is merged, and the team is planning the full TypeScript control-plane cutover.",
-  "right_now_updated_at": "2026-10-05T15:24:34.380684Z",
+  "right_now_summary": "The TypeScript control-plane migration is underway, with core routes, workers, and tests being ported.",
+  "right_now_updated_at": "2026-10-05T15:51:32.337228Z",
   "custom": {}
 }
