@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-a1e7f793-6276-40ac-8111-54c280cd8178",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:45:53.300003Z",
-  "updated_at": "2026-10-05T15:49:21.767932Z",
+  "updated_at": "2026-10-05T21:45:58.882824Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The team is porting policy controls and durable approvals to TypeScript while adding matching Cucumber steps.",
-  "right_now_updated_at": "2026-10-05T15:49:22.954114Z",
+  "right_now_summary": "The ticket specifies a TypeScript policy port with durable approvals, connection controls, and overnight gating.",
+  "right_now_updated_at": "2026-10-05T21:46:00.100602Z",
   "custom": {}
 }
