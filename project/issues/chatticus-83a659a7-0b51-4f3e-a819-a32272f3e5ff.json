@@ -15,24 +15,20 @@
       "type": "blocked-by"
     },
     {
-      "target": "chatticus-a1e7f793-6276-40ac-8111-54c280cd8178",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-cd95406e-e181-4267-bd37-e11acd26433c",
       "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:45:56.629388Z",
-  "updated_at": "2026-10-05T15:49:32.071828Z",
+  "updated_at": "2026-10-05T21:46:02.496005Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "Implementation awaits a verified Pi tool wrapper prototype.",
-  "right_now_updated_at": "2026-10-05T15:49:34.152Z",
+  "right_now_summary": "Implementation awaits the required Pi tool-wrapping prototype before the build can begin.",
+  "right_now_updated_at": "2026-10-05T21:46:04.556454Z",
   "custom": {}
 }
