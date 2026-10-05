@@ -21,7 +21,9 @@
     "@earendil-works/chord": "1.0.2",
     "@earendil-works/pi-ai": "1.0.2",
     "@earendil-works/pi-durable": "1.0.2",
+    "aws-jwt-verify": "5.2.1",
     "hono": "4.13.13",
+    "jose": "6.2.12",
     "zod": "4.6.5"
   },
   "devDependencies": {
