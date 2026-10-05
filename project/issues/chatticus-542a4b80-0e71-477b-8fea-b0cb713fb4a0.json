@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "4aa6b225-3b6f-43ef-9a66-f5d2c76c01da",
+      "author": "home",
+      "text": "Corrections from the TS-07 prototype (branch ts/07-cognito-verifier, 232def30). Apply to this ticket: (1) the conversation tsconfig has erasableSyntaxOnly, so constructor parameter properties are not allowed; declare fields explicitly. (2) A missing Authorization header is 403 in Python and in the features, not 401. (3) Check org status ENABLED after resolving the principal, as verify_org_access does, because the suspended scenario needs the suspended principal back. (4) The Principal type includes organizationStatus and workerId. (5) test-jwt.ts both mints tokens and holds the injected JWKS. (6) cucumber-js with a single .feature path still runs the whole manifest. (7) aws-jwt-verify 5.2.1 and jose 6.2.12 are pinned exactly: CognitoJwtVerifier.create({userPoolId, tokenUse:'id', clientId}), verifier.cacheJwks(jwks) is synchronous, verifier.verify(token) is async, and an unknown kid triggers a network JWKS refetch, so tests reuse the kid.",
+      "created_at": "2026-10-05T16:11:57.615920Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "orchestrator"
+      }
+    }
+  ],
   "created_at": "2026-10-05T15:44:54.338109Z",
-  "updated_at": "2026-10-05T15:47:41.191062Z",
+  "updated_at": "2026-10-05T16:11:57.615954Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The operator and integration-test authentication port is being implemented with matching TypeScript routes and test",
-  "right_now_updated_at": "2026-10-05T15:47:42.719997Z",
+  "right_now_summary": "The team is porting operator and integration-test authentication to TypeScript.",
+  "right_now_updated_at": "2026-10-05T16:12:00.062047Z",
   "custom": {}
 }

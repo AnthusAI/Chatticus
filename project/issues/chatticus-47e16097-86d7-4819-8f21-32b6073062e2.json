@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "d9524af5-1efc-42f3-97a2-84199d38c28e",
+      "author": "home",
+      "text": "Corrections from the TS-07 prototype (branch ts/07-cognito-verifier, 232def30). Apply to this ticket: (1) the conversation tsconfig has erasableSyntaxOnly, so constructor parameter properties are not allowed; declare fields explicitly. (2) A missing Authorization header is 403 in Python and in the features, not 401. (3) Check org status ENABLED after resolving the principal, as verify_org_access does, because the suspended scenario needs the suspended principal back. (4) The Principal type includes organizationStatus and workerId. (5) test-jwt.ts both mints tokens and holds the injected JWKS. (6) cucumber-js with a single .feature path still runs the whole manifest. (7) aws-jwt-verify 5.2.1 and jose 6.2.12 are pinned exactly: CognitoJwtVerifier.create({userPoolId, tokenUse:'id', clientId}), verifier.cacheJwks(jwks) is synchronous, verifier.verify(token) is async, and an unknown kid triggers a network JWKS refetch, so tests reuse the kid.",
+      "created_at": "2026-10-05T16:11:47.838341Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "orchestrator"
+      }
+    }
+  ],
   "created_at": "2026-10-05T15:44:38.990704Z",
-  "updated_at": "2026-10-05T15:47:19.894364Z",
+  "updated_at": "2026-10-05T16:11:47.838387Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The team is adding the Hono app, error mapping, route guards, and health endpoint.",
-  "right_now_updated_at": "2026-10-05T15:47:21.887585Z",
+  "right_now_summary": "The team is building the Hono HTTP skeleton, error mapping, invoke-key checks, and health endpoint.",
+  "right_now_updated_at": "2026-10-05T16:11:50.098447Z",
   "custom": {}
 }
