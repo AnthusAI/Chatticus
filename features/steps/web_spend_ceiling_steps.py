@@ -6,7 +6,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from behave import given, then, when
-from web_create_bot_steps import _harness_payload
+from web_create_bot_helpers import _harness_payload
 from web_organization_signup_steps import _run_harness
 
 from chatticus.budget_rollup.models import BudgetRollupRow

@@ -4,6 +4,7 @@ import { normalizeEmail } from "../../src/domain/organizations.ts";
 import { recordResponse } from "../api.ts";
 import { bearerFor, cognitoKeys } from "../front-door.ts";
 import { runMembershipUiHarness } from "../membership-ui-harness.ts";
+import { seedEnabledWebSession } from "../web-session.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 async function inviteAsCurrentUser(world: ChatticusWorld, name: string, email: string): Promise<void> {
@@ -72,13 +73,7 @@ Then("GET \\/me does not include a pending organization", function (this: Chatti
 Given(
 	"the web SPA has an enabled organization session for {string} in {string}",
 	async function (this: ChatticusWorld, email: string, name: string) {
-		const organization = this.orgsByName?.get(name);
-		assert.ok(organization, `No organization named ${JSON.stringify(name)} in this scenario.`);
-		assert.ok(this.httpServer, "The front door is not served over HTTP for the web SPA.");
-		this.webApiBase = this.httpServer.baseUrl;
-		this.webIdToken = await (await cognitoKeys(this)).mintIdToken({ email });
-		await runMembershipUiHarness(this, "seed-session", { email, id_token: this.webIdToken });
-		await runMembershipUiHarness(this, "set-me-enabled", { tenant_id: organization.tenantId, name: organization.name });
+		await seedEnabledWebSession(this, email, name);
 	},
 );
 

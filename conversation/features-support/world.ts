@@ -69,6 +69,10 @@ export class ChatticusWorld extends World {
 	membershipUiHarness: Record<string, any> | null = null;
 	lastChannel: { channelId: string; tenantId: string } | null = null;
 	lastTurnId: string | null = null;
+	testOwnerEmails: Map<string, string> = new Map();
+	directChannelPayloads: Array<Record<string, any>> = [];
+	namedChannelPayload: Record<string, any> | null = null;
+	createBotResponse: RecordedResponse | null = null;
 	messageError: Error | Response | null = null;
 	dataTable: DataTable | null = null;
 	environment: string = "local";

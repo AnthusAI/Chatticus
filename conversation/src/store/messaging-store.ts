@@ -1,3 +1,6 @@
+import type { Bot } from "./codecs/bot.ts";
+import type { Computer } from "./codecs/computer.ts";
+import type { Channel, ChannelMessageRecord } from "../domain/channels.ts";
 import type { Identity, Organization, Membership, Invitation, OrganizationStatus } from "../domain/organizations.ts";
 
 /** MessagingStore provides storage operations for organizations, identities, and memberships. */
@@ -25,4 +28,28 @@ export interface MessagingStore {
 		windowMilliseconds: number,
 	): Promise<void>;
 	listPendingInvitationsForEmail(email: string): Promise<Invitation[]>;
+
+	/**
+	 * Persist one bot. With reserveName the organization-unique name is claimed in the same write, and a name
+	 * already claimed throws DuplicateBotNameError.
+	 */
+	putBot(bot: Bot, reserveName: boolean): Promise<void>;
+	getBot(tenantId: string, botId: string): Promise<Bot | null>;
+	getBotByName(tenantId: string, name: string): Promise<Bot | null>;
+	listBots(tenantId: string): Promise<Bot[]>;
+	getBotIdempotency(tenantId: string, idempotencyKey: string): Promise<Bot | null>;
+	putBotIdempotency(tenantId: string, idempotencyKey: string, bot: Bot): Promise<void>;
+	putChannel(channel: Channel): Promise<void>;
+	/** Persist a new canonical channel, or return the one already stored under its identifier. */
+	putChannelIfAbsent(channel: Channel): Promise<Channel>;
+	getChannel(tenantId: string, channelId: string): Promise<Channel | null>;
+	listChannels(tenantId: string, userId: string): Promise<Channel[]>;
+	/** The tenant that owns a channel identifier, or null when no tenant does. */
+	resolveChannelTenant(channelId: string): Promise<string | null>;
+	getChannelIdempotency(tenantId: string, idempotencyKey: string): Promise<Channel | null>;
+	putChannelIdempotency(tenantId: string, idempotencyKey: string, channel: Channel): Promise<void>;
+	/** Committed messages of one channel with a sequence greater than afterSeq. */
+	listMessages(tenantId: string, channelId: string, afterSeq: number): Promise<ChannelMessageRecord[]>;
+	getComputer(tenantId: string): Promise<Computer | null>;
+	putComputer(computer: Computer): Promise<void>;
 }
