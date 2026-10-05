@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-9a2e3f15-b95c-4633-97ee-82f394259a7e",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:44:31.410246Z",
-  "updated_at": "2026-10-05T15:47:13.891639Z",
+  "updated_at": "2026-10-05T16:15:59.458901Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The TypeScript acceptance runner and demo CLI still need to be ported and tested.",
-  "right_now_updated_at": "2026-10-05T15:47:15.303021Z",
+  "right_now_summary": "The TypeScript acceptance runner and demo CLI are being ported from Python with SSE and SigV4 support.",
+  "right_now_updated_at": "2026-10-05T16:16:01.557968Z",
   "custom": {}
 }
