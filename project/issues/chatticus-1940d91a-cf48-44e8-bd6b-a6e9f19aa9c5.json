@@ -11,24 +11,20 @@
   "labels": [],
   "dependencies": [
     {
-      "target": "chatticus-c1367400-ac1f-49e4-bf7e-c50223cc66f5",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-48531f49-cd50-4647-9c50-00bc561cf9f5",
       "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:46:20.279436Z",
-  "updated_at": "2026-10-05T15:50:09.775421Z",
+  "updated_at": "2026-10-05T21:17:28.676620Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "TypeScript host workspace and terminal executors are being added with path mapping and feature steps.",
-  "right_now_updated_at": "2026-10-05T15:50:11.321288Z",
+  "right_now_summary": "The host workspace and terminal executors are being implemented with path mapping and continuation steps.",
+  "right_now_updated_at": "2026-10-05T21:17:30.022768Z",
   "custom": {}
 }

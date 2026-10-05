@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-4b67bc60-cc4b-409f-8408-1bea16a42dad",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:44:57.213026Z",
-  "updated_at": "2026-10-05T15:47:47.983480Z",
+  "updated_at": "2026-10-05T21:17:17.681643Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The TypeScript spend-ceiling port is awaiting implementation.",
-  "right_now_updated_at": "2026-10-05T15:47:49.399285Z",
+  "right_now_summary": "The TypeScript spend-ceiling domain, route, and feature steps still need to be ported and tested.",
+  "right_now_updated_at": "2026-10-05T21:17:19.187374Z",
   "custom": {}
 }

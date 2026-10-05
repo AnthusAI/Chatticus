@@ -13,22 +13,18 @@
     {
       "target": "chatticus-bab338ff-46a2-4e2d-bc40-bb04fac917ac",
       "type": "blocked-by"
-    },
-    {
-      "target": "chatticus-c1367400-ac1f-49e4-bf7e-c50223cc66f5",
-      "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:46:16.689823Z",
-  "updated_at": "2026-10-05T15:50:03.875607Z",
+  "updated_at": "2026-10-05T21:17:24.200876Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "This ticket ports customer account provisioning, CloudFormation stacks, image and bucket helpers, and self-setup routes",
-  "right_now_updated_at": "2026-10-05T15:50:05.259794Z",
+  "right_now_summary": "The ticket covers cross-account provisioning, customer infrastructure, self-setup, snapshot storage, and TypeScript",
+  "right_now_updated_at": "2026-10-05T21:17:26.443897Z",
   "custom": {}
 }
