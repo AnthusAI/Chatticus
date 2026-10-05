@@ -626,6 +626,11 @@ def when_member_says_to_open_conversation(context: object, line: str) -> None:
     _deliver(context, do="hear", line=line, overlapsSpeech=overlaps)
 
 
+@when('the member says "{line}" to the open conversation just after a reply ended')
+def when_member_says_just_after_reply(context: object, line: str) -> None:
+    _deliver(context, do="hear", line=line, overlapsSpeech=True)
+
+
 @when('"{name}" finishes the turn')
 def when_teammate_finishes_turn(context: object, name: str) -> None:
     _deliver(context, do="endTurn")

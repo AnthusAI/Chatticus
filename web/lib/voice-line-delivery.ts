@@ -1,6 +1,8 @@
 import { routeVoiceLine, type VoiceWorkspace } from "./voice-control";
 
 export const FEEDBACK_NOTHING_TO_SEND = "Didn't catch a message there.";
+export const FEEDBACK_IGNORED_AS_ECHO = "Ignored that as an echo. Say it again.";
+export const FEEDBACK_OPEN_A_CONVERSATION = "Open a conversation first.";
 export const FEEDBACK_COULD_NOT_SEND = "Couldn't send that.";
 
 /**
@@ -122,6 +124,12 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
     return firstNote;
   };
 
+  const speakFeedbackUnlessReplying = (text: string) => {
+    if (!dependencies.replyIsSpeaking()) {
+      dependencies.speakFeedback(text);
+    }
+  };
+
   const waitingNote = (channelId: string): string => {
     const queued = queues.get(channelId);
     const botName = queued ? dependencies.botName(queued.botId) : "your teammate";
@@ -140,9 +148,14 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
         return "Stopped speaking.";
       }
       if (route.kind === "discard") {
-        return text.trim() && line.overlapsSpeech ? `Ignored while speaking: "${text.trim()}"` : "";
+        if (text.trim() && line.overlapsSpeech) {
+          speakFeedbackUnlessReplying(FEEDBACK_IGNORED_AS_ECHO);
+          return `Ignored while speaking: "${text.trim()}"`;
+        }
+        return "";
       }
       if (route.kind === "notice") {
+        speakFeedbackUnlessReplying(FEEDBACK_OPEN_A_CONVERSATION);
         return route.text;
       }
       if (route.kind === "stopListening") {
@@ -150,6 +163,7 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
         return "Stopped listening.";
       }
       if (!route.channelId) {
+        speakFeedbackUnlessReplying(FEEDBACK_OPEN_A_CONVERSATION);
         return "Open a conversation to talk to a teammate.";
       }
       const channelId = route.channelId;

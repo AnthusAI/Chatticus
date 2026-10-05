@@ -106,6 +106,16 @@ Feature: Talking to teammates by voice
     When the member says "ship it now" to the open conversation
     Then the browser says "Couldn't send that."
 
+  Scenario: A line discarded as an echo while no reply is playing is spoken aloud
+    Given the direct conversation with "Ada" is open
+    When the member says "the pull request is open" to the open conversation just after a reply ended
+    Then nothing has been sent yet
+    And the browser says "Ignored that as an echo. Say it again."
+
+  Scenario: A line heard with no conversation open is spoken aloud
+    When the member says "hello there" to the open conversation
+    Then the browser says "Open a conversation first."
+
   Scenario: Spoken feedback never talks over a reply
     Given the direct conversation with "Ada" is open
     And sending to the teammate fails

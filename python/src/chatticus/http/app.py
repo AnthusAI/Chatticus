@@ -1662,16 +1662,15 @@ def create_app(
                     tenant_id,
                     type(error).__name__,
                 )
-        logger.info(
-            "voice_line_understood tenant_id=%s channel_id=%s heard_chars=%s "
-            "understood_chars=%s degraded=%s",
-            tenant_id,
-            channel_id,
-            len(body.transcript),
-            len(understanding.text),
-            understanding.degraded,
-        )
+        heard_word_count = len(body.transcript.split())
+        understood_word_count = len(understanding.text.split())
         if not understanding.text:
+            logger.info(
+                "voice_line_understood heard_word_count=%s understood_word_count=0 "
+                "outcome=%s turn_id=none",
+                heard_word_count,
+                understanding.outcome,
+            )
             return {
                 "understood": "",
                 "degraded": understanding.degraded,
@@ -1686,6 +1685,14 @@ def create_app(
             understanding.text,
             addressed_to_bot_id=body.addressed_to_bot_id,
             idempotency_key=key,
+        )
+        logger.info(
+            "voice_line_understood heard_word_count=%s understood_word_count=%s "
+            "outcome=%s turn_id=%s",
+            heard_word_count,
+            understood_word_count,
+            understanding.outcome,
+            started.turn_id if started is not None else "none",
         )
         return {
             "understood": understanding.text,

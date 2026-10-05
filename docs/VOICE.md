@@ -171,8 +171,11 @@ front door runs the understand-the-user step (`chatticus.voice.understanding`,
   filler or noise.
 - **Result:** the understood text is posted as an ordinary human message and
   starts an ordinary turn. Nothing is posted for filler. The status line shows
-  both what was heard and what was sent. A line of four or more words is never
-  filler: if the model returns nothing for one, the line is posted as heard.
+  both what was heard and what was sent. Only a line made entirely of filler tokens
+  (um, uh, hmm, er, ah and similar, a fixed list, not the model's call) may
+  carry no message; if the model returns nothing for anything else, the line is
+  posted as heard. Each line logs `voice_line_understood` with word counts,
+  outcome and turn id, never the text.
 - **Cost and latency:** one small call per spoken line, about 0.6 to 1.3
   seconds in a live check. "ping tell me some thing" became "Ping, tell me
   something." Unfamiliar product names ("voice moon china" for "Moonshine")
