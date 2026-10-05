@@ -10,7 +10,6 @@ from typing import Any, Protocol
 import boto3
 
 from chatticus.computer_start import HostStartClaim
-from chatticus.cost_explorer import TENANT_TAG_KEY
 from chatticus.cross_account_assume_role import (
     AssumeRoleCallable,
     attempt_cross_account_assume_role,
@@ -30,6 +29,8 @@ from chatticus.customer_computers_stack import (
 )
 from chatticus.deployment_aws_account import deployment_aws_account_id
 from chatticus.models import Organization, OrganizationComputerProvisioningError
+
+TENANT_TAG_KEY = "chatticus:tenant"
 
 
 class OrganizationLookup(Protocol):
@@ -154,8 +155,9 @@ def host_task_tags(
     """Tags for one computer task: the standard cost tags plus its organization.
 
     ``chatticus:tenant`` is the key the daily rollup groups spend by, so it
-    must match ``cost_explorer.TENANT_TAG_KEY``. Environment and installation
-    come from the starter's own configuration and are left off when unset.
+    must match ``TENANT_TAG_KEY`` in conversation/src/budget/cost-explorer.ts.
+    Environment and installation come from the starter's own configuration and
+    are left off when unset.
     """
     env = os.environ if environ is None else environ
     tags = [

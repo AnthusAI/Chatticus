@@ -1,6 +1,5 @@
 from chatticus.computer_start import HostStartClaim
-from chatticus.cost_explorer import TENANT_TAG_KEY
-from chatticus.organization_computer_host import host_task_tags
+from chatticus.organization_computer_host import TENANT_TAG_KEY, host_task_tags
 
 
 def _claim() -> HostStartClaim:

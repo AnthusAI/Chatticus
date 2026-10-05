@@ -8,16 +8,21 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest --run"
+    "test": "vitest --run",
+    "test:features": "cucumber-js"
   },
   "dependencies": {
+    "@aws-sdk/client-cost-explorer": "3.1146.0",
     "@aws-sdk/client-dynamodb": "3.1146.0",
     "@aws-sdk/client-s3": "3.1146.0",
+    "@aws-sdk/client-sns": "3.1146.0",
+    "@aws-sdk/client-sts": "3.1146.0",
     "@earendil-works/chord": "1.0.2",
     "@earendil-works/pi-ai": "1.0.2",
     "@earendil-works/pi-durable": "1.0.2"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "13.3.0",
     "@types/node": "24.6.0",
     "typescript": "5.9.3",
     "vitest": "4.1.11"

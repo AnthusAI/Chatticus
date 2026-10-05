@@ -11,7 +11,6 @@ from typing import Any, Protocol
 from chatticus.budget_rollup.models import (
     BudgetAlertEvent,
     BudgetRollupRow,
-    BudgetThresholdState,
 )
 from chatticus.capability_policy import (
     TaskCapabilityGrant,
@@ -426,27 +425,6 @@ class MessagingStore(Protocol):
     def put_budget_rollup_row(self, row: BudgetRollupRow) -> BudgetRollupRow:
         """Insert or replace one org-environment-day rollup row."""
 
-    def list_budget_rollup_rows_for_day(
-        self, tenant_id: str, environment: str, rollup_date: date
-    ) -> list[BudgetRollupRow]:
-        """Return rollup rows for one tenant, environment, and day."""
-
-    def get_account_budget_rollup_row(
-        self, environment: str, rollup_date: date
-    ) -> BudgetRollupRow | None:
-        """Load the account-level rollup row for one environment and day."""
-
-    def put_account_budget_rollup_row(self, row: BudgetRollupRow) -> BudgetRollupRow:
-        """Insert or replace the account-level rollup row."""
-
-    def get_budget_threshold_state(
-        self, environment: str
-    ) -> BudgetThresholdState | None:
-        """Load vendor threshold notification dedup state."""
-
-    def put_budget_threshold_state(self, state: BudgetThresholdState) -> None:
-        """Persist vendor threshold notification dedup state."""
-
     def put_waitlist_signup(self, signup: WaitlistSignup) -> None:
         """Persist one waitlist signup."""
 
@@ -518,7 +496,6 @@ class InMemoryMessagingStore:
         self._workers: dict[tuple[str, str], WorkerRecord] = {}
         self._vendor_ledger: dict[tuple[str, str], VendorLedgerRow] = {}
         self._budget_rollups: dict[tuple[str, str, str], BudgetRollupRow] = {}
-        self._budget_threshold_state: dict[str, BudgetThresholdState] = {}
         self._waitlist_signups: dict[str, WaitlistSignup] = {}
         self._waitlist_invite_tokens: dict[str, str] = {}
         self._waitlist_submission_attempts: dict[str, list[datetime]] = {}
@@ -1056,31 +1033,6 @@ class InMemoryMessagingStore:
         with self._lock:
             self._budget_rollups[key] = row
             return row
-
-    def list_budget_rollup_rows_for_day(
-        self, tenant_id: str, environment: str, rollup_date: date
-    ) -> list[BudgetRollupRow]:
-        row = self.get_budget_rollup_row(tenant_id, environment, rollup_date)
-        return [row] if row is not None else []
-
-    def get_account_budget_rollup_row(
-        self, environment: str, rollup_date: date
-    ) -> BudgetRollupRow | None:
-        from chatticus.budget_rollup.models import ACCOUNT_TENANT_ID
-
-        return self.get_budget_rollup_row(ACCOUNT_TENANT_ID, environment, rollup_date)
-
-    def put_account_budget_rollup_row(self, row: BudgetRollupRow) -> BudgetRollupRow:
-        return self.put_budget_rollup_row(row)
-
-    def get_budget_threshold_state(
-        self, environment: str
-    ) -> BudgetThresholdState | None:
-        return self._budget_threshold_state.get(environment)
-
-    def put_budget_threshold_state(self, state: BudgetThresholdState) -> None:
-        with self._lock:
-            self._budget_threshold_state[state.environment] = state
 
     def put_waitlist_signup(self, signup: WaitlistSignup) -> None:
         with self._lock:
@@ -2535,56 +2487,6 @@ class DynamoMessagingStore:
             raise RuntimeError(msg)
         return stored
 
-    def list_budget_rollup_rows_for_day(
-        self, tenant_id: str, environment: str, rollup_date: date
-    ) -> list[BudgetRollupRow]:
-        row = self.get_budget_rollup_row(tenant_id, environment, rollup_date)
-        return [row] if row is not None else []
-
-    def get_account_budget_rollup_row(
-        self, environment: str, rollup_date: date
-    ) -> BudgetRollupRow | None:
-        from chatticus.budget_rollup.models import ACCOUNT_TENANT_ID
-
-        return self.get_budget_rollup_row(ACCOUNT_TENANT_ID, environment, rollup_date)
-
-    def put_account_budget_rollup_row(self, row: BudgetRollupRow) -> BudgetRollupRow:
-        return self.put_budget_rollup_row(row)
-
-    def get_budget_threshold_state(
-        self, environment: str
-    ) -> BudgetThresholdState | None:
-        from chatticus.budget_rollup.models import ACCOUNT_TENANT_ID
-
-        response = self.client.get_item(
-            TableName=self.table_name,
-            Key={
-                "pk": {"S": self._budget_rollup_pk(ACCOUNT_TENANT_ID)},
-                "sk": {"S": self._budget_threshold_state_sk(environment)},
-            },
-        )
-        item = response.get("Item")
-        if item is None:
-            return None
-        return BudgetThresholdState(
-            environment=environment,
-            last_notified_band=int(item["last_notified_band"]["N"]),
-            updated_at=datetime.fromisoformat(item["updated_at"]["S"]),
-        )
-
-    def put_budget_threshold_state(self, state: BudgetThresholdState) -> None:
-        from chatticus.budget_rollup.models import ACCOUNT_TENANT_ID
-
-        self.client.put_item(
-            TableName=self.table_name,
-            Item={
-                "pk": {"S": self._budget_rollup_pk(ACCOUNT_TENANT_ID)},
-                "sk": {"S": self._budget_threshold_state_sk(state.environment)},
-                "last_notified_band": {"N": str(state.last_notified_band)},
-                "updated_at": {"S": state.updated_at.isoformat()},
-            },
-        )
-
     def put_waitlist_signup(self, signup: WaitlistSignup) -> None:
         item: dict[str, Any] = {
             "pk": {"S": "WAITLIST"},
@@ -2892,9 +2794,6 @@ class DynamoMessagingStore:
 
     def _budget_rollup_sk(self, environment: str, rollup_date: date) -> str:
         return f"{environment}#day#{rollup_date.isoformat()}"
-
-    def _budget_threshold_state_sk(self, environment: str) -> str:
-        return f"{environment}#threshold_state"
 
     def _bot_from_item(self, item: dict[str, Any]) -> Bot:
         memory_raw = item.get("memory", {}).get("S", "{}")

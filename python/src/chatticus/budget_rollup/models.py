@@ -6,9 +6,6 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 
-ACCOUNT_TENANT_ID = "__account__"
-ACCOUNT_ENVIRONMENT = "_"
-
 
 @dataclass(frozen=True)
 class BudgetAlertEvent:
@@ -31,13 +28,4 @@ class BudgetRollupRow:
     combined_report_usd: Decimal | None
     ce_status: str
     alert_events: tuple[BudgetAlertEvent, ...]
-    updated_at: datetime
-
-
-@dataclass(frozen=True)
-class BudgetThresholdState:
-    """Account-level vendor threshold notification dedup state."""
-
-    environment: str
-    last_notified_band: int
     updated_at: datetime

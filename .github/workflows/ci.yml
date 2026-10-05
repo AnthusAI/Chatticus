@@ -151,3 +151,9 @@ jobs:
         env:
           CHATTICUS_TEST_AWS_ENDPOINT: http://127.0.0.1:5555
         run: npm test
+
+      - name: Ported features (cucumber-js)
+        working-directory: conversation
+        env:
+          CHATTICUS_TEST_AWS_ENDPOINT: http://127.0.0.1:5555
+        run: npm run test:features
