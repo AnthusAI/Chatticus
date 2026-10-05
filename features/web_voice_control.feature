@@ -164,6 +164,27 @@ Feature: Talking to teammates by voice
       | ship it now |
       | ship it now |
 
+  Scenario: With the server down the failure is spoken once and retried once
+    Given the direct conversation with "Ada" is open
+    And sending to the teammate keeps failing
+    When the member says "ship it now" to the open conversation
+    And 5 seconds go by in the voice session
+    And 30 seconds go by in the voice session
+    Then these messages were sent to "Ada" in order:
+      | message |
+      | ship it now |
+      | ship it now |
+    And the browser said "Couldn't send that." exactly once
+
+  Scenario: Several notices that waited for a reply are spoken together once
+    Given the direct conversation with "Ada" is open
+    And sending to the teammate fails
+    And a reply is being spoken
+    When the member says "ship it now" to the open conversation
+    And the member says "ship it again" to the open conversation
+    And the reply ends
+    Then the browser said "Couldn't send that." exactly once
+
   Scenario: A line heard with no conversation open is spoken aloud
     When the member says "hello there" to the open conversation
     Then the browser says "Open a conversation first."

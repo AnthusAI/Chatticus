@@ -578,6 +578,7 @@ def _deliver(context: object, **event: object) -> None:
     context.voice_spoken = spoken[-1] if spoken else None
 
 
+@given("sending to the teammate keeps failing")
 @given("sending to the teammate fails")
 def given_sending_fails(context: object) -> None:
     context.voice_send_outcome = "failed"

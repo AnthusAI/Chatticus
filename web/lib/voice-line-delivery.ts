@@ -47,6 +47,7 @@ interface QueuedChannel {
   itemId: string | null;
   lines: string[];
   parkedAfterFailure: boolean;
+  consecutiveFailures: number;
 }
 
 function noteForOutcome(outcome: VoiceSendOutcome, botName: string, transcript: string): string {
@@ -150,11 +151,15 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
         if (outcome.kind === "failed") {
           queued.lines = [transcript, ...queued.lines];
           queued.parkedAfterFailure = true;
-          speakFeedback(FEEDBACK_COULD_NOT_SEND);
-          scheduleRetry(channelId, FAILED_SEND_RETRY_MS);
+          queued.consecutiveFailures += 1;
+          if (queued.consecutiveFailures === 1) {
+            speakFeedback(FEEDBACK_COULD_NOT_SEND);
+            scheduleRetry(channelId, FAILED_SEND_RETRY_MS);
+          }
           report(noteForOutcome(outcome, botName, transcript));
           break;
         }
+        queued.consecutiveFailures = 0;
         if (queued.lines.length === 0) {
           queues.delete(channelId);
         }
@@ -211,12 +216,14 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
         existing.botId = route.botId;
         existing.lines.push(route.transcript);
         existing.parkedAfterFailure = false;
+        existing.consecutiveFailures = 0;
       } else {
         queues.set(channelId, {
           botId: route.botId,
           itemId: dependencies.openItemId(),
           lines: [route.transcript],
           parkedAfterFailure: false,
+          consecutiveFailures: 0,
         });
       }
       return (await drain(channelId)) ?? waitingNote(channelId);
@@ -251,7 +258,9 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
     replyEnded(): void {
       const waiting = deferredFeedback;
       deferredFeedback = [];
-      waiting.forEach((text) => dependencies.speakFeedback(text));
+      if (waiting.length > 0) {
+        dependencies.speakFeedback(waiting.join(" "));
+      }
     },
 
     /** Drops every queued line, for switching conversation or stopping voice, and says so. */
