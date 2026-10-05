@@ -13,6 +13,9 @@ Before(async function (this: ChatticusWorld) {
 });
 
 After(async function (this: ChatticusWorld) {
+	if (this.httpServer) {
+		await this.httpServer.close();
+	}
 	await this.messagingTable.drop();
 	this.messagingTable.client.destroy();
 

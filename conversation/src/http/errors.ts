@@ -347,6 +347,9 @@ export function statusFor(error: unknown): number {
 	if (error instanceof OrganizationOwnerCapError) {
 		return 409;
 	}
+	if (error instanceof OrganizationStatusTransitionError) {
+		return 409;
+	}
 	if (error instanceof OrganizationCreationRateLimitedError) {
 		return 429;
 	}

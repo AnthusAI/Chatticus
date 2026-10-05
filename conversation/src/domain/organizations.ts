@@ -1,6 +1,40 @@
 import { randomUUID } from "node:crypto";
 import type { Clock } from "../storage/storage-support.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
+import {
+	IdentityNotFoundError,
+	IdentityUserIdMismatchError,
+	OrganizationSeedConflictError,
+	OrganizationNotFoundError,
+	OrganizationNotEnabledError,
+	OrganizationStatusTransitionError,
+	InvitationNotFoundError,
+	InvitationEmailMismatchError,
+	InvitationExpiredError,
+	InvitationNotPendingError,
+	MembershipNotFoundError,
+	DuplicateMembershipError,
+	NotOrganizationOwnerError,
+	LastOwnerCannotBeDemotedError,
+} from "../http/errors.ts";
+
+export {
+	IdentityNotFoundError,
+	IdentityUserIdMismatchError,
+	OrganizationSeedConflictError,
+	OrganizationNotFoundError,
+	OrganizationNotEnabledError,
+	OrganizationStatusTransitionError,
+	InvitationNotFoundError,
+	InvitationEmailMismatchError,
+	InvitationExpiredError,
+	InvitationNotPendingError,
+	MembershipNotFoundError,
+	DuplicateMembershipError,
+	NotOrganizationOwnerError,
+	LastOwnerCannotBeDemotedError,
+};
+
 
 /** Lifecycle of one organization. */
 export type OrganizationStatus = "pending" | "enabled" | "suspended";
@@ -55,118 +89,6 @@ export interface Invitation {
 	createdAt: Date;
 }
 
-/** The user id or email is unknown. */
-export class IdentityNotFoundError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "IdentityNotFoundError";
-	}
-}
-
-/** An existing identity email maps to a different user_id than required. */
-export class IdentityUserIdMismatchError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "IdentityUserIdMismatchError";
-	}
-}
-
-/** Organization seed conflict when seeding. */
-export class OrganizationSeedConflictError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "OrganizationSeedConflictError";
-	}
-}
-
-/** The organization id is unknown. */
-export class OrganizationNotFoundError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "OrganizationNotFoundError";
-	}
-}
-
-/** The organization is not in enabled status. */
-export class OrganizationNotEnabledError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "OrganizationNotEnabledError";
-	}
-}
-
-/** The organization cannot transition to the requested status. */
-export class OrganizationStatusTransitionError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "OrganizationStatusTransitionError";
-	}
-}
-
-/** The invitation id is unknown. */
-export class InvitationNotFoundError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "InvitationNotFoundError";
-	}
-}
-
-/** The invitation email does not match the acceptor. */
-export class InvitationEmailMismatchError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "InvitationEmailMismatchError";
-	}
-}
-
-/** The invitation has expired. */
-export class InvitationExpiredError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "InvitationExpiredError";
-	}
-}
-
-/** The invitation is not in pending status. */
-export class InvitationNotPendingError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "InvitationNotPendingError";
-	}
-}
-
-/** The user is not a member of the organization. */
-export class MembershipNotFoundError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "MembershipNotFoundError";
-	}
-}
-
-/** A user already belongs to the organization. */
-export class DuplicateMembershipError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "DuplicateMembershipError";
-	}
-}
-
-/** The user is not an owner of the organization. */
-export class NotOrganizationOwnerError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "NotOrganizationOwnerError";
-	}
-}
-
-/** The last owner cannot be demoted. */
-export class LastOwnerCannotBeDemotedError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "LastOwnerCannotBeDemotedError";
-	}
-}
-
 /** Normalize a verified email for identity and invitation keys. */
 export function normalizeEmail(email: string): string {
 	return email.trim().toLowerCase();
@@ -177,6 +99,17 @@ export interface OrganizationsKernel {
 	signIn(email: string, deps: { store: MessagingStore; clock: Clock; ids: IdSource }): Promise<Identity>;
 	createOrganization(
 		owner: Identity,
+		name: string,
+		deps: { store: MessagingStore; clock: Clock; ids: IdSource },
+	): Promise<Organization>;
+	adminCreateOrganization(
+		owner: Identity,
+		name: string,
+		deps: { store: MessagingStore; clock: Clock; ids: IdSource },
+	): Promise<Organization>;
+	adminSeedOrganization(
+		tenantId: string,
+		ownerEmail: string,
 		name: string,
 		deps: { store: MessagingStore; clock: Clock; ids: IdSource },
 	): Promise<Organization>;
@@ -202,6 +135,10 @@ export interface OrganizationsKernel {
 		deps: { store: MessagingStore; clock: Clock },
 	): Promise<Membership>;
 	listOrganizationsForUser(userId: string, deps: { store: MessagingStore }): Promise<Organization[]>;
+	listOrganizationsByStatus(
+		status: OrganizationStatus,
+		deps: { store: MessagingStore },
+	): Promise<Organization[]>;
 }
 
 /** IdSource generates unique identifiers. */
@@ -256,6 +193,81 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 		};
 		await deps.store.putMembership(membership);
 		return organization;
+	}
+
+	/** Create a pending organization without the product owner cap. */
+	async adminCreateOrganization(
+		owner: Identity,
+		name: string,
+		deps: { store: MessagingStore; clock: Clock; ids: IdSource },
+	): Promise<Organization> {
+		return this.createOrganization(owner, name, deps);
+	}
+
+	/**
+	 * Seed one tenant enabled for one owner. The AWS account id of the caller
+	 * is not recorded here; the setup path is anthus-managed.
+	 */
+	async adminSeedOrganization(
+		tenantId: string,
+		ownerEmail: string,
+		name: string,
+		deps: { store: MessagingStore; clock: Clock; ids: IdSource },
+	): Promise<Organization> {
+		const owner = await this.signIn(ownerEmail, deps);
+		const existing = await deps.store.getOrganization(tenantId);
+		if (existing !== null) {
+			return this.finishSeed(tenantId, existing, owner, deps);
+		}
+		const now = deps.clock.now();
+		const organization: Organization = {
+			tenantId,
+			name,
+			status: "enabled",
+			ownerUserId: owner.userId,
+			createdAt: now,
+			awsAccountId: null,
+			awsCrossAccountRole: null,
+			awsExternalId: null,
+			awsSetupPath: "anthus-managed",
+			monthlyAwsSpendCeilingUsd: null,
+		};
+		await deps.store.putOrganization(organization);
+		await deps.store.putMembership({
+			tenantId,
+			userId: owner.userId,
+			role: "owner",
+			joinedAt: now,
+		});
+		return organization;
+	}
+
+	private async finishSeed(
+		tenantId: string,
+		existing: Organization,
+		owner: Identity,
+		deps: { store: MessagingStore },
+	): Promise<Organization> {
+		if (existing.ownerUserId !== owner.userId) {
+			throw new OrganizationSeedConflictError(
+				`Organization ${JSON.stringify(tenantId)} already has owner ${JSON.stringify(existing.ownerUserId)}; seed requested ${JSON.stringify(owner.userId)}.`,
+			);
+		}
+		const membership = await deps.store.getMembership(tenantId, owner.userId);
+		if (membership === null || membership.role !== "owner") {
+			throw new OrganizationSeedConflictError(
+				`Organization ${JSON.stringify(tenantId)} is missing an owner membership for ${JSON.stringify(owner.userId)}.`,
+			);
+		}
+		if (existing.status === "enabled") {
+			return existing;
+		}
+		if (existing.status === "pending") {
+			return this.enableOrganization(tenantId, deps);
+		}
+		throw new OrganizationSeedConflictError(
+			`Organization ${JSON.stringify(tenantId)} has status ${JSON.stringify(existing.status)}; seed requires pending or enabled.`,
+		);
 	}
 
 	async enableOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization> {
@@ -442,5 +454,12 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 
 	async listOrganizationsForUser(userId: string, deps: { store: MessagingStore }): Promise<Organization[]> {
 		return deps.store.listOrganizationsForUser(userId);
+	}
+
+	async listOrganizationsByStatus(
+		status: OrganizationStatus,
+		deps: { store: MessagingStore },
+	): Promise<Organization[]> {
+		return deps.store.listOrganizationsByStatus(status);
 	}
 }

@@ -3,9 +3,13 @@ import { statusFor, DomainError } from "./errors.ts";
 import { timingSafeEqual } from "crypto";
 import type { IdTokenVerifier } from "../auth/cognito.ts";
 import type { SignupMode } from "../domain/signup-mode.ts";
+import { ORGANIZATION_CREATION_RATE_LIMIT } from "../domain/creation-limits.ts";
+import type { MessagingStore } from "../store/messaging-store.ts";
+import { PrincipalHttpError } from "../auth/principal.ts";
+import { declareRoute } from "./route-audience.ts";
 import { getMeHandler } from "./routes/me.ts";
 import { createOrganizationHandler } from "./routes/organizations.ts";
-import { createInvitationHandler } from "./routes/invitations.ts";
+import { createInvitationHandler, createInvitationMembershipCache } from "./routes/invitations.ts";
 
 export interface Clock {
 	now(): Date;
@@ -29,6 +33,7 @@ export interface AppDeps {
 	environment?: string;
 	verifier?: IdTokenVerifier | null;
 	signupMode?: SignupMode;
+	organizationCreationRateLimit?: number;
 }
 
 /**
@@ -79,6 +84,9 @@ export function createApp(deps: AppDeps): Hono {
 			const status = statusFor(err);
 			return c.json({ detail: err.message }, status as any);
 		}
+		if (err instanceof PrincipalHttpError) {
+			return c.json({ detail: err.detail }, err.status as any);
+		}
 		throw err;
 	});
 
@@ -119,37 +127,28 @@ export function createApp(deps: AppDeps): Hono {
 		});
 	});
 
-	const store = deps.store as any;
+	const store = deps.store as MessagingStore;
+	const verifier = deps.verifier ?? null;
+	const membershipCache = createInvitationMembershipCache(deps.clock);
 
-	app.get("/api/me", async (c) => {
-		return getMeHandler(c, {
+	declareRoute(app, { method: "GET", path: "/me", audience: "user" }, (c) =>
+		getMeHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier }),
+	);
+
+	declareRoute(app, { method: "POST", path: "/organizations", audience: "user" }, (c) =>
+		createOrganizationHandler(c, {
 			store,
 			clock: deps.clock,
 			ids: deps.ids,
-			verifier: deps.verifier || null,
-		});
-	});
+			verifier,
+			signupMode: deps.signupMode ?? "invitation_only",
+			organizationCreationRateLimit: deps.organizationCreationRateLimit ?? ORGANIZATION_CREATION_RATE_LIMIT,
+		}),
+	);
 
-	app.post("/api/organizations", async (c) => {
-		return createOrganizationHandler(c, {
-			store,
-			clock: deps.clock,
-			ids: deps.ids,
-			verifier: deps.verifier || null,
-			signupMode: deps.signupMode || "invitation_only",
-		});
-	});
-
-	app.post("/orgs/:tenant_id/invitations", async (c) => {
-		const tenantId = c.req.param("tenant_id");
-		return createInvitationHandler(c, {
-			store,
-			clock: deps.clock,
-			ids: deps.ids,
-			userId: null,
-			tenantId,
-		});
-	});
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/invitations", audience: "user" }, (c) =>
+		createInvitationHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier, membershipCache }),
+	);
 
 	return app;
 }

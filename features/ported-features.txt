@@ -9,3 +9,7 @@ features/org_path_routing.feature
 features/pi_session_ownership.feature
 features/cognito_principal.feature
 features/organizations.feature
+features/me.feature
+features/create_organization.feature
+features/organization_creation_caps.feature
+features/invite_organization.feature

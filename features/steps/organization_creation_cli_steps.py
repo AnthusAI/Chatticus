@@ -5,8 +5,8 @@ from __future__ import annotations
 import io
 
 from behave import given, when
-from create_organization_steps import _wire_front_door
-from me_steps import _keys
+from me_front_door_steps import _keys
+from open_signup_front_door_steps import _wire_front_door
 from organization_steps import _plane
 
 from chatticus.members.__main__ import main as members_main

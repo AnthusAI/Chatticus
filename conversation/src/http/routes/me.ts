@@ -1,41 +1,34 @@
 import type { Context } from "hono";
-import type { MessagingStore } from "../../store/messaging-store.ts";
-import type { Clock, IdSource } from "../app.ts";
 import type { IdTokenVerifier } from "../../auth/cognito.ts";
 import { CognitoTokenError } from "../../auth/cognito.ts";
-import { OrganizationsKernelImpl } from "../../domain/organizations.ts";
+import { parseBearerToken } from "../../auth/principal.ts";
 import { InvitationsKernelImpl } from "../../domain/invitations.ts";
+import { OrganizationsKernelImpl } from "../../domain/organizations.ts";
+import type { MessagingStore } from "../../store/messaging-store.ts";
+import type { Clock, IdSource } from "../app.ts";
 
-export interface MeOrganization {
-	tenantId: string;
+/** One organization row in GET /me. */
+export interface MeOrganizationBody {
+	tenant_id: string;
 	name: string;
 	status: string;
 	role: string;
-	monthlyAwsSpendCeilingUsd: string | null;
-	computerWorkPaused: boolean;
-	computerWorkPausedReason: string | null;
+	monthly_aws_spend_ceiling_usd: string | null;
+	computer_work_paused: boolean;
+	computer_work_paused_reason: string | null;
 }
 
-export interface MeResponse {
+/** Membership snapshot for the signed-in user. */
+export interface MeResponseBody {
 	email: string;
-	userId: string;
-	organizations: MeOrganization[];
+	user_id: string | null;
+	organizations: MeOrganizationBody[];
 }
 
 /**
- * Parse bearer token from Authorization header.
- */
-function parseBearerToken(authHeader: string | null | undefined): string | null {
-	if (!authHeader) return null;
-	const parts = authHeader.split(" ");
-	if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
-		return null;
-	}
-	return parts[1];
-}
-
-/**
- * GET /api/me handler - returns current user identity and organizations.
+ * GET /me: map one Cognito id token to identity and organizations without a
+ * path tenant. A valid token mints an identity on first sight, reconciles
+ * pending invitations, and returns empty organizations when none apply.
  */
 export async function getMeHandler(
 	c: Context,
@@ -47,66 +40,49 @@ export async function getMeHandler(
 	},
 ): Promise<Response> {
 	if (deps.verifier === null) {
-		return c.json(
-			{ detail: "Cognito verifier is not configured for GET /me." },
-			{ status: 503 } as any,
-		);
+		return c.json({ detail: "Cognito verifier is not configured for GET /me." }, 503);
 	}
-
-	const token = parseBearerToken(c.req.header("Authorization"));
-	if (!token) {
-		return c.json({ detail: "user credential required" }, { status: 403 } as any);
+	const token = parseBearerToken(c.req.header("Authorization") ?? null);
+	if (token === null) {
+		return c.json({ detail: "user credential required" }, 403);
 	}
-
-	let verified;
+	let verifiedEmail: string;
 	try {
-		verified = await deps.verifier.verifyIdToken(token);
+		verifiedEmail = (await deps.verifier.verifyIdToken(token)).email;
 	} catch (error) {
-		const message = error instanceof CognitoTokenError ? error.message : String(error);
-		return c.json({ detail: message }, { status: 403 } as any);
+		if (error instanceof CognitoTokenError) {
+			return c.json({ detail: error.message }, 403);
+		}
+		throw error;
 	}
-
-	const orgsKernel = new OrganizationsKernelImpl();
-	const invitationsKernel = new InvitationsKernelImpl();
-
-	const identity = await orgsKernel.signIn(verified.email, {
-		store: deps.store,
-		clock: deps.clock,
-		ids: deps.ids,
-	});
-
-	await invitationsKernel.reconcilePendingInvitations(identity, {
-		store: deps.store,
-		clock: deps.clock,
-	});
-
-	const organizations = await orgsKernel.listOrganizationsForUser(identity.userId, {
-		store: deps.store,
-	});
-
-	const membershipPromises = organizations.map(async (org) => {
-		const membership = await deps.store.getMembership(org.tenantId, identity.userId);
-		return { org, membership };
-	});
-
-	const orgWithMemberships = await Promise.all(membershipPromises);
-
-	const meOrganizations: MeOrganization[] = orgWithMemberships.map(({ org, membership }) => ({
-		tenantId: org.tenantId,
-		name: org.name,
-		status: org.status,
-		role: membership?.role ?? "unknown",
-		monthlyAwsSpendCeilingUsd:
-			org.monthlyAwsSpendCeilingUsd !== null ? String(org.monthlyAwsSpendCeilingUsd) : null,
-		computerWorkPaused: false,
-		computerWorkPausedReason: null,
-	}));
-
-	const response: MeResponse = {
-		email: identity.email,
-		userId: identity.userId,
-		organizations: meOrganizations,
+	const organizationsKernel = new OrganizationsKernelImpl();
+	const identity = await organizationsKernel.signIn(verifiedEmail, deps);
+	await new InvitationsKernelImpl().reconcilePendingInvitations(identity, deps);
+	const organizations = await organizationsKernel.listOrganizationsForUser(identity.userId, deps);
+	const rows: MeOrganizationBody[] = [];
+	for (const organization of organizations) {
+		const membership = await deps.store.getMembership(organization.tenantId, identity.userId);
+		if (membership === null) {
+			throw new Error(`Membership is missing for ${identity.userId} in ${organization.tenantId}.`);
+		}
+		const isOwner = membership.role === "owner";
+		rows.push({
+			tenant_id: organization.tenantId,
+			name: organization.name,
+			status: organization.status,
+			role: membership.role,
+			monthly_aws_spend_ceiling_usd:
+				isOwner && organization.monthlyAwsSpendCeilingUsd !== null
+					? String(organization.monthlyAwsSpendCeilingUsd)
+					: null,
+			computer_work_paused: false,
+			computer_work_paused_reason: null,
+		});
+	}
+	const body: MeResponseBody = {
+		email: verifiedEmail,
+		user_id: identity.userId,
+		organizations: rows,
 	};
-
-	return c.json(response, { status: 200 } as any);
+	return c.json(body, 200);
 }

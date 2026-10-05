@@ -3,6 +3,7 @@ import { Given, Then, When } from "@cucumber/cucumber";
 import { MembershipCache } from "../../src/auth/membership-cache.ts";
 import type { CachedMembership, Membership, OrganizationStatus, Principal, PrincipalDirectory } from "../../src/auth/principal.ts";
 import { verifyOrgAccess } from "../../src/auth/principal.ts";
+import { StorePrincipalDirectory } from "../../src/auth/store-principal-directory.ts";
 import { OrganizationsKernelImpl, normalizeEmail } from "../../src/domain/organizations.ts";
 import type {
 	Identity,
@@ -17,34 +18,6 @@ import type {
 import type { ChatticusWorld } from "../world.ts";
 
 const kernel = new OrganizationsKernelImpl();
-
-class StorePrincipalDirectory implements PrincipalDirectory {
-	private store: any;
-
-	constructor(store: any) {
-		this.store = store;
-	}
-
-	async getIdentityByEmail(email: string): Promise<{ userId: string } | null> {
-		const identity = await this.store.getIdentityByEmail(email);
-		if (identity === null) return null;
-		return { userId: identity.userId };
-	}
-
-	async getMembership(tenantId: string, userId: string): Promise<Membership | null> {
-		return this.store.getMembership(tenantId, userId);
-	}
-
-	async getOrganizationStatus(tenantId: string): Promise<OrganizationStatus> {
-		const org = await this.store.getOrganization(tenantId);
-		if (org === null) throw new Error(`Unknown organization ${tenantId}`);
-		return org.status;
-	}
-
-	async verifyWorkerToken(): Promise<string | null> {
-		return null;
-	}
-}
 
 function orgByName(world: ChatticusWorld, name: string): Organization {
 	const org = world.orgsByName?.get(name);
