@@ -143,3 +143,8 @@ export const page = <T extends { readonly id: number }>(values: readonly T[], li
 export const text = (item: Item, name: string): string | undefined => item[name]?.S;
 export const number = (item: Item, name: string): number | undefined =>
 	item[name]?.N === undefined ? undefined : Number(item[name]!.N);
+
+/** Time source for domain functions. */
+export interface Clock {
+	now(): Date;
+}

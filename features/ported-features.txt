@@ -9,3 +9,4 @@ features/org_path_routing.feature
 features/pi_session_ownership.feature
 features/cognito_principal.feature
 features/channel_mailbox_and_log.feature
+features/organizations.feature
