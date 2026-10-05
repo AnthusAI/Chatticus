@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-bab338ff-46a2-4e2d-bc40-bb04fac917ac",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:46:16.689823Z",
-  "updated_at": "2026-10-05T21:17:24.200876Z",
+  "updated_at": "2026-10-05T22:02:41.608962Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The ticket covers cross-account provisioning, customer infrastructure, self-setup, snapshot storage, and TypeScript",
-  "right_now_updated_at": "2026-10-05T21:17:26.443897Z",
+  "right_now_summary": "Cross-account provisioning and customer self-setup are being ported to TypeScript with AWS infrastructure support.",
+  "right_now_updated_at": "2026-10-05T22:02:42.862587Z",
   "custom": {}
 }
