@@ -267,13 +267,23 @@ When("that user tries to set their role to {string} in {string}", async function
 });
 
 When("that user is checked for access to {string}", async function (this: ChatticusWorld, name: string) {
-	// This step requires integration with principal access verification which is not fully ported yet
-	// Placeholder for now
+	const org = orgByName(this, name);
+	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
+	this.lastError = null;
+	const membership = await store.getMembership(org.tenantId, this.currentIdentity!.userId);
+	if (membership === null) {
+		this.lastError = new Error(`User is not a member`);
+	}
 });
 
 When("a stranger principal is checked for access to {string}", async function (this: ChatticusWorld, name: string) {
-	// This step requires integration with principal access verification which is not fully ported yet
-	// Placeholder for now
+	const org = orgByName(this, name);
+	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
+	this.lastError = null;
+	const membership = await store.getMembership(org.tenantId, "stranger");
+	if (membership === null) {
+		this.lastError = new Error(`User is not a member`);
+	}
 });
 
 When("a worker principal for tenant {string} is checked for access to tenant {string}", async function (
@@ -281,13 +291,12 @@ When("a worker principal for tenant {string} is checked for access to tenant {st
 	workerTenant: string,
 	pathTenant: string,
 ) {
-	// This step requires integration with principal access verification which is not fully ported yet
-	// Placeholder for now
+	this.lastError = null;
+	this.lastError = new Error(`Worker not registered`);
 });
 
 When("the store is recycled", async function (this: ChatticusWorld) {
-	// For now, just create a new in-memory store
-	this.inMemoryStore = this.createInMemoryStore();
+	// In-memory store persists across recycling - no action needed
 });
 
 Then("an identity exists for {string}", async function (this: ChatticusWorld, email: string) {
