@@ -11,24 +11,20 @@
   "labels": [],
   "dependencies": [
     {
-      "target": "chatticus-8787e9c1-f5aa-4032-8640-8066b231e4f6",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-08851f35-bbe3-41a6-b791-3d0b70b20c4c",
       "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:45:40.656811Z",
-  "updated_at": "2026-10-05T15:49:06.922641Z",
+  "updated_at": "2026-10-05T23:56:07.827675Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The ticket defines a TypeScript port for voice understanding and voice-message routing.",
-  "right_now_updated_at": "2026-10-05T15:49:09.313756Z",
+  "right_now_summary": "The work covers porting voice understanding and voice-message routing to TypeScript.",
+  "right_now_updated_at": "2026-10-05T23:56:10.358960Z",
   "custom": {}
 }
