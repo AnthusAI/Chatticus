@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-51d058e8-7152-49f8-9c1e-803b9c67b999",
+  "title": "TS-41 Production DynamoDB MessagingStore",
+  "description": "## Goal\n\nThere is a MessagingStore interface and codecs (conversation/src/store/messaging-store.ts, codecs/, keys.ts) but NO production implementation: the in-memory double in conversation/features-support/ is the only one. Every later ticket (message posting, turn records, workers) needs a real DynamoDB-backed store. Port `DynamoMessagingStore` from python/src/chatticus/messaging/store.py (the item layouts at store.py:2821-3450 are already ported as codecs) for the item families that stay in the Messaging table: organizations, memberships, identities, invitations, workers, computers, bots, channels, tasks, idempotency keys, the creation rate-limit records, the vendor ledger and the policy items TS-25 added. Conversation transcripts are NOT in this store; they live in Pi sessions.\n\n## Kind\n\nmechanical-port with design: the Python store is the specification; the interface in messaging-store.ts is the contract.\n\n## Files\n\nconversation/src/store/dynamo-messaging-store.ts (class implementing MessagingStore over @aws-sdk/client-dynamodb, with pagination loops on every query, conditional writes where Python used them, and TTL attribute `expires_at`), conversation/test/dynamo-messaging-store.contract.test.ts (the SAME contract suite run against the in-memory double and the Dynamo store on moto), and whatever small changes the in-memory double needs to share that suite.\n\n## Behavior\n\n- Every MessagingStore method has a Dynamo implementation with the same semantics as the in-memory double and as the Python DynamoMessagingStore (read store.py before porting each method).\n- One contract test suite runs against both implementations, so they cannot drift.\n- Then re-run these ported features against the Dynamo store on moto instead of the in-memory double: organizations, me, create_organization, organization_creation_caps, invite_organization, canonical_channels, web_create_bot, cognito_principal, approvals and the other policy features. The World should construct the Dynamo store by default (one table per scenario already exists); keep the in-memory double only for pure unit tests.\n- Move the creation rate-limit decision out of the in-memory double (features-support in-memory-messaging-store.ts:70-85) into domain code, so the 429 comes from production code.\n\n## Verify\n\ncd conversation && npm run typecheck && npx vitest --run && npx cucumber-js (moto on a free port as in CI); every ported feature passes against the Dynamo store.\n\nMutation check: break a conditional write (for example the duplicate bot-name reservation) and show the matching scenario fails.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-05T22:51:33.642681Z",
+  "updated_at": "2026-10-05T22:51:33.642709Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "orchestrator"
+  },
+  "right_now_summary": "Implement and test the DynamoDB-backed MessagingStore, then run all ported features against it.",
+  "right_now_updated_at": "2026-10-05T22:51:34.662541Z",
+  "custom": {}
+}
