@@ -70,6 +70,24 @@ export class ChatticusWorld extends World {
 	computerHosts: Record<string, unknown> = {};
 	lastManifest: unknown = null;
 
+	// Policy kernel fields
+	capabilityPolicy: unknown = null;
+	activeBrowserContext: unknown = null;
+	privilegedBrowserContext: unknown = null;
+	lastCapabilityRequest: unknown = null;
+	pageInjection: string | null = null;
+	injectedRequest: unknown = null;
+	lastDecision: string | null = null;
+	lastOvernight: { executed: boolean; turn_status: string; reason: string | null; completion_evidence: string | null } | null = null;
+	gatedReadError: Error | null = null;
+	gatedReadResult: unknown = null;
+	lastBinding: string | null = null;
+	policyTenantId: string | null = null;
+	policyTurnId: string | null = null;
+	reviewedExclusion: string | null = null;
+	recordedCompletionEvidence: string | null = null;
+	pageContent: string | null = null;
+
 	constructor(options: IWorldOptions) {
 		super(options);
 		const counter = ++scenarioCounter;
