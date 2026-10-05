@@ -306,13 +306,8 @@ def resolve_me_from_token(
     identity = plane.sign_in(verified.email, now=now)
     plane.reconcile_pending_invitations(identity, now=now)
     organizations = plane.list_organizations_for_user(identity.user_id)
-    as_of = now.date()
     me_organizations: list[MeOrganization] = []
     for organization in organizations:
-        paused, reason = plane.organization_computer_work_paused_for(
-            organization,
-            as_of=as_of,
-        )
         membership = plane.get_membership(organization.tenant_id, identity.user_id)
         assert membership is not None
         is_owner = membership.role == MemberRole.OWNER
@@ -325,8 +320,6 @@ def resolve_me_from_token(
                 monthly_aws_spend_ceiling_usd=(
                     organization.monthly_aws_spend_ceiling_usd if is_owner else None
                 ),
-                computer_work_paused=paused,
-                computer_work_paused_reason=reason,
             )
         )
     return MeResponse(

@@ -93,7 +93,9 @@ describe("ThinTurnStack daily budget rollup", () => {
 
   it("creates a scheduled daily rollup Lambda with Cost Explorer access", () => {
     template.hasResourceProperties("AWS::Lambda::Function", {
-      Handler: "chatticus.budget_rollup.lambda_handler.handler",
+      Runtime: "nodejs22.x",
+      Handler: "index.handler",
+      FunctionName: "chatticus-development-daily-budget-rollup",
       Environment: {
         Variables: Match.objectLike({
           CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD: "120",
@@ -151,7 +153,9 @@ describe("ThinTurnStack daily budget rollup", () => {
 
   it("records AWS Budgets alerts without republishing rollup messages", () => {
     template.hasResourceProperties("AWS::Lambda::Function", {
-      Handler: "chatticus.budget_rollup.alert_recorder.handler",
+      Runtime: "nodejs22.x",
+      Handler: "index.handler",
+      Description: "Record AWS Budgets SNS alerts on durable account rollup rows.",
     });
     template.hasResourceProperties("AWS::SNS::Subscription", {
       Protocol: "lambda",
@@ -181,7 +185,8 @@ describe("ThinTurnStack without budget context", () => {
     const template = synthThinTurnStack("development");
     const resources = template.findResources("AWS::Lambda::Function");
     const serialized = JSON.stringify(resources);
-    assert.equal(serialized.includes("budget_rollup.lambda_handler"), false);
-    assert.equal(serialized.includes("budget_rollup.alert_recorder"), false);
+    assert.equal(serialized.includes("daily-budget-rollup"), false);
+    assert.equal(serialized.includes("Record AWS Budgets SNS alerts"), false);
+    assert.equal(serialized.includes("nodejs22.x"), false);
   });
 });

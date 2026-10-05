@@ -3,6 +3,7 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
+import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as scheduler from "aws-cdk-lib/aws-scheduler";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sns from "aws-cdk-lib/aws-sns";
@@ -396,6 +397,16 @@ export class ThinTurnStack extends cdk.Stack {
 
     if (props.budgetsMonthlyLimitUsd !== undefined) {
       const budgetsAlertsTopicArn = props.budgetsAlertsTopicArn;
+      const budgetJobsRoot = path.join(__dirname, "../../conversation/src/budget");
+      const budgetJobBundling: lambdaNodejs.BundlingOptions = {
+        target: "node22",
+        sourceMap: true,
+        externalModules: [],
+      };
+      const budgetJobEnv: Record<string, string> = {
+        CHATTICUS_ENVIRONMENT: environmentName,
+        CHATTICUS_MESSAGING_TABLE: table.tableName,
+      };
       const rollupFunctionName = `chatticus-${environmentName}-daily-budget-rollup`;
       const rollupScheduleGroupName = `chatticus-${environmentName}-budget-rollup`;
       const rollupSchedulerRoleName = `chatticus-${environmentName}-budget-rollup-scheduler`;
@@ -404,24 +415,25 @@ export class ThinTurnStack extends cdk.Stack {
         "BudgetRollupGroup",
         { name: rollupScheduleGroupName },
       );
-      const rollupFunction = new lambda.Function(this, "DailyBudgetRollup", {
+      const rollupFunction = new lambdaNodejs.NodejsFunction(this, "DailyBudgetRollup", {
         functionName: rollupFunctionName,
-        runtime: lambda.Runtime.PYTHON_3_12,
-        handler: "chatticus.budget_rollup.lambda_handler.handler",
+        entry: path.join(budgetJobsRoot, "rollup-handler.ts"),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_22_X,
         architecture: lambda.Architecture.X86_64,
+        bundling: budgetJobBundling,
         memorySize: 256,
         logRetention: CHATTICUS_LOG_RETENTION,
         timeout: cdk.Duration.seconds(120),
         description:
           "EventBridge Scheduler target: daily AWS and vendor budget rollup.",
         environment: {
-          ...sharedEnv,
+          ...budgetJobEnv,
           CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD: String(props.budgetsMonthlyLimitUsd),
           ...(budgetsAlertsTopicArn
             ? { CHATTICUS_BUDGETS_ALERTS_TOPIC_ARN: budgetsAlertsTopicArn }
             : {}),
         },
-        code: httpCode,
       });
       table.grantReadWriteData(rollupFunction);
       rollupFunction.addToRolePolicy(
@@ -468,17 +480,18 @@ export class ThinTurnStack extends cdk.Stack {
           "BudgetsAlertsTopic",
           budgetsAlertsTopicArn,
         );
-        const alertRecorderFunction = new lambda.Function(this, "BudgetAlertRecorder", {
-          runtime: lambda.Runtime.PYTHON_3_12,
-          handler: "chatticus.budget_rollup.alert_recorder.handler",
+        const alertRecorderFunction = new lambdaNodejs.NodejsFunction(this, "BudgetAlertRecorder", {
+          entry: path.join(budgetJobsRoot, "alert-recorder-handler.ts"),
+          handler: "handler",
+          runtime: lambda.Runtime.NODEJS_22_X,
           architecture: lambda.Architecture.X86_64,
+          bundling: budgetJobBundling,
           memorySize: 256,
           logRetention: CHATTICUS_LOG_RETENTION,
           timeout: cdk.Duration.seconds(30),
           description:
             "Record AWS Budgets SNS alerts on durable account rollup rows.",
-          environment: sharedEnv,
-          code: httpCode,
+          environment: budgetJobEnv,
         });
         table.grantReadWriteData(alertRecorderFunction);
         budgetsAlertsTopic.addSubscription(
