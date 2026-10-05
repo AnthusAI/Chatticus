@@ -10,3 +10,8 @@ features/pi_session_ownership.feature
 features/cognito_principal.feature
 features/channel_mailbox_and_log.feature
 features/organizations.feature
+features/browser_context_policy.feature
+features/page_content_authority.feature
+features/prompt_injection_containment.feature
+features/task_authority_grant.feature
+features/v1_security_policy_exclusions.feature
