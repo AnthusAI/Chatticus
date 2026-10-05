@@ -73,7 +73,7 @@ on develop; its path namespace is orthogonal and changes nothing here).
 
 | # | Change | Why |
 |---|---|---|
-| 1 | `POST /channels/{id}/messages` addressed to a bot while that channel has an active turn returns **409**. Unaddressed posts are always accepted. | The web already blocks the send; with one Pi owner per session the server must too. |
+| 1 | `POST /channels/{id}/messages` addressed to a bot while that channel has an active turn **steers** the running turn instead of starting a second one. The POST returns `201` with the new `message` and the **same active `turn_id`**; no new turn record and no error. The turn's SSE stream continues unbroken and the steered message shows up in `GET .../messages` at its own `seq`. Unaddressed posts are always accepted as before. | One Pi owner per session, and Pi's `whenBusy: "steer"` places the message after the current tool round so the answer uses it (`PI_HARNESS.md`, measured). The iPad voice client's per-channel queue (`web/lib/voice-line-delivery.ts`) existed only to work around one turn at a time; it becomes redundant and is removed in the same cutover (ticket 40). |
 | 2 | `turn.token` carries real incremental text, coalesced about every 250 ms, instead of two halves. Same event shape. | Pi streams; the old worker did one non-streaming call. |
 | 3 | The committed bot message body is the **final** assistant text of the turn. Text the model streamed before a tool call is shown live but is not part of the committed message. | One model answer per turn is no longer true; the web already replaces the bubble with the committed message. |
 | 4 | `turn.reconciling` is emitted only for (a) an uncertain Pi commit (`CommitOutcomeUnknown`) and (b) the stream idle timeout. Never for "provider outcome unknown": Pi simply retries the model call. | Pi makes provider ambiguity a non-event. |
@@ -266,8 +266,8 @@ sequenceDiagram
   W->>FD: POST /channels/{id}/messages
   FD->>DB: ADD next_seq (idempotency key checked first)
   FD->>DB: put mailbox item for each bot session
-  FD->>DB: put turn control record + active_turn pointer (if addressed)
-  FD->>SQS: run job; probe job
+  FD->>DB: put turn control record + active_turn pointer (if addressed and no active turn)
+  FD->>SQS: run job; probe job (new turn only)
   FD-->>W: {message, turn_id}
   SQS->>EX: run
   EX->>DB: claim turn (CAS), allocate fence
@@ -276,6 +276,19 @@ sequenceDiagram
   EX->>DB: delete drained mailbox items
 ```
 
+- **A second addressed post during an active turn steers.** The FrontDoor
+  allocates `seq` and writes the mailbox item exactly as above, but creates no
+  turn: a `TransactWrite` puts the mailbox item under a condition that the
+  channel's turn record is `active` and not `closing`, and the response carries
+  the existing `turn_id`. The owner drains the mailbox while the turn runs (at
+  every tool-round boundary seen on `watchEvents` and at least every 2 s) and
+  calls `submit({type:"input", whenBusy:"steer", requestId:"msg:"+messageId})`.
+  Finalize first sets `closing` on the turn record (conditional on
+  `attempt_id`), then drains once more; any addressed item found is steered in
+  and the turn keeps running, so no steered message is stranded. A post that
+  loses the race against `closing` fails the condition and takes the ordinary
+  new-turn path, which waits for the `active_turn` pointer to clear and then
+  creates the next turn.
 - `requestId = "msg:" + messageId` makes the drain idempotent (a crash between
   commit and delete just re-drains to the same submission).
 - A session that has no turn keeps its mailbox until its next owner opens it.
@@ -386,7 +399,7 @@ flowchart TD
   B --> C[open storage + Harness]
   C --> D[drain mailbox into the session]
   D --> E[submit input requestId turn:id]
-  E --> F[watchEvents -> coalesce -> turn event items]
+  E --> F[watchEvents -> coalesce -> turn event items; steer posts drained mid-turn]
   F --> G{settled}
   G -->|done| H[finalize]
   G -->|unanswered model_error| I[fail with member-readable reason]
@@ -394,6 +407,11 @@ flowchart TD
   G -->|near Lambda timeout| K[yield: release claim, re-enqueue]
   H --> L[alloc seq, channel log, mirror to other mailboxes, turn.completed]
 ```
+
+Steering: while the turn runs, the executor also drains mailbox items that
+arrived after the first drain (section 2.5) and submits each with
+`whenBusy: "steer"`. The turn's single `turn_id`, SSE stream and committed reply
+cover the steered messages too; the reply is one final assistant text (change 3).
 
 `runTurn` is the prototype's: `Harness.open` with `settings.retry`, one root
 conversation, `root.submit({type:"input", content, requestId:"turn:"+turnId})`
@@ -850,9 +868,9 @@ Python source is over about 600 lines is split by file as shown.
 | 13 | Pi session factory | `pi/session.ts` `openOwnerStorage(storageId): {storage, fence}`, `IndexedStorage.allocateFence` in `storage/indexed-storage.ts`, error mapping (`OwnershipLost`, `CommitOutcomeUnknown`), extension bundle `pi/extension.ts` (`section`, tool registry) | new `pi_session_ownership.feature` | 3 | N |
 | 14 | Bots, channels, roster | `domain/bots.ts`, `domain/channels.ts`, routes (bots, channels, `users/{u}/bots|channels`), direct channel id `uuid5`, name reservation, idempotency | `canonical_channels`, `shared_channels`, `web_create_bot`, channel scenarios of `messages` | 2, 7 | M (`control_plane.py` 794-875, 2956-3050; `store.py` 1660-1700, 1902-1935) |
 | 15 | Prototype: channel log, mailbox, read-only session | `pi/channel-log.ts` (`ChannelLogDoc`, `appendLine`, `readLog`), `pi/mailbox.ts` (`put`, `list`, `drain`); proves a `write` entry draft, the document commit, an idempotent reconcile beside `submit input`, and a read-only `createSession` reading while another owner holds the fence | new `channel_mailbox_and_log.feature` | 13 | P |
-| 16 | Message admission and listing | `domain/messages.ts` `postMessage`, `listMessages` (2.5, 2.6), seq allocator, idempotency, participant checks, 409 rule; routes `POST/GET .../messages` | `messages` (30), `turn_attempts` (admission part) | 14, 15 | N |
+| 16 | Message admission and listing | `domain/messages.ts` `postMessage`, `listMessages` (2.5, 2.6), seq allocator, idempotency, participant checks, steer-or-new-turn transaction (2.5); routes `POST/GET .../messages` | `messages` (30), `turn_attempts` (admission part) | 14, 15 | N |
 | 17 | Turn control record | `domain/turns.ts` `createTurn`, `claimTurn`, `renewTurn`, `releaseForWaiting`, `fail`, `complete`; `store/turn-events.ts`; routes `GET /channels/{id}/turn`, `turns/latest`, `GET /turns/{id}`, `turns/{id}/events` | `turn_attempts`, `bot_turns`, `cost_class_ranking` (turn parts) | 2, 16 | M (`store.py` 1337-1520, 1544-1632; `control_plane.py` 3180-3260, 3357-3379) |
-| 18 | Prototype and build: executor core | `turn/executor.ts` `executeTurn(job, deps)`, `turn/coalescer.ts`, `turn/finalize.ts`, `lambdas/turn-executor.ts`, `features-support/fakes/scripted-provider.ts`; proves a scripted pi-ai provider, `watchEvents` cadence, the settled `unanswered` reasons, `CommitOutcomeUnknown` handling | `bot_turns`, `model_provider_failures`, `canonical_channels` (turn parts) | 13, 15, 17 | P |
+| 18 | Prototype and build: executor core | `turn/executor.ts` `executeTurn(job, deps)`, `turn/coalescer.ts`, `turn/finalize.ts` (sets `closing`, final mailbox drain), mid-turn mailbox steering, `lambdas/turn-executor.ts`, `features-support/fakes/scripted-provider.ts`; proves a scripted pi-ai provider, `watchEvents` cadence, the settled `unanswered` reasons, `CommitOutcomeUnknown` handling | `bot_turns`, `model_provider_failures`, `canonical_channels` (turn parts) | 13, 15, 17 | P |
 | 19 | SSE route | `http/stream.ts` `streamTurn`, `Last-Event-ID`, heartbeat, idle, terminal synthesis | `realtime_api`, new `turn_stream_replay.feature` | 5, 17, 18 | M (`http/app.py` 1960-2084, `http/sse.py`) + N (replay) |
 | 20 | Probes and recovery | `turn/probes.ts`, `lambdas/turn-probe.ts`, executor yield, logical-enqueue dedupe, fault plan | `turn_recovery`, `turn_fault_injection`, `job_routing` (enqueue parts), new `turn_probes.feature` | 17, 18 | M (`turn_recovery.py`, `deadline/*`, `turn_fault_*`, `control_plane.py` 3258-3316) + N |
 | 21 | Spend recording | `ledger/vendor-ledger.ts` `recordFromPiUsage`, `ledger/vendor-prices.ts` | `vendor_ledger` | 18 | M (`vendor_ledger.py`, `vendor_prices.py`) |
@@ -889,7 +907,7 @@ Python source is over about 600 lines is split by file as shown.
 | 37 | Orphan sweeper and session snapshot objects | `pi/sweeper.ts` (the two-clause orphan rule from `PI_HARNESS.md`), `pi/snapshot-object.ts`; required for staging and production, optional for development | new `pi_session_maintenance.feature` | 13 | N |
 | 38 | Transcript migration tool | `bin/migrate-transcripts.ts` with `copy`, `latest-turns`, `delta`, `verify`; marker items | new `transcript_migration.feature` | 16, 17, 18 | N |
 | 39 | Rehearsal | scripted run of the full suite plus `acceptance` against the dormant development stack; report posted to Kanbus | none | 4, 36 and all above | N |
-| 40 | The flip | one PR (7.1 step 4), pre-flight script, `MIGRATING` gate, CloudFront origin switch, deletions, docs | all remaining | 39 | N |
+| 40 | The flip | one PR (7.1 step 4), pre-flight script, `MIGRATING` gate, CloudFront origin switch, deletions (including the Python ops tools `wiki_publish` and `channel_migration`, and the web voice client's per-channel queue `web/lib/voice-line-delivery.ts`, which steering makes redundant), docs | all remaining | 39 | N |
 There are 40 tickets. The 14-day purge is a scripted follow-up recorded on
 ticket 40, not a separate ticket.
 
@@ -898,22 +916,25 @@ are independent until ticket 26 joins policy to the executor and ticket 29
 joins the computer to it. Ticket 28 (snapshots, a leaf) can start any time
 after 1.
 
-## 9. Open questions for the product owner
+## 9. Decisions
 
-1. **409 on a second addressed post during an active turn** (change 1 in 0.3).
-   Accept, or should the second message steer the running turn (Pi supports it)?
-2. **Final text only** (change 3): is it acceptable that streamed pre-tool text
-   is not kept in the committed message?
-3. **Customer-account computers never get Pi access.** Confirm the host
-   protocol over HTTP is the permanent boundary (this design assumes yes).
-4. **`wiki_publish` and `channel_migration`** (Python ops tools in the tree
-   that is deleted): drop both? Channel migration is obsolete once Pi owns
-   channels; `wiki_publish` publishes wiki pages through Markus.
-5. **Retention of old `Messaging` conversation items:** 14 days for rollback,
-   then purge. Longer?
-6. **Membership cache of 30 s** (suspend takes up to 30 s to show). Acceptable?
-7. **Pi is marked experimental** ("changes without notice"). We pin exact
-   versions and run storage conformance in CI; confirm you accept that risk for
-   a hard cutover.
-8. **Waitlist items stay in `Messaging` untouched** for the private repo to
-   pick up or ignore. Do you want them exported first?
+The product owner settled every question this design raised. None is open.
+
+1. **Second addressed post during an active turn: steer.** It is added to the
+   running turn through Pi's `whenBusy: "steer"`. The POST returns the same
+   active `turn_id` and the turn stream continues (change 1, sections 2.5 and
+   3.3). The web client sees no error and no new turn. The voice client's
+   per-channel queue is removed in the same cutover (ticket 40).
+2. **Final text only** is accepted for the committed message (change 3).
+3. **Customer-account computers never get Pi access.** The HTTP host protocol
+   (section 4.3) is the permanent boundary.
+4. **`wiki_publish` and `channel_migration` are dropped.** They are not in the
+   port plan or the ticket list and are deleted with the Python (ticket 40).
+5. **14-day retention** of the old `Messaging` conversation items, then purge
+   (2.7, 7.1).
+6. **Membership cache stays at 30 s** (section 5).
+7. **Pi experimental risk is accepted.** Exact versions are pinned and storage
+   conformance runs in CI.
+8. **Waitlist items stay untouched in `Messaging`** for the private repo.
+
+Remaining open questions: none.
