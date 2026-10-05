@@ -131,6 +131,8 @@ def is_filler_only(transcript: str) -> bool:
     entirely of filler is allowed to carry no message.
     """
     tokens = re.findall(r"[a-z']+", transcript.lower())
+    if not tokens:
+        return not transcript.strip()
     return all(token in FILLER_TOKENS for token in tokens)
 
 

@@ -575,6 +575,7 @@ export function EnabledWorkspace({
         retryLater: (action, milliseconds) => {
           window.setTimeout(action, milliseconds);
         },
+        now: () => Date.now(),
       }),
     [],
   );
@@ -595,10 +596,16 @@ export function EnabledWorkspace({
   }, [selectedItemId, voiceDelivery]);
 
   useEffect(() => {
+    if (!turn && selectedChannelId) {
+      void voiceDelivery.flush(selectedChannelId, { afterTurn: true });
+    }
+  }, [turn, selectedChannelId, voiceDelivery]);
+
+  useEffect(() => {
     if (!turn && !sending && selectedChannelId) {
       void voiceDelivery.flush(selectedChannelId);
     }
-  }, [turn, sending, selectedChannelId, voiceDelivery]);
+  }, [sending, turn, selectedChannelId, voiceDelivery]);
 
   const handleRetryFailedTurn = useCallback(
     async (failure: FailedTurn) => {

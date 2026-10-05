@@ -112,6 +112,26 @@ Feature: Talking to teammates by voice
     Then nothing has been sent yet
     And the browser says "Ignored that as an echo. Say it again."
 
+  Scenario: Echo feedback heard back does not trigger more feedback
+    Given the direct conversation with "Ada" is open
+    When the member says "the pull request is open" to the open conversation just after a reply ended
+    And the member says "Say it again" to the open conversation just after a reply ended
+    Then the browser said "Ignored that as an echo. Say it again." exactly once
+    When 11 seconds go by in the voice session
+    And the member says "the pull request is open" to the open conversation just after a reply ended
+    Then the browser said "Ignored that as an echo. Say it again." 2 times
+
+  Scenario: A failed send keeps the line and retries it with the next line
+    Given the direct conversation with "Ada" is open
+    And sending to the teammate fails once and then recovers
+    When the member says "ship it now" to the open conversation
+    Then the browser says "Couldn't send that."
+    When the member says "and tag the release" to the open conversation
+    Then these messages were sent to "Ada" in order:
+      | message |
+      | ship it now |
+      | ship it now and tag the release |
+
   Scenario: A line heard with no conversation open is spoken aloud
     When the member says "hello there" to the open conversation
     Then the browser says "Open a conversation first."

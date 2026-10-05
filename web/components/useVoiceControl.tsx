@@ -141,10 +141,11 @@ export function useVoiceControl({
     const speechWindow = speechWindowRef.current;
     const stuck =
       speakingRef.current &&
-      speechWindow !== null &&
       speakingStateIsStuck({
         speakingFlag: true,
-        millisecondsPastExpectedEnd: Date.now() - speechWindow.expectedEndedAt,
+        millisecondsPastExpectedEnd: speechWindow
+          ? Date.now() - speechWindow.expectedEndedAt
+          : Number.POSITIVE_INFINITY,
         engineBusy: isSpeechEngineBusy(),
       });
     if (stuck) {

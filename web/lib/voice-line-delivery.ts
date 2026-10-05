@@ -15,6 +15,9 @@ export const QUEUED_LINE_SEPARATOR = " ";
 
 export const DRAIN_RETRY_MS = 1_500;
 
+/** Spoken drop feedback is rate-limited so its own tail, heard back, cannot start a loop. */
+export const FEEDBACK_MINIMUM_GAP_MS = 10_000;
+
 export type VoiceSendOutcome =
   | { kind: "sent"; understood: string; degraded: boolean }
   | { kind: "nothingToSend" }
@@ -33,12 +36,14 @@ export interface VoiceDeliveryDependencies {
   stopSpeaking: (reason: string) => void;
   stopListening: () => Promise<void>;
   retryLater: (action: () => void, milliseconds: number) => void;
+  now: () => number;
 }
 
 interface QueuedChannel {
   botId: string;
   itemId: string | null;
   lines: string[];
+  parkedAfterFailure: boolean;
 }
 
 function noteForOutcome(outcome: VoiceSendOutcome, botName: string, transcript: string): string {
@@ -62,6 +67,19 @@ function noteForOutcome(outcome: VoiceSendOutcome, botName: string, transcript: 
 export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies) {
   const queues = new Map<string, QueuedChannel>();
   const draining = new Set<string>();
+  const retryPending = new Set<string>();
+  let lastFeedbackAt: number | null = null;
+
+  const speakDropFeedback = (text: string) => {
+    const current = dependencies.now();
+    const recentlySpoke =
+      lastFeedbackAt !== null && current - lastFeedbackAt < FEEDBACK_MINIMUM_GAP_MS;
+    if (recentlySpoke || dependencies.replyIsSpeaking()) {
+      return;
+    }
+    lastFeedbackAt = current;
+    dependencies.speakFeedback(text);
+  };
 
   const drain = async (channelId: string): Promise<string | null> => {
     if (draining.has(channelId)) {
@@ -69,11 +87,7 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
     }
     draining.add(channelId);
     let firstNote: string | null = null;
-    const speakFeedback = (text: string) => {
-      if (!dependencies.replyIsSpeaking()) {
-        dependencies.speakFeedback(text);
-      }
-    };
+    const speakFeedback = (text: string) => speakDropFeedback(text);
     const report = (note: string) => {
       if (firstNote === null) {
         firstNote = note;
@@ -108,12 +122,17 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
         const transcript = queued.lines.join(QUEUED_LINE_SEPARATOR);
         queued.lines = [];
         const outcome = await dependencies.sendLine(queued.botId, channelId, transcript);
+        if (outcome.kind === "failed") {
+          queued.lines = [transcript, ...queued.lines];
+          queued.parkedAfterFailure = true;
+          speakFeedback(FEEDBACK_COULD_NOT_SEND);
+          report(noteForOutcome(outcome, botName, transcript));
+          break;
+        }
         if (queued.lines.length === 0) {
           queues.delete(channelId);
         }
-        if (outcome.kind === "failed") {
-          speakFeedback(FEEDBACK_COULD_NOT_SEND);
-        } else if (outcome.kind === "nothingToSend") {
+        if (outcome.kind === "nothingToSend") {
           speakFeedback(FEEDBACK_NOTHING_TO_SEND);
         }
         report(noteForOutcome(outcome, botName, transcript));
@@ -122,12 +141,6 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
       draining.delete(channelId);
     }
     return firstNote;
-  };
-
-  const speakFeedbackUnlessReplying = (text: string) => {
-    if (!dependencies.replyIsSpeaking()) {
-      dependencies.speakFeedback(text);
-    }
   };
 
   const waitingNote = (channelId: string): string => {
@@ -149,13 +162,13 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
       }
       if (route.kind === "discard") {
         if (text.trim() && line.overlapsSpeech) {
-          speakFeedbackUnlessReplying(FEEDBACK_IGNORED_AS_ECHO);
+          speakDropFeedback(FEEDBACK_IGNORED_AS_ECHO);
           return `Ignored while speaking: "${text.trim()}"`;
         }
         return "";
       }
       if (route.kind === "notice") {
-        speakFeedbackUnlessReplying(FEEDBACK_OPEN_A_CONVERSATION);
+        speakDropFeedback(FEEDBACK_OPEN_A_CONVERSATION);
         return route.text;
       }
       if (route.kind === "stopListening") {
@@ -163,7 +176,7 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
         return "Stopped listening.";
       }
       if (!route.channelId) {
-        speakFeedbackUnlessReplying(FEEDBACK_OPEN_A_CONVERSATION);
+        speakDropFeedback(FEEDBACK_OPEN_A_CONVERSATION);
         return "Open a conversation to talk to a teammate.";
       }
       const channelId = route.channelId;
@@ -171,27 +184,44 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
       if (existing) {
         existing.botId = route.botId;
         existing.lines.push(route.transcript);
+        existing.parkedAfterFailure = false;
       } else {
         queues.set(channelId, {
           botId: route.botId,
           itemId: dependencies.openItemId(),
           lines: [route.transcript],
+          parkedAfterFailure: false,
         });
       }
       return (await drain(channelId)) ?? waitingNote(channelId);
     },
 
     /** Called when a turn or a send ends: delivers whatever queued behind it. */
-    async flush(channelId: string): Promise<void> {
-      if (draining.has(channelId) || (queues.get(channelId)?.lines.length ?? 0) === 0) {
+    async flush(channelId: string, options: { afterTurn?: boolean } = {}): Promise<void> {
+      const queued = queues.get(channelId);
+      if (draining.has(channelId) || !queued || queued.lines.length === 0) {
         return;
       }
+      if (queued.parkedAfterFailure && !options.afterTurn) {
+        return;
+      }
+      queued.parkedAfterFailure = false;
       const note = await drain(channelId);
       if (note) {
         dependencies.notify(note);
       }
-      if ((queues.get(channelId)?.lines.length ?? 0) > 0) {
-        dependencies.retryLater(() => void delivery.flush(channelId), DRAIN_RETRY_MS);
+      const remaining = queues.get(channelId);
+      if (
+        remaining &&
+        remaining.lines.length > 0 &&
+        !remaining.parkedAfterFailure &&
+        !retryPending.has(channelId)
+      ) {
+        retryPending.add(channelId);
+        dependencies.retryLater(() => {
+          retryPending.delete(channelId);
+          void delivery.flush(channelId);
+        }, DRAIN_RETRY_MS);
       }
     },
 

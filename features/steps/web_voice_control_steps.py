@@ -568,6 +568,7 @@ def _deliver(context: object, **event: object) -> None:
         delivery={
             "busy": context.voice_busy,
             "sendOutcome": context.voice_send_outcome,
+            "recoversAfterFailure": getattr(context, "voice_recovers", False),
             "checkFails": context.voice_check_fails,
             "replySpeaking": context.voice_speaking,
             "events": context.voice_delivery_events,
@@ -580,6 +581,24 @@ def _deliver(context: object, **event: object) -> None:
 @given("sending to the teammate fails")
 def given_sending_fails(context: object) -> None:
     context.voice_send_outcome = "failed"
+
+
+@given("sending to the teammate fails once and then recovers")
+def given_sending_fails_once(context: object) -> None:
+    context.voice_send_outcome = "failed"
+    context.voice_recovers = True
+
+
+@when("{seconds:d} seconds go by in the voice session")
+def when_seconds_pass(context: object, seconds: int) -> None:
+    _deliver(context, do="advance", milliseconds=seconds * 1000)
+
+
+@then('the browser said "{text}" exactly once')
+@then('the browser said "{text}" {count:d} times')
+def then_browser_said_times(context: object, text: str, count: int = 1) -> None:
+    spoken = context.voice_delivery_result["spoken"]
+    assert spoken.count(text) == count, spoken
 
 
 @given("the server finds no message in what was heard")

@@ -65,10 +65,12 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
   delivery?: {
     busy: boolean;
     sendOutcome: "sent" | "nothingToSend" | "failed";
+    recoversAfterFailure?: boolean;
     checkFails: boolean;
     replySpeaking: boolean;
     events: Array<{
-      do: "hear" | "endTurn" | "switchConversation";
+      do: "hear" | "endTurn" | "switchConversation" | "advance";
+      milliseconds?: number;
       line?: string;
       overlapsSpeech?: boolean;
     }>;
@@ -139,7 +141,11 @@ if (input.action === "hear") {
   output = { stuck, overlapsSpeech };
 } else if (input.action === "deliver") {
   const script = input.delivery;
-  const world = { turnActive: script?.busy ?? false, itemId: input.selectedId ?? null };
+  const world = {
+    turnActive: script?.busy ?? false,
+    itemId: input.selectedId ?? null,
+    clock: 1_000_000,
+  };
   const sent: string[] = [];
   const spoken: string[] = [];
   const notes: string[] = [];
@@ -159,7 +165,12 @@ if (input.action === "hear") {
     sendIsInFlight: () => false,
     sendLine: async (_botId, _channelId, transcript): Promise<VoiceSendOutcome> => {
       sent.push(transcript);
-      if (script?.sendOutcome === "failed") return { kind: "failed" };
+      if (script?.sendOutcome === "failed" && !script.recoversAfterFailure) {
+        return { kind: "failed" };
+      }
+      if (script?.sendOutcome === "failed" && script.recoversAfterFailure && sent.length === 1) {
+        return { kind: "failed" };
+      }
       if (script?.sendOutcome === "nothingToSend") return { kind: "nothingToSend" };
       world.turnActive = true;
       return { kind: "sent", understood: transcript, degraded: false };
@@ -171,6 +182,7 @@ if (input.action === "hear") {
     stopSpeaking: () => undefined,
     stopListening: async () => undefined,
     retryLater: () => undefined,
+    now: () => world.clock,
   });
   pendingOutput = (async () => {
     for (const event of script?.events ?? []) {
@@ -179,7 +191,9 @@ if (input.action === "hear") {
       } else if (event.do === "endTurn") {
         world.turnActive = false;
         const channelId = (input.channels ?? [])[0]?.channel_id ?? "";
-        await delivery.flush(channelId);
+        await delivery.flush(channelId, { afterTurn: true });
+      } else if (event.do === "advance") {
+        world.clock += event.milliseconds ?? 0;
       } else {
         world.itemId = "bot:elsewhere";
         delivery.clear("you switched conversations");
