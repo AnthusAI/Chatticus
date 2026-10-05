@@ -157,3 +157,7 @@ jobs:
         env:
           CHATTICUS_TEST_AWS_ENDPOINT: http://127.0.0.1:5555
         run: npm run test:features
+
+      - name: Ported features dry run
+        working-directory: conversation
+        run: npm run test:features:dry
