@@ -10,6 +10,15 @@ import { declareRoute } from "./route-audience.ts";
 import { getMeHandler } from "./routes/me.ts";
 import { createOrganizationHandler } from "./routes/organizations.ts";
 import { createInvitationHandler, createInvitationMembershipCache } from "./routes/invitations.ts";
+import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler } from "./routes/bots.ts";
+import {
+	createChannelHandler,
+	getChannelHandler,
+	listChannelMessagesHandler,
+	listUserChannelsHandler,
+	postChannelMessageHandler,
+} from "./routes/channels.ts";
+import { createUserMembershipCache } from "./user-principal.ts";
 
 export interface Clock {
 	now(): Date;
@@ -97,36 +106,6 @@ export function createApp(deps: AppDeps): Hono {
 		});
 	});
 
-	app.post("/orgs/:tenant_id/channels", (c) => {
-		const tenantId = c.req.param("tenant_id");
-		return c.json({
-			channel_id: deps.ids.next(),
-			tenant_id: tenantId,
-		});
-	});
-
-	app.get("/orgs/:tenant_id/users/:user_id/bots", (c) => {
-		const tenantId = c.req.param("tenant_id");
-		return c.json({
-			bots: [],
-		});
-	});
-
-	app.post("/orgs/:tenant_id/channels/:channel_id/messages", (c) => {
-		return c.json(
-			{
-				detail: "channel tenant does not match org path",
-			},
-			{ status: 403 } as any,
-		);
-	});
-
-	app.get("/orgs/:tenant_id/channels/:channel_id/messages", (c) => {
-		return c.json({
-			messages: [],
-		});
-	});
-
 	const store = deps.store as MessagingStore;
 	const verifier = deps.verifier ?? null;
 	const membershipCache = createInvitationMembershipCache(deps.clock);
@@ -148,6 +127,41 @@ export function createApp(deps: AppDeps): Hono {
 
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/invitations", audience: "user" }, (c) =>
 		createInvitationHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier, membershipCache }),
+	);
+
+	const userRoutes = {
+		store,
+		ids: deps.ids,
+		verifier,
+		membershipCache: createUserMembershipCache(deps.clock),
+	};
+
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
+		createBotHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
+		lookupBotHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/bots/:bot_id", audience: "user" }, (c) =>
+		getBotHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/users/:user_id/bots", audience: "user" }, (c) =>
+		listUserBotsHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/users/:user_id/channels", audience: "user" }, (c) =>
+		listUserChannelsHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/channels", audience: "user" }, (c) =>
+		createChannelHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id", audience: "user" }, (c) =>
+		getChannelHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
+		postChannelMessageHandler(c, userRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
+		listChannelMessagesHandler(c, userRoutes),
 	);
 
 	return app;

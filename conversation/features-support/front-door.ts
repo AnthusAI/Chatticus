@@ -11,6 +11,7 @@ export type FrontDoorOptions = {
 	cognitoVerifier: boolean;
 	organizationCreationRateLimit?: number;
 	serveOverHttp?: boolean;
+	environment?: string;
 };
 
 /** The scenario's Cognito test keys, generated on first use. */
@@ -32,7 +33,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		ids: world.ids,
 		store: world.messagingStore(),
 		invokeKey: null,
-		environment: "test",
+		environment: options.environment ?? "test",
 		verifier: options.cognitoVerifier ? keys.verifier() : null,
 		signupMode: options.signupMode,
 		organizationCreationRateLimit: options.organizationCreationRateLimit,
@@ -56,4 +57,14 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 export async function bearerFor(world: ChatticusWorld, email: string): Promise<Record<string, string>> {
 	const keys = await cognitoKeys(world);
 	return { Authorization: `Bearer ${await keys.mintIdToken({ email })}` };
+}
+
+/** Open signup served over HTTP, with the web SPA pointed at it and holding a token for sam@example.com. */
+export async function wireOpenSignupFrontDoorForWebSpa(world: ChatticusWorld): Promise<void> {
+	await wireFrontDoor(world, { signupMode: "open", cognitoVerifier: true, serveOverHttp: true });
+	if (world.httpServer === null) {
+		throw new Error("The front door is not served over HTTP.");
+	}
+	world.webApiBase = world.httpServer.baseUrl;
+	world.webIdToken = await (await cognitoKeys(world)).mintIdToken({ email: "sam@example.com" });
 }

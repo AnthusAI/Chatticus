@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { OrganizationsKernelImpl } from "../../src/domain/organizations.ts";
 import { recordResponse } from "../api.ts";
-import { bearerFor, cognitoKeys, wireFrontDoor } from "../front-door.ts";
+import { bearerFor, wireFrontDoor, wireOpenSignupFrontDoorForWebSpa } from "../front-door.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 const kernel = new OrganizationsKernelImpl();
@@ -29,10 +29,7 @@ Given("a Cognito-verified HTTP front door with invitation-only signup", async fu
 });
 
 Given("a Cognito-verified HTTP front door with open signup wired to the web SPA", async function (this: ChatticusWorld) {
-	await wireFrontDoor(this, { signupMode: "open", cognitoVerifier: true, serveOverHttp: true });
-	assert.ok(this.httpServer);
-	this.webApiBase = this.httpServer.baseUrl;
-	this.webIdToken = await (await cognitoKeys(this)).mintIdToken({ email: "sam@example.com" });
+	await wireOpenSignupFrontDoorForWebSpa(this);
 });
 
 When(

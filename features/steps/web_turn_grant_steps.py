@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from behave import given, then, when
-from web_create_bot_steps import (
+from web_create_bot_helpers import (
     given_enabled_workspace_web_spa,
     when_web_spa_creates_bot,
 )
