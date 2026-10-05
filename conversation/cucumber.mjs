@@ -11,5 +11,6 @@ const portedFeaturePaths = readFileSync(manifestUrl, "utf8")
 export default {
 	paths: portedFeaturePaths,
 	import: ["features-support/**/*.ts"],
-	format: ["progress"],
+	format: ["progress", "summary"],
+	parallel: 4,
 };
