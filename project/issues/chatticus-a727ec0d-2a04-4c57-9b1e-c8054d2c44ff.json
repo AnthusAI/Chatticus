@@ -19,7 +19,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The durable conversation workspace is merged and green, but worker context and spend routes still need implementation",
-  "right_now_updated_at": "2026-10-05T13:13:56.997212Z",
+  "right_now_summary": "The Pi worker and durable conversation storage are built, but context and spend routes still need implementation and",
+  "right_now_updated_at": "2026-10-05T13:16:11.621919Z",
   "custom": {}
 }
