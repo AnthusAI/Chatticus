@@ -29,7 +29,6 @@ Given("an empty organization records store", async function (this: ChatticusWorl
 	this.currentIdentity = null;
 	this.lastInvitation = null;
 	this.lastError = null;
-	await this.messagingTable.create();
 });
 
 When("{string} signs in for the first time", async function (this: ChatticusWorld, email: string) {

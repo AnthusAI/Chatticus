@@ -65,6 +65,10 @@ export class ChatticusWorld extends World {
 	lastInvitation: Invitation | null = null;
 	lastError: Error | null = null;
 	inMemoryStore: MessagingStore | null = null;
+	snapshotTmpdir: string | null = null;
+	snapshotStore: unknown = null;
+	computerHosts: Record<string, unknown> = {};
+	lastManifest: unknown = null;
 
 	constructor(options: IWorldOptions) {
 		super(options);
