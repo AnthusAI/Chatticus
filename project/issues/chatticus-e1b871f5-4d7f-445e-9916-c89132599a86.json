@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-9a2e3f15-b95c-4633-97ee-82f394259a7e",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:44:27.309078Z",
-  "updated_at": "2026-10-05T15:47:11.124006Z",
+  "updated_at": "2026-10-05T16:15:56.403173Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The team is building the shared test World, API client, clocks, queues, and Moto setup.",
-  "right_now_updated_at": "2026-10-05T15:47:12.806548Z",
+  "right_now_summary": "The shared test World, API client, clocks, queues, and Moto setup are being implemented.",
+  "right_now_updated_at": "2026-10-05T16:15:58.271784Z",
   "custom": {}
 }

@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-9a2e3f15-b95c-4633-97ee-82f394259a7e",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:44:34.812224Z",
-  "updated_at": "2026-10-05T15:47:17.307495Z",
+  "updated_at": "2026-10-05T16:16:03.128407Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The prototype must verify Hono SSE streaming, abort handling, heartbeats, and clean shutdown before implementation.",
-  "right_now_updated_at": "2026-10-05T15:47:18.560013Z",
+  "right_now_summary": "The team must first verify the Hono SSE prototype and record its results before building the skeleton.",
+  "right_now_updated_at": "2026-10-05T16:16:05.024287Z",
   "custom": {}
 }

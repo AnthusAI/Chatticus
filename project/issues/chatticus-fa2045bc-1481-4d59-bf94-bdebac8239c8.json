@@ -23,16 +23,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "44832475-98dc-4376-88d8-46ad897773a4",
+      "author": "home",
+      "text": "Facts proven by the TS-05 prototype (branch ts/05-hono-sse-prototype, 40dcd2c5): streamHandle from hono/aws-lambda is deprecated in hono 4.13.13 and removed in v5; it needs the awslambda global and never cancels the body on disconnect, so onAbort does NOT fire and the write loop must have a stalled-write guard. writeSSE emits data before id, which does not match the Python frame order (event, id, data): write the raw frame with stream.write. Cap stream lifetime at 840 s. Heartbeat every 15 s works. Last-Event-ID resume works, and a non-numeric value returns 400. Unproven locally: whether the real Lambda runtime destroys the response stream on disconnect.",
+      "created_at": "2026-10-05T16:00:56.646172Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "orchestrator"
+      }
+    }
+  ],
   "created_at": "2026-10-05T15:45:28.109542Z",
-  "updated_at": "2026-10-05T15:48:49.111794Z",
+  "updated_at": "2026-10-05T16:00:56.646199Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The SSE stream route and replay tests are awaiting implementation.",
-  "right_now_updated_at": "2026-10-05T15:48:50.160374Z",
+  "right_now_summary": "The verified SSE prototype is ready, but the TypeScript stream route and tests still need implementation.",
+  "right_now_updated_at": "2026-10-05T16:00:59.721151Z",
   "custom": {}
 }

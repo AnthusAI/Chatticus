@@ -38,4 +38,10 @@ describe("ported-features manifest", () => {
 			expect(existsSync(new URL(`features/steps/${stem}_steps.py`, repositoryRoot)), stem).toBe(false);
 		}
 	});
+
+	it("has every path begin with features/ and end with .feature", () => {
+		for (const path of portedFeaturePaths()) {
+			expect(path).toMatch(/^features\/.*\.feature$/);
+		}
+	});
 });

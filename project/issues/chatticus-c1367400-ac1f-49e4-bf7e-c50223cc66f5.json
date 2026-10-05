@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-9a2e3f15-b95c-4633-97ee-82f394259a7e",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:46:03.489236Z",
-  "updated_at": "2026-10-05T15:49:40.962247Z",
+  "updated_at": "2026-10-05T16:16:06.148359Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The snapshot library and its TypeScript tests are being ported from Python.",
-  "right_now_updated_at": "2026-10-05T15:49:43.061919Z",
+  "right_now_summary": "The snapshot library and TypeScript step definitions are being ported from Python.",
+  "right_now_updated_at": "2026-10-05T16:16:07.528927Z",
   "custom": {}
 }
