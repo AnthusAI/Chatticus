@@ -33,12 +33,85 @@ Feature: Talking to teammates by voice
     Then listening stops
     And no message is sent
 
-  Scenario: A line said while the teammate is still working waits for the member
+  Scenario: A line said while the teammate is working is queued and sent when the turn ends
     Given the direct conversation with "Ada" is open
     And "Ada" is already working on a turn in the direct conversation
-    When the member says "also update the changelog"
-    Then no message is sent
-    And the member is told "Ada is still working. Say it again when Ada is done."
+    When the member says "also update the changelog" to the open conversation
+    Then nothing has been sent yet
+    And the member is told 'Will send when Ada is done: "also update the changelog"'
+    And nothing is spoken aloud
+    When "Ada" finishes the turn
+    Then these messages were sent to "Ada" in order:
+      | message |
+      | also update the changelog |
+
+  Scenario: Several lines said while the teammate is working are delivered in order as one message
+    Given the direct conversation with "Ada" is open
+    And "Ada" is already working on a turn in the direct conversation
+    When the member says "check the build logs" to the open conversation
+    And the member says "then restart the worker" to the open conversation
+    Then the member is told 'Will send when Ada is done: "check the build logs then restart the worker"'
+    When "Ada" finishes the turn
+    Then these messages were sent to "Ada" in order:
+      | message |
+      | check the build logs then restart the worker |
+
+  Scenario: Queued lines are dropped, and the member is told, when the conversation changes
+    Given the direct conversation with "Ada" is open
+    And "Ada" is already working on a turn in the direct conversation
+    When the member says "also update the changelog" to the open conversation
+    And the member switches to another conversation
+    Then the member is told "1 unsent line was dropped because you switched conversations."
+    When "Ada" finishes the turn
+    Then nothing has been sent yet
+
+  Scenario: A line said while the teammate is idle is sent at once
+    Given the direct conversation with "Ada" is open
+    When the member says "open the pull request" to the open conversation
+    Then these messages were sent to "Ada" in order:
+      | message |
+      | open the pull request |
+    And nothing is spoken aloud
+
+  Scenario: A speaking state that is stuck does not discard later lines
+    Given the direct conversation with "Ada" is open
+    And a reply is flagged as speaking although the speech engine has been idle for 1500 milliseconds past its expected end
+    When the member says "now merge the pull request" to the open conversation
+    Then the line is not mistaken for the browser hearing itself
+    And these messages were sent to "Ada" in order:
+      | message |
+      | now merge the pull request |
+
+  Scenario: A reply still sounding past its expected end still guards against the browser hearing itself
+    Given the direct conversation with "Ada" is open
+    And a reply is flagged as speaking and the speech engine is still producing it past its expected end
+    When the member says "now merge the pull request" to the open conversation
+    Then the line is mistaken for the browser hearing itself
+
+  Scenario: A line that could not be sent is spoken aloud
+    Given the direct conversation with "Ada" is open
+    And sending to the teammate fails
+    When the member says "ship it now" to the open conversation
+    Then the browser says "Couldn't send that."
+
+  Scenario: A line the server found no message in is spoken aloud
+    Given the direct conversation with "Ada" is open
+    And the server finds no message in what was heard
+    When the member says "um so yeah" to the open conversation
+    Then the browser says "Didn't catch a message there."
+
+  Scenario: A line that could not be checked against the teammate is spoken aloud
+    Given the direct conversation with "Ada" is open
+    And the teammate's status cannot be checked
+    When the member says "ship it now" to the open conversation
+    Then the browser says "Couldn't send that."
+
+  Scenario: Spoken feedback never talks over a reply
+    Given the direct conversation with "Ada" is open
+    And sending to the teammate fails
+    And a reply is being spoken
+    When the member says "ship it now" to the open conversation
+    Then nothing is spoken aloud
 
   Scenario: Voice listening needs a cross-origin isolated page
     Given the page is not cross-origin isolated

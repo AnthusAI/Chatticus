@@ -20,7 +20,7 @@ import { Input } from "./ui/input";
 import { Sheet } from "./ui/sheet";
 import { ComputerPausedNotice } from "./ComputerPausedNotice";
 import { TurnGrantPanel } from "./TurnGrantPanel";
-import { useVoiceControl } from "./useVoiceControl";
+import { useVoiceControl, type VoiceControl } from "./useVoiceControl";
 import {
   createBot,
   createChannel,
@@ -62,10 +62,10 @@ import {
 import { isTurnGrantPanelVisible } from "../lib/turn-grant";
 import {
   replyForEndedTurn,
-  routeVoiceLine,
   turnEndAnnouncement,
   voiceKeyterms,
 } from "../lib/voice-control";
+import { createVoiceLineDelivery } from "../lib/voice-line-delivery";
 import { failedTurnForConversation, isTurnSlow, type FailedTurn } from "../lib/assistant-ui-bridge";
 type EnabledWorkspaceProps = {
   activeOrg: ActiveOrg;
@@ -515,71 +515,90 @@ export function EnabledWorkspace({
   const speakingRef = useRef(false);
   const stopSpeakingRef = useRef<(reason?: string) => void>(() => undefined);
 
-  const handleVoiceLine = useCallback(
-    async (text: string, line: { overlapsSpeech: boolean }): Promise<string> => {
-      const route = routeVoiceLine(text, {
-        bots,
-        channels,
-        selectedId: selectedItemId,
-        addressedBotId: addressedBotId || null,
-        busyChannelIds: turn && selectedChannelId ? [selectedChannelId] : [],
-        overlapsSpeech: line.overlapsSpeech || speakingRef.current,
-      });
-      if (route.kind === "stopSpeaking") {
-        stopSpeakingRef.current("you said stop");
-        return "Stopped speaking.";
-      }
-      if (route.kind === "discard") {
-        return text.trim() && (line.overlapsSpeech || speakingRef.current)
-          ? `Ignored while speaking: "${text.trim()}"`
-          : "";
-      }
-      if (route.kind === "notice") {
-        return route.text;
-      }
-      if (route.kind === "stopListening") {
-        await stopVoiceRef.current();
-        return "Stopped listening.";
-      }
-      const botName = botNameById.get(route.botId) ?? "your teammate";
-      const channelId = selectedChannelId;
-      const targetItemId = selectedItemIdRef.current;
-      if (!channelId) {
-        return "Open a conversation to talk to a teammate.";
-      }
-      if (sendingRef.current) {
-        return "Still sending the last message. Say it again in a moment.";
-      }
-      let activeTurn: Turn | null;
-      try {
-        activeTurn = await getActiveTurn(activeOrg, channelId);
-      } catch {
-        return `Could not check whether ${botName} is free, so that line was not sent.`;
-      }
-      if (activeTurn) {
-        return `${botName} is still working. Say it again when ${botName} is done.`;
-      }
-      if (selectedItemIdRef.current !== targetItemId) {
-        return `You switched conversations, so that line was not sent to ${botName}.`;
-      }
-      if (sendingRef.current) {
-        return "Still sending the last message. Say it again in a moment.";
-      }
-      const delivered = await deliverPost(channelId, route.botId, () =>
-        postVoiceMessage(activeOrg, channelId, route.transcript, route.botId),
-      );
-      if (!delivered) {
-        return `Could not send to ${botName}.`;
-      }
-      if (!delivered.message) {
-        return `Heard "${route.transcript}". Nothing to send.`;
-      }
-      return delivered.degraded
-        ? `Heard "${route.transcript}". Sent to ${botName} as heard.`
-        : `Heard "${route.transcript}". Sent to ${botName}: "${delivered.message.body}"`;
-    },
-    [activeOrg, addressedBotId, bots, botNameById, channels, deliverPost, selectedChannelId, selectedItemId, turn],
+  const voiceContextRef = useRef({
+    activeOrg,
+    bots,
+    channels,
+    selectedItemId,
+    addressedBotId,
+    botNameById,
+    deliverPost,
+  });
+  useEffect(() => {
+    voiceContextRef.current = {
+      activeOrg,
+      bots,
+      channels,
+      selectedItemId,
+      addressedBotId,
+      botNameById,
+      deliverPost,
+    };
+  }, [activeOrg, addressedBotId, bots, botNameById, channels, deliverPost, selectedItemId]);
+  const voiceControlRef = useRef<Pick<VoiceControl, "speak" | "showNote"> | null>(null);
+
+  const voiceDelivery = useMemo(
+    () =>
+      createVoiceLineDelivery({
+        workspace: () => {
+          const context = voiceContextRef.current;
+          return {
+            bots: context.bots,
+            channels: context.channels,
+            selectedId: selectedItemIdRef.current,
+            addressedBotId: context.addressedBotId || null,
+          };
+        },
+        botName: (botId) => voiceContextRef.current.botNameById.get(botId) ?? "your teammate",
+        turnIsActive: async (channelId) =>
+          Boolean(await getActiveTurn(voiceContextRef.current.activeOrg, channelId)),
+        sendIsInFlight: () => sendingRef.current,
+        sendLine: async (botId, channelId, transcript) => {
+          const context = voiceContextRef.current;
+          const delivered = await context.deliverPost(channelId, botId, () =>
+            postVoiceMessage(context.activeOrg, channelId, transcript, botId),
+          );
+          if (!delivered) {
+            return { kind: "failed" };
+          }
+          if (!delivered.message) {
+            return { kind: "nothingToSend" };
+          }
+          return { kind: "sent", understood: delivered.message.body, degraded: delivered.degraded };
+        },
+        openItemId: () => selectedItemIdRef.current,
+        speakFeedback: (text) => voiceControlRef.current?.speak(text),
+        replyIsSpeaking: () => speakingRef.current,
+        notify: (note) => voiceControlRef.current?.showNote(note),
+        stopSpeaking: (reason) => stopSpeakingRef.current(reason),
+        stopListening: () => stopVoiceRef.current(),
+        retryLater: (action, milliseconds) => {
+          window.setTimeout(action, milliseconds);
+        },
+      }),
+    [],
   );
+
+  const handleVoiceLine = useCallback(
+    (text: string, line: { overlapsSpeech: boolean }): Promise<string> =>
+      voiceDelivery.handleLine(text, line),
+    [voiceDelivery],
+  );
+
+  const handleVoiceStopped = useCallback(
+    () => voiceDelivery.clear("voice listening was turned off"),
+    [voiceDelivery],
+  );
+
+  useEffect(() => {
+    voiceDelivery.clear("you switched conversations");
+  }, [selectedItemId, voiceDelivery]);
+
+  useEffect(() => {
+    if (!turn && !sending && selectedChannelId) {
+      void voiceDelivery.flush(selectedChannelId);
+    }
+  }, [turn, sending, selectedChannelId, voiceDelivery]);
 
   const handleRetryFailedTurn = useCallback(
     async (failure: FailedTurn) => {
@@ -615,12 +634,17 @@ export function EnabledWorkspace({
 
   const turnIsSlow = Boolean(turn) && !progress && isTurnSlow(now - lastProgressAt);
 
-  const voice = useVoiceControl({ keyterms: voiceKeytermList, onLine: handleVoiceLine });
+  const voice = useVoiceControl({
+    keyterms: voiceKeytermList,
+    onLine: handleVoiceLine,
+    onStopped: handleVoiceStopped,
+  });
   useEffect(() => {
     stopVoiceRef.current = voice.stop;
     stopSpeakingRef.current = voice.stopSpeaking;
     speakingRef.current = voice.speaking;
-  }, [voice.stop, voice.stopSpeaking, voice.speaking]);
+    voiceControlRef.current = { speak: voice.speak, showNote: voice.showNote };
+  }, [voice.stop, voice.stopSpeaking, voice.speaking, voice.speak, voice.showNote]);
 
   useEffect(() => {
     voiceListeningRef.current = voice.listening;

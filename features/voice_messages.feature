@@ -36,6 +36,12 @@ Feature: Understanding what the member meant before a voice line is sent
     Then no message is posted for that line
     And no turn starts for that line
 
+  Scenario: A real sentence is never dropped as filler
+    Given the understand-the-user step finds no message in "ok so can you check the build"
+    When user "ryan" of tenant "anthus" says "ok so can you check the build" to bot "Ping" on the channel
+    Then the latest message on the channel is "ok so can you check the build" from user "ryan"
+    And that message starts a turn for bot "Ping"
+
   Scenario: When understanding is unavailable, the line is sent as heard
     Given the understand-the-user step is unavailable
     When user "ryan" of tenant "anthus" says "deploy the docs site" to bot "Ping" on the channel

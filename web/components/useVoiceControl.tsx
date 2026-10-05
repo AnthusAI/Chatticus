@@ -15,7 +15,10 @@ import {
 } from "../lib/voice-control";
 import { startVoiceSession, type VoiceSession } from "../lib/voice-session";
 import {
+  isSpeechEngineBusy,
+  lineMayBeOwnSpeech,
   speak as speakAloud,
+  speakingStateIsStuck,
   speechEndNote,
   speechDeadlineMs,
   stopSpeaking as stopSpeakingAloud,
@@ -29,6 +32,8 @@ export interface UseVoiceControlOptions {
    * spoken, or just after, so it may be the browser hearing itself.
    */
   onLine: (text: string, line: { overlapsSpeech: boolean }) => Promise<string> | string;
+  /** Called when listening is turned off, by any path, so unsent work can be dropped and said so. */
+  onStopped?: () => void;
 }
 
 export interface VoiceControl {
@@ -37,11 +42,16 @@ export interface VoiceControl {
   speak: (text: string) => void;
   stopSpeaking: (reason?: string) => void;
   stop: () => Promise<void>;
+  showNote: (note: string) => void;
   composerAction: ReactNode;
   composerStatus: ReactNode;
 }
 
-export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): VoiceControl {
+export function useVoiceControl({
+  keyterms,
+  onLine,
+  onStopped,
+}: UseVoiceControlOptions): VoiceControl {
   const [phase, setPhase] = useState<VoicePhase>("idle");
   const [downloadFraction, setDownloadFraction] = useState(0);
   const [partial, setPartial] = useState("");
@@ -51,11 +61,13 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
   const sessionRef = useRef<VoiceSession | null>(null);
   const speakingRef = useRef(false);
   const onLineRef = useRef(onLine);
+  const onStoppedRef = useRef(onStopped);
   const keytermsRef = useRef(keyterms);
 
   useEffect(() => {
     onLineRef.current = onLine;
-  }, [onLine]);
+    onStoppedRef.current = onStopped;
+  }, [onLine, onStopped]);
 
   useEffect(() => {
     keytermsRef.current = keyterms;
@@ -125,14 +137,43 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     [endSpeechWindow],
   );
 
+  const endSpeechIfStuck = useCallback((): boolean => {
+    const speechWindow = speechWindowRef.current;
+    const stuck =
+      speakingRef.current &&
+      speechWindow !== null &&
+      speakingStateIsStuck({
+        speakingFlag: true,
+        millisecondsPastExpectedEnd: Date.now() - speechWindow.expectedEndedAt,
+        engineBusy: isSpeechEngineBusy(),
+      });
+    if (stuck) {
+      stopSpeakingAloud();
+      endSpeechWindow("the speaking state was stuck");
+    }
+    return stuck;
+  }, [endSpeechWindow]);
+
   const lineOverlapsSpeech = useCallback(
-    (startedAtMs: number) => lineOverlapsSpeechWindow(speechWindowRef.current, startedAtMs),
-    [],
+    (startedAtMs: number) =>
+      lineMayBeOwnSpeech({
+        overlapsSpeechWindow: lineOverlapsSpeechWindow(speechWindowRef.current, startedAtMs),
+        speakingFlag: speakingRef.current,
+        speakingStateStuck: endSpeechIfStuck(),
+      }),
+    [endSpeechIfStuck],
   );
+
+  useEffect(() => {
+    if (!speaking) return;
+    const timer = window.setInterval(endSpeechIfStuck, 500);
+    return () => window.clearInterval(timer);
+  }, [speaking, endSpeechIfStuck]);
 
   const stop = useCallback(async () => {
     setPhase((current) => (current === "listening" || current === "loading" ? "idle" : current));
     stopSpeaking("the voice conversation was turned off");
+    onStoppedRef.current?.();
     await closeSession();
   }, [closeSession, stopSpeaking]);
 
@@ -297,6 +338,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     speak,
     stopSpeaking,
     stop,
+    showNote: setNote,
     composerAction,
     composerStatus,
   };

@@ -15,8 +15,18 @@ import {
   restoreCapture,
   restoreCaptureFromTap,
 } from "../lib/voice-capture-restore";
+import {
+  createVoiceLineDelivery,
+  type VoiceSendOutcome,
+} from "../lib/voice-line-delivery";
 import { createCaptureWatch } from "../lib/voice-capture-watch";
-import { speechDeadlineMs, speechEndNote, speechWatchdogShouldEnd } from "../lib/voice-speech";
+import {
+  lineMayBeOwnSpeech,
+  speakingStateIsStuck,
+  speechDeadlineMs,
+  speechEndNote,
+  speechWatchdogShouldEnd,
+} from "../lib/voice-speech";
 import type { Bot, Channel } from "../lib/api";
 
 const input = JSON.parse(process.argv[2] ?? "{}") as {
@@ -34,7 +44,9 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
     | "captureWatchSpeech"
     | "tapRestore"
     | "watchdog"
-    | "speechEndNote";
+    | "speechEndNote"
+    | "deliver"
+    | "stuckSpeech";
   spokenText?: string;
   spokenAtMs?: number;
   spokenEndedAtMs?: number | null;
@@ -50,7 +62,21 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
   channels?: Channel[];
   selectedId?: string | null;
   addressedBotId?: string | null;
-  busyChannelIds?: string[];
+  delivery?: {
+    busy: boolean;
+    sendOutcome: "sent" | "nothingToSend" | "failed";
+    checkFails: boolean;
+    replySpeaking: boolean;
+    events: Array<{
+      do: "hear" | "endTurn" | "switchConversation";
+      line?: string;
+      overlapsSpeech?: boolean;
+    }>;
+  };
+  speakingFlag?: boolean;
+  millisecondsPastExpectedEnd?: number;
+  engineBusy?: boolean;
+  overlapsSpeechWindow?: boolean;
   environment?: { crossOriginIsolated: boolean; hasMicrophone: boolean };
   line?: string;
   phase?: import("../lib/voice-control").VoicePhase;
@@ -81,7 +107,6 @@ if (input.action === "hear") {
     channels: input.channels ?? [],
     selectedId: input.selectedId ?? null,
     addressedBotId: input.addressedBotId ?? null,
-    busyChannelIds: input.busyChannelIds ?? [],
     overlapsSpeech: input.overlapsSpeech ?? false,
   });
 } else if (input.action === "hearAfterSpeech") {
@@ -91,7 +116,6 @@ if (input.action === "hear") {
     channels: input.channels ?? [],
     selectedId: input.selectedId ?? null,
     addressedBotId: input.addressedBotId ?? null,
-    busyChannelIds: input.busyChannelIds ?? [],
     overlapsSpeech: lineOverlapsSpeechWindow(
       {
         startedAt: input.spokenAtMs ?? 0,
@@ -101,6 +125,68 @@ if (input.action === "hear") {
       startedAtMs,
     ),
   });
+} else if (input.action === "stuckSpeech") {
+  const stuck = speakingStateIsStuck({
+    speakingFlag: input.speakingFlag ?? false,
+    millisecondsPastExpectedEnd: input.millisecondsPastExpectedEnd ?? 0,
+    engineBusy: input.engineBusy ?? false,
+  });
+  const overlapsSpeech = lineMayBeOwnSpeech({
+    overlapsSpeechWindow: input.overlapsSpeechWindow ?? false,
+    speakingFlag: input.speakingFlag ?? false,
+    speakingStateStuck: stuck,
+  });
+  output = { stuck, overlapsSpeech };
+} else if (input.action === "deliver") {
+  const script = input.delivery;
+  const world = { turnActive: script?.busy ?? false, itemId: input.selectedId ?? null };
+  const sent: string[] = [];
+  const spoken: string[] = [];
+  const notes: string[] = [];
+  const shown: string[] = [];
+  const delivery = createVoiceLineDelivery({
+    workspace: () => ({
+      bots: input.bots ?? [],
+      channels: input.channels ?? [],
+      selectedId: world.itemId,
+      addressedBotId: input.addressedBotId ?? null,
+    }),
+    botName: (botId) => (input.bots ?? []).find((bot) => bot.bot_id === botId)?.name ?? "your teammate",
+    turnIsActive: async () => {
+      if (script?.checkFails) throw new Error("offline");
+      return world.turnActive;
+    },
+    sendIsInFlight: () => false,
+    sendLine: async (_botId, _channelId, transcript): Promise<VoiceSendOutcome> => {
+      sent.push(transcript);
+      if (script?.sendOutcome === "failed") return { kind: "failed" };
+      if (script?.sendOutcome === "nothingToSend") return { kind: "nothingToSend" };
+      world.turnActive = true;
+      return { kind: "sent", understood: transcript, degraded: false };
+    },
+    openItemId: () => world.itemId,
+    speakFeedback: (text) => spoken.push(text),
+    replyIsSpeaking: () => script?.replySpeaking ?? false,
+    notify: (note) => notes.push(note),
+    stopSpeaking: () => undefined,
+    stopListening: async () => undefined,
+    retryLater: () => undefined,
+  });
+  pendingOutput = (async () => {
+    for (const event of script?.events ?? []) {
+      if (event.do === "hear") {
+        shown.push(await delivery.handleLine(event.line ?? "", { overlapsSpeech: event.overlapsSpeech ?? false }));
+      } else if (event.do === "endTurn") {
+        world.turnActive = false;
+        const channelId = (input.channels ?? [])[0]?.channel_id ?? "";
+        await delivery.flush(channelId);
+      } else {
+        world.itemId = "bot:elsewhere";
+        delivery.clear("you switched conversations");
+      }
+    }
+    return { sent, spoken, notes, shown };
+  })();
 } else if (input.action === "captureWatch") {
   output = {
     problem: captureWatchProblem({

@@ -20,6 +20,38 @@ export function speechDeadlineMs(text: string): number {
   return DEADLINE_BASE_MS + text.length * DEADLINE_PER_CHARACTER_MS;
 }
 
+/** How long past its expected end a reply may report itself still speaking while the engine is idle. */
+export const STUCK_SPEECH_GRACE_MS = 1_000;
+
+/**
+ * Whether the speaking state is stale: the reply is flagged as speaking, its
+ * expected end has passed by more than the grace period, and the engine has
+ * nothing playing or queued.
+ */
+export function speakingStateIsStuck(state: {
+  speakingFlag: boolean;
+  millisecondsPastExpectedEnd: number;
+  engineBusy: boolean;
+}): boolean {
+  return (
+    state.speakingFlag &&
+    !state.engineBusy &&
+    state.millisecondsPastExpectedEnd > STUCK_SPEECH_GRACE_MS
+  );
+}
+
+/**
+ * Whether a heard line may be the browser hearing its own reply. A speaking
+ * flag that is stuck never counts, so a stale flag cannot discard later lines.
+ */
+export function lineMayBeOwnSpeech(state: {
+  overlapsSpeechWindow: boolean;
+  speakingFlag: boolean;
+  speakingStateStuck: boolean;
+}): boolean {
+  return state.overlapsSpeechWindow || (state.speakingFlag && !state.speakingStateStuck);
+}
+
 /** Why a spoken reply ended: ``finished`` is the only normal one; the rest name the path that cut it short. */
 export type SpeechEndReason = "finished" | string;
 
@@ -56,6 +88,12 @@ let watchdog: number | undefined;
 let deadline: number | undefined;
 let activeHandlers: SpeechHandlers | undefined;
 let activeSpeechUnfinished = false;
+
+export function isSpeechEngineBusy(): boolean {
+  return (
+    isSpeechAvailable() && (window.speechSynthesis.speaking || window.speechSynthesis.pending)
+  );
+}
 
 export function isSpeechAvailable(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window;
