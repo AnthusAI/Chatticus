@@ -267,17 +267,17 @@ When("that user tries to set their role to {string} in {string}", async function
 	}
 });
 
-When('that user is checked for access to "{name}"', async function (this: ChatticusWorld, name: string) {
+When("that user is checked for access to {string}", async function (this: ChatticusWorld, name: string) {
 	// This step requires integration with principal access verification which is not fully ported yet
 	// Placeholder for now
 });
 
-When('a stranger principal is checked for access to "{name}"', async function (this: ChatticusWorld, name: string) {
+When("a stranger principal is checked for access to {string}", async function (this: ChatticusWorld, name: string) {
 	// This step requires integration with principal access verification which is not fully ported yet
 	// Placeholder for now
 });
 
-When('a worker principal for tenant "{workerTenant}" is checked for access to tenant "{pathTenant}"', async function (
+When("a worker principal for tenant {string} is checked for access to tenant {string}", async function (
 	this: ChatticusWorld,
 	workerTenant: string,
 	pathTenant: string,
