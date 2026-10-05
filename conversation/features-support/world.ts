@@ -1,9 +1,13 @@
 import { setWorldConstructor, World, type IWorldOptions } from "@cucumber/cucumber";
+import type { MembershipCache } from "../src/auth/membership-cache.ts";
+import type { CachedMembership, Principal } from "../src/auth/principal.ts";
 import { DynamoBudgetStore } from "../src/budget/budget-store.ts";
 import { Decimal } from "../src/budget/decimal.ts";
 import type { Organization } from "../src/budget/models.ts";
 import { FakeBudgetAlertsPublisher } from "./fakes/fake-budget-alerts.ts";
 import { FakeAccountSpendReader, FakeCostExplorerReader } from "./fakes/fake-cost-explorer.ts";
+import type { FakePrincipalDirectory } from "./fakes/fake-principal-directory.ts";
+import type { CognitoTestKeys } from "./test-jwt.ts";
 import { localDynamoClient, ScenarioMessagingTable } from "./messaging-table.ts";
 
 /**
@@ -21,6 +25,14 @@ export class ChatticusWorld extends World {
 	readonly accountSpend = new FakeAccountSpendReader();
 	readonly budgetAlerts = new FakeBudgetAlertsPublisher();
 	customerOrganization: Organization | null = null;
+
+	cognitoTestKeys: CognitoTestKeys | null = null;
+	principalDirectory: FakePrincipalDirectory | null = null;
+	membershipCache: MembershipCache<CachedMembership> | null = null;
+	resolverTenantId = "";
+	resolvedPrincipal: Principal | null = null;
+	resolverError: Error | null = null;
+	browserRouteStatus: number | null = null;
 
 	constructor(options: IWorldOptions) {
 		super(options);
