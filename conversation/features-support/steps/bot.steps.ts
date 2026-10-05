@@ -19,6 +19,12 @@ async function resetScenarioToEmptyControlPlane(world: ChatticusWorld): Promise<
 	world.lastChannel = null;
 	world.lastTurnId = null;
 	world.messageError = null;
+	world.postResponses = [];
+	world.listedMessages = null;
+	world.openedChannelIds = [];
+	world.idempotentChannelIds = [];
+	world.otherTenantId = null;
+	world.accessDenial = null;
 	world.directChannelPayloads = [];
 	world.namedChannelPayload = null;
 }
@@ -54,6 +60,11 @@ Given("an empty control plane", async function (this: ChatticusWorld) {
 
 Given("an empty control plane backed by a durable messaging store with HTTP", async function (this: ChatticusWorld) {
 	await resetScenarioToEmptyControlPlane(this);
+});
+
+Given("an empty control plane with a cpu enqueue hook", async function (this: ChatticusWorld) {
+	await resetScenarioToEmptyControlPlane(this);
+	assert.deepEqual(this.queues.pending("turn-runs"), [], "The turn run queue must start empty");
 });
 
 Given(

@@ -76,6 +76,12 @@ export class ChatticusWorld extends World {
 	namedChannelPayload: Record<string, any> | null = null;
 	createBotResponse: RecordedResponse | null = null;
 	messageError: Error | Response | null = null;
+	postResponses: RecordedResponse[] = [];
+	listedMessages: Array<Record<string, any>> | null = null;
+	openedChannelIds: string[] = [];
+	idempotentChannelIds: string[] = [];
+	otherTenantId: string | null = null;
+	accessDenial: string | null = null;
 	dataTable: DataTable | null = null;
 	environment: string = "local";
 

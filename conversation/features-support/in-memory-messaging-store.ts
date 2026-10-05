@@ -180,6 +180,24 @@ export class InMemoryMessagingStore implements MessagingStore {
 		return null;
 	}
 
+	private readonly postIdempotency = new Map<string, { message: ChannelMessageRecord; turnId: string | null }>();
+
+	async getPostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+	): Promise<{ message: ChannelMessageRecord; turnId: string | null } | null> {
+		return this.postIdempotency.get(`${tenantId}\u0000${idempotencyKey}`) ?? null;
+	}
+
+	async putPostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+		message: ChannelMessageRecord,
+		turnId: string | null,
+	): Promise<void> {
+		this.postIdempotency.set(`${tenantId}\u0000${idempotencyKey}`, { message, turnId });
+	}
+
 	async getChannelIdempotency(tenantId: string, idempotencyKey: string): Promise<Channel | null> {
 		const channelId = this.channelIdempotency.get(`${tenantId}\u0000${idempotencyKey}`);
 		return channelId === undefined ? null : this.getChannel(tenantId, channelId);

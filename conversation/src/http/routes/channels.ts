@@ -3,10 +3,8 @@ import {
 	ChannelNotFoundError,
 	createChannel,
 	getChannel,
-	listChannelMessages,
 	listChannels,
 	primaryHumanParticipant,
-	requireChannelTenant,
 } from "../../domain/channels.ts";
 import type { Channel, ChannelKind } from "../../domain/channels.ts";
 import type { MessagingStore } from "../../store/messaging-store.ts";
@@ -111,46 +109,4 @@ export async function getChannelHandler(c: Context, deps: ChannelRouteDependenci
 		}
 		throw error;
 	}
-}
-
-/**
- * POST /orgs/{tenant_id}/channels/{channel_id}/messages: the tenant guard of the post path. A channel another tenant
- * owns is refused with 403 and an unknown channel with 404; appending the message itself is the messages slice.
- */
-export async function postChannelMessageHandler(c: Context, deps: ChannelRouteDependencies): Promise<Response> {
-	const principal = await resolveUserPrincipal(c, deps);
-	if (isRefusal(principal)) {
-		return principal;
-	}
-	await requireChannelTenant(pathParameter(c, "channel_id"), pathParameter(c, "tenant_id"), deps);
-	return c.json({ detail: "posting channel messages is not served by this front door yet" }, 501);
-}
-
-/** GET /orgs/{tenant_id}/channels/{channel_id}/messages?after=: committed messages after a sequence. */
-export async function listChannelMessagesHandler(c: Context, deps: ChannelRouteDependencies): Promise<Response> {
-	const principal = await resolveUserPrincipal(c, deps);
-	if (isRefusal(principal)) {
-		return principal;
-	}
-	const after = Number(c.req.query("after") ?? "0");
-	if (!Number.isInteger(after) || after < 0) {
-		return c.json({ detail: "after must be a non-negative integer" }, 422);
-	}
-	const messages = await listChannelMessages(pathParameter(c, "channel_id"), pathParameter(c, "tenant_id"), after, deps);
-	return c.json(
-		{
-			messages: messages.map((message) => ({
-				message_id: message.messageId,
-				channel_id: message.channelId,
-				tenant_id: message.tenantId,
-				seq: message.seq,
-				author_kind: message.authorKind,
-				author_id: message.authorId,
-				body: message.body,
-				addressed_to_bot_id: message.addressedToBotId,
-				created_at: message.createdAt.toISOString(),
-			})),
-		},
-		200,
-	);
 }

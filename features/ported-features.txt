@@ -27,5 +27,7 @@ features/consequential_binding_control.feature
 features/exact_consequential_approval.feature
 features/overnight_gated_action.feature
 features/unsupported_browser_action.feature
+features/message_admission.feature
+features/message_steering.feature
 features/members_cli.feature
 features/first_org_seed.feature

@@ -206,7 +206,7 @@ Then("posting fails because the tenant does not match", function (this: Chatticu
 	assert.match(this.messageError.message, /does not own channel/);
 });
 
-Then("the channel has {int} messages", async function (this: ChatticusWorld, count: number) {
+Then("the channel has {int} message(s)", async function (this: ChatticusWorld, count: number) {
 	assert.ok(this.lastChannel, "No channel");
 	const response = await recordResponse(
 		await memberGet(this, orgPath(this.lastChannel.tenantId, `/channels/${this.lastChannel.channelId}/messages`)),

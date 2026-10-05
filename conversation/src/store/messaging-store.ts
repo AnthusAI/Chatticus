@@ -44,6 +44,18 @@ export interface MessagingStore {
 	resolveChannelTenant(channelId: string): Promise<string | null>;
 	getChannelIdempotency(tenantId: string, idempotencyKey: string): Promise<Channel | null>;
 	putChannelIdempotency(tenantId: string, idempotencyKey: string, channel: Channel): Promise<void>;
+	/** The message and turn an earlier post with this Idempotency-Key created, or null. */
+	getPostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+	): Promise<{ message: ChannelMessageRecord; turnId: string | null } | null>;
+	/** Remember the message and turn one post created, so a retry with the same key replays them. */
+	putPostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+		message: ChannelMessageRecord,
+		turnId: string | null,
+	): Promise<void>;
 	/** Committed messages of one channel with a sequence greater than afterSeq. */
 	listMessages(tenantId: string, channelId: string, afterSeq: number): Promise<ChannelMessageRecord[]>;
 	/** Persist one committed channel message. */
