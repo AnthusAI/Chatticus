@@ -56,6 +56,11 @@ export class ChatticusWorld extends World {
 	dataTable: DataTable | null = null;
 	environment: string = "local";
 
+	snapshotTmpdir: string | null = null;
+	snapshotStore: unknown = null;
+	computerHosts: Record<string, unknown> = {};
+	lastManifest: unknown = null;
+
 	constructor(options: IWorldOptions) {
 		super(options);
 		const counter = ++scenarioCounter;
