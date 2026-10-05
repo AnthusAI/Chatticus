@@ -22,6 +22,9 @@ export class ChatticusWorld extends World {
 	readonly budgetAlerts = new FakeBudgetAlertsPublisher();
 	customerOrganization: Organization | null = null;
 
+	lastChannel: Record<string, unknown> | null = null;
+	demoContext?: Record<string, unknown> | object;
+
 	constructor(options: IWorldOptions) {
 		super(options);
 		this.messagingTable = new ScenarioMessagingTable(localDynamoClient());

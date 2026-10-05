@@ -3,3 +3,4 @@
 # behave must not: python/behave.ini carries a matching exclude_re, and
 # conversation/test/ported-features-manifest.test.ts fails if they disagree.
 features/daily_budget_rollup.feature
+features/demo_cli.feature
