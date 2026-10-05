@@ -94,6 +94,16 @@ def given_covering_delegation(
     )
 
 
+@given('a bot proposes a structured consequential operation "{action_type}" with:')
+def given_bot_proposes(context: object, action_type: str) -> None:
+    args = _table_args(context)
+    context.proposal = context.plane.approval_binding.propose_structured_operation(
+        action_type,
+        args["destination"],
+        args["payload"],
+    )
+
+
 @when('"{email}" approves that consequential operation within their ceiling')
 def when_member_approves_within_ceiling(context: object, email: str) -> None:
     context.delegated_authority_actor = email

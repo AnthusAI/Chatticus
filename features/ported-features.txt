@@ -19,3 +19,9 @@ features/page_content_authority.feature
 features/prompt_injection_containment.feature
 features/task_authority_grant.feature
 features/v1_security_policy_exclusions.feature
+features/approvals.feature
+features/authorized_connections.feature
+features/consequential_binding_control.feature
+features/exact_consequential_approval.feature
+features/overnight_gated_action.feature
+features/unsupported_browser_action.feature

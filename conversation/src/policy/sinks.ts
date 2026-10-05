@@ -4,6 +4,17 @@ import type {
 	ApprovalDecision,
 } from "./capability-policy.ts";
 import { EgressClass, RequestedCapability } from "./capability-policy.ts";
+import type {
+	ApprovalBindingGate,
+	ApprovedOperation,
+	BoundExecutionResult,
+	StructuredConsequentialOperation,
+} from "./approval-binding.ts";
+import { MemberStanding, requestExceedsMemberStanding } from "./authorization-ceiling.ts";
+import type { AutoReviewRule } from "./models.ts";
+import { resolveUnattendedGatedAction, type OvernightGatedResult } from "./overnight.ts";
+
+export { MemberStanding };
 
 export const POLICY_KERNEL_TENANT = "policy-tenant";
 export const POLICY_KERNEL_TURN = "policy-turn";
@@ -28,10 +39,6 @@ export class CapabilitySinkApprovalRequired extends Error {
 		super(message);
 		this.name = "CapabilitySinkApprovalRequired";
 	}
-}
-
-export interface MemberStanding {
-	[key: string]: unknown;
 }
 
 /**
@@ -278,7 +285,7 @@ export function attemptAuthenticatedBrowserActionAtSink(
 	policy: CapabilityPolicy,
 	action: string,
 	{ structuredConnector = false, takeoverControl = false } = {},
-): { executed: boolean; turn_status: string; reason: string | null; completion_evidence: string | null } {
+): OvernightGatedResult {
 	if (structuredConnector || takeoverControl) {
 		throw new Error("binding control is present; this path is for unbound actions");
 	}
@@ -294,6 +301,7 @@ export function attemptAuthenticatedBrowserActionAtSink(
 			turn_status: "completed",
 			reason: null,
 			completion_evidence: null,
+			retried_unattended: false,
 		};
 	}
 	return {
@@ -301,6 +309,7 @@ export function attemptAuthenticatedBrowserActionAtSink(
 		turn_status: "blocked",
 		reason: "user_controlled_completion_required",
 		completion_evidence: null,
+		retried_unattended: false,
 	};
 }
 
@@ -322,13 +331,13 @@ export function resolveUnattendedGatedActionAtSink(
 		actionType: string;
 		arguments: Record<string, string>;
 		channel: string;
-		rules: unknown[];
+		rules: readonly AutoReviewRule[];
 		tenantId: string;
 		memberStanding: MemberStanding;
 		userId?: string | null;
 		completionEvidence?: string;
 	},
-): { executed: boolean; turn_status: string; reason: string | null; completion_evidence: string | null } {
+): OvernightGatedResult {
 	const request = structuredActionRequest(actionType, arguments_);
 	try {
 		denyIfExceedsMemberStanding(
@@ -342,8 +351,9 @@ export function resolveUnattendedGatedActionAtSink(
 			return {
 				executed: false,
 				turn_status: "blocked",
-				reason: String(error),
+				reason: error.message,
 				completion_evidence: null,
+				retried_unattended: false,
 			};
 		}
 		throw error;
@@ -356,6 +366,7 @@ export function resolveUnattendedGatedActionAtSink(
 				turn_status: "blocked",
 				reason: "no task grant",
 				completion_evidence: null,
+				retried_unattended: false,
 			};
 		}
 	} else {
@@ -367,21 +378,66 @@ export function resolveUnattendedGatedActionAtSink(
 				turn_status: "blocked",
 				reason,
 				completion_evidence: null,
+				retried_unattended: false,
 			};
 		}
 	}
 	if (channel === CHANNEL_BROWSER && CONSEQUENTIAL_ACTION_TYPES.includes(actionType)) {
 		return attemptAuthenticatedBrowserActionAtSink(policy, actionType);
 	}
-	return resolveUnattendedGatedAction(
+	return resolveUnattendedGatedAction({
 		actionType,
-		arguments_,
+		arguments: arguments_,
 		channel,
 		rules,
 		tenantId,
 		userId,
 		completionEvidence,
+	});
+}
+
+/**
+ * Execute one approved connector operation after grant and binding checks.
+ */
+export async function executeApprovedOperationAtSink(
+	policy: CapabilityPolicy,
+	gate: ApprovalBindingGate,
+	approval: ApprovedOperation,
+	attempted: StructuredConsequentialOperation,
+	completionEvidence: string,
+	memberStanding: MemberStanding,
+): Promise<BoundExecutionResult> {
+	const request = new RequestedCapability(
+		attempted.actionType,
+		undefined,
+		attempted.destination,
+		undefined,
+		EgressClass.StructuredSend,
 	);
+	const structuredArguments = {
+		destination: attempted.destination,
+		payload: attempted.payload,
+	};
+	try {
+		requireGranted(policy, request, memberStanding, { structuredArguments });
+	} catch (error) {
+		if (error instanceof CapabilitySinkDenied) {
+			return {
+				executed: false,
+				reason: error.message,
+				completionEvidence: null,
+				requiresNewApproval: true,
+			};
+		}
+		throw error;
+	}
+	const bindingResult = await gate.executeApprovedOperation(approval, attempted, completionEvidence);
+	if (bindingResult.executed) {
+		policy.bindConnector(attempted.actionType, attempted.destination, attempted.payload);
+		policy.approveBoundOperation();
+		policy.executeBoundConnector(completionEvidence);
+	}
+	return bindingResult;
 }
 
 /**
@@ -392,29 +448,4 @@ export function bindingControlValue(policy: CapabilityPolicy): string | null {
 		return null;
 	}
 	return policy.last_binding;
-}
-
-function requestExceedsMemberStanding(
-	request: RequestedCapability,
-	memberStanding: MemberStanding,
-	structuredArguments?: Record<string, string> | null,
-): boolean {
-	return false;
-}
-
-function resolveUnattendedGatedAction(
-	actionType: string,
-	arguments_: Record<string, string>,
-	channel: string,
-	rules: unknown[],
-	tenantId: string,
-	userId: string | null | undefined,
-	completionEvidence: string,
-): { executed: boolean; turn_status: string; reason: string | null; completion_evidence: string | null } {
-	return {
-		executed: false,
-		turn_status: "blocked",
-		reason: "unimplemented",
-		completion_evidence: null,
-	};
 }
