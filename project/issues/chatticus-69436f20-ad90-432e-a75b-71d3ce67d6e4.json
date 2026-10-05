@@ -41,18 +41,38 @@
     {
       "target": "chatticus-e0f4e97f-a1f6-49de-86a5-f9dff1777718",
       "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-d6a1f9c8-96ca-40d0-a5d3-2c1f4b8805f0",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-ad2bb6b0-b71c-464f-8218-bb0c7e1a0bee",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-d4cb877f-b5f0-4a2d-901b-3a80a7156e87",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-e70ba215-70d6-42b3-a86a-19c337cd1499",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-663171ea-f490-4a05-9ebf-fca33d75fb0a",
+      "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:46:51.809027Z",
-  "updated_at": "2026-10-05T15:51:32.379532Z",
+  "updated_at": "2026-10-05T15:53:55.508099Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The team must rehearse the dormant TypeScript stack and report test results to Kanbus.",
-  "right_now_updated_at": "2026-10-05T15:51:33.474545Z",
+  "right_now_summary": "The team is rehearsing the full test suite against the dormant TypeScript development stack.",
+  "right_now_updated_at": "2026-10-05T15:53:59.238559Z",
   "custom": {}
 }
