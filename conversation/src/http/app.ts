@@ -2,6 +2,11 @@ import { Hono } from "hono";
 import { statusFor, DomainError } from "./errors.ts";
 import { timingSafeEqual } from "crypto";
 import type { IdTokenVerifier } from "../auth/cognito.ts";
+import {
+	INTEGRATION_TEST_SESSION_PATH,
+	integrationTestSessionEnabled,
+	type IntegrationTestAuthConfig,
+} from "../auth/integration-test.ts";
 import type { SignupMode } from "../domain/signup-mode.ts";
 import { ORGANIZATION_CREATION_RATE_LIMIT } from "../domain/creation-limits.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
@@ -18,6 +23,9 @@ import {
 	listUserChannelsHandler,
 	postChannelMessageHandler,
 } from "./routes/channels.ts";
+import { integrationTestSessionHandler } from "./routes/integration-test.ts";
+import { operatorOrganizationHandler } from "./routes/operator.ts";
+import { claimTurnHandler, registerWorkerHandler } from "./routes/workers.ts";
 import { createUserMembershipCache } from "./user-principal.ts";
 
 export interface Clock {
@@ -39,6 +47,10 @@ export interface AppDeps {
 	ids: IdSource;
 	store: unknown;
 	invokeKey: string | null;
+	/** The deployment-wide operator bearer secret; the operator routes refuse every caller when it is empty. */
+	operatorKey?: string;
+	/** Integration-test session exchange; its route is registered only when this is enabled outside production. */
+	integrationTest?: IntegrationTestAuthConfig | null;
 	environment?: string;
 	verifier?: IdTokenVerifier | null;
 	signupMode?: SignupMode;
@@ -109,6 +121,8 @@ export function createApp(deps: AppDeps): Hono {
 	const store = deps.store as MessagingStore;
 	const verifier = deps.verifier ?? null;
 	const membershipCache = createInvitationMembershipCache(deps.clock);
+	const integrationTest = deps.integrationTest ?? null;
+	const operatorKey = deps.operatorKey ?? "";
 
 	declareRoute(app, { method: "GET", path: "/me", audience: "user" }, (c) =>
 		getMeHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier }),
@@ -126,7 +140,7 @@ export function createApp(deps: AppDeps): Hono {
 	);
 
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/invitations", audience: "user" }, (c) =>
-		createInvitationHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier, membershipCache }),
+		createInvitationHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier, membershipCache, integrationTest }),
 	);
 
 	const userRoutes = {
@@ -134,6 +148,7 @@ export function createApp(deps: AppDeps): Hono {
 		ids: deps.ids,
 		verifier,
 		membershipCache: createUserMembershipCache(deps.clock),
+		integrationTest,
 	};
 
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
@@ -163,6 +178,27 @@ export function createApp(deps: AppDeps): Hono {
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
 		listChannelMessagesHandler(c, userRoutes),
 	);
+
+	const workerRoutes = { store, clock: deps.clock, ids: deps.ids };
+
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/workers/register", audience: "public" }, (c) =>
+		registerWorkerHandler(c, workerRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/turns/:turn_id/claim", audience: "worker" }, (c) =>
+		claimTurnHandler(c, workerRoutes),
+	);
+
+	for (const action of ["enable", "suspend", "reinstate"] as const) {
+		declareRoute(app, { method: "POST", path: `/operator/orgs/:tenant_id/${action}`, audience: "operator" }, (c) =>
+			operatorOrganizationHandler(c, action, { store, operatorKey }),
+		);
+	}
+
+	if (integrationTestSessionEnabled(integrationTest) && integrationTest !== null) {
+		declareRoute(app, { method: "POST", path: INTEGRATION_TEST_SESSION_PATH, audience: "integration" }, (c) =>
+			integrationTestSessionHandler(c, integrationTest),
+		);
+	}
 
 	return app;
 }

@@ -13,7 +13,6 @@ import type { MessagingStore } from "../src/store/messaging-store.ts";
 import { DynamoMessagingStore } from "../src/store/dynamo-messaging-store.ts";
 import { FakeBudgetAlertsPublisher } from "./fakes/fake-budget-alerts.ts";
 import { FakeAccountSpendReader, FakeCostExplorerReader } from "./fakes/fake-cost-explorer.ts";
-import type { FakePrincipalDirectory } from "./fakes/fake-principal-directory.ts";
 import type { CognitoTestKeys } from "./test-jwt.ts";
 import { localDynamoClient, ScenarioMessagingTable } from "./messaging-table.ts";
 import { ApiClient, type RecordedResponse } from "./api.ts";
@@ -22,6 +21,8 @@ import { FakeClock } from "./clock.ts";
 import { SequentialIdSource } from "./clock.ts";
 import { QueueRecorder } from "./queues.ts";
 import type { MembersCliProcessResult } from "./members-cli-process.ts";
+import type { OperatorScenarioState } from "./steps/operator.steps.ts";
+import type { IntegrationTestScenarioState } from "./steps/integration-test-auth.steps.ts";
 
 let scenarioCounter = 0;
 
@@ -42,7 +43,6 @@ export class ChatticusWorld extends World {
 	customerOrganization: BudgetOrganization | null = null;
 
 	cognitoTestKeys: CognitoTestKeys | null = null;
-	principalDirectory: FakePrincipalDirectory | null = null;
 	membershipCache: MembershipCache<CachedMembership> | null = null;
 	resolverTenantId = "";
 	resolvedPrincipal: Principal | null = null;
@@ -90,6 +90,11 @@ export class ChatticusWorld extends World {
 	snapshotStore: unknown = null;
 	computerHosts: Record<string, unknown> = {};
 	lastManifest: unknown = null;
+
+	// Operator and integration-test auth
+	operatorScenario: OperatorScenarioState | null = null;
+	integrationTestScenario: IntegrationTestScenarioState | null = null;
+	workerTokens: Map<string, string> = new Map();
 
 	// Policy kernel fields
 	capabilityPolicy: unknown = null;

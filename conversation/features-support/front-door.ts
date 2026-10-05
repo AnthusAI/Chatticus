@@ -1,3 +1,4 @@
+import type { IntegrationTestAuthConfig } from "../src/auth/integration-test.ts";
 import type { SignupMode } from "../src/domain/signup-mode.ts";
 import { createApp } from "../src/http/app.ts";
 import { ApiClient } from "./api.ts";
@@ -12,6 +13,9 @@ export type FrontDoorOptions = {
 	organizationCreationRateLimit?: number;
 	serveOverHttp?: boolean;
 	environment?: string;
+	invokeKey?: string | null;
+	operatorKey?: string;
+	integrationTest?: IntegrationTestAuthConfig | null;
 };
 
 /** The scenario's Cognito test keys, generated on first use. */
@@ -32,7 +36,9 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		clock: world.clock,
 		ids: world.ids,
 		store: world.messagingStore(),
-		invokeKey: null,
+		invokeKey: options.invokeKey ?? null,
+		operatorKey: options.operatorKey ?? "",
+		integrationTest: options.integrationTest ?? null,
 		environment: options.environment ?? "test",
 		verifier: options.cognitoVerifier ? keys.verifier() : null,
 		signupMode: options.signupMode,
