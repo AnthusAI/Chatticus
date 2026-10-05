@@ -589,6 +589,11 @@ def given_sending_fails_once(context: object) -> None:
     context.voice_recovers = True
 
 
+@when("the reply ends")
+def when_reply_ends(context: object) -> None:
+    _deliver(context, do="replyEnds")
+
+
 @when("{seconds:d} seconds go by in the voice session")
 def when_seconds_pass(context: object, seconds: int) -> None:
     _deliver(context, do="advance", milliseconds=seconds * 1000)

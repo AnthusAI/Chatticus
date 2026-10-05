@@ -69,7 +69,7 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
     checkFails: boolean;
     replySpeaking: boolean;
     events: Array<{
-      do: "hear" | "endTurn" | "switchConversation" | "advance";
+      do: "hear" | "endTurn" | "switchConversation" | "advance" | "replyEnds";
       milliseconds?: number;
       line?: string;
       overlapsSpeech?: boolean;
@@ -145,6 +145,8 @@ if (input.action === "hear") {
     turnActive: script?.busy ?? false,
     itemId: input.selectedId ?? null,
     clock: 1_000_000,
+    replying: script?.replySpeaking ?? false,
+    timers: [] as Array<{ dueAt: number; action: () => void }>,
   };
   const sent: string[] = [];
   const spoken: string[] = [];
@@ -177,11 +179,13 @@ if (input.action === "hear") {
     },
     openItemId: () => world.itemId,
     speakFeedback: (text) => spoken.push(text),
-    replyIsSpeaking: () => script?.replySpeaking ?? false,
+    replyIsSpeaking: () => world.replying,
     notify: (note) => notes.push(note),
     stopSpeaking: () => undefined,
     stopListening: async () => undefined,
-    retryLater: () => undefined,
+    retryLater: (action, milliseconds) => {
+      world.timers.push({ dueAt: world.clock + milliseconds, action });
+    },
     now: () => world.clock,
   });
   pendingOutput = (async () => {
@@ -194,6 +198,15 @@ if (input.action === "hear") {
         await delivery.flush(channelId, { afterTurn: true });
       } else if (event.do === "advance") {
         world.clock += event.milliseconds ?? 0;
+        const due = world.timers.filter((timer) => timer.dueAt <= world.clock);
+        world.timers = world.timers.filter((timer) => timer.dueAt > world.clock);
+        for (const timer of due) {
+          timer.action();
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        }
+      } else if (event.do === "replyEnds") {
+        world.replying = false;
+        delivery.replyEnded();
       } else {
         world.itemId = "bot:elsewhere";
         delivery.clear("you switched conversations");

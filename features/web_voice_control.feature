@@ -132,6 +132,38 @@ Feature: Talking to teammates by voice
       | ship it now |
       | ship it now and tag the release |
 
+  Scenario: Echo feedback followed by a send failure still speaks the failure
+    Given the direct conversation with "Ada" is open
+    And sending to the teammate fails
+    When the member says "the pull request is open" to the open conversation just after a reply ended
+    And 3 seconds go by in the voice session
+    And the member says "ship it now" to the open conversation
+    Then the browser said "Ignored that as an echo. Say it again." exactly once
+    And the browser said "Couldn't send that." exactly once
+
+  Scenario: Send-failure feedback during a reply is spoken after the reply ends
+    Given the direct conversation with "Ada" is open
+    And sending to the teammate fails
+    And a reply is being spoken
+    When the member says "ship it now" to the open conversation
+    Then nothing is spoken aloud
+    When the reply ends
+    Then the browser said "Couldn't send that." exactly once
+
+  Scenario: A parked failure retries on its own after 5 seconds
+    Given the direct conversation with "Ada" is open
+    And sending to the teammate fails once and then recovers
+    When the member says "ship it now" to the open conversation
+    And 4 seconds go by in the voice session
+    Then these messages were sent to "Ada" in order:
+      | message |
+      | ship it now |
+    When 1 seconds go by in the voice session
+    Then these messages were sent to "Ada" in order:
+      | message |
+      | ship it now |
+      | ship it now |
+
   Scenario: A line heard with no conversation open is spoken aloud
     When the member says "hello there" to the open conversation
     Then the browser says "Open a conversation first."

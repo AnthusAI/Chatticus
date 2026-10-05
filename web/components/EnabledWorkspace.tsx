@@ -654,6 +654,12 @@ export function EnabledWorkspace({
   }, [voice.stop, voice.stopSpeaking, voice.speaking, voice.speak, voice.showNote]);
 
   useEffect(() => {
+    if (!voice.speaking) {
+      voiceDelivery.replyEnded();
+    }
+  }, [voice.speaking, voiceDelivery]);
+
+  useEffect(() => {
     voiceListeningRef.current = voice.listening;
     speakAloudRef.current = voice.speak;
   }, [voice.listening, voice.speak]);

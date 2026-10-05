@@ -15,8 +15,11 @@ export const QUEUED_LINE_SEPARATOR = " ";
 
 export const DRAIN_RETRY_MS = 1_500;
 
-/** Spoken drop feedback is rate-limited so its own tail, heard back, cannot start a loop. */
+/** Spoken echo feedback is rate-limited so its own tail, heard back, cannot start a loop. */
 export const FEEDBACK_MINIMUM_GAP_MS = 10_000;
+
+/** How long a send that failed waits before it is tried again on its own. */
+export const FAILED_SEND_RETRY_MS = 5_000;
 
 export type VoiceSendOutcome =
   | { kind: "sent"; understood: string; degraded: boolean }
@@ -68,17 +71,39 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
   const queues = new Map<string, QueuedChannel>();
   const draining = new Set<string>();
   const retryPending = new Set<string>();
-  let lastFeedbackAt: number | null = null;
+  let lastEchoFeedbackAt: number | null = null;
+  let deferredFeedback: string[] = [];
 
-  const speakDropFeedback = (text: string) => {
+  const speakEchoFeedback = (text: string) => {
     const current = dependencies.now();
     const recentlySpoke =
-      lastFeedbackAt !== null && current - lastFeedbackAt < FEEDBACK_MINIMUM_GAP_MS;
+      lastEchoFeedbackAt !== null && current - lastEchoFeedbackAt < FEEDBACK_MINIMUM_GAP_MS;
     if (recentlySpoke || dependencies.replyIsSpeaking()) {
       return;
     }
-    lastFeedbackAt = current;
+    lastEchoFeedbackAt = current;
     dependencies.speakFeedback(text);
+  };
+
+  const speakDropFeedback = (text: string) => {
+    if (dependencies.replyIsSpeaking()) {
+      if (!deferredFeedback.includes(text)) {
+        deferredFeedback.push(text);
+      }
+      return;
+    }
+    dependencies.speakFeedback(text);
+  };
+
+  const scheduleRetry = (channelId: string, milliseconds: number) => {
+    if (retryPending.has(channelId)) {
+      return;
+    }
+    retryPending.add(channelId);
+    dependencies.retryLater(() => {
+      retryPending.delete(channelId);
+      void delivery.flush(channelId, { afterTurn: true });
+    }, milliseconds);
   };
 
   const drain = async (channelId: string): Promise<string | null> => {
@@ -126,6 +151,7 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
           queued.lines = [transcript, ...queued.lines];
           queued.parkedAfterFailure = true;
           speakFeedback(FEEDBACK_COULD_NOT_SEND);
+          scheduleRetry(channelId, FAILED_SEND_RETRY_MS);
           report(noteForOutcome(outcome, botName, transcript));
           break;
         }
@@ -162,7 +188,7 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
       }
       if (route.kind === "discard") {
         if (text.trim() && line.overlapsSpeech) {
-          speakDropFeedback(FEEDBACK_IGNORED_AS_ECHO);
+          speakEchoFeedback(FEEDBACK_IGNORED_AS_ECHO);
           return `Ignored while speaking: "${text.trim()}"`;
         }
         return "";
@@ -217,12 +243,15 @@ export function createVoiceLineDelivery(dependencies: VoiceDeliveryDependencies)
         !remaining.parkedAfterFailure &&
         !retryPending.has(channelId)
       ) {
-        retryPending.add(channelId);
-        dependencies.retryLater(() => {
-          retryPending.delete(channelId);
-          void delivery.flush(channelId);
-        }, DRAIN_RETRY_MS);
+        scheduleRetry(channelId, DRAIN_RETRY_MS);
       }
+    },
+
+    /** Called when a spoken reply ends: speaks feedback that waited for it. */
+    replyEnded(): void {
+      const waiting = deferredFeedback;
+      deferredFeedback = [];
+      waiting.forEach((text) => dependencies.speakFeedback(text));
     },
 
     /** Drops every queued line, for switching conversation or stopping voice, and says so. */
