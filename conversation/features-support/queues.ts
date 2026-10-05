@@ -1,3 +1,5 @@
+import type { Clock } from "./clock.ts";
+
 /**
  * A message stored in an in-process queue recorder.
  */
@@ -13,6 +15,11 @@ export interface QueuedMessage {
  */
 export class QueueRecorder {
 	private queues: Map<string, QueuedMessage[]> = new Map();
+	private clock: Clock;
+
+	constructor(clock: Clock) {
+		this.clock = clock;
+	}
 
 	/**
 	 * Record a message sent to a queue.
@@ -28,7 +35,7 @@ export class QueueRecorder {
 		this.queues.get(queue)!.push({
 			body,
 			delaySeconds,
-			enqueuedAt: new Date(),
+			enqueuedAt: this.clock.now(),
 		});
 	}
 

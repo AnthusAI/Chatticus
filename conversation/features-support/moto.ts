@@ -2,6 +2,7 @@ import { BeforeAll } from "@cucumber/cucumber";
 import { S3Client } from "@aws-sdk/client-s3";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { createPiSessionTable, createPiSessionBucket } from "../src/storage/table-definition.ts";
+import { createMessagingTable } from "./messaging-table.ts";
 
 const MESSAGING_TABLE_NAME = "Messaging";
 const CONVERSATIONS_TABLE_NAME = "Conversations";
@@ -34,8 +35,32 @@ BeforeAll(async function () {
 	});
 
 	try {
-		await createPiSessionTable(dynamoClient, MESSAGING_TABLE_NAME);
-		await createPiSessionTable(dynamoClient, CONVERSATIONS_TABLE_NAME);
+		try {
+			await createMessagingTable(dynamoClient, MESSAGING_TABLE_NAME);
+		} catch (err: unknown) {
+			// Ignore if table already exists (parallel workers may have created it)
+			if (
+				err instanceof Error &&
+				(err.name === "ResourceInUseException" || err.message.includes("Table already exists"))
+			) {
+				// Table already exists, that's fine
+			} else {
+				throw err;
+			}
+		}
+		try {
+			await createPiSessionTable(dynamoClient, CONVERSATIONS_TABLE_NAME);
+		} catch (err: unknown) {
+			// Ignore if table already exists (parallel workers may have created it)
+			if (
+				err instanceof Error &&
+				(err.name === "ResourceInUseException" || err.message.includes("Table already exists"))
+			) {
+				// Table already exists, that's fine
+			} else {
+				throw err;
+			}
+		}
 		await createPiSessionBucket(s3Client, PI_SESSIONS_BUCKET_NAME);
 	} finally {
 		dynamoClient.destroy();

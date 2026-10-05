@@ -42,7 +42,7 @@ export class ChatticusWorld extends World {
 		this.tenantId = `t-${counter}-${random}`;
 		this.clock = new FakeClock();
 		this.ids = new SequentialIdSource();
-		this.queues = new QueueRecorder();
+		this.queues = new QueueRecorder(this.clock);
 		this.scenarioStartTime = Date.now();
 
 		this.messagingTable = new ScenarioMessagingTable(localDynamoClient());
