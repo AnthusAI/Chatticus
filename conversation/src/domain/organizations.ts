@@ -113,9 +113,16 @@ export interface OrganizationsKernel {
 		name: string,
 		deps: { store: MessagingStore; clock: Clock; ids: IdSource },
 	): Promise<Organization>;
+	getOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization>;
 	enableOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization>;
 	suspendOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization>;
 	reinstateOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization>;
+	adminSetMemberRole(
+		tenantId: string,
+		memberUserId: string,
+		role: MemberRole,
+		deps: { store: MessagingStore },
+	): Promise<Membership>;
 	setMemberRole(
 		tenantId: string,
 		actorUserId: string,
@@ -270,6 +277,14 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 		);
 	}
 
+	async getOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization> {
+		const organization = await deps.store.getOrganization(tenantId);
+		if (organization === null) {
+			throw new OrganizationNotFoundError(`Organization ${JSON.stringify(tenantId)} is unknown.`);
+		}
+		return organization;
+	}
+
 	async enableOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization> {
 		const organization = await deps.store.getOrganization(tenantId);
 		if (organization === null) {
@@ -322,6 +337,34 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 		};
 		await deps.store.putOrganization(reinstated);
 		return reinstated;
+	}
+
+	/** Change one member's role on the admin path, with no acting owner. */
+	async adminSetMemberRole(
+		tenantId: string,
+		memberUserId: string,
+		role: MemberRole,
+		deps: { store: MessagingStore },
+	): Promise<Membership> {
+		await this.getOrganization(tenantId, deps);
+		const membership = await deps.store.getMembership(tenantId, memberUserId);
+		if (membership === null) {
+			throw new MembershipNotFoundError(
+				`User ${JSON.stringify(memberUserId)} is not a member of ${JSON.stringify(tenantId)}.`,
+			);
+		}
+		if (membership.role === "owner" && role !== "owner") {
+			const memberships = await deps.store.listMemberships(tenantId);
+			const hasOtherOwners = memberships.some((item) => item.role === "owner" && item.userId !== memberUserId);
+			if (!hasOtherOwners) {
+				throw new LastOwnerCannotBeDemotedError(
+					`User ${JSON.stringify(memberUserId)} is the last owner of ${JSON.stringify(tenantId)}.`,
+				);
+			}
+		}
+		const updated: Membership = { ...membership, role };
+		await deps.store.putMembership(updated);
+		return updated;
 	}
 
 	async setMemberRole(

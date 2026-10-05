@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { Then, When } from "@cucumber/cucumber";
-import { validateOrganizationName } from "../../src/domain/creation-limits.ts";
-import { OrganizationsKernelImpl } from "../../src/domain/organizations.ts";
-import type { OrganizationStatus } from "../../src/domain/organizations.ts";
+import {
+	createOrganizationThroughCli,
+	parseConfirmationLine,
+	runMembersCliExpectingSuccess,
+	runMembersCliProcess,
+} from "../members-cli-process.ts";
 import type { ChatticusWorld } from "../world.ts";
-
-const kernel = new OrganizationsKernelImpl();
 
 function organizationNamed(world: ChatticusWorld, name: string) {
 	const organization = world.orgsByName?.get(name);
@@ -13,43 +14,63 @@ function organizationNamed(world: ChatticusWorld, name: string) {
 	return organization;
 }
 
+/** Reload one organization from the store after the CLI changed it, so later steps see the stored state. */
+async function refreshOrganization(world: ChatticusWorld, name: string, tenantId: string): Promise<void> {
+	const stored = await world.messagingStore().getOrganization(tenantId);
+	assert.ok(stored, `organization ${tenantId} is not in the store`);
+	world.orgsByName?.set(name, stored);
+}
+
 When(
 	"the members CLI lists organizations with status {string}",
 	async function (this: ChatticusWorld, status: string) {
-		this.membersCliListing = await kernel.listOrganizationsByStatus(status as OrganizationStatus, {
-			store: this.messagingStore(),
-		});
+		await runMembersCliProcess(this, ["list", "--status", status]);
 	},
 );
 
-When(
-	"the members CLI enables organization {string} with confirmation",
-	async function (this: ChatticusWorld, name: string) {
-		const organization = organizationNamed(this, name);
-		const enabled = await kernel.enableOrganization(organization.tenantId, { store: this.messagingStore() });
-		this.orgsByName?.set(name, enabled);
-	},
-);
+for (const [verb, pastTense, expectedStatus] of [
+	["enable", "enabled", "enabled"],
+	["suspend", "suspended", "suspended"],
+	["reinstate", "reinstated", "enabled"],
+] as const) {
+	When(
+		`the members CLI ${verb}s organization {string} with confirmation`,
+		async function (this: ChatticusWorld, name: string) {
+			const organization = organizationNamed(this, name);
+			const result = await runMembersCliExpectingSuccess(this, [verb, organization.tenantId, "--yes"]);
+			const confirmation = parseConfirmationLine(result.stdout, pastTense);
+			assert.equal(confirmation.tenant_id, organization.tenantId);
+			assert.equal(confirmation.status, expectedStatus);
+			await refreshOrganization(this, name, organization.tenantId);
+		},
+	);
+}
 
 When(
 	"the members CLI creates organization {string} for {string} with confirmation",
 	async function (this: ChatticusWorld, name: string, email: string) {
-		const store = this.messagingStore();
-		const owner = await kernel.signIn(email, { store, clock: this.clock, ids: this.ids });
-		this.identitiesByEmail?.set(email, owner);
-		const organization = await kernel.adminCreateOrganization(owner, validateOrganizationName(name), {
-			store,
-			clock: this.clock,
-			ids: this.ids,
-		});
-		this.orgsByName?.set(name, organization);
+		await createOrganizationThroughCli(this, name, email);
 	},
 );
 
 Then("the members CLI output includes organization {string}", function (this: ChatticusWorld, name: string) {
 	const organization = organizationNamed(this, name);
-	assert.ok(this.membersCliListing, "the members CLI has not listed organizations in this scenario");
-	const listed = this.membersCliListing.find((candidate) => candidate.tenantId === organization.tenantId);
-	assert.ok(listed, `organization ${organization.tenantId} is not in the listing`);
-	assert.equal(listed.name, organization.name);
+	const result = this.membersCliResult;
+	assert.ok(result, "the members CLI has not run in this scenario");
+	assert.equal(result.exitCode, 0, result.stderr);
+	const lines = result.stdout.split("\n").map((line) => line.split("\t"));
+	const listed = lines.find((fields) => fields[0] === organization.tenantId);
+	assert.ok(listed, `organization ${organization.tenantId} is not in the CLI output: ${JSON.stringify(result.stdout)}`);
+	assert.equal(listed[1], organization.name);
+});
+
+Then("the members CLI output includes tenant {string}", function (this: ChatticusWorld, tenantId: string) {
+	const result = this.membersCliResult;
+	assert.ok(result, "the members CLI has not run in this scenario");
+	assert.equal(result.exitCode, 0, result.stderr);
+	const lines = result.stdout.split("\n").map((line) => line.split("\t"));
+	assert.ok(
+		lines.some((fields) => fields[0] === tenantId),
+		`tenant ${tenantId} is not in the CLI output: ${JSON.stringify(result.stdout)}`,
+	);
 });

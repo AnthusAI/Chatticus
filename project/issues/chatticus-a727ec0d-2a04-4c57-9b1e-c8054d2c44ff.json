@@ -32,7 +32,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript control-plane port is underway, with core modules merged and remaining components being built.",
-  "right_now_updated_at": "2026-10-05T23:11:42.016493Z",
+  "right_now_summary": "The TypeScript control-plane port is underway, with auth, conversation, and worker features being built.",
+  "right_now_updated_at": "2026-10-05T23:26:48.121810Z",
   "custom": {}
 }
