@@ -19,7 +19,9 @@
     "@aws-sdk/client-sts": "3.1146.0",
     "@earendil-works/chord": "1.0.2",
     "@earendil-works/pi-ai": "1.0.2",
-    "@earendil-works/pi-durable": "1.0.2"
+    "@earendil-works/pi-durable": "1.0.2",
+    "hono": "4.13.13",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@cucumber/cucumber": "13.3.0",
