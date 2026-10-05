@@ -11,10 +11,6 @@
   "labels": [],
   "dependencies": [
     {
-      "target": "chatticus-9b62aaf8-5beb-4a0b-8b0c-be5d6ee56e6f",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-27c8bf4b-668d-46bf-966b-49d3ac7f5d2d",
       "type": "blocked-by"
     },
@@ -38,14 +34,14 @@
     }
   ],
   "created_at": "2026-10-05T15:45:28.109542Z",
-  "updated_at": "2026-10-05T16:00:56.646199Z",
+  "updated_at": "2026-10-05T17:06:16.071592Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The verified SSE prototype is ready, but the TypeScript stream route and tests still need implementation.",
-  "right_now_updated_at": "2026-10-05T16:00:59.721151Z",
+  "right_now_summary": "The SSE route is being built from the verified ticket 5 prototype, with resume and heartbeat behavior confirmed.",
+  "right_now_updated_at": "2026-10-05T17:06:19.904271Z",
   "custom": {}
 }

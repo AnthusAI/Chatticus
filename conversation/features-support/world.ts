@@ -9,6 +9,12 @@ import { FakeAccountSpendReader, FakeCostExplorerReader } from "./fakes/fake-cos
 import type { FakePrincipalDirectory } from "./fakes/fake-principal-directory.ts";
 import type { CognitoTestKeys } from "./test-jwt.ts";
 import { localDynamoClient, ScenarioMessagingTable } from "./messaging-table.ts";
+import { ApiClient } from "./api.ts";
+import { FakeClock } from "./clock.ts";
+import { SequentialIdSource } from "./clock.ts";
+import { QueueRecorder } from "./queues.ts";
+
+let scenarioCounter = 0;
 
 /**
  * Per-scenario state shared by every ported feature. Each slice adds its own
@@ -34,8 +40,23 @@ export class ChatticusWorld extends World {
 	resolverError: Error | null = null;
 	browserRouteStatus: number | null = null;
 
+	readonly tenantId: string;
+	readonly clock: FakeClock;
+	readonly ids: SequentialIdSource;
+	readonly queues: QueueRecorder;
+	api: ApiClient | null = null;
+	scenarioStartTime: number;
+
 	constructor(options: IWorldOptions) {
 		super(options);
+		const counter = ++scenarioCounter;
+		const random = Math.random().toString(36).substring(2, 8);
+		this.tenantId = `t-${counter}-${random}`;
+		this.clock = new FakeClock();
+		this.ids = new SequentialIdSource();
+		this.queues = new QueueRecorder(this.clock);
+		this.scenarioStartTime = Date.now();
+
 		this.messagingTable = new ScenarioMessagingTable(localDynamoClient());
 		this.store = new DynamoBudgetStore(this.messagingTable.client, this.messagingTable.tableName);
 	}

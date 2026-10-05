@@ -1,11 +1,27 @@
-import { After, Before } from "@cucumber/cucumber";
+import { After, AfterAll, Before } from "@cucumber/cucumber";
 import type { ChatticusWorld } from "./world.ts";
 
+const scenarioTimes: number[] = [];
+
 Before(async function (this: ChatticusWorld) {
+	this.scenarioStartTime = Date.now();
 	await this.messagingTable.create();
 });
 
 After(async function (this: ChatticusWorld) {
 	await this.messagingTable.drop();
 	this.messagingTable.client.destroy();
+
+	const scenarioEndTime = Date.now();
+	const duration = scenarioEndTime - this.scenarioStartTime;
+	scenarioTimes.push(duration);
+});
+
+AfterAll(function () {
+	if (scenarioTimes.length > 0) {
+		const sorted = scenarioTimes.sort((a, b) => a - b);
+		const p95Index = Math.ceil(sorted.length * 0.95) - 1;
+		const p95 = sorted[Math.max(0, p95Index)];
+		console.log(`scenario p95 ms: ${p95}`);
+	}
 });

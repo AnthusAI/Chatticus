@@ -7,6 +7,7 @@ import {
 	DynamoDBClient,
 	PutItemCommand,
 	QueryCommand,
+	UpdateTimeToLiveCommand,
 } from "@aws-sdk/client-dynamodb";
 import { organizationKey, vendorLedgerKey } from "../src/budget/budget-store.ts";
 import type { Decimal } from "../src/budget/decimal.ts";
@@ -138,4 +139,35 @@ export class ScenarioMessagingTable {
 		);
 		return response.Count ?? 0;
 	}
+}
+
+/**
+ * Create the shared Messaging table in moto with plain pk/sk design and TTL.
+ * Used once per worker in BeforeAll hooks.
+ */
+export async function createMessagingTable(client: DynamoDBClient, tableName: string): Promise<void> {
+	await client.send(
+		new CreateTableCommand({
+			TableName: tableName,
+			KeySchema: [
+				{ AttributeName: "pk", KeyType: "HASH" },
+				{ AttributeName: "sk", KeyType: "RANGE" },
+			],
+			AttributeDefinitions: [
+				{ AttributeName: "pk", AttributeType: "S" },
+				{ AttributeName: "sk", AttributeType: "S" },
+			],
+			BillingMode: "PAY_PER_REQUEST",
+		}),
+	);
+	// Enable TTL on expires_at attribute
+	await client.send(
+		new UpdateTimeToLiveCommand({
+			TableName: tableName,
+			TimeToLiveSpecification: {
+				AttributeName: "expires_at",
+				Enabled: true,
+			},
+		}),
+	);
 }

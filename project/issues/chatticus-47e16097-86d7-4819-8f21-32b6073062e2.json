@@ -9,12 +9,7 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-e1b871f5-4d7f-445e-9916-c89132599a86",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "d9524af5-1efc-42f3-97a2-84199d38c28e",
@@ -30,14 +25,14 @@
     }
   ],
   "created_at": "2026-10-05T15:44:38.990704Z",
-  "updated_at": "2026-10-05T16:11:47.838387Z",
+  "updated_at": "2026-10-05T17:06:07.750222Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The team is building the Hono HTTP skeleton, error mapping, invoke-key checks, and health endpoint.",
-  "right_now_updated_at": "2026-10-05T16:11:50.098447Z",
+  "right_now_summary": "The HTTP skeleton, error mapping, invoke-key checks, tenant rejection, and health route are being implemented.",
+  "right_now_updated_at": "2026-10-05T17:06:09.245821Z",
   "custom": {}
 }

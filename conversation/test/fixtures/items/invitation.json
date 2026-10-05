@@ -1,0 +1,1 @@
+{"pk": {"S": "org-456#org"}, "sk": {"S": "invite#inv-789"}, "invitation_id": {"S": "inv-789"}, "tenant_id": {"S": "org-456"}, "email": {"S": "bob@example.com"}, "invited_by_user_id": {"S": "user-123"}, "role": {"S": "member"}, "status": {"S": "pending"}, "expires_at": {"N": "1707993000"}, "created_at": {"S": "2024-01-15T10:30:00+00:00"}}
