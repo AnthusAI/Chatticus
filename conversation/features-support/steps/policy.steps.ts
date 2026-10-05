@@ -1,6 +1,7 @@
 import { Given, When, Then } from "@cucumber/cucumber";
 import { type DataTable } from "@cucumber/cucumber";
 import type { ChatticusWorld } from "../world.ts";
+import { kernelPolicyFor } from "../policy-control.ts";
 import {
 	CapabilityPolicy,
 	TaskCapabilityGrant,
@@ -21,20 +22,12 @@ function tableMap(table: DataTable): Record<string, string> {
 }
 
 function getPolicy(context: ChatticusWorld): CapabilityPolicy {
-	let existing = context.capabilityPolicy as CapabilityPolicy | null;
-	if (existing !== null) {
-		return existing;
-	}
-	const policy = new CapabilityPolicy();
-	context.capabilityPolicy = policy;
-	return policy;
+	return kernelPolicyFor(context);
 }
 
 Given("a human task grants:", function (this: ChatticusWorld, table: DataTable): void {
 	const grant = parseGrantTable(tableMap(table));
-	const policy = new CapabilityPolicy();
-	policy.setGrant(grant);
-	this.capabilityPolicy = policy;
+	kernelPolicyFor(this).setGrant(grant);
 });
 
 Given("the household computer holds privileged credentials:", function (this: ChatticusWorld, table: DataTable): void {
@@ -521,11 +514,6 @@ Then("that browsing context cannot use the privileged session or its secrets", f
 
 Given("no structured connector or takeover control can bind the exact operation", function (this: ChatticusWorld): void {
 	getPolicy(this).recordExclusion("generic_browser_click_binding");
-});
-
-When("the model attempts to send through an authenticated browser", function (this: ChatticusWorld): void {
-	const policy = getPolicy(this);
-	policy.requiredBindingForBrowserAction("send");
 });
 
 Given('turn {string} carries the capability grant', function (this: ChatticusWorld, turnId: string): void {
