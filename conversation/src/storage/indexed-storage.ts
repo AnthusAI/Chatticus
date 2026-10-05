@@ -182,6 +182,31 @@ export class IndexedStorage implements Storage {
 		}
 	}
 
+	/**
+	 * Allocate the next owner fence for a partition: one `UpdateItem` on its OWNER item that adds one to the current
+	 * fence (starting from 0). It is called after the turn has been claimed, so a duplicate delivery cannot raise the
+	 * fence under a live owner, and it fences out any earlier owner.
+	 *
+	 * @param client DynamoDB client.
+	 * @param tableName Pi session table.
+	 * @param storageId Partition identity, `tenant#bot#channel`.
+	 * @returns The newly allocated fence.
+	 */
+	static async allocateFence(client: DynamoDBClient, tableName: string, storageId: string): Promise<number> {
+		const result = await client.send(
+			new UpdateItemCommand({
+				TableName: tableName,
+				Key: { pk: { S: `PI#${storageId}` }, sk: { S: "OWNER" } },
+				UpdateExpression: "SET fence = if_not_exists(fence, :zero) + :one",
+				ExpressionAttributeValues: { ":zero": { N: "0" }, ":one": { N: "1" } },
+				ReturnValues: "UPDATED_NEW",
+			}),
+		);
+		const allocated = result.Attributes?.fence?.N;
+		if (allocated === undefined) throw new Error(`Fence allocation returned no fence for ${storageId}`);
+		return Number(allocated);
+	}
+
 	private async load(): Promise<void> {
 		const meta = await this.getItem("META");
 		if (meta === undefined) {
