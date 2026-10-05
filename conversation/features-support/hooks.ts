@@ -1,4 +1,7 @@
 import { After, AfterAll, Before } from "@cucumber/cucumber";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ChatticusWorld } from "./world.ts";
 
 const scenarioTimes: number[] = [];
@@ -6,11 +9,16 @@ const scenarioTimes: number[] = [];
 Before(async function (this: ChatticusWorld) {
 	this.scenarioStartTime = Date.now();
 	await this.messagingTable.create();
+	this.snapshotTmpdir = mkdtempSync(join(tmpdir(), "chatticus-snapshot-"));
 });
 
 After(async function (this: ChatticusWorld) {
 	await this.messagingTable.drop();
 	this.messagingTable.client.destroy();
+
+	if (this.snapshotTmpdir) {
+		rmSync(this.snapshotTmpdir, { recursive: true, force: true });
+	}
 
 	const scenarioEndTime = Date.now();
 	const duration = scenarioEndTime - this.scenarioStartTime;

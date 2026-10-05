@@ -27,6 +27,7 @@
     "aws-jwt-verify": "5.2.1",
     "hono": "4.13.13",
     "jose": "6.2.12",
+    "tar": "7.4.4",
     "zod": "4.6.5"
   },
   "devDependencies": {
