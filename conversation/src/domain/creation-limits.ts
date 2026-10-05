@@ -1,4 +1,4 @@
-import { OrganizationNameTooLongError, OrganizationOwnerCapError } from "../http/errors.ts";
+import { OrganizationCreationRateLimitedError, OrganizationNameTooLongError, OrganizationOwnerCapError } from "../http/errors.ts";
 import type { Clock } from "../storage/storage-support.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { Identity, IdSource, Organization } from "./organizations.ts";
@@ -33,12 +33,16 @@ export async function createOrganizationUnderCaps(
 	name: string,
 	deps: { store: MessagingStore; clock: Clock; ids: IdSource; rateLimit: number },
 ): Promise<Organization> {
-	await deps.store.recordOrganizationCreationAttempt(
+	const attempts = await deps.store.incrementOrganizationCreationAttempts(
 		owner.userId,
 		deps.clock.now(),
-		deps.rateLimit,
 		ORGANIZATION_CREATION_RATE_WINDOW_MILLISECONDS,
 	);
+	if (attempts > deps.rateLimit) {
+		throw new OrganizationCreationRateLimitedError(
+			`User ${JSON.stringify(owner.userId)} exceeded the organization creation rate limit of ${deps.rateLimit} attempts per ${ORGANIZATION_CREATION_RATE_WINDOW_HOURS}:00:00.`,
+		);
+	}
 	const strippedName = validateOrganizationName(name);
 	const kernel = new OrganizationsKernelImpl();
 	const organizations = await kernel.listOrganizationsForUser(owner.userId, { store: deps.store });

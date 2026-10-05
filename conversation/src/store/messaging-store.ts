@@ -1,4 +1,6 @@
 import type { Bot } from "./codecs/bot.ts";
+import type { Task } from "./codecs/task.ts";
+import type { Worker } from "./codecs/worker.ts";
 import type { Computer } from "./codecs/computer.ts";
 import type { Channel, ChannelMessageRecord } from "../domain/channels.ts";
 import type { Identity, Organization, Membership, Invitation, OrganizationStatus } from "../domain/organizations.ts";
@@ -17,16 +19,10 @@ export interface MessagingStore {
 	listOrganizationsForUser(userId: string): Promise<Organization[]>;
 	listOrganizationsByStatus(status: OrganizationStatus): Promise<Organization[]>;
 	/**
-	 * Record one organization creation attempt for the user and throw
-	 * OrganizationCreationRateLimitedError when the attempts inside the window
-	 * exceed the limit.
+	 * Count one organization creation attempt for the user and return how many attempts, this one included,
+	 * the user has made in the current window. The caller decides whether that count exceeds the limit.
 	 */
-	recordOrganizationCreationAttempt(
-		userId: string,
-		now: Date,
-		limit: number,
-		windowMilliseconds: number,
-	): Promise<void>;
+	incrementOrganizationCreationAttempts(userId: string, now: Date, windowMilliseconds: number): Promise<number>;
 	listPendingInvitationsForEmail(email: string): Promise<Invitation[]>;
 
 	/**
@@ -50,6 +46,14 @@ export interface MessagingStore {
 	putChannelIdempotency(tenantId: string, idempotencyKey: string, channel: Channel): Promise<void>;
 	/** Committed messages of one channel with a sequence greater than afterSeq. */
 	listMessages(tenantId: string, channelId: string, afterSeq: number): Promise<ChannelMessageRecord[]>;
+	/** Persist one committed channel message. */
+	putMessage(message: ChannelMessageRecord): Promise<void>;
+	putWorker(worker: Worker): Promise<void>;
+	getWorker(tenantId: string, workerId: string): Promise<Worker | null>;
+	listWorkers(tenantId: string): Promise<Worker[]>;
+	putTask(task: Task): Promise<void>;
+	getTask(tenantId: string, taskId: string): Promise<Task | null>;
+	listTasks(tenantId: string, userId: string): Promise<Task[]>;
 	getComputer(tenantId: string): Promise<Computer | null>;
 	putComputer(computer: Computer): Promise<void>;
 }
