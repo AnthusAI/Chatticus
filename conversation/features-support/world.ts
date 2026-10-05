@@ -5,6 +5,12 @@ import type { Organization } from "../src/budget/models.ts";
 import { FakeBudgetAlertsPublisher } from "./fakes/fake-budget-alerts.ts";
 import { FakeAccountSpendReader, FakeCostExplorerReader } from "./fakes/fake-cost-explorer.ts";
 import { localDynamoClient, ScenarioMessagingTable } from "./messaging-table.ts";
+import { ApiClient } from "./api.ts";
+import { FakeClock } from "./clock.ts";
+import { SequentialIdSource } from "./clock.ts";
+import { QueueRecorder } from "./queues.ts";
+
+let scenarioCounter = 0;
 
 /**
  * Per-scenario state shared by every ported feature. Each slice adds its own
@@ -22,11 +28,23 @@ export class ChatticusWorld extends World {
 	readonly budgetAlerts = new FakeBudgetAlertsPublisher();
 	customerOrganization: Organization | null = null;
 
-	lastChannel: Record<string, unknown> | null = null;
-	demoContext?: Record<string, unknown> | object;
+	readonly tenantId: string;
+	readonly clock: FakeClock;
+	readonly ids: SequentialIdSource;
+	readonly queues: QueueRecorder;
+	api: ApiClient | null = null;
+	scenarioStartTime: number;
 
 	constructor(options: IWorldOptions) {
 		super(options);
+		const counter = ++scenarioCounter;
+		const random = Math.random().toString(36).substring(2, 8);
+		this.tenantId = `t-${counter}-${random}`;
+		this.clock = new FakeClock();
+		this.ids = new SequentialIdSource();
+		this.queues = new QueueRecorder(this.clock);
+		this.scenarioStartTime = Date.now();
+
 		this.messagingTable = new ScenarioMessagingTable(localDynamoClient());
 		this.store = new DynamoBudgetStore(this.messagingTable.client, this.messagingTable.tableName);
 	}
