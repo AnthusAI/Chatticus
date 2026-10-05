@@ -10,16 +10,28 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "969e819c-3cb7-491a-b923-620ddd63161d",
+      "author": "home",
+      "text": "Merged as #416: bots, channels and roster over real routes; canonical_channels and web_create_bot on cucumber-js. Left: shared_channels, messages.feature, the bot memory route; POST messages returns 501 until TS-16; the messaging store has only the in-memory implementation (see the hardening gate 5c754a). Keeping this ticket open for the leftovers.",
+      "created_at": "2026-10-05T22:51:11.351776Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5"
+      }
+    }
+  ],
   "created_at": "2026-10-05T15:45:08.991880Z",
-  "updated_at": "2026-10-05T17:50:20.459369Z",
+  "updated_at": "2026-10-05T22:51:11.351820Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The TypeScript port for bots, channels, roster routes, and supporting steps is being implemented and tested.",
-  "right_now_updated_at": "2026-10-05T17:50:21.764632Z",
+  "right_now_summary": "Bots, channels, and roster routes are merged; shared channels, message flows, and bot memory remain.",
+  "right_now_updated_at": "2026-10-05T22:51:13.302363Z",
   "custom": {}
 }
