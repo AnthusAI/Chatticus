@@ -9,12 +9,7 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-c5020c09-65b2-4c61-9fd2-6c44bdf739ff",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "2662f9c6-3579-40b4-a0ad-549977006415",
@@ -30,14 +25,14 @@
     }
   ],
   "created_at": "2026-10-05T15:44:47.157371Z",
-  "updated_at": "2026-10-05T17:20:53.061075Z",
+  "updated_at": "2026-10-05T17:50:11.037616Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The TypeScript organization and identity kernel is being ported with TS-07 corrections applied.",
-  "right_now_updated_at": "2026-10-05T17:20:55.679002Z",
+  "right_now_summary": "The TypeScript organization, membership, identity, and role modules are being ported with their feature steps.",
+  "right_now_updated_at": "2026-10-05T17:50:14.365802Z",
   "custom": {}
 }

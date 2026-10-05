@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-c5020c09-65b2-4c61-9fd2-6c44bdf739ff",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:46:00.156091Z",
-  "updated_at": "2026-10-05T15:49:36.125024Z",
+  "updated_at": "2026-10-05T17:50:23.066380Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The worker registry and credential system is being ported to TypeScript.",
-  "right_now_updated_at": "2026-10-05T15:49:38.409474Z",
+  "right_now_summary": "Worker registry, credential handling, cost ranking, and related tests are being ported to TypeScript.",
+  "right_now_updated_at": "2026-10-05T17:50:24.483048Z",
   "custom": {}
 }
