@@ -11,10 +11,6 @@
   "labels": [],
   "dependencies": [
     {
-      "target": "chatticus-3250ec95-0922-46ea-b8a5-4fbed054fa6f",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-c5020c09-65b2-4c61-9fd2-6c44bdf739ff",
       "type": "blocked-by"
     }
@@ -34,14 +30,14 @@
     }
   ],
   "created_at": "2026-10-05T15:44:47.157371Z",
-  "updated_at": "2026-10-05T16:11:52.776609Z",
+  "updated_at": "2026-10-05T17:20:53.061075Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The team is porting organization, membership, identity, and role logic to TypeScript.",
-  "right_now_updated_at": "2026-10-05T16:11:55.252189Z",
+  "right_now_summary": "The TypeScript organization and identity kernel is being ported with TS-07 corrections applied.",
+  "right_now_updated_at": "2026-10-05T17:20:55.679002Z",
   "custom": {}
 }

@@ -11,24 +11,20 @@
   "labels": [],
   "dependencies": [
     {
-      "target": "chatticus-3250ec95-0922-46ea-b8a5-4fbed054fa6f",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-c5020c09-65b2-4c61-9fd2-6c44bdf739ff",
       "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:45:08.991880Z",
-  "updated_at": "2026-10-05T15:48:02.063878Z",
+  "updated_at": "2026-10-05T17:20:58.109633Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The TypeScript port for bots, channels, and roster routes and steps is being implemented and tested.",
-  "right_now_updated_at": "2026-10-05T15:48:03.680194Z",
+  "right_now_summary": "The TypeScript port for bots, channels, roster, routes, and test steps is being implemented.",
+  "right_now_updated_at": "2026-10-05T17:21:00.903652Z",
   "custom": {}
 }
