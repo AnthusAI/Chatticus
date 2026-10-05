@@ -10,7 +10,7 @@ import type { ApprovedOperation, BoundExecutionResult, OperationProposal } from 
 import type { ConnectionProposalResult, ConnectionProposalRoute } from "../src/policy/connections.ts";
 import type { PolicyControl } from "../src/policy/policy-control.ts";
 import type { MessagingStore } from "../src/store/messaging-store.ts";
-import { InMemoryMessagingStore } from "./in-memory-messaging-store.ts";
+import { DynamoMessagingStore } from "../src/store/dynamo-messaging-store.ts";
 import { FakeBudgetAlertsPublisher } from "./fakes/fake-budget-alerts.ts";
 import { FakeAccountSpendReader, FakeCostExplorerReader } from "./fakes/fake-cost-explorer.ts";
 import type { FakePrincipalDirectory } from "./fakes/fake-principal-directory.ts";
@@ -83,7 +83,7 @@ export class ChatticusWorld extends World {
 	currentIdentity: Identity | null = null;
 	lastInvitation: Invitation | null = null;
 	lastError: Error | null = null;
-	inMemoryStore: MessagingStore | null = null;
+	scenarioMessagingStore: MessagingStore | null = null;
 	snapshotTmpdir: string | null = null;
 	snapshotStore: unknown = null;
 	computerHosts: Record<string, unknown> = {};
@@ -131,16 +131,16 @@ export class ChatticusWorld extends World {
 		this.store = new DynamoBudgetStore(this.messagingTable.client, this.messagingTable.tableName);
 	}
 
-	createInMemoryStore(): MessagingStore {
-		return new InMemoryMessagingStore();
+	createMessagingStore(): MessagingStore {
+		return new DynamoMessagingStore(this.messagingTable.client, this.messagingTable.tableName);
 	}
 
 	/** The scenario's single messaging store, shared by the HTTP app and direct domain steps. */
 	messagingStore(): MessagingStore {
-		if (this.inMemoryStore === null) {
-			this.inMemoryStore = this.createInMemoryStore();
+		if (this.scenarioMessagingStore === null) {
+			this.scenarioMessagingStore = this.createMessagingStore();
 		}
-		return this.inMemoryStore;
+		return this.scenarioMessagingStore;
 	}
 }
 

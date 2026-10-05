@@ -37,7 +37,7 @@ Given("an empty organization records store", async function (this: ChatticusWorl
 
 When("{string} signs in for the first time", async function (this: ChatticusWorld, email: string) {
 	const identity = await kernel.signIn(email, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		clock: this.clock,
 		ids: this.ids,
 	});
@@ -48,7 +48,7 @@ When("{string} signs in for the first time", async function (this: ChatticusWorl
 
 When("{string} signs in", async function (this: ChatticusWorld, email: string) {
 	const identity = await kernel.signIn(email, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		clock: this.clock,
 		ids: this.ids,
 	});
@@ -59,7 +59,7 @@ When("{string} signs in", async function (this: ChatticusWorld, email: string) {
 
 Given("{string} has signed in", async function (this: ChatticusWorld, email: string) {
 	const identity = await kernel.signIn(email, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		clock: this.clock,
 		ids: this.ids,
 	});
@@ -71,7 +71,7 @@ Given("{string} has signed in", async function (this: ChatticusWorld, email: str
 When("that user creates organization {string}", async function (this: ChatticusWorld, name: string) {
 	assert.ok(this.currentIdentity);
 	const org = await kernel.createOrganization(this.currentIdentity, name, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		clock: this.clock,
 		ids: this.ids,
 	});
@@ -82,7 +82,7 @@ When("that user creates organization {string}", async function (this: ChatticusW
 Given("that user has created organization {string}", async function (this: ChatticusWorld, name: string) {
 	assert.ok(this.currentIdentity);
 	const org = await kernel.createOrganization(this.currentIdentity, name, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		clock: this.clock,
 		ids: this.ids,
 	});
@@ -93,14 +93,14 @@ Given("that user has created organization {string}", async function (this: Chatt
 Given("that user has created and enabled organization {string}", async function (this: ChatticusWorld, name: string) {
 	assert.ok(this.currentIdentity);
 	const org = await kernel.createOrganization(this.currentIdentity, name, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		clock: this.clock,
 		ids: this.ids,
 	});
 	if (!this.orgsByName) this.orgsByName = new Map();
 	this.orgsByName.set(name, org);
 	const enabled = await kernel.enableOrganization(org.tenantId, {
-		store: this.inMemoryStore,
+		store: this.scenarioMessagingStore,
 	});
 	this.orgsByName.set(name, enabled);
 });
@@ -108,7 +108,7 @@ Given("that user has created and enabled organization {string}", async function 
 When("the organization {string} is enabled", async function (this: ChatticusWorld, name: string) {
 	const org = orgByName(this, name);
 	const enabled = await kernel.enableOrganization(org.tenantId, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 	});
 	if (!this.orgsByName) this.orgsByName = new Map();
 	this.orgsByName.set(name, enabled);
@@ -117,7 +117,7 @@ When("the organization {string} is enabled", async function (this: ChatticusWorl
 When("the organization {string} is suspended", async function (this: ChatticusWorld, name: string) {
 	const org = orgByName(this, name);
 	const suspended = await kernel.suspendOrganization(org.tenantId, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 	});
 	if (!this.orgsByName) this.orgsByName = new Map();
 	this.orgsByName.set(name, suspended);
@@ -126,7 +126,7 @@ When("the organization {string} is suspended", async function (this: ChatticusWo
 Given("organization {string} has been suspended", async function (this: ChatticusWorld, name: string) {
 	const org = orgByName(this, name);
 	const suspended = await kernel.suspendOrganization(org.tenantId, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 	});
 	if (!this.orgsByName) this.orgsByName = new Map();
 	this.orgsByName.set(name, suspended);
@@ -135,7 +135,7 @@ Given("organization {string} has been suspended", async function (this: Chatticu
 When("the organization {string} is reinstated", async function (this: ChatticusWorld, name: string) {
 	const org = orgByName(this, name);
 	const reinstated = await kernel.reinstateOrganization(org.tenantId, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 	});
 	if (!this.orgsByName) this.orgsByName = new Map();
 	this.orgsByName.set(name, reinstated);
@@ -146,7 +146,7 @@ When("the organization {string} tries to be reinstated", async function (this: C
 	this.lastError = null;
 	try {
 		const reinstated = await kernel.reinstateOrganization(org.tenantId, {
-			store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+			store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		});
 		if (!this.orgsByName) this.orgsByName = new Map();
 		this.orgsByName.set(name, reinstated);
@@ -158,7 +158,7 @@ When("the organization {string} tries to be reinstated", async function (this: C
 When("the owner of {string} invites {string}", async function (this: ChatticusWorld, name: string, email: string) {
 	const org = orgByName(this, name);
 	const invitation = await kernel.inviteByEmail(org.tenantId, this.currentIdentity!.userId, email, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		clock: this.clock,
 		ids: this.ids,
 	});
@@ -168,7 +168,7 @@ When("the owner of {string} invites {string}", async function (this: ChatticusWo
 Given("the owner of {string} has invited {string}", async function (this: ChatticusWorld, name: string, email: string) {
 	const org = orgByName(this, name);
 	const invitation = await kernel.inviteByEmail(org.tenantId, this.currentIdentity!.userId, email, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		clock: this.clock,
 		ids: this.ids,
 	});
@@ -179,7 +179,7 @@ When("that user accepts the invitation to {string}", async function (this: Chatt
 	assert.ok(this.lastInvitation);
 	assert.ok(this.currentIdentity);
 	await kernel.acceptInvitation(this.lastInvitation.invitationId, this.currentIdentity, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		clock: this.clock,
 	});
 });
@@ -190,7 +190,7 @@ When("that user tries to accept the invitation to {string}", async function (thi
 	this.lastError = null;
 	try {
 		await kernel.acceptInvitation(this.lastInvitation.invitationId, this.currentIdentity, {
-			store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+			store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 			clock: this.clock,
 		});
 	} catch (error) {
@@ -208,7 +208,7 @@ When("the owner of {string} sets {string} role to {string}", async function (
 	let identity = this.identitiesByEmail?.get(email);
 	if (!identity) {
 		identity = await kernel.signIn(email, {
-			store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+			store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 			clock: this.clock,
 			ids: this.ids,
 		});
@@ -217,7 +217,7 @@ When("the owner of {string} sets {string} role to {string}", async function (
 	}
 	this.lastError = null;
 	await kernel.setMemberRole(org.tenantId, this.currentIdentity!.userId, identity.userId, role as any, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 	});
 });
 
@@ -231,7 +231,7 @@ When("the owner of {string} tries to set {string} role to {string}", async funct
 	let identity = this.identitiesByEmail?.get(email);
 	if (!identity) {
 		identity = await kernel.signIn(email, {
-			store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+			store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 			clock: this.clock,
 			ids: this.ids,
 		});
@@ -241,7 +241,7 @@ When("the owner of {string} tries to set {string} role to {string}", async funct
 	this.lastError = null;
 	try {
 		await kernel.setMemberRole(org.tenantId, this.currentIdentity!.userId, identity.userId, role as any, {
-			store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+			store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		});
 	} catch (error) {
 		this.lastError = error as Error;
@@ -262,7 +262,7 @@ When("that user tries to set their role to {string} in {string}", async function
 			this.currentIdentity!.userId,
 			role as any,
 			{
-				store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+				store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 			},
 		);
 	} catch (error) {
@@ -272,7 +272,7 @@ When("that user tries to set their role to {string} in {string}", async function
 
 When("that user is checked for access to {string}", async function (this: ChatticusWorld, name: string) {
 	const org = orgByName(this, name);
-	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
+	const store = this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore());
 	this.lastError = null;
 	const principal: Principal = {
 		kind: "user",
@@ -294,7 +294,7 @@ When("that user is checked for access to {string}", async function (this: Chatti
 
 When("a stranger principal is checked for access to {string}", async function (this: ChatticusWorld, name: string) {
 	const org = orgByName(this, name);
-	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
+	const store = this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore());
 	this.lastError = null;
 	const principal: Principal = {
 		kind: "user",
@@ -319,7 +319,7 @@ When("a worker principal for tenant {string} is checked for access to tenant {st
 	workerTenant: string,
 	pathTenant: string,
 ) {
-	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
+	const store = this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore());
 	this.lastError = null;
 	const principal: Principal = {
 		kind: "worker",
@@ -344,7 +344,7 @@ When("the store is recycled", async function (this: ChatticusWorld) {
 
 Then("an identity exists for {string}", async function (this: ChatticusWorld, email: string) {
 	const identity = await kernel.signIn(email, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		clock: this.clock,
 		ids: this.ids,
 	});
@@ -355,7 +355,7 @@ Then("signing in again as {string} returns the same user id", async function (th
 	const first = this.identitiesByEmail?.get(email);
 	assert.ok(first);
 	const again = await kernel.signIn(email, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 		clock: this.clock,
 		ids: this.ids,
 	});
@@ -364,7 +364,7 @@ Then("signing in again as {string} returns the same user id", async function (th
 
 Then("organization {string} has status {string}", async function (this: ChatticusWorld, name: string, status: string) {
 	const org = orgByName(this, name);
-	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
+	const store = this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore());
 	const loaded = await store.getOrganization(org.tenantId);
 	assert.ok(loaded);
 	assert.equal(loaded.status, status);
@@ -372,7 +372,7 @@ Then("organization {string} has status {string}", async function (this: Chatticu
 
 Then("that user is an owner member of {string}", async function (this: ChatticusWorld, name: string) {
 	const org = orgByName(this, name);
-	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
+	const store = this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore());
 	const membership = await store.getMembership(org.tenantId, this.currentIdentity!.userId);
 	assert.ok(membership);
 	assert.equal(membership.role, "owner");
@@ -394,7 +394,7 @@ Then("a pending invitation exists for {string} in {string}", async function (
 
 Then("{string} is a member of {string}", async function (this: ChatticusWorld, email: string, name: string) {
 	const org = orgByName(this, name);
-	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
+	const store = this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore());
 	let identity = this.identitiesByEmail?.get(email);
 	if (!identity) {
 		identity = await kernel.signIn(email, {
@@ -417,7 +417,7 @@ Then("{string} has role {string} in {string}", async function (
 	name: string,
 ) {
 	const org = orgByName(this, name);
-	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
+	const store = this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore());
 	let identity = this.identitiesByEmail?.get(email);
 	if (!identity) {
 		identity = await kernel.signIn(email, {
@@ -436,7 +436,7 @@ Then("{string} has role {string} in {string}", async function (
 Then("listing organizations for that user includes {string}", async function (this: ChatticusWorld, name: string) {
 	const org = orgByName(this, name);
 	const orgs = await kernel.listOrganizationsForUser(this.currentIdentity!.userId, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 	});
 	const tenantIds = new Set(orgs.map((o) => o.tenantId));
 	assert.ok(tenantIds.has(org.tenantId));
@@ -469,7 +469,7 @@ Then("no computer exists for {string}", async function (this: ChatticusWorld, na
 Then("listing organizations for that user still includes {string}", async function (this: ChatticusWorld, name: string) {
 	const org = orgByName(this, name);
 	const orgs = await kernel.listOrganizationsForUser(this.currentIdentity!.userId, {
-		store: this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore()),
+		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
 	});
 	const tenantIds = new Set(orgs.map((o) => o.tenantId));
 	assert.ok(tenantIds.has(org.tenantId));

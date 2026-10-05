@@ -1,8 +1,10 @@
 import type { Identity, Invitation, Membership, Organization, OrganizationStatus } from "../src/domain/organizations.ts";
 import type { Channel, ChannelMessageRecord } from "../src/domain/channels.ts";
 import type { Bot } from "../src/store/codecs/bot.ts";
+import type { Task } from "../src/store/codecs/task.ts";
+import type { Worker } from "../src/store/codecs/worker.ts";
 import type { Computer } from "../src/store/codecs/computer.ts";
-import { DuplicateBotNameError, OrganizationCreationRateLimitedError } from "../src/http/errors.ts";
+import { DuplicateBotNameError } from "../src/http/errors.ts";
 import type { MessagingStore } from "../src/store/messaging-store.ts";
 
 /** In-memory messaging store for scenarios that do not need DynamoDB. */
@@ -19,6 +21,8 @@ export class InMemoryMessagingStore implements MessagingStore {
 	private readonly channelIdempotency = new Map<string, string>();
 	private readonly messages = new Map<string, ChannelMessageRecord[]>();
 	private readonly computers = new Map<string, Computer>();
+	private readonly workers = new Map<string, Worker>();
+	private readonly tasks = new Map<string, Task>();
 
 	async getIdentityByEmail(email: string): Promise<Identity | null> {
 		return this.identities.get(email) ?? null;
@@ -50,7 +54,7 @@ export class InMemoryMessagingStore implements MessagingStore {
 	}
 
 	async listMemberships(tenantId: string): Promise<Membership[]> {
-		return Array.from(this.memberships.get(tenantId)?.values() ?? []);
+		return Array.from(this.memberships.get(tenantId)?.values() ?? []).sort((left, right) => compareStrings(left.userId, right.userId));
 	}
 
 	async getInvitation(invitationId: string): Promise<Invitation | null> {
@@ -68,36 +72,27 @@ export class InMemoryMessagingStore implements MessagingStore {
 				result.push(organization);
 			}
 		}
-		return result;
+		return result.sort((left, right) => compareStrings(left.tenantId, right.tenantId));
 	}
 
 	async listOrganizationsByStatus(status: OrganizationStatus): Promise<Organization[]> {
 		return Array.from(this.organizations.values())
 			.filter((organization) => organization.status === status)
-			.sort((left, right) => (left.tenantId < right.tenantId ? -1 : left.tenantId > right.tenantId ? 1 : 0));
+			.sort((left, right) => compareStrings(left.tenantId, right.tenantId));
 	}
 
-	async recordOrganizationCreationAttempt(
-		userId: string,
-		now: Date,
-		limit: number,
-		windowMilliseconds: number,
-	): Promise<void> {
+	async incrementOrganizationCreationAttempts(userId: string, now: Date, windowMilliseconds: number): Promise<number> {
 		const cutoff = now.getTime() - windowMilliseconds;
 		const attempts = (this.creationAttempts.get(userId) ?? []).filter((timestamp) => timestamp.getTime() > cutoff);
 		attempts.push(now);
 		this.creationAttempts.set(userId, attempts);
-		if (attempts.length > limit) {
-			throw new OrganizationCreationRateLimitedError(
-				`User ${JSON.stringify(userId)} exceeded the organization creation rate limit of ${limit} attempts per 1:00:00.`,
-			);
-		}
+		return attempts.length;
 	}
 
 	async listPendingInvitationsForEmail(email: string): Promise<Invitation[]> {
 		return Array.from(this.invitations.values()).filter(
 			(invitation) => invitation.email === email && invitation.status === "pending",
-		);
+		).sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
 	}
 
 	async putBot(bot: Bot, reserveName: boolean): Promise<void> {
@@ -134,7 +129,8 @@ export class InMemoryMessagingStore implements MessagingStore {
 	async listBots(tenantId: string): Promise<Bot[]> {
 		return Array.from(this.bots.values())
 			.filter((bot) => bot.tenantId === tenantId)
-			.map((bot) => structuredClone(bot));
+			.map((bot) => structuredClone(bot))
+			.sort((left, right) => compareStrings(left.name, right.name));
 	}
 
 	async getBotIdempotency(tenantId: string, idempotencyKey: string): Promise<Bot | null> {
@@ -172,7 +168,7 @@ export class InMemoryMessagingStore implements MessagingStore {
 					channel.participants.some((participant) => participant.kind === "human" && participant.actorId === userId),
 			)
 			.map((channel) => structuredClone(channel))
-			.sort((left, right) => (left.channelId < right.channelId ? -1 : left.channelId > right.channelId ? 1 : 0));
+			.sort((left, right) => compareStrings(left.channelId, right.channelId));
 	}
 
 	async resolveChannelTenant(channelId: string): Promise<string | null> {
@@ -193,10 +189,50 @@ export class InMemoryMessagingStore implements MessagingStore {
 		this.channelIdempotency.set(`${tenantId}\u0000${idempotencyKey}`, channel.channelId);
 	}
 
+	async putMessage(message: ChannelMessageRecord): Promise<void> {
+		const key = `${message.tenantId}\u0000${message.channelId}`;
+		const kept = (this.messages.get(key) ?? []).filter((existing) => existing.seq !== message.seq);
+		kept.push(structuredClone(message));
+		this.messages.set(key, kept);
+	}
+
 	async listMessages(tenantId: string, channelId: string, afterSeq: number): Promise<ChannelMessageRecord[]> {
 		return (this.messages.get(`${tenantId}\u0000${channelId}`) ?? [])
 			.filter((message) => message.seq > afterSeq)
-			.map((message) => structuredClone(message));
+			.map((message) => structuredClone(message))
+			.sort((left, right) => left.seq - right.seq);
+	}
+
+	async putWorker(worker: Worker): Promise<void> {
+		this.workers.set(`${worker.tenantId}\u0000${worker.workerId}`, structuredClone(worker));
+	}
+
+	async getWorker(tenantId: string, workerId: string): Promise<Worker | null> {
+		const worker = this.workers.get(`${tenantId}\u0000${workerId}`);
+		return worker === undefined ? null : structuredClone(worker);
+	}
+
+	async listWorkers(tenantId: string): Promise<Worker[]> {
+		return Array.from(this.workers.values())
+			.filter((worker) => worker.tenantId === tenantId)
+			.map((worker) => structuredClone(worker))
+			.sort((left, right) => compareStrings(left.workerId, right.workerId));
+	}
+
+	async putTask(task: Task): Promise<void> {
+		this.tasks.set(`${task.tenantId}\u0000${task.taskId}`, structuredClone(task));
+	}
+
+	async getTask(tenantId: string, taskId: string): Promise<Task | null> {
+		const task = this.tasks.get(`${tenantId}\u0000${taskId}`);
+		return task === undefined ? null : structuredClone(task);
+	}
+
+	async listTasks(tenantId: string, userId: string): Promise<Task[]> {
+		return Array.from(this.tasks.values())
+			.filter((task) => task.tenantId === tenantId && task.userId === userId)
+			.map((task) => structuredClone(task))
+			.sort((left, right) => compareStrings(left.taskId, right.taskId));
 	}
 
 	async getComputer(tenantId: string): Promise<Computer | null> {
@@ -207,4 +243,8 @@ export class InMemoryMessagingStore implements MessagingStore {
 	async putComputer(computer: Computer): Promise<void> {
 		this.computers.set(computer.tenantId, structuredClone(computer));
 	}
+}
+
+function compareStrings(left: string, right: string): number {
+	return left < right ? -1 : left > right ? 1 : 0;
 }
