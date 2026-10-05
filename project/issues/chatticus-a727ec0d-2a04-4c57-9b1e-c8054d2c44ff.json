@@ -19,7 +19,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The Pi worker and session-history work continues, but production has not switched to it yet.",
-  "right_now_updated_at": "2026-10-05T13:16:22.960473Z",
+  "right_now_summary": "The team is shifting the harness to TypeScript while validating the merged conversation workspace and durable storage.",
+  "right_now_updated_at": "2026-10-05T13:27:23.749138Z",
   "custom": {}
 }
