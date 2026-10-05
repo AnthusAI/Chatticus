@@ -2,22 +2,37 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
+
 from behave import given, then, when
 from cognito_test_support import mint_id_token
 from me_front_door_steps import _keys
-from organization_steps import _org_by_name
+from organization_steps import _org_by_name, _plane
 from web_organization_signup_steps import _run_harness
 
 from chatticus.http.paths import org_path
+from chatticus.members.__main__ import main as members_main
 
 CREATE_BOT_FORM_TITLE = "Create a bot"
+
+
+def _enable_organization_through_members_cli(context: object, name: str) -> None:
+    org = _org_by_name(context, name)
+    plane = _plane(context)
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        context.members_cli_exit = members_main(
+            ["enable", org.tenant_id, "--yes"],
+            plane_factory=lambda: plane,
+        )
+    context.members_cli_output = buffer.getvalue()
 
 
 @given('the enabled workspace web SPA for "{email}" in "{name}"')
 def given_enabled_workspace_web_spa(context: object, email: str, name: str) -> None:
     from invitation_web_steps import given_web_enabled_org_session
     from me_front_door_steps import given_signed_in_on_me_front_door
-    from members_cli_steps import when_members_cli_enables
     from open_signup_front_door_steps import given_open_signup_wired_to_web
     from organization_steps import given_created_org
     from web_organization_signup_steps import when_render_membership_shell
@@ -25,7 +40,7 @@ def given_enabled_workspace_web_spa(context: object, email: str, name: str) -> N
     given_open_signup_wired_to_web(context)
     given_signed_in_on_me_front_door(context, email)
     given_created_org(context, name)
-    when_members_cli_enables(context, name)
+    _enable_organization_through_members_cli(context, name)
     given_web_enabled_org_session(context, email, name)
     when_render_membership_shell(context)
     harness = context.membership_ui_harness

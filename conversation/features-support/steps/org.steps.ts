@@ -343,11 +343,8 @@ When("the store is recycled", async function (this: ChatticusWorld) {
 });
 
 Then("an identity exists for {string}", async function (this: ChatticusWorld, email: string) {
-	const identity = await kernel.signIn(email, {
-		store: this.scenarioMessagingStore ?? (this.scenarioMessagingStore = this.createMessagingStore()),
-		clock: this.clock,
-		ids: this.ids,
-	});
+	const identity = await this.messagingStore().getIdentityByEmail(normalizeEmail(email));
+	assert.ok(identity, `no identity is stored for ${email}`);
 	assert.ok(identity.userId);
 });
 
@@ -463,7 +460,8 @@ Then("setting the role is refused because this is the last owner", function (thi
 });
 
 Then("no computer exists for {string}", async function (this: ChatticusWorld, name: string) {
-	// Computer is not part of this ticket, placeholder for now
+	const org = orgByName(this, name);
+	assert.equal(await this.messagingStore().getComputer(org.tenantId), null);
 });
 
 Then("listing organizations for that user still includes {string}", async function (this: ChatticusWorld, name: string) {
