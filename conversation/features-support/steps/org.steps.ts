@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
+import { MembershipCache } from "../../src/auth/membership-cache.ts";
+import type { CachedMembership, Membership, OrganizationStatus, Principal, PrincipalDirectory } from "../../src/auth/principal.ts";
+import { verifyOrgAccess } from "../../src/auth/principal.ts";
 import { OrganizationsKernelImpl, normalizeEmail } from "../../src/domain/organizations.ts";
 import type {
 	Identity,
@@ -14,6 +17,34 @@ import type {
 import type { ChatticusWorld } from "../world.ts";
 
 const kernel = new OrganizationsKernelImpl();
+
+class StorePrincipalDirectory implements PrincipalDirectory {
+	private store: any;
+
+	constructor(store: any) {
+		this.store = store;
+	}
+
+	async getIdentityByEmail(email: string): Promise<{ userId: string } | null> {
+		const identity = await this.store.getIdentityByEmail(email);
+		if (identity === null) return null;
+		return { userId: identity.userId };
+	}
+
+	async getMembership(tenantId: string, userId: string): Promise<Membership | null> {
+		return this.store.getMembership(tenantId, userId);
+	}
+
+	async getOrganizationStatus(tenantId: string): Promise<OrganizationStatus> {
+		const org = await this.store.getOrganization(tenantId);
+		if (org === null) throw new Error(`Unknown organization ${tenantId}`);
+		return org.status;
+	}
+
+	async verifyWorkerToken(): Promise<string | null> {
+		return null;
+	}
+}
 
 function orgByName(world: ChatticusWorld, name: string): Organization {
 	const org = world.orgsByName?.get(name);
@@ -270,9 +301,21 @@ When("that user is checked for access to {string}", async function (this: Chatti
 	const org = orgByName(this, name);
 	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
 	this.lastError = null;
-	const membership = await store.getMembership(org.tenantId, this.currentIdentity!.userId);
-	if (membership === null) {
-		this.lastError = new Error(`User is not a member`);
+	const principal: Principal = {
+		kind: "user",
+		tenantId: org.tenantId,
+		userId: this.currentIdentity!.userId,
+		workerId: null,
+		organizationStatus: org.status,
+		role: "owner",
+	};
+	try {
+		await verifyOrgAccess(principal, org.tenantId, {
+			directory: new StorePrincipalDirectory(store),
+			requireEnabledMember: false,
+		});
+	} catch (error) {
+		this.lastError = error as Error;
 	}
 });
 
@@ -280,9 +323,21 @@ When("a stranger principal is checked for access to {string}", async function (t
 	const org = orgByName(this, name);
 	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
 	this.lastError = null;
-	const membership = await store.getMembership(org.tenantId, "stranger");
-	if (membership === null) {
-		this.lastError = new Error(`User is not a member`);
+	const principal: Principal = {
+		kind: "user",
+		tenantId: org.tenantId,
+		userId: "stranger",
+		workerId: null,
+		organizationStatus: org.status,
+		role: null,
+	};
+	try {
+		await verifyOrgAccess(principal, org.tenantId, {
+			directory: new StorePrincipalDirectory(store),
+			requireEnabledMember: false,
+		});
+	} catch (error) {
+		this.lastError = error as Error;
 	}
 });
 
@@ -291,12 +346,27 @@ When("a worker principal for tenant {string} is checked for access to tenant {st
 	workerTenant: string,
 	pathTenant: string,
 ) {
+	const store = this.inMemoryStore ?? (this.inMemoryStore = this.createInMemoryStore());
 	this.lastError = null;
-	this.lastError = new Error(`Worker not registered`);
+	const principal: Principal = {
+		kind: "worker",
+		tenantId: workerTenant,
+		userId: null,
+		workerId: "worker-1",
+		organizationStatus: null,
+		role: null,
+	};
+	try {
+		await verifyOrgAccess(principal, pathTenant, {
+			directory: new StorePrincipalDirectory(store),
+			requireEnabledMember: false,
+		});
+	} catch (error) {
+		this.lastError = error as Error;
+	}
 });
 
 When("the store is recycled", async function (this: ChatticusWorld) {
-	// In-memory store persists across recycling - no action needed
 });
 
 Then("an identity exists for {string}", async function (this: ChatticusWorld, email: string) {
