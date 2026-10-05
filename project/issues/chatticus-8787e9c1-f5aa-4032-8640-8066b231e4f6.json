@@ -13,22 +13,18 @@
     {
       "target": "chatticus-c32c3599-2efb-4bf9-a587-565c366be5a2",
       "type": "blocked-by"
-    },
-    {
-      "target": "chatticus-90b9d896-8f4f-47ad-8045-6ea503129158",
-      "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:45:17.252226Z",
-  "updated_at": "2026-10-05T15:48:14.092358Z",
+  "updated_at": "2026-10-05T21:30:39.594201Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "Message admission and listing are being implemented with idempotency, sequence allocation, mailbox writes, and turn",
-  "right_now_updated_at": "2026-10-05T15:48:15.677800Z",
+  "right_now_summary": "The team is implementing message admission, listing, idempotency, mailbox writes, and turn steering.",
+  "right_now_updated_at": "2026-10-05T21:30:41.664649Z",
   "custom": {}
 }
