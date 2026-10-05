@@ -1,0 +1,1 @@
+{"pk": {"S": "org-456#roster"}, "sk": {"S": "bot#bot-def"}, "tenant_id": {"S": "org-456"}, "bot_id": {"S": "bot-def"}, "name": {"S": "Assistant"}, "memory": {"S": "{\"context\": \"user preferences\", \"history\": \"last 10 turns\"}"}}

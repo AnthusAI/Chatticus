@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-3250ec95-0922-46ea-b8a5-4fbed054fa6f",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:45:48.708595Z",
-  "updated_at": "2026-10-05T15:49:17.549875Z",
+  "updated_at": "2026-10-05T17:21:07.049191Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The policy kernel and its step definitions are being ported to TypeScript.",
-  "right_now_updated_at": "2026-10-05T15:49:18.828323Z",
+  "right_now_summary": "The TypeScript policy kernel and its Cucumber steps are being ported and verified.",
+  "right_now_updated_at": "2026-10-05T17:21:09.028709Z",
   "custom": {}
 }
