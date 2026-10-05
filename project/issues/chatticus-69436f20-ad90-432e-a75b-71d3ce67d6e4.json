@@ -57,18 +57,22 @@
     {
       "target": "chatticus-663171ea-f490-4a05-9ebf-fca33d75fb0a",
       "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-5c754a7d-9539-4db6-bac1-3e3f704520ee",
+      "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:46:51.809027Z",
-  "updated_at": "2026-10-05T19:21:59.816330Z",
+  "updated_at": "2026-10-05T22:27:54.927001Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The team is preparing to run the full test suite against the dormant development stack.",
-  "right_now_updated_at": "2026-10-05T19:22:02.356105Z",
+  "right_now_summary": "The team is preparing to run the full acceptance suite against the dormant development stack.",
+  "right_now_updated_at": "2026-10-05T22:27:56.681203Z",
   "custom": {}
 }

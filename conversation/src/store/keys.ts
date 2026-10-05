@@ -130,3 +130,86 @@ export function botIdempotencyKey(tenantId: string, idempotencyKey: string): { p
 		sk: `botidem#${idempotencyKey}`,
 	};
 }
+
+/**
+ * Build partition and sort keys for approval and proposal items.
+ * @param tenantId Organization tenant ID.
+ * @param approvalId Approval or proposal ID.
+ * @returns Partition and sort keys.
+ */
+export function approvalKey(tenantId: string, approvalId: string): { pk: string; sk: string } {
+	return {
+		pk: `${tenantId}#approvals`,
+		sk: `APPROVAL#${approvalId}`,
+	};
+}
+
+/**
+ * Build partition and sort keys for auto-review rule items.
+ * @param tenantId Organization tenant ID.
+ * @param ruleId Rule ID.
+ * @returns Partition and sort keys.
+ */
+export function ruleKey(tenantId: string, ruleId: string): { pk: string; sk: string } {
+	return {
+		pk: `${tenantId}#rules`,
+		sk: `RULE#${ruleId}`,
+	};
+}
+
+/**
+ * Build partition and sort keys for authorized connection and proposal items.
+ * The partition is the granting tenant.
+ * @param grantingTenantId Granting organization tenant ID.
+ * @param proposalId Connection proposal ID.
+ * @returns Partition and sort keys.
+ */
+export function connectionKey(grantingTenantId: string, proposalId: string): { pk: string; sk: string } {
+	return {
+		pk: `${grantingTenantId}#connections`,
+		sk: `CONN#${proposalId}`,
+	};
+}
+
+/**
+ * Build partition and sort keys for one member's standing ceiling for one action type.
+ * @param tenantId Organization tenant ID.
+ * @param memberUserId Member user ID.
+ * @param actionType Action type the ceiling bounds.
+ * @returns Partition and sort keys.
+ */
+export function memberCeilingKey(
+	tenantId: string,
+	memberUserId: string,
+	actionType: string,
+): { pk: string; sk: string } {
+	return {
+		pk: `${tenantId}#rules`,
+		sk: `CEILING#${memberUserId}#${actionType}`,
+	};
+}
+
+/**
+ * Build partition and sort keys for what one granting tenant permits to leave via connections.
+ * @param tenantId Granting organization tenant ID.
+ * @returns Partition and sort keys.
+ */
+export function tenantConnectionEgressKey(tenantId: string): { pk: string; sk: string } {
+	return {
+		pk: `${tenantId}#rules`,
+		sk: "EGRESS#connection",
+	};
+}
+
+/**
+ * Build partition and sort keys for one refused attempt recorded for audit.
+ * @param tenantId Organization tenant ID.
+ * @param refusalId Refusal ID.
+ * @returns Partition and sort keys.
+ */
+export function refusalKey(tenantId: string, refusalId: string): { pk: string; sk: string } {
+	return {
+		pk: `${tenantId}#rules`,
+		sk: `REFUSAL#${refusalId}`,
+	};
+}

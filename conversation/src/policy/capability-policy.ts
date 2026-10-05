@@ -1,3 +1,5 @@
+import type { OvernightGatedResult } from "./overnight.ts";
+
 export type ApprovalDecision = "ALLOW" | "DENY" | "REQUIRE_APPROVAL";
 
 export const EgressClass = {
@@ -283,7 +285,7 @@ export class CapabilityPolicy {
 	contexts: PolicyBrowserContext[] = [];
 	last_decision: ApprovalDecision | null = null;
 	last_binding: (typeof BindingControl)[keyof typeof BindingControl] | null = null;
-	last_overnight: { executed: boolean; turn_status: string; reason: string | null; completion_evidence: string | null } | null = null;
+	last_overnight: OvernightGatedResult | null = null;
 	bound_operation: BoundConnectorOperation | null = null;
 	recorded_exclusions: Set<string> = new Set();
 	claimed_enforced_exclusions: Set<string> = new Set();
@@ -480,6 +482,7 @@ export class CapabilityPolicy {
 				turn_status: "blocked",
 				reason: "user_controlled_completion_required",
 				completion_evidence: null,
+				retried_unattended: false,
 			};
 			this.recordExclusion("generic_browser_click_binding");
 			return this.last_binding;
@@ -491,6 +494,7 @@ export class CapabilityPolicy {
 				turn_status: "blocked",
 				reason: "immutable_approval_required",
 				completion_evidence: null,
+				retried_unattended: false,
 			};
 			return this.last_binding;
 		}
@@ -529,7 +533,7 @@ export class CapabilityPolicy {
 	/**
 	 * Execute only an approved structured connector operation.
 	 */
-	executeBoundConnector(evidence: string = "smtp-250"): { executed: boolean; turn_status: string; reason: string | null; completion_evidence: string | null } {
+	executeBoundConnector(evidence: string = "smtp-250"): OvernightGatedResult {
 		const operation = this.bound_operation;
 		if (operation === null || !operation.approved) {
 			this.requiredBindingForBrowserAction(
@@ -550,6 +554,7 @@ export class CapabilityPolicy {
 			turn_status: "completed",
 			reason: null as string | null,
 			completion_evidence: evidence,
+			retried_unattended: false,
 		};
 		this.last_overnight = result;
 		this.last_binding = BindingControl.StructuredConnector;
@@ -569,6 +574,7 @@ export class CapabilityPolicy {
 			turn_status: "blocked",
 			reason: "waiting_for_human_takeover",
 			completion_evidence: null,
+			retried_unattended: false,
 		};
 		return this.last_binding;
 	}

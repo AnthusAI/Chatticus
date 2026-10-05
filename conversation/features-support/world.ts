@@ -5,6 +5,10 @@ import { DynamoBudgetStore } from "../src/budget/budget-store.ts";
 import { Decimal } from "../src/budget/decimal.ts";
 import type { Organization as BudgetOrganization } from "../src/budget/models.ts";
 import type { Identity, Organization, Invitation } from "../src/domain/organizations.ts";
+import type { OvernightGatedResult } from "../src/policy/overnight.ts";
+import type { ApprovedOperation, BoundExecutionResult, OperationProposal } from "../src/policy/approval-binding.ts";
+import type { ConnectionProposalResult, ConnectionProposalRoute } from "../src/policy/connections.ts";
+import type { PolicyControl } from "../src/policy/policy-control.ts";
 import type { MessagingStore } from "../src/store/messaging-store.ts";
 import { InMemoryMessagingStore } from "./in-memory-messaging-store.ts";
 import { FakeBudgetAlertsPublisher } from "./fakes/fake-budget-alerts.ts";
@@ -93,7 +97,7 @@ export class ChatticusWorld extends World {
 	pageInjection: string | null = null;
 	injectedRequest: unknown = null;
 	lastDecision: string | null = null;
-	lastOvernight: { executed: boolean; turn_status: string; reason: string | null; completion_evidence: string | null } | null = null;
+	lastOvernight: OvernightGatedResult | null = null;
 	gatedReadError: Error | null = null;
 	gatedReadResult: unknown = null;
 	lastBinding: string | null = null;
@@ -102,6 +106,16 @@ export class ChatticusWorld extends World {
 	reviewedExclusion: string | null = null;
 	recordedCompletionEvidence: string | null = null;
 	pageContent: string | null = null;
+
+	// Approvals, rules, connections and overnight gating
+	policyControl: PolicyControl | null = null;
+	watcherPresent: boolean | null = null;
+	sharedChannelsByName: Map<string, { channelId: string; tenantId: string; name: string }> = new Map();
+	lastOperationProposal: OperationProposal | null = null;
+	lastApprovedOperation: ApprovedOperation | null = null;
+	lastBoundExecution: BoundExecutionResult | null = null;
+	lastConnectionResult: ConnectionProposalResult | null = null;
+	lastConnectionRoute: ConnectionProposalRoute | null = null;
 
 	constructor(options: IWorldOptions) {
 		super(options);
