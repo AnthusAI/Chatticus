@@ -17,6 +17,7 @@ from chatticus.control_plane import ControlPlane
 from chatticus.http.client import HttpTurnClient
 from chatticus.models import (
     ComputerlessCannotExecuteComputerJob,
+    OrganizationSpendCeilingExceededError,
     TurnJob,
     TurnStatus,
     primary_human_participant,
@@ -418,6 +419,17 @@ class ComputerlessWorker:
             self._handle_task_tool_call(job, outcome)
             return
         if outcome.wait_gate is not None:
+            pause_reason = self.plane.computer_work_pause_reason(job.tenant_id)
+            if pause_reason is not None:
+                self.plane.record_model_gated_tool_denied(
+                    job.tenant_id,
+                    job.turn_id,
+                    "request_computer_capability",
+                    {"gate": outcome.wait_gate},
+                    pause_reason,
+                )
+                self._complete_denied_tool_answer(job, outcome, pause_reason)
+                return
             if outcome.text.strip():
                 self.turn_client.post_chunk(job.turn_id, outcome.text)
             self.turn_client.post_waiting(job.turn_id, outcome.wait_gate)
@@ -488,12 +500,23 @@ class ComputerlessWorker:
             )
             self._complete_denied_tool_answer(job, outcome, str(error))
             return
-        self.plane.prepare_computer_tool(
-            job.tenant_id,
-            job.turn_id,
-            tool_name=call.tool_name,
-            arguments=dict(call.arguments),
-        )
+        try:
+            self.plane.prepare_computer_tool(
+                job.tenant_id,
+                job.turn_id,
+                tool_name=call.tool_name,
+                arguments=dict(call.arguments),
+            )
+        except OrganizationSpendCeilingExceededError as error:
+            self.plane.record_model_gated_tool_denied(
+                job.tenant_id,
+                job.turn_id,
+                call.tool_name,
+                call.arguments,
+                str(error),
+            )
+            self._complete_denied_tool_answer(job, outcome, str(error))
+            return
         self.plane.commit_pending_computer_tool(job.tenant_id, job.turn_id)
         self.plane.enqueue_computer_continuation(job.tenant_id, job.turn_id)
         if outcome.text.strip():
