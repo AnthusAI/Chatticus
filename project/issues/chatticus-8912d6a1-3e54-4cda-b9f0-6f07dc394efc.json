@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-8912d6a1-3e54-4cda-b9f0-6f07dc394efc",
+  "title": "Remove the waitlist, survey and contact intake once the private repo serves it",
+  "description": "The waitlist, survey and contact endpoints (GET /waitlist/survey, POST /waitlist, GET /waitlist/confirm, GET /waitlist/invite, POST /contact), with their Python modules (waitlist/*, email_sender, offer_snapshot, waitlist_limits, waitlist_scoring, waitlist_survey, http/waitlist_source, the ControlPlane waitlist methods and store items) and their 7 features (56 scenarios), serve only the marketing site. They move to the private repo AnthusAI/Chattic.us-web (boundary epic chatticus-3926bc); they are not ported to TypeScript here.\n\nFeature: The product repo carries no marketing intake\n  Scenario: The waitlist routes are gone\n    Given the marketing site serves its own waitlist and contact intake\n    When the product front door is asked for /waitlist/survey\n    Then it answers 404\n\nBlocked until the marketing site no longer calls these routes. Confirm the marketing site's base URL first. Then delete the code, features, steps and tests in one change.",
+  "type": "story",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-05T14:20:21.893963Z",
+  "updated_at": "2026-10-05T14:20:21.894003Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-opus-5-5",
+    "name": "orchestrator"
+  },
+  "right_now_summary": "The team is confirming the marketing site's base URL before removing the intake routes and tests.",
+  "right_now_updated_at": "2026-10-05T14:20:24.685664Z",
+  "custom": {}
+}
