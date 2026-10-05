@@ -1,0 +1,2 @@
+usage: server.py [-h] [-H HOST] [-p PORT] [-r] [-s] [-c SSL_CERT] [-k SSL_KEY]
+server.py: error: unrecognized arguments: s3 dynamodb
