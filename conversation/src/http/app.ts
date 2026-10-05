@@ -11,13 +11,9 @@ import { getMeHandler } from "./routes/me.ts";
 import { createOrganizationHandler } from "./routes/organizations.ts";
 import { createInvitationHandler, createInvitationMembershipCache } from "./routes/invitations.ts";
 import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler } from "./routes/bots.ts";
-import {
-	createChannelHandler,
-	getChannelHandler,
-	listChannelMessagesHandler,
-	listUserChannelsHandler,
-	postChannelMessageHandler,
-} from "./routes/channels.ts";
+import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from "./routes/channels.ts";
+import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
+import type { MessageDependencies } from "../domain/messages.ts";
 import { createUserMembershipCache } from "./user-principal.ts";
 
 export interface Clock {
@@ -38,6 +34,8 @@ export interface AppDeps {
 	clock: Clock;
 	ids: IdSource;
 	store: unknown;
+	/** Message admission and listing, behind the routes under /channels/{id}/messages. */
+	messages: Omit<MessageDependencies, "store" | "ids" | "clock">;
 	invokeKey: string | null;
 	environment?: string;
 	verifier?: IdTokenVerifier | null;
@@ -136,6 +134,11 @@ export function createApp(deps: AppDeps): Hono {
 		membershipCache: createUserMembershipCache(deps.clock),
 	};
 
+	const messageRoutes = {
+		...userRoutes,
+		messages: { ...deps.messages, store, ids: deps.ids, clock: deps.clock } satisfies MessageDependencies,
+	};
+
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
 		createBotHandler(c, userRoutes),
 	);
@@ -158,10 +161,10 @@ export function createApp(deps: AppDeps): Hono {
 		getChannelHandler(c, userRoutes),
 	);
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
-		postChannelMessageHandler(c, userRoutes),
+		postChannelMessageHandler(c, messageRoutes),
 	);
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
-		listChannelMessagesHandler(c, userRoutes),
+		listChannelMessagesHandler(c, messageRoutes),
 	);
 
 	return app;

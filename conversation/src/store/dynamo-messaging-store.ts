@@ -15,7 +15,7 @@ import {
 	UpdateItemCommand,
 	type AttributeValue,
 } from "@aws-sdk/client-dynamodb";
-import type { Channel, ChannelMessageRecord } from "../domain/channels.ts";
+import type { ActorKind, Channel, ChannelMessageRecord } from "../domain/channels.ts";
 import type {
 	Identity,
 	Invitation,
@@ -29,6 +29,7 @@ import type { Bot } from "./codecs/bot.ts";
 import * as channelCodec from "./codecs/channel.ts";
 import * as computerCodec from "./codecs/computer.ts";
 import type { Computer } from "./codecs/computer.ts";
+import * as idempotencyCodec from "./codecs/idempotency.ts";
 import * as identityCodec from "./codecs/identity.ts";
 import * as invitationCodec from "./codecs/invitation.ts";
 import * as membershipCodec from "./codecs/membership.ts";
@@ -38,6 +39,7 @@ import type { Task } from "./codecs/task.ts";
 import { formatIsoDateTime } from "./codecs/util.ts";
 import * as workerCodec from "./codecs/worker.ts";
 import type { Worker } from "./codecs/worker.ts";
+import { postIdempotencyKey } from "./keys.ts";
 import type { MessagingStore } from "./messaging-store.ts";
 
 type Item = Record<string, AttributeValue>;
@@ -379,6 +381,57 @@ export class DynamoMessagingStore implements MessagingStore {
 			tenant_id: { S: tenantId },
 			channel_id: { S: channel.channelId },
 		});
+	}
+
+	async getPostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+	): Promise<{ message: ChannelMessageRecord; turnId: string | null } | null> {
+		const key = postIdempotencyKey(tenantId, idempotencyKey);
+		const item = await this.get(key.pk, key.sk);
+		if (item === null) {
+			return null;
+		}
+		const decoded = idempotencyCodec.decode(item);
+		return {
+			message: {
+				messageId: decoded.messageId,
+				channelId: decoded.channelId,
+				tenantId: decoded.tenantId,
+				seq: decoded.seq,
+				authorKind: decoded.authorKind as ActorKind,
+				authorId: decoded.authorId,
+				body: decoded.body,
+				addressedToBotId: decoded.addressedToBotId ?? null,
+				createdAt: new Date(decoded.createdAt),
+			},
+			turnId: decoded.turnId ?? null,
+		};
+	}
+
+	async putPostIdempotency(
+		tenantId: string,
+		idempotencyKey: string,
+		message: ChannelMessageRecord,
+		turnId: string | null,
+	): Promise<void> {
+		const key = postIdempotencyKey(tenantId, idempotencyKey);
+		await this.put(
+			idempotencyCodec.encode({
+				pk: key.pk,
+				sk: key.sk,
+				tenantId,
+				channelId: message.channelId,
+				messageId: message.messageId,
+				seq: message.seq,
+				authorKind: message.authorKind,
+				authorId: message.authorId,
+				body: message.body,
+				addressedToBotId: message.addressedToBotId ?? undefined,
+				createdAt: message.createdAt.toISOString(),
+				turnId: turnId ?? undefined,
+			}),
+		);
 	}
 
 	async putMessage(message: ChannelMessageRecord): Promise<void> {

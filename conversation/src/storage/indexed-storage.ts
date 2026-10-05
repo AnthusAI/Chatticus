@@ -93,6 +93,18 @@ export type IndexedStorageOptions = {
 	readonly storageId: string;
 	/** When set, every commit carries a condition that the partition's owner fence still equals this value. */
 	readonly fence?: number;
+	/**
+	 * Cache of immutable commit objects by S3 object key, shared across storages. Only for readers that never own the
+	 * storage: an owner may replace its own orphan object under the same key, which a shared cache could not see.
+	 */
+	readonly commitCache?: CommitObjectCache;
+};
+
+/** Map-shaped cache of in-flight or settled commit object reads, keyed by S3 object key. */
+export type CommitObjectCache = {
+	get(objectKey: string): Promise<CommitObject> | undefined;
+	set(objectKey: string, value: Promise<CommitObject>): unknown;
+	delete(objectKey: string): unknown;
 };
 
 /**
@@ -125,7 +137,7 @@ export class IndexedStorage implements Storage {
 	private readonly storageId: string;
 	private readonly pk: string;
 	private readonly fence: number | undefined;
-	private readonly commits = new Map<string, Promise<CommitObject>>();
+	private readonly commits: CommitObjectCache;
 	private seq = 0;
 	private nextId = 2;
 	private closed = false;
@@ -138,6 +150,7 @@ export class IndexedStorage implements Storage {
 		this.storageId = options.storageId;
 		this.pk = `PI#${options.storageId}`;
 		this.fence = options.fence;
+		this.commits = options.commitCache ?? new Map<string, Promise<CommitObject>>();
 	}
 
 	/**

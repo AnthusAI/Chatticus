@@ -222,21 +222,3 @@ export async function requireChannelTenant(
 	}
 	throw new ChannelNotFoundError(`Channel ${pythonRepr(channelId)} does not exist.`);
 }
-
-/**
- * Return committed messages with seq greater than afterSeq.
- *
- * Ported from python/src/chatticus/control_plane.py lines 3152-3167.
- *
- * @throws ChannelNotFoundError If the channel is unknown.
- * @throws ChannelTenantMismatchError If the tenant does not own the channel.
- */
-export async function listChannelMessages(
-	channelId: string,
-	tenantId: string,
-	afterSeq: number,
-	deps: { store: MessagingStore },
-): Promise<ChannelMessageRecord[]> {
-	const channel = await requireChannelTenant(channelId, tenantId, deps);
-	return deps.store.listMessages(channel.tenantId, channel.channelId, afterSeq);
-}
