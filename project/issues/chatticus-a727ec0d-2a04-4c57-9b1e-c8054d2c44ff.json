@@ -19,7 +19,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The team is moving the control plane from Python to TypeScript on Pi.",
-  "right_now_updated_at": "2026-10-05T14:20:26.390048Z",
+  "right_now_summary": "TypeScript now runs the budget jobs, and the team is planning the remaining control-plane cutover.",
+  "right_now_updated_at": "2026-10-05T15:08:17.559375Z",
   "custom": {}
 }
