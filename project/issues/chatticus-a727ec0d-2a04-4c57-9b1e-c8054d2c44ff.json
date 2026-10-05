@@ -19,7 +19,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript conversation harness is being built with Pi packages and durable session storage.",
-  "right_now_updated_at": "2026-10-05T12:34:27.536257Z",
+  "right_now_summary": "The conversation workspace and durable storage are merged and passing CI.",
+  "right_now_updated_at": "2026-10-05T12:55:20.530622Z",
   "custom": {}
 }
