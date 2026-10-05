@@ -171,11 +171,36 @@ front door runs the understand-the-user step (`chatticus.voice.understanding`,
   filler or noise.
 - **Result:** the understood text is posted as an ordinary human message and
   starts an ordinary turn. Nothing is posted for filler. The status line shows
-  both what was heard and what was sent.
+  both what was heard and what was sent. Only a line made entirely of filler tokens
+  (um, uh, hmm, er, ah and similar, a fixed list, not the model's call) may
+  carry no message; if the model returns nothing for anything else, the line is
+  posted as heard. Each line logs `voice_line_understood` with word counts,
+  outcome and turn id, never the text.
 - **Cost and latency:** one small call per spoken line, about 0.6 to 1.3
   seconds in a live check. "ping tell me some thing" became "Ping, tell me
   something." Unfamiliar product names ("voice moon china" for "Moonshine")
   are not always repaired at this model size.
+
+### 2a. A heard line is never silently lost
+
+The member is hands-free and is not reading the status line, so every heard
+line is either sent, queued, or answered aloud (`web/lib/voice-line-delivery.ts`,
+`features/web_voice_control.feature`):
+
+- **Queue while busy.** A line heard while the teammate's turn runs, or a send
+  is in flight, waits in an ordered per-channel queue. When the turn ends, the
+  queued lines go out as one message, joined with a space (continuing speech,
+  not separate paragraphs). The status line says `Will send when <bot> is
+  done: "..."`; queued lines are not spoken.
+- **Dropped only on purpose.** Switching conversation or turning voice off
+  drops the queue and the status line says how many lines were dropped.
+- **Bounded speaking state.** If the reply is flagged as speaking, the engine
+  is idle, and more than one second has passed beyond the expected end, speech
+  is treated as over, so a stale flag cannot discard later lines.
+- **Spoken feedback.** A line that was neither sent nor queued is spoken
+  briefly, without the teammate's name: "Didn't catch a message there." when
+  nothing was left to send, "Couldn't send that." when the send or the
+  is-the-teammate-free check failed. Nothing is spoken during a reply.
 
 ### 3. Spoken commands
 

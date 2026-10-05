@@ -79,7 +79,7 @@ class _FailingUnderstanding:
 
 def test_a_failed_understanding_takes_the_line_as_heard() -> None:
     result = understand_or_take_as_heard(_FailingUnderstanding(), " deploy it ", [])
-    assert result == Understanding(text="deploy it", degraded=True)
+    assert result == Understanding(text="deploy it", degraded=True, outcome="degraded")
 
 
 _OPENAI_REQUEST = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")

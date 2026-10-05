@@ -24,7 +24,6 @@ export interface VoiceWorkspace {
   selectedId: string | null;
   /** The teammate chosen to answer in the open conversation. */
   addressedBotId: string | null;
-  busyChannelIds: string[];
   /**
    * Whether the line began while a reply was being spoken (or just after).
    * Such a line may be the browser hearing itself, so only stop commands act.
@@ -126,13 +125,6 @@ export function routeVoiceLine(text: string, workspace: VoiceWorkspace): VoiceRo
     };
   }
   const channelId = openChannelId(workspace, botId);
-  if (channelId && workspace.busyChannelIds.includes(channelId)) {
-    const name = workspace.bots.find((bot) => bot.bot_id === botId)?.name ?? "Your teammate";
-    return {
-      kind: "notice",
-      text: `${name} is still working. Say it again when ${name} is done.`,
-    };
-  }
   return { kind: "send", botId, channelId, transcript: text.trim() };
 }
 

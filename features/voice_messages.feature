@@ -36,6 +36,28 @@ Feature: Understanding what the member meant before a voice line is sent
     Then no message is posted for that line
     And no turn starts for that line
 
+  Scenario: Only filler tokens carry no message
+    Given the understand-the-user step finds no message in "uh um hmm"
+    When user "ryan" of tenant "anthus" says "uh um hmm" to bot "Ping" on the channel
+    Then no message is posted for that line
+    And no turn starts for that line
+
+  Scenario: A line of only punctuation is posted as heard, not treated as filler
+    Given the understand-the-user step finds no message in "..."
+    When user "ryan" of tenant "anthus" says "..." to bot "Ping" on the channel
+    Then the latest message on the channel is "..." from user "ryan"
+
+  Scenario: A short line that is not filler is posted as heard when understanding returns nothing
+    Given the understand-the-user step finds no message in "check build"
+    When user "ryan" of tenant "anthus" says "check build" to bot "Ping" on the channel
+    Then the latest message on the channel is "check build" from user "ryan"
+
+  Scenario: A real sentence is never dropped as filler
+    Given the understand-the-user step finds no message in "ok so can you check the build"
+    When user "ryan" of tenant "anthus" says "ok so can you check the build" to bot "Ping" on the channel
+    Then the latest message on the channel is "ok so can you check the build" from user "ryan"
+    And that message starts a turn for bot "Ping"
+
   Scenario: When understanding is unavailable, the line is sent as heard
     Given the understand-the-user step is unavailable
     When user "ryan" of tenant "anthus" says "deploy the docs site" to bot "Ping" on the channel

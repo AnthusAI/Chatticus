@@ -19,7 +19,6 @@ def _run_voice_harness(context: object, action: str, **values: object) -> dict:
         "channels": context.voice_channels,
         "selectedId": getattr(context, "voice_selected_id", None),
         "addressedBotId": getattr(context, "voice_addressed_bot_id", None),
-        "busyChannelIds": getattr(context, "voice_busy_channel_ids", []),
         "overlapsSpeech": getattr(context, "voice_speaking", False),
         "environment": getattr(
             context,
@@ -74,7 +73,11 @@ def given_voice_teammates(context: object, first: str, second: str) -> None:
     context.voice_bots = [_voice_bot(first), _voice_bot(second)]
     context.voice_channels = []
     context.voice_selected_id = None
-    context.voice_busy_channel_ids = []
+    context.voice_busy = False
+    context.voice_delivery_events = []
+    context.voice_delivery_result = None
+    context.voice_send_outcome = "sent"
+    context.voice_check_fails = False
     context.voice_speaking = False
     context.voice_listening = False
 
@@ -116,7 +119,8 @@ def given_teammate_chosen(context: object, name: str) -> None:
 
 @given('"{name}" is already working on a turn in the direct conversation')
 def given_teammate_busy(context: object, name: str) -> None:
-    context.voice_busy_channel_ids = [_direct_channel_id(context, name)]
+    _direct_channel_id(context, name)
+    context.voice_busy = True
 
 
 @given("the page is not cross-origin isolated")
@@ -155,8 +159,14 @@ def then_no_message(context: object) -> None:
     assert context.voice_outcome["kind"] != "send", context.voice_outcome
 
 
+@then("the member is told '{notice}'")
 @then('the member is told "{notice}"')
 def then_member_told(context: object, notice: str) -> None:
+    delivered = getattr(context, "voice_delivery_result", None)
+    if delivered is not None:
+        told = delivered["shown"] + delivered["notes"]
+        assert notice in told, told
+        return
     change = getattr(context, "voice_session_change", None)
     if change is not None:
         assert change["note"] == notice, change
@@ -548,3 +558,140 @@ def when_speech_ends_because(context: object, reason: str) -> None:
     context.voice_spoken = _run_voice_harness(context, "speechEndNote", reason=reason)[
         "note"
     ]
+
+
+def _deliver(context: object, **event: object) -> None:
+    context.voice_delivery_events.append(event)
+    context.voice_delivery_result = _run_voice_harness(
+        context,
+        "deliver",
+        delivery={
+            "busy": context.voice_busy,
+            "sendOutcome": context.voice_send_outcome,
+            "recoversAfterFailure": getattr(context, "voice_recovers", False),
+            "checkFails": context.voice_check_fails,
+            "replySpeaking": context.voice_speaking,
+            "events": context.voice_delivery_events,
+        },
+    )
+    spoken = context.voice_delivery_result["spoken"]
+    context.voice_spoken = spoken[-1] if spoken else None
+
+
+@given("sending to the teammate keeps failing")
+@given("sending to the teammate fails")
+def given_sending_fails(context: object) -> None:
+    context.voice_send_outcome = "failed"
+
+
+@given("sending to the teammate fails once and then recovers")
+def given_sending_fails_once(context: object) -> None:
+    context.voice_send_outcome = "failed"
+    context.voice_recovers = True
+
+
+@when("the reply ends")
+def when_reply_ends(context: object) -> None:
+    _deliver(context, do="replyEnds")
+
+
+@when("{seconds:d} seconds go by in the voice session")
+def when_seconds_pass(context: object, seconds: int) -> None:
+    _deliver(context, do="advance", milliseconds=seconds * 1000)
+
+
+@then('the browser said "{text}" exactly once')
+@then('the browser said "{text}" {count:d} times')
+def then_browser_said_times(context: object, text: str, count: int = 1) -> None:
+    spoken = context.voice_delivery_result["spoken"]
+    assert spoken.count(text) == count, spoken
+
+
+@given("the server finds no message in what was heard")
+def given_server_finds_no_message(context: object) -> None:
+    context.voice_send_outcome = "nothingToSend"
+
+
+@given("the teammate's status cannot be checked")
+def given_status_cannot_be_checked(context: object) -> None:
+    context.voice_check_fails = True
+
+
+@given(
+    "a reply is flagged as speaking although the speech engine has been idle for "
+    "{milliseconds:d} milliseconds past its expected end"
+)
+def given_stuck_speaking_flag(context: object, milliseconds: int) -> None:
+    context.voice_stuck_speech = {
+        "speakingFlag": True,
+        "millisecondsPastExpectedEnd": milliseconds,
+        "engineBusy": False,
+    }
+
+
+@given(
+    "a reply is flagged as speaking and the speech engine is still producing it "
+    "past its expected end"
+)
+def given_flagged_speaking_engine_busy(context: object) -> None:
+    context.voice_stuck_speech = {
+        "speakingFlag": True,
+        "millisecondsPastExpectedEnd": 5000,
+        "engineBusy": True,
+    }
+
+
+@when('the member says "{line}" to the open conversation')
+def when_member_says_to_open_conversation(context: object, line: str) -> None:
+    overlaps = False
+    stuck = getattr(context, "voice_stuck_speech", None)
+    if stuck is not None:
+        context.voice_stuck_result = _run_voice_harness(context, "stuckSpeech", **stuck)
+        overlaps = context.voice_stuck_result["overlapsSpeech"]
+    _deliver(context, do="hear", line=line, overlapsSpeech=overlaps)
+
+
+@when('the member says "{line}" to the open conversation just after a reply ended')
+def when_member_says_just_after_reply(context: object, line: str) -> None:
+    _deliver(context, do="hear", line=line, overlapsSpeech=True)
+
+
+@when('"{name}" finishes the turn')
+def when_teammate_finishes_turn(context: object, name: str) -> None:
+    _deliver(context, do="endTurn")
+
+
+@when("the member switches to another conversation")
+def when_member_switches_conversation(context: object) -> None:
+    _deliver(context, do="switchConversation")
+
+
+@then("nothing has been sent yet")
+def then_nothing_sent_yet(context: object) -> None:
+    assert context.voice_delivery_result["sent"] == [], context.voice_delivery_result
+
+
+@then("nothing is spoken aloud")
+def then_nothing_spoken_aloud(context: object) -> None:
+    assert context.voice_delivery_result["spoken"] == [], context.voice_delivery_result
+
+
+@then('these messages were sent to "{name}" in order:')
+def then_messages_sent_in_order(context: object, name: str) -> None:
+    expected = [row["message"] for row in context.table]
+    sent = context.voice_delivery_result["sent"]
+    assert sent == expected, sent
+
+
+@then("the line is not mistaken for the browser hearing itself")
+def then_line_not_mistaken(context: object) -> None:
+    assert (
+        context.voice_stuck_result["overlapsSpeech"] is False
+    ), context.voice_stuck_result
+
+
+@then("the line is mistaken for the browser hearing itself")
+def then_line_mistaken(context: object) -> None:
+    assert (
+        context.voice_stuck_result["overlapsSpeech"] is True
+    ), context.voice_stuck_result
