@@ -318,16 +318,23 @@ conversation ends. It never reads history (`features/web_voice_control.feature`)
   - Any line that *began* while a reply was being spoken, or within half a
     second of it, is treated as possibly the browser hearing itself.
   - Only stop commands act on such a line. Nothing else is sent.
-- **Half-duplex on iOS while the device talks.** iOS suspends or interrupts
-  the capture audio engine when speech starts. Waking it takes the audio
-  session back for recording and cuts the speech off after a fraction of a
-  second, so capture is never resumed while a reply is being spoken. It is
-  woken when speech ends.
-  - Tradeoff: voice "stop" cannot barge in on iOS while speaking, because
-    capture is suspended. The on-screen button still stops speech.
-  - The speech watchdog also waits out a grace period before the first
-    utterance starts, because iOS briefly reports an idle engine right after
-    `speak()`.
+- **Capture never pauses for speech.** The audio engine is not suspended or
+  resumed around a reply; the echo guard above is the only protection.
+  - The speech watchdog waits out a grace period before the first utterance
+    starts, because iOS briefly reports an idle engine right after `speak()`.
+- **Capture proves it is alive.** While listening, a watchdog checks every half
+  second that the engine is `running`, a microphone track is `live` and not
+  muted, and audio chunks reached the recognizer within the last 1.5 s
+  (counted by tapping the recognizer stream's `addAudio`). It runs whether or
+  not the device is speaking.
+  - On failure it wakes the engine, verifies again, and if still unhealthy
+    rebuilds capture: old tracks and context released, `getUserMedia` again,
+    a new `MicTranscriber` over the already-loaded model (no re-download).
+  - If the browser refuses (for example `NotAllowedError` without a gesture),
+    the button reads "Tap to keep talking"; one tap re-runs the same recovery
+    inside the gesture.
+  - The status line says which path ran: "Listening again.", "Microphone
+    restarted after speech.", or "Tap to keep talking: <reason>".
 - **Why speech ended early.** Every path that ends speech names its reason
   (button, voice command, newer speech, deadline, watchdog, engine error), and
   an early end shows "Speech stopped: <reason>" in the composer status.

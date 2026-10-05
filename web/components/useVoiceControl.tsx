@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 
 import { Button } from "./ui/button";
 import {
+  captureRestoreNote,
   lineOverlapsSpeechWindow,
   phaseAfterSessionEvent,
   voiceAvailability,
@@ -48,6 +49,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
   const [speaking, setSpeaking] = useState(false);
   const speechWindowRef = useRef<SpeechWindow | null>(null);
   const sessionRef = useRef<VoiceSession | null>(null);
+  const speakingRef = useRef(false);
   const onLineRef = useRef(onLine);
   const keytermsRef = useRef(keyterms);
 
@@ -77,12 +79,9 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
     if (speechWindow && speechWindow.endedAt === null) {
       speechWindow.endedAt = Date.now();
     }
+    speakingRef.current = false;
     setSpeaking(false);
-    const session = sessionRef.current;
-    session?.holdCapture(false);
-    void session?.resumeCapture().then((woken) => {
-      if (woken) setNote("Microphone woke up after speech. Go ahead.");
-    });
+    sessionRef.current?.speechEnded();
     const endNote = wasSpeaking ? speechEndNote(reason) : null;
     if (endNote) setNote(endNote);
   }, []);
@@ -104,18 +103,22 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
         endedAt: null,
         expectedEndedAt: startedAt + speechDeadlineMs(text),
       };
+      speakingRef.current = true;
       setSpeaking(true);
-      sessionRef.current?.holdCapture(true);
       const started = speakAloud(text, {
-        onStart: () => setSpeaking(true),
+        onStart: () => {
+          speakingRef.current = true;
+          setSpeaking(true);
+        },
         onEnd: endSpeechWindow,
         onReplaced: () => setNote(speechEndNote("replaced by newer speech")),
         onError: (error) => setNote(`Speech failed: ${error}`),
       });
       if (!started) {
         speechWindowRef.current = previousWindow;
+        speakingRef.current = false;
         setSpeaking(false);
-        sessionRef.current?.holdCapture(false);
+        sessionRef.current?.speechEnded();
         setNote("This browser cannot speak replies.");
       }
     },
@@ -187,15 +190,10 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
               }).note,
             );
           },
-          onMicrophoneLost: (reason) => {
+          onCaptureRestored: (outcome) => {
             if (generation !== generationRef.current) return;
-            const change = phaseAfterSessionEvent("listening", {
-              kind: "microphoneLost",
-              message: reason,
-            });
-            setPhase(change.phase);
-            setNote(change.note);
-            void closeSession();
+            setPhase(outcome.kind === "needsTap" ? "needsTap" : "listening");
+            setNote(captureRestoreNote(outcome));
           },
           onLine: (text, startedAtMs) => {
             if (generation === generationRef.current) {
@@ -204,6 +202,7 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
           },
         },
         keytermsRef.current,
+        () => speakingRef.current,
       );
       if (generation !== generationRef.current) {
         await session.stop();
@@ -244,6 +243,13 @@ export function useVoiceControl({ keyterms, onLine }: UseVoiceControlOptions): V
       aria-pressed={presentation.pressed}
       disabled={presentation.disabled}
       onClick={() => {
+        if (phase === "needsTap") {
+          void sessionRef.current?.restoreCapture().then((outcome) => {
+            setPhase(outcome.kind === "needsTap" ? "needsTap" : "listening");
+            setNote(captureRestoreNote(outcome));
+          });
+          return;
+        }
         if (!listening) speak("Listening.");
         void (listening ? stop() : start());
       }}
