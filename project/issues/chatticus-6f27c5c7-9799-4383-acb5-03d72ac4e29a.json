@@ -13,6 +13,10 @@
     {
       "target": "chatticus-69436f20-ad90-432e-a75b-71d3ce67d6e4",
       "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-5c754a7d-9539-4db6-bac1-3e3f704520ee",
+      "type": "blocked-by"
     }
   ],
   "comments": [
@@ -29,14 +33,14 @@
     }
   ],
   "created_at": "2026-10-05T15:46:55.796500Z",
-  "updated_at": "2026-10-05T17:20:44.351992Z",
+  "updated_at": "2026-10-05T22:27:58.445950Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The work is being split into nine subtasks before the cutover begins.",
-  "right_now_updated_at": "2026-10-05T17:20:46.462771Z",
+  "right_now_summary": "This issue is being split into nine sub-tasks before implementation begins.",
+  "right_now_updated_at": "2026-10-05T22:27:59.554934Z",
   "custom": {}
 }
