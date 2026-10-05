@@ -149,13 +149,17 @@ if (input.action === "hear") {
   if (input.action === "captureRestore") {
     pendingOutput = restoreCapture(dependencies).then(finish);
   } else {
-    const stream = { getTracks: () => [] } as unknown as MediaStream;
+    const opened = {
+      stream: { getTracks: () => [] },
+      audioContext: {},
+    } as unknown as import("../lib/voice-capture-restore").OpenedAudio;
     const pending = restoreCaptureFromTap({
       ...dependencies,
-      openMicrophone: async () => {
-        calls.push("getUserMedia");
-        return stream;
+      openAudio: async () => {
+        calls.push("getUserMedia", "AudioContext", "resume");
+        return opened;
       },
+      discardOpenedAudio: () => undefined,
     });
     const callsBeforeAnyAwait = [...calls];
     pendingOutput = pending.then((outcome) => ({

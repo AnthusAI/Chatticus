@@ -228,10 +228,10 @@ Feature: Talking to teammates by voice
     When speech ends because of "finished"
     Then the browser says nothing
 
-  Scenario: Tapping asks for the microphone before any await so the tap still counts as the gesture
+  Scenario: Tapping opens the microphone and audio context before any await so the tap still counts as the gesture
     When capture is restored and the engine does not wake and a restart needs a tap
     And the member taps the voice button
-    Then the microphone was requested and the engine resumed before any await
+    Then the microphone and audio context are opened and resumed before any await
 
   Scenario: Capture that keeps stalling after restarts stops cycling and asks for a tap
     When capture is restored and the engine does not wake and a restart is allowed and 3 restarts already happened in the last minute

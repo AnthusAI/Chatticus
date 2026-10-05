@@ -474,10 +474,10 @@ def when_member_taps_voice_button(context: object) -> None:
     _restore_capture(context, inGesture=True)
 
 
-@then("the microphone was requested and the engine resumed before any await")
+@then("the microphone and audio context are opened and resumed before any await")
 def then_microphone_requested_before_await(context: object) -> None:
     calls = context.voice_capture["callsBeforeAnyAwait"]
-    assert calls == ["getUserMedia", "resume"], calls
+    assert calls == ["getUserMedia", "AudioContext", "resume"], calls
 
 
 @when("the capture engine is suspended while the reply plays and then the reply ends")

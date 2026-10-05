@@ -6,6 +6,12 @@ import {
   restoreCapture,
   restoreCaptureFromTap,
 } from "./voice-capture-restore";
+import type { OpenedAudio } from "./voice-capture-restore";
+import {
+  discardOpenedAudio,
+  openAudioSynchronously,
+  startWithOpenedAudio,
+} from "./voice-injected-capture";
 import { createCaptureWatch } from "./voice-capture-watch";
 import {
   captureWatchProblem,
@@ -189,34 +195,18 @@ export async function startVoiceSession(
   };
   attachCapture();
 
-  const startWithOpenedStream = async (fresh: MicTranscriber, openedStream?: MediaStream) => {
-    const mediaDevices = navigator.mediaDevices;
-    if (!openedStream || !mediaDevices) {
-      await fresh.start();
-      return;
-    }
-    const original = mediaDevices.getUserMedia.bind(mediaDevices);
-    let handedOver = false;
-    mediaDevices.getUserMedia = (constraints) => {
-      if (handedOver) return original(constraints);
-      handedOver = true;
-      return Promise.resolve(openedStream);
-    };
-    try {
-      await fresh.start();
-    } finally {
-      mediaDevices.getUserMedia = original;
-    }
-  };
-
-  const rebuildCapture = async (openedStream?: MediaStream) => {
+  const rebuildCapture = async (openedAudio?: OpenedAudio) => {
     rebuildTimesMs = [...rebuildTimesMs.filter((time) => Date.now() - time < CAPTURE_REBUILD_WINDOW_MS), Date.now()];
     await releaseCapture(microphone);
     const fresh = configureMicrophone(MicTranscriberClass, handlers).useTranscriber(
       loadedTranscriber as unknown as Parameters<MicTranscriber["useTranscriber"]>[0],
     );
     try {
-      await startWithOpenedStream(fresh, openedStream);
+      if (openedAudio) {
+        await startWithOpenedAudio(fresh, openedAudio);
+      } else {
+        await fresh.start();
+      }
     } catch (error) {
       await releaseCapture(fresh);
       throw error;
@@ -258,7 +248,8 @@ export async function startVoiceSession(
     rebuildTimesMs = [];
     return restoreCaptureFromTap({
       ...captureDependencies(),
-      openMicrophone: () => navigator.mediaDevices.getUserMedia({ audio: true }),
+      openAudio: openAudioSynchronously,
+      discardOpenedAudio,
     });
   };
 

@@ -16,6 +16,12 @@ export function rebuildsAllowed(rebuildTimesMs: number[], nowMs: number): boolea
   return recent.length < CAPTURE_REBUILD_LIMIT;
 }
 
+/** A microphone stream and a running-or-resuming audio context, both opened inside a tap. */
+export interface OpenedAudio {
+  stream: MediaStream;
+  audioContext: AudioContext;
+}
+
 export interface CaptureRestoreDependencies {
   /** Asks the audio engine to run again; may reject, or never settle, on iOS. */
   resume: () => Promise<void>;
@@ -25,17 +31,23 @@ export interface CaptureRestoreDependencies {
   frameCount: () => number | null;
   /**
    * Tears capture down and opens the microphone again, using the supplied
-   * stream when one was opened inside a tap; rejects when the browser refuses.
+   * stream and audio context when they were opened inside a tap; rejects when
+   * the browser refuses.
    */
-  rebuild: (openedStream?: MediaStream) => Promise<void>;
+  rebuild: (openedAudio?: OpenedAudio) => Promise<void>;
   /** False when recent rebuilds used up the budget and another would only cycle. */
   rebuildAllowed: () => boolean;
   sleep: (milliseconds: number) => Promise<void>;
 }
 
 export interface TapRestoreDependencies extends CaptureRestoreDependencies {
-  /** Opens the microphone (getUserMedia). */
-  openMicrophone: () => Promise<MediaStream>;
+  /**
+   * Requests the microphone, creates an audio context and calls its resume,
+   * all synchronously before returning, so the tap still counts as the gesture.
+   */
+  openAudio: () => Promise<OpenedAudio>;
+  /** Stops the tracks and closes the context of audio that was opened but not kept. */
+  discardOpenedAudio: (openedAudio: OpenedAudio) => void;
 }
 
 async function verifyCapture(dependencies: CaptureRestoreDependencies): Promise<string | null> {
@@ -64,26 +76,19 @@ function failureReason(error: unknown): string {
   return "the browser would not reopen the microphone";
 }
 
-function discardStream(stream: MediaStream | undefined): void {
-  stream?.getTracks().forEach((track) => track.stop());
-}
-
-async function verifyThenRebuild(
+async function rebuildAndVerify(
   dependencies: CaptureRestoreDependencies,
-  openedStream: MediaStream | undefined,
+  openedAudio: OpenedAudio | undefined,
+  discard: () => void,
 ): Promise<CaptureRestoreOutcome> {
-  if ((await verifyCapture(dependencies)) === null) {
-    discardStream(openedStream);
-    return { kind: "listening" };
-  }
   if (!dependencies.rebuildAllowed()) {
-    discardStream(openedStream);
+    discard();
     return { kind: "needsTap", reason: "the microphone keeps stalling" };
   }
   try {
-    await dependencies.rebuild(openedStream);
+    await dependencies.rebuild(openedAudio);
   } catch (error) {
-    discardStream(openedStream);
+    discard();
     return { kind: "needsTap", reason: failureReason(error) };
   }
   const problemAfterRebuild = await verifyCapture(dependencies);
@@ -104,25 +109,29 @@ export async function restoreCapture(
     dependencies.resume().catch(() => undefined),
     dependencies.sleep(CAPTURE_RESUME_PATIENCE_MS),
   ]);
-  return verifyThenRebuild(dependencies, undefined);
+  if ((await verifyCapture(dependencies)) === null) {
+    return { kind: "listening" };
+  }
+  return rebuildAndVerify(dependencies, undefined, () => undefined);
 }
 
 /**
- * Restores capture from a tap. The microphone is requested and the engine
- * resumed synchronously, before any await, so the browser still counts the
- * tap as the user gesture; the fresh stream is then handed to the rebuild.
+ * Restores capture from a tap. The microphone is requested and an audio
+ * context is created and resumed synchronously, before any await, so the
+ * browser still counts the tap as the user gesture. Both are handed to the
+ * rebuild; there is no resume wait or verification before it.
  */
 export async function restoreCaptureFromTap(
   dependencies: TapRestoreDependencies,
 ): Promise<CaptureRestoreOutcome> {
-  const openedStream = dependencies.openMicrophone();
-  const resumed = dependencies.resume().catch(() => undefined);
-  let stream: MediaStream;
+  const opening = dependencies.openAudio();
+  let openedAudio: OpenedAudio;
   try {
-    stream = await openedStream;
+    openedAudio = await opening;
   } catch (error) {
     return { kind: "needsTap", reason: failureReason(error) };
   }
-  await Promise.race([resumed, dependencies.sleep(CAPTURE_RESUME_PATIENCE_MS)]);
-  return verifyThenRebuild(dependencies, stream);
+  return rebuildAndVerify(dependencies, openedAudio, () =>
+    dependencies.discardOpenedAudio(openedAudio),
+  );
 }
