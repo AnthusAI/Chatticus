@@ -80,6 +80,7 @@ on develop; its path namespace is orthogonal and changes nothing here).
 | 5 | Worker-only routes disappear: `workers/{id}/heartbeat` (computerless), `turns/{id}/claim|renew|waiting|failed|resume|chunks`, `turns/{id}/browse/authorize`, `turns/{id}/tool/denied`, `bots/{id}/tasks/tool`. The executor is internal; these were never web calls. | No HTTP hop between the Lambda and itself. |
 | 6 | The 21 host-worker routes become 9 (section 4.3). | The host runs actions, not turns. |
 | 7 | No 256-token completion cap; Pi's defaults apply. | The cap was a Chat Completions parameter of the old worker. |
+| 8 | `GET /channels/{id}/turn` and `.../turns/latest` keep their paths and return the turn of the channel's primary or addressed bot: the most recently started active turn (latest turn for `turns/latest`), 404 if none. A bot-specific variant is exposed for later use as the optional query parameter `?bot_id={bot}` on both paths (returns that bot's active or latest turn; the web does not send it yet). | Several bots can have active turns on one channel; the existing client must keep working unchanged. |
 
 Unchanged on purpose: paths under `/api/orgs/{tenant}`, `/api/me`,
 `/api/organizations`, `/api/health`; SSE frames `event:`/`id:`/`data:` with
@@ -198,7 +199,7 @@ New or changed items in `Messaging` (all keys carry the tenant):
 |---|---|---|
 | Channel meta | `{t}#channel#{id}` / `meta` | As today; `next_seq` becomes the atomic message-seq allocator (`ADD`). |
 | Channel lookup, roster index, channel idempotency | unchanged | |
-| Active-turn and latest-turn pointers | `{t}#channel#{id}` / `active_turn`, `latest_turn` | Unchanged; `active_turn` is a conditional put, which enforces one active turn per channel. |
+| Active-turn and latest-turn pointers | `{t}#channel#{id}` / `active_turn#{bot_id}`, `latest_turn#{bot_id}`, plus `active_turn_primary`, `latest_turn_primary` | The pointer is per (channel, bot): each bot has its own Pi session, so a channel can have several active turns, one per bot. `active_turn#{bot_id}` is a conditional put, which enforces one active turn per bot per channel. `*_primary` hold the most recently started active turn and the latest turn across bots, for the unchanged web paths (0.3 change 8). |
 | Turn control record | `{t}#turn#{id}` / `meta` | New field set, section 3.1. |
 | Turn event | `{t}#turn#{id}` / `evt#{seq:010d}` | Same key shape, TTL 24 h. |
 | Turn grant | `{t}#turn#{id}` / `grant` | Unchanged. |
@@ -266,7 +267,7 @@ sequenceDiagram
   W->>FD: POST /channels/{id}/messages
   FD->>DB: ADD next_seq (idempotency key checked first)
   FD->>DB: put mailbox item for each bot session
-  FD->>DB: put turn control record + active_turn pointer (if addressed and no active turn)
+  FD->>DB: put turn control record + active_turn#bot pointer (if addressed and that bot has no active turn)
   FD->>SQS: run job; probe job (new turn only)
   FD-->>W: {message, turn_id}
   SQS->>EX: run
@@ -276,10 +277,15 @@ sequenceDiagram
   EX->>DB: delete drained mailbox items
 ```
 
-- **A second addressed post during an active turn steers.** The FrontDoor
+- **A second post addressed to the SAME bot during that bot's active turn
+  steers.** A post addressed to a *different* bot does not steer: it takes the
+  ordinary path and starts that bot's own turn immediately (its own
+  `active_turn#{bot_id}` conditional put), so several turns can run on one
+  channel at once, each in its own Pi session. The FrontDoor
   allocates `seq` and writes the mailbox item exactly as above, but creates no
   turn: a `TransactWrite` puts the mailbox item under a condition that the
-  channel's turn record is `active` and not `closing`, and the response carries
+  addressed bot's active turn record (found through `active_turn#{bot_id}`) is
+  `active` and not `closing`, and the response carries
   the existing `turn_id`. The owner drains the mailbox while the turn runs (at
   every tool-round boundary seen on `watchEvents` and at least every 2 s) and
   calls `submit({type:"input", whenBusy:"steer", requestId:"msg:"+messageId})`.
@@ -287,7 +293,7 @@ sequenceDiagram
   `attempt_id`), then drains once more; any addressed item found is steered in
   and the turn keeps running, so no steered message is stranded. A post that
   loses the race against `closing` fails the condition and takes the ordinary
-  new-turn path, which waits for the `active_turn` pointer to clear and then
+  new-turn path, which waits for that bot's `active_turn#{bot_id}` pointer to clear and then
   creates the next turn.
 - `requestId = "msg:" + messageId` makes the drain idempotent (a crash between
   commit and delete just re-drains to the same submission).
@@ -424,7 +430,7 @@ Finalize (one fenced step, idempotent under a conditional update on
 `status = active AND attempt_id = mine`): allocate the reply `seq`, append the
 channel-log line, write the reply to the other bots' mailboxes, set the turn
 `completed` with `message_seq`, append `turn.completed {message_seq, body}`,
-delete the `active_turn` pointer, record spend (3.7).
+delete the `active_turn#{bot_id}` pointer (and `active_turn_primary` if it names this turn), record spend (3.7).
 
 Failure classification keeps the Python mapping
 (`worker/model_provider_errors.py`): permanent provider errors
@@ -868,8 +874,8 @@ Python source is over about 600 lines is split by file as shown.
 | 13 | Pi session factory | `pi/session.ts` `openOwnerStorage(storageId): {storage, fence}`, `IndexedStorage.allocateFence` in `storage/indexed-storage.ts`, error mapping (`OwnershipLost`, `CommitOutcomeUnknown`), extension bundle `pi/extension.ts` (`section`, tool registry) | new `pi_session_ownership.feature` | 3 | N |
 | 14 | Bots, channels, roster | `domain/bots.ts`, `domain/channels.ts`, routes (bots, channels, `users/{u}/bots|channels`), direct channel id `uuid5`, name reservation, idempotency | `canonical_channels`, `shared_channels`, `web_create_bot`, channel scenarios of `messages` | 2, 7 | M (`control_plane.py` 794-875, 2956-3050; `store.py` 1660-1700, 1902-1935) |
 | 15 | Prototype: channel log, mailbox, read-only session | `pi/channel-log.ts` (`ChannelLogDoc`, `appendLine`, `readLog`), `pi/mailbox.ts` (`put`, `list`, `drain`); proves a `write` entry draft, the document commit, an idempotent reconcile beside `submit input`, and a read-only `createSession` reading while another owner holds the fence | new `channel_mailbox_and_log.feature` | 13 | P |
-| 16 | Message admission and listing | `domain/messages.ts` `postMessage`, `listMessages` (2.5, 2.6), seq allocator, idempotency, participant checks, steer-or-new-turn transaction (2.5); routes `POST/GET .../messages` | `messages` (30), `turn_attempts` (admission part) | 14, 15 | N |
-| 17 | Turn control record | `domain/turns.ts` `createTurn`, `claimTurn`, `renewTurn`, `releaseForWaiting`, `fail`, `complete`; `store/turn-events.ts`; routes `GET /channels/{id}/turn`, `turns/latest`, `GET /turns/{id}`, `turns/{id}/events` | `turn_attempts`, `bot_turns`, `cost_class_ranking` (turn parts) | 2, 16 | M (`store.py` 1337-1520, 1544-1632; `control_plane.py` 3180-3260, 3357-3379) |
+| 16 | Message admission and listing | `domain/messages.ts` `postMessage`, `listMessages` (2.5, 2.6), seq allocator, idempotency, participant checks, steer-or-new-turn transaction keyed by (channel, bot) (2.5); routes `POST/GET .../messages` | `messages` (30), `turn_attempts` (admission part) | 14, 15 | N |
+| 17 | Turn control record | `domain/turns.ts` `createTurn`, `claimTurn`, `renewTurn`, `releaseForWaiting`, `fail`, `complete`; `store/turn-events.ts`; per-(channel, bot) pointers; routes `GET /channels/{id}/turn`, `turns/latest` (both with optional `?bot_id`, default the most recently started), `GET /turns/{id}`, `turns/{id}/events` | `turn_attempts`, `bot_turns`, `cost_class_ranking` (turn parts) | 2, 16 | M (`store.py` 1337-1520, 1544-1632; `control_plane.py` 3180-3260, 3357-3379) |
 | 18 | Prototype and build: executor core | `turn/executor.ts` `executeTurn(job, deps)`, `turn/coalescer.ts`, `turn/finalize.ts` (sets `closing`, final mailbox drain), mid-turn mailbox steering, `lambdas/turn-executor.ts`, `features-support/fakes/scripted-provider.ts`; proves a scripted pi-ai provider, `watchEvents` cadence, the settled `unanswered` reasons, `CommitOutcomeUnknown` handling | `bot_turns`, `model_provider_failures`, `canonical_channels` (turn parts) | 13, 15, 17 | P |
 | 19 | SSE route | `http/stream.ts` `streamTurn`, `Last-Event-ID`, heartbeat, idle, terminal synthesis | `realtime_api`, new `turn_stream_replay.feature` | 5, 17, 18 | M (`http/app.py` 1960-2084, `http/sse.py`) + N (replay) |
 | 20 | Probes and recovery | `turn/probes.ts`, `lambdas/turn-probe.ts`, executor yield, logical-enqueue dedupe, fault plan | `turn_recovery`, `turn_fault_injection`, `job_routing` (enqueue parts), new `turn_probes.feature` | 17, 18 | M (`turn_recovery.py`, `deadline/*`, `turn_fault_*`, `control_plane.py` 3258-3316) + N |
