@@ -1,4 +1,4 @@
-import { setWorldConstructor, World, type IWorldOptions } from "@cucumber/cucumber";
+import { setWorldConstructor, World, type DataTable, type IWorldOptions } from "@cucumber/cucumber";
 import { DynamoBudgetStore } from "../src/budget/budget-store.ts";
 import { Decimal } from "../src/budget/decimal.ts";
 import type { Organization } from "../src/budget/models.ts";
@@ -34,6 +34,15 @@ export class ChatticusWorld extends World {
 	readonly queues: QueueRecorder;
 	api: ApiClient | null = null;
 	scenarioStartTime: number;
+
+	botsById: Map<string, { botId: string; name: string; tenantId: string }> | null = null;
+	botsByName: Map<string, { botId: string; name: string; tenantId: string }> | null = null;
+	lastHttpResponse: Response | null = null;
+	lastChannel: { channelId: string; tenantId: string } | null = null;
+	lastTurnId: string | null = null;
+	messageError: Error | Response | null = null;
+	dataTable: DataTable | null = null;
+	environment: string = "local";
 
 	constructor(options: IWorldOptions) {
 		super(options);
