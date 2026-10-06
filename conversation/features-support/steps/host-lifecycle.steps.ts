@@ -10,6 +10,7 @@ import { type SnapshotObjectStore } from "../../src/snapshot/store.ts";
 import { PACK_FILENAME, snapshotBucketAndPrefix, snapshotUri } from "../../src/snapshot/uri.ts";
 import { computerForOrganization, recordHostSnapshotPublished, relocateComputer } from "../../src/domain/computers.ts";
 import { wireFrontDoor } from "../front-door.ts";
+import { snapshotRelocationOf } from "../computer-snapshots-support.ts";
 import {
 	LIFECYCLE_TENANT,
 	bootDriverFor,
@@ -63,8 +64,15 @@ Given(
 When(
 	"an administrator relocates computer {string} to worker {string}",
 	async function (this: ChatticusWorld, computerId: string, workerId: string) {
-		const relocated = await relocateComputer(LIFECYCLE_TENANT, workerId, { store: this.messagingStore() });
-		assert.equal(relocated.computerId, computerId);
+		const scenario = snapshotRelocationOf(this);
+		scenario.relocateError = null;
+		scenario.refusalInspected = false;
+		try {
+			const relocated = await relocateComputer(LIFECYCLE_TENANT, workerId, { store: this.messagingStore() });
+			assert.equal(relocated.computerId, computerId);
+		} catch (error) {
+			scenario.relocateError = error as Error;
+		}
 	},
 );
 

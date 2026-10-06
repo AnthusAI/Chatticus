@@ -93,3 +93,9 @@ Feature: Enabled member replaces an active turn grant
       | egress_classes | approved_origin_fetch    |
     And a recycled Front Door serves the same messaging store
     Then the active turn grant is exactly that table
+
+  Scenario: The HTTP front door denies granting a missing turn
+    When user "ryan" of tenant "anthus" PUTs a turn grant over HTTP for turn "missing-turn":
+      | field | value          |
+      | tools | read_workspace |
+    Then the turn grant HTTP response has status 403

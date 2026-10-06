@@ -22,7 +22,7 @@ type ScriptedToolCall = { readonly tool: string; readonly arguments: Record<stri
  * What a model that obeys the member's message calls, as the Python capability-aware fake text client chose it: the
  * message names the tool and its arguments in plain words.
  */
-function toolCallRequestedBy(message: string): ScriptedToolCall | null {
+export function toolCallRequestedBy(message: string): ScriptedToolCall | null {
 	const read = /read workspace file (.+)$/i.exec(message);
 	if (read !== null) {
 		return { tool: "read_workspace", arguments: { path: read[1]!.trim() }, leadingText: "I'll read that workspace file." };
@@ -38,6 +38,14 @@ function toolCallRequestedBy(message: string): ScriptedToolCall | null {
 	const browse = /browse (https?:\/\/\S+)/i.exec(message);
 	if (browse !== null) {
 		return { tool: "browse", arguments: { url: browse[1]!.trim() }, leadingText: "I'll check that origin." };
+	}
+	const purchase = /purchase item (\S+) from (\S+)/i.exec(message);
+	if (purchase !== null) {
+		return {
+			tool: "purchase",
+			arguments: { item: purchase[1]!.trim(), origin: `https://${purchase[2]!.trim()}` },
+			leadingText: "I'll buy that item.",
+		};
 	}
 	const send = /send (\S+)/i.exec(message);
 	if (send !== null) {

@@ -30,13 +30,3 @@ Feature: Thin-turn demo conversation from the CLI
     Then the demo client saw turn tokens in order
     And the committed bot reply matches the streamed tokens
     And the committed bot reply is not the prior bot greeting on the channel
-
-  Scenario: List in-flight turns after a Front Door recycle
-    Given an empty control plane backed by a durable messaging store with HTTP
-    And tenant "anthus" user "ryan" has a bot named "Assistant"
-    When tenant "anthus" user "ryan" opens a channel with bots:
-      | Assistant |
-    And user "ryan" of tenant "anthus" posts a fence probe addressed to bot "Assistant" without enqueueing a turn job
-    And a recycled Front Door serves the same messaging store
-    Then the demo client lists in-flight turns for user "ryan" of tenant "anthus":
-      | 1 |

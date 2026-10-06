@@ -29,7 +29,7 @@ async function hostOf(world: ChatticusWorld, tenantId: string) {
  *
  * @returns The tool result the bot's turn recorded.
  */
-async function useComputer(world: ChatticusWorld, botName: string, message: string): Promise<Record<string, any>> {
+export async function useComputer(world: ChatticusWorld, botName: string, message: string): Promise<Record<string, any>> {
 	const bot = botOf(world, botName);
 	const openChannel = world.lastChannel;
 	await askBot(world, botName, message);
