@@ -49,6 +49,18 @@ export function grantTableToPayload(table: Record<string, string>): TurnGrantPay
   };
 }
 
+export function includeRunTerminalTool(toolsCsv: string): string {
+  const tools = splitCommaSeparated(toolsCsv);
+  if (!tools.includes("run_terminal")) {
+    tools.push("run_terminal");
+  }
+  return tools.join(", ");
+}
+
+export function isTurnGrantSubmittable(payload: TurnGrantPayload): boolean {
+  return payload.tools.length > 0;
+}
+
 export function buildRevokePayload(): TurnGrantPayload {
   return {
     tools: [],

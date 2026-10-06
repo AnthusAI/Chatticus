@@ -26,7 +26,9 @@ import {
 } from "../lib/spend-ceiling";
 import {
   grantTableToPayload,
+  includeRunTerminalTool,
   isTurnGrantPanelVisible,
+  isTurnGrantSubmittable,
   TURN_GRANT_FORM_TITLE,
   turnGrantConfirmationText,
 } from "../lib/turn-grant";
@@ -664,18 +666,11 @@ async function submitTurnGrant(payload: Record<string, string>): Promise<Harness
   state.turnGrantBlocked = false;
   const table = grantTableFromPayload(payload);
   if (payload.run_terminal === "true") {
-    const tools = (table.tools ?? "")
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (!tools.includes("run_terminal")) {
-      tools.push("run_terminal");
-    }
-    table.tools = tools.join(", ");
+    table.tools = includeRunTerminalTool(table.tools ?? "");
   }
   state.lastGrantTable = table;
   const grantPayload = grantTableToPayload(table);
-  if (grantPayload.tools.length === 0) {
+  if (!isTurnGrantSubmittable(grantPayload)) {
     state.turnGrantBlocked = true;
     return saveState(renderFromMe(state));
   }
@@ -763,7 +758,7 @@ async function trySubmitEmptyTurnGrant(payload: Record<string, string>): Promise
   state.turnGrantConfirmation = null;
   state.turnGrantError = null;
   state.turnGrantBlocked = false;
-  if (!state.activeTurnId) {
+  if (!isTurnGrantPanelVisible(state.activeTurnId ?? null, state.turnStatus ?? null)) {
     state.turnGrantBlocked = true;
     return saveState(renderFromMe(state));
   }

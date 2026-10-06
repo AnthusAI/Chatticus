@@ -340,6 +340,7 @@ When("a worker principal for tenant {string} is checked for access to tenant {st
 });
 
 When("the store is recycled", async function (this: ChatticusWorld) {
+	this.scenarioMessagingStore = this.createMessagingStore();
 });
 
 Then("an identity exists for {string}", async function (this: ChatticusWorld, email: string) {
