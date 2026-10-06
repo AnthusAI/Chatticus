@@ -31,7 +31,7 @@ const BASE_URL = "http://front-door.test";
 const CREDENTIALS = { accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret", sessionToken: "token" };
 
 const callerVerifier: CallerVerifier = async (request) => {
-	const authorization = request.headers.get("authorization") ?? "";
+	const authorization = request.headers.get("x-chatticus-sts-authorization") ?? "";
 	return authorization.startsWith("AWS4-HMAC-SHA256") && request.headers.get("x-amz-date") ? ALLOWED_ROLE : null;
 };
 
@@ -221,7 +221,8 @@ describe("the acceptance smoke test against the in-process front door", () => {
 describe("the STS identity proof the smoke test sends", () => {
 	it("signs only headers the front door relays to STS", async () => {
 		const headers = await buildStsGetCallerIdentityHeaders(CREDENTIALS);
-		expect(headers["authorization"]).toMatch(/SignedHeaders=host;x-amz-date;x-amz-security-token,/);
-		expect([...new Set(Object.keys(headers).map((name) => name.toLowerCase()))].sort()).toEqual(["authorization", "host", "x-amz-date", "x-amz-security-token"]);
+		expect(headers["x-chatticus-sts-authorization"]).toMatch(/SignedHeaders=host;x-amz-date;x-amz-security-token,/);
+		expect(Object.keys(headers).sort()).toEqual(["x-amz-date", "x-amz-security-token", "x-chatticus-sts-authorization"]);
+		expect(headers).not.toHaveProperty("authorization");
 	});
 });

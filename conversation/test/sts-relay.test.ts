@@ -14,7 +14,7 @@ function lambdaStyleRequest(): Request {
 		method: "POST",
 		headers: {
 			host: "abc123.lambda-url.us-east-1.on.aws",
-			authorization: "AWS4-HMAC-SHA256 Credential=x, SignedHeaders=host;x-amz-date;x-amz-security-token, Signature=00",
+			"x-chatticus-sts-authorization": "AWS4-HMAC-SHA256 Credential=x, SignedHeaders=host;x-amz-date;x-amz-security-token, Signature=00",
 			"x-amz-date": "20261006T170715Z",
 			"x-amz-security-token": "token",
 			"x-chatticus-invoke-key": "secret",
@@ -33,6 +33,30 @@ describe("relayStsGetCallerIdentityArn", () => {
 		expect(captured).toHaveLength(1);
 		expect(captured[0]?.url).toBe("https://sts.amazonaws.com/?Action=GetCallerIdentity&Version=2011-06-15");
 		expect(Object.keys(captured[0]?.headers ?? {}).sort()).toEqual(["authorization", "x-amz-date", "x-amz-security-token"]);
+	});
+
+	it("calls STS with the value of x-chatticus-sts-authorization and ignores a plain Authorization header", async () => {
+		const captured: Array<Record<string, string>> = [];
+		vi.stubGlobal("fetch", async (_url: string, init: { headers: Record<string, string> }) => {
+			captured.push(init.headers);
+			return new Response(STS_XML, { status: 200 });
+		});
+		const request = lambdaStyleRequest();
+		request.headers.set("authorization", "Bearer plain-should-be-ignored");
+		expect(await relayStsGetCallerIdentityArn(request)).toBe(ARN);
+		expect(captured[0]?.["authorization"]).toMatch(/^AWS4-HMAC-SHA256 Credential=x/);
+		expect(JSON.stringify(captured[0])).not.toContain("plain-should-be-ignored");
+	});
+
+	it("answers null without calling STS when only a plain Authorization header is present", async () => {
+		const fetchStub = vi.fn();
+		vi.stubGlobal("fetch", fetchStub);
+		const request = new Request("https://abc123.lambda-url.us-east-1.on.aws/x", {
+			method: "POST",
+			headers: { authorization: "AWS4-HMAC-SHA256 Credential=x", "x-amz-date": "20261006T170715Z" },
+		});
+		expect(await relayStsGetCallerIdentityArn(request)).toBeNull();
+		expect(fetchStub).not.toHaveBeenCalled();
 	});
 
 	it("answers null without calling STS when there is no authorization header", async () => {

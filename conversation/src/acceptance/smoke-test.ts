@@ -94,12 +94,7 @@ async function exchangeSession(options: SmokeTestOptions): Promise<string> {
 	const check = SMOKE_CHECK_NAMES.sessionExchanged;
 	const base = options.baseUrl.replace(/\/$/, "");
 	const signed = await buildStsGetCallerIdentityHeaders(options.credentials);
-	const headers: Record<string, string> = { [SMOKE_INVOKE_KEY_HEADER]: options.invokeKey };
-	for (const [name, value] of Object.entries(signed)) {
-		if (name.toLowerCase() !== "host") {
-			headers[name] = value;
-		}
-	}
+	const headers: Record<string, string> = { [SMOKE_INVOKE_KEY_HEADER]: options.invokeKey, ...signed };
 	const sessionClient = new HttpClient({ baseUrl: base, headers, ...(options.fetch ? { fetch: options.fetch } : {}) });
 	const body = await jsonOf(check, await sessionClient.post(INTEGRATION_TEST_SESSION_PATH));
 	return requireString(check, body["token"], "token");

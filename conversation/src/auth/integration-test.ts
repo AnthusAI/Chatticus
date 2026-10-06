@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { OrganizationsKernelImpl, normalizeEmail } from "../domain/organizations.ts";
 import type { Clock, IdSource } from "../http/app.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
-import { STS_GET_CALLER_IDENTITY_QUERY, STS_GET_CALLER_IDENTITY_URL } from "../acceptance/sigv4.ts";
+import { STS_AUTHORIZATION_HEADER, STS_GET_CALLER_IDENTITY_QUERY, STS_GET_CALLER_IDENTITY_URL } from "../acceptance/sigv4.ts";
 import {
 	PrincipalHttpError,
 	type IntegrationTestAuthenticator,
@@ -17,7 +17,7 @@ export const DEFAULT_INTEGRATION_TEST_USER_ID = "integration-test-runner";
 export const DEFAULT_INTEGRATION_TEST_OWNER_EMAIL = "integration-test@chattic.us";
 export const DEFAULT_TOKEN_TTL_SECONDS = 900;
 
-const STS_FORWARD_HEADERS = new Set(["authorization", "x-amz-date", "x-amz-security-token"]);
+const STS_FORWARD_HEADERS = new Set([STS_AUTHORIZATION_HEADER, "x-amz-date", "x-amz-security-token"]);
 
 /** Resolves the IAM role ARN of the caller of a session exchange, or null when the caller is not verified. */
 export type CallerVerifier = (request: Request) => Promise<string | null>;
@@ -127,14 +127,21 @@ export async function relayStsGetCallerIdentityArn(request: Request): Promise<st
 		}
 	});
 	const forwardedHeaderNames = Object.keys(forwarded).sort();
-	if (!forwardedHeaderNames.some((key) => key.toLowerCase() === "authorization")) {
-		warnStsRelayFailure({ reason: "no_authorization_header", forwardedHeaderNames });
+	const stsAuthorization = request.headers.get(STS_AUTHORIZATION_HEADER);
+	if (stsAuthorization === null || stsAuthorization === "") {
+		warnStsRelayFailure({ reason: "no_sts_authorization_header", forwardedHeaderNames });
 		return null;
+	}
+	const outgoing: Record<string, string> = { authorization: stsAuthorization };
+	for (const [name, value] of Object.entries(forwarded)) {
+		if (name.toLowerCase() !== STS_AUTHORIZATION_HEADER) {
+			outgoing[name] = value;
+		}
 	}
 	let response: Response;
 	try {
 		response = await fetch(`${STS_GET_CALLER_IDENTITY_URL}?${STS_GET_CALLER_IDENTITY_QUERY}`, {
-			headers: forwarded,
+			headers: outgoing,
 			signal: AbortSignal.timeout(10000),
 		});
 	} catch (error) {
@@ -160,7 +167,7 @@ export async function relayStsGetCallerIdentityArn(request: Request): Promise<st
 }
 
 type StsRelayFailure = {
-	reason: "no_authorization_header" | "fetch_failed" | "non_200" | "no_arn_in_response";
+	reason: "no_sts_authorization_header" | "fetch_failed" | "non_200" | "no_arn_in_response";
 	forwardedHeaderNames: string[];
 	status?: number;
 	errorName?: string;
