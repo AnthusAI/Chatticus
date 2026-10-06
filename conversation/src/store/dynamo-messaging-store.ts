@@ -23,6 +23,7 @@ import type {
 	Organization,
 	OrganizationStatus,
 } from "../domain/organizations.ts";
+import { Decimal } from "../budget/decimal.ts";
 import { DuplicateBotNameError } from "../http/errors.ts";
 import * as botCodec from "./codecs/bot.ts";
 import type { Bot } from "./codecs/bot.ts";
@@ -117,7 +118,7 @@ export class DynamoMessagingStore implements MessagingStore {
 				awsExternalId: organization.awsExternalId ?? undefined,
 				awsSetupPath: organization.awsSetupPath ?? undefined,
 				monthlyAwsSpendCeilingUsd:
-					organization.monthlyAwsSpendCeilingUsd === null ? undefined : String(organization.monthlyAwsSpendCeilingUsd),
+					organization.monthlyAwsSpendCeilingUsd === null ? undefined : organization.monthlyAwsSpendCeilingUsd.toString(),
 			}),
 		);
 	}
@@ -554,7 +555,7 @@ export class DynamoMessagingStore implements MessagingStore {
 			awsExternalId: decoded.awsExternalId ?? null,
 			awsSetupPath: (decoded.awsSetupPath ?? null) as Organization["awsSetupPath"],
 			monthlyAwsSpendCeilingUsd:
-				decoded.monthlyAwsSpendCeilingUsd === undefined ? null : Number(decoded.monthlyAwsSpendCeilingUsd),
+				decoded.monthlyAwsSpendCeilingUsd === undefined ? null : Decimal.parse(decoded.monthlyAwsSpendCeilingUsd),
 		};
 	}
 

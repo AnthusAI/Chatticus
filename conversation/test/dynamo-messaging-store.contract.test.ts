@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { CreateTableCommand, DeleteTableCommand, DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { afterAll, describe, expect, it } from "vitest";
+import { Decimal } from "../src/budget/decimal.ts";
 import { InMemoryMessagingStore } from "../features-support/in-memory-messaging-store.ts";
 import type { Channel, ChannelMessageRecord } from "../src/domain/channels.ts";
 import type { Identity, Invitation, Membership, Organization } from "../src/domain/organizations.ts";
@@ -135,7 +136,7 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 				awsCrossAccountRole: "arn:aws:iam::123456789012:role/x",
 				awsExternalId: "external",
 				awsSetupPath: "customer-owned",
-				monthlyAwsSpendCeilingUsd: 250,
+				monthlyAwsSpendCeilingUsd: Decimal.parse("250"),
 			});
 			await store.putOrganization(bare);
 			await store.putOrganization(full);

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { Decimal } from "../budget/decimal.ts";
 import type { Clock } from "../storage/storage-support.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import {
@@ -66,7 +67,7 @@ export interface Organization {
 	awsCrossAccountRole: string | null;
 	awsExternalId: string | null;
 	awsSetupPath: AwsSetupPath | null;
-	monthlyAwsSpendCeilingUsd: number | null;
+	monthlyAwsSpendCeilingUsd: Decimal | null;
 }
 
 /** One user's membership in one organization. */

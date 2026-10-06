@@ -3,6 +3,7 @@ import type { IdTokenVerifier } from "../../auth/cognito.ts";
 import { CognitoTokenError } from "../../auth/cognito.ts";
 import { parseBearerToken } from "../../auth/principal.ts";
 import { InvitationsKernelImpl } from "../../domain/invitations.ts";
+import { organizationComputerWorkPausedFor, type BudgetRollupReader } from "../../domain/organization-spend.ts";
 import { OrganizationsKernelImpl } from "../../domain/organizations.ts";
 import type { MessagingStore } from "../../store/messaging-store.ts";
 import type { Clock, IdSource } from "../app.ts";
@@ -37,6 +38,8 @@ export async function getMeHandler(
 		clock: Clock;
 		ids: IdSource;
 		verifier: IdTokenVerifier | null;
+		rollups: BudgetRollupReader;
+		environment: string;
 	},
 ): Promise<Response> {
 	if (deps.verifier === null) {
@@ -66,6 +69,7 @@ export async function getMeHandler(
 			throw new Error(`Membership is missing for ${identity.userId} in ${organization.tenantId}.`);
 		}
 		const isOwner = membership.role === "owner";
+		const pause = await organizationComputerWorkPausedFor(organization, deps);
 		rows.push({
 			tenant_id: organization.tenantId,
 			name: organization.name,
@@ -73,10 +77,10 @@ export async function getMeHandler(
 			role: membership.role,
 			monthly_aws_spend_ceiling_usd:
 				isOwner && organization.monthlyAwsSpendCeilingUsd !== null
-					? String(organization.monthlyAwsSpendCeilingUsd)
+					? organization.monthlyAwsSpendCeilingUsd.toString()
 					: null,
-			computer_work_paused: false,
-			computer_work_paused_reason: null,
+			computer_work_paused: pause.paused,
+			computer_work_paused_reason: pause.reason,
 		});
 	}
 	const body: MeResponseBody = {
