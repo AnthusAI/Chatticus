@@ -33,6 +33,10 @@
     {
       "target": "chatticus-5c754a7d-9539-4db6-bac1-3e3f704520ee",
       "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-6ca86a75-8e6b-4cac-806f-fd164db9eb1f",
+      "type": "blocked-by"
     }
   ],
   "comments": [
@@ -50,14 +54,14 @@
     }
   ],
   "created_at": "2026-10-05T15:46:51.809027Z",
-  "updated_at": "2026-10-06T11:07:44.971003Z",
+  "updated_at": "2026-10-06T12:37:03.650290Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The rehearsal awaits deployment and verification of the dormant development stack from TS-36.",
-  "right_now_updated_at": "2026-10-06T11:07:47.482654Z",
+  "right_now_summary": "The team is rehearsing the TypeScript stack in development and will report test results to Kanbus.",
+  "right_now_updated_at": "2026-10-06T12:37:05.103605Z",
   "custom": {}
 }
