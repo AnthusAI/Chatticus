@@ -16,6 +16,9 @@ import {
   CREATE_BOT_FORM_TITLE,
   createBotConfirmationText,
 } from "../lib/create-bot";
+import { getTask, listTasks } from "../lib/api";
+import { setIdTokenSourceForTests } from "../lib/api-auth";
+import { tasksForSelection } from "../lib/workspace-state";
 import { inviteConfirmationText } from "../lib/invitations";
 import { orgApiPath } from "../lib/paths";
 import {
@@ -65,6 +68,9 @@ type HarnessState = {
   spendCeilingConfirmation: string | null;
   spendCeilingError: string | null;
   spendCeilingBlocked: boolean;
+  webTaskListTitles: string[] | null;
+  webTaskDetail: { title: string; status: string } | null;
+  webTaskError: string | null;
 };
 
 function emptyState(): HarnessState {
@@ -96,6 +102,9 @@ function emptyState(): HarnessState {
     spendCeilingConfirmation: null,
     spendCeilingError: null,
     spendCeilingBlocked: false,
+    webTaskListTitles: null,
+    webTaskDetail: null,
+    webTaskError: null,
   };
 }
 
@@ -801,6 +810,51 @@ async function putTurnGrantHttp(payload: Record<string, string>): Promise<Harnes
   return saveState(state);
 }
 
+function routeSameOriginApiTo(apiBase: string, idToken: string): void {
+  setIdTokenSourceForTests(async () => idToken);
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const target =
+      typeof input === "string" && input.startsWith("/api/")
+        ? `${apiBase}${input.slice("/api".length)}`
+        : input;
+    return realFetch(target, init);
+  }) as typeof fetch;
+}
+
+async function loadWebTasks(payload: {
+  api_base: string;
+  id_token: string;
+  tenant_id: string;
+  user_id: string;
+}): Promise<HarnessState> {
+  const state = loadState();
+  routeSameOriginApiTo(payload.api_base, payload.id_token);
+  const tasks = await listTasks({ tenantId: payload.tenant_id, userId: payload.user_id });
+  state.webTaskListTitles = tasksForSelection(tasks, null).map((task) => task.title);
+  return saveState(state);
+}
+
+async function loadWebTask(payload: {
+  api_base: string;
+  id_token: string;
+  tenant_id: string;
+  user_id: string;
+  task_id: string;
+}): Promise<HarnessState> {
+  const state = loadState();
+  routeSameOriginApiTo(payload.api_base, payload.id_token);
+  state.webTaskDetail = null;
+  state.webTaskError = null;
+  try {
+    const task = await getTask({ tenantId: payload.tenant_id, userId: payload.user_id }, payload.task_id);
+    state.webTaskDetail = { title: task.title, status: task.status };
+  } catch (error) {
+    state.webTaskError = error instanceof Error ? error.message : String(error);
+  }
+  return saveState(state);
+}
+
 async function main(): Promise<void> {
   const [command, payloadJson] = process.argv.slice(2);
   const payload = JSON.parse(payloadJson ?? "{}") as Record<string, string>;
@@ -809,6 +863,12 @@ async function main(): Promise<void> {
   switch (command) {
     case "reset":
       result = resetHarness(payload);
+      break;
+    case "load-web-tasks":
+      result = await loadWebTasks(payload as never);
+      break;
+    case "load-web-task":
+      result = await loadWebTask(payload as never);
       break;
     case "seed-session":
       result = seedSession(payload);

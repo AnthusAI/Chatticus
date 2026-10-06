@@ -3,23 +3,36 @@
   "title": "TS-46 Port the web behave features to cucumber-js",
   "description": "Source: the fresh re-audit report at /tmp/ts/reaudit.md (read the per-feature blocks for your features). Rules: features stay the spec (Gherkin text of existing scenarios unchanged); cucumber-js steps drive production code; every fixed or new scenario group gets a recorded mutation check (break production, scenario fails, restore); no new Python; push with an explicit refspec (git push origin HEAD:refs/heads/<branch>), never plain git push.\n\nweb_voice_control (61 scenarios), real_web_workspace (11) and web_google_sign_out (8) run today only under Python behave through steps that shell out to tsx harnesses in web/test-support. Move the steps to conversation/features-support/steps (or a web steps module) so they run under cucumber-js, calling the same harnesses (or the web code directly); delete the Python step files; add the three features to features/ported-features.txt and python/behave.ini; make sure the cucumber CI job can run web test-support (check how web tests are run in CI). Keep the Gherkin unchanged. Mutation-check one scenario group per feature.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "a06578df-5e2a-467b-ae11-f0e923c64cff",
+      "author": "home",
+      "text": "Merged via PR 446. Hollow real_web_workspace harness actions tracked in TS-49.",
+      "created_at": "2026-10-06T14:26:39.140580Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-06T12:54:00.958928Z",
-  "updated_at": "2026-10-06T12:54:00.958952Z",
-  "closed_at": null,
+  "updated_at": "2026-10-06T14:26:42.657264Z",
+  "closed_at": "2026-10-06T14:26:42.657232Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The three web feature suites still run through Python Behave and need to move to cucumber-js.",
-  "right_now_updated_at": "2026-10-06T12:54:02.939131Z",
+  "right_now_summary": "The port merged, but hollow real_web_workspace harness actions remain and are tracked in TS-49.",
+  "right_now_updated_at": "2026-10-06T14:26:44.777280Z",
   "custom": {}
 }

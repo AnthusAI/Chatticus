@@ -3,23 +3,36 @@
   "title": "TS-44 Gate round 2B: fix the static-only weak features",
   "description": "Source: the fresh re-audit report at /tmp/ts/reaudit.md (read the per-feature blocks for your features). Rules: features stay the spec (Gherkin text of existing scenarios unchanged); cucumber-js steps drive production code; every fixed or new scenario group gets a recorded mutation check (break production, scenario fails, restore); no new Python; push with an explicit refspec (git push origin HEAD:refs/heads/<branch>), never plain git push.\n\nFix the static-only WEAK findings: consequential_binding_control (takeover scenarios assert flags only requireTakeover sets and nothing in production calls it: drive a real browser action through the gate); overnight_gated_action ('does not retry' asserts a constant); v1_security_policy_exclusions (3 rows are method-absent probes: make them probe real behavior); web_task_list (never runs web code: run it); customer_computer_image (the step performs the assume-role itself); organization_spend_ceiling_computer ('no computer is started' cannot fail because no start job is consumed: consume the start queue); conversation_turn_grant_computer (never shows a path outside /workspace denied); messages_shared_computer and shared_computer (isolation comes from the test's per-tenant disk map: use the production isolation); customer_account_provisioning, customer_snapshot_bucket_template, organization_spend_ceiling_provisioning, computer_ecs_host_starter (greps source: drive the starter), customer_computer_host_front_door (test double), agent_terminal_host_worker_escalation. For each: either make the Then able to fail or, if it genuinely cannot, record exactly why in the closing report.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7eb32899-4d39-4068-915a-1ec49a196d9f",
+      "author": "home",
+      "text": "Merged via PR 447. Cannot fail independently (recorded): routine does-not-retry, model-request check in agent_terminal_host_worker_escalation, escalation scenario 2 prefix of 1. No payment model, so paid-but-not-provisioned stays unported.",
+      "created_at": "2026-10-06T14:38:21.922849Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-06T12:53:52.415393Z",
-  "updated_at": "2026-10-06T12:53:52.415427Z",
-  "closed_at": null,
+  "updated_at": "2026-10-06T14:38:26.846917Z",
+  "closed_at": "2026-10-06T14:38:26.846879Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team must replace static checks with real behavior tests and record mutation checks.",
-  "right_now_updated_at": "2026-10-06T12:53:54.482681Z",
+  "right_now_summary": "PR 447 merged the fixes; documented non-failing checks and unported cases remain.",
+  "right_now_updated_at": "2026-10-06T14:38:29.710450Z",
   "custom": {}
 }

@@ -10,12 +10,13 @@ import {
 	stackOutputsFromDescribeStacks,
 } from "../../src/computer/customer-stack.ts";
 import {
-	publishDevImageFromAnthus,
+	publishCustomerComputerImage,
 	repositoryNameFromUri,
 	requireCustomerComputerImage,
 } from "../../src/computer/customer-image.ts";
 import { loadCustomerComputersTemplate } from "../../src/computer/customer-template.ts";
 import {
+	type StartConditions,
 	CUSTOMER_ACCOUNT_ID,
 	DEPLOYMENT_ACCOUNT_ID,
 	computeScenario,
@@ -259,9 +260,24 @@ Then("no instance is launched in the Anthus account", function (this: ChatticusW
 	assert.equal(computeScenario(this).ecs.deployment.calls.length, 0);
 });
 
+function expectedRefusalFragment(conditions: StartConditions): string {
+	if (!conditions.hasAwsHome) return "has no aws home";
+	if (conditions.roleUnreachable) return "could not be assumed";
+	if (!conditions.stackPresent) return "stack provisioning is still in progress";
+	const status = conditions.stackStatus ?? "";
+	if (conditions.deleteDenied) return "deletestack(chatticuscomputers) failed";
+	if (["ROLLBACK_FAILED", "ROLLBACK_COMPLETE", "CREATE_FAILED", "DELETE_FAILED"].includes(status)) {
+		return `stack is ${status.toLowerCase()}; delete started`;
+	}
+	if (status === "CREATE_COMPLETE" || status === "UPDATE_COMPLETE") return "stack update started";
+	throw new Error(`No refusal is expected for a stack in ${status} status`);
+}
+
 Then("the start is refused with a provisioning error", function (this: ChatticusWorld) {
+	const conditions = computeScenario(this).startConditions;
+	assert.ok(conditions, "The starter was never asked to start in this scenario.");
 	const message = startErrorMessage(this).toLowerCase();
-	assert.ok(message.includes("provisioning") || message.includes("refused"), message);
+	assert.ok(message.includes(expectedRefusalFragment(conditions)), message);
 });
 
 Then("the start is refused with a provisioning error naming the missing stack", function (this: ChatticusWorld) {
@@ -322,10 +338,12 @@ Then("Chatticus updates the ChatticusComputers stack in the customer account", f
 
 Then("Anthus does not grant cross-account ECR pull for the customer account", function (this: ChatticusWorld) {
 	const scenario = computeScenario(this);
+	assert.ok(scenario.ecrClientsOpened.length >= 1, "No ECR client was opened for the customer account.");
 	assert.ok(
 		scenario.ecrClientsOpened.every((credentials) => credentials !== null),
 		"An ECR client was opened with Anthus credentials; Anthus must not touch its own ECR for a customer start.",
 	);
+	assert.ok(scenario.cloudformationClientsOpened.length >= 1, "No CloudFormation client was opened for the customer account.");
 	assert.ok(scenario.cloudformationClientsOpened.every((credentials) => credentials !== null));
 });
 
@@ -385,21 +403,20 @@ When("the customer computer image is published from Anthus dev", async function 
 	const scenario = computeScenario(this);
 	const organization = scenario.publishOrganization;
 	assert.ok(organization && scenario.customerEcr && scenario.anthusEcr && scenario.publishAssumeRole);
-	const outcome = await attemptCrossAccountAssumeRole(organization, { assumeRole: scenario.publishAssumeRole.port });
-	assert.ok(outcome.session, "The organization cross-account role was not assumed for the publish.");
-	scenario.customerEcrCredentials = {
-		accessKeyId: outcome.session.accessKeyId,
-		secretAccessKey: outcome.session.secretAccessKey,
-		sessionToken: outcome.session.sessionToken,
-	};
-	const outputs = stackOutputsFromDescribeStacks(await describeCustomerComputersStack(scenario.cloudformation));
-	const repositoryUri = outputs[COMPUTER_REPOSITORY_URI_OUTPUT];
-	assert.ok(repositoryUri, "The customer stack has no computer repository.");
-	await publishDevImageFromAnthus(scenario.anthusEcr, scenario.customerEcr, {
+	const customerEcr = scenario.customerEcr;
+	scenario.publishedImageUri = await publishCustomerComputerImage(organization, {
+		assumeRole: scenario.publishAssumeRole.port,
+		anthusEcr: scenario.anthusEcr,
 		anthusRepositoryName: "chatticuscomputers-computerimage",
-		customerRepositoryName: repositoryNameFromUri(repositoryUri),
+		cloudformationClientFactory: (credentials) => {
+			scenario.customerEcrCredentials = credentials;
+			return scenario.cloudformation;
+		},
+		ecrClientFactory: (credentials) => {
+			scenario.customerEcrCredentials = credentials;
+			return customerEcr;
+		},
 	});
-	scenario.publishedImageUri = await requireCustomerComputerImage(scenario.customerEcr, { repositoryUri });
 });
 
 Then("the publish used the organization cross-account role", function (this: ChatticusWorld) {

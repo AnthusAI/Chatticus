@@ -27,6 +27,7 @@ import type { ChatticusWorld } from "../world.ts";
 import { Decimal } from "../../src/budget/decimal.ts";
 
 const kernel = new OrganizationsKernelImpl();
+const PROVISIONING_SUBMITTED_CEILING = Decimal.parse("375.50");
 
 function selfSetupPath(tenantId: string): string {
 	return `/orgs/${tenantId}/self-setup/cross-account-role`;
@@ -141,11 +142,21 @@ Then("the organization stays pending", async function (this: ChatticusWorld) {
 });
 
 Given("an organization that has completed provisioning", async function (this: ChatticusWorld) {
-	selfSetupScenario(this).provisionedOrganization = await provisionCrossAccountOrganization(this, {
-		name: "Test Org",
-		ownerEmail: "owner@example.com",
-		accountId: CUSTOMER_ACCOUNT_ID,
-	});
+	const organization = await createPendingOrganization(this, "owner@example.com", "Test Org");
+	configureCustomerRole(this, { trustedExternalId: organization.tenantId });
+	const result = await submitSelfSetupCrossAccountRole(
+		organization.tenantId,
+		{
+			actorUserId: organization.ownerUserId,
+			accountId: CUSTOMER_ACCOUNT_ID,
+			crossAccountRole: CUSTOMER_ROLE_ARN,
+			roleInspector: this.roleInspector,
+			monthlyAwsSpendCeilingUsd: defaultMonthlyCeiling(),
+		},
+		{ store: this.messagingStore() },
+	);
+	assert.equal(result.accepted, true, String(result.message));
+	selfSetupScenario(this).provisionedOrganization = organization;
 });
 
 Then("it records the customer AWS account id", async function (this: ChatticusWorld) {
@@ -278,7 +289,7 @@ When("provisioning completes", async function (this: ChatticusWorld) {
 			accountId: CUSTOMER_ACCOUNT_ID,
 			crossAccountRole: CUSTOMER_ROLE_ARN,
 			roleInspector: this.roleInspector,
-			monthlyAwsSpendCeilingUsd: defaultMonthlyCeiling(),
+			monthlyAwsSpendCeilingUsd: PROVISIONING_SUBMITTED_CEILING,
 		},
 		{ store: this.messagingStore() },
 	);
@@ -288,7 +299,7 @@ When("provisioning completes", async function (this: ChatticusWorld) {
 
 Then("the organization carries a monthly AWS spend ceiling", async function (this: ChatticusWorld) {
 	const stored = await storedOrganizationOf(this, selfSetupOrganization(this).tenantId);
-	assert.ok(stored.monthlyAwsSpendCeilingUsd?.equals(Decimal.parse("250.00")), String(stored.monthlyAwsSpendCeilingUsd));
+	assert.ok(stored.monthlyAwsSpendCeilingUsd?.equals(PROVISIONING_SUBMITTED_CEILING), String(stored.monthlyAwsSpendCeilingUsd));
 	assert.equal(stored.status, "enabled");
 	assert.equal(stored.awsAccountId, CUSTOMER_ACCOUNT_ID);
 	assert.equal(stored.awsCrossAccountRole, CUSTOMER_ROLE_ARN);
