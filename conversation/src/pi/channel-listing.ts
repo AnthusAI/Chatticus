@@ -1,6 +1,6 @@
 import type { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { S3Client } from "@aws-sdk/client-s3";
-import { IndexedStorage } from "../storage/indexed-storage.ts";
+import { type CommitObjectCache, IndexedStorage } from "../storage/indexed-storage.ts";
 import { storageIdFor } from "../storage/storage-support.ts";
 import { type ChannelLogLine, readEntryBody, readLog } from "./channel-log.ts";
 import { list as listMailbox, type MailboxStore } from "./mailbox.ts";
@@ -11,6 +11,8 @@ export type ChannelListingDependencies = {
 	readonly messagingTableName: string;
 	readonly conversationsTableName: string;
 	readonly bucket: string;
+	/** Shared cache of immutable Pi commit objects, see MessageBodyCache. */
+	readonly commitCache?: CommitObjectCache;
 };
 
 export type ListedMessage = {
@@ -57,6 +59,7 @@ export async function listChannelMessages(
 			tableName: dependencies.conversationsTableName,
 			bucket: dependencies.bucket,
 			storageId: storageIdFor(tenantId, botId, channelId),
+			commitCache: dependencies.commitCache,
 		});
 		const lines = (await readLog(storage)).filter((line) => line.seq > afterSeq);
 		for (const line of lines) {

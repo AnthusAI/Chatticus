@@ -67,6 +67,30 @@ export async function allocateSeq(store: MailboxStore, tenantId: string, channel
 }
 
 /**
+ * The DynamoDB item of one mailbox entry.
+ *
+ * @param item The message.
+ * @returns The attributes, keyed by the bot session's mailbox partition and the zero padded sequence.
+ */
+export const mailboxItemAttributes = (item: MailboxItem): Record<string, AttributeValue> => ({
+	pk: { S: mailboxPartitionKey(item.tenantId, item.botId, item.channelId) },
+	sk: { S: mailboxSortKey(item.seq) },
+	tenant_id: { S: item.tenantId },
+	bot_id: { S: item.botId },
+	channel_id: { S: item.channelId },
+	seq: { N: String(item.seq) },
+	message_id: { S: item.messageId },
+	author_kind: { S: item.authorKind },
+	author_id: { S: item.authorId },
+	addressed_to_bot_id: { S: item.addressedToBotId ?? "" },
+	body: { S: item.body },
+	created_at: { S: item.createdAt },
+});
+
+/** The condition that makes a mailbox put idempotent: the slot is free or already holds this very message. */
+export const MAILBOX_PUT_CONDITION = "attribute_not_exists(sk) OR message_id = :messageId";
+
+/**
  * Put one inbound message into a bot session's mailbox. Idempotent for the same message at the same sequence.
  *
  * @param store Table.
@@ -78,21 +102,8 @@ export async function put(store: MailboxStore, item: MailboxItem): Promise<void>
 		await store.client.send(
 			new PutItemCommand({
 				TableName: store.tableName,
-				Item: {
-					pk: { S: mailboxPartitionKey(item.tenantId, item.botId, item.channelId) },
-					sk: { S: mailboxSortKey(item.seq) },
-					tenant_id: { S: item.tenantId },
-					bot_id: { S: item.botId },
-					channel_id: { S: item.channelId },
-					seq: { N: String(item.seq) },
-					message_id: { S: item.messageId },
-					author_kind: { S: item.authorKind },
-					author_id: { S: item.authorId },
-					addressed_to_bot_id: { S: item.addressedToBotId ?? "" },
-					body: { S: item.body },
-					created_at: { S: item.createdAt },
-				},
-				ConditionExpression: "attribute_not_exists(sk) OR message_id = :messageId",
+				Item: mailboxItemAttributes(item),
+				ConditionExpression: MAILBOX_PUT_CONDITION,
 				ExpressionAttributeValues: { ":messageId": { S: item.messageId } },
 			}),
 		);

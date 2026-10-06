@@ -16,13 +16,9 @@ import { getMeHandler } from "./routes/me.ts";
 import { createOrganizationHandler } from "./routes/organizations.ts";
 import { createInvitationHandler, createInvitationMembershipCache } from "./routes/invitations.ts";
 import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler } from "./routes/bots.ts";
-import {
-	createChannelHandler,
-	getChannelHandler,
-	listChannelMessagesHandler,
-	listUserChannelsHandler,
-	postChannelMessageHandler,
-} from "./routes/channels.ts";
+import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from "./routes/channels.ts";
+import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
+import type { MessageDependencies } from "../domain/messages.ts";
 import { integrationTestSessionHandler } from "./routes/integration-test.ts";
 import { operatorOrganizationHandler } from "./routes/operator.ts";
 import { claimTurnHandler, registerWorkerHandler } from "./routes/workers.ts";
@@ -46,6 +42,8 @@ export interface AppDeps {
 	clock: Clock;
 	ids: IdSource;
 	store: unknown;
+	/** Message admission and listing, behind the routes under /channels/{id}/messages. */
+	messages: Omit<MessageDependencies, "store" | "ids" | "clock">;
 	invokeKey: string | null;
 	/** The deployment-wide operator bearer secret; the operator routes refuse every caller when it is empty. */
 	operatorKey?: string;
@@ -151,6 +149,11 @@ export function createApp(deps: AppDeps): Hono {
 		integrationTest,
 	};
 
+	const messageRoutes = {
+		...userRoutes,
+		messages: { ...deps.messages, store, ids: deps.ids, clock: deps.clock } satisfies MessageDependencies,
+	};
+
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
 		createBotHandler(c, userRoutes),
 	);
@@ -173,10 +176,10 @@ export function createApp(deps: AppDeps): Hono {
 		getChannelHandler(c, userRoutes),
 	);
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
-		postChannelMessageHandler(c, userRoutes),
+		postChannelMessageHandler(c, messageRoutes),
 	);
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
-		listChannelMessagesHandler(c, userRoutes),
+		listChannelMessagesHandler(c, messageRoutes),
 	);
 
 	const workerRoutes = { store, clock: deps.clock, ids: deps.ids };

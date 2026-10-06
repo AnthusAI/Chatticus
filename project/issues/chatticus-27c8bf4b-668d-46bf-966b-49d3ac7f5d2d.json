@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-8787e9c1-f5aa-4032-8640-8066b231e4f6",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:45:21.218369Z",
-  "updated_at": "2026-10-05T23:11:38.950887Z",
+  "updated_at": "2026-10-05T23:56:04.422461Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The TypeScript turn control record and routes are being ported with matching events, pointers, and tests.",
-  "right_now_updated_at": "2026-10-05T23:11:40.239716Z",
+  "right_now_summary": "The turn control record and routes are being ported to TypeScript.",
+  "right_now_updated_at": "2026-10-05T23:56:06.023734Z",
   "custom": {}
 }

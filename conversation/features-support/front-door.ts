@@ -1,6 +1,11 @@
+import { S3Client } from "@aws-sdk/client-s3";
 import type { IntegrationTestAuthConfig } from "../src/auth/integration-test.ts";
 import type { SignupMode } from "../src/domain/signup-mode.ts";
+import type { TurnRunJob } from "../src/domain/turn-admission.ts";
 import { createApp } from "../src/http/app.ts";
+import type { CommitObject } from "../src/storage/indexed-storage.ts";
+import { MessageBodyCache } from "../src/pi/message-cache.ts";
+import { DynamoTurnAdmission } from "../src/store/turn-admission-store.ts";
 import { ApiClient } from "./api.ts";
 import { startAppServer } from "./http-server.ts";
 import { CognitoTestKeys } from "./test-jwt.ts";
@@ -26,6 +31,39 @@ export async function cognitoKeys(world: ChatticusWorld): Promise<CognitoTestKey
 	return world.cognitoTestKeys;
 }
 
+/** The queue name run jobs for new turns are recorded under in the scenario's queue recorder. */
+export const TURN_RUN_QUEUE = "turn-runs";
+
+const CONVERSATIONS_TABLE_NAME = "Conversations";
+const PI_SESSIONS_BUCKET_NAME = "PiSessions";
+
+function messageDependencies(world: ChatticusWorld) {
+	const s3 = new S3Client({
+		endpoint: process.env.CHATTICUS_TEST_AWS_ENDPOINT ?? "http://127.0.0.1:5555",
+		region: "us-east-1",
+		credentials: { accessKeyId: "test", secretAccessKey: "test" },
+		forcePathStyle: true,
+		maxAttempts: 1,
+	});
+	return {
+		mailbox: { client: world.messagingTable.client, tableName: world.messagingTable.tableName },
+		turns: new DynamoTurnAdmission(world.messagingTable.client, world.messagingTable.tableName),
+		turnRuns: {
+			async enqueue(job: TurnRunJob): Promise<void> {
+				world.queues.send(TURN_RUN_QUEUE, job);
+			},
+		},
+		listing: {
+			client: world.messagingTable.client,
+			s3,
+			messagingTableName: world.messagingTable.tableName,
+			conversationsTableName: CONVERSATIONS_TABLE_NAME,
+			bucket: PI_SESSIONS_BUCKET_NAME,
+			commitCache: new MessageBodyCache<Promise<CommitObject>>(),
+		},
+	};
+}
+
 /**
  * Build the production HTTP application over the scenario's messaging store
  * and point the scenario's API client at it.
@@ -36,6 +74,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		clock: world.clock,
 		ids: world.ids,
 		store: world.messagingStore(),
+		messages: messageDependencies(world),
 		invokeKey: options.invokeKey ?? null,
 		operatorKey: options.operatorKey ?? "",
 		integrationTest: options.integrationTest ?? null,
