@@ -299,6 +299,24 @@ export class OrganizationNameTooLongError extends DomainError {
 	}
 }
 
+export class OrganizationSpendCeilingRequiredError extends DomainError {
+	constructor(message: string) {
+		super("organization_spend_ceiling_required", message);
+	}
+}
+
+export class OrganizationSpendCeilingInvalidError extends DomainError {
+	constructor(message: string) {
+		super("organization_spend_ceiling_invalid", message);
+	}
+}
+
+export class OrganizationSpendCeilingExceededError extends DomainError {
+	constructor(message: string) {
+		super("organization_spend_ceiling_exceeded", message);
+	}
+}
+
 export class WaitlistRateLimitedError extends DomainError {
 	constructor(message: string) {
 		super("waitlist_rate_limited", message);

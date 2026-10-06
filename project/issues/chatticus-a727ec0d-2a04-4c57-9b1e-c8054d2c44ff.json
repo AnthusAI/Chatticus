@@ -32,7 +32,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript port is advancing, with core routes merged and computer, cleanup, and final cutover work remaining.",
-  "right_now_updated_at": "2026-10-06T03:48:10.669383Z",
+  "right_now_summary": "The TypeScript port is underway, with core services merged and computer and migration work still ahead.",
+  "right_now_updated_at": "2026-10-06T04:17:24.318594Z",
   "custom": {}
 }

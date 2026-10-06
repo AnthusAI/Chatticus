@@ -12,6 +12,8 @@ import { ORGANIZATION_CREATION_RATE_LIMIT } from "../domain/creation-limits.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { PrincipalHttpError } from "../auth/principal.ts";
 import { declareRoute } from "./route-audience.ts";
+import type { BudgetRollupReader } from "../domain/organization-spend.ts";
+import { setMonthlyAwsSpendCeilingHandler } from "./routes/spend-ceiling.ts";
 import { getMeHandler } from "./routes/me.ts";
 import { createOrganizationHandler } from "./routes/organizations.ts";
 import { createInvitationHandler, createInvitationMembershipCache } from "./routes/invitations.ts";
@@ -60,6 +62,8 @@ export interface AppDeps {
 	voice: { understanding: UserUnderstanding; ledger: VendorLedgerDependencies };
 	/** The turn control record, behind the turn read routes. */
 	turnControl: TurnControlStore;
+	/** The month-to-date rollup rows the spend ceiling pause reads; the budget environment is `environment`. */
+	budgetRollups: BudgetRollupReader;
 	invokeKey: string | null;
 	/** The deployment-wide operator bearer secret; the operator routes refuse every caller when it is empty. */
 	operatorKey?: string;
@@ -145,7 +149,7 @@ export function createApp(deps: AppDeps): Hono {
 	const operatorKey = deps.operatorKey ?? "";
 
 	declareRoute(app, { method: "GET", path: "/me", audience: "user" }, (c) =>
-		getMeHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier }),
+		getMeHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier, rollups: deps.budgetRollups, environment }),
 	);
 
 	declareRoute(app, { method: "POST", path: "/organizations", audience: "user" }, (c) =>
@@ -175,6 +179,10 @@ export function createApp(deps: AppDeps): Hono {
 		...userRoutes,
 		messages: { ...deps.messages, store, ids: deps.ids, clock: deps.clock } satisfies MessageDependencies,
 	};
+
+	declareRoute(app, { method: "PATCH", path: "/orgs/:tenant_id/monthly-aws-spend-ceiling", audience: "user" }, (c) =>
+		setMonthlyAwsSpendCeilingHandler(c, userRoutes),
+	);
 
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
 		createBotHandler(c, userRoutes),
