@@ -3,7 +3,7 @@
   "title": "TS-40b Switch CloudFront /api* and producers to the ControlPlane, then migrate (development)",
   "description": "Part of the flip (chatticus-6f27c5). Infra, development first: CloudFront /api* origin to the ControlPlane FrontDoor Function URL (same behaviors, headers and SSE settings as the current origin; read infra/lib/web-stack.ts and thin-turn-stack.ts), producers (web voice client, schedulers, anything enqueuing to the old TurnJobs and ComputerTurnJobs) to the new queues, then the run order of design 7.1 step 4: preflight, set MIGRATING, bin/migrate-transcripts (dry-run, copy, delta, verify per 2.7), unset MIGRATING. HUMAN GATE: the orchestrator asks the user before this runs, because it moves develop.chattic.us traffic and data. Rollback until day 14 is git revert of the flip commit.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "7f0da230-0e61-4112-ad4c-9fc4be4a1c67",
+      "author": "home",
+      "text": "DEVELOPMENT FLIPPED. Sequence run: preflight ok (no active turns, 5 queues empty); migration copy 35 messages in 2 channels, latest-turns 19 converted, verify ok; write gate closed; PR 457 merged (CloudFront /api* origin -> ControlPlane FrontDoor Function URL, MIGRATING write gate wired into the FrontDoor); Web deploy applied; CloudFront Deployed; delta wrote 0, verify ok on both channels; gate opened; acceptance through the public CloudFront URL 9 of 9 PASS (after PR 459: the acceptance client stripped /api from the base URL). Problems found live and fixed: the write gate was never wired into the deployed FrontDoor (found in review before the switch); CloudFormation export deadlock (ThinTurn export still imported by Web) and overlapping workflow runs -> PR 458 orders deploys control-plane, web, thin-turn and serializes each environment with a concurrency group; acceptance client /api prefix (PR 459). State: ThinTurn Python stack still deployed and idle (TS-40c deletes it); Messaging table still owned by ThinTurn (must be retained or moved first). Staging and production are untouched: they switch only at the develop to main promotion, which needs: ControlPlane stacks deployed there (workflows exist), account types confirmed (the thin-turn and web steps use the per-environment scripts; the control-plane step uses the dedicated script, which refuses legacy accounts), and the migration run per environment (gate close, preflight, copy, deploy, delta, verify, open).",
+      "created_at": "2026-10-06T19:43:02.478635Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-06T16:01:38.029506Z",
-  "updated_at": "2026-10-06T16:02:01.013213Z",
-  "closed_at": null,
+  "updated_at": "2026-10-06T19:43:07.702740Z",
+  "closed_at": "2026-10-06T19:43:07.702557Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The development migration plan is defined, but no execution activity is recorded yet.",
-  "right_now_updated_at": "2026-10-06T16:02:03.385705Z",
+  "right_now_summary": "Development traffic and data now use ControlPlane; ThinTurn remains idle while staging and production await promotion.",
+  "right_now_updated_at": "2026-10-06T19:43:10.725730Z",
   "custom": {}
 }

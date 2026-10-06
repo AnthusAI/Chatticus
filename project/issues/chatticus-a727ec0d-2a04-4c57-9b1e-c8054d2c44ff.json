@@ -32,7 +32,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript port is largely merged, with computer integration, migration, and the final cutover still ahead.",
-  "right_now_updated_at": "2026-10-06T18:24:12.097244Z",
+  "right_now_summary": "The TypeScript control plane runs in development; computer integration and production promotion remain.",
+  "right_now_updated_at": "2026-10-06T19:43:13.021604Z",
   "custom": {}
 }
