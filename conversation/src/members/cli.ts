@@ -41,6 +41,8 @@ export interface MembersCliDependencies {
 	ids: IdSource;
 	/** True when stdin is a terminal, which waives the --yes requirement. */
 	stdinIsTerminal: boolean;
+	/** The AWS account id of the operator credentials running the command; seed records it as the organization's home. */
+	callerAwsAccountId: () => Promise<string>;
 }
 
 /** Captured result of one CLI invocation. */
@@ -319,6 +321,7 @@ async function dispatch(
 			store,
 			clock: dependencies.clock,
 			ids: dependencies.ids,
+			callerAwsAccountId: dependencies.callerAwsAccountId,
 		});
 		output.printLine(
 			`seeded tenant_id=${organization.tenantId} status=${organization.status} owner=${organization.ownerUserId} email=${ownerEmail.trim().toLowerCase()}`,

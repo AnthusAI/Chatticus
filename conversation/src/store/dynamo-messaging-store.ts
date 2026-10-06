@@ -117,6 +117,8 @@ export class DynamoMessagingStore implements MessagingStore {
 				awsCrossAccountRole: organization.awsCrossAccountRole ?? undefined,
 				awsExternalId: organization.awsExternalId ?? undefined,
 				awsSetupPath: organization.awsSetupPath ?? undefined,
+				setupFeeCents: organization.setupFeeCents ?? undefined,
+				assistedSetupSession: organization.assistedSetupSession,
 				monthlyAwsSpendCeilingUsd:
 					organization.monthlyAwsSpendCeilingUsd === null ? undefined : organization.monthlyAwsSpendCeilingUsd.toString(),
 			}),
@@ -554,6 +556,8 @@ export class DynamoMessagingStore implements MessagingStore {
 			awsCrossAccountRole: decoded.awsCrossAccountRole ?? null,
 			awsExternalId: decoded.awsExternalId ?? null,
 			awsSetupPath: (decoded.awsSetupPath ?? null) as Organization["awsSetupPath"],
+			setupFeeCents: decoded.setupFeeCents ?? null,
+			assistedSetupSession: decoded.assistedSetupSession ?? false,
 			monthlyAwsSpendCeilingUsd:
 				decoded.monthlyAwsSpendCeilingUsd === undefined ? null : Decimal.parse(decoded.monthlyAwsSpendCeilingUsd),
 		};

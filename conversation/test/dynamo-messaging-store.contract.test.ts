@@ -62,6 +62,8 @@ function organization(tenantId: string, overrides: Partial<Organization> = {}): 
 		awsCrossAccountRole: null,
 		awsExternalId: null,
 		awsSetupPath: null,
+		setupFeeCents: null,
+		assistedSetupSession: false,
 		monthlyAwsSpendCeilingUsd: null,
 		...overrides,
 	};

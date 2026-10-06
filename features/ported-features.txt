@@ -62,3 +62,9 @@ features/web_task_list.feature
 features/pi_orphan_sweeper.feature
 features/pi_session_snapshots.feature
 features/transcript_migration.feature
+features/customer_account_provisioning.feature
+features/customer_computer_image.feature
+features/customer_cross_account_role_api.feature
+features/customer_snapshot_bucket_template.feature
+features/organization_spend_ceiling_provisioning.feature
+features/web_organization_signup.feature

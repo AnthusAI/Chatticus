@@ -14,13 +14,14 @@ export interface SetMonthlyAwsSpendCeilingResponseBody {
 	monthly_aws_spend_ceiling_usd: string;
 }
 
-class CeilingBodyRefusal extends Error {}
+/** A ceiling submitted in an HTTP body is not a positive decimal amount. */
+export class CeilingBodyRefusal extends Error {}
 
 /**
  * Parse one positive monthly AWS spend ceiling from an HTTP body field.
  * Ported from python/src/chatticus/http/app.py lines 470-495.
  */
-function parseMonthlyAwsSpendCeilingUsd(raw: string): Decimal {
+export function parseMonthlyAwsSpendCeilingUsd(raw: string): Decimal {
 	const stripped = raw.trim();
 	if (stripped === "") {
 		throw new CeilingBodyRefusal("monthly_aws_spend_ceiling_usd is required");
