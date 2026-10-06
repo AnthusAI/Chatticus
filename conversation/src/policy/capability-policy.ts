@@ -48,6 +48,35 @@ const CONSEQUENTIAL_BROWSER_ALIASES: Record<string, string> = {
 	"change production": "production_change",
 };
 
+function probeGrantForOrigin(origin: string): TaskCapabilityGrant {
+	return new TaskCapabilityGrant(
+		new Set(["browse"]),
+		new Set([origin]),
+		new Set(),
+		new Set(),
+		new Set(),
+		new Set(),
+	);
+}
+
+function probeDecisionDiffersByAttribution(
+	probe: CapabilityPolicy,
+	attributionField: string,
+	firstAttribution: string,
+	secondAttribution: string,
+): boolean {
+	probe.setGrant(probeGrantForOrigin("https://probe.example"));
+	const decisionFor = (attribution: string): ApprovalDecision =>
+		probe.evaluate(
+			Object.assign(new RequestedCapability("browse", "https://probe.example/page", null, null, null), {
+				[attributionField]: attribution,
+			}),
+		);
+	return decisionFor(firstAttribution) !== decisionFor(secondAttribution);
+}
+
+const SECRET_ENTRY_ACTIONS = new Set(["password", "passkey", "one_time_code"]);
+
 /**
  * Authority a human task may grant. Page content cannot add fields.
  */
@@ -288,8 +317,6 @@ export class CapabilityPolicy {
 	last_overnight: OvernightGatedResult | null = null;
 	bound_operation: BoundConnectorOperation | null = null;
 	recorded_exclusions: Set<string> = new Set();
-	channel_secret_accepted = false;
-	worker_completed_takeover_action = false;
 	injection_followed_by_model = false;
 	takeover_waiting = false;
 	now: () => Date;
@@ -479,9 +506,8 @@ export class CapabilityPolicy {
 		{ structuredConnector = false, takeoverControl = false, approved = false } = {},
 	): typeof BindingControl[keyof typeof BindingControl] {
 		const actionType = CONSEQUENTIAL_BROWSER_ALIASES[action] ?? action;
-		if (takeoverControl) {
-			this.last_binding = "human_takeover";
-			return this.last_binding;
+		if (takeoverControl || SECRET_ENTRY_ACTIONS.has(actionType)) {
+			return this.requireTakeover();
 		}
 		if (!structuredConnector && this._isConsequentialAction(actionType)) {
 			this.last_binding = "unbound_stop";
@@ -490,7 +516,6 @@ export class CapabilityPolicy {
 				turn_status: "blocked",
 				reason: "user_controlled_completion_required",
 				completion_evidence: null,
-				retried_unattended: false,
 			};
 			this.recordExclusion("generic_browser_click_binding");
 			return this.last_binding;
@@ -502,7 +527,6 @@ export class CapabilityPolicy {
 				turn_status: "blocked",
 				reason: "immutable_approval_required",
 				completion_evidence: null,
-				retried_unattended: false,
 			};
 			return this.last_binding;
 		}
@@ -562,7 +586,6 @@ export class CapabilityPolicy {
 			turn_status: "completed",
 			reason: null as string | null,
 			completion_evidence: evidence,
-			retried_unattended: false,
 		};
 		this.last_overnight = result;
 		this.last_binding = BindingControl.StructuredConnector;
@@ -572,17 +595,14 @@ export class CapabilityPolicy {
 	/**
 	 * Hand the computer to the human. Secrets never arrive via the channel.
 	 */
-	requireTakeover(reason: string): typeof BindingControl[keyof typeof BindingControl] {
+	requireTakeover(): typeof BindingControl[keyof typeof BindingControl] {
 		this.last_binding = "human_takeover";
-		this.channel_secret_accepted = false;
-		this.worker_completed_takeover_action = false;
 		this.takeover_waiting = true;
 		this.last_overnight = {
 			executed: false,
 			turn_status: "blocked",
 			reason: "waiting_for_human_takeover",
 			completion_evidence: null,
-			retried_unattended: false,
 		};
 		return this.last_binding;
 	}
@@ -614,8 +634,6 @@ export class CapabilityPolicy {
 			throw new Error(`unknown v1 exclusion ${JSON.stringify(exclusion)}`);
 		}
 		const probe = new CapabilityPolicy(this.now);
-		const controlMethodPresent = (methodName: string): boolean =>
-			typeof (probe as unknown as Record<string, unknown>)[methodName] === "function";
 		switch (exclusion) {
 			case "snapshot_cookie_integrity": {
 				const context = probe.openUntrusted("https://probe.example");
@@ -653,11 +671,15 @@ export class CapabilityPolicy {
 				return probe.prompt_wording_is_boundary;
 			}
 			case "bot_to_bot_channel_injection":
-				return controlMethodPresent("authenticateChannelSender");
-			case "local_device_execution_isolation":
-				return controlMethodPresent("isolateLocalDeviceExecution");
+				return probeDecisionDiffersByAttribution(probe, "instructionSource", "human_message", "other_bot_channel_text");
+			case "local_device_execution_isolation": {
+				probe.setGrant(probeGrantForOrigin("http://127.0.0.1"));
+				return (
+					probe.evaluate(new RequestedCapability("browse", "http://127.0.0.1:9222/json", null, null, null)) !== "ALLOW"
+				);
+			}
 			case "bot_as_security_boundary":
-				return controlMethodPresent("enforceBotBoundary");
+				return probeDecisionDiffersByAttribution(probe, "actingBotId", "bot_a", "bot_b");
 			default:
 				throw new Error(`no enforcement probe for v1 exclusion ${JSON.stringify(exclusion)}`);
 		}

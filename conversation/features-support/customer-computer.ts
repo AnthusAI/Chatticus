@@ -46,6 +46,17 @@ export interface CustomerComputeScenario {
 	publishAssumeRole: RecordingAssumeRole | null;
 	publishedImageUri: string | null;
 	customerEcrCredentials: SessionCredentials | null;
+	unreachableRole: boolean;
+	startConditions: StartConditions | null;
+}
+
+/** What the starter was up against when it was last asked to start, kept to name the refusal it should give. */
+export interface StartConditions {
+	readonly hasAwsHome: boolean;
+	readonly roleUnreachable: boolean;
+	readonly stackPresent: boolean;
+	readonly stackStatus: string | null;
+	readonly deleteDenied: boolean;
 }
 
 /** The scenario's host start state, or a failure when no organization was wired for a host start. */
@@ -140,6 +151,8 @@ export function wireHostStarter(
 		publishAssumeRole: previous?.publishAssumeRole ?? null,
 		publishedImageUri: previous?.publishedImageUri ?? null,
 		customerEcrCredentials: previous?.customerEcrCredentials ?? null,
+		unreachableRole: fakes.unreachableRole,
+		startConditions: null,
 	};
 	world.customerCompute = scenario;
 	return scenario;
@@ -150,6 +163,13 @@ export async function startOrganizationComputer(world: ChatticusWorld, organizat
 	const scenario = computeScenario(world);
 	const computer = await ensureComputer(organization.tenantId, { store: world.messagingStore(), ids: world.ids });
 	scenario.startError = null;
+	scenario.startConditions = {
+		hasAwsHome: organization.awsCrossAccountRole !== null,
+		roleUnreachable: scenario.unreachableRole,
+		stackPresent: scenario.cloudformation.stackPresent,
+		stackStatus: scenario.cloudformation.stackStatus,
+		deleteDenied: scenario.cloudformation.deleteDenied,
+	};
 	try {
 		await scenario.starter.startHost({
 			tenantId: organization.tenantId,

@@ -4,7 +4,16 @@
  */
 
 import { OrganizationComputerProvisioningError } from "../http/errors.ts";
-import { AwsApiError, type EcrPort } from "./aws-ports.ts";
+import type { Organization } from "../domain/organizations.ts";
+import {
+	AwsApiError,
+	type AssumeRolePort,
+	type CloudFormationPort,
+	type EcrPort,
+	type SessionCredentials,
+} from "./aws-ports.ts";
+import { COMPUTER_REPOSITORY_URI_OUTPUT, describeCustomerComputersStack, stackOutputsFromDescribeStacks } from "./customer-stack.ts";
+import { attemptCrossAccountAssumeRole } from "./provisioning.ts";
 
 export const DEV_IMAGE_TAG = "dev";
 
@@ -93,4 +102,48 @@ export async function publishDevImageFromAnthus(
 		imageTag: tag,
 	});
 	return tag;
+}
+
+/**
+ * Publish the Anthus dev computer image into one organization's customer ECR repository.
+ *
+ * The push runs only through temporary credentials assumed from the organization's own cross-account role, and the
+ * returned image URI is the one now present in the customer repository.
+ */
+export async function publishCustomerComputerImage(
+	organization: Organization,
+	options: {
+		assumeRole: AssumeRolePort;
+		anthusEcr: EcrPort;
+		anthusRepositoryName: string;
+		cloudformationClientFactory: (credentials: SessionCredentials) => CloudFormationPort;
+		ecrClientFactory: (credentials: SessionCredentials) => EcrPort;
+	},
+): Promise<string> {
+	const outcome = await attemptCrossAccountAssumeRole(organization, { assumeRole: options.assumeRole });
+	if (outcome.refused || outcome.session === null) {
+		throw new OrganizationComputerProvisioningError(
+			`Organization ${JSON.stringify(organization.tenantId)} cross-account role refused AssumeRole for the image publish.`,
+		);
+	}
+	const credentials: SessionCredentials = {
+		accessKeyId: outcome.session.accessKeyId,
+		secretAccessKey: outcome.session.secretAccessKey,
+		sessionToken: outcome.session.sessionToken,
+	};
+	const stackOutputs = stackOutputsFromDescribeStacks(
+		await describeCustomerComputersStack(options.cloudformationClientFactory(credentials)),
+	);
+	const repositoryUri = (stackOutputs[COMPUTER_REPOSITORY_URI_OUTPUT] ?? "").trim();
+	if (repositoryUri === "") {
+		throw new OrganizationComputerProvisioningError(
+			`The customer computers stack of ${JSON.stringify(organization.tenantId)} has no ${COMPUTER_REPOSITORY_URI_OUTPUT} output.`,
+		);
+	}
+	const customerEcr = options.ecrClientFactory(credentials);
+	await publishDevImageFromAnthus(options.anthusEcr, customerEcr, {
+		anthusRepositoryName: options.anthusRepositoryName,
+		customerRepositoryName: repositoryNameFromUri(repositoryUri),
+	});
+	return requireCustomerComputerImage(customerEcr, { repositoryUri });
 }

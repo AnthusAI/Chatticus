@@ -286,10 +286,10 @@ export function attemptAuthenticatedBrowserActionAtSink(
 	action: string,
 	{ structuredConnector = false, takeoverControl = false } = {},
 ): OvernightGatedResult {
-	if (structuredConnector || takeoverControl) {
-		throw new Error("binding control is present; this path is for unbound actions");
+	if (structuredConnector) {
+		throw new Error("a structured connector binds through the approval path, not this one");
 	}
-	policy.requiredBindingForBrowserAction(action);
+	policy.requiredBindingForBrowserAction(action, { takeoverControl });
 	let result = policy.last_overnight;
 	if (result !== null) {
 		return result;
@@ -301,7 +301,6 @@ export function attemptAuthenticatedBrowserActionAtSink(
 			turn_status: "completed",
 			reason: null,
 			completion_evidence: null,
-			retried_unattended: false,
 		};
 	}
 	return {
@@ -309,7 +308,6 @@ export function attemptAuthenticatedBrowserActionAtSink(
 		turn_status: "blocked",
 		reason: "user_controlled_completion_required",
 		completion_evidence: null,
-		retried_unattended: false,
 	};
 }
 
@@ -353,7 +351,6 @@ export function resolveUnattendedGatedActionAtSink(
 				turn_status: "blocked",
 				reason: error.message,
 				completion_evidence: null,
-				retried_unattended: false,
 			};
 		}
 		throw error;
@@ -366,7 +363,6 @@ export function resolveUnattendedGatedActionAtSink(
 				turn_status: "blocked",
 				reason: "no task grant",
 				completion_evidence: null,
-				retried_unattended: false,
 			};
 		}
 	} else {
@@ -378,7 +374,6 @@ export function resolveUnattendedGatedActionAtSink(
 				turn_status: "blocked",
 				reason,
 				completion_evidence: null,
-				retried_unattended: false,
 			};
 		}
 	}
