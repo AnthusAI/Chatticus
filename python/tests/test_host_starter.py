@@ -89,7 +89,7 @@ def test_host_starter_from_env_selects_organization_starter(
 def test_run_task_overrides_rejects_missing_user_id(monkeypatch: object) -> None:
     monkeypatch.setenv(  # type: ignore[attr-defined]
         "CHATTICUS_ECS_HOST_COMMAND",
-        "python -m chatticus.computer_host_worker",
+        "node /opt/chatticus/host/host-worker.mjs",
     )
     claim = HostStartClaim(
         tenant_id="anthus",

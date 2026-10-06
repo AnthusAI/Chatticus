@@ -18,7 +18,7 @@ docker compose exec -T computer-fargate sh -c 'printf "%s\n" "from-fargate" > /w
 docker compose exec -T computer-fargate sh -c 'mkdir -p /var/lib/chatticus/computer/browser-profiles/privileged/banking/Default && printf "%s\n" "signed-in" > /var/lib/chatticus/computer/browser-profiles/privileged/banking/Default/Cookies'
 
 echo "Publishing snapshot from Fargate..."
-docker compose exec -T computer-fargate python -m chatticus.snapshot pack \
+docker compose exec -T computer-fargate node /opt/chatticus/host/snapshot.mjs pack \
   --live-root /var/lib/chatticus/computer \
   --store "${STORE}" \
   --tenant "${TENANT}" \
@@ -26,7 +26,7 @@ docker compose exec -T computer-fargate python -m chatticus.snapshot pack \
   --worker fargate-1
 
 echo "Hydrating onto the Mac host..."
-docker compose exec -T computer-mac python -m chatticus.snapshot hydrate \
+docker compose exec -T computer-mac node /opt/chatticus/host/snapshot.mjs hydrate \
   --live-root /var/lib/chatticus/computer \
   --store "${STORE}" \
   --tenant "${TENANT}" \
@@ -47,7 +47,7 @@ echo "Mac has Fargate files."
 echo "Writing a new file on the Mac and leaving a stale file on Fargate..."
 docker compose exec -T computer-fargate sh -c 'printf "%s\n" "stale" > /workspace/stale.md'
 docker compose exec -T computer-mac sh -c 'printf "%s\n" "from-mac" > /workspace/handoff.md'
-docker compose exec -T computer-mac python -m chatticus.snapshot pack \
+docker compose exec -T computer-mac node /opt/chatticus/host/snapshot.mjs pack \
   --live-root /var/lib/chatticus/computer \
   --store "${STORE}" \
   --tenant "${TENANT}" \
@@ -55,7 +55,7 @@ docker compose exec -T computer-mac python -m chatticus.snapshot pack \
   --worker garage-mac-1
 
 echo "Hydrating back onto Fargate..."
-docker compose exec -T computer-fargate python -m chatticus.snapshot hydrate \
+docker compose exec -T computer-fargate node /opt/chatticus/host/snapshot.mjs hydrate \
   --live-root /var/lib/chatticus/computer \
   --store "${STORE}" \
   --tenant "${TENANT}" \

@@ -5,9 +5,24 @@
 #   docker build -f computer/Dockerfile -t chatticus-computer .
 
 # Debian Chromium is a real deb (Ubuntu's chromium-browser is a snap stub).
-# Official python:3.12 is required: bookworm's python3 is 3.11 and chatticus
-# declares requires-python >=3.12.
-FROM python:3.12-slim-bookworm
+# The host worker and the snapshot program are esbuild bundles; the image
+# carries Node alone.
+FROM node:22-bookworm-slim AS host-bundle
+
+WORKDIR /build
+COPY package.json package-lock.json ./
+COPY web/package.json web/package.json
+COPY infra/package.json infra/package.json
+COPY conversation/package.json conversation/package.json
+COPY host-protocol/package.json host-protocol/package.json
+COPY computer/host/package.json computer/host/package.json
+RUN npm ci --ignore-scripts --workspace=computer/host --workspace=conversation --workspace=host-protocol
+COPY host-protocol host-protocol
+COPY conversation conversation
+COPY computer/host computer/host
+RUN CHATTICUS_HOST_BUNDLE_DIR=/opt/chatticus/host npm run bundle --workspace=computer/host
+
+FROM node:22-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
     CHATTICUS_LIVE_ROOT=/var/lib/chatticus/computer \
@@ -21,13 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY python /opt/chatticus/src
-RUN python3 -m venv /opt/chatticus/venv \
-    && /opt/chatticus/venv/bin/pip install --upgrade pip \
-    && /opt/chatticus/venv/bin/pip install /opt/chatticus/src \
-        boto3 httpx fastapi 'pydantic>=2' python-dotenv 'PyJWT[crypto]'
-
-ENV PATH="/opt/chatticus/venv/bin:${PATH}"
+COPY --from=host-bundle /opt/chatticus/host /opt/chatticus/host
 
 COPY computer/entrypoint.sh /usr/local/bin/chatticus-computer-entrypoint
 RUN chmod +x /usr/local/bin/chatticus-computer-entrypoint \

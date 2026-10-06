@@ -88,7 +88,7 @@ def test_computer_worker_ecs_host_start_may_tag_tasks() -> None:
     assert "ImportedComputerHostTaskRole" in text
     assert "computerHostCommand" in text
     assert "CHATTICUS_ECS_HOST_COMMAND" in text
-    assert "python -m chatticus.computer_host_worker" in text
+    assert "node /opt/chatticus/host/host-worker.mjs" in text
     assert "lookupComputersHostStart" in text
     assert "ChatticusComputers" in text
     assert "computerHostStart=noop" in text
