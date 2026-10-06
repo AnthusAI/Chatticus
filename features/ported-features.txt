@@ -52,3 +52,6 @@ features/job_routing.feature
 features/bot_turns.feature
 features/organization_spend_ceiling_workspace.feature
 features/web_spend_ceiling.feature
+features/thin_task_item.feature
+features/thin_task_http.feature
+features/web_task_list.feature

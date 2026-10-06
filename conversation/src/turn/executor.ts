@@ -22,6 +22,8 @@ import { StaleAttemptError, TurnTerminalError } from "../http/errors.ts";
 import { type ChannelMessageDraft, recordInputLine, writeAttributedMessage } from "../pi/channel-log.ts";
 import { CommitOutcomeUnknown, findStorageFailure, OwnershipLost } from "../pi/errors.ts";
 import { chatticusExtensions } from "../pi/extension.ts";
+import { taskToolExtensions } from "../pi/task-tool.ts";
+import { primaryHumanParticipant } from "../domain/channels.ts";
 import { list as listMailbox, type MailboxItem, type MailboxStore, remove as removeMailboxItem } from "../pi/mailbox.ts";
 import { type OwnerSession, openOwnerSession } from "../pi/session.ts";
 import { storageIdFor } from "../storage/storage-support.ts";
@@ -163,9 +165,15 @@ class TurnAttempt {
 			tableName: this.deps.conversationsTableName,
 			bucket: this.deps.piSessionsBucket,
 			models: this.deps.models,
-			extensions: chatticusExtensions({
-				systemPrompt: () => buildSystemPrompt({ botName: bot.name, memory: bot.memory }),
-			}),
+			extensions: [
+				...chatticusExtensions({
+					systemPrompt: () => buildSystemPrompt({ botName: bot.name, memory: bot.memory }),
+				}),
+				...taskToolExtensions(
+					{ tenantId: this.job.tenantId, userId: primaryHumanParticipant(channel), botId: this.job.botId },
+					{ store: messaging, ids: this.deps.turns.ids },
+				),
+			],
 			context: this.context,
 			settings: {
 				retry: { maxRetries: this.tuning.retry.maxRetries, baseDelayMs: this.tuning.retry.baseDelayMilliseconds },
