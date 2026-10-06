@@ -22,13 +22,15 @@ export function createUserMembershipCache(clock: Clock): MembershipCache<CachedM
 }
 
 /**
- * Resolve the enabled organization member calling an /orgs/{tenant_id}/... user route, or answer the refusal.
+ * Resolve the organization member calling an /orgs/{tenant_id}/... user route, or answer the refusal. Only
+ * waitlist-safe routes, which a pending organization's members may call, pass `requireEnabledMember: false`.
  *
  * @returns The principal, or the response to return when the caller is refused or the verifier is not configured.
  */
 export async function resolveUserPrincipal(
 	c: Context,
 	deps: UserPrincipalDependencies,
+	options: { requireEnabledMember: boolean } = { requireEnabledMember: true },
 ): Promise<Principal | Response> {
 	if (deps.verifier === null) {
 		return c.json({ detail: "Cognito verifier is not configured." }, 503);
@@ -38,7 +40,7 @@ export async function resolveUserPrincipal(
 		verifier: deps.verifier,
 		directory,
 		membershipCache: deps.membershipCache,
-		requireEnabledMember: true,
+		requireEnabledMember: options.requireEnabledMember,
 		...(deps.integrationTest === null
 			? {}
 			: { integrationTestAuthenticator: integrationTestAuthenticator(directory, deps.integrationTest) }),

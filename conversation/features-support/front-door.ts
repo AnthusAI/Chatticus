@@ -32,6 +32,8 @@ export type FrontDoorOptions = {
 	integrationTest?: IntegrationTestAuthConfig | null;
 	/** Serve write routes through the transcript migration write gate kept in the scenario's Messaging table. */
 	migrationGate?: boolean;
+	/** Wire the customer self-setup route to the scenario's in-memory role inspector instead of the live STS and IAM one. */
+	inMemoryRoleInspector?: boolean;
 };
 
 /** The scenario's Cognito test keys, generated on first use. */
@@ -68,6 +70,7 @@ function messageDependencies(world: ChatticusWorld, piStorage: ScenarioPiStorage
  */
 export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOptions): Promise<void> {
 	const keys = await cognitoKeys(world);
+	world.frontDoorOptions = options;
 	const app = createApp({
 		clock: world.clock,
 		ids: world.ids,
@@ -89,6 +92,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		verifier: options.cognitoVerifier ? keys.verifier() : null,
 		signupMode: options.signupMode,
 		organizationCreationRateLimit: options.organizationCreationRateLimit,
+		...(options.inMemoryRoleInspector === true ? { roleInspector: world.roleInspector } : {}),
 	});
 	world.app = app;
 	world.api = new ApiClient(app);

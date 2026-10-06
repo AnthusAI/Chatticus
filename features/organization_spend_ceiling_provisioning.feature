@@ -1,4 +1,4 @@
-Feature: Organization spend ceiling
+Feature: Organization spend ceiling at provisioning
 
   Background:
     Given an empty organization records store

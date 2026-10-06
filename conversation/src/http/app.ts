@@ -14,6 +14,8 @@ import { PrincipalHttpError } from "../auth/principal.ts";
 import { declareRoute } from "./route-audience.ts";
 import type { BudgetRollupReader } from "../domain/organization-spend.ts";
 import { setMonthlyAwsSpendCeilingHandler } from "./routes/spend-ceiling.ts";
+import { AwsCrossAccountRoleInspector, type CrossAccountRoleInspector } from "../computer/provisioning.ts";
+import { submitSelfSetupCrossAccountRoleHandler } from "./routes/self-setup.ts";
 import { getMeHandler } from "./routes/me.ts";
 import { createOrganizationHandler } from "./routes/organizations.ts";
 import { createInvitationHandler, createInvitationMembershipCache } from "./routes/invitations.ts";
@@ -79,6 +81,8 @@ export interface AppDeps {
 	writeGate?: WriteGate;
 	/** The deployment-wide operator bearer secret; the operator routes refuse every caller when it is empty. */
 	operatorKey?: string;
+	/** Inspects a customer's cross-account role at self-setup; defaults to the live STS and IAM inspector. */
+	roleInspector?: CrossAccountRoleInspector;
 	/** Integration-test session exchange; its route is registered only when this is enabled outside production. */
 	integrationTest?: IntegrationTestAuthConfig | null;
 	environment?: string;
@@ -208,6 +212,11 @@ export function createApp(deps: AppDeps): Hono {
 
 	declareRoute(app, { method: "PATCH", path: "/orgs/:tenant_id/monthly-aws-spend-ceiling", audience: "user" }, (c) =>
 		setMonthlyAwsSpendCeilingHandler(c, userRoutes),
+	);
+
+	const roleInspector = deps.roleInspector ?? new AwsCrossAccountRoleInspector();
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/self-setup/cross-account-role", audience: "user" }, (c) =>
+		submitSelfSetupCrossAccountRoleHandler(c, { ...userRoutes, roleInspector }),
 	);
 
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>

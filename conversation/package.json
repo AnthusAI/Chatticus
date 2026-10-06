@@ -14,8 +14,12 @@
   },
   "dependencies": {
     "@aws-crypto/sha256-js": "5.2.0",
+    "@aws-sdk/client-cloudformation": "3.1146.0",
     "@aws-sdk/client-cost-explorer": "3.1146.0",
     "@aws-sdk/client-dynamodb": "3.1146.0",
+    "@aws-sdk/client-ecr": "3.1146.0",
+    "@aws-sdk/client-ecs": "3.1146.0",
+    "@aws-sdk/client-iam": "3.1146.0",
     "@aws-sdk/client-s3": "3.1146.0",
     "@aws-sdk/client-sns": "3.1146.0",
     "@aws-sdk/client-sqs": "3.1146.0",

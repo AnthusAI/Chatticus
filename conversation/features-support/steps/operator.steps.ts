@@ -8,7 +8,8 @@ import { runMembersCliExpectingSuccess } from "../members-cli-process.ts";
 import type { ChatticusWorld } from "../world.ts";
 import { registerWorkerOverHttp } from "./worker-registration.ts";
 
-const DEFAULT_OPERATOR_KEY = "test-operator-secret";
+/** The operator bearer secret the operator and self-setup front doors are wired with unless a scenario names one. */
+export const DEFAULT_OPERATOR_KEY = "test-operator-secret";
 const DEFAULT_OWNER_EMAIL = "owner@example.com";
 const DEFAULT_ORGANIZATION_NAME = "Anthus Labs";
 const INVOKE_HEADER = "X-Chatticus-Invoke-Key";

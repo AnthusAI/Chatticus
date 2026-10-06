@@ -67,6 +67,8 @@ export interface Organization {
 	awsCrossAccountRole: string | null;
 	awsExternalId: string | null;
 	awsSetupPath: AwsSetupPath | null;
+	setupFeeCents: number | null;
+	assistedSetupSession: boolean;
 	monthlyAwsSpendCeilingUsd: Decimal | null;
 }
 
@@ -112,7 +114,12 @@ export interface OrganizationsKernel {
 		tenantId: string,
 		ownerEmail: string,
 		name: string,
-		deps: { store: MessagingStore; clock: Clock; ids: IdSource },
+		deps: SeedDependencies,
+	): Promise<Organization>;
+	provisionOrganizationAws(
+		tenantId: string,
+		awsHome: OrganizationAwsHome,
+		deps: { store: MessagingStore },
 	): Promise<Organization>;
 	getOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization>;
 	enableOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization>;
@@ -147,6 +154,22 @@ export interface OrganizationsKernel {
 		status: OrganizationStatus,
 		deps: { store: MessagingStore },
 	): Promise<Organization[]>;
+}
+
+/** What the seed needs; the caller account id is the home an Anthus-managed organization is recorded with. */
+export interface SeedDependencies {
+	store: MessagingStore;
+	clock: Clock;
+	ids: IdSource;
+	callerAwsAccountId?: () => Promise<string>;
+}
+
+/** The AWS account details recorded for one provisioned organization. */
+export interface OrganizationAwsHome {
+	accountId: string;
+	crossAccountRole: string;
+	externalId: string;
+	setupPath: AwsSetupPath;
 }
 
 /** IdSource generates unique identifiers. */
@@ -190,6 +213,8 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 			awsCrossAccountRole: null,
 			awsExternalId: null,
 			awsSetupPath: null,
+			setupFeeCents: null,
+			assistedSetupSession: false,
 			monthlyAwsSpendCeilingUsd: null,
 		};
 		await deps.store.putOrganization(organization);
@@ -220,7 +245,7 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 		tenantId: string,
 		ownerEmail: string,
 		name: string,
-		deps: { store: MessagingStore; clock: Clock; ids: IdSource },
+		deps: SeedDependencies,
 	): Promise<Organization> {
 		const owner = await this.signIn(ownerEmail, deps);
 		const existing = await deps.store.getOrganization(tenantId);
@@ -234,10 +259,12 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 			status: "enabled",
 			ownerUserId: owner.userId,
 			createdAt: now,
-			awsAccountId: null,
+			awsAccountId: deps.callerAwsAccountId === undefined ? null : await deps.callerAwsAccountId(),
 			awsCrossAccountRole: null,
 			awsExternalId: null,
 			awsSetupPath: "anthus-managed",
+			setupFeeCents: null,
+			assistedSetupSession: false,
 			monthlyAwsSpendCeilingUsd: null,
 		};
 		await deps.store.putOrganization(organization);
@@ -250,11 +277,24 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 		return organization;
 	}
 
+	private async applySeedAwsHome(organization: Organization, deps: SeedDependencies): Promise<Organization> {
+		if (organization.awsAccountId !== null || deps.callerAwsAccountId === undefined) {
+			return organization;
+		}
+		const updated: Organization = {
+			...organization,
+			awsAccountId: await deps.callerAwsAccountId(),
+			awsSetupPath: "anthus-managed",
+		};
+		await deps.store.putOrganization(updated);
+		return updated;
+	}
+
 	private async finishSeed(
 		tenantId: string,
 		existing: Organization,
 		owner: Identity,
-		deps: { store: MessagingStore },
+		deps: SeedDependencies,
 	): Promise<Organization> {
 		if (existing.ownerUserId !== owner.userId) {
 			throw new OrganizationSeedConflictError(
@@ -268,10 +308,10 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 			);
 		}
 		if (existing.status === "enabled") {
-			return existing;
+			return this.applySeedAwsHome(existing, deps);
 		}
 		if (existing.status === "pending") {
-			return this.enableOrganization(tenantId, deps);
+			return this.applySeedAwsHome(await this.enableOrganization(tenantId, deps), deps);
 		}
 		throw new OrganizationSeedConflictError(
 			`Organization ${JSON.stringify(tenantId)} has status ${JSON.stringify(existing.status)}; seed requires pending or enabled.`,
@@ -302,6 +342,30 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 		};
 		await deps.store.putOrganization(enabled);
 		return enabled;
+	}
+
+	/**
+	 * Record the AWS account details for a provisioned organization.
+	 * Ported from python/src/chatticus/org_records.py lines 270-290.
+	 */
+	async provisionOrganizationAws(
+		tenantId: string,
+		awsHome: OrganizationAwsHome,
+		deps: { store: MessagingStore },
+	): Promise<Organization> {
+		const organization = await deps.store.getOrganization(tenantId);
+		if (organization === null) {
+			throw new OrganizationNotFoundError(`Organization ${JSON.stringify(tenantId)} is unknown.`);
+		}
+		const provisioned: Organization = {
+			...organization,
+			awsAccountId: awsHome.accountId,
+			awsCrossAccountRole: awsHome.crossAccountRole,
+			awsExternalId: awsHome.externalId,
+			awsSetupPath: awsHome.setupPath,
+		};
+		await deps.store.putOrganization(provisioned);
+		return provisioned;
 	}
 
 	async suspendOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization> {
