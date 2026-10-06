@@ -103,6 +103,12 @@ export interface ComputerActionStore {
 		resultIsError: boolean;
 		now: Date;
 	}): Promise<ComputerAction | null>;
+	/**
+	 * Extend the lease of an action the worker holds.
+	 *
+	 * @returns The action after the write, or null when the worker does not hold it as claimed.
+	 */
+	renew(request: { tenantId: string; actionId: string; workerId: string; leaseExpiresAt: Date }): Promise<ComputerAction | null>;
 	/** Return a claimed action whose lease ran out to requested; null when it was not claimed any more. */
 	release(tenantId: string, actionId: string): Promise<ComputerAction | null>;
 }
@@ -208,6 +214,40 @@ export async function claimNextComputerAction(
 		if (claimed !== null) return claimed;
 	}
 	return null;
+}
+
+/**
+ * Extend the lease of an action the host holds, so a tool that runs longer than one lease is not taken from it.
+ *
+ * @param deps Action store and clock.
+ * @param tenantId Organization.
+ * @param actionId The action.
+ * @param workerId The host that claimed it.
+ * @returns The action with its new lease.
+ * @throws ComputerActionNotFoundError If the action does not exist.
+ * @throws ComputerActionNotClaimedError If another worker holds the action, or nobody does.
+ */
+export async function renewComputerAction(
+	deps: Pick<ActionDependencies, "actions" | "clock">,
+	tenantId: string,
+	actionId: string,
+	workerId: string,
+): Promise<ComputerAction> {
+	if ((await deps.actions.get(tenantId, actionId)) === null) {
+		throw new ComputerActionNotFoundError(`Computer action ${pythonRepr(actionId)} does not exist.`);
+	}
+	const renewed = await deps.actions.renew({
+		tenantId,
+		actionId,
+		workerId,
+		leaseExpiresAt: addSeconds(deps.clock.now(), ACTION_LEASE_SECONDS),
+	});
+	if (renewed === null) {
+		throw new ComputerActionNotClaimedError(
+			`Computer action ${pythonRepr(actionId)} is not claimed by worker ${pythonRepr(workerId)}.`,
+		);
+	}
+	return renewed;
 }
 
 /**

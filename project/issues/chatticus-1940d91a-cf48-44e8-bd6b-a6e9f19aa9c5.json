@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "8b2a3a26-4494-4160-94d9-30239eda4e41",
+      "author": "home",
+      "text": "From TS-31 triage: single_computer_start scenarios needing a disk write lock and live-writer host (acquire_computer_disk_write, live_writer_host_id) are deferred here to the host worker disk and snapshot ownership.",
+      "created_at": "2026-10-06T07:25:41.032529Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-05T15:46:20.279436Z",
-  "updated_at": "2026-10-05T21:17:28.676620Z",
+  "updated_at": "2026-10-06T07:25:41.032561Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The host workspace and terminal executors are being implemented with path mapping and continuation steps.",
-  "right_now_updated_at": "2026-10-05T21:17:30.022768Z",
+  "right_now_summary": "Host workspace and terminal executors are being added with secure path mapping and handoff handling.",
+  "right_now_updated_at": "2026-10-06T07:25:42.392233Z",
   "custom": {}
 }

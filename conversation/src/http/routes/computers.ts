@@ -1,10 +1,8 @@
 import type { Context } from "hono";
-import { enforceWorkerPrincipal } from "../../auth/worker-principal.ts";
-import { StorePrincipalDirectory } from "../../auth/store-principal-directory.ts";
-import { claimNextComputerAction, completeComputerAction, type ComputerAction } from "../../domain/actions.ts";
+import type { ComputerAction } from "../../domain/actions.ts";
 import { computerForOrganization } from "../../domain/computers.ts";
 import type { Computer } from "../../store/codecs/computer.ts";
-import { type ParkDependencies, actionDependenciesOf, resumeTurnForAction, resumeWaitingTurn } from "../../turn/park.ts";
+import { type ParkDependencies, resumeWaitingTurn } from "../../turn/park.ts";
 import { ComputerNotFoundError } from "../errors.ts";
 import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
 import { turnPayload } from "./turns.ts";
@@ -81,37 +79,4 @@ export async function resumeTurnHandler(c: Context, deps: ComputerRouteDependenc
 	}
 	const turn = await resumeWaitingTurn(deps.park, pathParameter(c, "tenant_id"), pathParameter(c, "turn_id"));
 	return c.json({ status: "ok", turn_id: turn.turnId, gate: turn.waitingFor ?? "", turn: turnPayload(turn) }, 200);
-}
-
-/**
- * POST /orgs/{tenant_id}/host/actions/claim: the host asks for the next computer action of the organization. The answer
- * holds the action under a lease, or `action: null` when nothing is waiting for this worker.
- */
-export async function claimActionHandler(c: Context, deps: ComputerRouteDependencies): Promise<Response> {
-	const tenantId = pathParameter(c, "tenant_id");
-	const principal = await enforceWorkerPrincipal(c.req.raw, tenantId, new StorePrincipalDirectory(deps.store));
-	const action = await claimNextComputerAction(actionDependenciesOf(deps.park), tenantId, principal.workerId as string);
-	return c.json({ action: action === null ? null : actionPayload(action) }, 200);
-}
-
-/**
- * POST /orgs/{tenant_id}/host/actions/{action_id}/result: the host posts what its tool did. The first result wins; the
- * turn that was parked on the action resumes on the next owner, which finds this result by call id.
- */
-export async function postActionResultHandler(c: Context, deps: ComputerRouteDependencies): Promise<Response> {
-	const tenantId = pathParameter(c, "tenant_id");
-	const principal = await enforceWorkerPrincipal(c.req.raw, tenantId, new StorePrincipalDirectory(deps.store));
-	const body = (await c.req.json().catch(() => null)) as { result?: unknown; error?: unknown } | null;
-	if (body === null || typeof body.result !== "string") {
-		return c.json({ detail: "result is required" }, 422);
-	}
-	const { action } = await completeComputerAction(
-		actionDependenciesOf(deps.park),
-		tenantId,
-		pathParameter(c, "action_id"),
-		principal.workerId as string,
-		{ result: body.result, isError: body.error === true },
-	);
-	const resumed = await resumeTurnForAction(deps.park, tenantId, action.turnId, action.actionId);
-	return c.json({ status: "ok", action_id: action.actionId, turn_id: action.turnId, turn_resumed: resumed }, 200);
 }
