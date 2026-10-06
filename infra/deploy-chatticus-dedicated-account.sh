@@ -36,6 +36,15 @@ case "$ENVIRONMENT:$2" in
   *) usage ;;
 esac
 
+INTEGRATION_TEST_CDK_CONTEXT=""
+if [ "${ENVIRONMENT}" = "development" ] && [ "${STACK}" = "ChatticusControlPlane" ] && [ -n "${CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN:-}" ]; then
+  if ! printf '%s' "${CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN}" | grep -Eq '^arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$'; then
+    echo "CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN must be an IAM role ARN (arn:aws:iam::<12 digits>:role/...)." >&2
+    exit 1
+  fi
+  INTEGRATION_TEST_CDK_CONTEXT="-c integrationTestAllowedRoleArn=${CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN}"
+fi
+
 unset AWS_PROFILE || true
 
 if ! aws sts get-caller-identity >/dev/null; then
@@ -52,4 +61,4 @@ fi
 . ./budgets-deploy-context.sh
 
 # shellcheck disable=SC2086
-npx cdk deploy "${STACK}" --exclusively --require-approval never -c "chatticusAccountEnvironment=${ENVIRONMENT}" ${BUDGETS_CDK_CONTEXT}
+npx cdk deploy "${STACK}" --exclusively --require-approval never -c "chatticusAccountEnvironment=${ENVIRONMENT}" ${BUDGETS_CDK_CONTEXT} ${INTEGRATION_TEST_CDK_CONTEXT}

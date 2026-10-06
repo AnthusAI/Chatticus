@@ -22,11 +22,13 @@ const PARAMETER_VALUES: Record<string, string> = {
 	"/chatticus/test/integration-test/allowed-role-arn": "arn:aws:iam::111122223333:role/runner",
 };
 
-function fakeParameters(values: Record<string, string>, requested: string[] = []) {
+function fakeParameters(values: Record<string, string>, requested: string[] = [], failures: Record<string, string> = {}) {
 	return {
 		async send(command: GetParameterCommand) {
 			const name = command.input.Name ?? "";
 			requested.push(name);
+			const failure = failures[name];
+			if (failure !== undefined) throw Object.assign(new Error(failure), { name: failure });
 			const value = values[name];
 			return { Parameter: value === undefined ? undefined : { Value: value } };
 		},
@@ -115,6 +117,45 @@ describe("front door composition", () => {
 			"/chatticus/test/integration-test/tenant-id",
 			"/chatticus/test/integration-test/user-id",
 		]);
+	});
+
+	const integrationNames = [
+		"/chatticus/test/integration-test/allowed-role-arn",
+		"/chatticus/test/integration-test/tenant-id",
+		"/chatticus/test/integration-test/user-id",
+	];
+
+	it("treats missing integration test parameters as integration test auth disabled", async () => {
+		const failures = Object.fromEntries(integrationNames.map((name) => [name, "ParameterNotFound"]));
+		const app = await composeFrontDoorApp(
+			environmentFor(),
+			clientsWith(fakeParameters({ ...PARAMETER_VALUES }, [], failures)),
+		);
+		const response = await app.request("http://front-door.test/integration-test/session", {
+			method: "POST",
+			headers: { "X-Chatticus-Invoke-Key": "invoke-key-value" },
+		});
+		expect(response.status).toBe(404);
+	});
+
+	it("still fails when a Cognito parameter is not found", async () => {
+		await expect(
+			composeFrontDoorApp(
+				environmentFor(),
+				clientsWith(
+					fakeParameters(PARAMETER_VALUES, [], { "/chatticus/test/web/cognito-user-pool-id": "ParameterNotFound" }),
+				),
+			),
+		).rejects.toThrow("ParameterNotFound");
+	});
+
+	it("still fails when an integration test parameter is denied", async () => {
+		await expect(
+			composeFrontDoorApp(
+				environmentFor(),
+				clientsWith(fakeParameters(PARAMETER_VALUES, [], { [integrationNames[0]!]: "AccessDeniedException" })),
+			),
+		).rejects.toThrow("AccessDeniedException");
 	});
 
 	it("reads the OpenAI key from its SSM parameter when it is not already set", async () => {

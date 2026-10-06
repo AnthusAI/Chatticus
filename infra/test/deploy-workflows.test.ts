@@ -115,4 +115,13 @@ describe("deploy workflow YAML", () => {
       });
     });
   }
+
+  it("passes the integration test role variable to the development control-plane deploy only", () => {
+    const pattern = /CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN: \$\{\{ vars\.CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN \}\}/;
+    for (const fileName of deployWorkflowFiles()) {
+      const contents = readFileSync(join(workflowsDir, fileName), "utf8");
+      if (fileName === "deploy-controlplane-development.yml") assert.match(contents, pattern);
+      else assert.doesNotMatch(contents, /INTEGRATION_TEST_ALLOWED_ROLE_ARN/, fileName);
+    }
+  });
 });

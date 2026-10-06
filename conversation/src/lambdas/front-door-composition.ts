@@ -66,6 +66,15 @@ async function readParameter(parameters: ParameterReader, name: string): Promise
 	return response.Parameter?.Value ?? "";
 }
 
+async function optionalParameter(parameters: ParameterReader, name: string): Promise<string> {
+	try {
+		return await readParameter(parameters, name);
+	} catch (error) {
+		if (error instanceof Error && error.name === "ParameterNotFound") return "";
+		throw error;
+	}
+}
+
 async function requiredParameter(parameters: ParameterReader, name: string): Promise<string> {
 	const value = await readParameter(parameters, name);
 	if (value === "") throw new Error(`The SSM parameter ${name} has no value.`);
@@ -96,7 +105,7 @@ export async function composeFrontDoorApp(
 		environment: environmentName,
 		invokeKey,
 		environmentVariables: environment,
-		readParameter: (name) => readParameter(clients.parameters, name),
+		readParameter: (name) => optionalParameter(clients.parameters, name),
 	});
 	const client = clients.dynamo;
 	const prices = new VendorPriceBook();

@@ -151,6 +151,37 @@ export async function relayStsGetCallerIdentityArn(request: Request): Promise<st
 	return match[1].trim();
 }
 
+/** The partition, account and role name an IAM role ARN or an STS assumed-role ARN identifies; the path and session are ignored. */
+export type RoleIdentity = { readonly partition: string; readonly account: string; readonly roleName: string };
+
+const IAM_ROLE_ARN = /^arn:([a-z-]+):iam::([0-9]{12}):role\/(?:[^/]+\/)*([^/]+)$/;
+const STS_ASSUMED_ROLE_ARN = /^arn:([a-z-]+):sts::([0-9]{12}):assumed-role\/([^/]+)\/[^/]+$/;
+
+/** Parse an IAM role ARN (with or without a path) or an STS assumed-role ARN into the role it names, or null for anything else. */
+export function roleIdentityOf(arn: string): RoleIdentity | null {
+	const match = IAM_ROLE_ARN.exec(arn) ?? STS_ASSUMED_ROLE_ARN.exec(arn);
+	if (match === null) {
+		return null;
+	}
+	return { partition: match[1]!, account: match[2]!, roleName: match[3]! };
+}
+
+/**
+ * Whether a caller ARN is the allowed role. Both sides are reduced to partition, account and role name, so an SSO role
+ * (IAM ARN with the aws-reserved/sso.amazonaws.com/REGION/ path) matches the assumed-role ARN STS reports for its
+ * sessions. An ARN that is neither shape matches only by exact equality.
+ */
+export function callerMatchesAllowedRole(callerArn: string, allowedRoleArn: string): boolean {
+	const caller = roleIdentityOf(callerArn);
+	const allowed = roleIdentityOf(allowedRoleArn);
+	if (caller === null || allowed === null) {
+		return callerArn === allowedRoleArn;
+	}
+	return (
+		caller.partition === allowed.partition && caller.account === allowed.account && caller.roleName === allowed.roleName
+	);
+}
+
 /** Return the verified caller role ARN or throw a 403. */
 export async function verifySessionCaller(request: Request, config: IntegrationTestAuthConfig): Promise<string> {
 	const verifier = config.callerVerifier ?? relayStsGetCallerIdentityArn;
@@ -158,7 +189,7 @@ export async function verifySessionCaller(request: Request, config: IntegrationT
 	if (roleArn === null) {
 		throw new PrincipalHttpError(403, "integration test caller required");
 	}
-	if (roleArn !== config.allowedRoleArn) {
+	if (!callerMatchesAllowedRole(roleArn, config.allowedRoleArn)) {
 		throw new PrincipalHttpError(403, "integration test caller not allowed");
 	}
 	return roleArn;
