@@ -21,17 +21,29 @@
         "platform": "claude-code",
         "model": "claude-sonnet-5-5"
       }
+    },
+    {
+      "id": "7c872935-cb5e-4b97-a804-cf8e39bb4865",
+      "author": "home",
+      "text": "Merged via PR 433.",
+      "created_at": "2026-10-06T07:01:11.124289Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
     }
   ],
   "created_at": "2026-10-05T15:46:05.970461Z",
-  "updated_at": "2026-10-06T07:00:43.985647Z",
+  "updated_at": "2026-10-06T07:01:11.124322Z",
   "closed_at": "2026-10-06T07:00:43.985575Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "TypeScript computer actions and lookup-or-park tools are merged, with 13 cucumber features passing.",
-  "right_now_updated_at": "2026-10-06T07:00:45.300028Z",
+  "right_now_summary": "Computer record, durable actions, lookup-or-park tools, and resume paths are implemented in TypeScript.",
+  "right_now_updated_at": "2026-10-06T07:01:12.358051Z",
   "custom": {}
 }

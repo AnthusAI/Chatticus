@@ -21,17 +21,29 @@
         "platform": "claude-code",
         "model": "claude-sonnet-5-5"
       }
+    },
+    {
+      "id": "fe7d8b2d-f3f1-4267-988b-6fcc356c72d7",
+      "author": "home",
+      "text": "Merged via PR 432.",
+      "created_at": "2026-10-06T07:01:16.501987Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
     }
   ],
   "created_at": "2026-10-05T15:46:16.689823Z",
-  "updated_at": "2026-10-06T07:00:51.260795Z",
+  "updated_at": "2026-10-06T07:01:16.502050Z",
   "closed_at": "2026-10-06T07:00:51.260739Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "TypeScript ports customer provisioning, self-setup, CloudFormation, image, and snapshot helpers.",
-  "right_now_updated_at": "2026-10-06T07:00:52.978023Z",
+  "right_now_summary": "The TypeScript port for customer provisioning and self-setup is being implemented with related tests and AWS",
+  "right_now_updated_at": "2026-10-06T07:01:17.690434Z",
   "custom": {}
 }
