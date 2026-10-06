@@ -6,9 +6,10 @@ import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as sqs from "aws-cdk-lib/aws-sqs";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as path from "path";
 import { Construct } from "constructs";
-import { ChatticusCloudEnvironment } from "./environments";
+import { ChatticusCloudEnvironment, openAiApiKeyParameterName } from "./environments";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
 const CREATE_REQUIRE_BANNER =
@@ -102,6 +103,25 @@ export class ControlPlaneStack extends cdk.Stack {
     this.turnProbesQueue = turnProbesQueue;
     this.computerStartJobsQueue = computerStartJobsQueue;
 
+    const openAiParameterName = openAiApiKeyParameterName(environmentName);
+    const openAiParameter = ssm.StringParameter.fromSecureStringParameterAttributes(
+      this,
+      "OpenAiKey",
+      { parameterName: openAiParameterName },
+    );
+    const openAiEnvironment = { OPENAI_API_KEY_PARAMETER: openAiParameterName };
+    const grantOpenAiKeyRead = (target: lambdaNodejs.NodejsFunction): void => {
+      openAiParameter.grantRead(target);
+      target.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["ssm:GetParameter"],
+          resources: [
+            `arn:aws:ssm:${this.region}:${this.account}:parameter${openAiParameterName}`,
+          ],
+        }),
+      );
+    };
+
     const sharedEnvironment: Record<string, string> = {
       CHATTICUS_ENVIRONMENT: environmentName,
       CHATTICUS_MESSAGING_TABLE: messagingTable.tableName,
@@ -147,8 +167,9 @@ export class ControlPlaneStack extends cdk.Stack {
       512,
       900,
       "TypeScript front door: Hono with turn-scoped SSE through a RESPONSE_STREAM Function URL.",
-      sharedEnvironment,
+      { ...sharedEnvironment, ...openAiEnvironment },
     );
+    grantOpenAiKeyRead(frontDoorFunction);
     messagingTable.grantReadWriteData(frontDoorFunction);
     conversationsTable.grantReadData(frontDoorFunction);
     piSessionsBucket.grantRead(frontDoorFunction);
@@ -166,8 +187,9 @@ export class ControlPlaneStack extends cdk.Stack {
       1024,
       300,
       "SQS TurnRuns consumer: the Pi session owner for one turn.",
-      sharedEnvironment,
+      { ...sharedEnvironment, ...openAiEnvironment },
     );
+    grantOpenAiKeyRead(turnExecutorFunction);
     messagingTable.grantReadWriteData(turnExecutorFunction);
     conversationsTable.grantReadWriteData(turnExecutorFunction);
     piSessionsBucket.grantReadWrite(turnExecutorFunction);

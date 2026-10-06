@@ -154,6 +154,23 @@ describe("ControlPlaneStack", () => {
     }
   });
 
+  it("lets only the FrontDoor and the executor read the OpenAI key parameter", () => {
+    const parameterName = "/chatticus/development/thin-turn/openai-api-key";
+    for (const fragment of ["TypeScript front door", "TurnRuns consumer"]) {
+      const variables = functionByDescription(development, fragment).Environment.Variables;
+      assert.equal(variables.OPENAI_API_KEY_PARAMETER, parameterName);
+    }
+    for (const fragment of ["TurnProbes consumer", "ComputerStartJobs consumer"]) {
+      const variables = functionByDescription(development, fragment).Environment.Variables;
+      assert.equal(variables.OPENAI_API_KEY_PARAMETER, undefined);
+    }
+    const policies = Object.values(development.findResources("AWS::IAM::Policy"));
+    const readers = policies.filter((policy) =>
+      JSON.stringify(policy.Properties.PolicyDocument).includes(`parameter${parameterName}`),
+    );
+    assert.equal(readers.length, 2);
+  });
+
   it("consumes each queue with batch size 1 and reports start failures per item", () => {
     const mappings = Object.values(development.findResources("AWS::Lambda::EventSourceMapping"));
     assert.equal(mappings.length, 3);
