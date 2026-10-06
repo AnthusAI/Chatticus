@@ -44,3 +44,9 @@ features/turn_recovery.feature
 features/turn_probes.feature
 features/turn_fault_injection.feature
 features/voice_messages.feature
+features/worker_registration.feature
+features/worker_credentials.feature
+features/worker_tenant_ownership.feature
+features/cost_class_ranking.feature
+features/job_routing.feature
+features/bot_turns.feature

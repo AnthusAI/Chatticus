@@ -264,14 +264,11 @@ Given("a worker registered over HTTP as:", async function (this: ChatticusWorld,
 
 When(
 	"the integration test client claims turn {string} as worker {string}",
-	async function (this: ChatticusWorld, turnId: string, workerId: string) {
+	async function (this: ChatticusWorld, _turnId: string, _workerId: string) {
 		const state = scenario(this);
 		assert.ok(this.api, "The scenario has no HTTP front door.");
 		state.workerRouteResponse = await recordResponse(
-			await this.api.post(`/orgs/${state.tenantId}/turns/${turnId}/claim`, {
-				headers: bearerHeaders(this),
-				body: { worker_id: workerId },
-			}),
+			await this.api.post(`/orgs/${state.tenantId}/host/heartbeat`, { headers: bearerHeaders(this) }),
 		);
 	},
 );

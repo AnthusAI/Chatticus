@@ -5,6 +5,9 @@
 export class ApiClient {
 	private app: { request: (input: Request | string, init?: RequestInit) => Response | Promise<Response> };
 
+	/** Headers sent with every request unless the request names the same header itself. */
+	readonly defaultHeaders: Record<string, string> = {};
+
 	constructor(app: { request: (input: Request | string, init?: RequestInit) => Response | Promise<Response> }) {
 		this.app = app;
 	}
@@ -34,7 +37,7 @@ export class ApiClient {
 		path: string,
 		options?: { headers?: Record<string, string>; body?: unknown },
 	): Promise<Response> {
-		const headers = options?.headers ? { ...options.headers } : {};
+		const headers = { ...this.defaultHeaders, ...options?.headers };
 
 		if (options?.body !== undefined) {
 			if (!headers["content-type"]) {
