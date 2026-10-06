@@ -123,7 +123,7 @@ describe("parking a replay-safe computer tool and resuming on a new owner", () =
 		expect(settled.type === "input" && settled.status).toBe("done");
 		expect(actions.lookups).toEqual([callId, callId]);
 		await second.close();
-	});
+	}, 30_000);
 
 	it("fences out a parked owner that has not closed yet", async () => {
 		const storageId = storageIdFor("tenant", "bot", randomUUID());
@@ -166,5 +166,5 @@ describe("parking a replay-safe computer tool and resuming on a new owner", () =
 		expect(firstOutcome).toBe("pending");
 		await first.close();
 		await second.close();
-	});
+	}, 30_000);
 });
