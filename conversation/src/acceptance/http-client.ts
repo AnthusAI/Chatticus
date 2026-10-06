@@ -38,9 +38,9 @@ export class HttpClient {
 		const url = this.resolvePath(path);
 		return fetch(url, {
 			method: "GET",
-			headers: this.headers,
 			signal: AbortSignal.timeout(this.timeout),
 			...init,
+			headers: { ...this.headers, ...(init?.headers as Record<string, string> | undefined) },
 		});
 	}
 
@@ -67,9 +67,9 @@ export class HttpClient {
 		const url = this.resolvePath(path);
 		return fetch(url, {
 			method: "GET",
-			headers: this.headers,
 			signal: AbortSignal.timeout(this.timeout),
 			...init,
+			headers: { ...this.headers, ...(init?.headers as Record<string, string> | undefined) },
 		});
 	}
 
