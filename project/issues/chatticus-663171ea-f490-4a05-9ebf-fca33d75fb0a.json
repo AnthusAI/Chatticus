@@ -11,24 +11,20 @@
   "labels": [],
   "dependencies": [
     {
-      "target": "chatticus-27c8bf4b-668d-46bf-966b-49d3ac7f5d2d",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-2ffc480f-a4a7-4061-b122-0bc04df06293",
       "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:46:46.994338Z",
-  "updated_at": "2026-10-05T23:56:12.606997Z",
+  "updated_at": "2026-10-06T00:43:32.650568Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "Implementation is waiting for the required prototype and three dependent tickets.",
-  "right_now_updated_at": "2026-10-05T23:56:14.915837Z",
+  "right_now_summary": "The transcript migration tool awaits its required prototype and dependent tickets before implementation can begin.",
+  "right_now_updated_at": "2026-10-06T00:43:35.429106Z",
   "custom": {}
 }

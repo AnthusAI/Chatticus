@@ -11,24 +11,20 @@
   "labels": [],
   "dependencies": [
     {
-      "target": "chatticus-27c8bf4b-668d-46bf-966b-49d3ac7f5d2d",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-2ffc480f-a4a7-4061-b122-0bc04df06293",
       "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:45:32.148200Z",
-  "updated_at": "2026-10-05T15:48:56.181967Z",
+  "updated_at": "2026-10-06T00:43:29.198064Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "Work has not started; the required prototype, TypeScript code, tests, and recovery features are still pending.",
-  "right_now_updated_at": "2026-10-05T15:48:57.478649Z",
+  "right_now_summary": "The required prototype and TypeScript implementation have not yet been provided.",
+  "right_now_updated_at": "2026-10-06T00:43:31.517912Z",
   "custom": {}
 }

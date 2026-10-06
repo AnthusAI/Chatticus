@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-27c8bf4b-668d-46bf-966b-49d3ac7f5d2d",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:45:24.279819Z",
-  "updated_at": "2026-10-05T21:30:43.074163Z",
+  "updated_at": "2026-10-06T00:43:23.540061Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The TurnExecutor prototype and build are awaiting verification before implementation can proceed.",
-  "right_now_updated_at": "2026-10-05T21:30:44.488524Z",
+  "right_now_summary": "The TurnExecutor prototype and build are still awaiting implementation and verification.",
+  "right_now_updated_at": "2026-10-06T00:43:24.468408Z",
   "custom": {}
 }
