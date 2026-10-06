@@ -1,5 +1,6 @@
-import type { ActionResultRequest, HostAction } from "@chatticus/host-protocol";
+import { BROWSER_ACTION_KINDS, type ActionResultRequest, type HostAction } from "@chatticus/host-protocol";
 import { type SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
+import { ChromiumActionExecutor } from "./executors/chromium.ts";
 import { TerminalActionExecutor } from "./executors/terminal.ts";
 import { WorkspaceActionExecutor } from "./executors/workspace.ts";
 import { pythonRepr, ValueError } from "./workspace-paths.ts";
@@ -10,7 +11,9 @@ const TERMINAL_TOOLS: ReadonlySet<string> = new Set(["run_terminal"]);
 /** What the host dispatcher runs on: ready executors, or the live root and store to build them from. */
 export type HostActionExecutorOptions = {
 	readonly workspaceExecutor?: WorkspaceActionExecutor;
+	readonly browserExecutor?: ChromiumActionExecutor;
 	readonly terminalExecutor?: TerminalActionExecutor;
+	readonly display?: string;
 	readonly liveRoot?: string;
 	readonly store?: SnapshotObjectStore;
 };
@@ -18,6 +21,7 @@ export type HostActionExecutorOptions = {
 /** Run one committed computer tool on the summoned host. */
 export class HostActionExecutor {
 	private readonly workspace: WorkspaceActionExecutor;
+	private readonly browser: ChromiumActionExecutor;
 	private readonly terminal: TerminalActionExecutor;
 
 	constructor(options: HostActionExecutorOptions = {}) {
@@ -26,6 +30,12 @@ export class HostActionExecutor {
 			new WorkspaceActionExecutor({
 				...(options.liveRoot === undefined ? {} : { liveRoot: options.liveRoot }),
 				...(options.store === undefined ? {} : { store: options.store }),
+			});
+		this.browser =
+			options.browserExecutor ??
+			new ChromiumActionExecutor({
+				...(options.display === undefined ? {} : { display: options.display }),
+				...(options.liveRoot === undefined ? {} : { liveRoot: options.liveRoot }),
 			});
 		this.terminal =
 			options.terminalExecutor ?? new TerminalActionExecutor(options.liveRoot === undefined ? {} : { liveRoot: options.liveRoot });
@@ -41,6 +51,9 @@ export class HostActionExecutor {
 	async execute(toolName: string, arguments_: Readonly<Record<string, string>>): Promise<string> {
 		if (WORKSPACE_TOOLS.has(toolName)) {
 			return this.workspace.execute(toolName, arguments_);
+		}
+		if (BROWSER_ACTION_KINDS.has(toolName)) {
+			return this.browser.execute(toolName, arguments_);
 		}
 		if (TERMINAL_TOOLS.has(toolName)) {
 			return this.terminal.execute(toolName, arguments_);

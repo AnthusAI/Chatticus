@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 from behave import given, then, when
-from computer_host_workspace_executor_host_worker_steps import (
-    _ensure_host_disk,
-    _executor_live_root,
-)
+from host_boot_steps import _ensure_host_disk, _executor_live_root
 
 from chatticus.capability_policy import TaskCapabilityGrant
 from chatticus.computer_continuation_driver import prepare_terminal_tool_continuation

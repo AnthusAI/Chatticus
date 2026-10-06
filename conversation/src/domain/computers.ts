@@ -1,4 +1,5 @@
 import {
+	ComputerDirtyError,
 	ComputerNotFoundError,
 	ComputerNotHydratedError,
 	SnapshotRequiredError,
@@ -284,4 +285,33 @@ async function markWorkerHydrated(computer: Computer, workerId: string, deps: { 
 	if (worker !== null) {
 		await deps.store.putWorker({ ...worker, hydratedSnapshotGeneration: computer.snapshotGeneration });
 	}
+}
+
+/**
+ * Point the next run at a host. Nothing is copied: turns stay pinned to the target until it hydrates the published
+ * snapshot, and prefer-local ranking resumes after that.
+ *
+ * Ported from python/src/chatticus/control_plane.py `relocate_computer`.
+ *
+ * @param tenantId Organization.
+ * @param targetWorkerId The worker that becomes the intended host; it must advertise this computer.
+ * @param deps The store.
+ * @throws ComputerNotFoundError If the organization has no computer.
+ * @throws SnapshotRequiredError If nothing has been published.
+ * @throws ComputerDirtyError If the live disk has unpublished writes.
+ * @throws WorkerNotRegisteredError If the target is not registered.
+ * @throws WorkerDoesNotHostComputerError If the target is not a host of this computer.
+ */
+export async function relocateComputer(tenantId: string, targetWorkerId: string, deps: { store: MessagingStore }): Promise<Computer> {
+	const computer = await computerForOrganization(tenantId, deps);
+	if (computer.snapshotUri === undefined) {
+		throw new SnapshotRequiredError(`Computer ${pythonRepr(computer.computerId)} has no published snapshot.`);
+	}
+	if (computer.diskDirty) {
+		throw new ComputerDirtyError(`Computer ${pythonRepr(computer.computerId)} has unpublished live-disk writes.`);
+	}
+	await requireHost(computer, targetWorkerId, deps);
+	const relocating: Computer = { ...computer, intendedHostWorkerId: targetWorkerId, hydrateRequired: true };
+	await deps.store.putComputer(relocating);
+	return relocating;
 }

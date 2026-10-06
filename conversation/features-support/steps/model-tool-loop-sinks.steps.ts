@@ -14,6 +14,7 @@ import { readTurnEvents } from "./model.steps.ts";
 const SESSION_SECRET_MARKERS = ["session", "cookie", "token", "password", "secret"];
 
 const BLOCKED_PREFIX = "Tool call blocked:";
+const HOST_DENIAL_MARKER = "denied:";
 
 type ScriptedToolCall = { readonly tool: string; readonly arguments: Record<string, string>; readonly leadingText: string };
 
@@ -149,7 +150,8 @@ Then("the turn journal records a denied {word} tool result", async function (thi
 	assert.ok(calls.length > 0, `The journal has no ${toolName} tool call: ${JSON.stringify((await readTurnEvents(this, activeTurnOf(this).tenantId, activeTurnOf(this).turnId)).map((event) => [event.kind, event.body]))}`);
 	const last = calls.at(-1)!;
 	assert.ok(last.result, `The ${toolName} call has no result`);
-	assert.ok(String(last.result.body).includes(BLOCKED_PREFIX), `The ${toolName} result is not a denial: ${last.result.body}`);
+	const body = String(last.result.body);
+	assert.ok(body.includes(BLOCKED_PREFIX) || body.includes(HOST_DENIAL_MARKER), `The ${toolName} result is not a denial: ${body}`);
 });
 
 Then("the denied tool result does not leak session secrets", async function (this: ChatticusWorld) {

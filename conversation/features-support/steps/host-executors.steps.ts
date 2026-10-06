@@ -2,10 +2,9 @@ import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Given, Then, When } from "@cucumber/cucumber";
-import { HOST_USER_HEADER, claimActionResponseSchema, hostComputerSchema } from "@chatticus/host-protocol";
-import { HostActionExecutor, executeAction } from "../../../computer/host/src/host-action-executor.ts";
+import { HOST_USER_HEADER, hostComputerSchema } from "@chatticus/host-protocol";
+import { HostActionExecutor } from "../../../computer/host/src/host-action-executor.ts";
 import { WorkspaceActionExecutor } from "../../../computer/host/src/executors/workspace.ts";
-import { ComputerHostDisk } from "../../src/snapshot/host.ts";
 import { FilesystemSnapshotStore } from "../../src/snapshot/store.ts";
 import { parseGrantTable } from "../../src/policy/capability-policy.ts";
 import { type RecordedResponse, recordResponse } from "../api.ts";
@@ -13,24 +12,17 @@ import { kernelPolicyFor } from "../policy-control.ts";
 import { runBotTurn } from "../executor-harness.ts";
 import { activeTurnOf } from "../turn-grant-support.ts";
 import { runQueuedJobs } from "../turn-recovery.ts";
+import { bootDriverFor, hostDiskOf, runHostUntilIdle } from "../host-lifecycle-support.ts";
 import type { ChatticusWorld } from "../world.ts";
 import { askBot } from "./model-tool-loop-sinks.steps.ts";
+import { CountingSnapshotStore } from "./snapshot.steps.ts";
 import { readTurnEvents } from "./model.steps.ts";
 
 const SCENARIO_HOST_WORKER_ID = "garage-mac-1";
 const SCENARIO_HOST_USER_ID = "ryan";
 const SCENARIO_BOT_NAME = "Researcher";
 const BLOCKED_PREFIX = "Tool call blocked:";
-
-function hostDiskOf(world: ChatticusWorld, name: string): ComputerHostDisk {
-	const known = world.computerHosts[name] as ComputerHostDisk | undefined;
-	if (known !== undefined) return known;
-	assert.ok(world.snapshotTmpdir, "The scenario has no snapshot directory.");
-	const store = (world.snapshotStore as FilesystemSnapshotStore | null) ?? new FilesystemSnapshotStore(join(world.snapshotTmpdir, "store"));
-	const disk = new ComputerHostDisk(join(world.snapshotTmpdir, "hosts", name), store);
-	world.computerHosts[name] = disk;
-	return disk;
-}
+const HOST_DENIAL_MARKER = "denied:";
 
 function hostTokenOf(world: ChatticusWorld, workerId: string): string {
 	const worker = world.registeredWorkers.find((candidate) => candidate.workerId === workerId);
@@ -61,20 +53,7 @@ async function reportCapabilityReady(world: ChatticusWorld, capability: string):
 }
 
 async function pullAndRun(world: ChatticusWorld, executor: HostActionExecutor): Promise<void> {
-	for (;;) {
-		const claimed = await hostRequest(world, "POST", "/actions/claim", {});
-		assert.equal(claimed.status, 200, claimed.text);
-		const action = claimActionResponseSchema.parse(claimed.json).action;
-		if (action === null) break;
-		let answer: { result: string } | { error: string };
-		try {
-			answer = await executeAction(action, executor);
-		} catch (error) {
-			answer = { error: (error as Error).message };
-		}
-		const posted = await hostRequest(world, "POST", `/actions/${action.action_id}/result`, answer);
-		assert.equal(posted.status, 200, posted.text);
-	}
+	await runHostUntilIdle(world, SCENARIO_HOST_WORKER_ID, executor);
 	assert.equal((await runQueuedJobs(world)).at(-1), "done");
 }
 
@@ -82,7 +61,7 @@ function workspaceHostExecutor(world: ChatticusWorld): HostActionExecutor {
 	return new HostActionExecutor({ workspaceExecutor: new WorkspaceActionExecutor({ disk: hostDiskOf(world, SCENARIO_HOST_WORKER_ID) }) });
 }
 
-async function parkToolCall(world: ChatticusWorld, request: string): Promise<void> {
+export async function parkToolCall(world: ChatticusWorld, request: string): Promise<void> {
 	await askBot(world, SCENARIO_BOT_NAME, request);
 	const outcome = await runBotTurn(world, SCENARIO_BOT_NAME);
 	assert.equal(outcome, "parked", `The turn did not park on the computer: ${outcome}`);
@@ -110,7 +89,7 @@ async function lastResultOf(world: ChatticusWorld, toolName: string): Promise<st
 Given("a filesystem snapshot store bound to the host worker", function (this: ChatticusWorld) {
 	assert.ok(this.snapshotTmpdir, "The scenario has no snapshot directory.");
 	mkdirSync(this.snapshotTmpdir, { recursive: true });
-	this.snapshotStore = new FilesystemSnapshotStore(join(this.snapshotTmpdir, "store"));
+	this.snapshotStore = new CountingSnapshotStore(new FilesystemSnapshotStore(join(this.snapshotTmpdir, "store")));
 	this.computerHosts = {};
 });
 
@@ -163,12 +142,8 @@ Given(
 );
 
 When("the computer host has booted through the workspace gate", async function (this: ChatticusWorld) {
-	const running = await hostRequest(this, "POST", "/computer/state", { stopped: false });
-	assert.equal(running.status, 200, running.text);
-	for (const capability of ["model", "workspace"]) {
-		await reportCapabilityReady(this, capability);
-	}
 	hostDiskOf(this, SCENARIO_HOST_WORKER_ID);
+	await bootDriverFor(this, SCENARIO_HOST_WORKER_ID, null).bootThroughWorkspace();
 });
 
 When(
@@ -185,12 +160,23 @@ When(
 	},
 );
 
+async function assertSuccessfulRead(world: ChatticusWorld, content: string): Promise<void> {
+	const body = await lastResultOf(world, "read_workspace");
+	assert.ok(!body.startsWith(BLOCKED_PREFIX) && !body.includes(HOST_DENIAL_MARKER), `The read_workspace result is a denial: ${body}`);
+	assert.ok(body.includes(content), `The read_workspace result is ${JSON.stringify(body)}`);
+}
+
 Then(
 	"the turn journal records a successful read_workspace tool result with content {string}",
 	async function (this: ChatticusWorld, content: string) {
-		const body = await lastResultOf(this, "read_workspace");
-		assert.ok(!body.startsWith(BLOCKED_PREFIX), `The read_workspace result is a denial: ${body}`);
-		assert.ok(body.includes(content), `The read_workspace result is ${JSON.stringify(body)}`);
+		await assertSuccessfulRead(this, content);
+	},
+);
+
+Then(
+	"the active turn journal records a successful read_workspace tool result with content {string}",
+	async function (this: ChatticusWorld, content: string) {
+		await assertSuccessfulRead(this, content);
 	},
 );
 

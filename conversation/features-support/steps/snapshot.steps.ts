@@ -11,7 +11,7 @@ import type { SnapshotManifest } from "../../src/snapshot/store.ts";
 /**
  * Filesystem store that counts pack downloads.
  */
-class CountingSnapshotStore {
+export class CountingSnapshotStore {
 	inner: FilesystemSnapshotStore;
 	bucket: string;
 	packDownloads: number = 0;

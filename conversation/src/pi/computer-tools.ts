@@ -14,6 +14,7 @@
  * `test/computer-park-resume.test.ts` and `docs/PI_HARNESS.md`.
  */
 
+import { BROWSE_ACTION_KIND, REQUEST_COMPUTER_CAPABILITY_ACTION_KIND } from "@chatticus/host-protocol";
 import { type Static, Type } from "@earendil-works/pi-ai";
 import { defineExtension, defineTool, type Extension, type ToolRegistration } from "@earendil-works/pi-durable";
 import type { ComputerAction } from "../domain/actions.ts";
@@ -117,9 +118,9 @@ export function computerToolsExtension(handoff: ComputerToolHandoff): Extension 
 			computerTool("read_workspace", "Read a file in the organization's workspace.", READ_WORKSPACE_PARAMETERS),
 			computerTool("write_workspace", "Write a file in the organization's workspace.", WRITE_WORKSPACE_PARAMETERS),
 			computerTool("run_terminal", "Run a shell command on the organization's computer.", RUN_TERMINAL_PARAMETERS),
-			computerTool("browse", "Open a web page in an isolated browser.", BROWSE_PARAMETERS),
+			computerTool(BROWSE_ACTION_KIND, "Open a web page in an isolated browser.", BROWSE_PARAMETERS),
 			computerTool(
-				"request_computer_capability",
+				REQUEST_COMPUTER_CAPABILITY_ACTION_KIND,
 				"Ask for a capability of the organization's computer, such as a browser session.",
 				REQUEST_COMPUTER_CAPABILITY_PARAMETERS,
 			),
