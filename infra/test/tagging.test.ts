@@ -4,6 +4,7 @@ import * as cdk from "aws-cdk-lib";
 import {
   AUTH_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
+  CONTROL_PLANE_STACK_IDS,
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
 } from "../lib/environments";
@@ -21,6 +22,7 @@ describe("stack tag registry", () => {
       assert.deepEqual(stackTagsFor(THIN_TURN_STACK_IDS[environment]), { component: "thin-turn", environment });
       assert.deepEqual(stackTagsFor(WEB_STACK_IDS[environment]), { component: "web", environment });
       assert.deepEqual(stackTagsFor(AUTH_STACK_IDS[environment]), { component: "auth", environment });
+      assert.deepEqual(stackTagsFor(CONTROL_PLANE_STACK_IDS[environment]), { component: "control-plane", environment });
     }
   });
 
