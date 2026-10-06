@@ -32,7 +32,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript port is underway; most slices are merged, while infrastructure checks and the final flip remain.",
-  "right_now_updated_at": "2026-10-06T15:16:19.698595Z",
+  "right_now_summary": "The TypeScript port is merged, but final AWS rehearsal and human review remain.",
+  "right_now_updated_at": "2026-10-06T15:17:47.709080Z",
   "custom": {}
 }
