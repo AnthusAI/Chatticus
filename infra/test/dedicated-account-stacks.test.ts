@@ -36,6 +36,7 @@ describe("dedicated account mode", () => {
     assert.deepEqual(stackIds, [
       "ChatticusAuth",
       "ChatticusComputers",
+      "ChatticusControlPlane",
       ENVIRONMENT_CERTIFICATES_STACK_ID,
       ENVIRONMENT_ZONES_STACK_ID,
       "ChatticusSnapshots",

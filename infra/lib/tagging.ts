@@ -2,6 +2,7 @@ import * as cdk from "aws-cdk-lib";
 import {
   AUTH_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
+  CONTROL_PLANE_STACK_IDS,
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
   type ChatticusCloudEnvironment,
@@ -38,6 +39,7 @@ const ENVIRONMENT_STACKS: Array<[Record<ChatticusCloudEnvironment, string>, stri
   [THIN_TURN_STACK_IDS, "thin-turn"],
   [WEB_STACK_IDS, "web"],
   [AUTH_STACK_IDS, "auth"],
+  [CONTROL_PLANE_STACK_IDS, "control-plane"],
 ];
 
 /**

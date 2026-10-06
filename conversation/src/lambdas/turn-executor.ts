@@ -12,6 +12,7 @@ import { consumeRunJob } from "../turn/executor.ts";
 import { createOpenAiModels, DEFAULT_TURN_MODEL } from "../turn/openai-models.ts";
 import { SqsComputerStartQueue, SqsRunVisibility, SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
 import type { ExecutorDeps, TurnExecutionJob } from "../turn/types.ts";
+import { resolveOpenAiApiKey } from "./openai-key.ts";
 
 type SqsRecord = { readonly body: string; readonly receiptHandle: string };
 
@@ -33,8 +34,9 @@ let cachedDeps: SharedDeps | null = null;
 let cachedRunsQueueUrl = "";
 let cachedSqs: SQSClient | null = null;
 
-function executorDeps(): SharedDeps {
+async function executorDeps(): Promise<SharedDeps> {
 	if (cachedDeps !== null) return cachedDeps;
+	await resolveOpenAiApiKey();
 	const client = new DynamoDBClient({});
 	const sqs = new SQSClient({});
 	cachedSqs = sqs;
@@ -90,7 +92,7 @@ function jobFrom(record: SqsRecord): TurnExecutionJob {
  */
 export async function handler(event: TurnRunsEvent, context: TurnRunsContext): Promise<void> {
 	for (const record of event.Records) {
-		const shared = executorDeps();
+		const shared = await executorDeps();
 		await consumeRunJob(
 			jobFrom(record),
 			{

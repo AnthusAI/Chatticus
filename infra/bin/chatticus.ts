@@ -8,6 +8,7 @@ import {
   AUTH_DOMAIN_NAMES,
   AUTH_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
+  CONTROL_PLANE_STACK_IDS,
   THIN_TURN_STACK_IDS,
   WEB_SITE_DOMAINS,
   WEB_STACK_IDS,
@@ -18,6 +19,7 @@ import { AccountGitHubDeployStack } from "../lib/account-github-deploy-stack";
 import { GitHubDeployStack } from "../lib/github-deploy-stack";
 import { DELEGATIONS } from "../lib/dns-delegations";
 import { ManagementDnsStack, loadZoneRecords } from "../lib/management-dns-stack";
+import { ControlPlaneStack } from "../lib/control-plane-stack";
 import { IntegrationTestStack } from "../lib/integration-test-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
@@ -80,6 +82,14 @@ function buildLegacyAccountStacks(): void {
       description:
         `Zero-idle computerless turn (${environmentName}): DynamoDB, SQS, ` +
         "Lambda SSE front door.",
+    });
+
+    new ControlPlaneStack(app, CONTROL_PLANE_STACK_IDS[environmentName], {
+      env,
+      chatticusEnvironment: environmentName,
+      messagingTable: thinTurn.messagingTable,
+      description:
+        `TypeScript conversation control plane (${environmentName}), deployed unrouted.`,
     });
 
     const web = new WebStack(app, WEB_STACK_IDS[environmentName], {
