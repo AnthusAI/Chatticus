@@ -184,6 +184,19 @@ export class ControlPlaneStack extends cdk.Stack {
     const parameterArn = (parameterName: string): string =>
       `arn:aws:ssm:${this.region}:${this.account}:parameter${parameterName}`;
 
+    const integrationTestAllowedRoleArn = this.node.tryGetContext("integrationTestAllowedRoleArn");
+    if (
+      environmentName === "development" &&
+      typeof integrationTestAllowedRoleArn === "string" &&
+      integrationTestAllowedRoleArn !== ""
+    ) {
+      new ssm.StringParameter(this, "IntegrationTestAllowedRoleArnParameter", {
+        parameterName: `${integrationPrefix}/allowed-role-arn`,
+        stringValue: integrationTestAllowedRoleArn,
+        description: `Allowed IAM role for ${environmentName} integration-test session exchange.`,
+      });
+    }
+
     const frontDoorFunction = nodeFunction(
       "FrontDoor",
       "front-door.ts",

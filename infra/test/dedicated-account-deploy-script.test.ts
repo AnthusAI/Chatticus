@@ -60,4 +60,32 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
     const accepted = run(["development", "control-plane"]);
     assert.notEqual(accepted.status, 2);
   });
+
+  it("passes the integration test role as context for the development control plane only, and refuses a malformed ARN before AWS", () => {
+    assert.match(contents, /-c integrationTestAllowedRoleArn=/);
+    assert.match(contents, /"\$\{ENVIRONMENT\}" = "development" \] && \[ "\$\{STACK\}" = "ChatticusControlPlane"/);
+    const env = { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "" };
+    for (const bad of ["not-an-arn", "arn:aws:iam::123:role/x", "arn:aws:sts::123456789012:assumed-role/x/y", "arn:aws:iam::123456789012:user/x"]) {
+      const result = spawnSync("sh", [script, "development", "control-plane"], {
+        encoding: "utf8",
+        env: { ...env, CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN: bad },
+      });
+      assert.equal(result.status, 1, bad);
+      assert.match(result.stderr, /must be an IAM role ARN/);
+    }
+    const sso = spawnSync("sh", [script, "development", "control-plane"], {
+      encoding: "utf8",
+      env: {
+        ...env,
+        CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN:
+          "arn:aws:iam::123456789012:role/aws-reserved/sso.amazonaws.com/us-east-2/AWSReservedSSO_Admin_0123abcd",
+      },
+    });
+    assert.doesNotMatch(sso.stderr, /must be an IAM role ARN/);
+    const otherStack = spawnSync("sh", [script, "development", "web"], {
+      encoding: "utf8",
+      env: { ...env, CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN: "not-an-arn" },
+    });
+    assert.doesNotMatch(otherStack.stderr, /must be an IAM role ARN/);
+  });
 });

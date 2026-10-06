@@ -350,6 +350,40 @@ describe("ControlPlaneStack", () => {
     });
   });
 
+  describe("integration test allowed role parameter", () => {
+    const roleArn = "arn:aws:iam::123456789012:role/aws-reserved/sso.amazonaws.com/us-east-2/AWSReservedSSO_Admin_0123abcd";
+    const withRole = { computerHostStart: "noop", integrationTestAllowedRoleArn: roleArn };
+    const parameterCount = (template: Template): number =>
+      Object.values(template.findResources("AWS::SSM::Parameter")).filter((resource) =>
+        String(resource.Properties.Name).endsWith("/integration-test/allowed-role-arn"),
+      ).length;
+
+    it("is created in development when the context value is set", () => {
+      const template = synthControlPlane("development", withRole);
+      template.hasResourceProperties("AWS::SSM::Parameter", {
+        Name: "/chatticus/development/integration-test/allowed-role-arn",
+        Value: roleArn,
+      });
+      assert.equal(
+        Object.values(template.findResources("AWS::SSM::Parameter")).filter((resource) =>
+          /integration-test\/(tenant-id|user-id)$/.test(String(resource.Properties.Name)),
+        ).length,
+        0,
+      );
+    });
+
+    it("is not created without the context value or with an empty one", () => {
+      assert.equal(parameterCount(development), 0);
+      assert.equal(parameterCount(synthControlPlane("development", { ...withRole, integrationTestAllowedRoleArn: "" })), 0);
+    });
+
+    it("is never created in staging or production", () => {
+      for (const environmentName of ["staging", "production"] as const) {
+        assert.equal(parameterCount(synthControlPlane(environmentName, withRole)), 0, environmentName);
+      }
+    });
+  });
+
   it("creates no IAM users or EventBridge schedules", () => {
     development.resourceCountIs("AWS::IAM::User", 0);
     development.resourceCountIs("AWS::Scheduler::Schedule", 0);

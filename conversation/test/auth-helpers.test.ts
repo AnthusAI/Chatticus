@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { canonicalQueryString } from "../src/acceptance/sigv4.ts";
 import {
 	integrationTestEnabledFromEnvironment,
+	callerMatchesAllowedRole,
 	integrationTestHmacSecret,
 	loadIntegrationTestAuthConfig,
 	parseIntegrationTestToken,
@@ -83,5 +84,33 @@ describe("integration test configuration", () => {
 describe("canonicalQueryString", () => {
 	it("sorts keys and percent-encodes reserved characters", () => {
 		expect(canonicalQueryString({ b: "x y", a: "1/2", c: "(!)" })).toBe("a=1%2F2&b=x%20y&c=%28%21%29");
+	});
+});
+
+describe("integration test caller matching", () => {
+	const sso = "arn:aws:iam::123456789012:role/aws-reserved/sso.amazonaws.com/us-east-2/AWSReservedSSO_Admin_0123abcd";
+	const ssoSession = "arn:aws:sts::123456789012:assumed-role/AWSReservedSSO_Admin_0123abcd/someone@example.com";
+
+	it("matches an SSO session to the path-bearing IAM role by account and role name", () => {
+		expect(callerMatchesAllowedRole(ssoSession, sso)).toBe(true);
+	});
+
+	it("matches a session of a path-less role and the role itself", () => {
+		const role = "arn:aws:iam::123456789012:role/runner";
+		expect(callerMatchesAllowedRole("arn:aws:sts::123456789012:assumed-role/runner/session-1", role)).toBe(true);
+		expect(callerMatchesAllowedRole(role, role)).toBe(true);
+	});
+
+	it("rejects another account, another role name, another partition and prefix or suffix lookalikes", () => {
+		expect(callerMatchesAllowedRole("arn:aws:sts::999999999999:assumed-role/AWSReservedSSO_Admin_0123abcd/x", sso)).toBe(false);
+		expect(callerMatchesAllowedRole("arn:aws:sts::123456789012:assumed-role/AWSReservedSSO_Admin_0123abce/x", sso)).toBe(false);
+		expect(callerMatchesAllowedRole("arn:aws:sts::123456789012:assumed-role/AWSReservedSSO_Admin_0123abcd2/x", sso)).toBe(false);
+		expect(callerMatchesAllowedRole("arn:aws-cn:sts::123456789012:assumed-role/AWSReservedSSO_Admin_0123abcd/x", sso)).toBe(false);
+		expect(callerMatchesAllowedRole("arn:aws:sts::123456789012:assumed-role/runner/x", "arn:aws:iam::123456789012:role/run")).toBe(false);
+	});
+
+	it("matches an unparsable ARN only by exact equality", () => {
+		expect(callerMatchesAllowedRole("arn:role", "arn:role")).toBe(true);
+		expect(callerMatchesAllowedRole("arn:role2", "arn:role")).toBe(false);
 	});
 });
