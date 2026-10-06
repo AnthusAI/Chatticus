@@ -210,6 +210,14 @@ describe("ControlPlaneStack", () => {
     }
   });
 
+  it("grants the imported host task role no table or queue access", () => {
+    const ecs = synthControlPlane("development", ECS_CONTEXT);
+    const grantedToHostRole = Object.values(ecs.findResources("AWS::IAM::Policy")).filter(
+      (policy) => JSON.stringify(policy.Properties.Roles ?? []).includes("computer-task"),
+    );
+    assert.equal(grantedToHostRole.length, 0);
+  });
+
   it("never wires ECS host start outside development", () => {
     const staging = synthControlPlane("staging", ECS_CONTEXT);
     const variables = functionByDescription(staging, "ComputerStartJobs consumer").Environment.Variables;

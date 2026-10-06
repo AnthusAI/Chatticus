@@ -220,12 +220,15 @@ export function computerHostStartEcsConfig(
   return configFromContext(scope) || lookupComputersHostStart(scope);
 }
 
-export function wireComputerWorkerEcsHostStart(
+/**
+ * Starter-side ECS wiring only: environment variables, ecs:RunTask,
+ * ecs:TagResource, iam:PassRole and sts:AssumeRole. Grants the computer's
+ * task role nothing.
+ */
+export function wireComputerStarterEcsRunTask(
   computerWorkerFunction: lambda.Function,
   stack: cdk.Stack,
   config: ComputerHostStartEcsConfig,
-  table: dynamodb.ITable,
-  computerTurnQueue: sqs.IQueue,
 ): void {
   const environment: Record<string, string> = {
     CHATTICUS_HOST_STARTER: "ecs",
@@ -292,6 +295,16 @@ export function wireComputerWorkerEcsHostStart(
     }),
   );
 
+}
+
+export function wireComputerWorkerEcsHostStart(
+  computerWorkerFunction: lambda.Function,
+  stack: cdk.Stack,
+  config: ComputerHostStartEcsConfig,
+  table: dynamodb.ITable,
+  computerTurnQueue: sqs.IQueue,
+): void {
+  wireComputerStarterEcsRunTask(computerWorkerFunction, stack, config);
   const hostTaskRole = iam.Role.fromRoleArn(
     stack,
     "ImportedComputerHostTaskRole",

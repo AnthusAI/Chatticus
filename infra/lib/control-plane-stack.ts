@@ -12,7 +12,7 @@ import { Construct } from "constructs";
 import { ChatticusCloudEnvironment, openAiApiKeyParameterName } from "./environments";
 import {
   computerHostStartEcsConfig,
-  wireComputerWorkerEcsHostStart,
+  wireComputerStarterEcsRunTask,
 } from "./computer-host-start";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
@@ -250,12 +250,10 @@ export class ControlPlaneStack extends cdk.Stack {
     this.computerStarterFunction = computerStarterFunction;
     const computerHostStart = computerHostStartEcsConfig(this, environmentName);
     if (computerHostStart !== undefined) {
-      wireComputerWorkerEcsHostStart(
+      wireComputerStarterEcsRunTask(
         computerStarterFunction,
         cdk.Stack.of(this),
         computerHostStart,
-        messagingTable,
-        turnRunsQueue,
       );
     }
 
