@@ -20,7 +20,10 @@ import type { CognitoTestKeys } from "./test-jwt.ts";
 import { localDynamoClient, ScenarioMessagingTable } from "./messaging-table.ts";
 import { ApiClient, type RecordedResponse } from "./api.ts";
 import type { StartedAppServer } from "./http-server.ts";
+import type { Hono } from "hono";
+import { OpenStreamCounter } from "../src/http/routes/turn-stream.ts";
 import { FakeClock } from "./clock.ts";
+import { ScenarioStreamClock } from "./stream-clock.ts";
 import { SequentialIdSource } from "./clock.ts";
 import { QueueRecorder } from "./queues.ts";
 import type { MembersCliProcessResult } from "./members-cli-process.ts";
@@ -63,6 +66,11 @@ export class ChatticusWorld extends World {
 	/** Each time a run job's queue visibility was extended, as the queue would record it. */
 	readonly runVisibilityExtensions: Array<{ tenantId: string; turnId: string }> = [];
 	api: ApiClient | null = null;
+	app: Hono | null = null;
+	listedTurnEvents: Array<Record<string, any>> = [];
+	streamRefusal: Response | null = null;
+	readonly streamClock = new ScenarioStreamClock();
+	readonly openStreams = new OpenStreamCounter();
 	scenarioStartTime: number;
 
 	botsById: Map<string, { botId: string; name: string; tenantId: string }> | null = null;

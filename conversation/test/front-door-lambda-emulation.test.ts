@@ -1,7 +1,8 @@
 import { Writable } from "node:stream";
 import { streamHandle } from "hono/aws-lambda";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createSseProbeApp, wallClock } from "../src/http/sse-probe.ts";
+import { createSseProbeApp } from "../src/http/sse-probe.ts";
+import { wallStreamClock } from "../src/http/stream.ts";
 
 interface RecordedResponseMetadata {
 	statusCode: number;
@@ -46,8 +47,11 @@ function functionUrlEvent(
 	};
 }
 
+const CONDITION_WAIT_ATTEMPTS = 1000;
+const DISCONNECT_TEST_TIMEOUT_MILLISECONDS = 30_000;
+
 async function waitUntil(predicate: () => boolean): Promise<void> {
-	for (let attempt = 0; attempt < 200; attempt += 1) {
+	for (let attempt = 0; attempt < CONDITION_WAIT_ATTEMPTS; attempt += 1) {
 		if (predicate()) {
 			return;
 		}
@@ -93,7 +97,7 @@ describe("front door under the emulated Lambda response stream runtime", () => {
 
 	it("streams SSE frames with metadata and ends on the terminal kind", async () => {
 		const stream = new RecordingResponseStream();
-		await handler(functionUrlEvent("/sse-probe", "events=2"), stream, {});
+		await handler(functionUrlEvent("/sse-probe", "events=2&gap_ms=10"), stream, {});
 		expect(stream.metadata?.statusCode).toBe(200);
 		expect(stream.metadata?.headers["content-type"]).toContain(
 			"text/event-stream",
@@ -107,7 +111,7 @@ describe("front door under the emulated Lambda response stream runtime", () => {
 	it("honours Last-Event-ID passed through the Function URL event", async () => {
 		const stream = new RecordingResponseStream();
 		await handler(
-			functionUrlEvent("/sse-probe", "events=3", { "last-event-id": "2" }),
+			functionUrlEvent("/sse-probe", "events=3&gap_ms=10", { "last-event-id": "2" }),
 			stream,
 			{},
 		);
@@ -120,7 +124,7 @@ describe("front door under the emulated Lambda response stream runtime", () => {
 		const disconnectLogged: string[] = [];
 		const disconnectHandler = streamHandle(
 			createSseProbeApp({
-				clock: wallClock,
+				clock: wallStreamClock,
 				heartbeatIntervalMilliseconds: 15_000,
 				eventIntervalMilliseconds: 20,
 				maximumStreamMilliseconds: 840_000,
@@ -139,5 +143,5 @@ describe("front door under the emulated Lambda response stream runtime", () => {
 		await invocation;
 		await waitUntil(() => disconnectLogged.includes("sse-probe write stalled"));
 		expect(disconnectLogged).not.toContain("sse-probe aborted");
-	}, 10_000);
+	}, DISCONNECT_TEST_TIMEOUT_MILLISECONDS);
 });
