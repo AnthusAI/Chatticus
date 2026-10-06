@@ -81,3 +81,6 @@ features/customer_cross_account_role_api.feature
 features/customer_snapshot_bucket_template.feature
 features/organization_spend_ceiling_provisioning.feature
 features/web_organization_signup.feature
+features/customer_computer_host_front_door.feature
+features/computer_host_pull_worker.feature
+features/host_protocol.feature

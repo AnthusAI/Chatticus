@@ -1,4 +1,12 @@
-import { ComputerNotFoundError } from "../http/errors.ts";
+import {
+	ComputerNotFoundError,
+	ComputerNotHydratedError,
+	SnapshotRequiredError,
+	WorkerDoesNotHostComputerError,
+	WorkerNotRegisteredError,
+} from "../http/errors.ts";
+import { snapshotUri } from "../snapshot/uri.ts";
+import { pythonRepr } from "./bots.ts";
 import type { Clock, IdSource } from "../http/app.ts";
 import type { Computer } from "../store/codecs/computer.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
@@ -191,5 +199,89 @@ export async function requestComputerHostStart(
 				newlyClaimed: true,
 			};
 		}
+	}
+}
+
+async function requireHost(computer: Computer, workerId: string, deps: { store: MessagingStore }): Promise<void> {
+	const worker = await deps.store.getWorker(computer.tenantId, workerId);
+	if (worker === null) {
+		throw new WorkerNotRegisteredError(workerId);
+	}
+	if (worker.computerId !== computer.computerId) {
+		throw new WorkerDoesNotHostComputerError(
+			`Worker ${pythonRepr(workerId)} hosts ${worker.computerId === undefined ? "None" : pythonRepr(worker.computerId)}, not ${pythonRepr(computer.computerId)}.`,
+		);
+	}
+}
+
+/**
+ * Record that a host packed its disk and uploaded the pack. The computer keeps the URI, the checksum and the generation
+ * only; the bytes live in object storage.
+ *
+ * Ported from python/src/chatticus/control_plane.py `record_host_snapshot_published`.
+ *
+ * @throws ComputerNotFoundError If the organization has no computer.
+ * @throws ComputerNotHydratedError If a relocation waits for a host to hydrate first.
+ * @throws WorkerNotRegisteredError If the worker is not registered.
+ * @throws WorkerDoesNotHostComputerError If the worker does not host this computer.
+ */
+export async function recordHostSnapshotPublished(
+	tenantId: string,
+	workerId: string,
+	checksum: string,
+	snapshotUriOverride: string | null,
+	deps: { store: MessagingStore },
+): Promise<Computer> {
+	const computer = await computerForOrganization(tenantId, deps);
+	if (computer.hydrateRequired) {
+		throw new ComputerNotHydratedError(
+			`Computer ${pythonRepr(computer.computerId)} must be hydrated before the live disk can be published.`,
+		);
+	}
+	await requireHost(computer, workerId, deps);
+	const published: Computer = {
+		...computer,
+		snapshotUri: snapshotUriOverride ?? snapshotUri(computer.tenantId, computer.computerId),
+		snapshotChecksum: checksum,
+		snapshotGeneration: computer.snapshotGeneration + 1,
+		diskDirty: false,
+	};
+	await markWorkerHydrated(published, workerId, deps);
+	await deps.store.putComputer(published);
+	return published;
+}
+
+/**
+ * Record that a host hydrated the published snapshot onto its disk, which ends a relocation.
+ *
+ * Ported from python/src/chatticus/control_plane.py `record_host_hydrated`.
+ *
+ * @throws ComputerNotFoundError If the organization has no computer.
+ * @throws SnapshotRequiredError If nothing has been published.
+ * @throws WorkerNotRegisteredError If the worker is not registered.
+ * @throws WorkerDoesNotHostComputerError If the worker is not the intended host, or does not host this computer.
+ */
+export async function recordHostHydrated(tenantId: string, workerId: string, deps: { store: MessagingStore }): Promise<Computer> {
+	const computer = await computerForOrganization(tenantId, deps);
+	if (computer.snapshotUri === undefined) {
+		throw new SnapshotRequiredError(`Computer ${pythonRepr(computer.computerId)} has no published snapshot.`);
+	}
+	await requireHost(computer, workerId, deps);
+	if (computer.intendedHostWorkerId !== undefined && workerId !== computer.intendedHostWorkerId) {
+		throw new WorkerDoesNotHostComputerError(
+			`Worker ${pythonRepr(workerId)} is not the intended host ${pythonRepr(computer.intendedHostWorkerId)} for computer ${pythonRepr(computer.computerId)}.`,
+		);
+	}
+	const { intendedHostWorkerId: _cleared, ...rest } = computer;
+	const hydrated: Computer = { ...rest, hydrateRequired: false, diskDirty: false };
+	await markWorkerHydrated(hydrated, workerId, deps);
+	await deps.store.putComputer(hydrated);
+	return hydrated;
+}
+
+async function markWorkerHydrated(computer: Computer, workerId: string, deps: { store: MessagingStore }): Promise<void> {
+	const worker = await deps.store.getWorker(computer.tenantId, workerId);
+	if (worker !== null) {
+		await deps.store.putWorker({ ...worker, hydratedSnapshotGeneration: computer.snapshotGeneration });
 	}
 }

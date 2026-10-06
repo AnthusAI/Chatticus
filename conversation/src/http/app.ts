@@ -40,8 +40,19 @@ import { OpenStreamCounter, streamTurnHandler } from "./routes/turn-stream.ts";
 import { DEFAULT_STREAM_TIMING, type StreamClock, type StreamTiming, wallStreamClock } from "./stream.ts";
 import { integrationTestSessionHandler } from "./routes/integration-test.ts";
 import { operatorOrganizationHandler } from "./routes/operator.ts";
-import { heartbeatWorkerHandler, registerWorkerHandler } from "./routes/workers.ts";
-import { claimActionHandler, getComputerHandler, postActionResultHandler, resumeTurnHandler } from "./routes/computers.ts";
+import { registerWorkerHandler } from "./routes/workers.ts";
+import { getComputerHandler, resumeTurnHandler } from "./routes/computers.ts";
+import {
+	hostActionResultHandler,
+	hostClaimActionHandler,
+	hostComputerStateHandler,
+	hostGetComputerHandler,
+	hostHeartbeatHandler,
+	hostRegateActionHandler,
+	hostRenewActionHandler,
+	hostSnapshotHydratedHandler,
+	hostSnapshotPublishedHandler,
+} from "./host.ts";
 import type { ComputerHandoffDependencies } from "../turn/park.ts";
 import { createUserMembershipCache } from "./user-principal.ts";
 import { WRITE_GATE_MESSAGE, WRITE_GATE_RETRY_AFTER_SECONDS, type WriteGate } from "../migration/migration-state.ts";
@@ -317,21 +328,33 @@ export function createApp(deps: AppDeps): Hono {
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/turns/:turn_id/resume", audience: "user" }, (c) =>
 		resumeTurnHandler(c, computerRoutes),
 	);
-	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/actions/claim", audience: "worker" }, (c) =>
-		claimActionHandler(c, computerRoutes),
-	);
-	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/actions/:action_id/result", audience: "worker" }, (c) =>
-		postActionResultHandler(c, computerRoutes),
-	);
 
 	const workerRoutes = { store, clock: deps.clock, ids: deps.ids };
 
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/workers/register", audience: "public" }, (c) =>
 		registerWorkerHandler(c, workerRoutes),
 	);
-	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/heartbeat", audience: "worker" }, (c) =>
-		heartbeatWorkerHandler(c, workerRoutes),
-	);
+	const hostRoutes = {
+		store,
+		clock: deps.clock,
+		ids: deps.ids,
+		park: computerRoutes.park,
+		policyStore: deps.policy,
+	};
+	const hostPaths = [
+		["GET", "/computer", hostGetComputerHandler],
+		["POST", "/computer/state", hostComputerStateHandler],
+		["POST", "/snapshot/hydrated", hostSnapshotHydratedHandler],
+		["POST", "/snapshot/published", hostSnapshotPublishedHandler],
+		["POST", "/actions/claim", hostClaimActionHandler],
+		["POST", "/actions/:action_id/renew", hostRenewActionHandler],
+		["POST", "/actions/:action_id/result", hostActionResultHandler],
+		["POST", "/actions/:action_id/regate", hostRegateActionHandler],
+		["POST", "/heartbeat", hostHeartbeatHandler],
+	] as const;
+	for (const [method, path, handler] of hostPaths) {
+		declareRoute(app, { method, path: `/orgs/:tenant_id/host${path}`, audience: "worker" }, (c) => handler(c, hostRoutes));
+	}
 
 	for (const action of ["enable", "suspend", "reinstate"] as const) {
 		declareRoute(app, { method: "POST", path: `/operator/orgs/:tenant_id/${action}`, audience: "operator" }, (c) =>

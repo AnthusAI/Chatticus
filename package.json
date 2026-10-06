@@ -5,7 +5,8 @@
   "workspaces": [
     "web",
     "infra",
-    "conversation"
+    "conversation",
+    "host-protocol"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

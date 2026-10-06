@@ -47,6 +47,25 @@ export class FakeComputerHost {
 		return this.world.api;
 	}
 
+	/**
+	 * Send one request over the host protocol with this host's bearer token, for the steps that exercise a single route.
+	 *
+	 * @param method GET or POST.
+	 * @param path The route below `/orgs/{tenant}/host`.
+	 * @param options The body to send, and headers to add to the bearer token.
+	 */
+	async request(
+		method: "GET" | "POST",
+		path: string,
+		options: { body?: unknown; headers?: Record<string, string> } = {},
+	): Promise<RecordedResponse> {
+		const url = `/orgs/${this.tenantId}/host${path}`;
+		const headers = { ...this.headers(), ...options.headers };
+		return recordResponse(
+			method === "GET" ? await this.api.get(url, { headers }) : await this.api.post(url, { headers, body: options.body ?? {} }),
+		);
+	}
+
 	/** Refresh the host's heartbeat, as a live host does. */
 	async heartbeat(): Promise<void> {
 		const response = await recordResponse(await this.api.post(`/orgs/${this.tenantId}/host/heartbeat`, { headers: this.headers() }));
@@ -91,7 +110,7 @@ export class FakeComputerHost {
 		return recordResponse(
 			await this.api.post(`/orgs/${this.tenantId}/host/actions/${actionId}/result`, {
 				headers: this.headers(),
-				body: { result: result.text, error: result.isError },
+				body: result.isError ? { error: result.text } : { result: result.text },
 			}),
 		);
 	}

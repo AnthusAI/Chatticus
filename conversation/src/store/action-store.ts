@@ -161,6 +161,18 @@ export class DynamoComputerActionStore implements ComputerActionStore {
 		});
 	}
 
+	async renew(request: Parameters<ComputerActionStore["renew"]>[0]): Promise<ComputerAction | null> {
+		return this.update(request.tenantId, request.actionId, {
+			update: "SET lease_expires_at = :lease",
+			condition: "#status = :claimed AND claimed_by = :worker",
+			values: {
+				":claimed": { S: "claimed" },
+				":worker": { S: request.workerId },
+				":lease": { N: epochSeconds(request.leaseExpiresAt) },
+			},
+		});
+	}
+
 	async release(tenantId: string, actionId: string): Promise<ComputerAction | null> {
 		return this.update(tenantId, actionId, {
 			update: "SET #status = :requested REMOVE claimed_by, lease_expires_at",
