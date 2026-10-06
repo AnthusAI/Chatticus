@@ -40,6 +40,7 @@ import { integrationTestSessionHandler } from "./routes/integration-test.ts";
 import { operatorOrganizationHandler } from "./routes/operator.ts";
 import { heartbeatWorkerHandler, registerWorkerHandler } from "./routes/workers.ts";
 import { createUserMembershipCache } from "./user-principal.ts";
+import { WRITE_GATE_MESSAGE, WRITE_GATE_RETRY_AFTER_SECONDS, type WriteGate } from "../migration/migration-state.ts";
 
 export interface Clock {
 	now(): Date;
@@ -70,6 +71,8 @@ export interface AppDeps {
 	/** The month-to-date rollup rows the spend ceiling pause reads; the budget environment is `environment`. */
 	budgetRollups: BudgetRollupReader;
 	invokeKey: string | null;
+	/** While the transcript migration holds the gate closed, every write route answers 503; reads are unaffected. */
+	writeGate?: WriteGate;
 	/** The deployment-wide operator bearer secret; the operator routes refuse every caller when it is empty. */
 	operatorKey?: string;
 	/** Integration-test session exchange; its route is registered only when this is enabled outside production. */
@@ -125,6 +128,18 @@ export function createApp(deps: AppDeps): Hono {
 					403 as any,
 				);
 			}
+		}
+		return next();
+	});
+
+	const writeGate = deps.writeGate ?? null;
+	app.use(async (c, next) => {
+		if (writeGate === null || c.req.path === "/health" || ["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
+			return next();
+		}
+		if (await writeGate.isClosed()) {
+			c.header("Retry-After", String(WRITE_GATE_RETRY_AFTER_SECONDS));
+			return c.json({ detail: WRITE_GATE_MESSAGE }, 503 as any);
 		}
 		return next();
 	});
