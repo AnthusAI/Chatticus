@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-255d4e97-78b1-44f1-b356-dbf6c3d8ecc8",
+  "title": "TS-40c Delete the Python infra after the drained check",
+  "description": "Part of the flip (chatticus-6f27c5). After TS-40b is verified in development: delete the Python FrontDoor, ComputerWorker, ComputerlessWorker, TurnDeadline, the scheduler group, the Lambda Web Adapter layer, the SseSpike stack and the old TurnJobs and ComputerTurnJobs queues (only after preflight verifies them drained), and the ChatticusThinTurn* stacks, making sure no cross-stack export is left dangling (remove importers first; deploy order matters). Keep stack ids consistent with infra/lib/environments.ts and tagging.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-a50b4511-8059-4730-ad90-3765432f0b62",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-06T16:01:43.447434Z",
+  "updated_at": "2026-10-06T16:02:06.610627Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Waiting to remove retired Python infrastructure after the drained check and TS-40b verification.",
+  "right_now_updated_at": "2026-10-06T16:02:08.161747Z",
+  "custom": {}
+}

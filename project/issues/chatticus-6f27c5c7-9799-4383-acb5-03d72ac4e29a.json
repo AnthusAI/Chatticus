@@ -45,6 +45,26 @@
     {
       "target": "chatticus-120e77d9-a4b3-4def-b2ee-4ef81e2bd65e",
       "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-31e36bdc-9bd3-43d3-9e42-a3608f68378b",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-a50b4511-8059-4730-ad90-3765432f0b62",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-255d4e97-78b1-44f1-b356-dbf6c3d8ecc8",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-f27222c8-c417-4d2a-841d-c5ab2a0ee6ba",
+      "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-33ead115-a90a-4984-b7db-b00c54489235",
+      "type": "blocked-by"
     }
   ],
   "comments": [
@@ -73,14 +93,14 @@
     }
   ],
   "created_at": "2026-10-05T15:46:55.796500Z",
-  "updated_at": "2026-10-06T16:00:12.968196Z",
+  "updated_at": "2026-10-06T16:02:35.887624Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The ticket requires splitting the cutover into nine reviewed subtasks before any implementation begins.",
-  "right_now_updated_at": "2026-10-06T16:00:14.450152Z",
+  "right_now_summary": "The issue requires splitting the cutover into nine subtasks before implementation.",
+  "right_now_updated_at": "2026-10-06T16:02:36.918472Z",
   "custom": {}
 }

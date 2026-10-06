@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-33ead115-a90a-4984-b7db-b00c54489235",
+  "title": "TS-40e Remove web voice-line-delivery and update the docs",
+  "description": "Part of the flip (chatticus-6f27c5). Delete web/lib/voice-line-delivery.ts (the per-channel voice line queue; steering makes it redundant; read docs/VOICE.md and web_voice_control, which must keep passing under cucumber-js: update the harness, not the Gherkin) and every import. Update AGENTS.md Quality gates, README What is live today, CONTRIBUTING_AGENT.md, docs/PI_HARNESS.md and docs/TYPESCRIPT_CONTROL_PLANE.md to the post-flip world (no Python, cucumber-js is the only behavior gate, deploys through the ControlPlane workflow).",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-a50b4511-8059-4730-ad90-3765432f0b62",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-06T16:01:58.042730Z",
+  "updated_at": "2026-10-06T16:02:13.875445Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Remove the web voice-line queue, its imports, and update docs and the cucumber-js harness.",
+  "right_now_updated_at": "2026-10-06T16:02:15.101967Z",
+  "custom": {}
+}
