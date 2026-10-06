@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-336fa214-0bed-40e2-9cbd-73502c189a6d",
+  "title": "TS-53 Live rehearsal of the computer path on the flipped development stack",
+  "description": "During the soak after the development flip. Not yet proven live: a turn that needs the computer (run_terminal, read_workspace, browse) parks, the ComputerStarter starts an ECS host from the new Node image (ChatticusComputers task definition must run the TS image: build and push computer/Dockerfile to the ECR repo used by the task definition through the repo's image push scripts; the starter env already carries CHATTICUS_ECS_HOST_COMMAND=node /opt/chatticus/host/host-worker.mjs), the host boots, calls the Front Door host protocol (claim, regate, result, heartbeat, snapshot hydrate and publish), and the turn resumes with the result. Include the disk dirty guard and the live-writer lock behaviors on the real table, and a voice-endpoint smoke if the acceptance can reach them. AWS writes here are ECR push and Fargate tasks in the development account only: get the user's explicit go-ahead before the first image push and before starting any task, and stop all tasks at the end. Findings become tickets; do not fix in this ticket.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-06T20:16:53.386992Z",
+  "updated_at": "2026-10-06T20:16:53.387025Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is rehearsing the computer path on the flipped development stack, including live AWS host startup and turn",
+  "right_now_updated_at": "2026-10-06T20:16:56.024836Z",
+  "custom": {}
+}
