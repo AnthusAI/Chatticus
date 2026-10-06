@@ -6,7 +6,8 @@ import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import type { Hono } from "hono";
 import { createIdTokenVerifier } from "../auth/cognito.ts";
-import { loadIntegrationTestAuthConfig } from "../auth/integration-test.ts";
+import { loadIntegrationTestAuthConfig, seedIntegrationTestOrganization } from "../auth/integration-test.ts";
+import { OrganizationSeedConflictError } from "../domain/organizations.ts";
 import { DynamoBudgetStore } from "../budget/budget-store.ts";
 import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS } from "../domain/workers.ts";
 import { parseSignupMode } from "../domain/signup-mode.ts";
@@ -97,6 +98,25 @@ async function requiredParameter(parameters: ParameterReader, name: string): Pro
 }
 
 /**
+ * Seed the integration-test organization and its member. Seeding converges on the same records, so a second or a
+ * concurrent cold start is harmless; a concurrent start that sees the organization before its membership lands retries
+ * once. Any other failure fails the cold start.
+ */
+async function seedIntegrationTestOrganizationOnce(
+	dependencies: Parameters<typeof seedIntegrationTestOrganization>[0],
+	tenantId: string,
+	userId: string,
+): Promise<void> {
+	try {
+		await seedIntegrationTestOrganization(dependencies, { tenantId, userId });
+	} catch (error) {
+		if (!(error instanceof OrganizationSeedConflictError)) throw error;
+		await new Promise((resolve) => setTimeout(resolve, 250));
+		await seedIntegrationTestOrganization(dependencies, { tenantId, userId });
+	}
+}
+
+/**
  * Build the real HTTP application from the environment: the Dynamo stores, the three SQS queues, the OpenAI voice
  * understanding, the Cognito id token verifier, the invoke and operator keys (read from Secrets Manager by ARN), and (outside production) the integration
  * test session exchange. Runs once per cold start.
@@ -125,10 +145,16 @@ export async function composeFrontDoorApp(
 	});
 	const client = clients.dynamo;
 	const prices = new VendorPriceBook();
+	const clock = { now: () => new Date() };
+	const ids = { next: () => randomUUID() };
+	const store = new DynamoMessagingStore(client, messagingTableName);
+	if (integrationTest !== null) {
+		await seedIntegrationTestOrganizationOnce({ store, clock, ids }, integrationTest.tenantId, integrationTest.userId);
+	}
 	return createApp({
-		clock: { now: () => new Date() },
-		ids: { next: () => randomUUID() },
-		store: new DynamoMessagingStore(client, messagingTableName),
+		clock,
+		ids,
+		store,
 		messages: {
 			mailbox: { client, tableName: messagingTableName },
 			turns: new DynamoTurnAdmission(client, messagingTableName),
