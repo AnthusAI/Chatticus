@@ -1,3 +1,4 @@
+import { verifyWorkerToken } from "../domain/workers.ts";
 import { OrganizationNotFoundError } from "../http/errors.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { Membership, OrganizationStatus, PrincipalDirectory } from "./principal.ts";
@@ -30,7 +31,7 @@ export class StorePrincipalDirectory implements PrincipalDirectory {
 		return organization.status;
 	}
 
-	async verifyWorkerToken(): Promise<string | null> {
-		return null;
+	async verifyWorkerToken(tenantId: string, token: string): Promise<string | null> {
+		return verifyWorkerToken(tenantId, token, { store: this.store });
 	}
 }

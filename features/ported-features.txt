@@ -7,7 +7,6 @@ features/computer_snapshot_pack.feature
 features/daily_budget_rollup.feature
 features/org_path_routing.feature
 features/pi_session_ownership.feature
-features/cognito_principal.feature
 features/channel_mailbox_and_log.feature
 features/organizations.feature
 features/me.feature
@@ -32,3 +31,5 @@ features/message_steering.feature
 features/members_cli.feature
 features/first_org_seed.feature
 features/turn_attempts.feature
+features/operator_organization_api.feature
+features/integration_test_auth.feature

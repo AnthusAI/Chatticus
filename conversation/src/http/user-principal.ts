@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import type { IdTokenVerifier } from "../auth/cognito.ts";
+import { integrationTestAuthenticator, type IntegrationTestAuthConfig } from "../auth/integration-test.ts";
 import { MembershipCache } from "../auth/membership-cache.ts";
 import type { CachedMembership, Principal } from "../auth/principal.ts";
 import { resolvePrincipal } from "../auth/principal.ts";
@@ -12,6 +13,7 @@ export interface UserPrincipalDependencies {
 	store: MessagingStore;
 	verifier: IdTokenVerifier | null;
 	membershipCache: MembershipCache<CachedMembership>;
+	integrationTest: IntegrationTestAuthConfig | null;
 }
 
 /** Per-application membership cache for organization user routes. */
@@ -31,11 +33,15 @@ export async function resolveUserPrincipal(
 	if (deps.verifier === null) {
 		return c.json({ detail: "Cognito verifier is not configured." }, 503);
 	}
+	const directory = new StorePrincipalDirectory(deps.store);
 	return resolvePrincipal(c.req.raw, {
 		verifier: deps.verifier,
-		directory: new StorePrincipalDirectory(deps.store),
+		directory,
 		membershipCache: deps.membershipCache,
 		requireEnabledMember: true,
+		...(deps.integrationTest === null
+			? {}
+			: { integrationTestAuthenticator: integrationTestAuthenticator(directory, deps.integrationTest) }),
 	});
 }
 

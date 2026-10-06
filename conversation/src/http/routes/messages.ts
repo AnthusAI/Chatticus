@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import { assertIntegrationTestUserId } from "../../auth/integration-test.ts";
 import { listMessages, type Message, type MessageDependencies, postMessage } from "../../domain/messages.ts";
 import type { ActorKind } from "../../domain/channels.ts";
 import { isRefusal, pathParameter, resolveUserPrincipal, type UserPrincipalDependencies } from "../user-principal.ts";
@@ -84,6 +85,9 @@ export async function postChannelMessageHandler(c: Context, deps: MessageRouteDe
 	const body = parsePostMessageBody(await c.req.json().catch(() => null));
 	if (body === null) {
 		return c.json({ detail: "author_kind, author_id and body are required" }, 422);
+	}
+	if (body.authorKind === "human") {
+		assertIntegrationTestUserId(principal, body.authorId);
 	}
 	const result = await postMessage(deps.messages, {
 		tenantId: pathParameter(c, "tenant_id"),

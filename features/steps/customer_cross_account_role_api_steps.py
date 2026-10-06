@@ -14,7 +14,6 @@ from cross_account_provisioning_steps import (
     _plane,
 )
 from me_front_door_steps import _keys
-from operator_organization_api_steps import DEFAULT_OPERATOR_KEY
 
 from chatticus.control_plane import ControlPlane
 from chatticus.cross_account_provisioning import (
@@ -26,6 +25,23 @@ from chatticus.http.paths import org_self_setup_cross_account_role_path
 from chatticus.http.test_server import start_test_server
 from chatticus.models import MemberRole, Membership, OrganizationStatus
 from chatticus.signup_mode import SignupMode
+
+DEFAULT_OPERATOR_KEY = "test-operator-secret"
+
+
+@given("an authenticated operator credential")
+def given_authenticated_operator_credential(context: object) -> None:
+    context.operator_bearer_token = getattr(
+        context, "configured_operator_key", DEFAULT_OPERATOR_KEY
+    )
+
+
+@then("the operator response status is {status:d}")
+def then_operator_response_status(context: object, status: int) -> None:
+    assert context.operator_response is not None
+    assert (
+        context.operator_response.status_code == status
+    ), context.operator_response.text
 
 
 def _close_client(context: object) -> None:
