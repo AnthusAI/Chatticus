@@ -69,3 +69,6 @@ features/organization_spend_ceiling_computer.feature
 features/realtime_api_resume_refusal.feature
 features/shared_computer.feature
 features/structured_journal_handoff.feature
+features/thin_task_item.feature
+features/thin_task_http.feature
+features/web_task_list.feature

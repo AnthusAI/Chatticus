@@ -32,7 +32,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript port advances, with core slices merged and computer, infrastructure, and cutover work continuing.",
-  "right_now_updated_at": "2026-10-06T04:47:24.547043Z",
+  "right_now_summary": "Teams are porting the control plane to TypeScript; core services are merged, while computer and cutover work continue.",
+  "right_now_updated_at": "2026-10-06T05:06:56.922284Z",
   "custom": {}
 }

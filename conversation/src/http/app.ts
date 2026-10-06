@@ -20,6 +20,7 @@ import { createInvitationHandler, createInvitationMembershipCache } from "./rout
 import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler } from "./routes/bots.ts";
 import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from "./routes/channels.ts";
 import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
+import { createUserTaskHandler, getTaskHandler, listUserTasksHandler, patchTaskHandler } from "./routes/tasks.ts";
 import { postVoiceMessageHandler } from "./routes/voice-messages.ts";
 import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
 import type { UserUnderstanding } from "../voice/understanding.ts";
@@ -183,6 +184,8 @@ export function createApp(deps: AppDeps): Hono {
 		integrationTest,
 	};
 
+	const taskRoutes = { ...userRoutes };
+
 	const messageRoutes = {
 		...userRoutes,
 		messages: { ...deps.messages, store, ids: deps.ids, clock: deps.clock } satisfies MessageDependencies,
@@ -218,6 +221,19 @@ export function createApp(deps: AppDeps): Hono {
 	);
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
 		listChannelMessagesHandler(c, messageRoutes),
+	);
+
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/users/:user_id/tasks", audience: "user" }, (c) =>
+		listUserTasksHandler(c, taskRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/users/:user_id/tasks", audience: "user" }, (c) =>
+		createUserTaskHandler(c, taskRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/tasks/:task_id", audience: "user" }, (c) =>
+		getTaskHandler(c, taskRoutes),
+	);
+	declareRoute(app, { method: "PATCH", path: "/orgs/:tenant_id/tasks/:task_id", audience: "user" }, (c) =>
+		patchTaskHandler(c, taskRoutes),
 	);
 
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/channels/:channel_id/voice-messages", audience: "user" }, (c) =>

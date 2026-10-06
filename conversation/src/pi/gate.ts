@@ -11,6 +11,7 @@
  */
 
 import { defineExtension, type Extension, hook, ToolTask } from "@earendil-works/pi-durable";
+import { TASK_TOOL_NAME } from "./task-tool.ts";
 import { MemberStandingRequiredError } from "../http/errors.ts";
 import {
 	CapabilitySinkApprovalRequired,
@@ -113,6 +114,12 @@ export async function evaluateModelToolRequest(
 }
 
 /**
+ * Tools that are not capability tools: they touch only the organization's own durable records, never the computer, the
+ * network or a recipient, so they need no grant. The Python worker dispatched the task tool before the gated tools.
+ */
+export const UNGATED_TOOL_NAMES: ReadonlySet<string> = new Set([TASK_TOOL_NAME]);
+
+/**
  * The gate as an extension: a `beforeTool` hook on pi-durable's tool task. The hook sees the call after Pi has validated
  * it against the tool's schema and before any intent is recorded, so a blocked call leaves no trace of having started.
  * Registered once for every tool the model has, whichever extension defines it.
@@ -126,6 +133,7 @@ export function toolGateExtension(deps: ToolGateDependencies): Extension {
 		hooks: [
 			hook(ToolTask, {
 				beforeTool: async (call) => {
+					if (UNGATED_TOOL_NAMES.has(call.name)) return undefined;
 					const verdict = await evaluateModelToolRequest(deps, call.name, stringArguments(call.arguments));
 					return verdict.allowed ? undefined : { block: verdict.reason };
 				},

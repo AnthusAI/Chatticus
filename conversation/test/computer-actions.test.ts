@@ -65,7 +65,7 @@ const request = (tenantId: string, turnId: string, callId: string, toolName = "w
 	userId: "ryan",
 	callId,
 	toolName,
-	arguments: toolName === "write_workspace" ? { path: "/workspace/a.txt", content: "x" } : { path: "/workspace/a.txt" },
+	arguments: (toolName === "write_workspace" ? { path: "/workspace/a.txt", content: "x" } : { path: "/workspace/a.txt" }) as Record<string, string>,
 });
 
 describe("computer action helpers", () => {

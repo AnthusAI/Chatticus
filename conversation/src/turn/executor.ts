@@ -24,6 +24,8 @@ import { CommitOutcomeUnknown, findStorageFailure, OwnershipLost } from "../pi/e
 import { chatticusExtensions } from "../pi/extension.ts";
 import { type ComputerToolCall, type ComputerToolHandoff, computerToolsExtension } from "../pi/computer-tools.ts";
 import { type ToolGateDependencies, toolGateExtension } from "../pi/gate.ts";
+import { taskToolExtensions } from "../pi/task-tool.ts";
+import { primaryHumanParticipant } from "../domain/channels.ts";
 import { PolicyControl } from "../policy/policy-control.ts";
 import { turnCapabilityGrant } from "../policy/turn-grant.ts";
 import { DynamoPolicyStore } from "../store/policy-store.ts";
@@ -182,6 +184,10 @@ class TurnAttempt {
 				...chatticusExtensions({
 					systemPrompt: () => buildSystemPrompt({ botName: bot.name, memory: bot.memory }),
 				}),
+				...taskToolExtensions(
+					{ tenantId: this.job.tenantId, userId: primaryHumanParticipant(channel), botId: this.job.botId },
+					{ store: messaging, ids: this.deps.turns.ids },
+				),
 				computerToolsExtension(this.computerHandoff()),
 				toolGateExtension(this.toolGateDependencies()),
 			],
