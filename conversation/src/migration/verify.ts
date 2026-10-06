@@ -16,6 +16,8 @@ import {
 	transcriptChecksum,
 } from "./legacy-layout.ts";
 import { MIGRATION_INTERRUPTED_REASON } from "./latest-turns.ts";
+import { writeVerifiedMarker } from "./migration-state.ts";
+import { formatIsoDateTime } from "../store/codecs/util.ts";
 
 /** The outcome of comparing one channel's old items with what the new read paths serve. */
 export type ChannelVerification = {
@@ -94,7 +96,8 @@ async function verifyLatestTurn(deps: MigrationDependencies, channel: Channel, f
  *
  * @param deps Clients and tables.
  * @param channel The channel.
- * @returns The comparison; `ok` is false when any failure is listed.
+ * @returns The comparison; `ok` is false when any failure is listed. A passing channel also gets its `VERIFIED#` marker,
+ * the only thing the day-14 purge trusts.
  */
 export async function verifyChannel(deps: MigrationDependencies, channel: Channel): Promise<ChannelVerification> {
 	const legacy = await listLegacyMessages(
@@ -161,6 +164,16 @@ export async function verifyChannel(deps: MigrationDependencies, channel: Channe
 		});
 	}
 	await verifyLatestTurn(deps, channel, failures);
+	if (failures.length === 0) {
+		await writeVerifiedMarker(deps.client, deps.messagingTableName, {
+			tenantId: channel.tenantId,
+			channelId: channel.channelId,
+			verifiedThroughSeq: lastLegacySeq,
+			messageCount: legacy.length,
+			checksum: expected,
+			verifiedAt: formatIsoDateTime(deps.clock.now()),
+		});
+	}
 	return {
 		tenantId: channel.tenantId,
 		channelId: channel.channelId,

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
+import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import type { Hono } from "hono";
@@ -29,11 +30,18 @@ export type FrontDoorAwsClients = {
 	readonly s3: S3Client;
 	readonly sqs: SQSClient;
 	readonly parameters: ParameterReader;
+	readonly secrets: SecretReader;
 };
+
+/** The one Secrets Manager operation the front door uses; a real client or a fake satisfies it. */
+export type SecretReader = Pick<SecretsManagerClient, "send">;
 
 /** The AWS clients a deployed front door uses, built from the Lambda's own role. */
 export function defaultFrontDoorAwsClients(): FrontDoorAwsClients {
-	return { dynamo: new DynamoDBClient({}), s3: new S3Client({}), sqs: new SQSClient({}), parameters: new SSMClient({}) };
+	return { dynamo: new DynamoDBClient({}), s3: new S3Client({}), sqs: new SQSClient({}),
+		parameters: new SSMClient({}),
+		secrets: new SecretsManagerClient({}),
+	};
 }
 
 /**
@@ -51,8 +59,8 @@ export const REQUIRED_FRONT_DOOR_ENVIRONMENT = [
 	"CHATTICUS_SIGNUP_MODE",
 	"CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER",
 	"CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER",
-	"CHATTICUS_INVOKE_KEY",
-	"CHATTICUS_OPERATOR_KEY",
+	"CHATTICUS_INVOKE_KEY_SECRET_ARN",
+	"CHATTICUS_OPERATOR_KEY_SECRET_ARN",
 ] as const;
 
 const requiredIn = (environment: Record<string, string | undefined>, name: string): string => {
@@ -64,6 +72,13 @@ const requiredIn = (environment: Record<string, string | undefined>, name: strin
 async function readParameter(parameters: ParameterReader, name: string): Promise<string> {
 	const response = await parameters.send(new GetParameterCommand({ Name: name, WithDecryption: true }));
 	return response.Parameter?.Value ?? "";
+}
+
+async function readSecretString(secrets: SecretReader, secretArn: string): Promise<string> {
+	const response = await secrets.send(new GetSecretValueCommand({ SecretId: secretArn }));
+	const value = response.SecretString ?? "";
+	if (value === "") throw new Error(`The secret ${secretArn} has no value.`);
+	return value;
 }
 
 async function optionalParameter(parameters: ParameterReader, name: string): Promise<string> {
@@ -83,7 +98,7 @@ async function requiredParameter(parameters: ParameterReader, name: string): Pro
 
 /**
  * Build the real HTTP application from the environment: the Dynamo stores, the three SQS queues, the OpenAI voice
- * understanding, the Cognito id token verifier, the invoke and operator keys, and (outside production) the integration
+ * understanding, the Cognito id token verifier, the invoke and operator keys (read from Secrets Manager by ARN), and (outside production) the integration
  * test session exchange. Runs once per cold start.
  *
  * @param environment The environment variables; defaults to the process environment.
@@ -97,7 +112,8 @@ export async function composeFrontDoorApp(
 	for (const name of REQUIRED_FRONT_DOOR_ENVIRONMENT) requiredIn(environment, name);
 	const environmentName = requiredIn(environment, "CHATTICUS_ENVIRONMENT");
 	const messagingTableName = requiredIn(environment, "CHATTICUS_MESSAGING_TABLE");
-	const invokeKey = requiredIn(environment, "CHATTICUS_INVOKE_KEY");
+	const invokeKey = await readSecretString(clients.secrets, requiredIn(environment, "CHATTICUS_INVOKE_KEY_SECRET_ARN"));
+	const operatorKey = await readSecretString(clients.secrets, requiredIn(environment, "CHATTICUS_OPERATOR_KEY_SECRET_ARN"));
 	await resolveOpenAiApiKey(environment, clients.parameters);
 	const userPoolId = await requiredParameter(clients.parameters, requiredIn(environment, "CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER"));
 	const clientId = await requiredParameter(clients.parameters, requiredIn(environment, "CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER"));
@@ -142,7 +158,7 @@ export async function composeFrontDoorApp(
 		},
 		budgetRollups: new DynamoBudgetStore(client, messagingTableName),
 		invokeKey,
-		operatorKey: requiredIn(environment, "CHATTICUS_OPERATOR_KEY"),
+		operatorKey,
 		integrationTest,
 		environment: environmentName,
 		verifier: createIdTokenVerifier({ userPoolId, clientId }),

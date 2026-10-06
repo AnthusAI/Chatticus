@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
+import type { GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import type { GetParameterCommand } from "@aws-sdk/client-ssm";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -35,12 +36,33 @@ function fakeParameters(values: Record<string, string>, requested: string[] = []
 	};
 }
 
-function clientsWith(parameters: FrontDoorAwsClients["parameters"]): FrontDoorAwsClients {
+const INVOKE_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111122223333:secret:invoke-AbCdEf";
+const OPERATOR_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111122223333:secret:operator-GhIjKl";
+const SECRET_VALUES: Record<string, string> = {
+	[INVOKE_SECRET_ARN]: "invoke-key-value",
+	[OPERATOR_SECRET_ARN]: "operator-key-value",
+};
+
+function fakeSecrets(values: Record<string, string> = SECRET_VALUES, requested: string[] = []) {
+	return {
+		async send(command: GetSecretValueCommand) {
+			const secretId = command.input.SecretId ?? "";
+			requested.push(secretId);
+			return { SecretString: values[secretId] };
+		},
+	} as FrontDoorAwsClients["secrets"];
+}
+
+function clientsWith(
+	parameters: FrontDoorAwsClients["parameters"],
+	secrets: FrontDoorAwsClients["secrets"] = fakeSecrets(),
+): FrontDoorAwsClients {
 	return {
 		dynamo,
 		s3: new S3Client({ endpoint, region: "us-east-1", credentials, forcePathStyle: true, maxAttempts: 1 }),
 		sqs: new SQSClient({ endpoint, region: "us-east-1", credentials, maxAttempts: 1 }),
 		parameters,
+		secrets,
 	};
 }
 
@@ -56,8 +78,8 @@ function environmentFor(overrides: Record<string, string | undefined> = {}): Rec
 		CHATTICUS_SIGNUP_MODE: "open",
 		CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER: "/chatticus/test/web/cognito-user-pool-id",
 		CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER: "/chatticus/test/web/cognito-app-client-id",
-		CHATTICUS_INVOKE_KEY: "invoke-key-value",
-		CHATTICUS_OPERATOR_KEY: "operator-key-value",
+		CHATTICUS_INVOKE_KEY_SECRET_ARN: INVOKE_SECRET_ARN,
+		CHATTICUS_OPERATOR_KEY_SECRET_ARN: OPERATOR_SECRET_ARN,
 		CHATTICUS_INTEGRATION_TEST_ENABLED: "true",
 		OPENAI_API_KEY: "sk-test",
 		...overrides,
@@ -77,9 +99,9 @@ describe("front door composition", () => {
 				"CHATTICUS_COMPUTER_STARTS_QUEUE_URL",
 				"CHATTICUS_CONVERSATIONS_TABLE",
 				"CHATTICUS_ENVIRONMENT",
-				"CHATTICUS_INVOKE_KEY",
+				"CHATTICUS_INVOKE_KEY_SECRET_ARN",
 				"CHATTICUS_MESSAGING_TABLE",
-				"CHATTICUS_OPERATOR_KEY",
+				"CHATTICUS_OPERATOR_KEY_SECRET_ARN",
 				"CHATTICUS_PI_SESSIONS_BUCKET",
 				"CHATTICUS_SIGNUP_MODE",
 				"CHATTICUS_TURN_PROBES_QUEUE_URL",
@@ -96,6 +118,29 @@ describe("front door composition", () => {
 			await expect(
 				composeFrontDoorApp(environmentFor({ [name]: "" }), clientsWith(fakeParameters(PARAMETER_VALUES))),
 			).rejects.toThrow(`The environment variable ${name} is required.`);
+		}
+	});
+
+	it("reads the invoke key and the operator key from Secrets Manager by ARN and never from the environment", async () => {
+		const requested: string[] = [];
+		const environment = environmentFor({ CHATTICUS_INVOKE_KEY: "ignored", CHATTICUS_OPERATOR_KEY: "ignored" });
+		const app = await composeFrontDoorApp(environment, clientsWith(fakeParameters(PARAMETER_VALUES), fakeSecrets(SECRET_VALUES, requested)));
+		expect(requested).toEqual([INVOKE_SECRET_ARN, OPERATOR_SECRET_ARN]);
+		const response = await app.request("http://front-door.test/operator/orgs/nobody/enable", {
+			method: "POST",
+			headers: { "X-Chatticus-Invoke-Key": "invoke-key-value", Authorization: "Bearer operator-key-value" },
+		});
+		expect(response.status).toBe(404);
+	});
+
+	it("fails clearly when a key secret has no value", async () => {
+		for (const arn of [INVOKE_SECRET_ARN, OPERATOR_SECRET_ARN]) {
+			await expect(
+				composeFrontDoorApp(
+					environmentFor(),
+					clientsWith(fakeParameters(PARAMETER_VALUES), fakeSecrets({ ...SECRET_VALUES, [arn]: "" })),
+				),
+			).rejects.toThrow(`The secret ${arn} has no value.`);
 		}
 	});
 

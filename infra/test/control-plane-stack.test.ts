@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import * as cdk from "aws-cdk-lib";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
-import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, it } from "node:test";
 import { PI_SESSION_TABLE_KEYS } from "../../conversation/src/storage/table-definition.ts";
@@ -9,7 +8,12 @@ import {
   CONVERSATIONS_TABLE_LOCAL_SECONDARY_INDEXES,
   ControlPlaneStack,
 } from "../lib/control-plane-stack";
-import { CHATTICUS_CLOUD_ENVIRONMENTS, ChatticusCloudEnvironment } from "../lib/environments";
+import {
+  CHATTICUS_CLOUD_ENVIRONMENTS,
+  ChatticusCloudEnvironment,
+  THIN_TURN_STACK_IDS,
+} from "../lib/environments";
+import { ThinTurnStack } from "../lib/thin-turn-stack";
 
 const ECS_CONTEXT: Record<string, string> = {
   computerHostStart: "ecs",
@@ -34,14 +38,10 @@ function synthControlPlane(
     partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
     sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
   });
-  const invokeSecret = new secretsmanager.Secret(support, "InvokeKey");
-  const operatorSecret = new secretsmanager.Secret(support, "OperatorKey");
   const stack = new ControlPlaneStack(app, "ControlPlane", {
     env: { account: "111111111111", region: "us-east-1" },
     chatticusEnvironment: environmentName,
     messagingTable,
-    invokeSecret,
-    operatorSecret,
   });
   return Template.fromStack(stack);
 }
@@ -271,8 +271,8 @@ describe("ControlPlaneStack", () => {
       "CHATTICUS_SIGNUP_MODE",
       "CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER",
       "CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER",
-      "CHATTICUS_INVOKE_KEY",
-      "CHATTICUS_OPERATOR_KEY",
+      "CHATTICUS_INVOKE_KEY_SECRET_ARN",
+      "CHATTICUS_OPERATOR_KEY_SECRET_ARN",
       "OPENAI_API_KEY_PARAMETER",
     ]) {
       assert.ok(variables[name] !== undefined, `the FrontDoor sets ${name}`);
@@ -291,9 +291,80 @@ describe("ControlPlaneStack", () => {
   it("does not hand the invoke or operator key to any other function", () => {
     for (const fragment of ["TurnRuns consumer", "TurnProbes consumer", "ComputerStartJobs consumer"]) {
       const variables = functionByDescription(development, fragment).Environment.Variables;
+      assert.equal(variables.CHATTICUS_INVOKE_KEY_SECRET_ARN, undefined);
+      assert.equal(variables.CHATTICUS_OPERATOR_KEY_SECRET_ARN, undefined);
+    }
+  });
+
+  describe("shared key secrets", () => {
+    const parameterNames = {
+      invoke: "/chatticus/development/thin-turn/invoke-key-secret-arn",
+      operator: "/chatticus/development/thin-turn/operator-key-secret-arn",
+    };
+
+    it("resolves the two secret ARNs from the SSM parameters the thin-turn stack publishes", () => {
+      const parameters = Object.values(development.toJSON().Parameters ?? {}) as Record<string, any>[];
+      for (const name of Object.values(parameterNames)) {
+        assert.ok(
+          parameters.some((parameter) => parameter.Default === name && String(parameter.Type).startsWith("AWS::SSM::Parameter::Value")),
+          `a deploy-time SSM parameter reads ${name}`,
+        );
+      }
+    });
+
+    it("puts only the secret ARNs, never a secret value, in the FrontDoor environment", () => {
+      const variables = functionByDescription(development, "TypeScript front door").Environment.Variables;
       assert.equal(variables.CHATTICUS_INVOKE_KEY, undefined);
       assert.equal(variables.CHATTICUS_OPERATOR_KEY, undefined);
-    }
+      for (const name of ["CHATTICUS_INVOKE_KEY_SECRET_ARN", "CHATTICUS_OPERATOR_KEY_SECRET_ARN"]) {
+        assert.match(JSON.stringify(variables[name]), /"Ref":"SsmParameterValue/);
+      }
+      assert.doesNotMatch(JSON.stringify(development.toJSON()), /resolve:secretsmanager/);
+    });
+
+    it("lets only the FrontDoor read exactly those two secrets", () => {
+      const grants = Object.values(development.findResources("AWS::IAM::Policy")).flatMap((policy) =>
+        (policy.Properties.PolicyDocument.Statement as Record<string, any>[])
+          .filter((statement) => [].concat(statement.Action).includes("secretsmanager:GetSecretValue"))
+          .map((statement) => ({ roles: JSON.stringify(policy.Properties.Roles), resource: statement.Resource })),
+      );
+      assert.equal(grants.length, 1);
+      assert.match(grants[0]!.roles, /FrontDoorServiceRole/);
+      assert.equal((grants[0]!.resource as unknown[]).length, 2);
+    });
+
+    it("leaves the thin-turn stack with no export that the control plane imports for the secrets", () => {
+      const app = new cdk.App({ context: { computerHostStart: "noop" } });
+      const env = { account: "111111111111", region: "us-east-1" };
+      const thinTurn = new ThinTurnStack(app, THIN_TURN_STACK_IDS.development, {
+        env,
+        chatticusEnvironment: "development",
+      });
+      const controlPlane = new ControlPlaneStack(app, "ControlPlane", {
+        env,
+        chatticusEnvironment: "development",
+        messagingTable: thinTurn.messagingTable,
+      });
+      const exportedNames = Object.values(
+        (Template.fromStack(thinTurn).toJSON().Outputs ?? {}) as Record<string, any>,
+      )
+        .map((output) => output.Export?.Name as string | undefined)
+        .filter((name): name is string => name !== undefined);
+      const importedNames = [
+        ...JSON.stringify(Template.fromStack(controlPlane).toJSON()).matchAll(/"Fn::ImportValue":"([^"]+)"/g),
+      ].map((match) => match[1]!);
+      const secretExports = exportedNames.filter((name) => /secret-arn|InvokeKey|OperatorKey/i.test(name));
+      assert.ok(secretExports.length >= 2, "the thin-turn stack still exports its secret ARNs for the web stack");
+      for (const imported of importedNames) {
+        assert.ok(!secretExports.includes(imported), `the control plane does not import ${imported}`);
+        assert.doesNotMatch(imported, /InvokeKey|OperatorKey|secret/i);
+      }
+      assert.ok(
+        importedNames.every((imported) => exportedNames.includes(imported)),
+        "every import resolves to a thin-turn export",
+      );
+      assert.ok(importedNames.every((imported) => /Messaging/.test(imported)), "only the Messaging table remains imported");
+    });
   });
 
   describe("FrontDoor permissions", () => {
