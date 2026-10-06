@@ -29,7 +29,8 @@ import {
 	getTurnHandler,
 	listTurnEventsHandler,
 } from "./routes/turns.ts";
-import { DEFAULT_TURN_STREAM_TIMING, streamTurnHandler, type TurnStreamTiming } from "./routes/turn-stream.ts";
+import { OpenStreamCounter, streamTurnHandler } from "./routes/turn-stream.ts";
+import { DEFAULT_STREAM_TIMING, type StreamClock, type StreamTiming, wallStreamClock } from "./stream.ts";
 import { integrationTestSessionHandler } from "./routes/integration-test.ts";
 import { operatorOrganizationHandler } from "./routes/operator.ts";
 import { claimTurnHandler, registerWorkerHandler } from "./routes/workers.ts";
@@ -68,8 +69,12 @@ export interface AppDeps {
 	verifier?: IdTokenVerifier | null;
 	signupMode?: SignupMode;
 	organizationCreationRateLimit?: number;
-	/** How the turn stream paces its reads; defaults to the design's 50 ms to 1 s backoff and 15 s heartbeat. */
-	streamTiming?: TurnStreamTiming;
+	/** How the turn stream paces its reads, heartbeats, gives up and ends; defaults to the design's pacing. */
+	streamTiming?: StreamTiming;
+	/** The time source of turn streams; defaults to the wall clock. */
+	streamClock?: StreamClock;
+	/** Counts the turn streams open right now; defaults to a private counter. */
+	openStreams?: OpenStreamCounter;
 }
 
 /**
@@ -208,6 +213,8 @@ export function createApp(deps: AppDeps): Hono {
 		turns: { store: deps.turnControl, clock: deps.clock, ids: deps.ids },
 	};
 
+	const openStreams = deps.openStreams ?? new OpenStreamCounter();
+
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/turn", audience: "user" }, (c) =>
 		getChannelTurnHandler(c, turnRoutes),
 	);
@@ -221,7 +228,12 @@ export function createApp(deps: AppDeps): Hono {
 		listTurnEventsHandler(c, turnRoutes),
 	);
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id/stream", audience: "user" }, (c) =>
-		streamTurnHandler(c, { ...turnRoutes, streamTiming: deps.streamTiming ?? DEFAULT_TURN_STREAM_TIMING }),
+		streamTurnHandler(c, {
+			...turnRoutes,
+			streamTiming: deps.streamTiming ?? DEFAULT_STREAM_TIMING,
+			streamClock: deps.streamClock ?? wallStreamClock,
+			openStreams,
+		}),
 	);
 
 	const workerRoutes = { store, clock: deps.clock, ids: deps.ids };

@@ -1,19 +1,18 @@
 import { describe, expect, it } from "vitest";
-import {
-	createSseProbeApp,
-	cursorFromLastEventId,
-	InvalidLastEventIdError,
-	type SseProbeClock,
-	type SseProbeOptions,
-} from "../src/http/sse-probe.ts";
+import { createSseProbeApp, type SseProbeOptions } from "../src/http/sse-probe.ts";
+import { cursorFromLastEventId, InvalidLastEventIdError, type StreamClock, type StreamWait } from "../src/http/stream.ts";
 
-class VirtualClock implements SseProbeClock {
+class VirtualClock implements StreamClock {
 	currentMilliseconds = 0;
 	now(): number {
 		return this.currentMilliseconds;
 	}
-	async sleep(milliseconds: number, signal: AbortSignal): Promise<void> {
+	async sleep(milliseconds: number, signal: AbortSignal, purpose: StreamWait): Promise<void> {
 		if (signal.aborted) {
+			return;
+		}
+		if (purpose === "write-stall") {
+			await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true }));
 			return;
 		}
 		this.currentMilliseconds += milliseconds;

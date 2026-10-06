@@ -31,7 +31,28 @@ export async function startAppServer(app: Hono): Promise<StartedAppServer> {
 		const response = await app.fetch(request);
 		outgoing.statusCode = response.status;
 		response.headers.forEach((value, name) => outgoing.setHeader(name, value));
-		outgoing.end(Buffer.from(await response.arrayBuffer()));
+		if (response.body === null) {
+			outgoing.end();
+			return;
+		}
+		const reader = response.body.getReader();
+		outgoing.on("close", () => {
+			void reader.cancel().catch(() => undefined);
+		});
+		outgoing.flushHeaders();
+		for (;;) {
+			const chunk = await reader.read();
+			if (chunk.done || outgoing.destroyed) {
+				break;
+			}
+			if (!outgoing.write(chunk.value)) {
+				await new Promise<void>((resolve) => {
+					outgoing.once("drain", resolve);
+					outgoing.once("close", resolve);
+				});
+			}
+		}
+		outgoing.end();
 	});
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 	const address = server.address() as AddressInfo;

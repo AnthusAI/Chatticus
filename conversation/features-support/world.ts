@@ -21,7 +21,10 @@ import type { CognitoTestKeys } from "./test-jwt.ts";
 import { localDynamoClient, ScenarioMessagingTable } from "./messaging-table.ts";
 import { ApiClient, type RecordedResponse } from "./api.ts";
 import type { StartedAppServer } from "./http-server.ts";
+import type { Hono } from "hono";
+import { OpenStreamCounter } from "../src/http/routes/turn-stream.ts";
 import { FakeClock } from "./clock.ts";
+import { ScenarioStreamClock } from "./stream-clock.ts";
 import { SequentialIdSource } from "./clock.ts";
 import { QueueRecorder } from "./queues.ts";
 import type { MembersCliProcessResult } from "./members-cli-process.ts";
@@ -69,6 +72,11 @@ export class ChatticusWorld extends World {
 	voiceLineResponse: RecordedResponse | null = null;
 	voiceLineResponses: RecordedResponse[] = [];
 	messageCountBeforeVoiceLine = 0;
+	app: Hono | null = null;
+	listedTurnEvents: Array<Record<string, any>> = [];
+	streamRefusal: Response | null = null;
+	readonly streamClock = new ScenarioStreamClock();
+	readonly openStreams = new OpenStreamCounter();
 	scenarioStartTime: number;
 
 	botsById: Map<string, { botId: string; name: string; tenantId: string }> | null = null;

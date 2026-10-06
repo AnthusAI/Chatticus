@@ -130,6 +130,22 @@ export class ScenarioMessagingTable {
 		);
 	}
 
+	/** Remove every item under a partition whose sort key starts with the prefix, as DynamoDB does when time to live passes. */
+	async expireItemsWithSortKeyPrefix(partitionKey: string, sortKeyPrefix: string): Promise<number> {
+		const response = await this.client.send(
+			new QueryCommand({
+				TableName: this.tableName,
+				KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+				ExpressionAttributeValues: { ":pk": { S: partitionKey }, ":prefix": { S: sortKeyPrefix } },
+				ConsistentRead: true,
+			}),
+		);
+		for (const item of response.Items ?? []) {
+			await this.client.send(new DeleteItemCommand({ TableName: this.tableName, Key: { pk: item.pk!, sk: item.sk! } }));
+		}
+		return response.Items?.length ?? 0;
+	}
+
 	async countItemsWithSortKeyPrefix(partitionKey: string, sortKeyPrefix: string): Promise<number> {
 		const response = await this.client.send(
 			new QueryCommand({

@@ -1,6 +1,7 @@
 import type { IntegrationTestAuthConfig } from "../src/auth/integration-test.ts";
 import type { SignupMode } from "../src/domain/signup-mode.ts";
 import { createApp } from "../src/http/app.ts";
+import { DEFAULT_STREAM_TIMING } from "../src/http/stream.ts";
 import type { CommitObject } from "../src/storage/indexed-storage.ts";
 import { MessageBodyCache } from "../src/pi/message-cache.ts";
 import { DynamoTurnAdmission } from "../src/store/turn-admission-store.ts";
@@ -66,7 +67,9 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		messages: messageDependencies(world, await ensurePiStorage(world)),
 		voice: { understanding: world.scriptedUnderstanding, ledger: ledgerDependenciesFor(world) },
 		turnControl: world.turnControlStore(),
-		streamTiming: { minimumPollMilliseconds: 5, maximumPollMilliseconds: 25, heartbeatMilliseconds: 15_000 },
+		streamTiming: { ...DEFAULT_STREAM_TIMING, minimumPollMilliseconds: 5, maximumPollMilliseconds: 25 },
+		streamClock: world.streamClock,
+		openStreams: world.openStreams,
 		invokeKey: options.invokeKey ?? null,
 		operatorKey: options.operatorKey ?? "",
 		integrationTest: options.integrationTest ?? null,
@@ -75,8 +78,9 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		signupMode: options.signupMode,
 		organizationCreationRateLimit: options.organizationCreationRateLimit,
 	});
+	world.app = app;
 	world.api = new ApiClient(app);
-	if (options.serveOverHttp) {
+	if (options.serveOverHttp || world.httpServer !== null) {
 		if (world.httpServer !== null) {
 			await world.httpServer.close();
 		}
@@ -88,6 +92,17 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 	if (world.identitiesByEmail === null) {
 		world.identitiesByEmail = new Map();
 	}
+}
+
+/** The base URL of the scenario's HTTP application served on a loopback port, starting the server on first use. */
+export async function httpBaseUrl(world: ChatticusWorld): Promise<string> {
+	if (world.httpServer === null) {
+		if (world.app === null) {
+			throw new Error("The scenario has no HTTP front door.");
+		}
+		world.httpServer = await startAppServer(world.app);
+	}
+	return world.httpServer.baseUrl;
 }
 
 /** Authorization headers carrying a freshly minted valid id token for `email`. */

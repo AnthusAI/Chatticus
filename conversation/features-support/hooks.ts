@@ -2,6 +2,7 @@ import { After, AfterAll, Before, setDefaultTimeout } from "@cucumber/cucumber";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { existingModelScenario } from "./executor-harness.ts";
 import { dropPiStorage } from "./pi-storage.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -16,6 +17,7 @@ Before(async function (this: ChatticusWorld) {
 });
 
 After(async function (this: ChatticusWorld) {
+	await existingModelScenario(this)?.watcher?.disconnect();
 	if (this.httpServer) {
 		await this.httpServer.close();
 	}
