@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { statusFor, DomainError } from "./errors.ts";
-import { timingSafeEqual } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import type { IdTokenVerifier } from "../auth/cognito.ts";
 import {
 	INTEGRATION_TEST_SESSION_PATH,
@@ -63,6 +63,11 @@ export interface Clock {
 
 export interface IdSource {
 	next(): string;
+}
+
+/** Compare two secrets in constant time regardless of their lengths, by comparing their SHA-256 digests. */
+export function invokeKeysMatch(provided: string, expected: string): boolean {
+	return timingSafeEqual(createHash("sha256").update(provided).digest(), createHash("sha256").update(expected).digest());
 }
 
 const INVOKE_HEADER = "X-Chatticus-Invoke-Key";
@@ -139,7 +144,7 @@ export function createApp(deps: AppDeps): Hono {
 		}
 		if (deps.invokeKey) {
 			const provided = c.req.header(INVOKE_HEADER);
-			if (!provided || !timingSafeEqual(Buffer.from(provided), Buffer.from(deps.invokeKey))) {
+			if (!provided || !invokeKeysMatch(provided, deps.invokeKey)) {
 				return c.json(
 					{
 						detail: "invoke key required",

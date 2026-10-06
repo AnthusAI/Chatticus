@@ -3,97 +3,83 @@
 /**
  * Black-box acceptance runner for the thin-turn front door.
  *
- * Speaks only HTTP to a deployed environment: sign in, create bot, create channel,
- * post, read the SSE stream, reload.
+ * Speaks only HTTP to a deployed environment: exchange the caller's IAM identity for an integration bearer, create a
+ * bot and a channel, post, read the SSE stream, reload, and steer. The AWS credentials come from the ambient chain
+ * (AWS_PROFILE); the invoke key is read from Secrets Manager at runtime and never printed.
  */
 
-import { existsSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
+import { STSClient } from "@aws-sdk/client-sts";
+import { runSmokeTest } from "../src/acceptance/smoke-test.ts";
 
 interface SmokeRunResult {
-	status: string;
+	status: "pass" | "fail";
+	environment: string;
 	checks: string[];
 	error: string | null;
 }
 
-class Error extends globalThis.Error {
-	constructor(message: string) {
-		super(message);
-		this.name = this.constructor.name;
+class BaseUrlNotSetError extends Error {}
+
+class InvokeKeyUnavailableError extends Error {}
+
+const REGION = "us-east-1";
+
+function resolveBaseUrl(environment: string): string {
+	const variableName = `CHATTICUS_${environment.toUpperCase()}_BASE_URL`;
+	const url = process.env[variableName];
+	if (!url) {
+		throw new BaseUrlNotSetError(`base url for ${environment} not set (${variableName})`);
 	}
+	return url;
 }
 
-class BaseUrlNotSetError extends Error {}
+async function readInvokeKey(environment: string): Promise<string> {
+	const parameter = `/chatticus/${environment}/thin-turn/invoke-key-secret-arn`;
+	const secretArn = (await new SSMClient({ region: REGION }).send(new GetParameterCommand({ Name: parameter }))).Parameter?.Value;
+	if (!secretArn) {
+		throw new InvokeKeyUnavailableError(`SSM parameter ${parameter} has no value`);
+	}
+	const secret = (await new SecretsManagerClient({ region: REGION }).send(new GetSecretValueCommand({ SecretId: secretArn }))).SecretString;
+	if (!secret) {
+		throw new InvokeKeyUnavailableError("the invoke key secret has no value");
+	}
+	return secret;
+}
 
 async function runSmoke(environment: string): Promise<SmokeRunResult> {
 	const checks: string[] = [];
-
-	const baseUrl = resolveBaseUrl(environment);
-	if (!baseUrl) {
-		return {
-			status: "fail",
-			checks,
-			error: `base url for ${environment} not set`,
-		};
-	}
-
 	try {
-		await runSmokeTest(baseUrl, checks);
-		return { status: "pass", checks, error: null };
-	} catch (err) {
-		return {
-			status: "fail",
-			checks,
-			error: err instanceof globalThis.Error ? err.message : String(err),
-		};
+		const baseUrl = resolveBaseUrl(environment);
+		const credentials = await new STSClient({ region: REGION }).config.credentials();
+		const invokeKey = await readInvokeKey(environment);
+		await runSmokeTest({ baseUrl, invokeKey, credentials }, checks);
+		return { status: "pass", environment, checks, error: null };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		return { status: "fail", environment, checks, error: message };
 	}
-}
-
-function resolveBaseUrl(environment: string): string | null {
-	const varName = `CHATTICUS_${environment.toUpperCase()}_BASE_URL`;
-	const url = process.env[varName];
-	if (url) {
-		return url;
-	}
-
-	const agentsLocalPath = join(process.cwd(), "AGENTS.local.md");
-	if (existsSync(agentsLocalPath)) {
-		return null;
-	}
-
-	return null;
-}
-
-async function runSmokeTest(baseUrl: string, checks: string[]): Promise<void> {
-	throw new Error("Smoke test not yet implemented");
 }
 
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
 	let environment = "development";
-
-	for (let i = 0; i < args.length; i++) {
-		if (args[i] === "--environment") {
-			environment = args[i + 1] || "development";
-			i++;
+	for (let index = 0; index < args.length; index++) {
+		if (args[index] === "--environment") {
+			environment = args[index + 1] || "development";
+			index++;
 		}
 	}
-
 	const result = await runSmoke(environment);
-
-	if (result.error) {
-		console.error(result.error);
+	console.log(JSON.stringify(result, null, 2));
+	if (result.status === "pass") {
+		process.exit(0);
 	}
-
-	for (const check of result.checks) {
-		console.log(check);
-	}
-
-	process.exit(result.status === "pass" ? 0 : result.error?.startsWith("base url") ? 2 : 1);
+	process.exit(result.error?.startsWith("base url") ? 2 : 1);
 }
 
-main().catch((err) => {
-	console.error(err);
+main().catch((error) => {
+	console.error(error instanceof Error ? error.message : String(error));
 	process.exit(1);
 });
