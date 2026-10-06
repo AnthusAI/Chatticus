@@ -2,6 +2,7 @@ import { BROWSER_ACTION_KINDS, type HostAction, type RegateActionRequest } from 
 import type { SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
 import { ComputerHostBootDriver, type HostBootPlane } from "./boot.ts";
 import { publishBeforeExit } from "./disk-lifecycle.ts";
+import { startHostHeartbeat, type HeartbeatTimer } from "./heartbeat.ts";
 import { HostActionExecutor } from "./host-action-executor.ts";
 import { HostProtocolClient, registerHostWorker } from "./protocol-client.ts";
 
@@ -18,7 +19,7 @@ export class KeyError extends Error {
 }
 
 /** What the host worker asks of the Front Door. */
-export type HostWorkerPlane = HostBootPlane & Pick<HostProtocolClient, "claimAction" | "postActionResult" | "regateAction">;
+export type HostWorkerPlane = HostBootPlane & Pick<HostProtocolClient, "claimAction" | "postActionResult" | "regateAction" | "heartbeat">;
 
 /** What runs one claimed action's tool. */
 export interface HostActionRunner {
@@ -131,11 +132,14 @@ export type HostWorkerLoopOptions = {
 	readonly deadlineMilliseconds: number;
 	readonly now?: () => number;
 	readonly sleep?: (milliseconds: number) => Promise<void>;
+	readonly heartbeatTimer?: HeartbeatTimer;
+	readonly heartbeatLog?: (message: string) => void;
 };
 
 /**
  * Boot the host (hydrating its disk), then claim, run and report actions until the deadline, and publish the disk
- * before returning.
+ * before returning. A heartbeat runs from before the boot until the loop ends or fails, and a heartbeat lost for longer than
+ * the Front Door's timeout ends the loop with an error.
  *
  * @param options The Front Door, the boot driver, the tools and the deadline.
  * @returns The actions that were run, in order.
@@ -144,23 +148,34 @@ export async function runHostWorker(options: HostWorkerLoopOptions): Promise<Hos
 	const now = options.now ?? Date.now;
 	const sleep = options.sleep ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
 	const ran: HostAction[] = [];
-	await options.bootDriver.bootThroughBrowser();
+	const heartbeat = startHostHeartbeat({
+		plane: options.plane,
+		now,
+		...(options.heartbeatTimer === undefined ? {} : { timer: options.heartbeatTimer }),
+		...(options.heartbeatLog === undefined ? {} : { log: options.heartbeatLog }),
+	});
 	try {
-		while (now() < options.deadlineMilliseconds) {
-			const action = await runHostWorkerOnce(options.plane, options.executor);
-			if (action === null) {
-				await sleep(IDLE_SLEEP_MILLISECONDS);
-			} else {
-				ran.push(action);
+		await options.bootDriver.bootThroughBrowser();
+		try {
+			while (now() < options.deadlineMilliseconds) {
+				heartbeat.assertAlive();
+				const action = await runHostWorkerOnce(options.plane, options.executor);
+				if (action === null) {
+					await sleep(IDLE_SLEEP_MILLISECONDS);
+				} else {
+					ran.push(action);
+				}
 			}
+		} finally {
+			await shutdownHostWorker(options.plane, {
+				tenantId: options.tenantId,
+				...(options.workerId === undefined ? {} : { workerId: options.workerId }),
+				...(options.liveRoot === undefined ? {} : { liveRoot: options.liveRoot }),
+				...(options.store === undefined ? {} : { store: options.store }),
+			});
 		}
 	} finally {
-		await shutdownHostWorker(options.plane, {
-			tenantId: options.tenantId,
-			...(options.workerId === undefined ? {} : { workerId: options.workerId }),
-			...(options.liveRoot === undefined ? {} : { liveRoot: options.liveRoot }),
-			...(options.store === undefined ? {} : { store: options.store }),
-		});
+		heartbeat.stop();
 	}
 	return ran;
 }

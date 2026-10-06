@@ -17,6 +17,7 @@ const endpoint = process.env.CHATTICUS_TEST_AWS_ENDPOINT ?? "http://127.0.0.1:55
 const credentials = { accessKeyId: "test", secretAccessKey: "test" };
 const dynamo = new DynamoDBClient({ endpoint, region: "us-east-1", credentials, maxAttempts: 1 });
 
+const DEPLOYMENT_ACCOUNT_ID = "123456789012";
 const INVOKE_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111122223333:secret:invoke-AbCdEf";
 const OPERATOR_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111122223333:secret:operator-GhIjKl";
 
@@ -73,6 +74,7 @@ function environmentFor(environmentName: string): Record<string, string | undefi
 		CHATTICUS_INVOKE_KEY_SECRET_ARN: INVOKE_SECRET_ARN,
 		CHATTICUS_OPERATOR_KEY_SECRET_ARN: OPERATOR_SECRET_ARN,
 		CHATTICUS_INTEGRATION_TEST_ENABLED: "true",
+		CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID: DEPLOYMENT_ACCOUNT_ID,
 		OPENAI_API_KEY: "sk-test",
 	};
 }
@@ -99,8 +101,28 @@ describe("front door cold start seeding of the integration-test organization", (
 		const store = new DynamoMessagingStore(dynamo, tableName);
 		const organization = await store.getOrganization(DEFAULT_INTEGRATION_TEST_TENANT_ID);
 		expect(organization?.status).toBe("enabled");
+		expect(organization?.awsAccountId).toBe(DEPLOYMENT_ACCOUNT_ID);
 		const membership = await store.getMembership(DEFAULT_INTEGRATION_TEST_TENANT_ID, DEFAULT_INTEGRATION_TEST_USER_ID);
 		expect(membership?.role).toBe("owner");
+	});
+
+	it("converges an organization stored with no AWS home to the deployment account id on the next compose", async () => {
+		const store = new DynamoMessagingStore(dynamo, tableName);
+		await composeFrontDoorApp(environmentFor("test"), clientsFor(withTestPrefix(WITH_ALLOWED_ROLE)));
+		const seeded = await store.getOrganization(DEFAULT_INTEGRATION_TEST_TENANT_ID);
+		await store.putOrganization({ ...seeded!, awsAccountId: null });
+		expect((await store.getOrganization(DEFAULT_INTEGRATION_TEST_TENANT_ID))?.awsAccountId).toBeNull();
+		await composeFrontDoorApp(environmentFor("test"), clientsFor(withTestPrefix(WITH_ALLOWED_ROLE)));
+		expect((await store.getOrganization(DEFAULT_INTEGRATION_TEST_TENANT_ID))?.awsAccountId).toBe(DEPLOYMENT_ACCOUNT_ID);
+	});
+
+	it("fails the cold start loudly when the deployment account id is missing or malformed", async () => {
+		for (const value of [undefined, "", "1234", "12345678901a", "123456789012 "]) {
+			const environment = { ...environmentFor("test"), CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID: value };
+			await expect(composeFrontDoorApp(environment, clientsFor(withTestPrefix(WITH_ALLOWED_ROLE)))).rejects.toThrow(
+				"CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID",
+			);
+		}
 	});
 
 	it("composes twice and concurrently without failing or duplicating", async () => {
@@ -118,6 +140,12 @@ describe("front door cold start seeding of the integration-test organization", (
 
 	it("seeds nothing in production, where integration auth is off", async () => {
 		await composeFrontDoorApp(environmentFor("production"), clientsFor(withPrefix("production", WITH_ALLOWED_ROLE)));
+		expect(await itemCount()).toBe(0);
+	});
+
+	it("needs no account id and seeds nothing when integration auth is off", async () => {
+		const environment = { ...environmentFor("production"), CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID: undefined };
+		await composeFrontDoorApp(environment, clientsFor(withPrefix("production", WITH_ALLOWED_ROLE)));
 		expect(await itemCount()).toBe(0);
 	});
 

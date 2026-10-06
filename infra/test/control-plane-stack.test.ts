@@ -281,6 +281,7 @@ describe("ControlPlaneStack", () => {
     assert.equal(variables.CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER, "/chatticus/development/web/cognito-user-pool-id");
     assert.equal(variables.CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER, "/chatticus/development/web/cognito-app-client-id");
     assert.equal(variables.CHATTICUS_INTEGRATION_TEST_ENABLED, "true");
+    assert.equal(variables.CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID, "111111111111");
     assert.equal(
       functionByDescription(synthControlPlane("production"), "TypeScript front door").Environment.Variables
         .CHATTICUS_INTEGRATION_TEST_ENABLED,
@@ -289,11 +290,42 @@ describe("ControlPlaneStack", () => {
   });
 
   it("does not hand the invoke or operator key to any other function", () => {
-    for (const fragment of ["TurnRuns consumer", "TurnProbes consumer", "ComputerStartJobs consumer"]) {
+    for (const fragment of ["TurnRuns consumer", "TurnProbes consumer"]) {
       const variables = functionByDescription(development, fragment).Environment.Variables;
       assert.equal(variables.CHATTICUS_INVOKE_KEY_SECRET_ARN, undefined);
       assert.equal(variables.CHATTICUS_OPERATOR_KEY_SECRET_ARN, undefined);
     }
+    const starter = functionByDescription(development, "ComputerStartJobs consumer").Environment.Variables;
+    assert.equal(starter.CHATTICUS_OPERATOR_KEY_SECRET_ARN, undefined);
+    assert.equal(starter.CHATTICUS_INVOKE_KEY, undefined);
+  });
+
+  describe("ComputerStarter host credentials", () => {
+    const secretGrants = (template: Template) =>
+      Object.values(template.findResources("AWS::IAM::Policy")).flatMap((policy) =>
+        (policy.Properties.PolicyDocument.Statement as Record<string, any>[])
+          .filter((statement) => [].concat(statement.Action).includes("secretsmanager:GetSecretValue"))
+          .map((statement) => ({ roles: JSON.stringify(policy.Properties.Roles), resource: statement.Resource })),
+      );
+
+    it("gives the starter the FrontDoor Function URL and the invoke key secret ARN, never a key value", () => {
+      const starter = functionByDescription(development, "ComputerStartJobs consumer").Environment.Variables;
+      const frontDoor = functionByDescription(development, "TypeScript front door").Environment.Variables;
+      assert.match(JSON.stringify(starter.CHATTICUS_FRONT_DOOR_URL), /"Fn::GetAtt":\["FrontDoorFunctionUrl[0-9A-F]+","FunctionUrl"\]/);
+      assert.deepEqual(starter.CHATTICUS_INVOKE_KEY_SECRET_ARN, frontDoor.CHATTICUS_INVOKE_KEY_SECRET_ARN);
+      assert.match(JSON.stringify(starter.CHATTICUS_INVOKE_KEY_SECRET_ARN), /"Ref":"SsmParameterValue/);
+      assert.equal(starter.CHATTICUS_INVOKE_KEY, undefined);
+    });
+
+    it("lets the starter read exactly the invoke key secret and no other", () => {
+      const grants = secretGrants(development).filter((grant) => /ComputerStarterServiceRole/.test(grant.roles));
+      assert.equal(grants.length, 1);
+      const resources = [].concat(grants[0]!.resource);
+      assert.equal(resources.length, 1);
+      const invokeArn = functionByDescription(development, "ComputerStartJobs consumer").Environment.Variables
+        .CHATTICUS_INVOKE_KEY_SECRET_ARN;
+      assert.deepEqual(resources[0], invokeArn);
+    });
   });
 
   describe("shared key secrets", () => {
@@ -322,15 +354,17 @@ describe("ControlPlaneStack", () => {
       assert.doesNotMatch(JSON.stringify(development.toJSON()), /resolve:secretsmanager/);
     });
 
-    it("lets only the FrontDoor read exactly those two secrets", () => {
+    it("lets only the FrontDoor read both secrets and the ComputerStarter read the invoke secret alone", () => {
       const grants = Object.values(development.findResources("AWS::IAM::Policy")).flatMap((policy) =>
         (policy.Properties.PolicyDocument.Statement as Record<string, any>[])
           .filter((statement) => [].concat(statement.Action).includes("secretsmanager:GetSecretValue"))
           .map((statement) => ({ roles: JSON.stringify(policy.Properties.Roles), resource: statement.Resource })),
       );
-      assert.equal(grants.length, 1);
-      assert.match(grants[0]!.roles, /FrontDoorServiceRole/);
-      assert.equal((grants[0]!.resource as unknown[]).length, 2);
+      assert.equal(grants.length, 2);
+      const frontDoorGrant = grants.find((grant) => /FrontDoorServiceRole/.test(grant.roles));
+      const starterGrant = grants.find((grant) => /ComputerStarterServiceRole/.test(grant.roles));
+      assert.equal((frontDoorGrant!.resource as unknown[]).length, 2);
+      assert.equal([].concat(starterGrant!.resource).length, 1);
     });
 
     it("leaves the thin-turn stack with no export that the control plane imports for the secrets", () => {
