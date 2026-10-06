@@ -75,21 +75,6 @@ def when_capability_aware_worker_turn(context: object, bot_name: str) -> None:
     context.last_turn_id = context.last_turn_id or _active_turn_id(context, bot.bot_id)
 
 
-@then('the bot answer includes "{snippet}"')
-def then_bot_answer_includes(context: object, snippet: str) -> None:
-    from chatticus.models import ActorKind
-
-    turn = context.plane.turn("anthus", context.last_turn_id)
-    messages = context.plane.list_channel_messages(turn.channel_id, turn.tenant_id)
-    bot_bodies = [
-        message.body
-        for message in messages
-        if message.author_kind == ActorKind.BOT and message.body
-    ]
-    assert bot_bodies
-    assert any(snippet in body for body in bot_bodies)
-
-
 @then("the turn journal records a successful read_workspace tool result")
 def then_successful_read_workspace_journal(context: object) -> None:
     events = context.plane.list_turn_events("anthus", context.last_turn_id)

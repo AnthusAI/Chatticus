@@ -44,3 +44,7 @@ features/turn_recovery.feature
 features/turn_probes.feature
 features/turn_fault_injection.feature
 features/voice_messages.feature
+features/conversation_turn_grant.feature
+features/turn_grant_widening.feature
+features/web_turn_grant.feature
+features/model_tool_loop_sinks.feature

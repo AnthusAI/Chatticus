@@ -39,6 +39,11 @@ export class QueueRecorder {
 		});
 	}
 
+	/** The names of the queues that hold at least one pending message. */
+	nonEmptyQueueNames(): string[] {
+		return [...this.queues.entries()].filter(([, messages]) => messages.length > 0).map(([name]) => name);
+	}
+
 	/**
 	 * Get all pending messages for a queue without removing them.
 	 *

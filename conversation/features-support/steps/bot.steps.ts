@@ -78,21 +78,26 @@ Given(
 	},
 );
 
+/** Sign `email` in, create and enable the organization `name`, and show the web SPA's enabled workspace for it. */
+export async function givenEnabledWorkspaceWebSpa(world: ChatticusWorld, email: string, name: string): Promise<void> {
+	await wireOpenSignupFrontDoorForWebSpa(world);
+	const store = world.messagingStore();
+	const identity = await kernel.signIn(email, { store, clock: world.clock, ids: world.ids });
+	world.currentIdentity = identity;
+	world.identitiesByEmail?.set(email, identity);
+	const organization = await kernel.createOrganization(identity, name, { store, clock: world.clock, ids: world.ids });
+	world.orgsByName?.set(name, organization);
+	world.orgsByName?.set(name, await kernel.enableOrganization(organization.tenantId, { store }));
+	await seedEnabledWebSession(world, email, name);
+	const state = await runMembershipUiHarness(world, "render-shell");
+	assert.equal(state.view, "enabled-workspace", JSON.stringify(state));
+	assert.ok(String(state.visibleText ?? "").includes(CREATE_BOT_FORM_TITLE), JSON.stringify(state));
+}
+
 Given(
 	"the enabled workspace web SPA for {string} in {string}",
 	async function (this: ChatticusWorld, email: string, name: string) {
-		await wireOpenSignupFrontDoorForWebSpa(this);
-		const store = this.messagingStore();
-		const identity = await kernel.signIn(email, { store, clock: this.clock, ids: this.ids });
-		this.currentIdentity = identity;
-		this.identitiesByEmail?.set(email, identity);
-		const organization = await kernel.createOrganization(identity, name, { store, clock: this.clock, ids: this.ids });
-		this.orgsByName?.set(name, organization);
-		this.orgsByName?.set(name, await kernel.enableOrganization(organization.tenantId, { store }));
-		await seedEnabledWebSession(this, email, name);
-		const state = await runMembershipUiHarness(this, "render-shell");
-		assert.equal(state.view, "enabled-workspace", JSON.stringify(state));
-		assert.ok(String(state.visibleText ?? "").includes(CREATE_BOT_FORM_TITLE), JSON.stringify(state));
+		await givenEnabledWorkspaceWebSpa(this, email, name);
 	},
 );
 

@@ -11,6 +11,8 @@ import {
 import { pythonRepr } from "../domain/bots.ts";
 import type { ProbeObservation, Turn, TurnControlStore, TurnEvent, TurnEventDraft, TurnStatus } from "../domain/turns.ts";
 import { StaleAttemptError, TurnNotFoundError, TurnTerminalError } from "../http/errors.ts";
+import type { TaskCapabilityGrant } from "../policy/capability-policy.ts";
+import { TURN_GRANT_SORT_KEY, decodeGrant, encodeGrant } from "./codecs/grant.ts";
 import {
 	decodePendingComputerTool,
 	encodePendingComputerTool,
@@ -70,6 +72,7 @@ export function turnFromItem(item: Record<string, AttributeValue>): Turn {
 		botId: item.bot_id!.S!,
 		status: item.status!.S as TurnStatus,
 		promptMessageSeq: optionalNumber(item, "prompt_message_seq"),
+		promptAuthorId: optionalString(item, "prompt_author_id"),
 		attemptId: optionalString(item, "attempt_id"),
 		attempt: optionalNumber(item, "attempt") ?? 0,
 		claimedBy: optionalString(item, "claimed_by"),
@@ -439,6 +442,75 @@ export class DynamoTurnControlStore implements TurnControlStore {
 
 	async listEvents(tenantId: string, turnId: string, afterSeq: number): Promise<TurnEvent[]> {
 		return listTurnEventItems(this.client, this.tableName, tenantId, turnId, afterSeq);
+	}
+
+	async getGrant(tenantId: string, turnId: string): Promise<TaskCapabilityGrant | null> {
+		const result = await this.client.send(
+			new GetItemCommand({
+				TableName: this.tableName,
+				Key: { pk: { S: turnItemPartitionKey(tenantId, turnId) }, sk: { S: TURN_GRANT_SORT_KEY } },
+				ConsistentRead: true,
+			}),
+		);
+		return result.Item === undefined ? null : decodeGrant(result.Item);
+	}
+
+	async replaceGrant(request: Parameters<TurnControlStore["replaceGrant"]>[0]): Promise<TurnEvent> {
+		for (let attempt = 0; attempt < TRANSITION_ATTEMPTS; attempt += 1) {
+			const current = await this.getTurn(request.tenantId, request.turnId);
+			if (current === null) {
+				throw new TurnNotFoundError(`Turn ${pythonRepr(request.turnId)} does not exist.`);
+			}
+			if (current.status !== ACTIVE_STATUS) {
+				throw new TurnTerminalError(`Turn ${pythonRepr(request.turnId)} is not active.`);
+			}
+			const event: TurnEvent = {
+				eventId: request.eventId,
+				tenantId: current.tenantId,
+				turnId: current.turnId,
+				channelId: current.channelId,
+				seq: current.nextEventSeq,
+				kind: "turn.grant.replaced",
+				body: request.body,
+			};
+			try {
+				await this.client.send(
+					new TransactWriteItemsCommand({
+						TransactItems: [
+							{
+								Update: {
+									TableName: this.tableName,
+									Key: this.metaKey(request.tenantId, request.turnId),
+									UpdateExpression: "SET next_event_seq = :nextSeq",
+									ConditionExpression: "#status = :active AND next_event_seq = :seq",
+									ExpressionAttributeNames: { "#status": "status" },
+									ExpressionAttributeValues: {
+										":nextSeq": { N: String(current.nextEventSeq + 1) },
+										":seq": { N: String(current.nextEventSeq) },
+										":active": { S: ACTIVE_STATUS },
+									},
+								},
+							},
+							{ Put: { TableName: this.tableName, Item: encodeGrant(request.tenantId, request.turnId, request.grant) } },
+							{
+								Put: {
+									TableName: this.tableName,
+									Item: turnEventItem(event, request.expiresAt),
+									ConditionExpression: "attribute_not_exists(pk)",
+								},
+							},
+						],
+					}),
+				);
+			} catch (error) {
+				if (error instanceof TransactionCanceledException) {
+					continue;
+				}
+				throw error;
+			}
+			return event;
+		}
+		throw new Error(`Turn ${pythonRepr(request.turnId)} could not replace its grant after ${TRANSITION_ATTEMPTS} attempts.`);
 	}
 
 	async pointedTurn(

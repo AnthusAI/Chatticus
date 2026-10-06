@@ -321,7 +321,7 @@ export function statusFor(error: unknown): number {
 	if (error instanceof TaskAccessDeniedError) {
 		return 403;
 	}
-	if (error instanceof MemberStandingRequiredError) {
+	if (error instanceof MemberStandingRequiredError || error instanceof GrantExceedsMemberStandingError) {
 		return 403;
 	}
 	if (error instanceof TaskNotFoundError) {

@@ -29,6 +29,8 @@ import {
 	getTurnHandler,
 	listTurnEventsHandler,
 } from "./routes/turns.ts";
+import { putTurnGrantHandler } from "./routes/grants.ts";
+import type { PolicyStore } from "../store/policy-store.ts";
 import { OpenStreamCounter, streamTurnHandler } from "./routes/turn-stream.ts";
 import { DEFAULT_STREAM_TIMING, type StreamClock, type StreamTiming, wallStreamClock } from "./stream.ts";
 import { integrationTestSessionHandler } from "./routes/integration-test.ts";
@@ -60,6 +62,8 @@ export interface AppDeps {
 	voice: { understanding: UserUnderstanding; ledger: VendorLedgerDependencies };
 	/** The turn control record, behind the turn read routes. */
 	turnControl: TurnControlStore;
+	/** Member standing ceilings, read when a member replaces a turn's grant. */
+	policy: PolicyStore;
 	invokeKey: string | null;
 	/** The deployment-wide operator bearer secret; the operator routes refuse every caller when it is empty. */
 	operatorKey?: string;
@@ -234,6 +238,10 @@ export function createApp(deps: AppDeps): Hono {
 			streamClock: deps.streamClock ?? wallStreamClock,
 			openStreams,
 		}),
+	);
+
+	declareRoute(app, { method: "PUT", path: "/orgs/:tenant_id/turns/:turn_id/grant", audience: "user" }, (c) =>
+		putTurnGrantHandler(c, { ...turnRoutes, store, policyStore: deps.policy }),
 	);
 
 	const workerRoutes = { store, clock: deps.clock, ids: deps.ids };

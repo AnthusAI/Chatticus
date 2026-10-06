@@ -4,6 +4,7 @@ import { createApp } from "../src/http/app.ts";
 import { DEFAULT_STREAM_TIMING } from "../src/http/stream.ts";
 import type { CommitObject } from "../src/storage/indexed-storage.ts";
 import { MessageBodyCache } from "../src/pi/message-cache.ts";
+import { DynamoPolicyStore } from "../src/store/policy-store.ts";
 import { DynamoTurnAdmission } from "../src/store/turn-admission-store.ts";
 import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
 import { ApiClient } from "./api.ts";
@@ -67,6 +68,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		messages: messageDependencies(world, await ensurePiStorage(world)),
 		voice: { understanding: world.scriptedUnderstanding, ledger: ledgerDependenciesFor(world) },
 		turnControl: world.turnControlStore(),
+		policy: new DynamoPolicyStore(world.messagingTable.client, world.messagingTable.tableName),
 		streamTiming: { ...DEFAULT_STREAM_TIMING, minimumPollMilliseconds: 5, maximumPollMilliseconds: 25 },
 		streamClock: world.streamClock,
 		openStreams: world.openStreams,

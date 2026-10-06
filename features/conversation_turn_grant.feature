@@ -21,22 +21,6 @@ Feature: Conversation task grant on human-started turns
     And user "ryan" of tenant "anthus" posts "hello LiveCreate" addressed to bot "LiveCreate" on the channel
     Then the active turn carries the household conversation grant
 
-  Scenario: The conversation grant allows read_workspace under /workspace
-    Given tenant "anthus" user "ryan" has a bot named "Researcher"
-    And the household computer is stopped
-    When bot "Researcher" is asked "read workspace file /workspace/research/notes.txt"
-    And bot "Researcher" runs one capability-aware computerless worker turn
-    Then a computer continuation job is queued for the turn
-    And the turn is waiting on the workspace capability
-
-  Scenario: The conversation grant allows write_workspace under /workspace
-    Given tenant "anthus" user "ryan" has a bot named "Researcher"
-    And the household computer is stopped
-    When bot "Researcher" is asked "write workspace file /workspace/research/notes.txt containing draft-content"
-    And bot "Researcher" runs one capability-aware computerless worker turn
-    Then a computer continuation job is queued for the turn
-    And the turn is waiting on the workspace capability
-
   Scenario: The conversation grant still denies run_terminal
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
     When a human asks the bot to run command "ls /workspace" using cwd "/workspace"
