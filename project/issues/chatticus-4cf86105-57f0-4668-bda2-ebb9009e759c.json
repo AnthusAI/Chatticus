@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-83a659a7-0b51-4f3e-a819-a32272f3e5ff",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:46:05.970461Z",
-  "updated_at": "2026-10-06T04:29:57.344172Z",
+  "updated_at": "2026-10-06T04:47:19.322161Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The ticket is awaiting a verified prototype before implementation can begin.",
-  "right_now_updated_at": "2026-10-06T04:29:58.720093Z",
+  "right_now_summary": "The ticket requires a prototype before implementing computer actions, tools, parking, and resuming.",
+  "right_now_updated_at": "2026-10-06T04:47:20.563122Z",
   "custom": {}
 }
