@@ -22,7 +22,8 @@ import { MemberStandingRequiredError, StaleAttemptError, TurnTerminalError } fro
 import { type ChannelMessageDraft, recordInputLine, writeAttributedMessage } from "../pi/channel-log.ts";
 import { CommitOutcomeUnknown, findStorageFailure, OwnershipLost } from "../pi/errors.ts";
 import { chatticusExtensions } from "../pi/extension.ts";
-import { type ToolGateDependencies, computerToolsExtension, toolGateExtension } from "../pi/gate.ts";
+import { type ComputerToolCall, type ComputerToolHandoff, computerToolsExtension } from "../pi/computer-tools.ts";
+import { type ToolGateDependencies, toolGateExtension } from "../pi/gate.ts";
 import { PolicyControl } from "../policy/policy-control.ts";
 import { turnCapabilityGrant } from "../policy/turn-grant.ts";
 import { DynamoPolicyStore } from "../store/policy-store.ts";
@@ -36,6 +37,7 @@ import { DEFAULT_TOKEN_FLUSH_BYTES, DEFAULT_TOKEN_FLUSH_MILLISECONDS, TokenCoale
 import { AgentEventDelivery, createAgentEventListener, TurnEventWriter } from "./event-stream.ts";
 import { commitFinalAnswer, type FinalizeInputs, recordTurnSpend } from "./finalize.ts";
 import { armProbe } from "./probes.ts";
+import { computerWorkRefusal, type ParkDependencies, parkOnComputerAction } from "./park.ts";
 import { buildSystemPrompt } from "./prompt.ts";
 import { DEFAULT_YIELD_BELOW_MILLISECONDS, yieldAttempt } from "./yield.ts";
 import type { ExecutorDeps, ExecutorTuning, TurnExecutionJob, TurnExecutionOutcome } from "./types.ts";
@@ -62,8 +64,8 @@ export const MISSING_SUBJECT_REASON = "The bot or the channel of this turn no lo
 /** The reason on turn.reconciling when a Pi commit's outcome is unknown. */
 export const UNCERTAIN_COMMIT_REASON = "The conversation could not confirm its last write; the turn is being reconciled.";
 
-/** What an allowed computer tool call answers until the computer handoff is wired to the executor. */
-const NO_COMPUTER_YET = async (): Promise<string> => "The organization's computer is not connected to this turn yet.";
+/** The reason the parked tool's invocation is rejected with when its owner closes to hand the turn to the computer. */
+const OWNER_CLOSED_FOR_HANDOFF = "The owner closed to hand the turn to the computer.";
 
 class AttemptLost extends Error {
 	constructor() {
@@ -117,6 +119,9 @@ class TurnAttempt {
 	private renewTimer: ReturnType<typeof setInterval> | null = null;
 	private renewing = false;
 	private fatal: unknown = null;
+	private parkCall: ComputerToolCall | null = null;
+	private readonly parkRequested: Promise<void>;
+	private signalPark: () => void = () => undefined;
 	private session: OwnerSession | null = null;
 	private root: Conversation | null = null;
 	private stream: AgentEventStream | null = null;
@@ -145,6 +150,9 @@ class TurnAttempt {
 			this.signalLost = () => reject(new AttemptLost());
 		});
 		this.lost.catch(() => undefined);
+		this.parkRequested = new Promise<void>((resolve) => {
+			this.signalPark = resolve;
+		});
 	}
 
 	async run(): Promise<TurnExecutionOutcome> {
@@ -174,7 +182,7 @@ class TurnAttempt {
 				...chatticusExtensions({
 					systemPrompt: () => buildSystemPrompt({ botName: bot.name, memory: bot.memory }),
 				}),
-				computerToolsExtension(this.deps.runComputerTool ?? NO_COMPUTER_YET),
+				computerToolsExtension(this.computerHandoff()),
 				toolGateExtension(this.toolGateDependencies()),
 			],
 			context: this.context,
@@ -193,6 +201,7 @@ class TurnAttempt {
 		const root = await session.harness.root(this.context, { agent });
 		this.root = root;
 		await root.configure(agent, this.context);
+		await this.rememberJournaledCalls();
 		this.stream = await watchEvents(session.harness, root.id, this.context);
 		this.stream.start(createAgentEventListener(this.writer, this.coalescer, this.attemptId, this.delivery));
 		this.renewTimer = setInterval(() => void this.renew(), this.tuning.renewIntervalMilliseconds);
@@ -210,6 +219,7 @@ class TurnAttempt {
 		for (;;) {
 			await this.waitForProgress();
 			await this.guard(session);
+			if (this.parkCall !== null) return this.parkOnComputer(this.parkCall);
 			if (this.mustYield()) return this.yieldTurn();
 			await this.pumpMailbox(session, root);
 			if (this.inputs.some((input) => input.settled === null)) continue;
@@ -268,6 +278,59 @@ class TurnAttempt {
 				return policy.memberStandingForUser(tenantId, promptAuthorId, actionType);
 			},
 		};
+	}
+
+	private parkDependencies(): ParkDependencies {
+		return {
+			turns: this.deps.turns,
+			messaging: this.deps.messaging,
+			turnRuns: this.deps.turnRuns,
+			turnProbes: this.deps.turnProbes,
+			computer: this.deps.computer,
+			faults: this.deps.faults,
+		};
+	}
+
+	private computerHandoff(): ComputerToolHandoff {
+		const { tenantId, turnId } = this.job;
+		return {
+			lookup: (call) => this.deps.computer.actions.getByCall(tenantId, turnId, call.callId),
+			refusal: () => computerWorkRefusal(this.parkDependencies(), tenantId),
+			park: (call, abortSignal) => {
+				this.parkCall ??= call;
+				this.signalPark();
+				return new Promise<never>((_resolve, reject) => {
+					if (abortSignal?.aborted) reject(new Error(OWNER_CLOSED_FOR_HANDOFF));
+					abortSignal?.addEventListener("abort", () => reject(new Error(OWNER_CLOSED_FOR_HANDOFF)));
+				});
+			},
+		};
+	}
+
+	/**
+	 * A resumed owner rereads the journal so the tool calls its predecessor already wrote are not written again when Pi
+	 * reports them once more.
+	 */
+	private async rememberJournaledCalls(): Promise<void> {
+		if (this.turn.attempt <= 1) return;
+		for (const event of await this.deps.turns.store.listEvents(this.job.tenantId, this.job.turnId, 0)) {
+			if (event.kind === "tool.call" && event.actionId !== undefined) this.delivery.claimCallJournal(event.actionId);
+		}
+	}
+
+	/**
+	 * The turn called a computer tool that has no answer yet: record the action, park the turn and end this owner. The
+	 * harness is closed without aborting (the session's close), so the tool call stays pending for the next owner.
+	 */
+	private async parkOnComputer(call: ComputerToolCall): Promise<TurnExecutionOutcome> {
+		await this.coalescer.flush();
+		if (this.delivery.claimCallJournal(call.callId)) {
+			await this.writer.write({ kind: "tool.call", body: call.toolName, actionId: call.callId });
+		}
+		await this.writer.idle();
+		this.writer.throwIfFailed();
+		await parkOnComputerAction(this.parkDependencies(), this.turn, this.attemptId, call);
+		return "parked";
 	}
 
 	private mustYield(): boolean {
@@ -350,7 +413,7 @@ class TurnAttempt {
 		const pause = delay(this.tuning.mailboxPollMilliseconds);
 		const waits = this.inputs.filter((input) => input.settled === null).map((input) => input.watching);
 		try {
-			await Promise.race([this.lost, pause.promise, ...waits]);
+			await Promise.race([this.lost, this.parkRequested, pause.promise, ...waits]);
 		} finally {
 			pause.cancel();
 		}

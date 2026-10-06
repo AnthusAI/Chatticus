@@ -360,7 +360,11 @@ When("the worker posts a progress chunk and then waits on the browser gate", asy
 		kind: "turn.token",
 		token: "Here is a draft.",
 	});
-	await releaseForWaiting(this.turnDependencies(), channel.tenantId, turnId, attempt, "browser");
+	await releaseForWaiting(this.turnDependencies(), channel.tenantId, turnId, attempt, "browser", {
+		actionId: this.ids.next(),
+		toolName: "request_computer_capability",
+		arguments: { gate: "browser" },
+	});
 });
 
 Then(

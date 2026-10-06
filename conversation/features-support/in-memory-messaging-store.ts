@@ -261,6 +261,36 @@ export class InMemoryMessagingStore implements MessagingStore {
 	async putComputer(computer: Computer): Promise<void> {
 		this.computers.set(computer.tenantId, structuredClone(computer));
 	}
+
+	async claimHostStartGeneration(tenantId: string, expectedGeneration: number, leaseExpiresAt: Date): Promise<Computer | null> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined || computer.hostStartGeneration !== expectedGeneration) {
+			return null;
+		}
+		const next = { ...computer, hostStartGeneration: expectedGeneration + 1, hostStartLeaseExpiresAt: leaseExpiresAt };
+		this.computers.set(tenantId, next);
+		return structuredClone(next);
+	}
+
+	async markHostStartDispatched(tenantId: string, generation: number): Promise<boolean> {
+		const computer = this.computers.get(tenantId);
+		if (
+			computer === undefined ||
+			computer.hostStartGeneration !== generation ||
+			computer.hostStartDispatchedGeneration >= generation
+		) {
+			return false;
+		}
+		this.computers.set(tenantId, { ...computer, hostStartDispatchedGeneration: generation });
+		return true;
+	}
+
+	async releaseHostStartDispatch(tenantId: string, generation: number): Promise<void> {
+		const computer = this.computers.get(tenantId);
+		if (computer !== undefined && computer.hostStartDispatchedGeneration === generation) {
+			this.computers.set(tenantId, { ...computer, hostStartDispatchedGeneration: generation - 1 });
+		}
+	}
 }
 
 function compareStrings(left: string, right: string): number {

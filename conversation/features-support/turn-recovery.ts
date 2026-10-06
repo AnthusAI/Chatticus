@@ -7,6 +7,7 @@ import { turnItemPartitionKey } from "../src/store/turn-events.ts";
 import { consumeRunJob } from "../src/turn/executor.ts";
 import { handleProbe, type ProbeDependencies } from "../src/turn/probes.ts";
 import type { TurnExecutionOutcome } from "../src/turn/types.ts";
+import { computerHandoffDependenciesFor } from "./computer-support.ts";
 import { executorDepsFor, type ExecutorOptions, modelScenarioOf } from "./executor-harness.ts";
 import { memberGet } from "./org-user-client.ts";
 import { ensurePiStorage } from "./pi-storage.ts";
@@ -83,6 +84,8 @@ export async function probeDependenciesFor(world: ChatticusWorld): Promise<Probe
 		turns: world.turnDependencies(),
 		turnRuns: runQueueOf(world),
 		turnProbes: probeQueueOf(world),
+		messaging: world.messagingStore(),
+		computer: computerHandoffDependenciesFor(world),
 		submissions: new PiSubmissionInspector({
 			client: world.messagingTable.client,
 			s3: piStorage.s3,

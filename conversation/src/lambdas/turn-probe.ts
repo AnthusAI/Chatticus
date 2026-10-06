@@ -4,9 +4,13 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import type { TurnProbeMessage } from "../domain/turn-admission.ts";
 import { PiSubmissionInspector } from "../pi/submission-inspector.ts";
+import { DynamoBudgetStore } from "../budget/budget-store.ts";
+import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS } from "../domain/workers.ts";
+import { DynamoComputerActionStore } from "../store/action-store.ts";
+import { DynamoMessagingStore } from "../store/dynamo-messaging-store.ts";
 import { DynamoTurnControlStore } from "../store/turn-store.ts";
 import { handleProbe, type ProbeDependencies } from "../turn/probes.ts";
-import { SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
+import { SqsComputerStartQueue, SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
 
 type SqsRecord = { readonly body: string };
 
@@ -25,14 +29,23 @@ function probeDependencies(): ProbeDependencies {
 	if (cachedDeps !== null) return cachedDeps;
 	const client = new DynamoDBClient({});
 	const sqs = new SQSClient({});
+	const messagingTableName = requiredEnvironment("CHATTICUS_MESSAGING_TABLE");
 	cachedDeps = {
 		turns: {
-			store: new DynamoTurnControlStore(client, requiredEnvironment("CHATTICUS_MESSAGING_TABLE")),
+			store: new DynamoTurnControlStore(client, messagingTableName),
 			clock: { now: () => new Date() },
 			ids: { next: () => randomUUID() },
 		},
 		turnRuns: new SqsTurnRunQueue(sqs, requiredEnvironment("CHATTICUS_TURN_RUNS_QUEUE_URL")),
 		turnProbes: new SqsTurnProbeQueue(sqs, requiredEnvironment("CHATTICUS_TURN_PROBES_QUEUE_URL")),
+		messaging: new DynamoMessagingStore(client, messagingTableName),
+		computer: {
+			actions: new DynamoComputerActionStore(client, messagingTableName),
+			computerStarts: new SqsComputerStartQueue(sqs, requiredEnvironment("CHATTICUS_COMPUTER_STARTS_QUEUE_URL")),
+			rollups: new DynamoBudgetStore(client, messagingTableName),
+			environment: requiredEnvironment("CHATTICUS_ENVIRONMENT"),
+			heartbeatTimeoutSeconds: DEFAULT_HEARTBEAT_TIMEOUT_SECONDS,
+		},
 		submissions: new PiSubmissionInspector({
 			client,
 			s3: new S3Client({}),

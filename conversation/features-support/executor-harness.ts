@@ -7,6 +7,7 @@ import type { TurnRunJob } from "../src/domain/turn-admission.ts";
 import { executeTurn } from "../src/turn/executor.ts";
 import type { ExecutorDeps, ExecutorTuning, TurnExecutionOutcome } from "../src/turn/types.ts";
 import { ScriptedProvider, type ScriptedHold } from "./fakes/scripted-provider.ts";
+import { computerHandoffDependenciesFor } from "./computer-support.ts";
 import { TURN_RUN_QUEUE } from "./front-door.ts";
 import { probeQueueOf, runQueueOf, runVisibilityOf } from "./turn-queues.ts";
 import { ensurePiStorage } from "./pi-storage.ts";
@@ -181,6 +182,7 @@ export async function executorDepsFor(
 		turnRuns: runQueueOf(world),
 		turnProbes: probeQueueOf(world),
 		runVisibility: runVisibilityOf(world),
+		computer: computerHandoffDependenciesFor(world),
 		remainingMilliseconds: options.remainingMilliseconds ?? (() => scenario.functionMillisecondsLeft ?? Number.MAX_SAFE_INTEGER),
 		faults: world.faultPlan,
 	};

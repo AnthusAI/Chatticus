@@ -323,6 +323,24 @@ export class WaitlistRateLimitedError extends DomainError {
 	}
 }
 
+export class ComputerActionNotFoundError extends DomainError {
+	constructor(message: string) {
+		super("computer_action_not_found", message);
+	}
+}
+
+export class ComputerActionNotClaimedError extends DomainError {
+	constructor(message: string) {
+		super("computer_action_not_claimed", message);
+	}
+}
+
+export class ComputerNotFoundError extends DomainError {
+	constructor(message: string) {
+		super("computer_not_found", message);
+	}
+}
+
 export class CapabilitySinkDenied extends DomainError {
 	constructor(message: string) {
 		super("capability_sink_denied", message);
@@ -348,8 +366,16 @@ export function statusFor(error: unknown): number {
 	if (error instanceof MemberStandingRequiredError || error instanceof GrantExceedsMemberStandingError) {
 		return 403;
 	}
-	if (error instanceof TaskNotFoundError || error instanceof WorkerNotRegisteredError) {
+	if (
+		error instanceof TaskNotFoundError ||
+		error instanceof WorkerNotRegisteredError ||
+		error instanceof ComputerActionNotFoundError ||
+		error instanceof ComputerNotFoundError
+	) {
 		return 404;
+	}
+	if (error instanceof ComputerActionNotClaimedError) {
+		return 409;
 	}
 	if (error instanceof StaleAttemptError ||
 		error instanceof TurnClaimDeniedError) {

@@ -213,3 +213,31 @@ export function refusalKey(tenantId: string, refusalId: string): { pk: string; s
 		sk: `REFUSAL#${refusalId}`,
 	};
 }
+
+/**
+ * Build partition and sort keys for one computer action. All actions of an organization share one partition, so the host
+ * lists what is open for its computer with one query.
+ * @param tenantId Organization tenant ID.
+ * @param actionId Action ID.
+ * @returns Partition and sort keys.
+ */
+export function computerActionKey(tenantId: string, actionId: string): { pk: string; sk: string } {
+	return {
+		pk: `${tenantId}#computer#actions`,
+		sk: `act#${actionId}`,
+	};
+}
+
+/**
+ * Build partition and sort keys for the index item that finds a turn's computer action by the Pi tool call id.
+ * @param tenantId Organization tenant ID.
+ * @param turnId Turn ID.
+ * @param callId The Pi tool call id.
+ * @returns Partition and sort keys.
+ */
+export function turnActionIndexKey(tenantId: string, turnId: string, callId: string): { pk: string; sk: string } {
+	return {
+		pk: `${tenantId}#turn#${turnId}`,
+		sk: `act#${callId}`,
+	};
+}

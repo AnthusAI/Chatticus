@@ -312,6 +312,28 @@ export class DynamoTurnControlStore implements TurnControlStore {
 		});
 	}
 
+	async resumeTurn(tenantId: string, turnId: string): Promise<Turn | null> {
+		try {
+			const result = await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: this.metaKey(tenantId, turnId),
+					UpdateExpression: "REMOVE waiting_for, waiting_since, pending_computer_tool",
+					ConditionExpression: "attribute_exists(pk) AND #status = :active AND attribute_exists(waiting_for)",
+					ExpressionAttributeNames: { "#status": "status" },
+					ExpressionAttributeValues: { ":active": { S: ACTIVE_STATUS } },
+					ReturnValues: "ALL_NEW",
+				}),
+			);
+			return turnFromItem(result.Attributes!);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return null;
+			}
+			throw error;
+		}
+	}
+
 	async beginClosing(tenantId: string, turnId: string, attemptId: string): Promise<void> {
 		try {
 			await this.client.send(

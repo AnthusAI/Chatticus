@@ -8,6 +8,8 @@ import {
 } from "../domain/turns.ts";
 import type { TurnProbeMessage, TurnProbeQueue, TurnRunJob, TurnRunQueue } from "../domain/turn-admission.ts";
 import type { FaultPlan } from "./fault-plan.ts";
+import { type ComputerHandoffDependencies, settleParkedTurn } from "./park.ts";
+import type { MessagingStore } from "../store/messaging-store.ts";
 
 /** The longest an SQS delay queue holds a message back. */
 export const MAXIMUM_PROBE_DELAY_SECONDS = 900;
@@ -108,6 +110,9 @@ export type ProbeDependencies = {
 	readonly turnRuns: TurnRunQueue;
 	readonly turnProbes: TurnProbeQueue;
 	readonly submissions: SubmissionInspector;
+	/** The stores that route computer work, read when a probe finds a turn parked on a computer action. */
+	readonly messaging: MessagingStore;
+	readonly computer: ComputerHandoffDependencies;
 	readonly maximumRecoveryAttempts?: number;
 	readonly faults?: FaultPlan;
 };
@@ -154,7 +159,9 @@ async function handleUnownedTurn(deps: ProbeDependencies, turn: Turn): Promise<v
  * Handle one deadline probe. A probe checks the turn itself, so nothing ever cancels one:
  *
  * - a finished turn drops it;
- * - a turn waiting on a gate is watched again, and failed once it has waited past the limit;
+ * - a turn waiting on a gate is first settled (an action the host answered, or one whose host was lost, resumes it; an
+ *   action no host has claimed asks for a host start again), then watched again, and failed once it has waited past the
+ *   limit;
  * - a live lease is watched again when it runs out, and so is a turn that no attempt holds (just recovered, or handed on)
  *   until its deadline;
  * - an expired lease means the owner vanished: the turn is resumed within the recovery budget, finished when its
@@ -173,6 +180,7 @@ export async function handleProbe(deps: ProbeDependencies, message: TurnProbeMes
 	const now = deps.turns.clock.now();
 	if (turn.waitingFor !== null) {
 		if (superseded) return;
+		if (await settleParkedTurn(deps, turn)) return;
 		const since = turn.waitingSince ?? turn.deadlineAt ?? now;
 		const remaining = WAITING_LIMIT_SECONDS - secondsBetween(now, since);
 		if (remaining <= 0) {

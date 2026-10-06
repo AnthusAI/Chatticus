@@ -60,7 +60,7 @@ function botOf(world: ChatticusWorld, name: string): { botId: string; tenantId: 
 }
 
 /** The human who created the bot, ryan unless a step says otherwise, opens a channel with the bot and posts the message; the scripted model obeys it. */
-async function askBot(world: ChatticusWorld, botName: string, message: string): Promise<void> {
+export async function askBot(world: ChatticusWorld, botName: string, message: string): Promise<void> {
 	const bot = botOf(world, botName);
 	assert.ok(world.api, "The scenario has no HTTP front door.");
 	const userId = world.botCreatorUserIds.get(botName) ?? "ryan";
@@ -106,7 +106,8 @@ When(
 When(
 	"bot {string} runs one capability-aware computerless worker turn",
 	async function (this: ChatticusWorld, botName: string) {
-		assert.equal(await runBotTurn(this, botName), "done");
+		const outcome = await runBotTurn(this, botName);
+		assert.ok(outcome === "done" || outcome === "parked", `The turn ended ${outcome}`);
 	},
 );
 

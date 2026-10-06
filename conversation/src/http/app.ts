@@ -38,6 +38,8 @@ import { DEFAULT_STREAM_TIMING, type StreamClock, type StreamTiming, wallStreamC
 import { integrationTestSessionHandler } from "./routes/integration-test.ts";
 import { operatorOrganizationHandler } from "./routes/operator.ts";
 import { heartbeatWorkerHandler, registerWorkerHandler } from "./routes/workers.ts";
+import { claimActionHandler, getComputerHandler, postActionResultHandler, resumeTurnHandler } from "./routes/computers.ts";
+import type { ComputerHandoffDependencies } from "../turn/park.ts";
 import { createUserMembershipCache } from "./user-principal.ts";
 
 export interface Clock {
@@ -66,6 +68,8 @@ export interface AppDeps {
 	turnControl: TurnControlStore;
 	/** Member standing ceilings, read when a member replaces a turn's grant. */
 	policy: PolicyStore;
+	/** The computer handoff: actions, start jobs and the spend pause, behind the resume and host action routes. */
+	computer: ComputerHandoffDependencies;
 	/** The month-to-date rollup rows the spend ceiling pause reads; the budget environment is `environment`. */
 	budgetRollups: BudgetRollupReader;
 	invokeKey: string | null;
@@ -250,6 +254,34 @@ export function createApp(deps: AppDeps): Hono {
 
 	declareRoute(app, { method: "PUT", path: "/orgs/:tenant_id/turns/:turn_id/grant", audience: "user" }, (c) =>
 		putTurnGrantHandler(c, { ...turnRoutes, store, policyStore: deps.policy }),
+	);
+
+	const computerRoutes = {
+		...userRoutes,
+		park: {
+			turns: turnRoutes.turns,
+			messaging: store,
+			turnRuns: deps.messages.turnRuns,
+			turnProbes: deps.messages.turnProbes,
+			computer: deps.computer,
+			faults: deps.messages.faults,
+		},
+	};
+
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/computer", audience: "user" }, (c) =>
+		getComputerHandler(c, computerRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/users/:user_id/computer", audience: "user" }, (c) =>
+		getComputerHandler(c, computerRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/turns/:turn_id/resume", audience: "user" }, (c) =>
+		resumeTurnHandler(c, computerRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/actions/claim", audience: "worker" }, (c) =>
+		claimActionHandler(c, computerRoutes),
+	);
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/actions/:action_id/result", audience: "worker" }, (c) =>
+		postActionResultHandler(c, computerRoutes),
 	);
 
 	const workerRoutes = { store, clock: deps.clock, ids: deps.ids };

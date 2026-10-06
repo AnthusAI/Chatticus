@@ -1,4 +1,5 @@
 import { ChangeMessageVisibilityCommand, SendMessageCommand, type SQSClient } from "@aws-sdk/client-sqs";
+import type { ComputerStartJob, ComputerStartQueue } from "../domain/computer-start.ts";
 import type {
 	TurnProbeMessage,
 	TurnProbeQueue,
@@ -62,5 +63,20 @@ export class SqsRunVisibility implements TurnRunVisibility {
 				VisibilityTimeout: RUN_VISIBILITY_SECONDS,
 			}),
 		);
+	}
+}
+
+/** ComputerStartJobs over SQS. */
+export class SqsComputerStartQueue implements ComputerStartQueue {
+	private readonly client: SQSClient;
+	private readonly queueUrl: string;
+
+	constructor(client: SQSClient, queueUrl: string) {
+		this.client = client;
+		this.queueUrl = queueUrl;
+	}
+
+	async enqueue(job: ComputerStartJob): Promise<void> {
+		await this.client.send(new SendMessageCommand({ QueueUrl: this.queueUrl, MessageBody: JSON.stringify(job) }));
 	}
 }
