@@ -32,17 +32,28 @@
         "platform": "claude-code",
         "model": "claude-sonnet-5-5"
       }
+    },
+    {
+      "id": "161e36be-9271-4837-a68a-6f965bd8ee0f",
+      "author": "home",
+      "text": "(13) From the TS-21 investigation: add scenarios for (a) a recovered attempt not double-counting spend (re-run of a turn after a lease takeover must not add the same usage twice: the delta over ledger_input_recorded and ledger_output_recorded under the attempt fence is the mechanism, and nothing tests it), and (b) the terminal-failure spend recording path (executor.ts ~line 258). Both with mutation checks. Add to vendor_ledger.feature as new scenarios or a new feature file.",
+      "created_at": "2026-10-06T04:31:28.889071Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5"
+      }
     }
   ],
   "created_at": "2026-10-05T22:27:46.472966Z",
-  "updated_at": "2026-10-06T00:15:53.152986Z",
+  "updated_at": "2026-10-06T04:31:28.889114Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "Recent work fixed items 4–6; gaps remain in routes, policy, Cognito, assertions, coverage, and CI.",
-  "right_now_updated_at": "2026-10-06T00:15:55.515638Z",
+  "right_now_summary": "Some audit fixes landed, but policy checks, route realism, assertions, coverage, and re-audit still need work.",
+  "right_now_updated_at": "2026-10-06T04:31:31.574208Z",
   "custom": {}
 }

@@ -9,12 +9,7 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-08851f35-bbe3-41a6-b791-3d0b70b20c4c",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "72f62c3b-7f4d-41eb-bf20-04dae175e2f1",
@@ -25,14 +20,14 @@
     }
   ],
   "created_at": "2026-10-05T15:45:40.656811Z",
-  "updated_at": "2026-10-06T03:48:01.177164Z",
+  "updated_at": "2026-10-06T04:31:33.778024Z",
   "closed_at": "2026-10-06T03:48:01.177093Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "Voice understanding and the voice-messages route have cucumber coverage, replay handling, and seven mutation checks.",
-  "right_now_updated_at": "2026-10-06T03:48:05.333279Z",
+  "right_now_summary": "Voice understanding and the voice-messages route are merged, with cucumber coverage and mutation checks passing.",
+  "right_now_updated_at": "2026-10-06T04:31:35.907642Z",
   "custom": {}
 }
