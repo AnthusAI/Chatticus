@@ -1,15 +1,17 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-
-/** Time source for the probe loop; tests inject a virtual clock. */
-export interface SseProbeClock {
-	now(): number;
-	sleep(milliseconds: number, signal: AbortSignal): Promise<void>;
-}
+import {
+	cursorFromLastEventId,
+	HEARTBEAT_FRAME,
+	InvalidLastEventIdError,
+	type StreamClock,
+	wallStreamClock,
+	writeFrameUnlessStalled,
+} from "./stream.ts";
 
 /** Tunables for the probe stream; defaults match the front door design. */
 export interface SseProbeOptions {
-	clock: SseProbeClock;
+	clock: StreamClock;
 	heartbeatIntervalMilliseconds: number;
 	eventIntervalMilliseconds: number;
 	maximumStreamMilliseconds: number;
@@ -17,60 +19,17 @@ export interface SseProbeOptions {
 	log: (line: string) => void;
 }
 
-/** Raised for a Last-Event-ID that is not a decimal integer. */
-export class InvalidLastEventIdError extends Error {}
-
 const TERMINAL_KIND = "probe.completed";
-const HEARTBEAT_FRAME = ": heartbeat\n\n";
-
-/** Real wall clock whose sleep ends early when the signal aborts. */
-export const wallClock: SseProbeClock = {
-	now: () => Date.now(),
-	sleep: (milliseconds, signal) =>
-		new Promise((resolve) => {
-			if (signal.aborted) {
-				resolve();
-				return;
-			}
-			const timer = setTimeout(done, milliseconds);
-			function done(): void {
-				clearTimeout(timer);
-				signal.removeEventListener("abort", done);
-				resolve();
-			}
-			signal.addEventListener("abort", done, { once: true });
-		}),
-};
 
 /** Production defaults: 15 s heartbeat, 840 s lifetime, under the 900 s limit. */
 export const defaultSseProbeOptions: SseProbeOptions = {
-	clock: wallClock,
+	clock: wallStreamClock,
 	heartbeatIntervalMilliseconds: 15_000,
 	eventIntervalMilliseconds: 1_000,
 	maximumStreamMilliseconds: 840_000,
 	writeStallMilliseconds: 10_000,
 	log: (line) => console.log(line),
 };
-
-/**
- * Parse a Last-Event-ID header into an exclusive seq cursor.
- * Missing or blank means 0; anything but decimal digits throws.
- */
-export function cursorFromLastEventId(headerValue: string | undefined): number {
-	if (headerValue === undefined) {
-		return 0;
-	}
-	const stripped = headerValue.trim();
-	if (stripped === "") {
-		return 0;
-	}
-	if (!/^[0-9]+$/.test(stripped)) {
-		throw new InvalidLastEventIdError(
-			`Last-Event-ID '${headerValue}' is not a sequence.`,
-		);
-	}
-	return Number.parseInt(stripped, 10);
-}
 
 /** Format one frame exactly as the Python control plane does: event, id, data. */
 export function formatProbeFrame(
@@ -80,27 +39,6 @@ export function formatProbeFrame(
 ): string {
 	const data = JSON.stringify({ kind, seq, ...payload });
 	return `event: ${kind}\nid: ${seq}\ndata: ${data}\n\n`;
-}
-
-/**
- * Write one frame, resolving false when the write does not settle within the
- * stall window. Under hono/aws-lambda streamHandle a client disconnect never
- * cancels the response body, so onAbort does not fire; the transform stream
- * then applies backpressure forever and the pending write is the only signal.
- */
-async function writeFrameUnlessStalled(
-	stream: { write(frame: string): Promise<unknown> },
-	frame: string,
-	stallMilliseconds: number,
-): Promise<boolean> {
-	let stallTimer: NodeJS.Timeout | undefined;
-	const stalled = new Promise<boolean>((resolve) => {
-		stallTimer = setTimeout(() => resolve(true), stallMilliseconds);
-	});
-	const written = stream.write(frame).then(() => false);
-	const didStall = await Promise.race([written, stalled]);
-	clearTimeout(stallTimer);
-	return !didStall;
 }
 
 /**
@@ -143,6 +81,7 @@ export function createSseProbeApp(options: SseProbeOptions): Hono {
 					stream,
 					frame,
 					options.writeStallMilliseconds,
+					options.clock,
 				);
 				if (!written && !abortController.signal.aborted) {
 					options.log("sse-probe write stalled");
@@ -188,6 +127,7 @@ export function createSseProbeApp(options: SseProbeOptions): Hono {
 				await options.clock.sleep(
 					Math.min(untilEvent, untilHeartbeat),
 					abortController.signal,
+					"poll",
 				);
 			}
 		});

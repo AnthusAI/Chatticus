@@ -1,7 +1,8 @@
 import { Writable } from "node:stream";
 import { streamHandle } from "hono/aws-lambda";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createSseProbeApp, wallClock } from "../src/http/sse-probe.ts";
+import { createSseProbeApp } from "../src/http/sse-probe.ts";
+import { wallStreamClock } from "../src/http/stream.ts";
 
 interface RecordedResponseMetadata {
 	statusCode: number;
@@ -120,7 +121,7 @@ describe("front door under the emulated Lambda response stream runtime", () => {
 		const disconnectLogged: string[] = [];
 		const disconnectHandler = streamHandle(
 			createSseProbeApp({
-				clock: wallClock,
+				clock: wallStreamClock,
 				heartbeatIntervalMilliseconds: 15_000,
 				eventIntervalMilliseconds: 20,
 				maximumStreamMilliseconds: 840_000,

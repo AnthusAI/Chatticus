@@ -38,3 +38,5 @@ features/bot_roster_durability.feature
 features/model_provider_failures.feature
 features/vendor_ledger.feature
 features/turn_execution.feature
+features/realtime_api.feature
+features/turn_stream_replay.feature

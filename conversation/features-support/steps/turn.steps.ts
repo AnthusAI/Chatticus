@@ -19,18 +19,18 @@ import { TURN_RUN_QUEUE } from "../front-door.ts";
 import { memberGet, memberPost } from "../org-user-client.ts";
 import type { ChatticusWorld } from "../world.ts";
 
-function openChannelOf(world: ChatticusWorld): { channelId: string; tenantId: string } {
+export function openChannelOf(world: ChatticusWorld): { channelId: string; tenantId: string } {
 	assert.ok(world.lastChannel, "No channel has been opened");
 	return world.lastChannel;
 }
 
-function botNamed(world: ChatticusWorld, name: string): { botId: string; name: string; tenantId: string } {
+export function botNamed(world: ChatticusWorld, name: string): { botId: string; name: string; tenantId: string } {
 	const bot = world.botsByName?.get(name);
 	assert.ok(bot, `Bot ${name} not found`);
 	return bot;
 }
 
-function currentTurnId(world: ChatticusWorld): string {
+export function currentTurnId(world: ChatticusWorld): string {
 	assert.ok(world.lastTurnId, "The last post started no turn");
 	return world.lastTurnId;
 }
@@ -42,7 +42,7 @@ async function channelHuman(world: ChatticusWorld): Promise<string> {
 	return response.json.user_id;
 }
 
-async function postToBot(world: ChatticusWorld, botName: string, body: string, enqueueTurn: boolean): Promise<void> {
+export async function postToBot(world: ChatticusWorld, botName: string, body: string, enqueueTurn: boolean): Promise<void> {
 	const channel = openChannelOf(world);
 	const payload: Record<string, unknown> = {
 		author_kind: "human",
@@ -60,11 +60,11 @@ async function postToBot(world: ChatticusWorld, botName: string, body: string, e
 	world.lastTurnId = response.json.turn_id;
 }
 
-async function claimAs(world: ChatticusWorld, tenantId: string, turnId: string, owner: string): Promise<TurnClaim | null> {
+export async function claimAs(world: ChatticusWorld, tenantId: string, turnId: string, owner: string): Promise<TurnClaim | null> {
 	return claimTurn(world.turnDependencies(), tenantId, turnId, world.ids.next(), owner);
 }
 
-async function completeAs(world: ChatticusWorld, tenantId: string, turnId: string, attemptId: string, body: string) {
+export async function completeAs(world: ChatticusWorld, tenantId: string, turnId: string, attemptId: string, body: string) {
 	const turn = await getTurn(world.turnDependencies(), tenantId, turnId);
 	const messageSeq = await allocateSeq(
 		{ client: world.messagingTable.client, tableName: world.messagingTable.tableName },
