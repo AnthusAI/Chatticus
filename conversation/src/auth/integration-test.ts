@@ -126,7 +126,9 @@ export async function relayStsGetCallerIdentityArn(request: Request): Promise<st
 			forwarded[key] = value;
 		}
 	});
-	if (!Object.keys(forwarded).some((key) => key.toLowerCase() === "authorization")) {
+	const forwardedHeaderNames = Object.keys(forwarded).sort();
+	if (!forwardedHeaderNames.some((key) => key.toLowerCase() === "authorization")) {
+		warnStsRelayFailure({ reason: "no_authorization_header", forwardedHeaderNames });
 		return null;
 	}
 	let response: Response;
@@ -135,17 +137,39 @@ export async function relayStsGetCallerIdentityArn(request: Request): Promise<st
 			headers: forwarded,
 			signal: AbortSignal.timeout(10000),
 		});
-	} catch {
+	} catch (error) {
+		warnStsRelayFailure({
+			reason: "fetch_failed",
+			forwardedHeaderNames,
+			errorName: error instanceof Error ? error.name : typeof error,
+			errorMessage: error instanceof Error ? error.message : String(error),
+		});
 		return null;
 	}
+	const body = await response.text();
 	if (response.status !== 200) {
+		warnStsRelayFailure({ reason: "non_200", forwardedHeaderNames, status: response.status, bodySnippet: body.slice(0, 300) });
 		return null;
 	}
-	const match = /<Arn>([^<]+)<\/Arn>/.exec(await response.text());
+	const match = /<Arn>([^<]+)<\/Arn>/.exec(body);
 	if (match === null || match[1] === undefined || match[1].trim() === "") {
+		warnStsRelayFailure({ reason: "no_arn_in_response", forwardedHeaderNames, status: response.status, bodySnippet: body.slice(0, 300) });
 		return null;
 	}
 	return match[1].trim();
+}
+
+type StsRelayFailure = {
+	reason: "no_authorization_header" | "fetch_failed" | "non_200" | "no_arn_in_response";
+	forwardedHeaderNames: string[];
+	status?: number;
+	errorName?: string;
+	errorMessage?: string;
+	bodySnippet?: string;
+};
+
+function warnStsRelayFailure(failure: StsRelayFailure): void {
+	console.warn(JSON.stringify({ event: "sts_relay_failed", ...failure }));
 }
 
 /** The partition, account and role name an IAM role ARN or an STS assumed-role ARN identifies; the path and session are ignored. */
