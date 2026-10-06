@@ -24,6 +24,10 @@ export interface Computer {
 	intendedHostWorkerId?: string;
 	/** The one host holding the right to write the live disk, until the next host start generation clears it. */
 	liveWriterHostId?: string;
+	/** When the control plane found the host of this computer gone and settled its record; the unpublished writes were lost. */
+	hostLostAt?: Date;
+	/** The host start generation whose host was found gone. */
+	hostLostGeneration?: number;
 }
 
 export type Item = Record<string, AttributeValue>;
@@ -67,6 +71,12 @@ export function encode(value: Computer): Item {
 	}
 	if (value.liveWriterHostId !== undefined) {
 		item.live_writer_host_id = { S: value.liveWriterHostId };
+	}
+	if (value.hostLostAt !== undefined) {
+		item.host_lost_at = { N: String(Math.floor(value.hostLostAt.getTime() / 1000)) };
+	}
+	if (value.hostLostGeneration !== undefined) {
+		item.host_lost_generation = { N: String(value.hostLostGeneration) };
 	}
 
 	return item;
@@ -135,5 +145,7 @@ export function decode(item: Item): Computer {
 		snapshotChecksum: item.snapshot_checksum?.S,
 		intendedHostWorkerId: item.intended_host_worker_id?.S,
 		liveWriterHostId: item.live_writer_host_id?.S,
+		hostLostAt: item.host_lost_at?.N ? new Date(Number(item.host_lost_at.N) * 1000) : undefined,
+		hostLostGeneration: item.host_lost_generation?.N ? Number(item.host_lost_generation.N) : undefined,
 	};
 }

@@ -91,6 +91,7 @@ features/agent_terminal.feature
 features/chromium_host_executor.feature
 features/computer_host_readiness.feature
 features/computer_host_disk_lifecycle.feature
+features/computer_host_loss_reconciliation.feature
 features/computer_host_workspace_recycle.feature
 features/computer_host_workspace_executor_host_worker.feature
 features/agent_terminal_host_worker.feature

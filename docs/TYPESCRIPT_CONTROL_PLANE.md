@@ -651,6 +651,19 @@ record (`disk_dirty`, `hydrate_required`, `live_writer_host_id`).
   belongs to the wedged generation. The lock is not tied to action claims: the
   claim path does not acquire it, so a replacement host cannot be refused
   because a dead host still holds it. Nothing else clears it.
+- **Host loss reconciliation.** A record can claim a host (`disk_dirty` set or
+  `live_writer_host_id` present) after that host died without cleaning up.
+  `requestComputerHostStart` settles this before it begins a generation. The
+  host is gone when no worker with the `computer` capability for this
+  computer has a heartbeat inside `heartbeatTimeoutSeconds`, or none is
+  registered; a host with a fresh heartbeat is never touched. The settle is one
+  conditional update, applied only while `host_start_generation` is unchanged
+  and the record still claims a host. It marks the computer stopped, clears the
+  readiness gates, `disk_dirty` and the lock, sets `hydrate_required` only when
+  a snapshot exists to hydrate from, and records `hostLostAt` and
+  `hostLostGeneration` as the audit trail. Computer actions the lost host left
+  in flight are settled by the existing `expireLostComputerActions`, which runs
+  before the start request.
 
 ### 4.4 The parked-tool handoff (Lambda owner to computer)
 

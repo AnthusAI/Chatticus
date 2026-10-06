@@ -94,6 +94,7 @@ export async function composeComputerStarterDependencies(
 		clock,
 		ids,
 		spend: { store, rollups, environment, clock },
+		heartbeatTimeoutSeconds: DEFAULT_HEARTBEAT_TIMEOUT_SECONDS,
 		actions,
 		driver: hostStartDriverFor(
 			hostStarterFromEnvironment(async (tenantId) => {

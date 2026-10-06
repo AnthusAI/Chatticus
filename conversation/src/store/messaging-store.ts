@@ -77,6 +77,15 @@ export interface MessagingStore {
 	 */
 	claimHostStartGeneration(tenantId: string, expectedGeneration: number, leaseExpiresAt: Date): Promise<Computer | null>;
 	/**
+	 * Settle the record of a computer whose host is gone, only while the stored generation is still `expectedGeneration`
+	 * and the record still claims a host (unpublished disk writes or a live-writer lock): mark it stopped with every
+	 * readiness gate cleared, clear the dirty flag and the lock, set `hydrateRequired`, and record `hostLostAt` and
+	 * `hostLostGeneration`.
+	 *
+	 * @returns The computer after the change, or null when the generation moved or the record claims no host.
+	 */
+	settleLostComputerHost(tenantId: string, expectedGeneration: number, lostAt: Date, hydrateRequired: boolean): Promise<Computer | null>;
+	/**
 	 * Mark the live disk of the computer as holding writes no snapshot has published, without touching any other field.
 	 *
 	 * @returns false when the organization has no computer.

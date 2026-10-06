@@ -148,7 +148,40 @@ export type HostStartDependencies = {
 	readonly clock: Clock;
 	readonly ids: IdSource;
 	readonly spend: SpendPauseDependencies;
+	/** Seconds without a heartbeat after which a host is taken to be gone. */
+	readonly heartbeatTimeoutSeconds: number;
 };
+
+/**
+ * Settle the record of a computer whose host is gone. The record claims a host when the disk holds unpublished writes or
+ * a live-writer lock is held; the host is gone when no worker that advertises this computer and the computer capability
+ * has a heartbeat within `heartbeatTimeoutSeconds` (a host killed before it could report, a crash, a spot reclaim). The
+ * unpublished writes died with the host, so the record is marked stopped, the lock released, the dirty flag cleared, and
+ * the live disk marked to be rebuilt from the last published snapshot (`hydrateRequired`, only when one exists; with no
+ * snapshot the next disk is empty). `hostLostAt` and `hostLostGeneration` keep the loss visible. A host that is merely
+ * slow, with a heartbeat inside the timeout, is left alone.
+ *
+ * @returns The settled computer, or null when nothing needed settling or another caller moved the record first.
+ */
+export async function settleComputerIfHostLost(
+	deps: Pick<HostStartDependencies, "store" | "clock" | "heartbeatTimeoutSeconds">,
+	computer: Computer,
+): Promise<Computer | null> {
+	if (!computer.diskDirty && computer.liveWriterHostId === undefined) {
+		return null;
+	}
+	const now = deps.clock.now();
+	const hostIsAlive = (await deps.store.listWorkers(computer.tenantId)).some(
+		(worker) =>
+			worker.computerId === computer.computerId &&
+			worker.capabilities.includes("computer") &&
+			now.getTime() - worker.lastHeartbeatAt.getTime() <= deps.heartbeatTimeoutSeconds * 1000,
+	);
+	if (hostIsAlive) {
+		return null;
+	}
+	return deps.store.settleLostComputerHost(computer.tenantId, computer.hostStartGeneration, now, computer.snapshotUri !== undefined);
+}
 
 /**
  * Ask for a host start. Callers that find a live start lease share its generation; the one caller that begins a new
@@ -156,7 +189,8 @@ export type HostStartDependencies = {
  * only one that starts a host.
  *
  * Ported from python/src/chatticus/control_plane.py lines 2701-2753, without the in-process claim dictionary: the
- * computer record is the single source of truth.
+ * computer record is the single source of truth. Before it begins a generation it settles a record whose host is gone
+ * (`settleComputerIfHostLost`), so a killed host never leaves the new start facing a dirty disk that no longer exists.
  *
  * @param deps Store, clock, identifiers and the spend pause inputs.
  * @param tenantId Organization.
@@ -188,6 +222,7 @@ export async function requestComputerHostStart(
 				newlyClaimed: false,
 			};
 		}
+		await settleComputerIfHostLost(deps, computer);
 		const expiresAt = new Date(now.getTime() + HOST_START_LEASE_SECONDS * 1000);
 		const claimed = await deps.store.claimHostStartGeneration(tenantId, computer.hostStartGeneration, expiresAt);
 		if (claimed !== null) {

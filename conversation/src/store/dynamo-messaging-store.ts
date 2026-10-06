@@ -548,6 +548,36 @@ export class DynamoMessagingStore implements MessagingStore {
 		}
 	}
 
+	async settleLostComputerHost(tenantId: string, expectedGeneration: number, lostAt: Date, hydrateRequired: boolean): Promise<Computer | null> {
+		try {
+			const response = await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					UpdateExpression:
+						"SET stopped = :stopped, model_ready = :off, workspace_ready = :off, browser_ready = :off, disk_dirty = :off, hydrate_required = :hydrate, host_lost_at = :lostAt, host_lost_generation = :generation REMOVE live_writer_host_id",
+					ConditionExpression:
+						"attribute_exists(pk) AND host_start_generation = :generation AND (disk_dirty = :on OR attribute_exists(live_writer_host_id))",
+					ExpressionAttributeValues: {
+						":stopped": { BOOL: true },
+						":off": { BOOL: false },
+						":on": { BOOL: true },
+						":hydrate": { BOOL: hydrateRequired },
+						":lostAt": { N: String(Math.floor(lostAt.getTime() / 1000)) },
+						":generation": { N: String(expectedGeneration) },
+					},
+					ReturnValues: "ALL_NEW",
+				}),
+			);
+			return computerCodec.decode(response.Attributes!);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return null;
+			}
+			throw error;
+		}
+	}
+
 	async markComputerDiskDirty(tenantId: string): Promise<boolean> {
 		try {
 			await this.client.send(
