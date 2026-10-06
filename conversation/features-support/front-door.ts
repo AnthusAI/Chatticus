@@ -4,6 +4,7 @@ import { createApp } from "../src/http/app.ts";
 import { DEFAULT_STREAM_TIMING } from "../src/http/stream.ts";
 import type { CommitObject } from "../src/storage/indexed-storage.ts";
 import { MessageBodyCache } from "../src/pi/message-cache.ts";
+import { DynamoWriteGate } from "../src/migration/migration-state.ts";
 import { DynamoPolicyStore } from "../src/store/policy-store.ts";
 import { DynamoTurnAdmission } from "../src/store/turn-admission-store.ts";
 import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
@@ -28,6 +29,8 @@ export type FrontDoorOptions = {
 	invokeKey?: string | null;
 	operatorKey?: string;
 	integrationTest?: IntegrationTestAuthConfig | null;
+	/** Serve write routes through the transcript migration write gate kept in the scenario's Messaging table. */
+	migrationGate?: boolean;
 };
 
 /** The scenario's Cognito test keys, generated on first use. */
@@ -77,6 +80,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		streamClock: world.streamClock,
 		openStreams: world.openStreams,
 		invokeKey: options.invokeKey ?? null,
+		writeGate: options.migrationGate === true ? new DynamoWriteGate(world.messagingTable.client, world.messagingTable.tableName) : undefined,
 		operatorKey: options.operatorKey ?? "",
 		integrationTest: options.integrationTest ?? null,
 		environment: options.environment ?? DEFAULT_FRONT_DOOR_ENVIRONMENT,
