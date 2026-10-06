@@ -74,6 +74,7 @@ Given(
 		const bot = await createBot(tenantId, name, { creatorUserId: userId }, { store: this.messagingStore(), ids: this.ids });
 		this.botsById?.set(bot.botId, bot);
 		this.botsByName?.set(name, bot);
+		this.botCreatorUserIds.set(name, userId);
 	},
 );
 

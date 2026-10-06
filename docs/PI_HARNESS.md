@@ -694,3 +694,50 @@ The staged plan stands:
   its reads are consistent.
 - API stability of an experimental 1.0.x package, and how far we depend on
   internals (the storage format) rather than the documented interface.
+
+## Measured for the turn executor
+
+Facts the TypeScript turn executor (`conversation/src/turn/`) relies on, each
+checked against pi-durable and pi-ai 1.0.2 on moto.
+
+- **A scripted model.** `fauxProvider` replaces every answer's usage with an
+  estimate from the prompt, so a scenario cannot script token counts with it.
+  `conversation/features-support/fakes/scripted-provider.ts` builds a provider
+  with `createProvider` and `createAssistantMessageEventStream` instead: text
+  streamed in small deltas, tool calls, a held request, and failures shaped like
+  the OpenAI SDK's.
+- **A failed model call settles `unanswered`.** The settled input has
+  `status: "unanswered"`, `reason: "model_error"` and the provider text in
+  `detail` (for example `OpenAI API error (429): {"message":...,"code":"insufficient_quota"}`).
+  It is not an answer whose stop reason is `error`. Pi does not retry 401, 403
+  and 429 `insufficient_quota`; it retries 429 `rate_limit_exceeded` and
+  transport failures (four calls with `maxRetries: 2`) and then settles the same way.
+- **`watchEvents` order for one answer with a tool round.** `message_start` and
+  `message_end` (user entry), `submission`, `run_start`, `turn_start`, the
+  assistant message (`message_start`, `message_update` batches of `text_delta`,
+  `message_end`), `tool_execution_start`, `tool_execution_end`, `turn_end`,
+  `turn_start`, the final assistant message, `turn_end`, `run_end`,
+  `submission` (settled), `usage_changed`. An assistant `message_start` already
+  carries the text streamed so far, and updates arrive about every 100 ms, so a
+  consumer that ignores the start loses the first words and a fast model may
+  deliver no update at all.
+- **Delivery is asynchronous and lossy at the edges.** Batches reach the
+  listener on a microtask after the commit, `stop()` discards undelivered
+  batches, and a throwing listener ends the watch. The executor waits for the
+  batch that carries the last input's settlement before it ends the turn.
+- **A stale owner never settles.** After another owner raises the fence, the
+  stale owner's `submission.wait()` stays pending forever. Detect it by the
+  lease renewal (a compare-and-set on the attempt) and close the harness.
+- **A poisoned session is visible only to the next call.** After
+  `CommitOutcomeUnknown` (or any commit failure after storage admission) Pi
+  rejects every later call with `Session is poisoned by a failed commit after
+  storage admission` whose `cause` is the original error, while the waiting
+  submission does not settle. A commit with no writes (`harness.commit(() =>
+  undefined)`) is free and throws that error, so the executor probes with it on
+  every pass and unwraps the cause chain.
+- **Usage of a turn** is the sum of the assistant entries from the prompt entry
+  on (`root.entries({ minEntryId })`); `pi.usage` is per conversation and spans
+  turns, so it cannot be diffed against a per-turn ledger counter.
+- **Idempotent resubmission.** `submit` with a `requestId` that already exists
+  returns that submission whatever content is passed, so a resumed owner can
+  attach to the prompt of an interrupted turn with an empty content.

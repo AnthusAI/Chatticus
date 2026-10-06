@@ -50,6 +50,22 @@ export class QueueRecorder {
 	}
 
 	/**
+	 * Remove and return the first pending message of a queue that satisfies a predicate.
+	 *
+	 * @param queue Queue name.
+	 * @param predicate Whether a message body is the one wanted.
+	 * @returns The message, or null when none matches.
+	 */
+	take(queue: string, predicate: (body: unknown) => boolean): QueuedMessage | null {
+		const messages = this.queues.get(queue) ?? [];
+		const index = messages.findIndex((message) => predicate(message.body));
+		if (index < 0) {
+			return null;
+		}
+		return messages.splice(index, 1)[0]!;
+	}
+
+	/**
 	 * Drain a queue by processing all messages with a handler function.
 	 * Messages are removed from the queue as they are processed.
 	 *

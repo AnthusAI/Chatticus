@@ -168,6 +168,21 @@ export async function list(
 }
 
 /**
+ * Delete one mailbox item. Deleting an item that is already gone is not an error.
+ *
+ * @param store Table.
+ * @param item The item, which names its mailbox partition and sequence.
+ */
+export async function remove(store: MailboxStore, item: MailboxItem): Promise<void> {
+	await store.client.send(
+		new DeleteItemCommand({
+			TableName: store.tableName,
+			Key: { pk: { S: mailboxPartitionKey(item.tenantId, item.botId, item.channelId) }, sk: { S: mailboxSortKey(item.seq) } },
+		}),
+	);
+}
+
+/**
  * Hand every item to the handler in sequence order, deleting each one only after its handler resolved. A throwing
  * handler stops the drain and leaves that item and every later one in place.
  *
@@ -188,12 +203,7 @@ export async function drain(
 	let drained = 0;
 	for (const item of await list(store, tenantId, botId, channelId)) {
 		await handler(item);
-		await store.client.send(
-			new DeleteItemCommand({
-				TableName: store.tableName,
-				Key: { pk: { S: mailboxPartitionKey(tenantId, botId, channelId) }, sk: { S: mailboxSortKey(item.seq) } },
-			}),
-		);
+		await remove(store, item);
 		drained += 1;
 	}
 	return drained;

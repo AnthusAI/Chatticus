@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { allocateSeq } from "../../src/pi/mailbox.ts";
+import { executeTurn } from "../../src/turn/executor.ts";
+import type { TurnExecutionOutcome } from "../../src/turn/types.ts";
+import { executorDepsFor, modelScenarioOf, startBotTurn } from "../executor-harness.ts";
 import {
 	appendTurnEvent,
 	claimTurn,
@@ -77,6 +80,21 @@ async function turnEvents(world: ChatticusWorld, tenantId: string, turnId: strin
 	return response.json.events;
 }
 
+async function channelMessages(world: ChatticusWorld): Promise<Array<Record<string, any>>> {
+	const channel = openChannelOf(world);
+	const response = await recordResponse(await memberGet(world, `/orgs/${channel.tenantId}/channels/${channel.channelId}/messages`));
+	assert.equal(response.status, 200, response.text);
+	return response.json.messages;
+}
+
+async function eventually(condition: () => boolean, description: string): Promise<void> {
+	const deadline = Date.now() + 10_000;
+	while (!condition()) {
+		assert.ok(Date.now() < deadline, `Timed out waiting for ${description}`);
+		await new Promise((resolve) => setTimeout(resolve, 10));
+	}
+}
+
 async function rejection(operation: () => Promise<unknown>): Promise<Error> {
 	try {
 		await operation();
@@ -101,30 +119,47 @@ Given("one unfinished turn job is delivered twice", async function (this: Chatti
 		.filter((job) => job.botId === bot.botId);
 	assert.equal(jobs.length, 1);
 	this.deliveredTurnJobs = [jobs[0]!, jobs[0]!].map((job) => ({ tenantId: job.tenantId, turnId: job.turnId }));
-	this.modelAttemptCount = 0;
 });
 
 When("two workers try to process it concurrently", async function (this: ChatticusWorld) {
-	this.turnClaimOutcomes = await Promise.all(
-		this.deliveredTurnJobs.map(async (job, index) => {
-			const claim = await claimAs(this, job.tenantId, job.turnId, `worker-${index + 1}`);
-			if (claim !== null) {
-				this.modelAttemptCount += 1;
-			}
-			return { worker: `worker-${index + 1}`, attemptId: claim === null ? null : claim.attemptId };
+	const scenario = modelScenarioOf(this);
+	scenario.scripted.reply("final answer");
+	const hold = scenario.scripted.slow();
+	const bot = botNamed(this, "Assistant");
+	const finished: TurnExecutionOutcome[] = [];
+	const runs = this.deliveredTurnJobs.map(async (job, index) =>
+		executeTurn(
+			{ tenantId: job.tenantId, turnId: job.turnId, botId: bot.botId },
+			{ ...(await executorDepsFor(this, scenario)), workerLabel: `worker-${index + 1}` },
+		).then((outcome) => {
+			finished.push(outcome);
+			return outcome;
 		}),
 	);
+	await hold.reached;
+	await eventually(() => finished.length === 1, "the worker that did not win the claim to give up");
+	hold.release();
+	scenario.outcomes.push(...(await Promise.all(runs)));
 });
 
-Then("only one worker begins the model attempt", function (this: ChatticusWorld) {
-	assert.equal(this.modelAttemptCount, 1);
-	assert.equal(this.turnClaimOutcomes.filter((outcome) => outcome.attemptId !== null).length, 1);
+Then("only one worker begins the model attempt", async function (this: ChatticusWorld) {
+	const scenario = modelScenarioOf(this);
+	assert.equal(scenario.scripted.callCount, 1);
+	assert.deepEqual([...scenario.outcomes].sort(), ["done", "lost"]);
+	const job = this.deliveredTurnJobs[0]!;
+	const turn = await getTurn(this.turnDependencies(), job.tenantId, job.turnId);
+	assert.equal(turn.attempt, 1);
 });
 
 Then("only that attempt can append progress or completion", async function (this: ChatticusWorld) {
-	const winner = this.turnClaimOutcomes.find((outcome) => outcome.attemptId !== null);
-	assert.ok(winner?.attemptId);
 	const job = this.deliveredTurnJobs[0]!;
+	const turn = await getTurn(this.turnDependencies(), job.tenantId, job.turnId);
+	assert.ok(turn.attemptId);
+	const claims = (await turnEvents(this, job.tenantId, job.turnId)).filter((event) => event.kind === "attempt.claimed");
+	assert.deepEqual(
+		claims.map((event) => event.attempt_id),
+		[turn.attemptId],
+	);
 	const stranger = this.ids.next();
 	const progressError = await rejection(() =>
 		appendTurnEvent(this.turnDependencies(), job.tenantId, job.turnId, stranger, { kind: "turn.token", token: "extra" }),
@@ -132,38 +167,51 @@ Then("only that attempt can append progress or completion", async function (this
 	assert.ok(progressError instanceof StaleAttemptError);
 	const completionError = await rejection(() => completeAs(this, job.tenantId, job.turnId, stranger, "extra"));
 	assert.ok(completionError instanceof StaleAttemptError);
-	const accepted = await appendTurnEvent(this.turnDependencies(), job.tenantId, job.turnId, winner.attemptId, {
-		kind: "turn.token",
-		token: "progress",
-	});
-	assert.equal(accepted.token, "progress");
-	this.turnAttempts.set("owner", winner.attemptId);
+	this.turnAttempts.set("owner", turn.attemptId);
 });
 
 Then("the channel receives at most one final answer", async function (this: ChatticusWorld) {
 	const job = this.deliveredTurnJobs[0]!;
-	const owner = this.turnAttempts.get("owner");
-	assert.ok(owner);
-	await completeAs(this, job.tenantId, job.turnId, owner, "final answer");
-	const loser = await rejection(() => completeAs(this, job.tenantId, job.turnId, this.ids.next(), "second answer"));
-	assert.ok(loser instanceof StaleAttemptError);
 	const completions = (await turnEvents(this, job.tenantId, job.turnId)).filter((event) => event.kind === "turn.completed");
 	assert.equal(completions.length, 1);
 	assert.equal(completions[0]!.body, "final answer");
+	const answers = (await channelMessages(this)).filter((message) => message.author_kind === "bot");
+	assert.deepEqual(
+		answers.map((message) => message.body),
+		["final answer"],
+	);
+	assert.equal(answers[0]!.seq, completions[0]!.message_seq);
 });
 
 Given("a turn has been reassigned to a newer attempt", async function (this: ChatticusWorld) {
 	await postToBot(this, "Assistant", "ping", true);
 	const channel = openChannelOf(this);
 	const turnId = currentTurnId(this);
-	const first = await claimAs(this, channel.tenantId, turnId, "worker-a");
-	assert.ok(first, "The first worker could not claim the turn");
+	const scenario = modelScenarioOf(this);
+	scenario.scripted.reply("Answer from the first attempt").reply("Answer from the newer attempt");
+	const hold = scenario.scripted.slow();
+	scenario.hold = hold;
+	let openRenewals: () => void = () => undefined;
+	const renewalGate = new Promise<void>((resolve) => {
+		openRenewals = resolve;
+	});
+	scenario.openRenewals = openRenewals;
+	const first = startBotTurn(this, "Assistant", undefined, { renewalGate });
+	await hold.reached;
+	const stale = (await getTurn(this.turnDependencies(), channel.tenantId, turnId)).attemptId;
+	assert.ok(stale, "The first worker could not claim the turn");
 	this.clock.advanceSeconds(61);
-	const second = await claimAs(this, channel.tenantId, turnId, "worker-b");
-	assert.ok(second, "The second worker could not claim the expired turn");
-	assert.notEqual(second.attemptId, first.attemptId);
-	this.turnAttempts.set("stale", first.attemptId);
-	this.turnAttempts.set("current", second.attemptId);
+	const second = await executeTurn(
+		{ tenantId: channel.tenantId, turnId, botId: botNamed(this, "Assistant").botId },
+		await executorDepsFor(this, scenario),
+	);
+	assert.equal(second, "done");
+	const current = (await getTurn(this.turnDependencies(), channel.tenantId, turnId)).attemptId;
+	assert.ok(current);
+	assert.notEqual(current, stale);
+	this.turnAttempts.set("stale", stale);
+	this.turnAttempts.set("current", current);
+	scenario.firstAttempt = first;
 });
 
 When("the expired attempt tries to append output or execute an action", async function (this: ChatticusWorld) {
@@ -198,22 +246,36 @@ Then("only the newer attempt can change the turn", async function (this: Chattic
 	const turnId = currentTurnId(this);
 	const current = this.turnAttempts.get("current");
 	assert.ok(current);
-	await appendTurnEvent(this.turnDependencies(), channel.tenantId, turnId, current, { kind: "turn.token", token: "ok" });
-	await completeAs(this, channel.tenantId, turnId, current, "ok");
+	const scenario = modelScenarioOf(this);
+	scenario.hold?.release();
+	scenario.openRenewals?.();
+	assert.ok(scenario.firstAttempt, "The first attempt was never started");
+	assert.equal(await scenario.firstAttempt, "lost");
+	const turn = await getTurn(this.turnDependencies(), channel.tenantId, turnId);
+	assert.equal(turn.attemptId, current);
+	assert.equal(turn.status, "completed");
 });
 
 Then("the user sees no duplicate output or action", async function (this: ChatticusWorld) {
 	const channel = openChannelOf(this);
 	const events = await turnEvents(this, channel.tenantId, currentTurnId(this));
-	assert.deepEqual(
-		events.filter((event) => event.kind === "turn.token").map((event) => event.token),
-		["ok"],
+	assert.equal(
+		events
+			.filter((event) => event.kind === "turn.token")
+			.map((event) => event.token)
+			.join(""),
+		"Answer from the newer attempt",
 	);
 	assert.equal(events.filter((event) => event.kind === "tool.call").length, 0);
 	assert.equal(events.filter((event) => event.kind === "turn.completed").length, 1);
 	assert.deepEqual(
 		events.map((event) => event.seq),
 		events.map((_event, index) => index + 1),
+	);
+	const answers = (await channelMessages(this)).filter((message) => message.author_kind === "bot");
+	assert.deepEqual(
+		answers.map((message) => message.body),
+		["Answer from the newer attempt"],
 	);
 });
 

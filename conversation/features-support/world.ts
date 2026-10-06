@@ -23,6 +23,7 @@ import { FakeClock } from "./clock.ts";
 import { SequentialIdSource } from "./clock.ts";
 import { QueueRecorder } from "./queues.ts";
 import type { MembersCliProcessResult } from "./members-cli-process.ts";
+import type { ScenarioPiStorage } from "./pi-storage.ts";
 import type { OperatorScenarioState } from "./steps/operator.steps.ts";
 import type { IntegrationTestScenarioState } from "./steps/integration-test-auth.steps.ts";
 
@@ -34,6 +35,7 @@ let scenarioCounter = 0;
  */
 export class ChatticusWorld extends World {
 	readonly messagingTable: ScenarioMessagingTable;
+	piStorage: ScenarioPiStorage | null = null;
 	readonly store: DynamoBudgetStore;
 
 	readonly now = new Date("2026-08-31T06:00:00Z");
@@ -74,11 +76,10 @@ export class ChatticusWorld extends World {
 	lastChannel: { channelId: string; tenantId: string } | null = null;
 	lastTurnId: string | null = null;
 	createdBotIds: string[] = [];
+	botCreatorUserIds: Map<string, string> = new Map();
 	rememberedTurnIds: Map<string, string> = new Map();
 	turnAttempts: Map<string, string> = new Map();
-	turnClaimOutcomes: Array<{ worker: string; attemptId: string | null }> = [];
 	deliveredTurnJobs: Array<{ tenantId: string; turnId: string }> = [];
-	modelAttemptCount = 0;
 	turnOperationErrors: Error[] = [];
 	latestTurnResponse: RecordedResponse | null = null;
 	testOwnerEmails: Map<string, string> = new Map();

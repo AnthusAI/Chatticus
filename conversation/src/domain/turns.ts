@@ -55,6 +55,8 @@ export type Turn = {
 	nextEventSeq: number;
 	terminalReason: string | null;
 	messageSeq: number | null;
+	ledgerInputRecorded: number;
+	ledgerOutputRecorded: number;
 };
 
 /** One durable turn event with its integer sequence within the turn. */
@@ -143,6 +145,23 @@ export interface TurnControlStore {
 	}): Promise<TurnEvent>;
 	/** Fail the turn and append turn.failed in one transaction under the attempt's fence. */
 	failTurn(request: {
+		tenantId: string;
+		turnId: string;
+		attemptId: string;
+		reason: string;
+		eventId: string;
+		expiresAt: Date;
+	}): Promise<TurnEvent>;
+	/**
+	 * Mark the turn closing under the attempt's fence: it stops accepting steered messages, so the owner's last drain
+	 * of the mailbox sees every message that will ever be steered into this turn.
+	 *
+	 * @throws StaleAttemptError If the attempt no longer owns the turn.
+	 * @throws TurnTerminalError If the turn is no longer active.
+	 */
+	beginClosing(tenantId: string, turnId: string, attemptId: string): Promise<void>;
+	/** Mark the turn reconciling and append turn.reconciling in one transaction under the attempt's fence. */
+	reconcileTurn(request: {
 		tenantId: string;
 		turnId: string;
 		attemptId: string;
@@ -273,6 +292,45 @@ export async function appendTurnEvent(
 		turnId,
 		attemptId,
 		draft,
+		eventId: deps.ids.next(),
+		expiresAt: addSeconds(deps.clock.now(), TURN_EVENT_TTL_SECONDS),
+	});
+}
+
+/**
+ * Mark the turn closing: from now on a message addressed to the turn's bot starts the next turn instead of steering
+ * this one.
+ *
+ * @throws StaleAttemptError If the attempt no longer owns the turn.
+ * @throws TurnTerminalError If the turn is no longer active.
+ */
+export async function beginClosing(
+	deps: TurnDependencies,
+	tenantId: string,
+	turnId: string,
+	attemptId: string,
+): Promise<void> {
+	await deps.store.beginClosing(tenantId, turnId, attemptId);
+}
+
+/**
+ * Hand an active turn to reconciliation because the owner cannot know what it committed, appending turn.reconciling.
+ *
+ * @throws StaleAttemptError If the attempt no longer owns the turn.
+ * @throws TurnTerminalError If the turn is no longer active.
+ */
+export async function reconcileTurn(
+	deps: TurnDependencies,
+	tenantId: string,
+	turnId: string,
+	attemptId: string,
+	reason: string,
+): Promise<TurnEvent> {
+	return deps.store.reconcileTurn({
+		tenantId,
+		turnId,
+		attemptId,
+		reason,
 		eventId: deps.ids.next(),
 		expiresAt: addSeconds(deps.clock.now(), TURN_EVENT_TTL_SECONDS),
 	});

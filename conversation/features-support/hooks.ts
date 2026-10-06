@@ -1,10 +1,13 @@
-import { After, AfterAll, Before } from "@cucumber/cucumber";
+import { After, AfterAll, Before, setDefaultTimeout } from "@cucumber/cucumber";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { dropPiStorage } from "./pi-storage.ts";
 import type { ChatticusWorld } from "./world.ts";
 
 const scenarioTimes: number[] = [];
+
+setDefaultTimeout(20_000);
 
 Before(async function (this: ChatticusWorld) {
 	this.scenarioStartTime = Date.now();
@@ -16,6 +19,7 @@ After(async function (this: ChatticusWorld) {
 	if (this.httpServer) {
 		await this.httpServer.close();
 	}
+	await dropPiStorage(this);
 	await this.messagingTable.drop();
 	this.messagingTable.client.destroy();
 

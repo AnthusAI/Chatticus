@@ -3,7 +3,7 @@ import type { S3Client } from "@aws-sdk/client-s3";
 import type { Context } from "@earendil-works/chord";
 import { withoutAbortSignal } from "@earendil-works/chord/context";
 import type { Models } from "@earendil-works/pi-ai/models";
-import { createRegistry, type Extension, Harness } from "@earendil-works/pi-durable";
+import { createRegistry, type Extension, Harness, type HarnessSettings } from "@earendil-works/pi-durable";
 import { IndexedStorage } from "../storage/indexed-storage.ts";
 
 export type OwnerStorageDependencies = {
@@ -17,6 +17,8 @@ export type OwnerSessionDependencies = OwnerStorageDependencies & {
 	readonly models: Models;
 	readonly extensions: readonly Extension[];
 	readonly context: Context;
+	/** Harness run policy, such as the retry policy of a failed model call. */
+	readonly settings?: HarnessSettings;
 };
 
 export type OwnerSession = {
@@ -55,7 +57,11 @@ export async function openOwnerSession(storageId: string, dependencies: OwnerSes
 	const { storage, fence } = await openOwnerStorage(storageId, dependencies);
 	const registry = createRegistry();
 	for (const extension of dependencies.extensions) registry.install(extension);
-	const harness = await Harness.open(storage, { models: dependencies.models, registry }, dependencies.context);
+	const harness = await Harness.open(
+		storage,
+		{ models: dependencies.models, registry, settings: dependencies.settings },
+		dependencies.context,
+	);
 	return {
 		harness,
 		storage,

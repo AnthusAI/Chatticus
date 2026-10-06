@@ -116,6 +116,36 @@ export async function writeAttributedMessage(
 	}, context);
 }
 
+/** How far an input submission's channel log line is: not placed yet, just added, or already there. */
+export type InputLineState = "pending" | "added" | "present";
+
+/**
+ * After `submit({type: "input" | "write", requestId})` has committed its entry inside Pi, add the missing log line. Safe to run
+ * any number of times: the line is added at most once, and nothing is added while the submission is still queued.
+ *
+ * @param session The owner's session.
+ * @param draft The message that was submitted.
+ * @param requestId The request id used for the submission.
+ * @param context Cancellation context.
+ * @returns `pending` while the submission has no entry yet, `added` when this call wrote the line, `present` when it
+ * was already there.
+ */
+export async function recordInputLine(
+	session: Committer,
+	draft: Omit<ChannelMessageDraft, "body">,
+	requestId: string,
+	context: Context = BACKGROUND_CONTEXT,
+): Promise<InputLineState> {
+	return session.commit(async (tx): Promise<InputLineState> => {
+		const submission = await tx.submissionByRequest(ROOT_CONVERSATION_ID, requestId);
+		if (submission?.entry === undefined) return "pending";
+		const log = await tx.doc(ChannelLogDoc, ROOT_CONVERSATION_ID);
+		if (log.lines.some((existing) => existing.messageId === draft.messageId)) return "present";
+		log.lines.push(draftLine({ ...draft, body: "" }, submission.entry));
+		return "added";
+	}, context);
+}
+
 /**
  * After `submit({type: "input" | "write", requestId})` has committed its entry inside Pi, add the missing log line. Safe to run
  * any number of times: the line is added at most once, and nothing is added while the submission is still queued.
@@ -132,14 +162,7 @@ export async function reconcileInputLine(
 	requestId: string,
 	context: Context = BACKGROUND_CONTEXT,
 ): Promise<boolean> {
-	return session.commit(async (tx) => {
-		const submission = await tx.submissionByRequest(ROOT_CONVERSATION_ID, requestId);
-		if (submission?.entry === undefined) return false;
-		const log = await tx.doc(ChannelLogDoc, ROOT_CONVERSATION_ID);
-		if (log.lines.some((existing) => existing.messageId === draft.messageId)) return false;
-		log.lines.push(draftLine({ ...draft, body: "" }, submission.entry));
-		return true;
-	}, context);
+	return (await recordInputLine(session, draft, requestId, context)) === "added";
 }
 
 /**
