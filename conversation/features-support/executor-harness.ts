@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { type DynamoDBClient, GetItemCommand, TransactWriteItemsCommand } from "@aws-sdk/client-dynamodb";
 import { createModels } from "@earendil-works/pi-ai/models";
 import { VendorPriceBook, type VendorLedgerDependencies } from "../src/ledger/vendor-ledger.ts";
+import type { TurnControlStore, TurnDependencies } from "../src/domain/turns.ts";
 import type { TurnRunJob } from "../src/domain/turn-admission.ts";
 import { executeTurn } from "../src/turn/executor.ts";
 import type { ExecutorDeps, ExecutorTuning, TurnExecutionOutcome } from "../src/turn/types.ts";
@@ -34,6 +35,8 @@ export type ModelScenario = {
 	started?: Promise<TurnExecutionOutcome>;
 	/** How the last waited-for execution ended. */
 	lastOutcome?: TurnExecutionOutcome;
+	/** Lets the superseded execution renew its lease, which is how it learns it lost the turn. */
+	openRenewals?: () => void;
 	/** The execution that was superseded by a newer attempt. */
 	firstAttempt?: Promise<TurnExecutionOutcome>;
 };
@@ -110,6 +113,24 @@ function faultableClient(client: DynamoDBClient, fault: ModelScenario["storeFaul
 	});
 }
 
+/**
+ * Turn dependencies whose lease renewals wait for a gate. A scenario that moves the fake clock past a lease must decide
+ * when the owner's renewal happens; a renewal on a real timer could land between the clock move and the next claim.
+ */
+function gatedRenewals(turns: TurnDependencies, gate: Promise<void> | undefined): TurnDependencies {
+	if (gate === undefined) return turns;
+	const store = new Proxy(turns.store, {
+		get(target, property, receiver) {
+			if (property !== "renewTurn") return Reflect.get(target, property, receiver);
+			return async (request: Parameters<TurnControlStore["renewTurn"]>[0]) => {
+				await gate;
+				return target.renewTurn(request);
+			};
+		},
+	});
+	return { ...turns, store };
+}
+
 /** The vendor ledger's dependencies for a scenario. */
 export function ledgerDependenciesFor(world: ChatticusWorld): VendorLedgerDependencies {
 	return {
@@ -121,12 +142,16 @@ export function ledgerDependenciesFor(world: ChatticusWorld): VendorLedgerDepend
 }
 
 /** The executor's dependencies over the scenario's tables, clock, identifiers and scripted model. */
-export async function executorDepsFor(world: ChatticusWorld, scenario: ModelScenario): Promise<ExecutorDeps> {
+export async function executorDepsFor(
+	world: ChatticusWorld,
+	scenario: ModelScenario,
+	options: { renewalGate?: Promise<void> } = {},
+): Promise<ExecutorDeps> {
 	const piStorage = await ensurePiStorage(world);
 	const models = createModels();
 	models.setProvider(scenario.scripted.provider);
 	return {
-		turns: world.turnDependencies(),
+		turns: gatedRenewals(world.turnDependencies(), options.renewalGate),
 		messaging: world.messagingStore(),
 		client: faultableClient(world.messagingTable.client, scenario.storeFault, piStorage.tableName),
 		s3: piStorage.s3,
@@ -149,6 +174,7 @@ export function startBotTurn(
 	world: ChatticusWorld,
 	botName: string,
 	modelId: string = DEFAULT_SCRIPTED_MODEL_ID,
+	options: { renewalGate?: Promise<void> } = {},
 ): Promise<TurnExecutionOutcome> {
 	const bot = world.botsByName?.get(botName);
 	assert.ok(bot, `Bot ${botName} not found`);
@@ -159,7 +185,7 @@ export function startBotTurn(
 	if (!scenario.scripted.isScripted) {
 		scenario.scripted.reply(defaultScriptedAnswer(scenario.scripted.callCount + 1));
 	}
-	const run = executorDepsFor(world, scenario)
+	const run = executorDepsFor(world, scenario, options)
 		.then((deps) => executeTurn({ tenantId: job.tenantId, turnId: job.turnId, botId: job.botId }, deps))
 		.then((outcome) => {
 			scenario.outcomes.push(outcome);

@@ -191,7 +191,12 @@ Given("a turn has been reassigned to a newer attempt", async function (this: Cha
 	scenario.scripted.reply("Answer from the first attempt").reply("Answer from the newer attempt");
 	const hold = scenario.scripted.slow();
 	scenario.hold = hold;
-	const first = startBotTurn(this, "Assistant");
+	let openRenewals: () => void = () => undefined;
+	const renewalGate = new Promise<void>((resolve) => {
+		openRenewals = resolve;
+	});
+	scenario.openRenewals = openRenewals;
+	const first = startBotTurn(this, "Assistant", undefined, { renewalGate });
 	await hold.reached;
 	const stale = (await getTurn(this.turnDependencies(), channel.tenantId, turnId)).attemptId;
 	assert.ok(stale, "The first worker could not claim the turn");
@@ -243,6 +248,7 @@ Then("only the newer attempt can change the turn", async function (this: Chattic
 	assert.ok(current);
 	const scenario = modelScenarioOf(this);
 	scenario.hold?.release();
+	scenario.openRenewals?.();
 	assert.ok(scenario.firstAttempt, "The first attempt was never started");
 	assert.equal(await scenario.firstAttempt, "lost");
 	const turn = await getTurn(this.turnDependencies(), channel.tenantId, turnId);
