@@ -891,3 +891,35 @@ scenarios of `model_tool_loop_sinks.feature`.
 - **Approvals.** The hook cannot wait. A consequential tool whose grant and
   standing allow it is blocked with `immutable approval required`; the
   approval flow is a later re-request, as above.
+
+## The computer handoff (verified in TS-29)
+
+Measured with the scripted provider on moto against `@earendil-works/pi-durable` 1.0.2, first in the prototype
+`conversation/test/computer-park-resume.test.ts` and then through the production executor
+(`features/computer_action_handoff.feature`). The code is `conversation/src/pi/computer-tools.ts` (the tools),
+`conversation/src/turn/park.ts` (park, resume, probe settlement) and `conversation/src/domain/actions.ts` (the action).
+
+- **The park is a tool `execute` that never settles.** It looks the Pi call id up, finds no answer, signals the
+  executor and awaits the invocation's `abortSignal`. The tool is registered `replay: "safe"` because that `execute` is
+  idempotent. The executor records the action, parks the turn, and closes the harness with `Harness.close`.
+- **Close is not abort, again.** After the owner closed, the `pi.tool` task stayed at its `execute` checkpoint and the
+  generation stayed `waiting` on `tools`. The closed owner's own `submission.wait()` rejects with `Harness is closed`
+  (an owner that is not closed but has been fenced out never settles, as before, and its next write fails with
+  `OwnershipLost`; a commit with no writes is free and does not throw).
+- **The call id is stable across owners.** `api.callId` is the same on the new owner: the lookup log was
+  `[callId, callId]`, one per owner. The action is therefore keyed by it (`act#{call_id}` index item) and a resumed
+  `execute` finds the host's answer by it.
+- **The next owner needs no explicit resume.** `Harness.open` with the next fence, `root()`, and `submit` with the same
+  `requestId` (the turn's `turn:<id>`, empty content) enable scheduling and the parked tool task runs `execute` again.
+  It ran once on the new owner and the generation went on to the answer.
+- **The new owner sees `tool_execution_end` with no `tool_execution_start`** for the resumed call (the first event of
+  its stream, then `message_start`, `message_end`, `turn_end`, `turn_start`, the answer). The journal writer must not
+  write a second `tool.call` for it: the resumed attempt reads the journal's `tool.call` action ids first
+  (`AgentEventDelivery.claimCallJournal`).
+- **A throw inside `execute` is a tool error, so a crash cannot be injected there.** Parking therefore signals the
+  executor, which creates the action and parks outside Pi, where crash windows (`computer_action`, `computer_park`,
+  `computer_start`) are real. An answer the host marked as an error is thrown from `execute` so the model reads it as a
+  tool error (`[error] ...`).
+- **Policy answers stay inside `execute`.** A spend ceiling refusal is returned as the tool result when no action exists
+  yet; once an action exists the ceiling is not asked again, so a call already parked is not refused later.
+- **Cost.** The two-owner prototype takes about one second on moto, the same as the plain two-owner turn.

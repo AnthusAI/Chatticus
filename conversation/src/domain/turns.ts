@@ -187,6 +187,13 @@ export interface TurnControlStore {
 		expiresAt: Date;
 	}): Promise<TurnEvent>;
 	/**
+	 * End the waiting of a turn the computer answered: clear `waiting_for`, `waiting_since` and the pending computer tool,
+	 * so the next claim can succeed. No event is appended; the next owner's `attempt.claimed` is the visible resume.
+	 *
+	 * @returns The turn after the change, or null when it was not waiting, so a repeated resume does nothing.
+	 */
+	resumeTurn(tenantId: string, turnId: string): Promise<Turn | null>;
+	/**
 	 * Hand an unowned turn to a later attempt: only when the turn is active, not waiting, its lease absent or expired at
 	 * `now`, and still as observed. Counts one recovery attempt, drops the dead attempt's identity and claim, and sets a
 	 * fresh deadline.
@@ -425,17 +432,27 @@ export async function releaseForWaiting(
 	turnId: string,
 	attemptId: string,
 	gate: string,
+	pendingComputerTool: PendingComputerTool,
 ): Promise<TurnEvent> {
 	return deps.store.parkTurn({
 		tenantId,
 		turnId,
 		attemptId,
 		gate,
-		pendingComputerTool: { actionId: deps.ids.next(), toolName: "request_computer_capability", arguments: { gate } },
+		pendingComputerTool,
 		now: deps.clock.now(),
 		eventId: deps.ids.next(),
 		expiresAt: addSeconds(deps.clock.now(), TURN_EVENT_TTL_SECONDS),
 	});
+}
+
+/**
+ * End the waiting of a turn so a later attempt can claim it.
+ *
+ * @returns The turn after the change, or null when it was not waiting.
+ */
+export async function clearWaiting(deps: TurnDependencies, tenantId: string, turnId: string): Promise<Turn | null> {
+	return deps.store.resumeTurn(tenantId, turnId);
 }
 
 /** What a probe observed of a turn: the identity of the attempt that holds it and how often it was recovered. */

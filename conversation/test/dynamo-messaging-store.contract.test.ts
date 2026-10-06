@@ -405,6 +405,37 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 			expect(await store.getWorker("tenant-a", "w-9")).toBeNull();
 		});
 
+		it("starts a host generation by compare-and-set and dispatches it once", async () => {
+			const store = await makeStore();
+			const computer: Computer = {
+				computerId: "c-1",
+				tenantId: "tenant-a",
+				policy: "prefer_local",
+				stopped: false,
+				modelReady: true,
+				workspaceReady: false,
+				browserReady: false,
+				hostStartGeneration: 0,
+				hostStartDispatchedGeneration: 0,
+				snapshotGeneration: 0,
+				diskDirty: false,
+				hydrateRequired: false,
+			};
+			await store.putComputer(computer);
+			const lease = new Date("2026-01-01T00:01:00Z");
+			const first = await store.claimHostStartGeneration("tenant-a", 0, lease);
+			expect(first?.hostStartGeneration).toBe(1);
+			expect(first?.hostStartLeaseExpiresAt?.getTime()).toBe(lease.getTime());
+			expect(await store.claimHostStartGeneration("tenant-a", 0, lease)).toBeNull();
+			expect(await store.markHostStartDispatched("tenant-a", 2)).toBe(false);
+			expect(await store.markHostStartDispatched("tenant-a", 1)).toBe(true);
+			expect(await store.markHostStartDispatched("tenant-a", 1)).toBe(false);
+			await store.releaseHostStartDispatch("tenant-a", 1);
+			expect(await store.markHostStartDispatched("tenant-a", 1)).toBe(true);
+			expect((await store.getComputer("tenant-a"))?.hostStartDispatchedGeneration).toBe(1);
+			expect(await store.claimHostStartGeneration("tenant-none", 0, lease)).toBeNull();
+		});
+
 		it("round-trips tasks and lists one user's tasks sorted, across several pages", async () => {
 			const store = await makeStore();
 			for (const taskId of ["k-3", "k-1", "k-5", "k-2", "k-4"]) {

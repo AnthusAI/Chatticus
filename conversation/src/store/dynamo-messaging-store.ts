@@ -523,6 +523,70 @@ export class DynamoMessagingStore implements MessagingStore {
 		});
 	}
 
+	async claimHostStartGeneration(tenantId: string, expectedGeneration: number, leaseExpiresAt: Date): Promise<Computer | null> {
+		try {
+			const response = await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					UpdateExpression: "SET host_start_generation = :next, host_start_lease_expires_at = :lease",
+					ConditionExpression: "attribute_exists(pk) AND host_start_generation = :expected",
+					ExpressionAttributeValues: {
+						":expected": { N: String(expectedGeneration) },
+						":next": { N: String(expectedGeneration + 1) },
+						":lease": { N: String(Math.floor(leaseExpiresAt.getTime() / 1000)) },
+					},
+					ReturnValues: "ALL_NEW",
+				}),
+			);
+			return computerCodec.decode(response.Attributes!);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return null;
+			}
+			throw error;
+		}
+	}
+
+	async markHostStartDispatched(tenantId: string, generation: number): Promise<boolean> {
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					UpdateExpression: "SET host_start_dispatched_generation = :generation",
+					ConditionExpression:
+						"attribute_exists(pk) AND host_start_generation = :generation AND host_start_dispatched_generation < :generation",
+					ExpressionAttributeValues: { ":generation": { N: String(generation) } },
+				}),
+			);
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return false;
+			}
+			throw error;
+		}
+	}
+
+	async releaseHostStartDispatch(tenantId: string, generation: number): Promise<void> {
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					UpdateExpression: "SET host_start_dispatched_generation = :previous",
+					ConditionExpression: "attribute_exists(pk) AND host_start_dispatched_generation = :generation",
+					ExpressionAttributeValues: { ":generation": { N: String(generation) }, ":previous": { N: String(generation - 1) } },
+				}),
+			);
+		} catch (error) {
+			if (!(error instanceof ConditionalCheckFailedException)) {
+				throw error;
+			}
+		}
+	}
+
 	private async putChannelIndexes(channel: Channel): Promise<void> {
 		await this.put({
 			pk: { S: `channel_lookup#${channel.channelId}` },

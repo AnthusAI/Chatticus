@@ -68,4 +68,19 @@ export interface MessagingStore {
 	listTasks(tenantId: string, userId: string): Promise<Task[]>;
 	getComputer(tenantId: string): Promise<Computer | null>;
 	putComputer(computer: Computer): Promise<void>;
+	/**
+	 * Start the next host start generation under a lease, only while the stored generation is still `expectedGeneration`,
+	 * so two callers that both saw no live lease cannot both start a host.
+	 *
+	 * @returns The computer after the change, or null when another caller moved the generation first.
+	 */
+	claimHostStartGeneration(tenantId: string, expectedGeneration: number, leaseExpiresAt: Date): Promise<Computer | null>;
+	/**
+	 * Record that the host start of `generation` was handed to the host driver, only while nothing dispatched it yet.
+	 *
+	 * @returns false when that generation was already dispatched or is no longer the current one.
+	 */
+	markHostStartDispatched(tenantId: string, generation: number): Promise<boolean>;
+	/** Undo `markHostStartDispatched` for a generation whose driver call failed, so the next start may try again. */
+	releaseHostStartDispatch(tenantId: string, generation: number): Promise<void>;
 }

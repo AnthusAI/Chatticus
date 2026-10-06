@@ -68,7 +68,21 @@ const textOf = (content: unknown): string => {
 /** What the executor learns from the Pi event listener besides the events it writes. */
 export class AgentEventDelivery {
 	private readonly settled = new Set<number>();
+	private readonly journaledCalls = new Set<string>();
 	private readonly waiters = new Map<number, Array<() => void>>();
+
+	/**
+	 * Claim the right to write the `tool.call` event of one Pi tool call. The listener and the executor's park path both
+	 * write it, and whichever claims first does, so a call is journaled once however the two interleave.
+	 *
+	 * @param callId The Pi tool call id.
+	 * @returns true the first time the call is claimed.
+	 */
+	claimCallJournal(callId: string): boolean {
+		if (this.journaledCalls.has(callId)) return false;
+		this.journaledCalls.add(callId);
+		return true;
+	}
 
 	/** Record that a batch containing the settlement of a submission has been fully handled. */
 	noteSettled(submissionId: number): void {
@@ -121,7 +135,6 @@ export function createAgentEventListener(
 	delivery: AgentEventDelivery,
 ): (events: readonly AgentEvent[]) => Promise<void> {
 	let streamedText = "";
-	const startedCalls = new Set<string>();
 	return async (events) => {
 		const settledInBatch: number[] = [];
 		for (const event of events) {
@@ -160,13 +173,13 @@ export function createAgentEventListener(
 				}
 				case "tool_execution_start":
 					await coalescer.flush();
-					startedCalls.add(event.toolCallId);
-					await writer.write({ kind: "tool.call", body: event.toolName, actionId: event.toolCallId });
+					if (delivery.claimCallJournal(event.toolCallId)) {
+						await writer.write({ kind: "tool.call", body: event.toolName, actionId: event.toolCallId });
+					}
 					break;
 				case "tool_execution_end": {
 					await coalescer.flush();
-					if (!startedCalls.has(event.toolCallId)) {
-						startedCalls.add(event.toolCallId);
+					if (delivery.claimCallJournal(event.toolCallId)) {
 						await writer.write({ kind: "tool.call", body: event.toolName, actionId: event.toolCallId });
 					}
 					const result = event.entry?.model?.[0];

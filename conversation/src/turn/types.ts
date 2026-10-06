@@ -7,7 +7,7 @@ import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { TurnDependencies } from "../domain/turns.ts";
 import type { TurnProbeQueue, TurnRunQueue, TurnRunVisibility } from "../domain/turn-admission.ts";
-import type { ComputerToolRunner } from "../pi/gate.ts";
+import type { ComputerHandoffDependencies } from "./park.ts";
 import type { FaultPlan } from "./fault-plan.ts";
 
 /** The queue message that asks an executor to run a turn. */
@@ -25,8 +25,10 @@ export type TurnExecutionJob = {
  * - `lost`: another attempt owns the turn (or it already ended); nothing was written for it.
  * - `reconciling`: a Pi commit's outcome is unknown; the turn is handed to reconciliation.
  * - `yielded`: the function was close to its time limit; the claim is released and another run is queued.
+ * - `parked`: the turn called a computer tool with no answer yet; its action is recorded, the turn waits on its gate with
+ *   no owner, and the host's result will queue the run that resumes it.
  */
-export type TurnExecutionOutcome = "done" | "failed" | "lost" | "reconciling" | "yielded";
+export type TurnExecutionOutcome = "done" | "failed" | "lost" | "reconciling" | "yielded" | "parked";
 
 /** The model every turn of a bot runs on. */
 export type TurnModel = { readonly provider: string; readonly modelId: string; readonly thinkingLevel: ModelThinkingLevel };
@@ -71,8 +73,8 @@ export type ExecutorDeps = {
 	readonly runVisibility: TurnRunVisibility;
 	/** The function's remaining time, `context.getRemainingTimeInMillis` in the Lambda; absent when time is unbounded. */
 	readonly remainingMilliseconds?: () => number;
-	/** Runs a computer tool call the gate allowed; absent until the computer handoff is wired. */
-	readonly runComputerTool?: ComputerToolRunner;
+	/** The computer handoff: actions, start jobs and the spend ceiling pause. */
+	readonly computer: ComputerHandoffDependencies;
 	/** Crash injection for tests; never set in production. */
 	readonly faults?: FaultPlan;
 };

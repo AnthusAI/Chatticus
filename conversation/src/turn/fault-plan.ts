@@ -1,4 +1,7 @@
-/** The durable steps of one bot turn at which a crash can be injected; the names are the Python fault hooks'. */
+/**
+ * The durable steps of one bot turn at which a crash can be injected. The first eight are the Python fault hooks'; the
+ * last three are the computer handoff's: the action record, the park of the turn, and the start job.
+ */
 export type TurnBoundary =
 	| "message_commit"
 	| "logical_enqueue"
@@ -7,7 +10,10 @@ export type TurnBoundary =
 	| "progress_append"
 	| "completion_append"
 	| "acknowledgement"
-	| "deadline_recovery";
+	| "deadline_recovery"
+	| "computer_action"
+	| "computer_park"
+	| "computer_start";
 
 /** Whether the crash happens before or after the durable write of its boundary. */
 export type CrashWindow = "before" | "after";
@@ -22,6 +28,9 @@ export const TURN_BOUNDARIES: readonly TurnBoundary[] = [
 	"completion_append",
 	"acknowledgement",
 	"deadline_recovery",
+	"computer_action",
+	"computer_park",
+	"computer_start",
 ];
 
 /** Raised by an armed fault hook; stands for a process that disappeared at that point. */

@@ -4,6 +4,7 @@ import {
 	relinquishTurn,
 	releaseForWaiting,
 	TURN_DEADLINE_SECONDS,
+	type PendingComputerTool,
 	type TurnDependencies,
 } from "../domain/turns.ts";
 import type { TurnProbeQueue, TurnRunQueue } from "../domain/turn-admission.ts";
@@ -59,6 +60,7 @@ export async function yieldAttempt(
  * @param turnId Turn.
  * @param attemptId The attempt that parks the turn.
  * @param gate The gate the turn waits on.
+ * @param pendingComputerTool The computer tool call the turn is parked on.
  * @throws StaleAttemptError If the attempt no longer owns the turn.
  * @throws TurnTerminalError If the turn is no longer active.
  */
@@ -68,7 +70,8 @@ export async function parkAttempt(
 	turnId: string,
 	attemptId: string,
 	gate: string,
+	pendingComputerTool: PendingComputerTool,
 ): Promise<void> {
-	await releaseForWaiting(deps.turns, tenantId, turnId, attemptId, gate);
+	await releaseForWaiting(deps.turns, tenantId, turnId, attemptId, gate, pendingComputerTool);
 	await armProbe(deps.turnProbes, await getTurn(deps.turns, tenantId, turnId), ATTEMPT_LEASE_SECONDS);
 }

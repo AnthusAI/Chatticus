@@ -276,7 +276,11 @@ Given("a turn is blocked on the browser gate with its worker claim released", as
 	const claim = await claimTurnAttempt({ ...deps, workerLabel: "waiting-worker" }, { tenantId, turnId, botId: bot.botId });
 	assert.ok(claim, "The worker could not claim the turn");
 	await appendTurnEvent(this.turnDependencies(), tenantId, turnId, claim.attemptId, { kind: "turn.token", token: "Here is a draft." });
-	await parkAttempt(deps, tenantId, turnId, claim.attemptId, "browser");
+	await parkAttempt(deps, tenantId, turnId, claim.attemptId, "browser", {
+		actionId: this.ids.next(),
+		toolName: "request_computer_capability",
+		arguments: { gate: "browser" },
+	});
 	const turn = await turnNow(this, turnId);
 	assert.equal(turn.waitingFor, "browser");
 	assert.equal(turn.attemptId, null);

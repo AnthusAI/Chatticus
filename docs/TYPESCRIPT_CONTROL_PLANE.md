@@ -689,6 +689,22 @@ have partially run", the same message Pi uses for unsafe replay, and the turn
 resumes. A computer that never claims an action is probed again (re-enqueue
 start) until the waiting limit.
 
+As built (`domain/actions.ts`, `domain/computers.ts`, `domain/computer-start.ts`, `pi/computer-tools.ts`,
+`turn/park.ts`, `http/routes/computers.ts`; verified facts in `PI_HARNESS.md`): the tool's `execute` only looks the call
+up and, when it must park, hands the call to the executor (`ComputerToolHandoff.park`) and waits to be closed. The
+executor, not the tool, creates the action (so the crash windows `computer_action`, `computer_park` and `computer_start`
+are real), parks the turn with `releaseForWaiting` (the probe armed at the claim keeps watching and re-arms itself until
+the waiting limit), asks the worker registry for a live host (`createTurnJob`, `assignTurn`) and publishes a
+`ComputerStartJob` only when there is none (the job carries the computer's policy, so `aws_only` reaches the starter),
+and finally re-reads the action in case the host answered first. The spend ceiling is checked in `execute` before the
+action exists (`refuseIfComputerWorkPaused` through `computerWorkPauseReason`); a paused organization gets the refusal as
+the tool result and the turn goes on. A probe that finds a parked turn settles its actions first (`settleParkedTurn`): a
+claimed action whose lease ran out goes back to requested when it is idempotent and is answered "interrupted" when it is
+not, an answered action resumes its turn, and an action nobody claimed asks for a host start again. Host routes built
+here are routes 5 (claim) and 7 (result) of 4.3; the rest, with the zod schemas, are TS-30. The starter
+(`handleComputerStartJob`) deletes its message on success, as 4.5 says, so the Python scenarios that assert a job
+"remains queued" or that the queue Lambda returns a batch item failure are obsolete.
+
 The computer is shared by the whole organization, so actions queue per
 computer. There is still no `stop_computer`. Host stop is the existing
 `set_computer_stopped` through route 2.

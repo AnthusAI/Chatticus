@@ -7,6 +7,7 @@ import type { TurnRunJob } from "../src/domain/turn-admission.ts";
 import { executeTurn } from "../src/turn/executor.ts";
 import type { ExecutorDeps, ExecutorTuning, TurnExecutionOutcome } from "../src/turn/types.ts";
 import { ScriptedProvider, type ScriptedHold } from "./fakes/scripted-provider.ts";
+import { computerHandoffDependenciesFor } from "./computer-support.ts";
 import { TURN_RUN_QUEUE } from "./front-door.ts";
 import { probeQueueOf, runQueueOf, runVisibilityOf } from "./turn-queues.ts";
 import { ensurePiStorage } from "./pi-storage.ts";
@@ -155,6 +156,8 @@ export type ExecutorOptions = {
 	remainingMilliseconds?: () => number;
 	/** Timing knobs on top of the test defaults. */
 	tuning?: Partial<ExecutorTuning>;
+	/** Run only the queued job of this turn, when the bot has queued jobs for several turns. */
+	turnId?: string;
 };
 
 /** The executor's dependencies over the scenario's tables, clock, identifiers and scripted model. */
@@ -181,6 +184,7 @@ export async function executorDepsFor(
 		turnRuns: runQueueOf(world),
 		turnProbes: probeQueueOf(world),
 		runVisibility: runVisibilityOf(world),
+		computer: computerHandoffDependenciesFor(world),
 		remainingMilliseconds: options.remainingMilliseconds ?? (() => scenario.functionMillisecondsLeft ?? Number.MAX_SAFE_INTEGER),
 		faults: world.faultPlan,
 	};
@@ -199,7 +203,10 @@ export function startBotTurn(
 ): Promise<TurnExecutionOutcome> {
 	const bot = world.botsByName?.get(botName);
 	assert.ok(bot, `Bot ${botName} not found`);
-	const queued = world.queues.take(TURN_RUN_QUEUE, (body) => (body as TurnRunJob).botId === bot.botId);
+	const queued = world.queues.take(
+		TURN_RUN_QUEUE,
+		(body) => (body as TurnRunJob).botId === bot.botId && (options.turnId === undefined || (body as TurnRunJob).turnId === options.turnId),
+	);
 	assert.ok(queued, `No turn job is queued for bot ${botName}`);
 	const job = queued.body as TurnRunJob;
 	const scenario = modelScenarioOf(world, modelId);
