@@ -38,3 +38,6 @@ features/bot_roster_durability.feature
 features/model_provider_failures.feature
 features/vendor_ledger.feature
 features/turn_execution.feature
+features/turn_recovery.feature
+features/turn_probes.feature
+features/turn_fault_injection.feature

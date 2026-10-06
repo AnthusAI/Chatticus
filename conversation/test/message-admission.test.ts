@@ -186,6 +186,7 @@ describe("postMessage while a turn is closing", () => {
 					jobs.push(job);
 				},
 			},
+			turnProbes: { async send() {} },
 			listing: undefined as never,
 			closingPollMilliseconds: 10,
 		};

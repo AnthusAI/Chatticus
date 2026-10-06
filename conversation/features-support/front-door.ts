@@ -1,6 +1,5 @@
 import type { IntegrationTestAuthConfig } from "../src/auth/integration-test.ts";
 import type { SignupMode } from "../src/domain/signup-mode.ts";
-import type { TurnRunJob } from "../src/domain/turn-admission.ts";
 import { createApp } from "../src/http/app.ts";
 import type { CommitObject } from "../src/storage/indexed-storage.ts";
 import { MessageBodyCache } from "../src/pi/message-cache.ts";
@@ -9,6 +8,7 @@ import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
 import { ApiClient } from "./api.ts";
 import { ensurePiStorage, type ScenarioPiStorage } from "./pi-storage.ts";
 import { startAppServer } from "./http-server.ts";
+import { probeQueueOf, runQueueOf, TURN_RUN_QUEUE } from "./turn-queues.ts";
 import { CognitoTestKeys } from "./test-jwt.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -32,18 +32,15 @@ export async function cognitoKeys(world: ChatticusWorld): Promise<CognitoTestKey
 	return world.cognitoTestKeys;
 }
 
-/** The queue name run jobs for new turns are recorded under in the scenario's queue recorder. */
-export const TURN_RUN_QUEUE = "turn-runs";
+export { TURN_RUN_QUEUE };
 
 function messageDependencies(world: ChatticusWorld, piStorage: ScenarioPiStorage) {
 	return {
 		mailbox: { client: world.messagingTable.client, tableName: world.messagingTable.tableName },
 		turns: new DynamoTurnAdmission(world.messagingTable.client, world.messagingTable.tableName),
-		turnRuns: {
-			async enqueue(job: TurnRunJob): Promise<void> {
-				world.queues.send(TURN_RUN_QUEUE, job);
-			},
-		},
+		turnRuns: runQueueOf(world),
+		turnProbes: probeQueueOf(world),
+		faults: world.faultPlan,
 		listing: {
 			client: world.messagingTable.client,
 			s3: piStorage.s3,

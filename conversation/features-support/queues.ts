@@ -66,6 +66,23 @@ export class QueueRecorder {
 	}
 
 	/**
+	 * Remove and return the first message of a queue whose delay has run out on the fake clock, as a delay queue would
+	 * deliver it.
+	 *
+	 * @param queue Queue name.
+	 * @returns The message, or null when none is due yet.
+	 */
+	takeDue(queue: string): QueuedMessage | null {
+		const now = this.clock.now().getTime();
+		const messages = this.queues.get(queue) ?? [];
+		const index = messages.findIndex((message) => message.enqueuedAt.getTime() + (message.delaySeconds ?? 0) * 1000 <= now);
+		if (index < 0) {
+			return null;
+		}
+		return messages.splice(index, 1)[0]!;
+	}
+
+	/**
 	 * Drain a queue by processing all messages with a handler function.
 	 * Messages are removed from the queue as they are processed.
 	 *

@@ -10,7 +10,7 @@ import { MAILBOX_PUT_CONDITION, type MailboxItem, mailboxItemAttributes } from "
 import { TURN_EVENT_TTL_SECONDS } from "../domain/turns.ts";
 import { formatIsoDateTime } from "./codecs/util.ts";
 import { turnEventItem, turnItemPartitionKey } from "./turn-events.ts";
-import { turnPointerKey } from "./turn-store.ts";
+import { recordLogicalEnqueueOnTurn, turnPointerKey } from "./turn-store.ts";
 
 /**
  * Partition key of a turn control record.
@@ -172,6 +172,10 @@ export class DynamoTurnAdmission implements TurnAdmission {
 			}
 			throw error;
 		}
+	}
+
+	async recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string): Promise<boolean> {
+		return recordLogicalEnqueueOnTurn(this.client, this.tableName, tenantId, turnId, enqueueId);
 	}
 
 	async steerTurn(turnId: string, item: MailboxItem): Promise<boolean> {

@@ -43,6 +43,12 @@ export interface TurnAdmission {
 	 * @returns false when that condition failed, so the caller must look again.
 	 */
 	steerTurn(turnId: string, item: MailboxItem): Promise<boolean>;
+	/**
+	 * Remember that the run job named by `enqueueId` was requested for the turn.
+	 *
+	 * @returns true the first time, false when the id was already recorded.
+	 */
+	recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string): Promise<boolean>;
 }
 
 /** The job the front door hands the queue when a message starts a turn. */
@@ -57,4 +63,23 @@ export type TurnRunJob = {
 /** Where run jobs for new turns are published. */
 export interface TurnRunQueue {
 	enqueue(job: TurnRunJob): Promise<void>;
+}
+
+/** The delayed self-checking message that makes sure a turn is looked at again; see section 3.5 of the design. */
+export type TurnProbeMessage = {
+	readonly tenantId: string;
+	readonly turnId: string;
+	readonly kind: "deadline";
+	/** The attempt count of the turn when the probe was armed; a probe for an older attempt is obsolete. */
+	readonly expectAttempt: number;
+};
+
+/** Where probes are published; the queue holds each one back for `delaySeconds` (at most 900). */
+export interface TurnProbeQueue {
+	send(message: TurnProbeMessage, delaySeconds: number): Promise<void>;
+}
+
+/** Extends how long the queue keeps a run job invisible to other consumers while its owner works. */
+export interface TurnRunVisibility {
+	extend(tenantId: string, turnId: string): Promise<void>;
 }
