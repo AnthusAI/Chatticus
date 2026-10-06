@@ -15,6 +15,9 @@ import { probeQueueOf, runQueueOf, TURN_RUN_QUEUE } from "./turn-queues.ts";
 import { CognitoTestKeys } from "./test-jwt.ts";
 import type { ChatticusWorld } from "./world.ts";
 
+/** The environment name a scenario's front door runs as, and so the budget environment its spend pause reads. */
+export const DEFAULT_FRONT_DOOR_ENVIRONMENT = "test";
+
 /** How one scenario's HTTP front door is wired. */
 export type FrontDoorOptions = {
 	signupMode: SignupMode;
@@ -69,13 +72,14 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		voice: { understanding: world.scriptedUnderstanding, ledger: ledgerDependenciesFor(world) },
 		turnControl: world.turnControlStore(),
 		policy: new DynamoPolicyStore(world.messagingTable.client, world.messagingTable.tableName),
+		budgetRollups: world.store,
 		streamTiming: { ...DEFAULT_STREAM_TIMING, minimumPollMilliseconds: 5, maximumPollMilliseconds: 25 },
 		streamClock: world.streamClock,
 		openStreams: world.openStreams,
 		invokeKey: options.invokeKey ?? null,
 		operatorKey: options.operatorKey ?? "",
 		integrationTest: options.integrationTest ?? null,
-		environment: options.environment ?? "test",
+		environment: options.environment ?? DEFAULT_FRONT_DOOR_ENVIRONMENT,
 		verifier: options.cognitoVerifier ? keys.verifier() : null,
 		signupMode: options.signupMode,
 		organizationCreationRateLimit: options.organizationCreationRateLimit,

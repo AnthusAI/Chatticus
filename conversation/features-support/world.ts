@@ -9,6 +9,8 @@ import type { OvernightGatedResult } from "../src/policy/overnight.ts";
 import type { ApprovedOperation, BoundExecutionResult, OperationProposal } from "../src/policy/approval-binding.ts";
 import type { ConnectionProposalResult, ConnectionProposalRoute } from "../src/policy/connections.ts";
 import type { PolicyControl } from "../src/policy/policy-control.ts";
+import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS, type TurnJob } from "../src/domain/workers.ts";
+import type { Worker } from "../src/store/codecs/worker.ts";
 import type { MessagingStore } from "../src/store/messaging-store.ts";
 import { DynamoMessagingStore } from "../src/store/dynamo-messaging-store.ts";
 import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
@@ -29,6 +31,7 @@ import { SequentialIdSource } from "./clock.ts";
 import { QueueRecorder } from "./queues.ts";
 import type { MembersCliProcessResult } from "./members-cli-process.ts";
 import type { ScenarioPiStorage } from "./pi-storage.ts";
+import type { SpendCeilingScenarioState } from "./spend-ceiling.ts";
 import type { OperatorScenarioState } from "./steps/operator.steps.ts";
 import type { IntegrationTestScenarioState } from "./steps/integration-test-auth.steps.ts";
 
@@ -134,7 +137,17 @@ export class ChatticusWorld extends World {
 	// Operator and integration-test auth
 	operatorScenario: OperatorScenarioState | null = null;
 	integrationTestScenario: IntegrationTestScenarioState | null = null;
+	spendCeilingScenario: SpendCeilingScenarioState | null = null;
 	workerTokens: Map<string, string> = new Map();
+
+	// Worker registry, credentials and routing
+	heartbeatTimeoutSeconds = DEFAULT_HEARTBEAT_TIMEOUT_SECONDS;
+	registeredWorkers: Array<{ tenantId: string; workerId: string; token: string }> = [];
+	lastRegisteredWorker: { tenantId: string; workerId: string; token: string } | null = null;
+	previousWorkerToken: string | null = null;
+	workerRouteResponse: RecordedResponse | null = null;
+	lastTurnJob: TurnJob | null = null;
+	lastAssignedWorker: Worker | null = null;
 
 	// Policy kernel fields
 	capabilityPolicy: unknown = null;

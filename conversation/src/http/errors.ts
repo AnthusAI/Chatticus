@@ -23,6 +23,12 @@ export class WorkerTenantMismatchError extends DomainError {
 	}
 }
 
+export class WorkerNotRegisteredError extends DomainError {
+	constructor(message: string) {
+		super("worker_not_registered", message);
+	}
+}
+
 export class DuplicateBotNameError extends DomainError {
 	constructor(message: string) {
 		super("duplicate_bot_name", message);
@@ -293,6 +299,24 @@ export class OrganizationNameTooLongError extends DomainError {
 	}
 }
 
+export class OrganizationSpendCeilingRequiredError extends DomainError {
+	constructor(message: string) {
+		super("organization_spend_ceiling_required", message);
+	}
+}
+
+export class OrganizationSpendCeilingInvalidError extends DomainError {
+	constructor(message: string) {
+		super("organization_spend_ceiling_invalid", message);
+	}
+}
+
+export class OrganizationSpendCeilingExceededError extends DomainError {
+	constructor(message: string) {
+		super("organization_spend_ceiling_exceeded", message);
+	}
+}
+
 export class WaitlistRateLimitedError extends DomainError {
 	constructor(message: string) {
 		super("waitlist_rate_limited", message);
@@ -324,7 +348,7 @@ export function statusFor(error: unknown): number {
 	if (error instanceof MemberStandingRequiredError || error instanceof GrantExceedsMemberStandingError) {
 		return 403;
 	}
-	if (error instanceof TaskNotFoundError) {
+	if (error instanceof TaskNotFoundError || error instanceof WorkerNotRegisteredError) {
 		return 404;
 	}
 	if (error instanceof StaleAttemptError ||

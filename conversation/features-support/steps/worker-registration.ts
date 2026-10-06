@@ -29,5 +29,11 @@ export async function registerWorkerOverHttp(world: ChatticusWorld, request: Wor
 	assert.equal(response.status, 200, response.text);
 	const token = response.json.token as string;
 	world.workerTokens.set(response.json.worker_id as string, token);
+	const registered = { tenantId: request.tenantId, workerId: response.json.worker_id as string, token };
+	world.registeredWorkers = world.registeredWorkers.filter(
+		(worker) => !(worker.tenantId === registered.tenantId && worker.workerId === registered.workerId),
+	);
+	world.registeredWorkers.push(registered);
+	world.lastRegisteredWorker = registered;
 	return token;
 }

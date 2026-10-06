@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { enforceWorkerPrincipal } from "../../auth/worker-principal.ts";
 import { StorePrincipalDirectory } from "../../auth/store-principal-directory.ts";
-import { registerWorker } from "../../domain/workers.ts";
+import { heartbeatWorker, registerWorker } from "../../domain/workers.ts";
 import type { MessagingStore } from "../../store/messaging-store.ts";
 import type { Clock, IdSource } from "../app.ts";
 import { pathParameter } from "../user-principal.ts";
@@ -63,10 +63,12 @@ export async function registerWorkerHandler(c: Context, deps: WorkerRouteDepende
 }
 
 /**
- * POST /orgs/{tenant_id}/turns/{turn_id}/claim: the worker-audience guard of the claim path. A caller that does not
- * hold a registered worker bearer is refused with 403; claiming the turn itself is the turn-queue slice.
+ * POST /orgs/{tenant_id}/host/heartbeat: refresh the heartbeat of the worker that holds the bearer credential. The
+ * worker is the one the token names, so a worker cannot refresh another worker's heartbeat.
  */
-export async function claimTurnHandler(c: Context, deps: WorkerRouteDependencies): Promise<Response> {
-	await enforceWorkerPrincipal(c.req.raw, pathParameter(c, "tenant_id"), new StorePrincipalDirectory(deps.store));
-	return c.json({ detail: "claiming turns is not served by this front door yet" }, 501);
+export async function heartbeatWorkerHandler(c: Context, deps: WorkerRouteDependencies): Promise<Response> {
+	const tenantId = pathParameter(c, "tenant_id");
+	const principal = await enforceWorkerPrincipal(c.req.raw, tenantId, new StorePrincipalDirectory(deps.store));
+	await heartbeatWorker(tenantId, principal.workerId as string, deps);
+	return c.json({ status: "ok" }, 200);
 }

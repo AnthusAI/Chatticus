@@ -12,6 +12,8 @@ import { ORGANIZATION_CREATION_RATE_LIMIT } from "../domain/creation-limits.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { PrincipalHttpError } from "../auth/principal.ts";
 import { declareRoute } from "./route-audience.ts";
+import type { BudgetRollupReader } from "../domain/organization-spend.ts";
+import { setMonthlyAwsSpendCeilingHandler } from "./routes/spend-ceiling.ts";
 import { getMeHandler } from "./routes/me.ts";
 import { createOrganizationHandler } from "./routes/organizations.ts";
 import { createInvitationHandler, createInvitationMembershipCache } from "./routes/invitations.ts";
@@ -35,7 +37,7 @@ import { OpenStreamCounter, streamTurnHandler } from "./routes/turn-stream.ts";
 import { DEFAULT_STREAM_TIMING, type StreamClock, type StreamTiming, wallStreamClock } from "./stream.ts";
 import { integrationTestSessionHandler } from "./routes/integration-test.ts";
 import { operatorOrganizationHandler } from "./routes/operator.ts";
-import { claimTurnHandler, registerWorkerHandler } from "./routes/workers.ts";
+import { heartbeatWorkerHandler, registerWorkerHandler } from "./routes/workers.ts";
 import { createUserMembershipCache } from "./user-principal.ts";
 
 export interface Clock {
@@ -64,6 +66,8 @@ export interface AppDeps {
 	turnControl: TurnControlStore;
 	/** Member standing ceilings, read when a member replaces a turn's grant. */
 	policy: PolicyStore;
+	/** The month-to-date rollup rows the spend ceiling pause reads; the budget environment is `environment`. */
+	budgetRollups: BudgetRollupReader;
 	invokeKey: string | null;
 	/** The deployment-wide operator bearer secret; the operator routes refuse every caller when it is empty. */
 	operatorKey?: string;
@@ -149,7 +153,7 @@ export function createApp(deps: AppDeps): Hono {
 	const operatorKey = deps.operatorKey ?? "";
 
 	declareRoute(app, { method: "GET", path: "/me", audience: "user" }, (c) =>
-		getMeHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier }),
+		getMeHandler(c, { store, clock: deps.clock, ids: deps.ids, verifier, rollups: deps.budgetRollups, environment }),
 	);
 
 	declareRoute(app, { method: "POST", path: "/organizations", audience: "user" }, (c) =>
@@ -179,6 +183,10 @@ export function createApp(deps: AppDeps): Hono {
 		...userRoutes,
 		messages: { ...deps.messages, store, ids: deps.ids, clock: deps.clock } satisfies MessageDependencies,
 	};
+
+	declareRoute(app, { method: "PATCH", path: "/orgs/:tenant_id/monthly-aws-spend-ceiling", audience: "user" }, (c) =>
+		setMonthlyAwsSpendCeilingHandler(c, userRoutes),
+	);
 
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/bots", audience: "user" }, (c) =>
 		createBotHandler(c, userRoutes),
@@ -249,8 +257,8 @@ export function createApp(deps: AppDeps): Hono {
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/workers/register", audience: "public" }, (c) =>
 		registerWorkerHandler(c, workerRoutes),
 	);
-	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/turns/:turn_id/claim", audience: "worker" }, (c) =>
-		claimTurnHandler(c, workerRoutes),
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/heartbeat", audience: "worker" }, (c) =>
+		heartbeatWorkerHandler(c, workerRoutes),
 	);
 
 	for (const action of ["enable", "suspend", "reinstate"] as const) {
