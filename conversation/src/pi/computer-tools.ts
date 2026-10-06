@@ -1,6 +1,6 @@
 /**
  * The computer tools: `read_workspace`, `write_workspace`, `run_terminal`, `browse` and `request_computer_capability`,
- * plus `send`, which can only run after a human approved its exact arguments.
+ * plus `send` and `purchase`, which can only run after a human approved their exact arguments.
  *
  * Every computer tool is registered on every owner with the same schema and is declared `replay: "safe"`, because its
  * `execute` is a lookup-or-park and so idempotent by construction (the design, the parked-tool handoff):
@@ -70,6 +70,11 @@ const SEND_PARAMETERS = Type.Object({
 	body: Type.Optional(Type.String({ description: "The message text." })),
 });
 
+const PURCHASE_PARAMETERS = Type.Object({
+	item: Type.String({ description: "What to buy." }),
+	origin: Type.Optional(Type.String({ description: "The store the item is bought from." })),
+});
+
 /**
  * The tools the model has beyond the channel note, with their schemas. The gate decides every call before it reaches
  * `execute`; an allowed computer call is a lookup-or-park through `handoff`.
@@ -112,6 +117,15 @@ export function computerToolsExtension(handoff: ComputerToolHandoff): Extension 
 			throw new Error("send runs only after a human approved its exact arguments.");
 		},
 	}) as unknown as ToolRegistration;
+	const purchaseTool = defineTool({
+		name: "purchase",
+		description: "Buy an item for the organization. A human approves the exact purchase first.",
+		parameters: PURCHASE_PARAMETERS,
+		replay: "unsafe",
+		execute: async () => {
+			throw new Error("purchase runs only after a human approved its exact arguments.");
+		},
+	}) as unknown as ToolRegistration;
 	return defineExtension({
 		name: "computer",
 		tools: [
@@ -125,6 +139,7 @@ export function computerToolsExtension(handoff: ComputerToolHandoff): Extension 
 				REQUEST_COMPUTER_CAPABILITY_PARAMETERS,
 			),
 			sendTool,
+			purchaseTool,
 		],
 	});
 }

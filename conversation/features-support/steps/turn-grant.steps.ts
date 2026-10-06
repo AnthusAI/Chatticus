@@ -124,6 +124,19 @@ When(
 	},
 );
 
+When(
+	"user {string} of tenant {string} PUTs a turn grant over HTTP for turn {string}:",
+	async function (this: ChatticusWorld, userId: string, tenantId: string, turnId: string, table: DataTable) {
+		assert.ok(this.api, "The scenario has no HTTP front door.");
+		this.grantResponse = await recordResponse(
+			await this.api.put(`/orgs/${tenantId}/turns/${turnId}/grant`, {
+				headers: await memberHeadersFor(this, tenantId, userId),
+				body: grantPayloadOfTable(grantTableOf(table)),
+			}),
+		);
+	},
+);
+
 Then("the turn grant HTTP response has status {int}", function (this: ChatticusWorld, status: number) {
 	assert.equal(grantResponseOf(this).status, status, grantResponseOf(this).text);
 });

@@ -97,3 +97,10 @@ features/agent_terminal_host_worker_escalation.feature
 features/single_computer_start_host_selection.feature
 features/tenant_isolation.feature
 features/capability_policy_isolated_checks.feature
+features/computer_snapshots.feature
+features/computer_snapshot_dynamo.feature
+features/customer_snapshot_bucket.feature
+features/shared_channels.feature
+features/member_ceiling_sinks.feature
+features/per_task_run_terminal_grant.feature
+features/demo_cli.feature
