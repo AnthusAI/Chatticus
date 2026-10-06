@@ -111,25 +111,35 @@ async function openChannelForTable(
 	return response.json;
 }
 
+/** Create the bot when the scenario has none by that name and open a direct channel between the user and it. */
+export async function openChannelWithNamedBot(
+	world: ChatticusWorld,
+	tenantId: string,
+	userId: string,
+	botName: string,
+): Promise<void> {
+	let bot = world.botsByName?.get(botName);
+	if (bot === undefined) {
+		bot = await createBot(tenantId, botName, { creatorUserId: userId }, { store: world.messagingStore(), ids: world.ids });
+		world.botsById?.set(bot.botId, bot);
+		world.botsByName?.set(botName, bot);
+	}
+	const response = await recordResponse(
+		await memberPost(world, `/orgs/${tenantId}/channels`, {
+			user_id: userId,
+			bot_ids: [bot.botId],
+			kind: "direct",
+			name: null,
+		}),
+	);
+	assert.equal(response.status, 200, response.text);
+	world.lastChannel = { channelId: response.json.channel_id, tenantId };
+}
+
 Given(
 	"tenant {string} user {string} has a channel with a named bot {string}",
 	async function (this: ChatticusWorld, tenantId: string, userId: string, botName: string) {
-		let bot = this.botsByName?.get(botName);
-		if (bot === undefined) {
-			bot = await createBot(tenantId, botName, { creatorUserId: userId }, { store: this.messagingStore(), ids: this.ids });
-			this.botsById?.set(bot.botId, bot);
-			this.botsByName?.set(botName, bot);
-		}
-		const response = await recordResponse(
-			await memberPost(this, `/orgs/${tenantId}/channels`, {
-				user_id: userId,
-				bot_ids: [bot.botId],
-				kind: "direct",
-				name: null,
-			}),
-		);
-		assert.equal(response.status, 200, response.text);
-		this.lastChannel = { channelId: response.json.channel_id, tenantId };
+		await openChannelWithNamedBot(this, tenantId, userId, botName);
 	},
 );
 

@@ -9,7 +9,7 @@ import {
 	UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { pythonRepr } from "../domain/bots.ts";
-import type { Turn, TurnControlStore, TurnEvent, TurnEventDraft, TurnStatus } from "../domain/turns.ts";
+import type { ProbeObservation, Turn, TurnControlStore, TurnEvent, TurnEventDraft, TurnStatus } from "../domain/turns.ts";
 import { StaleAttemptError, TurnNotFoundError, TurnTerminalError } from "../http/errors.ts";
 import {
 	decodePendingComputerTool,
@@ -77,6 +77,8 @@ export function turnFromItem(item: Record<string, AttributeValue>): Turn {
 		deadlineAt: optionalDate(item, "deadline_at"),
 		recoveryAttempts: optionalNumber(item, "recovery_attempts") ?? 0,
 		waitingFor: optionalString(item, "waiting_for"),
+		waitingSince: optionalDate(item, "waiting_since"),
+		logicalEnqueueIds: [...(item.logical_enqueue_ids?.SS ?? [])],
 		pendingComputerTool: pending === null ? null : decodePendingComputerTool(pending),
 		storageFence: optionalNumber(item, "storage_fence"),
 		nextEventSeq: optionalNumber(item, "next_event_seq") ?? 1,
@@ -90,7 +92,11 @@ export function turnFromItem(item: Record<string, AttributeValue>): Turn {
 type Transition = {
 	tenantId: string;
 	turnId: string;
-	attemptId: string;
+	attemptId: string | null;
+	/** Extra condition on the item, with its names and values, for a probe that acts on what it observed. */
+	guard?: { expression: string; names: Record<string, string>; values: Record<string, AttributeValue> };
+	/** The same condition checked on the record just read, so a turn that has moved on is dropped without a retry. */
+	holds?: (turn: Turn) => boolean;
 	draft: TurnEventDraft;
 	eventId: string;
 	expiresAt: Date;
@@ -100,6 +106,49 @@ type Transition = {
 };
 
 /** The Messaging table implementation of TurnControlStore. */
+/**
+ * Remember that a run job was requested for a turn under `enqueueId`.
+ *
+ * @param client DynamoDB client.
+ * @param tableName The Messaging table.
+ * @param tenantId Organization.
+ * @param turnId Turn.
+ * @param enqueueId The logical enqueue identifier.
+ * @returns true the first time the identifier is recorded, false when it already was.
+ * @throws TurnNotFoundError If the turn does not exist.
+ */
+export async function recordLogicalEnqueueOnTurn(
+	client: DynamoDBClient,
+	tableName: string,
+	tenantId: string,
+	turnId: string,
+	enqueueId: string,
+): Promise<boolean> {
+	const key = { pk: { S: turnItemPartitionKey(tenantId, turnId) }, sk: { S: "meta" } };
+	try {
+		await client.send(
+			new UpdateItemCommand({
+				TableName: tableName,
+				Key: key,
+				UpdateExpression: "ADD logical_enqueue_ids :ids",
+				ConditionExpression:
+					"attribute_exists(pk) AND (attribute_not_exists(logical_enqueue_ids) OR NOT contains(logical_enqueue_ids, :id))",
+				ExpressionAttributeValues: { ":ids": { SS: [enqueueId] }, ":id": { S: enqueueId } },
+			}),
+		);
+		return true;
+	} catch (error) {
+		if (!(error instanceof ConditionalCheckFailedException)) {
+			throw error;
+		}
+	}
+	const existing = await client.send(new GetItemCommand({ TableName: tableName, Key: key, ConsistentRead: true }));
+	if (existing.Item === undefined) {
+		throw new TurnNotFoundError(`Turn ${pythonRepr(turnId)} does not exist.`);
+	}
+	return false;
+}
+
 export class DynamoTurnControlStore implements TurnControlStore {
 	private readonly client: DynamoDBClient;
 	private readonly tableName: string;
@@ -252,6 +301,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 			expiresAt: request.expiresAt,
 			set: {
 				waiting_for: { S: request.gate },
+				waiting_since: { N: epochSeconds(request.now) },
 				pending_computer_tool: { S: encodePendingComputerTool(request.pendingComputerTool) },
 			},
 			remove: ["attempt_id", "claimed_by", "lease_expires_at"],
@@ -297,6 +347,96 @@ export class DynamoTurnControlStore implements TurnControlStore {
 		});
 	}
 
+	async recoverExpiredTurn(request: Parameters<TurnControlStore["recoverExpiredTurn"]>[0]): Promise<Turn | null> {
+		const values: Record<string, AttributeValue> = {
+			":active": { S: ACTIVE_STATUS },
+			":now": { N: epochSeconds(request.now) },
+			":deadline": { N: epochSeconds(request.deadlineAt) },
+			":observedRecovery": { N: String(request.observed.recoveryAttempts) },
+			":nextRecovery": { N: String(request.observed.recoveryAttempts + 1) },
+		};
+		let attemptCondition = "attribute_not_exists(attempt_id)";
+		if (request.observed.attemptId !== null) {
+			attemptCondition = "attempt_id = :observedAttempt";
+			values[":observedAttempt"] = { S: request.observed.attemptId };
+		}
+		try {
+			const result = await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: this.metaKey(request.tenantId, request.turnId),
+					UpdateExpression:
+						"SET recovery_attempts = :nextRecovery, deadline_at = :deadline REMOVE attempt_id, claimed_by, lease_expires_at",
+					ConditionExpression: `attribute_exists(pk) AND #status = :active AND attribute_not_exists(waiting_for) AND (attribute_not_exists(lease_expires_at) OR lease_expires_at <= :now) AND ${attemptCondition} AND recovery_attempts = :observedRecovery`,
+					ExpressionAttributeNames: { "#status": "status" },
+					ExpressionAttributeValues: values,
+					ReturnValues: "ALL_NEW",
+				}),
+			);
+			return turnFromItem(result.Attributes!);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return null;
+			}
+			throw error;
+		}
+	}
+
+	async failStaleTurn(request: Parameters<TurnControlStore["failStaleTurn"]>[0]): Promise<TurnEvent | null> {
+		const nowSeconds = Math.floor(request.now.getTime() / 1000);
+		const leaseExpired = (turn: Turn): boolean =>
+			turn.waitingFor === null &&
+			(turn.leaseExpiresAt === null || Math.floor(turn.leaseExpiresAt.getTime() / 1000) <= nowSeconds);
+		const holds = (turn: Turn): boolean =>
+			turn.recoveryAttempts === request.observed.recoveryAttempts &&
+			(request.condition === "waiting" ? turn.waitingFor !== null : leaseExpired(turn));
+		const guardValues: Record<string, AttributeValue> = {};
+		let guardExpression = "attribute_exists(waiting_for)";
+		if (request.condition === "lease_expired") {
+			guardExpression = "attribute_not_exists(waiting_for) AND (attribute_not_exists(lease_expires_at) OR lease_expires_at <= :guardNow)";
+			guardValues[":guardNow"] = { N: String(nowSeconds) };
+		}
+		const guard = { expression: guardExpression, names: {}, values: guardValues };
+		try {
+			return await this.transition({
+				tenantId: request.tenantId,
+				turnId: request.turnId,
+				attemptId: request.observed.attemptId,
+				guard,
+				holds,
+				draft: { kind: "turn.failed", body: request.reason },
+				eventId: request.eventId,
+				expiresAt: request.expiresAt,
+				set: { status: { S: "failed" }, terminal_reason: { S: request.reason } },
+				remove: ["claimed_by", "lease_expires_at"],
+				terminal: true,
+			});
+		} catch (error) {
+			if (error instanceof StaleAttemptError || error instanceof TurnTerminalError || error instanceof TurnNotFoundError) {
+				return null;
+			}
+			throw error;
+		}
+	}
+
+	async relinquishTurn(request: Parameters<TurnControlStore["relinquishTurn"]>[0]): Promise<TurnEvent> {
+		return this.transition({
+			tenantId: request.tenantId,
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			draft: { kind: "attempt.relinquished", attemptId: request.attemptId },
+			eventId: request.eventId,
+			expiresAt: request.expiresAt,
+			set: {},
+			remove: ["attempt_id", "claimed_by", "lease_expires_at"],
+			terminal: false,
+		});
+	}
+
+	async recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string): Promise<boolean> {
+		return recordLogicalEnqueueOnTurn(this.client, this.tableName, tenantId, turnId, enqueueId);
+	}
+
 	async listEvents(tenantId: string, turnId: string, afterSeq: number): Promise<TurnEvent[]> {
 		return listTurnEventItems(this.client, this.tableName, tenantId, turnId, afterSeq);
 	}
@@ -319,14 +459,14 @@ export class DynamoTurnControlStore implements TurnControlStore {
 		return turnId === undefined ? null : this.getTurn(tenantId, turnId);
 	}
 
-	private async rejection(tenantId: string, turnId: string, attemptId: string): Promise<Error> {
+	private async rejection(tenantId: string, turnId: string, attemptId: string | null): Promise<Error> {
 		const current = await this.getTurn(tenantId, turnId);
 		if (current === null) {
 			return new TurnNotFoundError(`Turn ${pythonRepr(turnId)} does not exist.`);
 		}
 		if (current.attemptId !== attemptId) {
 			return new StaleAttemptError(
-				`Turn ${pythonRepr(turnId)} rejected attempt ${pythonRepr(attemptId)} (current ${pythonRepr(current.attemptId ?? "")}).`,
+				`Turn ${pythonRepr(turnId)} rejected attempt ${pythonRepr(attemptId ?? "")} (current ${pythonRepr(current.attemptId ?? "")}).`,
 			);
 		}
 		return new TurnTerminalError(`Turn ${pythonRepr(turnId)} is not active.`);
@@ -337,6 +477,9 @@ export class DynamoTurnControlStore implements TurnControlStore {
 			const current = await this.getTurn(request.tenantId, request.turnId);
 			if (current === null || current.attemptId !== request.attemptId || current.status !== ACTIVE_STATUS) {
 				throw await this.rejection(request.tenantId, request.turnId, request.attemptId);
+			}
+			if (request.holds !== undefined && !request.holds(current)) {
+				throw new StaleAttemptError(`Turn ${pythonRepr(request.turnId)} is no longer as the probe observed it.`);
 			}
 			const event: TurnEvent = {
 				eventId: request.eventId,
@@ -350,9 +493,16 @@ export class DynamoTurnControlStore implements TurnControlStore {
 			const values: Record<string, AttributeValue> = {
 				":nextSeq": { N: String(current.nextEventSeq + 1) },
 				":seq": { N: String(current.nextEventSeq) },
-				":attemptId": { S: request.attemptId },
 				":active": { S: ACTIVE_STATUS },
+				...(request.guard?.values ?? {}),
 			};
+			Object.assign(names, request.guard?.names ?? {});
+			let ownerCondition = "attribute_not_exists(attempt_id)";
+			if (request.attemptId !== null) {
+				ownerCondition = "attempt_id = :attemptId";
+				values[":attemptId"] = { S: request.attemptId };
+			}
+			const guardCondition = request.guard === undefined ? "" : ` AND ${request.guard.expression}`;
 			const assignments = ["next_event_seq = :nextSeq"];
 			for (const [name, value] of Object.entries(request.set)) {
 				names[`#set_${name}`] = name;
@@ -373,7 +523,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 									TableName: this.tableName,
 									Key: this.metaKey(request.tenantId, request.turnId),
 									UpdateExpression: `SET ${assignments.join(", ")}${removeClause}`,
-									ConditionExpression: "attempt_id = :attemptId AND #status = :active AND next_event_seq = :seq",
+									ConditionExpression: `${ownerCondition} AND #status = :active AND next_event_seq = :seq${guardCondition}`,
 									ExpressionAttributeNames: names,
 									ExpressionAttributeValues: values,
 								},

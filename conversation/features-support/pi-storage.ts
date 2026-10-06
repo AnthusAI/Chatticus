@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Agent } from "node:http";
 import { DeleteTableCommand } from "@aws-sdk/client-dynamodb";
 import { DeleteBucketCommand, DeleteObjectsCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 import { createPiSessionBucket, createPiSessionTable } from "../src/storage/table-definition.ts";
@@ -21,6 +22,7 @@ export function testS3Client(): S3Client {
 		credentials: { accessKeyId: "test", secretAccessKey: "test" },
 		forcePathStyle: true,
 		maxAttempts: 1,
+		requestHandler: { httpAgent: new Agent({ keepAlive: true, maxSockets: 64 }) },
 	});
 }
 

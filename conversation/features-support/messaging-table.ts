@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Agent } from "node:http";
 import {
 	type AttributeValue,
 	CreateTableCommand,
@@ -23,6 +24,7 @@ export function localDynamoClient(): DynamoDBClient {
 		region: "us-east-1",
 		credentials: { accessKeyId: "test", secretAccessKey: "test" },
 		maxAttempts: 1,
+		requestHandler: { httpAgent: new Agent({ keepAlive: true, maxSockets: 64 }) },
 	});
 }
 

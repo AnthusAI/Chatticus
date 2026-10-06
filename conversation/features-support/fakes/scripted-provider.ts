@@ -41,6 +41,7 @@ export class ScriptedProvider {
 	readonly requests: string[] = [];
 	private readonly steps: ScriptedStep[] = [];
 	private readonly holds: Array<{ release: () => void; gate: Promise<void>; reached: () => void }> = [];
+	private readonly midStreamHolds: Array<{ afterCharacters: number; release: () => void; gate: Promise<void>; reached: () => void }> = [];
 	private repeatingStep: ScriptedStep | null = null;
 	callCount = 0;
 
@@ -132,6 +133,25 @@ export class ScriptedProvider {
 		return { release, reached: reachedPromise };
 	}
 
+	/**
+	 * Hold the next request in the middle of its streamed text, once at least `afterCharacters` characters have been sent,
+	 * until the scenario releases it.
+	 *
+	 * @returns A handle whose `reached` resolves when the request is waiting and whose `release` lets it finish.
+	 */
+	slowMidStream(afterCharacters: number): ScriptedHold {
+		let release!: () => void;
+		let reached!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const reachedPromise = new Promise<void>((resolve) => {
+			reached = resolve;
+		});
+		this.midStreamHolds.push({ afterCharacters, release, gate, reached });
+		return { release, reached: reachedPromise };
+	}
+
 	private blankMessage(requestModel: Model<string>): AssistantMessage {
 		return {
 			role: "assistant",
@@ -150,6 +170,7 @@ export class ScriptedProvider {
 		this.callCount += 1;
 		this.requests.push(JSON.stringify(context));
 		const hold = this.holds.shift();
+		const midStreamHold = this.midStreamHolds.shift();
 		const step = this.steps.shift() ?? this.repeatingStep;
 		queueMicrotask(async () => {
 			const blank = this.blankMessage(requestModel);
@@ -192,10 +213,16 @@ export class ScriptedProvider {
 				if (step.kind === "reply") {
 					const partial = { ...blank, content: [{ type: "text" as const, text: "" }] };
 					outer.push({ type: "text_start", contentIndex: 0, partial: { ...partial } });
+					let held = midStreamHold === undefined;
 					for (const delta of chunksOf(step.text, 12)) {
 						await pause(DELTA_PAUSE_MILLISECONDS);
 						partial.content = [{ type: "text", text: `${partial.content[0]!.text}${delta}` }];
 						outer.push({ type: "text_delta", contentIndex: 0, delta, partial: { ...partial } });
+						if (!held && midStreamHold !== undefined && partial.content[0]!.text.length >= midStreamHold.afterCharacters) {
+							held = true;
+							midStreamHold.reached();
+							await midStreamHold.gate;
+						}
 					}
 					outer.push({ type: "text_end", contentIndex: 0, content: step.text, partial: { ...partial } });
 					const message = { ...blank, content: [{ type: "text" as const, text: step.text }], usage };

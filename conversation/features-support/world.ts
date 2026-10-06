@@ -13,6 +13,7 @@ import type { MessagingStore } from "../src/store/messaging-store.ts";
 import { DynamoMessagingStore } from "../src/store/dynamo-messaging-store.ts";
 import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
 import type { TurnDependencies } from "../src/domain/turns.ts";
+import { FaultPlan } from "../src/turn/fault-plan.ts";
 import { FakeBudgetAlertsPublisher } from "./fakes/fake-budget-alerts.ts";
 import { FakeAccountSpendReader, FakeCostExplorerReader } from "./fakes/fake-cost-explorer.ts";
 import type { CognitoTestKeys } from "./test-jwt.ts";
@@ -60,6 +61,10 @@ export class ChatticusWorld extends World {
 	readonly clock: FakeClock;
 	readonly ids: SequentialIdSource;
 	readonly queues: QueueRecorder;
+	/** Crash injection shared by the front door, the executor and the probe handler; disarmed unless a scenario arms it. */
+	readonly faultPlan = new FaultPlan();
+	/** Each time a run job's queue visibility was extended, as the queue would record it. */
+	readonly runVisibilityExtensions: Array<{ tenantId: string; turnId: string }> = [];
 	api: ApiClient | null = null;
 	app: Hono | null = null;
 	listedTurnEvents: Array<Record<string, any>> = [];

@@ -7,6 +7,7 @@ import {
 	watchEvents,
 } from "@earendil-works/pi-durable";
 import {
+	ATTEMPT_LEASE_SECONDS,
 	beginClosing,
 	claimTurn,
 	completeTurn,
@@ -15,6 +16,7 @@ import {
 	recordStorageFence,
 	renewTurn,
 	type Turn,
+	type TurnClaim,
 } from "../domain/turns.ts";
 import { StaleAttemptError, TurnTerminalError } from "../http/errors.ts";
 import { type ChannelMessageDraft, recordInputLine, writeAttributedMessage } from "../pi/channel-log.ts";
@@ -29,13 +31,16 @@ import { classifyModelFailure } from "./classify-errors.ts";
 import { DEFAULT_TOKEN_FLUSH_BYTES, DEFAULT_TOKEN_FLUSH_MILLISECONDS, TokenCoalescer } from "./coalescer.ts";
 import { AgentEventDelivery, createAgentEventListener, TurnEventWriter } from "./event-stream.ts";
 import { commitFinalAnswer, type FinalizeInputs, recordTurnSpend } from "./finalize.ts";
+import { armProbe } from "./probes.ts";
 import { buildSystemPrompt } from "./prompt.ts";
+import { DEFAULT_YIELD_BELOW_MILLISECONDS, yieldAttempt } from "./yield.ts";
 import type { ExecutorDeps, ExecutorTuning, TurnExecutionJob, TurnExecutionOutcome } from "./types.ts";
 
 /** The design's timing: renew every 20 seconds, look for steered messages twice a second, Pi retries twice. */
 export const DEFAULT_EXECUTOR_TUNING: ExecutorTuning = {
 	renewIntervalMilliseconds: 20_000,
 	mailboxPollMilliseconds: 500,
+	yieldBelowMilliseconds: DEFAULT_YIELD_BELOW_MILLISECONDS,
 	tokenFlushBytes: DEFAULT_TOKEN_FLUSH_BYTES,
 	tokenFlushMilliseconds: DEFAULT_TOKEN_FLUSH_MILLISECONDS,
 	retry: { maxRetries: 2, baseDelayMilliseconds: 1000 },
@@ -123,7 +128,11 @@ class TurnAttempt {
 		this.coalescer = new TokenCoalescer({
 			flushBytes: tuning.tokenFlushBytes,
 			flushMilliseconds: tuning.tokenFlushMilliseconds,
-			write: (text) => this.writer.write({ kind: "turn.token", token: text }),
+			write: async (text) => {
+				deps.faults?.maybeCrash("progress_append", "before");
+				await this.writer.write({ kind: "turn.token", token: text });
+				deps.faults?.maybeCrash("progress_append", "after");
+			},
 		});
 		this.lost = new Promise<never>((_resolve, reject) => {
 			this.signalLost = () => reject(new AttemptLost());
@@ -180,6 +189,7 @@ class TurnAttempt {
 	}
 
 	private async drive(session: OwnerSession, root: Conversation): Promise<TurnExecutionOutcome> {
+		this.deps.faults?.maybeCrash("model_acceptance", "before");
 		await this.pumpMailbox(session, root);
 		if (!this.inputs.some((input) => input.isPrompt)) {
 			await this.adoptSubmittedPrompt(root);
@@ -189,6 +199,7 @@ class TurnAttempt {
 		for (;;) {
 			await this.waitForProgress();
 			await this.guard(session);
+			if (this.mustYield()) return this.yieldTurn();
 			await this.pumpMailbox(session, root);
 			if (this.inputs.some((input) => input.settled === null)) continue;
 			if (!closing) {
@@ -204,9 +215,10 @@ class TurnAttempt {
 
 	private async conclude(session: OwnerSession, root: Conversation): Promise<TurnExecutionOutcome> {
 		await this.delivery.untilSettled(this.inputs[this.inputs.length - 1]!.submission.id as number, EVENT_DELIVERY_WAIT_MILLISECONDS);
+		this.deps.faults?.maybeCrash("model_acceptance", "after");
 		await this.coalescer.flush();
 		await this.guard(session);
-		if ((await renewTurn(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId)) === null) {
+		if (!(await renewAttempt(this.deps, this.job.tenantId, this.job.turnId, this.attemptId))) {
 			throw new AttemptLost();
 		}
 		const last = this.inputs[this.inputs.length - 1]!.settled!;
@@ -218,10 +230,25 @@ class TurnAttempt {
 			return this.fail(reason);
 		}
 		const inputs = this.finalizeInputs(session, root);
+		this.deps.faults?.maybeCrash("completion_append", "before");
 		const reply = await commitFinalAnswer(inputs, last.answer);
 		await recordTurnSpend(inputs, this.promptEntryId());
+		this.deps.faults?.maybeCrash("completion_append", "after");
 		await completeTurn(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId, reply.messageSeq, reply.body);
 		return "done";
+	}
+
+	private mustYield(): boolean {
+		const remaining = this.deps.remainingMilliseconds;
+		if (remaining === undefined || remaining() >= this.tuning.yieldBelowMilliseconds) return false;
+		return this.inputs.some((input) => input.settled === null);
+	}
+
+	private async yieldTurn(): Promise<TurnExecutionOutcome> {
+		await this.coalescer.flush();
+		this.writer.throwIfFailed();
+		await yieldAttempt(this.deps, this.job.tenantId, this.job.turnId, this.attemptId);
+		return "yielded";
 	}
 
 	private async fail(reason: string): Promise<TurnExecutionOutcome> {
@@ -301,7 +328,7 @@ class TurnAttempt {
 		if (this.renewing) return;
 		this.renewing = true;
 		try {
-			if ((await renewTurn(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId)) === null) {
+			if (!(await renewAttempt(this.deps, this.job.tenantId, this.job.turnId, this.attemptId))) {
 				this.signalLost();
 			}
 		} catch {
@@ -377,6 +404,47 @@ class TurnAttempt {
 }
 
 /**
+ * Extend the attempt's lease and deadline and keep its run job invisible to other consumers.
+ *
+ * @param deps Turn store and run-queue visibility.
+ * @param tenantId Organization.
+ * @param turnId Turn.
+ * @param attemptId The attempt that owns the turn.
+ * @returns false when the attempt no longer owns the turn, which means its owner is stale and must stop.
+ */
+export async function renewAttempt(
+	deps: Pick<ExecutorDeps, "turns" | "runVisibility">,
+	tenantId: string,
+	turnId: string,
+	attemptId: string,
+): Promise<boolean> {
+	if ((await renewTurn(deps.turns, tenantId, turnId, attemptId)) === null) return false;
+	await deps.runVisibility.extend(tenantId, turnId);
+	return true;
+}
+
+/**
+ * Become the owner of a queued turn: take the compare-and-set claim, and arm the probe that notices if this owner
+ * vanishes. The probe is armed before the claim can be lost to a crash.
+ *
+ * @param deps Stores, queues and fault hooks.
+ * @param job The queue message.
+ * @returns The claim, or null when a live owner exists or the turn cannot be claimed.
+ */
+export async function claimTurnAttempt(
+	deps: Pick<ExecutorDeps, "turns" | "turnProbes" | "faults" | "workerLabel">,
+	job: TurnExecutionJob,
+): Promise<TurnClaim | null> {
+	deps.faults?.maybeCrash("worker_claim", "before");
+	const attemptId = deps.turns.ids.next();
+	const claim = await claimTurn(deps.turns, job.tenantId, job.turnId, attemptId, deps.workerLabel ?? null);
+	if (claim === null) return null;
+	await armProbe(deps.turnProbes, claim.turn, ATTEMPT_LEASE_SECONDS);
+	deps.faults?.maybeCrash("worker_claim", "after");
+	return claim;
+}
+
+/**
  * Run one queued turn to its end: claim it, take the Pi storage fence, open the bot's session, bring the session up to
  * the channel from the mailbox, run the model with Pi, forward Pi's events as coalesced turn events, steer messages
  * posted to the same bot while it works, and finish. A finished turn commits only the final assistant text to the
@@ -391,8 +459,28 @@ class TurnAttempt {
  */
 export async function executeTurn(job: TurnExecutionJob, deps: ExecutorDeps): Promise<TurnExecutionOutcome> {
 	const tuning: ExecutorTuning = { ...DEFAULT_EXECUTOR_TUNING, ...deps.tuning };
-	const attemptId = deps.turns.ids.next();
-	const claim = await claimTurn(deps.turns, job.tenantId, job.turnId, attemptId, deps.workerLabel ?? null);
+	const claim = await claimTurnAttempt(deps, job);
 	if (claim === null) return "lost";
-	return new TurnAttempt(job, deps, tuning, attemptId, claim.turn).run();
+	return new TurnAttempt(job, deps, tuning, claim.attemptId, claim.turn).run();
+}
+
+/**
+ * Run one queue message the way its consumer does: execute the turn, then acknowledge the message. A failure before the
+ * acknowledgement leaves the message on the queue, so it is delivered again.
+ *
+ * @param job The queue message.
+ * @param deps Stores, clients, the model and timing.
+ * @param acknowledge Deletes the message from the queue.
+ * @returns How the execution ended.
+ */
+export async function consumeRunJob(
+	job: TurnExecutionJob,
+	deps: ExecutorDeps,
+	acknowledge: () => Promise<void>,
+): Promise<TurnExecutionOutcome> {
+	const outcome = await executeTurn(job, deps);
+	deps.faults?.maybeCrash("acknowledgement", "before");
+	await acknowledge();
+	deps.faults?.maybeCrash("acknowledgement", "after");
+	return outcome;
 }

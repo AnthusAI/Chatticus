@@ -40,3 +40,6 @@ features/vendor_ledger.feature
 features/turn_execution.feature
 features/realtime_api.feature
 features/turn_stream_replay.feature
+features/turn_recovery.feature
+features/turn_probes.feature
+features/turn_fault_injection.feature

@@ -8,6 +8,7 @@ import { executeTurn } from "../src/turn/executor.ts";
 import type { ExecutorDeps, ExecutorTuning, TurnExecutionOutcome } from "../src/turn/types.ts";
 import { ScriptedProvider, type ScriptedHold } from "./fakes/scripted-provider.ts";
 import { TURN_RUN_QUEUE } from "./front-door.ts";
+import { probeQueueOf, runQueueOf, runVisibilityOf } from "./turn-queues.ts";
 import { ensurePiStorage } from "./pi-storage.ts";
 import type { TurnWatcher } from "./turn-watcher.ts";
 import type { ChatticusWorld } from "./world.ts";
@@ -37,6 +38,8 @@ export type ModelScenario = {
 	lastOutcome?: TurnExecutionOutcome;
 	/** Lets the superseded execution renew its lease, which is how it learns it lost the turn. */
 	openRenewals?: () => void;
+	/** Milliseconds the function is said to have left; unlimited until a step sets it. */
+	functionMillisecondsLeft?: number;
 	/** The execution that was superseded by a newer attempt. */
 	firstAttempt?: Promise<TurnExecutionOutcome>;
 };
@@ -144,11 +147,21 @@ export function ledgerDependenciesFor(world: ChatticusWorld): VendorLedgerDepend
 	};
 }
 
+/** What a step may change about the executor it starts. */
+export type ExecutorOptions = {
+	/** Lease renewals wait for this promise. */
+	renewalGate?: Promise<void>;
+	/** The function's remaining time, as the Lambda context reports it. */
+	remainingMilliseconds?: () => number;
+	/** Timing knobs on top of the test defaults. */
+	tuning?: Partial<ExecutorTuning>;
+};
+
 /** The executor's dependencies over the scenario's tables, clock, identifiers and scripted model. */
 export async function executorDepsFor(
 	world: ChatticusWorld,
 	scenario: ModelScenario,
-	options: { renewalGate?: Promise<void> } = {},
+	options: ExecutorOptions = {},
 ): Promise<ExecutorDeps> {
 	const piStorage = await ensurePiStorage(world);
 	const models = createModels();
@@ -164,7 +177,12 @@ export async function executorDepsFor(
 		models,
 		model: { provider: "openai", modelId: scenario.scripted.modelId, thinkingLevel: "minimal" },
 		ledger: ledgerDependenciesFor(world),
-		tuning: TEST_TUNING,
+		tuning: { ...TEST_TUNING, ...options.tuning },
+		turnRuns: runQueueOf(world),
+		turnProbes: probeQueueOf(world),
+		runVisibility: runVisibilityOf(world),
+		remainingMilliseconds: options.remainingMilliseconds ?? (() => scenario.functionMillisecondsLeft ?? Number.MAX_SAFE_INTEGER),
+		faults: world.faultPlan,
 	};
 }
 
@@ -177,7 +195,7 @@ export function startBotTurn(
 	world: ChatticusWorld,
 	botName: string,
 	modelId: string = DEFAULT_SCRIPTED_MODEL_ID,
-	options: { renewalGate?: Promise<void> } = {},
+	options: ExecutorOptions = {},
 ): Promise<TurnExecutionOutcome> {
 	const bot = world.botsByName?.get(botName);
 	assert.ok(bot, `Bot ${botName} not found`);
