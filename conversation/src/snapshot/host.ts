@@ -162,7 +162,7 @@ export class ComputerHostDisk {
 /**
  * Check if a path is within root and resolve it safely.
  */
-function safeJoin(root: string, relativePath: string): string {
+export function safeJoin(root: string, relativePath: string): string {
 	const resolvedRoot = resolve(root);
 	const candidate = resolve(root, relativePath);
 
