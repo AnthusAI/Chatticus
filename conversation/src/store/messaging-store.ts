@@ -70,11 +70,24 @@ export interface MessagingStore {
 	putComputer(computer: Computer): Promise<void>;
 	/**
 	 * Start the next host start generation under a lease, only while the stored generation is still `expectedGeneration`,
-	 * so two callers that both saw no live lease cannot both start a host.
+	 * so two callers that both saw no live lease cannot both start a host. A new generation also clears the disk write
+	 * lock, because the host that held it belongs to the generation that wedged.
 	 *
 	 * @returns The computer after the change, or null when another caller moved the generation first.
 	 */
 	claimHostStartGeneration(tenantId: string, expectedGeneration: number, leaseExpiresAt: Date): Promise<Computer | null>;
+	/**
+	 * Mark the live disk of the computer as holding writes no snapshot has published, without touching any other field.
+	 *
+	 * @returns false when the organization has no computer.
+	 */
+	markComputerDiskDirty(tenantId: string): Promise<boolean>;
+	/**
+	 * Grant the live disk write lock to `hostId` when nobody holds it or it already holds it.
+	 *
+	 * @returns false when another host holds the lock, or the organization has no computer.
+	 */
+	claimComputerDiskWriter(tenantId: string, hostId: string): Promise<boolean>;
 	/**
 	 * Record that the host start of `generation` was handed to the host driver, only while nothing dispatched it yet.
 	 *

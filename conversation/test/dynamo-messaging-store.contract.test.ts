@@ -436,6 +436,37 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 			expect(await store.claimHostStartGeneration("tenant-none", 0, lease)).toBeNull();
 		});
 
+		it("grants the disk write lock to one host, marks the disk dirty in place, and clears the lock on a new generation", async () => {
+			const store = await makeStore();
+			const computer: Computer = {
+				computerId: "c-1",
+				tenantId: "tenant-a",
+				policy: "prefer_local",
+				stopped: false,
+				modelReady: true,
+				workspaceReady: false,
+				browserReady: false,
+				hostStartGeneration: 0,
+				hostStartDispatchedGeneration: 0,
+				snapshotGeneration: 0,
+				diskDirty: false,
+				hydrateRequired: false,
+			};
+			await store.putComputer(computer);
+			expect(await store.claimComputerDiskWriter("tenant-a", "host-a")).toBe(true);
+			expect(await store.claimComputerDiskWriter("tenant-a", "host-a")).toBe(true);
+			expect(await store.claimComputerDiskWriter("tenant-a", "host-b")).toBe(false);
+			expect(await store.claimComputerDiskWriter("tenant-none", "host-a")).toBe(false);
+			expect(await store.markComputerDiskDirty("tenant-a")).toBe(true);
+			expect(await store.markComputerDiskDirty("tenant-none")).toBe(false);
+			const held = await store.getComputer("tenant-a");
+			expect(held?.liveWriterHostId).toBe("host-a");
+			expect(held?.diskDirty).toBe(true);
+			const next = await store.claimHostStartGeneration("tenant-a", 0, new Date("2026-01-01T00:01:00Z"));
+			expect(next?.liveWriterHostId).toBeUndefined();
+			expect(await store.claimComputerDiskWriter("tenant-a", "host-b")).toBe(true);
+		});
+
 		it("round-trips tasks and lists one user's tasks sorted, across several pages", async () => {
 			const store = await makeStore();
 			for (const taskId of ["k-3", "k-1", "k-5", "k-2", "k-4"]) {

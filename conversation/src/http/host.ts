@@ -25,6 +25,8 @@ import {
 import {
 	computerForOrganization,
 	recordComputerCapabilityReady,
+	recordComputerToolAnswered,
+	refuseDiskWriteBeforeHydrate,
 	recordHostHydrated,
 	recordHostSnapshotPublished,
 	setComputerStopped,
@@ -133,7 +135,10 @@ export async function hostClaimActionHandler(c: Context, deps: HostRouteDependen
 	const { tenantId, workerId } = await workerOf(c, deps);
 	const body = await parseHostBody(c, claimActionRequestSchema);
 	if ("refusal" in body) return body.refusal;
-	const action = await claimNextComputerAction(actionDependenciesOf(deps.park), tenantId, workerId);
+	const computer = await deps.store.getComputer(tenantId);
+	const action = await claimNextComputerAction(actionDependenciesOf(deps.park), tenantId, workerId, (candidate) =>
+		refuseDiskWriteBeforeHydrate(candidate.toolName, computer),
+	);
 	return c.json({ action: action === null ? null : actionPayload(action) }, 200);
 }
 
@@ -155,7 +160,10 @@ export async function hostActionResultHandler(c: Context, deps: HostRouteDepende
 	const body = await parseHostBody(c, actionResultRequestSchema);
 	if ("refusal" in body) return body.refusal;
 	const answer = "result" in body.value ? { result: body.value.result, isError: false } : { result: body.value.error, isError: true };
-	const { action } = await completeComputerAction(actionDependenciesOf(deps.park), tenantId, pathParameter(c, "action_id"), workerId, answer);
+	const { action, recorded } = await completeComputerAction(actionDependenciesOf(deps.park), tenantId, pathParameter(c, "action_id"), workerId, answer);
+	if (recorded) {
+		await recordComputerToolAnswered(tenantId, action.toolName, deps);
+	}
 	const resumed = await resumeTurnForAction(deps.park, tenantId, action.turnId, action.actionId);
 	return c.json({ status: "ok", action_id: action.actionId, turn_id: action.turnId, turn_resumed: resumed }, 200);
 }

@@ -42,7 +42,6 @@ Feature: Computer snapshots and host relocate
     When an administrator relocates computer "household-computer" to worker "garage-mac-1"
     Then relocate fails because a snapshot is required
 
-  @needs-product-behavior
   Scenario: Unpublished live-disk writes block relocate
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
     When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
@@ -86,7 +85,6 @@ Feature: Computer snapshots and host relocate
     And worker "other-mac" hydrates computer "household-computer"
     Then hydrate fails because the worker does not host that computer
 
-  @needs-product-behavior
   Scenario: The live disk cannot be written until the intended host hydrates
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
     When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer

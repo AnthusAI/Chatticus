@@ -629,6 +629,29 @@ arguments) into the action item. The host enforces the envelope; only a
 navigation to an unforeseen origin needs route 8. Regate is evaluated against
 the same policy kernel the executor used.
 
+#### 4.3.1 Disk dirty tracking, the hydrate guard and the live-writer lock
+
+These are data-loss protection, not readiness, and they live on the computer
+record (`disk_dirty`, `hydrate_required`, `live_writer_host_id`).
+
+- **Dirty.** Posting the result of a `write_workspace` or `run_terminal`
+  action (route 7, first answer only) sets `disk_dirty` with an in-place
+  conditional update, so it cannot overwrite a concurrent host-start change.
+  A snapshot publish or a hydrate clears it. `relocate` refuses while it is
+  set. Reads and `browse` leave it alone.
+- **Hydrate guard.** While `hydrate_required` is set, `POST /actions/claim`
+  refuses (400, `ComputerNotHydratedError`) to hand out a `write_workspace` or
+  `run_terminal` action, so the host never holds a write it must not run. A
+  write now would land on a disk that the intended host is about to replace.
+- **Live-writer lock (the design was silent; decided minimally).** One host
+  holds `live_writer_host_id`, granted by a conditional update that succeeds
+  only when the field is absent or already that host. A new host start
+  generation (`claimHostStartGeneration`, which only succeeds once the previous
+  lease expired) removes it in the same update, because the host that held it
+  belongs to the wedged generation. The lock is not tied to action claims: the
+  claim path does not acquire it, so a replacement host cannot be refused
+  because a dead host still holds it. Nothing else clears it.
+
 ### 4.4 The parked-tool handoff (Lambda owner to computer)
 
 The Pi spike parked a tool by closing the owner and relying on crash replay,

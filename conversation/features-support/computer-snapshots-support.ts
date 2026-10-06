@@ -16,6 +16,8 @@ export type SnapshotRelocationScenario = {
 	relocateError: Error | null;
 	/** How the last hydrate ended when it was refused. */
 	hydrateError: Error | null;
+	/** How the last bot write on the computer ended when the host was refused; a scenario that expects a refusal inspects it. */
+	writeError: Error | null;
 	/** Whether a step looked at the refusal, so a refusal no scenario expected cannot pass unseen. */
 	refusalInspected: boolean;
 };
@@ -26,7 +28,7 @@ const scenarios = new WeakMap<ChatticusWorld, SnapshotRelocationScenario>();
 export function snapshotRelocationOf(world: ChatticusWorld): SnapshotRelocationScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
-		scenario = { browserSessions: new Map(), relocateError: null, hydrateError: null, refusalInspected: false };
+		scenario = { browserSessions: new Map(), relocateError: null, hydrateError: null, writeError: null, refusalInspected: false };
 		scenarios.set(world, scenario);
 	}
 	return scenario;
@@ -70,4 +72,5 @@ After(function (this: ChatticusWorld) {
 	if (scenario === undefined || scenario.refusalInspected) return;
 	assert.equal(scenario.relocateError, null, `An unexpected relocate refusal went unchecked: ${scenario.relocateError?.message}`);
 	assert.equal(scenario.hydrateError, null, `An unexpected hydrate refusal went unchecked: ${scenario.hydrateError?.message}`);
+	assert.equal(scenario.writeError, null, `An unexpected write refusal went unchecked: ${scenario.writeError?.message}`);
 });

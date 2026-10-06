@@ -108,3 +108,4 @@ features/shared_channels.feature
 features/member_ceiling_sinks.feature
 features/per_task_run_terminal_grant.feature
 features/demo_cli.feature
+features/single_computer_start_disk_ownership.feature
