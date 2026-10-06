@@ -32,7 +32,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript control-plane port is in development rehearsal, with final fixes and AWS checks still underway.",
-  "right_now_updated_at": "2026-10-06T15:07:44.461341Z",
+  "right_now_summary": "The TypeScript port is deployed in development and undergoing rehearsal before the final cutover.",
+  "right_now_updated_at": "2026-10-06T15:15:23.671128Z",
   "custom": {}
 }
