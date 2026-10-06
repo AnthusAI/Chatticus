@@ -42,6 +42,8 @@ export type HostLifecycleScenario = {
 	publishError: Error | null;
 	/** The bucket of the organization's own snapshot store, when the scenario gave it one. */
 	organizationBucket: string | null;
+	/** Every request the hosts sent the Front Door, in the order the Front Door received them. */
+	frontDoorRequests: Array<{ readonly url: string; readonly method: string; readonly body: string | null }>;
 };
 
 const scenarios = new WeakMap<ChatticusWorld, HostLifecycleScenario>();
@@ -50,7 +52,7 @@ const scenarios = new WeakMap<ChatticusWorld, HostLifecycleScenario>();
 export function lifecycleOf(world: ChatticusWorld): HostLifecycleScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
-		scenario = { snapshotMetadataRequests: 0, lastBootedHost: null, readinessOrder: [], publishError: null, organizationBucket: null };
+		scenario = { snapshotMetadataRequests: 0, lastBootedHost: null, readinessOrder: [], publishError: null, organizationBucket: null, frontDoorRequests: [] };
 		scenarios.set(world, scenario);
 	}
 	return scenario;
@@ -64,6 +66,11 @@ export function frontDoorFetch(world: ChatticusWorld): typeof fetch {
 	return (async (input: Request | URL | string, init?: RequestInit) => {
 		assert.ok(world.app, "The scenario has no HTTP front door.");
 		const url = String(input);
+		lifecycleOf(world).frontDoorRequests.push({
+			url,
+			method: init?.method ?? "GET",
+			body: typeof init?.body === "string" ? init.body : null,
+		});
 		if (SNAPSHOT_METADATA_ROUTES.some((route) => url.includes(route))) {
 			lifecycleOf(world).snapshotMetadataRequests += 1;
 		}

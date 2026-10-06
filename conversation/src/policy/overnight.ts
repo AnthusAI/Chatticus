@@ -38,7 +38,6 @@ export interface OvernightGatedResult {
 	turn_status: string;
 	reason: string | null;
 	completion_evidence: string | null;
-	retried_unattended: boolean;
 }
 
 function bindingsEqual(
@@ -64,7 +63,7 @@ export function resolveUnattendedGatedAction(options: {
 	const userId = options.userId ?? null;
 	const completionEvidence = options.completionEvidence ?? "system-accepted";
 	if (!CONSEQUENTIAL_ACTION_TYPES.has(options.actionType)) {
-		return { executed: true, turn_status: "completed", reason: null, completion_evidence: null, retried_unattended: false };
+		return { executed: true, turn_status: "completed", reason: null, completion_evidence: null };
 	}
 	if (options.channel === CHANNEL_BROWSER) {
 		return {
@@ -72,7 +71,6 @@ export function resolveUnattendedGatedAction(options: {
 			turn_status: "blocked",
 			reason: USER_CONTROLLED_COMPLETION_REQUIRED,
 			completion_evidence: null,
-			retried_unattended: false,
 		};
 	}
 	const matching = options.rules.filter(
@@ -86,9 +84,9 @@ export function resolveUnattendedGatedAction(options: {
 			bindingsEqual(rule.argumentBindings, options.arguments),
 	);
 	if (matching.length > 0) {
-		return { executed: true, turn_status: "completed", reason: null, completion_evidence: completionEvidence, retried_unattended: false };
+		return { executed: true, turn_status: "completed", reason: null, completion_evidence: completionEvidence };
 	}
-	return { executed: false, turn_status: "blocked", reason: WAITING_FOR_HUMAN, completion_evidence: null, retried_unattended: false };
+	return { executed: false, turn_status: "blocked", reason: WAITING_FOR_HUMAN, completion_evidence: null };
 }
 
 /**
@@ -107,13 +105,12 @@ export function resolveUnboundAuthenticatedBrowserAction(
 	}
 	const actionType = BROWSER_ACTION_ALIASES[action] ?? action;
 	if (!CONSEQUENTIAL_ACTION_TYPES.has(actionType)) {
-		return { executed: true, turn_status: "completed", reason: null, completion_evidence: null, retried_unattended: false };
+		return { executed: true, turn_status: "completed", reason: null, completion_evidence: null };
 	}
 	return {
 		executed: false,
 		turn_status: "blocked",
 		reason: USER_CONTROLLED_COMPLETION_REQUIRED,
 		completion_evidence: null,
-		retried_unattended: false,
 	};
 }

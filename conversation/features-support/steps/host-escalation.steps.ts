@@ -3,6 +3,7 @@ import { Given, Then, When } from "@cucumber/cucumber";
 import { ensureComputer, recordHostSnapshotPublished } from "../../src/domain/computers.ts";
 import { reconcileWorkerSnapshot, selectComputerStartHost } from "../../src/domain/workers.ts";
 import { LIFECYCLE_TENANT, hostExecutorFor, lifecycleOf, runHostUntilIdle, tamperPendingAction } from "../host-lifecycle-support.ts";
+import { modelScenarioOf } from "../executor-harness.ts";
 import { runQueuedJobs } from "../turn-recovery.ts";
 import { activeTurnOf } from "../turn-grant-support.ts";
 import type { ChatticusWorld } from "../world.ts";
@@ -73,6 +74,11 @@ Then("the bot does not only reply that it cannot run shell commands", async func
 		.filter((message) => message.author_kind === "bot" && message.body)
 		.map((message) => String(message.body).trim());
 	assert.ok(bodies.length > 0, "The bot has not replied.");
+	const requests = modelScenarioOf(this).scripted.requests;
+	assert.ok(requests.length >= 2, "The model was not given the command result to answer from.");
+	const answeredFrom = requests.at(-1)!;
+	assert.ok(answeredFrom.includes("host-marker"), "The model's last request does not carry the host's command output.");
+	assert.ok(!answeredFrom.includes(CANNOT_RUN_SHELL), "The model was told it cannot run shell commands.");
 	const last = bodies.at(-1)!;
 	assert.notEqual(last, CANNOT_RUN_SHELL);
 	assert.ok(!last.includes(CANNOT_RUN_SHELL) || last.includes("host-marker"), last);

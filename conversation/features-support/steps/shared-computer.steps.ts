@@ -40,6 +40,12 @@ export async function useComputer(world: ChatticusWorld, botName: string, messag
 	assert.ok(action, "The host found no computer action to run.");
 	const stored = await actionStoreOf(world).get(bot.tenantId, action.action_id);
 	assert.ok(stored);
+	assert.equal(stored.tenantId, bot.tenantId);
+	assert.equal(
+		stored.computerId,
+		(await computerForOrganization(bot.tenantId, { store: world.messagingStore() })).computerId,
+		"the action was not routed to the organization computer",
+	);
 	computerScenarioOf(world).lastActionByBot.set(botName, stored);
 	assert.equal(await workTurn(world, botName), "done");
 	assert.ok(world.lastTurnId, "The request started no turn.");
@@ -66,13 +72,38 @@ Then(
 Then(
 	"bot {string} cannot read {string} from its computer",
 	async function (this: ChatticusWorld, botName: string, file: string) {
-		const result = await useComputer(this, botName, `read workspace file /workspace/${file}`);
-		assert.ok(String(result.body).includes("no such file"), String(result.body));
 		const bot = botOf(this, botName);
-		const ran = hostNamed(this, `host-${bot.tenantId}`).executions;
-		for (const execution of ran) {
-			assert.equal((await actionStoreOf(this).get(bot.tenantId, execution.actionId))?.tenantId, bot.tenantId);
+		const state = computerScenarioOf(this);
+		const otherTenants = [...state.hosts.values()].filter((host) => host.tenantId !== bot.tenantId);
+		assert.ok(otherTenants.length > 0, "no host of another organization is registered to attempt the claim");
+		const ownerActionComputerIds = [...state.lastActionByBot.values()]
+			.filter((action) => action.tenantId !== bot.tenantId)
+			.map((action) => action.computerId);
+		assert.ok(ownerActionComputerIds.length > 0, "no action of another organization ran in this scenario");
+		const openChannel = this.lastChannel;
+		await askBot(this, botName, `read workspace file /workspace/${file}`);
+		this.lastChannel = openChannel;
+		assert.equal(await workTurn(this, botName), "parked");
+		for (const foreignHost of otherTenants) {
+			assert.equal(await foreignHost.claim(), null, "a host of another organization claimed this organization's action");
+			const intruder = await recordResponse(
+				await this.api!.post(`/orgs/${bot.tenantId}/host/actions/claim`, {
+					headers: await foreignHost.bearerHeaders(),
+					body: {},
+				}),
+			);
+			assert.ok(intruder.status === 401 || intruder.status === 403, `cross-organization claim answered ${intruder.status}`);
 		}
+		const host = await hostOf(this, bot.tenantId);
+		const action = await host.runNextAction();
+		assert.ok(action, "The host found no computer action to run.");
+		const stored = await actionStoreOf(this).get(bot.tenantId, action.action_id);
+		assert.ok(stored);
+		assert.ok(!ownerActionComputerIds.includes(stored.computerId), "the two organizations share one computer");
+		assert.equal(await workTurn(this, botName), "done");
+		const results = (await readTurnEvents(this, bot.tenantId, this.lastTurnId!)).filter((event) => event.kind === "tool.result");
+		assert.equal(results.length, 1);
+		assert.ok(String(results[0]!.body).includes("no such file"), String(results[0]!.body));
 	},
 );
 

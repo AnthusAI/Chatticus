@@ -68,6 +68,7 @@ async function reachUnattendedAction(
 	channel: string,
 ): Promise<void> {
 	assert.notEqual(world.watcherPresent, true, "a human is watching; this is not an unattended turn");
+	world.lastUnattendedAttempt = { actionType, arguments: tableAsMap(table), channel };
 	world.lastOvernight = await policyControlFor(world).resolveUnattendedGatedAction(actionType, OVERNIGHT_TENANT, {
 		arguments: tableAsMap(table),
 		channel,
@@ -138,8 +139,18 @@ Then("the turn reports that user-controlled completion is required", function (t
 	assert.equal(lastOvernightOf(this).reason, USER_CONTROLLED_COMPLETION_REQUIRED);
 });
 
-Then("the routine does not retry the action unattended", function (this: ChatticusWorld) {
-	assert.equal(lastOvernightOf(this).retried_unattended, false);
+Then("the routine does not retry the action unattended", async function (this: ChatticusWorld) {
+	const first = lastOvernightOf(this);
+	assert.ok(this.lastUnattendedAttempt !== null, "no unattended attempt was recorded");
+	const retry = await policyControlFor(this).resolveUnattendedGatedAction(
+		this.lastUnattendedAttempt.actionType,
+		OVERNIGHT_TENANT,
+		{ arguments: this.lastUnattendedAttempt.arguments, channel: this.lastUnattendedAttempt.channel },
+	);
+	assert.equal(first.executed, false);
+	assert.equal(retry.executed, false);
+	assert.equal(retry.completion_evidence, null);
+	assert.equal(retry.reason, first.reason);
 });
 
 When("the model attempts to {} through an authenticated browser", function (this: ChatticusWorld, action: string) {
@@ -166,27 +177,38 @@ When("the worker executes the bound connector operation", function (this: Chatti
 });
 
 Given("the human takes over the computer for an identity check", function (this: ChatticusWorld) {
-	kernelPolicyFor(this).requireTakeover("identity check");
+	this.humanTakeoverPresent = true;
 });
 
 When("the model reaches an authenticated browser {string}", function (this: ChatticusWorld, action: string) {
-	const policy = kernelPolicyFor(this);
-	policy.requireTakeover(action);
-	this.lastOvernight = policy.last_overnight;
+	this.lastOvernight = policyControlFor(this).attemptAuthenticatedBrowserAction(action.trim(), {
+		takeoverControl: this.humanTakeoverPresent,
+	});
 });
 
 Then("the worker does not complete the purchase itself", function (this: ChatticusWorld) {
-	assert.equal(kernelPolicyFor(this).worker_completed_takeover_action, false);
+	assert.equal(lastOvernightOf(this).executed, false);
+	assert.equal(lastOvernightOf(this).completion_evidence, null);
 });
 
 Then("the turn waits for the human to finish the blocked step", function (this: ChatticusWorld) {
+	assert.equal(lastOvernightOf(this).turn_status, "blocked");
+	assert.equal(lastOvernightOf(this).reason, "waiting_for_human_takeover");
 	assert.equal(kernelPolicyFor(this).takeover_waiting, true);
 });
 
 When("the model needs a password, passkey, or one-time code", function (this: ChatticusWorld) {
-	kernelPolicyFor(this).requireTakeover("password");
+	const results = ["password", "passkey", "one_time_code"].map((secretKind) =>
+		policyControlFor(this).attemptAuthenticatedBrowserAction(secretKind),
+	);
+	this.secretRequestResults = results;
+	this.lastOvernight = results[results.length - 1];
 });
 
 Then("the worker does not accept the secret from the channel", function (this: ChatticusWorld) {
-	assert.equal(kernelPolicyFor(this).channel_secret_accepted, false);
+	assert.equal(this.secretRequestResults.length, 3);
+	for (const result of this.secretRequestResults) {
+		assert.equal(result.executed, false);
+		assert.equal(result.reason, "waiting_for_human_takeover");
+	}
 });

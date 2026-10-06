@@ -1,22 +1,51 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { Given, Then } from "@cucumber/cucumber";
+import { parse as parseYaml } from "yaml";
 import { loadCustomerComputersTemplate } from "../../src/computer/customer-template.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 const CUSTOMER_ROLE_TEMPLATE_URL = new URL("../../../infra/customer-role.yml", import.meta.url);
 
-function customerRoleTemplate(world: ChatticusWorld): string {
+const CLOUDFORMATION_SHORT_FORM_TAGS = ["Sub", "Ref", "GetAtt", "Join", "Select", "If", "Equals", "Not", "FindInMap", "Split", "Base64", "ImportValue"];
+
+const cloudformationTags = CLOUDFORMATION_SHORT_FORM_TAGS.map((name) => ({
+	tag: `!${name}`,
+	resolve: (value: unknown) => ({ [name === "Ref" ? "Ref" : `Fn::${name}`]: value }),
+}));
+
+function customerRoleTemplate(world: ChatticusWorld): Record<string, any> {
 	if (world.customerRoleTemplate === null) {
-		world.customerRoleTemplate = readFileSync(CUSTOMER_ROLE_TEMPLATE_URL, "utf8");
+		world.customerRoleTemplate = parseYaml(readFileSync(CUSTOMER_ROLE_TEMPLATE_URL, "utf8"), { customTags: cloudformationTags });
 	}
-	return world.customerRoleTemplate;
+	return world.customerRoleTemplate as Record<string, any>;
 }
 
-function crossAccountRoleSection(world: ChatticusWorld): string {
-	const section = customerRoleTemplate(world).split("ChatticusCrossAccountRole:")[1];
-	assert.ok(section !== undefined, "The template declares no ChatticusCrossAccountRole.");
-	return section;
+function snapshotBucketResource(world: ChatticusWorld): Record<string, any> {
+	const bucket = customerRoleTemplate(world).Resources?.OrganizationSnapshotBucket;
+	assert.ok(bucket, "The template declares no OrganizationSnapshotBucket.");
+	return bucket;
+}
+
+function crossAccountRoleStatements(world: ChatticusWorld): Array<Record<string, any>> {
+	const role = customerRoleTemplate(world).Resources?.ChatticusCrossAccountRole;
+	assert.equal(role?.Type, "AWS::IAM::Role", "The template declares no ChatticusCrossAccountRole.");
+	const statements = (role.Properties?.Policies ?? []).flatMap((policy: any) => {
+		const raw = policy.PolicyDocument?.Statement ?? [];
+		return Array.isArray(raw) ? raw : [raw];
+	});
+	assert.ok(statements.length > 0, "The cross-account role grants nothing, so a denial would be vacuous.");
+	return statements;
+}
+
+function grantedActions(statements: Array<Record<string, any>>): string[] {
+	return statements
+		.filter((statement) => statement.Effect === "Allow")
+		.flatMap((statement) => (typeof statement.Action === "string" ? [statement.Action] : (statement.Action ?? []).map(String)));
+}
+
+function grantsAction(grants: string[], action: string): boolean {
+	return grants.some((grant) => new RegExp(`^${grant.replaceAll("*", ".*")}$`).test(action));
 }
 
 function computersTemplate(world: ChatticusWorld): Record<string, any> {
@@ -81,55 +110,54 @@ Given("organization snapshot bucket name {string}", function (this: ChatticusWor
 });
 
 Then("the template declares an organization snapshot bucket in the customer account", function (this: ChatticusWorld) {
-	const template = customerRoleTemplate(this);
-	assert.ok(template.includes("OrganizationSnapshotBucket:"));
-	assert.ok(template.includes("Type: 'AWS::S3::Bucket'") || template.includes("Type: AWS::S3::Bucket"));
-	assert.ok(template.includes("BucketName: !Sub 'chatticus-snapshots-${OrganizationId}'"));
+	const bucket = snapshotBucketResource(this);
+	assert.equal(bucket.Type, "AWS::S3::Bucket");
+	assert.deepEqual(bucket.Properties?.BucketName, { "Fn::Sub": "chatticus-snapshots-${OrganizationId}" });
 });
 
 Then("the bucket uses server-side encryption and blocks public access", function (this: ChatticusWorld) {
-	const template = customerRoleTemplate(this);
-	for (const fragment of [
-		"BucketEncryption:",
-		"SSEAlgorithm: AES256",
-		"PublicAccessBlockConfiguration:",
-		"BlockPublicAcls: true",
-		"RestrictPublicBuckets: true",
-	]) {
-		assert.ok(template.includes(fragment), fragment);
-	}
+	const properties = snapshotBucketResource(this).Properties;
+	assert.equal(
+		properties?.BucketEncryption?.ServerSideEncryptionConfiguration?.[0]?.ServerSideEncryptionByDefault?.SSEAlgorithm,
+		"AES256",
+	);
+	assert.deepEqual(properties?.PublicAccessBlockConfiguration, {
+		BlockPublicAcls: true,
+		BlockPublicPolicy: true,
+		IgnorePublicAcls: true,
+		RestrictPublicBuckets: true,
+	});
 });
 
 Then("the bucket has versioning enabled", function (this: ChatticusWorld) {
-	const template = customerRoleTemplate(this);
-	assert.ok(template.includes("VersioningConfiguration:"));
-	assert.ok(template.includes("Status: Enabled"));
+	assert.equal(snapshotBucketResource(this).Properties?.VersioningConfiguration?.Status, "Enabled");
 });
 
 Then("the bucket deletion policy is Retain", function (this: ChatticusWorld) {
-	const bucketSection = (customerRoleTemplate(this).split("OrganizationSnapshotBucket:")[1] ?? "").split("Outputs:")[0] ?? "";
-	assert.ok(bucketSection.includes("DeletionPolicy: Retain"));
-	assert.ok(bucketSection.includes("UpdateReplacePolicy: Retain"));
+	const bucket = snapshotBucketResource(this);
+	assert.equal(bucket.DeletionPolicy, "Retain");
+	assert.equal(bucket.UpdateReplacePolicy, "Retain");
 });
 
 Then("the template exports SnapshotBucketName", function (this: ChatticusWorld) {
-	const template = customerRoleTemplate(this);
-	assert.ok(template.includes("SnapshotBucketName:"));
-	assert.ok(template.includes("!Ref OrganizationSnapshotBucket"));
+	assert.deepEqual(customerRoleTemplate(this).Outputs?.SnapshotBucketName?.Value, { Ref: "OrganizationSnapshotBucket" });
 });
 
 Then("the cross-account role policy does not grant s3:CreateBucket", function (this: ChatticusWorld) {
-	assert.ok(!crossAccountRoleSection(this).includes("s3:CreateBucket"));
+	assert.ok(!grantsAction(grantedActions(crossAccountRoleStatements(this)), "s3:CreateBucket"));
 });
 
 Then("the cross-account role policy does not grant s3 on Anthus-managed snapshot buckets", function (this: ChatticusWorld) {
-	const section = crossAccountRoleSection(this);
-	assert.ok(!section.includes("ChatticusSnapshots"));
-	assert.ok(!/s3:[A-Za-z*]+/.test(section));
+	const statements = crossAccountRoleStatements(this);
+	assert.ok(!grantsAction(grantedActions(statements), "s3:GetObject"));
+	assert.ok(!grantsAction(grantedActions(statements), "s3:PutObject"));
+	assert.ok(!JSON.stringify(statements).includes("ChatticusSnapshots"));
 });
 
 Then("the cross-account role policy does not grant s3:*", function (this: ChatticusWorld) {
-	assert.ok(!crossAccountRoleSection(this).includes("s3:*"));
+	const grants = grantedActions(crossAccountRoleStatements(this));
+	assert.ok(!grants.includes("s3:*") && !grants.includes("*"));
+	assert.ok(!grants.some((grant) => grant.startsWith("s3:")));
 });
 
 Then("the computer task role grants s3:GetObject and s3:PutObject on that bucket", function (this: ChatticusWorld) {
