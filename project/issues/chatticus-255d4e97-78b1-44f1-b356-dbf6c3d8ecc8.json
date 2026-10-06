@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "062838be-a822-4327-a338-a72bb5009cb3",
+      "author": "home",
+      "text": "From TS-40a: ControlPlane still imports the Messaging table (name and ARN) from ChatticusThinTurn via a cross-stack reference (ThinTurn publishes no SSM parameter for it). Move the table to the ControlPlane or a retained stack, and publish its name and ARN, BEFORE deleting ThinTurn; the Messaging table must be RETAINED (it holds the data). Also ThinTurn still owns the invoke and operator secrets: retain them (RemovalPolicy RETAIN) or move ownership first.",
+      "created_at": "2026-10-06T16:33:12.965416Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-06T16:01:43.447434Z",
-  "updated_at": "2026-10-06T16:02:06.610627Z",
+  "updated_at": "2026-10-06T16:33:12.965460Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "Waiting to remove retired Python infrastructure after the drained check and TS-40b verification.",
-  "right_now_updated_at": "2026-10-06T16:02:08.161747Z",
+  "right_now_summary": "The Messaging table and invoke and operator secrets must move or be retained before deleting ThinTurn.",
+  "right_now_updated_at": "2026-10-06T16:33:13.996227Z",
   "custom": {}
 }
