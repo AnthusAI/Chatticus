@@ -87,6 +87,7 @@ const startRequest = (turnId: string, expectedPointerTurnId: string | null) => (
 	turnId,
 	promptMessageSeq: 1,
 	createdAt: NOW,
+	startedEventId: `event-${turnId}`,
 	expectedPointerTurnId,
 });
 

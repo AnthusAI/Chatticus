@@ -19,6 +19,13 @@ import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler 
 import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from "./routes/channels.ts";
 import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
 import type { MessageDependencies } from "../domain/messages.ts";
+import type { TurnControlStore } from "../domain/turns.ts";
+import {
+	getChannelLatestTurnHandler,
+	getChannelTurnHandler,
+	getTurnHandler,
+	listTurnEventsHandler,
+} from "./routes/turns.ts";
 import { integrationTestSessionHandler } from "./routes/integration-test.ts";
 import { operatorOrganizationHandler } from "./routes/operator.ts";
 import { claimTurnHandler, registerWorkerHandler } from "./routes/workers.ts";
@@ -44,6 +51,8 @@ export interface AppDeps {
 	store: unknown;
 	/** Message admission and listing, behind the routes under /channels/{id}/messages. */
 	messages: Omit<MessageDependencies, "store" | "ids" | "clock">;
+	/** The turn control record, behind the turn read routes. */
+	turnControl: TurnControlStore;
 	invokeKey: string | null;
 	/** The deployment-wide operator bearer secret; the operator routes refuse every caller when it is empty. */
 	operatorKey?: string;
@@ -180,6 +189,24 @@ export function createApp(deps: AppDeps): Hono {
 	);
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
 		listChannelMessagesHandler(c, messageRoutes),
+	);
+
+	const turnRoutes = {
+		...userRoutes,
+		turns: { store: deps.turnControl, clock: deps.clock, ids: deps.ids },
+	};
+
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/turn", audience: "user" }, (c) =>
+		getChannelTurnHandler(c, turnRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/turns/latest", audience: "user" }, (c) =>
+		getChannelLatestTurnHandler(c, turnRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id", audience: "user" }, (c) =>
+		getTurnHandler(c, turnRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id/events", audience: "user" }, (c) =>
+		listTurnEventsHandler(c, turnRoutes),
 	);
 
 	const workerRoutes = { store, clock: deps.clock, ids: deps.ids };

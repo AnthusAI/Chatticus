@@ -30,5 +30,6 @@ features/message_admission.feature
 features/message_steering.feature
 features/members_cli.feature
 features/first_org_seed.feature
+features/turn_attempts.feature
 features/operator_organization_api.feature
 features/integration_test_auth.feature

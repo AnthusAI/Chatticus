@@ -10,7 +10,10 @@ export type OpenTurnState = {
 	readonly closing: boolean;
 };
 
-/** Everything needed to create the turn control record and claim the per-(channel, bot) pointer in one write. */
+/**
+ * Everything needed to create the turn control record, its turn.started event, and the per-(channel, bot) and primary
+ * pointers in one write.
+ */
 export type StartTurnRequest = {
 	readonly tenantId: string;
 	readonly channelId: string;
@@ -18,6 +21,8 @@ export type StartTurnRequest = {
 	readonly turnId: string;
 	readonly promptMessageSeq: number;
 	readonly createdAt: Date;
+	/** Identifier of the turn.started event written with the record. */
+	readonly startedEventId: string;
 	/** The turn the pointer is expected to name now, or null when the pointer must not exist yet. */
 	readonly expectedPointerTurnId: string | null;
 };
