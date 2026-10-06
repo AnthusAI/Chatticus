@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-7ed050e1-45fc-4112-8603-f7f90066d12d",
+  "title": "TS-48 Disk dirty tracking and write guard (data-loss protection)",
+  "description": "Source: the re-audit report at /tmp/ts/reaudit.md plus the agent reports quoted here. Rules: features stay the spec (existing scenario text unchanged); cucumber-js steps drive production code; mutation check recorded per scenario group; no new Python; push with an explicit refspec.\n\nFrom TS-47: three scenarios are tagged @needs-product-behavior and excluded in conversation/cucumber.mjs because no TypeScript sets diskDirty and nothing refuses a disk write before the intended host hydrates. They are real data-loss protection that Python had: computer_snapshots 'Unpublished live-disk writes block relocate' and 'The live disk cannot be written until the intended host hydrates', computer_snapshot_dynamo 'Unpublished writes mark disk dirty across a Dynamo recycle'. Also the two single_computer_start_disk_ownership scenarios (single live disk writer, wedged claim / write-lock clearing). Implement in the computer record and host protocol: a write or terminal action result marks the disk dirty until a snapshot publish; relocateComputer refuses while dirty (SnapshotRequiredError-style error); the host refuses writes before it has hydrated the snapshot the record names; the dirty flag round-trips through the Dynamo codec. Read how Python did it (git show origin/develop~N for the deleted Python domain code, or the pre-cutover python/src/chatticus) and mirror the behavior; where the design is silent (live-writer lock) decide minimally and record it in docs/TYPESCRIPT_CONTROL_PLANE.md. Then remove the tag, port the features' remaining scenarios to the manifest, and mutation-check each.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-06T13:55:51.239507Z",
+  "updated_at": "2026-10-06T13:55:51.239554Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The TypeScript re-audit is defining disk-dirty tracking and write guards before restoring excluded scenarios.",
+  "right_now_updated_at": "2026-10-06T13:55:53.142102Z",
+  "custom": {}
+}
