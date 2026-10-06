@@ -3,7 +3,7 @@
   "title": "TS-54 Computer rehearsal blockers: starter passes FrontDoor URL and key, integration org account id, host heartbeat",
   "description": "Found by the TS-53 recon (read-only). B2: the ComputerStarter Lambda passes the host no front-door URL and no invoke key (host main.ts needs CHATTICUS_FRONT_DOOR_URL, protocol-client register needs the invoke key; host-starter.ts:159-190 forwards them only if the starter env has them; infra/lib/computer-host-start.ts and control-plane-stack.ts never set them). Fix: starter env gets the ControlPlane FrontDoor Function URL (same stack) and CHATTICUS_INVOKE_KEY_SECRET_ARN with secretsmanager:GetSecretValue on exactly that ARN (same as the FrontDoor, see front-door-composition.ts and the ARN SSM parameter), and the starter Lambda reads the secret at cold start and forwards it in the RunTask container overrides; never put the key in the Lambda env. B3: seedIntegrationTestOrganization (auth/integration-test.ts ~366-378) passes no callerAwsAccountId so the integration-test org item stores aws_account_id null and host-starter.ts requireAwsHome (122-128) throws: the FrontDoor composition must seed it with the deployment AWS account id (CDK sets CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID = stack account on the FrontDoor as it already does on the starter; read the seed and adminSeedOrganization to confirm the existing item converges to the new value on the next cold start, and fix the seed if an existing null item is not updated). G1: computer/host/src/main.ts never calls heartbeat(); the host must send heartbeats while it runs (read protocol-client.ts and the host protocol heartbeat route and domain/workers heartbeat timeout of 30s) at an interval well inside the timeout, stop on exit, with vitest and a cucumber scenario if the host feature files have a natural home. Tests: vitest and infra tests with mutation checks for each of the three; no AWS writes, no deploy.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -12,14 +12,14 @@
   "dependencies": [],
   "comments": [],
   "created_at": "2026-10-06T20:44:35.843284Z",
-  "updated_at": "2026-10-06T20:44:35.843332Z",
-  "closed_at": null,
+  "updated_at": "2026-10-06T22:27:49.491782Z",
+  "closed_at": "2026-10-06T22:27:49.491738Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is fixing missing starter credentials, organization account data, and host heartbeats.",
-  "right_now_updated_at": "2026-10-06T20:44:38.001379Z",
+  "right_now_summary": "The rehearsal cannot proceed because starter credentials, the organization account ID, and host heartbeats are missing.",
+  "right_now_updated_at": "2026-10-06T22:27:51.347192Z",
   "custom": {}
 }

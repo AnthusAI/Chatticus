@@ -3,23 +3,36 @@
   "title": "TS-53 Live rehearsal of the computer path on the flipped development stack",
   "description": "During the soak after the development flip. Not yet proven live: a turn that needs the computer (run_terminal, read_workspace, browse) parks, the ComputerStarter starts an ECS host from the new Node image (ChatticusComputers task definition must run the TS image: build and push computer/Dockerfile to the ECR repo used by the task definition through the repo's image push scripts; the starter env already carries CHATTICUS_ECS_HOST_COMMAND=node /opt/chatticus/host/host-worker.mjs), the host boots, calls the Front Door host protocol (claim, regate, result, heartbeat, snapshot hydrate and publish), and the turn resumes with the result. Include the disk dirty guard and the live-writer lock behaviors on the real table, and a voice-endpoint smoke if the acceptance can reach them. AWS writes here are ECR push and Fargate tasks in the development account only: get the user's explicit go-ahead before the first image push and before starting any task, and stop all tasks at the end. Findings become tickets; do not fix in this ticket.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "29a08560-137a-4b11-b19a-c850c01d21cd",
+      "author": "home",
+      "text": "LIVE COMPUTER-PATH REHEARSAL, development, PASS on the first attempt. Preconditions fixed first (TS-54, PR 460): starter lacked the FrontDoor URL and invoke key, the integration org lacked an aws_account_id, the host sent no heartbeats. Then the host image was built from develop b7d3edee and pushed to the previously empty ECR repo (tag dev). One turn through https CloudFront: SigV4 session, bot, direct channel, post, grant PUT 0.2 s later (turn.grant.replaced landed before the first model.request), then SSE: turn.started 5.8s, model.request 7.4, tool.call run_terminal 10.0, turn.waiting gate=workspace 10.0, [Fargate task created 18:25:31, started 18:25:52, host worker started 18:25:53], attempt.claimed 38.9, tool.result 39.1, model.request 39.2, second tool.call 41.9 (answered by the live host in 0.4 s), turn.token 44.1, turn.completed 44.1. Parked to resumed about 29 s including the Fargate cold start. Bot reply persisted at seq 2: run_terminal:exit=0 (ls /workspace output empty: the workspace is empty). ComputerStarter Lambda ran once, no error. All four DLQs and the start queue: 0. Cleanup: one RUNNING task stopped, 0 left (verified twice). NOT exercised: write_workspace, disk dirty guard, live-writer lock, snapshot hydrate and publish, browse, voice. Findings became tickets (observability, second rehearsal, start-turn route, empty-output message).",
+      "created_at": "2026-10-06T22:27:27.604791Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-06T20:16:53.386992Z",
-  "updated_at": "2026-10-06T20:16:53.387025Z",
-  "closed_at": null,
+  "updated_at": "2026-10-06T22:27:46.843525Z",
+  "closed_at": "2026-10-06T22:27:46.843471Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is rehearsing the computer path on the flipped development stack, including live AWS host startup and turn",
-  "right_now_updated_at": "2026-10-06T20:16:56.024836Z",
+  "right_now_summary": "The live computer path passed once, but several safeguards and integrations still need testing.",
+  "right_now_updated_at": "2026-10-06T22:27:47.974632Z",
   "custom": {}
 }

@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-fbf3c621-89be-41a8-adb7-fe6579a5cd3e",
+  "title": "TS-56 Second live computer rehearsal: write_workspace, disk dirty guard, snapshots, browse",
+  "description": "TS-53 proved run_terminal only. Rehearse live on development: write_workspace then a recycle (second host start) to exercise the disk dirty guard (relocate refused while dirty), snapshot publish at host exit and hydrate at the next start, the live-writer lock, the claim refusal while hydrate is required; then browse with a task size that fits Chromium (the task definition is 256 CPU and 512 MB; raising it is a ChatticusComputers stack change, a shared stack: no --all, never destroy; decide with the user). Depends on TS-55 for visibility. Same approval rules as TS-53: the user's go before image push, tasks and any stack change.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-e1469321-2dbc-47c8-86b8-5610a667607e",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-06T22:27:35.697474Z",
+  "updated_at": "2026-10-06T22:27:43.374794Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The second live rehearsal will test workspace writes, disk guards, snapshots, locks, hydration, and browsing.",
+  "right_now_updated_at": "2026-10-06T22:27:45.631718Z",
+  "custom": {}
+}

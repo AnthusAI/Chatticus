@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-5daa7c9b-522e-4910-8788-efe65d2ccd91",
+  "title": "TS-57 Post message with a grant, and a turn start route for enqueue_turn=false",
+  "description": "From TS-53: enqueue_turn:false only creates the turn (domain/messages.ts ~192, the fence probe path) and no HTTP route starts it, so a grant-before-model flow cannot be driven over the public API; the rehearsal had to PUT the grant 0.2 s after posting (it landed before the first model.request, but the race exists). Decide and implement: either a grant field on the message post, or a start-turn route for a created-but-not-enqueued turn, with a cucumber scenario and mutation check. Also: run_terminal returns 'run_terminal:exit=N' with nothing explicit for empty output (computer/host/src/executors/terminal.ts ~155) and the model called the tool twice; make the empty-output result explicit.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-06T22:27:39.707734Z",
+  "updated_at": "2026-10-06T22:27:39.707792Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is deciding how to start unenqueued turns and make empty terminal output explicit.",
+  "right_now_updated_at": "2026-10-06T22:27:41.381757Z",
+  "custom": {}
+}

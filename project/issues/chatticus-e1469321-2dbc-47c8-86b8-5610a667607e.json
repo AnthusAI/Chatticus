@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-e1469321-2dbc-47c8-86b8-5610a667607e",
+  "title": "TS-55 Host and starter observability: structured log lines",
+  "description": "From the TS-53 live rehearsal: the ECS log group had exactly one line (computer_host_worker_start) and the Lambdas logged nothing of the app flow, so claim, regate, result, heartbeat, snapshot hydrate and publish, boot readiness and exit cannot be verified from CloudWatch. Add structured JSON log lines (event, tenant_id, computer_id, action_id, kind, durations, outcome; never secrets, tokens, command output or file contents) at: host boot start/ready/exit with reason, register, each claim/regate/result with outcome, each heartbeat failure, snapshot hydrate/publish start/end; domain/computer-start.ts start dispatch and lease decisions; FrontDoor host routes accept/refuse. Tests assert the lines and that secrets never appear; mutation-check.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-06T22:27:31.179184Z",
+  "updated_at": "2026-10-06T22:27:31.179236Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is adding structured logs and tests to trace host and Lambda flows without exposing secrets.",
+  "right_now_updated_at": "2026-10-06T22:27:32.873109Z",
+  "custom": {}
+}
