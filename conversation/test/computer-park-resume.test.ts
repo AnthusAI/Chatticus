@@ -4,7 +4,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Type } from "@earendil-works/pi-ai";
 import { createModels } from "@earendil-works/pi-ai/models";
-import { defineExtension, defineTool, type Extension, type ToolRegistration } from "@earendil-works/pi-durable";
+import { type AgentEvent, defineExtension, defineTool, type Extension, type ToolRegistration, watchEvents } from "@earendil-works/pi-durable";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ScriptedProvider } from "../features-support/fakes/scripted-provider.ts";
 import { findStorageFailure, OwnershipLost } from "../src/pi/errors.ts";
@@ -108,9 +108,18 @@ describe("parking a replay-safe computer tool and resuming on a new owner", () =
 		});
 		expect(second.fence).toBeGreaterThan(first.fence);
 		const root2 = await second.harness.root(BACKGROUND_CONTEXT, { agent });
+		const secondEvents: string[] = [];
+		const stream = await watchEvents(second.harness, root2.id, BACKGROUND_CONTEXT);
+		stream.start(async (events: readonly AgentEvent[]) => {
+			for (const event of events) secondEvents.push(event.type);
+		});
 		second.harness.resume();
 		const again = await root2.submit({ type: "input", content: "", requestId: "turn:1" }, BACKGROUND_CONTEXT);
 		const settled = await again.wait(BACKGROUND_CONTEXT);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		await stream.stop();
+		expect(secondEvents).not.toContain("tool_execution_start");
+		expect(secondEvents[0]).toBe("tool_execution_end");
 		expect(settled.type === "input" && settled.status).toBe("done");
 		expect(actions.lookups).toEqual([callId, callId]);
 		await second.close();

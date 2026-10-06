@@ -16,7 +16,7 @@ import {
 	OrganizationComputerProvisioningError,
 	OrganizationSpendCeilingExceededError,
 } from "../http/errors.ts";
-import { answerComputerActionOnOwnAccount, type ActionDependencies } from "./actions.ts";
+import { answerComputerActionOnOwnAccount, type ActionDependencies, expireLostComputerActions } from "./actions.ts";
 import { type HostStartClaim, type HostStartDependencies, requestComputerHostStart } from "./computers.ts";
 import type { TurnJob } from "./workers.ts";
 
@@ -49,8 +49,8 @@ export interface HostStartDriver {
 export type ComputerStarterDependencies = HostStartDependencies &
 	ActionDependencies & {
 		readonly driver: HostStartDriver;
-		/** Called for each turn whose actions the starter answered, so the turn resumes. */
-		readonly resumeTurn: (tenantId: string, turnId: string) => Promise<void>;
+		/** Called for each action the starter answered, so the turn parked on it resumes. */
+		readonly resumeTurn: (tenantId: string, turnId: string, actionId: string) => Promise<void>;
 	};
 
 /** How handling one start job ended. */
@@ -63,9 +63,10 @@ export type ComputerStartOutcome =
 export const deniedActionResult = (reason: string): string => `denied: ${reason}`;
 
 /**
- * Handle one start job. A refused job (the spend ceiling) answers the turn's open actions with a denial and resumes the
- * turn, so it ends visibly instead of waiting out its limit; the job is then done. A job that finds the generation
- * already started does nothing more.
+ * Handle one start job. First it settles the actions whose host was lost, so a lost lease needs no scheduler: whoever
+ * handles the next start job notices it. A refused job (the spend ceiling) answers the turn's open actions with a denial
+ * and resumes the turn, so it ends visibly instead of waiting out its limit; the job is then done. A job that finds the
+ * generation already started does nothing more.
  *
  * @param deps Stores, clock, the host start driver and how to resume a turn.
  * @param job The start job.
@@ -81,6 +82,9 @@ export async function handleComputerStartJob(
 		throw new ComputerWorkerRequiresComputerCapability(
 			`Job ${JSON.stringify(job.jobId)} does not require the computer capability.`,
 		);
+	}
+	for (const settled of await expireLostComputerActions(deps, job.tenantId)) {
+		if (settled.status === "done") await deps.resumeTurn(settled.tenantId, settled.turnId, settled.actionId);
 	}
 	let claim: HostStartClaim;
 	try {
@@ -108,7 +112,7 @@ export async function handleComputerStartJob(
 async function denyOpenActionsOfTurn(deps: ComputerStarterDependencies, job: ComputerStartJob, reason: string): Promise<void> {
 	for (const action of await deps.actions.listForTurn(job.tenantId, job.turnId)) {
 		if (action.status === "done") continue;
-		await answerComputerActionOnOwnAccount(deps, action, { result: deniedActionResult(reason), isError: true });
+		const answered = await answerComputerActionOnOwnAccount(deps, action, { result: deniedActionResult(reason), isError: true });
+		if (answered !== null) await deps.resumeTurn(job.tenantId, job.turnId, action.actionId);
 	}
-	await deps.resumeTurn(job.tenantId, job.turnId);
 }

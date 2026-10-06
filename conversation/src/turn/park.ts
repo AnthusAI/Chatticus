@@ -23,7 +23,7 @@ import type { BudgetRollupReader } from "../domain/organization-spend.ts";
 import { computerWorkPauseReason } from "../domain/organization-spend.ts";
 import { computerIsStopped, ensureComputer } from "../domain/computers.ts";
 import type { ComputerStartQueue } from "../domain/computer-start.ts";
-import { clearWaiting, getTurn, TURN_DEADLINE_SECONDS, type Turn, type TurnDependencies } from "../domain/turns.ts";
+import { clearWaiting, getTurn, releaseForWaiting, TURN_DEADLINE_SECONDS, type Turn, type TurnDependencies } from "../domain/turns.ts";
 import type { TurnProbeQueue, TurnRunQueue } from "../domain/turn-admission.ts";
 import { assignTurn, createTurnJob } from "../domain/workers.ts";
 import { ComputerNotReadyError, TurnNotWaitingError, TurnTerminalError } from "../http/errors.ts";
@@ -31,7 +31,6 @@ import type { ComputerToolCall } from "../pi/computer-tools.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { FaultPlan } from "./fault-plan.ts";
 import { armProbe, requestLogicalEnqueue, runJobFor } from "./probes.ts";
-import { parkAttempt } from "./yield.ts";
 
 /** What the computer handoff needs beyond the turn stores. */
 export type ComputerHandoffDependencies = {
@@ -156,6 +155,9 @@ export async function resumeTurnForAction(
  * Park a turn on the computer action of one tool call: record the action, drop the claim so the turn waits on its gate
  * with `turn.waiting`, and make sure a host will come. The caller closes the harness afterwards, without aborting.
  *
+ * No probe is armed here: the probe armed at the claim is the one that watches the turn while it waits, and it re-arms
+ * itself until the waiting limit.
+ *
  * Every step is safe to repeat after a crash: a second owner that reaches the same call finds the same action.
  *
  * @param deps The handoff dependencies.
@@ -187,7 +189,7 @@ export async function parkOnComputerAction(
 	});
 	deps.faults?.maybeCrash("computer_action", "after");
 	deps.faults?.maybeCrash("computer_park", "before");
-	await parkAttempt(deps, turn.tenantId, turn.turnId, attemptId, action.gate, {
+	await releaseForWaiting(deps.turns, turn.tenantId, turn.turnId, attemptId, action.gate, {
 		actionId: action.actionId,
 		toolName: action.toolName,
 		arguments: { ...action.arguments },

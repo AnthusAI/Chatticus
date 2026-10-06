@@ -56,3 +56,16 @@ features/job_routing.feature
 features/bot_turns.feature
 features/organization_spend_ceiling_workspace.feature
 features/web_spend_ceiling.feature
+features/capability_gated_readiness.feature
+features/computer_action_handoff.feature
+features/computer_affinity.feature
+features/computer_continuation_worker.feature
+features/computer_host_start_generation.feature
+features/conversation_turn_grant_computer.feature
+features/escalation_failure_recovery.feature
+features/messages_shared_computer.feature
+features/mid_turn_computer_escalation.feature
+features/organization_spend_ceiling_computer.feature
+features/realtime_api_resume_refusal.feature
+features/shared_computer.feature
+features/structured_journal_handoff.feature

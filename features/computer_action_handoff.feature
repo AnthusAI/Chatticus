@@ -59,6 +59,23 @@ Feature: Computer action handoff
     Then the turn is waiting on the workspace gate
     And the turn has one computer action and it is not done
 
+  Scenario: A waiting turn delivered to an executor again does not ask the model again
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And the run job of that turn is delivered again
+    Then the executor leaves the redelivered run job alone
+    And the model was asked once
+    And the turn is waiting on the workspace gate
+    And the turn has one computer action and it is not done
+
+  Scenario: A crash after parking and before the start job still gets the computer started
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And the worker stops right after the turn parks and before the start job is queued
+    And 61 seconds pass
+    And the turn probe runs
+    Then a computer start job is queued for the turn
+    And the turn is waiting on the workspace gate
+
   Scenario: A host lost while running a write does not run it again
     Given host worker "garage-mac-1" serves the household computer
     And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"

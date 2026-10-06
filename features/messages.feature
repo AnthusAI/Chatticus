@@ -4,18 +4,6 @@ Feature: Channels and the message store
   So that bots can talk to me and to each other on one channel
   And files stay on the shared computer instead of in the transcript
 
-  Scenario: A file handoff is a path in chat and bytes on the computer
-    Given an empty control plane
-    And tenant "anthus" user "ryan" has a bot named "Researcher"
-    And tenant "anthus" user "ryan" has a bot named "Writer"
-    And tenant "anthus" user "ryan" has opened a channel with bots:
-      | Researcher |
-      | Writer     |
-    When bot "Researcher" writes "accounts.md" containing "top ten accounts" on the computer
-    And bot "Researcher" posts "wrote /workspace/accounts.md" addressed to bot "Writer" on the channel
-    Then bot "Writer" can read "accounts.md" as "top ten accounts" from the computer
-    And the message with seq 1 has body "wrote /workspace/accounts.md"
-
   Scenario: A computerless worker waits when the model needs the browser
     Given an empty control plane
     And tenant "anthus" user "ryan" has a channel with a named bot "Assistant"
@@ -89,13 +77,6 @@ Feature: Channels and the message store
     And user "ryan" of tenant "anthus" resumes that waiting turn
     Then the resume response requires computer
     And the turn remains active
-
-  Scenario: A user's computer can be read after a Front Door recycle
-    Given an empty control plane backed by a durable messaging store with HTTP
-    And tenant "anthus" user "ryan" has a bot named "Researcher"
-    And tenant "anthus" user "ryan" household computer is stopped
-    When a recycled Front Door serves the same messaging store
-    Then tenant "anthus" can read the household computer for user "ryan"
 
   Scenario: A user's active turns can be listed after a Front Door recycle
     Given an empty control plane backed by a durable messaging store with HTTP

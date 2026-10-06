@@ -14,7 +14,11 @@ import {
 	workTurn,
 } from "../computer-scenario.ts";
 import { memberPost } from "../org-user-client.ts";
-import { deliverDueProbes, queuedRunsFor } from "../turn-recovery.ts";
+import { SimulatedCrash } from "../../src/turn/fault-plan.ts";
+import { deliverDueProbes, queuedRunsFor, runQueuedJobs, turnNow } from "../turn-recovery.ts";
+import { TURN_RUN_QUEUE } from "../turn-queues.ts";
+import { modelScenarioOf } from "../executor-harness.ts";
+import { runJobFor } from "../../src/turn/probes.ts";
 import { activeTurnOf } from "../turn-grant-support.ts";
 import type { ChatticusWorld } from "../world.ts";
 
@@ -74,6 +78,21 @@ When(
 	},
 );
 
+When("the run job of that turn is delivered again", async function (this: ChatticusWorld) {
+	const turn = await turnNow(this);
+	this.queues.send(TURN_RUN_QUEUE, runJobFor(turn));
+	const [outcome] = await runQueuedJobs(this);
+	computerScenarioOf(this).lastOutcome = outcome ?? null;
+});
+
+When("the worker stops right after the turn parks and before the start job is queued", async function (this: ChatticusWorld) {
+	this.faultPlan.arm("computer_start", "before");
+	await assert.rejects(runQueuedJobs(this), SimulatedCrash);
+	assert.deepEqual(this.faultPlan.crashedAt, { boundary: "computer_start", window: "before" });
+	this.faultPlan.clear();
+	assert.deepEqual(queuedStartJobs(this), []);
+});
+
 When("the turn probe runs", async function (this: ChatticusWorld) {
 	await deliverDueProbes(this);
 });
@@ -84,6 +103,14 @@ When("bot {string} works its turn until it waits for the computer", async functi
 
 When("bot {string} works its turn after the computer answered", async function (this: ChatticusWorld, botName: string) {
 	assert.equal(await workTurn(this, botName), "done");
+});
+
+Then("the executor leaves the redelivered run job alone", function (this: ChatticusWorld) {
+	assert.equal(computerScenarioOf(this).lastOutcome, "lost");
+});
+
+Then("the model was asked once", function (this: ChatticusWorld) {
+	assert.equal(modelScenarioOf(this).scripted.callCount, 1);
 });
 
 Then("resume is refused because the computer is not ready", async function (this: ChatticusWorld) {
