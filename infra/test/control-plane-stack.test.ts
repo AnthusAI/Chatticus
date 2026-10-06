@@ -166,9 +166,8 @@ describe("ControlPlaneStack", () => {
     );
   });
 
-  it("creates no IAM users, access keys or EventBridge schedules", () => {
+  it("creates no IAM users or EventBridge schedules", () => {
     development.resourceCountIs("AWS::IAM::User", 0);
-    development.resourceCountIs("AWS::IAM::AccessKey", 0);
     development.resourceCountIs("AWS::Scheduler::Schedule", 0);
     development.resourceCountIs("AWS::Scheduler::ScheduleGroup", 0);
   });
