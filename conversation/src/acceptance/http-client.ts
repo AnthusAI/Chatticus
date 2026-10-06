@@ -11,6 +11,8 @@ export interface HttpClientOptions {
 	baseUrl: string;
 	headers?: Record<string, string>;
 	timeout?: number;
+	/** The transport; defaults to the global fetch. An in-process front door is reached by passing its request function. */
+	fetch?: (input: string, init?: RequestInit) => Promise<Response>;
 }
 
 export interface TurnWatchOutcome {
@@ -27,16 +29,18 @@ export class HttpClient {
 	private baseUrl: string;
 	private headers: Record<string, string>;
 	private timeout: number;
+	private transport: (input: string, init?: RequestInit) => Promise<Response>;
 
 	constructor(options: HttpClientOptions) {
 		this.baseUrl = options.baseUrl.replace(/\/$/, "");
 		this.headers = options.headers || {};
 		this.timeout = options.timeout ?? 120000;
+		this.transport = options.fetch ?? ((input, init) => fetch(input, init));
 	}
 
 	async get(path: string, init?: RequestInit): Promise<Response> {
 		const url = this.resolvePath(path);
-		return fetch(url, {
+		return this.transport(url, {
 			method: "GET",
 			signal: AbortSignal.timeout(this.timeout),
 			...init,
@@ -54,7 +58,7 @@ export class HttpClient {
 			bodyStr = JSON.stringify(body);
 		}
 
-		return fetch(url, {
+		return this.transport(url, {
 			method: "POST",
 			headers,
 			body: bodyStr,
@@ -65,7 +69,7 @@ export class HttpClient {
 
 	async stream(path: string, init?: RequestInit): Promise<Response> {
 		const url = this.resolvePath(path);
-		return fetch(url, {
+		return this.transport(url, {
 			method: "GET",
 			signal: AbortSignal.timeout(this.timeout),
 			...init,

@@ -37,7 +37,8 @@ export async function signSigV4(
 	const httpRequest = new HttpRequest({
 		method: request.method,
 		hostname: url.hostname,
-		path: url.pathname + url.search,
+		path: url.pathname,
+		query: Object.fromEntries(url.searchParams.entries()),
 		headers: {
 			host: url.host,
 			...request.headers,
@@ -54,6 +55,7 @@ export async function signSigV4(
 		region,
 		service,
 		sha256: Sha256,
+		applyChecksum: false,
 	});
 
 	const signed = await signer.sign(httpRequest);
