@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from behave import then
+from behave import then, when
 
-from chatticus.models import TurnEventKind
+from chatticus.models import ActorKind, TurnEventKind
 
 _NOT_GRANTED = "denied: tool 'run_terminal' is not granted"
 
@@ -47,3 +47,28 @@ def then_not_denied_for_lack_of_run_terminal(context: object) -> None:
     assert (
         not not_granted
     ), "run_terminal was denied for missing grant after human replace"
+
+
+@when('a human asks the bot to run command "{command}" using cwd "{cwd}"')
+def when_human_asks_run_command(context: object, command: str, cwd: str) -> None:
+    bot = context.bots_by_name["Researcher"]
+    channel = context.plane.create_channel(bot.tenant_id, "ryan", [bot.bot_id])
+    message = f"run command {command} using cwd {cwd}"
+    _, turn = context.plane.post_channel_message(
+        channel.channel_id,
+        bot.tenant_id,
+        ActorKind.HUMAN,
+        "ryan",
+        body=message,
+        addressed_to_bot_id=bot.bot_id,
+    )
+    assert turn is not None
+    context.last_turn_id = turn.turn_id
+    context.last_channel = channel
+    context.worker_bot_id = bot.bot_id
+    context.policy_turn_id = turn.turn_id
+    explicit_grant = getattr(context, "capability_policy", None)
+    if explicit_grant is not None and explicit_grant.grant is not None:
+        context.plane.set_turn_capability_grant(
+            bot.tenant_id, turn.turn_id, explicit_grant.grant
+        )
