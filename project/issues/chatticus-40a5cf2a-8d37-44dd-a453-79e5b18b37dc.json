@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-40a5cf2a-8d37-44dd-a453-79e5b18b37dc",
+  "title": "TS-50 Implement the black-box acceptance smoke test",
+  "description": "Found running the rehearsal (TS-39): conversation/bin/acceptance.ts runSmokeTest is a stub that prints 'Smoke test not yet implemented', although TS-4 closed. Implement it per the file's own header: speaking only HTTP (with the SigV4 client in conversation/src/acceptance/sigv4.ts and http-client.ts, plus the integration-test auth used by features/integration_test_auth.feature if the Function URL needs it; read conversation/src/auth and src/http to see exactly how a caller authenticates to a deployed ChatticusControlPlane Function URL) against a deployed environment: sign in or authenticate as the test principal, create a bot, create a channel, post a message, read the turn's SSE stream until the turn completes (a real model call: the deployed executor uses the dev OpenAI key), reload the channel and assert the bot's reply message is persisted and ordered after the user message, and finally steer a second post to the same bot while a turn runs if feasible. Record each check name in result.checks, throw clear typed errors, exit non-zero on failure, print the result as JSON. It must be testable without AWS: add a vitest that runs the smoke test against the in-process createApp front door with the scripted provider (see conversation/features-support for the FrontDoor and fakes) so the logic is verified before the live run. Mutation-check the vitest (break the reload ordering, the stream completion wait, and the persisted-reply check). Then run it live: AWS_PROFILE=chatticus-development CHATTICUS_DEVELOPMENT_BASE_URL=<ControlPlaneFunctionUrl of the ChatticusControlPlane stack> npx tsx bin/acceptance.ts --environment development (read-only AWS except through the app). Report the exact output; if the live run fails, report the failure and do NOT fix the production code in this ticket: stop and report the exact error (the orchestrator decides).",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-06T15:16:12.126971Z",
+  "updated_at": "2026-10-06T15:16:12.127007Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The acceptance smoke test is still a stub and needs implementation and verification.",
+  "right_now_updated_at": "2026-10-06T15:16:14.219342Z",
+  "custom": {}
+}
