@@ -18,6 +18,9 @@ import { createInvitationHandler, createInvitationMembershipCache } from "./rout
 import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler } from "./routes/bots.ts";
 import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from "./routes/channels.ts";
 import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
+import { postVoiceMessageHandler } from "./routes/voice-messages.ts";
+import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
+import type { UserUnderstanding } from "../voice/understanding.ts";
 import type { MessageDependencies } from "../domain/messages.ts";
 import type { TurnControlStore } from "../domain/turns.ts";
 import {
@@ -53,6 +56,8 @@ export interface AppDeps {
 	store: unknown;
 	/** Message admission and listing, behind the routes under /channels/{id}/messages. */
 	messages: Omit<MessageDependencies, "store" | "ids" | "clock">;
+	/** The understand-the-user step and the ledger its spend is recorded in, behind POST .../voice-messages. */
+	voice: { understanding: UserUnderstanding; ledger: VendorLedgerDependencies };
 	/** The turn control record, behind the turn read routes. */
 	turnControl: TurnControlStore;
 	invokeKey: string | null;
@@ -197,6 +202,10 @@ export function createApp(deps: AppDeps): Hono {
 	);
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
 		listChannelMessagesHandler(c, messageRoutes),
+	);
+
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/channels/:channel_id/voice-messages", audience: "user" }, (c) =>
+		postVoiceMessageHandler(c, { ...messageRoutes, voice: { ...deps.voice, messages: messageRoutes.messages } }),
 	);
 
 	const turnRoutes = {

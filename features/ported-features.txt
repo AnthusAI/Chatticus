@@ -43,3 +43,4 @@ features/turn_stream_replay.feature
 features/turn_recovery.feature
 features/turn_probes.feature
 features/turn_fault_injection.feature
+features/voice_messages.feature

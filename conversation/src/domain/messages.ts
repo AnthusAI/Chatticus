@@ -52,7 +52,12 @@ export type ListMessagesRequest = { tenantId: string; channelId: string; afterSe
 const CLOSING_POLL_ATTEMPTS = 100;
 const DEFAULT_CLOSING_POLL_MILLISECONDS = 50;
 
-function requireParticipant(channel: Channel, kind: ActorKind, actorId: string): void {
+/**
+ * Require that an actor takes part in a channel.
+ *
+ * @throws ActorNotInChannelError If the actor is not a participant.
+ */
+export function requireParticipant(channel: Channel, kind: ActorKind, actorId: string): void {
 	for (const participant of channel.participants) {
 		if (participant.kind === kind && participant.actorId === actorId) {
 			return;

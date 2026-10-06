@@ -14,6 +14,7 @@ import { DynamoMessagingStore } from "../src/store/dynamo-messaging-store.ts";
 import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
 import type { TurnDependencies } from "../src/domain/turns.ts";
 import { FaultPlan } from "../src/turn/fault-plan.ts";
+import { ScriptedUserUnderstanding } from "./fakes/scripted-understanding.ts";
 import { FakeBudgetAlertsPublisher } from "./fakes/fake-budget-alerts.ts";
 import { FakeAccountSpendReader, FakeCostExplorerReader } from "./fakes/fake-cost-explorer.ts";
 import type { CognitoTestKeys } from "./test-jwt.ts";
@@ -66,6 +67,11 @@ export class ChatticusWorld extends World {
 	/** Each time a run job's queue visibility was extended, as the queue would record it. */
 	readonly runVisibilityExtensions: Array<{ tenantId: string; turnId: string }> = [];
 	api: ApiClient | null = null;
+	/** The understand-the-user step the voice route runs, scripted per scenario. */
+	readonly scriptedUnderstanding = new ScriptedUserUnderstanding();
+	voiceLineResponse: RecordedResponse | null = null;
+	voiceLineResponses: RecordedResponse[] = [];
+	messageCountBeforeVoiceLine = 0;
 	app: Hono | null = null;
 	listedTurnEvents: Array<Record<string, any>> = [];
 	streamRefusal: Response | null = null;

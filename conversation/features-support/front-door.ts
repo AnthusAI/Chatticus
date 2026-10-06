@@ -7,6 +7,7 @@ import { MessageBodyCache } from "../src/pi/message-cache.ts";
 import { DynamoTurnAdmission } from "../src/store/turn-admission-store.ts";
 import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
 import { ApiClient } from "./api.ts";
+import { ledgerDependenciesFor } from "./executor-harness.ts";
 import { ensurePiStorage, type ScenarioPiStorage } from "./pi-storage.ts";
 import { startAppServer } from "./http-server.ts";
 import { probeQueueOf, runQueueOf, TURN_RUN_QUEUE } from "./turn-queues.ts";
@@ -64,6 +65,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		ids: world.ids,
 		store: world.messagingStore(),
 		messages: messageDependencies(world, await ensurePiStorage(world)),
+		voice: { understanding: world.scriptedUnderstanding, ledger: ledgerDependenciesFor(world) },
 		turnControl: world.turnControlStore(),
 		streamTiming: { ...DEFAULT_STREAM_TIMING, minimumPollMilliseconds: 5, maximumPollMilliseconds: 25 },
 		streamClock: world.streamClock,

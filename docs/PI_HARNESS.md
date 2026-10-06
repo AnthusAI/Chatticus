@@ -741,3 +741,40 @@ checked against pi-durable and pi-ai 1.0.2 on moto.
 - **Idempotent resubmission.** `submit` with a `requestId` that already exists
   returns that submission whatever content is passed, so a resumed owner can
   attach to the prompt of an interrupted turn with an empty content.
+
+## Measured for the voice understanding step
+
+The understand-the-user step is one non-durable completion outside a Harness
+(`conversation/src/voice/understanding.ts`). Verified against pi-ai 1.0.2 with
+the faux provider and with the real OpenAI provider whose HTTP `fetch` is
+replaced, so no request leaves the machine
+(`conversation/test/voice-understanding.test.ts`).
+
+- **Call.** `models.completeSimple(model, { systemPrompt, messages: [{ role:
+  "user", content, timestamp }] }, options)` on a `Models` from
+  `createModels()` with `openaiProvider()` set; `model` is
+  `models.getModel("openai", "gpt-5-nano")` (api `openai-responses`, undefined
+  when the provider does not serve it). No Harness, session or fence.
+- **Minimal reasoning.** `options.reasoning: "minimal"` sends
+  `reasoning: { effort: "minimal", summary: "auto" }`.
+- **JSON output has no named option.** `onPayload: (payload) => ({ ...payload,
+  text: { ...payload.text, format: { type: "json_object" } } })` puts the JSON
+  object format on the Responses request; the reply text is then parsed.
+- **Timeout.** `options.signal: AbortSignal.timeout(10_000)`. An aborted or
+  failed call does not reject: `completeSimple` resolves an `AssistantMessage`
+  with `stopReason: "error"` or `"aborted"` and `errorMessage`, so the caller
+  must check `stopReason` and throw.
+- **Result.** The text is the concatenation of `message.content` blocks of
+  `type: "text"`. Usage is `message.usage.input` and `message.usage.output`
+  (plus `reasoning`, a subset of output), which map to the ledger's
+  `inputTokens` and `outputTokens`.
+- **`maxTokens` is ignored for gpt-5-nano.** The model's compat marks
+  `max_output_tokens` unsupported, so the request carries no cap (the Python
+  call sent `max_completion_tokens: 400`).
+- **Offline test seam.** `options.fetch` replaces the provider's HTTP client;
+  the Responses stream is server-sent events (`response.created`,
+  `response.output_item.added`, `response.content_part.added`,
+  `response.output_text.delta`/`.done`, `response.output_item.done`,
+  `response.completed` with `usage`). The faux provider
+  (`features-support/fakes/scripted-provider.ts`) covers the same call without
+  HTTP.
