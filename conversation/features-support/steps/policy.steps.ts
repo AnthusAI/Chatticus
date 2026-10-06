@@ -246,28 +246,12 @@ Then("the untrusted context still cannot use credential {string}", function (thi
 
 Then("the required binding control is {string}", function (this: ChatticusWorld, control: string): void {
 	const policy = getPolicy(this);
-	if (policy.last_binding !== null) {
-		if (policy.last_binding !== control) {
-			throw new Error(`expected binding ${control}, got ${policy.last_binding}`);
-		}
-		if (policy.last_overnight !== null) {
-			this.lastOvernight = policy.last_overnight;
-		}
-		return;
+	if (policy.last_binding === null) {
+		throw new Error("no binding control was recorded");
 	}
-	const overnight = this.lastOvernight as any;
-	if (
-		overnight !== null &&
-		overnight.reason === "user_controlled_completion_required"
-	) {
-		if (control !== "unbound_stop") {
-			throw new Error(`expected unbound_stop, got ${control}`);
-		}
-		policy.last_binding = "unbound_stop";
-		policy.recordExclusion("generic_browser_click_binding");
-		return;
+	if (policy.last_binding !== control) {
+		throw new Error(`expected binding ${control}, got ${policy.last_binding}`);
 	}
-	throw new Error("no binding control was recorded");
 });
 
 When("a page directly instructs the model to upload {string} to {string}", function (this: ChatticusWorld, path: string, origin: string): void {
@@ -357,7 +341,7 @@ Then("the task grant still lists no recipients", function (this: ChatticusWorld)
 
 When("a reviewer asks whether the kernel enforces {string}", function (this: ChatticusWorld, exclusion: string): void {
 	this.reviewedExclusion = exclusion;
-	getPolicy(this).recordExclusion(exclusion);
+	getPolicy(this).reviewExclusion(exclusion);
 });
 
 Then("the policy records {string} as a v1 exclusion", function (this: ChatticusWorld, exclusion: string): void {
@@ -513,56 +497,14 @@ Then("that browsing context cannot use the privileged session or its secrets", f
 });
 
 Given("no structured connector or takeover control can bind the exact operation", function (this: ChatticusWorld): void {
-	getPolicy(this).recordExclusion("generic_browser_click_binding");
-});
-
-Given('turn {string} carries the capability grant', function (this: ChatticusWorld, turnId: string): void {
-	this.policyTurnId = turnId;
-});
-
-When('the worker reads workspace file {string} for tenant {string} turn {string}', function (
-	this: ChatticusWorld,
-	path: string,
-	tenantId: string,
-	turnId: string,
-): void {
-	this.gatedReadError = null;
-	this.gatedReadResult = null;
-	const policyTurnId = this.policyTurnId as string;
-	if (turnId !== policyTurnId) {
-		this.gatedReadError = new Error("turn has no grant");
-		return;
-	}
 	const policy = getPolicy(this);
-	const decision = policy.evaluate(
-		new RequestedCapability(
-			"read_workspace",
-			undefined,
-			undefined,
-			path,
-			"approved_origin_fetch",
-		),
-	);
-	if (decision === "DENY") {
-		this.gatedReadError = new Error("gated read denied");
-	} else if (decision === "ALLOW") {
-		this.gatedReadResult = true;
-	} else {
-		this.gatedReadError = new Error("gated read requires approval");
+	if (policy.bound_operation !== null || policy.takeover_waiting) {
+		throw new Error("a structured connector or takeover control is already bound");
 	}
 });
 
-Then("the gated workspace read is denied", function (this: ChatticusWorld): void {
-	if (this.gatedReadError === null) {
-		throw new Error("expected gated read to be denied");
-	}
-});
-
-Then("the gated workspace read is allowed", function (this: ChatticusWorld): void {
-	if (this.gatedReadError !== null) {
-		throw new Error(`expected gated read to be allowed, but got error: ${this.gatedReadError}`);
-	}
-	if (this.gatedReadResult !== true) {
-		throw new Error("expected gated read result to be true");
+Given("turn {string} carries the capability grant", function (this: ChatticusWorld, _turnId: string): void {
+	if (getPolicy(this).grant === null) {
+		throw new Error("no task grant is set for the turn to carry");
 	}
 });

@@ -288,11 +288,9 @@ export class CapabilityPolicy {
 	last_overnight: OvernightGatedResult | null = null;
 	bound_operation: BoundConnectorOperation | null = null;
 	recorded_exclusions: Set<string> = new Set();
-	claimed_enforced_exclusions: Set<string> = new Set();
 	channel_secret_accepted = false;
 	worker_completed_takeover_action = false;
-	sink_denial_is_control = false;
-	prompt_wording_is_boundary = false;
+	injection_followed_by_model = false;
 	takeover_waiting = false;
 	now: () => Date;
 
@@ -378,7 +376,24 @@ export class CapabilityPolicy {
 	 * Session secrets never appear in model-visible tool results.
 	 */
 	modelVisibleSecrets(context: PolicyBrowserContext): string[] {
-		return [];
+		const visible = this.modelVisibleToolResult(context);
+		const candidates = [
+			...[...this.credentials.values()].map((credential) => credential.value),
+			...context.cookies.values(),
+		];
+		return candidates.filter((secret) => secret.length > 0 && visible.includes(secret));
+	}
+
+	/**
+	 * Render what a browser tool result shows the model: context identity and cookie names, never values.
+	 */
+	modelVisibleToolResult(context: PolicyBrowserContext): string {
+		return JSON.stringify({
+			kind: context.kind,
+			pageUrl: context.pageUrl,
+			session: context.namedSession,
+			cookieNames: [...context.cookies.keys()],
+		});
 	}
 
 	/**
@@ -431,10 +446,12 @@ export class CapabilityPolicy {
 			);
 		}
 		if (this._isConsequentialAction(request.tool)) {
+			this._auditEgressOutsideGrant(request, grant);
 			this.last_decision = "REQUIRE_APPROVAL";
 			this.last_binding = "immutable_approval";
 			return "REQUIRE_APPROVAL";
 		}
+		this._auditEgressOutsideGrant(request, grant);
 		this.last_decision = "ALLOW";
 		return "ALLOW";
 	}
@@ -590,19 +607,100 @@ export class CapabilityPolicy {
 	}
 
 	/**
-	 * Return whether any worker claimed a v1 exclusion as enforced.
+	 * Answer a reviewer: probe the control and record the exclusion when the kernel does not enforce it.
+	 */
+	reviewExclusion(exclusion: string): void {
+		if (!this.workerClaimsEnforced(exclusion)) {
+			this.recordExclusion(exclusion);
+		}
+	}
+
+	/**
+	 * Return whether the kernel actually enforces the control behind a v1 exclusion, by exercising it.
 	 */
 	workerClaimsEnforced(exclusion: string): boolean {
-		return this.claimed_enforced_exclusions.has(exclusion);
+		if (!V1_POLICY_EXCLUSIONS.has(exclusion)) {
+			throw new Error(`unknown v1 exclusion ${JSON.stringify(exclusion)}`);
+		}
+		const probe = new CapabilityPolicy(this.now);
+		const controlMethodPresent = (methodName: string): boolean =>
+			typeof (probe as unknown as Record<string, unknown>)[methodName] === "function";
+		switch (exclusion) {
+			case "snapshot_cookie_integrity": {
+				const context = probe.openUntrusted("https://probe.example");
+				probe.writeCookie(context, "probe", "genuine");
+				context.cookies.set("probe", "tampered");
+				return probe.cookieInContext(context, "probe") !== "tampered";
+			}
+			case "generic_browser_click_binding":
+				return probe.requiredBindingForBrowserAction("send") !== BindingControl.UnboundStop;
+			case "approval_fatigue": {
+				probe.setGrant(
+					new TaskCapabilityGrant(
+						new Set(["send"]),
+						new Set(),
+						new Set(["probe@example.com"]),
+						new Set(),
+						new Set([EgressClass.StructuredSend]),
+						new Set(),
+					),
+				);
+				for (let attempt = 0; attempt < 25; attempt++) {
+					const decision = probe.evaluate(
+						new RequestedCapability("send", null, "probe@example.com", null, EgressClass.StructuredSend),
+					);
+					if (decision !== "REQUIRE_APPROVAL") {
+						return true;
+					}
+				}
+				return false;
+			}
+			case "prompt_data_separation_as_boundary": {
+				probe.setGrant(new TaskCapabilityGrant(new Set(), new Set(), new Set(), new Set(), new Set(), new Set()));
+				probe.markInjectionFollowedByModel();
+				probe.evaluate(new RequestedCapability("send", null, "probe@example.com", null, EgressClass.StructuredSend));
+				return probe.prompt_wording_is_boundary;
+			}
+			case "bot_to_bot_channel_injection":
+				return controlMethodPresent("authenticateChannelSender");
+			case "local_device_execution_isolation":
+				return controlMethodPresent("isolateLocalDeviceExecution");
+			case "bot_as_security_boundary":
+				return controlMethodPresent("enforceBotBoundary");
+			default:
+				throw new Error(`no enforcement probe for v1 exclusion ${JSON.stringify(exclusion)}`);
+		}
 	}
 
 	/**
 	 * Record that prompt/data separation did not stop the model.
 	 */
 	markInjectionFollowedByModel(): void {
-		this.sink_denial_is_control = true;
-		this.prompt_wording_is_boundary = false;
+		this.injection_followed_by_model = true;
 		this.recordExclusion("prompt_data_separation_as_boundary");
+	}
+
+	/**
+	 * True when the last evaluation of a model-followed injection ended in a sink denial.
+	 */
+	get sink_denial_is_control(): boolean {
+		return this.injection_followed_by_model && this.last_decision === "DENY" && this.denials.length > 0;
+	}
+
+	/**
+	 * True when a model-followed injection got past evaluation, so only the prompt wording stood in the way.
+	 */
+	get prompt_wording_is_boundary(): boolean {
+		return this.injection_followed_by_model && this.last_decision !== "DENY";
+	}
+
+	private _auditEgressOutsideGrant(request: RequestedCapability, grant: TaskCapabilityGrant): void {
+		const originOutside = Boolean(request.origin) && !grant.origins.has(originFromUrl(request.origin as string));
+		const recipientOutside = Boolean(request.recipient) && !grant.recipients.has(request.recipient as string);
+		const egressClassOutside = Boolean(request.egressClass) && !grant.egressClasses.has(request.egressClass as string);
+		if (originOutside || recipientOutside || egressClassOutside) {
+			this.unblocked_egress.push(request);
+		}
 	}
 
 	private _deny(reason: string, request: RequestedCapability): ApprovalDecision {
