@@ -6,7 +6,10 @@ import { ActorNotInChannelError } from "../http/errors.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { pythonRepr } from "./bots.ts";
 import { type ActorKind, type Channel, type ChannelMessageRecord, requireChannelTenant } from "./channels.ts";
-import type { TurnAdmission, TurnRunQueue } from "./turn-admission.ts";
+import type { FaultPlan } from "../turn/fault-plan.ts";
+import { logicalEnqueueId, requestLogicalEnqueue } from "../turn/probes.ts";
+import type { TurnAdmission, TurnProbeQueue, TurnRunQueue } from "./turn-admission.ts";
+import { TURN_DEADLINE_SECONDS } from "./turns.ts";
 
 /** One committed channel message. */
 export type Message = ChannelMessageRecord;
@@ -19,6 +22,9 @@ export type MessageDependencies = {
 	mailbox: MailboxStore;
 	turns: TurnAdmission;
 	turnRuns: TurnRunQueue;
+	turnProbes: TurnProbeQueue;
+	/** Crash injection for tests; never set in production. */
+	faults?: FaultPlan;
 	listing: ChannelListingDependencies;
 	/** How long to wait between looks while a bot's turn is closing; defaults to 50 milliseconds. */
 	closingPollMilliseconds?: number;
@@ -84,6 +90,10 @@ async function admitAddressedMessage(
 		}
 		await putMailboxItem(deps.mailbox, addressedItem);
 		const turnId = deps.ids.next();
+		await deps.turnProbes.send(
+			{ tenantId: channel.tenantId, turnId, kind: "deadline", expectAttempt: 0 },
+			TURN_DEADLINE_SECONDS,
+		);
 		const started = await deps.turns.startTurn({
 			tenantId: channel.tenantId,
 			channelId: channel.channelId,
@@ -95,6 +105,7 @@ async function admitAddressedMessage(
 			expectedPointerTurnId: open === null ? null : open.pointerTurnId,
 		});
 		if (started) {
+			deps.faults?.maybeCrash("message_commit", "after");
 			return { turnId, started: true };
 		}
 	}
@@ -127,6 +138,7 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 	if (request.addressedToBotId !== null) {
 		requireParticipant(channel, "bot", request.addressedToBotId);
 	}
+	deps.faults?.maybeCrash("message_commit", "before");
 	const seq = await allocateSeq(deps.mailbox, channel.tenantId, channel.channelId);
 	const message: Message = {
 		messageId: deps.ids.next(),
@@ -170,13 +182,17 @@ export async function postMessage(deps: MessageDependencies, request: PostMessag
 		);
 		turnId = admission.turnId;
 		if (admission.started && request.enqueueTurn !== false) {
-			await deps.turnRuns.enqueue({
-				tenantId: channel.tenantId,
-				channelId: channel.channelId,
-				botId: request.addressedToBotId,
-				turnId: admission.turnId,
-				requiredCapabilities: ["cpu"],
-			});
+			await requestLogicalEnqueue(
+				{ recorder: deps.turns, turnRuns: deps.turnRuns, faults: deps.faults },
+				{
+					tenantId: channel.tenantId,
+					channelId: channel.channelId,
+					botId: request.addressedToBotId,
+					turnId: admission.turnId,
+					requiredCapabilities: ["cpu"],
+				},
+				logicalEnqueueId(admission.turnId),
+			);
 		}
 	}
 	if (request.idempotencyKey !== null) {

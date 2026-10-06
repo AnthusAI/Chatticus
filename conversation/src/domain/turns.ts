@@ -50,6 +50,8 @@ export type Turn = {
 	deadlineAt: Date | null;
 	recoveryAttempts: number;
 	waitingFor: string | null;
+	waitingSince: Date | null;
+	logicalEnqueueIds: string[];
 	pendingComputerTool: PendingComputerTool | null;
 	storageFence: number | null;
 	nextEventSeq: number;
@@ -176,9 +178,56 @@ export interface TurnControlStore {
 		attemptId: string;
 		gate: string;
 		pendingComputerTool: PendingComputerTool;
+		now: Date;
 		eventId: string;
 		expiresAt: Date;
 	}): Promise<TurnEvent>;
+	/**
+	 * Hand an unowned turn to a later attempt: only when the turn is active, not waiting, its lease absent or expired at
+	 * `now`, and still as observed. Counts one recovery attempt, drops the dead attempt's identity and claim, and sets a
+	 * fresh deadline.
+	 *
+	 * @returns The turn after the change, or null when it was no longer as observed.
+	 */
+	recoverExpiredTurn(request: {
+		tenantId: string;
+		turnId: string;
+		observed: ProbeObservation;
+		now: Date;
+		deadlineAt: Date;
+	}): Promise<Turn | null>;
+	/**
+	 * Fail a turn on behalf of a probe, with turn.failed in the same transaction. The turn must be active and still as
+	 * observed, and either have no live lease at `now` (`lease_expired`) or still be waiting (`waiting`).
+	 *
+	 * @returns The event, or null when the turn was no longer as observed.
+	 */
+	failStaleTurn(request: {
+		tenantId: string;
+		turnId: string;
+		observed: ProbeObservation;
+		condition: "lease_expired" | "waiting";
+		now: Date;
+		reason: string;
+		eventId: string;
+		expiresAt: Date;
+	}): Promise<TurnEvent | null>;
+	/**
+	 * Give the turn up for the next owner: append attempt.relinquished and drop the attempt's identity, claim and lease in
+	 * one transaction under the attempt's fence.
+	 *
+	 * @throws StaleAttemptError If the attempt no longer owns the turn.
+	 * @throws TurnTerminalError If the turn is no longer active.
+	 */
+	relinquishTurn(request: {
+		tenantId: string;
+		turnId: string;
+		attemptId: string;
+		eventId: string;
+		expiresAt: Date;
+	}): Promise<TurnEvent>;
+	/** Remember that a run job was requested under `enqueueId`; false when that id was already recorded. */
+	recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string): Promise<boolean>;
 	/** The events of a turn after a sequence, in sequence order. */
 	listEvents(tenantId: string, turnId: string, afterSeq: number): Promise<TurnEvent[]>;
 	/** The turn a channel pointer names, or null when the pointer is absent. */
@@ -189,6 +238,12 @@ export interface TurnControlStore {
 		botId: string | null,
 	): Promise<Turn | null>;
 }
+
+/** What a probe saw of the turn, so the conditional write that acts on it fails when the turn has moved on. */
+export type ProbeObservation = {
+	attemptId: string | null;
+	recoveryAttempts: number;
+};
 
 /** Everything the turn functions read and write. */
 export type TurnDependencies = {
@@ -356,6 +411,76 @@ export async function releaseForWaiting(
 		attemptId,
 		gate,
 		pendingComputerTool: { actionId: deps.ids.next(), toolName: "request_computer_capability", arguments: { gate } },
+		now: deps.clock.now(),
+		eventId: deps.ids.next(),
+		expiresAt: addSeconds(deps.clock.now(), TURN_EVENT_TTL_SECONDS),
+	});
+}
+
+/** What a probe observed of a turn: the identity of the attempt that holds it and how often it was recovered. */
+export const observationOf = (turn: Turn): ProbeObservation => ({
+	attemptId: turn.attemptId,
+	recoveryAttempts: turn.recoveryAttempts,
+});
+
+/**
+ * Hand a turn whose owner vanished to a later attempt: count one recovery attempt, drop the dead attempt's identity and
+ * claim, and set a fresh deadline.
+ *
+ * @returns The turn after the change, or null when it was no longer as observed (an owner renewed, another probe won).
+ */
+export async function recoverExpiredTurn(deps: TurnDependencies, observed: Turn): Promise<Turn | null> {
+	const now = deps.clock.now();
+	return deps.store.recoverExpiredTurn({
+		tenantId: observed.tenantId,
+		turnId: observed.turnId,
+		observed: observationOf(observed),
+		now,
+		deadlineAt: addSeconds(now, TURN_DEADLINE_SECONDS),
+	});
+}
+
+/**
+ * End an active turn that nobody owns as failed, on behalf of a probe.
+ *
+ * @param condition `lease_expired` when the turn must have no live lease, `waiting` when it must still be waiting.
+ * @returns The failure event, or null when the turn was no longer as observed.
+ */
+export async function failStaleTurn(
+	deps: TurnDependencies,
+	observed: Turn,
+	condition: "lease_expired" | "waiting",
+	reason: string,
+): Promise<TurnEvent | null> {
+	const now = deps.clock.now();
+	return deps.store.failStaleTurn({
+		tenantId: observed.tenantId,
+		turnId: observed.turnId,
+		observed: observationOf(observed),
+		condition,
+		now,
+		reason,
+		eventId: deps.ids.next(),
+		expiresAt: addSeconds(now, TURN_EVENT_TTL_SECONDS),
+	});
+}
+
+/**
+ * Give an active turn up for the next owner, appending attempt.relinquished.
+ *
+ * @throws StaleAttemptError If the attempt no longer owns the turn.
+ * @throws TurnTerminalError If the turn is no longer active.
+ */
+export async function relinquishTurn(
+	deps: TurnDependencies,
+	tenantId: string,
+	turnId: string,
+	attemptId: string,
+): Promise<TurnEvent> {
+	return deps.store.relinquishTurn({
+		tenantId,
+		turnId,
+		attemptId,
 		eventId: deps.ids.next(),
 		expiresAt: addSeconds(deps.clock.now(), TURN_EVENT_TTL_SECONDS),
 	});

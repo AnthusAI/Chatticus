@@ -1,14 +1,19 @@
 import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
+import { SQSClient } from "@aws-sdk/client-sqs";
 import { VendorPriceBook } from "../ledger/vendor-ledger.ts";
 import { DynamoMessagingStore } from "../store/dynamo-messaging-store.ts";
 import { DynamoTurnControlStore } from "../store/turn-store.ts";
-import { executeTurn } from "../turn/executor.ts";
+import { consumeRunJob } from "../turn/executor.ts";
 import { createOpenAiModels, DEFAULT_TURN_MODEL } from "../turn/openai-models.ts";
+import { SqsRunVisibility, SqsTurnProbeQueue, SqsTurnRunQueue } from "../turn/sqs-queues.ts";
 import type { ExecutorDeps, TurnExecutionJob } from "../turn/types.ts";
 
-type SqsRecord = { readonly body: string };
+type SqsRecord = { readonly body: string; readonly receiptHandle: string };
+
+/** The part of the Lambda context this handler reads. */
+export type TurnRunsContext = { getRemainingTimeInMillis(): number };
 
 /** The part of an SQS event this handler reads. */
 export type TurnRunsEvent = { readonly Records: readonly SqsRecord[] };
@@ -19,11 +24,18 @@ const requiredEnvironment = (name: string): string => {
 	return value;
 };
 
-let cachedDeps: ExecutorDeps | null = null;
+type SharedDeps = Omit<ExecutorDeps, "runVisibility" | "remainingMilliseconds">;
 
-function executorDeps(): ExecutorDeps {
+let cachedDeps: SharedDeps | null = null;
+let cachedRunsQueueUrl = "";
+let cachedSqs: SQSClient | null = null;
+
+function executorDeps(): SharedDeps {
 	if (cachedDeps !== null) return cachedDeps;
 	const client = new DynamoDBClient({});
+	const sqs = new SQSClient({});
+	cachedSqs = sqs;
+	cachedRunsQueueUrl = requiredEnvironment("CHATTICUS_TURN_RUNS_QUEUE_URL");
 	const messagingTableName = requiredEnvironment("CHATTICUS_MESSAGING_TABLE");
 	cachedDeps = {
 		turns: {
@@ -41,6 +53,8 @@ function executorDeps(): ExecutorDeps {
 		model: DEFAULT_TURN_MODEL,
 		ledger: { client, tableName: messagingTableName, prices: new VendorPriceBook(), now: () => new Date() },
 		workerLabel: "turn-executor-lambda",
+		turnRuns: new SqsTurnRunQueue(sqs, cachedRunsQueueUrl),
+		turnProbes: new SqsTurnProbeQueue(sqs, requiredEnvironment("CHATTICUS_TURN_PROBES_QUEUE_URL")),
 	};
 	return cachedDeps;
 }
@@ -58,10 +72,23 @@ function jobFrom(record: SqsRecord): TurnExecutionJob {
  * SQS entry point of the TurnExecutor Lambda, batch size 1. A turn that ends (done, failed, lost, or handed to
  * reconciliation) acknowledges its message; an infrastructure error propagates so the queue redelivers the job.
  *
+ * While a turn runs its lease renewals also extend the visibility of its message, and when the function is close to its
+ * time limit the executor hands the turn on instead of running into it.
+ *
  * @param event The SQS event.
+ * @param context The Lambda context, for the remaining time.
  */
-export async function handler(event: TurnRunsEvent): Promise<void> {
+export async function handler(event: TurnRunsEvent, context: TurnRunsContext): Promise<void> {
 	for (const record of event.Records) {
-		await executeTurn(jobFrom(record), executorDeps());
+		const shared = executorDeps();
+		await consumeRunJob(
+			jobFrom(record),
+			{
+				...shared,
+				runVisibility: new SqsRunVisibility(cachedSqs!, cachedRunsQueueUrl, record.receiptHandle),
+				remainingMilliseconds: () => context.getRemainingTimeInMillis(),
+			},
+			async () => undefined,
+		);
 	}
 }

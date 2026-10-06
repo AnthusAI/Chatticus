@@ -499,6 +499,24 @@ delayed by the lease or deadline interval.
 | lease expired, Pi session shows the submission `done` | finalize as completed (the owner died after the answer, before finalize) |
 | lease expired, none left | fail `recovery attempts exhausted` |
 
+As built (`turn/probes.ts`, `turn/yield.ts`): the probe body is camel case like
+the run job, `{tenantId, turnId, kind, expectAttempt}`. The FrontDoor arms the
+first probe (delay 120 s, attempt 0) before it writes the turn record, the
+executor arms one at each claim (delay 60 s), recovery and yield arm one for the
+next claim, and parking arms one that fires every 60 s until the 15 minute
+waiting limit. A probe for an earlier attempt than the turn is on is dropped
+while the turn is owned or waiting, but still acts once the lease has run out, so
+a crash between a claim and its probe cannot strand a turn. A turn that no
+attempt holds (just recovered, or handed on) is owned until its deadline. When
+the recovery budget is spent a probe reads the Pi session without owning it
+(`pi/submission-inspector.ts`); if the prompt's submission is already `done` it
+queues one run that finalizes the turn, otherwise it fails the turn. The
+executor consumes a run job through `consumeRunJob`, which acknowledges the
+message only after `executeTurn` returns, so a crash before that leaves the
+message for redelivery. `FaultPlan` (`turn/fault-plan.ts`) keeps the Python
+crash window names and is read by the FrontDoor, the executor and the probe
+handler.
+
 Default lease 60 s, deadline 120 s, one recovery attempt, as Python. Recovery
 is a plain resume: the next owner reopens the session; Pi resubmits an
 interrupted model call, reruns `replay: "safe"` tools and gives the model an

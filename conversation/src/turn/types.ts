@@ -6,6 +6,8 @@ import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { TurnDependencies } from "../domain/turns.ts";
+import type { TurnProbeQueue, TurnRunQueue, TurnRunVisibility } from "../domain/turn-admission.ts";
+import type { FaultPlan } from "./fault-plan.ts";
 
 /** The queue message that asks an executor to run a turn. */
 export type TurnExecutionJob = {
@@ -21,8 +23,9 @@ export type TurnExecutionJob = {
  * - `failed`: the turn ended as failed with a reason a member can read.
  * - `lost`: another attempt owns the turn (or it already ended); nothing was written for it.
  * - `reconciling`: a Pi commit's outcome is unknown; the turn is handed to reconciliation.
+ * - `yielded`: the function was close to its time limit; the claim is released and another run is queued.
  */
-export type TurnExecutionOutcome = "done" | "failed" | "lost" | "reconciling";
+export type TurnExecutionOutcome = "done" | "failed" | "lost" | "reconciling" | "yielded";
 
 /** The model every turn of a bot runs on. */
 export type TurnModel = { readonly provider: string; readonly modelId: string; readonly thinkingLevel: ModelThinkingLevel };
@@ -37,6 +40,8 @@ export type ExecutorTuning = {
 	readonly tokenFlushBytes: number;
 	/** Milliseconds after which streamed text is written however small. */
 	readonly tokenFlushMilliseconds: number;
+	/** Remaining function milliseconds under which an owner hands its turn on. */
+	readonly yieldBelowMilliseconds: number;
 	/** Pi's retry policy for a failed model call. */
 	readonly retry: { readonly maxRetries: number; readonly baseDelayMilliseconds: number };
 };
@@ -57,4 +62,14 @@ export type ExecutorDeps = {
 	readonly workerLabel?: string;
 	readonly tuning?: Partial<ExecutorTuning>;
 	readonly context?: Context;
+	/** Where yield and recovery publish run jobs. */
+	readonly turnRuns: TurnRunQueue;
+	/** Where the executor arms deadline probes. */
+	readonly turnProbes: TurnProbeQueue;
+	/** Keeps the run job invisible to other consumers while the attempt works. */
+	readonly runVisibility: TurnRunVisibility;
+	/** The function's remaining time, `context.getRemainingTimeInMillis` in the Lambda; absent when time is unbounded. */
+	readonly remainingMilliseconds?: () => number;
+	/** Crash injection for tests; never set in production. */
+	readonly faults?: FaultPlan;
 };

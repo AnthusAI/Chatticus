@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
-import { claimTurn, failTurn } from "../../src/domain/turns.ts";
+import { failTurn } from "../../src/domain/turns.ts";
 import { StaleAttemptError } from "../../src/http/errors.ts";
+import { claimTurnAttempt } from "../../src/turn/executor.ts";
+import { probeQueueOf, TURN_RUN_QUEUE } from "../turn-queues.ts";
 import type { ChatticusWorld } from "../world.ts";
 import { post } from "./message.steps.ts";
 import { currentTurnOf, readTurn } from "./model.steps.ts";
@@ -19,7 +21,11 @@ Given("a worker owns an active turn", async function (this: ChatticusWorld) {
 		tenantId: channel.tenantId,
 	});
 	assert.equal(response.status, 200, response.text);
-	const claim = await claimTurn(this.turnDependencies(), channel.tenantId, currentTurnOf(this), this.ids.next(), "worker-a");
+	this.queues.take(TURN_RUN_QUEUE, (body) => (body as { turnId: string }).turnId === currentTurnOf(this));
+	const claim = await claimTurnAttempt(
+		{ turns: this.turnDependencies(), turnProbes: probeQueueOf(this), faults: this.faultPlan, workerLabel: "worker-a" },
+		{ tenantId: channel.tenantId, turnId: currentTurnOf(this), botId: bot.botId },
+	);
 	assert.ok(claim, "The worker could not claim the turn");
 	this.turnAttempts.set("owner", claim.attemptId);
 });
