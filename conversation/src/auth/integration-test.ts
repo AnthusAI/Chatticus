@@ -364,7 +364,7 @@ export function integrationTestAuthenticator(
 
 /** Seed one enabled organization for the dedicated integration-test user. */
 export async function seedIntegrationTestOrganization(
-	deps: { store: MessagingStore; clock: Clock; ids: IdSource },
+	deps: { store: MessagingStore; clock: Clock; ids: IdSource; callerAwsAccountId?: () => Promise<string> },
 	options: { tenantId?: string; userId?: string; ownerEmail?: string } = {},
 ): Promise<void> {
 	const tenantId = options.tenantId ?? DEFAULT_INTEGRATION_TEST_TENANT_ID;

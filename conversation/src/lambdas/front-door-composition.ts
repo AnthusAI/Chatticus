@@ -98,6 +98,16 @@ async function requiredParameter(parameters: ParameterReader, name: string): Pro
 	return value;
 }
 
+const DEPLOYMENT_AWS_ACCOUNT_ID_PATTERN = /^\d{12}$/;
+
+function deploymentAwsAccountIdFrom(environment: Record<string, string | undefined>): string {
+	const accountId = requiredIn(environment, "CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID");
+	if (!DEPLOYMENT_AWS_ACCOUNT_ID_PATTERN.test(accountId)) {
+		throw new Error("The environment variable CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID must be a twelve-digit AWS account id.");
+	}
+	return accountId;
+}
+
 /**
  * Seed the integration-test organization and its member. Seeding converges on the same records, so a second or a
  * concurrent cold start is harmless; a concurrent start that sees the organization before its membership lands retries
@@ -150,7 +160,12 @@ export async function composeFrontDoorApp(
 	const ids = { next: () => randomUUID() };
 	const store = new DynamoMessagingStore(client, messagingTableName);
 	if (integrationTest !== null) {
-		await seedIntegrationTestOrganizationOnce({ store, clock, ids }, integrationTest.tenantId, integrationTest.userId);
+		const deploymentAwsAccountId = deploymentAwsAccountIdFrom(environment);
+		await seedIntegrationTestOrganizationOnce(
+			{ store, clock, ids, callerAwsAccountId: async () => deploymentAwsAccountId },
+			integrationTest.tenantId,
+			integrationTest.userId,
+		);
 	}
 	return createApp({
 		writeGate: new CachedFailClosedWriteGate(new DynamoWriteGate(client, messagingTableName), clock),

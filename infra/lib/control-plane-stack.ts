@@ -217,6 +217,7 @@ export class ControlPlaneStack extends cdk.Stack {
         CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER: cognitoAppClientIdParameterName,
         CHATTICUS_INVOKE_KEY_SECRET_ARN: invokeKeySecretArn,
         CHATTICUS_OPERATOR_KEY_SECRET_ARN: operatorKeySecretArn,
+        CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID: this.account,
         ...(integrationTestEnabled ? { CHATTICUS_INTEGRATION_TEST_ENABLED: "true" } : {}),
       },
     );
@@ -300,7 +301,18 @@ export class ControlPlaneStack extends cdk.Stack {
       256,
       60,
       "SQS ComputerStartJobs consumer: starts the computer host for a parked turn.",
-      { ...sharedEnvironment, CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID: this.account },
+      {
+        ...sharedEnvironment,
+        CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID: this.account,
+        CHATTICUS_FRONT_DOOR_URL: this.frontDoorFunctionUrl.url,
+        CHATTICUS_INVOKE_KEY_SECRET_ARN: invokeKeySecretArn,
+      },
+    );
+    computerStarterFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: [invokeKeySecretArn],
+      }),
     );
     messagingTable.grantReadWriteData(computerStarterFunction);
     turnRunsQueue.grantSendMessages(computerStarterFunction);

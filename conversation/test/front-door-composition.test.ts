@@ -82,6 +82,7 @@ function environmentFor(overrides: Record<string, string | undefined> = {}): Rec
 		CHATTICUS_INVOKE_KEY_SECRET_ARN: INVOKE_SECRET_ARN,
 		CHATTICUS_OPERATOR_KEY_SECRET_ARN: OPERATOR_SECRET_ARN,
 		CHATTICUS_INTEGRATION_TEST_ENABLED: "true",
+		CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID: "123456789012",
 		OPENAI_API_KEY: "sk-test",
 		...overrides,
 	};
