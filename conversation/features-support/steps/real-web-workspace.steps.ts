@@ -168,9 +168,14 @@ When("the member selects bot {string} twice", async function (this: ChatticusWor
 });
 
 Then("both selections use the same direct channel", function (this: ChatticusWorld) {
+	const selections = scenarioOf(this).selections;
 	assert.deepEqual(
-		scenarioOf(this).selections.map((selection) => selection.channelId),
+		selections.map((selection) => selection.channelId),
 		["channel-direct", "channel-direct"],
+	);
+	assert.deepEqual(
+		selections.map((selection) => selection.createdChannelIds),
+		[[], []],
 	);
 });
 
@@ -195,12 +200,13 @@ When(
 );
 
 Then("the message stays in {string}", function (this: ChatticusWorld, _channelName: string) {
-	assert.equal(scenarioOf(this).result.channelId, "channel-named");
+	assert.equal(scenarioOf(this).result?.channelId, "channel-named");
 });
 
 Then("the message is addressed to {string}", function (this: ChatticusWorld, botName: string) {
 	const scenario = scenarioOf(this);
-	assert.equal(scenario.result.addressedToBotId, botIdNamed(scenario, botName));
+	assert.equal(scenario.result?.addressedToBotId, botIdNamed(scenario, botName));
+	assert.equal(scenario.result.body, "Draft the findings");
 });
 
 Given("a real workspace channel has committed messages and an active waiting turn", function (this: ChatticusWorld) {
@@ -277,7 +283,13 @@ Given("the real workspace selected bot {string} created one task", function (thi
 });
 
 Given("the organization computer is stopped with policy {string}", function (this: ChatticusWorld, policy: string) {
-	scenarioOf(this).computer = { stopped: true, policy };
+	scenarioOf(this).computer = {
+		computer_id: "computer-1",
+		tenant_id: "tenant-1",
+		stopped: true,
+		policy,
+		host_start_generation: 3,
+	};
 });
 
 When("the member opens the real workspace inspector", async function (this: ChatticusWorld) {
@@ -290,15 +302,20 @@ When("the member opens the real workspace inspector", async function (this: Chat
 });
 
 Then("the inspector shows the stopped computer and policy {string}", function (this: ChatticusWorld, policy: string) {
-	const scenario = scenarioOf(this);
-	assert.deepEqual(scenario.computer, { stopped: true, policy });
+	const computer = scenarioOf(this).result.computer;
+	assert.ok(computer, JSON.stringify(scenarioOf(this).result));
+	assert.equal(computer.stateLabel, "Stopped");
+	assert.equal(computer.policy, policy);
+	assert.equal(computer.identity, "computer-1");
 });
 
-Then("the inspector shows the task created by {string}", function (this: ChatticusWorld, _name: string) {
+Then("the inspector shows the task created by {string}", function (this: ChatticusWorld, name: string) {
+	const tasks = scenarioOf(this).result.tasks as Record_[];
 	assert.deepEqual(
-		scenarioOf(this).result.tasks.map((task: Record_) => task.task_id),
+		tasks.map((view) => view.task.task_id),
 		["task-1"],
 	);
+	assert.equal(tasks[0]!.creatorName, name);
 });
 
 Then("the inspector offers no unsupported computer control", function (this: ChatticusWorld) {
@@ -314,7 +331,7 @@ Given("the real workspace uses a narrow viewport", function (this: ChatticusWorl
 
 When("the member opens the roster and inspector using the keyboard", async function (this: ChatticusWorld) {
 	assert.equal(scenarioOf(this).narrow, true);
-	scenarioOf(this).result = await runWorkspaceHarness(this, "accessibility");
+	scenarioOf(this).result = await runWorkspaceHarness(this, "accessibility", { viewportWidthPx: 375 });
 });
 
 Then("both regions open as named sheets", function (this: ChatticusWorld) {

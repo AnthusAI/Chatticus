@@ -49,16 +49,29 @@ import { isTerminalTurnEvent } from "../lib/sse-parse";
 import { formatTime } from "../lib/time";
 import {
   buildRoster,
+  resolveRosterViewState,
+  rosterViewText,
   getSendBlockMessage,
   getSendBlockReason,
   latestMessage,
   resolveVisibleTurnState,
   shouldClearTurnBubbleAfterTerminal,
-  tasksForSelection,
   turnPresentation,
   type RosterItem,
   type TurnUiStatus,
 } from "../lib/workspace-state";
+import {
+  FOCUS_RING_CLASS,
+  ICON_ONLY_CONTROL_NAMES,
+  INSPECTOR_DESKTOP_MIN_WIDTH_PX,
+  INSPECTOR_SHEET_TITLE,
+  ROSTER_DESKTOP_MIN_WIDTH_PX,
+  ROSTER_SHEET_TITLE,
+  buildInspectorModel,
+  messagesForChannel,
+  prepareOutgoingMessage,
+  resolveSelectionChannel,
+} from "../lib/workspace-actions";
 import { isTurnGrantPanelVisible } from "../lib/turn-grant";
 import {
   replyForEndedTurn,
@@ -162,13 +175,20 @@ export function EnabledWorkspace({
   const selectedItem = roster.find((item) => item.id === selectedItemId) ?? null;
   const selectedChannelId = channelIdForItem(selectedItem);
   const selectedMessages = useMemo(
-    () => (selectedChannelId ? messagesByChannel[selectedChannelId] ?? [] : []),
+    () => messagesForChannel(messagesByChannel, selectedChannelId),
     [messagesByChannel, selectedChannelId],
   );
   const visibleRoster = roster.filter((item) =>
     item.label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
-  const visibleTasks = tasksForSelection(tasks, selectedItem);
+  const inspector = buildInspectorModel({ computer, tasks, selectedItem, bots });
+  const rosterViewState = resolveRosterViewState({
+    loading,
+    failed: Boolean(error),
+    rosterRowCount: roster.length,
+    visibleRowCount: visibleRoster.length,
+    query,
+  });
   const visibleTurnState = resolveVisibleTurnState(turnStatus, turn, progress);
   const sendBlockReason = getSendBlockReason(sending, turn, addressedBotId);
   const sendBlockMessage = getSendBlockMessage(sendBlockReason);
@@ -208,8 +228,8 @@ export function EnabledWorkspace({
   useEffect(() => void loadWorkspace(), [loadWorkspace]);
   useEffect(() => () => closeStreamRef.current?.(), []);
   useEffect(() => {
-    const desktopRoster = window.matchMedia("(min-width: 768px)");
-    const desktopInspector = window.matchMedia("(min-width: 1280px)");
+    const desktopRoster = window.matchMedia(`(min-width: ${ROSTER_DESKTOP_MIN_WIDTH_PX}px)`);
+    const desktopInspector = window.matchMedia(`(min-width: ${INSPECTOR_DESKTOP_MIN_WIDTH_PX}px)`);
     const closeSheetsAtDesktopWidths = () => {
       if (desktopRoster.matches) setRosterOpen(false);
       if (desktopInspector.matches) setInspectorOpen(false);
@@ -397,10 +417,10 @@ export function EnabledWorkspace({
       streamGenerationRef.current += 1;
       const selectionLoadToken = (selectionLoadRef.current += 1);
       setError(null);
-      let channel = item.channel;
+      let channel: Channel | null = item.channel;
       if (item.kind === "bot" && !channel) {
         try {
-          channel = await createChannel(activeOrg, [item.bot.bot_id]);
+          channel = await resolveSelectionChannel(item, (botId) => createChannel(activeOrg, [botId]));
           setChannels((current) => [...current.filter((row) => row.channel_id !== channel?.channel_id), channel!]);
           setMessagesByChannel((current) => ({ ...current, [channel!.channel_id]: [] }));
         } catch (caught) {
@@ -502,12 +522,13 @@ export function EnabledWorkspace({
 
   const handleSendMessage = useCallback(
     async (body: string) => {
-      if (!selectedItem || !selectedChannelId || sendBlockReason !== null) {
+      const outgoing = prepareOutgoingMessage(selectedItem, addressedBotId, body, { sending, turn });
+      if (!outgoing) {
         return;
       }
-      await postToChannel(selectedChannelId, addressedBotId, body);
+      await postToChannel(outgoing.channelId, outgoing.addressedToBotId, outgoing.body);
     },
-    [addressedBotId, postToChannel, sendBlockReason, selectedChannelId, selectedItem],
+    [addressedBotId, postToChannel, selectedItem, sending, turn],
   );
 
   const voiceKeytermList = useMemo(() => voiceKeyterms(bots), [bots]);
@@ -690,13 +711,13 @@ export function EnabledWorkspace({
   const activeOrganization = organizations.find((org) => org.tenant_id === activeOrg.tenantId);
 
   const rosterPane = (
-    <aside className="flex h-full min-h-0 flex-col bg-surface-raised p-3 sm:p-4" aria-label="Bots and channels">
+    <aside className="flex h-full min-h-0 flex-col bg-surface-raised p-3 sm:p-4" aria-label={ROSTER_SHEET_TITLE}>
       <div className="flex items-center justify-between px-2 py-2">
         <div>
           <p className="text-base font-extrabold tracking-tight">chatticus<span className="text-clay">.</span></p>
           <p className="font-mono text-[0.65rem] text-surface-foreground/50">{activeOrganization?.name ?? "Workspace"}</p>
         </div>
-        <Button variant="ghost" size="icon" aria-label="Add bot or channel" onClick={() => setCreateOpen((open) => !open)}>
+        <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.addBotOrChannel} onClick={() => setCreateOpen((open) => !open)}>
           <Plus size={19} aria-hidden="true" />
         </Button>
       </div>
@@ -732,16 +753,14 @@ export function EnabledWorkspace({
         <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search" className="h-11 rounded-xl bg-surface pl-10 pr-3" />
       </label>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {loading ? <p className="px-3 py-8 text-sm text-surface-foreground/55">Loading conversations…</p> : null}
-        {!loading && error && roster.length === 0 ? <p className="px-3 py-8 text-sm text-surface-foreground/55">Roster failed to load.</p> : null}
-        {!loading && !error && visibleRoster.length === 0 ? <p className="px-3 py-8 text-sm text-surface-foreground/55">{query.trim() ? "No matching bots or channels." : "No bots or channels."}</p> : null}
+        {rosterViewState ? <p className="px-3 py-8 text-sm text-surface-foreground/55">{rosterViewText(rosterViewState)}</p> : null}
         <ul className="grid gap-1">
           {visibleRoster.map((item) => {
             const latest = item.channel ? latestMessage(messagesByChannel[item.channel.channel_id] ?? []) : null;
             const selected = item.id === selectedItemId;
             return (
               <li key={item.id}>
-                <button type="button" className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25 ${selected ? "bg-surface-high" : "hover:bg-surface/70"}`} onClick={() => void selectItem(item)}>
+                <button type="button" className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors ${FOCUS_RING_CLASS} ${selected ? "bg-surface-high" : "hover:bg-surface/70"}`} onClick={() => void selectItem(item)}>
                   {item.kind === "bot" ? <BotAvatarView botName={item.bot.name} state={selected ? activeAvatarState : "neutral"} size={42} /> : <AvatarStack bots={item.bots} size={38} />}
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
@@ -758,39 +777,38 @@ export function EnabledWorkspace({
       </div>
       <div className="mt-3 flex items-center justify-between rounded-2xl bg-surface px-3 py-2">
         <span className="min-w-0 truncate text-xs font-semibold">{sessionEmail ?? "Account"}</span>
-        <button className="rounded-lg px-2 py-1 text-xs text-surface-foreground/60 hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25" onClick={() => void onSignOut()}>Sign out</button>
+        <button className={`rounded-lg px-2 py-1 text-xs text-surface-foreground/60 hover:bg-surface-raised ${FOCUS_RING_CLASS}`} onClick={() => void onSignOut()}>Sign out</button>
       </div>
     </aside>
   );
 
   const inspectorPane = (
-    <aside className="flex h-full min-h-0 flex-col bg-surface-raised p-4" aria-label="Conversation inspector">
+    <aside className="flex h-full min-h-0 flex-col bg-surface-raised p-4" aria-label={INSPECTOR_SHEET_TITLE}>
       <div className="flex items-center justify-between py-2">
         <h2 className="text-sm font-extrabold">Context</h2>
-        <Button variant="ghost" size="icon" aria-label="Close inspector" onClick={() => { setInspectorOpen(false); setInspectorCollapsed(true); }}><X size={18} aria-hidden="true" /></Button>
+        <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.closeInspector} onClick={() => { setInspectorOpen(false); setInspectorCollapsed(true); }}><X size={18} aria-hidden="true" /></Button>
       </div>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
         <section className="rounded-2xl bg-surface p-4">
           <div className="flex items-center gap-2"><ComputerIcon size={17} aria-hidden="true" /><h3 className="text-sm font-bold">Computer</h3></div>
-          {computer ? (
+          {inspector.computer ? (
             <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
-              <dt className="text-surface-foreground/50">State</dt><dd className="font-semibold">{computer.stopped ? "Stopped" : "Running"}</dd>
-              <dt className="text-surface-foreground/50">Policy</dt><dd className="font-mono">{computer.policy}</dd>
-              <dt className="text-surface-foreground/50">Generation</dt><dd className="font-mono">{computer.host_start_generation}</dd>
-              <dt className="text-surface-foreground/50">Identity</dt><dd className="truncate font-mono" title={computer.computer_id}>{computer.computer_id}</dd>
+              <dt className="text-surface-foreground/50">State</dt><dd className="font-semibold">{inspector.computer.stateLabel}</dd>
+              <dt className="text-surface-foreground/50">Policy</dt><dd className="font-mono">{inspector.computer.policy}</dd>
+              <dt className="text-surface-foreground/50">Generation</dt><dd className="font-mono">{inspector.computer.generation}</dd>
+              <dt className="text-surface-foreground/50">Identity</dt><dd className="truncate font-mono" title={inspector.computer.identity}>{inspector.computer.identity}</dd>
             </dl>
           ) : <p className="mt-3 text-xs text-surface-foreground/55">Computer status unavailable.</p>}
+          {inspector.computerControls.map((control) => <Button key={control} variant="ghost" size="sm">{control}</Button>)}
         </section>
         <section>
           <div className="flex items-center gap-2 px-1"><Check size={17} aria-hidden="true" /><h3 className="text-sm font-bold">{selectedItem?.kind === "channel" ? "Organization tasks" : "Tasks"}</h3></div>
           {selectedItem?.kind === "channel" ? <p className="px-1 pt-1 text-xs text-surface-foreground/50">Tasks are organization-wide and are not linked to channels.</p> : null}
           <div className="mt-3 grid gap-2">
-            {visibleTasks.map((task) => {
-              const creator = bots.find((bot) => bot.bot_id === task.created_by_bot_id)?.name;
-              const updater = bots.find((bot) => bot.bot_id === task.updated_by_bot_id)?.name;
+            {inspector.tasks.map(({ task, creatorName: creator, updaterName: updater }) => {
               return (
                 <details key={task.task_id} className="group rounded-2xl bg-surface p-4">
-                  <summary className="flex cursor-pointer list-none items-start justify-between gap-3 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25">
+                  <summary className={`flex cursor-pointer list-none items-start justify-between gap-3 ${FOCUS_RING_CLASS}`}>
                     <span className="text-sm font-semibold leading-5">{task.title}</span>
                     <span className="flex shrink-0 items-center gap-1 font-mono text-[0.6rem] uppercase text-surface-foreground/50">{task.status}<ChevronDown size={13} className="transition-transform group-open:rotate-180" aria-hidden="true" /></span>
                   </summary>
@@ -802,7 +820,7 @@ export function EnabledWorkspace({
                 </details>
               );
             })}
-            {visibleTasks.length === 0 ? <p className="rounded-2xl bg-surface p-4 text-xs text-surface-foreground/55">No matching tasks.</p> : null}
+            {inspector.tasks.length === 0 ? <p className="rounded-2xl bg-surface p-4 text-xs text-surface-foreground/55">No matching tasks.</p> : null}
           </div>
         </section>
         {turn && isTurnGrantPanelVisible(turn.turn_id, turnStatus) ? (
@@ -820,20 +838,20 @@ export function EnabledWorkspace({
       <div className="workspace-roster hidden min-h-0 md:block">{rosterPane}</div>
       <section className="flex min-h-0 min-w-0 flex-col bg-surface" aria-label="Conversation">
         <header className="flex min-h-16 items-center gap-2 px-3 py-2 sm:px-5">
-          <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open bots and channels" onClick={() => setRosterOpen(true)}><Menu size={19} aria-hidden="true" /></Button>
+          <Button variant="ghost" size="icon" className="md:hidden" aria-label={ICON_ONLY_CONTROL_NAMES.openRoster} onClick={() => setRosterOpen(true)}><Menu size={19} aria-hidden="true" /></Button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-extrabold">{selectedItem?.label ?? "Conversations"}</h1>
             {selectedItem ? <p className="truncate font-mono text-[0.62rem] text-surface-foreground/45">{selectedItem.kind === "channel" ? `${selectedItem.bots.length} bot channel` : "Direct conversation"}</p> : null}
             {visibleTurnState ? <p className="font-mono text-[0.62rem] text-surface-foreground/55" aria-live="polite">{turnPresentation(visibleTurnState)}</p> : null}
           </div>
-          <Button variant="ghost" size="icon" aria-label="Open conversation inspector" onClick={() => { setInspectorOpen(true); setInspectorCollapsed(false); }}><PanelRight size={19} aria-hidden="true" /></Button>
+          <Button variant="ghost" size="icon" aria-label={ICON_ONLY_CONTROL_NAMES.openInspector} onClick={() => { setInspectorOpen(true); setInspectorCollapsed(false); }}><PanelRight size={19} aria-hidden="true" /></Button>
         </header>
         <ComputerPausedNotice organization={activeOrganization} activeOrg={activeOrg} onCeilingRaised={onReloadMembership} />
         {error ? (
           <div role="alert" className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-clay/15 px-3 py-2 text-xs">
             <CircleAlert size={16} aria-hidden="true" className="shrink-0" />
             <span className="min-w-0 flex-1">{error}</span>
-            <button type="button" className="shrink-0 rounded-lg p-1 hover:bg-clay/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cobalt/25" aria-label="Dismiss error" onClick={() => setError(null)}>
+            <button type="button" className={`shrink-0 rounded-lg p-1 hover:bg-clay/10 ${FOCUS_RING_CLASS}`} aria-label={ICON_ONLY_CONTROL_NAMES.dismissError} onClick={() => setError(null)}>
               <X size={14} aria-hidden="true" />
             </button>
           </div>
@@ -900,12 +918,12 @@ export function EnabledWorkspace({
       {!inspectorCollapsed ? <div className="workspace-inspector hidden min-h-0 xl:block">{inspectorPane}</div> : null}
 
       <div className="md:hidden">
-        <Sheet open={rosterOpen} onOpenChange={setRosterOpen} title="Bots and channels" side="left">
+        <Sheet open={rosterOpen} onOpenChange={setRosterOpen} title={ROSTER_SHEET_TITLE} side="left">
           {rosterPane}
         </Sheet>
       </div>
       <div className="xl:hidden">
-        <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen} title="Conversation inspector">
+        <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen} title={INSPECTOR_SHEET_TITLE}>
           {inspectorPane}
         </Sheet>
       </div>
