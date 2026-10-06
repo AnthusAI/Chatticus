@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import { assertIntegrationTestUserId } from "../../auth/integration-test.ts";
 import {
 	ChannelNotFoundError,
 	createChannel,
@@ -74,6 +75,7 @@ export async function createChannelHandler(c: Context, deps: ChannelRouteDepende
 	if (body === null) {
 		return c.json({ detail: "user_id, bot_ids, kind and name are required" }, 422);
 	}
+	assertIntegrationTestUserId(principal, body.user_id);
 	const idempotencyKey = (c.req.header("Idempotency-Key") ?? "").trim() || null;
 	const channel = await createChannel(
 		pathParameter(c, "tenant_id"),

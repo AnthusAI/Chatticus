@@ -65,3 +65,37 @@ export async function signSigV4(
 	}
 	return result;
 }
+
+/** URL of the STS endpoint the session exchange relays GetCallerIdentity to. */
+export const STS_GET_CALLER_IDENTITY_URL = "https://sts.amazonaws.com/";
+export const STS_GET_CALLER_IDENTITY_QUERY = "Action=GetCallerIdentity&Version=2011-06-15";
+
+/** Return SigV4 headers for one unsigned STS GetCallerIdentity GET. */
+export async function buildStsGetCallerIdentityHeaders(
+	credentials: { accessKeyId: string; secretAccessKey: string; sessionToken?: string },
+	region: string = "us-east-1",
+): Promise<Record<string, string>> {
+	return signSigV4(
+		{
+			method: "GET",
+			url: `${STS_GET_CALLER_IDENTITY_URL}?${STS_GET_CALLER_IDENTITY_QUERY}`,
+			headers: { Host: "sts.amazonaws.com" },
+		},
+		credentials,
+		region,
+		"sts",
+	);
+}
+
+/** Return the SigV4 canonical query string for `params`. */
+export function canonicalQueryString(params: Record<string, string>): string {
+	const encode = (value: string): string =>
+		encodeURIComponent(value).replace(
+			/[!'()*]/g,
+			(character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+		);
+	return Object.keys(params)
+		.sort()
+		.map((key) => `${encode(key)}=${encode(params[key] as string)}`)
+		.join("&");
+}

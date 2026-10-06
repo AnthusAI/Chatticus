@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import type { IdTokenVerifier } from "../../auth/cognito.ts";
+import { integrationTestAuthenticator, type IntegrationTestAuthConfig } from "../../auth/integration-test.ts";
 import { MembershipCache } from "../../auth/membership-cache.ts";
 import type { CachedMembership } from "../../auth/principal.ts";
 import { resolvePrincipal } from "../../auth/principal.ts";
@@ -38,16 +39,21 @@ export async function createInvitationHandler(
 		ids: IdSource;
 		verifier: IdTokenVerifier | null;
 		membershipCache: MembershipCache<CachedMembership>;
+		integrationTest: IntegrationTestAuthConfig | null;
 	},
 ): Promise<Response> {
 	if (deps.verifier === null) {
 		return c.json({ detail: "Cognito verifier is not configured." }, 503);
 	}
+	const directory = new StorePrincipalDirectory(deps.store);
 	const principal = await resolvePrincipal(c.req.raw, {
 		verifier: deps.verifier,
-		directory: new StorePrincipalDirectory(deps.store),
+		directory,
 		membershipCache: deps.membershipCache,
 		requireEnabledMember: true,
+		...(deps.integrationTest === null
+			? {}
+			: { integrationTestAuthenticator: integrationTestAuthenticator(directory, deps.integrationTest) }),
 	});
 	if (principal.userId === null) {
 		return c.json({ detail: "user credential required" }, 403);
