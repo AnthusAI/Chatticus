@@ -7,6 +7,7 @@ import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { TurnDependencies } from "../domain/turns.ts";
 import type { TurnProbeQueue, TurnRunQueue, TurnRunVisibility } from "../domain/turn-admission.ts";
+import type { ComputerToolRunner } from "../pi/gate.ts";
 import type { FaultPlan } from "./fault-plan.ts";
 
 /** The queue message that asks an executor to run a turn. */
@@ -70,6 +71,8 @@ export type ExecutorDeps = {
 	readonly runVisibility: TurnRunVisibility;
 	/** The function's remaining time, `context.getRemainingTimeInMillis` in the Lambda; absent when time is unbounded. */
 	readonly remainingMilliseconds?: () => number;
+	/** Runs a computer tool call the gate allowed; absent until the computer handoff is wired. */
+	readonly runComputerTool?: ComputerToolRunner;
 	/** Crash injection for tests; never set in production. */
 	readonly faults?: FaultPlan;
 };

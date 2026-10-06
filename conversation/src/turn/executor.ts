@@ -18,10 +18,14 @@ import {
 	type Turn,
 	type TurnClaim,
 } from "../domain/turns.ts";
-import { StaleAttemptError, TurnTerminalError } from "../http/errors.ts";
+import { MemberStandingRequiredError, StaleAttemptError, TurnTerminalError } from "../http/errors.ts";
 import { type ChannelMessageDraft, recordInputLine, writeAttributedMessage } from "../pi/channel-log.ts";
 import { CommitOutcomeUnknown, findStorageFailure, OwnershipLost } from "../pi/errors.ts";
 import { chatticusExtensions } from "../pi/extension.ts";
+import { type ToolGateDependencies, computerToolsExtension, toolGateExtension } from "../pi/gate.ts";
+import { PolicyControl } from "../policy/policy-control.ts";
+import { turnCapabilityGrant } from "../policy/turn-grant.ts";
+import { DynamoPolicyStore } from "../store/policy-store.ts";
 import { list as listMailbox, type MailboxItem, type MailboxStore, remove as removeMailboxItem } from "../pi/mailbox.ts";
 import { type OwnerSession, openOwnerSession } from "../pi/session.ts";
 import { storageIdFor } from "../storage/storage-support.ts";
@@ -57,6 +61,9 @@ export const MISSING_SUBJECT_REASON = "The bot or the channel of this turn no lo
 
 /** The reason on turn.reconciling when a Pi commit's outcome is unknown. */
 export const UNCERTAIN_COMMIT_REASON = "The conversation could not confirm its last write; the turn is being reconciled.";
+
+/** What an allowed computer tool call answers until the computer handoff is wired to the executor. */
+const NO_COMPUTER_YET = async (): Promise<string> => "The organization's computer is not connected to this turn yet.";
 
 class AttemptLost extends Error {
 	constructor() {
@@ -163,9 +170,13 @@ class TurnAttempt {
 			tableName: this.deps.conversationsTableName,
 			bucket: this.deps.piSessionsBucket,
 			models: this.deps.models,
-			extensions: chatticusExtensions({
-				systemPrompt: () => buildSystemPrompt({ botName: bot.name, memory: bot.memory }),
-			}),
+			extensions: [
+				...chatticusExtensions({
+					systemPrompt: () => buildSystemPrompt({ botName: bot.name, memory: bot.memory }),
+				}),
+				computerToolsExtension(this.deps.runComputerTool ?? NO_COMPUTER_YET),
+				toolGateExtension(this.toolGateDependencies()),
+			],
 			context: this.context,
 			settings: {
 				retry: { maxRetries: this.tuning.retry.maxRetries, baseDelayMs: this.tuning.retry.baseDelayMilliseconds },
@@ -236,6 +247,27 @@ class TurnAttempt {
 		this.deps.faults?.maybeCrash("completion_append", "after");
 		await completeTurn(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId, reply.messageSeq, reply.body);
 		return "done";
+	}
+
+	private toolGateDependencies(): ToolGateDependencies {
+		const policy = new PolicyControl({
+			policyStore: new DynamoPolicyStore(this.deps.client, this.deps.messagingTableName),
+			store: this.deps.messaging,
+			clock: this.deps.turns.clock,
+			ids: this.deps.turns.ids,
+		});
+		const { tenantId, turnId } = this.job;
+		const promptAuthorId = this.turn.promptAuthorId;
+		return {
+			now: () => this.deps.turns.clock.now(),
+			readGrant: () => turnCapabilityGrant(this.deps, tenantId, turnId),
+			resolveStanding: (actionType) => {
+				if (promptAuthorId === null) {
+					throw new MemberStandingRequiredError(`Turn '${turnId}' has no prompt message.`);
+				}
+				return policy.memberStandingForUser(tenantId, promptAuthorId, actionType);
+			},
+		};
 	}
 
 	private mustYield(): boolean {
