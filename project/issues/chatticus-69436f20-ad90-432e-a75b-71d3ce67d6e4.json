@@ -11,10 +11,6 @@
   "labels": [],
   "dependencies": [
     {
-      "target": "chatticus-542a4b80-0e71-477b-8fea-b0cb713fb4a0",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-05220205-4666-404f-9b5d-c36edb0db159",
       "type": "blocked-by"
     },
@@ -65,14 +61,14 @@
   ],
   "comments": [],
   "created_at": "2026-10-05T15:46:51.809027Z",
-  "updated_at": "2026-10-05T22:27:54.927001Z",
+  "updated_at": "2026-10-06T00:23:03.735356Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The team is preparing to run the full acceptance suite against the dormant development stack.",
-  "right_now_updated_at": "2026-10-05T22:27:56.681203Z",
+  "right_now_summary": "The team must run the full test suite and acceptance checks against the dormant development stack, then report results.",
+  "right_now_updated_at": "2026-10-06T00:23:04.996446Z",
   "custom": {}
 }
