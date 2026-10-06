@@ -4,13 +4,15 @@ import type { Context } from "@earendil-works/chord";
 import { withoutAbortSignal } from "@earendil-works/chord/context";
 import type { Models } from "@earendil-works/pi-ai/models";
 import { createRegistry, type Extension, Harness, type HarnessSettings } from "@earendil-works/pi-durable";
-import { IndexedStorage } from "../storage/indexed-storage.ts";
+import { IndexedStorage, type SnapshotPolicy } from "../storage/indexed-storage.ts";
 
 export type OwnerStorageDependencies = {
 	readonly client: DynamoDBClient;
 	readonly s3: S3Client;
 	readonly tableName: string;
 	readonly bucket: string;
+	/** When this owner writes snapshot objects; unset means never. */
+	readonly snapshotPolicy?: SnapshotPolicy;
 };
 
 export type OwnerSessionDependencies = OwnerStorageDependencies & {

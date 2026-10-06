@@ -18,6 +18,25 @@ beforeAll(async () => {
 	await createPiSessionBucket(s3, bucket);
 });
 
+const forgetfulCommitCache = {
+	get: () => undefined,
+	set: () => undefined,
+	delete: () => undefined,
+};
+
+registerStorageConformance({ describe, expect, it }, "IndexedStorage with snapshots", async (use) => {
+	const storage = await IndexedStorage.open({
+		client,
+		s3,
+		tableName,
+		bucket,
+		storageId: `conformance#${randomUUID()}`,
+		commitCache: forgetfulCommitCache,
+		snapshotPolicy: { everyCommits: 2, atClose: true },
+	});
+	await use(storage);
+});
+
 registerStorageConformance({ describe, expect, it }, "IndexedStorage", async (use) => {
 	const storage = await IndexedStorage.open({
 		client,
