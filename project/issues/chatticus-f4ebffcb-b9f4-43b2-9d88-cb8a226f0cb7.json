@@ -3,23 +3,36 @@
   "title": "TS-52 Fix the STS relay host header and the invoke-key length check",
   "description": "Found by the first live acceptance run (TS-50): POST /integration-test/session answers 403 'integration test caller required' on the deployed Lambda. conversation/src/auth/integration-test.ts relayStsGetCallerIdentityArn forwards the request's host header (STS_FORWARD_HEADERS includes host); on a Lambda Function URL that header is the function's own domain, but the caller signed the request for sts.amazonaws.com, so STS rejects the signature. Fix: never forward host (the relay must call STS with Host sts.amazonaws.com, derived from the STS URL), keep forwarding authorization, x-amz-date and x-amz-security-token. Also: timingSafeEqual throws on an invoke key of the wrong length (a 500): compare lengths first and answer the normal 403. Tests: vitest stubbing fetch asserting the outgoing request never carries the incoming host and still carries the signed headers; a vitest for a wrong-length invoke key returning 403; mutation-check both. Then re-run the live acceptance.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "c74ebf2e-e532-44e5-b9c8-2bb9b9b944af",
+      "author": "home",
+      "text": "Merged via PR 453, 454, 455, 456. Live findings fixed in order: (1) relay forwarded the Lambda host header; invoke key compare threw on wrong length; (2) relay failures were silent, now logged as sts_relay_failed with reason and forwarded header names, no values; (3) the Function URL drops a SigV4 Authorization header, so the STS signature travels in x-chatticus-sts-authorization (one path); (4) the integration-test org is seeded by the FrontDoor at cold start when integration auth is enabled (never in production).",
+      "created_at": "2026-10-06T18:23:53.206657Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-06T17:11:25.314784Z",
-  "updated_at": "2026-10-06T17:11:25.315219Z",
-  "closed_at": null,
+  "updated_at": "2026-10-06T18:24:03.186003Z",
+  "closed_at": "2026-10-06T18:24:03.185958Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The relay fix and invoke-key length check still need implementation, tests, and live acceptance.",
-  "right_now_updated_at": "2026-10-06T17:11:28.098667Z",
+  "right_now_summary": "Live acceptance findings were fixed, including STS header forwarding, invoke-key validation, relay logging, and",
+  "right_now_updated_at": "2026-10-06T18:24:04.283704Z",
   "custom": {}
 }
