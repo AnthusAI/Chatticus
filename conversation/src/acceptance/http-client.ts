@@ -78,9 +78,6 @@ export class HttpClient {
 	}
 
 	private resolvePath(path: string): string {
-		if (this.baseUrl.endsWith("/api")) {
-			return `${this.baseUrl.slice(0, -4)}${path}`;
-		}
 		return `${this.baseUrl}${path}`;
 	}
 
