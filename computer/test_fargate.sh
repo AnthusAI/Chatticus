@@ -70,10 +70,10 @@ fi
 LIVE="$(mktemp -d)"
 trap 'rm -rf "${LIVE}"' EXIT
 echo "Hydrating the Fargate snapshot onto this machine..."
-cd python
-# shellcheck disable=SC1091
-. .venv/bin/activate
-python -m chatticus.snapshot hydrate \
+HOST_BUNDLE="$(mktemp -d)"
+trap 'rm -rf "${LIVE}" "${HOST_BUNDLE}"' EXIT
+CHATTICUS_HOST_BUNDLE_DIR="${HOST_BUNDLE}" npm run bundle --workspace=computer/host
+node "${HOST_BUNDLE}/snapshot.mjs" hydrate \
   --live-root "${LIVE}" \
   --store s3 \
   --tenant "${TENANT}" \
@@ -83,7 +83,6 @@ if [ "${GOT}" != "from-aws-fargate" ]; then
   echo "FAIL: hydrated '${GOT}', expected from-aws-fargate" >&2
   exit 1
 fi
-cd "${ROOT}"
 
 echo "Scaling Fargate back to 0..."
 cd infra

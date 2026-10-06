@@ -46,7 +46,7 @@ fi
 
 if [ -n "${CHATTICUS_SMOKE_COMPUTER:-}" ]; then
   printf '%s\n' "from-aws-fargate" > "${LIVE}/workspace/aws-fargate.md"
-  python -m chatticus.snapshot pack \
+  node /opt/chatticus/host/snapshot.mjs pack \
     --live-root "${LIVE}" \
     --store s3 \
     --tenant "${CHATTICUS_TENANT_ID:-anthus}" \

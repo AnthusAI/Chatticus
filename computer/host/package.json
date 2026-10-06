@@ -7,13 +7,15 @@
     "node": ">=22.19.0"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bundle": "node esbuild.config.mjs"
   },
   "dependencies": {
     "@chatticus/host-protocol": "*"
   },
   "devDependencies": {
     "@types/node": "24.6.0",
+    "esbuild": "0.28.2",
     "typescript": "5.9.3"
   }
 }

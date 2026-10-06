@@ -43,17 +43,29 @@
         "platform": "claude-code",
         "model": "claude-sonnet-5-5"
       }
+    },
+    {
+      "id": "0109f30c-e07c-48a4-8003-112682997300",
+      "author": "home",
+      "text": "Part A merged (PR 440): audit items 2, 3, 9. Policy Thens now fail under real mutations (list in the PR). New ported feature capability_policy_isolated_checks (7 scenarios). Covered later: denyIfExceedsMemberStanding via member_ceiling_sinks.feature. Part B (items 1, 7, 8, 10, 11, 13) still open, then a fresh-agent re-audit closes the gate.",
+      "created_at": "2026-10-06T12:22:36.870564Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
     }
   ],
   "created_at": "2026-10-05T22:27:46.472966Z",
-  "updated_at": "2026-10-06T04:31:28.889114Z",
+  "updated_at": "2026-10-06T12:22:36.870602Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "Some audit fixes landed, but policy checks, route realism, assertions, coverage, and re-audit still need work.",
-  "right_now_updated_at": "2026-10-06T04:31:31.574208Z",
+  "right_now_summary": "Most audit fixes are merged, but items 1, 7, 8, 10, 11, and 13 still need work and a fresh re-audit.",
+  "right_now_updated_at": "2026-10-06T12:22:38.737266Z",
   "custom": {}
 }

@@ -96,3 +96,4 @@ features/computer_host_workspace_executor_host_worker.feature
 features/agent_terminal_host_worker_escalation.feature
 features/single_computer_start_host_selection.feature
 features/tenant_isolation.feature
+features/capability_policy_isolated_checks.feature
