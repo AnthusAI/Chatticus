@@ -3,23 +3,36 @@
   "title": "TS-59 Deterministic snapshot pack: do not rewrite the snapshot when nothing changed",
   "description": "From the TS-56 live rehearsal: snapshot generation 2 was published after a turn that only read a file. hostDiskNeedsPublish (computer/host/src/disk-lifecycle.ts) compares the live pack checksum with the stored one and fired though nothing changed, and the objects had identical sizes: the pack is probably not deterministic (mtimes, ordering, gzip header timestamp in conversation/src/snapshot/pack.ts). Verify with a vitest packing the same tree twice (and after touching mtimes), make the pack deterministic (sorted entries, normalized mtime and ownership, fixed gzip header) or compute the change check over content hashes, so an unchanged disk is not republished at every exit. Mutation-check.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "448617e3-6459-4545-88ab-492ee7443928",
+      "author": "home",
+      "text": "Merged via PR 461. Pack is deterministic (sorted entries, portable tar, fixed mtime 0); plain tar.gz so old snapshots hydrate unchanged; each existing computer republishes once after deploy. Sorted-order fix cannot be mutation-proven on APFS (protects ext4 hosts; CI is Linux). Live re-check pending: a read-only turn should no longer bump snapshot_generation.",
+      "created_at": "2026-10-06T23:29:32.846694Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-06T22:36:53.212494Z",
-  "updated_at": "2026-10-06T22:36:53.212527Z",
-  "closed_at": null,
+  "updated_at": "2026-10-06T23:29:40.869980Z",
+  "closed_at": "2026-10-06T23:29:40.869896Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "Investigating nondeterministic snapshot packing that republishes unchanged disks.",
-  "right_now_updated_at": "2026-10-06T22:36:54.436045Z",
+  "right_now_summary": "The pack is deterministic, and a live re-check is pending to confirm read-only turns no longer republish snapshots.",
+  "right_now_updated_at": "2026-10-06T23:29:43.112588Z",
   "custom": {}
 }
