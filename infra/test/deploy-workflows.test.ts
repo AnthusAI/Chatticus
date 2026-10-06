@@ -126,9 +126,13 @@ describe("deploy workflow YAML", () => {
     });
   }
 
-  it("passes the integration test role variable to the development control-plane deploys only", () => {
+  it("passes the integration test role variable to every development workflow that deploys control-plane, and no other", () => {
     const pattern = /CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN: \$\{\{ vars\.CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN \}\}/;
-    const carriers = ["deploy-controlplane-development.yml", "deploy-web-development.yml"];
+    const carriers = [
+      "deploy-controlplane-development.yml",
+      "deploy-web-development.yml",
+      "deploy-thinturn-development.yml",
+    ];
     for (const fileName of deployWorkflowFiles()) {
       const contents = readFileSync(join(workflowsDir, fileName), "utf8");
       if (carriers.includes(fileName)) assert.match(contents, pattern, fileName);
@@ -147,24 +151,41 @@ describe("deploy workflow YAML", () => {
     production: "deploy-chatticus-web-production.sh",
   };
 
-  for (const environment of ["development", "staging", "production"]) {
-    const controlPlaneScript = `deploy-chatticus-dedicated-account.sh ${environment} control-plane`;
+  function deployRunLines(fileName: string): string[] {
+    return readFileSync(join(workflowsDir, fileName), "utf8")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("run: sh deploy-chatticus-"))
+      .map((line) => line.slice("run: sh ".length));
+  }
 
-    it(`${environment}: the web workflow deploys thin-turn, then control-plane, then web`, () => {
-      const contents = readFileSync(join(workflowsDir, `deploy-web-${environment}.yml`), "utf8");
-      const thinTurn = contents.indexOf(`run: sh ${THIN_TURN_SCRIPT[environment]}`);
-      const controlPlane = contents.indexOf(`run: sh ${controlPlaneScript}`);
-      const web = contents.indexOf(`run: sh ${WEB_SCRIPT[environment]}`);
-      assert.ok(thinTurn >= 0 && controlPlane >= 0 && web >= 0);
-      assert.ok(thinTurn < controlPlane && controlPlane < web);
+  for (const environment of ["development", "staging", "production"]) {
+    const controlPlane = `deploy-chatticus-dedicated-account.sh ${environment} control-plane`;
+
+    it(`${environment}: consumers deploy before producers, control-plane then web then thin-turn`, () => {
+      assert.deepEqual(deployRunLines(`deploy-controlplane-${environment}.yml`), [controlPlane]);
+      assert.deepEqual(deployRunLines(`deploy-web-${environment}.yml`), [controlPlane, WEB_SCRIPT[environment]]);
+      assert.deepEqual(deployRunLines(`deploy-thinturn-${environment}.yml`), [
+        controlPlane,
+        WEB_SCRIPT[environment],
+        THIN_TURN_SCRIPT[environment],
+      ]);
     });
 
-    it(`${environment}: the control-plane workflow deploys thin-turn first, then control-plane`, () => {
-      const contents = readFileSync(join(workflowsDir, `deploy-controlplane-${environment}.yml`), "utf8");
-      const thinTurn = contents.indexOf(`run: sh ${THIN_TURN_SCRIPT[environment]}`);
-      const controlPlane = contents.indexOf(`run: sh ${controlPlaneScript}`);
-      assert.ok(thinTurn >= 0 && controlPlane >= 0);
-      assert.ok(thinTurn < controlPlane);
+    it(`${environment}: every deploy workflow shares one queueing concurrency group`, () => {
+      const names = deployWorkflowFiles().filter((name) => name.endsWith(`-${environment}.yml`));
+      assert.deepEqual(
+        names,
+        ["auth", "controlplane", "thinturn", "web"].map((kind) => `deploy-${kind}-${environment}.yml`),
+      );
+      for (const name of names) {
+        const contents = readFileSync(join(workflowsDir, name), "utf8");
+        assert.match(
+          contents,
+          new RegExp(`^concurrency:\\n  group: deploy-${environment}\\n  cancel-in-progress: false\\n`, "m"),
+          name,
+        );
+      }
     });
   }
 });

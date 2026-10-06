@@ -9,6 +9,10 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: deploy-development
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -30,6 +34,21 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
+
+      - name: Deploy development control-plane
+        working-directory: infra
+        env:
+          CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD: ${{ vars.CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD }}
+          CHATTICUS_BUDGETS_NOTIFICATION_EMAIL: ${{ secrets.CHATTICUS_BUDGETS_NOTIFICATION_EMAIL }}
+          CHATTICUS_INSTALLATION_NAME: ${{ vars.CHATTICUS_INSTALLATION_NAME }}
+          CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN: ${{ vars.CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN }}
+        run: sh deploy-chatticus-dedicated-account.sh development control-plane
+
+      - name: Deploy development web
+        working-directory: infra
+        env:
+          CHATTICUS_INSTALLATION_NAME: ${{ vars.CHATTICUS_INSTALLATION_NAME }}
+        run: sh deploy-chatticus-dedicated-account.sh development web
 
       - name: Deploy development thin-turn
         working-directory: infra
