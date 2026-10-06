@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
 import { HostProtocolError } from "../../../computer/host/src/protocol-client.ts";
@@ -102,6 +103,13 @@ When("the Front Door is recycled onto the same messaging store", async function 
 	assert.ok(this.frontDoorOptions, "The scenario has no HTTP front door to recycle.");
 	this.scenarioMessagingStore = this.createMessagingStore();
 	await wireFrontDoor(this, this.frontDoorOptions);
+});
+
+When("the local disk of host {string} is wiped", function (this: ChatticusWorld, workerId: string) {
+	const liveRoot = hostDiskOf(this, workerId).liveRoot;
+	rmSync(liveRoot, { recursive: true, force: true });
+	assert.equal(existsSync(liveRoot), false);
+	mkdirSync(liveRoot, { recursive: true });
 });
 
 When(

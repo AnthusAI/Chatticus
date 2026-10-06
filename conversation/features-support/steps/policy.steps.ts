@@ -284,6 +284,16 @@ When("a page hides base64-encoded instructions to browse {string}", function (th
 	);
 });
 
+When("a page instructs the model to run a terminal command on granted origin {string}", function (this: ChatticusWorld, origin: string): void {
+	this.injectedRequest = new RequestedCapability(
+		"run_terminal",
+		origin,
+		null,
+		null,
+		"approved_origin_fetch",
+	);
+});
+
 When("the worker browses granted origin {string}", function (this: ChatticusWorld, origin: string): void {
 	const decision = getPolicy(this).evaluate(
 		new RequestedCapability(

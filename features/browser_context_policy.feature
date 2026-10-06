@@ -42,3 +42,15 @@ Feature: Untrusted and privileged browser contexts
     And the model requests a privileged session in that untrusted context
     Then the capability policy denies the request
     And the untrusted context still cannot use credential "banking"
+
+  Scenario: A browsing context cannot use a tool the task did not grant
+    Given a human task grants:
+      | field          | value                    |
+      | tools          | browse, read_workspace   |
+      | origins        | https://docs.example.com |
+      | recipients     |                          |
+      | file_scopes    | /workspace/research      |
+      | egress_classes | approved_origin_fetch    |
+    And the worker opens an untrusted browser context on "https://docs.example.com/guide"
+    When the model requests tool "run_terminal" to origin "https://docs.example.com/guide"
+    Then the capability policy denies the request

@@ -45,6 +45,10 @@ export function regateRequestFor(action: HostAction): RegateActionRequest | null
 		const path = (action.arguments["path"] ?? "").trim();
 		return path === "" ? null : { kind: "write", target: path };
 	}
+	if (action.tool_name === "run_terminal") {
+		const cwd = (action.arguments["cwd"] ?? "").trim() || "/workspace";
+		return { kind: "terminal", target: cwd };
+	}
 	return null;
 }
 
