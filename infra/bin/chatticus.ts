@@ -84,12 +84,12 @@ function buildLegacyAccountStacks(): void {
         "Lambda SSE front door.",
     });
 
-    new ControlPlaneStack(app, CONTROL_PLANE_STACK_IDS[environmentName], {
+    const controlPlane = new ControlPlaneStack(app, CONTROL_PLANE_STACK_IDS[environmentName], {
       env,
       chatticusEnvironment: environmentName,
       messagingTable: thinTurn.messagingTable,
       description:
-        `TypeScript conversation control plane (${environmentName}), deployed unrouted.`,
+        `TypeScript conversation control plane (${environmentName}), fronts /api/* through the web stack.`,
     });
 
     const web = new WebStack(app, WEB_STACK_IDS[environmentName], {
@@ -98,14 +98,15 @@ function buildLegacyAccountStacks(): void {
       siteDomain: WEB_SITE_DOMAINS[environmentName],
       hostedZone: dns.hostedZone,
       siteCertificate: dns.siteCertificate,
-      frontDoorFunctionUrl: thinTurn.frontDoorFunctionUrl,
+      frontDoorFunctionUrl: controlPlane.frontDoorFunctionUrl,
       invokeSecret: thinTurn.invokeSecret,
       websiteDeploySource: websiteDeploySourceForApp(),
       description:
         `Next.js UI (${environmentName}) on CloudFront with same-origin /api/* ` +
-        "proxy to the thin-turn function URL.",
+        "proxy to the control-plane function URL.",
     });
     web.addDependency(thinTurn);
+    web.addDependency(controlPlane);
 
     new AuthStack(app, AUTH_STACK_IDS[environmentName], {
       env,

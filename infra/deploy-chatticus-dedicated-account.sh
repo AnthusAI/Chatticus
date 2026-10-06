@@ -28,9 +28,11 @@ case "$ENVIRONMENT:$2" in
   development:web) STACK="ChatticusWeb" ;;
   development:auth) STACK="ChatticusAuth" ;;
   staging:thin-turn) STACK="ChatticusThinTurnStaging" ;;
+  staging:control-plane) STACK="ChatticusControlPlaneStaging" ;;
   staging:web) STACK="ChatticusWebStaging" ;;
   staging:auth) STACK="ChatticusAuthStaging" ;;
   production:thin-turn) STACK="ChatticusThinTurnProduction" ;;
+  production:control-plane) STACK="ChatticusControlPlaneProduction" ;;
   production:web) STACK="ChatticusWebProduction" ;;
   production:auth) STACK="ChatticusAuthProduction" ;;
   *) usage ;;
