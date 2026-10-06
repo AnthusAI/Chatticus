@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
 import { HostProtocolError } from "../../../computer/host/src/protocol-client.ts";
@@ -9,6 +10,7 @@ import { type SnapshotObjectStore } from "../../src/snapshot/store.ts";
 import { PACK_FILENAME, snapshotBucketAndPrefix, snapshotUri } from "../../src/snapshot/uri.ts";
 import { computerForOrganization, recordHostSnapshotPublished, relocateComputer } from "../../src/domain/computers.ts";
 import { wireFrontDoor } from "../front-door.ts";
+import { snapshotRelocationOf } from "../computer-snapshots-support.ts";
 import {
 	LIFECYCLE_TENANT,
 	bootDriverFor,
@@ -62,8 +64,15 @@ Given(
 When(
 	"an administrator relocates computer {string} to worker {string}",
 	async function (this: ChatticusWorld, computerId: string, workerId: string) {
-		const relocated = await relocateComputer(LIFECYCLE_TENANT, workerId, { store: this.messagingStore() });
-		assert.equal(relocated.computerId, computerId);
+		const scenario = snapshotRelocationOf(this);
+		scenario.relocateError = null;
+		scenario.refusalInspected = false;
+		try {
+			const relocated = await relocateComputer(LIFECYCLE_TENANT, workerId, { store: this.messagingStore() });
+			assert.equal(relocated.computerId, computerId);
+		} catch (error) {
+			scenario.relocateError = error as Error;
+		}
 	},
 );
 
@@ -94,6 +103,13 @@ When("the Front Door is recycled onto the same messaging store", async function 
 	assert.ok(this.frontDoorOptions, "The scenario has no HTTP front door to recycle.");
 	this.scenarioMessagingStore = this.createMessagingStore();
 	await wireFrontDoor(this, this.frontDoorOptions);
+});
+
+When("the local disk of host {string} is wiped", function (this: ChatticusWorld, workerId: string) {
+	const liveRoot = hostDiskOf(this, workerId).liveRoot;
+	rmSync(liveRoot, { recursive: true, force: true });
+	assert.equal(existsSync(liveRoot), false);
+	mkdirSync(liveRoot, { recursive: true });
 });
 
 When(

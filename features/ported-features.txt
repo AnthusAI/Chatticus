@@ -93,6 +93,7 @@ features/computer_host_readiness.feature
 features/computer_host_disk_lifecycle.feature
 features/computer_host_workspace_recycle.feature
 features/computer_host_workspace_executor_host_worker.feature
+features/agent_terminal_host_worker.feature
 features/agent_terminal_host_worker_escalation.feature
 features/single_computer_start_host_selection.feature
 features/tenant_isolation.feature
@@ -100,3 +101,10 @@ features/capability_policy_isolated_checks.feature
 features/web_voice_control.feature
 features/real_web_workspace.feature
 features/web_google_sign_out.feature
+features/computer_snapshots.feature
+features/computer_snapshot_dynamo.feature
+features/customer_snapshot_bucket.feature
+features/shared_channels.feature
+features/member_ceiling_sinks.feature
+features/per_task_run_terminal_grant.feature
+features/demo_cli.feature

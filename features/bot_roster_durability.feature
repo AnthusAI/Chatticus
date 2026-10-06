@@ -42,3 +42,8 @@ Feature: Bots are uniquely named and survive recycles
     When bot "Researcher" remembers "voice" as "short and direct"
     And a recycled Front Door serves the same messaging store
     Then tenant "anthus" can read bot "Researcher" by identifier with memory "voice" as "short and direct"
+
+  Scenario: The web UI shows an empty bot roster
+    Given an empty control plane
+    When the web UI requests the bot roster for tenant "anthus" user "ryan"
+    Then the web UI bot roster is empty

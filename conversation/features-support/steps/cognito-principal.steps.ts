@@ -11,7 +11,7 @@ import {
 import { StorePrincipalDirectory } from "../../src/auth/store-principal-directory.ts";
 import { OrganizationsKernelImpl } from "../../src/domain/organizations.ts";
 import { recordResponse } from "../api.ts";
-import { cognitoKeys, wireFrontDoor } from "../front-door.ts";
+import { bearerFor, cognitoKeys, wireFrontDoor } from "../front-door.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 const kernel = new OrganizationsKernelImpl();
@@ -118,6 +118,18 @@ When("a browser route is called without Authorization", async function (this: Ch
 	);
 	this.browserRouteStatus = response.status;
 });
+
+When(
+	"a browser route is called for tenant {string} with a token for {string}",
+	async function (this: ChatticusWorld, tenantId: string, email: string) {
+		await wireFrontDoor(this, { signupMode: "invitation_only", cognitoVerifier: true });
+		assert.ok(this.api, "The scenario has no HTTP front door.");
+		const response = await recordResponse(
+			await this.api.post(`/orgs/${tenantId}/bots`, { headers: await bearerFor(this, email), body: { user_id: "ryan", name: "Helper" } }),
+		);
+		this.browserRouteStatus = response.status;
+	},
+);
 
 Then("the browser route responds with status {int}", function (this: ChatticusWorld, status: number) {
 	assert.equal(this.browserRouteStatus, status);

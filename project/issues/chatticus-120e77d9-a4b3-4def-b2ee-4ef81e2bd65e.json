@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-120e77d9-a4b3-4def-b2ee-4ef81e2bd65e",
+  "title": "TS-49 Make the real_web_workspace harness actions real",
+  "description": "Source: the re-audit report at /tmp/ts/reaudit.md plus the agent reports quoted here. Rules: features stay the spec (existing scenario text unchanged); cucumber-js steps drive production code; mutation check recorded per scenario group; no new Python; push with an explicit refspec.\n\nFrom TS-46: in web/test-support (real-workspace-harness.ts) the actions select, send, reload, accessibility and inspector echo or sort their input or return constants, and the step 'the inspector shows the stopped computer and policy' compares a Given to itself. The computer panel is inline JSX in EnabledWorkspace.tsx, so there is no function to call. Extract the pure logic from the web components (the inspector and computer panel state, send, select, reload and accessibility ordering) into functions in web/lib that the components use and the harness calls, so each scenario fails when the production logic is broken. Keep the Gherkin unchanged; mutation-check each scenario group of real_web_workspace and report any that cannot fail. Same for web_task_list if not already real (TS-44 covers it; coordinate by checking origin/develop first).",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-06T13:55:56.557726Z",
+  "updated_at": "2026-10-06T13:55:56.557757Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The harness is being wired to shared production logic so its web scenarios can catch broken behavior.",
+  "right_now_updated_at": "2026-10-06T13:55:58.474228Z",
+  "custom": {}
+}

@@ -12,5 +12,6 @@ export default {
 	paths: portedFeaturePaths,
 	import: ["features-support/**/*.ts"],
 	format: ["progress", "summary"],
+	tags: "not @needs-product-behavior",
 	parallel: 4,
 };

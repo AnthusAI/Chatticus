@@ -16,7 +16,7 @@ export const HOST_USER_HEADER = "X-Chatticus-Host-User-Id";
 export const hostCapabilitySchema = z.enum(["model", "workspace", "browser"]);
 
 /** The kinds of regate a host asks for when a tool reaches past the envelope of its action. */
-export const regateKindSchema = z.enum(["browse", "read", "write"]);
+export const regateKindSchema = z.enum(["browse", "read", "write", "terminal"]);
 
 /** POST /orgs/{tenant}/host/computer/state: the host says the computer runs or stopped, and which capability cleared. */
 export const computerStateRequestSchema = z

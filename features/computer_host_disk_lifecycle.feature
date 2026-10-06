@@ -41,6 +41,7 @@ Feature: Computer host disk hydrate and publish
     And host "garage-mac-1" writes workspace file "notes.md" containing "after boot"
     And the customer computer host "garage-mac-1" shuts down through the Front Door worker plane
     When the Front Door is recycled onto the same messaging store
+    And the local disk of host "garage-mac-1" is wiped
     And the customer computer host "garage-mac-1" boots through the Front Door worker plane
     Then host "garage-mac-1" has workspace file "notes.md" containing "after boot"
 
