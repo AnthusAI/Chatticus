@@ -1,0 +1,226 @@
+[
+ {
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "sk": {
+   "S": "latest_turn"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "turn_id": {
+   "S": "turn-6"
+  }
+ },
+ {
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "kind": {
+   "S": "named"
+  },
+  "name": {
+   "S": "general"
+  },
+  "next_seq": {
+   "N": "9"
+  },
+  "participants": {
+   "S": "[{\"kind\": \"human\", \"actor_id\": \"ryan\"}, {\"kind\": \"bot\", \"actor_id\": \"ada\"}, {\"kind\": \"bot\", \"actor_id\": \"bo\"}]"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "sk": {
+   "S": "meta"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "addressed_to_bot_id": {
+   "S": "bo"
+  },
+  "author_id": {
+   "S": "ryan"
+  },
+  "author_kind": {
+   "S": "human"
+  },
+  "body": {
+   "S": "bo, any update on the room?"
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "created_at": {
+   "S": "2026-09-01T09:05:00+00:00"
+  },
+  "message_id": {
+   "S": "chan-general-m7"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "seq": {
+   "N": "7"
+  },
+  "sk": {
+   "S": "msg#0000000007"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "addressed_to_bot_id": {
+   "S": ""
+  },
+  "author_id": {
+   "S": "bo"
+  },
+  "author_kind": {
+   "S": "bot"
+  },
+  "body": {
+   "S": "The room is confirmed."
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "created_at": {
+   "S": "2026-09-01T09:05:05+00:00"
+  },
+  "message_id": {
+   "S": "chan-general-m8"
+  },
+  "pk": {
+   "S": "anthus#channel#chan-general"
+  },
+  "seq": {
+   "N": "8"
+  },
+  "sk": {
+   "S": "msg#0000000008"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  }
+ },
+ {
+  "body": {
+   "S": ""
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "event_id": {
+   "S": "turn-6-e1"
+  },
+  "kind": {
+   "S": "turn.started"
+  },
+  "message_seq": {
+   "N": "0"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-6"
+  },
+  "seq": {
+   "N": "1"
+  },
+  "sk": {
+   "S": "evt#0000000001"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": ""
+  },
+  "turn_id": {
+   "S": "turn-6"
+  }
+ },
+ {
+  "body": {
+   "S": "The room is confirmed."
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "event_id": {
+   "S": "turn-6-e2"
+  },
+  "kind": {
+   "S": "turn.completed"
+  },
+  "message_seq": {
+   "N": "8"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-6"
+  },
+  "seq": {
+   "N": "2"
+  },
+  "sk": {
+   "S": "evt#0000000002"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "token": {
+   "S": ""
+  },
+  "turn_id": {
+   "S": "turn-6"
+  }
+ },
+ {
+  "attempt_id": {
+   "S": "att-6"
+  },
+  "bot_id": {
+   "S": "bo"
+  },
+  "channel_id": {
+   "S": "chan-general"
+  },
+  "fence_token": {
+   "N": "0"
+  },
+  "next_chunk_seq": {
+   "N": "1"
+  },
+  "next_event_seq": {
+   "N": "3"
+  },
+  "pk": {
+   "S": "anthus#turn#turn-6"
+  },
+  "prompt_message_seq": {
+   "N": "7"
+  },
+  "recovery_attempts": {
+   "N": "0"
+  },
+  "sk": {
+   "S": "meta"
+  },
+  "status": {
+   "S": "completed"
+  },
+  "tenant_id": {
+   "S": "anthus"
+  },
+  "turn_id": {
+   "S": "turn-6"
+  }
+ }
+]

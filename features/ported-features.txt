@@ -72,3 +72,6 @@ features/structured_journal_handoff.feature
 features/thin_task_item.feature
 features/thin_task_http.feature
 features/web_task_list.feature
+features/pi_orphan_sweeper.feature
+features/pi_session_snapshots.feature
+features/transcript_migration.feature

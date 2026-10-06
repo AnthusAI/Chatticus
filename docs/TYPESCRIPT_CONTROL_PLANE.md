@@ -356,6 +356,28 @@ Tool phases:
    Python tree is in git; old items are untouched). After day 14 the purge
    follow-up of ticket 40 deletes the old items.
 
+The tool is `conversation/bin/migrate-transcripts.ts` (library in `conversation/src/migration/`), every command
+taking `--environment {development,staging,production}` and optional `--tenant` and `--channel`:
+
+- `copy` (and `copy --dry-run`, which writes nothing and prints, per channel, the old message count, the bots, and how
+  many assistant and attributed entries would be written). Idempotent: a session that already holds every message is not
+  opened and claims no fence. After the writes each session is read back and compared by checksum with the old items.
+  Each session gets a `MIGRATED#<tenant>#<bot>#<channel>` marker (messages copied, last seq, checksum, phase, time).
+- `latest-turns` rewrites turn records additively (the key and every old attribute stay, so the old system still reads
+  them), adds `prompt_author_id` and the answer's `message_seq`, and writes `latest_turn#{bot}` and `latest_turn_primary`
+  pointers (never over a pointer the new system wrote). A turn still `active` is failed with
+  `interrupted_by_transcript_migration` only while the write gate is closed; otherwise it is reported and left alone.
+- `gate close|open|status` sets the `MIGRATION#write_gate` state item. The HTTP application, given a `writeGate`,
+  answers every non-read route with 503 and a `Retry-After` while it is `MIGRATING`.
+- `delta` (gate closed only) copies what was posted since the last copy, converts the turns, then verifies.
+- `verify` compares, per channel, what the new read paths serve (the production listing over the sessions) with the old
+  items: counts, seq order, ids, authors, bodies, addressees, timestamps, and the latest turn's status and reason.
+  Exit code 1 on any difference.
+
+Rollback: no old item is deleted or rewritten destructively. Reverting the flip commit serves the old system again;
+the `MIGRATED#` markers, mailbox items and new pointers are inert to it. The purge follow-up removes the old items after
+day 14.
+
 Pre-flight (a scripted check in the flip PR): no active turns, `TurnJobs`
 and `ComputerTurnJobs` empty, no host start in flight.
 

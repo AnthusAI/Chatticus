@@ -97,6 +97,70 @@ export const fenceFor = (promptMessageSeq: number, turnFenceToken: number): numb
 	return promptMessageSeq * 1000 + turnFenceToken;
 };
 
+/**
+ * Commit object key by convention: `conversations/<storage>/commits/<seq:012>-<fence:08>.json`.
+ *
+ * The fence in the key makes every key writable by exactly one owner, so an owner can always replace its own
+ * orphan and two owners racing for one sequence never collide on a key.
+ *
+ * @param storageId Storage identity.
+ * @param seq Commit sequence.
+ * @param fence Fence of the committing owner, 0 when unfenced.
+ * @returns The S3 key.
+ */
+export const commitKey = (storageId: string, seq: number, fence: number): string =>
+	`conversations/${encodeURIComponent(storageId)}/commits/${String(seq).padStart(12, "0")}-${String(fence).padStart(8, "0")}.json`;
+
+/**
+ * S3 prefix that holds every commit object of one storage.
+ *
+ * @param storageId Storage identity.
+ * @returns `conversations/<storage>/commits/`.
+ */
+export const commitPrefix = (storageId: string): string => `conversations/${encodeURIComponent(storageId)}/commits/`;
+
+/**
+ * Read the sequence and fence back out of a commit object key.
+ *
+ * @param key An S3 key under a storage's commit prefix.
+ * @returns The sequence and fence, or `undefined` when the key does not follow the commit naming convention.
+ */
+export const parseCommitKey = (key: string): { readonly seq: number; readonly fence: number } | undefined => {
+	const match = /\/commits\/(\d{12})-(\d{8})\.json$/.exec(key);
+	return match === null ? undefined : { seq: Number(match[1]), fence: Number(match[2]) };
+};
+
+/**
+ * S3 prefix that holds every snapshot object of one storage.
+ *
+ * @param storageId Storage identity.
+ * @returns `conversations/<storage>/snapshots/`.
+ */
+export const snapshotPrefix = (storageId: string): string => `conversations/${encodeURIComponent(storageId)}/snapshots/`;
+
+/**
+ * Snapshot object key by convention: `conversations/<storage>/snapshots/<seq:012>-<fence:08>.json`. The fence of the
+ * writing owner is in the key, so two owners writing a snapshot of one sequence never collide on a key.
+ *
+ * @param storageId Storage identity.
+ * @param seq Highest commit sequence the snapshot covers.
+ * @param fence Fence of the writing owner, 0 when unfenced.
+ * @returns The S3 key.
+ */
+export const snapshotKey = (storageId: string, seq: number, fence: number): string =>
+	`${snapshotPrefix(storageId)}${String(seq).padStart(12, "0")}-${String(fence).padStart(8, "0")}.json`;
+
+/**
+ * Read the sequence and fence back out of a snapshot object key.
+ *
+ * @param key An S3 key under a storage's snapshot prefix.
+ * @returns The sequence and fence, or `undefined` when the key does not follow the snapshot naming convention.
+ */
+export const parseSnapshotKey = (key: string): { readonly seq: number; readonly fence: number } | undefined => {
+	const match = /\/snapshots\/(\d{12})-(\d{8})\.json$/.exec(key);
+	return match === null ? undefined : { seq: Number(match[1]), fence: Number(match[2]) };
+};
+
 export const pad = (value: number): string => String(value).padStart(16, "0");
 export const digest = (value: string): string => createHash("sha256").update(value).digest("base64url");
 export const parse = <T>(text: string): T => JSON.parse(text) as T;

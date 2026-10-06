@@ -670,15 +670,91 @@ The staged plan stands:
    The package is marked experimental and "changes without notice". Pin it
    exactly and run the conformance suite in CI.
 
+## Snapshot objects and the sweeper
+
+Built in `conversation/src/storage/snapshot-object.ts`,
+`conversation/src/pi/sweeper.ts` and the handler
+`conversation/src/lambdas/orphan-sweeper.ts` (not wired in infra). Specified in
+`features/pi_session_snapshots.feature` and `features/pi_orphan_sweeper.feature`;
+the 23 storage conformance cases also run with snapshots enabled
+(`test/indexed-storage.conformance.test.ts`).
+
+### Snapshot format
+
+`conversations/<storage>/snapshots/<seq:012>-<fence:08>.json`, immutable, written
+with `If-None-Match: *`. A new `SNAPSHOT` index item (`seq`, `fence`) names the
+newest one and only moves forward (conditional update), so it is not part of the
+commit transaction and never contends with `META`.
+
+```text
+{ "format": 1, "seq": 61, "fence": 1,
+  "commits": { "<seq:012>-<fence:08>": { "<position>": <StorageWrite> } } }
+```
+
+It is a pack, not a summary: for every commit object that an index item still
+points at as of `seq`, it carries only the referenced writes, by position (the
+latest record of each entry, task and submission, and each document's revisions
+from its newest base to its newest revision). `seq` is `META.seq` read before
+the index is read, so every pointer at or below it is complete. A snapshot is
+built from the previous snapshot plus the commit objects that snapshot did not
+carry, so its cost grows with the commits since the last one.
+
+A storage opened with a snapshot reference still costs 0 S3 GETs. The first read
+of a commit object at or below the snapshot's `seq` fetches the snapshot once and
+answers from it; keys above `seq` (or absent from the pack) are read from S3 as
+before. An unreadable snapshot degrades to commit reads and logs. The owner
+writes a snapshot by policy: every N commits and/or at close; a failed snapshot
+never fails the commit or the close.
+
+### Sweeper
+
+`sweepOrphans(deps, storageId)` reads `META`, `OWNER` and `SNAPSHOT`, lists the
+commit objects, reads every `(c, f)` pointer of the partition once, and deletes
+an object only if no pointer names it, `META.seq >= seq` or `OWNER.fence > fence`
+holds, and its S3 last-modified time is at least the grace period before
+`clock.now()`. It also deletes snapshot objects older than the grace period that
+are not the one `SNAPSHOT` names and not newer than it. `sweepAllStorages` finds
+storages from the `conversations/` common prefixes.
+
+### Verified on moto
+
+| Fact | Result |
+|---|---|
+| Cold read of a 12-turn conversation (61 commits), no snapshot | 25 S3 GETs (one per commit holding an entry) |
+| Same, snapshot written at close | 1 GET |
+| Same, snapshot every 10 commits, owner closed without a final snapshot | 2 GETs (snapshot plus the commits after it) |
+| Snapshot at turn 6 plus 2 later turns by another owner | 5 GETs, all 8 turns read in order |
+| Model context with and without the snapshot (the `SNAPSHOT` item removed) | byte-identical `messages` |
+| pi-durable conformance, 23 cases, snapshots every 2 commits and at close, no owner cache | 23 of 23 pass |
+| Crashed commit (S3 put done, index transaction fails, injected at the DynamoDB client) | object stays; deleted by the sweeper after the owner is replaced and the grace has passed, not before |
+| Commit held between put and transaction, 2 days of clock | kept; the commit then completes and reads back |
+| Object at `seq > META.seq` under the current fence, 30 days old | kept (no fence proof) |
+| Object at `seq <= META.seq` under the current fence, never indexed | deleted (clause 1 alone) |
+| Committed objects of a replaced owner, 365 days of clock | all kept (index pointers) |
+
+Findings:
+
+- A commit whose every record was later superseded (for example a task rewritten
+  in a later commit) has no index pointer and satisfies clause 1, so the rule
+  deletes it although it was once committed. Nothing can read it, so this is
+  safe, but "committed" is not the same as "kept" for such an object. If
+  compaction ever needs to read old commits, it must run before the sweeper.
+- S3 `LastModified` is the only age the sweeper can see (commit objects carry no
+  timestamp), so tests set the fake clock to real now and advance it.
+- The handler works against moto through `AWS_ENDPOINT_URL`
+  (`test/orphan-sweeper-handler.test.ts`).
+- A snapshot write by a stale owner is harmless: it packs committed, immutable
+  data and `SNAPSHOT` only moves forward.
+
 ## Open questions
 
 - Real AWS: latency of `PutObject` plus the transaction per commit, consumed
   capacity versus the spike's estimate, and the throttling, conflict and
   lost-response paths that no emulator exercises.
-- Snapshot objects, so a cold owner's first model request costs one GET plus
-  recent commits instead of one GET per commit of history.
-- The orphan sweeper: schedule, and a test with a real crash between the
-  object write and the transaction.
+- Snapshot objects and the orphan sweeper are built and verified on moto (see
+  [Snapshot objects and the sweeper](#snapshot-objects-and-the-sweeper)).
+  Still open: their behavior on a real table and bucket, the sweeper's
+  schedule and infra wiring, and the grace period to use in production.
 - Parking: a first-class "defer to computer" path (a pi-durable hook or a
   tool-level idempotency key) instead of `replay: "safe"` plus close.
 - Mailbox versus owner-free admission when no owner is live, and the
