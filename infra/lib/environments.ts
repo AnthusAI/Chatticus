@@ -90,6 +90,18 @@ export function openAiApiKeyParameterName(
   return `${thinTurnParameterPrefix(environment)}/openai-api-key`;
 }
 
+export function invokeKeySecretArnParameterName(
+  environment: ChatticusCloudEnvironment,
+): string {
+  return `${thinTurnParameterPrefix(environment)}/invoke-key-secret-arn`;
+}
+
+export function operatorKeySecretArnParameterName(
+  environment: ChatticusCloudEnvironment,
+): string {
+  return `${thinTurnParameterPrefix(environment)}/operator-key-secret-arn`;
+}
+
 export function webParameterPrefix(environment: ChatticusCloudEnvironment): string {
   return `/chatticus/${environment}/web`;
 }

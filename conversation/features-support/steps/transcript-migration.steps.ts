@@ -13,7 +13,7 @@ import {
 import { Given, Then, When } from "@cucumber/cucumber";
 import type { MigrationDependencies } from "../../src/migration/copy.ts";
 import { type MigrationCliResult, runMigrationCli } from "../../src/migration/cli.ts";
-import { readMarker } from "../../src/migration/migration-state.ts";
+import { readMarker, readVerifiedMarker } from "../../src/migration/migration-state.ts";
 import { storageIdFor } from "../../src/storage/storage-support.ts";
 import { formatIsoDateTime } from "../../src/store/codecs/util.ts";
 import { recordResponse } from "../api.ts";
@@ -365,6 +365,33 @@ Then(
 		assert.equal(result.Item?.fence?.N, String(fence));
 	},
 );
+
+Then(
+	"the verified marker of channel {string} records {int} messages up to seq {int} at {string}",
+	async function (this: ChatticusWorld, channelId: string, messageCount: number, lastSeq: number, moment: string) {
+		const marker = await readVerifiedMarker(
+			this.messagingTable.client,
+			this.messagingTable.tableName,
+			scenarioOf(this).tenantId,
+			channelId,
+		);
+		assert.ok(marker, `no verified marker for channel ${channelId}`);
+		assert.deepEqual(
+			{ messageCount: marker.messageCount, verifiedThroughSeq: marker.verifiedThroughSeq, verifiedAt: marker.verifiedAt },
+			{ messageCount, verifiedThroughSeq: lastSeq, verifiedAt: formatIsoDateTime(new Date(moment)) },
+		);
+	},
+);
+
+Then("channel {string} has no verified marker", async function (this: ChatticusWorld, channelId: string) {
+	const marker = await readVerifiedMarker(
+		this.messagingTable.client,
+		this.messagingTable.tableName,
+		scenarioOf(this).tenantId,
+		channelId,
+	);
+	assert.equal(marker, null);
+});
 
 Then(
 	"the marker of bot {string} in channel {string} records {int} messages up to seq {int} by the {string} pass at {string}",

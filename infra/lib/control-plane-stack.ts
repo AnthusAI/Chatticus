@@ -5,7 +5,6 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as s3 from "aws-cdk-lib/aws-s3";
-import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as path from "path";
@@ -13,6 +12,8 @@ import { Construct } from "constructs";
 import {
   ChatticusCloudEnvironment,
   integrationTestParameterPrefix,
+  invokeKeySecretArnParameterName,
+  operatorKeySecretArnParameterName,
   openAiApiKeyParameterName,
   signupModeForEnvironment,
   webParameterPrefix,
@@ -41,10 +42,6 @@ export interface ControlPlaneStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
   /** The existing Messaging table of the thin-turn stack, shared unchanged. */
   messagingTable: dynamodb.ITable;
-  /** The shared invoke key of the thin-turn stack, required on every FrontDoor request. */
-  invokeSecret: secretsmanager.ISecret;
-  /** The operator bearer credential of the thin-turn stack. */
-  operatorSecret: secretsmanager.ISecret;
 }
 
 /**
@@ -197,6 +194,15 @@ export class ControlPlaneStack extends cdk.Stack {
       });
     }
 
+    const invokeKeySecretArn = ssm.StringParameter.valueForStringParameter(
+      this,
+      invokeKeySecretArnParameterName(environmentName),
+    );
+    const operatorKeySecretArn = ssm.StringParameter.valueForStringParameter(
+      this,
+      operatorKeySecretArnParameterName(environmentName),
+    );
+
     const frontDoorFunction = nodeFunction(
       "FrontDoor",
       "front-door.ts",
@@ -209,8 +215,8 @@ export class ControlPlaneStack extends cdk.Stack {
         CHATTICUS_SIGNUP_MODE: signupModeForEnvironment(environmentName),
         CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER: cognitoUserPoolIdParameterName,
         CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER: cognitoAppClientIdParameterName,
-        CHATTICUS_INVOKE_KEY: props.invokeSecret.secretValue.unsafeUnwrap(),
-        CHATTICUS_OPERATOR_KEY: props.operatorSecret.secretValue.unsafeUnwrap(),
+        CHATTICUS_INVOKE_KEY_SECRET_ARN: invokeKeySecretArn,
+        CHATTICUS_OPERATOR_KEY_SECRET_ARN: operatorKeySecretArn,
         ...(integrationTestEnabled ? { CHATTICUS_INTEGRATION_TEST_ENABLED: "true" } : {}),
       },
     );
@@ -223,6 +229,12 @@ export class ControlPlaneStack extends cdk.Stack {
           parameterArn(cognitoAppClientIdParameterName),
           ...(integrationTestEnabled ? [parameterArn(`${integrationPrefix}/*`)] : []),
         ],
+      }),
+    );
+    frontDoorFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: [invokeKeySecretArn, operatorKeySecretArn],
       }),
     );
     frontDoorFunction.addToRolePolicy(

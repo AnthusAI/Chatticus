@@ -163,3 +163,86 @@ export async function writeMarker(client: DynamoDBClient, tableName: string, mar
 	};
 	await client.send(new PutItemCommand({ TableName: tableName, Item: item }));
 }
+
+/** What a passing verification of one channel proved about the old message items. */
+export type VerifiedMarker = {
+	tenantId: string;
+	channelId: string;
+	/** The highest old message sequence the verification covered; nothing above it is ever a purge candidate. */
+	verifiedThroughSeq: number;
+	/** How many old messages the verification covered. */
+	messageCount: number;
+	/** Checksum of exactly those old messages. */
+	checksum: string;
+	/** When the verification passed. */
+	verifiedAt: string;
+};
+
+/**
+ * Key of the `VERIFIED#` marker of one channel.
+ *
+ * @param tenantId Organization.
+ * @param channelId Channel.
+ * @returns The marker item key.
+ */
+export const verifiedMarkerKey = (tenantId: string, channelId: string): { pk: string; sk: string } => ({
+	pk: `VERIFIED#${tenantId}#${channelId}`,
+	sk: "marker",
+});
+
+/**
+ * Write the verified marker of a channel, replacing an older one.
+ *
+ * @param client DynamoDB client.
+ * @param tableName The Messaging table.
+ * @param marker The marker.
+ */
+export async function writeVerifiedMarker(client: DynamoDBClient, tableName: string, marker: VerifiedMarker): Promise<void> {
+	const key = verifiedMarkerKey(marker.tenantId, marker.channelId);
+	await client.send(
+		new PutItemCommand({
+			TableName: tableName,
+			Item: {
+				pk: { S: key.pk },
+				sk: { S: key.sk },
+				tenant_id: { S: marker.tenantId },
+				channel_id: { S: marker.channelId },
+				verified_through_seq: { N: String(marker.verifiedThroughSeq) },
+				message_count: { N: String(marker.messageCount) },
+				checksum: { S: marker.checksum },
+				verified_at: { S: marker.verifiedAt },
+			},
+		}),
+	);
+}
+
+/**
+ * Read the verified marker of a channel.
+ *
+ * @param client DynamoDB client.
+ * @param tableName The Messaging table.
+ * @param tenantId Organization.
+ * @param channelId Channel.
+ * @returns The marker, or null when the channel never passed verification.
+ */
+export async function readVerifiedMarker(
+	client: DynamoDBClient,
+	tableName: string,
+	tenantId: string,
+	channelId: string,
+): Promise<VerifiedMarker | null> {
+	const key = verifiedMarkerKey(tenantId, channelId);
+	const result = await client.send(
+		new GetItemCommand({ TableName: tableName, Key: { pk: { S: key.pk }, sk: { S: key.sk } }, ConsistentRead: true }),
+	);
+	const item = result.Item;
+	if (item === undefined) return null;
+	return {
+		tenantId,
+		channelId,
+		verifiedThroughSeq: Number(item.verified_through_seq!.N),
+		messageCount: Number(item.message_count!.N),
+		checksum: item.checksum!.S!,
+		verifiedAt: item.verified_at!.S!,
+	};
+}

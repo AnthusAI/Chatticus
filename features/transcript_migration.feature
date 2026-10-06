@@ -94,6 +94,21 @@ Feature: The old transcripts move into per-bot Pi sessions without changing what
     Then the command succeeds
     And the command output includes "verify tenant=anthus channel=chan-general ok old=6 listed=6"
 
+  Scenario: A passing verification leaves the marker the day-14 purge trusts
+    Given the clock is at "2026-09-02T05:00:00Z"
+    And the operator has run the copy
+    And the operator closes the write gate
+    When the operator runs "latest-turns"
+    And the operator runs "verify"
+    Then the verified marker of channel "chan-general" records 6 messages up to seq 6 at "2026-09-02T05:00:00+00:00"
+
+  Scenario: A failing verification leaves no verified marker
+    Given the operator has run the copy
+    And the old system edited the body of message 3 in channel "chan-general" to "Edited afterwards."
+    When the operator runs "verify"
+    Then the command fails with exit code 1
+    And channel "chan-general" has no verified marker
+
   Scenario: Verify fails before anything was copied
     When the operator runs "verify"
     Then the command fails with exit code 1
