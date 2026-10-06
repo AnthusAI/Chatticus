@@ -233,7 +233,7 @@ export function wireComputerWorkerEcsHostStart(
     CHATTICUS_ECS_TASK_DEFINITION: config.taskDefinition,
     CHATTICUS_ECS_SUBNETS: config.subnets.join(","),
     CHATTICUS_ECS_CONTAINER_NAME: "computer",
-    CHATTICUS_ECS_HOST_COMMAND: "python -m chatticus.computer_host_worker",
+    CHATTICUS_ECS_HOST_COMMAND: "node /opt/chatticus/host/host-worker.mjs",
   };
   if (contextString(stack, "computerHostCommand") === "default") {
     delete environment.CHATTICUS_ECS_HOST_COMMAND;
