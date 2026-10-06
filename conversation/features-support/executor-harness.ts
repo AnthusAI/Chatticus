@@ -75,6 +75,9 @@ export function modelScenarioOf(world: ChatticusWorld, modelId: string = DEFAULT
 	return scenario;
 }
 
+/** The scenario's model state when a step has already created it, whatever model it chose; otherwise undefined. */
+export const existingModelScenario = (world: ChatticusWorld): ModelScenario | undefined => scenarios.get(world);
+
 /** Whether the scenario has a scripted model yet. */
 export const hasModelScenario = (world: ChatticusWorld): boolean => scenarios.has(world);
 
