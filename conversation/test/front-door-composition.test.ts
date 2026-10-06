@@ -5,6 +5,7 @@ import type { GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import type { GetParameterCommand } from "@aws-sdk/client-ssm";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { beforeAll, describe, expect, it } from "vitest";
+import { DynamoWriteGate, WRITE_GATE_CACHE_MILLISECONDS } from "../src/migration/migration-state.ts";
 import { createMessagingTable } from "../features-support/messaging-table.ts";
 import {
 	composeFrontDoorApp,
@@ -265,5 +266,64 @@ describe("composed front door against the local emulator", () => {
 			headers: { "X-Chatticus-Invoke-Key": "invoke-key-value", Authorization: "Bearer operator-key-value" },
 		});
 		expect(known.status).toBe(404);
+	});
+});
+
+describe("front door write gate", () => {
+	const invokeHeaders = { "X-Chatticus-Invoke-Key": "invoke-key-value" };
+	const gate = new DynamoWriteGate(dynamo, tableName);
+	const clockAt = (state: { ms: number }) => ({ now: () => new Date(state.ms) });
+	const compose = (clock: { now(): Date }, client: DynamoDBClient = dynamo) =>
+		composeFrontDoorApp(environmentFor({ CHATTICUS_INTEGRATION_TEST_ENABLED: undefined }), { ...clientsWith(fakeParameters(PARAMETER_VALUES)), dynamo: client }, clock);
+	const write = (app: Awaited<ReturnType<typeof compose>>, method: string) =>
+		app.request("http://front-door.test/api/channels", { method, headers: invokeHeaders });
+
+	it("refuses POST, PUT and DELETE with 503 and Retry-After while closed, and keeps reads, health and OPTIONS open", async () => {
+		await gate.set("MIGRATING", new Date());
+		const app = await compose(clockAt({ ms: 1_000_000 }));
+		for (const method of ["POST", "PUT", "DELETE"]) {
+			const response = await write(app, method);
+			expect(response.status, method).toBe(503);
+			expect(response.headers.get("Retry-After")).toBe("30");
+		}
+		expect((await app.request("http://front-door.test/health", { headers: invokeHeaders })).status).toBe(200);
+		expect((await write(app, "GET")).status).not.toBe(503);
+		expect((await write(app, "OPTIONS")).status).not.toBe(503);
+		await gate.set("OPEN", new Date());
+	});
+
+	it("admits a write when open", async () => {
+		await gate.set("OPEN", new Date());
+		const app = await compose(clockAt({ ms: 1_000_000 }));
+		expect((await write(app, "POST")).status).not.toBe(503);
+	});
+
+	it("fails closed when the gate item cannot be read", async () => {
+		const failing = new Proxy(dynamo, {
+			get(target, property, receiver) {
+				if (property !== "send") return Reflect.get(target, property, receiver);
+				return async (command: { constructor: { name: string }; input: { Key?: { pk?: { S?: string } } } }) => {
+					if (command.constructor.name === "GetItemCommand" && command.input.Key?.pk?.S === "MIGRATION") {
+						throw new Error("dynamo unavailable");
+					}
+					return target.send(command as never);
+				};
+			},
+		});
+		const app = await compose(clockAt({ ms: 1_000_000 }), failing);
+		expect((await write(app, "POST")).status).toBe(503);
+		expect((await app.request("http://front-door.test/health", { headers: invokeHeaders })).status).toBe(200);
+	});
+
+	it("takes a gate open effect only after the cache window", async () => {
+		const time = { ms: 1_000_000 };
+		await gate.set("MIGRATING", new Date());
+		const app = await compose(clockAt(time));
+		expect((await write(app, "POST")).status).toBe(503);
+		await gate.set("OPEN", new Date());
+		time.ms += WRITE_GATE_CACHE_MILLISECONDS - 1;
+		expect((await write(app, "POST")).status).toBe(503);
+		time.ms += 1;
+		expect((await write(app, "POST")).status).not.toBe(503);
 	});
 });

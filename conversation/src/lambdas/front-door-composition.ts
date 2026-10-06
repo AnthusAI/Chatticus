@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { CachedFailClosedWriteGate, DynamoWriteGate } from "../migration/migration-state.ts";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
@@ -128,6 +129,7 @@ async function seedIntegrationTestOrganizationOnce(
 export async function composeFrontDoorApp(
 	environment: Record<string, string | undefined> = process.env,
 	clients: FrontDoorAwsClients = defaultFrontDoorAwsClients(),
+	clock: { now(): Date } = { now: () => new Date() },
 ): Promise<Hono> {
 	for (const name of REQUIRED_FRONT_DOOR_ENVIRONMENT) requiredIn(environment, name);
 	const environmentName = requiredIn(environment, "CHATTICUS_ENVIRONMENT");
@@ -145,13 +147,13 @@ export async function composeFrontDoorApp(
 	});
 	const client = clients.dynamo;
 	const prices = new VendorPriceBook();
-	const clock = { now: () => new Date() };
 	const ids = { next: () => randomUUID() };
 	const store = new DynamoMessagingStore(client, messagingTableName);
 	if (integrationTest !== null) {
 		await seedIntegrationTestOrganizationOnce({ store, clock, ids }, integrationTest.tenantId, integrationTest.userId);
 	}
 	return createApp({
+		writeGate: new CachedFailClosedWriteGate(new DynamoWriteGate(client, messagingTableName), clock),
 		clock,
 		ids,
 		store,

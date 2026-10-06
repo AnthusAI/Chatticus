@@ -76,6 +76,40 @@ export class DynamoWriteGate implements WriteGate {
 	}
 }
 
+/** Longest time a read of the gate state is reused, so `gate open` takes effect within this window. */
+export const WRITE_GATE_CACHE_MILLISECONDS = 2000;
+
+/** Wraps a gate with a short cache and fails closed: a gate that cannot be read refuses writes. */
+export class CachedFailClosedWriteGate implements WriteGate {
+	private readonly inner: WriteGate;
+	private readonly clock: { now(): Date };
+	private cached: { closed: boolean; readAtMilliseconds: number } | null = null;
+
+	/**
+	 * @param inner The gate read from the table.
+	 * @param clock Time source.
+	 */
+	constructor(inner: WriteGate, clock: { now(): Date }) {
+		this.inner = inner;
+		this.clock = clock;
+	}
+
+	async isClosed(): Promise<boolean> {
+		const nowMilliseconds = this.clock.now().getTime();
+		if (this.cached !== null && nowMilliseconds - this.cached.readAtMilliseconds < WRITE_GATE_CACHE_MILLISECONDS) {
+			return this.cached.closed;
+		}
+		try {
+			const closed = await this.inner.isClosed();
+			this.cached = { closed, readAtMilliseconds: nowMilliseconds };
+			return closed;
+		} catch {
+			this.cached = null;
+			return true;
+		}
+	}
+}
+
 /** What the copy knows about one (channel, session) after its last pass. */
 export type SessionMarker = {
 	tenantId: string;
