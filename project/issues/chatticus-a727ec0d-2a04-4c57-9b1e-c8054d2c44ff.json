@@ -32,7 +32,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript port nears cutover, with host, infrastructure, testing, and SSE work still underway.",
-  "right_now_updated_at": "2026-10-06T13:56:11.610388Z",
+  "right_now_summary": "The TypeScript port is in rehearsal, with final infrastructure, audits, and the production cutover still ahead.",
+  "right_now_updated_at": "2026-10-06T13:56:29.665159Z",
   "custom": {}
 }

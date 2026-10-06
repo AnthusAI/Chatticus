@@ -41,6 +41,10 @@
     {
       "target": "chatticus-7ed050e1-45fc-4112-8603-f7f90066d12d",
       "type": "blocked-by"
+    },
+    {
+      "target": "chatticus-120e77d9-a4b3-4def-b2ee-4ef81e2bd65e",
+      "type": "blocked-by"
     }
   ],
   "comments": [
@@ -57,14 +61,14 @@
     }
   ],
   "created_at": "2026-10-05T15:46:55.796500Z",
-  "updated_at": "2026-10-06T13:56:00.978084Z",
+  "updated_at": "2026-10-06T13:56:20.909090Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The cutover awaits nine subtasks, review, and the remaining SSE feature port.",
-  "right_now_updated_at": "2026-10-06T13:56:03.601366Z",
+  "right_now_summary": "The issue requires human review and task splitting before any implementation begins.",
+  "right_now_updated_at": "2026-10-06T13:56:21.937764Z",
   "custom": {}
 }
