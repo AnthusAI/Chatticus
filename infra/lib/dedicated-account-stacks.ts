@@ -104,6 +104,8 @@ export function buildDedicatedAccountStacks(app: cdk.App, props: DedicatedAccoun
     env,
     chatticusEnvironment: environmentName,
     messagingTable: thinTurn.messagingTable,
+    invokeSecret: thinTurn.invokeSecret,
+    operatorSecret: thinTurn.operatorSecret,
     description:
       `TypeScript conversation control plane (${environmentName}), deployed unrouted.`,
   });

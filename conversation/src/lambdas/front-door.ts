@@ -1,14 +1,21 @@
 import { Hono } from "hono";
 import { streamHandle } from "hono/aws-lambda";
-import { createSseProbeApp, defaultSseProbeOptions } from "../http/sse-probe.ts";
-import { resolveOpenAiApiKey } from "./openai-key.ts";
+import { composeFrontDoorApp } from "./front-door-composition.ts";
 
-const app = new Hono();
-app.use(async (_context, next) => {
-	await resolveOpenAiApiKey();
-	await next();
-});
-app.route("/", createSseProbeApp(defaultSseProbeOptions));
+let composed: Promise<Hono> | null = null;
 
-/** Lambda Function URL entry point (RESPONSE_STREAM invoke mode). */
-export const handler = streamHandle(app);
+function composedApp(): Promise<Hono> {
+	if (composed === null) {
+		composed = composeFrontDoorApp().catch((error: unknown) => {
+			composed = null;
+			throw error;
+		});
+	}
+	return composed;
+}
+
+const entry = new Hono();
+entry.all("*", async (context) => (await composedApp()).fetch(context.req.raw, context.env));
+
+/** Lambda Function URL entry point (RESPONSE_STREAM invoke mode); the real application is composed once per cold start. */
+export const handler = streamHandle(entry);

@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Template } from "aws-cdk-lib/assertions";
 import { ControlPlaneStack } from "../lib/control-plane-stack";
 
@@ -24,6 +25,8 @@ const stack = new ControlPlaneStack(app, "ControlPlane", {
   env: { account: "111111111111", region: "us-east-1" },
   chatticusEnvironment: "development",
   messagingTable,
+  invokeSecret: new secretsmanager.Secret(support, "InvokeKey"),
+  operatorSecret: new secretsmanager.Secret(support, "OperatorKey"),
 });
 const template = Template.fromStack(stack).toJSON();
 

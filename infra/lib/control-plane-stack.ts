@@ -5,11 +5,18 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as path from "path";
 import { Construct } from "constructs";
-import { ChatticusCloudEnvironment, openAiApiKeyParameterName } from "./environments";
+import {
+  ChatticusCloudEnvironment,
+  integrationTestParameterPrefix,
+  openAiApiKeyParameterName,
+  signupModeForEnvironment,
+  webParameterPrefix,
+} from "./environments";
 import {
   computerHostStartEcsConfig,
   wireComputerStarterEcsRunTask,
@@ -34,6 +41,10 @@ export interface ControlPlaneStackProps extends cdk.StackProps {
   chatticusEnvironment: ChatticusCloudEnvironment;
   /** The existing Messaging table of the thin-turn stack, shared unchanged. */
   messagingTable: dynamodb.ITable;
+  /** The shared invoke key of the thin-turn stack, required on every FrontDoor request. */
+  invokeSecret: secretsmanager.ISecret;
+  /** The operator bearer credential of the thin-turn stack. */
+  operatorSecret: secretsmanager.ISecret;
 }
 
 /**
@@ -165,20 +176,54 @@ export class ControlPlaneStack extends cdk.Stack {
         },
       });
 
+    const webPrefix = webParameterPrefix(environmentName);
+    const integrationPrefix = integrationTestParameterPrefix(environmentName);
+    const cognitoUserPoolIdParameterName = `${webPrefix}/cognito-user-pool-id`;
+    const cognitoAppClientIdParameterName = `${webPrefix}/cognito-app-client-id`;
+    const integrationTestEnabled = environmentName !== "production";
+    const parameterArn = (parameterName: string): string =>
+      `arn:aws:ssm:${this.region}:${this.account}:parameter${parameterName}`;
+
     const frontDoorFunction = nodeFunction(
       "FrontDoor",
       "front-door.ts",
       512,
       900,
       "TypeScript front door: Hono with turn-scoped SSE through a RESPONSE_STREAM Function URL.",
-      { ...sharedEnvironment, ...openAiEnvironment },
+      {
+        ...sharedEnvironment,
+        ...openAiEnvironment,
+        CHATTICUS_SIGNUP_MODE: signupModeForEnvironment(environmentName),
+        CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER: cognitoUserPoolIdParameterName,
+        CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER: cognitoAppClientIdParameterName,
+        CHATTICUS_INVOKE_KEY: props.invokeSecret.secretValue.unsafeUnwrap(),
+        CHATTICUS_OPERATOR_KEY: props.operatorSecret.secretValue.unsafeUnwrap(),
+        ...(integrationTestEnabled ? { CHATTICUS_INTEGRATION_TEST_ENABLED: "true" } : {}),
+      },
     );
     grantOpenAiKeyRead(frontDoorFunction);
+    frontDoorFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ssm:GetParameter"],
+        resources: [
+          parameterArn(cognitoUserPoolIdParameterName),
+          parameterArn(cognitoAppClientIdParameterName),
+          ...(integrationTestEnabled ? [parameterArn(`${integrationPrefix}/*`)] : []),
+        ],
+      }),
+    );
+    frontDoorFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["sts:AssumeRole"],
+        resources: ["arn:aws:iam::*:role/ChatticusOrganizationComputerRole"],
+      }),
+    );
     messagingTable.grantReadWriteData(frontDoorFunction);
     conversationsTable.grantReadData(frontDoorFunction);
     piSessionsBucket.grantRead(frontDoorFunction);
     turnRunsQueue.grantSendMessages(frontDoorFunction);
     turnProbesQueue.grantSendMessages(frontDoorFunction);
+    computerStartJobsQueue.grantSendMessages(frontDoorFunction);
     this.frontDoorFunction = frontDoorFunction;
     this.frontDoorFunctionUrl = frontDoorFunction.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE,
