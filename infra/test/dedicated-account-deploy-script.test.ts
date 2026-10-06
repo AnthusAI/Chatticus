@@ -47,4 +47,17 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
     }
     assert.equal(execFileSync("sh", ["-n", script]).length, 0);
   });
+
+  it("accepts the control-plane stack for development only", () => {
+    assert.match(contents, /development:control-plane\) STACK="ChatticusControlPlane"/);
+    assert.doesNotMatch(contents, /staging:control-plane/);
+    assert.doesNotMatch(contents, /production:control-plane/);
+    for (const environment of ["staging", "production"]) {
+      const result = run([environment, "control-plane"]);
+      assert.equal(result.status, 2, environment);
+      assert.match(result.stderr, /usage: sh deploy-chatticus-dedicated-account\.sh/);
+    }
+    const accepted = run(["development", "control-plane"]);
+    assert.notEqual(accepted.status, 2);
+  });
 });

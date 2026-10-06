@@ -10,8 +10,22 @@ import {
 } from "../lib/control-plane-stack";
 import { CHATTICUS_CLOUD_ENVIRONMENTS, ChatticusCloudEnvironment } from "../lib/environments";
 
-function synthControlPlane(environmentName: ChatticusCloudEnvironment): Template {
-  const app = new cdk.App();
+const ECS_CONTEXT: Record<string, string> = {
+  computerHostStart: "ecs",
+  computerEcsCluster: "computers-cluster",
+  computerEcsTaskDefinition: "arn:aws:ecs:us-east-1:111111111111:task-definition/computer:7",
+  computerEcsSubnets: "subnet-aaa,subnet-bbb",
+  computerEcsSecurityGroups: "sg-111",
+  computerEcsExecutionRoleArn: "arn:aws:iam::111111111111:role/computer-execution",
+  computerEcsTaskRoleArn: "arn:aws:iam::111111111111:role/computer-task",
+  computerEcrRepositoryUri: "111111111111.dkr.ecr.us-east-1.amazonaws.com/computer",
+};
+
+function synthControlPlane(
+  environmentName: ChatticusCloudEnvironment,
+  context: Record<string, string> = { computerHostStart: "noop" },
+): Template {
+  const app = new cdk.App({ context });
   const support = new cdk.Stack(app, "Support", {
     env: { account: "111111111111", region: "us-east-1" },
   });
@@ -152,6 +166,54 @@ describe("ControlPlaneStack", () => {
       }
       assert.equal(variables.CHATTICUS_ENVIRONMENT, "development");
     }
+  });
+
+  it("keeps the no-op starter when no ECS configuration is present", () => {
+    const variables = functionByDescription(development, "ComputerStartJobs consumer").Environment.Variables;
+    assert.equal(variables.CHATTICUS_HOST_STARTER, undefined);
+    assert.equal(variables.CHATTICUS_ECS_CLUSTER, undefined);
+    const statements = JSON.stringify(development.toJSON().Resources);
+    assert.ok(!statements.includes("ecs:RunTask"));
+  });
+
+  it("wires the starter to ECS host start with RunTask, PassRole and the ECS environment", () => {
+    const ecs = synthControlPlane("development", ECS_CONTEXT);
+    const variables = functionByDescription(ecs, "ComputerStartJobs consumer").Environment.Variables;
+    assert.equal(variables.CHATTICUS_HOST_STARTER, "ecs");
+    assert.equal(variables.CHATTICUS_ECS_CLUSTER, "computers-cluster");
+    assert.equal(variables.CHATTICUS_ECS_SUBNETS, "subnet-aaa,subnet-bbb");
+    assert.equal(variables.CHATTICUS_ECS_SECURITY_GROUPS, "sg-111");
+    assert.equal(variables.CHATTICUS_ECS_CONTAINER_NAME, "computer");
+    ecs.hasResourceProperties("AWS::IAM::Policy", {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: "ecs:RunTask",
+            Resource: "arn:aws:ecs:us-east-1:111111111111:task-definition/computer:*",
+            Condition: {
+              ArnEquals: { "ecs:cluster": "arn:aws:ecs:us-east-1:111111111111:cluster/computers-cluster" },
+            },
+          }),
+          Match.objectLike({
+            Action: "iam:PassRole",
+            Resource: [
+              "arn:aws:iam::111111111111:role/computer-execution",
+              "arn:aws:iam::111111111111:role/computer-task",
+            ],
+          }),
+        ]),
+      },
+    });
+    for (const fragment of ["TurnRuns consumer", "TurnProbes consumer"]) {
+      const other = functionByDescription(ecs, fragment).Environment.Variables;
+      assert.equal(other.CHATTICUS_HOST_STARTER, undefined);
+    }
+  });
+
+  it("never wires ECS host start outside development", () => {
+    const staging = synthControlPlane("staging", ECS_CONTEXT);
+    const variables = functionByDescription(staging, "ComputerStartJobs consumer").Environment.Variables;
+    assert.equal(variables.CHATTICUS_HOST_STARTER, undefined);
   });
 
   it("lets only the FrontDoor and the executor read the OpenAI key parameter", () => {

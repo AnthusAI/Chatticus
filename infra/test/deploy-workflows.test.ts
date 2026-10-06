@@ -28,6 +28,11 @@ const EXPECTED_DEPLOY_WORKFLOWS: Record<
     script: "deploy-chatticus-auth-production.sh",
     pushBranch: "main",
   },
+  "deploy-controlplane-development.yml": {
+    environment: "development",
+    script: "deploy-chatticus-dedicated-account.sh development control-plane",
+    pushBranch: "develop",
+  },
   "deploy-thinturn-development.yml": {
     environment: "development",
     script: "deploy-chatticus-dedicated-account.sh development thin-turn",

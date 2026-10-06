@@ -1,0 +1,40 @@
+name: Deploy ControlPlane (development)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Deploy development control-plane
+        working-directory: infra
+        env:
+          CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD: ${{ vars.CHATTICUS_BUDGETS_MONTHLY_LIMIT_USD }}
+          CHATTICUS_BUDGETS_NOTIFICATION_EMAIL: ${{ secrets.CHATTICUS_BUDGETS_NOTIFICATION_EMAIL }}
+          CHATTICUS_INSTALLATION_NAME: ${{ vars.CHATTICUS_INSTALLATION_NAME }}
+        run: sh deploy-chatticus-dedicated-account.sh development control-plane

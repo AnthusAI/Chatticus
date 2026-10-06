@@ -10,6 +10,10 @@ import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as path from "path";
 import { Construct } from "constructs";
 import { ChatticusCloudEnvironment, openAiApiKeyParameterName } from "./environments";
+import {
+  computerHostStartEcsConfig,
+  wireComputerWorkerEcsHostStart,
+} from "./computer-host-start";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
 const CREATE_REQUIRE_BANNER =
@@ -244,6 +248,16 @@ export class ControlPlaneStack extends cdk.Stack {
       }),
     );
     this.computerStarterFunction = computerStarterFunction;
+    const computerHostStart = computerHostStartEcsConfig(this, environmentName);
+    if (computerHostStart !== undefined) {
+      wireComputerWorkerEcsHostStart(
+        computerStarterFunction,
+        cdk.Stack.of(this),
+        computerHostStart,
+        messagingTable,
+        turnRunsQueue,
+      );
+    }
 
     new cdk.CfnOutput(this, "ControlPlaneFunctionUrl", {
       value: this.frontDoorFunctionUrl.url,
