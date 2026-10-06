@@ -6,7 +6,7 @@
 
 # Debian Chromium is a real deb (Ubuntu's chromium-browser is a snap stub).
 # The host worker and the snapshot program are esbuild bundles; the image
-# carries Node and no Python.
+# carries Node alone.
 FROM node:22-bookworm-slim AS host-bundle
 
 WORKDIR /build
