@@ -99,6 +99,8 @@ export class ChatticusWorld extends World {
 	webApiBase: string | null = null;
 	webIdToken: string | null = null;
 	membershipUiHarness: Record<string, any> | null = null;
+	/** Per-scenario state of the web workspace, voice and auth harness features. */
+	webFeature: Record<string, any> = {};
 	lastChannel: { channelId: string; tenantId: string } | null = null;
 	lastTurnId: string | null = null;
 	/** The response of the last PUT of a turn grant. */
