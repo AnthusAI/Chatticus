@@ -72,12 +72,15 @@ export async function signSigV4(
 export const STS_GET_CALLER_IDENTITY_URL = "https://sts.amazonaws.com/";
 export const STS_GET_CALLER_IDENTITY_QUERY = "Action=GetCallerIdentity&Version=2011-06-15";
 
-/** Return SigV4 headers for one unsigned STS GetCallerIdentity GET. */
+/** Header carrying the SigV4 Authorization value; a Lambda Function URL drops a SigV4 Authorization header, so the signature travels here. */
+export const STS_AUTHORIZATION_HEADER = "x-chatticus-sts-authorization";
+
+/** Return the headers proving one caller identity: the SigV4 Authorization value moved into x-chatticus-sts-authorization, x-amz-date and x-amz-security-token. */
 export async function buildStsGetCallerIdentityHeaders(
 	credentials: { accessKeyId: string; secretAccessKey: string; sessionToken?: string },
 	region: string = "us-east-1",
 ): Promise<Record<string, string>> {
-	return signSigV4(
+	const signed = await signSigV4(
 		{
 			method: "GET",
 			url: `${STS_GET_CALLER_IDENTITY_URL}?${STS_GET_CALLER_IDENTITY_QUERY}`,
@@ -87,6 +90,15 @@ export async function buildStsGetCallerIdentityHeaders(
 		region,
 		"sts",
 	);
+	const proof: Record<string, string> = {};
+	for (const [name, value] of Object.entries(signed)) {
+		const lower = name.toLowerCase();
+		if (lower === "host") {
+			continue;
+		}
+		proof[lower === "authorization" ? STS_AUTHORIZATION_HEADER : lower] = value;
+	}
+	return proof;
 }
 
 /** Return the SigV4 canonical query string for `params`. */

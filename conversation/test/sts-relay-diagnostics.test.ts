@@ -14,7 +14,7 @@ function signedRequest(withAuthorization: boolean): Request {
 		"x-amz-security-token": SECRET_TOKEN,
 	};
 	if (withAuthorization) {
-		headers["authorization"] = SECRET_AUTHORIZATION;
+		headers["x-chatticus-sts-authorization"] = SECRET_AUTHORIZATION;
 	}
 	return new Request("https://abc123.lambda-url.us-east-1.on.aws/integration-test/session", { method: "POST", headers });
 }
@@ -51,7 +51,7 @@ describe("relayStsGetCallerIdentityArn failure diagnostics", () => {
 		expect(logged).toHaveLength(1);
 		expect(JSON.parse(logged[0] as string)).toEqual({
 			event: "sts_relay_failed",
-			reason: "no_authorization_header",
+			reason: "no_sts_authorization_header",
 			forwardedHeaderNames: ["x-amz-date", "x-amz-security-token"],
 		});
 		expectNoSecrets(logged);
@@ -67,7 +67,7 @@ describe("relayStsGetCallerIdentityArn failure diagnostics", () => {
 		expect(JSON.parse(logged[0] as string)).toEqual({
 			event: "sts_relay_failed",
 			reason: "fetch_failed",
-			forwardedHeaderNames: ["authorization", "x-amz-date", "x-amz-security-token"],
+			forwardedHeaderNames: ["x-amz-date", "x-amz-security-token", "x-chatticus-sts-authorization"],
 			errorName: "TypeError",
 			errorMessage: "getaddrinfo ENOTFOUND sts.amazonaws.com",
 		});
