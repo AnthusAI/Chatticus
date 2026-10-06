@@ -17,7 +17,7 @@ export const DEFAULT_INTEGRATION_TEST_USER_ID = "integration-test-runner";
 export const DEFAULT_INTEGRATION_TEST_OWNER_EMAIL = "integration-test@chattic.us";
 export const DEFAULT_TOKEN_TTL_SECONDS = 900;
 
-const STS_FORWARD_HEADERS = new Set(["authorization", "x-amz-date", "x-amz-security-token", "host"]);
+const STS_FORWARD_HEADERS = new Set(["authorization", "x-amz-date", "x-amz-security-token"]);
 
 /** Resolves the IAM role ARN of the caller of a session exchange, or null when the caller is not verified. */
 export type CallerVerifier = (request: Request) => Promise<string | null>;
@@ -128,9 +128,6 @@ export async function relayStsGetCallerIdentityArn(request: Request): Promise<st
 	});
 	if (!Object.keys(forwarded).some((key) => key.toLowerCase() === "authorization")) {
 		return null;
-	}
-	if (!Object.keys(forwarded).some((key) => key.toLowerCase() === "host")) {
-		forwarded["Host"] = "sts.amazonaws.com";
 	}
 	let response: Response;
 	try {

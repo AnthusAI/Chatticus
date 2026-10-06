@@ -133,11 +133,17 @@ describe("the acceptance smoke test against the in-process front door", () => {
 		expect(checks).toEqual(Object.values(SMOKE_CHECK_NAMES));
 	}, 60_000);
 
-	it("fails the session check when the invoke key is wrong", async () => {
-		const checks: string[] = [];
-		await expect(runSmokeTest(options({ invokeKey: "x".repeat(INVOKE_KEY.length) }), checks)).rejects.toBeInstanceOf(SmokeRequestError);
-		expect(checks).toEqual([]);
-	}, 60_000);
+	it.each(["x".repeat(INVOKE_KEY.length), "short", `${INVOKE_KEY}-and-more`])(
+		"fails the session check with a 403 when the invoke key is wrong (%s)",
+		async (wrongKey) => {
+			const checks: string[] = [];
+			const failure = runSmokeTest(options({ invokeKey: wrongKey }), checks);
+			await expect(failure).rejects.toBeInstanceOf(SmokeRequestError);
+			await expect(failure).rejects.toMatchObject({ status: 403 });
+			expect(checks).toEqual([]);
+		},
+		60_000,
+	);
 
 	it("fails when the turn never completes", async () => {
 		pumping = false;
