@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-13605e3c-e98c-463b-926f-11fbefb7ad5a",
+  "title": "TS-47 Port the remaining port-needed scenarios",
+  "description": "Source: the fresh re-audit report at /tmp/ts/reaudit.md (read the per-feature blocks for your features). Rules: features stay the spec (Gherkin text of existing scenarios unchanged); cucumber-js steps drive production code; every fixed or new scenario group gets a recorded mutation check (break production, scenario fails, restore); no new Python; push with an explicit refspec (git push origin HEAD:refs/heads/<branch>), never plain git push.\n\nPort to cucumber-js (PORT-NEEDED list of the audit, Task 2): computer_snapshots (8) and computer_snapshot_dynamo (2); customer_snapshot_bucket :: missing bucket does not crash the host; shared_channels (3); member_ceiling_sinks (2; wire the member ceiling into the model tool loop where needed); per_task_run_terminal_grant (1); capability_sink_wiring :: PUT grant on a missing turn returns 403; chattic_us_web :: empty roster; principal_authorization :: cross-organization refusal; demo_cli: 3 of 4 scenarios (conversation/bin/chat.ts is a stub, see Kanbus chatticus-6f27c5; list-in-flight is obsolete). A scenario that needs product behavior that exists nowhere: stop and report it instead of inventing it.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-06T12:54:05.315210Z",
+  "updated_at": "2026-10-06T12:54:05.315250Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is porting the remaining audit-listed scenarios to cucumber-js and recording mutation checks.",
+  "right_now_updated_at": "2026-10-06T12:54:06.893620Z",
+  "custom": {}
+}

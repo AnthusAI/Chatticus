@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-c8a0a853-3bfd-472c-bd99-5c4ab4f864c9",
+  "title": "TS-43 Gate round 2A: fix the mutation-confirmed weak features",
+  "description": "Source: the fresh re-audit report at /tmp/ts/reaudit.md (read the per-feature blocks for your features). Rules: features stay the spec (Gherkin text of existing scenarios unchanged); cucumber-js steps drive production code; every fixed or new scenario group gets a recorded mutation check (break production, scenario fails, restore); no new Python; push with an explicit refspec (git push origin HEAD:refs/heads/<branch>), never plain git push.\n\nFix each WEAK finding the re-audit proved by mutation: (1) computer_affinity, bot_turns, job_routing: removing the computerId filter in assignTurn leaves all green; add a worker on a different computer with a fresher heartbeat and assert the pinned turn skips it. (2) tenant_isolation scenario 1 passes with tenant filtering broken because the computer pin rescues it; use a non-computer capability. (3) page_content_authority, prompt_injection_containment, browser_context_policy, task_authority_grant: removing the tool-granted check leaves all green; add a scenario requesting an ungranted tool on a granted origin (a new ported feature file is fine; do not duplicate capability_policy_isolated_checks). (4) integration_test_auth: skipping the HMAC compare stays green; add a tampered-signature scenario. (5) web_turn_grant: renaming run_terminal in web/lib stays green because web/test-support/membership-ui-harness.ts:666 reimplements it; make the harness call the lib. (6) computer_host_disk_lifecycle: with hydrate's unpack removed the survive-a-recycle scenario still passes; clear the local disk first. (7) organizations: the store-is-recycled step body is empty; reset scenarioMessagingStore.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-06T12:53:47.371590Z",
+  "updated_at": "2026-10-06T12:53:47.371641Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is strengthening weak scenarios, mutation checks, and test harnesses across affected features.",
+  "right_now_updated_at": "2026-10-06T12:53:50.347022Z",
+  "custom": {}
+}
