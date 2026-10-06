@@ -39,26 +39,24 @@ describe("deploy-chatticus-dedicated-account.sh", () => {
     }
   });
 
-  it("only offers the thin-turn, web and auth stacks that belong to the named environment", () => {
-    const rows = contents.split("\n").filter((line) => /^\s+(development|staging|production):(thin-turn|web|auth)\)/.test(line));
-    assert.equal(rows.length, 9);
+  it("only offers the thin-turn, control-plane, web and auth stacks that belong to the named environment", () => {
+    const rows = contents.split("\n").filter((line) => /^\s+(development|staging|production):(thin-turn|control-plane|web|auth)\)/.test(line));
+    assert.equal(rows.length, 12);
     for (const environment of ["development", "staging", "production"]) {
-      assert.equal(rows.filter((row) => row.includes(`${environment}:`)).length, 3);
+      assert.equal(rows.filter((row) => row.includes(`${environment}:`)).length, 4);
     }
     assert.equal(execFileSync("sh", ["-n", script]).length, 0);
   });
 
-  it("accepts the control-plane stack for development only", () => {
+  it("accepts the control-plane stack for every environment, mapped to that environment's own stack id", () => {
     assert.match(contents, /development:control-plane\) STACK="ChatticusControlPlane"/);
-    assert.doesNotMatch(contents, /staging:control-plane/);
-    assert.doesNotMatch(contents, /production:control-plane/);
-    for (const environment of ["staging", "production"]) {
-      const result = run([environment, "control-plane"]);
-      assert.equal(result.status, 2, environment);
-      assert.match(result.stderr, /usage: sh deploy-chatticus-dedicated-account\.sh/);
+    assert.match(contents, /staging:control-plane\) STACK="ChatticusControlPlaneStaging"/);
+    assert.match(contents, /production:control-plane\) STACK="ChatticusControlPlaneProduction"/);
+    for (const environment of ["development", "staging", "production"]) {
+      const accepted = run([environment, "control-plane"]);
+      assert.notEqual(accepted.status, 2, environment);
     }
-    const accepted = run(["development", "control-plane"]);
-    assert.notEqual(accepted.status, 2);
+    assert.match(contents, /STACK: budgets snapshots computers zones certificates thin-turn control-plane web auth/);
   });
 
   it("passes the integration test role as context for the development control plane only, and refuses a malformed ARN before AWS", () => {

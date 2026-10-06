@@ -8,7 +8,15 @@ import {
   buildDedicatedAccountStacks,
   readDedicatedEnvironment,
 } from "../lib/dedicated-account-stacks";
-import { DEDICATED_ACCOUNT_HOSTNAMES } from "../lib/environments";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  CHATTICUS_CLOUD_ENVIRONMENTS,
+  CONTROL_PLANE_STACK_IDS,
+  DEDICATED_ACCOUNT_HOSTNAMES,
+  THIN_TURN_STACK_IDS,
+  WEB_STACK_IDS,
+} from "../lib/environments";
 import { applyStandardTags, stackTagsFor } from "../lib/tagging";
 import { stubWebsiteDeploySource } from "../lib/web-bundle-stub";
 
@@ -136,6 +144,40 @@ describe("dedicated account mode", () => {
   it("builds the web stack's bundle with the new site's domain", () => {
     const json = JSON.stringify(template(app, "ChatticusWeb").toJSON());
     assert.equal(json.includes("https://dev.chattic.us"), false);
+  });
+});
+
+describe("the web /api* origin is the control plane in every environment", () => {
+  for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
+    it(`points ${environmentName} CloudFront at the ${CONTROL_PLANE_STACK_IDS[environmentName]} function URL`, () => {
+      const app = new cdk.App();
+      buildDedicatedAccountStacks(app, {
+        env: ENV,
+        environmentName,
+        websiteDeploySource: stubWebsiteDeploySource,
+      });
+      const stackIds = app.node.children.filter(cdk.Stack.isStack).map((stack) => stack.node.id);
+      assert.ok(stackIds.includes(CONTROL_PLANE_STACK_IDS[environmentName]));
+      const distribution = Object.values(
+        template(app, WEB_STACK_IDS[environmentName]).findResources("AWS::CloudFront::Distribution"),
+      )[0] as { Properties: { DistributionConfig: { Origins: Array<{ DomainName: unknown; CustomOriginConfig?: unknown }> } } };
+      const apiOrigin = distribution.Properties.DistributionConfig.Origins.find((origin) => origin.CustomOriginConfig !== undefined);
+      assert.ok(apiOrigin);
+      const originJson = JSON.stringify(apiOrigin.DomainName);
+      assert.ok(originJson.includes(CONTROL_PLANE_STACK_IDS[environmentName]), originJson);
+      assert.equal(originJson.includes(THIN_TURN_STACK_IDS[environmentName]), false, originJson);
+      const web = app.node.findChild(WEB_STACK_IDS[environmentName]) as cdk.Stack;
+      const dependencyIds = web.dependencies.map((dependency) => dependency.node.id);
+      assert.ok(dependencyIds.includes(CONTROL_PLANE_STACK_IDS[environmentName]));
+      assert.ok(dependencyIds.includes(THIN_TURN_STACK_IDS[environmentName]));
+    });
+  }
+
+  it("wires the legacy-account app entrypoint to the control plane too", () => {
+    const entrypoint = readFileSync(join(__dirname, "..", "bin", "chatticus.ts"), "utf8");
+    assert.match(entrypoint, /frontDoorFunctionUrl: controlPlane\.frontDoorFunctionUrl/);
+    assert.doesNotMatch(entrypoint, /frontDoorFunctionUrl: thinTurn\.frontDoorFunctionUrl/);
+    assert.match(entrypoint, /web\.addDependency\(controlPlane\)/);
   });
 });
 
