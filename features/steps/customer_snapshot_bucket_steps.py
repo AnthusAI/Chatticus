@@ -332,7 +332,7 @@ def given_customer_snapshot_bucket_bound(context: object) -> None:
 
 @given("CHATTICUS_SNAPSHOT_BUCKET names a bucket that does not exist yet")
 def given_ghost_snapshot_bucket(context: object) -> None:
-    from computer_host_disk_lifecycle_steps import _worker_plane
+    from host_boot_steps import _worker_plane
 
     bucket = customer_snapshot_bucket_name("anthus")
     if not getattr(context, "snapshot_tmpdir", None):

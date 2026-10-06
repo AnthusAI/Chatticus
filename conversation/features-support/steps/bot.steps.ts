@@ -11,7 +11,14 @@ import type { ChatticusWorld } from "../world.ts";
 const kernel = new OrganizationsKernelImpl();
 const CREATE_BOT_FORM_TITLE = "Create a bot";
 
+const emptiedControlPlanes = new WeakSet<ChatticusWorld>();
+
 export async function resetScenarioToEmptyControlPlane(world: ChatticusWorld): Promise<void> {
+	if (emptiedControlPlanes.has(world)) {
+		await world.messagingTable.drop();
+		await world.messagingTable.create();
+	}
+	emptiedControlPlanes.add(world);
 	world.scenarioMessagingStore = world.createMessagingStore();
 	await wireFrontDoor(world, { signupMode: "invitation_only", cognitoVerifier: true });
 	world.botsById = new Map();

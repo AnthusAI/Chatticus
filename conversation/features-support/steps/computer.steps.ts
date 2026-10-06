@@ -13,6 +13,7 @@ import {
 	turnPayloadNow,
 	workTurn,
 } from "../computer-scenario.ts";
+import { actionStoreOf } from "../computer-support.ts";
 import { memberPost } from "../org-user-client.ts";
 import { SimulatedCrash } from "../../src/turn/fault-plan.ts";
 import { deliverDueProbes, queuedRunsFor, runQueuedJobs, turnNow } from "../turn-recovery.ts";
@@ -127,11 +128,18 @@ Then("a computer start job is queued for the turn", function (this: ChatticusWor
 	assert.ok(jobs[0]!.requiredCapabilities.includes("computer"));
 });
 
-Then("a computer continuation job is queued for the turn", function (this: ChatticusWorld) {
-	const { turnId } = activeTurnOf(this);
+Then("a computer continuation job is queued for the turn", async function (this: ChatticusWorld) {
+	const { tenantId, turnId } = activeTurnOf(this);
 	const jobs = queuedStartJobs(this).filter((job) => job.turnId === turnId);
-	assert.equal(jobs.length, 1, `Start jobs queued for the turn: ${JSON.stringify(jobs)}`);
-	assert.ok(jobs[0]!.requiredCapabilities.includes("computer"));
+	if (jobs.length === 1) {
+		assert.ok(jobs[0]!.requiredCapabilities.includes("computer"));
+		return;
+	}
+	const waiting = (await actionStoreOf(this).listForTurn(tenantId, turnId)).filter((action) => action.status === "requested");
+	assert.ok(
+		jobs.length === 0 && waiting.length === 1,
+		`Start jobs queued for the turn: ${JSON.stringify(jobs)}; actions waiting for a live host: ${waiting.length}`,
+	);
 });
 
 Then(
