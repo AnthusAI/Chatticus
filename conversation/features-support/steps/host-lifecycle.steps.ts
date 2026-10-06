@@ -141,6 +141,12 @@ Then("computer {string} does not require hydrate", async function (this: Chattic
 	assert.equal(computer.hydrateRequired, false);
 });
 
+Then("tenant {string} computer {string} is dirty on the store", async function (this: ChatticusWorld, tenantId: string, computerId: string) {
+	const computer = await computerForOrganization(tenantId, { store: this.messagingStore() });
+	assert.equal(computer.computerId, computerId);
+	assert.equal(computer.diskDirty, true);
+});
+
 Then("tenant {string} computer {string} is not dirty on the store", async function (this: ChatticusWorld, tenantId: string, computerId: string) {
 	const computer = await computerForOrganization(tenantId, { store: this.messagingStore() });
 	assert.equal(computer.computerId, computerId);

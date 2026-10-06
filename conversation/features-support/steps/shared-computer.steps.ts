@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { Then, When } from "@cucumber/cucumber";
+import { snapshotRelocationOf } from "../computer-snapshots-support.ts";
 import { computerForOrganization } from "../../src/domain/computers.ts";
 import { recordResponse } from "../api.ts";
 import { actionStoreOf } from "../computer-support.ts";
@@ -51,7 +52,14 @@ export async function useComputer(world: ChatticusWorld, botName: string, messag
 When(
 	"bot {string} writes {string} containing {string} on the computer",
 	async function (this: ChatticusWorld, botName: string, file: string, content: string) {
-		await useComputer(this, botName, `write workspace file /workspace/${file} containing ${content}`);
+		const scenario = snapshotRelocationOf(this);
+		scenario.writeError = null;
+		scenario.refusalInspected = false;
+		try {
+			await useComputer(this, botName, `write workspace file /workspace/${file} containing ${content}`);
+		} catch (error) {
+			scenario.writeError = error as Error;
+		}
 	},
 );
 

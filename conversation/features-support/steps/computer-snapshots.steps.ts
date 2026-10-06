@@ -118,6 +118,15 @@ Then("relocate fails because the disk is dirty", function (this: ChatticusWorld)
 	assert.ok(scenario.relocateError instanceof ComputerDirtyError, String(scenario.relocateError));
 });
 
+Then("writing the computer fails because it is not hydrated", function (this: ChatticusWorld) {
+	const scenario = snapshotRelocationOf(this);
+	scenario.refusalInspected = true;
+	const error = scenario.writeError;
+	assert.ok(error, "The write was not refused.");
+	assert.ok(error.message.includes("400 !== 200"), error.message);
+	assert.ok(error.message.includes("must be hydrated before the live disk can be written"), error.message);
+});
+
 Then("hydrate fails because the worker does not host that computer", function (this: ChatticusWorld) {
 	const scenario = snapshotRelocationOf(this);
 	scenario.refusalInspected = true;

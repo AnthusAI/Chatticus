@@ -529,7 +529,7 @@ export class DynamoMessagingStore implements MessagingStore {
 				new UpdateItemCommand({
 					TableName: this.tableName,
 					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
-					UpdateExpression: "SET host_start_generation = :next, host_start_lease_expires_at = :lease",
+					UpdateExpression: "SET host_start_generation = :next, host_start_lease_expires_at = :lease REMOVE live_writer_host_id",
 					ConditionExpression: "attribute_exists(pk) AND host_start_generation = :expected",
 					ExpressionAttributeValues: {
 						":expected": { N: String(expectedGeneration) },
@@ -543,6 +543,46 @@ export class DynamoMessagingStore implements MessagingStore {
 		} catch (error) {
 			if (error instanceof ConditionalCheckFailedException) {
 				return null;
+			}
+			throw error;
+		}
+	}
+
+	async markComputerDiskDirty(tenantId: string): Promise<boolean> {
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					UpdateExpression: "SET disk_dirty = :dirty",
+					ConditionExpression: "attribute_exists(pk)",
+					ExpressionAttributeValues: { ":dirty": { BOOL: true } },
+				}),
+			);
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return false;
+			}
+			throw error;
+		}
+	}
+
+	async claimComputerDiskWriter(tenantId: string, hostId: string): Promise<boolean> {
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					UpdateExpression: "SET live_writer_host_id = :host",
+					ConditionExpression: "attribute_exists(pk) AND (attribute_not_exists(live_writer_host_id) OR live_writer_host_id = :host)",
+					ExpressionAttributeValues: { ":host": { S: hostId } },
+				}),
+			);
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return false;
 			}
 			throw error;
 		}

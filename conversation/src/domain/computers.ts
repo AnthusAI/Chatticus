@@ -315,3 +315,48 @@ export async function relocateComputer(tenantId: string, targetWorkerId: string,
 	await deps.store.putComputer(relocating);
 	return relocating;
 }
+
+/** The computer tools that change the live disk: a workspace write and a terminal command. */
+export const DISK_WRITING_TOOL_NAMES: ReadonlySet<string> = new Set(["write_workspace", "run_terminal"]);
+
+/**
+ * Refuse a disk-writing tool while the computer waits for its intended host to hydrate the snapshot the record names,
+ * because a write now would land on a disk that is about to be replaced and would be lost.
+ *
+ * Ported from python/src/chatticus/control_plane.py `seed_snapshot_workspace` and `save_browser_session`.
+ *
+ * @param toolName The computer tool about to run.
+ * @param computer The organization computer, or null when it has none yet.
+ * @throws ComputerNotHydratedError If the tool writes the disk and a hydrate is required.
+ */
+export function refuseDiskWriteBeforeHydrate(toolName: string, computer: Computer | null): void {
+	if (computer !== null && computer.hydrateRequired && DISK_WRITING_TOOL_NAMES.has(toolName)) {
+		throw new ComputerNotHydratedError(
+			`Computer ${pythonRepr(computer.computerId)} must be hydrated before the live disk can be written.`,
+		);
+	}
+}
+
+/**
+ * Record that a disk-writing tool answered, so the live disk holds writes no snapshot has published until the next
+ * publish or hydrate. Tools that only read leave the flag alone.
+ *
+ * Ported from python/src/chatticus/control_plane.py `seed_snapshot_workspace` and `save_browser_session`.
+ */
+export async function recordComputerToolAnswered(tenantId: string, toolName: string, deps: { store: MessagingStore }): Promise<void> {
+	if (DISK_WRITING_TOOL_NAMES.has(toolName)) {
+		await deps.store.markComputerDiskDirty(tenantId);
+	}
+}
+
+/**
+ * Grant the live disk write lock to one host. The first host to ask holds it; every other host is refused until a new
+ * host start generation clears it.
+ *
+ * Ported from python/src/chatticus/control_plane.py `acquire_computer_disk_write`.
+ *
+ * @returns Whether `hostId` now holds the lock.
+ */
+export async function acquireComputerDiskWrite(tenantId: string, hostId: string, deps: { store: MessagingStore }): Promise<boolean> {
+	return deps.store.claimComputerDiskWriter(tenantId, hostId);
+}

@@ -191,12 +191,14 @@ export async function computerActionForCall(
  * @param deps Action store and clock.
  * @param tenantId Organization.
  * @param workerId The host asking.
+ * @param refuseAction Called with each open action before it is claimed; throws to refuse it, so the host never holds an action it must not run.
  * @returns The claimed action, or null when there is nothing for this worker.
  */
 export async function claimNextComputerAction(
 	deps: Pick<ActionDependencies, "actions" | "clock">,
 	tenantId: string,
 	workerId: string,
+	refuseAction: (action: ComputerAction) => void = () => undefined,
 ): Promise<ComputerAction | null> {
 	const now = deps.clock.now();
 	const open = await deps.actions.listOpen(tenantId);
@@ -206,6 +208,7 @@ export async function claimNextComputerAction(
 	}
 	for (const action of open) {
 		if (action.status !== "requested") continue;
+		refuseAction(action);
 		const claimed = await deps.actions.claim({
 			tenantId,
 			actionId: action.actionId,

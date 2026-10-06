@@ -31,7 +31,6 @@ Feature: Computer snapshot metadata survives Dynamo recycle
     And tenant "anthus" computer "household-computer" is not dirty on the store
     And tenant "anthus" computer "household-computer" requires hydrate on worker "garage-mac-1"
 
-  @needs-product-behavior
   Scenario: Unpublished writes mark disk dirty across a Dynamo recycle
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
     When bot "Researcher" writes "notes.md" containing "unsynced edits" on the computer

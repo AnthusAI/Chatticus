@@ -22,6 +22,8 @@ export interface Computer {
 	snapshotUri?: string;
 	snapshotChecksum?: string;
 	intendedHostWorkerId?: string;
+	/** The one host holding the right to write the live disk, until the next host start generation clears it. */
+	liveWriterHostId?: string;
 }
 
 export type Item = Record<string, AttributeValue>;
@@ -62,6 +64,9 @@ export function encode(value: Computer): Item {
 	}
 	if (value.intendedHostWorkerId !== undefined) {
 		item.intended_host_worker_id = { S: value.intendedHostWorkerId };
+	}
+	if (value.liveWriterHostId !== undefined) {
+		item.live_writer_host_id = { S: value.liveWriterHostId };
 	}
 
 	return item;
@@ -129,5 +134,6 @@ export function decode(item: Item): Computer {
 		snapshotUri: item.snapshot_uri?.S,
 		snapshotChecksum: item.snapshot_checksum?.S,
 		intendedHostWorkerId: item.intended_host_worker_id?.S,
+		liveWriterHostId: item.live_writer_host_id?.S,
 	};
 }

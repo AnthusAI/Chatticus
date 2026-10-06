@@ -267,9 +267,28 @@ export class InMemoryMessagingStore implements MessagingStore {
 		if (computer === undefined || computer.hostStartGeneration !== expectedGeneration) {
 			return null;
 		}
-		const next = { ...computer, hostStartGeneration: expectedGeneration + 1, hostStartLeaseExpiresAt: leaseExpiresAt };
+		const { liveWriterHostId: _cleared, ...kept } = computer;
+		const next = { ...kept, hostStartGeneration: expectedGeneration + 1, hostStartLeaseExpiresAt: leaseExpiresAt };
 		this.computers.set(tenantId, next);
 		return structuredClone(next);
+	}
+
+	async markComputerDiskDirty(tenantId: string): Promise<boolean> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined) {
+			return false;
+		}
+		this.computers.set(tenantId, { ...computer, diskDirty: true });
+		return true;
+	}
+
+	async claimComputerDiskWriter(tenantId: string, hostId: string): Promise<boolean> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined || (computer.liveWriterHostId !== undefined && computer.liveWriterHostId !== hostId)) {
+			return false;
+		}
+		this.computers.set(tenantId, { ...computer, liveWriterHostId: hostId });
+		return true;
 	}
 
 	async markHostStartDispatched(tenantId: string, generation: number): Promise<boolean> {
