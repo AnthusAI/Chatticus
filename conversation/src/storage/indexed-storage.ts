@@ -48,6 +48,7 @@ import {
 	backoff,
 	CommitOutcomeUnknown,
 	type CommitState,
+	commitKey,
 	cursorAfter,
 	digest,
 	encode,
@@ -59,6 +60,7 @@ import {
 	pad,
 	page,
 	parse,
+	parseCommitKey,
 	RETRYABLE_ERRORS,
 	recordAddressKey,
 	scopeKey,
@@ -67,6 +69,14 @@ import {
 	TRANSIENT_CANCELLATIONS,
 	text,
 } from "./storage-support.ts";
+import {
+	readSnapshotObject,
+	readSnapshotReference,
+	type SnapshotObject,
+	type SnapshotReference,
+	unpackCommitObject,
+	writeSnapshotObject,
+} from "./snapshot-object.ts";
 
 type StoredTask = TaskRecord<JsonValue, JsonValue, JsonValue>;
 type TableName = "conversation" | "entry" | "task" | "submission" | "document";
@@ -80,6 +90,17 @@ export type CommitObject = {
 	readonly fence: number;
 	readonly token: string;
 	readonly writes: readonly StorageWrite[];
+};
+
+/**
+ * When an owner writes a snapshot object. A snapshot lets a cold owner read one object plus the commits after it
+ * instead of one object per commit of history. Both triggers may be set; with neither, no snapshot is written.
+ */
+export type SnapshotPolicy = {
+	/** Write a snapshot after a commit once this many commits have landed since the last snapshot. */
+	readonly everyCommits?: number;
+	/** Write a snapshot when the owner closes the storage, if commits have landed since the last snapshot. */
+	readonly atClose?: boolean;
 };
 
 const REVISION_PAGE_SIZE = 32;
@@ -98,6 +119,8 @@ export type IndexedStorageOptions = {
 	 * storage: an owner may replace its own orphan object under the same key, which a shared cache could not see.
 	 */
 	readonly commitCache?: CommitObjectCache;
+	/** When this owner writes snapshot objects. Readers that never commit leave it unset. */
+	readonly snapshotPolicy?: SnapshotPolicy;
 };
 
 /** Map-shaped cache of in-flight or settled commit object reads, keyed by S3 object key. */
@@ -106,20 +129,6 @@ export type CommitObjectCache = {
 	set(objectKey: string, value: Promise<CommitObject>): unknown;
 	delete(objectKey: string): unknown;
 };
-
-/**
- * Commit object key by convention: `conversations/<storage>/commits/<seq:012>-<fence:08>.json`.
- *
- * The fence in the key makes every key writable by exactly one owner, so an owner can always replace its own
- * orphan and two owners racing for one sequence never collide on a key.
- *
- * @param storageId Storage identity.
- * @param seq Commit sequence.
- * @param fence Fence of the committing owner, 0 when unfenced.
- * @returns The S3 key.
- */
-export const commitKey = (storageId: string, seq: number, fence: number): string =>
-	`conversations/${encodeURIComponent(storageId)}/commits/${String(seq).padStart(12, "0")}-${String(fence).padStart(8, "0")}.json`;
 
 /**
  * pi-durable `Storage` with the data in S3 and only an index in DynamoDB.
@@ -138,9 +147,12 @@ export class IndexedStorage implements Storage {
 	private readonly pk: string;
 	private readonly fence: number | undefined;
 	private readonly commits: CommitObjectCache;
+	private readonly snapshotPolicy: SnapshotPolicy;
 	private seq = 0;
 	private nextId = 2;
 	private closed = false;
+	private snapshotReference: SnapshotReference | undefined;
+	private snapshotLoading: Promise<SnapshotObject | undefined> | undefined;
 
 	private constructor(options: IndexedStorageOptions) {
 		this.client = options.client;
@@ -151,6 +163,7 @@ export class IndexedStorage implements Storage {
 		this.pk = `PI#${options.storageId}`;
 		this.fence = options.fence;
 		this.commits = options.commitCache ?? new Map<string, Promise<CommitObject>>();
+		this.snapshotPolicy = options.snapshotPolicy ?? {};
 	}
 
 	/**
@@ -221,7 +234,11 @@ export class IndexedStorage implements Storage {
 	}
 
 	private async load(): Promise<void> {
-		const meta = await this.getItem("META");
+		const [meta, snapshotReference] = await Promise.all([
+			this.getItem("META"),
+			readSnapshotReference(this.client, this.tableName, this.storageId),
+		]);
+		this.snapshotReference = snapshotReference;
 		if (meta === undefined) {
 			try {
 				await this.client.send(
@@ -268,6 +285,7 @@ export class IndexedStorage implements Storage {
 			this.commits.set(key, Promise.resolve(parse<CommitObject>(body)));
 			this.seq = seq;
 			this.nextId = Math.max(this.nextId, plan.highestId + 1);
+			await this.snapshotIfDue(false);
 			return seq as Seq;
 		} catch (error) {
 			const outcomeUnknown = error instanceof CommitOutcomeUnknown;
@@ -959,7 +977,42 @@ export class IndexedStorage implements Storage {
 	}
 
 	async close(_context: Context): Promise<void> {
+		if (this.closed) return;
+		await this.snapshotIfDue(true);
 		this.closed = true;
+	}
+
+	/**
+	 * Write a snapshot object when the policy says one is due. A failed snapshot never fails the commit or the close:
+	 * the commit objects it would pack are still there, so the only cost is a slower cold open.
+	 */
+	private async snapshotIfDue(closing: boolean): Promise<void> {
+		const sinceSnapshot = this.seq - (this.snapshotReference?.seq ?? 0);
+		const due =
+			sinceSnapshot > 0 &&
+			((closing && this.snapshotPolicy.atClose === true) ||
+				(this.snapshotPolicy.everyCommits !== undefined && sinceSnapshot >= this.snapshotPolicy.everyCommits));
+		if (!due) return;
+		try {
+			const result = await writeSnapshotObject(
+				{
+					client: this.client,
+					s3: this.s3,
+					tableName: this.tableName,
+					bucket: this.bucket,
+					fence: this.fence,
+					readCommitObject: (key) => this.fetchCommit(key, true),
+				},
+				this.storageId,
+			);
+			const newest = await readSnapshotReference(this.client, this.tableName, this.storageId);
+			if (newest !== undefined && newest.seq !== this.snapshotReference?.seq) {
+				this.snapshotReference = newest;
+				this.snapshotLoading = undefined;
+			}
+		} catch (error) {
+			process.stderr.write(`[indexed-storage] snapshot for ${this.storageId} skipped: ${(error as Error).message}\n`);
+		}
 	}
 
 	/**
@@ -1027,6 +1080,8 @@ export class IndexedStorage implements Storage {
 		const cached = this.commits.get(key);
 		if (cached !== undefined) return cached;
 		const loading = (async () => {
+			const packed = await this.readFromSnapshot(key);
+			if (packed !== undefined) return packed;
 			const response = await this.s3.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
 			return parse<CommitObject>(await response.Body!.transformToString());
 		})();
@@ -1035,6 +1090,25 @@ export class IndexedStorage implements Storage {
 			loading.catch(() => this.commits.delete(key));
 		}
 		return loading;
+	}
+
+	/**
+	 * Answer a commit object read from the snapshot this storage was opened with, when the key is at or below the
+	 * snapshot's sequence and the snapshot carries it. The snapshot object is fetched once, on the first such read, so
+	 * opening a storage still costs no S3 GET. A missing or unreadable snapshot degrades to reading commit objects.
+	 */
+	private async readFromSnapshot(key: string): Promise<CommitObject | undefined> {
+		const reference = this.snapshotReference;
+		const parts = parseCommitKey(key);
+		if (reference === undefined || parts === undefined || parts.seq > reference.seq) return undefined;
+		this.snapshotLoading ??= readSnapshotObject(this.s3, this.bucket, this.storageId, reference).catch((error: Error) => {
+			process.stderr.write(`[indexed-storage] snapshot ${reference.seq} of ${this.storageId} unreadable: ${error.message}\n`);
+			return undefined;
+		});
+		const snapshot = await this.snapshotLoading;
+		const suffix = key.slice(key.lastIndexOf("/") + 1, -".json".length);
+		const packed = snapshot?.commits[suffix];
+		return packed === undefined ? undefined : unpackCommitObject(this.storageId, suffix, packed);
 	}
 
 	private async readRecord<T>(id: number, table: TableName): Promise<T | undefined> {
