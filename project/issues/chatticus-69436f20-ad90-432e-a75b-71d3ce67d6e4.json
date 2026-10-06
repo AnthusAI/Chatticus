@@ -23,10 +23,6 @@
       "type": "blocked-by"
     },
     {
-      "target": "chatticus-18cbf692-2617-494a-b597-cd2d68094591",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-f239facb-99a0-4ec3-b1e4-80a7efc3cb9c",
       "type": "blocked-by"
     },
@@ -61,14 +57,14 @@
   ],
   "comments": [],
   "created_at": "2026-10-05T15:46:51.809027Z",
-  "updated_at": "2026-10-06T00:23:03.735356Z",
+  "updated_at": "2026-10-06T03:07:03.589040Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The team must run the full test suite and acceptance checks against the dormant development stack, then report results.",
-  "right_now_updated_at": "2026-10-06T00:23:04.996446Z",
+  "right_now_summary": "The team is rehearsing the TypeScript stack in development and recording test results.",
+  "right_now_updated_at": "2026-10-06T03:07:05.395534Z",
   "custom": {}
 }
