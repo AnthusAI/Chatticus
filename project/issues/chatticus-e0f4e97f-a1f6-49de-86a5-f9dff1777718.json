@@ -13,22 +13,18 @@
     {
       "target": "chatticus-c32c3599-2efb-4bf9-a587-565c366be5a2",
       "type": "blocked-by"
-    },
-    {
-      "target": "chatticus-2ffc480f-a4a7-4061-b122-0bc04df06293",
-      "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:45:45.540618Z",
-  "updated_at": "2026-10-05T15:49:14.887249Z",
+  "updated_at": "2026-10-06T02:01:35.082840Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The task domain, tool, routes, and test steps still need to be ported to TypeScript.",
-  "right_now_updated_at": "2026-10-05T15:49:16.212882Z",
+  "right_now_summary": "Implementation is waiting on the required prototype and dependencies.",
+  "right_now_updated_at": "2026-10-06T02:01:37.501690Z",
   "custom": {}
 }

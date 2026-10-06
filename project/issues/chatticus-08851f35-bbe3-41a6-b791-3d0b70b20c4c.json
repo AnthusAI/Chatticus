@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-2ffc480f-a4a7-4061-b122-0bc04df06293",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:45:36.528188Z",
-  "updated_at": "2026-10-05T15:48:59.087818Z",
+  "updated_at": "2026-10-06T02:01:32.028199Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The team is implementing Pi usage spend recording with vendor ledger updates and pricing.",
-  "right_now_updated_at": "2026-10-05T15:49:00.121743Z",
+  "right_now_summary": "The ticket requires a verified Pi usage prototype before building ledger recording and tests.",
+  "right_now_updated_at": "2026-10-06T02:01:32.956254Z",
   "custom": {}
 }

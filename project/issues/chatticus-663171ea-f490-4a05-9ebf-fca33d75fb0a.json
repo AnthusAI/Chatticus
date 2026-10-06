@@ -9,22 +9,17 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-2ffc480f-a4a7-4061-b122-0bc04df06293",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [],
   "created_at": "2026-10-05T15:46:46.994338Z",
-  "updated_at": "2026-10-06T00:43:32.650568Z",
+  "updated_at": "2026-10-06T02:01:49.314031Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The transcript migration tool awaits its required prototype and dependent tickets before implementation can begin.",
-  "right_now_updated_at": "2026-10-06T00:43:35.429106Z",
+  "right_now_summary": "The transcript migration tool awaits the required prototype before implementation can begin.",
+  "right_now_updated_at": "2026-10-06T02:01:51.542924Z",
   "custom": {}
 }

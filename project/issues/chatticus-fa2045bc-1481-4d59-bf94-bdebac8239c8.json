@@ -9,12 +9,7 @@
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
-  "dependencies": [
-    {
-      "target": "chatticus-2ffc480f-a4a7-4061-b122-0bc04df06293",
-      "type": "blocked-by"
-    }
-  ],
+  "dependencies": [],
   "comments": [
     {
       "id": "44832475-98dc-4376-88d8-46ad897773a4",
@@ -30,14 +25,14 @@
     }
   ],
   "created_at": "2026-10-05T15:45:28.109542Z",
-  "updated_at": "2026-10-06T00:43:25.942503Z",
+  "updated_at": "2026-10-06T02:01:23.102489Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The required prototype proof is missing, so implementation must stop before the build begins.",
-  "right_now_updated_at": "2026-10-06T00:43:27.417633Z",
+  "right_now_summary": "The SSE route awaits implementation after the prototype proved framing, resume, and heartbeat behavior.",
+  "right_now_updated_at": "2026-10-06T02:01:25.319023Z",
   "custom": {}
 }

@@ -11,24 +11,20 @@
   "labels": [],
   "dependencies": [
     {
-      "target": "chatticus-2ffc480f-a4a7-4061-b122-0bc04df06293",
-      "type": "blocked-by"
-    },
-    {
       "target": "chatticus-443bbf9e-492f-49f1-bfc1-1308f4d9ac6e",
       "type": "blocked-by"
     }
   ],
   "comments": [],
   "created_at": "2026-10-05T15:46:32.097460Z",
-  "updated_at": "2026-10-05T19:22:15.775368Z",
+  "updated_at": "2026-10-06T02:01:45.431939Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "The CDK control-plane stack still needs to be added and wired for development.",
-  "right_now_updated_at": "2026-10-05T19:22:17.254795Z",
+  "right_now_summary": "The dormant infrastructure stack still needs to be built, tested, and wired into the CDK app.",
+  "right_now_updated_at": "2026-10-06T02:01:47.037520Z",
   "custom": {}
 }
