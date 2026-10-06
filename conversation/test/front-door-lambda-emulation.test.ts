@@ -1,7 +1,7 @@
 import { Writable } from "node:stream";
 import { streamHandle } from "hono/aws-lambda";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createSseProbeApp } from "../src/http/sse-probe.ts";
+import { createSseProbeApp, defaultSseProbeOptions } from "../src/http/sse-probe.ts";
 import { wallStreamClock } from "../src/http/stream.ts";
 
 interface RecordedResponseMetadata {
@@ -80,8 +80,8 @@ describe("front door under the emulated Lambda response stream runtime", () => {
 		vi.spyOn(console, "log").mockImplementation((line: string) => {
 			logged.push(line);
 		});
-		const module = await import("../src/lambdas/front-door.ts");
-		handler = module.handler as unknown as StreamingHandler;
+		const probeApp = createSseProbeApp(defaultSseProbeOptions);
+		handler = streamHandle(probeApp) as unknown as StreamingHandler;
 	});
 
 	afterEach(() => {

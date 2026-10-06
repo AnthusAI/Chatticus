@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import * as cdk from "aws-cdk-lib";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, it } from "node:test";
 import { PI_SESSION_TABLE_KEYS } from "../../conversation/src/storage/table-definition.ts";
@@ -33,10 +34,14 @@ function synthControlPlane(
     partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
     sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
   });
+  const invokeSecret = new secretsmanager.Secret(support, "InvokeKey");
+  const operatorSecret = new secretsmanager.Secret(support, "OperatorKey");
   const stack = new ControlPlaneStack(app, "ControlPlane", {
     env: { account: "111111111111", region: "us-east-1" },
     chatticusEnvironment: environmentName,
     messagingTable,
+    invokeSecret,
+    operatorSecret,
   });
   return Template.fromStack(stack);
 }
@@ -251,6 +256,98 @@ describe("ControlPlaneStack", () => {
       mappings.filter((mapping) => mapping.Properties.FunctionResponseTypes !== undefined).length,
       1,
     );
+  });
+
+  it("tells the FrontDoor the signup mode, the Cognito parameters, the keys and the integration test switch", () => {
+    const variables = functionByDescription(development, "TypeScript front door").Environment.Variables;
+    for (const name of [
+      "CHATTICUS_ENVIRONMENT",
+      "CHATTICUS_MESSAGING_TABLE",
+      "CHATTICUS_CONVERSATIONS_TABLE",
+      "CHATTICUS_PI_SESSIONS_BUCKET",
+      "CHATTICUS_TURN_RUNS_QUEUE_URL",
+      "CHATTICUS_TURN_PROBES_QUEUE_URL",
+      "CHATTICUS_COMPUTER_STARTS_QUEUE_URL",
+      "CHATTICUS_SIGNUP_MODE",
+      "CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER",
+      "CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER",
+      "CHATTICUS_INVOKE_KEY",
+      "CHATTICUS_OPERATOR_KEY",
+      "OPENAI_API_KEY_PARAMETER",
+    ]) {
+      assert.ok(variables[name] !== undefined, `the FrontDoor sets ${name}`);
+    }
+    assert.equal(variables.CHATTICUS_SIGNUP_MODE, "open");
+    assert.equal(variables.CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER, "/chatticus/development/web/cognito-user-pool-id");
+    assert.equal(variables.CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER, "/chatticus/development/web/cognito-app-client-id");
+    assert.equal(variables.CHATTICUS_INTEGRATION_TEST_ENABLED, "true");
+    assert.equal(
+      functionByDescription(synthControlPlane("production"), "TypeScript front door").Environment.Variables
+        .CHATTICUS_INTEGRATION_TEST_ENABLED,
+      undefined,
+    );
+  });
+
+  it("does not hand the invoke or operator key to any other function", () => {
+    for (const fragment of ["TurnRuns consumer", "TurnProbes consumer", "ComputerStartJobs consumer"]) {
+      const variables = functionByDescription(development, fragment).Environment.Variables;
+      assert.equal(variables.CHATTICUS_INVOKE_KEY, undefined);
+      assert.equal(variables.CHATTICUS_OPERATOR_KEY, undefined);
+    }
+  });
+
+  describe("FrontDoor permissions", () => {
+    const frontDoorStatements = (template: Template): Record<string, any>[] =>
+      Object.values(template.findResources("AWS::IAM::Policy"))
+        .filter((policy) => JSON.stringify(policy.Properties.Roles).includes("FrontDoorServiceRole"))
+        .flatMap((policy) => policy.Properties.PolicyDocument.Statement);
+
+    it("sends to all three queues", () => {
+      const document = JSON.stringify(
+        frontDoorStatements(development).filter((statement) =>
+          [].concat(statement.Action).includes("sqs:SendMessage"),
+        ),
+      );
+      for (const queue of ["TurnRuns", "TurnProbes", "ComputerStartJobs"]) {
+        assert.match(document, new RegExp(`"${queue}[0-9A-F]{8}","Arn"`), `FrontDoor may send to ${queue}`);
+      }
+    });
+
+    it("reads and writes the Messaging table and reads the Conversations table", () => {
+      const statements = frontDoorStatements(development);
+      const writes = statements.filter((statement) => [].concat(statement.Action).includes("dynamodb:PutItem"));
+      assert.ok(JSON.stringify(writes).includes("Messaging"), "FrontDoor writes the Messaging table");
+      const conversations = statements.filter((statement) => JSON.stringify(statement.Resource).includes("Conversations"));
+      assert.ok(conversations.length > 0, "FrontDoor reads the Conversations table");
+      assert.ok(
+        conversations.every((statement) => ![].concat(statement.Action).includes("dynamodb:PutItem")),
+        "FrontDoor does not write the Conversations table",
+      );
+    });
+
+    it("reads the Cognito parameters and, outside production, the integration test parameters", () => {
+      const resources = (template: Template): string =>
+        JSON.stringify(
+          frontDoorStatements(template).filter((statement) => [].concat(statement.Action).includes("ssm:GetParameter")),
+        );
+      const developmentResources = resources(development);
+      assert.ok(developmentResources.includes("parameter/chatticus/development/web/cognito-user-pool-id"));
+      assert.ok(developmentResources.includes("parameter/chatticus/development/web/cognito-app-client-id"));
+      assert.ok(developmentResources.includes("parameter/chatticus/development/integration-test/*"));
+      const productionResources = resources(synthControlPlane("production"));
+      assert.ok(productionResources.includes("parameter/chatticus/production/web/cognito-user-pool-id"));
+      assert.ok(!productionResources.includes("integration-test"));
+    });
+
+    it("may assume the organization computer role to inspect a customer role and nothing else of the computer", () => {
+      const statements = frontDoorStatements(development);
+      const assume = statements.filter((statement) => [].concat(statement.Action).includes("sts:AssumeRole"));
+      assert.equal(assume.length, 1);
+      assert.equal(assume[0].Resource, "arn:aws:iam::*:role/ChatticusOrganizationComputerRole");
+      const document = JSON.stringify(statements);
+      assert.ok(!document.includes("ecs:RunTask"));
+      assert.ok(!document.includes("iam:PassRole"));
+    });
   });
 
   it("creates no IAM users or EventBridge schedules", () => {
