@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude"
       }
+    },
+    {
+      "id": "fd1dd637-cfb6-4b1d-afac-8c58723feab5",
+      "author": "home",
+      "text": "LIVE PROOF, development, PASS. Run 1: write_workspace then ecs stop-task 0.6 s after the tool.result (crash simulation): record stale as predicted (stopped=false, disk_dirty=true, 0 tasks). Run 2: a new turn settled the record on the first poll (stopped=true, disk_dirty=false, hydrate_required=true), a new host hydrated, ts56.txt read back ts56-hello-snapshot and the dead host's unpublished file was missing (as designed), turn.completed in 34 s; stored item has host_lost_at and host_lost_generation=4 (the killed generation). Cleanup: 0 tasks, DLQs 0. Not shown on GET /orgs/{t}/computer (see TS-55). Nothing reaps the stale record before the next start (by design).",
+      "created_at": "2026-10-06T23:59:33.860730Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
     }
   ],
   "created_at": "2026-10-06T22:36:51.131271Z",
-  "updated_at": "2026-10-06T23:29:44.821516Z",
+  "updated_at": "2026-10-06T23:59:33.860760Z",
   "closed_at": "2026-10-06T23:29:44.821482Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The reconciliation fix merged; a live ECS kill-and-restart check remains to verify recovery and hydration.",
-  "right_now_updated_at": "2026-10-06T23:29:46.391361Z",
+  "right_now_summary": "A live test confirmed the next turn repairs the stale record and restores the disk from its last snapshot.",
+  "right_now_updated_at": "2026-10-06T23:59:36.623993Z",
   "custom": {}
 }

@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude"
       }
+    },
+    {
+      "id": "10fad934-3027-4d69-b529-b814929d24a3",
+      "author": "home",
+      "text": "Add from the TS-58/59 live proof: expose hostLostAt and hostLostGeneration on GET /orgs/{t}/computer (they are stored but not in the API view); hosts take 25-60 s from start to workspace_ready and linger about 2 minutes after the last turn before self-exit (consider an idle timeout shorter than the 120 s worker window).",
+      "created_at": "2026-10-06T23:59:40.718207Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
     }
   ],
   "created_at": "2026-10-06T22:27:31.179184Z",
-  "updated_at": "2026-10-06T22:36:48.005385Z",
+  "updated_at": "2026-10-06T23:59:40.718237Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "Structured logs now cover snapshot hydrate and publish, with host start generation documented for operators.",
-  "right_now_updated_at": "2026-10-06T22:36:49.467210Z",
+  "right_now_summary": "The team is adding structured logs and exposing host timing data to verify computer startup and activity.",
+  "right_now_updated_at": "2026-10-06T23:59:41.880409Z",
   "custom": {}
 }

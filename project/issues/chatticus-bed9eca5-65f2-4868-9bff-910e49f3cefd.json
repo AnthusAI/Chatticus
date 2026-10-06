@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude"
       }
+    },
+    {
+      "id": "c9ef55d1-a28a-4fee-932b-48b735c40e2d",
+      "author": "home",
+      "text": "LIVE PROOF, development, PASS. First publish with the new pack bumped snapshot_generation 2 to 3 once (old checksums, expected); a following read-only turn left generation 3, checksum 482d0a85 and the S3 ETags and LastModified unchanged.",
+      "created_at": "2026-10-06T23:59:37.942437Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
     }
   ],
   "created_at": "2026-10-06T22:36:53.212494Z",
-  "updated_at": "2026-10-06T23:29:40.869980Z",
+  "updated_at": "2026-10-06T23:59:37.942478Z",
   "closed_at": "2026-10-06T23:29:40.869896Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The pack is deterministic, and a live re-check is pending to confirm read-only turns no longer republish snapshots.",
-  "right_now_updated_at": "2026-10-06T23:29:43.112588Z",
+  "right_now_summary": "A live read-only turn left the snapshot generation, checksum, and S3 objects unchanged.",
+  "right_now_updated_at": "2026-10-06T23:59:39.340105Z",
   "custom": {}
 }
