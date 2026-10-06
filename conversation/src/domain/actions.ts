@@ -8,6 +8,7 @@
  * a resumed turn finds the result by call id and never runs the tool twice.
  */
 
+import { BROWSER_ACTION_KINDS, BROWSE_ACTION_KIND, REQUEST_COMPUTER_CAPABILITY_ACTION_KIND } from "@chatticus/host-protocol";
 import type { Clock, IdSource } from "../http/app.ts";
 import { ComputerActionNotClaimedError, ComputerActionNotFoundError } from "../http/errors.ts";
 import type { ActionEnvelope, ComputerAction } from "../store/codecs/action.ts";
@@ -33,8 +34,8 @@ export const COMPUTER_TOOL_NAMES: ReadonlySet<string> = new Set([
 	"read_workspace",
 	"write_workspace",
 	"run_terminal",
-	"browse",
-	"request_computer_capability",
+	BROWSE_ACTION_KIND,
+	REQUEST_COMPUTER_CAPABILITY_ACTION_KIND,
 ]);
 
 /**
@@ -44,7 +45,7 @@ export const COMPUTER_TOOL_NAMES: ReadonlySet<string> = new Set([
  * @returns `browser` for the browser tools and capability requests, `workspace` for everything else.
  */
 export function gateForComputerTool(toolName: string): string {
-	return toolName === "browse" || toolName === "request_computer_capability" ? BROWSER_GATE : WORKSPACE_GATE;
+	return BROWSER_ACTION_KINDS.has(toolName) ? BROWSER_GATE : WORKSPACE_GATE;
 }
 
 /**
@@ -56,7 +57,7 @@ export function gateForComputerTool(toolName: string): string {
  * @returns The envelope stored on the action.
  */
 export function envelopeForCall(toolName: string, arguments_: Readonly<Record<string, string>>): ActionEnvelope {
-	const idempotent = toolName === "read_workspace" || toolName === "browse" || toolName === "request_computer_capability";
+	const idempotent = toolName === "read_workspace" || BROWSER_ACTION_KINDS.has(toolName);
 	return {
 		tool: toolName,
 		idempotent,

@@ -1,11 +1,11 @@
 import { execFile } from "node:child_process";
 import { accessSync, closeSync, constants, mkdirSync, openSync, readSync } from "node:fs";
+import { BROWSER_ACTION_KINDS, BROWSE_ACTION_KIND } from "@chatticus/host-protocol";
 import { delimiter, join } from "node:path";
 import { UNTRUSTED_PARTITION, browserProfileDir, ensureBrowserProfilesLayout } from "../browser-profiles.ts";
 import { pythonRepr, ValueError } from "../workspace-paths.ts";
 import { liveRootFromEnvironment } from "./workspace.ts";
 
-const SUPPORTED_TOOLS: ReadonlySet<string> = new Set(["browser_open", "request_computer_capability"]);
 const SNAP_STUB_MARKERS = ["requires the chromium snap", "snap install chromium"];
 const SNAP_STUB_HEAD_BYTES = 800;
 const PROBE_TIMEOUT_SECONDS = 30;
@@ -176,7 +176,7 @@ export type ChromiumActionExecutorOptions = {
 	readonly binaryPath?: () => string;
 };
 
-/** Run browser_open on the computer host using the local Chromium binary. */
+/** Run browse on the computer host using the local Chromium binary. */
 export class ChromiumActionExecutor {
 	private readonly display: string | null;
 	private readonly liveRoot: string | undefined;
@@ -193,16 +193,16 @@ export class ChromiumActionExecutor {
 	/**
 	 * Return the durable tool.result body for one browser action.
 	 *
-	 * @param toolName `browser_open` or `request_computer_capability`.
+	 * @param toolName `browse` or `request_computer_capability`.
 	 * @param arguments_ The call's arguments.
 	 * @throws ValueError If the tool is not supported, or a capability request names a gate other than the browser.
 	 * @throws RuntimeError If Chromium fails to open the page.
 	 */
 	async execute(toolName: string, arguments_: Readonly<Record<string, string>>): Promise<string> {
-		if (!SUPPORTED_TOOLS.has(toolName)) {
+		if (!BROWSER_ACTION_KINDS.has(toolName)) {
 			throw new ValueError(`ChromiumActionExecutor does not support ${pythonRepr(toolName)}.`);
 		}
-		if (toolName === "browser_open") {
+		if (toolName === BROWSE_ACTION_KIND) {
 			return this.browserOpen(arguments_);
 		}
 		const gate = (arguments_["gate"] ?? "browser").trim() || "browser";
@@ -237,7 +237,7 @@ export class ChromiumActionExecutor {
 		const completed = await this.runner(command, { environment, timeoutMilliseconds: BROWSER_OPEN_TIMEOUT_SECONDS * 1000 });
 		if (completed.returnCode !== 0) {
 			const detail = (completed.standardError || completed.standardOutput || "").trim();
-			throw new RuntimeError(`browser_open failed for ${pythonRepr(url)}: ${detail || completed.returnCode}`);
+			throw new RuntimeError(`browse failed for ${pythonRepr(url)}: ${detail || completed.returnCode}`);
 		}
 		return `opened:${url}`;
 	}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { ensureComputer } from "../../src/domain/computers.ts";
-import type { ComputerPolicy } from "../../src/domain/workers.ts";
+import { healthyWorkers, type ComputerPolicy } from "../../src/domain/workers.ts";
 import { recordResponse } from "../api.ts";
 import {
 	computerScenarioOf,
@@ -136,9 +136,12 @@ Then("a computer continuation job is queued for the turn", async function (this:
 		return;
 	}
 	const waiting = (await actionStoreOf(this).listForTurn(tenantId, turnId)).filter((action) => action.status === "requested");
+	const liveHosts = (
+		await healthyWorkers(tenantId, { store: this.messagingStore(), clock: this.clock, heartbeatTimeoutSeconds: this.heartbeatTimeoutSeconds })
+	).filter((worker) => worker.capabilities.includes("computer"));
 	assert.ok(
-		jobs.length === 0 && waiting.length === 1,
-		`Start jobs queued for the turn: ${JSON.stringify(jobs)}; actions waiting for a live host: ${waiting.length}`,
+		jobs.length === 0 && waiting.length === 1 && liveHosts.length > 0,
+		`Start jobs queued for the turn: ${JSON.stringify(jobs)}; actions waiting: ${waiting.length}; live hosts: ${liveHosts.length}`,
 	);
 });
 

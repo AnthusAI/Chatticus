@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+/** The kind of the action that opens a page in the host browser. The control plane emits it and the host runs it. */
+export const BROWSE_ACTION_KIND = "browse";
+
+/** The kind of the action that asks the host for a capability, such as a browser session. */
+export const REQUEST_COMPUTER_CAPABILITY_ACTION_KIND = "request_computer_capability";
+
+/** The action kinds the host browser runs. */
+export const BROWSER_ACTION_KINDS: ReadonlySet<string> = new Set([BROWSE_ACTION_KIND, REQUEST_COMPUTER_CAPABILITY_ACTION_KIND]);
+
 /** The header that names the member a host serves, sent with every host request. */
 export const HOST_USER_HEADER = "X-Chatticus-Host-User-Id";
 

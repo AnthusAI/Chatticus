@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import type { ZodType } from "zod";
 import {
+	BROWSE_ACTION_KIND,
 	HOST_USER_HEADER,
 	actionResultRequestSchema,
 	claimActionRequestSchema,
@@ -160,7 +161,7 @@ export async function hostActionResultHandler(c: Context, deps: HostRouteDepende
 }
 
 const REGATE_TOOLS = {
-	browse: { toolName: "browse", argumentName: "url" },
+	browse: { toolName: BROWSE_ACTION_KIND, argumentName: "url" },
 	read: { toolName: "read_workspace", argumentName: "path" },
 	write: { toolName: "write_workspace", argumentName: "path" },
 } as const;

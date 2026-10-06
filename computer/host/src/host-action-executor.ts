@@ -1,4 +1,4 @@
-import type { ActionResultRequest, HostAction } from "@chatticus/host-protocol";
+import { BROWSER_ACTION_KINDS, type ActionResultRequest, type HostAction } from "@chatticus/host-protocol";
 import { type SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
 import { ChromiumActionExecutor } from "./executors/chromium.ts";
 import { TerminalActionExecutor } from "./executors/terminal.ts";
@@ -6,7 +6,6 @@ import { WorkspaceActionExecutor } from "./executors/workspace.ts";
 import { pythonRepr, ValueError } from "./workspace-paths.ts";
 
 const WORKSPACE_TOOLS: ReadonlySet<string> = new Set(["read_workspace", "write_workspace"]);
-const BROWSER_TOOLS: ReadonlySet<string> = new Set(["browser_open", "request_computer_capability"]);
 const TERMINAL_TOOLS: ReadonlySet<string> = new Set(["run_terminal"]);
 
 /** What the host dispatcher runs on: ready executors, or the live root and store to build them from. */
@@ -53,7 +52,7 @@ export class HostActionExecutor {
 		if (WORKSPACE_TOOLS.has(toolName)) {
 			return this.workspace.execute(toolName, arguments_);
 		}
-		if (BROWSER_TOOLS.has(toolName)) {
+		if (BROWSER_ACTION_KINDS.has(toolName)) {
 			return this.browser.execute(toolName, arguments_);
 		}
 		if (TERMINAL_TOOLS.has(toolName)) {

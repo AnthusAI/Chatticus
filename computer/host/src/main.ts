@@ -1,4 +1,4 @@
-import type { HostAction, RegateActionRequest } from "@chatticus/host-protocol";
+import { BROWSER_ACTION_KINDS, type HostAction, type RegateActionRequest } from "@chatticus/host-protocol";
 import type { SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
 import { ComputerHostBootDriver, type HostBootPlane } from "./boot.ts";
 import { publishBeforeExit } from "./disk-lifecycle.ts";
@@ -8,7 +8,6 @@ import { HostProtocolClient, registerHostWorker } from "./protocol-client.ts";
 const DEFAULT_WORKER_ID = "computer-host";
 const DEFAULT_HOST_WORKER_SECONDS = 120;
 const IDLE_SLEEP_MILLISECONDS = 1000;
-const BROWSER_TOOLS: ReadonlySet<string> = new Set(["browser_open", "request_computer_capability"]);
 
 /** A required environment variable is missing. Python raised the built-in `KeyError`; the host keeps the name. */
 export class KeyError extends Error {
@@ -34,7 +33,7 @@ export interface HostActionRunner {
  * @returns The regate to ask for, or null when the action reaches nothing the gate checks.
  */
 export function regateRequestFor(action: HostAction): RegateActionRequest | null {
-	if (BROWSER_TOOLS.has(action.tool_name)) {
+	if (BROWSER_ACTION_KINDS.has(action.tool_name)) {
 		const url = (action.arguments["url"] ?? "").trim();
 		return url === "" || url === "about:blank" ? null : { kind: "browse", target: url };
 	}

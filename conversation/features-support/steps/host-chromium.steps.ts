@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { BROWSE_ACTION_KIND } from "@chatticus/host-protocol";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { browserProfileDir } from "../../../computer/host/src/browser-profiles.ts";
 import { ChromiumActionExecutor, type ProcessRunner } from "../../../computer/host/src/executors/chromium.ts";
@@ -192,7 +193,7 @@ When("a chromium executor opens an untrusted browser page", async function (this
 		runner: recordingRunner(scenario),
 		binaryPath: () => FAKE_CHROMIUM_BINARY,
 	});
-	await executor.execute("browser_open", { url: UNTRUSTED_PAGE, storage_partition: "untrusted" });
+	await executor.execute(BROWSE_ACTION_KIND, { url: UNTRUSTED_PAGE, storage_partition: "untrusted" });
 });
 
 function userDataArgument(world: ChatticusWorld): string {
@@ -209,4 +210,35 @@ Then("the chromium executor used the untrusted browser profile directory", funct
 
 Then("the chromium executor did not use the privileged banking browser profile directory", function (this: ChatticusWorld) {
 	assert.ok(!userDataArgument(this).includes(browserProfileDir(chromiumOf(this).liveRoot!, BANKING_PARTITION)));
+});
+
+When("a computer-capable pull worker with a chromium executor runs the browse action", async function (this: ChatticusWorld) {
+	const scenario = chromiumOf(this);
+	const executor = new ChromiumActionExecutor({
+		display: DISPLAY,
+		liveRoot: hostDiskOf(this, BROWSER_HOST_WORKER_ID).liveRoot,
+		runner: recordingRunner(scenario),
+		binaryPath: () => FAKE_CHROMIUM_BINARY,
+	});
+	const driver = loopHostStartDriver(() => runHostUntilIdle(this, BROWSER_HOST_WORKER_ID, executor));
+	await deliverStartJob(this, startJobOf(this), driver);
+	assert.equal(computerScenarioOf(this).startError, null, computerScenarioOf(this).startError?.message);
+	assert.equal((await runQueuedJobs(this)).at(-1), "done");
+});
+
+Then("the turn journal records the opened page for the browse action", async function (this: ChatticusWorld) {
+	const { tenantId } = activeTurnOf(this);
+	const action = await actionStoreOf(this).get(tenantId, computerScenarioOf(this).pendingActionId!);
+	assert.equal(action?.toolName, BROWSE_ACTION_KIND);
+	const events = await journalNow(this);
+	const results = events.filter((event) => event.kind === "tool.result" && event.action_id === action?.callId);
+	assert.equal(results.length, 1);
+	assert.equal(results[0]!.body, `opened:${BROWSER_ORIGIN}/inbox`);
+	assert.equal(events.at(-1)!.kind, "turn.completed");
+});
+
+Then("the chromium executor launched the browser on that page", function (this: ChatticusWorld) {
+	const command = chromiumOf(this).commands.at(-1);
+	assert.ok(command, "The chromium executor launched no browser.");
+	assert.equal(command.at(-1), `${BROWSER_ORIGIN}/inbox`);
 });
