@@ -27,17 +27,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude"
       }
+    },
+    {
+      "id": "978e3a8d-f1a4-4d9e-bf17-9cae0834b628",
+      "author": "home",
+      "text": "From TS-33: also port or record obsolete the 8 scenarios in features/computer_host_workspace_executor_host_worker.feature and features/agent_terminal_host_worker.feature (queued start job escalation, host re-gate loop incl. tampered continuation job, relocate hydrated bytes, no snapshot store). executeAction signature is executeAction(action: HostAction): {result}.",
+      "created_at": "2026-10-06T11:07:35.783215Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
     }
   ],
   "created_at": "2026-10-05T15:46:23.966562Z",
-  "updated_at": "2026-10-06T07:45:11.882147Z",
+  "updated_at": "2026-10-06T11:07:35.783251Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "ticket-writer"
   },
-  "right_now_summary": "TS-34 is deferred from TS-31 and must port the Chromium host worker, boot loop, protocol client, and disk lifecycle.",
-  "right_now_updated_at": "2026-10-06T07:45:13.243762Z",
+  "right_now_summary": "The TypeScript host worker ports and related scenario decisions still need to be completed.",
+  "right_now_updated_at": "2026-10-06T11:07:38.434243Z",
   "custom": {}
 }
