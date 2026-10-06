@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { Given, Then, When, defineParameterType } from "@cucumber/cucumber";
-import { wireFrontDoor } from "../front-door.ts";
+import { OrganizationsKernelImpl } from "../../src/domain/organizations.ts";
+import { getRegisteredRoutes } from "../../src/http/route-audience.ts";
+import { bearerFor, wireFrontDoor } from "../front-door.ts";
 import type { ChatticusWorld } from "../world.ts";
 
-const WAITLIST_SAFE_ROUTE_PATHS = ["/me"];
-const NO_PRINCIPAL_ROUTES = ["/auth/callback"];
+const kernel = new OrganizationsKernelImpl();
+const WAITLIST_MEMBER_EMAIL = "waiting@example.com";
+const WAITLIST_TENANT_ID = "waitlisted";
 
 defineParameterType({
 	name: "path",
@@ -47,10 +50,33 @@ Then("GET \\/health reports environment {string}", async function (this: Chattic
 	assert.equal(data.environment, expectedEnvironment);
 });
 
-Then("{path} is outside the principal marker system", function (this: ChatticusWorld, path: string) {
-	assert.ok(NO_PRINCIPAL_ROUTES.includes(path), `Path ${path} is not outside the principal system`);
+Then("{path} is outside the principal marker system", async function (this: ChatticusWorld, path: string) {
+	await wireFrontDoor(this, { signupMode: "invitation_only", cognitoVerifier: true });
+	assert.ok(this.api, "No API client");
+	const registered = getRegisteredRoutes().filter((route) => route.path === path);
+	assert.deepEqual(registered, [], `Path ${path} is registered with a principal audience`);
+	const unauthenticated = await this.api.get(path);
+	assert.equal(unauthenticated.status, 404, `Path ${path} must not resolve a principal`);
+	const guarded = await this.api.get("/orgs/anthus/bots");
+	assert.equal(guarded.status, 403, "A principal route must refuse a caller without credentials");
 });
 
-Then("{path} is a named waitlist-safe route", function (this: ChatticusWorld, path: string) {
-	assert.ok(WAITLIST_SAFE_ROUTE_PATHS.includes(path), `Path ${path} is not a waitlist-safe route`);
+Then("{path} is a named waitlist-safe route", async function (this: ChatticusWorld, path: string) {
+	await wireFrontDoor(this, { signupMode: "invitation_only", cognitoVerifier: true });
+	assert.ok(this.api, "No API client");
+	const registered = getRegisteredRoutes().filter((route) => route.path === path && route.method === "GET");
+	assert.ok(registered.length >= 1, `Path ${path} is not a registered route`);
+	const dependencies = { store: this.messagingStore(), clock: this.clock, ids: this.ids };
+	await kernel.adminSeedOrganization(WAITLIST_TENANT_ID, WAITLIST_MEMBER_EMAIL, WAITLIST_TENANT_ID, dependencies);
+	await kernel.suspendOrganization(WAITLIST_TENANT_ID, dependencies);
+	const headers = await bearerFor(this, WAITLIST_MEMBER_EMAIL);
+	const refused = await this.api.get(`/orgs/${WAITLIST_TENANT_ID}/bots`, { headers });
+	assert.equal(refused.status, 403, "A member of a non-enabled organization must be refused on an enabled-only route");
+	const allowed = await this.api.get(path, { headers });
+	assert.equal(allowed.status, 200, `Path ${path} must answer a member of a non-enabled organization`);
+	const body = await allowed.json();
+	assert.deepEqual(
+		body.organizations.map((organization: { tenant_id: string; status: string }) => [organization.tenant_id, organization.status]),
+		[[WAITLIST_TENANT_ID, "suspended"]],
+	);
 });

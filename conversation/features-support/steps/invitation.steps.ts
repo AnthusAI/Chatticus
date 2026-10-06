@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
-import { normalizeEmail } from "../../src/domain/organizations.ts";
+import { normalizeEmail, OrganizationsKernelImpl } from "../../src/domain/organizations.ts";
 import { recordResponse } from "../api.ts";
 import { bearerFor, cognitoKeys } from "../front-door.ts";
 import { runMembershipUiHarness } from "../membership-ui-harness.ts";
@@ -43,6 +43,20 @@ When(
 	"a member of {string} tries to invite {string} via the HTTP front door",
 	async function (this: ChatticusWorld, name: string, email: string) {
 		await inviteAsCurrentUser(this, name, email);
+	},
+);
+
+Given(
+	"an invitation for {string} to {string} has been recorded while the organization is pending",
+	async function (this: ChatticusWorld, email: string, name: string) {
+		const organization = this.orgsByName?.get(name);
+		assert.ok(organization, `No organization named ${JSON.stringify(name)} in this scenario.`);
+		assert.equal(organization.status, "pending");
+		assert.ok(this.currentIdentity, "No current user in this scenario.");
+		const dependencies = { store: this.messagingStore(), clock: this.clock, ids: this.ids };
+		await new OrganizationsKernelImpl().inviteByEmail(organization.tenantId, this.currentIdentity.userId, email, dependencies);
+		const waiting = await this.messagingStore().listPendingInvitationsForEmail(normalizeEmail(email));
+		assert.equal(waiting.length, 1);
 	},
 );
 

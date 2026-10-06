@@ -64,6 +64,14 @@ Feature: Invite people into an enabled organization
     Then GET /me responds with status 200
     And GET /me organizations are empty
 
+  Scenario: An invitation recorded while its organization is pending is not accepted on sign-in
+    Given "ryan@example.com" has signed in on the me front door
+    And that user has created organization "Anthus Labs"
+    And an invitation for "sam@example.com" to "Anthus Labs" has been recorded while the organization is pending
+    When GET /me is called with a valid id token for "sam@example.com"
+    Then GET /me responds with status 200
+    And GET /me organizations are empty
+
   Scenario: Invitation-only deployment still refuses organization creation
     Given a Cognito-verified HTTP front door with invitation-only signup
     And "ryan@example.com" has signed in on the me front door
