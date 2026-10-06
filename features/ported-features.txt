@@ -86,3 +86,5 @@ features/single_computer_start.feature
 features/customer_computer_host_front_door.feature
 features/computer_host_pull_worker.feature
 features/host_protocol.feature
+features/computer_host_workspace_executor.feature
+features/agent_terminal.feature
