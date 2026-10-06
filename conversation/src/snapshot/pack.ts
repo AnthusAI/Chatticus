@@ -4,7 +4,7 @@ import { Readable, PassThrough } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import zlib from "node:zlib";
 import * as tar from "tar";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { BROWSER_PROFILES_DIRNAME, WORKSPACE_DIRNAME, ensureBrowserProfilesLayout } from "../browser-profiles.ts";
 
 export const CACHE_CHECKSUM_FILENAME = ".chatticus-snapshot-checksum";
@@ -28,10 +28,37 @@ export function packChecksum(pack: Buffer): string {
 	return createHash("sha256").update(pack).digest("hex");
 }
 
+const NORMALIZED_MTIME = new Date(0);
+
+/**
+ * List every path under the given roots, directories before their contents, each directory in sorted order.
+ *
+ * Directory listing order depends on the filesystem, so the pack takes the order from this walk instead.
+ */
+function sortedPackMembers(resolvedRoot: string, roots: readonly string[]): string[] {
+	const members: string[] = [];
+	const visit = (relative: string): void => {
+		members.push(relative);
+		const absolute = join(resolvedRoot, relative);
+		if (!lstatSync(absolute).isDirectory()) {
+			return;
+		}
+		for (const name of readdirSync(absolute).sort()) {
+			visit(`${relative}/${name}`);
+		}
+	};
+	for (const root of roots) {
+		visit(root);
+	}
+	return members;
+}
+
 /**
  * Create a gzip-compressed tar of workspace and browser profiles.
  *
- * Empty directories are included so hydrate always replaces both trees.
+ * Empty directories are included so hydrate always replaces both trees. The bytes depend only on paths, file content
+ * and permission bits: members are sorted, modification times are fixed, ownership and access times are dropped, and
+ * the gzip header carries no timestamp. Packing an unchanged disk therefore yields an unchanged checksum.
  */
 export async function packLiveDisk(liveRoot: string): Promise<Buffer> {
 	const resolvedRoot = resolve(liveRoot);
@@ -46,8 +73,11 @@ export async function packLiveDisk(liveRoot: string): Promise<Buffer> {
 				gzip: true,
 				cwd: resolvedRoot,
 				strict: true,
+				portable: true,
+				noDirRecurse: true,
+				mtime: NORMALIZED_MTIME,
 			},
-			[WORKSPACE_DIRNAME, BROWSER_PROFILES_DIRNAME]
+			sortedPackMembers(resolvedRoot, [WORKSPACE_DIRNAME, BROWSER_PROFILES_DIRNAME])
 		);
 
 		tarStream.on("data", (chunk: Buffer) => {
