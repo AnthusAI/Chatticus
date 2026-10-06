@@ -203,6 +203,16 @@ Given("the integration test client has a session bearer token", function (this: 
 	scenario(this).bearer = mintIntegrationTestToken(configuration(this));
 });
 
+Given("the integration test client has a session bearer token with a tampered signature", function (this: ChatticusWorld) {
+	const token = mintIntegrationTestToken(configuration(this));
+	const lastCharacter = token.slice(-1);
+	const replacement = lastCharacter === "0" ? "1" : "0";
+	const tampered = `${token.slice(0, -1)}${replacement}`;
+	assert.notEqual(tampered, token);
+	assert.equal(tampered.length, token.length);
+	scenario(this).bearer = tampered;
+});
+
 Given("the integration test client has an expired session bearer token", function (this: ChatticusWorld) {
 	scenario(this).bearer = mintIntegrationTestTokenExpired(configuration(this));
 });

@@ -58,3 +58,15 @@ Feature: Task-granted executable capability
     Then the capability policy requires immutable approval
     When the model requests tool "send" to recipient "other@example.com"
     Then the capability policy denies the request
+
+  Scenario: An ungranted tool on a granted origin is denied
+    Given a human task grants:
+      | field          | value                    |
+      | tools          | browse, read_workspace   |
+      | origins        | https://docs.example.com |
+      | recipients     |                          |
+      | file_scopes    | /workspace/research      |
+      | egress_classes | approved_origin_fetch    |
+    When the model requests tool "run_terminal" to origin "https://docs.example.com/guide"
+    Then the capability policy denies the request
+    And no unblocked egress is recorded
