@@ -3,23 +3,36 @@
   "title": "TS-51 FrontDoor Lambda composition root (serve the real app)",
   "description": "Found by the TS-50 agent and verified: conversation/src/lambdas/front-door.ts mounts only createSseProbeApp. The deployed ChatticusControlPlane FrontDoor does not serve createApp (GET /health ok, POST /integration-test/session 404), so every ported route has only ever run in-process under cucumber-js. The TurnExecutor Lambda (conversation/src/lambdas/turn-executor.ts) already shows the pattern: build the real adapters from environment variables (Dynamo stores, SQS queues, S3) once per cold start.\n\nDo: (1) Write the FrontDoor composition root in conversation/src/lambdas/front-door.ts (and a small helper module if it is large) that builds AppDeps for createApp (conversation/src/http/app.ts) from the environment: DynamoMessagingStore, DynamoTurnControlStore, the policy store, DynamoComputerActionStore, DynamoBudgetStore as the BudgetRollupReader, the Sqs queues (SqsTurnRunQueue, SqsTurnProbeQueue, SqsComputerStartQueue), the voice understanding with its ledger (OpenAI key via resolveOpenAiApiKey), the Cognito IdTokenVerifier (aws-jwt-verify; user pool and client from env), the invoke key and operator key read from SSM parameters at cold start, the integration-test auth config (loadIntegrationTestAuthConfig; see features/integration_test_auth.feature and conversation/features-support for how the cucumber world builds it), the cross-account role inspector, signup mode and organization creation rate limit, environment name, open-stream counter and stream timing from defaults. Keep /health and the SSE probe routes only if something still needs them (check git grep); no dual paths. (2) Wire the same environment variables, SSM read permissions, DynamoDB read/write on the messaging and conversations tables, SQS send on the three queues, and Cognito settings into the FrontDoor function in infra/lib/control-plane-stack.ts, mirroring how infra/lib/thin-turn-stack.ts configures its FrontDoor for the same settings (read it; reuse its parameter name helpers in infra/lib/environments.ts). The Function URL authType stays as designed; read docs/TYPESCRIPT_CONTROL_PLANE.md. Do not grant the computer or host any extra rights. (3) Tests: a vitest for the composition (fake environment, injected AWS clients) asserting every required variable is read and a missing one fails clearly at cold start, a vitest or infra test on the synthesized template asserting the new env, SSM and queue/table permissions, and mutation checks (drop a required variable, drop the queue grant). The route behavior itself is already covered by cucumber; do not duplicate it. (4) A local smoke: boot the handler's app against moto (see conversation/features-support/world.ts for how moto-backed tables are created) and call GET /health and POST /integration-test/session to prove the real composition answers; if feasible add it as a vitest. Do not deploy; do not run AWS writes. The deploy happens through the repo workflow after merge. Stop and report if the integration-test auth path needs an SSM parameter or stack (ChatticusIntegrationTest) that does not exist, describing exactly what must be created.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "b3adec34-7e1b-4b48-a73f-62fa7b7b6014",
+      "author": "home",
+      "text": "Merged via PR 450 and 451. Live FrontDoor serves createApp (health 200). Fixed on the way: cold-start crash on missing integration-test params; caller match now compares account+role name. Development-only allowed-role-arn parameter is created from CDK context integrationTestAllowedRoleArn, fed by the GitHub env variable CHATTICUS_INTEGRATION_TEST_ALLOWED_ROLE_ARN (the user sets it once). FLIP NOTE: ControlPlaneStack imports the invoke and operator secrets from the Python ThinTurn stack (ChatticusThinTurn export), delivered to the FrontDoor as env vars via unsafeUnwrap. TS-40 must move those two secrets into the ControlPlane stack (or runtime Secrets Manager reads) before ThinTurn is deleted. Also deploy order: ThinTurn deploys before ControlPlane on the same push (a parallel run can fail once with a missing export; rerun fixes it).",
+      "created_at": "2026-10-06T16:00:07.539593Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-06T15:17:39.384782Z",
-  "updated_at": "2026-10-06T15:17:39.384826Z",
-  "closed_at": null,
+  "updated_at": "2026-10-06T16:00:17.654737Z",
+  "closed_at": "2026-10-06T16:00:17.654685Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "FrontDoor must compose and serve the real app with its required AWS adapters, permissions, configuration, and tests.",
-  "right_now_updated_at": "2026-10-06T15:17:40.648957Z",
+  "right_now_summary": "The FrontDoor now serves the real app, with permissions and configuration wired for production.",
+  "right_now_updated_at": "2026-10-06T16:00:26.249117Z",
   "custom": {}
 }
