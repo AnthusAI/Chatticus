@@ -19,6 +19,8 @@ function turnRecord(overrides: Partial<Turn>): Turn {
 		deadlineAt: null,
 		recoveryAttempts: 0,
 		waitingFor: null,
+		waitingSince: null,
+		logicalEnqueueIds: [],
 		pendingComputerTool: null,
 		storageFence: null,
 		nextEventSeq: 9,
