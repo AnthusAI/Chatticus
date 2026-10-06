@@ -96,7 +96,7 @@ the next host. While `hydrate_required` is set, turns for that
 
 ### 1.5 Summoned Fargate worker lifetime
 
-The Fargate host override (`python -m chatticus.computer_host_worker`) polls
+The Fargate host override (`node /opt/chatticus/host/host-worker.mjs`) polls
 for at most **`CHATTICUS_HOST_WORKER_SECONDS` (default 120)** before
 exiting. That is today's practical ceiling on a headless Fargate session
 without changing the worker loop or service model.
