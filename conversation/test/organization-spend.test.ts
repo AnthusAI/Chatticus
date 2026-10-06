@@ -43,6 +43,8 @@ function organizationWithCeiling(ceiling: string | null): Organization {
 		awsCrossAccountRole: null,
 		awsExternalId: null,
 		awsSetupPath: null,
+		setupFeeCents: null,
+		assistedSetupSession: false,
 		monthlyAwsSpendCeilingUsd: ceiling === null ? null : Decimal.parse(ceiling),
 	};
 }

@@ -34,6 +34,10 @@ import type { ScenarioPiStorage } from "./pi-storage.ts";
 import type { SpendCeilingScenarioState } from "./spend-ceiling.ts";
 import type { OperatorScenarioState } from "./steps/operator.steps.ts";
 import type { IntegrationTestScenarioState } from "./steps/integration-test-auth.steps.ts";
+import type { CustomerComputeScenario } from "./customer-computer.ts";
+import type { CustomerSelfSetupScenario } from "./customer-self-setup.ts";
+import type { FrontDoorOptions } from "./front-door.ts";
+import { InMemoryCrossAccountRoleInspector } from "./fakes/in-memory-role-inspector.ts";
 
 let scenarioCounter = 0;
 
@@ -139,6 +143,17 @@ export class ChatticusWorld extends World {
 	integrationTestScenario: IntegrationTestScenarioState | null = null;
 	spendCeilingScenario: SpendCeilingScenarioState | null = null;
 	workerTokens: Map<string, string> = new Map();
+
+	// Customer account provisioning and self-setup
+	/** The customer's IAM role as the self-setup route inspects it; scenarios configure what it trusts and grants. */
+	readonly roleInspector = new InMemoryCrossAccountRoleInspector();
+	customerCompute: CustomerComputeScenario | null = null;
+	customerSelfSetup: CustomerSelfSetupScenario | null = null;
+	customerRoleTemplate: string | null = null;
+	customerComputersTemplate: Record<string, any> | null = null;
+	expectedSnapshotBucketName: string | null = null;
+	/** How the scenario's front door was last wired, so a later step can rewire it with one more dependency. */
+	frontDoorOptions: FrontDoorOptions | null = null;
 
 	// Worker registry, credentials and routing
 	heartbeatTimeoutSeconds = DEFAULT_HEARTBEAT_TIMEOUT_SECONDS;
