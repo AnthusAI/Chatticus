@@ -348,9 +348,6 @@ export class CapabilityPolicy {
 		if (credential === undefined) {
 			return false;
 		}
-		if (context.kind === "untrusted") {
-			return false;
-		}
 		if (credential.kind !== "browser_session") {
 			return false;
 		}
@@ -464,15 +461,9 @@ export class CapabilityPolicy {
 			"use_session",
 			context.pageUrl,
 		);
-		if (context.kind === "untrusted") {
-			return this._deny(
-				"untrusted context cannot use privileged sessions",
-				request,
-			);
-		}
 		if (context.namedSession !== service) {
 			return this._deny(
-				"privileged context is bound to one named session",
+				"a context is bound to its one named session, and an untrusted context has none",
 				request,
 			);
 		}

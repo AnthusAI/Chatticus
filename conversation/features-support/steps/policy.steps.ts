@@ -508,3 +508,18 @@ Given("turn {string} carries the capability grant", function (this: ChatticusWor
 		throw new Error("no task grant is set for the turn to carry");
 	}
 });
+
+When("the model requests tool {string} with no destination", function (this: ChatticusWorld, tool: string): void {
+	getPolicy(this).evaluate(new RequestedCapability(tool, null, null, null, null));
+});
+
+When("the model requests tool {string} with egress class {string}", function (this: ChatticusWorld, tool: string, egressClass: string): void {
+	getPolicy(this).evaluate(new RequestedCapability(tool, null, null, null, egressClass));
+});
+
+Then("the capability policy allows the request", function (this: ChatticusWorld): void {
+	const policy = getPolicy(this);
+	if (policy.last_decision !== "ALLOW") {
+		throw new Error(`expected ALLOW, got ${policy.last_decision}`);
+	}
+});
