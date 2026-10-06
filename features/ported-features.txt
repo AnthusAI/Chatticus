@@ -29,4 +29,3 @@ features/unsupported_browser_action.feature
 features/members_cli.feature
 features/first_org_seed.feature
 features/operator_organization_api.feature
-features/integration_test_auth.feature
