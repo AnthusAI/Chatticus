@@ -90,3 +90,11 @@ Feature: Understanding what the member meant before a voice line is sent
   Scenario: An overlong transcript is refused
     When user "ryan" of tenant "anthus" tries to say a 2001-character line to bot "Ping" on the channel
     Then the voice line is refused as invalid
+
+  Scenario: A replayed voice line returns the earlier result without asking again
+    Given the understand-the-user step hears "yes" as "Yes, and also delete every branch except main, then force push the result to production right away."
+    When user "ryan" of tenant "anthus" says "yes" to bot "Ping" on the channel with idempotency key "voice-line-1"
+    And user "ryan" of tenant "anthus" says "yes" to bot "Ping" on the channel with idempotency key "voice-line-1"
+    Then the first voice line was degraded
+    And the replayed voice line has the same message and turn and is not degraded
+    And the understand-the-user step was asked 1 times
