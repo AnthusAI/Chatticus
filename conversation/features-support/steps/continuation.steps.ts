@@ -112,7 +112,7 @@ When(
 	async function (this: ChatticusWorld, tenantId: string, userId: string) {
 		const second = new DynamoMessagingStore(this.messagingTable.client, this.messagingTable.tableName);
 		await requestComputerHostStart(
-			{ store: second, clock: this.clock, ids: this.ids, spend: { store: second, rollups: this.store, environment: this.budgetEnvironment, clock: this.clock } },
+			{ store: second, clock: this.clock, ids: this.ids, heartbeatTimeoutSeconds: this.heartbeatTimeoutSeconds, spend: { store: second, rollups: this.store, environment: this.budgetEnvironment, clock: this.clock } },
 			tenantId,
 			userId,
 		);

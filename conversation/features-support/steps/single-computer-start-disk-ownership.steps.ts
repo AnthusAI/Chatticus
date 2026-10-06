@@ -31,7 +31,7 @@ function ownershipOf(world: ChatticusWorld): DiskOwnershipScenario {
 async function requestHostStart(world: ChatticusWorld): Promise<HostStartClaim> {
 	const store = world.messagingStore();
 	const claim = await requestComputerHostStart(
-		{ store, clock: world.clock, ids: world.ids, spend: { store, rollups: world.store, environment: world.budgetEnvironment, clock: world.clock } },
+		{ store, clock: world.clock, ids: world.ids, heartbeatTimeoutSeconds: world.heartbeatTimeoutSeconds, spend: { store, rollups: world.store, environment: world.budgetEnvironment, clock: world.clock } },
 		OWNERSHIP_TENANT,
 		OWNERSHIP_USER,
 	);

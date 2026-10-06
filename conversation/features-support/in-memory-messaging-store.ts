@@ -273,6 +273,30 @@ export class InMemoryMessagingStore implements MessagingStore {
 		return structuredClone(next);
 	}
 
+	async settleLostComputerHost(tenantId: string, expectedGeneration: number, lostAt: Date, hydrateRequired: boolean): Promise<Computer | null> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined || computer.hostStartGeneration !== expectedGeneration) {
+			return null;
+		}
+		if (!computer.diskDirty && computer.liveWriterHostId === undefined) {
+			return null;
+		}
+		const { liveWriterHostId: _cleared, ...kept } = computer;
+		const settled: Computer = {
+			...kept,
+			stopped: true,
+			modelReady: false,
+			workspaceReady: false,
+			browserReady: false,
+			diskDirty: false,
+			hydrateRequired,
+			hostLostAt: lostAt,
+			hostLostGeneration: expectedGeneration,
+		};
+		this.computers.set(tenantId, settled);
+		return structuredClone(settled);
+	}
+
 	async markComputerDiskDirty(tenantId: string): Promise<boolean> {
 		const computer = this.computers.get(tenantId);
 		if (computer === undefined) {

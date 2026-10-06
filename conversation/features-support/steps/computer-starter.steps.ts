@@ -140,7 +140,7 @@ Then("ComputerWorker IAM allows ecs TagResource on summoned tasks", function (th
 When("a turn requests a host start for that computer", async function (this: ChatticusWorld) {
 	const store = this.messagingStore();
 	await requestComputerHostStart(
-		{ store, clock: this.clock, ids: this.ids, spend: { store, rollups: this.store, environment: this.budgetEnvironment, clock: this.clock } },
+		{ store, clock: this.clock, ids: this.ids, heartbeatTimeoutSeconds: this.heartbeatTimeoutSeconds, spend: { store, rollups: this.store, environment: this.budgetEnvironment, clock: this.clock } },
 		SINGLE_START_TENANT,
 		SINGLE_START_USER,
 	);
@@ -149,7 +149,7 @@ When("a turn requests a host start for that computer", async function (this: Cha
 When("the same turn retries the host start request", async function (this: ChatticusWorld) {
 	const store = this.messagingStore();
 	await requestComputerHostStart(
-		{ store, clock: this.clock, ids: this.ids, spend: { store, rollups: this.store, environment: this.budgetEnvironment, clock: this.clock } },
+		{ store, clock: this.clock, ids: this.ids, heartbeatTimeoutSeconds: this.heartbeatTimeoutSeconds, spend: { store, rollups: this.store, environment: this.budgetEnvironment, clock: this.clock } },
 		SINGLE_START_TENANT,
 		SINGLE_START_USER,
 	);
