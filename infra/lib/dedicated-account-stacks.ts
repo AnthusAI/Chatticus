@@ -9,12 +9,14 @@ import { EnvironmentZonesStack } from "./environment-zones-stack";
 import {
   AUTH_STACK_IDS,
   CHATTICUS_CLOUD_ENVIRONMENTS,
+  CONTROL_PLANE_STACK_IDS,
   DEDICATED_ACCOUNT_HOSTNAMES,
   THIN_TURN_STACK_IDS,
   WEB_STACK_IDS,
   type ChatticusCloudEnvironment,
 } from "./environments";
 import { SnapshotStack } from "./snapshot-stack";
+import { ControlPlaneStack } from "./control-plane-stack";
 import { ThinTurnStack } from "./thin-turn-stack";
 import { WebStack } from "./web-stack";
 
@@ -96,6 +98,14 @@ export function buildDedicatedAccountStacks(app: cdk.App, props: DedicatedAccoun
     description:
       `Zero-idle computerless turn (${environmentName}): DynamoDB, SQS, ` +
       "Lambda SSE front door.",
+  });
+
+  new ControlPlaneStack(app, CONTROL_PLANE_STACK_IDS[environmentName], {
+    env,
+    chatticusEnvironment: environmentName,
+    messagingTable: thinTurn.messagingTable,
+    description:
+      `TypeScript conversation control plane (${environmentName}), deployed unrouted.`,
   });
 
   const web = new WebStack(app, WEB_STACK_IDS[environmentName], {

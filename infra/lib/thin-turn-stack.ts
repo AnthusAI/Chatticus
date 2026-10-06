@@ -51,6 +51,7 @@ export interface ThinTurnStackProps extends cdk.StackProps {
 
 export class ThinTurnStack extends cdk.Stack {
   readonly frontDoorFunctionUrl: lambda.FunctionUrl;
+  readonly messagingTable: dynamodb.ITable;
   readonly invokeSecret: secretsmanager.ISecret;
   readonly operatorSecret: secretsmanager.ISecret;
 
@@ -82,6 +83,8 @@ export class ThinTurnStack extends cdk.Stack {
       timeToLiveAttribute: "expires_at",
       removalPolicy: dataRetention,
     });
+
+    this.messagingTable = table;
 
     const turnQueue = new sqs.Queue(this, "TurnJobs", {
       visibilityTimeout: cdk.Duration.seconds(180),

@@ -12,6 +12,12 @@ export const THIN_TURN_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   production: "ChatticusThinTurnProduction",
 };
 
+export const CONTROL_PLANE_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
+  development: "ChatticusControlPlane",
+  staging: "ChatticusControlPlaneStaging",
+  production: "ChatticusControlPlaneProduction",
+};
+
 export const WEB_STACK_IDS: Record<ChatticusCloudEnvironment, string> = {
   development: "ChatticusWeb",
   staging: "ChatticusWebStaging",
