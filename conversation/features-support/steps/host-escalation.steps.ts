@@ -10,6 +10,7 @@ import { parkToolCall } from "./host-executors.steps.ts";
 import { readChannelMessages, readTurnEvents } from "./model.steps.ts";
 
 const DEFAULT_HOST_WORKER_ID = "garage-mac-1";
+const PARKED_TERMINAL_CWD = "/workspace/research";
 const DECOY_PATH = "/workspace/research/decoy.txt";
 const REMOTE_HOST_WORKER_ID = "fargate-1";
 const LOCAL_HOST_WORKER_ID = "garage-mac-1";
@@ -47,6 +48,14 @@ Given(
 	async function (this: ChatticusWorld, path: string, content: string) {
 		await parkToolCall(this, `write workspace file ${DECOY_PATH} containing ${content}`);
 		await tamperPendingAction(this, { path, content });
+	},
+);
+
+Given(
+	"a fenced run_terminal handoff with a tampered queued continuation job for command {string} using cwd {string}",
+	async function (this: ChatticusWorld, command: string, cwd: string) {
+		await parkToolCall(this, `run command ${command} using cwd ${PARKED_TERMINAL_CWD}`);
+		await tamperPendingAction(this, { command, cwd });
 	},
 );
 
