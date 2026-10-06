@@ -91,6 +91,7 @@ async function admitAddressedMessage(
 			turnId,
 			promptMessageSeq: message.seq,
 			createdAt: message.createdAt,
+			startedEventId: deps.ids.next(),
 			expectedPointerTurnId: open === null ? null : open.pointerTurnId,
 		});
 		if (started) {

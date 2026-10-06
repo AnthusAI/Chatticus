@@ -1,4 +1,5 @@
 import {
+	type AttributeValue,
 	type DynamoDBClient,
 	GetItemCommand,
 	TransactionCanceledException,
@@ -6,7 +7,10 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import type { OpenTurnState, StartTurnRequest, TurnAdmission } from "../domain/turn-admission.ts";
 import { MAILBOX_PUT_CONDITION, type MailboxItem, mailboxItemAttributes } from "../pi/mailbox.ts";
+import { TURN_EVENT_TTL_SECONDS } from "../domain/turns.ts";
 import { formatIsoDateTime } from "./codecs/util.ts";
+import { turnEventItem, turnItemPartitionKey } from "./turn-events.ts";
+import { turnPointerKey } from "./turn-store.ts";
 
 /**
  * Partition key of a turn control record.
@@ -15,7 +19,7 @@ import { formatIsoDateTime } from "./codecs/util.ts";
  * @param turnId Turn.
  * @returns `<tenant>#turn#<turn>`.
  */
-export const turnPartitionKey = (tenantId: string, turnId: string): string => `${tenantId}#turn#${turnId}`;
+export const turnPartitionKey = turnItemPartitionKey;
 
 /**
  * Key of the per-(channel, bot) pointer to that bot's current turn on the channel.
@@ -29,9 +33,18 @@ export const activeTurnPointerKey = (
 	tenantId: string,
 	channelId: string,
 	botId: string,
-): { pk: string; sk: string } => ({ pk: `${tenantId}#channel#${channelId}`, sk: `active_turn#${botId}` });
+): { pk: string; sk: string } => turnPointerKey(tenantId, channelId, "active", botId);
 
 const ACTIVE_STATUS = "active";
+
+const pointerItem = (key: { pk: string; sk: string }, request: StartTurnRequest): Record<string, AttributeValue> => ({
+	pk: { S: key.pk },
+	sk: { S: key.sk },
+	tenant_id: { S: request.tenantId },
+	channel_id: { S: request.channelId },
+	bot_id: { S: request.botId },
+	turn_id: { S: request.turnId },
+});
 
 /** The Messaging table implementation of TurnAdmission. */
 export class DynamoTurnAdmission implements TurnAdmission {
@@ -100,7 +113,7 @@ export class DynamoTurnAdmission implements TurnAdmission {
 									status: { S: ACTIVE_STATUS },
 									prompt_message_seq: { N: String(request.promptMessageSeq) },
 									attempt: { N: "0" },
-									next_event_seq: { N: "1" },
+									next_event_seq: { N: "2" },
 									recovery_attempts: { N: "0" },
 									created_at: { S: formatIsoDateTime(request.createdAt) },
 								},
@@ -110,15 +123,43 @@ export class DynamoTurnAdmission implements TurnAdmission {
 						{
 							Put: {
 								TableName: this.tableName,
-								Item: {
-									pk: { S: pointerKey.pk },
-									sk: { S: pointerKey.sk },
-									tenant_id: { S: request.tenantId },
-									channel_id: { S: request.channelId },
-									bot_id: { S: request.botId },
-									turn_id: { S: request.turnId },
-								},
+								Item: pointerItem(pointerKey, request),
 								...pointerCondition,
+							},
+						},
+						{
+							Put: {
+								TableName: this.tableName,
+								Item: pointerItem(turnPointerKey(request.tenantId, request.channelId, "latest", request.botId), request),
+							},
+						},
+						{
+							Put: {
+								TableName: this.tableName,
+								Item: pointerItem(turnPointerKey(request.tenantId, request.channelId, "active", null), request),
+							},
+						},
+						{
+							Put: {
+								TableName: this.tableName,
+								Item: pointerItem(turnPointerKey(request.tenantId, request.channelId, "latest", null), request),
+							},
+						},
+						{
+							Put: {
+								TableName: this.tableName,
+								Item: turnEventItem(
+									{
+										eventId: request.startedEventId,
+										tenantId: request.tenantId,
+										turnId: request.turnId,
+										channelId: request.channelId,
+										seq: 1,
+										kind: "turn.started",
+									},
+									new Date(request.createdAt.getTime() + TURN_EVENT_TTL_SECONDS * 1000),
+								),
+								ConditionExpression: "attribute_not_exists(pk)",
 							},
 						},
 					],

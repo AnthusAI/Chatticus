@@ -5,6 +5,7 @@ import { createApp } from "../src/http/app.ts";
 import type { CommitObject } from "../src/storage/indexed-storage.ts";
 import { MessageBodyCache } from "../src/pi/message-cache.ts";
 import { DynamoTurnAdmission } from "../src/store/turn-admission-store.ts";
+import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
 import { ApiClient } from "./api.ts";
 import { startAppServer } from "./http-server.ts";
 import { CognitoTestKeys } from "./test-jwt.ts";
@@ -71,6 +72,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		ids: world.ids,
 		store: world.messagingStore(),
 		messages: messageDependencies(world),
+		turnControl: world.turnControlStore(),
 		invokeKey: null,
 		environment: options.environment ?? "test",
 		verifier: options.cognitoVerifier ? keys.verifier() : null,

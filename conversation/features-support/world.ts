@@ -11,6 +11,8 @@ import type { ConnectionProposalResult, ConnectionProposalRoute } from "../src/p
 import type { PolicyControl } from "../src/policy/policy-control.ts";
 import type { MessagingStore } from "../src/store/messaging-store.ts";
 import { DynamoMessagingStore } from "../src/store/dynamo-messaging-store.ts";
+import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
+import type { TurnDependencies } from "../src/domain/turns.ts";
 import { FakeBudgetAlertsPublisher } from "./fakes/fake-budget-alerts.ts";
 import { FakeAccountSpendReader, FakeCostExplorerReader } from "./fakes/fake-cost-explorer.ts";
 import type { FakePrincipalDirectory } from "./fakes/fake-principal-directory.ts";
@@ -71,6 +73,14 @@ export class ChatticusWorld extends World {
 	membershipUiHarness: Record<string, any> | null = null;
 	lastChannel: { channelId: string; tenantId: string } | null = null;
 	lastTurnId: string | null = null;
+	createdBotIds: string[] = [];
+	rememberedTurnIds: Map<string, string> = new Map();
+	turnAttempts: Map<string, string> = new Map();
+	turnClaimOutcomes: Array<{ worker: string; attemptId: string | null }> = [];
+	deliveredTurnJobs: Array<{ tenantId: string; turnId: string }> = [];
+	modelAttemptCount = 0;
+	turnOperationErrors: Error[] = [];
+	latestTurnResponse: RecordedResponse | null = null;
 	testOwnerEmails: Map<string, string> = new Map();
 	directChannelPayloads: Array<Record<string, any>> = [];
 	namedChannelPayload: Record<string, any> | null = null;
@@ -141,6 +151,16 @@ export class ChatticusWorld extends World {
 
 	createMessagingStore(): MessagingStore {
 		return new DynamoMessagingStore(this.messagingTable.client, this.messagingTable.tableName);
+	}
+
+	/** The turn control record store over the scenario's Messaging table. */
+	turnControlStore(): DynamoTurnControlStore {
+		return new DynamoTurnControlStore(this.messagingTable.client, this.messagingTable.tableName);
+	}
+
+	/** What the turn functions need, over the scenario's table, clock and identifiers. */
+	turnDependencies(): TurnDependencies {
+		return { store: this.turnControlStore(), clock: this.clock, ids: this.ids };
 	}
 
 	/** The scenario's single messaging store, shared by the HTTP app and direct domain steps. */

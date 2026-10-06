@@ -14,6 +14,13 @@ import { createBotHandler, getBotHandler, listUserBotsHandler, lookupBotHandler 
 import { createChannelHandler, getChannelHandler, listUserChannelsHandler } from "./routes/channels.ts";
 import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/messages.ts";
 import type { MessageDependencies } from "../domain/messages.ts";
+import type { TurnControlStore } from "../domain/turns.ts";
+import {
+	getChannelLatestTurnHandler,
+	getChannelTurnHandler,
+	getTurnHandler,
+	listTurnEventsHandler,
+} from "./routes/turns.ts";
 import { createUserMembershipCache } from "./user-principal.ts";
 
 export interface Clock {
@@ -36,6 +43,8 @@ export interface AppDeps {
 	store: unknown;
 	/** Message admission and listing, behind the routes under /channels/{id}/messages. */
 	messages: Omit<MessageDependencies, "store" | "ids" | "clock">;
+	/** The turn control record, behind the turn read routes. */
+	turnControl: TurnControlStore;
 	invokeKey: string | null;
 	environment?: string;
 	verifier?: IdTokenVerifier | null;
@@ -165,6 +174,24 @@ export function createApp(deps: AppDeps): Hono {
 	);
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/messages", audience: "user" }, (c) =>
 		listChannelMessagesHandler(c, messageRoutes),
+	);
+
+	const turnRoutes = {
+		...userRoutes,
+		turns: { store: deps.turnControl, clock: deps.clock, ids: deps.ids },
+	};
+
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/turn", audience: "user" }, (c) =>
+		getChannelTurnHandler(c, turnRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/channels/:channel_id/turns/latest", audience: "user" }, (c) =>
+		getChannelLatestTurnHandler(c, turnRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id", audience: "user" }, (c) =>
+		getTurnHandler(c, turnRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id/events", audience: "user" }, (c) =>
+		listTurnEventsHandler(c, turnRoutes),
 	);
 
 	return app;

@@ -91,6 +91,24 @@ export async function botByName(tenantId: string, name: string, deps: { store: M
 	return bot;
 }
 
+/**
+ * Store a memory item on one bot and persist the roster record.
+ *
+ * Ported from python/src/chatticus/control_plane.py lines 1347-1351.
+ *
+ * @throws BotNotFoundError If the bot is unknown to this tenant.
+ */
+export async function rememberBotMemory(
+	tenantId: string,
+	botId: string,
+	key: string,
+	value: string,
+	deps: { store: MessagingStore },
+): Promise<void> {
+	const bot = await botById(tenantId, botId, deps);
+	await deps.store.putBot({ ...bot, memory: { ...bot.memory, [key]: value } }, false);
+}
+
 /** Return named bots in one organization, sorted by name. Ported from control_plane.py lines 850-856. */
 export async function listBots(tenantId: string, deps: { store: MessagingStore }): Promise<Bot[]> {
 	const owned = (await deps.store.listBots(tenantId)).filter((bot) => bot.tenantId === tenantId);
