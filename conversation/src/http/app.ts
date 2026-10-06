@@ -35,7 +35,7 @@ import { OpenStreamCounter, streamTurnHandler } from "./routes/turn-stream.ts";
 import { DEFAULT_STREAM_TIMING, type StreamClock, type StreamTiming, wallStreamClock } from "./stream.ts";
 import { integrationTestSessionHandler } from "./routes/integration-test.ts";
 import { operatorOrganizationHandler } from "./routes/operator.ts";
-import { claimTurnHandler, registerWorkerHandler } from "./routes/workers.ts";
+import { heartbeatWorkerHandler, registerWorkerHandler } from "./routes/workers.ts";
 import { createUserMembershipCache } from "./user-principal.ts";
 
 export interface Clock {
@@ -249,8 +249,8 @@ export function createApp(deps: AppDeps): Hono {
 	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/workers/register", audience: "public" }, (c) =>
 		registerWorkerHandler(c, workerRoutes),
 	);
-	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/turns/:turn_id/claim", audience: "worker" }, (c) =>
-		claimTurnHandler(c, workerRoutes),
+	declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/heartbeat", audience: "worker" }, (c) =>
+		heartbeatWorkerHandler(c, workerRoutes),
 	);
 
 	for (const action of ["enable", "suspend", "reinstate"] as const) {
