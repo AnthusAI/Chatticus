@@ -34,3 +34,22 @@ export async function ensureComputer(
 	await deps.store.putComputer(computer);
 	return computer;
 }
+
+/**
+ * Mark the organization computer stopped or running without deleting it, creating it first if the organization has none.
+ * Stopping clears the model, workspace and browser readiness.
+ *
+ * Ported from python/src/chatticus/control_plane.py lines 2841-2849.
+ */
+export async function setComputerStopped(
+	tenantId: string,
+	stopped: boolean,
+	deps: { store: MessagingStore; ids: IdSource },
+): Promise<Computer> {
+	const computer = await ensureComputer(tenantId, deps);
+	const updated: Computer = stopped
+		? { ...computer, stopped, modelReady: false, workspaceReady: false, browserReady: false }
+		: { ...computer, stopped };
+	await deps.store.putComputer(updated);
+	return updated;
+}

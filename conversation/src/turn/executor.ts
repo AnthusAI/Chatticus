@@ -22,6 +22,8 @@ import { MemberStandingRequiredError, StaleAttemptError, TurnTerminalError } fro
 import { type ChannelMessageDraft, recordInputLine, writeAttributedMessage } from "../pi/channel-log.ts";
 import { CommitOutcomeUnknown, findStorageFailure, OwnershipLost } from "../pi/errors.ts";
 import { chatticusExtensions } from "../pi/extension.ts";
+import { taskToolExtensions } from "../pi/task-tool.ts";
+import { primaryHumanParticipant } from "../domain/channels.ts";
 import { type ToolGateDependencies, computerToolsExtension, toolGateExtension } from "../pi/gate.ts";
 import { PolicyControl } from "../policy/policy-control.ts";
 import { turnCapabilityGrant } from "../policy/turn-grant.ts";
@@ -174,6 +176,10 @@ class TurnAttempt {
 				...chatticusExtensions({
 					systemPrompt: () => buildSystemPrompt({ botName: bot.name, memory: bot.memory }),
 				}),
+				...taskToolExtensions(
+					{ tenantId: this.job.tenantId, userId: primaryHumanParticipant(channel), botId: this.job.botId },
+					{ store: messaging, ids: this.deps.turns.ids },
+				),
 				computerToolsExtension(this.deps.runComputerTool ?? NO_COMPUTER_YET),
 				toolGateExtension(this.toolGateDependencies()),
 			],
