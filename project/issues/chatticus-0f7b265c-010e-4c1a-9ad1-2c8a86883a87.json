@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-0f7b265c-010e-4c1a-9ad1-2c8a86883a87",
+  "title": "TS-58 Reconcile a computer record left stale by a killed host",
+  "description": "From the TS-56 live rehearsal: after the TS-53 cleanup killed the host with ecs stop-task before it could report, the computer record still said stopped=false and disk_dirty=true with no running task and the dirty data gone, and it stayed that way into the next rehearsal. A crash, spot reclaim or manual stop would do the same in production. Decide and implement the reconciliation: the starter or the next start (conversation/src/domain/computers.ts, computer-start.ts, host-starter.ts; the host's lease and heartbeat timeout in domain/workers.ts) must detect that the recorded host is gone (no heartbeat within the timeout, ECS task not running) and settle the record: stopped=true, release the live-writer lock, and decide what disk_dirty means when the live disk is lost (the unpublished writes are lost: the snapshot generation stays the last published one; record that the disk must hydrate from the snapshot, hydrate_required=true) so a recycle never serves a record that claims a running host or a dirty disk that no longer exists. Cucumber scenarios (host killed mid-turn, then a new turn) with mutation checks, and a live re-run of the TS-53 flow with a manual ecs stop-task to prove it.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-06T22:36:51.131271Z",
+  "updated_at": "2026-10-06T22:36:51.131344Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Reconcile stale computer records after a host dies by marking them stopped and requiring snapshot hydration.",
+  "right_now_updated_at": "2026-10-06T22:36:52.108669Z",
+  "custom": {}
+}

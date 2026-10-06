@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-bed9eca5-65f2-4868-9bff-910e49f3cefd",
+  "title": "TS-59 Deterministic snapshot pack: do not rewrite the snapshot when nothing changed",
+  "description": "From the TS-56 live rehearsal: snapshot generation 2 was published after a turn that only read a file. hostDiskNeedsPublish (computer/host/src/disk-lifecycle.ts) compares the live pack checksum with the stored one and fired though nothing changed, and the objects had identical sizes: the pack is probably not deterministic (mtimes, ordering, gzip header timestamp in conversation/src/snapshot/pack.ts). Verify with a vitest packing the same tree twice (and after touching mtimes), make the pack deterministic (sorted entries, normalized mtime and ownership, fixed gzip header) or compute the change check over content hashes, so an unchanged disk is not republished at every exit. Mutation-check.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-06T22:36:53.212494Z",
+  "updated_at": "2026-10-06T22:36:53.212527Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Investigating nondeterministic snapshot packing that republishes unchanged disks.",
+  "right_now_updated_at": "2026-10-06T22:36:54.436045Z",
+  "custom": {}
+}
