@@ -5,7 +5,9 @@ import { TASK_TOOL_NAME } from "../../src/pi/task-tool.ts";
 import type { Computer } from "../../src/store/codecs/computer.ts";
 import { recordResponse, type RecordedResponse } from "../api.ts";
 import { modelScenarioOf, runBotTurn } from "../executor-harness.ts";
-import { memberGet, memberPost } from "../org-user-client.ts";
+import { ensureTestOrganization, memberGet, memberPost } from "../org-user-client.ts";
+import { bearerFor, httpBaseUrl } from "../front-door.ts";
+import { runMembershipUiHarness } from "../membership-ui-harness.ts";
 import type { ChatticusWorld } from "../world.ts";
 import { currentTurnOf, readTurnEvents } from "./model.steps.ts";
 import { openChannelWithNamedBot, post } from "./message.steps.ts";
@@ -22,8 +24,6 @@ type TaskScenario = {
 	httpResponse: RecordedResponse | null;
 	otherTenantResponse: RecordedResponse | null;
 	receivedMessage: string | null;
-	webListResponse: RecordedResponse | null;
-	webDetailResponse: RecordedResponse | null;
 };
 
 const scenarios = new WeakMap<ChatticusWorld, TaskScenario>();
@@ -39,8 +39,6 @@ function scenarioOf(world: ChatticusWorld): TaskScenario {
 			httpResponse: null,
 			otherTenantResponse: null,
 			receivedMessage: null,
-			webListResponse: null,
-			webDetailResponse: null,
 		};
 		scenarios.set(world, scenario);
 	}
@@ -307,62 +305,64 @@ When(
 	},
 );
 
+async function webTaskContext(world: ChatticusWorld, tenantId: string, userId: string): Promise<Record<string, string>> {
+	const email = await ensureTestOrganization(world, tenantId);
+	const token = (await bearerFor(world, email)).Authorization.replace(/^Bearer /, "");
+	return { api_base: await httpBaseUrl(world), id_token: token, tenant_id: tenantId, user_id: userId };
+}
+
 When(
 	"the web UI requests the task list for tenant {string} user {string}",
 	async function (this: ChatticusWorld, tenantId: string, userId: string) {
-		scenarioOf(this).webListResponse = await listTasksOver(this, tenantId, userId);
+		await runMembershipUiHarness(this, "reset", {});
+		await runMembershipUiHarness(this, "load-web-tasks", await webTaskContext(this, tenantId, userId));
 	},
 );
 
 Then("the web UI task list shows:", function (this: ChatticusWorld, table: DataTable) {
-	const response = scenarioOf(this).webListResponse;
-	assert.ok(response, "The web UI has not requested the task list");
-	assert.equal(response.status, 200, response.text);
-	assert.deepEqual(
-		(response.json.tasks as TaskPayload[]).map((task) => task.title),
-		cellsOf(table),
-	);
+	assert.ok(this.membershipUiHarness, "The web UI has not requested the task list");
+	assert.deepEqual(this.membershipUiHarness.webTaskListTitles, cellsOf(table));
 });
 
 Then("the web UI task list is empty", function (this: ChatticusWorld) {
-	const response = scenarioOf(this).webListResponse;
-	assert.ok(response, "The web UI has not requested the task list");
-	assert.equal(response.status, 200, response.text);
-	assert.deepEqual(response.json.tasks, []);
+	assert.ok(this.membershipUiHarness, "The web UI has not requested the task list");
+	assert.deepEqual(this.membershipUiHarness.webTaskListTitles, []);
 });
+
+async function webRequestsTask(world: ChatticusWorld, tenantId: string, taskId: string): Promise<void> {
+	await runMembershipUiHarness(world, "reset", {});
+	await runMembershipUiHarness(world, "load-web-task", {
+		...(await webTaskContext(world, tenantId, HOUSEHOLD_USER)),
+		task_id: taskId,
+	});
+}
 
 When(
 	"the web UI requests task details for the stored task as tenant {string}",
 	async function (this: ChatticusWorld, tenantId: string) {
-		scenarioOf(this).webDetailResponse = await recordResponse(
-			await memberGet(this, `/orgs/${tenantId}/tasks/${lastTaskOf(this).task_id}`),
-		);
+		await webRequestsTask(this, tenantId, lastTaskOf(this).task_id);
 	},
 );
 
 When(
 	"the web UI requests task {string} as tenant {string}",
 	async function (this: ChatticusWorld, taskId: string, tenantId: string) {
-		scenarioOf(this).webDetailResponse = await recordResponse(await memberGet(this, `/orgs/${tenantId}/tasks/${taskId}`));
+		await webRequestsTask(this, tenantId, taskId);
 	},
 );
 
 Then("the web UI task detail shows title {string}", function (this: ChatticusWorld, title: string) {
-	const response = scenarioOf(this).webDetailResponse;
-	assert.ok(response, "The web UI has not requested a task");
-	assert.equal(response.status, 200, response.text);
-	assert.equal(response.json.title, title);
+	assert.ok(this.membershipUiHarness, "The web UI has not requested a task");
+	assert.equal(this.membershipUiHarness.webTaskError, null);
+	assert.equal(this.membershipUiHarness.webTaskDetail?.title, title);
 });
 
 Then("the web UI task detail shows status {string}", function (this: ChatticusWorld, status: string) {
-	const response = scenarioOf(this).webDetailResponse;
-	assert.ok(response, "The web UI has not requested a task");
-	assert.equal(response.status, 200, response.text);
-	assert.equal(response.json.status, status);
+	assert.ok(this.membershipUiHarness, "The web UI has not requested a task");
+	assert.equal(this.membershipUiHarness.webTaskDetail?.status, status);
 });
 
 Then("the web UI task detail request fails with not found", function (this: ChatticusWorld) {
-	const response = scenarioOf(this).webDetailResponse;
-	assert.ok(response, "The web UI has not requested a task");
-	assert.equal(response.status, 404, response.text);
+	assert.ok(this.membershipUiHarness, "The web UI has not requested a task");
+	assert.match(String(this.membershipUiHarness.webTaskError), /^HTTP 404/);
 });

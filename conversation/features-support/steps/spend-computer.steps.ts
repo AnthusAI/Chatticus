@@ -127,7 +127,15 @@ Then("the request is refused with a spend meter unavailable reason", async funct
 
 Then("no computer is started", async function (this: ChatticusWorld) {
 	const { tenantId } = spendScenario(this);
-	assert.deepEqual(computerScenarioOf(this).driver?.invocations ?? [], []);
+	const state = computerScenarioOf(this);
+	const driver = state.driver ?? new FakeHostStartDriver();
+	state.driver = driver;
+	const pendingStartJobs = queuedStartJobs(this);
+	assert.deepEqual(pendingStartJobs, [], "a computer start job was queued");
+	for (const job of pendingStartJobs) {
+		await deliverStartJob(this, job, driver);
+	}
+	assert.deepEqual(driver.invocations, []);
 	assert.equal((await this.messagingStore().getComputer(tenantId))?.hostStartGeneration ?? 0, 0);
 	assert.equal((await actionStoreOf(this).listOpen(tenantId)).filter((action) => action.status === "claimed").length, 0);
 });

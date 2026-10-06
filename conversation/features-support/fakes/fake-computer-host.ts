@@ -42,6 +42,11 @@ export class FakeComputerHost {
 		return { Authorization: `Bearer ${this.token}` };
 	}
 
+	/** The bearer header of this host, for steps that present it to a route of another organization. */
+	async bearerHeaders(): Promise<Record<string, string>> {
+		return this.headers();
+	}
+
 	private get api(): NonNullable<ChatticusWorld["api"]> {
 		assert.ok(this.world.api, "The scenario has no HTTP front door.");
 		return this.world.api;

@@ -21,3 +21,12 @@ Feature: Conversation task grant reaches the computer for granted workspace path
     And bot "Researcher" runs one capability-aware computerless worker turn
     Then a computer continuation job is queued for the turn
     And the turn is waiting on the workspace capability
+
+  Scenario: The conversation grant does not reach a path outside /workspace
+    Given tenant "anthus" user "ryan" has a bot named "Researcher"
+    And the household computer is stopped
+    When bot "Researcher" is asked "read workspace file /etc/passwd"
+    And bot "Researcher" runs one capability-aware computerless worker turn
+    Then the turn journal records a denied read_workspace tool result
+    And no computer start job is queued
+    And the household computer is stopped

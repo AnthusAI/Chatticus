@@ -24,8 +24,8 @@ import { activeTurnOf } from "../turn-grant-support.ts";
 import { runQueuedJobs } from "../turn-recovery.ts";
 import type { ChatticusWorld } from "../world.ts";
 
-const CONTINUATION_PATH = "/workspace/inbox.txt";
-const CONTINUATION_RESULT = "opened";
+export const CONTINUATION_PATH = "/workspace/inbox.txt";
+export const CONTINUATION_RESULT = "opened";
 
 function startJobOf(world: ChatticusWorld) {
 	const job = computerScenarioOf(world).startJob;

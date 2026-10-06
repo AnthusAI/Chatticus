@@ -149,7 +149,7 @@ export class ChatticusWorld extends World {
 	readonly roleInspector = new InMemoryCrossAccountRoleInspector();
 	customerCompute: CustomerComputeScenario | null = null;
 	customerSelfSetup: CustomerSelfSetupScenario | null = null;
-	customerRoleTemplate: string | null = null;
+	customerRoleTemplate: Record<string, unknown> | null = null;
 	customerComputersTemplate: Record<string, any> | null = null;
 	expectedSnapshotBucketName: string | null = null;
 	/** How the scenario's front door was last wired, so a later step can rewire it with one more dependency. */
@@ -173,6 +173,9 @@ export class ChatticusWorld extends World {
 	injectedRequest: unknown = null;
 	lastDecision: string | null = null;
 	lastOvernight: OvernightGatedResult | null = null;
+	humanTakeoverPresent = false;
+	lastUnattendedAttempt: { actionType: string; arguments: Record<string, string>; channel: string } | null = null;
+	secretRequestResults: OvernightGatedResult[] = [];
 	gatedReadError: Error | null = null;
 	gatedReadResult: unknown = null;
 	lastBinding: string | null = null;

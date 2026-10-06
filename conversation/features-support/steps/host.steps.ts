@@ -22,6 +22,9 @@ import {
 	registerHost,
 } from "../computer-scenario.ts";
 import { actionStoreOf } from "../computer-support.ts";
+import { ensureHostWorker, bootDriverFor, hostClientFor, hostDiskOf, hostExecutorFor, lifecycleOf, runHostUntilIdle } from "../host-lifecycle-support.ts";
+import { computerForOrganization } from "../../src/domain/computers.ts";
+import { CONTINUATION_PATH, CONTINUATION_RESULT } from "./continuation.steps.ts";
 import { activeTurnOf } from "../turn-grant-support.ts";
 import { runQueuedJobs } from "../turn-recovery.ts";
 import type { ChatticusWorld } from "../world.ts";
@@ -30,7 +33,6 @@ type HostScenario = {
 	lastResponse: RecordedResponse | null;
 	claimedAction: HostAction | null;
 	firstLease: string | null;
-	readinessOrder: string[];
 };
 
 const scenarios = new WeakMap<ChatticusWorld, HostScenario>();
@@ -38,7 +40,7 @@ const scenarios = new WeakMap<ChatticusWorld, HostScenario>();
 function hostScenarioOf(world: ChatticusWorld): HostScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
-		scenario = { lastResponse: null, claimedAction: null, firstLease: null, readinessOrder: [] };
+		scenario = { lastResponse: null, claimedAction: null, firstLease: null };
 		scenarios.set(world, scenario);
 	}
 	return scenario;
@@ -275,33 +277,34 @@ Then("the turn journal records a tool result containing {string} for the pending
 });
 
 When("the customer computer host boots through the Front Door worker plane", async function (this: ChatticusWorld) {
-	const host = await registerHost(this, STORY_TENANT, HOUSEHOLD_HOST_WORKER_ID, "local");
-	const order = hostScenarioOf(this).readinessOrder;
-	const stopped = await host.request("POST", "/computer/state", { body: { stopped: false } });
-	assert.equal(stopped.status, 200, stopped.text);
-	for (const capability of ["model", "workspace", "browser"]) {
-		const response = await reportReady(this, HOUSEHOLD_HOST_WORKER_ID, capability);
-		assert.equal(response.status, 200, response.text);
-		order.push(capability);
-	}
+	await ensureHostWorker(this, STORY_TENANT, HOUSEHOLD_HOST_WORKER_ID);
+	const driver = bootDriverFor(this, HOUSEHOLD_HOST_WORKER_ID, null);
+	await driver.bootThroughBrowser();
 });
+
+function capabilitiesReadyAsFrontDoorSawThem(world: ChatticusWorld): string[] {
+	return lifecycleOf(world)
+		.frontDoorRequests.filter((request) => request.method === "POST" && request.url.endsWith("/host/computer/state"))
+		.map((request) => JSON.parse(request.body ?? "{}").capability_ready)
+		.filter((capability): capability is string => typeof capability === "string");
+}
 
 Then(
 	"tenant {string} household computer readiness reports model before browser",
-	async function (this: ChatticusWorld, _tenantId: string) {
-		const order = hostScenarioOf(this).readinessOrder;
+	async function (this: ChatticusWorld, tenantId: string) {
+		const order = capabilitiesReadyAsFrontDoorSawThem(this);
 		assert.ok(order.indexOf("model") !== -1 && order.indexOf("model") < order.indexOf("browser"), JSON.stringify(order));
-		assert.equal((await computerSeenBy(this, HOUSEHOLD_HOST_WORKER_ID)).model_ready, true);
+		assert.equal((await computerForOrganization(tenantId, { store: this.messagingStore() })).modelReady, true);
 	},
 );
 
-Then("tenant {string} household computer readiness reports browser ready", async function (this: ChatticusWorld, _tenantId: string) {
-	assert.equal((await computerSeenBy(this, HOUSEHOLD_HOST_WORKER_ID)).browser_ready, true);
+Then("tenant {string} household computer readiness reports browser ready", async function (this: ChatticusWorld, tenantId: string) {
+	assert.equal((await computerForOrganization(tenantId, { store: this.messagingStore() })).browserReady, true);
 });
 
 When("the customer computer host discovers a computer job through the Front Door", async function (this: ChatticusWorld) {
-	await registerHost(this, STORY_TENANT, HOUSEHOLD_HOST_WORKER_ID, "local");
-	hostScenarioOf(this).claimedAction = await claimFor(this, HOUSEHOLD_HOST_WORKER_ID);
+	await ensureHostWorker(this, STORY_TENANT, HOUSEHOLD_HOST_WORKER_ID);
+	hostScenarioOf(this).claimedAction = await hostClientFor(this, HOUSEHOLD_HOST_WORKER_ID).claimAction();
 });
 
 Then("the discovered computer job matches the queued continuation job", function (this: ChatticusWorld) {
@@ -313,10 +316,16 @@ Then("the discovered computer job matches the queued continuation job", function
 });
 
 When("the customer computer host runs one browser_open job through the Front Door", async function (this: ChatticusWorld) {
-	const host = await registerHost(this, STORY_TENANT, HOUSEHOLD_HOST_WORKER_ID, "local");
-	const ran = await host.runNextAction();
-	assert.ok(ran, "The host found no computer action to run.");
+	await ensureHostWorker(this, STORY_TENANT, HOUSEHOLD_HOST_WORKER_ID);
+	hostDiskOf(this, HOUSEHOLD_HOST_WORKER_ID).writeWorkspaceFile(CONTINUATION_PATH.replace(/^\/workspace\//, ""), CONTINUATION_RESULT);
+	const ran = await runHostUntilIdle(this, HOUSEHOLD_HOST_WORKER_ID, hostExecutorFor(this, HOUSEHOLD_HOST_WORKER_ID));
+	assert.equal(ran.length, 1, "The host did not run exactly one computer action.");
 	assert.equal((await runQueuedJobs(this)).at(-1), "done");
+	const requests = lifecycleOf(this).frontDoorRequests;
+	assert.ok(requests.length > 0, "The host made no request.");
+	for (const request of requests) {
+		assert.ok(request.url.startsWith("http://front-door.test/orgs/"), `The host reached beyond the Front Door: ${request.url}`);
+	}
 });
 
 Given("the host worker {string} holds the pending action", async function (this: ChatticusWorld, workerId: string) {
