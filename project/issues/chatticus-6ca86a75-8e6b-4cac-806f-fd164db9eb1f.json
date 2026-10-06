@@ -3,23 +3,36 @@
   "title": "TS-42 Deploy workflow and ECS start wiring for ChatticusControlPlane",
   "description": "## Goal\nMake the dormant ChatticusControlPlane stack deployable to development by the same CI path as the other stacks, and wire the ComputerStarter to ECS, so TS-39 (rehearsal) has a deployed stack to run against. Found while preparing TS-39: TS-36 built the stack but nothing deploys it and the starter has no ECS wiring.\n\n## Files\n- infra/deploy-chatticus-dedicated-account.sh: add `development:control-plane` -> `ChatticusControlPlane` (development only; staging and production are added by TS-40), update the usage text.\n- .github/workflows/deploy-controlplane-development.yml: copy the shape of .github/workflows/deploy-thinturn-development.yml (push to develop, workflow_dispatch, OIDC role, environment development) and run `sh deploy-chatticus-dedicated-account.sh development control-plane`.\n- infra/lib/control-plane-stack.ts and infra/test/control-plane-stack.test.ts: wire the ComputerStarter Lambda to ECS host start exactly as infra/lib/thin-turn-stack.ts does with `computerHostStartEcsConfig` in infra/lib/computer-host-start.ts (env vars CHATTICUS_HOST_STARTER=ecs and the ECS settings, the ecs:RunTask, iam:PassRole and related permissions); when the config is absent the starter keeps the no-op env. Also confirm in the stack and test that the executor and probe Lambdas carry CHATTICUS_COMPUTER_STARTS_QUEUE_URL and CHATTICUS_ENVIRONMENT, and fix if not.\n- infra/lib/github-deploy-stack.ts (only if the OIDC deploy role cannot deploy a stack named ChatticusControlPlane; read it and say so in the report).\n\n## Rules\nNo `cdk deploy`, no AWS writes, no IAM users or access keys. Tests: infra npm test with new assertions, a mutation check on at least one new assertion, and a real `cdk synth` is NOT possible locally (Python lambda bundling fails on this machine); say so and rely on CI. Does the deploy script also need the ECS context the thin-turn script computes? Read how thin-turn gets it in CI (deploy-chatticus-dedicated-account.sh does not pass it) and mirror that, no more.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "511c02e3-9b72-41b8-be33-26a5e32d86fd",
+      "author": "home",
+      "text": "Merged via PR 442 (after a direct push 1541eff3 that I reviewed and corrected: the host task role gets no table or queue grant). ChatticusControlPlane is deployed in development (CREATE_COMPLETE) with the Function URL, Conversations table and PiSessions bucket.",
+      "created_at": "2026-10-06T14:38:52.401947Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-06T12:36:50.825650Z",
-  "updated_at": "2026-10-06T12:36:50.825689Z",
-  "closed_at": null,
+  "updated_at": "2026-10-06T14:38:56.607444Z",
+  "closed_at": "2026-10-06T14:38:56.607370Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The deployment workflow and ECS start wiring for ChatticusControlPlane still need to be added and tested.",
-  "right_now_updated_at": "2026-10-06T12:36:53.204914Z",
+  "right_now_summary": "ChatticusControlPlane is deployed in development, with ECS wiring and Function URL active.",
+  "right_now_updated_at": "2026-10-06T14:38:59.453089Z",
   "custom": {}
 }
