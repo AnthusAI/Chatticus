@@ -29,6 +29,7 @@ import { SequentialIdSource } from "./clock.ts";
 import { QueueRecorder } from "./queues.ts";
 import type { MembersCliProcessResult } from "./members-cli-process.ts";
 import type { ScenarioPiStorage } from "./pi-storage.ts";
+import type { SpendCeilingScenarioState } from "./spend-ceiling.ts";
 import type { OperatorScenarioState } from "./steps/operator.steps.ts";
 import type { IntegrationTestScenarioState } from "./steps/integration-test-auth.steps.ts";
 
@@ -130,6 +131,7 @@ export class ChatticusWorld extends World {
 	// Operator and integration-test auth
 	operatorScenario: OperatorScenarioState | null = null;
 	integrationTestScenario: IntegrationTestScenarioState | null = null;
+	spendCeilingScenario: SpendCeilingScenarioState | null = null;
 	workerTokens: Map<string, string> = new Map();
 
 	// Policy kernel fields
