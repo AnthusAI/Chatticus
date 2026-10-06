@@ -8,7 +8,7 @@ import { consumeRunJob } from "../src/turn/executor.ts";
 import { handleProbe, type ProbeDependencies } from "../src/turn/probes.ts";
 import type { TurnExecutionOutcome } from "../src/turn/types.ts";
 import { computerHandoffDependenciesFor } from "./computer-support.ts";
-import { executorDepsFor, type ExecutorOptions, modelScenarioOf } from "./executor-harness.ts";
+import { executorDepsFor, type ExecutorOptions, existingModelScenario, modelScenarioOf } from "./executor-harness.ts";
 import { memberGet } from "./org-user-client.ts";
 import { ensurePiStorage } from "./pi-storage.ts";
 import { recordResponse } from "./api.ts";
@@ -119,7 +119,7 @@ export async function deliverDueProbes(world: ChatticusWorld): Promise<void> {
  * @returns How each consumed job ended, in order.
  */
 export async function runQueuedJobs(world: ChatticusWorld, options: ExecutorOptions = {}): Promise<TurnExecutionOutcome[]> {
-	const scenario = modelScenarioOf(world);
+	const scenario = existingModelScenario(world) ?? modelScenarioOf(world);
 	const outcomes: TurnExecutionOutcome[] = [];
 	for (let queued = world.queues.take(TURN_RUN_QUEUE, () => true); queued !== null; queued = world.queues.take(TURN_RUN_QUEUE, () => true)) {
 		const job = queued.body as TurnRunJob;

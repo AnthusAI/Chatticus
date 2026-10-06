@@ -5,7 +5,7 @@ import type { ChatticusWorld } from "./world.ts";
 
 /**
  * Sign the web SPA in as `email`, an enabled member of the named organization, against the scenario's HTTP front
- * door, and mark the SPA's membership as enabled.
+ * door, and let the SPA learn its membership from GET /me on that front door.
  */
 export async function seedEnabledWebSession(world: ChatticusWorld, email: string, name: string): Promise<void> {
 	const organization = world.orgsByName?.get(name);
@@ -14,5 +14,9 @@ export async function seedEnabledWebSession(world: ChatticusWorld, email: string
 	world.webApiBase = world.httpServer.baseUrl;
 	world.webIdToken = await (await cognitoKeys(world)).mintIdToken({ email });
 	await runMembershipUiHarness(world, "seed-session", { email, id_token: world.webIdToken });
-	await runMembershipUiHarness(world, "set-me-enabled", { tenant_id: organization.tenantId, name: organization.name });
+	await runMembershipUiHarness(world, "refresh-me-from-api", {
+		api_base: world.webApiBase,
+		id_token: world.webIdToken,
+		email,
+	});
 }

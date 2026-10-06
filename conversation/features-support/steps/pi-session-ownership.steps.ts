@@ -7,7 +7,7 @@ import { createModels } from "@earendil-works/pi-ai/models";
 import { fauxAssistantMessage, fauxProvider, type FauxProviderHandle } from "@earendil-works/pi-ai/providers/faux";
 import { AssistantEntry } from "@earendil-works/pi-durable";
 import { chatticusExtensions } from "../../src/pi/extension.ts";
-import { OwnershipLost } from "../../src/pi/errors.ts";
+import { findStorageFailure, OwnershipLost } from "../../src/pi/errors.ts";
 import { type OwnerSession, openOwnerSession } from "../../src/pi/session.ts";
 import { storageIdFor } from "../../src/storage/storage-support.ts";
 import type { ChatticusWorld } from "../world.ts";
@@ -136,24 +136,36 @@ Then("the second owner holds ownership number {int}", function (this: ChatticusW
 });
 
 Then("the first owner is told it lost ownership when it commits", async function (this: ChatticusWorld) {
-	const scenario = scenarioOf(this);
-	const first = scenario.owners[0];
-	assert.ok(first);
 	await assert.rejects(
-		first.harness.root(BACKGROUND_CONTEXT, { agent: { model: { provider: scenario.faux.provider.id, modelId: "faux-model" } } }),
-		(error: unknown) => error instanceof OwnershipLost,
+		sendFrom(this, 0, "stale write"),
+		(error: unknown) => findStorageFailure(error) instanceof OwnershipLost,
 	);
 });
 
 Then("the second owner can commit", async function (this: ChatticusWorld) {
-	const scenario = scenarioOf(this);
-	const second = scenario.owners[1];
-	assert.ok(second);
 	await sendFrom(this, 1, "after takeover");
 });
 
+const committedAssistantTexts = async (world: ChatticusWorld): Promise<string[]> => {
+	const scenario = scenarioOf(world);
+	const observer = scenario.owners.at(-1);
+	assert.ok(observer, "no owner is open");
+	const agent = { model: { provider: scenario.faux.provider.id, modelId: "faux-model" }, thinkingLevel: "off" as const };
+	const root = await observer.harness.root(BACKGROUND_CONTEXT, { agent });
+	const page = await root.entries({}, 100, undefined, BACKGROUND_CONTEXT);
+	const texts: string[] = [];
+	for (const entry of [...page.items].reverse()) {
+		for (const message of entry.model ?? []) {
+			if (message.role === "assistant") {
+				texts.push(message.content.map((part) => (part.type === "text" ? part.text : "")).join(""));
+			}
+		}
+	}
+	return texts;
+};
+
 Then("the session holds the answers {string} and {string}", async function (this: ChatticusWorld, first: string, second: string) {
 	const scenario = scenarioOf(this);
-	assert.deepEqual(scenario.answers, [first, second]);
+	assert.deepEqual(await committedAssistantTexts(this), [first, second]);
 	assert.ok(scenario.requestTexts[1]?.includes(first), "the second owner's model request did not carry the first answer");
 });

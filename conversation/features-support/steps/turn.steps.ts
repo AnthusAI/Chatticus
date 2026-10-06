@@ -233,6 +233,35 @@ When("the expired attempt tries to append output or execute an action", async fu
 	];
 });
 
+Given("a turn has been claimed by a newer attempt that is still working", async function (this: ChatticusWorld) {
+	await postToBot(this, "Assistant", "ping", true);
+	const channel = openChannelOf(this);
+	const turnId = currentTurnId(this);
+	const stale = await claimAs(this, channel.tenantId, turnId, "worker-1");
+	assert.ok(stale, "The first worker could not claim the turn");
+	this.clock.advanceSeconds(61);
+	const current = await claimAs(this, channel.tenantId, turnId, "worker-2");
+	assert.ok(current, "The second worker could not claim the turn after the lease expired");
+	assert.notEqual(current.attemptId, stale.attemptId);
+	this.turnAttempts.set("stale", stale.attemptId);
+	this.turnAttempts.set("current", current.attemptId);
+});
+
+Then("the newer attempt is still the only attempt that can append", async function (this: ChatticusWorld) {
+	const channel = openChannelOf(this);
+	const turnId = currentTurnId(this);
+	const current = this.turnAttempts.get("current");
+	assert.ok(current);
+	await appendTurnEvent(this.turnDependencies(), channel.tenantId, turnId, current, { kind: "turn.token", token: "fresh" });
+	const turn = await getTurn(this.turnDependencies(), channel.tenantId, turnId);
+	assert.equal(turn.status, "active");
+	assert.equal(turn.attemptId, current);
+	const tokens = (await turnEvents(this, channel.tenantId, turnId))
+		.filter((event) => event.kind === "turn.token")
+		.map((event) => event.token);
+	assert.deepEqual(tokens, ["fresh"]);
+});
+
 Then("the operation is rejected", function (this: ChatticusWorld) {
 	assert.equal(this.turnOperationErrors.length, 2);
 	for (const error of this.turnOperationErrors) {

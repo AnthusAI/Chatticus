@@ -64,6 +64,7 @@ type MailboxScenario = {
 	roots: Map<string, Conversation>;
 	currentBot: string;
 	currentChannel: string;
+	channelBots: string[];
 	listedNumbers: number[];
 	putError: Error | null;
 	drainError: Error | null;
@@ -93,6 +94,7 @@ const scenarioOf = (world: ChatticusWorld): MailboxScenario => {
 		roots: new Map(),
 		currentBot: "",
 		currentChannel: "",
+		channelBots: [],
 		listedNumbers: [],
 		putError: null,
 		drainError: null,
@@ -420,8 +422,15 @@ Then("the model was called {int} time(s)", function (this: ChatticusWorld, count
 	assert.equal(scenarioOf(this).modelCalls, count);
 });
 
-Then("the turn is answered once", function (this: ChatticusWorld) {
-	assert.equal(scenarioOf(this).modelCalls, 2);
+Then("the turn is answered once", async function (this: ChatticusWorld) {
+	const scenario = scenarioOf(this);
+	assert.equal(scenario.modelCalls, 2);
+	const page = await currentRoot(this).entries({}, 100, undefined, BACKGROUND_CONTEXT);
+	const finalAnswers = page.items
+		.flatMap((entry) => entry.model ?? [])
+		.filter((message) => message.role === "assistant" && message.content.every((part) => part.type === "text"))
+		.map((message) => (message.role === "assistant" ? message.content.map((part) => (part.type === "text" ? part.text : "")).join("") : ""));
+	assert.deepEqual(finalAnswers, ["Report in metric units"]);
 });
 
 Then("the model request that followed the tool round carried {string}", function (this: ChatticusWorld, text: string) {
@@ -508,7 +517,7 @@ Given(
 		const scenario = scenarioOf(this);
 		scenario.currentChannel = channel;
 		scenario.currentBot = first;
-		void second;
+		scenario.channelBots = [first, second];
 	},
 );
 
@@ -518,7 +527,7 @@ Given(
 		const scenario = scenarioOf(this);
 		const draft = draftFor(seq, author, body, "ada");
 		scenario.submittedDrafts.set(seq, draft);
-		for (const bot of ["ada", "bob"]) {
+		for (const bot of scenario.channelBots) {
 			await put(mailboxStoreOf(this), mailboxItemFor(this, bot, scenario.currentChannel, draft));
 		}
 	},
@@ -572,7 +581,7 @@ When("the channel {string} is listed", async function (this: ChatticusWorld, cha
 		},
 		this.tenantId,
 		channel,
-		["ada", "bob"],
+		scenarioOf(this).channelBots,
 	);
 });
 
@@ -587,7 +596,7 @@ When("the channel {string} is listed after message {int}", async function (this:
 		},
 		this.tenantId,
 		channel,
-		["ada", "bob"],
+		scenarioOf(this).channelBots,
 		after,
 	);
 });

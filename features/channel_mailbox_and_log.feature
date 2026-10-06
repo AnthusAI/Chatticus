@@ -96,3 +96,9 @@ Feature: Channel messages reach every bot session through a mailbox and a log
     Then the listed messages are 1 from "ryan" saying "plan the launch" and 2 from "ada" saying "Draft ready"
     When the channel "general" is listed after message 1
     Then the listed messages are 2 from "ada" saying "Draft ready"
+
+  Scenario: A message still waiting in the mailboxes is listed once
+    Given bots "ada" and "bob" are in channel "general"
+    And message 1 from human "ryan" saying "plan the launch" waits in both mailboxes
+    When the channel "general" is listed
+    Then the listed messages are 1 from "ryan" saying "plan the launch"
