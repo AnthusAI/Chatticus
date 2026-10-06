@@ -1,4 +1,5 @@
 import type { Clock, IdSource } from "../http/app.ts";
+import type { TaskCapabilityGrant } from "../policy/capability-policy.ts";
 import { StaleAttemptError, TurnNotFoundError, TurnTerminalError } from "../http/errors.ts";
 import { pythonRepr } from "./bots.ts";
 
@@ -26,7 +27,8 @@ export type TurnEventKind =
 	| "attempt.relinquished"
 	| "turn.completed"
 	| "turn.failed"
-	| "turn.reconciling";
+	| "turn.reconciling"
+	| "turn.grant.replaced";
 
 /** The computer tool call a waiting turn is parked on. */
 export type PendingComputerTool = {
@@ -43,6 +45,8 @@ export type Turn = {
 	botId: string;
 	status: TurnStatus;
 	promptMessageSeq: number | null;
+	/** Who posted the prompt: the acting member whose standing bounds the turn's tools. */
+	promptAuthorId: string | null;
 	attemptId: string | null;
 	attempt: number;
 	claimedBy: string | null;
@@ -228,6 +232,23 @@ export interface TurnControlStore {
 	}): Promise<TurnEvent>;
 	/** Remember that a run job was requested under `enqueueId`; false when that id was already recorded. */
 	recordLogicalEnqueue(tenantId: string, turnId: string, enqueueId: string): Promise<boolean>;
+	/** The turn's capability grant, or null when the turn carries none. */
+	getGrant(tenantId: string, turnId: string): Promise<TaskCapabilityGrant | null>;
+	/**
+	 * Replace the grant of an active turn and append `turn.grant.replaced` in one transaction. The writer need not own the
+	 * turn: a member replaces the grant while an attempt works.
+	 *
+	 * @throws TurnNotFoundError If the turn is unknown.
+	 * @throws TurnTerminalError If the turn is no longer active.
+	 */
+	replaceGrant(request: {
+		tenantId: string;
+		turnId: string;
+		grant: TaskCapabilityGrant;
+		body: string;
+		eventId: string;
+		expiresAt: Date;
+	}): Promise<TurnEvent>;
 	/** The events of a turn after a sequence, in sequence order. */
 	listEvents(tenantId: string, turnId: string, afterSeq: number): Promise<TurnEvent[]>;
 	/** The turn a channel pointer names, or null when the pointer is absent. */

@@ -97,6 +97,10 @@ export class ChatticusWorld extends World {
 	membershipUiHarness: Record<string, any> | null = null;
 	lastChannel: { channelId: string; tenantId: string } | null = null;
 	lastTurnId: string | null = null;
+	/** The response of the last PUT of a turn grant. */
+	grantResponse: RecordedResponse | null = null;
+	/** The grant table the last replacement asked for. */
+	lastGrantTable: Record<string, string> | null = null;
 	createdBotIds: string[] = [];
 	botCreatorUserIds: Map<string, string> = new Map();
 	rememberedTurnIds: Map<string, string> = new Map();

@@ -3,8 +3,10 @@ import {
 	type DynamoDBClient,
 	GetItemCommand,
 	TransactionCanceledException,
+	type TransactWriteItem,
 	TransactWriteItemsCommand,
 } from "@aws-sdk/client-dynamodb";
+import { encodeGrant } from "./codecs/grant.ts";
 import type { OpenTurnState, StartTurnRequest, TurnAdmission } from "../domain/turn-admission.ts";
 import { MAILBOX_PUT_CONDITION, type MailboxItem, mailboxItemAttributes } from "../pi/mailbox.ts";
 import { TURN_EVENT_TTL_SECONDS } from "../domain/turns.ts";
@@ -96,10 +98,15 @@ export class DynamoTurnAdmission implements TurnAdmission {
 						ConditionExpression: "turn_id = :expected",
 						ExpressionAttributeValues: { ":expected": { S: request.expectedPointerTurnId } },
 					};
+		const grantPuts: TransactWriteItem[] =
+			request.grant === null
+				? []
+				: [{ Put: { TableName: this.tableName, Item: encodeGrant(request.tenantId, request.turnId, request.grant) } }];
 		try {
 			await this.client.send(
 				new TransactWriteItemsCommand({
 					TransactItems: [
+						...grantPuts,
 						{
 							Put: {
 								TableName: this.tableName,
@@ -112,6 +119,7 @@ export class DynamoTurnAdmission implements TurnAdmission {
 									bot_id: { S: request.botId },
 									status: { S: ACTIVE_STATUS },
 									prompt_message_seq: { N: String(request.promptMessageSeq) },
+									prompt_author_id: { S: request.promptAuthorId },
 									attempt: { N: "0" },
 									next_event_seq: { N: "2" },
 									recovery_attempts: { N: "0" },

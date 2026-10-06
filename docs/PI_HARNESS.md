@@ -778,3 +778,40 @@ replaced, so no request leaves the machine
   `response.completed` with `usage`). The faux provider
   (`features-support/fakes/scripted-provider.ts`) covers the same call without
   HTTP.
+
+## The tool gate (verified in TS-26)
+
+Measured with the scripted provider (`toolCall(...)` then `reply(...)`) against
+`@earendil-works/pi-durable` 1.0.2, in `conversation/src/pi/gate.ts` and the
+scenarios of `model_tool_loop_sinks.feature`.
+
+- **The gate is a `beforeTool` hook**, registered once with
+  `hook(ToolTask, { beforeTool })` in its own extension. It sees every tool
+  of every extension. `wrapTool` is the other seam (it decorates one tool's
+  `execute`), but `execute` runs after the intent is recorded, so a gate there
+  leaves a started tool behind. The hook runs before intent: a blocked call
+  leaves no trace of having started.
+- **Order inside the tool task.** The tool is resolved first (an unregistered
+  name never reaches the hook: the model gets `tool_unavailable`), then the
+  arguments are validated against the TypeBox schema, then `beforeTool` runs.
+  A tool the gate must judge therefore has to be registered, even when it can
+  never execute (`send` is registered with `replay: "unsafe"` and an `execute`
+  that throws).
+- **A block is a tool result, not an error.** `{ block: reason }` makes Pi
+  append a `pi.tool-result` entry the model sees as
+  `Tool call blocked: <reason>` and the generation continues: the next model
+  request answers the denial. The listener receives `tool_execution_end` for
+  the call and no `tool_execution_start`; `createAgentEventListener` writes the
+  missing `tool.call` before the `tool.result`, so the journal always pairs
+  them by `action_id`.
+- **The result text is wrapped.** The turn-event `body` of a blocked call is
+  `<harness>\n[error] Tool call blocked: <reason>\n</harness>`, because Pi
+  renders the diagnostics into the content. Match on the substring.
+- **The hook runs per call, so it reads state per call.** The gate reads the
+  turn's grant item every time; a member's `PUT /turns/{id}/grant` during a
+  turn applies from the next call. A throw inside the hook blocks the call
+  with the error text, so a failure to resolve the member's standing is
+  reported as a denial, never as an allowed call.
+- **Approvals.** The hook cannot wait. A consequential tool whose grant and
+  standing allow it is blocked with `immutable approval required`; the
+  approval flow is a later re-request, as above.

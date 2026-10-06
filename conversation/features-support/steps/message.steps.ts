@@ -85,7 +85,7 @@ function botIdsFor(world: ChatticusWorld, table: DataTable): string[] {
 		.map((name) => botNamed(world, name).botId);
 }
 
-async function openChannelForTable(
+export async function openChannelForTable(
 	world: ChatticusWorld,
 	tenantId: string,
 	userId: string,

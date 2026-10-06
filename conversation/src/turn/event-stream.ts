@@ -102,7 +102,8 @@ export class AgentEventDelivery {
 
 /**
  * The listener that turns Pi's `watchEvents` batches into turn events, following the table of the design: a model
- * request per `turn_start`, coalesced `turn.token` for streamed text, `tool.call` and `tool.result` around a tool. An
+ * request per `turn_start`, coalesced `turn.token` for streamed text, `tool.call` and `tool.result` around a tool. A call
+ * the tool gate blocked never starts, so its `tool.call` is written just before its `tool.result`. An
  * assistant message starts with the text it already has when the first batch is delivered, then grows by deltas; text
  * the stream did not carry at all is added when the message ends, so the joined tokens of a message always equal its
  * text. Thinking, snapshots and the rest are not forwarded.
@@ -120,6 +121,7 @@ export function createAgentEventListener(
 	delivery: AgentEventDelivery,
 ): (events: readonly AgentEvent[]) => Promise<void> {
 	let streamedText = "";
+	const startedCalls = new Set<string>();
 	return async (events) => {
 		const settledInBatch: number[] = [];
 		for (const event of events) {
@@ -158,10 +160,15 @@ export function createAgentEventListener(
 				}
 				case "tool_execution_start":
 					await coalescer.flush();
+					startedCalls.add(event.toolCallId);
 					await writer.write({ kind: "tool.call", body: event.toolName, actionId: event.toolCallId });
 					break;
 				case "tool_execution_end": {
 					await coalescer.flush();
+					if (!startedCalls.has(event.toolCallId)) {
+						startedCalls.add(event.toolCallId);
+						await writer.write({ kind: "tool.call", body: event.toolName, actionId: event.toolCallId });
+					}
 					const result = event.entry?.model?.[0];
 					const body = result?.role === "toolResult" ? textOf(result.content).slice(0, TOOL_RESULT_BODY_LIMIT) : event.toolName;
 					await writer.write({ kind: "tool.result", body, actionId: event.toolCallId });

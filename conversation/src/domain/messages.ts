@@ -3,6 +3,7 @@ import { listChannelMessages as listChannelSessionMessages } from "../pi/channel
 import { allocateSeq, put as putMailboxItem, type MailboxItem, type MailboxStore } from "../pi/mailbox.ts";
 import type { Clock, IdSource } from "../http/app.ts";
 import { ActorNotInChannelError } from "../http/errors.ts";
+import { householdConversationGrant } from "../policy/capability-policy.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { pythonRepr } from "./bots.ts";
 import { type ActorKind, type Channel, type ChannelMessageRecord, requireChannelTenant } from "./channels.ts";
@@ -105,6 +106,8 @@ async function admitAddressedMessage(
 			botId,
 			turnId,
 			promptMessageSeq: message.seq,
+			promptAuthorId: message.authorId,
+			grant: message.authorKind === "human" ? householdConversationGrant() : null,
 			createdAt: message.createdAt,
 			startedEventId: deps.ids.next(),
 			expectedPointerTurnId: open === null ? null : open.pointerTurnId,

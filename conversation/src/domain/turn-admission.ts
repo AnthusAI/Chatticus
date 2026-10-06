@@ -1,4 +1,5 @@
 import type { MailboxItem } from "../pi/mailbox.ts";
+import type { TaskCapabilityGrant } from "../policy/capability-policy.ts";
 
 /** What one bot's active-turn pointer on one channel currently resolves to. */
 export type OpenTurnState = {
@@ -20,6 +21,10 @@ export type StartTurnRequest = {
 	readonly botId: string;
 	readonly turnId: string;
 	readonly promptMessageSeq: number;
+	/** Who posted the prompt. */
+	readonly promptAuthorId: string;
+	/** The closed grant the turn starts with, or null when the prompt came from a bot and the turn carries none. */
+	readonly grant: TaskCapabilityGrant | null;
 	readonly createdAt: Date;
 	/** Identifier of the turn.started event written with the record. */
 	readonly startedEventId: string;

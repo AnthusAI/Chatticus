@@ -36,20 +36,6 @@ Given(
 	},
 );
 
-When("bot {string} is asked {string}", async function (this: ChatticusWorld, name: string, body: string) {
-	const bot = this.botsByName?.get(name);
-	assert.ok(bot, `Bot ${name} not found`);
-	const userId = this.botCreatorUserIds.get(name);
-	assert.ok(userId, `No user created bot ${name}`);
-	const opened = await recordResponse(
-		await memberPost(this, `/orgs/${bot.tenantId}/channels`, { user_id: userId, bot_ids: [bot.botId], kind: "direct", name: null }),
-	);
-	assert.equal(opened.status, 200, opened.text);
-	this.lastChannel = { channelId: opened.json.channel_id, tenantId: bot.tenantId };
-	const posted = await post(this, { authorKind: "human", authorId: userId, body, addressedToBotId: bot.botId, tenantId: bot.tenantId });
-	assert.equal(posted.status, 200, posted.text);
-});
-
 When(
 	"bot {string} runs one vendor-ledger computerless worker turn with model {string}",
 	async function (this: ChatticusWorld, name: string, model: string) {

@@ -12,6 +12,7 @@ function turnRecord(overrides: Partial<Turn>): Turn {
 		botId: "bot-1",
 		status: "completed",
 		promptMessageSeq: 1,
+		promptAuthorId: "ryan",
 		attemptId: "attempt-1",
 		attempt: 1,
 		claimedBy: null,
