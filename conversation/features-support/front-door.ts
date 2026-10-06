@@ -1,4 +1,3 @@
-import { S3Client } from "@aws-sdk/client-s3";
 import type { IntegrationTestAuthConfig } from "../src/auth/integration-test.ts";
 import type { SignupMode } from "../src/domain/signup-mode.ts";
 import type { TurnRunJob } from "../src/domain/turn-admission.ts";
@@ -8,6 +7,7 @@ import { MessageBodyCache } from "../src/pi/message-cache.ts";
 import { DynamoTurnAdmission } from "../src/store/turn-admission-store.ts";
 import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
 import { ApiClient } from "./api.ts";
+import { ensurePiStorage, type ScenarioPiStorage } from "./pi-storage.ts";
 import { startAppServer } from "./http-server.ts";
 import { CognitoTestKeys } from "./test-jwt.ts";
 import type { ChatticusWorld } from "./world.ts";
@@ -35,17 +35,7 @@ export async function cognitoKeys(world: ChatticusWorld): Promise<CognitoTestKey
 /** The queue name run jobs for new turns are recorded under in the scenario's queue recorder. */
 export const TURN_RUN_QUEUE = "turn-runs";
 
-const CONVERSATIONS_TABLE_NAME = "Conversations";
-const PI_SESSIONS_BUCKET_NAME = "PiSessions";
-
-function messageDependencies(world: ChatticusWorld) {
-	const s3 = new S3Client({
-		endpoint: process.env.CHATTICUS_TEST_AWS_ENDPOINT ?? "http://127.0.0.1:5555",
-		region: "us-east-1",
-		credentials: { accessKeyId: "test", secretAccessKey: "test" },
-		forcePathStyle: true,
-		maxAttempts: 1,
-	});
+function messageDependencies(world: ChatticusWorld, piStorage: ScenarioPiStorage) {
 	return {
 		mailbox: { client: world.messagingTable.client, tableName: world.messagingTable.tableName },
 		turns: new DynamoTurnAdmission(world.messagingTable.client, world.messagingTable.tableName),
@@ -56,10 +46,10 @@ function messageDependencies(world: ChatticusWorld) {
 		},
 		listing: {
 			client: world.messagingTable.client,
-			s3,
+			s3: piStorage.s3,
 			messagingTableName: world.messagingTable.tableName,
-			conversationsTableName: CONVERSATIONS_TABLE_NAME,
-			bucket: PI_SESSIONS_BUCKET_NAME,
+			conversationsTableName: piStorage.tableName,
+			bucket: piStorage.bucket,
 			commitCache: new MessageBodyCache<Promise<CommitObject>>(),
 		},
 	};
@@ -75,8 +65,9 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		clock: world.clock,
 		ids: world.ids,
 		store: world.messagingStore(),
-		messages: messageDependencies(world),
+		messages: messageDependencies(world, await ensurePiStorage(world)),
 		turnControl: world.turnControlStore(),
+		streamTiming: { minimumPollMilliseconds: 5, maximumPollMilliseconds: 25, heartbeatMilliseconds: 15_000 },
 		invokeKey: options.invokeKey ?? null,
 		operatorKey: options.operatorKey ?? "",
 		integrationTest: options.integrationTest ?? null,

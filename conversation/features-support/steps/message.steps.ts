@@ -23,7 +23,7 @@ function messagesPath(tenantId: string, channelId: string): string {
 	return `/orgs/${tenantId}/channels/${channelId}/messages`;
 }
 
-type PostRequest = {
+export type PostRequest = {
 	authorKind: "human" | "bot";
 	authorId: string;
 	body: string;
@@ -33,7 +33,7 @@ type PostRequest = {
 	enqueueTurn?: boolean;
 };
 
-async function post(world: ChatticusWorld, request: PostRequest): Promise<RecordedResponse> {
+export async function post(world: ChatticusWorld, request: PostRequest): Promise<RecordedResponse> {
 	const channel = openChannelOf(world);
 	const payload: Record<string, unknown> = {
 		author_kind: request.authorKind,

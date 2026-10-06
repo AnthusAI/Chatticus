@@ -133,7 +133,7 @@ export async function getChannelLatestTurnHandler(c: Context, deps: TurnRouteDep
 	return channelTurnHandler(c, deps, latestTurnForChannel);
 }
 
-async function readableTurn(c: Context, deps: TurnRouteDependencies): Promise<Turn | Response> {
+export async function readableTurn(c: Context, deps: TurnRouteDependencies): Promise<Turn | Response> {
 	const principal = await resolveUserPrincipal(c, deps);
 	if (isRefusal(principal)) {
 		return principal;

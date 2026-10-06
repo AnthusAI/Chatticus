@@ -26,6 +26,7 @@ import {
 	getTurnHandler,
 	listTurnEventsHandler,
 } from "./routes/turns.ts";
+import { DEFAULT_TURN_STREAM_TIMING, streamTurnHandler, type TurnStreamTiming } from "./routes/turn-stream.ts";
 import { integrationTestSessionHandler } from "./routes/integration-test.ts";
 import { operatorOrganizationHandler } from "./routes/operator.ts";
 import { claimTurnHandler, registerWorkerHandler } from "./routes/workers.ts";
@@ -62,6 +63,8 @@ export interface AppDeps {
 	verifier?: IdTokenVerifier | null;
 	signupMode?: SignupMode;
 	organizationCreationRateLimit?: number;
+	/** How the turn stream paces its reads; defaults to the design's 50 ms to 1 s backoff and 15 s heartbeat. */
+	streamTiming?: TurnStreamTiming;
 }
 
 /**
@@ -207,6 +210,9 @@ export function createApp(deps: AppDeps): Hono {
 	);
 	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id/events", audience: "user" }, (c) =>
 		listTurnEventsHandler(c, turnRoutes),
+	);
+	declareRoute(app, { method: "GET", path: "/orgs/:tenant_id/turns/:turn_id/stream", audience: "user" }, (c) =>
+		streamTurnHandler(c, { ...turnRoutes, streamTiming: deps.streamTiming ?? DEFAULT_TURN_STREAM_TIMING }),
 	);
 
 	const workerRoutes = { store, clock: deps.clock, ids: deps.ids };

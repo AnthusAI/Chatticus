@@ -1,0 +1,60 @@
+import type { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import type { S3Client } from "@aws-sdk/client-s3";
+import type { Context } from "@earendil-works/chord";
+import type { Models } from "@earendil-works/pi-ai/models";
+import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
+import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
+import type { MessagingStore } from "../store/messaging-store.ts";
+import type { TurnDependencies } from "../domain/turns.ts";
+
+/** The queue message that asks an executor to run a turn. */
+export type TurnExecutionJob = {
+	readonly tenantId: string;
+	readonly turnId: string;
+	readonly botId: string;
+};
+
+/**
+ * How one execution ended.
+ *
+ * - `done`: the turn completed and its answer is committed to the channel.
+ * - `failed`: the turn ended as failed with a reason a member can read.
+ * - `lost`: another attempt owns the turn (or it already ended); nothing was written for it.
+ * - `reconciling`: a Pi commit's outcome is unknown; the turn is handed to reconciliation.
+ */
+export type TurnExecutionOutcome = "done" | "failed" | "lost" | "reconciling";
+
+/** The model every turn of a bot runs on. */
+export type TurnModel = { readonly provider: string; readonly modelId: string; readonly thinkingLevel: ModelThinkingLevel };
+
+/** Timing and retry knobs; the defaults are the design's. */
+export type ExecutorTuning = {
+	/** Milliseconds between lease renewals. */
+	readonly renewIntervalMilliseconds: number;
+	/** Milliseconds between looks at the mailbox for steered messages. */
+	readonly mailboxPollMilliseconds: number;
+	/** Bytes of streamed text that are written at once. */
+	readonly tokenFlushBytes: number;
+	/** Milliseconds after which streamed text is written however small. */
+	readonly tokenFlushMilliseconds: number;
+	/** Pi's retry policy for a failed model call. */
+	readonly retry: { readonly maxRetries: number; readonly baseDelayMilliseconds: number };
+};
+
+/** Everything an execution reads and writes. */
+export type ExecutorDeps = {
+	readonly turns: TurnDependencies;
+	readonly messaging: MessagingStore;
+	readonly client: DynamoDBClient;
+	readonly s3: S3Client;
+	readonly messagingTableName: string;
+	readonly conversationsTableName: string;
+	readonly piSessionsBucket: string;
+	readonly models: Models;
+	readonly model: TurnModel;
+	readonly ledger: VendorLedgerDependencies;
+	/** Recorded as `claimed_by` on the turn. */
+	readonly workerLabel?: string;
+	readonly tuning?: Partial<ExecutorTuning>;
+	readonly context?: Context;
+};

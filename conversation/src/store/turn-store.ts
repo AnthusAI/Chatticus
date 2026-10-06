@@ -82,6 +82,8 @@ export function turnFromItem(item: Record<string, AttributeValue>): Turn {
 		nextEventSeq: optionalNumber(item, "next_event_seq") ?? 1,
 		terminalReason: optionalString(item, "terminal_reason"),
 		messageSeq: optionalNumber(item, "message_seq"),
+		ledgerInputRecorded: optionalNumber(item, "ledger_input_recorded") ?? 0,
+		ledgerOutputRecorded: optionalNumber(item, "ledger_output_recorded") ?? 0,
 	};
 }
 
@@ -253,6 +255,44 @@ export class DynamoTurnControlStore implements TurnControlStore {
 				pending_computer_tool: { S: encodePendingComputerTool(request.pendingComputerTool) },
 			},
 			remove: ["attempt_id", "claimed_by", "lease_expires_at"],
+			terminal: false,
+		});
+	}
+
+	async beginClosing(tenantId: string, turnId: string, attemptId: string): Promise<void> {
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: this.metaKey(tenantId, turnId),
+					UpdateExpression: "SET closing = :closing",
+					ConditionExpression: "attempt_id = :attemptId AND #status = :active",
+					ExpressionAttributeNames: { "#status": "status" },
+					ExpressionAttributeValues: {
+						":closing": { BOOL: true },
+						":attemptId": { S: attemptId },
+						":active": { S: ACTIVE_STATUS },
+					},
+				}),
+			);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				throw await this.rejection(tenantId, turnId, attemptId);
+			}
+			throw error;
+		}
+	}
+
+	async reconcileTurn(request: Parameters<TurnControlStore["reconcileTurn"]>[0]): Promise<TurnEvent> {
+		return this.transition({
+			tenantId: request.tenantId,
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			draft: { kind: "turn.reconciling", body: request.reason },
+			eventId: request.eventId,
+			expiresAt: request.expiresAt,
+			set: { status: { S: "reconciling" }, terminal_reason: { S: request.reason } },
+			remove: ["claimed_by", "lease_expires_at"],
 			terminal: false,
 		});
 	}

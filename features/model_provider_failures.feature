@@ -7,7 +7,10 @@ Feature: A failed model call ends the turn honestly
   account is out of quota, the key is rejected, the request is invalid) or
   temporary (rate limited, provider unavailable). A permanent error fails the
   turn at once with a reason a person can act on, and the queued job is not
-  retried. A temporary error leaves the turn active so the queue can retry it.
+  retried. A temporary error is retried inside the turn by the conversation
+  engine; when the retries are spent the turn fails with a generic reason, and
+  the person retries with a new message. No failure leaves the turn waiting for
+  the queue.
 
   Background:
     Given an empty control plane
@@ -30,13 +33,13 @@ Feature: A failed model call ends the turn honestly
       | 403    | model_access_denied | The model provider denied access to the configured model.                                |
       | 400    | unsupported_value   | The model provider rejected the request as invalid.                                      |
 
-  Scenario Outline: A temporary provider error leaves the turn for a retry
+  Scenario Outline: A temporary provider error is retried inside the turn and then fails it
     Given the model provider answers every request with status <status> and error code "<code>"
     When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel
     And bot "Assistant" runs one computerless worker turn against that provider
-    Then the worker reports a temporary model provider failure
-    And the turn is still active
-    And a job for bot "Assistant" is still queued for a retry
+    Then the model provider was retried before the turn failed
+    And the turn has failed with reason "The model provider failed to produce an answer."
+    And no job for bot "Assistant" is left to retry
 
     Examples:
       | status | code                |
@@ -44,12 +47,12 @@ Feature: A failed model call ends the turn honestly
       | 500    | server_error        |
       | 503    | overloaded          |
 
-  Scenario: An error response without the provider's error body is treated as temporary
+  Scenario: An error response without the provider's error body gets the generic reason
     Given the model provider answers every request with status 403 and no error body
     When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel
     And bot "Assistant" runs one computerless worker turn against that provider
-    Then the worker reports a temporary model provider failure
-    And the turn is still active
+    Then the turn has failed with reason "The model provider failed to produce an answer."
+    And no job for bot "Assistant" is left to retry
 
   Scenario: A worker without the current fence cannot fail the turn
     Given a worker owns an active turn
