@@ -188,3 +188,34 @@ export function rosterPresentation(state: "loading" | "empty" | "error"): string
     error: "Roster failed to load",
   }[state];
 }
+
+export type RosterViewState = "loading" | "empty" | "error" | "no-match" | null;
+
+/**
+ * Decides which explicit state, if any, replaces the roster list.
+ *
+ * @param inputs - Whether the roster is loading, whether loading failed, the row counts, and the search text
+ * @returns The state to present, or null when the roster rows are shown
+ */
+export function resolveRosterViewState(inputs: {
+  loading: boolean;
+  failed: boolean;
+  rosterRowCount: number;
+  visibleRowCount: number;
+  query: string;
+}): RosterViewState {
+  if (inputs.loading) {
+    return "loading";
+  }
+  if (inputs.failed && inputs.rosterRowCount === 0) {
+    return "error";
+  }
+  if (!inputs.failed && inputs.visibleRowCount === 0) {
+    return inputs.query.trim() ? "no-match" : "empty";
+  }
+  return null;
+}
+
+export function rosterViewText(state: Exclude<RosterViewState, null>): string {
+  return state === "no-match" ? "No matching bots or channels" : rosterPresentation(state);
+}

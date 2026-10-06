@@ -1,10 +1,22 @@
 import {
   buildRoster,
-  rosterPresentation,
-  tasksForSelection,
+  resolveRosterViewState,
+  resolveVisibleTurnState,
+  rosterViewText,
   turnPresentation,
+  type TurnUiStatus,
 } from "../lib/workspace-state";
-import type { Bot, Channel, Message, Task, Turn } from "../lib/api";
+import {
+  buildInspectorModel,
+  focusRingIsVisible,
+  iconOnlyControlsAreNamed,
+  messagesForChannel,
+  prepareOutgoingMessage,
+  regionsOpenedAsSheets,
+  resolveSelectionChannel,
+  restoreConversation,
+} from "../lib/workspace-actions";
+import type { Bot, Channel, Computer, Message, Task, Turn } from "../lib/api";
 import {
   buildChatticusThreadMessages,
   convertChatticusThreadMessage,
@@ -18,6 +30,8 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
   channels?: Channel[];
   messages?: Message[];
   tasks?: Task[];
+  computer?: Computer | null;
+  viewportWidthPx?: number;
   selectedId?: string;
   addressedBotId?: string;
   body?: string;
@@ -31,6 +45,7 @@ const bots = input.bots ?? [];
 const channels = input.channels ?? [];
 const roster = buildRoster(bots, channels);
 
+async function main(): Promise<void> {
 let output: unknown;
 if (input.action === "roster") {
   output = roster.map((item) => ({
@@ -41,33 +56,51 @@ if (input.action === "roster") {
   }));
 } else if (input.action === "select") {
   const item = roster.find((candidate) => candidate.id === input.selectedId);
+  if (!item) {
+    throw new Error(`no roster row ${input.selectedId}`);
+  }
+  const createdChannelIds: string[] = [];
+  const channel = await resolveSelectionChannel(item, async (botId) => {
+    const created = {
+      channel_id: `created-${createdChannelIds.length + 1}`,
+      tenant_id: "tenant-1",
+      user_id: "user-1",
+      kind: "direct" as const,
+      name: null,
+      participants: [{ kind: "bot" as const, actor_id: botId }],
+    };
+    createdChannelIds.push(created.channel_id);
+    return created;
+  });
   output = {
-    channelId: item?.channel?.channel_id ?? null,
-    messages: [...(input.messages ?? [])].sort((left, right) => left.seq - right.seq),
+    channelId: channel?.channel_id ?? null,
+    createdChannelIds,
+    messages: messagesForChannel(
+      { [channel?.channel_id ?? ""]: input.messages ?? [] },
+      channel?.channel_id ?? null,
+    ),
   };
 } else if (input.action === "send") {
-  const item = roster.find((candidate) => candidate.id === input.selectedId);
-  output = {
-    channelId: item?.channel?.channel_id ?? null,
-    addressedToBotId: input.addressedBotId,
-    body: input.body,
-  };
+  const item = roster.find((candidate) => candidate.id === input.selectedId) ?? null;
+  output = prepareOutgoingMessage(item, input.addressedBotId ?? "", input.body ?? "", {
+    sending: false,
+    turn: null,
+  });
 } else if (input.action === "reload") {
-  output = {
-    messages: [...(input.messages ?? [])].sort((left, right) => left.seq - right.seq),
-    turnState: input.turn?.waiting_for ? "waiting" : input.turn?.status ?? null,
-  };
+  output = restoreConversation(input.messages ?? [], input.turn ?? null);
 } else if (input.action === "inspector") {
   const item = roster.find((candidate) => candidate.id === input.selectedId) ?? null;
-  output = {
-    tasks: tasksForSelection(input.tasks ?? [], item),
-    computerControls: [],
-  };
+  output = buildInspectorModel({
+    computer: input.computer ?? null,
+    tasks: input.tasks ?? [],
+    selectedItem: item,
+    bots,
+  });
 } else if (input.action === "accessibility") {
   output = {
-    sheets: ["Bots and channels", "Conversation inspector"],
-    iconControlsNamed: true,
-    focusRing: true,
+    sheets: regionsOpenedAsSheets(input.viewportWidthPx ?? 1440),
+    iconControlsNamed: iconOnlyControlsAreNamed(),
+    focusRing: focusRingIsVisible(),
   };
 } else if (input.action === "thread") {
   const activeTurn = input.activeTurn ?? null;
@@ -93,11 +126,29 @@ if (input.action === "roster") {
     };
   });
 } else if (input.action === "turn-presentation") {
-  output = turnPresentation(input.state as "streaming" | "waiting" | "completed" | "failed" | "reconciling");
+  const wanted = input.state as "streaming" | "waiting" | "completed" | "failed" | "reconciling";
+  const turnStatus = { streaming: "active", waiting: "active", completed: "completed", failed: "failed", reconciling: "reconciling" }[wanted] as TurnUiStatus;
+  const turn = { waiting_for: wanted === "waiting" ? "computer" : null };
+  const visible = resolveVisibleTurnState(turnStatus, turn, wanted === "streaming" ? "partial reply" : "");
+  output = visible ? turnPresentation(visible) : null;
 } else if (input.action === "roster-presentation") {
-  output = rosterPresentation(input.state as "loading" | "empty" | "error");
+  const wanted = input.state as "loading" | "empty" | "error";
+  const visible = resolveRosterViewState({
+    loading: wanted === "loading",
+    failed: wanted === "error",
+    rosterRowCount: 0,
+    visibleRowCount: 0,
+    query: "",
+  });
+  output = visible ? rosterViewText(visible) : null;
 } else {
   throw new Error(`unknown action ${input.action}`);
 }
 
 process.stdout.write(JSON.stringify(output));
+}
+
+main().catch((caught) => {
+  console.error(caught);
+  process.exit(1);
+});

@@ -5,7 +5,9 @@ import { TASK_TOOL_NAME } from "../../src/pi/task-tool.ts";
 import type { Computer } from "../../src/store/codecs/computer.ts";
 import { recordResponse, type RecordedResponse } from "../api.ts";
 import { modelScenarioOf, runBotTurn } from "../executor-harness.ts";
-import { memberGet, memberPost } from "../org-user-client.ts";
+import { httpBaseUrl } from "../front-door.ts";
+import { memberGet, memberPost, organizationMemberHeaders } from "../org-user-client.ts";
+import { runWebHarness } from "../web-harness-runner.ts";
 import type { ChatticusWorld } from "../world.ts";
 import { currentTurnOf, readTurnEvents } from "./model.steps.ts";
 import { openChannelWithNamedBot, post } from "./message.steps.ts";
@@ -22,8 +24,7 @@ type TaskScenario = {
 	httpResponse: RecordedResponse | null;
 	otherTenantResponse: RecordedResponse | null;
 	receivedMessage: string | null;
-	webListResponse: RecordedResponse | null;
-	webDetailResponse: RecordedResponse | null;
+	webResult: Record<string, any> | null;
 };
 
 const scenarios = new WeakMap<ChatticusWorld, TaskScenario>();
@@ -39,8 +40,7 @@ function scenarioOf(world: ChatticusWorld): TaskScenario {
 			httpResponse: null,
 			otherTenantResponse: null,
 			receivedMessage: null,
-			webListResponse: null,
-			webDetailResponse: null,
+			webResult: null,
 		};
 		scenarios.set(world, scenario);
 	}
@@ -51,6 +51,21 @@ function botNamed(world: ChatticusWorld, name: string): { botId: string; name: s
 	const bot = world.botsByName?.get(name);
 	assert.ok(bot, `Bot ${name} not found`);
 	return bot;
+}
+
+/** Run the web UI's own task API client against the scenario's HTTP front door as an enabled member of `tenantId`. */
+async function runTaskListHarness(
+	world: ChatticusWorld,
+	request: { action: "list" | "detail"; tenantId: string; userId: string; taskId?: string },
+): Promise<Record<string, any>> {
+	const headers = await organizationMemberHeaders(world, `/orgs/${request.tenantId}/tasks`);
+	return runWebHarness("task-list-harness.ts", [
+		JSON.stringify({
+			...request,
+			apiOrigin: await httpBaseUrl(world),
+			idToken: headers.Authorization!.replace(/^Bearer /, ""),
+		}),
+	]);
 }
 
 async function listTasksOver(world: ChatticusWorld, tenantId: string, userId: string): Promise<RecordedResponse> {
@@ -310,59 +325,64 @@ When(
 When(
 	"the web UI requests the task list for tenant {string} user {string}",
 	async function (this: ChatticusWorld, tenantId: string, userId: string) {
-		scenarioOf(this).webListResponse = await listTasksOver(this, tenantId, userId);
+		scenarioOf(this).webResult = await runTaskListHarness(this, { action: "list", tenantId, userId });
 	},
 );
 
 Then("the web UI task list shows:", function (this: ChatticusWorld, table: DataTable) {
-	const response = scenarioOf(this).webListResponse;
-	assert.ok(response, "The web UI has not requested the task list");
-	assert.equal(response.status, 200, response.text);
-	assert.deepEqual(
-		(response.json.tasks as TaskPayload[]).map((task) => task.title),
-		cellsOf(table),
-	);
+	const result = scenarioOf(this).webResult;
+	assert.ok(result, "The web UI has not requested the task list");
+	assert.equal(result.error, undefined, result.error);
+	assert.deepEqual(result.titles, cellsOf(table));
 });
 
 Then("the web UI task list is empty", function (this: ChatticusWorld) {
-	const response = scenarioOf(this).webListResponse;
-	assert.ok(response, "The web UI has not requested the task list");
-	assert.equal(response.status, 200, response.text);
-	assert.deepEqual(response.json.tasks, []);
+	const result = scenarioOf(this).webResult;
+	assert.ok(result, "The web UI has not requested the task list");
+	assert.equal(result.error, undefined, result.error);
+	assert.deepEqual(result.titles, []);
 });
 
 When(
 	"the web UI requests task details for the stored task as tenant {string}",
 	async function (this: ChatticusWorld, tenantId: string) {
-		scenarioOf(this).webDetailResponse = await recordResponse(
-			await memberGet(this, `/orgs/${tenantId}/tasks/${lastTaskOf(this).task_id}`),
-		);
+		scenarioOf(this).webResult = await runTaskListHarness(this, {
+			action: "detail",
+			tenantId,
+			userId: HOUSEHOLD_USER,
+			taskId: lastTaskOf(this).task_id,
+		});
 	},
 );
 
 When(
 	"the web UI requests task {string} as tenant {string}",
 	async function (this: ChatticusWorld, taskId: string, tenantId: string) {
-		scenarioOf(this).webDetailResponse = await recordResponse(await memberGet(this, `/orgs/${tenantId}/tasks/${taskId}`));
+		scenarioOf(this).webResult = await runTaskListHarness(this, {
+			action: "detail",
+			tenantId,
+			userId: HOUSEHOLD_USER,
+			taskId,
+		});
 	},
 );
 
 Then("the web UI task detail shows title {string}", function (this: ChatticusWorld, title: string) {
-	const response = scenarioOf(this).webDetailResponse;
-	assert.ok(response, "The web UI has not requested a task");
-	assert.equal(response.status, 200, response.text);
-	assert.equal(response.json.title, title);
+	const result = scenarioOf(this).webResult;
+	assert.ok(result, "The web UI has not requested a task");
+	assert.equal(result.error, undefined, result.error);
+	assert.equal(result.title, title);
 });
 
 Then("the web UI task detail shows status {string}", function (this: ChatticusWorld, status: string) {
-	const response = scenarioOf(this).webDetailResponse;
-	assert.ok(response, "The web UI has not requested a task");
-	assert.equal(response.status, 200, response.text);
-	assert.equal(response.json.status, status);
+	const result = scenarioOf(this).webResult;
+	assert.ok(result, "The web UI has not requested a task");
+	assert.equal(result.error, undefined, result.error);
+	assert.equal(result.status, status);
 });
 
 Then("the web UI task detail request fails with not found", function (this: ChatticusWorld) {
-	const response = scenarioOf(this).webDetailResponse;
-	assert.ok(response, "The web UI has not requested a task");
-	assert.equal(response.status, 404, response.text);
+	const result = scenarioOf(this).webResult;
+	assert.ok(result, "The web UI has not requested a task");
+	assert.match(String(result.error), /^HTTP 404:/);
 });
