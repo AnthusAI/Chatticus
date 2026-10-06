@@ -47,7 +47,8 @@ async function ensureSpendBot(world: ChatticusWorld): Promise<void> {
 }
 
 Given("the organization computer is stopped", async function (this: ChatticusWorld) {
-	await setComputerStopped(spendScenario(this).tenantId, true, { store: this.messagingStore(), ids: this.ids });
+	const tenantId = this.spendCeilingScenario === null ? "anthus" : spendScenario(this).tenantId;
+	await setComputerStopped(tenantId, true, { store: this.messagingStore(), ids: this.ids });
 });
 
 Given("an organization whose work is paused at its spend ceiling", async function (this: ChatticusWorld) {

@@ -81,3 +81,5 @@ features/customer_cross_account_role_api.feature
 features/customer_snapshot_bucket_template.feature
 features/organization_spend_ceiling_provisioning.feature
 features/web_organization_signup.feature
+features/computer_ecs_host_starter.feature
+features/single_computer_start.feature

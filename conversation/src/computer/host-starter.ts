@@ -4,10 +4,12 @@
  * AssumeRole. A start that cannot reach the customer account is refused, never run in the Anthus account.
  * The host protocol (the nine HTTP routes) is the only way a customer-account computer reaches Chatticus data.
  * Ported from python/src/chatticus/organization_computer_host.py lines 1-371 and
- * python/src/chatticus/deployment_aws_account.py lines 1-31.
+ * python/src/chatticus/deployment_aws_account.py lines 1-31, and python/src/chatticus/host_starter.py lines 1-55.
  */
 
 import { OrganizationComputerProvisioningError } from "../http/errors.ts";
+import type { ComputerStartJob, HostStartDriver } from "../domain/computer-start.ts";
+import type { HostStartClaim as DomainHostStartClaim } from "../domain/computers.ts";
 import type { Organization } from "../domain/organizations.ts";
 import type { AssumeRolePort, CloudFormationPort, EcrPort, EcsPort, SessionCredentials } from "./aws-ports.ts";
 import {
@@ -331,4 +333,54 @@ export class OrganizationComputerHostStarter {
 function customerComputersTemplateUrl(environment: StarterEnvironment): string | null {
 	const value = environmentValue(environment, "CHATTICUS_CUSTOMER_COMPUTERS_TEMPLATE_URL");
 	return value === "" ? null : value;
+}
+
+/** Summon one computer host for one durable host-start claim. */
+export interface HostStarter {
+	startHost(claim: HostStartClaim): Promise<void>;
+}
+
+/** Default starter that records intent only in the control plane. */
+export class NoOpHostStarter implements HostStarter {
+	/** Do nothing; host boot is exercised elsewhere. */
+	async startHost(_claim: HostStartClaim): Promise<void> {}
+}
+
+/** What the environment-selected ECS starter may be given in place of the real AWS clients. */
+export type EnvironmentHostStarterOptions = Omit<
+	OrganizationHostStarterOptions,
+	"getOrganization" | "deploymentAccountId" | "deploymentEcsConfig" | "environment"
+>;
+
+/** Return the configured host starter for this deployment. */
+export function hostStarterFromEnvironment(
+	getOrganization: ((tenantId: string) => Promise<Organization>) | null = null,
+	environment: StarterEnvironment = process.env,
+	options: EnvironmentHostStarterOptions = {},
+): HostStarter {
+	const kind = (environment.CHATTICUS_HOST_STARTER ?? "noop").trim().toLowerCase();
+	if (kind !== "ecs" || getOrganization === null) {
+		return new NoOpHostStarter();
+	}
+	return new OrganizationComputerHostStarter({
+		...options,
+		getOrganization,
+		deploymentAccountId: deploymentAwsAccountId(environment),
+		deploymentEcsConfig: deploymentEcsConfigFromEnvironment(environment),
+		environment,
+	});
+}
+
+/** Adapt a host starter to the driver the computer starter calls. */
+export function hostStartDriverFor(starter: HostStarter): HostStartDriver {
+	return {
+		async start(claim: DomainHostStartClaim, job: ComputerStartJob): Promise<void> {
+			await starter.startHost({
+				tenantId: claim.tenantId,
+				computerId: claim.computerId,
+				hostStartCount: claim.hostStartGeneration,
+				userId: job.userId,
+			});
+		},
+	};
 }
