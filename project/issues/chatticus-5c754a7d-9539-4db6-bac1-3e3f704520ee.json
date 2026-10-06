@@ -21,17 +21,28 @@
         "platform": "claude-code",
         "model": "claude-sonnet-5-5"
       }
+    },
+    {
+      "id": "8fc9fcdb-b34d-4304-b002-a0f263acd2fe",
+      "author": "home",
+      "text": "Add to the gate (from TS-17, PR for chatticus-27c8bf): (10) scenarios that pass under cucumber-js but sit in features that cannot be fully ported are NOT protected by CI, because the manifest is per feature. Split each such feature into a ported feature file (the passing scenarios, text unchanged) and the remainder, as TS-16 did with message_admission.feature. Affected so far: bot_turns scenarios 2-7 and six turn scenarios of messages.feature. (11) turn_attempts now asserts a single turn.completed event, weaker than the Python scenario because no executor commits a message yet: strengthen it when TS-18 lands. (12) Obsolete by design: 'user active turns can be listed' (users/{u}/turns is not in the design). Record each removed or obsolete Python scenario in the cutover ticket TS-40 so nothing disappears silently.",
+      "created_at": "2026-10-06T00:15:53.152956Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5"
+      }
     }
   ],
   "created_at": "2026-10-05T22:27:46.472966Z",
-  "updated_at": "2026-10-05T23:26:44.790707Z",
+  "updated_at": "2026-10-06T00:15:53.152986Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "Audit fixes landed for organizations, CLI steps, DynamoDB storage, and routing; policy, Cognito, assertion, and",
-  "right_now_updated_at": "2026-10-05T23:26:46.186035Z",
+  "right_now_summary": "Recent work fixed items 4–6; gaps remain in routes, policy, Cognito, assertions, coverage, and CI.",
+  "right_now_updated_at": "2026-10-06T00:15:55.515638Z",
   "custom": {}
 }
