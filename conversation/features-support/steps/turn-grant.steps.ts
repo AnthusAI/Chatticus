@@ -160,6 +160,25 @@ Then("the active turn grant is exactly that table", async function (this: Chatti
 	assert.ok(sameGrant(grant, parseGrantTable(this.lastGrantTable)), JSON.stringify(grantToPayload(grant)));
 });
 
+Then("the active turn grant holds exactly the tools {string}", async function (this: ChatticusWorld, tools: string) {
+	const grant = await activeTurnGrant(this);
+	assert.ok(grant, "The active turn carries no grant");
+	assert.deepEqual([...grant.tools].sort(), tools.split(",").map((tool) => tool.trim()).sort());
+});
+
+Then("the active turn grant has exactly the file scope {string}", async function (this: ChatticusWorld, scope: string) {
+	const grant = await activeTurnGrant(this);
+	assert.ok(grant, "The active turn carries no grant");
+	assert.deepEqual([...grant.fileScopes], [scope]);
+});
+
+Then("the active turn grant names no origin and no recipient", async function (this: ChatticusWorld) {
+	const grant = await activeTurnGrant(this);
+	assert.ok(grant, "The active turn carries no grant");
+	assert.deepEqual([...grant.origins], []);
+	assert.deepEqual([...grant.recipients], []);
+});
+
 Then("the active turn grant does not include tool {string}", async function (this: ChatticusWorld, tool: string) {
 	const grant = await activeTurnGrant(this);
 	assert.ok(grant, "The active turn carries no grant");

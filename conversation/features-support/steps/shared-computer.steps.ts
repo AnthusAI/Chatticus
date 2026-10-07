@@ -69,6 +69,20 @@ When(
 	},
 );
 
+When(
+	"bot {string} edits {string} replacing {string} with {string} on the computer",
+	async function (this: ChatticusWorld, botName: string, file: string, oldText: string, newText: string) {
+		const scenario = snapshotRelocationOf(this);
+		scenario.writeError = null;
+		scenario.refusalInspected = false;
+		try {
+			await useComputer(this, botName, `edit workspace file /workspace/${file} replacing ${oldText} with ${newText}`);
+		} catch (error) {
+			scenario.writeError = error as Error;
+		}
+	},
+);
+
 Then(
 	"bot {string} can read {string} as {string} from the computer",
 	async function (this: ChatticusWorld, botName: string, file: string, content: string) {

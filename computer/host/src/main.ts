@@ -42,9 +42,9 @@ export function regateRequestFor(action: HostAction): RegateActionRequest | null
 		const path = (action.arguments["path"] ?? "").trim();
 		return path === "" ? null : { kind: "read", target: path };
 	}
-	if (action.tool_name === "write_workspace") {
+	if (action.tool_name === "write_workspace" || action.tool_name === "edit_workspace") {
 		const path = (action.arguments["path"] ?? "").trim();
-		return path === "" ? null : { kind: "write", target: path };
+		return path === "" ? null : { kind: action.tool_name === "edit_workspace" ? "edit" : "write", target: path };
 	}
 	if (action.tool_name === "run_terminal") {
 		const cwd = (action.arguments["cwd"] ?? "").trim() || "/workspace";

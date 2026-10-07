@@ -15,6 +15,10 @@ describe("requestedCapabilityForModelTool", () => {
 		expect(requestedCapabilityForModelTool("run_terminal", { command: "ls" }).filePath).toBe("/workspace");
 	});
 
+	it("maps an edit to the path it changes, as a write does", () => {
+		expect(requestedCapabilityForModelTool("edit_workspace", { path: "/workspace/a.txt" }).filePath).toBe("/workspace/a.txt");
+	});
+
 	it("maps browse to an origin fetch of the url", () => {
 		const request = requestedCapabilityForModelTool("browse", { url: "https://docs.example.com/a" });
 		expect(request.origin).toBe("https://docs.example.com/a");
@@ -32,8 +36,15 @@ describe("evaluateModelToolRequest", () => {
 	});
 
 	it("denies a tool the grant does not name", async () => {
-		const verdict = await evaluateModelToolRequest(gateFor(), "run_terminal", { command: "ls" });
-		expect(verdict).toEqual({ allowed: false, reason: 'tool "run_terminal" is not granted' });
+		const verdict = await evaluateModelToolRequest(gateFor(), "purchase", { item: "x", origin: "https://shop.example.com" });
+		expect(verdict).toEqual({ allowed: false, reason: 'tool "purchase" is not granted' });
+	});
+
+	it("allows a workspace edit and a terminal under the conversation grant, and denies an edit outside /workspace", async () => {
+		expect(await evaluateModelToolRequest(gateFor(), "edit_workspace", { path: "/workspace/a.txt" })).toEqual({ allowed: true });
+		expect(await evaluateModelToolRequest(gateFor(), "run_terminal", { command: "ls" })).toEqual({ allowed: true });
+		const verdict = await evaluateModelToolRequest(gateFor(), "edit_workspace", { path: "/etc/passwd" });
+		expect(verdict.allowed).toBe(false);
 	});
 
 	it("denies every tool when the turn carries no grant", async () => {
@@ -60,7 +71,7 @@ describe("evaluateModelToolRequest", () => {
 describe("turn grant item", () => {
 	it("stores compact JSON with sorted keys, as Python did", () => {
 		expect(encodeGrantText(householdConversationGrant())).toBe(
-			'{"egress_classes":["approved_origin_fetch"],"file_scopes":["/workspace"],"ingest_classes":[],"origins":[],"recipients":[],"tools":["read_workspace","write_workspace"]}',
+			'{"egress_classes":["approved_origin_fetch"],"file_scopes":["/workspace"],"ingest_classes":[],"origins":[],"recipients":[],"tools":["edit_workspace","read_workspace","run_terminal","write_workspace"]}',
 		);
 	});
 

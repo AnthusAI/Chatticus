@@ -5,7 +5,7 @@ import { TerminalActionExecutor } from "./executors/terminal.ts";
 import { WorkspaceActionExecutor } from "./executors/workspace.ts";
 import { pythonRepr, ValueError } from "./workspace-paths.ts";
 
-const WORKSPACE_TOOLS: ReadonlySet<string> = new Set(["read_workspace", "write_workspace"]);
+const WORKSPACE_TOOLS: ReadonlySet<string> = new Set(["read_workspace", "write_workspace", "edit_workspace"]);
 const TERMINAL_TOOLS: ReadonlySet<string> = new Set(["run_terminal"]);
 
 /** What the host dispatcher runs on: ready executors, or the live root and store to build them from. */

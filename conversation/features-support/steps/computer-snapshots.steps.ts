@@ -145,6 +145,12 @@ Then(
 	},
 );
 
+Then("computer {string} is dirty", async function (this: ChatticusWorld, computerId: string) {
+	const computer = await computerForOrganization(LIFECYCLE_TENANT, { store: this.messagingStore() });
+	assert.equal(computer.computerId, computerId);
+	assert.equal(computer.diskDirty, true);
+});
+
 Then("computer {string} is not dirty", async function (this: ChatticusWorld, computerId: string) {
 	const computer = await computerForOrganization(LIFECYCLE_TENANT, { store: this.messagingStore() });
 	assert.equal(computer.computerId, computerId);

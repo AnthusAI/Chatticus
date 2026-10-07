@@ -1,6 +1,8 @@
 export const TURN_GRANT_FORM_TITLE = "Authorize this turn";
 
-export const CONVERSATION_PRESET_TOOLS = ["read_workspace", "write_workspace"] as const;
+export const CONVERSATION_PRESET_TOOLS = ["read_workspace", "write_workspace", "edit_workspace", "run_terminal"] as const;
+
+const WORKSPACE_FILE_TOOLS: readonly string[] = ["read_workspace", "write_workspace", "edit_workspace", "run_terminal"];
 
 export type TurnGrantPayload = {
   tools: string[];
@@ -15,6 +17,7 @@ export type TurnGrantFormState = {
   browse: boolean;
   readWorkspace: boolean;
   writeWorkspace: boolean;
+  editWorkspace: boolean;
   runTerminal: boolean;
   origins: string;
   fileScopes: string;
@@ -24,6 +27,7 @@ export const DEFAULT_TURN_GRANT_FORM: TurnGrantFormState = {
   browse: false,
   readWorkspace: false,
   writeWorkspace: false,
+  editWorkspace: false,
   runTerminal: false,
   origins: "",
   fileScopes: "/workspace",
@@ -83,6 +87,9 @@ export function buildTurnGrantPayload(form: TurnGrantFormState): TurnGrantPayloa
   if (form.writeWorkspace) {
     tools.push("write_workspace");
   }
+  if (form.editWorkspace) {
+    tools.push("edit_workspace");
+  }
   if (form.runTerminal) {
     tools.push("run_terminal");
   }
@@ -99,7 +106,7 @@ export function buildTurnGrantPayload(form: TurnGrantFormState): TurnGrantPayloa
   const resolvedFileScopes =
     fileScopes.length > 0
       ? fileScopes
-      : tools.some((tool) => tool === "read_workspace" || tool === "write_workspace")
+      : tools.some((tool) => WORKSPACE_FILE_TOOLS.includes(tool))
         ? ["/workspace"]
         : form.browse
           ? ["/workspace"]

@@ -176,6 +176,7 @@ const REGATE_TOOLS = {
 	browse: { toolName: BROWSE_ACTION_KIND, argumentName: "url" },
 	read: { toolName: "read_workspace", argumentName: "path" },
 	write: { toolName: "write_workspace", argumentName: "path" },
+	edit: { toolName: "edit_workspace", argumentName: "path" },
 	terminal: { toolName: "run_terminal", argumentName: "cwd" },
 } as const;
 
