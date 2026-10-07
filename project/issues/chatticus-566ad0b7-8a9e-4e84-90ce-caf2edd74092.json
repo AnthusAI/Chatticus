@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude"
       }
+    },
+    {
+      "id": "bfc2dd5c-2f2e-452c-96c9-7548cd971d14",
+      "author": "home",
+      "text": "LIVE REAL-TASK REHEARSAL on the slim image, development, PASS (2026-10-07). Image pushed to ECR (tag dev, digest 346a7d19, 356 MB). Default grant verified on both turns: edit_workspace, read_workspace, run_terminal, write_workspace, file scope /workspace, no origin or recipient, no grant PUT sent. Turn 1: git --version 2.39.5; git clone of octocat/Hello-World reachable from the container (the model first passed a stray '.', exit 129, then retried: prompt wording, not a system fault); README read; edit_workspace replaced the text; git commit exit 0 (31419f9 Greet from Chatticus); git log on top of the original history. Host exited by itself; snapshot generation 3 to 4, snapshot.tar.gz 211 B to 11490 B. Turn 2 after a full recycle: git log shows the commit, git status clean, README reads Hello from Chatticus!. Timings: image pull about 4 s, container start to ready about 12 s (was 25 to 30 s), post to host ready about 23 s for the first start. Cleanup: 0 tasks (verified), DLQs 0. Findings: second start took about 80 s post to ready (the starter ran 55 s after the post; filed as chatticus-09304a); a read-only turn still set disk_dirty and published generation 5 (3 B smaller): run_terminal marks the disk dirty conservatively and git status refreshes .git/index, so the change is real; the host lingers about 2 minutes after its turn before exiting; browser_unavailable=true as expected.",
+      "created_at": "2026-10-07T19:58:08.390389Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
     }
   ],
   "created_at": "2026-10-07T17:06:06.381531Z",
-  "updated_at": "2026-10-07T18:19:21.660829Z",
+  "updated_at": "2026-10-07T19:58:08.390425Z",
   "closed_at": "2026-10-07T18:19:21.660752Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The smaller image is deployed to development, but ECR still serves the old image until approval.",
-  "right_now_updated_at": "2026-10-07T18:19:23.332425Z",
+  "right_now_summary": "The slim image is live in development, with browser support optional and one parked browse case still failing.",
+  "right_now_updated_at": "2026-10-07T19:58:09.605753Z",
   "custom": {}
 }
