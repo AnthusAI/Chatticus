@@ -188,10 +188,11 @@ class TurnAttempt {
 					{ tenantId: this.job.tenantId, userId: primaryHumanParticipant(channel), botId: this.job.botId },
 					{ store: messaging, ids: this.deps.turns.ids },
 				),
-				computerToolsExtension(this.computerHandoff()),
+				(this.deps.computerTools ?? computerToolsExtension)(this.computerHandoff()),
 				toolGateExtension(this.toolGateDependencies()),
 			],
 			context: this.context,
+			env: this.deps.env,
 			settings: {
 				retry: { maxRetries: this.tuning.retry.maxRetries, baseDelayMs: this.tuning.retry.baseDelayMilliseconds },
 			},
