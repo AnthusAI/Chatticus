@@ -1,0 +1,112 @@
+
+===== variant safe (storage spike#bot-safe#channel-1791396506974) =====
+18:08:28.049 {"pid":11065,"owner":"A","event":"owner.boot","nodeVersion":"v26.7.0","platform":"darwin/arm64","uptimeMs":1045}
+18:08:28.174 {"pid":11065,"owner":"A","event":"owner.open","fence":1,"storageId":"spike#bot-safe#channel-1791396506974","ms":120}
+18:08:28.385 {"pid":11065,"owner":"A","event":"tasks.at_open","tasks":[]}
+18:08:29.036 {"pid":11065,"owner":"A","event":"event.tool_execution_start","tool":"write","callId":"call-1"}
+18:08:29.036 {"pid":11065,"owner":"A","event":"tool.park","tool":"write","callId":"call-1","args":{"path":"hello.txt","content":"hello from Chatticus\n"}}
+18:08:29.048 {"pid":11065,"owner":"A","event":"owner.outcome","outcome":"parked","parkedCall":{"name":"write","callId":"call-1"},"tasks":[{"id":9,"kind":"pi.generation","status":"waiting","phase":"tools"},{"id":12,"kind":"pi.tool","status":"running","phase":"execute"}]}
+18:08:29.049 {"pid":11065,"owner":"A","event":"owner.closed"}
+18:08:29.072 {"pid":11065,"owner":"A","event":"commits.by_fence","ranges":["fence 1: seq 1-8"],"total":8}
+18:08:29.405 {"pid":11078,"owner":"B","event":"owner.boot","nodeVersion":"v26.7.0","platform":"darwin/arm64","uptimeMs":289}
+18:08:29.561 {"pid":11078,"owner":"B","event":"owner.open","fence":2,"storageId":"spike#bot-safe#channel-1791396506974","ms":151}
+18:08:29.883 {"pid":11078,"owner":"B","event":"tasks.at_open","tasks":[{"id":9,"kind":"pi.generation","status":"waiting","phase":"tools"},{"id":12,"kind":"pi.tool","status":"pending","phase":"execute"}]}
+18:08:29.967 {"pid":11078,"owner":"B","event":"tool.run.local","tool":"write","callId":"call-1","variant":"safe"}
+18:08:30.143 {"pid":11078,"owner":"B","event":"event.tool_execution_end","tool":"write","callId":"call-1"}
+18:08:31.043 {"pid":11078,"owner":"B","event":"event.tool_execution_start","tool":"bash","callId":"call-101"}
+18:08:31.044 {"pid":11078,"owner":"B","event":"tool.run.local","tool":"bash","callId":"call-101","variant":"safe"}
+18:08:31.189 {"pid":11078,"owner":"B","event":"event.tool_execution_end","tool":"bash","callId":"call-101"}
+18:08:31.958 {"pid":11078,"owner":"B","event":"event.tool_execution_start","tool":"edit","callId":"call-102"}
+18:08:31.959 {"pid":11078,"owner":"B","event":"tool.run.local","tool":"edit","callId":"call-102","variant":"safe"}
+18:08:32.046 {"pid":11078,"owner":"B","event":"event.tool_execution_end","tool":"edit","callId":"call-102"}
+18:08:33.029 {"pid":11078,"owner":"B","event":"owner.outcome","status":"done","ms":3094,"tasks":[{"id":9,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":12,"kind":"pi.tool","status":"terminal","outcome":"completed"},{"id":14,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":16,"kind":"pi.tool","status":"terminal","outcome":"completed"},{"id":18,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":20,"kind":"pi.tool","status":"terminal","outcome":"completed"},{"id":22,"kind":"pi.generation","status":"terminal","outcome":"completed"}],"transcript":["#7 user: Create the file hello.txt containing 'hello from Chatticus', list the directory with ls, then change 'hello' to 'HELLO' in the file. Then tell me you ","#10 system: ","#11 assistant: I will create the file. toolCall write({\"path\":\"hello.txt\",\"content\":\"hello from Chatticus\\n\"})","#13 toolResult: Successfully wrote to hello.txt","#15 assistant: Now I list the directory. toolCall bash({\"command\":\"ls -l && cat /etc/os-release | head -1 && git --version && cat hello.txt\"})","#17 toolResult: total 8 -rw-r--r--@ 1 home wheel 21 Oct 7 14:08 hello.txt cat: /etc/os-release: No such file or directory git version 2.34.1 hello from Chatticus ","#19 assistant: Now I edit the file. toolCall edit({\"path\":\"hello.txt\",\"edits\":[{\"oldText\":\"hello\",\"newText\":\"HELLO\"}]})","#21 toolResult: Successfully replaced 1 block(s) in hello.txt.","#23 assistant: Done. The file hello.txt exists and now says HELLO from Chatticus."]}
+18:08:33.031 {"pid":11078,"owner":"B","event":"owner.closed"}
+18:08:33.051 {"pid":11078,"owner":"B","event":"commits.by_fence","ranges":["fence 1: seq 1-8","fence 2: seq 9-39"],"total":39}
+18:08:33.403 {"pid":11109,"owner":"A2","event":"owner.boot","nodeVersion":"v26.7.0","platform":"darwin/arm64","uptimeMs":313}
+18:08:33.492 {"pid":11109,"owner":"A2","event":"owner.open","fence":3,"storageId":"spike#bot-safe#channel-1791396506974","ms":85}
+18:08:34.889 {"pid":11109,"owner":"A2","event":"owner.outcome","status":"done","modelRequestRoles":["user","system","assistant","toolResult","assistant","toolResult","assistant","toolResult","assistant","user"],"modelRequestToolResults":["[{\"type\":\"text\",\"text\":\"Successfully wrote to hello.txt\"}]","[{\"type\":\"text\",\"text\":\"total 8\\n-rw-r--r--@ 1 home  wheel  21 Oct  7 14:08 hello.txt\\ncat: /etc/os-release: No such file or directory\\ngit version 2.34.1\\nhello from Chatticus\\n\"}]","[{\"type\":\"text\",\"text\":\"Successfully replaced 1 block(s) in hello.txt.\"}]"],"transcript":["#7 user: Create the file hello.txt containing 'hello from Chatticus', list the directory with ls, then change 'hello' to 'HELLO' in the file. Then tell me you ","#10 system: ","#11 assistant: I will create the file. toolCall write({\"path\":\"hello.txt\",\"content\":\"hello from Chatticus\\n\"})","#13 toolResult: Successfully wrote to hello.txt","#15 assistant: Now I list the directory. toolCall bash({\"command\":\"ls -l && cat /etc/os-release | head -1 && git --version && cat hello.txt\"})","#17 toolResult: total 8 -rw-r--r--@ 1 home wheel 21 Oct 7 14:08 hello.txt cat: /etc/os-release: No such file or directory git version 2.34.1 hello from Chatticus ","#19 assistant: Now I edit the file. toolCall edit({\"path\":\"hello.txt\",\"edits\":[{\"oldText\":\"hello\",\"newText\":\"HELLO\"}]})","#21 toolResult: Successfully replaced 1 block(s) in hello.txt.","#23 assistant: Done. The file hello.txt exists and now says HELLO from Chatticus.","#24 user: What did you just do in the workspace?","#27 assistant: I created hello.txt, listed the directory and edited the file to say HELLO."]}
+18:08:34.908 {"pid":11109,"owner":"A2","event":"commits.by_fence","ranges":["fence 1: seq 1-8","fence 2: seq 9-39","fence 3: seq 40-46"],"total":46}
+workspace /tmp/spike-workspace-safe-1791396506974:
+total 8
+-rw-r--r--@ 1 home  wheel  21 Oct  7 14:08 hello.txt
+
+hello.txt: HELLO from Chatticus
+
+===== variant unsafe (storage spike#bot-unsafe#channel-1791396514936) =====
+18:08:35.361 {"pid":11142,"owner":"A","event":"owner.boot","nodeVersion":"v26.7.0","platform":"darwin/arm64","uptimeMs":393}
+18:08:35.509 {"pid":11142,"owner":"A","event":"owner.open","fence":1,"storageId":"spike#bot-unsafe#channel-1791396514936","ms":141}
+18:08:35.825 {"pid":11142,"owner":"A","event":"tasks.at_open","tasks":[]}
+18:08:37.244 {"pid":11142,"owner":"A","event":"event.tool_execution_start","tool":"write","callId":"call-1"}
+18:08:37.245 {"pid":11142,"owner":"A","event":"tool.park","tool":"write","callId":"call-1","args":{"path":"hello.txt","content":"hello from Chatticus\n"}}
+18:08:37.262 {"pid":11142,"owner":"A","event":"owner.outcome","outcome":"parked","parkedCall":{"name":"write","callId":"call-1"},"tasks":[{"id":9,"kind":"pi.generation","status":"waiting","phase":"tools"},{"id":12,"kind":"pi.tool","status":"running","phase":"execute"}]}
+18:08:37.263 {"pid":11142,"owner":"A","event":"owner.closed"}
+18:08:37.282 {"pid":11142,"owner":"A","event":"commits.by_fence","ranges":["fence 1: seq 1-8"],"total":8}
+18:08:37.676 {"pid":11168,"owner":"B","event":"owner.boot","nodeVersion":"v26.7.0","platform":"darwin/arm64","uptimeMs":348}
+18:08:37.828 {"pid":11168,"owner":"B","event":"owner.open","fence":2,"storageId":"spike#bot-unsafe#channel-1791396514936","ms":145}
+18:08:38.202 {"pid":11168,"owner":"B","event":"tasks.at_open","tasks":[{"id":9,"kind":"pi.generation","status":"waiting","phase":"tools"},{"id":12,"kind":"pi.tool","status":"pending","phase":"execute"}]}
+18:08:38.391 {"pid":11168,"owner":"B","event":"event.tool_execution_end","tool":"write","callId":"call-1"}
+18:08:39.291 {"pid":11168,"owner":"B","event":"event.tool_execution_start","tool":"bash","callId":"call-101"}
+18:08:39.296 {"pid":11168,"owner":"B","event":"tool.run.local","tool":"bash","callId":"call-101","variant":"unsafe"}
+18:08:39.447 {"pid":11168,"owner":"B","event":"event.tool_execution_end","tool":"bash","callId":"call-101"}
+18:08:40.674 {"pid":11168,"owner":"B","event":"event.tool_execution_start","tool":"edit","callId":"call-102"}
+18:08:40.675 {"pid":11168,"owner":"B","event":"tool.run.local","tool":"edit","callId":"call-102","variant":"unsafe"}
+18:08:40.770 {"pid":11168,"owner":"B","event":"event.tool_execution_end","tool":"edit","callId":"call-102"}
+18:08:41.943 {"pid":11168,"owner":"B","event":"owner.outcome","status":"done","ms":3684,"tasks":[{"id":9,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":12,"kind":"pi.tool","status":"terminal","outcome":"failed"},{"id":14,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":16,"kind":"pi.tool","status":"terminal","outcome":"failed"},{"id":18,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":20,"kind":"pi.tool","status":"terminal","outcome":"failed"},{"id":22,"kind":"pi.generation","status":"terminal","outcome":"completed"}],"transcript":["#7 user: Create the file hello.txt containing 'hello from Chatticus', list the directory with ls, then change 'hello' to 'HELLO' in the file. Then tell me you ","#10 system: ","#11 assistant: I will create the file. toolCall write({\"path\":\"hello.txt\",\"content\":\"hello from Chatticus\\n\"})","#13 toolResult: <harness> [error] Tool write was interrupted and may have partially run </harness>","#15 assistant: Now I list the directory. toolCall bash({\"command\":\"ls -l && cat /etc/os-release | head -1 && git --version && cat hello.txt\"})","#17 toolResult: total 0 cat: /etc/os-release: No such file or directory git version 2.34.1 cat: hello.txt: No such file or directory <harness> [error] Command exited ","#19 assistant: Now I edit the file. toolCall edit({\"path\":\"hello.txt\",\"edits\":[{\"oldText\":\"hello\",\"newText\":\"HELLO\"}]})","#21 toolResult: <harness> [error] Could not edit file: hello.txt. Error code: not_found. </harness>","#23 assistant: Done. The file hello.txt exists and now says HELLO from Chatticus."]}
+18:08:41.944 {"pid":11168,"owner":"B","event":"owner.closed"}
+18:08:41.976 {"pid":11168,"owner":"B","event":"commits.by_fence","ranges":["fence 1: seq 1-8","fence 2: seq 9-38"],"total":38}
+workspace /tmp/spike-workspace-unsafe-1791396514936:
+total 0
+
+hello.txt: cat: /tmp/spike-workspace-unsafe-1791396514936/hello.txt: No such file or directory
+
+===== variant missing (storage spike#bot-missing#channel-1791396522006) =====
+18:08:42.440 {"pid":11214,"owner":"A","event":"owner.boot","nodeVersion":"v26.7.0","platform":"darwin/arm64","uptimeMs":372}
+18:08:42.583 {"pid":11214,"owner":"A","event":"owner.open","fence":1,"storageId":"spike#bot-missing#channel-1791396522006","ms":137}
+18:08:42.841 {"pid":11214,"owner":"A","event":"tasks.at_open","tasks":[]}
+18:08:43.775 {"pid":11214,"owner":"A","event":"event.tool_execution_start","tool":"write","callId":"call-1"}
+18:08:43.777 {"pid":11214,"owner":"A","event":"tool.park","tool":"write","callId":"call-1","args":{"path":"hello.txt","content":"hello from Chatticus\n"}}
+18:08:43.819 {"pid":11214,"owner":"A","event":"owner.outcome","outcome":"parked","parkedCall":{"name":"write","callId":"call-1"},"tasks":[{"id":9,"kind":"pi.generation","status":"waiting","phase":"tools"},{"id":12,"kind":"pi.tool","status":"running","phase":"execute"}]}
+18:08:43.820 {"pid":11214,"owner":"A","event":"owner.closed"}
+18:08:43.833 {"pid":11214,"owner":"A","event":"commits.by_fence","ranges":["fence 1: seq 1-8"],"total":8}
+18:08:44.237 {"pid":11225,"owner":"B","event":"owner.boot","nodeVersion":"v26.7.0","platform":"darwin/arm64","uptimeMs":365}
+18:08:44.395 {"pid":11225,"owner":"B","event":"owner.open","fence":2,"storageId":"spike#bot-missing#channel-1791396522006","ms":154}
+18:08:44.737 {"pid":11225,"owner":"B","event":"tasks.at_open","tasks":[{"id":9,"kind":"pi.generation","status":"waiting","phase":"tools"},{"id":12,"kind":"pi.tool","status":"pending","phase":"execute"}]}
+18:08:44.903 {"pid":11225,"owner":"B","event":"event.tool_execution_end","tool":"write","callId":"call-1"}
+18:08:45.558 {"pid":11225,"owner":"B","event":"event.tool_execution_end","tool":"bash","callId":"call-101"}
+18:08:46.186 {"pid":11225,"owner":"B","event":"event.tool_execution_end","tool":"edit","callId":"call-102"}
+18:08:47.164 {"pid":11225,"owner":"B","event":"owner.outcome","status":"done","ms":2384,"tasks":[{"id":9,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":12,"kind":"pi.tool","status":"terminal","outcome":"failed"},{"id":14,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":18,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":21,"kind":"pi.generation","status":"terminal","outcome":"completed"}],"transcript":["#7 user: Create the file hello.txt containing 'hello from Chatticus', list the directory with ls, then change 'hello' to 'HELLO' in the file. Then tell me you ","#10 system: ","#11 assistant: I will create the file. toolCall write({\"path\":\"hello.txt\",\"content\":\"hello from Chatticus\\n\"})","#13 toolResult: <harness> [error] Tool write was interrupted and may have partially run </harness>","#15 system: ","#16 assistant: Now I list the directory. toolCall bash({\"command\":\"ls -l && cat /etc/os-release | head -1 && git --version && cat hello.txt\"})","#17 toolResult: <harness> [error] Tool bash is not available </harness>","#19 assistant: Now I edit the file. toolCall edit({\"path\":\"hello.txt\",\"edits\":[{\"oldText\":\"hello\",\"newText\":\"HELLO\"}]})","#20 toolResult: <harness> [error] Tool edit is not available </harness>","#22 assistant: Done. The file hello.txt exists and now says HELLO from Chatticus."]}
+18:08:47.164 {"pid":11225,"owner":"B","event":"owner.closed"}
+18:08:47.184 {"pid":11225,"owner":"B","event":"commits.by_fence","ranges":["fence 1: seq 1-8","fence 2: seq 9-31"],"total":31}
+workspace /tmp/spike-workspace-missing-1791396522006:
+total 0
+
+hello.txt: cat: /tmp/spike-workspace-missing-1791396522006/hello.txt: No such file or directory
+
+===== variant schema (storage spike#bot-schema#channel-1791396527211) =====
+18:08:47.715 {"pid":11261,"owner":"A","event":"owner.boot","nodeVersion":"v26.7.0","platform":"darwin/arm64","uptimeMs":470}
+18:08:48.005 {"pid":11261,"owner":"A","event":"owner.open","fence":1,"storageId":"spike#bot-schema#channel-1791396527211","ms":274}
+18:08:48.753 {"pid":11261,"owner":"A","event":"tasks.at_open","tasks":[]}
+18:08:49.968 {"pid":11261,"owner":"A","event":"event.tool_execution_start","tool":"write","callId":"call-1"}
+18:08:49.969 {"pid":11261,"owner":"A","event":"tool.park","tool":"write","callId":"call-1","args":{"path":"hello.txt","content":"hello from Chatticus\n"}}
+18:08:49.979 {"pid":11261,"owner":"A","event":"owner.outcome","outcome":"parked","parkedCall":{"name":"write","callId":"call-1"},"tasks":[{"id":9,"kind":"pi.generation","status":"waiting","phase":"tools"},{"id":12,"kind":"pi.tool","status":"running","phase":"execute"}]}
+18:08:49.980 {"pid":11261,"owner":"A","event":"owner.closed"}
+18:08:49.991 {"pid":11261,"owner":"A","event":"commits.by_fence","ranges":["fence 1: seq 1-8"],"total":8}
+18:08:50.404 {"pid":11341,"owner":"B","event":"owner.boot","nodeVersion":"v26.7.0","platform":"darwin/arm64","uptimeMs":371}
+18:08:50.567 {"pid":11341,"owner":"B","event":"owner.open","fence":2,"storageId":"spike#bot-schema#channel-1791396527211","ms":159}
+18:08:50.872 {"pid":11341,"owner":"B","event":"tasks.at_open","tasks":[{"id":9,"kind":"pi.generation","status":"waiting","phase":"tools"},{"id":12,"kind":"pi.tool","status":"pending","phase":"execute"}]}
+18:08:50.948 {"pid":11341,"owner":"B","event":"tool.run.local","tool":"write","callId":"call-1","variant":"schema"}
+18:08:51.050 {"pid":11341,"owner":"B","event":"event.tool_execution_end","tool":"write","callId":"call-1"}
+18:08:52.054 {"pid":11341,"owner":"B","event":"event.tool_execution_start","tool":"bash","callId":"call-101"}
+18:08:52.054 {"pid":11341,"owner":"B","event":"tool.run.local","tool":"bash","callId":"call-101","variant":"schema"}
+18:08:52.235 {"pid":11341,"owner":"B","event":"event.tool_execution_end","tool":"bash","callId":"call-101"}
+18:08:53.194 {"pid":11341,"owner":"B","event":"event.tool_execution_start","tool":"edit","callId":"call-102"}
+18:08:53.194 {"pid":11341,"owner":"B","event":"tool.run.local","tool":"edit","callId":"call-102","variant":"schema"}
+18:08:53.333 {"pid":11341,"owner":"B","event":"event.tool_execution_end","tool":"edit","callId":"call-102"}
+18:08:54.458 {"pid":11341,"owner":"B","event":"owner.outcome","status":"done","ms":3535,"tasks":[{"id":9,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":12,"kind":"pi.tool","status":"terminal","outcome":"completed"},{"id":14,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":17,"kind":"pi.tool","status":"terminal","outcome":"completed"},{"id":19,"kind":"pi.generation","status":"terminal","outcome":"completed"},{"id":21,"kind":"pi.tool","status":"terminal","outcome":"completed"},{"id":23,"kind":"pi.generation","status":"terminal","outcome":"completed"}],"transcript":["#7 user: Create the file hello.txt containing 'hello from Chatticus', list the directory with ls, then change 'hello' to 'HELLO' in the file. Then tell me you ","#10 system: ","#11 assistant: I will create the file. toolCall write({\"path\":\"hello.txt\",\"content\":\"hello from Chatticus\\n\"})","#13 toolResult: Successfully wrote to hello.txt","#15 system: ","#16 assistant: Now I list the directory. toolCall bash({\"command\":\"ls -l && cat /etc/os-release | head -1 && git --version && cat hello.txt\"})","#18 toolResult: total 8 -rw-r--r--@ 1 home wheel 21 Oct 7 14:08 hello.txt cat: /etc/os-release: No such file or directory git version 2.34.1 hello from Chatticus ","#20 assistant: Now I edit the file. toolCall edit({\"path\":\"hello.txt\",\"edits\":[{\"oldText\":\"hello\",\"newText\":\"HELLO\"}]})","#22 toolResult: Successfully replaced 1 block(s) in hello.txt.","#24 assistant: Done. The file hello.txt exists and now says HELLO from Chatticus."]}
+18:08:54.459 {"pid":11341,"owner":"B","event":"owner.closed"}
+18:08:54.482 {"pid":11341,"owner":"B","event":"commits.by_fence","ranges":["fence 1: seq 1-8","fence 2: seq 9-38"],"total":38}
+workspace /tmp/spike-workspace-schema-1791396527211:
+total 8
+-rw-r--r--@ 1 home  wheel  21 Oct  7 14:08 hello.txt
+
+hello.txt: HELLO from Chatticus
