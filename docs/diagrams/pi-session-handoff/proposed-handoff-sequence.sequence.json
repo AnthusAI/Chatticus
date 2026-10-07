@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Proposed handoff, step by step",
+    "subtitle": "Status: PROPOSED, spike in progress. Not built. The Lambda hands the Pi session to the container, then takes it back.",
+    "output": "docs/diagrams/pi-session-handoff/proposed-handoff-sequence.html",
+    "viewBox": [
+      1085,
+      690
+    ],
+    "column_fit": "spread",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "git@github.com:AnthusAI/Chatticus.git",
+      "link_mode": "local-only",
+      "revision": "3b7f4ed74520f24544d6258af6f4706626c3341e"
+    },
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "default": {
+          "label": "Call or write"
+        },
+        "emphasis": {
+          "label": "Main path of the turn"
+        },
+        "security": {
+          "label": "Carries a token or a key"
+        },
+        "dashed": {
+          "label": "Route still open"
+        },
+        "return": {
+          "label": "Reply"
+        }
+      }
+    }
+  },
+  "participants": [
+    {
+      "id": "person",
+      "type": "external",
+      "label": "Person",
+      "sublabel": "in the browser"
+    },
+    {
+      "id": "frontdoor",
+      "type": "backend",
+      "label": "FrontDoor",
+      "sublabel": "Lambda, admits turns",
+      "sources": [
+        {
+          "path": "conversation/src/lambdas/front-door.ts",
+          "line": 1,
+          "end_line": 21
+        }
+      ]
+    },
+    {
+      "id": "executor",
+      "type": "backend",
+      "label": "TurnExecutor",
+      "sublabel": "Lambda running Pi",
+      "sources": [
+        {
+          "path": "conversation/src/pi/session.ts",
+          "line": 54,
+          "end_line": 73,
+          "label": "opens a fenced session"
+        }
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "Session store",
+      "sublabel": "Pi, DynamoDB + S3",
+      "sources": [
+        {
+          "path": "conversation/src/storage/indexed-storage.ts",
+          "line": 221,
+          "end_line": 234,
+          "label": "allocate a fence"
+        }
+      ]
+    },
+    {
+      "id": "piowner",
+      "type": "backend",
+      "label": "Pi owner",
+      "sublabel": "in the container"
+    },
+    {
+      "id": "tools",
+      "type": "external",
+      "label": "Local tools",
+      "sublabel": "unprivileged user"
+    },
+    {
+      "id": "gateway",
+      "type": "security",
+      "label": "Model gateway",
+      "sublabel": "holds the real key"
+    },
+    {
+      "id": "openai",
+      "type": "external",
+      "label": "OpenAI",
+      "sublabel": "model API"
+    }
+  ],
+  "segments": [
+    {
+      "from": 155,
+      "to": 237,
+      "label": "Start the turn"
+    },
+    {
+      "from": 245,
+      "to": 327,
+      "label": "Handoff"
+    },
+    {
+      "from": 335,
+      "to": 501,
+      "label": "Run on the computer"
+    },
+    {
+      "from": 509,
+      "to": 591,
+      "label": "Hand back"
+    }
+  ],
+  "messages": [
+    {
+      "id": "send-message",
+      "from": "person",
+      "to": "frontdoor",
+      "y": 168,
+      "label": "send a message",
+      "variant": "emphasis"
+    },
+    {
+      "id": "queue-turn",
+      "from": "frontdoor",
+      "to": "executor",
+      "y": 196,
+      "label": "admit turn, queue job",
+      "variant": "emphasis"
+    },
+    {
+      "id": "open-first",
+      "from": "executor",
+      "to": "store",
+      "y": 224,
+      "label": "open session, fence 1",
+      "variant": "default"
+    },
+    {
+      "id": "close-session",
+      "from": "executor",
+      "to": "store",
+      "y": 258,
+      "label": "close the session",
+      "variant": "default"
+    },
+    {
+      "id": "start-computer",
+      "from": "executor",
+      "to": "piowner",
+      "y": 286,
+      "label": "queue start job; container starts",
+      "variant": "emphasis"
+    },
+    {
+      "id": "open-second",
+      "from": "piowner",
+      "to": "store",
+      "y": 314,
+      "label": "open same session, new fence 2",
+      "variant": "security",
+      "note": "scoped, short-lived storage keys"
+    },
+    {
+      "id": "model-call",
+      "from": "piowner",
+      "to": "gateway",
+      "y": 348,
+      "label": "model call + token",
+      "variant": "security"
+    },
+    {
+      "id": "forward-call",
+      "from": "gateway",
+      "to": "openai",
+      "y": 376,
+      "label": "request with real key",
+      "variant": "security"
+    },
+    {
+      "id": "return-answer",
+      "from": "gateway",
+      "to": "piowner",
+      "y": 404,
+      "label": "stream answer back, record spend",
+      "variant": "return"
+    },
+    {
+      "id": "run-tool",
+      "from": "piowner",
+      "to": "tools",
+      "y": 432,
+      "label": "run a tool, read the output",
+      "variant": "default"
+    },
+    {
+      "id": "commit-events",
+      "from": "piowner",
+      "to": "store",
+      "y": 460,
+      "label": "commit events, same turn",
+      "variant": "default"
+    },
+    {
+      "id": "turn-events",
+      "from": "piowner",
+      "to": "frontdoor",
+      "y": 488,
+      "label": "turn events and completion (route open)",
+      "variant": "dashed"
+    },
+    {
+      "id": "close-container",
+      "from": "piowner",
+      "to": "store",
+      "y": 522,
+      "label": "commit answer, close session",
+      "variant": "default"
+    },
+    {
+      "id": "queue-next",
+      "from": "frontdoor",
+      "to": "executor",
+      "y": 550,
+      "label": "next message: queue job",
+      "variant": "emphasis"
+    },
+    {
+      "id": "open-third",
+      "from": "executor",
+      "to": "store",
+      "y": 578,
+      "label": "open session, new fence 3",
+      "variant": "default"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "executor",
+      "from": 191,
+      "to": 291,
+      "type": "backend"
+    },
+    {
+      "participant": "store",
+      "from": 219,
+      "to": 263,
+      "type": "database"
+    },
+    {
+      "participant": "piowner",
+      "from": 281,
+      "to": 527,
+      "type": "backend"
+    },
+    {
+      "participant": "gateway",
+      "from": 343,
+      "to": 409,
+      "type": "security"
+    },
+    {
+      "participant": "tools",
+      "from": 427,
+      "to": 437,
+      "type": "external"
+    },
+    {
+      "participant": "executor",
+      "from": 545,
+      "to": 583,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "violet",
+      "title": "Who owns the session",
+      "items": [
+        "Only the owner holding the highest fence can write the session.",
+        "For example, fence 1 belongs to the Lambda, fence 2 to the container and fence 3 to a Lambda again.",
+        "Opening with a higher fence is what takes ownership; the old owner can no longer commit."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Still open",
+      "items": [
+        "What triggers the handoff: the start of a turn or the first computer tool.",
+        "How turn events reach the browser stream from the container.",
+        "How the token and the scoped storage keys reach the container."
+      ]
+    }
+  ]
+}

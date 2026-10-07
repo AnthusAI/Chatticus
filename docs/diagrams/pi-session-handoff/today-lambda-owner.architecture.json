@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Today (built): Pi runs in the Lambda and the computer only runs actions",
+    "subtitle": "Status: BUILT and proven live in development. Pi is the agent library that runs a bot's turn.",
+    "output": "docs/diagrams/pi-session-handoff/today-lambda-owner.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "git@github.com:AnthusAI/Chatticus.git",
+      "link_mode": "local-only",
+      "revision": "3b7f4ed74520f24544d6258af6f4706626c3341e"
+    },
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "backend": { "label": "Code we run (Lambda or container)" },
+        "database": { "label": "Stored data" },
+        "cloud": { "label": "AWS service" },
+        "security": { "label": "Secret" },
+        "messagebus": { "label": "Queue" },
+        "external": { "label": "Outside the Chatticus account" }
+      }
+    }
+  },
+  "components": [
+    { "id": "browser", "type": "external", "label": "Browser", "sublabel": "a person sends a message", "pos": [40, 60], "size": [150, 64] },
+    { "id": "cloudfront", "type": "cloud", "label": "CloudFront", "sublabel": "web site and /api", "pos": [290, 60], "size": [150, 64],
+      "sources": [{ "path": "infra/lib/web-stack.ts", "line": 134, "end_line": 142, "label": "/api origin" }] },
+    { "id": "frontdoor", "type": "backend", "label": "FrontDoor Lambda", "sublabel": "admits turns, host routes", "pos": [540, 60], "size": [150, 64],
+      "sources": [{ "path": "infra/lib/control-plane-stack.ts", "line": 206, "end_line": 216, "label": "FrontDoor function" }, { "path": "conversation/src/lambdas/front-door.ts", "line": 1, "end_line": 21 }] },
+    { "id": "turnruns", "type": "messagebus", "label": "SQS TurnRuns", "sublabel": "one job per turn", "pos": [790, 60], "size": [150, 64],
+      "sources": [{ "path": "infra/lib/control-plane-stack.ts", "line": 111, "label": "TurnRuns queue" }] },
+    { "id": "ssm", "type": "security", "label": "SSM SecureString", "sublabel": "the OpenAI model key", "pos": [970, 60], "size": [150, 64],
+      "sources": [{ "path": "conversation/src/lambdas/openai-key.ts", "line": 13, "end_line": 27, "label": "read key at cold start" }] },
+    { "id": "executor", "type": "backend", "label": "TurnExecutor Lambda: the Pi owner", "sublabel": "runs Pi's agent loop and holds the model key", "pos": [790, 280], "size": [330, 64], "tag": "owner = fence holder",
+      "sources": [{ "path": "infra/lib/control-plane-stack.ts", "line": 259, "end_line": 277, "label": "TurnExecutor function" }, { "path": "conversation/src/pi/session.ts", "line": 54, "end_line": 73, "label": "open fenced session" }, { "path": "conversation/src/pi/computer-tools.ts", "line": 96, "end_line": 109, "label": "computer tools park" }] },
+    { "id": "openai", "type": "external", "label": "OpenAI", "sublabel": "model API", "pos": [1270, 280], "size": [150, 64],
+      "sources": [{ "path": "conversation/src/turn/openai-models.ts", "line": 6, "end_line": 17 }] },
+    { "id": "messaging", "type": "database", "label": "Messaging table", "sublabel": "turns, actions, events", "pos": [790, 460], "size": [150, 64],
+      "sources": [{ "path": "conversation/src/lambdas/turn-executor.ts", "line": 44, "end_line": 66, "label": "executor stores" }] },
+    { "id": "store", "type": "database", "label": "Pi session storage", "sublabel": "Conversations + PiSessions", "pos": [970, 460], "size": [150, 64],
+      "sources": [{ "path": "infra/lib/control-plane-stack.ts", "line": 73, "end_line": 94, "label": "table and bucket" }, { "path": "conversation/src/storage/indexed-storage.ts", "line": 221, "end_line": 234, "label": "allocate a fence" }] },
+    { "id": "starter", "type": "backend", "label": "ComputerStarter Lambda", "sublabel": "starts the container", "pos": [500, 280], "size": [150, 64],
+      "sources": [{ "path": "conversation/src/lambdas/computer-starter.ts", "line": 121, "end_line": 140 }, { "path": "infra/lib/control-plane-stack.ts", "line": 298, "end_line": 345, "label": "starter and ECS wiring" }] },
+    { "id": "computer", "type": "backend", "label": "Computer container", "sublabel": "host worker + /workspace", "pos": [230, 280], "size": [150, 64], "tag": "no Pi, no key, no database",
+      "sources": [{ "path": "computer/Dockerfile", "line": 1, "end_line": 51, "label": "image" }, { "path": "computer/host/src/main.ts", "line": 147, "end_line": 186, "label": "host worker loop" }, { "path": "computer/host/src/host-action-executor.ts", "line": 22, "end_line": 74, "label": "runs the tools" }] },
+    { "id": "snapshots", "type": "database", "label": "Snapshot bucket (S3)", "sublabel": "saved /workspace", "pos": [230, 460], "size": [150, 64],
+      "sources": [{ "path": "computer/host/src/disk-lifecycle.ts", "line": 80, "end_line": 142, "label": "restore and publish" }] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Chatticus AWS account: control plane (holds the model key and all database access)", "wraps": ["frontdoor", "turnruns", "ssm", "executor", "messaging", "store", "starter"] },
+    { "kind": "security-group", "label": "Trust boundary: runs model-chosen shell commands", "wraps": ["computer"] }
+  ],
+  "connections": [
+    { "id": "browser-to-cloudfront", "from": "browser", "to": "cloudfront", "label": "HTTPS", "variant": "emphasis" },
+    { "id": "cloudfront-to-frontdoor", "from": "cloudfront", "to": "frontdoor", "label": "/api requests", "variant": "emphasis" },
+    { "id": "frontdoor-to-turnruns", "from": "frontdoor", "to": "turnruns", "label": "queue turn job", "variant": "emphasis" },
+    { "id": "turnruns-to-executor", "from": "turnruns", "to": "executor", "label": "run job", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
+    { "id": "executor-reads-key", "from": "executor", "to": "ssm", "label": "read model key", "variant": "security", "fromSide": "top", "toSide": "bottom" },
+    { "id": "executor-to-openai", "from": "executor", "to": "openai", "label": "model call", "variant": "emphasis" },
+    { "id": "executor-to-messaging", "from": "executor", "to": "messaging", "label": "turn state, actions", "fromSide": "bottom", "toSide": "top" },
+    { "id": "executor-to-store", "from": "executor", "to": "store", "label": "session commits", "fromSide": "bottom", "toSide": "top" },
+    { "id": "executor-to-starter", "from": "executor", "to": "starter", "label": "park: start job", "variant": "dashed" },
+    { "id": "starter-to-computer", "from": "starter", "to": "computer", "label": "run container", "variant": "dashed" },
+    { "id": "computer-to-frontdoor", "from": "computer", "to": "frontdoor", "label": "claim action, post result (HTTP)", "variant": "security", "fromSide": "top", "toSide": "bottom" },
+    { "id": "computer-to-snapshots", "from": "computer", "to": "snapshots", "label": "restore, save", "variant": "dashed", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "What happens in one turn", "items": [
+      "A person sends a message. FrontDoor admits it and queues a job.",
+      "The TurnExecutor Lambda opens the bot's Pi session and runs Pi there. It calls the model with the key from SSM.",
+      "When the model asks for a computer tool, the Lambda records an action, parks the turn and ends.",
+      "The container claims the action over HTTP, runs it on /workspace and posts the result.",
+      "FrontDoor queues the turn again; a new Lambda owner resumes the session and Pi continues."
+    ] },
+    { "dot": "rose", "title": "Trust boundary", "items": [
+      "The container runs commands the model chose.",
+      "So it holds no Pi, no model key and no database access.",
+      "It reaches the control plane only through the HTTP host routes."
+    ] },
+    { "dot": "amber", "title": "Words used here", "items": [
+      "Session: a bot's saved conversation with Pi, stored in S3 and DynamoDB.",
+      "Owner: the one process allowed to write the session. A fence number decides who.",
+      "Park: end the Lambda while a tool runs elsewhere; the turn waits."
+    ] }
+  ]
+}
