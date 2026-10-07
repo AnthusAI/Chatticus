@@ -110,3 +110,7 @@ features/member_ceiling_sinks.feature
 features/per_task_run_terminal_grant.feature
 features/demo_cli.feature
 features/single_computer_start_disk_ownership.feature
+features/principal_kinds.feature
+features/capability_file_sink.feature
+features/principal_authorization.feature
+features/chattic_us_web.feature

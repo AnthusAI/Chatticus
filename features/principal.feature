@@ -3,11 +3,6 @@ Feature: Principal seam and waitlist-safe route marker
   I want a typed principal and an explicit waitlist-safe route marker
   So that enabled-member routing is default deny without a denylist
 
-  Scenario: A principal carries user or worker kind only
-    Given a user principal for tenant "tenant-1"
-    Then that principal has kind "user"
-    And a worker principal for tenant "tenant-1" has kind "worker"
-
   Scenario: Unmarked routes require an enabled member by default
     Given an unmarked route handler
     Then that route requires an enabled member

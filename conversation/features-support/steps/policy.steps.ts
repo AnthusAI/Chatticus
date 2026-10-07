@@ -1,4 +1,7 @@
+import { PutItemCommand } from "@aws-sdk/client-dynamodb";
 import { Given, When, Then } from "@cucumber/cucumber";
+import { POLICY_KERNEL_TENANT } from "../../src/policy/sinks.ts";
+import { encodeGrant } from "../../src/store/codecs/grant.ts";
 import { type DataTable } from "@cucumber/cucumber";
 import type { ChatticusWorld } from "../world.ts";
 import { kernelPolicyFor } from "../policy-control.ts";
@@ -513,10 +516,15 @@ Given("no structured connector or takeover control can bind the exact operation"
 	}
 });
 
-Given("turn {string} carries the capability grant", function (this: ChatticusWorld, _turnId: string): void {
-	if (getPolicy(this).grant === null) {
+Given("turn {string} carries the capability grant", async function (this: ChatticusWorld, turnId: string): Promise<void> {
+	const grant = getPolicy(this).grant;
+	if (grant === null) {
 		throw new Error("no task grant is set for the turn to carry");
 	}
+	const tenantId = [...(this.botsByName?.values() ?? [])][0]?.tenantId ?? POLICY_KERNEL_TENANT;
+	await this.messagingTable.client.send(
+		new PutItemCommand({ TableName: this.messagingTable.tableName, Item: encodeGrant(tenantId, turnId, grant) }),
+	);
 });
 
 When("the model requests tool {string} with no destination", function (this: ChatticusWorld, tool: string): void {
