@@ -132,14 +132,14 @@ npx cdk bootstrap
 npx cdk deploy ChatticusSnapshots
 export CHATTICUS_SNAPSHOT_BUCKET=<SnapshotBucketName>
 
-python -m chatticus.snapshot pack \
+node conversation/bin/snapshot.ts pack \
   --live-root ./var/hosts/fargate \
   --store s3 \
   --tenant anthus \
   --computer household-computer \
   --worker fargate-1
 
-python -m chatticus.snapshot hydrate \
+node conversation/bin/snapshot.ts hydrate \
   --live-root ./var/hosts/garage-mac \
   --store s3 \
   --tenant anthus \

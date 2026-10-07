@@ -3,7 +3,7 @@
 Decided designs in this repository rest on assumptions nobody has run.
 Each test below answers one question that gates one decision. They are
 research, not product: the code is throwaway and does not belong in
-`python/src`.
+`conversation/src`.
 
 Run these before building on the decisions they gate.
 

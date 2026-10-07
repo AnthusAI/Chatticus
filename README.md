@@ -70,11 +70,22 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-10-04.** Git **`develop`** is ahead of **`main`** (last
-promote: #303). Principal enforcement (#7b4616), sign-out ending the SSO session
-(#169), and the behavior-driven spec migration are on `main` and deployed across
-all three named environments. Phase 1 org-computer work (#304, #306, #308) lands
-on `develop` first and promotes to `main` for release.
+**Last updated: 2026-10-06.** Git **`develop`** is ahead of **`main`**.
+
+### The control plane is TypeScript on `develop`
+
+The Python tree is deleted from `develop` (Kanbus chatticus-f27222). The
+control plane is the TypeScript service in `conversation/`, built on Pi-durable
+(see [Pi harness](docs/PI_HARNESS.md) and
+[TypeScript control plane](docs/TYPESCRIPT_CONTROL_PLANE.md)). The **development**
+environment runs it, and the computer path is proven live there. **Staging and
+production still run the Python control plane**, built from `main`; they change
+only when `develop` is promoted to `main`. That promotion carries a migration
+runbook for existing transcripts (the design's cutover and rollback sections);
+until it runs, do not assume staging or production behave like development.
+The Gherkin features run under cucumber-js with TypeScript steps. The sections
+below that predate this change describe the Python-era stack on the environments
+that still run it.
 
 The development environment is **[develop.chattic.us](https://develop.chattic.us)**
 in the `chatticus-development` account. `dev.chattic.us` is the stale legacy
@@ -279,14 +290,14 @@ production CF disabled), `ChatticusThinTurn*`, `ChatticusSnapshots`, `ChatticusC
 
 Overnight gated-action, immutable approval binding, unbound-browser stops, computer-seam
 recovery, capability-gated readiness beyond waiting turns, and structured handoff journal
-events are tested in Gherkin/pytest but not wired into the live worker HTTP loop yet.
+events are tested in Gherkin/vitest but not wired into the live worker HTTP loop yet.
 See [Approval spec](docs/APPROVAL.md) and [Organizations](docs/ORGANIZATIONS.md).
 
 ```mermaid
 flowchart LR
   Caller["Caller<br/>exercise script or HTTP"]
   CF["CloudFront"]
-  FD["Front-door Lambda<br/>FastAPI, turn SSE"]
+  FD["Front-door Lambda<br/>Hono, turn SSE"]
   DDB[("DynamoDB: messages, chunks, roster")]
   SQS["SQS turn jobs"]
   W["Computerless worker Lambda"]
@@ -427,17 +438,18 @@ computers stop (EC2) or scale to 0 (Fargate). The snapshot stays.
 ```
 Chattic.us/
   features/                 Shared Gherkin (product narrative)
-  python/                   Control plane, computerless and computer workers, snapshot packer
+  conversation/             TypeScript control plane, workers, snapshot packer, tools
+  host-protocol/            Shared host protocol
   web/                      Marketing (`/`) and product workspace (`/chat`)
-  computer/                 Linux computer image
+  computer/                 Linux computer image and host worker
   infra/                    AWS CDK
   docs/                     Product, architecture, design challenges, stack
 ```
 
-v1 language for the product brain is **Python**. The web app is
-**TypeScript**. Gherkin in `features/` is the behavior spec. Root
-`package.json` workspaces `web` and `infra` so one `npm install` at the
-repo root installs all JavaScript dependencies (Node 22+).
+Everything is **TypeScript**. Gherkin in `features/` is the behavior spec. Root
+`package.json` workspaces (`web`, `infra`, `conversation`, `host-protocol`,
+`computer/host`) mean one `npm install` at the repo root installs all
+dependencies (Node 22+).
 
 ## What you can run today
 
@@ -451,52 +463,22 @@ npm run lint
 npm run dev
 ```
 
-Local quality gates (CI uses a fake OpenAI client; a live key is not
-required):
-
-```bash
-cd python
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-behave
-pytest
-black --check src ../features tests
-ruff check src ../features tests
-```
-
-`black` and `ruff` versions are pinned in `python/pyproject.toml` so local
-`pip install -e ".[dev]"` matches GitHub CI.
-
-The TypeScript `conversation/` tests and cucumber-js features run against a
-moto container. Start it with `npm run moto:start` (port 5555, image pinned to
+The `conversation/` tests and cucumber-js features (CI uses a fake OpenAI
+client; a live key is not required) run against a moto container. Start it with `npm run moto:start` (port 5555, image pinned to
 `motoserver/moto:5.2.3`), then from `conversation/` run `npm test` and
 `npm run test:features`. Set `CHATTICUS_TEST_AWS_ENDPOINT` to use another port.
 `features/cucumber-features.txt` is the list of features cucumber-js runs.
 
 The deployed thin turn is exercised against a **named cloud environment**
 (CloudFront on development only today), not against an in-process queue.
-GitHub CI (`behave`, `pytest`) uses in-memory stores and moto. Live stack
+GitHub CI (vitest, cucumber-js) uses in-memory stores and moto. Live stack
 proof is manual: sign in at [develop.chattic.us](https://develop.chattic.us) and
 send a message.
 
-Watch one live conversation as a human (tokens on stdout, committed reply
-at the end). Workers use bearer tokens after registration. The product SPA
-uses Google sign-in on development; scripts still use invoke key + worker
-bearer until #7b4616 lands:
-
-```bash
-cd python
-export CHATTICUS_INVOKE_KEY=...   # or pass --invoke-key
-python scripts/chatticus_chat.py --environment development \
-  --tenant-id anthus --user-id ryan --bot Luna --message "hello"
-```
-
-The script resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`,
-SSM, or CloudFormation. Omit
-`--message` for an interactive prompt. `--list-turns` calls
-`GET /users/{user_id}/turns`; `--watch-turn` reconnects with
-`Last-Event-ID` on `GET /turns/{id}/stream`.
+The human-facing chat CLI (`conversation/bin/chat.ts`) is a stub that exits with
+a message; use the workspace at [develop.chattic.us](https://develop.chattic.us)
+or `conversation/bin/acceptance.ts --environment development` for the black-box
+check.
 
 That resolves the front door from `CHATTICUS_DEVELOPMENT_BASE_URL`, SSM
 `/chatticus/development/thin-turn/cloudfront-url`, or the

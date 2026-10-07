@@ -7,10 +7,10 @@ Use Kanbus for task management.
 Why: Kanbus task management is MANDATORY here; every task must live in Kanbus.
 When: Create/update the Kanbus task before coding; close it only after the change lands.
 How: See CONTRIBUTING_AGENT.md for the Kanbus workflow, hierarchy, status rules, priorities, command examples, and the mistakes to avoid. Never inspect project/ or issue JSON directly (including with cat or jq); use Kanbus commands only.
-Performance: Prefer kbs (Rust) when available; kanbus (Python) is equivalent but slower.
+Performance: Prefer kbs (Rust) when available; the Python kanbus is equivalent but slower (it is a separate tool, not part of this repo).
 Warning: Editing project/ directly violates The Way. Do not read or write anything in project/; work only through Kanbus.
 
-Kanbus board and wiki commits are **project management, not product**. After `kbs` create/update/comment/close (or a wiki edit), commit those files on `develop` and push `origin develop`. **Do not open a pull request.** Do not use a feature branch or worktree. Do not wait for CI or a reviewer. A PR is for product behavior and production code (`python/`, `web/`, `infra/`, `features/`, `computer/`). See CONTRIBUTING_AGENT.md.
+Kanbus board and wiki commits are **project management, not product**. After `kbs` create/update/comment/close (or a wiki edit), commit those files on `develop` and push `origin develop`. **Do not open a pull request.** Do not use a feature branch or worktree. Do not wait for CI or a reviewer. A PR is for product behavior and production code (`conversation/`, `web/`, `infra/`, `features/`, `computer/`). See CONTRIBUTING_AGENT.md.
 
 **Agent provenance:** AI coding agents must set `KANBUS_AGENT_PLATFORM` and `KANBUS_AGENT_MODEL` (prefer also `KANBUS_AGENT_NAME` / `KANBUS_AGENT_SETTINGS`) on every `kbs create` and `kbs comment`, or pass the matching `--agent-*` flags. Humans are exempt. Details in CONTRIBUTING_AGENT.md.
 
@@ -45,31 +45,33 @@ and future agents. A new reader (person or agent) should be able to read the
 `.feature` files in order and understand the system.
 
 - **Behavior changes start in `features/`.** Write or change the Gherkin
-  scenario first (Given/When/Then), then implement the Python steps in
-  `features/steps/`, then the production code. This is outside-in. Do not
+  scenario first (Given/When/Then), then implement the TypeScript steps in
+  `conversation/features-support/steps/`, then the production code. This is outside-in. Do not
   write production code first and back-fill a scenario.
 - **The features should read as a coherent narrative**, not a pile of
   isolated scenarios. Group related scenarios under one feature with a
   `Feature:` line that states the capability. Order scenarios within a
   feature so they tell a story (happy path, then variations, then errors).
   When a feature grows large, split by capability, not arbitrarily.
-- **`pytest` is the exception, not the default.** Use it only for cases
+- **A vitest unit test is the exception, not the default.** Use it only for cases
   that genuinely cannot be expressed as behavior: pure unit tests of
   internal helpers, pure functions, serializers, parsers, data transforms,
   and structural/coverage guards (e.g. the account-origin scan). If a test
   describes user-observable behavior — an HTTP response, a route guard, a
   membership branch, a turn/stream event, a worker dispatch, an org-scoped
   access decision, a recovery or approval flow — it belongs in Gherkin, not
-  pytest.
+  vitest.
 - **Regressions go to Gherkin.** When fixing a bug, add or extend a
   `.feature` scenario that fails before the fix and passes after. Do not
-  add a pytest regression for behavior that has a Gherkin home.
+  add a vitest regression for behavior that has a Gherkin home.
 - **Do not split one behavior across both.** A behavior lives in exactly
-  one place: Gherkin. A pure helper lives in exactly one place: pytest.
+  one place: Gherkin. A pure helper lives in exactly one place: vitest.
   Two sources of truth for the same behavior is a defect.
 
-`behave` from `python/` is the behavior gate. `pytest` is the unit gate. Both
-must pass. Neither is a substitute for the other.
+`cucumber-js` from `conversation/` is the behavior gate. `vitest` is the unit
+gate. Both must pass. Neither is a substitute for the other. Every feature
+`cucumber-js` runs is named in `features/cucumber-features.txt`; a new
+`.feature` file must be added to that list.
 
 ## Layout
 
@@ -82,10 +84,13 @@ must pass. Neither is a substitute for the other.
   decided but unmeasured; run the test before building on the decision
   it gates. Read `docs/BRAND_GUIDELINES.md` before touching backgrounds,
   regions, or borders on any `web/` surface. Spike code is throwaway and
-  does not go in `python/src`.
-- `features/` — shared Gherkin. Behavior changes start here.
-- `python/` — control plane, scheduler, roster, approvals, later agent and
-  worker processes.
+  does not go in `conversation/src`.
+- `features/` — shared Gherkin. Behavior changes start here. The TypeScript
+  steps live in `conversation/features-support/`.
+- `conversation/` — the TypeScript control plane: HTTP front door, scheduler,
+  roster, approvals, Pi-durable harness, workers, migration tools.
+- `host-protocol/` and `computer/host/` — the host protocol and the computer
+  host worker.
 - `web/` — Next.js app: the product workspace at `/chat` and `/auth`
   (`hey.chattic.us` in production). No marketing routes -- those live in the
   private `AnthusAI/Chattic.us-web` repo (chatticus-3926bc), which depends
@@ -102,11 +107,11 @@ must pass. Neither is a substitute for the other.
 - No emojis in code, docs, commit messages, or Gherkin.
 - No backward-compatibility forks or "support both ways" branches. One
   correct path. Migrate data; do not keep dual readers.
-- Long, clear names. No line-level comments. Sphinx docstrings on public
-  Python. Rustdoc later if a Rust worker appears.
+- Long, clear names. No line-level comments. TSDoc on public TypeScript.
+  Rustdoc later if a Rust worker appears.
 - Gherkin in `features/` is the product narrative (see **Behavior-driven design**
-  above). Implement Python steps in `features/steps/` so `behave` from
-  `python/` passes.
+  above). Implement TypeScript steps in `conversation/features-support/steps/`
+  so `cucumber-js` from `conversation/` passes.
 - `tenant_id` is required in worker registration, jobs, bots, computers,
   channels, and messages even while v1 has a single household tenant.
 - A **channel** is the conversation object. There is no separate thread.
@@ -117,26 +122,31 @@ must pass. Neither is a substitute for the other.
 
 ### Pudicus Inspection Gate
 To prevent secrets from leaking into the repository, Chatticus uses the `pudicus` pre-commit gate.
-Install it globally (or in your venv) and initialize the repo:
+`pudicus` is a separate developer tool (distributed on PyPI, not part of this
+repo's code). Install it globally and initialize the repo:
 ```bash
 pip install pudicus
 pudicus install
 ```
 
 ### Local Testing
-From `python/` after `pip install -e ".[dev]"`:
+After `npm ci` at the repo root. DynamoDB-backed tests and scenarios need moto:
+`npm run moto:start` in one shell (port 5555), then
+`export CHATTICUS_TEST_AWS_ENDPOINT=http://127.0.0.1:5555`.
 
 ```bash
-black --check src ../features tests
-ruff check src ../features tests
-behave
-pytest
+cd conversation
+npm run typecheck
+npm test              # vitest
+npm run test:features # cucumber-js, the behavior gate (features/cucumber-features.txt)
+cd ../infra && npm test
+cd ../web && npm test
 ```
 
-`black` and `ruff` versions are pinned in `python/pyproject.toml` so a
-local venv matches GitHub CI. Do not upgrade them in one place only.
+The black-box acceptance runner (`conversation/bin/acceptance.ts`, always with
+`--environment`) checks a deployed environment.
 
-Do not declare worker-protocol work done if `behave` or `pytest` is failing.
+Do not declare worker-protocol work done if `cucumber-js` or `vitest` is failing.
 
 Those gates are in-process. They use in-memory stores and moto. They do
 not prove a CloudFront origin, SQS, or Lambda. To check the real stack,
@@ -200,7 +210,7 @@ runnable on Fargate, EC2, and local Docker.
 
 Durable computer disk is an S3 snapshot plus a local cache on the current
 host. Do not mount S3 as the container root. Do not live-migrate containers.
-Pack I/O lives in `python/src/chatticus/snapshot/`. See
+Pack I/O lives in `conversation/src/snapshot/`. See
 `docs/COMPUTER_SNAPSHOTS.md`.
 
 AWS resources exist only as CDK in `infra/`. Do not `aws s3 mb`, create

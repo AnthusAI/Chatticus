@@ -467,8 +467,9 @@ From `spikes/voice-moonshine-a2000f/` (Kanbus `chatticus-a2000f`), run on
 The live-microphone path itself (`MicTranscriber` and its AudioWorklet) was
 not exercised headless.
 
-Every figure below comes from a JSON file in `results/`. Run
-`python3 scripts/summarize.py` to recompute them.
+Every figure below comes from a JSON file in `results/`. The
+Python script that summarized them was deleted with the other Python (git
+history has it).
 
 Files ending in `-kon` that have no `keyterms` field were produced before the
 key-terms switch existed. At that point key terms were always set.

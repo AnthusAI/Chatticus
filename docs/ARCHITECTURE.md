@@ -113,7 +113,7 @@ anyway has no marginal cost here.
 warm and cheapest first". Rename it before a third host type arrives.
 
 The in-memory scheduler that encodes this protocol lives in
-`python/src/chatticus/` and is specified by `features/*.feature`.
+`conversation/src/` and is specified by `features/*.feature`.
 
 ## The computer image
 

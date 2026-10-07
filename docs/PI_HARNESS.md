@@ -619,7 +619,13 @@ handoff) whose next owner checks an approval document before executing.
 
 ## The language boundary
 
-- Today: the Python control plane owns organizations, auth, membership,
+Status note: this section records the boundary as it stood when the spike was
+written. The Python tree was later deleted from `develop`
+(Kanbus chatticus-f27222) and the whole control plane is TypeScript; see
+[TypeScript control plane](TYPESCRIPT_CONTROL_PLANE.md). Staging and production
+run the Python control plane until the develop to main promotion.
+
+- Then: the Python control plane owns organizations, auth, membership,
   budgets, routines, the computer lifecycle, turns and the transcript.
   `web/`, `infra/` and the harnesses are TypeScript. The worker-to-control-plane
   boundary is already HTTP.

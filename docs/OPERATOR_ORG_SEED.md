@@ -14,7 +14,7 @@ never start Fargate. Deploy with `computerCount=0`. Never run
 - `CHATTICUS_MESSAGING_TABLE` set to that environment's messaging table
   (for example the `ChatticusThinTurn-Messaging...` table from the thin-turn
   stack).
-- Python env from `python/` with `pip install -e ".[dev]"`.
+- Node 22+ and `npm ci` at the repo root.
 - The owner's **verified Google email**, passed on every command as
   `--owner-email`. Never commit a real address in this repository.
 
@@ -41,14 +41,14 @@ owner identity with the existing `ryan` user id.
 ```bash
 export CHATTICUS_MESSAGING_TABLE=<messaging-table-name>
 
-python -m chatticus.members seed \
+node conversation/bin/members.ts seed \
   --tenant-id anthus \
   --owner-email ryan@anth.us \
   --name "Anthus AI Solutions" \
   --yes
 
-python -m chatticus.members show anthus
-python -m chatticus.members list --status enabled
+node conversation/bin/members.ts show anthus
+node conversation/bin/members.ts list --status enabled
 ```
 
 Confirm `status=enabled`, `name=Anthus AI Solutions`, and owner email keyed
@@ -69,16 +69,16 @@ session:
 ```bash
 export CHATTICUS_MESSAGING_TABLE=<messaging-table-name>
 
-python -m chatticus.members create \
+node conversation/bin/members.ts create \
   --owner-email <verified-google-email> \
   --name "Bootstrap Labs" \
   --yes
 
-python -m chatticus.members list --status pending
+node conversation/bin/members.ts list --status pending
 
-python -m chatticus.members enable <tenant_id-from-create-output> --yes
+node conversation/bin/members.ts enable <tenant_id-from-create-output> --yes
 
-python -m chatticus.members show <tenant_id-from-create-output>
+node conversation/bin/members.ts show <tenant_id-from-create-output>
 ```
 
 `create` mints a UUID `tenant_id` in `pending` status. `enable` moves it to
@@ -93,12 +93,12 @@ tasks under tenant `anthus` with user `ryan`. Org records live under the
 ```bash
 export CHATTICUS_MESSAGING_TABLE=<messaging-table-name>
 
-python -m chatticus.members seed \
+node conversation/bin/members.ts seed \
   --tenant-id anthus \
   --owner-email <verified-google-email> \
   --yes
 
-python -m chatticus.members show anthus
+node conversation/bin/members.ts show anthus
 ```
 
 Behavior:
@@ -122,7 +122,7 @@ Behavior:
 Optional display name (default: tenant id):
 
 ```bash
-python -m chatticus.members seed \
+node conversation/bin/members.ts seed \
   --tenant-id anthus \
   --owner-email <verified-google-email> \
   --name "Anthus AI Solutions" \
@@ -134,8 +134,8 @@ python -m chatticus.members seed \
 After seeding:
 
 ```bash
-python -m chatticus.members show anthus
-python -m chatticus.members list --status enabled
+node conversation/bin/members.ts show anthus
+node conversation/bin/members.ts list --status enabled
 ```
 
 Confirm `status=enabled`, owner `user_id=ryan` for the `anthus` example, and
@@ -162,7 +162,7 @@ The operator bearer is deployment-wide. It is stored in Secrets Manager as
 edge when configured; it is not operator identity.
 
 Self-hosters with AWS credentials and `CHATTICUS_MESSAGING_TABLE` can keep
-using `python -m chatticus.members` for the same transitions. The CLI and the
+using `node conversation/bin/members.ts` for the same transitions. The CLI and the
 HTTP API are two callers of one control-plane implementation.
 
 ## What not to do
