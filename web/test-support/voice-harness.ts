@@ -1,5 +1,7 @@
 import {
   lineOverlapsSpeechWindow,
+  speechWindowFor,
+  voiceLoadingStatus,
   lineStartedAtMs,
   captureRestoreNote,
   captureWatchProblem,
@@ -19,6 +21,7 @@ import {
   createVoiceLineDelivery,
   type VoiceSendOutcome,
 } from "../lib/voice-line-delivery";
+import { runVoiceStart } from "../lib/voice-start";
 import { createCaptureWatch } from "../lib/voice-capture-watch";
 import {
   lineMayBeOwnSpeech,
@@ -46,7 +49,14 @@ const input = JSON.parse(process.argv[2] ?? "{}") as {
     | "watchdog"
     | "speechEndNote"
     | "deliver"
-    | "stuckSpeech";
+    | "stuckSpeech"
+    | "voiceStart";
+  start?: {
+    model: "loads" | "fails";
+    microphone: "granted" | "refused";
+    turnedOffWhileWaiting: boolean;
+    heard?: { line: string; secondsAfterCue: number };
+  };
   spokenText?: string;
   spokenAtMs?: number;
   spokenEndedAtMs?: number | null;
@@ -127,6 +137,85 @@ if (input.action === "hear") {
       startedAtMs,
     ),
   });
+} else if (input.action === "voiceStart") {
+  const script = input.start;
+  const events: string[] = [];
+  const spoken: string[] = [];
+  const state = {
+    generation: 0,
+    phase: "idle" as string,
+    stage: "loadingModel" as import("../lib/voice-control").VoiceStartStage,
+    note: null as string | null,
+    window: null as import("../lib/voice-control").SpeechWindow | null,
+    cueAtMs: 0,
+  };
+  const startedGeneration = state.generation;
+  const statusNow = () => (state.phase === "loading" ? voiceLoadingStatus(state.stage, 0.4) : null);
+  const statusDuring: Record<string, string | null> = {};
+  pendingOutput = (async () => {
+    await runVoiceStart({
+      openSession: async (onStage) => {
+        onStage("loadingModel");
+        statusDuring.loadingModel = statusNow();
+        events.push("model load begins");
+        if (script?.model === "fails") {
+          throw new Error("The voice model could not be loaded.");
+        }
+        events.push("model loaded");
+        onStage("requestingMicrophone");
+        statusDuring.requestingMicrophone = statusNow();
+        events.push("microphone requested");
+        if (script?.microphone === "refused") {
+          throw new Error("Microphone permission was refused.");
+        }
+        if (script?.turnedOffWhileWaiting) {
+          state.generation += 1;
+        }
+        events.push("microphone started");
+        return { stop: async () => void events.push("session stopped") };
+      },
+      isSuperseded: () => state.generation !== startedGeneration,
+      keepSession: () => void events.push("session kept"),
+      setPhase: (phase) => {
+        state.phase = phase;
+        events.push(`phase ${phase}`);
+      },
+      setStage: (stage) => {
+        state.stage = stage;
+      },
+      setNote: (note) => {
+        state.note = note;
+      },
+      speak: (text) => {
+        spoken.push(text);
+        events.push(`spoken ${text}`);
+        state.cueAtMs = 1_000_000;
+        state.window = speechWindowFor(text, state.cueAtMs);
+      },
+    });
+    const heard = script?.heard;
+    const route =
+      heard && state.window
+        ? routeVoiceLine(heard.line, {
+            bots: input.bots ?? [],
+            channels: input.channels ?? [],
+            selectedId: input.selectedId ?? null,
+            addressedBotId: input.addressedBotId ?? null,
+            overlapsSpeech: lineOverlapsSpeechWindow(
+              state.window,
+              state.cueAtMs + heard.secondsAfterCue * 1000,
+            ),
+          })
+        : null;
+    return {
+      events,
+      spoken,
+      phase: state.phase,
+      note: state.note,
+      statusDuring,
+      route,
+    };
+  })();
 } else if (input.action === "stuckSpeech") {
   const stuck = speakingStateIsStuck({
     speakingFlag: input.speakingFlag ?? false,

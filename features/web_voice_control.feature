@@ -404,3 +404,48 @@ Feature: Talking to teammates by voice
     When audio stops arriving while the reply plays and then the reply ends
     Then no resume or microphone request happens while the reply plays
     And capture recovery runs once the reply ends
+
+  Scenario: Voice says it is listening only once the model is loaded and the microphone is open
+    Given the voice model loads
+    And the browser will grant microphone permission
+    When the member starts voice listening
+    Then the browser says "Listening." only after the microphone has started
+    And the voice session phase is "listening"
+
+  Scenario: The status says the browser is asking for the microphone while it waits for permission
+    Given the voice model loads
+    And the browser will grant microphone permission
+    When the member starts voice listening
+    Then the status says "Loading voice model: 40%" while the model is loading
+    And the status says "Waiting for microphone permission..." while the microphone is being requested
+    And the voice session is no longer waiting for the microphone
+
+  Scenario: Refusing microphone permission never says listening
+    Given the voice model loads
+    And the member will refuse microphone permission
+    When the member starts voice listening
+    Then no listening cue is spoken
+    And the voice session phase is "error"
+    And the voice start is reported as "Microphone permission was refused."
+
+  Scenario: A voice model that fails to load never says listening
+    Given the voice model fails to load
+    When the member starts voice listening
+    Then no listening cue is spoken
+    And the voice session phase is "error"
+    And the voice start is reported as "The voice model could not be loaded."
+
+  Scenario: Turning voice off while the browser asks for the microphone never says listening
+    Given the voice model loads
+    And the browser will grant microphone permission
+    And the member turns voice off while the browser asks for the microphone
+    When the member starts voice listening
+    Then no listening cue is spoken
+    And the voice session that was opened is closed
+
+  Scenario: The listening cue is never taken for the member's own words
+    Given the direct conversation with "Ada" is open
+    And the voice model loads
+    And the browser will grant microphone permission
+    When the member starts voice listening and the recognizer hears "listening" 1 seconds after the cue began
+    Then the cue is not taken for the member's own words

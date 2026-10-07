@@ -8,11 +8,15 @@ import {
   captureRestoreNote,
   lineOverlapsSpeechWindow,
   phaseAfterSessionEvent,
+  speechWindowFor,
   voiceAvailability,
   voiceButtonPresentation,
+  voiceLoadingStatus,
   type SpeechWindow,
   type VoicePhase,
+  type VoiceStartStage,
 } from "../lib/voice-control";
+import { runVoiceStart } from "../lib/voice-start";
 import { startVoiceSession, type VoiceSession } from "../lib/voice-session";
 import {
   isSpeechEngineBusy,
@@ -20,8 +24,8 @@ import {
   speak as speakAloud,
   speakingStateIsStuck,
   speechEndNote,
-  speechDeadlineMs,
   stopSpeaking as stopSpeakingAloud,
+  unlockSpeech,
 } from "../lib/voice-speech";
 
 export interface UseVoiceControlOptions {
@@ -54,6 +58,7 @@ export function useVoiceControl({
 }: UseVoiceControlOptions): VoiceControl {
   const [phase, setPhase] = useState<VoicePhase>("idle");
   const [downloadFraction, setDownloadFraction] = useState(0);
+  const [startStage, setStartStage] = useState<VoiceStartStage>("loadingModel");
   const [partial, setPartial] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
@@ -110,11 +115,7 @@ export function useVoiceControl({
     (text: string) => {
       const previousWindow = speechWindowRef.current;
       const startedAt = Date.now();
-      speechWindowRef.current = {
-        startedAt,
-        endedAt: null,
-        expectedEndedAt: startedAt + speechDeadlineMs(text),
-      };
+      speechWindowRef.current = speechWindowFor(text, startedAt);
       speakingRef.current = true;
       setSpeaking(true);
       const started = speakAloud(text, {
@@ -213,51 +214,49 @@ export function useVoiceControl({
     }
     await closeSession();
     const generation = generationRef.current;
-    setPhase("loading");
-    setNote(null);
     setDownloadFraction(0);
-    try {
-      const session = await startVoiceSession(
-        {
-          onPartial: (text) => {
-            if (generation === generationRef.current) setPartial(text);
+    await runVoiceStart({
+      openSession: (onStage) =>
+        startVoiceSession(
+          {
+            onPartial: (text) => {
+              if (generation === generationRef.current) setPartial(text);
+            },
+            onProgress: (fraction) => setDownloadFraction(fraction),
+            onStage,
+            onRecognizerTrouble: (error) => {
+              if (generation !== generationRef.current) return;
+              setNote(
+                phaseAfterSessionEvent("listening", {
+                  kind: "recognizerTrouble",
+                  message: error.message,
+                }).note,
+              );
+            },
+            onCaptureRestored: (outcome) => {
+              if (generation !== generationRef.current) return;
+              setPhase(outcome.kind === "needsTap" ? "needsTap" : "listening");
+              setNote(captureRestoreNote(outcome));
+            },
+            onLine: (text, startedAtMs) => {
+              if (generation === generationRef.current) {
+                handleLine(text, lineOverlapsSpeech(startedAtMs), generation);
+              }
+            },
           },
-          onProgress: (fraction) => setDownloadFraction(fraction),
-          onRecognizerTrouble: (error) => {
-            if (generation !== generationRef.current) return;
-            setNote(
-              phaseAfterSessionEvent("listening", {
-                kind: "recognizerTrouble",
-                message: error.message,
-              }).note,
-            );
-          },
-          onCaptureRestored: (outcome) => {
-            if (generation !== generationRef.current) return;
-            setPhase(outcome.kind === "needsTap" ? "needsTap" : "listening");
-            setNote(captureRestoreNote(outcome));
-          },
-          onLine: (text, startedAtMs) => {
-            if (generation === generationRef.current) {
-              handleLine(text, lineOverlapsSpeech(startedAtMs), generation);
-            }
-          },
-        },
-        keytermsRef.current,
-        () => speakingRef.current,
-      );
-      if (generation !== generationRef.current) {
-        await session.stop();
-        return;
-      }
-      sessionRef.current = session;
-      setPhase("listening");
-    } catch (error) {
-      if (generation !== generationRef.current) return;
-      setPhase("error");
-      setNote(error instanceof Error ? error.message : "Voice failed to start");
-    }
-  }, [closeSession, handleLine, lineOverlapsSpeech]);
+          keytermsRef.current,
+          () => speakingRef.current,
+        ),
+      isSuperseded: () => generation !== generationRef.current,
+      keepSession: (session) => {
+        sessionRef.current = session;
+      },
+      setPhase,
+      setStage: setStartStage,
+      setNote,
+      speak,
+    });
+  }, [closeSession, handleLine, lineOverlapsSpeech, speak]);
 
   useEffect(
     () => () => {
@@ -292,7 +291,7 @@ export function useVoiceControl({
           });
           return;
         }
-        if (!listening) speak("Listening.");
+        if (!listening) unlockSpeech();
         void (listening ? stop() : start());
       }}
     >
@@ -306,10 +305,7 @@ export function useVoiceControl({
 
   let statusText: string | null = null;
   if (loading) {
-    statusText =
-      downloadFraction > 0 && downloadFraction < 1
-        ? `Loading voice model: ${Math.round(downloadFraction * 100)}%`
-        : "Loading voice model...";
+    statusText = voiceLoadingStatus(startStage, downloadFraction);
   } else if (listening && speaking) {
     statusText = 'Speaking. Say "stop" to interrupt.';
   } else if (listening) {

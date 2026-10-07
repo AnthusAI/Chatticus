@@ -195,6 +195,19 @@ export function speak(text: string, handlers: SpeechHandlers): boolean {
   return true;
 }
 
+/**
+ * Lets the page speak later without a gesture (iOS only allows the first
+ * speech from a tap). Call synchronously inside the tap; it makes no sound.
+ */
+export function unlockSpeech(): void {
+  if (!isSpeechAvailable()) {
+    return;
+  }
+  const silent = new SpeechSynthesisUtterance("");
+  silent.volume = 0;
+  window.speechSynthesis.speak(silent);
+}
+
 export function stopSpeaking(): void {
   currentSpeech += 1;
   activeSpeechUnfinished = false;
