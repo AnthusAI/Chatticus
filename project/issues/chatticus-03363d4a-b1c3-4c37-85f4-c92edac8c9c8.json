@@ -3,7 +3,7 @@
   "title": "TS-63 Every bot has the computer by default, plus a Pi-style edit tool",
   "description": "Decision (user, 2026-10-07): the computer is a basic part of every bot's world. Bots get computer access by default: read_workspace, write_workspace, edit_workspace (new) and run_terminal under /workspace with no per-task grant. (1) Add edit_workspace, a Pi-style exact edit: path, old_text, new_text; replaces exactly one occurrence, fails with a clear message when old_text is missing or ambiguous; runs on the computer through the existing park, claim, regate, result protocol (host-protocol schemas, conversation/src/pi/computer-tools.ts, conversation/src/http/host.ts regate kinds, computer/host/src/executors/workspace.ts), counts as a write for the disk dirty flag, the hydrate-required claim refusal and the live-writer lock. First check whether Pi's own edit implementation (look in node_modules for the pi coding agent package and its tool operations) can be reused against the remote workspace; reuse it if it is a pure function, otherwise implement the same semantics. (2) Change the default turn grant so every bot turn holds these four tools with file scope /workspace (find where the default conversation grant is built; today it is read_workspace and write_workspace only); update the web grant panel logic if it lists tool names (web/lib/turn-grant.ts). The features that state the old default (conversation_turn_grant, conversation_turn_grant_computer, turn_grant_widening, web_turn_grant and others) must change their text on purpose: list every scenario you change. (3) A short bot-facing description: the tool descriptions and the system prompt must tell the model that /workspace is a persistent shared workspace for the organization, that git is available, and to prefer edit_workspace for changes to existing files. Cucumber scenarios first, mutation checks for each group.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude"
       }
+    },
+    {
+      "id": "9e4b94d6-ab24-46d6-87db-bae5657b6c20",
+      "author": "home",
+      "text": "Merged as is on the user's word (PR 473, after merging develop into the branch and re-running CI on the combination: infra, web, conversation all green; develop CI green). Deployed to development: stacks UPDATE_COMPLETE, executor Lambda updated 2026-10-07 19:35 UTC, acceptance 9/9 through CloudFront. Every bot turn started by a person now holds read_workspace, write_workspace, edit_workspace and run_terminal under /workspace. edit_workspace is the remote tool; the handoff spike found Pi's own edit in pi-durable (pi-durable/tools CodingTools), so TS-69 (cutover) removes it if superseded. NOT YET LIVE: the slim image (TS-64) is not pushed to ECR, so running computers still use the old image (no git); pushing it and a real task test need the user's go. README What is live today, PRODUCT, ARCHITECTURE and the control-plane doc still describe the old default (milestone pass).",
+      "created_at": "2026-10-07T19:43:55.292034Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
     }
   ],
   "created_at": "2026-10-07T17:06:00.510854Z",
-  "updated_at": "2026-10-07T18:19:25.310709Z",
-  "closed_at": null,
+  "updated_at": "2026-10-07T19:44:00.635483Z",
+  "closed_at": "2026-10-07T19:44:00.634903Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "PR 473 is waiting for the Pi handoff spike while CI runs.",
-  "right_now_updated_at": "2026-10-07T18:19:27.897293Z",
+  "right_now_summary": "The change is deployed to development, but the new computer image and docs still need the user's go.",
+  "right_now_updated_at": "2026-10-07T19:44:03.181167Z",
   "custom": {}
 }
