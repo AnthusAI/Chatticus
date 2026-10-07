@@ -3,7 +3,7 @@
   "title": "TS-40c Delete the Python infra after the drained check",
   "description": "Part of the flip (chatticus-6f27c5). After TS-40b is verified in development: delete the Python FrontDoor, ComputerWorker, ComputerlessWorker, TurnDeadline, the scheduler group, the Lambda Web Adapter layer, the SseSpike stack and the old TurnJobs and ComputerTurnJobs queues (only after preflight verifies them drained), and the ChatticusThinTurn* stacks, making sure no cross-stack export is left dangling (remove importers first; deploy order matters). Keep stack ids consistent with infra/lib/environments.ts and tagging.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
@@ -27,17 +27,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude"
       }
+    },
+    {
+      "id": "61ef8b07-3d16-40e2-8611-b80aa1e127ae",
+      "author": "home",
+      "text": "DEVELOPMENT DONE (PRs 463, 465). Decision: ThinTurn stays as the permanent data-owning stack (no import, no downtime, no copy); only the Python compute was deleted. PR 463: table, both secrets and the parameters ControlPlane reads are Retain (verified in the deployed template), table has deletion protection and PITR on; a DynamoDB backup (353 items) was taken first. PR 465 after a clean pre-flight (no active turns, 5 queues empty): deleted the Python FrontDoor, ComputerWorker, ComputerlessWorker, TurnDeadline plus scheduler, TurnJobs and ComputerTurnJobs queues, LWA layer, the ImportedComputerHostTaskRolePolicy, dead stacks. Verified in AWS after deploy: ThinTurn holds only the 2 Node budget functions and the log-retention helper, 0 queues, table ACTIVE with 353 items and protected, CloudFront health 200, acceptance 9/9 through CloudFront. STAGING AND PRODUCTION: unchanged until the develop to main promotion, where the order is control-plane, web, thin-turn, preceded by the per-environment migration runbook (gate, preflight, copy, deploy, delta, verify, open). Their ThinTurn shrinks at that deploy; the table and secrets there were already Retain.",
+      "created_at": "2026-10-07T01:32:41.700948Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
     }
   ],
   "created_at": "2026-10-06T16:01:43.447434Z",
-  "updated_at": "2026-10-06T16:33:12.965460Z",
-  "closed_at": null,
+  "updated_at": "2026-10-07T01:32:47.107349Z",
+  "closed_at": "2026-10-07T01:32:47.107310Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The Messaging table and invoke and operator secrets must move or be retained before deleting ThinTurn.",
-  "right_now_updated_at": "2026-10-06T16:33:13.996227Z",
+  "right_now_summary": "Development cleanup is verified; staging and production await the ordered migration runbook and promotion.",
+  "right_now_updated_at": "2026-10-07T01:32:48.513767Z",
   "custom": {}
 }
