@@ -5,6 +5,7 @@ import { healthyWorkers, type ComputerPolicy } from "../../src/domain/workers.ts
 import { recordResponse } from "../api.ts";
 import {
 	computerScenarioOf,
+	deliverStartJob,
 	diskOf,
 	hostNamed,
 	queuedStartJobs,
@@ -13,7 +14,8 @@ import {
 	turnPayloadNow,
 	workTurn,
 } from "../computer-scenario.ts";
-import { actionStoreOf } from "../computer-support.ts";
+import { actionStoreOf, COMPUTER_START_QUEUE } from "../computer-support.ts";
+import { FakeHostStartDriver } from "../fakes/fake-host-start-driver.ts";
 import { memberPost } from "../org-user-client.ts";
 import { SimulatedCrash } from "../../src/turn/fault-plan.ts";
 import { deliverDueProbes, queuedRunsFor, runQueuedJobs, turnNow } from "../turn-recovery.ts";
@@ -26,6 +28,25 @@ import type { ChatticusWorld } from "../world.ts";
 Given("host worker {string} serves the household computer", async function (this: ChatticusWorld, workerId: string) {
 	await registerHost(this, scenarioTenantId(this), workerId, "local");
 });
+
+Given("host worker {string} reports the computer stopped as it exits", async function (this: ChatticusWorld, workerId: string) {
+	const response = await hostNamed(this, workerId).request("POST", "/computer/state", { body: { stopped: true } });
+	assert.equal(response.status, 200, response.text);
+});
+
+When(
+	"the queued start job is delivered to the starter together with a second start job for the same computer",
+	async function (this: ChatticusWorld) {
+		const state = computerScenarioOf(this);
+		const [first] = queuedStartJobs(this);
+		assert.ok(first, "No start job is queued.");
+		const second = { ...first, jobId: this.ids.next() };
+		this.queues.send(COMPUTER_START_QUEUE, second);
+		state.driver ??= new FakeHostStartDriver();
+		await Promise.all([deliverStartJob(this, first, state.driver), deliverStartJob(this, second, state.driver)]);
+		assert.equal(state.startError, null, state.startError?.message);
+	},
+);
 
 Given("the household computer policy is {string}", async function (this: ChatticusWorld, policy: string) {
 	const tenantId = scenarioTenantId(this);

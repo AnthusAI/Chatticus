@@ -35,6 +35,30 @@ Feature: Computer action handoff
     And bot "Researcher" works its turn until it waits for the computer
     Then no computer start job is queued
 
+  Scenario: A host that exited cleanly is not counted as live while its last heartbeat is still recent
+    Given host worker "garage-mac-1" serves the household computer
+    And host worker "garage-mac-1" reports the computer stopped as it exits
+    And 15 seconds pass
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    Then a computer start job is queued for the turn
+
+  Scenario: A running host with a recent heartbeat is not asked to start
+    Given host worker "garage-mac-1" serves the household computer
+    And 15 seconds pass
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    Then no computer start job is queued
+
+  Scenario: A host that is still starting is started only once however many start jobs arrive
+    Given a recording host start driver
+    And host worker "booting-host" serves the household computer
+    And host worker "booting-host" reports the computer stopped as it exits
+    When bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And the queued start job is delivered to the starter together with a second start job for the same computer
+    Then the host start driver was invoked once
+
   Scenario: An organization that allows only AWS hosts is not served by a live local host
     Given the household computer policy is "aws_only"
     And host worker "garage-mac-1" serves the household computer
