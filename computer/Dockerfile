@@ -4,7 +4,8 @@
 # Not a Lambda runtime. Build from the repository root:
 #   docker build -f computer/Dockerfile -t chatticus-computer .
 
-# Debian Chromium is a real deb (Ubuntu's chromium-browser is a snap stub).
+# The default image carries files, git and a shell: no display and no browser.
+# The browser is an optional capability that a larger image adds back.
 # The host worker and the snapshot program are esbuild bundles; the image
 # carries Node alone.
 FROM node:22-bookworm-slim AS host-bundle
@@ -29,10 +30,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     CHATTICUS_SNAPSHOT_STORE=/var/lib/chatticus/store
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    xvfb \
-    x11-utils \
-    chromium \
-    fonts-liberation \
+    git \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

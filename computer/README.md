@@ -41,14 +41,17 @@ container, then the reverse. Stale files on the target host are dropped.
 
 v1 contents:
 
-- Ubuntu
-- Xvfb virtual displays (one screen per bot computer-use task)
-- Chromium (in image; browser gate still unmeasured on cold start)
+- Debian slim with Node, git and CA certificates
+- no display and no browser: the browser is an optional capability. A host
+  that finds no Chromium or no Xvfb boots anyway, reports `browser_ready`
+  false and `browser_unavailable` true, and the `browse` tool answers that the
+  browser capability is not available on this computer. A larger image that
+  adds Xvfb and Chromium back reports the browser ready at boot.
 - shell and `/workspace`
 - snapshot pack/hydrate CLI
 - `node /opt/chatticus/host/host-worker.mjs` (bundled from `computer/host/`;
   RunTask may override the container command when `CHATTICUS_ECS_HOST_COMMAND`
-  is set; entrypoint starts Xvfb when `CHATTICUS_COMPUTER_BOOT=1`)
+  is set)
 - noVNC (or equivalent) for watch and human takeover (next)
 - `chatticus-worker` / `chatticus-agent` (next)
 
@@ -62,7 +65,7 @@ on the one it needs:
 | --- | --- |
 | Process and network | Model calls, memory, MCP and connector tools |
 | `/workspace` hydrated | File actions |
-| Browser profile hydrated, display and Chromium up | Browser actions |
+| Browser profile hydrated, display and Chromium up (optional; absent from the default image) | Browser actions |
 | noVNC or equivalent | A human watching or taking over |
 
 Do not serialize these behind one "ready" flag, and do not hold the agent

@@ -589,11 +589,17 @@ computer action is created (4.4), as in Python's `prepare_computer_tool`.
 
 | Item | Decision |
 |---|---|
-| Container base | `node:22-bookworm-slim` plus `xvfb x11-utils chromium fonts-liberation`. Same image runs on Fargate, EC2 and local Docker. No Python in the image. |
+| Container base | `node:22-bookworm-slim` plus `git ca-certificates`: files, git and a shell, no display and no browser (the browser is an optional capability a larger image adds back; see the readiness rule below). Same image runs on Fargate, EC2 and local Docker. No Python in the image. |
 | Host worker | A bundled Node program, `node /opt/chatticus/host/host-worker.mjs`, from `computer/host/` (new workspace package). Replaces `python -m chatticus.computer_host_worker`; `CHATTICUS_ECS_HOST_COMMAND` changes with it. |
 | Snapshots | `python -m chatticus.snapshot pack|hydrate` becomes `node /opt/chatticus/host/snapshot.mjs pack|hydrate` (entrypoint smoke, `test_fargate.sh`, `test_relocate.sh`). Pack, store, S3 adapter, host cache and URI rules ported from `python/src/chatticus/snapshot/`. The host talks to S3 directly, as today. |
-| Executors | Workspace files, terminal (`/bin/sh`), Chromium; browser profiles; workspace path mapping: ported 1:1. |
+| Executors | Workspace files, terminal (`/bin/sh`), Chromium (kept in the repo, absent from the default image); browser profiles; workspace path mapping: ported 1:1. |
 | Image push scripts | Unchanged. |
+
+A host never fails to boot for a missing optional capability. Model and workspace
+readiness do not wait on the browser; when Xvfb or Chromium is absent the host
+reports the browser unavailable. A `browse` or `request_computer_capability` call on a computer so
+marked answers with a fixed message (the browser capability is not available on this
+computer) before any action is recorded or any host is started.
 
 ### 4.2 Why the host does not run Pi
 
@@ -617,7 +623,7 @@ wire cannot drift.
 | # | Route | Replaces |
 |---|---|---|
 | 1 | `GET /computer` | computer, readiness, stopped read |
-| 2 | `POST /computer/state` `{stopped?, capability_ready?}` | stopped, capabilities/{c}/ready |
+| 2 | `POST /computer/state` `{stopped?, capability_ready?, capability_unavailable?}` | stopped, capabilities/{c}/ready; `capability_unavailable: "browser"` records that the image has no browser (`browser_unavailable`), which a later ready report or a host start clears |
 | 3 | `POST /snapshot/hydrated` | same |
 | 4 | `POST /snapshot/published` | publish (the host packs and uploads, then reports the URI) |
 | 5 | `POST /actions/claim` | list_active_turns, turn, escalation/ensure, unresolved-actions, attempt-claimed, computer/claim, expire-orphaned: **one call** returns the next pending action for this org (or none) and a lease |

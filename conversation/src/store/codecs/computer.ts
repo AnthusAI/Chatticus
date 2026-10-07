@@ -13,6 +13,8 @@ export interface Computer {
 	modelReady: boolean;
 	workspaceReady: boolean;
 	browserReady: boolean;
+	/** The host reported that this computer's image has no browser; cleared when a host starts or reports the browser ready. */
+	browserUnavailable?: boolean;
 	hostStartGeneration: number;
 	hostStartDispatchedGeneration: number;
 	snapshotGeneration: number;
@@ -60,6 +62,9 @@ export function encode(value: Computer): Item {
 		hydrate_required: { BOOL: value.hydrateRequired },
 	};
 
+	if (value.browserUnavailable === true) {
+		item.browser_unavailable = { BOOL: true };
+	}
 	if (value.snapshotUri !== undefined) {
 		item.snapshot_uri = { S: value.snapshotUri };
 	}
@@ -135,6 +140,7 @@ export function decode(item: Item): Computer {
 		modelReady,
 		workspaceReady,
 		browserReady,
+		...(item.browser_unavailable?.BOOL === true ? { browserUnavailable: true } : {}),
 		hostStartGeneration,
 		hostStartDispatchedGeneration,
 		snapshotGeneration,

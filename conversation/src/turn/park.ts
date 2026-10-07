@@ -19,9 +19,10 @@ import {
 	requestComputerAction,
 	type ActionDependencies,
 } from "../domain/actions.ts";
+import { BROWSER_ACTION_KINDS } from "@chatticus/host-protocol";
 import type { BudgetRollupReader } from "../domain/organization-spend.ts";
 import { computerWorkPauseReason } from "../domain/organization-spend.ts";
-import { computerIsStopped, ensureComputer } from "../domain/computers.ts";
+import { BROWSER_UNAVAILABLE_TEXT, computerIsStopped, ensureComputer } from "../domain/computers.ts";
 import type { ComputerStartQueue } from "../domain/computer-start.ts";
 import { clearWaiting, getTurn, releaseForWaiting, TURN_DEADLINE_SECONDS, type Turn, type TurnDependencies } from "../domain/turns.ts";
 import type { TurnProbeQueue, TurnRunQueue } from "../domain/turn-admission.ts";
@@ -84,6 +85,20 @@ export async function computerWorkRefusal(deps: ParkDependencies, tenantId: stri
 		environment: deps.computer.environment,
 		clock: deps.turns.clock,
 	});
+}
+
+/**
+ * The answer of a browser tool call when the computer's image has no browser, so the call parks nothing and starts no
+ * host. Any other tool, and a computer that has not reported the browser unavailable, answers null.
+ *
+ * @param deps The handoff dependencies.
+ * @param tenantId Organization.
+ * @param call The tool call.
+ * @returns The text the call answers with, or null when the tool may run.
+ */
+export async function computerToolUnavailableText(deps: ParkDependencies, tenantId: string, call: ComputerToolCall): Promise<string | null> {
+	if (!BROWSER_ACTION_KINDS.has(call.toolName)) return null;
+	return (await deps.messaging.getComputer(tenantId))?.browserUnavailable === true ? BROWSER_UNAVAILABLE_TEXT : null;
 }
 
 /**

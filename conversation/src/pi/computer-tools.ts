@@ -41,6 +41,8 @@ export interface ComputerToolHandoff {
 	lookup(call: ComputerToolCall): Promise<ComputerAction | null>;
 	/** Why new computer work must not start, or null when it may. */
 	refusal(call: ComputerToolCall): Promise<string | null>;
+	/** The text the call answers with when the computer's image cannot run this tool at all, or null when it can. */
+	unavailable(call: ComputerToolCall): Promise<string | null>;
 	/**
 	 * Give the call to the executor, which records its action and parks the turn. The returned promise never settles
 	 * with a value: it rejects when the owner is closed, which the harness does not turn into a tool result.
@@ -102,6 +104,8 @@ export function computerToolsExtension(handoff: ComputerToolHandoff): Extension 
 					return { content: [{ type: "text", text }] };
 				}
 				if (action === null) {
+					const unavailableText = await handoff.unavailable(call);
+					if (unavailableText !== null) return { content: [{ type: "text", text: unavailableText }] };
 					const reason = await handoff.refusal(call);
 					if (reason !== null) return { content: [{ type: "text", text: computerWorkPausedText(reason) }] };
 				}

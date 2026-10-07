@@ -27,6 +27,7 @@ export function computerPayload(computer: Computer): Record<string, unknown> {
 		disk_dirty: computer.diskDirty,
 		hydrate_required: computer.hydrateRequired,
 	};
+	if (computer.browserUnavailable === true) payload.browser_unavailable = true;
 	if (computer.snapshotUri !== undefined) payload.snapshot_uri = computer.snapshotUri;
 	if (computer.snapshotChecksum !== undefined) payload.snapshot_checksum = computer.snapshotChecksum;
 	if (computer.intendedHostWorkerId !== undefined) payload.intended_host_worker_id = computer.intendedHostWorkerId;
