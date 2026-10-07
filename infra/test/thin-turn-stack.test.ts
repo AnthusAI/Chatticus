@@ -1,88 +1,8 @@
 import assert from "node:assert/strict";
 import { Match } from "aws-cdk-lib/assertions";
 import { describe, it } from "node:test";
-import {
-  CHATTICUS_CLOUD_ENVIRONMENTS,
-  openAiApiKeyParameterName,
-} from "../lib/environments";
+import { CHATTICUS_CLOUD_ENVIRONMENTS } from "../lib/environments";
 import { synthThinTurnStack } from "./thin-turn-stack-harness";
-
-const SHARED_DESK_OPENAI_PARAMETER = "/amplify/shared/papyrus/OPENAI_API_KEY";
-
-function lambdaEnvironment(template: ReturnType<typeof synthThinTurnStack>): string {
-  const resources = template.findResources("AWS::Lambda::Function");
-  return JSON.stringify(resources);
-}
-
-describe("ThinTurnStack OpenAI key", () => {
-  for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
-    describe(environmentName, () => {
-      const openAiParameterName = openAiApiKeyParameterName(environmentName);
-      const template = synthThinTurnStack(environmentName);
-
-      it("reads the deployment-scoped SSM parameter, not the shared desk key", () => {
-        const serialized = lambdaEnvironment(template);
-        assert.ok(
-          serialized.includes(openAiParameterName),
-          `expected ${openAiParameterName} in Lambda environment`,
-        );
-        assert.equal(
-          serialized.includes(SHARED_DESK_OPENAI_PARAMETER),
-          false,
-          "must not reference the shared desk OpenAI parameter",
-        );
-      });
-
-      it("sets OPENAI_API_KEY_PARAMETER on front door and worker Lambdas", () => {
-        template.hasResourceProperties("AWS::Lambda::Function", {
-          Environment: {
-            Variables: Match.objectLike({
-              OPENAI_API_KEY_PARAMETER: openAiParameterName,
-            }),
-          },
-        });
-      });
-
-      it("grants SSM read on the deployment OpenAI parameter", () => {
-        template.hasResourceProperties("AWS::IAM::Policy", {
-          PolicyDocument: {
-            Statement: Match.arrayWith([
-              Match.objectLike({
-                Action: "ssm:GetParameter",
-                Resource: Match.arrayWith([
-                  `arn:aws:ssm:us-east-1:111111111111:parameter${openAiParameterName}`,
-                ]),
-              }),
-            ]),
-          },
-        });
-      });
-
-      it("grants Front Door AssumeRole on customer cross-account computer roles", () => {
-        template.hasResourceProperties("AWS::IAM::Policy", {
-          PolicyDocument: {
-            Statement: Match.arrayWith([
-              Match.objectLike({
-                Action: "sts:AssumeRole",
-                Resource: "arn:aws:iam::*:role/ChatticusOrganizationComputerRole",
-              }),
-            ]),
-          },
-        });
-      });
-
-      it("sets CHATTICUS_SIGNUP_MODE to open on Anthus deployments", () => {
-        template.hasResourceProperties("AWS::Lambda::Function", {
-          Environment: {
-            Variables: Match.objectLike({
-              CHATTICUS_SIGNUP_MODE: "open",
-            }),
-          },
-        });
-      });
-    });
-  }
-});
 
 describe("ThinTurnStack daily budget rollup", () => {
   const topicArn = "arn:aws:sns:us-east-1:111111111111:chatticus-budgets-alerts";
@@ -163,23 +83,6 @@ describe("ThinTurnStack daily budget rollup", () => {
   });
 });
 
-describe("ThinTurnStack installation name", () => {
-  it("gives Lambdas the installation name so computer tasks can be tagged with it", () => {
-    const template = synthThinTurnStack("development", { installationName: "Anthus AI Solutions" });
-    template.hasResourceProperties("AWS::Lambda::Function", {
-      Environment: {
-        Variables: Match.objectLike({ CHATTICUS_INSTALLATION_NAME: "Anthus AI Solutions" }),
-      },
-    });
-  });
-
-  it("sets no installation variable when none is configured", () => {
-    const template = synthThinTurnStack("development");
-    const serialized = JSON.stringify(template.toJSON());
-    assert.equal(serialized.includes("CHATTICUS_INSTALLATION_NAME"), false);
-  });
-});
-
 describe("ThinTurnStack data retention", () => {
   const retainedResources: Array<[string, string]> = [
     ["AWS::DynamoDB::Table", "Messaging4C94D7F8"],
@@ -227,12 +130,138 @@ describe("ThinTurnStack data retention", () => {
 });
 
 describe("ThinTurnStack without budget context", () => {
-  it("omits daily rollup Lambdas", () => {
+  it("has no Lambda function at all", () => {
     const template = synthThinTurnStack("development");
-    const resources = template.findResources("AWS::Lambda::Function");
-    const serialized = JSON.stringify(resources);
-    assert.equal(serialized.includes("daily-budget-rollup"), false);
-    assert.equal(serialized.includes("Record AWS Budgets SNS alerts"), false);
-    assert.equal(serialized.includes("nodejs22.x"), false);
+    template.resourceCountIs("AWS::Lambda::Function", 0);
+    template.resourceCountIs("AWS::SNS::Subscription", 0);
+    template.resourceCountIs("AWS::Scheduler::ScheduleGroup", 0);
   });
+});
+
+const BUDGET_CONTEXT = {
+  budgetsAlertsTopicArn: "arn:aws:sns:us-east-1:111111111111:chatticus-budgets-alerts",
+  budgetsMonthlyLimitUsd: 120,
+};
+
+const KEPT_LOGICAL_IDS = [
+  "Messaging4C94D7F8",
+  "InvokeKey" + "581783BE",
+  "OperatorKey" + "D7C0C4F2",
+  "InvokeKeySecretArnParameter" + "774B7228",
+  "OperatorKeySecretArnParameter" + "8FF1C056",
+  "BudgetRollupGroup",
+  "DailyBudgetRollup1695A8BE",
+  "BudgetRollupSchedulerRole1B54F783",
+  "DailyBudgetRollupSchedule",
+  "BudgetAlertRecorder40165C31",
+  "BudgetAlertRecorderBudgetsAlertsTopicC225071F",
+];
+
+const DELETED_LOGICAL_ID_PREFIXES = [
+  "FrontDoor",
+  "ComputerWorker",
+  "ComputerlessWorker",
+  "TurnDeadline",
+  "TurnJobs",
+  "ComputerTurnJobs",
+  "FunctionUrlParameter",
+  "TurnQueueUrlParameter",
+  "TurnQueueArnParameter",
+  "ComputerTurnQueueUrlParameter",
+  "ComputerTurnQueueArnParameter",
+  "ImportedComputerHostTaskRole",
+];
+
+describe("ThinTurnStack shrunk to its data and budget jobs", () => {
+  for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
+    describe(environmentName, () => {
+      const template = synthThinTurnStack(environmentName, BUDGET_CONTEXT);
+      const resources = template.toJSON().Resources as Record<string, { Type: string }>;
+      const logicalIds = Object.keys(resources);
+
+      it("keeps every data and budget resource under its original logical id", () => {
+        for (const kept of KEPT_LOGICAL_IDS) {
+          assert.ok(logicalIds.includes(kept), `expected ${kept}`);
+        }
+      });
+
+      it("keeps both secret ARN parameters", () => {
+        const names = Object.values(
+          template.findResources("AWS::SSM::Parameter"),
+        ).map((resource) => JSON.stringify(resource.Properties.Name));
+        assert.deepEqual(names.sort(), [
+          JSON.stringify(`/chatticus/${environmentName}/thin-turn/invoke-key-secret-arn`),
+          JSON.stringify(`/chatticus/${environmentName}/thin-turn/operator-key-secret-arn`),
+        ]);
+      });
+
+      it("keeps the budget rollup, its schedule, the recorder and the topic subscription", () => {
+        template.resourceCountIs("AWS::SNS::Subscription", 1);
+        template.resourceCountIs("AWS::Scheduler::Schedule", 1);
+        const functionNames = Object.values(
+          template.findResources("AWS::Lambda::Function"),
+        ).map((resource) => resource.Properties.FunctionName);
+        assert.ok(functionNames.includes(`chatticus-${environmentName}-daily-budget-rollup`));
+      });
+
+      it("keeps the physical names of the budget schedule group and role", () => {
+        template.hasResourceProperties("AWS::Scheduler::ScheduleGroup", {
+          Name: `chatticus-${environmentName}-budget-rollup`,
+        });
+        template.hasResourceProperties("AWS::IAM::Role", {
+          RoleName: `chatticus-${environmentName}-budget-rollup-scheduler`,
+        });
+      });
+
+      it("has no deleted Python-era logical id", () => {
+        for (const prefix of DELETED_LOGICAL_ID_PREFIXES) {
+          assert.deepEqual(
+            logicalIds.filter((id) => id.startsWith(prefix)),
+            [],
+            `${prefix} must be gone`,
+          );
+        }
+      });
+
+      it("has only the two Node budget Lambda functions plus the CDK log retention helper", () => {
+        const functions = Object.entries(template.findResources("AWS::Lambda::Function"));
+        const own = functions.filter(([logicalId]) => !logicalId.startsWith("LogRetention"));
+        assert.deepEqual(
+          own.map(([logicalId]) => logicalId).sort(),
+          ["BudgetAlertRecorder40165C31", "DailyBudgetRollup1695A8BE"],
+        );
+        for (const [, lambdaFunction] of own) {
+          assert.equal(lambdaFunction.Properties.Runtime, "nodejs22.x");
+        }
+        assert.equal(functions.length, 3);
+        assert.equal(/python/i.test(JSON.stringify(template.toJSON())), false);
+      });
+
+      it("has no queue, no function URL, no event source mapping and no layer", () => {
+        template.resourceCountIs("AWS::SQS::Queue", 0);
+        template.resourceCountIs("AWS::Lambda::Url", 0);
+        template.resourceCountIs("AWS::Lambda::EventSourceMapping", 0);
+        assert.equal(JSON.stringify(template.toJSON()).includes("LambdaAdapterLayer"), false);
+      });
+
+      it("has only the budget schedule group", () => {
+        const groups = Object.values(template.findResources("AWS::Scheduler::ScheduleGroup"));
+        assert.equal(groups.length, 1);
+        assert.equal(groups[0].Properties.Name, `chatticus-${environmentName}-budget-rollup`);
+      });
+
+      it("keeps only the two secret ARN exports", () => {
+        const exportNames = Object.values(
+          (template.toJSON().Outputs ?? {}) as Record<string, any>,
+        )
+          .map((output) => output.Export?.Name as string | undefined)
+          .filter((name): name is string => name !== undefined)
+          .sort();
+        assert.deepEqual(exportNames, [
+          `Chatticus-${environmentName}-thin-turn-invoke-key-secret-arn`,
+          `Chatticus-${environmentName}-thin-turn-operator-key-secret-arn`,
+        ]);
+      });
+    });
+  }
 });

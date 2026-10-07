@@ -16,19 +16,19 @@ operations.
 | `ChatticusAccountDeploy` | In a dedicated environment account only: the GitHub OIDC provider and that account's single deploy role. Not deployed in the legacy account |
 | `ChatticusEnvironmentZones`, `ChatticusEnvironmentCertificates` | In a dedicated environment account only: the two delegated zones for that environment's web and auth names, and one certificate per name validated inside its own zone |
 | `ChatticusManagementDns` | In the management account only: the `chattic.us` public hosted zone and its records (retained on stack deletion, termination-protected). Deployed once with `sh deploy-chatticus-management-dns.sh`; instantiated only with `-c managementDns=true` |
-| `ChatticusThinTurn` | **Development** thin turn: DynamoDB, SQS, Lambda SSE function URL |
-| `ChatticusThinTurnStaging` | Staging thin turn (same shape; deployed from `main`) |
-| `ChatticusThinTurnProduction` | Production thin turn (gated deploy of a staging-proven release; never implied by a git branch) |
+| `ChatticusThinTurn` | **Development** permanent data stack: Messaging table, invoke and operator secrets (all retained) and the Node budget jobs. No request compute |
+| `ChatticusThinTurnStaging` | Staging data stack (same shape; deployed from `main`) |
+| `ChatticusThinTurnProduction` | Production data stack (gated deploy of a staging-proven release; never implied by a git branch) |
 | `ChatticusWeb` | **Development** Next.js on S3 + CloudFront at `dev.chattic.us` with same-origin `/api/*` |
 | `ChatticusWebStaging` | Staging web at `staging.chattic.us` |
 | `ChatticusWebProduction` | Production product workspace at `hey.chattic.us` (marketing stays at `chattic.us` / `www`) |
 | `ChatticusAuth` | **Development** Cognito user pool with Google federation at `auth-dev.chattic.us` |
 | `ChatticusAuthStaging` | Staging Cognito auth at `auth-staging.chattic.us` |
 | `ChatticusAuthProduction` | Production Cognito auth at `auth.chattic.us` |
-| `ChatticusIntegrationTest` | Scheduled Lambda smoke tests (context `integrationTestEnvironment=development` or `staging`; not production) |
 
-Each thin-turn stack exports the Lambda **function URL** and invoke-key
-secret ARN for the matching web stack. The web stack publishes:
+Each thin-turn stack exports its Messaging table and invoke key to the
+control-plane and web stacks, plus the invoke and operator secret ARNs. The web
+stack publishes:
 
 - `/chatticus/{environment}/web/site-url` — `https://{hostname}`
 - `/chatticus/{environment}/thin-turn/cloudfront-url` — `https://{hostname}/api` (same-origin API base for workers and acceptance)
@@ -120,63 +120,6 @@ npx cdk deploy ChatticusThinTurnProduction
 npx cdk deploy ChatticusWebProduction
 npx cdk deploy ChatticusAuthProduction
 ```
-
-## Integration test bootstrap (development and staging)
-
-Automated live-stack smoke tests use tenant `integration-test` and user
-`integration-test-runner`. Production never enables integration-test auth.
-Never `cdk deploy --all`. Computers `desiredCount` stays 0.
-
-For each target environment (`development` or `staging`):
-
-1. Seed the dedicated org in that environment's messaging table (see
-   `docs/OPERATOR_ORG_SEED.md`):
-
-```bash
-export CHATTICUS_MESSAGING_TABLE=<ChatticusThinTurn*-Messaging table name>
-
-python -m chatticus.members seed \
-  --tenant-id integration-test \
-  --owner-email integration-test@chattic.us \
-  --name "Integration Test" \
-  --yes
-```
-
-2. Deploy the matching thin-turn stack (enables session exchange on the front
-   door for non-production environments):
-
-```bash
-cd infra
-sh deploy-chatticus-thinturn-development.sh   # development
-# or
-sh deploy-chatticus-thinturn-staging.sh         # staging
-```
-
-3. Deploy the integration-test runner (one stack; pick the target env):
-
-```bash
-cd infra
-npx cdk deploy ChatticusIntegrationTest \
-  -c integrationTestEnvironment=development \
-  --exclusively
-# or ... integrationTestEnvironment=staging
-```
-
-4. Confirm SSM
-   `/chatticus/{environment}/integration-test/allowed-role-arn` matches the
-   `IntegrationTestRoleArn` stack output.
-
-5. On-demand smoke:
-
-```bash
-aws lambda invoke \
-  --function-name chatticus-development-integration-test \
-  --payload '{"tier":"smoke"}' /tmp/out.json
-# staging: chatticus-staging-integration-test
-```
-
-EventBridge runs the same smoke schedule daily per deployed environment.
-Lambda idle cost is approximately zero between runs.
 
 GitHub Actions: named deploy workflows run on **push** to the environment
 branch (`develop` for development; `main` for staging and production) and on

@@ -27,7 +27,6 @@ export interface DedicatedAccountProps {
   env: cdk.Environment;
   environmentName: ChatticusCloudEnvironment;
   budgetsConfig?: BudgetsConfig;
-  installationName?: string;
   websiteDeploySource?: s3deploy.ISource;
 }
 
@@ -51,7 +50,7 @@ export function readDedicatedEnvironment(app: cdk.App): ChatticusCloudEnvironmen
  * built by the default path in bin/chatticus.ts and is unchanged.
  */
 export function buildDedicatedAccountStacks(app: cdk.App, props: DedicatedAccountProps): void {
-  const { env, environmentName, budgetsConfig, installationName } = props;
+  const { env, environmentName, budgetsConfig } = props;
   const hostnames = DEDICATED_ACCOUNT_HOSTNAMES[environmentName];
 
   const budgetsStack = budgetsConfig
@@ -94,10 +93,8 @@ export function buildDedicatedAccountStacks(app: cdk.App, props: DedicatedAccoun
     chatticusEnvironment: environmentName,
     budgetsAlertsTopicArn,
     budgetsMonthlyLimitUsd: budgetsConfig?.monthlyLimitUsd,
-    installationName,
     description:
-      `Zero-idle computerless turn (${environmentName}): DynamoDB, SQS, ` +
-      "Lambda SSE front door.",
+      `Permanent data stack (${environmentName}): Messaging table, secrets and budget jobs.`,
   });
 
   const controlPlane = new ControlPlaneStack(app, CONTROL_PLANE_STACK_IDS[environmentName], {

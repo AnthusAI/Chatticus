@@ -6,7 +6,6 @@ import { ComputerStack } from "../lib/computer-stack";
 import { CHATTICUS_CLOUD_ENVIRONMENTS } from "../lib/environments";
 import { CHATTICUS_LOG_RETENTION } from "../lib/log-retention";
 import { SnapshotStack } from "../lib/snapshot-stack";
-import { SseSpikeStack } from "../lib/sse-spike-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
 import { synthWebStack } from "./web-stack-harness";
 
@@ -32,13 +31,9 @@ function synthThinTurnStack(): Template {
   const stack = new ThinTurnStack(app, "TestThinTurn", {
     env: testEnv,
     chatticusEnvironment: "development",
+    budgetsAlertsTopicArn: "arn:aws:sns:us-east-1:111111111111:chatticus-budgets-alerts",
+    budgetsMonthlyLimitUsd: 120,
   });
-  return Template.fromStack(stack);
-}
-
-function synthSseSpikeStack(): Template {
-  const app = new cdk.App();
-  const stack = new SseSpikeStack(app, "TestSseSpike", { env: testEnv });
   return Template.fromStack(stack);
 }
 
@@ -67,7 +62,7 @@ describe("ComputerStack log retention", () => {
 describe("ThinTurnStack log retention", () => {
   it("sets RetentionInDays on every Lambda log-retention resource", () => {
     const template = synthThinTurnStack();
-    template.resourceCountIs("Custom::LogRetention", 4);
+    template.resourceCountIs("Custom::LogRetention", 2);
     template.allResourcesProperties("Custom::LogRetention", {
       RetentionInDays: RETENTION_DAYS,
     });
@@ -100,16 +95,6 @@ describe("WebStack log retention", () => {
       const template = synthWebStack(environmentName);
       template.resourceCountIs("Custom::S3AutoDeleteObjects", 0);
     }
-  });
-});
-
-describe("SseSpikeStack log retention", () => {
-  it("sets RetentionInDays on the spike Lambda log-retention resource", () => {
-    const template = synthSseSpikeStack();
-    template.resourceCountIs("Custom::LogRetention", 1);
-    template.hasResourceProperties("Custom::LogRetention", {
-      RetentionInDays: RETENTION_DAYS,
-    });
   });
 });
 

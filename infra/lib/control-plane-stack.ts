@@ -45,10 +45,10 @@ export interface ControlPlaneStackProps extends cdk.StackProps {
 }
 
 /**
- * The new conversation infrastructure, deployed unrouted: the Pi session table
- * and bucket, the three job queues with dead-letter queues, and the FrontDoor,
- * TurnExecutor, TurnProbe and ComputerStarter Lambdas. CloudFront still points
- * at the Python front door; nothing here is attached to it.
+ * The conversation infrastructure: the Pi session table and bucket, the three
+ * job queues with dead-letter queues, and the FrontDoor, TurnExecutor,
+ * TurnProbe and ComputerStarter Lambdas. CloudFront fronts /api/* with the
+ * FrontDoor function URL.
  */
 export class ControlPlaneStack extends cdk.Stack {
   readonly conversationsTable: dynamodb.Table;
