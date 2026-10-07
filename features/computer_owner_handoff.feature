@@ -156,7 +156,7 @@ Feature: Computer owner handoff
       """
     And the model is scripted to answer "Finished."
     When the member asks "use the computer"
-    And the member allows the turn tools "read_workspace, write_workspace, run_terminal" under "/workspace"
+    And the member allows the turn tools "read_workspace, write_workspace, edit_workspace, run_terminal" under "/workspace"
     And computer owner "container" takes over the turn
     Then the takeover of "container" ended "done"
     And the turn has one computer action and it is done
@@ -166,7 +166,23 @@ Feature: Computer owner handoff
       | tool            | arguments                                                    | dirtiness     |
       | read_workspace  | {"path": "/workspace/notes.md"}                              | not dirty     |
       | write_workspace | {"path": "/workspace/notes.md", "content": "changed"}        | marked dirty  |
+      | edit_workspace  | {"path": "/workspace/notes.md", "old_text": "seed", "new_text": "new"} | marked dirty |
       | run_terminal    | {"command": "echo changed > other.md", "cwd": "/workspace"}  | marked dirty  |
+
+  Scenario: A computer owner changes part of a file with the edit tool
+    Given the workspace has a file "notes.md" containing "draft-one and more"
+    And the model is scripted to call "edit_workspace" with:
+      """
+      {"path": "/workspace/notes.md", "old_text": "draft-one", "new_text": "draft-two"}
+      """
+    And the model is scripted to answer "Edited."
+    When the member asks "fix the draft"
+    And a Lambda-style owner works the turn until it parks
+    And computer owner "container" takes over the turn
+    Then the takeover of "container" ended "done"
+    And the workspace file "notes.md" contains "draft-two and more"
+    And the turn has one computer action and it is done
+    And the computer's disk is marked dirty
 
   Scenario: A command run by the computer owner does not see the owner's secrets
     Given the owner process holds the secret environment variables "OPENAI_API_KEY, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN"

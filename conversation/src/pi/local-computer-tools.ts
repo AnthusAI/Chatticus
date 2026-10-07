@@ -15,7 +15,8 @@
  * The tools are registered `replay: "safe"`: pi-durable reruns a pending call only when both its stored and its current
  * policy are safe, so a call the previous owner left pending runs here, and this module decides what rerunning means.
  *
- * `edit_workspace` is not registered: the gate and the grant do not know that name yet.
+ * `edit_workspace` maps onto Pi's `edit` with one replacement; it needs the file to exist and the text to occur once, so
+ * running it a second time after it was applied is refused by the tool and changes nothing.
  */
 
 import { join, posix } from "node:path";
@@ -33,7 +34,7 @@ import type { Clock, IdSource } from "../http/app.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { Extension, ToolExecutionApi, ToolExecutionResult, ToolRegistration } from "@earendil-works/pi-durable";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
-import { createBashTool, createReadTool, createWriteTool } from "@earendil-works/pi-durable/tools";
+import { createBashTool, createEditTool, createReadTool, createWriteTool } from "@earendil-works/pi-durable/tools";
 import { type ComputerToolCall, type ComputerToolHandoff, computerToolsExtension, computerWorkPausedText, stringArguments } from "./computer-tools.ts";
 
 /** The path the model sees as the root of the workspace; the gate's default grant covers it. */
@@ -54,8 +55,8 @@ export const HELD_BY_ANOTHER_WORKER_RESULT = "The computer action of this call i
 
 const FALLBACK_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
-/** The tools whose second run after an interruption is harmless: a whole-file read or overwrite. */
-const REPEATABLE_TOOLS: ReadonlySet<string> = new Set(["read_workspace", "write_workspace"]);
+/** The tools whose second run after an interruption is harmless: a read, a whole-file overwrite, and an edit that applies once. */
+const REPEATABLE_TOOLS: ReadonlySet<string> = new Set(["read_workspace", "write_workspace", "edit_workspace"]);
 
 /**
  * The environment a model-chosen command gets: a search path, a home inside the workspace, a locale and a terminal type.
@@ -173,6 +174,7 @@ export function localComputerToolsExtension(handoff: ComputerToolHandoff, option
 	const env = new NodeExecutionEnv({ cwd: options.workspaceRoot });
 	const readTool = createReadTool() as unknown as ToolRegistration;
 	const writeTool = createWriteTool() as unknown as ToolRegistration;
+	const editTool = createEditTool() as unknown as ToolRegistration;
 	const virtualize = (text: string): string => (options.workspaceRoot === virtualRoot ? text : text.replaceAll(options.workspaceRoot, virtualRoot));
 	const realPath = (path: string): string => resolveWorkspacePath(options.workspaceRoot, virtualRoot, path);
 
@@ -220,6 +222,13 @@ export function localComputerToolsExtension(handoff: ComputerToolHandoff, option
 		write_workspace: (args, api, context) => {
 			const next: Record<string, unknown> = { path: realPath(requiredString(args, "path")), content: requiredString(args, "content") };
 			return runBuiltin(writeTool, next, api, context);
+		},
+		edit_workspace: (args, api, context) => {
+			const next: Record<string, unknown> = {
+				path: realPath(requiredString(args, "path")),
+				edits: [{ oldText: requiredString(args, "old_text"), newText: requiredString(args, "new_text") }],
+			};
+			return runBuiltin(editTool, next, api, context);
 		},
 		run_terminal: runTerminal,
 	};
