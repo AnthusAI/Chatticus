@@ -58,7 +58,7 @@ export function requestedCapabilityForModelTool(
 	if (toolName === "read_workspace") {
 		return new RequestedCapability(toolName, undefined, undefined, arguments_["path"], EgressClass.ApprovedOriginFetch);
 	}
-	if (toolName === "write_workspace") {
+	if (toolName === "write_workspace" || toolName === "edit_workspace") {
 		return new RequestedCapability(toolName, undefined, undefined, arguments_["path"]);
 	}
 	if (toolName === "browse") {

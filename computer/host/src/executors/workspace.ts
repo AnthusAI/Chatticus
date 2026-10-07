@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { applyExactEdit } from "@chatticus/host-protocol/workspace-edit";
 import { ComputerHostDisk } from "../../../../conversation/src/snapshot/host.ts";
 import { FilesystemSnapshotStore, type SnapshotObjectStore } from "../../../../conversation/src/snapshot/store.ts";
 import { pythonRepr, ValueError, workspaceRelativePath } from "../workspace-paths.ts";
@@ -33,7 +34,7 @@ function isFileSystemError(error: unknown): error is NodeJS.ErrnoException {
 	return error instanceof Error && typeof (error as NodeJS.ErrnoException).code === "string";
 }
 
-/** Run read_workspace and write_workspace on the host live disk. */
+/** Run read_workspace, write_workspace and edit_workspace on the host live disk. */
 export class WorkspaceActionExecutor {
 	private readonly disk: ComputerHostDisk;
 
@@ -44,7 +45,7 @@ export class WorkspaceActionExecutor {
 	/**
 	 * Return the durable tool.result body for one workspace action.
 	 *
-	 * @param toolName `read_workspace` or `write_workspace`.
+	 * @param toolName `read_workspace`, `write_workspace` or `edit_workspace`.
 	 * @param arguments_ The call's arguments.
 	 * @throws ValueError If the tool is not a workspace tool.
 	 */
@@ -55,6 +56,9 @@ export class WorkspaceActionExecutor {
 			}
 			if (toolName === "write_workspace") {
 				return this.writeWorkspace(arguments_);
+			}
+			if (toolName === "edit_workspace") {
+				return this.editWorkspace(arguments_);
 			}
 		} catch (error) {
 			if (error instanceof ValueError) {
@@ -93,5 +97,31 @@ export class WorkspaceActionExecutor {
 		const relative = workspaceRelativePath(path);
 		this.disk.writeWorkspaceFile(relative, content);
 		return `write_workspace:${path}`;
+	}
+
+	private editWorkspace(arguments_: Readonly<Record<string, string>>): string {
+		const path = (arguments_["path"] ?? "").trim();
+		if (path === "") {
+			throw new ValueError("edit_workspace requires path");
+		}
+		const relative = workspaceRelativePath(path);
+		let current: string;
+		try {
+			current = this.disk.readWorkspaceFile(relative);
+		} catch (error) {
+			if (isFileSystemError(error) && error.code === "ENOENT") {
+				return `not found: ${path}`;
+			}
+			if (isFileSystemError(error)) {
+				return `error: ${error.message}`;
+			}
+			throw error;
+		}
+		const edit = applyExactEdit(current, arguments_["old_text"] ?? "", arguments_["new_text"] ?? "", path);
+		if (!edit.ok) {
+			return `error: ${edit.message}`;
+		}
+		this.disk.writeWorkspaceFile(relative, edit.content);
+		return `edit_workspace:${path}`;
 	}
 }

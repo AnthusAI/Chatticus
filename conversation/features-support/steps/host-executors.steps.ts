@@ -114,6 +114,13 @@ Given(
 	},
 );
 
+Given(
+	"a fenced workspace edit handoff with a queued continuation job for {string} replacing {string} with {string}",
+	async function (this: ChatticusWorld, path: string, oldText: string, newText: string) {
+		await parkToolCall(this, `edit workspace file ${path} replacing ${oldText} with ${newText}`);
+	},
+);
+
 Given("a bot with a terminal grant on the household computer", function (this: ChatticusWorld) {
 	kernelPolicyFor(this).setGrant(
 		parseGrantTable({
@@ -184,6 +191,19 @@ Then("the turn journal records a successful write_workspace tool result", async 
 	const body = await lastResultOf(this, "write_workspace");
 	assert.ok(body.startsWith("write_workspace:"), `The write_workspace result is ${JSON.stringify(body)}`);
 });
+
+Then("the turn journal records a successful edit_workspace tool result", async function (this: ChatticusWorld) {
+	const body = await lastResultOf(this, "edit_workspace");
+	assert.ok(body.startsWith("edit_workspace:"), `The edit_workspace result is ${JSON.stringify(body)}`);
+});
+
+Then(
+	"the turn journal records an edit_workspace tool result containing {string}",
+	async function (this: ChatticusWorld, snippet: string) {
+		const body = await lastResultOf(this, "edit_workspace");
+		assert.ok(body.includes(snippet), `The edit_workspace result is ${JSON.stringify(body)}`);
+	},
+);
 
 Then(
 	"the turn journal records a read_workspace tool result containing {string}",

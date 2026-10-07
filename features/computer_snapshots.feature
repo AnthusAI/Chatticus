@@ -92,3 +92,19 @@ Feature: Computer snapshots and host relocate
     And an administrator relocates computer "household-computer" to worker "garage-mac-1"
     And bot "Researcher" writes "scratch.md" containing "too soon" on the computer
     Then writing the computer fails because it is not hydrated
+
+  Scenario: A workspace edit marks the live disk dirty
+    Given tenant "anthus" user "ryan" has a bot named "Researcher"
+    When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
+    And worker "fargate-1" publishes a snapshot of computer "household-computer"
+    Then computer "household-computer" is not dirty
+    When bot "Researcher" edits "notes.md" replacing "weekly" with "daily" on the computer
+    Then computer "household-computer" is dirty
+
+  Scenario: The live disk cannot be edited until the intended host hydrates
+    Given tenant "anthus" user "ryan" has a bot named "Researcher"
+    When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
+    And worker "fargate-1" publishes a snapshot of computer "household-computer"
+    And an administrator relocates computer "household-computer" to worker "garage-mac-1"
+    And bot "Researcher" edits "notes.md" replacing "weekly" with "daily" on the computer
+    Then writing the computer fails because it is not hydrated

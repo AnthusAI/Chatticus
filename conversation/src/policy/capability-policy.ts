@@ -218,7 +218,7 @@ export class BoundConnectorOperation {
  */
 export function householdConversationGrant(): TaskCapabilityGrant {
 	return new TaskCapabilityGrant(
-		new Set(["read_workspace", "write_workspace"]),
+		new Set(["read_workspace", "write_workspace", "edit_workspace", "run_terminal"]),
 		new Set(),
 		new Set(),
 		new Set(["/workspace"]),

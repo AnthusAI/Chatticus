@@ -80,6 +80,7 @@ describe("computer action helpers", () => {
 		expect(envelopeForCall("read_workspace", { path: "/workspace/a" }).idempotent).toBe(true);
 		expect(envelopeForCall("browse", { url: "https://a.example.com" })).toMatchObject({ idempotent: true, origin: "https://a.example.com" });
 		expect(envelopeForCall("write_workspace", { path: "/workspace/a" }).idempotent).toBe(false);
+		expect(envelopeForCall("edit_workspace", { path: "/workspace/a" })).toMatchObject({ idempotent: false, path: "/workspace/a" });
 		expect(envelopeForCall("run_terminal", { command: "ls" })).toMatchObject({ idempotent: false, cwd: "/workspace" });
 	});
 

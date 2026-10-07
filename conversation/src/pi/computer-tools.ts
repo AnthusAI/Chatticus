@@ -1,5 +1,5 @@
 /**
- * The computer tools: `read_workspace`, `write_workspace`, `run_terminal`, `browse` and `request_computer_capability`,
+ * The computer tools: `read_workspace`, `write_workspace`, `edit_workspace`, `run_terminal`, `browse` and `request_computer_capability`,
  * plus `send` and `purchase`, which can only run after a human approved their exact arguments.
  *
  * Every computer tool is registered on every owner with the same schema and is declared `replay: "safe"`, because its
@@ -55,6 +55,11 @@ const READ_WORKSPACE_PARAMETERS = Type.Object({ path: Type.String({ description:
 const WRITE_WORKSPACE_PARAMETERS = Type.Object({
 	path: Type.String({ description: "Absolute path of the file under /workspace." }),
 	content: Type.String({ description: "The full text to write." }),
+});
+const EDIT_WORKSPACE_PARAMETERS = Type.Object({
+	path: Type.String({ description: "Absolute path of the existing file under /workspace." }),
+	old_text: Type.String({ description: "The exact text to replace. It must occur once in the file." }),
+	new_text: Type.String({ description: "The text to put in its place." }),
 });
 const RUN_TERMINAL_PARAMETERS = Type.Object({
 	command: Type.String({ description: "The shell command to run." }),
@@ -129,9 +134,22 @@ export function computerToolsExtension(handoff: ComputerToolHandoff): Extension 
 	return defineExtension({
 		name: "computer",
 		tools: [
-			computerTool("read_workspace", "Read a file in the organization's workspace.", READ_WORKSPACE_PARAMETERS),
-			computerTool("write_workspace", "Write a file in the organization's workspace.", WRITE_WORKSPACE_PARAMETERS),
-			computerTool("run_terminal", "Run a shell command on the organization's computer.", RUN_TERMINAL_PARAMETERS),
+			computerTool("read_workspace", "Read a file in /workspace, the persistent workspace of the organization.", READ_WORKSPACE_PARAMETERS),
+			computerTool(
+				"write_workspace",
+				"Write a new file in /workspace. This replaces the whole file. To change part of an existing file, use edit_workspace.",
+				WRITE_WORKSPACE_PARAMETERS,
+			),
+			computerTool(
+				"edit_workspace",
+				"Change an existing file in /workspace. It replaces one exact piece of text. It fails if the text is not found or occurs more than once. It never creates a file.",
+				EDIT_WORKSPACE_PARAMETERS,
+			),
+			computerTool(
+				"run_terminal",
+				"Run a shell command on the organization's computer. The default directory is /workspace. Git is installed.",
+				RUN_TERMINAL_PARAMETERS,
+			),
 			computerTool(BROWSE_ACTION_KIND, "Open a web page in an isolated browser.", BROWSE_PARAMETERS),
 			computerTool(
 				REQUEST_COMPUTER_CAPABILITY_ACTION_KIND,

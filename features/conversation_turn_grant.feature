@@ -21,13 +21,32 @@ Feature: Conversation task grant on human-started turns
     And user "ryan" of tenant "anthus" posts "hello LiveCreate" addressed to bot "LiveCreate" on the channel
     Then the active turn carries the household conversation grant
 
-  Scenario: The conversation grant still denies run_terminal
+  Scenario: A new bot's first turn holds the four workspace tools
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
+    When user "ryan" of tenant "anthus" opens a channel with bots:
+      | Researcher |
+    And user "ryan" of tenant "anthus" posts "hello Researcher" addressed to bot "Researcher" on the channel
+    Then the active turn grant holds exactly the tools "read_workspace, write_workspace, edit_workspace, run_terminal"
+    And the active turn grant has exactly the file scope "/workspace"
+    And the active turn grant names no origin and no recipient
+
+  Scenario: The conversation grant allows run_terminal under /workspace
+    Given tenant "anthus" user "ryan" has a bot named "Researcher"
+    And the household computer is stopped
     When a human asks the bot to run command "ls /workspace" using cwd "/workspace"
+    And bot "Researcher" runs one capability-aware computerless worker turn
+    Then a computer continuation job is queued for the turn
+    And the turn is waiting on the workspace capability
+
+  Scenario: The conversation grant does not reach a terminal outside /workspace
+    Given tenant "anthus" user "ryan" has a bot named "Researcher"
+    And the household computer is stopped
+    When a human asks the bot to run command "ls /etc" using cwd "/etc"
     And bot "Researcher" runs one capability-aware computerless worker turn
     Then the turn journal records a denied run_terminal tool result
     And no computer continuation job is queued for the turn
     And the turn is not waiting on the workspace capability
+    And the household computer is stopped
 
   Scenario: The conversation grant denies browse without granted origins
     Given tenant "anthus" user "ryan" has a bot named "Researcher"

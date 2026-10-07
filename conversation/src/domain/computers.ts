@@ -351,8 +351,8 @@ export async function relocateComputer(tenantId: string, targetWorkerId: string,
 	return relocating;
 }
 
-/** The computer tools that change the live disk: a workspace write and a terminal command. */
-export const DISK_WRITING_TOOL_NAMES: ReadonlySet<string> = new Set(["write_workspace", "run_terminal"]);
+/** The computer tools that change the live disk: a workspace write, a workspace edit and a terminal command. */
+export const DISK_WRITING_TOOL_NAMES: ReadonlySet<string> = new Set(["write_workspace", "edit_workspace", "run_terminal"]);
 
 /**
  * Refuse a disk-writing tool while the computer waits for its intended host to hydrate the snapshot the record names,

@@ -131,6 +131,20 @@ Feature: Host protocol between the Front Door and a computer host
     When host worker "host-one" asks to regate read of "/workspace/inbox.txt"
     Then the host request is accepted
 
+  Scenario: A host may regate an edit of a path the turn grant covers
+    Given a fenced computer handoff with a queued continuation job
+    And host worker "host-one" serves the household computer
+    And the host worker "host-one" holds the pending action
+    When host worker "host-one" asks to regate edit of "/workspace/inbox.txt"
+    Then the host request is accepted
+
+  Scenario: A host is refused an edit of a path outside the turn grant
+    Given a fenced computer handoff with a queued continuation job
+    And host worker "host-one" serves the household computer
+    And the host worker "host-one" holds the pending action
+    When host worker "host-one" asks to regate edit of "/etc/passwd"
+    Then the host request is refused with status 403
+
   Scenario: A host is refused a path outside the turn grant
     Given a fenced computer handoff with a queued continuation job
     And host worker "host-one" serves the household computer

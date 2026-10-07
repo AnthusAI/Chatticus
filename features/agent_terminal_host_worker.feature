@@ -1,6 +1,6 @@
 Feature: A granted shell command on the household computer that waits for the host worker
   As a household member
-  I want a bot to run shell commands on the summoned host when explicitly granted
+  I want a bot to run shell commands on the summoned host under /workspace
   So that workspace inspection does not require pretending files are unreadable
 
   Background:
