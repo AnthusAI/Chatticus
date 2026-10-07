@@ -127,6 +127,15 @@ export class FakeDisplayServer implements DisplayServer {
 	async stop(): Promise<void> {}
 }
 
+/** The display of an image that ships no Xvfb: starting it fails the way a missing program does. */
+export class MissingDisplayServer implements DisplayServer {
+	async start(): Promise<void> {
+		throw new Error("Xvfb could not start: spawn Xvfb ENOENT");
+	}
+
+	async stop(): Promise<void> {}
+}
+
 /**
  * The boot driver of one registered host, over its own live root. The display and the Chromium probe are fakes because a
  * real Chromium is not available in tests; everything else is the production boot.
@@ -135,11 +144,16 @@ export class FakeDisplayServer implements DisplayServer {
  * @param workerId The registered host worker.
  * @param store The snapshot store the host hydrates from; null boots a host that has none configured.
  */
-export function bootDriverFor(world: ChatticusWorld, workerId: string, store: SnapshotObjectStore | null): ComputerHostBootDriver {
+export function bootDriverFor(
+	world: ChatticusWorld,
+	workerId: string,
+	store: SnapshotObjectStore | null,
+	options: { readonly withoutBrowser?: boolean } = {},
+): ComputerHostBootDriver {
 	return new ComputerHostBootDriver(hostClientFor(world, workerId), {
 		tenantId: LIFECYCLE_TENANT,
 		workerId,
-		xvfb: new FakeDisplayServer(),
+		xvfb: options.withoutBrowser === true ? new MissingDisplayServer() : new FakeDisplayServer(),
 		chromiumProbe: async () => FAKE_CHROMIUM_VERSION,
 		liveRoot: hostDiskOf(world, workerId).liveRoot,
 		store,
