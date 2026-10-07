@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Proposed: Pi runs on the computer after a handoff",
+    "subtitle": "Status: PROPOSED, spike in progress. Not built. The model key stays in the control plane.",
+    "output": "docs/diagrams/pi-session-handoff/proposed-container-owner.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "git@github.com:AnthusAI/Chatticus.git",
+      "link_mode": "local-only",
+      "revision": "3b7f4ed74520f24544d6258af6f4706626c3341e"
+    },
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "backend": { "label": "Code we run (Lambda, gateway or Pi owner)" },
+        "database": { "label": "Stored data" },
+        "security": { "label": "Checks or holds a secret" },
+        "external": { "label": "Outside party, or untrusted shell" }
+      }
+    }
+  },
+  "components": [
+    { "id": "executor", "type": "backend", "label": "TurnExecutor Lambda", "sublabel": "first owner of the turn", "pos": [40, 60], "size": [150, 64], "tag": "exists today",
+      "sources": [{ "path": "conversation/src/pi/session.ts", "line": 54, "end_line": 73, "label": "opens a fenced session" }] },
+    { "id": "piowner", "type": "backend", "label": "Pi owner (container)", "sublabel": "runs Pi's agent loop", "pos": [500, 60], "size": [150, 64], "tag": "PROPOSED: has no model key" },
+    { "id": "shell", "type": "external", "label": "Unprivileged tools", "sublabel": "read, write, edit, bash", "pos": [800, 60], "size": [150, 64], "tag": "cannot reach keys" },
+    { "id": "workspace", "type": "database", "label": "/workspace files", "sublabel": "the shared disk", "pos": [800, 240], "size": [150, 64],
+      "sources": [{ "path": "computer/entrypoint.sh", "line": 14, "end_line": 24, "label": "workspace link" }] },
+    { "id": "snapshots", "type": "database", "label": "Snapshot bucket (S3)", "sublabel": "saved /workspace", "pos": [1100, 240], "size": [150, 64],
+      "sources": [{ "path": "computer/host/src/disk-lifecycle.ts", "line": 80, "end_line": 142, "label": "restore and publish" }] },
+    { "id": "store", "type": "database", "label": "Pi session storage", "sublabel": "DynamoDB + S3, one prefix", "pos": [270, 240], "size": [150, 64],
+      "sources": [{ "path": "conversation/src/storage/indexed-storage.ts", "line": 221, "end_line": 234, "label": "allocate a fence" }, { "path": "infra/lib/control-plane-stack.ts", "line": 73, "end_line": 94, "label": "table and bucket" }] },
+    { "id": "gateway", "type": "security", "label": "Model gateway", "sublabel": "checks the token, adds the key", "pos": [500, 420], "size": [150, 64], "tag": "PROPOSED: new service" },
+    { "id": "ssm", "type": "security", "label": "SSM SecureString", "sublabel": "the real OpenAI key", "pos": [800, 420], "size": [150, 64],
+      "sources": [{ "path": "conversation/src/lambdas/openai-key.ts", "line": 13, "end_line": 27, "label": "read key" }] },
+    { "id": "ledger", "type": "database", "label": "Vendor ledger", "sublabel": "records model spend", "pos": [200, 420], "size": [150, 64],
+      "sources": [{ "path": "conversation/src/turn/finalize.ts", "line": 66, "end_line": 90, "label": "spend recorded today" }] },
+    { "id": "openai", "type": "external", "label": "OpenAI", "sublabel": "model API", "pos": [500, 600], "size": [150, 64],
+      "sources": [{ "path": "conversation/src/turn/openai-models.ts", "line": 6, "end_line": 17 }] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Computer container: runs model-chosen commands", "wraps": ["piowner", "shell", "workspace"] }
+  ],
+  "connections": [
+    { "id": "executor-hands-off", "from": "executor", "to": "piowner", "label": "hand off: close session, start container", "variant": "emphasis" },
+    { "id": "executor-closes-session", "from": "executor", "to": "store", "label": "close session", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "piowner-commits", "from": "piowner", "to": "store", "label": "new fence, commit events", "variant": "security", "fromSide": "bottom", "toSide": "top" },
+    { "id": "piowner-runs-tools", "from": "piowner", "to": "shell", "label": "run tools locally" },
+    { "id": "shell-uses-workspace", "from": "shell", "to": "workspace", "label": "files and commands", "fromSide": "bottom", "toSide": "top" },
+    { "id": "piowner-model-call", "from": "piowner", "to": "gateway", "label": "model call + token", "variant": "security", "fromSide": "bottom", "toSide": "top" },
+    { "id": "gateway-reads-key", "from": "gateway", "to": "ssm", "label": "read real key", "variant": "security" },
+    { "id": "gateway-to-openai", "from": "gateway", "to": "openai", "label": "forward, stream back", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
+    { "id": "gateway-records-spend", "from": "gateway", "to": "ledger", "label": "record spend" },
+    { "id": "workspace-to-snapshots", "from": "workspace", "to": "snapshots", "label": "save, restore", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "violet", "title": "What would change", "items": [
+      "After a handoff, the container opens the same session with a new fence and runs Pi there.",
+      "Pi's own tools (read, write, edit, bash) run next to /workspace, with no round trip per tool.",
+      "When the turn ends the session is handed back to a Lambda owner for the next message."
+    ] },
+    { "dot": "rose", "title": "What a stolen token allows", "items": [
+      "The token is short-lived and bound to one tenant, bot and turn.",
+      "It lets its holder make that session's model calls until it expires.",
+      "It is not the OpenAI key. The real key never leaves the gateway."
+    ] },
+    { "dot": "amber", "title": "Unknown until the spike reports", "items": [
+      "Whether Pi runs well enough in the container and hands back cleanly.",
+      "How turn events reach the browser stream without database access.",
+      "How the token and scoped storage keys reach the container.",
+      "Whether the unprivileged shell really cannot reach those keys."
+    ] }
+  ]
+}
