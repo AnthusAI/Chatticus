@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-db8efdb0-c318-4c93-81b4-ba11ed1ff631",
+  "title": "TS-61 Relinquish the attempt lease when an infrastructure error escapes the executor",
+  "description": "From TS-60: when an error escapes the TurnExecutor Lambda the turn waits for the 60 s attempt lease (ATTEMPT_LEASE_SECONDS) to expire and for the probe armed at claim to recover it and enqueue a new run (about 56 s observed); SQS is not the delay (TurnRuns visibility is 1800 s and lease renewal keeps it there). On an escaping infrastructure error (not a conditional-check rejection, not a deliberate park) the executor could relinquish its lease or shorten the message visibility so recovery starts immediately. Design choice: decide whether the benefit (about 50 s faster recovery after a rare infra error) is worth the added path; TS-60 already keeps the common transient conflict from escaping. Needs a cucumber scenario and mutation checks if taken.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-07T03:28:41.700066Z",
+  "updated_at": "2026-10-07T03:28:41.700109Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is weighing faster recovery after infrastructure errors against the added executor complexity.",
+  "right_now_updated_at": "2026-10-07T03:28:43.096164Z",
+  "custom": {}
+}

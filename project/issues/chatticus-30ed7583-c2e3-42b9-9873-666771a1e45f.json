@@ -3,23 +3,36 @@
   "title": "TS-60 Retry transient DynamoDB transaction conflicts in turn control (turn stalls about a minute)",
   "description": "Reported by the user on develop.chattic.us during iPad testing (the bot got stuck mid-response). Evidence: the TurnExecutor Lambda logged at 02:58:11 UTC TransactionConflictException 'Transaction is ongoing for the item' thrown from DynamoTurnControlStore.beginClosing (conversation/src/store/turn-store.ts) via beginClosing and TurnAttempt.drive; the invocation failed after 4 s, the SQS message was redelivered 56 s later and the turn then finished in 3 s; a FrontDoor SSE stream stayed open 63.9 s waiting. The user had four turns start within about 25 s (rapid messages). Root cause: DynamoDB reports a conflicting concurrent transaction on the same item as a retryable error; the code does not retry it, so it escapes and fails the invocation. Fix: classify transient DynamoDB errors (TransactionConflictException, TransactionCanceledException whose CancellationReasons include TransactionConflict, ThrottlingException, ProvisionedThroughputExceededException, RequestLimitExceeded, InternalServerError) in the turn control store and the other transactional stores (grep TransactWriteItems in conversation/src) and retry the idempotent transition in-process with jittered exponential backoff (a few attempts, a total budget well under the Lambda time, injectable sleep and random for tests); a conditional-check failure (real contention that the code already handles) must NOT be retried; after the budget the error propagates as today. Tests: a cucumber scenario in the turn recovery or attempts feature (new scenario, existing text unchanged) with a store wrapper that fails the first N transactions with the conflict: the turn finalizes in the same invocation; and vitest for the classifier and backoff; mutation checks (no retry, retry conditional failures, unbounded retries). Also check the executor error path: when an invocation fails, how quickly is the SQS message made visible again (SqsRunVisibility; the redelivery took 56 s) and whether a shorter retry is appropriate. Then live-verify is not needed.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "49fbf888-ab47-4a92-8638-7107ccee8e2f",
+      "author": "home",
+      "text": "Merged via PR 469 and deployed to development (executor Lambda updated 03:23 UTC, develop 8c7c5448). Acceptance 9/9 twice through CloudFront; zero executor errors since the deploy. Root cause confirmed: beginClosing (UpdateItem) hit TransactionConflictException during a burst of four turns in 25 s; retryTransient now absorbs transient DynamoDB errors in the turn, admission, action, messaging and ledger stores (conditional-check failures are never retried). The 56 s delay was the 60 s attempt lease plus the probe, not SQS (TurnRuns visibility is 1800 s).",
+      "created_at": "2026-10-07T03:28:34.971689Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-07T03:00:36.025259Z",
-  "updated_at": "2026-10-07T03:00:36.025294Z",
-  "closed_at": null,
+  "updated_at": "2026-10-07T03:28:38.828875Z",
+  "closed_at": "2026-10-07T03:28:38.828809Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is adding retries for transient DynamoDB conflicts to prevent turn stalls.",
-  "right_now_updated_at": "2026-10-07T03:00:37.209121Z",
+  "right_now_summary": "The retry fix is deployed and live, with no executor errors after verification.",
+  "right_now_updated_at": "2026-10-07T03:28:39.735679Z",
   "custom": {}
 }
