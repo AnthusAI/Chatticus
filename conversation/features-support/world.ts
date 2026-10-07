@@ -21,6 +21,7 @@ import { FakeBudgetAlertsPublisher } from "./fakes/fake-budget-alerts.ts";
 import { FakeAccountSpendReader, FakeCostExplorerReader } from "./fakes/fake-cost-explorer.ts";
 import type { CognitoTestKeys } from "./test-jwt.ts";
 import { localDynamoClient, ScenarioMessagingTable } from "./messaging-table.ts";
+import { TransientStoreFaults } from "./transient-store-faults.ts";
 import { ApiClient, type RecordedResponse } from "./api.ts";
 import type { StartedAppServer } from "./http-server.ts";
 import type { Hono } from "hono";
@@ -149,6 +150,7 @@ export class ChatticusWorld extends World {
 	// Customer account provisioning and self-setup
 	/** The customer's IAM role as the self-setup route inspects it; scenarios configure what it trusts and grants. */
 	readonly roleInspector = new InMemoryCrossAccountRoleInspector();
+	readonly storeFaults = new TransientStoreFaults();
 	customerCompute: CustomerComputeScenario | null = null;
 	customerSelfSetup: CustomerSelfSetupScenario | null = null;
 	customerRoleTemplate: Record<string, unknown> | null = null;
@@ -217,7 +219,7 @@ export class ChatticusWorld extends World {
 
 	/** The turn control record store over the scenario's Messaging table. */
 	turnControlStore(): DynamoTurnControlStore {
-		return new DynamoTurnControlStore(this.messagingTable.client, this.messagingTable.tableName);
+		return new DynamoTurnControlStore(this.storeFaults.wrap(this.messagingTable.client), this.messagingTable.tableName);
 	}
 
 	/** What the turn functions need, over the scenario's table, clock and identifiers. */

@@ -112,3 +112,4 @@ features/principal_kinds.feature
 features/capability_file_sink.feature
 features/principal_authorization.feature
 features/chattic_us_web.feature
+features/turn_transient_store_faults.feature

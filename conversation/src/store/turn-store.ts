@@ -20,6 +20,7 @@ import {
 	turnEventItem,
 	turnItemPartitionKey,
 } from "./turn-events.ts";
+import { retryTransient } from "./transient-retry.ts";
 
 const ACTIVE_STATUS = "active";
 const TRANSITION_ATTEMPTS = 8;
@@ -129,7 +130,7 @@ export async function recordLogicalEnqueueOnTurn(
 ): Promise<boolean> {
 	const key = { pk: { S: turnItemPartitionKey(tenantId, turnId) }, sk: { S: "meta" } };
 	try {
-		await client.send(
+		await retryTransient(() => client.send(
 			new UpdateItemCommand({
 				TableName: tableName,
 				Key: key,
@@ -138,7 +139,7 @@ export async function recordLogicalEnqueueOnTurn(
 					"attribute_exists(pk) AND (attribute_not_exists(logical_enqueue_ids) OR NOT contains(logical_enqueue_ids, :id))",
 				ExpressionAttributeValues: { ":ids": { SS: [enqueueId] }, ":id": { S: enqueueId } },
 			}),
-		);
+		));
 		return true;
 	} catch (error) {
 		if (!(error instanceof ConditionalCheckFailedException)) {
@@ -190,7 +191,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 			values[":claimedBy"] = { S: request.claimedBy };
 		}
 		try {
-			const result = await this.client.send(
+			const result = await retryTransient(() => this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
 					Key: this.metaKey(request.tenantId, request.turnId),
@@ -201,7 +202,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 					ExpressionAttributeValues: values,
 					ReturnValues: "ALL_NEW",
 				}),
-			);
+			));
 			return turnFromItem(result.Attributes!);
 		} catch (error) {
 			if (error instanceof ConditionalCheckFailedException) {
@@ -213,7 +214,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 
 	async renewTurn(request: Parameters<TurnControlStore["renewTurn"]>[0]): Promise<Turn | null> {
 		try {
-			const result = await this.client.send(
+			const result = await retryTransient(() => this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
 					Key: this.metaKey(request.tenantId, request.turnId),
@@ -228,7 +229,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 					},
 					ReturnValues: "ALL_NEW",
 				}),
-			);
+			));
 			return turnFromItem(result.Attributes!);
 		} catch (error) {
 			if (error instanceof ConditionalCheckFailedException) {
@@ -240,7 +241,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 
 	async recordStorageFence(tenantId: string, turnId: string, attemptId: string, storageFence: number): Promise<void> {
 		try {
-			await this.client.send(
+			await retryTransient(() => this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
 					Key: this.metaKey(tenantId, turnId),
@@ -253,7 +254,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 						":active": { S: ACTIVE_STATUS },
 					},
 				}),
-			);
+			));
 		} catch (error) {
 			if (error instanceof ConditionalCheckFailedException) {
 				throw await this.rejection(tenantId, turnId, attemptId);
@@ -314,7 +315,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 
 	async resumeTurn(tenantId: string, turnId: string): Promise<Turn | null> {
 		try {
-			const result = await this.client.send(
+			const result = await retryTransient(() => this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
 					Key: this.metaKey(tenantId, turnId),
@@ -324,7 +325,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 					ExpressionAttributeValues: { ":active": { S: ACTIVE_STATUS } },
 					ReturnValues: "ALL_NEW",
 				}),
-			);
+			));
 			return turnFromItem(result.Attributes!);
 		} catch (error) {
 			if (error instanceof ConditionalCheckFailedException) {
@@ -336,7 +337,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 
 	async beginClosing(tenantId: string, turnId: string, attemptId: string): Promise<void> {
 		try {
-			await this.client.send(
+			await retryTransient(() => this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
 					Key: this.metaKey(tenantId, turnId),
@@ -349,7 +350,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 						":active": { S: ACTIVE_STATUS },
 					},
 				}),
-			);
+			));
 		} catch (error) {
 			if (error instanceof ConditionalCheckFailedException) {
 				throw await this.rejection(tenantId, turnId, attemptId);
@@ -386,7 +387,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 			values[":observedAttempt"] = { S: request.observed.attemptId };
 		}
 		try {
-			const result = await this.client.send(
+			const result = await retryTransient(() => this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
 					Key: this.metaKey(request.tenantId, request.turnId),
@@ -397,7 +398,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 					ExpressionAttributeValues: values,
 					ReturnValues: "ALL_NEW",
 				}),
-			);
+			));
 			return turnFromItem(result.Attributes!);
 		} catch (error) {
 			if (error instanceof ConditionalCheckFailedException) {
@@ -496,7 +497,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 				body: request.body,
 			};
 			try {
-				await this.client.send(
+				await retryTransient(() => this.client.send(
 					new TransactWriteItemsCommand({
 						TransactItems: [
 							{
@@ -523,7 +524,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 							},
 						],
 					}),
-				);
+				));
 			} catch (error) {
 				if (error instanceof TransactionCanceledException) {
 					continue;
@@ -609,7 +610,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 			});
 			const removeClause = removals.length === 0 ? "" : ` REMOVE ${removals.join(", ")}`;
 			try {
-				await this.client.send(
+				await retryTransient(() => this.client.send(
 					new TransactWriteItemsCommand({
 						TransactItems: [
 							{
@@ -631,7 +632,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 							},
 						],
 					}),
-				);
+				));
 			} catch (error) {
 				if (error instanceof TransactionCanceledException) {
 					continue;
@@ -650,14 +651,14 @@ export class DynamoTurnControlStore implements TurnControlStore {
 		for (const botId of [turn.botId, null]) {
 			const key = turnPointerKey(turn.tenantId, turn.channelId, "active", botId);
 			try {
-				await this.client.send(
+				await retryTransient(() => this.client.send(
 					new DeleteItemCommand({
 						TableName: this.tableName,
 						Key: { pk: { S: key.pk }, sk: { S: key.sk } },
 						ConditionExpression: "turn_id = :turnId",
 						ExpressionAttributeValues: { ":turnId": { S: turn.turnId } },
 					}),
-				);
+				));
 			} catch (error) {
 				if (!(error instanceof ConditionalCheckFailedException)) {
 					throw error;
