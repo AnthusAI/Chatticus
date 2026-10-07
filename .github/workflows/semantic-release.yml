@@ -41,11 +41,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
-          cache: pip
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Ensure release branch checkout
         env:
@@ -55,10 +56,8 @@ jobs:
           git fetch --no-tags origin "$RELEASE_BRANCH"
           git checkout -B "$RELEASE_BRANCH" "origin/$RELEASE_BRANCH"
 
-      - name: Install semantic-release
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install "python-semantic-release~=10.0" "GitPython<3.1.60" build
+      - name: Install dependencies
+        run: npm ci
 
       - name: Configure git identity and auth for release push
         env:
@@ -71,18 +70,16 @@ jobs:
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git remote set-url --push origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
-      - name: Semantic Release (version)
+      - name: Semantic Release
         id: semrel_version
-        working-directory: python
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
         run: |
           set -euo pipefail
 
           before_tags="$(git tag | sort || true)"
-          semantic-release version
+          npx semantic-release
           after_tags="$(git tag | sort || true)"
 
           new_tag="$(
@@ -102,35 +99,6 @@ jobs:
             echo "tag=" >> "$GITHUB_OUTPUT"
             echo "version=" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Semantic Release (publish)
-        if: ${{ steps.semrel_version.outputs.released == 'true' }}
-        working-directory: python
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        run: semantic-release publish
-
-      - name: Publish built artifacts to PyPI (twine)
-        if: ${{ steps.semrel_version.outputs.released == 'true' }}
-        working-directory: python
-        env:
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-          TWINE_USERNAME: __token__
-        run: |
-          set -euo pipefail
-          if [ -z "${PYPI_TOKEN:-}" ]; then
-            echo "::warning::PYPI_TOKEN is empty; skipping explicit PyPI upload."
-            exit 0
-          fi
-          python -m pip install twine
-          if ! compgen -G "dist/*" > /dev/null; then
-            echo "Expected build artifacts under dist/, but none were found." >&2
-            exit 1
-          fi
-          export TWINE_PASSWORD="${PYPI_TOKEN}"
-          python -m twine upload --skip-existing dist/*
 
   guard-pre-1-0:
     needs: release

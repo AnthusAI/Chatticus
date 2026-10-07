@@ -15,7 +15,8 @@
     "lint": "npm run lint --workspace=web",
     "typecheck": "npm run typecheck --workspace=web",
     "dev": "npm run dev --workspace=web",
-    "synth": "npm run synth --workspace=infra"
+    "synth": "npm run synth --workspace=infra",
+    "moto:start": "docker run --rm -p 5555:5000 motoserver/moto:5.2.3"
   },
   "engines": {
     "node": ">=22"
@@ -45,6 +46,16 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
     "tailwind-merge": "^2.6.0"
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "7.0.0",
+    "@semantic-release/commit-analyzer": "13.0.1",
+    "@semantic-release/git": "11.0.1",
+    "@semantic-release/github": "12.0.10",
+    "@semantic-release/npm": "13.2.0",
+    "@semantic-release/release-notes-generator": "14.1.1",
+    "conventional-changelog-conventionalcommits": "10.4.1",
+    "semantic-release": "25.0.9"
   },
   "peerDependencies": {
     "react": ">=19",

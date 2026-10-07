@@ -1,7 +1,5 @@
-# Features already ported to cucumber-js (TypeScript steps in conversation/features-support/).
-# One repo-root-relative path per line. cucumber-js runs exactly these.
-# behave must not: python/behave.ini carries a matching exclude_re, and
-# conversation/test/ported-features-manifest.test.ts fails if they disagree.
+# Features cucumber-js runs (TypeScript steps in conversation/features-support/).
+# One repo-root-relative path per line. This list is the only cucumber-js input.
 features/cognito_principal.feature
 features/computer_snapshot_pack.feature
 features/daily_budget_rollup.feature
