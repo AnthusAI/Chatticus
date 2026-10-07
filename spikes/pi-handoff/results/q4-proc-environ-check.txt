@@ -1,0 +1,2 @@
+uid 1000
+child shell reads parent environ: FAKE_SECRET=owner-secret
