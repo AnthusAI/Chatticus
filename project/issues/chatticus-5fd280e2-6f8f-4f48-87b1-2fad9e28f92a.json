@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-5fd280e2-6f8f-4f48-87b1-2fad9e28f92a",
+  "title": "TS-72 Tool-call events omit arguments, which makes audits hard",
+  "description": "The turn event stream shows tool names and results but not arguments. Record arguments (redacting secrets) so a rehearsal or incident can be audited. Also: edit_workspace missing new_text error should say what to supply; write_workspace content gained a trailing newline versus what was sent (decide and document). Scenarios first.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-07T21:17:23.692124Z",
+  "updated_at": "2026-10-07T21:17:23.692165Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is defining scenarios before adding redacted tool arguments and clarifying workspace behavior.",
+  "right_now_updated_at": "2026-10-07T21:17:26.001410Z",
+  "custom": {}
+}

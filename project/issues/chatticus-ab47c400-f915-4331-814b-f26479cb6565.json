@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-ab47c400-f915-4331-814b-f26479cb6565",
+  "title": "TS-71 Parallel tool calls: only 2 of 6 results reached the recorded events and the model invented the rest",
+  "description": "Live rehearsal 2026-10-07, verification turn: the model issued 6 parallel run_terminal calls; the event stream holds results for 2 (sha256 hashes, git log). The final answer contained plausible output for the other 4 (node --test, git status, git show) and said assuming clean. Find whether results are lost in the executor/ledger/host protocol or the model fabricated them. Scenario: a turn with N parallel computer tool calls records and returns N results. Mutation checks.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-07T21:17:19.956113Z",
+  "updated_at": "2026-10-07T21:17:19.956178Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Four tool results went missing, and the model invented their outputs.",
+  "right_now_updated_at": "2026-10-07T21:17:21.120528Z",
+  "custom": {}
+}

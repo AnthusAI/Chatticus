@@ -3,23 +3,36 @@
   "title": "TS-70 The second computer start after a host exit waited about 55 s before the starter ran",
   "description": "From the live git-task rehearsal (2026-10-07): the first start ran the ComputerStarter 2 to 6 s after the post (post to host ready about 23 s with the slim image). The second start, after the first host exited by itself, invoked the starter about 55 s after the post (post to host ready about 80 s); after the starter ran, task startup was normal (created, started in 15 s, ready 8 s later). The ComputerStarter and TurnProbe logs show only START, END and REPORT lines, no errors. Find what gates the second start after a host exit (candidates: the host start lease or claim window in domain/computer-start.ts, the TS-58 reconciliation path, the probe interval, the start job dedupe window, SQS delivery). Needs the structured logging of TS-55 to see it; add the log lines first or alongside. A scenario that proves a start requested after a host exit is dispatched immediately. Mutation checks.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "06c504eb-3f42-4113-8f02-236bf164c1d7",
+      "author": "home",
+      "text": "Root cause: a cleanly exited host leaves its worker record registered, so for up to 30 s assignTurn counted it healthy and a parked turn published no start job. Fixed in PR 475 (assignTurn treats a stopped computer as having no live host). Scenarios: clean exit queues a start at once; running host not asked to start; booting host started once. Mutation-checked. Known caveat: a boot longer than the 60 s start lease with a turn arriving after it expires claims a second generation. The registry also keeps one worker id (computer-host) for every host, which hid the first host's heartbeat.",
+      "created_at": "2026-10-07T21:17:12.182667Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-07T19:58:04.010242Z",
-  "updated_at": "2026-10-07T19:58:04.010306Z",
-  "closed_at": null,
+  "updated_at": "2026-10-07T21:17:16.634029Z",
+  "closed_at": "2026-10-07T21:17:16.633679Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is tracing why the second computer start waits 55 seconds after the first host exits.",
-  "right_now_updated_at": "2026-10-07T19:58:05.750610Z",
+  "right_now_summary": "A stopped host stayed registered as healthy, delaying the next computer start by up to 30 seconds.",
+  "right_now_updated_at": "2026-10-07T21:17:18.009381Z",
   "custom": {}
 }
