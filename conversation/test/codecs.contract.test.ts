@@ -159,6 +159,15 @@ describe("codecs contract tests", () => {
 			expect(decoded.snapshotUri).toBe("s3://bucket/snap.tar.gz");
 			expect(decoded.snapshotChecksum).toBe("sha256:xyz789");
 			expect(decoded.intendedHostWorkerId).toBe("worker-abc");
+			expect(decoded.browserUnavailable).toBeUndefined();
+		});
+
+		it("round-trips the browser unavailable report and leaves it out when absent", () => {
+			const decoded = computerCodec.decode(loadFixture("computer"));
+			const unavailable = computerCodec.encode({ ...decoded, browserUnavailable: true });
+			expect(unavailable.browser_unavailable).toEqual({ BOOL: true });
+			expect(computerCodec.decode(unavailable).browserUnavailable).toBe(true);
+			expect(computerCodec.encode(decoded).browser_unavailable).toBeUndefined();
 		});
 	});
 

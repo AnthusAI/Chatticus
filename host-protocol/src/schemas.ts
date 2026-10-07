@@ -18,15 +18,19 @@ export const hostCapabilitySchema = z.enum(["model", "workspace", "browser"]);
 /** The kinds of regate a host asks for when a tool reaches past the envelope of its action. */
 export const regateKindSchema = z.enum(["browse", "read", "write", "edit", "terminal"]);
 
-/** POST /orgs/{tenant}/host/computer/state: the host says the computer runs or stopped, and which capability cleared. */
+/** The capability a computer image may leave out and report unavailable instead of failing to boot. */
+export const hostOptionalCapabilitySchema = z.literal("browser");
+
+/** POST /orgs/{tenant}/host/computer/state: the host says the computer runs or stopped, and which capability cleared or is unavailable. */
 export const computerStateRequestSchema = z
 	.object({
 		stopped: z.boolean().optional(),
 		capability_ready: hostCapabilitySchema.optional(),
+		capability_unavailable: hostOptionalCapabilitySchema.optional(),
 	})
 	.strict()
-	.refine((body) => body.stopped !== undefined || body.capability_ready !== undefined, {
-		message: "stopped or capability_ready is required",
+	.refine((body) => body.stopped !== undefined || body.capability_ready !== undefined || body.capability_unavailable !== undefined, {
+		message: "stopped, capability_ready or capability_unavailable is required",
 	});
 
 /** POST /orgs/{tenant}/host/snapshot/hydrated: the host hydrated the published snapshot onto its disk. */
@@ -113,6 +117,7 @@ export const hostComputerSchema = z.object({
 	model_ready: z.boolean(),
 	workspace_ready: z.boolean(),
 	browser_ready: z.boolean(),
+	browser_unavailable: z.boolean().optional(),
 	snapshot_generation: z.number(),
 	disk_dirty: z.boolean(),
 	hydrate_required: z.boolean(),

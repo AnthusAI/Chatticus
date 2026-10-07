@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "d1869aa2-b595-4bb1-bffd-e1c65b704d2c",
+      "author": "home",
+      "text": "PR 473 opened, HELD (not merged) until the Pi session handoff spike (branch ts/spike-pi-handoff) reports, per the orchestrator's promise to the user: if sessions run Pi's own tools inside the computer, the remote edit_workspace may be superseded; the default-access change and the model guidance stay useful either way. CI runs on the PR. Ready to merge on the user's word.",
+      "created_at": "2026-10-07T18:19:25.310677Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-07T17:06:00.510854Z",
-  "updated_at": "2026-10-07T17:06:00.510896Z",
+  "updated_at": "2026-10-07T18:19:25.310709Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is adding default computer access and a Pi-style edit tool for every bot.",
-  "right_now_updated_at": "2026-10-07T17:06:03.895612Z",
+  "right_now_summary": "PR 473 is waiting for the Pi handoff spike while CI runs.",
+  "right_now_updated_at": "2026-10-07T18:19:27.897293Z",
   "custom": {}
 }

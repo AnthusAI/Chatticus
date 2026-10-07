@@ -21,10 +21,17 @@ describe("computer image structure", () => {
 		expect(bundleConfig).toContain('".js": ".mjs"');
 	});
 
-	it("installs the display and browser packages", () => {
-		for (const packageName of ["xvfb", "x11-utils", "chromium", "fonts-liberation"]) {
+	it("installs git and certificates and no display or browser packages", () => {
+		for (const packageName of ["git", "ca-certificates"]) {
 			expect(dockerfile).toMatch(new RegExp(`^\\s+${packageName} \\\\$`, "m"));
 		}
+		for (const packageName of ["xvfb", "x11-utils", "chromium", "fonts-liberation"]) {
+			expect(dockerfile).not.toMatch(new RegExp(`^\\s+${packageName}\\b`, "m"));
+		}
+	});
+
+	it("starts no display in the entrypoint", () => {
+		expect(entrypoint).not.toMatch(/xvfb|xdpyinfo|DISPLAY/i);
 	});
 
 	it("contains no python or pip", () => {

@@ -929,3 +929,209 @@ Measured with the scripted provider on moto against `@earendil-works/pi-durable`
 - **Policy answers stay inside `execute`.** A spend ceiling refusal is returned as the tool result when no action exists
   yet; once an action exists the ceiling is not asked again, so a call already parked is not refused later.
 - **Cost.** The two-owner prototype takes about one second on moto, the same as the plain two-owner turn.
+
+## Spike: handoff to a computer owner
+
+Measured 2026-10-07 against `@earendil-works/pi-durable` and `pi-ai` 1.0.2 on moto 5.2.3. The code is the throwaway spike in
+[`spikes/pi-handoff`](../spikes/pi-handoff/README.md); the raw output of every run quoted here is in its `results/`
+directory. Nothing in `conversation/src` changed. No AWS access, no image push.
+
+The question: can a Pi session that a Lambda-like owner (A) started be handed to a container-like owner (B) that runs Pi's
+own coding tools on its own disk, and then be handed back to a Lambda-like owner (A2)? Every owner is a separate Node
+process. B also ran inside a `node:22-bookworm-slim` arm64 container. Two scenarios ran:
+
+- **Raw**: pi-durable plus the production fenced `IndexedStorage`. A scripted model (`faux`), and one run with gpt-5-nano.
+- **Executor**: the production `consumeRunJob` and `TurnAttempt`, with the same Dynamo stores the TurnExecutor Lambda
+  builds, a seeded bot and channel, and the front door's own `postMessage`. SQS is replaced by recorders.
+
+### Answers
+
+**Q1. Can B take over mid-turn with a different tool implementation? Yes, with one rule.**
+
+- Fences and commits (raw, scripted): A fence 1 wrote seq 1-8 and parked. B fence 2 wrote seq 9-39. A2 fence 3 wrote
+  seq 40-46. With gpt-5-nano: 1-10, 11-45, 46-53. Executor: 1-10, 11-40, 41-48.
+- At the park A's tasks were `pi.generation waiting/tools` and `pi.tool running/execute`. B read the same tool task as
+  `pending/execute`. B ran the call with its own `write` (journal: `tool.park` in A, then `tool.run.local` in B, same call id
+  `call-1`). The file appeared on B's disk. B saw `tool_execution_end` for the call and no `tool_execution_start`, as before.
+- pi-durable does not compare tool implementations. It keeps the checkpoint `{ phase: "execute", arguments, replay }` and, on
+  reopen, reruns the call only if the stored policy and the current registration are both `replay: "safe"`. Four B variants:
+
+| B registers | Result for A's pending `write` |
+|---|---|
+| Same names, `replay: "safe"` (`safe`) | B ran it. Task `completed`. File written. |
+| pi-durable's `CodingTools` as shipped (`unsafe`) | Not rerun. The model got `[error] Tool write was interrupted and may have partially run`. No file. The later `bash` and `edit` calls ran in an empty workspace and failed. |
+| No tools (`missing`) | Same `interrupted` result. Later calls got `Tool bash is not available`. |
+| `write` with another schema, an extra required `mode` (`schema`) | B ran it with the stored arguments. The new schema was not applied to the stored call. |
+
+So the handoff needs B to register the same tool names with `replay: "safe"`. The shipped tools default to `unsafe`.
+
+**Q2. Where do Pi's built-in coding tools come from? From pi-durable itself, already installed.**
+
+- `@earendil-works/pi-durable/tools` exports `CodingTools` (an `Extension` with `read`, `write`, `edit`, `bash`) and
+  `createBashTool({ commandPrefix, prepare })`. They are `ToolRegistration`s. They do their I/O through `api.env`, an
+  `ExecutionEnv` (file system plus shell). `@earendil-works/pi-durable/env/node` provides `NodeExecutionEnv({ cwd, shellPath,
+  shellEnv })`. `Harness.open(storage, { models, registry, env }, ctx)` builds the environment per call. Without `env` the
+  tools return an error result. They register the way our `computerToolsExtension` does: `registry.install(extension)`.
+- `@earendil-works/pi-coding-agent` is not installed at the root. It is published as 1.0.4 (the root pins 1.0.2). It exposes
+  `createCodingTools(cwd, options)` with pluggable `BashOperations`, `ReadOperations` and so on, but its tools are
+  `AgentTool`s of `pi-agent-core`, not pi-durable `ToolRegistration`s, so they need an adapter. It pulled in 121 packages and
+  159 MB (`pi-tui`, `pi-mcp`, `pi-codemode`) and wants `pi-ai` and `chord` `^1.0.4`, which do not match the root's 1.0.2. I
+  installed it exact-pinned in `spikes/pi-handoff/coding-agent-probe` only. Its tools ran (`write` and `bash` in a temp
+  directory). I did not use it. Use pi-durable's own tools.
+- The tools are rooted by the environment's `cwd`, not by a constructor argument. They do not confine paths: absolute paths
+  outside `cwd` are allowed.
+
+**Q3. Does the existing executor run in B with only the tool set swapped? Yes, with a one-line seam.**
+
+- `TurnAttempt.execute` hard-codes `computerToolsExtension(this.computerHandoff())` in its extension list, so the tool set
+  cannot be swapped from outside. The spike generates a copy of `executor.ts` with that one line replaced by an optional
+  `deps.computerToolsOverride` (`results/executor-seam.diff`: one added import, one changed line). Nothing else changed:
+  `consumeRunJob`, the drive loop, the gate, the mailbox, the journal, the finalizer.
+- Evidence (`results/phase1-executor-host.txt`, `results/phase2-container-executor.txt`): A ran the production executor
+  unchanged and ended `parked` (attempt 1, fence 1, action `requested`). B resumed the turn (`resumeTurnForAction`), ran the
+  seamed executor and ended `done` (attempt 2, fence 2, turn `completed`). A2 ran the unchanged executor for the next turn
+  (fence 3, `done`).
+- B's tools keep the names and schemas of `computerToolsExtension`. The gate and the grant know those names; Pi's native
+  names `read`, `write` and `bash` are not in the gate's vocabulary and would be denied as an unknown capability. Each call goes
+  through the existing action ledger: look up the action by call id, claim it, run the pi-durable tool, complete it. A's parked
+  `write_workspace` action went `requested` to `done` with `claimedBy: container-owner-b`. Calls that B started itself got
+  new action records. This stops a host from running a `requested` action a second time.
+- The gate ran in B unchanged. It blocked `run_terminal` on the first attempt because the default household grant does not
+  grant it (`Tool call blocked: tool "run_terminal" is not granted`). The scenario sets a grant that includes it.
+- What assumes a Lambda, and what B must supply:
+  - `deps.remainingMilliseconds` (Lambda context). Optional. B passes none, so the executor never yields.
+  - `deps.runVisibility.extend` (SQS `ChangeMessageVisibility` with the record's receipt handle). B is not the SQS consumer
+    of that record. B needs a no-op, or its own job source with its own visibility rule.
+  - The `acknowledge` argument of `consumeRunJob`. In the Lambda it does nothing (SQS deletes on return). B must delete its
+    own message.
+  - `turnRuns` and `turnProbes` (SQS send): the executor arms a deadline probe on every claim and enqueues on yield and on
+    resume. B needs SQS send rights, or recorders.
+  - `computer.computerStarts`: only used when a turn parks. B does not park.
+  - `resolveOpenAiApiKey()` (SSM) lives in the Lambda handler, not the executor. B only needs `OPENAI_API_KEY` in its
+    environment, or the proxy in Q4.
+  - `openOwnerSession` does not pass `env` to `Harness.open`. The spike injected the environment through a proxy of the tool
+    API. The product should add an `env` option.
+  - A parked turn has `waitingFor` set and no attempt. Nothing can claim it until the wait is cleared. B called
+    `resumeTurnForAction` itself. In the product the control plane or the host must do it before B claims.
+
+**Q4. What does B need? See the table and the proposal below.**
+
+AWS calls that B made, recorded by a middleware on its clients (`aws.surface` in the results):
+
+| Service | Resource | Calls B made |
+|---|---|---|
+| DynamoDB | Conversations table (pi-durable index) | GetItem, Query, TransactWriteItems, UpdateItem |
+| DynamoDB | Messaging table (turns, mailbox, actions, ledger, budgets, policy, bots, channels) | GetItem, Query, BatchGetItem, TransactWriteItems, UpdateItem, DeleteItem |
+| S3 | `conversations/<storageId>/commits/<seq>-<fence>.json` | GetObject, PutObject |
+| SQS | TurnRuns, TurnProbes, ComputerStarts (recorders in the spike, so not exercised) | SendMessage, ChangeMessageVisibility |
+| SSM | the OpenAI key parameter (Lambda handler only) | GetParameter |
+| Model | `OPENAI_API_KEY` in the environment, read by pi-ai | HTTPS to api.openai.com |
+
+Two checks of what a model-chosen shell command can reach (`results/q4-*.txt`):
+
+- pi-durable's shipped `bash` passes the owner's environment to the command. With `OPENAI_API_KEY` and
+  `AWS_SECRET_ACCESS_KEY` set in the owner, `echo $OPENAI_API_KEY` printed the value. The `prepare` hook of
+  `createBashTool` can set `inheritEnv = false` and replace `env`, and then the command saw nothing.
+- That is not enough. In the container a child shell of the same user read the owner's secrets from `/proc/$PPID/environ`.
+
+Smallest design that keeps the keys away from model-chosen commands (not built):
+
+1. **Model-call proxy on the control plane.** A route (Lambda function URL) that holds the OpenAI key, accepts a per-session
+   bearer token (tenant, bot, turn, expiry of at most 15 minutes, signed by the control plane), forwards to OpenAI and writes
+   the vendor ledger. B is configured with the proxy base URL and the token. B never holds the model key. This needs the pi-ai
+   OpenAI provider to accept a base URL override. I did not test a real override.
+2. **Storage credentials scoped to the conversation.** At start the control plane calls `sts:AssumeRole` with a session policy
+   and passes the temporary credentials (15 to 60 minutes) to B: S3 `Get` and `Put` on `conversations/<encoded storageId>/*`
+   only, and DynamoDB on the Conversations table with `dynamodb:LeadingKeys` equal to the conversation's partition key. The
+   Messaging table is the weak point: the executor uses its Dynamo stores directly, so B needs the tenant's turn, mailbox and
+   action rows. Scope it with `LeadingKeys` on the tenant prefix. That is tenant isolation, not least privilege. The better end
+   state replaces B's Messaging access with the existing host protocol over HTTPS (`computer/host/src/protocol-client.ts`).
+   That is a larger change.
+3. **The shell runs as another user.** The owner process runs as `owner`, with the credentials in memory or in a file of mode
+   0400. Every `bash` call runs as an unprivileged `agent` user (through `prepare` and `setpriv` or `su`) with a scrubbed
+   environment, `/proc` mounted `hidepid=2` or a separate PID namespace, and `/workspace` as its only writable path. On Fargate
+   also block `169.254.170.2` for the `agent` user (an `iptables` owner match), because the task role's credentials are served
+   there to every process. A stronger variant runs the shell in a nested sandbox (gVisor or a second container). None of this
+   was built or measured.
+
+**Q5. Round trip back to a Lambda-style owner: yes, with the full history.**
+
+A2 (fence 3) opened the same storage and answered "What did you just do in the workspace?". Its model request, recorded by the
+scripted provider, was `user, system, assistant, toolResult, assistant, toolResult, assistant, toolResult, assistant, user`.
+The tool results were B's, from the container disk: `Successfully wrote to hello.txt`, `total 4 ... PRETTY_NAME="Debian
+GNU/Linux 12 (bookworm)" git version 2.39.5 hello from Chatticus`, `Successfully replaced 1 block(s)`. The same held through the
+executor (a second turn, A2 on fence 3) and for gpt-5-nano (A2's answer described the work that B did).
+
+### Phase 2: B inside the container
+
+- Image `pi-handoff-spike:phase2`: arm64, `node:22-bookworm-slim` (Node 22.23.3, Debian 12) plus git 2.39.5, user `node`
+  (uid 1000), esbuild bundles of both owner entry points. **359 MB**: base about 247 MB, git layer 105 MB, bundles 7.5 MB (two
+  bundles of 3.5 and 3.9 MB; the pi-ai providers are bundled).
+- Evidence from the container (`results/phase2-container-raw.txt`): `whoami: node (uid 1000)`,
+  `PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"`, `git version 2.39.5`, `-rw-r--r-- 1 node node 21 ... hello.txt`, content
+  `HELLO from Chatticus`. `docker cp` read the file from the stopped container, and the host workspace directory stayed empty.
+  B's `bash` tool printed those values inside the model's tool result, and A2 on the host then quoted them.
+- Cold start of B, 3 runs over a user-defined Docker network to moto: `docker run` to node start 0.59 to 0.64 s, node start to
+  storage open 0.16 to 0.20 s, storage open to the first tool result 0.42 to 0.51 s, **`docker run` to the first tool result
+  1.17 to 1.32 s**. The whole B run (three tool calls, scripted model) took 4.7 to 5.3 s. A bare `docker run --entrypoint true`
+  takes 0.75 to 1.05 s on this Mac. These numbers include no image pull and no compute start. The real cold start of a Fargate
+  task (tens of seconds) was not measured.
+- Executor in the container: A parked, B done in 5.1 and 6.9 s (two runs), A2 done; three tool calls, three ledger records.
+
+### What did not work, and what is unknown
+
+- **`host.docker.internal` was unreliable.** On Docker Desktop, with the Mac under load (load average 15 to 58), about 8 of 21
+  container runs failed or stalled: `connect ETIMEDOUT 192.168.65.2:5622`, or a request hanging past 15 s. One of 200 plain
+  fetches timed out, and a request took 25 to 36 ms. Over a user-defined bridge network to a moto container the same loop had
+  0 failures in 200 and 5.4 ms per request, and 5 of 5 later container runs passed. The runners use the bridge when
+  `SPIKE_DOCKER_NETWORK` is set. Moto is not AWS, so none of these latencies predict AWS.
+- Two host-process B runs also stalled ("did not settle in 60 s") around the time another session restarted the shared Docker
+  daemon and moto disappeared. I attribute them to that. They did not recur in the later host runs. Not proven. The storage
+  clients have no request timeout; production should set one.
+- Not tested: real AWS and Fargate; B crashing in the middle of a `bash` call (the ledger lease and
+  `INTERRUPTED_ACTION_RESULT` should answer it, but I did not kill B); two B owners racing for the fence; a real OpenAI base URL
+  override for the proxy; the unprivileged-shell isolation; image size with the production computer's tools; B reading its job
+  from SQS.
+- The executor seam is a generated copy, not a patch to `conversation/src`. The product change is the same one line.
+- `pi-durable` 1.0.4 and `pi-coding-agent` 1.0.4 exist; the repository pins 1.0.2. The spike did not test 1.0.4.
+
+### Surprises (pi-durable and Pi)
+
+1. pi-durable ships its own `read`, `write`, `edit`, `bash` and an `ExecutionEnv`. The coding-agent package is not needed.
+2. Those tools default to `replay: "unsafe"`, so a handoff does not run the parked call. The model gets "interrupted", and the
+   work is lost without a visible error unless B overrides the policy.
+3. Replay does not re-validate stored arguments and does not compare implementations. A changed schema is ignored for the
+   pending call. A missing tool turns the pending call into `interrupted`, not `unavailable`.
+4. The `bash` tool returns no `content`. Its output arrives only through `api.output()`. A wrapper that needs the text must
+   capture it.
+5. The shipped `bash` inherits the owner's whole environment, and a same-user child can read `/proc/$PPID/environ`.
+6. Changing the tool set between owners adds a positional `system` entry to the transcript.
+7. Pi's call ids from OpenAI contain `|fc_...`. The scripted provider's `call-N` ids collide across processes; the spike offsets
+   them.
+8. `Harness.open` takes `env`, but our `openOwnerSession` does not pass it.
+9. After a handoff the generation sits `waiting` on its tool task until some owner runs it. Nothing in pi-durable says
+   "deferred to another executor". The only signal is `replay: "safe"` plus a closed owner, as in the TS-29 section above.
+
+### Recommendation: go, in steps, with the security design as a gate
+
+Go. The handoff works across processes and in a container, the executor core needs one seam, the history survives the round
+trip, and the start of the owner itself is about one second on top of the compute start. No-go for shipping B with a model key
+or broad storage credentials in its environment: the security design in Q4 comes before any production use.
+
+Minimal product design, in order:
+
+1. **`conversation/src` (behavior first, in `features/`).** A scenario "a computer owner finishes a parked turn". Then: an
+   optional `computerTools` factory on `ExecutorDeps` in place of the hard-coded extension; an `env` option on
+   `openOwnerSession`; a local-tools extension with the names and schemas of `computerToolsExtension`, `replay: "safe"`, each
+   call wrapped in the action ledger (claim, run, complete); `deps.runVisibility` and `acknowledge` supplied by B's job
+   source. Keep one path: the parked-action protocol with an external host is replaced, not kept beside it.
+2. **`computer/host`.** An owner entry point in the image: reads a run job (SQS, or a lease over the host protocol), builds the
+   deps from scoped credentials, calls `resumeTurnForAction` and `consumeRunJob`, and runs `bash` as the `agent` user. Add the
+   esbuild bundle (about 4 MB) to the image; git is already there.
+3. **Control plane.** Mint the per-session token and the scoped STS credentials when a turn is handed to a computer. Add the
+   model proxy route. Stop starting a host only to run actions.
+4. **`infra/`.** A role for the computer owner with no standing permissions beyond `sts:AssumeRole` to the scoped role; the
+   scoped role with `LeadingKeys` and S3 prefix conditions; the proxy function URL; an SQS queue (or a lease route) for
+   computer-owner jobs; remove the OpenAI key from anything the computer can read.
+5. **Cutover.** Delete the host-protocol action executors once B runs the tools. Run the conformance suite and the handoff
+   scenarios against pi-durable 1.0.2 in CI.

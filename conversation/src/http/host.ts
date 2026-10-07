@@ -25,6 +25,7 @@ import {
 import {
 	computerForOrganization,
 	recordComputerCapabilityReady,
+	recordComputerCapabilityUnavailable,
 	recordComputerToolAnswered,
 	refuseDiskWriteBeforeHydrate,
 	recordHostHydrated,
@@ -94,7 +95,7 @@ export async function hostComputerStateHandler(c: Context, deps: HostRouteDepend
 	const { tenantId } = await workerOf(c, deps);
 	const body = await parseHostBody(c, computerStateRequestSchema);
 	if ("refusal" in body) return body.refusal;
-	if (body.value.capability_ready !== undefined && (c.req.header(HOST_USER_HEADER) ?? "").trim() === "") {
+	if ((body.value.capability_ready !== undefined || body.value.capability_unavailable !== undefined) && (c.req.header(HOST_USER_HEADER) ?? "").trim() === "") {
 		return c.json({ detail: "host user scope required" }, 403);
 	}
 	let computer = await computerForOrganization(tenantId, deps);
@@ -103,6 +104,9 @@ export async function hostComputerStateHandler(c: Context, deps: HostRouteDepend
 	}
 	if (body.value.capability_ready !== undefined) {
 		computer = await recordComputerCapabilityReady(tenantId, body.value.capability_ready, deps);
+	}
+	if (body.value.capability_unavailable !== undefined) {
+		computer = await recordComputerCapabilityUnavailable(tenantId, body.value.capability_unavailable, deps);
 	}
 	return c.json(computerPayload(computer), 200);
 }

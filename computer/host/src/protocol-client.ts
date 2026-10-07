@@ -111,6 +111,11 @@ export class HostProtocolClient {
 		return this.request("POST", "/computer/state", hostComputerSchema, computerStateRequestSchema.parse({ capability_ready: capability }));
 	}
 
+	/** POST /computer/state with `capability_unavailable`: the host says this computer cannot serve one capability. */
+	async recordComputerCapabilityUnavailable(capability: string): Promise<HostComputer> {
+		return this.request("POST", "/computer/state", hostComputerSchema, computerStateRequestSchema.parse({ capability_unavailable: capability }));
+	}
+
 	/** POST /snapshot/hydrated: the host hydrated the published snapshot onto its disk. */
 	async recordComputerHydrated(workerId: string): Promise<void> {
 		await this.request("POST", "/snapshot/hydrated", hostStatusResponseSchema, snapshotHydratedRequestSchema.parse({ worker_id: workerId }));

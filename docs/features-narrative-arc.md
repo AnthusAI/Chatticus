@@ -112,6 +112,7 @@ The computer is summoned, not assumed. Readiness is per capability.
 | File | Role in the story |
 |------|-------------------|
 | `capability_gated_readiness.feature` | Work starts while the computer boots. |
+| `computer_without_browser.feature` | A computer with no browser boots, serves files, and answers browse with a clear message. |
 | `mid_turn_computer_escalation.feature` | First computer tool continues the same turn. |
 | `shared_computer.feature` | One user computer; shared files/browser; isolated bot memory. |
 | `single_computer_start.feature` | One host-start claim; expire; reclaim; stale local. |

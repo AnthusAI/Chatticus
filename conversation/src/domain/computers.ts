@@ -96,9 +96,10 @@ export async function setComputerStopped(
 	deps: { store: MessagingStore; ids: IdSource },
 ): Promise<Computer> {
 	const computer = await ensureComputer(tenantId, deps);
+	const { browserUnavailable: _kept, ...withoutUnavailable } = computer;
 	const updated: Computer = stopped
 		? { ...computer, stopped, modelReady: false, workspaceReady: false, browserReady: false }
-		: { ...computer, stopped };
+		: { ...withoutUnavailable, stopped };
 	await deps.store.putComputer(updated);
 	return updated;
 }
@@ -123,9 +124,33 @@ export async function recordComputerCapabilityReady(
 		updated.workspaceReady = true;
 	} else if (capability === BROWSER_CAPABILITY) {
 		updated.browserReady = true;
+		delete updated.browserUnavailable;
 	} else {
 		throw new Error(`Unknown capability ${JSON.stringify(capability)}.`);
 	}
+	await deps.store.putComputer(updated);
+	return updated;
+}
+
+/** What the model reads when it calls a browser tool on a computer whose image has no browser. */
+export const BROWSER_UNAVAILABLE_TEXT = "The browser capability is not available on this computer.";
+
+/**
+ * Record that the computer host booted without a browser. The computer keeps serving files and the terminal; browser
+ * tools answer with `BROWSER_UNAVAILABLE_TEXT` until a host starts again and reports the browser ready.
+ *
+ * @throws Error If the capability is not `browser`, the only one an image may leave out.
+ */
+export async function recordComputerCapabilityUnavailable(
+	tenantId: string,
+	capability: string,
+	deps: { store: MessagingStore; ids: IdSource },
+): Promise<Computer> {
+	if (capability !== BROWSER_CAPABILITY) {
+		throw new Error(`Capability ${JSON.stringify(capability)} cannot be unavailable.`);
+	}
+	const computer = await ensureComputer(tenantId, deps);
+	const updated: Computer = { ...computer, browserReady: false, browserUnavailable: true };
 	await deps.store.putComputer(updated);
 	return updated;
 }

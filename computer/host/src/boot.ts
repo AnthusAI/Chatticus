@@ -17,11 +17,13 @@ const BROWSER_CAPABILITY = "browser";
 /** Observed host boot progress for one household computer. */
 export type ComputerHostBootResult = {
 	readonly display: string;
-	readonly chromiumVersion: string;
+	readonly browserAvailable: boolean;
+	readonly chromiumVersion: string | null;
+	readonly browserUnavailableReason: string | null;
 	readonly readinessOrder: readonly string[];
 };
 
-/** The display the browser draws on: started before the browser gate, stopped when the host exits. */
+/** The display the browser draws on: started only for the browser gate, stopped when the host exits. */
 export interface DisplayServer {
 	start(): Promise<void>;
 	stop(): Promise<void>;
@@ -31,7 +33,7 @@ export interface DisplayServer {
 export type ChromiumProbe = (display: string) => Promise<string>;
 
 /** What the boot driver asks of the Front Door. */
-export type HostBootPlane = HostDiskPlane & Pick<HostProtocolClient, "setComputerStopped" | "recordComputerCapabilityReady">;
+export type HostBootPlane = HostDiskPlane & Pick<HostProtocolClient, "setComputerStopped" | "recordComputerCapabilityReady" | "recordComputerCapabilityUnavailable">;
 
 function sleep(milliseconds: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -49,16 +51,25 @@ export class XvfbProcess implements DisplayServer {
 	/**
 	 * Launch Xvfb when it is not already serving this display.
 	 *
-	 * @throws RuntimeError If the display does not become ready in time.
+	 * @throws RuntimeError If Xvfb is not installed or the display does not become ready in time.
 	 */
 	async start(): Promise<void> {
 		if (this.process !== null && this.process.exitCode === null && this.process.signalCode === null) {
 			return;
 		}
-		this.process = spawn("Xvfb", [this.display, "-screen", "0", XVFB_SCREEN, "-nolisten", "tcp"], { stdio: "ignore" });
+		const launched = spawn("Xvfb", [this.display, "-screen", "0", XVFB_SCREEN, "-nolisten", "tcp"], { stdio: "ignore" });
+		const failure: { error: Error | null } = { error: null };
+		launched.once("error", (error) => {
+			failure.error = error;
+		});
+		this.process = launched;
 		process.env["DISPLAY"] = this.display;
 		const deadline = Date.now() + XVFB_READY_SECONDS * 1000;
 		while (Date.now() < deadline) {
+			if (failure.error !== null) {
+				this.process = null;
+				throw new RuntimeError(`Xvfb could not start: ${failure.error.message}`);
+			}
 			const probe = await runProcessOnHost(["xdpyinfo", "-display", this.display], {
 				environment: process.env,
 				timeoutMilliseconds: XVFB_READY_SECONDS * 1000,
@@ -124,10 +135,9 @@ export class ComputerHostBootDriver {
 		this.store = options.store;
 	}
 
-	/** Start the display, clear the model gate, hydrate the disk, and clear the workspace gate. */
+	/** Clear the model gate, hydrate the disk, and clear the workspace gate. Neither waits on the browser. */
 	async bootThroughWorkspace(): Promise<void> {
 		await this.plane.setComputerStopped(false);
-		await this.xvfb.start();
 		await this.plane.recordComputerCapabilityReady(MODEL_CAPABILITY);
 		this.readinessOrder.push(MODEL_CAPABILITY);
 		await hydrateOnBoot(this.plane, {
@@ -140,15 +150,33 @@ export class ComputerHostBootDriver {
 		this.readinessOrder.push(WORKSPACE_CAPABILITY);
 	}
 
-	/** Start display, verify Chromium, and record all capability gates. */
+	/**
+	 * Boot through model and workspace, then try the browser capability. A computer without a browser, or whose display
+	 * does not start, reports the browser capability unavailable and stays up for files and the terminal; it is never a
+	 * boot failure.
+	 */
 	async bootThroughBrowser(): Promise<ComputerHostBootResult> {
 		await this.bootThroughWorkspace();
-		const chromiumVersion = await this.chromiumProbe(this.display);
-		await this.plane.recordComputerCapabilityReady(BROWSER_CAPABILITY);
-		this.readinessOrder.push(BROWSER_CAPABILITY);
+		let chromiumVersion: string | null = null;
+		let browserUnavailableReason: string | null = null;
+		try {
+			await this.xvfb.start();
+			chromiumVersion = await this.chromiumProbe(this.display);
+		} catch (error) {
+			browserUnavailableReason = error instanceof Error ? error.message : String(error);
+			await this.xvfb.stop().catch(() => undefined);
+		}
+		if (chromiumVersion === null) {
+			await this.plane.recordComputerCapabilityUnavailable(BROWSER_CAPABILITY);
+		} else {
+			await this.plane.recordComputerCapabilityReady(BROWSER_CAPABILITY);
+			this.readinessOrder.push(BROWSER_CAPABILITY);
+		}
 		const result: ComputerHostBootResult = {
 			display: this.display,
+			browserAvailable: chromiumVersion !== null,
 			chromiumVersion,
+			browserUnavailableReason,
 			readinessOrder: [...this.readinessOrder],
 		};
 		this.lastBoot = result;

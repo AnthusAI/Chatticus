@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-884db422-bb00-400d-b023-677054e3a98f",
+  "title": "TS-65 Handoff step 1: the computer owner core in conversation/src",
+  "description": "Source: the Pi session handoff spike (PR 474: spikes/pi-handoff, docs/PI_HARNESS.md section 'Spike: handoff to a computer owner', GO in steps) and docs/PI_SESSION_HANDOFF.md. Decision (user): the goal is a Pi session running in the computer container, using Pi's own tools (read, write, edit, bash from @earendil-works/pi-durable/tools), with the session portable between owners. Security gate before production: the container must not hold the model key or broad storage credentials.\n\nScenarios first. (1) a seam so TurnAttempt.execute no longer hard-codes computerToolsExtension (optional deps override; production default unchanged); (2) an env option on openOwnerSession (pi-durable NodeExecutionEnv rooted at /workspace); (3) local computer tools: Pi's CodingTools wrapped with our tool names (read_workspace, write_workspace, edit_workspace, run_terminal: the gate denies Pi's native names), each call recorded in the action ledger, replay safe (idempotent tools rerun; run_terminal that was started but not finished reports interrupted and is NOT rerun), the existing gate and grant checks still apply; (4) a takeOverTurn / computer owner function that resumes a parked turn (resumeTurnForAction) and runs the same executor core with the Lambda-only pieces injectable (SQS visibility, acknowledge, turnRuns and turnProbes sends); (5) scenarios: takeover and finish; hand back and the next owner sees the container's results; a crash in the middle of run_terminal does not rerun the command; two owners racing for the fence: one wins, the other stops with OwnershipLost and does nothing; the grant gate still denies a path outside the grant in the computer owner; the Lambda path is unchanged. Mutation checks. No AWS.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-07T19:08:40.469739Z",
+  "updated_at": "2026-10-07T19:08:40.469804Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is designing a portable computer-owner core with safe tool calls, handoffs, crash recovery, and ownership",
+  "right_now_updated_at": "2026-10-07T19:08:42.304665Z",
+  "custom": {}
+}

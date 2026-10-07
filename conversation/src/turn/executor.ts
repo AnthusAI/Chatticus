@@ -39,7 +39,7 @@ import { DEFAULT_TOKEN_FLUSH_BYTES, DEFAULT_TOKEN_FLUSH_MILLISECONDS, TokenCoale
 import { AgentEventDelivery, createAgentEventListener, TurnEventWriter } from "./event-stream.ts";
 import { commitFinalAnswer, type FinalizeInputs, recordTurnSpend } from "./finalize.ts";
 import { armProbe } from "./probes.ts";
-import { computerWorkRefusal, type ParkDependencies, parkOnComputerAction } from "./park.ts";
+import { computerToolUnavailableText, computerWorkRefusal, type ParkDependencies, parkOnComputerAction } from "./park.ts";
 import { buildSystemPrompt } from "./prompt.ts";
 import { DEFAULT_YIELD_BELOW_MILLISECONDS, yieldAttempt } from "./yield.ts";
 import type { ExecutorDeps, ExecutorTuning, TurnExecutionJob, TurnExecutionOutcome } from "./types.ts";
@@ -302,6 +302,7 @@ class TurnAttempt {
 		return {
 			lookup: (call) => this.deps.computer.actions.getByCall(tenantId, turnId, call.callId),
 			refusal: () => computerWorkRefusal(this.parkDependencies(), tenantId),
+			unavailable: (call) => computerToolUnavailableText(this.parkDependencies(), tenantId, call),
 			park: (call, abortSignal) => {
 				this.parkCall ??= call;
 				this.signalPark();

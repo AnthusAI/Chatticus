@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-655368a9-5c5b-4663-9b2f-c445a6abc01b",
+  "title": "TS-66 Handoff step 2: the container owner entry point and the unprivileged shell",
+  "description": "Source: the Pi session handoff spike (PR 474: spikes/pi-handoff, docs/PI_HARNESS.md section 'Spike: handoff to a computer owner', GO in steps) and docs/PI_SESSION_HANDOFF.md. Decision (user): the goal is a Pi session running in the computer container, using Pi's own tools (read, write, edit, bash from @earendil-works/pi-durable/tools), with the session portable between owners. Security gate before production: the container must not hold the model key or broad storage credentials.\n\ncomputer/host: an owner entry point bundled with esbuild (about 4 MB) that takes over a turn with takeOverTurn (TS-65) inside the container; the model-chosen shell commands run as a different unprivileged uid with a scrubbed environment (the spike found a same-user child could read /proc/PPID/environ; a different uid cannot); image changes (a shell user, no credentials readable by it); run it in the local arm64 container against the moto container over a bridge network (host.docker.internal was unreliable) with the faux provider and measure start to first tool result; a scenario or test proving the shell user cannot read the owner's environment or files. No AWS.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-884db422-bb00-400d-b023-677054e3a98f",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-07T19:08:45.017811Z",
+  "updated_at": "2026-10-07T19:09:01.392958Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is defining a secure container handoff with an unprivileged shell and no exposed credentials.",
+  "right_now_updated_at": "2026-10-07T19:09:02.859763Z",
+  "custom": {}
+}

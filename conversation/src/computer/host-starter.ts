@@ -168,7 +168,6 @@ function runTaskOverrides(claim: HostStartClaim, environment: StarterEnvironment
 	const containerEnvironment = [
 		{ name: "CHATTICUS_TENANT_ID", value: claim.tenantId },
 		{ name: "CHATTICUS_USER_ID", value: claim.userId },
-		{ name: "CHATTICUS_COMPUTER_BOOT", value: "1" },
 	];
 	for (const key of [
 		"CHATTICUS_FRONT_DOOR_URL",

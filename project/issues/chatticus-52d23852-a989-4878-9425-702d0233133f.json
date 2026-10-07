@@ -1,0 +1,30 @@
+{
+  "id": "chatticus-52d23852-a989-4878-9425-702d0233133f",
+  "title": "TS-69 Handoff step 5: cutover",
+  "description": "Source: the Pi session handoff spike (PR 474: spikes/pi-handoff, docs/PI_HARNESS.md section 'Spike: handoff to a computer owner', GO in steps) and docs/PI_SESSION_HANDOFF.md. Decision (user): the goal is a Pi session running in the computer container, using Pi's own tools (read, write, edit, bash from @earendil-works/pi-durable/tools), with the session portable between owners. Security gate before production: the container must not hold the model key or broad storage credentials.\n\nAfter the live rehearsal passes: delete the remote host-protocol executors and the park-and-claim tool path for computers we own (customer-account computers keep the HTTP host protocol and never get Pi), remove edit_workspace if superseded by Pi's edit, run the conformance and handoff scenarios in CI, update docs/PI_SESSION_HANDOFF.md from proposal to built, and the README.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [
+    {
+      "target": "chatticus-f13a6414-2f70-472e-9263-21b4d04699b8",
+      "type": "blocked-by"
+    }
+  ],
+  "comments": [],
+  "created_at": "2026-10-07T19:08:58.008654Z",
+  "updated_at": "2026-10-07T19:09:14.769498Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team will remove old handoff paths, run CI checks, and update the handoff documentation after rehearsal.",
+  "right_now_updated_at": "2026-10-07T19:09:15.986961Z",
+  "custom": {}
+}
