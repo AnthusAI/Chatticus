@@ -34,6 +34,8 @@ interface VoiceScenario {
 	watchdog: Record_ | null;
 	stuckSpeech: Record_ | null;
 	stuckResult: Record_ | null;
+	startScript: Record_;
+	startResult: Record_ | null;
 }
 
 function voiceOf(world: ChatticusWorld): VoiceScenario {
@@ -67,6 +69,8 @@ function voiceOf(world: ChatticusWorld): VoiceScenario {
 			watchdog: null,
 			stuckSpeech: null,
 			stuckResult: null,
+			startScript: { model: "loads", microphone: "granted", turnedOffWhileWaiting: false },
+			startResult: null,
 		} satisfies VoiceScenario;
 	}
 	return world.webFeature.voice;
@@ -700,4 +704,91 @@ Then("the line is not mistaken for the browser hearing itself", function (this: 
 
 Then("the line is mistaken for the browser hearing itself", function (this: ChatticusWorld) {
 	assert.equal(voiceOf(this).stuckResult?.overlapsSpeech, true, JSON.stringify(voiceOf(this).stuckResult));
+});
+
+Given("the voice model loads", function (this: ChatticusWorld) {
+	voiceOf(this).startScript.model = "loads";
+});
+
+Given("the voice model fails to load", function (this: ChatticusWorld) {
+	voiceOf(this).startScript.model = "fails";
+});
+
+Given("the browser will grant microphone permission", function (this: ChatticusWorld) {
+	voiceOf(this).startScript.microphone = "granted";
+});
+
+Given("the member will refuse microphone permission", function (this: ChatticusWorld) {
+	voiceOf(this).startScript.microphone = "refused";
+});
+
+Given("the member turns voice off while the browser asks for the microphone", function (this: ChatticusWorld) {
+	voiceOf(this).startScript.turnedOffWhileWaiting = true;
+});
+
+When("the member starts voice listening", async function (this: ChatticusWorld) {
+	const voice = voiceOf(this);
+	voice.startResult = await runVoiceHarness(this, "voiceStart", { start: voice.startScript });
+});
+
+When(
+	"the member starts voice listening and the recognizer hears {string} {int} seconds after the cue began",
+	async function (this: ChatticusWorld, line: string, seconds: number) {
+		const voice = voiceOf(this);
+		voice.startResult = await runVoiceHarness(this, "voiceStart", {
+			start: { ...voice.startScript, heard: { line, secondsAfterCue: seconds } },
+		});
+	},
+);
+
+function startResultOf(voice: VoiceScenario): Record_ {
+	assert.ok(voice.startResult, "No voice start has run in this scenario.");
+	return voice.startResult;
+}
+
+Then("the browser says {string} only after the microphone has started", function (this: ChatticusWorld, text: string) {
+	const result = startResultOf(voiceOf(this));
+	assert.deepEqual(result.spoken, [text], JSON.stringify(result));
+	const events: string[] = result.events;
+	assert.ok(events.indexOf("microphone started") !== -1, JSON.stringify(events));
+	assert.ok(events.indexOf("model loaded") < events.indexOf("microphone started"), JSON.stringify(events));
+	assert.ok(events.indexOf("microphone started") < events.indexOf(`spoken ${text}`), JSON.stringify(events));
+	assert.ok(events.indexOf("phase listening") < events.indexOf(`spoken ${text}`), JSON.stringify(events));
+});
+
+Then("the voice session phase is {string}", function (this: ChatticusWorld, phase: string) {
+	assert.equal(startResultOf(voiceOf(this)).phase, phase, JSON.stringify(voiceOf(this).startResult));
+});
+
+Then("no listening cue is spoken", function (this: ChatticusWorld) {
+	assert.deepEqual(startResultOf(voiceOf(this)).spoken, [], JSON.stringify(voiceOf(this).startResult));
+});
+
+Then("the voice start is reported as {string}", function (this: ChatticusWorld, note: string) {
+	assert.equal(startResultOf(voiceOf(this)).note, note, JSON.stringify(voiceOf(this).startResult));
+});
+
+Then("the voice session that was opened is closed", function (this: ChatticusWorld) {
+	const events: string[] = startResultOf(voiceOf(this)).events;
+	assert.ok(events.includes("session stopped"), JSON.stringify(events));
+	assert.ok(!events.includes("session kept"), JSON.stringify(events));
+});
+
+Then(
+	"the status says {string} while the {text}",
+	function (this: ChatticusWorld, status: string, wait: string) {
+		const during = startResultOf(voiceOf(this)).statusDuring;
+		const key = wait === "microphone is being requested" ? "requestingMicrophone" : "loadingModel";
+		assert.equal(during[key], status, JSON.stringify(during));
+	},
+);
+
+Then("the voice session is no longer waiting for the microphone", function (this: ChatticusWorld) {
+	const result = startResultOf(voiceOf(this));
+	assert.equal(result.phase === "loading", false, JSON.stringify(result));
+});
+
+Then("the cue is not taken for the member's own words", function (this: ChatticusWorld) {
+	const result = startResultOf(voiceOf(this));
+	assert.equal(result.route?.kind, "discard", JSON.stringify(result));
 });

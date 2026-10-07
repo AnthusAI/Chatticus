@@ -335,7 +335,11 @@ conversation ends. It never reads history (`features/web_voice_control.feature`)
   - Text is spoken a sentence at a time, because Chrome cuts long utterances
     off.
   - A watchdog ends the speaking state if the engine goes quiet.
-  - The tap that starts listening also unlocks speech on iOS.
+  - The tap that starts listening also unlocks speech on iOS, with a silent
+    utterance.
+  - "Listening." is spoken only once the model is loaded and the microphone is
+    open, through the same path as a reply, so the echo guard covers it. The
+    status reads "Waiting for microphone permission..." until then.
   - Moonshine's Kokoro voice (about 110 MB, Apache-2.0) remains the opt-in
     upgrade for one consistent voice.
 - **Hands-free stop, without hearing itself.** The microphone stays open while

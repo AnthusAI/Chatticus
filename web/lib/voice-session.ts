@@ -17,6 +17,7 @@ import {
   captureWatchProblem,
   lineStartedAtMs,
   type CaptureRestoreOutcome,
+  type VoiceStartStage,
 } from "./voice-control";
 
 /** Must match the exact `@moonshine-ai/moonshine-wasm` version in package.json. */
@@ -36,6 +37,8 @@ export interface VoiceSessionHandlers {
   /** A completed line, with the wall-clock time (ms) its speech began. */
   onLine: (text: string, startedAtMs: number) => void;
   onProgress: (fraction: number) => void;
+  /** Which wait the start is in; "requestingMicrophone" is reported just before the browser is asked for the microphone. */
+  onStage?: (stage: VoiceStartStage) => void;
   /** Trouble with one recognition pass; capture continues. */
   onRecognizerTrouble: (error: Error) => void;
   /** Capture stopped delivering audio and was restored, rebuilt, or needs a tap (call `restoreCapture` from one). */
@@ -147,6 +150,7 @@ export async function startVoiceSession(
   keyterms: string[],
   isSpeaking: () => boolean = () => false,
 ): Promise<VoiceSession> {
+  handlers.onStage?.("loadingModel");
   const { MicTranscriber: MicTranscriberClass, ModelArch } = await loadMoonshine();
   const firstMicrophone: MicTranscriber = await withPresentedCoreCount(
     VOICE_THREAD_COUNT,
@@ -165,6 +169,7 @@ export async function startVoiceSession(
     if (keyterms.length > 0) {
       firstMicrophone.setKeyterms(keyterms);
     }
+    handlers.onStage?.("requestingMicrophone");
     await firstMicrophone.start();
   } catch (error) {
     await releaseCapture(firstMicrophone);

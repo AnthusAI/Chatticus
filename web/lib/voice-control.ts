@@ -1,4 +1,5 @@
 import type { Bot, Channel, Message } from "./api";
+import { speechDeadlineMs } from "./voice-speech";
 
 /**
  * What one completed line of speech does in the workspace. ``send`` hands the
@@ -233,6 +234,11 @@ export interface SpeechWindow {
   expectedEndedAt: number;
 }
 
+/** The window a text spoken aloud at ``startedAt`` opens; every spoken text, cues included, registers one. */
+export function speechWindowFor(text: string, startedAt: number): SpeechWindow {
+  return { startedAt, endedAt: null, expectedEndedAt: startedAt + speechDeadlineMs(text) };
+}
+
 export function lineOverlapsSpeechWindow(
   speechWindow: SpeechWindow | null,
   lineStartedAtMs: number,
@@ -263,6 +269,22 @@ export type VoicePhase =
   | "needsTap"
   | "unavailable"
   | "error";
+
+/** What is spoken once voice is really listening: the model is loaded and the microphone is open. */
+export const LISTENING_CUE = "Listening.";
+
+/** What the voice session is waiting on while its phase is ``loading``. */
+export type VoiceStartStage = "loadingModel" | "requestingMicrophone";
+
+/** The status line while the voice session is loading: model progress, or the wait for the browser's microphone permission. */
+export function voiceLoadingStatus(stage: VoiceStartStage, downloadFraction: number): string {
+  if (stage === "requestingMicrophone") {
+    return "Waiting for microphone permission...";
+  }
+  return downloadFraction > 0 && downloadFraction < 1
+    ? `Loading voice model: ${Math.round(downloadFraction * 100)}%`
+    : "Loading voice model...";
+}
 
 export interface VoiceButtonPresentation {
   icon: "AudioLines";
