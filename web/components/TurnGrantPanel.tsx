@@ -98,11 +98,20 @@ export function TurnGrantPanel({ activeOrg, turnId }: TurnGrantPanelProps) {
           <label className="flex items-center gap-2 font-body text-sm">
             <input
               type="checkbox"
+              checked={form.editWorkspace}
+              onChange={(event) => updateForm({ editWorkspace: event.target.checked })}
+              disabled={submitting}
+            />
+            edit_workspace
+          </label>
+          <label className="flex items-center gap-2 font-body text-sm">
+            <input
+              type="checkbox"
               checked={form.runTerminal}
               onChange={(event) => updateForm({ runTerminal: event.target.checked })}
               disabled={submitting}
             />
-            run_terminal (explicit shell access)
+            run_terminal
           </label>
         </fieldset>
 

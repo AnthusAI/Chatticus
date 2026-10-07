@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   buildRevokePayload,
   buildTurnGrantPayload,
+  CONVERSATION_PRESET_TOOLS,
   DEFAULT_TURN_GRANT_FORM,
   grantTableToPayload,
   turnGrantConfirmationText,
@@ -42,6 +43,24 @@ describe("turn grant payload builder", () => {
     });
     assert.ok(payload);
     assert.deepEqual(payload.tools.sort(), ["read_workspace", "run_terminal"]);
+  });
+
+  it("includes edit_workspace under /workspace when checked", () => {
+    const payload = buildTurnGrantPayload({
+      ...DEFAULT_TURN_GRANT_FORM,
+      editWorkspace: true,
+      fileScopes: "",
+    });
+    assert.ok(payload);
+    assert.deepEqual(payload.tools, ["edit_workspace"]);
+    assert.deepEqual(payload.file_scopes, ["/workspace"]);
+  });
+
+  it("names the four default computer tools as the conversation preset", () => {
+    assert.deepEqual(
+      [...CONVERSATION_PRESET_TOOLS],
+      ["read_workspace", "write_workspace", "edit_workspace", "run_terminal"],
+    );
   });
 
   it("builds browse grants with approved_origin_fetch egress", () => {

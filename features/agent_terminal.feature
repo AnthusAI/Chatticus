@@ -1,6 +1,6 @@
 Feature: A bot can run a granted shell command on the household computer
   As a household member
-  I want a bot to run shell commands on the summoned host when explicitly granted
+  I want a bot to run shell commands on the summoned host under /workspace
   So that workspace inspection does not require pretending files are unreadable
 
   Background:
@@ -15,9 +15,9 @@ Feature: A bot can run a granted shell command on the household computer
       | capabilities| computer,browser,terminal |
       | computer_id | household-computer |
 
-  Scenario: Terminal grant denial does not start the host
+  Scenario: Terminal grant denial outside /workspace does not start the host
     Given the household computer is stopped
-    When a human asks the bot to run command "ls /workspace" using cwd "/workspace"
+    When a human asks the bot to run command "ls /etc" using cwd "/etc"
     And bot "Researcher" runs one capability-aware computerless worker turn
     Then the turn journal records a denied run_terminal tool result
     And no computer continuation job is queued for the turn

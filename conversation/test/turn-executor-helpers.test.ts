@@ -12,7 +12,7 @@ import {
 } from "../src/turn/classify-errors.ts";
 import { TokenCoalescer } from "../src/turn/coalescer.ts";
 import { createOpenAiModels, DEFAULT_TURN_MODEL } from "../src/turn/openai-models.ts";
-import { buildSystemPrompt } from "../src/turn/prompt.ts";
+import { buildSystemPrompt, COMPUTER_GUIDANCE_LINES } from "../src/turn/prompt.ts";
 
 const providerText = (status: number, code: string): string =>
 	`OpenAI API error (${status}): ${JSON.stringify({ message: "m", type: code, param: null, code })}`;
@@ -127,13 +127,21 @@ describe("findStorageFailure", () => {
 });
 
 describe("buildSystemPrompt", () => {
-	it("renders the fixed line and the memory in key order", () => {
+	it("renders the fixed line, the computer guidance and the memory in key order", () => {
+		const guidance = COMPUTER_GUIDANCE_LINES.join("\n");
 		expect(buildSystemPrompt({ botName: "Ada", memory: { zebra: "z", apple: "a" } })).toBe(
-			"You are Ada, a teammate in a Chatticus conversation. Answer briefly.\nmemory apple: a\nmemory zebra: z",
+			`You are Ada, a teammate in a Chatticus conversation. Answer briefly.\n${guidance}\nmemory apple: a\nmemory zebra: z`,
 		);
 		expect(buildSystemPrompt({ botName: "Grace", memory: {} })).toBe(
-			"You are Grace, a teammate in a Chatticus conversation. Answer briefly.",
+			`You are Grace, a teammate in a Chatticus conversation. Answer briefly.\n${guidance}`,
 		);
+	});
+
+	it("tells the model that /workspace persists and is shared, that git is installed and which edit tool to prefer", () => {
+		const prompt = buildSystemPrompt({ botName: "Ada", memory: {} });
+		expect(prompt).toContain("/workspace folder is a persistent workspace that all teammates share");
+		expect(prompt).toContain("Git is installed");
+		expect(prompt).toContain("To change an existing file, use edit_workspace. To create a new file, use write_workspace.");
 	});
 });
 

@@ -53,6 +53,14 @@ Given(
 );
 
 Given(
+	"a fenced workspace edit handoff with a tampered queued continuation job for {string} replacing {string} with {string}",
+	async function (this: ChatticusWorld, path: string, oldText: string, newText: string) {
+		await parkToolCall(this, `edit workspace file ${DECOY_PATH} replacing ${oldText} with ${newText}`);
+		await tamperPendingAction(this, { path });
+	},
+);
+
+Given(
 	"a fenced run_terminal handoff with a tampered queued continuation job for command {string} using cwd {string}",
 	async function (this: ChatticusWorld, command: string, cwd: string) {
 		await parkToolCall(this, `run command ${command} using cwd ${PARKED_TERMINAL_CWD}`);

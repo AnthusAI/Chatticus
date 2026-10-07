@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { applyExactEdit } from "@chatticus/host-protocol/workspace-edit";
 import { type RecordedResponse, recordResponse } from "../api.ts";
 import type { ChatticusWorld } from "../world.ts";
 
@@ -100,6 +101,14 @@ export class FakeComputerHost {
 			case "write_workspace":
 				this.disk.set(args["path"]!, args["content"] ?? "");
 				return { text: `wrote ${args["path"]}`, isError: false };
+			case "edit_workspace": {
+				const current = this.disk.get(args["path"]!);
+				if (current === undefined) return { text: `no such file: ${args["path"]}`, isError: true };
+				const edit = applyExactEdit(current, args["old_text"] ?? "", args["new_text"] ?? "", args["path"]!);
+				if (!edit.ok) return { text: edit.message, isError: true };
+				this.disk.set(args["path"]!, edit.content);
+				return { text: `edited ${args["path"]}`, isError: false };
+			}
 			case "run_terminal":
 				return { text: `ran: ${args["command"]}`, isError: false };
 			case "browse":

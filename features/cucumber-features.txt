@@ -85,6 +85,7 @@ features/customer_computer_host_front_door.feature
 features/computer_host_pull_worker.feature
 features/host_protocol.feature
 features/computer_host_workspace_executor.feature
+features/computer_workspace_edit.feature
 features/agent_terminal.feature
 features/chromium_host_executor.feature
 features/computer_host_readiness.feature

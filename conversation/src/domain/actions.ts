@@ -33,6 +33,7 @@ export const INTERRUPTED_ACTION_RESULT = "The computer was lost while this tool 
 export const COMPUTER_TOOL_NAMES: ReadonlySet<string> = new Set([
 	"read_workspace",
 	"write_workspace",
+	"edit_workspace",
 	"run_terminal",
 	BROWSE_ACTION_KIND,
 	REQUEST_COMPUTER_CAPABILITY_ACTION_KIND,

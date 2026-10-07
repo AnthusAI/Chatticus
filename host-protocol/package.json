@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/schemas.ts"
+    ".": "./src/schemas.ts",
+    "./workspace-edit": "./src/workspace-edit.ts"
   },
   "dependencies": {
     "zod": "4.6.5"

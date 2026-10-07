@@ -35,6 +35,14 @@ export function toolCallRequestedBy(message: string): ScriptedToolCall | null {
 			leadingText: "I'll write that workspace file.",
 		};
 	}
+	const edit = /edit workspace file (\S+) replacing (.+?) with (.+)$/i.exec(message);
+	if (edit !== null) {
+		return {
+			tool: "edit_workspace",
+			arguments: { path: edit[1]!.trim(), old_text: edit[2]!.trim(), new_text: edit[3]!.trim() },
+			leadingText: "I'll edit that workspace file.",
+		};
+	}
 	const browse = /browse (https?:\/\/\S+)/i.exec(message);
 	if (browse !== null) {
 		return { tool: "browse", arguments: { url: browse[1]!.trim() }, leadingText: "I'll check that origin." };
