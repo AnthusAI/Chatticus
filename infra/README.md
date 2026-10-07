@@ -207,12 +207,12 @@ Acceptance and workers use the `/api` base URL on the site hostname.
 
 ## OpenAI API key (per deployment)
 
-Each thin-turn stack reads its OpenAI key at **runtime** from a
-deployment-scoped SSM SecureString (one path per environment; the same
+The TypeScript control plane (the `FrontDoor` and `TurnExecutor` Lambdas in
+`ChatticusControlPlane*`) reads its OpenAI key at **runtime** from a
+deployment-scoped SSM SecureString, one path per environment (the same
 vendor key may be seeded in all three until dedicated projects exist).
-CDK imports the parameter path only; it does **not** create the
-parameter or embed the key in CloudFormation (unlike the invoke-key
-secret, which CDK generates and unwraps into the Lambda environment).
+CDK imports the parameter path only (`fromSecureStringParameterAttributes`);
+it does **not** create the parameter or embed the key in CloudFormation.
 
 | Environment | SSM path |
 | --- | --- |
@@ -237,20 +237,16 @@ aws ssm put-parameter \
   --description "OpenAI API key for Chatticus ${ENV} thin-turn"
 ```
 
-`npx cdk synth` and thin-turn deploy succeed without the parameter
-existing (import-only reference). Deployed Lambdas always set
-`OPENAI_API_KEY_PARAMETER`, so a live turn that needs OpenAI completion
-raises SSM `ParameterNotFound` until the human seeds the SecureString
-above. The fake client is only used when that env var is unset (for
-example local dev without `.env`).
+`npx cdk synth` and the control-plane deploy succeed without the parameter
+existing (import-only reference). The Lambdas set `OPENAI_API_KEY_PARAMETER`,
+so a live turn raises SSM `ParameterNotFound` until the SecureString above is
+seeded.
 
-Deploy **one named thin-turn stack** after seeding SSM for that
+Deploy **one named control-plane stack** after seeding SSM for that
 environment, for example:
 
 ```bash
-npx cdk deploy ChatticusThinTurn          # development
-npx cdk deploy ChatticusThinTurnStaging   # staging
-npx cdk deploy ChatticusThinTurnProduction  # production (gated)
+npx cdk deploy ChatticusControlPlane          # development
 ```
 
 Never `cdk deploy --all`.
