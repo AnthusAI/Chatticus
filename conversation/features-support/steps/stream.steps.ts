@@ -73,25 +73,58 @@ When("the worker posts several coalesced progress chunks for the turn", async fu
 	await postChunk(this, "lo");
 });
 
+async function assertChunksInOrderBeforeCompletion(world: ChatticusWorld): Promise<void> {
+	const watcher = watcherOf(world);
+	await watcher.until(() => watcher.events.filter((event) => event.kind === "turn.token").length >= 2, "both chunks");
+	assert.deepEqual(
+		watcher.events.filter((event) => event.kind === "turn.token").map((event) => event.payload.token),
+		["Hel", "lo"],
+	);
+	const turn = await getTurn(world.turnDependencies(), openChannelOf(world).tenantId, currentTurnId(world));
+	assert.equal(turn.status, "active");
+}
+
+async function completeAndAssertOneTerminalEvent(world: ChatticusWorld): Promise<void> {
+	await completeTurnWith(world, "Hello");
+	const watcher = watcherOf(world);
+	await watcher.until(() => watcher.events.some((event) => event.kind === "turn.completed"), "the terminal event");
+	assert.equal(watcher.events.filter((event) => event.kind === "turn.completed").length, 1);
+}
+
 Then(
 	"user {string} receives the chunks in order before completion",
 	async function (this: ChatticusWorld, _userId: string) {
-		const watcher = watcherOf(this);
-		await watcher.until(() => watcher.events.filter((event) => event.kind === "turn.token").length >= 2, "both chunks");
-		assert.deepEqual(
-			watcher.events.filter((event) => event.kind === "turn.token").map((event) => event.payload.token),
-			["Hel", "lo"],
-		);
-		const turn = await getTurn(this.turnDependencies(), openChannelOf(this).tenantId, currentTurnId(this));
-		assert.equal(turn.status, "active");
+		await assertChunksInOrderBeforeCompletion(this);
 	},
 );
 
 Then("user {string} receives one terminal server-sent event", async function (this: ChatticusWorld, _userId: string) {
+	await completeAndAssertOneTerminalEvent(this);
+});
+
+When(
+	"the web UI opens a turn stream for user {string} of tenant {string}",
+	async function (this: ChatticusWorld, _userId: string, tenantId: string) {
+		modelScenarioOf(this).watcher = await TurnWatcher.open(this, tenantId, currentTurnId(this));
+	},
+);
+
+Then("the web UI receives the chunks in order before completion", async function (this: ChatticusWorld) {
+	await assertChunksInOrderBeforeCompletion(this);
+});
+
+When("the worker completes the turn", async function (this: ChatticusWorld) {
 	await completeTurnWith(this, "Hello");
+});
+
+Then("the web UI receives a turn completed event", async function (this: ChatticusWorld) {
 	const watcher = watcherOf(this);
 	await watcher.until(() => watcher.events.some((event) => event.kind === "turn.completed"), "the terminal event");
 	assert.equal(watcher.events.filter((event) => event.kind === "turn.completed").length, 1);
+});
+
+Then("the web UI turn stream is closed", async function (this: ChatticusWorld) {
+	await letStreamTimePassUntilClosed(this, watcherOf(this));
 });
 
 Then("the turn stream ends", async function (this: ChatticusWorld) {
