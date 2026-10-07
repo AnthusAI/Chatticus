@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "3e2965f5-3e4a-475d-b26a-ea95297c77eb",
+      "author": "home",
+      "text": "Docs part done in PR 467 (AGENTS.md gates, README, ARCHITECTURE and others). REMAINING: web/lib/voice-line-delivery.ts removal (the per-channel voice line queue; steering makes it redundant). On hold until the user's iPad voice retest: the web_voice_control feature (61 scenarios) encodes queue and retry behavior (for example 'A failed send keeps the line and retries it with the next line'), so removal means updating the harness and checking each scenario still holds under steering; the Gherkin must not change.",
+      "created_at": "2026-10-07T02:55:04.334554Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-06T16:01:58.042730Z",
-  "updated_at": "2026-10-06T16:02:13.875445Z",
+  "updated_at": "2026-10-07T02:55:04.334584Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "Remove the web voice-line queue, its imports, and update docs and the cucumber-js harness.",
-  "right_now_updated_at": "2026-10-06T16:02:15.101967Z",
+  "right_now_summary": "The docs are updated, but code removal awaits the iPad voice retest and harness checks.",
+  "right_now_updated_at": "2026-10-07T02:55:05.935177Z",
   "custom": {}
 }
