@@ -67,7 +67,7 @@ latency, not a product SLA.
 
 ### 1.3 Computer image
 
-The workplace image is **Debian bookworm** (`python:3.12-slim-bookworm`) with
+The workplace image is **Debian bookworm** (`node:22-bookworm-slim`) with
 **Xvfb** and **Chromium** from apt. The same image is intended to run on
 Fargate, EC2, and local Docker. It is **not** a full desktop distribution.
 

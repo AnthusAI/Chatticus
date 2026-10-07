@@ -1,5 +1,9 @@
 # Spec coverage baseline
 
+> Historical. This is a snapshot taken during the pytest-to-Gherkin migration. The Python tree (`python/`), behave and pytest were deleted
+> (Kanbus chatticus-f27222); the accounting of every Python-era scenario is in
+> [Python retirement](PYTHON_RETIREMENT_SCENARIOS.md). Kept as a record only.
+
 Captured from `cursor/behavior-specs-from-pytest` after HTTP grant/read
 landed in `capability_sink_wiring.feature` and before the next chapter
 migrations (`organizations`, `me`, `worker_credentials`).

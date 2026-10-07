@@ -1,5 +1,9 @@
 # Pytest → Gherkin migration survey
 
+> Historical. This is a snapshot taken during the pytest-to-Gherkin migration. The Python tree (`python/`), behave and pytest were deleted
+> (Kanbus chatticus-f27222); the accounting of every Python-era scenario is in
+> [Python retirement](PYTHON_RETIREMENT_SCENARIOS.md). Kept as a record only.
+
 Working note for `cursor/behavior-specs-from-pytest`. Source of truth for
 behavior is `features/*.feature`. Pytest stays for unit/helpers/structural
 guards. This is a snapshot of `origin/develop` at survey time (~54 `test_*.py`

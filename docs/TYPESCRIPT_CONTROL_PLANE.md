@@ -1,8 +1,12 @@
 # TypeScript control plane
 
-Status: design only. No code exists for anything below except what is
-named as "on develop today". This is the plan for the one hard cutover
-that moves the rest of the Python control plane to TypeScript on Pi.
+Status: the design below was executed on `develop`; the Python tree
+(`python/`, behave, pytest) is deleted (Kanbus chatticus-f27222). Development
+runs the TypeScript control plane. Staging and production run Python until the
+develop to main promotion and the migration runbook in this document. Read the
+body as the plan the code was built from; where it says "design only" or "on
+develop today" it describes the state before the cutover. This was the plan for
+the one hard cutover that moved the Python control plane to TypeScript on Pi.
 
 Related: [Pi harness](PI_HARNESS.md), [Messaging](MESSAGING.md),
 [Design challenges](DESIGN_CHALLENGES.md), [Voice](VOICE.md), and

@@ -19,11 +19,11 @@ is forbidden.
 | GitHub deploy workflows | GitHub OIDC → `configure-aws-credentials` → `role-to-assume` | `.github/workflows/deploy-*.yml`, `infra/lib/github-deploy-stack.ts` |
 | Local / desk deploy | `aws login` (Identity Center or equivalent short-lived session) | `infra/deploy-*.sh` |
 | Web CDK bundle (docker) | Forwards the runner's OIDC session into SAM docker | `infra/lib/web-build-env.ts` (`webDockerBundlingEnvironment`) |
-| Customer cross-account provisioning | Anthus principal `sts:AssumeRole` into `ChatticusOrganizationComputerRole` | `python/src/chatticus/cross_account_assume_role.py`, `infra/customer-role.yml` |
+| Customer cross-account provisioning | Anthus principal `sts:AssumeRole` into `ChatticusOrganizationComputerRole` | `conversation/src/computer/provisioning.ts`, `infra/customer-role.yml` |
 | Customer computer image publish | Operator `aws login` → `sts assume-role` with `ExternalId` | `computer/push-customer-computer-image.sh` |
 | Anthus computer image publish | Operator `aws login` (same session, no key minting) | `computer/push-computer-image.sh` |
 | Integration test session exchange | SigV4 caller proves an allowed IAM **role**; control plane returns a bearer token | `features/integration_test_auth.feature`, `infra/lib/integration-test-stack.ts` |
-| Operator HTTP routes | Bearer secret in Secrets Manager (not an AWS access key) | `python/src/chatticus/operator_credentials.py` |
+| Operator HTTP routes | Bearer secret in Secrets Manager (not an AWS access key) | `conversation/src/auth/operator.ts` |
 | Worker routes | Per-worker minted bearer credential (not an AWS access key) | `features/worker_credentials.feature` |
 
 ## Forbidden patterns
@@ -56,9 +56,9 @@ tests). CI enforces the same rules in
 
 Legitimate `AccessKeyId` / `AWS_ACCESS_KEY_ID` references are limited to:
 
-- STS `AssumeRole` response handling (`cross_account_assume_role.py`, `push-customer-computer-image.sh`)
+- STS `AssumeRole` response handling (`conversation/src/computer/provisioning.ts`, `push-customer-computer-image.sh`)
 - Forwarding an existing OIDC session into docker (`web-build-env.ts`)
-- Test fixtures and mocks (`features/steps/`, `python/tests/`)
+- Test fixtures and mocks (`conversation/features-support/`, `conversation/test/`)
 
 ## Ops cleanup after cutover
 
