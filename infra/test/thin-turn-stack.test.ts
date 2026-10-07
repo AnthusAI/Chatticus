@@ -180,6 +180,52 @@ describe("ThinTurnStack installation name", () => {
   });
 });
 
+describe("ThinTurnStack data retention", () => {
+  const retainedResources: Array<[string, string]> = [
+    ["AWS::DynamoDB::Table", "Messaging4C94D7F8"],
+    ["AWS::SecretsManager::Secret", "InvokeKey" + "581783BE"],
+    ["AWS::SecretsManager::Secret", "OperatorKey" + "D7C0C4F2"],
+  ];
+
+  for (const environmentName of CHATTICUS_CLOUD_ENVIRONMENTS) {
+    describe(environmentName, () => {
+      const template = synthThinTurnStack(environmentName);
+      const parameterPrefix = `/chatticus/${environmentName}/thin-turn`;
+
+      for (const [resourceType, logicalId] of retainedResources) {
+        it(`keeps ${logicalId} under its logical id with Retain policies`, () => {
+          const resource = template.findResources(resourceType)[logicalId];
+          assert.ok(resource, `expected ${logicalId} to exist`);
+          assert.equal(resource.DeletionPolicy, "Retain");
+          assert.equal(resource.UpdateReplacePolicy, "Retain");
+        });
+      }
+
+      it("leaves the table unnamed and protects it in place", () => {
+        const table = template.findResources("AWS::DynamoDB::Table")["Messaging4C94D7F8"];
+        assert.equal(table.Properties.TableName, undefined);
+        assert.equal(table.Properties.DeletionProtectionEnabled, true);
+        assert.deepEqual(table.Properties.PointInTimeRecoverySpecification, {
+          PointInTimeRecoveryEnabled: true,
+        });
+      });
+
+      for (const holder of ["invoke", "operator"]) {
+        it(`retains the ${holder} secret ARN SSM parameter`, () => {
+          const matches = Object.values(
+            template.findResources("AWS::SSM::Parameter", {
+              Properties: { Name: `${parameterPrefix}/${holder}-key-secret-arn` },
+            }),
+          );
+          assert.equal(matches.length, 1);
+          assert.equal(matches[0].DeletionPolicy, "Retain");
+          assert.equal(matches[0].UpdateReplacePolicy, "Retain");
+        });
+      }
+    });
+  }
+});
+
 describe("ThinTurnStack without budget context", () => {
   it("omits daily rollup Lambdas", () => {
     const template = synthThinTurnStack("development");

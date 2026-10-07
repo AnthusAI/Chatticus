@@ -63,7 +63,7 @@ export class ThinTurnStack extends cdk.Stack {
     const webPrefix = webParameterPrefix(environmentName);
     const integrationPrefix = integrationTestParameterPrefix(environmentName);
     const openAiParameterName = openAiApiKeyParameterName(environmentName);
-    const retainData = environmentName !== "development";
+    const retainQueues = environmentName !== "development";
 
     const pythonRoot = path.join(__dirname, "../../python");
     const lambdaWebAdapterLayer = lambda.LayerVersion.fromLayerVersionArn(
@@ -72,7 +72,7 @@ export class ThinTurnStack extends cdk.Stack {
       `arn:aws:lambda:${this.region}:753240598075:layer:LambdaAdapterLayerX86:${LAMBDA_WEB_ADAPTER_LAYER_VERSION}`,
     );
 
-    const dataRetention = retainData
+    const queueRetention = retainQueues
       ? cdk.RemovalPolicy.RETAIN
       : cdk.RemovalPolicy.DESTROY;
 
@@ -81,23 +81,25 @@ export class ThinTurnStack extends cdk.Stack {
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: "expires_at",
-      removalPolicy: dataRetention,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      deletionProtection: true,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
 
     this.messagingTable = table;
 
     const turnQueue = new sqs.Queue(this, "TurnJobs", {
       visibilityTimeout: cdk.Duration.seconds(180),
-      removalPolicy: dataRetention,
+      removalPolicy: queueRetention,
     });
     const computerTurnQueue = new sqs.Queue(this, "ComputerTurnJobs", {
       visibilityTimeout: cdk.Duration.seconds(180),
-      removalPolicy: dataRetention,
+      removalPolicy: queueRetention,
     });
 
     const invokeSecret = new secretsmanager.Secret(this, "InvokeKey", {
       description: `Shared invoke key for the Chatticus ${environmentName} thin-turn front door.`,
-      removalPolicy: dataRetention,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
       generateSecretString: {
         passwordLength: 32,
         excludePunctuation: true,
@@ -107,7 +109,7 @@ export class ThinTurnStack extends cdk.Stack {
 
     const operatorSecret = new secretsmanager.Secret(this, "OperatorKey", {
       description: `Operator bearer credential for the Chatticus ${environmentName} thin-turn front door.`,
-      removalPolicy: dataRetention,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
       generateSecretString: {
         passwordLength: 32,
         excludePunctuation: true,
@@ -508,16 +510,26 @@ export class ThinTurnStack extends cdk.Stack {
       stringValue: functionUrl.url,
       description: `Lambda function URL for the ${environmentName} thin-turn front door.`,
     });
-    new ssm.StringParameter(this, "InvokeKeySecretArnParameter", {
-      parameterName: `${parameterPrefix}/invoke-key-secret-arn`,
-      stringValue: invokeSecret.secretArn,
-      description: `Invoke-key secret ARN for the ${environmentName} thin-turn front door.`,
-    });
-    new ssm.StringParameter(this, "OperatorKeySecretArnParameter", {
-      parameterName: `${parameterPrefix}/operator-key-secret-arn`,
-      stringValue: operatorSecret.secretArn,
-      description: `Operator-key secret ARN for the ${environmentName} thin-turn front door.`,
-    });
+    const invokeKeySecretArnParameter = new ssm.StringParameter(
+      this,
+      "InvokeKeySecretArnParameter",
+      {
+        parameterName: `${parameterPrefix}/invoke-key-secret-arn`,
+        stringValue: invokeSecret.secretArn,
+        description: `Invoke-key secret ARN for the ${environmentName} thin-turn front door.`,
+      },
+    );
+    invokeKeySecretArnParameter.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
+    const operatorKeySecretArnParameter = new ssm.StringParameter(
+      this,
+      "OperatorKeySecretArnParameter",
+      {
+        parameterName: `${parameterPrefix}/operator-key-secret-arn`,
+        stringValue: operatorSecret.secretArn,
+        description: `Operator-key secret ARN for the ${environmentName} thin-turn front door.`,
+      },
+    );
+    operatorKeySecretArnParameter.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
     new ssm.StringParameter(this, "TurnQueueUrlParameter", {
       parameterName: `${parameterPrefix}/turn-queue-url`,
       stringValue: turnQueue.queueUrl,
