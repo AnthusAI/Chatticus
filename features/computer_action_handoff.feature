@@ -131,3 +131,37 @@ Feature: Computer action handoff
     And 61 seconds pass
     And the turn probe runs
     Then another computer start job is queued for the turn
+
+  Scenario: Six parallel computer tool calls in one message each get a real result
+    Given host worker "garage-mac-1" serves the household computer
+    And the computer holds the file "/workspace/alpha.txt" containing "alpha-content"
+    And the computer holds the file "/workspace/bravo.txt" containing "bravo-content"
+    And the computer holds the file "/workspace/charlie.txt" containing "charlie-content"
+    And the computer holds the file "/workspace/delta.txt" containing "delta-content"
+    And the computer holds the file "/workspace/echo.txt" containing "echo-content"
+    And the computer holds the file "/workspace/foxtrot.txt" containing "foxtrot-content"
+    And the model is scripted to read these workspace files in one message and then answer "All six read.":
+      | /workspace/alpha.txt |
+      | /workspace/bravo.txt |
+      | /workspace/charlie.txt |
+      | /workspace/delta.txt |
+      | /workspace/echo.txt |
+      | /workspace/foxtrot.txt |
+    And bot "Researcher" is asked "check the six notes"
+    When bot "Researcher" works its turn while host worker "garage-mac-1" answers every computer action until the turn ends
+    Then the turn is completed
+    And the host executed "read_workspace" 6 times
+    And the turn has 6 computer actions and all are done
+    And the turn journal records 6 tool results
+    And the turn journal records a tool result containing "alpha-content"
+    And the turn journal records a tool result containing "bravo-content"
+    And the turn journal records a tool result containing "charlie-content"
+    And the turn journal records a tool result containing "delta-content"
+    And the turn journal records a tool result containing "echo-content"
+    And the turn journal records a tool result containing "foxtrot-content"
+    And the last request to the model contains "alpha-content"
+    And the last request to the model contains "bravo-content"
+    And the last request to the model contains "charlie-content"
+    And the last request to the model contains "delta-content"
+    And the last request to the model contains "echo-content"
+    And the last request to the model contains "foxtrot-content"

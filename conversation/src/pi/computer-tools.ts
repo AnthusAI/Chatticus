@@ -9,6 +9,11 @@
  * - there is none and new computer work is refused (the spend ceiling): return the refusal as the result;
  * - otherwise hand the call to the executor, which records the action and parks the turn, and wait to be closed.
  *
+ * Every computer tool is `executionMode: "sequential"`, which makes the whole round of one assistant message sequential.
+ * The turn parks on one pending action at a time, so each of N parallel calls records its action, parks and resumes in
+ * call order, and no call finishes in the instant the owner closes: a stopped event stream drops the batches it has not
+ * delivered, which in a parallel round lost the `tool.result` events of the calls that had just completed.
+ *
  * `Harness.close` stops the invocation without writing an outcome, so the `pi.tool` task stays at its `execute`
  * checkpoint and the next owner, with a higher fence, runs `execute` again and finds the result by call id. Verified in
  * `test/computer-park-resume.test.ts` and `docs/PI_HARNESS.md`.
@@ -100,6 +105,7 @@ export function computerToolsExtension(handoff: ComputerToolHandoff): Extension 
 			description,
 			parameters,
 			replay: "safe",
+			executionMode: "sequential",
 			execute: async (args: Static<P>, api, toolContext) => {
 				const call: ComputerToolCall = { toolName: name, arguments: stringArguments(args), callId: api.callId };
 				const action = await handoff.lookup(call);
