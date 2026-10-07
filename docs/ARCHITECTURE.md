@@ -260,6 +260,12 @@ escalates on its own. See challenge 5 in
 Provider-hosted tools (if the vendor offers them) may run on the provider.
 Custom tools and computer actions always run on the worker.
 
+On the TypeScript control plane in development, the agent loop runs in a
+Lambda that owns the bot's Pi session, and the computer only executes parked
+computer actions. [Pi session handoff](PI_SESSION_HANDOFF.md) explains that
+with diagrams, and describes a proposal, still under a spike and not built, to
+hand the session to an owner inside the computer container.
+
 ## Approvals in the loop
 
 Before executing a tool or computer action, the worker asks the control

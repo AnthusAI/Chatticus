@@ -546,6 +546,7 @@ as a leftover for the implementation agent.
 - [Messages and the cloud API](docs/MESSAGING.md)
 - [Design challenges](docs/DESIGN_CHALLENGES.md)
 - [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md)
+- [Pi session handoff](docs/PI_SESSION_HANDOFF.md) (how a Pi session runs today, with diagrams, and a proposal under spike)
 - [Stack](docs/STACK.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Approval spec](docs/APPROVAL.md)
