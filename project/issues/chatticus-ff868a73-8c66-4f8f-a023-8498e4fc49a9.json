@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-ff868a73-8c66-4f8f-a023-8498e4fc49a9",
+  "title": "TS-62 Voice client says Listening only once it is really listening",
+  "description": "User report from iPad testing: the spoken Listening cue fired on tap, before the browser asked for microphone permission and before the voice model loaded. Fixed in PR 470: runVoiceStart in web/lib/voice-start.ts speaks the cue only after the session opened and capture is live (never on refusal, load failure, cancellation or needsTap), the status shows Waiting for microphone permission while the browser prompt is up, and unlockSpeech fires a silent utterance in the tap because iOS only allows the first speechSynthesis call from a tap. Six new scenarios in web_voice_control, five mutations killed. Deployed to development (served chat chunk verified). NOT proven: the cue timing and the silent unlock on a real iPad.",
+  "type": "task",
+  "status": "closed",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-07T10:47:59.700881Z",
+  "updated_at": "2026-10-07T10:48:03.849524Z",
+  "closed_at": "2026-10-07T10:48:03.849492Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The fix is deployed to development, but real iPad testing of cue timing and speech unlock is still pending.",
+  "right_now_updated_at": "2026-10-07T10:48:05.465598Z",
+  "custom": {}
+}
