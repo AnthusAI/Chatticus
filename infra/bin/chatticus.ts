@@ -20,7 +20,6 @@ import { GitHubDeployStack } from "../lib/github-deploy-stack";
 import { DELEGATIONS } from "../lib/dns-delegations";
 import { ManagementDnsStack, loadZoneRecords } from "../lib/management-dns-stack";
 import { ControlPlaneStack } from "../lib/control-plane-stack";
-import { IntegrationTestStack } from "../lib/integration-test-stack";
 import { SnapshotStack } from "../lib/snapshot-stack";
 import { ThinTurnStack } from "../lib/thin-turn-stack";
 import { websiteDeploySourceForApp } from "../lib/web-bundle-stub";
@@ -78,10 +77,8 @@ function buildLegacyAccountStacks(): void {
       chatticusEnvironment: environmentName,
       budgetsAlertsTopicArn,
       budgetsMonthlyLimitUsd: budgetsConfig?.monthlyLimitUsd,
-      installationName,
       description:
-        `Zero-idle computerless turn (${environmentName}): DynamoDB, SQS, ` +
-        "Lambda SSE front door.",
+        `Permanent data stack (${environmentName}): Messaging table, secrets and budget jobs.`,
     });
 
     const controlPlane = new ControlPlaneStack(app, CONTROL_PLANE_STACK_IDS[environmentName], {
@@ -129,7 +126,6 @@ if (dedicatedEnvironment !== undefined) {
     env,
     environmentName: dedicatedEnvironment,
     budgetsConfig,
-    installationName,
     websiteDeploySource: websiteDeploySourceForApp(),
   });
 } else {
@@ -167,30 +163,6 @@ if (typeof githubDeployEnvironment === "string" && githubDeployEnvironment.lengt
     env,
     githubEnvironment: githubDeployEnvironment as (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number],
     description: `GitHub Actions OIDC provider and ${githubDeployEnvironment} deploy role for this environment account.`,
-  });
-}
-
-const integrationTestEnvironment = app.node.tryGetContext("integrationTestEnvironment");
-if (
-  typeof integrationTestEnvironment === "string" &&
-  integrationTestEnvironment.length > 0
-) {
-  if (
-    !CHATTICUS_CLOUD_ENVIRONMENTS.includes(
-      integrationTestEnvironment as (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number],
-    )
-  ) {
-    throw new Error(
-      `Unknown integrationTestEnvironment '${integrationTestEnvironment}'. ` +
-        `Expected one of: ${CHATTICUS_CLOUD_ENVIRONMENTS.join(", ")}`,
-    );
-  }
-  new IntegrationTestStack(app, "ChatticusIntegrationTest", {
-    env,
-    integrationTestEnvironment:
-      integrationTestEnvironment as (typeof CHATTICUS_CLOUD_ENVIRONMENTS)[number],
-    description:
-      "Scheduled Lambda smoke tests against one named thin-turn environment.",
   });
 }
 
