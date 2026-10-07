@@ -3,23 +3,36 @@
   "title": "TS-64 Slim computer image: no Chromium, add git, browser becomes an optional capability",
   "description": "Decision (user, 2026-10-07): the computer only needs files, git and basic editing; no Chromium, and it can stay a very small task (0.25 CPU, 0.5 GB). (1) computer/Dockerfile: remove xvfb, x11-utils, chromium and fonts-liberation, add git (keep ca-certificates); update computer/entrypoint.sh if it starts a display; measure and report the image size before and after (docker build, docker images). (2) The host boot must not fail without Chromium: the browser gate in computer/host/src/boot.ts runs chromium --version; browser readiness becomes a capability that is simply reported unavailable (browser_ready false) when Chromium is absent, never a boot failure, per the capability-gated readiness design (readiness is per capability); the model tool browse then answers with a clear message that the browser capability is not available on this computer, or is not offered, whichever is the smallest correct change with the existing request_computer_capability design. Keep the Chromium executor and the browser features (they describe an optional capability); only the default image changes. (3) Update conversation/test/computer-image-structure.test.ts and the cucumber features that assume a browser at boot; add scenarios for a host that boots without a browser and a browse call on such a computer; mutation checks. Do not push images or touch AWS in this ticket.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "dad57289-b911-4fff-89c4-51d32f8dc023",
+      "author": "home",
+      "text": "Merged via PR 472, deployed to development (stacks UPDATE_COMPLETE, develop CI green). Image 944 MB to 356 MB (arm64), git 2.39.5, no Chromium or display. The host boots without a browser and reports it unavailable; browse answers with a clear message and starts nothing. NOT YET LIVE: the new image is not pushed to ECR (needs the user's go) so the running computers still use the old image until then. Known gap: a browse action parked before the host reports unavailable fails with the executor's Chromium-not-found error.",
+      "created_at": "2026-10-07T18:19:16.374863Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-07T17:06:06.381531Z",
-  "updated_at": "2026-10-07T17:06:06.381563Z",
-  "closed_at": null,
+  "updated_at": "2026-10-07T18:19:21.660829Z",
+  "closed_at": "2026-10-07T18:19:21.660752Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The image is being slimmed down, while browser support becomes optional and boot remains reliable without Chromium.",
-  "right_now_updated_at": "2026-10-07T17:06:07.801401Z",
+  "right_now_summary": "The smaller image is deployed to development, but ECR still serves the old image until approval.",
+  "right_now_updated_at": "2026-10-07T18:19:23.332425Z",
   "custom": {}
 }
