@@ -42,6 +42,7 @@ import * as workerCodec from "./codecs/worker.ts";
 import type { Worker } from "./codecs/worker.ts";
 import { postIdempotencyKey } from "./keys.ts";
 import type { MessagingStore } from "./messaging-store.ts";
+import { retryTransient } from "./transient-retry.ts";
 
 type Item = Record<string, AttributeValue>;
 
@@ -257,7 +258,7 @@ export class DynamoMessagingStore implements MessagingStore {
 			name: { S: bot.name },
 		};
 		try {
-			await this.client.send(
+			await retryTransient(() => this.client.send(
 				new TransactWriteItemsCommand({
 					TransactItems: [
 						{ Put: { TableName: this.tableName, Item: botItem } },
@@ -270,7 +271,7 @@ export class DynamoMessagingStore implements MessagingStore {
 						},
 					],
 				}),
-			);
+			));
 		} catch (error) {
 			if (
 				error instanceof TransactionCanceledException &&

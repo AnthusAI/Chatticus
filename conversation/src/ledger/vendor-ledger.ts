@@ -13,6 +13,7 @@ import { vendorLedgerKey } from "../budget/budget-store.ts";
 import { Decimal } from "../budget/decimal.ts";
 import { BILLED_VIA_VENDOR } from "../budget/models.ts";
 import { StaleAttemptError } from "../http/errors.ts";
+import { retryTransient } from "../store/transient-retry.ts";
 import { turnItemPartitionKey } from "../store/turn-events.ts";
 
 const MILLION_EXPONENT = 6;
@@ -283,7 +284,7 @@ export async function recordTurnSpendOnce(
 						},
 					};
 		try {
-			await deps.client.send(
+			await retryTransient(() => deps.client.send(
 				new TransactWriteItemsCommand({
 					TransactItems: [
 						ledgerWrite,
@@ -307,7 +308,7 @@ export async function recordTurnSpendOnce(
 						},
 					],
 				}),
-			);
+			));
 			return true;
 		} catch (error) {
 			if (error instanceof TransactionCanceledException) {

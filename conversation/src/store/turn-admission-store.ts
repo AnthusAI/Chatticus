@@ -12,6 +12,7 @@ import { MAILBOX_PUT_CONDITION, type MailboxItem, mailboxItemAttributes } from "
 import { TURN_EVENT_TTL_SECONDS } from "../domain/turns.ts";
 import { formatIsoDateTime } from "./codecs/util.ts";
 import { turnEventItem, turnItemPartitionKey } from "./turn-events.ts";
+import { retryTransient } from "./transient-retry.ts";
 import { recordLogicalEnqueueOnTurn, turnPointerKey } from "./turn-store.ts";
 
 /**
@@ -103,7 +104,7 @@ export class DynamoTurnAdmission implements TurnAdmission {
 				? []
 				: [{ Put: { TableName: this.tableName, Item: encodeGrant(request.tenantId, request.turnId, request.grant) } }];
 		try {
-			await this.client.send(
+			await retryTransient(() => this.client.send(
 				new TransactWriteItemsCommand({
 					TransactItems: [
 						...grantPuts,
@@ -172,7 +173,7 @@ export class DynamoTurnAdmission implements TurnAdmission {
 						},
 					],
 				}),
-			);
+			));
 			return true;
 		} catch (error) {
 			if (error instanceof TransactionCanceledException) {
@@ -188,7 +189,7 @@ export class DynamoTurnAdmission implements TurnAdmission {
 
 	async steerTurn(turnId: string, item: MailboxItem): Promise<boolean> {
 		try {
-			await this.client.send(
+			await retryTransient(() => this.client.send(
 				new TransactWriteItemsCommand({
 					TransactItems: [
 						{
@@ -210,7 +211,7 @@ export class DynamoTurnAdmission implements TurnAdmission {
 						},
 					],
 				}),
-			);
+			));
 			return true;
 		} catch (error) {
 			if (error instanceof TransactionCanceledException) {

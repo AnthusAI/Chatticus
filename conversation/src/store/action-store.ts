@@ -11,6 +11,7 @@ import {
 import type { ComputerActionStore } from "../domain/actions.ts";
 import { type ComputerAction, decodeAction, encodeAction, encodeActionIndex } from "./codecs/action.ts";
 import { computerActionKey, turnActionIndexKey } from "./keys.ts";
+import { retryTransient } from "./transient-retry.ts";
 
 type Item = Record<string, AttributeValue>;
 
@@ -34,7 +35,7 @@ export class DynamoComputerActionStore implements ComputerActionStore {
 
 	async createIfAbsent(action: ComputerAction): Promise<{ action: ComputerAction; created: boolean }> {
 		try {
-			await this.client.send(
+			await retryTransient(() => this.client.send(
 				new TransactWriteItemsCommand({
 					TransactItems: [
 						{
@@ -47,7 +48,7 @@ export class DynamoComputerActionStore implements ComputerActionStore {
 						{ Put: { TableName: this.tableName, Item: encodeAction(action) } },
 					],
 				}),
-			);
+			));
 			return { action, created: true };
 		} catch (error) {
 			if (!(error instanceof TransactionCanceledException)) throw error;
