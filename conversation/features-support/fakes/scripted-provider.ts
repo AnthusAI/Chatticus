@@ -8,12 +8,14 @@ export type ScriptedUsage = { readonly input: number; readonly output: number };
 /** The default usage every scripted answer reports unless a step says otherwise. */
 export const DEFAULT_SCRIPTED_USAGE: ScriptedUsage = { input: 10, output: 5 };
 
+/** One tool call of a scripted assistant message. */
+export type ScriptedToolCall = { readonly name: string; readonly args: Record<string, unknown> };
+
 type ScriptedStep =
 	| { readonly kind: "reply"; readonly text: string; readonly usage: ScriptedUsage }
 	| {
 			readonly kind: "toolCall";
-			readonly name: string;
-			readonly args: Record<string, unknown>;
+			readonly calls: ReadonlyArray<ScriptedToolCall>;
 			readonly leadingText: string;
 			readonly usage: ScriptedUsage;
 	  }
@@ -88,7 +90,13 @@ export class ScriptedProvider {
 		leadingText = "",
 		usage: ScriptedUsage = DEFAULT_SCRIPTED_USAGE,
 	): this {
-		this.steps.push({ kind: "toolCall", name, args, leadingText, usage });
+		this.steps.push({ kind: "toolCall", calls: [{ name, args }], leadingText, usage });
+		return this;
+	}
+
+	/** Queue one assistant message that calls several tools at once, the way a model issues parallel tool calls. */
+	toolCalls(calls: ReadonlyArray<ScriptedToolCall>, leadingText = "", usage: ScriptedUsage = DEFAULT_SCRIPTED_USAGE): this {
+		this.steps.push({ kind: "toolCall", calls, leadingText, usage });
 		return this;
 	}
 
@@ -230,8 +238,13 @@ export class ScriptedProvider {
 					outer.end(message);
 					return;
 				}
-				const toolCall = { type: "toolCall" as const, id: `call-${this.callCount}`, name: step.name, arguments: step.args as never };
-				const toolIndex = step.leadingText === "" ? 0 : 1;
+				const toolCalls = step.calls.map((call, index) => ({
+					type: "toolCall" as const,
+					id: step.calls.length === 1 ? `call-${this.callCount}` : `call-${this.callCount}-${index}`,
+					name: call.name,
+					arguments: call.args as never,
+				}));
+				const firstToolIndex = step.leadingText === "" ? 0 : 1;
 				const content: AssistantMessage["content"] = [];
 				if (step.leadingText !== "") {
 					const partial = { ...blank, content: [{ type: "text" as const, text: "" }] };
@@ -244,16 +257,20 @@ export class ScriptedProvider {
 					outer.push({ type: "text_end", contentIndex: 0, content: step.leadingText, partial: { ...partial } });
 					content.push({ type: "text", text: step.leadingText });
 				}
-				const withCall = (calls: AssistantMessage["content"]) => ({ ...blank, content: [...content, ...calls] });
-				outer.push({ type: "toolcall_start", contentIndex: toolIndex, partial: withCall([{ ...toolCall, arguments: {} }]) });
-				outer.push({
-					type: "toolcall_delta",
-					contentIndex: toolIndex,
-					delta: JSON.stringify(step.args),
-					partial: withCall([{ ...toolCall, arguments: {} }]),
-				});
-				outer.push({ type: "toolcall_end", contentIndex: toolIndex, toolCall, partial: withCall([toolCall]) });
-				const message = { ...withCall([toolCall]), usage, stopReason: "toolUse" as const };
+				const withCalls = (calls: AssistantMessage["content"]) => ({ ...blank, content: [...content, ...calls] });
+				for (const [index, toolCall] of toolCalls.entries()) {
+					const contentIndex = firstToolIndex + index;
+					const before = toolCalls.slice(0, index);
+					outer.push({ type: "toolcall_start", contentIndex, partial: withCalls([...before, { ...toolCall, arguments: {} }]) });
+					outer.push({
+						type: "toolcall_delta",
+						contentIndex,
+						delta: JSON.stringify(toolCall.arguments),
+						partial: withCalls([...before, { ...toolCall, arguments: {} }]),
+					});
+					outer.push({ type: "toolcall_end", contentIndex, toolCall, partial: withCalls([...before, toolCall]) });
+				}
+				const message = { ...withCalls(toolCalls), usage, stopReason: "toolUse" as const };
 				outer.push({ type: "done", reason: "toolUse", message });
 				outer.end(message);
 			} catch (error) {
