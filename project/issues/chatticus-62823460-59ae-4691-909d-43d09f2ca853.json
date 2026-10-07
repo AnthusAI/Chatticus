@@ -44,7 +44,7 @@
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "Voice works on development, while device, sign-in, routing, and safety tests remain.",
-  "right_now_updated_at": "2026-10-07T11:51:20.231067Z",
+  "right_now_summary": "Voice works on development, while sign-in, device, and long-run testing remain.",
+  "right_now_updated_at": "2026-10-07T18:35:20.526431Z",
   "custom": {}
 }

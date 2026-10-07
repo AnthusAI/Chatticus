@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-48e2f50f-fbaf-4950-802f-162130ef914d",
+  "title": "TS-67 Handoff step 3: the model gateway and the per-session token",
+  "description": "Source: the Pi session handoff spike (PR 474: spikes/pi-handoff, docs/PI_HARNESS.md section 'Spike: handoff to a computer owner', GO in steps) and docs/PI_SESSION_HANDOFF.md. Decision (user): the goal is a Pi session running in the computer container, using Pi's own tools (read, write, edit, bash from @earendil-works/pi-durable/tools), with the session portable between owners. Security gate before production: the container must not hold the model key or broad storage credentials.\n\nA route on the control plane that forwards Pi's model requests (OpenAI Responses API as pi-ai sends them) with the real key from SSM, after verifying a short-lived token bound to tenant, bot and turn (signed, expiring, scoped); streams the answer back; records the spend in the vendor ledger. FIRST PROVE the pi-ai base-URL override (model baseUrl and per-call apiKey, headers, fetch) works end to end against a local fake gateway: the spike did not run it. Scenarios: valid token forwards, expired or wrong-turn token refused, the real key never leaves the control plane, spend recorded once, a stolen token cannot call other turns. Scoped storage credentials (STS session policy on the conversation S3 prefix and DynamoDB leading keys) are designed here and minted by the control plane when it starts the container. No deploy.",
+  "type": "task",
+  "status": "open",
+  "priority": 0,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-07T19:08:48.950285Z",
+  "updated_at": "2026-10-07T19:08:48.950319Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is testing Pi’s model gateway and per-session token flow against a local fake gateway.",
+  "right_now_updated_at": "2026-10-07T19:08:51.312427Z",
+  "custom": {}
+}
