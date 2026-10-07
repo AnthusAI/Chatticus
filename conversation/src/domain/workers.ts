@@ -211,7 +211,8 @@ function workerSnapshotIsStale(record: Worker, computer: Computer): boolean {
 }
 
 /**
- * Choose a healthy worker for a turn: capable, on the job's computer, hydrated, allowed by the policy, and cheapest by
+ * Choose a healthy worker for a turn: a computer whose record says it is stopped has no live host whatever the age of its
+ * last heartbeat, so a job naming it gets no worker. Otherwise capable, on the job's computer, hydrated, allowed by the policy, and cheapest by
  * cost class then most recently heard from. Returns null when no worker matches.
  *
  * Ported from python/src/chatticus/control_plane.py lines 784-837.
@@ -228,6 +229,9 @@ export async function assignTurn(
 		const organizationComputer = await deps.store.getComputer(job.tenantId);
 		const computer = organizationComputer?.computerId === job.computerId ? organizationComputer : null;
 		if (computer !== null) {
+			if (computer.stopped) {
+				return null;
+			}
 			candidates = candidates.filter((record) => !workerSnapshotIsStale(record, computer));
 			if (computer.hydrateRequired) {
 				if (computer.intendedHostWorkerId === undefined) {
