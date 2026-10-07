@@ -61,7 +61,7 @@ on develop; its path namespace is orthogonal and changes nothing here).
 - `conversation/src/budget/` : the budget rollup and alert recorder Lambdas'
   code and the vendor-ledger and rollup item codecs.
 - `conversation/features-support/` : the cucumber-js foundation
-  (`world.ts`, `hooks.ts`, a moto-backed table) and `features/ported-features.txt`,
+  (`world.ts`, `hooks.ts`, a moto-backed table) and `features/cucumber-features.txt`,
   the manifest that excludes ported features from behave.
 - Reference only, not on develop: commit `50efa62c` (prototype turn runner,
   Pi worker, SQS handler). Its good ideas are kept (per-turn `requestId`,
@@ -783,7 +783,7 @@ no longer exists: the loop is "claim, execute, report".
 ### 6.1 The World
 
 One cucumber-js project (`control-plane/`, currently `conversation/`), TypeScript
-steps, the existing manifest `features/ported-features.txt`. The World
+steps, the existing manifest `features/cucumber-features.txt`. The World
 (`ChatticusWorld`, extending what is on develop) is built from **ports** with
 exactly one implementation each:
 
@@ -873,7 +873,7 @@ Rule: **step text does not change unless the behavior changed.** A diff in a
    the new queues, FrontDoor, executor, probe and starter Lambdas with their
    **own Function URL**. CloudFront still points at the Python FrontDoor.
 2. **Port per feature**: when a feature's TypeScript lands, it is added to
-   `ported-features.txt` and its Python steps are deleted in the same PR (the
+   `cucumber-features.txt` and its Python steps are deleted in the same PR (the
    behave exclusion is automatic). Shared step files shrink; the last consumer
    deletes them.
 3. **Rehearsal**: run the full suite and the black-box acceptance runner
@@ -933,7 +933,7 @@ proves the call and is pasted into the ticket as the reference. **N** = new,
 fully specified here. Every ticket writes or extends its Gherkin first, then
 steps, then code. "Features" are the existing `features/*.feature` that must
 pass under cucumber-js when the ticket closes; moving them to
-`ported-features.txt` and deleting their exclusive Python steps is part of the
+`cucumber-features.txt` and deleting their exclusive Python steps is part of the
 ticket. Paths are under `control-plane/src/` unless stated. Any ticket whose
 Python source is over about 600 lines is split by file as shown.
 

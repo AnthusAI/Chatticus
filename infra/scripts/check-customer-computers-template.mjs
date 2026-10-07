@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Synth CustomerComputersStack and fail when the committed Python artifact drifts.
+ * Synth CustomerComputersStack and fail when the committed template asset drifts.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -9,11 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const infraDir = join(scriptDir, "..");
-const repoRoot = join(infraDir, "..");
-const artifactPath = join(
-  repoRoot,
-  "python/src/chatticus/assets/customer-computers.template.json",
-);
+const artifactPath = join(infraDir, "assets/customer-computers-template.json");
 
 execFileSync(
   "npx",

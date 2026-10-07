@@ -56,12 +56,6 @@ describe("customer role template", () => {
 });
 
 describe("customer computers template asset", () => {
-	it("is the same artifact the CDK synth check guards until the Python copy is deleted", () => {
-		const infraCopy = readFileSync(new URL("infra/assets/customer-computers-template.json", repositoryRoot), "utf8");
-		const pythonCopy = readFileSync(new URL("python/src/chatticus/assets/customer-computers.template.json", repositoryRoot), "utf8");
-		expect(infraCopy).toBe(pythonCopy);
-	});
-
 	it("is under the CreateStack body limit and carries no CDK bootstrap", () => {
 		const body = customerComputersTemplateBody();
 		expect(Buffer.byteLength(body, "utf8")).toBeLessThanOrEqual(CREATE_STACK_TEMPLATE_BYTE_LIMIT);

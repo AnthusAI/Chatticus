@@ -2,7 +2,7 @@
 
 Every Gherkin scenario that ran only under Python behave must end in exactly one state before python/ is deleted (Kanbus chatticus-f27222, TS-40d).
 
-- PORTED: runs under cucumber-js from features/ported-features.txt; Python behave excludes it (python/behave.ini).
+- PORTED: runs under cucumber-js from features/cucumber-features.txt; Python behave excludes it (python/behave.ini).
 - COVERED-BY: an existing ported scenario proves the same behavior; the evidence names it and the mutation that makes it fail.
 - OBSOLETE: the behavior no longer exists in the TypeScript design, or belongs to the private repo AnthusAI/Chattic.us-web; the reason is cited.
 

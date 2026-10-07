@@ -468,6 +468,12 @@ ruff check src ../features tests
 `black` and `ruff` versions are pinned in `python/pyproject.toml` so local
 `pip install -e ".[dev]"` matches GitHub CI.
 
+The TypeScript `conversation/` tests and cucumber-js features run against a
+moto container. Start it with `npm run moto:start` (port 5555, image pinned to
+`motoserver/moto:5.2.3`), then from `conversation/` run `npm test` and
+`npm run test:features`. Set `CHATTICUS_TEST_AWS_ENDPOINT` to use another port.
+`features/cucumber-features.txt` is the list of features cucumber-js runs.
+
 The deployed thin turn is exercised against a **named cloud environment**
 (CloudFront on development only today), not against an in-process queue.
 GitHub CI (`behave`, `pytest`) uses in-memory stores and moto. Live stack
