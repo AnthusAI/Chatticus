@@ -115,3 +115,4 @@ features/principal_authorization.feature
 features/chattic_us_web.feature
 features/turn_transient_store_faults.feature
 features/computer_without_browser.feature
+features/computer_owner_handoff.feature

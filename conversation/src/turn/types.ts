@@ -1,12 +1,15 @@
 import type { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { S3Client } from "@aws-sdk/client-s3";
 import type { Context } from "@earendil-works/chord";
+import type { Extension } from "@earendil-works/pi-durable";
 import type { Models } from "@earendil-works/pi-ai/models";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { TurnDependencies } from "../domain/turns.ts";
 import type { TurnProbeQueue, TurnRunQueue, TurnRunVisibility } from "../domain/turn-admission.ts";
+import type { ComputerToolHandoff } from "../pi/computer-tools.ts";
+import type { OwnerSessionDependencies } from "../pi/session.ts";
 import type { ComputerHandoffDependencies } from "./park.ts";
 import type { FaultPlan } from "./fault-plan.ts";
 
@@ -75,6 +78,13 @@ export type ExecutorDeps = {
 	readonly remainingMilliseconds?: () => number;
 	/** The computer handoff: actions, start jobs and the spend ceiling pause. */
 	readonly computer: ComputerHandoffDependencies;
+	/**
+	 * Builds the extension that supplies the computer tools of the session. Absent, the owner registers the remote tools
+	 * that record an action and park the turn for a host; a computer owner registers local tools instead.
+	 */
+	readonly computerTools?: (handoff: ComputerToolHandoff) => Extension;
+	/** The execution environment of Pi's own tools, passed to the session; only an owner that runs them sets it. */
+	readonly env?: OwnerSessionDependencies["env"];
 	/** Crash injection for tests; never set in production. */
 	readonly faults?: FaultPlan;
 };
