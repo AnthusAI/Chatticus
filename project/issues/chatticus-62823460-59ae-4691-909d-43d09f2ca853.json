@@ -44,7 +44,7 @@
     "model": "Opus 5.5",
     "name": "Claude"
   },
-  "right_now_summary": "Voice control is live on development, with device, sign-in, and reliability testing still needed.",
-  "right_now_updated_at": "2026-10-04T19:18:15.768649Z",
+  "right_now_summary": "Voice works on development, while device, sign-in, routing, and safety tests remain.",
+  "right_now_updated_at": "2026-10-07T11:51:20.231067Z",
   "custom": {}
 }
