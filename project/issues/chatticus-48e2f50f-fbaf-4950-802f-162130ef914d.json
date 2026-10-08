@@ -3,23 +3,36 @@
   "title": "TS-67 Handoff step 3: the model gateway and the per-session token",
   "description": "Source: the Pi session handoff spike (PR 474: spikes/pi-handoff, docs/PI_HARNESS.md section 'Spike: handoff to a computer owner', GO in steps) and docs/PI_SESSION_HANDOFF.md. Decision (user): the goal is a Pi session running in the computer container, using Pi's own tools (read, write, edit, bash from @earendil-works/pi-durable/tools), with the session portable between owners. Security gate before production: the container must not hold the model key or broad storage credentials.\n\nA route on the control plane that forwards Pi's model requests (OpenAI Responses API as pi-ai sends them) with the real key from SSM, after verifying a short-lived token bound to tenant, bot and turn (signed, expiring, scoped); streams the answer back; records the spend in the vendor ledger. FIRST PROVE the pi-ai base-URL override (model baseUrl and per-call apiKey, headers, fetch) works end to end against a local fake gateway: the spike did not run it. Scenarios: valid token forwards, expired or wrong-turn token refused, the real key never leaves the control plane, spend recorded once, a stolen token cannot call other turns. Scoped storage credentials (STS session policy on the conversation S3 prefix and DynamoDB leading keys) are designed here and minted by the control plane when it starts the container. No deploy.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "5634017e-61f6-464c-bd20-8bd235f4cbca",
+      "author": "home",
+      "text": "Merged in PR 479. pi-ai baseUrl/apiKey override proven end to end (fake gateway and real route). Token binds tenant, bot, turn, attempt; route mounts only when the signing-key secret ARN is set. 22 scenarios, 7 security mutations caught. Limits: spend recorded at stream end (early disconnect leaves a call unrecorded); no model allow-list or per-call ceiling. For TS-68: expose the route through CloudFront/Lambda unbuffered, create the signing-key secret, mint the token at container start, call sts:AssumeRole with buildSessionPolicy, close the 169.254.170.2 gap.",
+      "created_at": "2026-10-08T02:25:31.678499Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-07T19:08:48.950285Z",
-  "updated_at": "2026-10-07T19:08:48.950319Z",
-  "closed_at": null,
+  "updated_at": "2026-10-08T02:25:37.095987Z",
+  "closed_at": "2026-10-08T02:25:37.095904Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is testing Pi’s model gateway and per-session token flow against a local fake gateway.",
-  "right_now_updated_at": "2026-10-07T19:08:51.312427Z",
+  "right_now_summary": "The gateway and token flow are proven; follow-up work covers deployment, token minting, and spend limits.",
+  "right_now_updated_at": "2026-10-08T02:25:38.962660Z",
   "custom": {}
 }

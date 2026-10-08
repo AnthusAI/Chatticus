@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "3bffa1d7-1f1e-4474-ac3f-88dc3b9e595b",
+      "author": "home",
+      "text": "Third occurrence (PR 479). The log says: An error occurred in next/font, TypeError: Cannot read properties of null (reading 1). Likely the build fetching Google Fonts over the network; consider bundling the fonts locally (next/font/local).",
+      "created_at": "2026-10-08T02:25:41.072683Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-08T00:47:37.656015Z",
-  "updated_at": "2026-10-08T00:47:37.656057Z",
+  "updated_at": "2026-10-08T02:25:41.072704Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "CI’s web build fails on some first runs, then passes when rerun; the cause remains unknown.",
-  "right_now_updated_at": "2026-10-08T00:47:39.544607Z",
+  "right_now_summary": "The CI build intermittently fails when next/font fetches Google Fonts over the network.",
+  "right_now_updated_at": "2026-10-08T02:25:42.043186Z",
   "custom": {}
 }

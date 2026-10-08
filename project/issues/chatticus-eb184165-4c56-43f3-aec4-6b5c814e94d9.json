@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "307fe169-4a28-47fd-b78c-4b333091c323",
+      "author": "home",
+      "text": "Fixed as far as step headroom goes in PR 480 (long steps split, test timers lengthened). Scenario totals unchanged (about 15 s and 9 s). Follow-up: cut the roughly 135 DynamoDB/S3 round trips per park/resume cycle (pi-durable context scans, guard commit).",
+      "created_at": "2026-10-08T02:25:44.228495Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-08T00:47:42.027497Z",
-  "updated_at": "2026-10-08T00:47:42.027552Z",
+  "updated_at": "2026-10-08T02:25:44.228530Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "Two CI Cucumber scenarios time out under parallel load but pass alone; their slowdown or hang needs fixing.",
-  "right_now_updated_at": "2026-10-08T00:47:43.894074Z",
+  "right_now_summary": "The fix now targets excess DynamoDB and S3 calls during park and resume cycles.",
+  "right_now_updated_at": "2026-10-08T02:25:45.844194Z",
   "custom": {}
 }
