@@ -148,7 +148,13 @@ Feature: Computer action handoff
       | /workspace/echo.txt |
       | /workspace/foxtrot.txt |
     And bot "Researcher" is asked "check the six notes"
-    When bot "Researcher" works its turn while host worker "garage-mac-1" answers every computer action until the turn ends
+    When bot "Researcher" works its turn until it waits for the computer
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
+    And host worker "garage-mac-1" answers every computer action, then bot "Researcher" works its turn
     Then the turn is completed
     And the host executed "read_workspace" 6 times
     And the turn has 6 computer actions and all are done

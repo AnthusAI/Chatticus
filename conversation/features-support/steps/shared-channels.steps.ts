@@ -216,21 +216,32 @@ Then(
 	},
 );
 
+async function asMemberOnFirstBot<T>(world: ChatticusWorld, email: string, work: (botName: string) => Promise<T>): Promise<T> {
+	const botName = [...(world.botsByName?.keys() ?? [])][0]!;
+	const creator = world.botCreatorUserIds.get(botName);
+	world.botCreatorUserIds.set(botName, userIdOf(world, email));
+	try {
+		return await work(botName);
+	} finally {
+		if (creator !== undefined) world.botCreatorUserIds.set(botName, creator);
+	}
+}
+
 Then(
-	"{string} can continue file {string} on the organization computer",
-	async function (this: ChatticusWorld, email: string, file: string) {
-		const botName = [...(this.botsByName?.keys() ?? [])][0]!;
-		const memberUserId = userIdOf(this, email);
-		const creator = this.botCreatorUserIds.get(botName);
-		this.botCreatorUserIds.set(botName, memberUserId);
-		try {
-			const existing = await useComputer(this, botName, `read workspace file /workspace/${file}`);
-			const continued = `${existing.body} continued`;
-			await useComputer(this, botName, `write workspace file /workspace/${file} containing ${continued}`);
-			const reread = await useComputer(this, botName, `read workspace file /workspace/${file}`);
-			assert.equal(reread.body, continued);
-		} finally {
-			if (creator !== undefined) this.botCreatorUserIds.set(botName, creator);
-		}
+	"{string} can read {string} as {string} from the organization computer",
+	async function (this: ChatticusWorld, email: string, file: string, content: string) {
+		const result = await asMemberOnFirstBot(this, email, (botName) =>
+			useComputer(this, botName, `read workspace file /workspace/${file}`),
+		);
+		assert.equal(result.body, content);
+	},
+);
+
+When(
+	"{string} writes {string} containing {string} on the organization computer",
+	async function (this: ChatticusWorld, email: string, file: string, content: string) {
+		await asMemberOnFirstBot(this, email, (botName) =>
+			useComputer(this, botName, `write workspace file /workspace/${file} containing ${content}`),
+		);
 	},
 );

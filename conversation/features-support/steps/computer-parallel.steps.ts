@@ -6,8 +6,6 @@ import { modelScenarioOf } from "../executor-harness.ts";
 import { activeTurnOf } from "../turn-grant-support.ts";
 import type { ChatticusWorld } from "../world.ts";
 
-const MAXIMUM_ROUNDS = 12;
-
 Given(
 	"the model is scripted to read these workspace files in one message and then answer {string}:",
 	function (this: ChatticusWorld, answer: string, table: { raw(): string[][] }) {
@@ -17,16 +15,13 @@ Given(
 );
 
 When(
-	"bot {string} works its turn while host worker {string} answers every computer action until the turn ends",
-	async function (this: ChatticusWorld, botName: string, workerId: string) {
+	"host worker {string} answers every computer action, then bot {string} works its turn",
+	async function (this: ChatticusWorld, workerId: string, botName: string) {
 		const host = hostNamed(this, workerId);
-		for (let round = 0; round < MAXIMUM_ROUNDS; round += 1) {
-			if ((await workTurn(this, botName)) !== "parked") return;
-			let answered = 0;
-			while ((await host.runNextAction()) !== null) answered += 1;
-			assert.ok(answered > 0, "The turn parked and the host found no action to answer.");
-		}
-		assert.fail(`The turn was still parked after ${MAXIMUM_ROUNDS} rounds.`);
+		let answered = 0;
+		while ((await host.runNextAction()) !== null) answered += 1;
+		assert.ok(answered > 0, "The turn parked and the host found no action to answer.");
+		await workTurn(this, botName);
 	},
 );
 

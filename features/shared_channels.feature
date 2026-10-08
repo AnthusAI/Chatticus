@@ -40,4 +40,6 @@ Feature: Shared organization channels and teammates
     When organization bot "Researcher" writes "accounts.md" containing "top ten accounts" on the organization computer
     And organization bot "Researcher" posts "wrote /workspace/accounts.md" addressed to organization bot "Writer" in shared channel "handoff"
     Then organization bot "Writer" can read "accounts.md" as "top ten accounts" from the organization computer
-    And "sam@example.com" can continue file "accounts.md" on the organization computer
+    And "sam@example.com" can read "accounts.md" as "top ten accounts" from the organization computer
+    And "sam@example.com" writes "accounts.md" containing "top ten accounts continued" on the organization computer
+    And "sam@example.com" can read "accounts.md" as "top ten accounts continued" from the organization computer
