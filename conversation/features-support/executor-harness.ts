@@ -86,8 +86,8 @@ export const existingModelScenario = (world: ChatticusWorld): ModelScenario | un
 export const hasModelScenario = (world: ChatticusWorld): boolean => scenarios.has(world);
 
 const TEST_TUNING: Partial<ExecutorTuning> = {
-	renewIntervalMilliseconds: 50,
-	mailboxPollMilliseconds: 20,
+	renewIntervalMilliseconds: 1000,
+	mailboxPollMilliseconds: 100,
 	retry: { maxRetries: 2, baseDelayMilliseconds: 5 },
 };
 
