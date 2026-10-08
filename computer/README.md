@@ -27,6 +27,15 @@ scale the service back to 0:
 sh computer/test_fargate.sh
 ```
 
+Prove the container owner program and its unprivileged shell in a real container
+(needs Docker, no AWS). It builds the image, starts the owner, runs commands the
+way the owner runs a model-chosen command, and checks that they run as the shell
+user and cannot read the owner's credentials:
+
+```bash
+sh computer/test_owner_container.sh
+```
+
 Push a rebuilt image to ECR without changing the Computers service:
 
 ```bash

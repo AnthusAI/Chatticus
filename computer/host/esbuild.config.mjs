@@ -9,6 +9,7 @@ const outputDirectory = process.env["CHATTICUS_HOST_BUNDLE_DIR"] ?? resolve(host
 await build({
 	entryPoints: {
 		"host-worker": resolve(hostDirectory, "src", "main.ts"),
+		owner: resolve(hostDirectory, "src", "owner-main.ts"),
 		snapshot: resolve(repositoryRoot, "conversation", "bin", "snapshot.ts"),
 	},
 	outdir: outputDirectory,

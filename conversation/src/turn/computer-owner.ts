@@ -28,6 +28,8 @@ export type ComputerOwnerOptions = {
 	readonly workspacePath?: string;
 	/** Identifies this owner on the computer actions it claims and on the turn it claims. */
 	readonly workerId: string;
+	/** The program the model's commands are started through (see `LocalComputerToolsOptions.shellPath`); the default shell when absent. */
+	readonly shellPath?: string;
 	/** Called after a local tool ran and before its answer is recorded; a scenario holds the owner here to stand for a crash. */
 	readonly beforeRecording?: (call: ComputerToolCall) => Promise<void>;
 };
@@ -72,12 +74,13 @@ export async function takeOverTurn(job: TurnExecutionJob, deps: ExecutorDeps, op
 	return executeTurn(job, {
 		...deps,
 		workerLabel: options.workerId,
-		env: () => new NodeExecutionEnv({ cwd: options.workspaceRoot }),
+		env: () => new NodeExecutionEnv({ cwd: options.workspaceRoot, ...(options.shellPath === undefined ? {} : { shellPath: options.shellPath }) }),
 		computerTools: (handoff) =>
 			localComputerToolsExtension(handoff, {
 				workspaceRoot: options.workspaceRoot,
 				workspacePath: options.workspacePath,
 				workerId: options.workerId,
+				shellPath: options.shellPath,
 				turn,
 				actions: deps.computer.actions,
 				messaging: deps.messaging,

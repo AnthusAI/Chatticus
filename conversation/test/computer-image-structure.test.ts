@@ -43,4 +43,15 @@ describe("computer image structure", () => {
 		expect(entrypoint).not.toMatch(/python/i);
 		expect(entrypoint).toContain('exec "$@"');
 	});
+
+	it("bundles the owner program and runs model-chosen commands as an unprivileged user", () => {
+		const launcher = readFileSync(resolve(repositoryRoot, "computer", "chatticus-shell"), "utf-8");
+		expect(bundleConfig).toContain("owner:");
+		expect(dockerfile).toContain("useradd --uid 2000");
+		expect(dockerfile).toContain("COPY computer/chatticus-shell /usr/local/bin/chatticus-shell");
+		expect(dockerfile).not.toMatch(/^USER /m);
+		expect(launcher).toContain("--reuid=chatticus-shell");
+		expect(launcher).toContain("--no-new-privs");
+		expect(launcher).toContain("--bounding-set=-all");
+	});
 });

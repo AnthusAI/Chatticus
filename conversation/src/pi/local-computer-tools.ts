@@ -140,6 +140,12 @@ export type LocalComputerToolsOptions = {
 	readonly workspacePath?: string;
 	/** Identifies this owner on the actions it claims. */
 	readonly workerId: string;
+	/**
+	 * The program the model's commands are started through, called as `<shellPath> -c <command>`; the owner's own default
+	 * shell when absent. A computer that must keep commands away from the owner's credentials sets a launcher that
+	 * switches to an unprivileged user before it runs the command.
+	 */
+	readonly shellPath?: string;
 	/** The turn the tools run for; its actions belong to it. */
 	readonly turn: Pick<Turn, "tenantId" | "turnId" | "channelId" | "botId" | "promptAuthorId">;
 	readonly actions: ComputerActionStore;
@@ -171,7 +177,7 @@ const requiredString = (args: Record<string, unknown>, name: string): string => 
  */
 export function localComputerToolsExtension(handoff: ComputerToolHandoff, options: LocalComputerToolsOptions): Extension {
 	const virtualRoot = options.workspacePath ?? WORKSPACE_VIRTUAL_ROOT;
-	const env = new NodeExecutionEnv({ cwd: options.workspaceRoot });
+	const env = new NodeExecutionEnv({ cwd: options.workspaceRoot, ...(options.shellPath === undefined ? {} : { shellPath: options.shellPath }) });
 	const readTool = createReadTool() as unknown as ToolRegistration;
 	const writeTool = createWriteTool() as unknown as ToolRegistration;
 	const editTool = createEditTool() as unknown as ToolRegistration;
