@@ -13,6 +13,7 @@ import { DynamoBudgetStore } from "../budget/budget-store.ts";
 import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS } from "../domain/workers.ts";
 import { parseSignupMode } from "../domain/signup-mode.ts";
 import { createApp } from "../http/app.ts";
+import type { ModelGatewayDependencies } from "../gateway/model-gateway.ts";
 import { VendorPriceBook } from "../ledger/vendor-ledger.ts";
 import { MessageBodyCache } from "../pi/message-cache.ts";
 import type { CommitObject } from "../storage/indexed-storage.ts";
@@ -64,6 +65,12 @@ export const REQUIRED_FRONT_DOOR_ENVIRONMENT = [
 	"CHATTICUS_INVOKE_KEY_SECRET_ARN",
 	"CHATTICUS_OPERATOR_KEY_SECRET_ARN",
 ] as const;
+
+/** Names the Secrets Manager secret holding the model gateway's session token signing key. The gateway is mounted only when it is set. */
+export const MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN_VARIABLE = "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN";
+
+/** The vendor address the gateway forwards to unless `CHATTICUS_MODEL_GATEWAY_UPSTREAM_URL` names another. */
+export const DEFAULT_MODEL_GATEWAY_UPSTREAM_URL = "https://api.openai.com/v1";
 
 const requiredIn = (environment: Record<string, string | undefined>, name: string): string => {
 	const value = environment[name];
@@ -167,7 +174,24 @@ export async function composeFrontDoorApp(
 			integrationTest.userId,
 		);
 	}
+	const gatewaySecretArn = environment[MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN_VARIABLE] ?? "";
+	const modelGateway: ModelGatewayDependencies | undefined =
+		gatewaySecretArn === ""
+			? undefined
+			: {
+					signingKey: await readSecretString(clients.secrets, gatewaySecretArn),
+					clock,
+					turns: new DynamoTurnControlStore(client, messagingTableName),
+					ledger: { client, tableName: messagingTableName, prices, now: () => new Date() },
+					upstream: {
+						baseUrl: environment["CHATTICUS_MODEL_GATEWAY_UPSTREAM_URL"] || DEFAULT_MODEL_GATEWAY_UPSTREAM_URL,
+						apiKey: requiredIn(environment, "OPENAI_API_KEY"),
+						fetch: (input, init) => fetch(input, init),
+					},
+					log: (event) => console.log(JSON.stringify({ component: "model-gateway", ...event })),
+				};
 	return createApp({
+		modelGateway,
 		writeGate: new CachedFailClosedWriteGate(new DynamoWriteGate(client, messagingTableName), clock),
 		clock,
 		ids,

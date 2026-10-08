@@ -238,6 +238,64 @@ account must not write to the transcript store
 That leaves two paths in the system. The working rules in `AGENTS.md` ask for
 one path, so this needs an explicit decision.
 
+### What exists now (TS-67)
+
+Built and covered by `features/model_gateway.feature` and
+`features/session_storage_policy.feature`; nothing is deployed.
+
+- **The base-URL override works.** A pi-ai OpenAI Responses model with its
+  `baseUrl` and per-call API key replaced (`createGatewayModels`) sends its
+  request to the given address with `Authorization: Bearer <token>`, and parses
+  the answer streamed back. This was run against a local fake endpoint and
+  against the real gateway route.
+- **Session token** (`conversation/src/gateway/session-token.ts`). Signed with
+  HMAC-SHA-256 (`ct1.<claims>.<signature>`), expiring, bound to tenant, bot,
+  turn and the attempt that owns the turn. Pure `mintSessionToken` and
+  `verifySessionToken`; the signing key is an injected string of at least 32
+  characters.
+- **Gateway route** (`conversation/src/gateway/model-gateway.ts`):
+  `POST /orgs/{tenant_id}/model-gateway/v1/responses`, audience `model-gateway`.
+  It verifies the token, requires the path organization to equal the token's,
+  requires the turn to be active for that bot and attempt, forwards the body to
+  the vendor with the real key, streams the answer back chunk by chunk, and
+  records the spend once from the final `response.completed` usage through
+  `recordVendorSpend`. Refusals are 401 (no, malformed, forged or expired
+  token) or 403 (wrong organization, or the turn is not the running one).
+  A vendor failure is a 502 that carries only the vendor's status, never its
+  text, because a vendor can echo part of a key. The vendor call is an injected
+  `fetch`; the key is an injected string.
+- **Mounting.** `composeFrontDoorApp` mounts the route only when
+  `CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN` is set. It reads the key
+  from that secret and the vendor key from `OPENAI_API_KEY` (already resolved
+  from SSM), and logs one JSON line per refusal, vendor failure and recorded
+  spend, without secrets.
+- **Scoped storage policy** (`conversation/src/gateway/session-policy.ts`).
+  `buildSessionPolicy` returns the IAM session policy as data for one
+  `tenant#bot#channel` session: object get, put and delete under
+  `conversations/<storage>/`, list of the bucket restricted to that prefix, and
+  item actions on the conversation table and its indexes with
+  `dynamodb:LeadingKeys` equal to `PI#<storage>`. Identifiers with wildcards,
+  `$` or `#` are refused. Nothing calls STS.
+
+What TS-68 must wire:
+
+1. Expose the route. The front door is behind the invoke key header; the
+   container reaches it through the same CloudFront path, so the origin header
+   is added there. Confirm the CloudFront behavior forwards `/orgs/*` POSTs to the
+   Lambda unbuffered; this was not checked here.
+2. Create the signing-key secret, grant the front door Lambda read access, and
+   set `CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN`. The Lambda's
+   function-URL timeout and streaming mode must allow a full model answer.
+3. At container start, the control plane (the component that claims the turn)
+   mints the token with the attempt id it holds and a lifetime covering the
+   turn, passes it with `CHATTICUS_MODEL_GATEWAY_URL`
+   (`.../orgs/{tenant}/model-gateway/v1`) and `CHATTICUS_MODEL_GATEWAY_TOKEN`,
+   calls `sts:AssumeRole` with `buildSessionPolicy` as the session policy, and
+   hands the temporary credentials to the owner process only.
+4. Decide a model allow-list and a per-call spend ceiling at the gateway; today
+   any model name in the body is forwarded. A client that drops the connection
+   before the final usage event leaves that call unrecorded.
+
 ## Computer sizes and moving between them
 
 Today there is one computer image. The proposal makes the session the thing that

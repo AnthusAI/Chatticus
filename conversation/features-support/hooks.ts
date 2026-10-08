@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { existingModelScenario } from "./executor-harness.ts";
+import { closeGatewayScenario } from "./model-gateway-support.ts";
 import { dropPiStorage } from "./pi-storage.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -21,6 +22,7 @@ After(async function (this: ChatticusWorld) {
 	if (this.httpServer) {
 		await this.httpServer.close();
 	}
+	await closeGatewayScenario(this);
 	await dropPiStorage(this);
 	await this.messagingTable.drop();
 	this.messagingTable.client.destroy();

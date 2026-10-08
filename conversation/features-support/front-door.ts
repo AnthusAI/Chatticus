@@ -11,6 +11,7 @@ import { DynamoTurnControlStore } from "../src/store/turn-store.ts";
 import { ApiClient } from "./api.ts";
 import { computerHandoffDependenciesFor } from "./computer-support.ts";
 import { ledgerDependenciesFor } from "./executor-harness.ts";
+import { modelGatewayFor } from "./model-gateway-support.ts";
 import { ensurePiStorage, type ScenarioPiStorage } from "./pi-storage.ts";
 import { startAppServer } from "./http-server.ts";
 import { probeQueueOf, runQueueOf, TURN_RUN_QUEUE } from "./turn-queues.ts";
@@ -78,6 +79,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		messages: messageDependencies(world, await ensurePiStorage(world)),
 		voice: { understanding: world.scriptedUnderstanding, ledger: ledgerDependenciesFor(world) },
 		turnControl: world.turnControlStore(),
+		modelGateway: modelGatewayFor(world),
 		policy: new DynamoPolicyStore(world.messagingTable.client, world.messagingTable.tableName),
 		computer: computerHandoffDependenciesFor(world),
 		budgetRollups: world.store,

@@ -25,6 +25,7 @@ import { listChannelMessagesHandler, postChannelMessageHandler } from "./routes/
 import { createUserTaskHandler, getTaskHandler, listUserTasksHandler, patchTaskHandler } from "./routes/tasks.ts";
 import { postVoiceMessageHandler } from "./routes/voice-messages.ts";
 import type { VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
+import { modelGatewayResponsesHandler, type ModelGatewayDependencies } from "../gateway/model-gateway.ts";
 import type { UserUnderstanding } from "../voice/understanding.ts";
 import type { MessageDependencies } from "../domain/messages.ts";
 import type { TurnControlStore } from "../domain/turns.ts";
@@ -111,6 +112,8 @@ export interface AppDeps {
 	streamClock?: StreamClock;
 	/** Counts the turn streams open right now; defaults to a private counter. */
 	openStreams?: OpenStreamCounter;
+	/** The model gateway a container reaches with a session token; its route is registered only when this is given. */
+	modelGateway?: ModelGatewayDependencies;
 }
 
 /**
@@ -359,6 +362,13 @@ export function createApp(deps: AppDeps): Hono {
 	] as const;
 	for (const [method, path, handler] of hostPaths) {
 		declareRoute(app, { method, path: `/orgs/:tenant_id/host${path}`, audience: "worker" }, (c) => handler(c, hostRoutes));
+	}
+
+	const modelGateway = deps.modelGateway;
+	if (modelGateway !== undefined) {
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/model-gateway/v1/responses", audience: "model-gateway" }, (c) =>
+			modelGatewayResponsesHandler(c, modelGateway),
+		);
 	}
 
 	for (const action of ["enable", "suspend", "reinstate"] as const) {
