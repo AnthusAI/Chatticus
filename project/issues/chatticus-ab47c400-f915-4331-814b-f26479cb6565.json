@@ -3,23 +3,36 @@
   "title": "TS-71 Parallel tool calls: only 2 of 6 results reached the recorded events and the model invented the rest",
   "description": "Live rehearsal 2026-10-07, verification turn: the model issued 6 parallel run_terminal calls; the event stream holds results for 2 (sha256 hashes, git log). The final answer contained plausible output for the other 4 (node --test, git status, git show) and said assuming clean. Find whether results are lost in the executor/ledger/host protocol or the model fabricated them. Scenario: a turn with N parallel computer tool calls records and returns N results. Mutation checks.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "d2bf8dd2-66e1-4f68-af9f-b4e928c203ad",
+      "author": "home",
+      "text": "Root cause: pi-durable runs a round of tool calls in parallel; when one computer call parked, the owner closed the session and the event stream dropped sibling tool.result events (3 of 6 in-process, 2 of 6 live). Fixed in PR 477: computer tools run sequentially. Live check after deploy: 6 calls, 6 tool results, all six lines in the answer, 1 host start, 0 ECS tasks left. Untested: a race between call k finishing and call k+1 parking.",
+      "created_at": "2026-10-08T00:47:20.724883Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-07T21:17:19.956113Z",
-  "updated_at": "2026-10-07T21:17:19.956178Z",
-  "closed_at": null,
+  "updated_at": "2026-10-08T00:47:25.138583Z",
+  "closed_at": "2026-10-08T00:47:25.138528Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "Four tool results went missing, and the model invented their outputs.",
-  "right_now_updated_at": "2026-10-07T21:17:21.120528Z",
+  "right_now_summary": "Parallel tool results were lost when a parked call closed the session; PR 477 now runs calls sequentially.",
+  "right_now_updated_at": "2026-10-08T00:47:26.456310Z",
   "custom": {}
 }

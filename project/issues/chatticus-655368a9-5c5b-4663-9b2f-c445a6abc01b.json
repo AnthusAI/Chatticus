@@ -3,7 +3,7 @@
   "title": "TS-66 Handoff step 2: the container owner entry point and the unprivileged shell",
   "description": "Source: the Pi session handoff spike (PR 474: spikes/pi-handoff, docs/PI_HARNESS.md section 'Spike: handoff to a computer owner', GO in steps) and docs/PI_SESSION_HANDOFF.md. Decision (user): the goal is a Pi session running in the computer container, using Pi's own tools (read, write, edit, bash from @earendil-works/pi-durable/tools), with the session portable between owners. Security gate before production: the container must not hold the model key or broad storage credentials.\n\ncomputer/host: an owner entry point bundled with esbuild (about 4 MB) that takes over a turn with takeOverTurn (TS-65) inside the container; the model-chosen shell commands run as a different unprivileged uid with a scrubbed environment (the spike found a same-user child could read /proc/PPID/environ; a different uid cannot); image changes (a shell user, no credentials readable by it); run it in the local arm64 container against the moto container over a bridge network (host.docker.internal was unreliable) with the faux provider and measure start to first tool result; a scenario or test proving the shell user cannot read the owner's environment or files. No AWS.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -15,16 +15,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "5d6c0643-6371-4665-8d00-185d9fd9b4e6",
+      "author": "home",
+      "text": "Merged in PR 478. Deviations: no host-protocol route for takeover jobs yet (injected source, defaults to env vars CHATTICUS_TAKEOVER_TURN_ID and CHATTICUS_TAKEOVER_BOT_ID); container test uses a shell probe, not a full faux-provider turn. Open for TS-68: the unprivileged shell can reach the Fargate task-credentials endpoint 169.254.170.2 (needs iptables with NET_ADMIN, must be closed before the live handoff ships); run chown of /workspace after hydration with the owner as root; NO_OP_COMPUTER_STARTS drops start jobs if a turn parks again inside the container.",
+      "created_at": "2026-10-08T00:47:28.371329Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-07T19:08:45.017811Z",
-  "updated_at": "2026-10-07T19:09:01.392958Z",
-  "closed_at": null,
+  "updated_at": "2026-10-08T00:47:33.214523Z",
+  "closed_at": "2026-10-08T00:47:33.214483Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is defining a secure container handoff with an unprivileged shell and no exposed credentials.",
-  "right_now_updated_at": "2026-10-07T19:09:02.859763Z",
+  "right_now_summary": "The handoff still needs fixes for credential access, workspace ownership, parked turns, and host takeover routing.",
+  "right_now_updated_at": "2026-10-08T00:47:35.492329Z",
   "custom": {}
 }
