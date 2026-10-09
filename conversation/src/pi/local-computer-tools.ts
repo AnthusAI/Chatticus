@@ -1,8 +1,10 @@
 /**
  * The computer tools of an owner that runs inside the computer: `read_workspace`, `write_workspace` and `run_terminal`
  * executed on the owner's own disk by Pi's tools (pi-durable's `read`, `write` and `bash`), under our tool names, schemas
- * and descriptions. The tool set is the one `computerToolsExtension` registers (browse, capability requests, send and
- * purchase stay as they are there), so a session moves between a Lambda owner and a computer owner with the same tools.
+ * and descriptions. The tool set is the one `computerToolsExtension` registers (send and purchase stay as they are there), so a
+ * session moves between a Lambda owner and a computer owner with the same tools. The owner image has no browser, so `browse`
+ * and `request_computer_capability` answer at once, in the same attempt, that the browser capability is not available on
+ * this computer; they park nothing and start no host.
  *
  * Each call goes through the action ledger, the same records the remote path writes, so the journal, the disk-dirty flag
  * and the reconciliation of lost hosts see local calls as they see remote ones:
@@ -28,7 +30,8 @@ import {
 	completeComputerAction,
 	requestComputerAction,
 } from "../domain/actions.ts";
-import { ensureComputer, recordComputerToolAnswered } from "../domain/computers.ts";
+import { BROWSER_UNAVAILABLE_TEXT, ensureComputer, recordComputerToolAnswered } from "../domain/computers.ts";
+import { BROWSE_ACTION_KIND, REQUEST_COMPUTER_CAPABILITY_ACTION_KIND } from "@chatticus/host-protocol";
 import type { Turn } from "../domain/turns.ts";
 import type { Clock, IdSource } from "../http/app.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
@@ -56,7 +59,7 @@ export const HELD_BY_ANOTHER_WORKER_RESULT = "The computer action of this call i
 const FALLBACK_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
 /** The tools whose second run after an interruption is harmless: a read, a whole-file overwrite, and an edit that applies once. */
-const REPEATABLE_TOOLS: ReadonlySet<string> = new Set(["read_workspace", "write_workspace", "edit_workspace"]);
+const REPEATABLE_TOOLS: ReadonlySet<string> = new Set(["read_workspace", "write_workspace", "edit_workspace", BROWSE_ACTION_KIND, REQUEST_COMPUTER_CAPABILITY_ACTION_KIND]);
 
 /**
  * The environment a model-chosen command gets: a search path, a home inside the workspace, a locale and a terminal type.
@@ -168,10 +171,10 @@ const requiredString = (args: Record<string, unknown>, name: string): string => 
 };
 
 /**
- * The computer tools of the session with `read_workspace`, `write_workspace` and `run_terminal` run locally.
+ * The computer tools of the session with every tool but send and purchase answered on this computer.
  *
- * @param handoff The owner's side of the handoff; the tools that still park (browse, capability requests) use it, and
- * every tool uses its lookup of an action and its spend ceiling refusal.
+ * @param handoff The owner's side of the handoff; every tool uses its lookup of an action and its spend ceiling
+ * refusal.
  * @param options Workspace, identity and the stores the ledger lives in.
  * @returns The extension holding the tools.
  */
@@ -220,6 +223,8 @@ export function localComputerToolsExtension(handoff: ComputerToolHandoff, option
 		return { text, isError: false, result: { content: [{ type: "text", text }] } };
 	};
 
+	const runWithoutBrowser = async (): Promise<Outcome> => ({ text: BROWSER_UNAVAILABLE_TEXT, isError: false, result: null });
+
 	const runners: Record<string, (args: Record<string, unknown>, api: ToolExecutionApi, context: Context) => Promise<Outcome>> = {
 		read_workspace: (args, api, context) => {
 			const next: Record<string, unknown> = { path: realPath(requiredString(args, "path")) };
@@ -237,6 +242,8 @@ export function localComputerToolsExtension(handoff: ComputerToolHandoff, option
 			return runBuiltin(editTool, next, api, context);
 		},
 		run_terminal: runTerminal,
+		[BROWSE_ACTION_KIND]: runWithoutBrowser,
+		[REQUEST_COMPUTER_CAPABILITY_ACTION_KIND]: runWithoutBrowser,
 	};
 
 	const answerOf = (action: ComputerAction): ToolExecutionResult => {

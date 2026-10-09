@@ -39,8 +39,8 @@ export type ComputerOwnerOptions = {
  *
  * - `not_found`: no such turn of that bot; nothing was written.
  * - `already_finished`: the turn is completed or failed; nothing was written.
- * - the executor's outcomes: `done`, `failed`, `parked` (a tool that cannot run locally, such as the browser, parked the
- *   turn), `yielded`, `reconciling`, and `lost` (a live owner holds the turn, another owner won the claim, or this owner
+ * - the executor's outcomes: `done`, `failed`, `parked` (a tool that cannot run locally parked the turn; the browser tools do not,
+ *   they answer that the browser is unavailable), `yielded`, `reconciling`, and `lost` (a live owner holds the turn, another owner won the claim, or this owner
  *   lost the turn while it ran; nothing was written for it).
  */
 export type TurnTakeoverOutcome = TurnExecutionOutcome | "not_found" | "already_finished";

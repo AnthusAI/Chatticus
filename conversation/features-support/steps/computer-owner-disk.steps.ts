@@ -163,6 +163,10 @@ Then("the organization's computer is stopped", async function (this: ChatticusWo
 	assert.equal((await computerForOrganization(LIFECYCLE_TENANT, { store: this.messagingStore() })).stopped, true);
 });
 
+Then("the organization's computer is running", async function (this: ChatticusWorld) {
+	assert.equal((await computerForOrganization(LIFECYCLE_TENANT, { store: this.messagingStore() })).stopped, false);
+});
+
 Then("the disk was published {int} time(s)", function (this: ChatticusWorld, count: number) {
 	const published = lifecycleOf(this).frontDoorRequests.filter((request) => request.url.includes("/snapshot/published"));
 	assert.equal(published.length, count);

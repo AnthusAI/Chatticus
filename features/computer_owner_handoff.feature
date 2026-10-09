@@ -213,6 +213,28 @@ Feature: Computer owner handoff
     Then the takeover of "container" ended "done"
     And the model saw "is outside the workspace" in its next request
 
+  Scenario Outline: A computer owner answers a browser tool at once because its computer has no browser
+    Given the model is scripted to call "<tool>" with:
+      """
+      <arguments>
+      """
+    And the model is scripted to answer "I could not use the browser."
+    When the member asks "open the docs page"
+    And the member allows the turn tools "<tool>" on the origin "https://docs.example.com"
+    And computer owner "container" takes over the turn
+    Then the takeover of "container" ended "done"
+    And the turn is completed
+    And the model saw "The browser capability is not available on this computer." in its next request
+    And the turn has one computer action and it is done
+    And the computer action was claimed by "computer-owner-container"
+    And the computer's disk is not dirty
+    And no computer start job is queued
+
+    Examples:
+      | tool| arguments                                                                   |
+      | browse                      | {"url": "https://docs.example.com/page"}                                    |
+      | request_computer_capability | {"capability": "a browser session", "url": "https://docs.example.com/page"} |
+
   Scenario: A computer owner leaves a finished turn alone
     Given the model is scripted to answer "Hello."
     When the member asks "say hello"

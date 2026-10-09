@@ -181,6 +181,10 @@ export type OwnerSessionOptions = {
  * dirty and mark the computer stopped. The disk is persisted once, whether the turn ends, fails, or the container is told
  * to stop first. The owner heartbeats while it runs so the actions it holds are not taken for lost.
  *
+ * A turn that ends `lost` (another owner holds or won the claim) persists nothing: its disk is a copy of the published
+ * snapshot without the winner's work, and the computer is still running under the winner, so it neither publishes nor
+ * marks the computer stopped.
+ *
  * @param plane The Front Door.
  * @param options The organization, the owner id and the disk.
  * @param run The turn.
@@ -193,9 +197,11 @@ export async function runOwnerOnComputerDisk(
 ): Promise<OwnerEntryPointOutcome> {
 	const heartbeat = startHostHeartbeat({ plane, ...(options.heartbeatTimer === undefined ? {} : { timer: options.heartbeatTimer }) });
 	let closed: Promise<void> | null = null;
+	let lostTurn = false;
 	const close = (): Promise<void> => {
 		closed ??= (async () => {
 			heartbeat.stop();
+			if (lostTurn) return;
 			await publishBeforeExit(plane, {
 				tenantId: options.tenantId,
 				workerId: options.workerId,
@@ -217,6 +223,7 @@ export async function runOwnerOnComputerDisk(
 		try {
 			await options.afterHydrate?.();
 			const outcome = await run();
+			lostTurn = outcome === "lost";
 			heartbeat.assertAlive();
 			return outcome;
 		} finally {

@@ -65,16 +65,17 @@ Feature: The owner session policy covers every request the computer owner makes
     And the takeover of "first" ended "lost"
     And every request the computer owners made is allowed by the owner session policy
 
-  Scenario: An owner that parks the turn again for the browser and checks the spend ceiling stays inside its policy
+  Scenario: An owner that answers the browser tool at once and checks the spend ceiling stays inside its policy
     Given the model is scripted to call "browse" with:
       """
       {"url": "https://household.example.com/browser"}
       """
+    And the model is scripted to answer "I could not use the browser."
     When the member asks "open the household browser"
     And the organization sets a monthly AWS spend ceiling of "500.00" dollars
     And the member allows the turn tool "browse" to reach the origin "https://household.example.com"
     And computer owner "container" takes over the turn
-    Then the takeover of "container" ended "parked"
+    Then the takeover of "container" ended "done"
     And every request the computer owners made is allowed by the owner session policy
 
   Scenario: An owner that takes in a steered message stays inside its policy
