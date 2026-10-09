@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-d6997cd3-02c5-4715-b965-7a75a1507659",
+  "title": "Promote the TypeScript control plane and the owner computer path to staging and production",
+  "description": "Staging and production still run Python (main has no conversation/). Needs: the migration runbook per environment, ControlPlane stacks, per-environment Computers and Snapshots stacks, signing-key secret and scoped role without the development gate, an image pipeline with a real tag instead of the hand-pushed :dev, and a live rehearsal in each. The user decides when.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-09T20:57:38.857926Z",
+  "updated_at": "2026-10-09T20:57:38.858972Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The TypeScript control plane and owner computer path still need promotion to staging and production.",
+  "right_now_updated_at": "2026-10-09T20:57:40.385825Z",
+  "custom": {}
+}
