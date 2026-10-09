@@ -272,7 +272,7 @@ describe("ControlPlane owner scoped role", () => {
     ]);
   });
 
-  it("sets the owner environment on the starter and leaves the runtime on host-worker", () => {
+  it("sets the owner environment on the starter and the runtime to owner while the rehearsal is on", () => {
     const variables = functionVariables(template, "ComputerStartJobs consumer");
     assert.equal(variables.CHATTICUS_OWNER_TASK_DEFINITION, OWNER_CONTEXT.computerOwnerTaskDefinition);
     assert.equal(variables.CHATTICUS_OWNER_CONTAINER_NAME, "computer");
@@ -287,7 +287,7 @@ describe("ControlPlane owner scoped role", () => {
     ]) {
       assert.ok(variables[name] !== undefined, `starter sets ${name}`);
     }
-    assert.equal(variables.CHATTICUS_COMPUTER_RUNTIME, undefined);
+    assert.equal(variables.CHATTICUS_COMPUTER_RUNTIME, "owner");
     assert.equal(variables.CHATTICUS_HOST_STARTER, "ecs");
     assert.equal(variables.CHATTICUS_ECS_TASK_DEFINITION, HOST_CONTEXT.computerEcsTaskDefinition);
   });
