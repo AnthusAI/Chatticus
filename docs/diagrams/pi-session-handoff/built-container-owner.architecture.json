@@ -1,0 +1,411 @@
+{
+ "schema_version": 1,
+ "diagram_type": "architecture",
+ "meta": {
+  "title": "Built: Pi runs on the computer after a handoff",
+  "subtitle": "Status: built and rehearsed on development for computers in Anthus's own accounts. The model key stays in the control plane.",
+  "output": "docs/diagrams/pi-session-handoff/built-container-owner.html",
+  "quality_profile": "showcase",
+  "legend": {
+   "mode": "auto",
+   "entries": {
+    "backend": {
+     "label": "Code we run (Lambda, gateway or Pi owner)"
+    },
+    "database": {
+     "label": "Stored data or queue"
+    },
+    "security": {
+     "label": "Checks or holds a secret"
+    },
+    "external": {
+     "label": "Outside party, or untrusted shell"
+    }
+   }
+  }
+ },
+ "components": [
+  {
+   "id": "browser",
+   "type": "external",
+   "label": "Browser",
+   "sublabel": "the web workspace",
+   "pos": [
+    40,
+    60
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "cloudfront",
+   "type": "backend",
+   "label": "CloudFront",
+   "sublabel": "forwards /api",
+   "pos": [
+    255,
+    60
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "frontdoor",
+   "type": "backend",
+   "label": "FrontDoor Lambda",
+   "sublabel": "admits, hosts gateway",
+   "pos": [
+    470,
+    60
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "turnruns",
+   "type": "database",
+   "label": "SQS TurnRuns",
+   "sublabel": "turn jobs",
+   "pos": [
+    685,
+    60
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "executor",
+   "type": "backend",
+   "label": "TurnExecutor Lambda",
+   "sublabel": "Pi until computer tool",
+   "pos": [
+    900,
+    60
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "startjobs",
+   "type": "database",
+   "label": "SQS StartJobs",
+   "sublabel": "start jobs",
+   "pos": [
+    900,
+    240
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "store",
+   "type": "database",
+   "label": "Pi sessions, Messaging",
+   "sublabel": "S3 commits, Dynamo index",
+   "pos": [
+    685,
+    240
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "starter",
+   "type": "security",
+   "label": "ComputerStarter",
+   "sublabel": "mints token, assumes role",
+   "pos": [
+    900,
+    420
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "owner",
+   "type": "backend",
+   "label": "Pi owner (Fargate)",
+   "sublabel": "owner.mjs, empty role",
+   "pos": [
+    900,
+    600
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "shell",
+   "type": "external",
+   "label": "Shell, uid 2000",
+   "sublabel": "scrubbed env",
+   "pos": [
+    900,
+    780
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "workspace",
+   "type": "database",
+   "label": "/workspace",
+   "sublabel": "the shared disk",
+   "pos": [
+    900,
+    960
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "snapshots",
+   "type": "database",
+   "label": "Snapshot bucket (S3)",
+   "sublabel": "saved /workspace",
+   "pos": [
+    685,
+    960
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "gateway",
+   "type": "security",
+   "label": "Model gateway route",
+   "sublabel": "checks token, adds real key",
+   "pos": [
+    685,
+    600
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "ssm",
+   "type": "security",
+   "label": "Real OpenAI key",
+   "sublabel": "stays in control plane",
+   "pos": [
+    470,
+    600
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "openai",
+   "type": "external",
+   "label": "OpenAI",
+   "sublabel": "model API",
+   "pos": [
+    685,
+    780
+   ],
+   "size": [
+    150,
+    64
+   ]
+  },
+  {
+   "id": "hostworker",
+   "type": "backend",
+   "label": "Host worker",
+   "sublabel": "customer accounts, no Pi",
+   "pos": [
+    470,
+    240
+   ],
+   "size": [
+    150,
+    64
+   ]
+  }
+ ],
+ "boundaries": [
+  {
+   "kind": "region",
+   "label": "Owner container: runs model-chosen commands",
+   "wraps": [
+    "owner",
+    "shell",
+    "workspace"
+   ]
+  },
+  {
+   "kind": "region",
+   "label": "Customer account: HTTP host protocol only",
+   "wraps": [
+    "hostworker"
+   ]
+  }
+ ],
+ "connections": [
+  {
+   "id": "browser-to-cloudfront",
+   "from": "browser",
+   "to": "cloudfront",
+   "label": "message",
+   "variant": "emphasis"
+  },
+  {
+   "id": "cloudfront-to-frontdoor",
+   "from": "cloudfront",
+   "to": "frontdoor",
+   "label": "/api",
+   "variant": "emphasis"
+  },
+  {
+   "id": "frontdoor-to-queue",
+   "from": "frontdoor",
+   "to": "turnruns",
+   "label": "admit",
+   "variant": "emphasis"
+  },
+  {
+   "id": "queue-to-executor",
+   "from": "turnruns",
+   "to": "executor",
+   "label": "turn job",
+   "variant": "emphasis"
+  },
+  {
+   "id": "executor-session",
+   "from": "executor",
+   "to": "store",
+   "label": "fenced session; park"
+  },
+  {
+   "id": "executor-start-job",
+   "from": "executor",
+   "to": "startjobs",
+   "label": "start job",
+   "variant": "emphasis"
+  },
+  {
+   "id": "startjobs-to-starter",
+   "from": "startjobs",
+   "to": "starter",
+   "label": "start job",
+   "variant": "emphasis"
+  },
+  {
+   "id": "starter-runs-owner",
+   "from": "starter",
+   "to": "owner",
+   "label": "run task with token and scoped keys",
+   "variant": "security"
+  },
+  {
+   "id": "owner-takes-over",
+   "from": "owner",
+   "to": "store",
+   "label": "takeOverTurn, new fence",
+   "variant": "security"
+  },
+  {
+   "id": "owner-runs-tools",
+   "from": "owner",
+   "to": "shell",
+   "label": "Pi tools, local"
+  },
+  {
+   "id": "shell-uses-workspace",
+   "from": "shell",
+   "to": "workspace",
+   "label": "files and commands"
+  },
+  {
+   "id": "owner-model-call",
+   "from": "owner",
+   "to": "gateway",
+   "label": "model call",
+   "variant": "security"
+  },
+  {
+   "id": "gateway-reads-key",
+   "from": "gateway",
+   "to": "ssm",
+   "label": "real key",
+   "variant": "security"
+  },
+  {
+   "id": "gateway-to-openai",
+   "from": "gateway",
+   "to": "openai",
+   "label": "forward, stream back, record spend",
+   "variant": "emphasis"
+  },
+  {
+   "id": "owner-publishes",
+   "from": "workspace",
+   "to": "snapshots",
+   "label": "publish",
+   "variant": "dashed"
+  },
+  {
+   "id": "frontdoor-host-protocol",
+   "from": "frontdoor",
+   "to": "hostworker",
+   "label": "HTTP host protocol",
+   "variant": "dashed"
+  }
+ ],
+ "cards": [
+  {
+   "dot": "violet",
+   "title": "What happens",
+   "items": [
+    "The Lambda runs Pi until the first computer tool call, then parks the turn and publishes a start job.",
+    "The starter mints a gateway token bound to a fresh owner id and assumes a scoped role.",
+    "The owner claims the parked turn under that owner id, replays the call locally and finishes the turn."
+   ]
+  },
+  {
+   "dot": "rose",
+   "title": "What the container cannot do",
+   "items": [
+    "It holds no OpenAI key; model calls go through the gateway with a token.",
+    "Its task role is empty; its storage keys cover one session, one snapshot prefix and the organization's Messaging items.",
+    "The shell runs as uid 2000 with a scrubbed environment and cannot read the owner's environment."
+   ]
+  },
+  {
+   "dot": "amber",
+   "title": "Limits",
+   "items": [
+    "Rehearsed on development only; staging and production do not run this path.",
+    "The container credentials endpoint cannot be blocked on Fargate; it is mitigated, not blocked.",
+    "Customer-account computers never get Pi."
+   ]
+  }
+ ]
+}

@@ -1,26 +1,24 @@
 # Pi session handoff
 
-> **Status:** the Lambda-owner design is built and proven in development. The
-> handoff design is a proposal under a spike; this document will be updated
-> with the spike results.
+> **Status:** built and rehearsed on the development environment. For
+> computers in Anthus's own AWS accounts, the container runs Pi for the turn
+> and uses Pi's own tools. Staging and production do not run the TypeScript
+> control plane or this path yet (see [Limits](#limits)).
 
-This page explains how a bot's turn runs today, and one proposed change: let
-the computer container run the agent for a while, then give the session back.
-It is written for a reader who has not met Pi or pi-durable. Every statement
-about today's system was checked against the code at commit `3b7f4ed7`. The
-proposal is not built, and the spike (branch `ts/spike-pi-handoff`) has not
-reported. Nothing below says how the spike turned out.
+This page explains how a bot's turn runs when it needs the computer: the
+Lambda runs Pi until the first computer tool call, then the session is handed
+to a Pi owner inside the computer container. It is written for a reader who has
+not met Pi or pi-durable. The design came from a spike
+([Pi harness, spike section](PI_HARNESS.md#spike-handoff-to-a-computer-owner));
+this page records what was decided and how each decision was proven.
 
-Three diagrams go with this page. Each one says in its title whether it shows
-something built or something proposed.
+Two diagrams go with this page. Open each file in a browser; they are
+standalone pages and need no server.
 
-| Diagram | Status | What it shows |
-| --- | --- | --- |
-| [Today: Pi runs in the Lambda](diagrams/pi-session-handoff/today-lambda-owner.html) | Built, proven live in development | Who runs what, and where the trust boundary is |
-| [Proposed: Pi runs on the computer](diagrams/pi-session-handoff/proposed-container-owner.html) | Proposed, spike in progress | The model gateway, scoped credentials and the unprivileged shell |
-| [Proposed handoff, step by step](diagrams/pi-session-handoff/proposed-handoff-sequence.html) | Proposed, spike in progress | One turn from message to the next message |
-
-Open each file in a browser. They are standalone pages and need no server.
+| Diagram | What it shows |
+| --- | --- |
+| [Built: Pi runs on the computer after a handoff](diagrams/pi-session-handoff/built-container-owner.html) | Who runs what, the model gateway, scoped credentials, the unprivileged shell, and the separate customer-account host worker |
+| [Handoff, step by step](diagrams/pi-session-handoff/handoff.html) | One turn: park, start, takeover with the owner id, gateway call, snapshot publish, exit |
 
 ## Words used on this page
 
@@ -32,20 +30,22 @@ Open each file in a browser. They are standalone pages and need no server.
 - **Session**: one bot's saved conversation in one channel. Its identity is
   `tenant#bot#channel`. It holds the transcript, the state of each task, and
   the messages waiting to be handled.
-- **Owner**: the one process that is allowed to write a session. Today an owner
-  is a TurnExecutor Lambda invocation.
+- **Owner**: the one process that is allowed to write a session. It is a
+  TurnExecutor Lambda invocation, or the Pi owner in the computer container.
 - **Fence**: a number that only goes up. Opening a session as owner takes the
   next number. Only the owner holding the current number can write.
 - **Turn**: one run of the bot, from a person's message to the bot's answer.
 - **Park**: stop a turn on purpose while something else finishes. The Lambda
-  ends. The turn waits and is queued again when the answer is ready.
-- **Computer**: the organization's shared Linux container with `/workspace`, a
-  terminal and a browser. See [Architecture](ARCHITECTURE.md).
-- **Host worker**: a small program inside the computer container. It claims
-  actions over HTTP, runs them and posts the result.
-- **Model gateway**: a proposed service in the control plane. It would sit
-  between the container and the model provider so the container never holds the
-  real model key.
+  ends and the turn waits.
+- **Computer**: the organization's shared Linux container with `/workspace`
+  and a terminal. See [Architecture](ARCHITECTURE.md).
+- **Owner task**: the Fargate task (`ChatticusComputerOwner`) that runs the
+  container's Pi owner program, `owner.mjs`.
+- **Host worker**: a small program in the computer image that claims actions
+  over HTTP, runs them and posts the result. Only customer-account computers
+  use it now.
+- **Model gateway**: a route in the control plane between the container and the
+  model provider, so the container never holds the real model key.
 
 ## What a Pi session is, and what pi-durable adds
 
@@ -83,341 +83,191 @@ A session has at most one writer. Two things enforce that.
 
 If a second owner takes a higher fence, the first owner is stale. Its next
 commit fails with `OwnershipLost`, and after that it writes nothing and starts
-no new tool or model request. Its own wait on the turn never finishes, so the
-program that started it must close it. This was measured in the spike recorded
-in [Pi harness](PI_HARNESS.md).
+no new tool or model request. This was measured in the spike recorded in
+[Pi harness](PI_HARNESS.md).
 
 So ownership moves in one way: the old owner closes its session, and the new
 owner opens the same storage with a higher fence. Nothing is copied. The new
 owner reads the commits that are already there.
 
-## How it works today (built)
+## How it works for own-account computers (built)
 
-This is the first diagram: [Today: Pi runs in the Lambda](diagrams/pi-session-handoff/today-lambda-owner.html).
-It is built and proven live in development.
+"Own-account" means a computer in Anthus's own AWS accounts. The diagrams are
+[the architecture](diagrams/pi-session-handoff/built-container-owner.html) and
+[the sequence](diagrams/pi-session-handoff/handoff.html).
 
 1. A person sends a message. The browser calls CloudFront, which forwards
-   `/api` to the FrontDoor Lambda.
-2. FrontDoor admits the turn and puts a job on the SQS queue `TurnRuns`.
-3. The TurnExecutor Lambda takes the job. It claims the turn, takes a new
-   fence, and opens the bot's session through pi-durable. The session lives in
-   the Conversations DynamoDB table and the PiSessions S3 bucket. Only the
-   fence holder can commit.
-4. The Lambda runs Pi's agent loop. It reads the OpenAI key from an SSM
-   SecureString at cold start and calls the model from the Lambda
-   (`conversation/src/lambdas/openai-key.ts`).
-5. Turn progress is written as events that FrontDoor streams to the browser.
-6. When the model calls a computer tool (`read_workspace`,
-   `write_workspace` or `run_terminal`), the tool does not run in the Lambda.
-   It looks for a saved result for that call. If there is none, it hands the
-   call to the executor, which records an **action** and **parks** the turn.
-   The Lambda ends (`conversation/src/pi/computer-tools.ts`).
-7. If no host is live, the executor queues a start job. The ComputerStarter
-   Lambda starts an ECS Fargate task from the computer image
-   (`computer/Dockerfile`).
-8. The host worker in the container registers, restores `/workspace` from its
-   snapshot, and then claims actions from FrontDoor over HTTP. For each action
-   it asks FrontDoor to check it again against the turn's grant, runs it on
-   `/workspace`, and posts the result (`computer/host/src/main.ts`).
-9. FrontDoor sees the result and queues the turn again. A new Lambda owner takes
-   a higher fence and opens the session. The parked tool runs again, finds the
-   saved result by its call id, and Pi continues. The tool is marked safe to
-   run again for exactly this reason.
-10. When the host stops, it saves `/workspace` as a snapshot in S3. The next
-    start restores it ([Computer snapshots](COMPUTER_SNAPSHOTS.md)).
+   `/api` to the FrontDoor Lambda. FrontDoor admits the turn and puts a job on
+   the SQS queue `TurnRuns`.
+2. The TurnExecutor Lambda takes the job, claims the turn, takes a fence and
+   opens the bot's session (DynamoDB index plus the PiSessions S3 bucket). It
+   runs Pi, reading the OpenAI key from SSM, until the model calls a computer
+   tool (`read`, `write`, `edit` or `bash`).
+3. That first computer tool call creates a ledger action, **parks** the turn and
+   publishes a start job on the `ComputerStartJobs` queue.
+4. The ComputerStarter Lambda generates an **owner id**, mints the gateway
+   token bound to tenant, bot, turn and that owner id, assumes the scoped role
+   with a per-session policy, and runs the owner task with that environment.
+5. The owner program claims the parked turn under that owner id
+   (`takeOverTurn`: the same Pi session, a new, higher fence). It hydrates
+   `/workspace` from the computer's snapshot.
+6. The owner replays the pending call locally using Pi's own tools, which are
+   registered under our tool names, wrapped in the action ledger and safe to
+   replay. Commands the model chose run through the `chatticus-shell` launcher
+   as an unprivileged user (uid 2000) with a scrubbed environment, in the
+   workspace group.
+7. Model calls go to the gateway route
+   `POST /orgs/:tenant/model-gateway/v1/responses`, with the token in place of
+   a key. The gateway checks the token, checks that its owner id matches the
+   turn's current attempt, adds the real key (which stays in the control
+   plane), streams the answer back unbuffered and records the spend once.
+8. The owner commits events as the same turn, publishes the workspace snapshot
+   when content changed, finishes the turn and exits 0. The next message goes to
+   a Lambda owner again, with a higher fence.
 
-**The trust boundary.** The computer runs commands the model chose. For that
-reason the container holds no Pi, no model key and no database access. It
-reaches the control plane only through the HTTP host routes. See
-[TypeScript control plane, section 4.2](TYPESCRIPT_CONTROL_PLANE.md#42-why-the-host-does-not-run-pi).
-An organization's computer can also live in a customer's AWS account, which
-must not get write access to the transcript store.
+**One owner per computer.** The computer is one shared disk snapshot, so only
+one owner runs at a time. A turn parked behind a live owner waits for it to
+exit.
 
-## The limits of today's design
+**Recovery.** The gateway compares the token's owner id with the turn's current
+attempt, so when a turn is recovered by a new attempt the old container's token
+stops working. A losing owner persists nothing. A tool call that was running
+when an owner died is reported to the model as lost, not silently run again.
 
-These follow from the code. I did not measure their cost.
+**Browse.** `browse` and `request_computer_capability` answer "browser not
+available" at once on the owner path. Browse is not in the default grant and has
+no executor there.
 
-- **Every computer tool call is a round trip.** The Lambda ends, a queue job
-  starts a new Lambda, that Lambda opens the session again, and the host worker
-  has to notice the action. A host with nothing to do looks for work once a
-  second (`IDLE_SLEEP_MILLISECONDS` in `computer/host/src/main.ts`). A task
-  with many small file or shell steps pays this each time.
-- **Chatticus carries its own tool set for the computer.** Pi ships its own
-  `read`, `write`, `edit` and `bash` tools (`pi-durable` 1.0.2, `dist/tools`).
-  Today they are not used. Chatticus defines `read_workspace`,
-  `write_workspace` and `run_terminal` and re-implements them in the host.
-- **The Lambda has a time limit.** The TurnExecutor is set to 300 seconds, and
-  a turn that nears it is handed on (`infra/lib/control-plane-stack.ts`,
-  `conversation/src/turn/yield.ts`). A long job on the computer cannot be
-  watched by one Lambda.
-- **One kind of computer.** There is one image (Node, Xvfb, Chromium). There is
-  no small image for files only and no image for a person to watch.
-- **Commands run with the image's default user.** `computer/Dockerfile` has no
-  `USER` line. The ECS task definition could change that, and I did not check
-  it.
+**Customer-account computers never get Pi.** A computer in a customer's AWS
+account keeps the HTTP host protocol and the host worker permanently, because
+that account must not write to the transcript store
+([TypeScript control plane, section 4.2](TYPESCRIPT_CONTROL_PLANE.md#42-why-the-host-does-not-run-pi)).
+This was an explicit design decision, so the system has two computer paths by
+design.
 
-## The proposal: hand the session to the container
+## Decisions and how each was proven
 
-This is the second and third diagram:
-[Proposed: Pi runs on the computer](diagrams/pi-session-handoff/proposed-container-owner.html)
-and [Proposed handoff, step by step](diagrams/pi-session-handoff/proposed-handoff-sequence.html).
-Both are **proposed, spike in progress, not built**.
+| Decision | How it was proven |
+| --- | --- |
+| The container owner opens the same session with a higher fence and finishes the turn | Live smoke on development: echo command, answer in about 32 s, spend recorded through the gateway, clean exit |
+| Pi's own `read`, `write`, `edit`, `bash` replace our copies and run locally | Live bug-fix task: 3 planted bugs, 12 of 12 tests passing, committed, and persisted to a fresh owner on a new channel |
+| The container holds no model key; a per-turn token carries model calls | Live security run: the shell environment has no secrets, and the gateway records spend per call |
+| The shell cannot reach the owner's credentials | Live security run: the shell cannot read the owner's environ, has no sudo or su, and writes only to `/workspace` and `/tmp`; the metadata endpoint returned no credentials, the credentials path variable is absent from the shell environment and the task role is empty |
+| Storage credentials are scoped to one session | The STS session policy covers the conversation prefix and index keys, the computer's snapshot prefix and the organization's Messaging items. Two live failures were policy gaps (`ConditionCheckItem`, then the `MB#` mailbox key); both were fixed and covered by a scenario that records every request the owner makes |
+| A dead owner is recovered and its token stops working | Live recovery: the owner task was stopped mid-command and a second owner took over about 125 s later; the lost tool was reported, not re-run |
+| Own-account computers always start the owner | The runtime switch and the own-account host-worker start were removed |
+| Customer accounts keep the host protocol | Design decision 3; the host worker code path is unchanged |
 
-The idea:
-
-1. The Lambda owner closes the session. It queues a computer start.
-2. The container starts. A Pi **owner process inside the container** opens the
-   same storage with a new, higher fence.
-3. That owner runs Pi with Pi's own tools (`read`, `write`, `edit`, `bash`)
-   locally, next to `/workspace`. It commits events as the same turn.
-4. When the turn is done, the container owner commits the answer and closes the
-   session. The next message goes to a Lambda owner again, with a higher fence.
-
-Why we think it is worth testing:
-
-- Tool calls on `/workspace` need no round trip through queues and a new Lambda.
-- Pi's own tools replace our copies of them.
-- A session stored durably is not tied to one kind of container (see
-  [Computer sizes](#computer-sizes-and-moving-between-them)).
-
-Why it needs care: the container runs model-chosen commands, and the Pi owner
-has to write the session. Those two facts pull in opposite directions. The next
-section is about keeping them apart.
+Behavior is covered by Gherkin, including `features/model_gateway.feature`,
+`features/session_storage_policy.feature`,
+`features/computer_owner_start.feature` and
+`features/computer_owner_snapshot.feature`.
 
 ## Credentials and the model gateway
 
-The container needs **no model key**. This is how that could work.
+**How a call is redirected.** Pi's model library builds its OpenAI client from
+the model's `baseUrl` and an `apiKey` passed with each call. The owner replaces
+the base URL with the gateway and the key with the session token.
 
-**How a call is redirected.** Pi's model library (`pi-ai` 1.0.2) builds its
-OpenAI client from the model's `baseUrl` and an `apiKey` passed with each call.
-It also accepts a custom `fetch`
-(`dist/api/openai-responses.js`, `createClient`). It also has a second
-protocol, `pi-messages`, that posts to `<baseUrl>/messages` with the key as a
-bearer token (`dist/api/pi-messages.js`). So the container's Pi can be pointed
-at a gateway URL, and the "key" it sends can be a token instead of the real key.
+**The session token** is `ct1.<claims>.<signature>`, signed with HMAC-SHA-256
+and expiring. It is bound to tenant, bot, turn and owner id. The signing key is
+a secret in the control plane
+(`conversation/src/gateway/session-token.ts`).
 
-**What the gateway would do.**
+**The gateway** (`conversation/src/gateway/model-gateway.ts`) is mounted in the
+FrontDoor app. Refusals are 401 (missing, malformed, forged or expired token)
+or 403 (wrong organization, or the turn is not the running one for that owner).
+A vendor failure is a 502 carrying only the vendor's status. The real key stays
+in the control plane.
 
-1. Check the token. It is short-lived and bound to one tenant, one bot and one
-   turn.
-2. Read the real key from SSM, as the Lambda does today.
-3. Forward the request to OpenAI and stream the answer back.
-4. Record the spend in the existing vendor ledger
-   (`conversation/src/ledger/vendor-ledger.ts`).
+**What a stolen token can do.** It lets its holder make model calls for that one
+turn and owner until it expires or the attempt changes. It is not the OpenAI
+key, cannot be used for another tenant, bot or turn, and does not open storage.
 
-**What a stolen token can do.** It lets its holder make model calls for that
-one session until it expires. It is not the OpenAI key, it cannot be used for
-another tenant, bot or turn, and it does not open the database or the bucket.
-The spend would be recorded against that turn. Whether the gateway also
-enforces a spend ceiling per call is not decided.
-
-**What the container still needs.**
-
-- The token, for model calls.
-- **Short-lived storage credentials scoped to the conversation's prefix**, so
-  its Pi owner can commit to the one session it was given. In the storage
-  layout the prefix is the S3 path `conversations/<storage>/` and the DynamoDB
-  partition key `PI#<tenant>#<bot>#<channel>`
-  ([Pi harness](PI_HARNESS.md)). IAM can restrict a role to such a prefix and
-  key. Whether this layout works with those conditions has not been tested.
-- Access to its own snapshot bucket, as today.
-- A way to report turn progress. See the open questions.
-
-**The shell must not reach any of this.** The Pi owner process holds the token
-and the storage credentials. The commands the model chooses would run as an
-unprivileged user that cannot read the owner's memory, files or environment and
-cannot reach the container's cloud metadata endpoint. If it could, a model
-command could take the credentials and the scoping would mean nothing. The spike
-has to show that this separation holds. It is the most important unknown in the
-proposal.
-
-**Customer-account computers stay as they are.** A computer in a customer's AWS
-account keeps the HTTP-only host protocol and never gets Pi, because that
-account must not write to the transcript store
-([section 4.2](TYPESCRIPT_CONTROL_PLANE.md#42-why-the-host-does-not-run-pi)).
-That leaves two paths in the system. The working rules in `AGENTS.md` ask for
-one path, so this needs an explicit decision.
-
-### What exists now (TS-67)
-
-Built and covered by `features/model_gateway.feature` and
-`features/session_storage_policy.feature`; nothing is deployed.
-
-- **The base-URL override works.** A pi-ai OpenAI Responses model with its
-  `baseUrl` and per-call API key replaced (`createGatewayModels`) sends its
-  request to the given address with `Authorization: Bearer <token>`, and parses
-  the answer streamed back. This was run against a local fake endpoint and
-  against the real gateway route.
-- **Session token** (`conversation/src/gateway/session-token.ts`). Signed with
-  HMAC-SHA-256 (`ct1.<claims>.<signature>`), expiring, bound to tenant, bot,
-  turn and the attempt that owns the turn. Pure `mintSessionToken` and
-  `verifySessionToken`; the signing key is an injected string of at least 32
-  characters.
-- **Gateway route** (`conversation/src/gateway/model-gateway.ts`):
-  `POST /orgs/{tenant_id}/model-gateway/v1/responses`, audience `model-gateway`.
-  It verifies the token, requires the path organization to equal the token's,
-  requires the turn to be active for that bot and attempt, forwards the body to
-  the vendor with the real key, streams the answer back chunk by chunk, and
-  records the spend once from the final `response.completed` usage through
-  `recordVendorSpend`. Refusals are 401 (no, malformed, forged or expired
-  token) or 403 (wrong organization, or the turn is not the running one).
-  A vendor failure is a 502 that carries only the vendor's status, never its
-  text, because a vendor can echo part of a key. The vendor call is an injected
-  `fetch`; the key is an injected string.
-- **Mounting.** `composeFrontDoorApp` mounts the route only when
-  `CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN` is set. It reads the key
-  from that secret and the vendor key from `OPENAI_API_KEY` (already resolved
-  from SSM), and logs one JSON line per refusal, vendor failure and recorded
-  spend, without secrets.
-- **Scoped storage policy** (`conversation/src/gateway/session-policy.ts`).
-  `buildSessionPolicy` returns the IAM session policy as data for one
-  `tenant#bot#channel` session: object get, put and delete under
-  `conversations/<storage>/`, list of the bucket restricted to that prefix, and
-  item actions on the conversation table and its indexes with
-  `dynamodb:LeadingKeys` equal to `PI#<storage>`. Identifiers with wildcards,
-  `$` or `#` are refused. Nothing calls STS.
-
-What the starter does now (TS-68 code half, built and covered by
-`features/computer_owner_start.feature` and `features/computer_owner_snapshot.feature`;
-nothing is deployed): for a computer in the deployment account the ComputerStarter
-generates a fresh owner id per start, binds the gateway token to it (the token
-claims the owner id, not the attempt), obtains scoped credentials from
-`sts:AssumeRole` with `buildOwnerSessionPolicy` (the conversation session, the
-computer's snapshot prefix and the organization's Messaging items, under the
-2048 character limit), and runs the owner task. The container claims the turn
-under the owner id as its worker id, so the gateway accepts the token only
-while the current attempt was claimed by that owner and the turn is running; a
-second owner taking over invalidates the first owner's token. The owner
-hydrates `/workspace` from the computer's snapshot, publishes it when dirty and
-marks the computer stopped when it exits, reusing the host worker's disk code.
-Computers in a customer account keep the host-worker start.
-
-What TS-68 must wire:
-
-1. Expose the route. The front door is behind the invoke key header; the
-   container reaches it through the same CloudFront path, so the origin header
-   is added there. Confirm the CloudFront behavior forwards `/orgs/*` POSTs to the
-   Lambda unbuffered; this was not checked here.
-2. Create the signing-key secret, grant the front door Lambda read access, and
-   set `CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN`. The Lambda's
-   function-URL timeout and streaming mode must allow a full model answer.
-3. At container start, the control plane (the component that claims the turn)
-   mints the token with the attempt id it holds and a lifetime covering the
-   turn, passes it with `CHATTICUS_MODEL_GATEWAY_URL`
-   (`.../orgs/{tenant}/model-gateway/v1`) and `CHATTICUS_MODEL_GATEWAY_TOKEN`,
-   calls `sts:AssumeRole` with `buildSessionPolicy` as the session policy, and
-   hands the temporary credentials to the owner process only.
-4. Decide a model allow-list and a per-call spend ceiling at the gateway; today
-   any model name in the body is forwarded. A client that drops the connection
-   before the final usage event leaves that call unrecorded.
+**Scoped storage credentials.** `buildOwnerSessionPolicy` builds an IAM session
+policy for one session: object access under `conversations/<storage>/`, item
+access with `dynamodb:LeadingKeys` restricted to the session, the computer's
+snapshot prefix, and the organization's Messaging items. The starter obtains
+credentials from `sts:AssumeRole` on `ComputerOwnerScopedRole` with that policy.
+The owner task definition has an empty task role, so the container holds
+nothing beyond those credentials and the token.
 
 ## Computer sizes and moving between them
 
-Today there is one computer image. The proposal makes the session the thing that
-moves, not the container. Three kinds are imagined. None exists yet.
+There is one computer image today. The session, not the container, is what
+moves between owners. Other image kinds (a files-only image, a desktop a person
+watches) are ideas and are not built. How a container is chosen is the subject
+of [Computer manifold](COMPUTER_MANIFOLD.md), which is not implemented.
 
-| Kind | For | Today |
-| --- | --- | --- |
-| Nano | Files and git. No browser. Starts fast and costs little. | Not built |
-| Chromium | A browser for pages and scraping. | The one image has Chromium and Xvfb |
-| Interactive desktop | A desktop that a person and the agent both see. | Not built |
+The files in `/workspace` move by snapshot: publish from one host, hydrate on the
+next. A computer has one live disk at a time
+([Computer snapshots](COMPUTER_SNAPSHOTS.md)), and unpublished work is lost if a
+host dies.
 
-How a container is chosen for the work is the subject of
-[Computer manifold](COMPUTER_MANIFOLD.md), which is not implemented.
+## Limits
 
-Two things move separately, and the proposal only changes the first:
+What is not built or not proven:
 
-- **The session** moves by closing it in one place and opening it in another.
-  pi-durable stores it, so a new owner on a different kind of container can open
-  it.
-- **The files** in `/workspace` move by snapshot: publish from one host, hydrate
-  on the next. A computer has one live disk at a time
-  ([Computer snapshots](COMPUTER_SNAPSHOTS.md)). Changing container kind
-  therefore means a publish and a hydrate, and unpublished work is lost if a host
-  dies.
+- **Environments.** Only development runs this. Staging and production do not
+  run the TypeScript control plane or the computer path yet. Promotion is a
+  separate project: it needs the migration runbook, per-environment Computers
+  stacks and signing-key secrets, an image pipeline instead of the hand-pushed
+  `:dev` tag, and a rehearsal in each environment.
+- **Credentials endpoint.** The container credentials endpoint `169.254.170.2`
+  cannot be blocked on Fargate (no `NET_ADMIN`). It is mitigated by the empty
+  task role and the absent credentials path variable. It is not blocked.
+- **Owner code is readable.** The shell can read the owner bundle code.
+- **No refresh.** Scoped credentials and the gateway token last one hour, with
+  no refresh for longer turns.
+- **Gateway controls.** The gateway has no model allow-list and no per-call
+  spend ceiling. It records spend at the end of the stream, so a client that
+  disconnects early leaves that call unrecorded.
+- **Policy headroom.** The session policy has about 30 characters of headroom
+  under the 2048 character STS limit.
+- **Lost tools.** A tool lost when an owner dies is reported, not re-run.
+- **Browse.** `browse` is not in the default grant and has no executor on the
+  owner path.
+- **Leftovers.** The own-account Fargate host task definition and service in the
+  Computers stack still exist and are removed in a later infra PR. Customer
+  accounts still use the host worker.
 
-## Built, proposed, unknown
+## Build record
 
-| Item | Built | Proposed | Unknown until the spike reports |
-| --- | --- | --- | --- |
-| Lambda owner opens the session and runs Pi | Yes, live in development | | |
-| Computer tools park the turn; host runs them over HTTP | Yes, live in development | | |
-| Model key read from SSM in the Lambda | Yes | | |
-| `/workspace` saved to S3 on exit, restored on start | Yes | | |
-| Container owner opens the same session with a new fence | | Yes | Whether it works end to end |
-| Pi's own tools run locally on `/workspace` | | Yes | Behavior under the unprivileged user |
-| Model gateway with per-turn tokens | | Yes | Where it runs, streaming limits, per-call spend ceiling |
-| Scoped, short-lived storage credentials | | Yes | Whether IAM scoping fits the storage layout; how they reach the container |
-| Unprivileged shell cannot reach credentials or metadata | | Yes | Whether it holds on Fargate |
-| Hand the session back for the next message | | Yes | How the Lambda learns the container finished |
-| Turn events reach the browser stream from the container | | | Route not chosen |
-| Nano, Chromium and desktop container kinds | | Idea only | Everything |
-| Customer-account computers | HTTP host protocol, no Pi | Stays | Two permanent paths against the one-path rule |
-
-## Open questions
-
-1. **What starts the handoff?** The start of a turn, or the first computer tool?
-   Today a computer tool is the trigger for starting the computer.
-2. **How do turn events get out?** Today the owner writes turn events to the
-   Messaging table, with a check that it still holds the turn. The container has
-   no database access in this proposal. A route through FrontDoor is possible and
-   is not decided.
-3. **How do the token and storage credentials reach the container?** At start,
-   or fetched after it boots?
-4. **What if the container dies mid-turn?** The probe and lease logic today
-   assumes a Lambda owner. A container owner needs the same recovery.
-5. **How does a Lambda owner learn the container is done?** And what if it never
-   finishes?
-6. **What does the gateway run on, and how does it stream?** The rules in
-   `AGENTS.md` allow Lambda for HTTP and for one turn's stream, and rule out
-   persistent sockets.
-7. **Does the unprivileged shell hold?** In particular, can a model command read
-   the owner's environment, its credentials or the task metadata endpoint?
-8. **Two paths.** Managed computers with a container owner and customer-account
-   computers with the host protocol. Is that acceptable?
-9. **A desktop that a person watches** needs a live view. The cloud API rules
-   forbid persistent sockets. How a view fits is not answered.
-10. **Cost and latency.** Neither the round-trip cost today nor the saving from
-    the proposal has been measured.
+| Ticket | Pull requests |
+| --- | --- |
+| TS-65 owner core | #476 |
+| TS-66 container entry point | #478 |
+| TS-67 model gateway, token, session policy | #479 |
+| TS-68 starter, infra, rehearsal fixes | #481, #482, #483, #484, #485 |
+| TS-69 cutover | #486, #487 |
 
 ## Regenerating the diagrams
 
-The diagram sources are the three `.json` files in
-`docs/diagrams/pi-session-handoff/`. The `.html` files are generated from them
-with the Archify skill. From the repository root, with Archify installed at
-`ARCHIFY` (its `bin/archify.mjs`):
+The sources are the two `.json` files in `docs/diagrams/pi-session-handoff/`.
+The `.html` files are generated from them with the Archify skill. From the
+repository root, with Archify installed at `ARCHIFY` (its `bin/archify.mjs`):
 
 ```bash
 node "$ARCHIFY/bin/archify.mjs" finalize architecture \
-  docs/diagrams/pi-session-handoff/today-lambda-owner.architecture.json \
-  docs/diagrams/pi-session-handoff/today-lambda-owner.html \
-  --repo-root . --quality showcase --json
-
-node "$ARCHIFY/bin/archify.mjs" finalize architecture \
-  docs/diagrams/pi-session-handoff/proposed-container-owner.architecture.json \
-  docs/diagrams/pi-session-handoff/proposed-container-owner.html \
-  --repo-root . --quality showcase --json
+  docs/diagrams/pi-session-handoff/built-container-owner.architecture.json \
+  docs/diagrams/pi-session-handoff/built-container-owner.html \
+  --quality showcase --json
 
 node "$ARCHIFY/bin/archify.mjs" finalize sequence \
-  docs/diagrams/pi-session-handoff/proposed-handoff-sequence.sequence.json \
-  docs/diagrams/pi-session-handoff/proposed-handoff-sequence.html \
-  --repo-root . --quality showcase --json
+  docs/diagrams/pi-session-handoff/handoff.sequence.json \
+  docs/diagrams/pi-session-handoff/handoff.html \
+  --quality showcase --json
 ```
 
-A non-zero exit means a gate failed. Fix the JSON and run it again. The nodes of
-the "today" diagram cite source files and line numbers at the commit pinned in
-`meta.repository.revision`. When the code moves, re-read those lines, update the
-revision and the line numbers, and regenerate. The HTML files are about 0.75 MB
-each because they embed the viewer.
-
-Edit the JSON when the spike reports. Change the status words in the titles and
-subtitles at the same time as the content.
+A non-zero exit means a gate failed. Fix the JSON and run it again. Delete the
+`*.finalize*.json`, `*.browser-check.json` and `*.delivery.json` receipts the
+command writes next to the output. The HTML files are about 0.75 MB each
+because they embed the viewer.
 
 ## See also
 
 - [Pi harness](PI_HARNESS.md): what pi-durable is, the storage, the fence.
 - [TypeScript control plane](TYPESCRIPT_CONTROL_PLANE.md), section 3 (turn
-  lifecycle on Pi) and section 4 (the computer, why the host does not run Pi,
-  the host protocol, the parked-tool handoff).
+  lifecycle on Pi) and section 4 (the computer).
 - [Computer snapshots](COMPUTER_SNAPSHOTS.md): publish, hydrate and relocate.
 - [Architecture](ARCHITECTURE.md) and [Computer manifold](COMPUTER_MANIFOLD.md).

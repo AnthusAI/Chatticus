@@ -10,7 +10,7 @@ operations.
 | Stack | Resources |
 | --- | --- |
 | `ChatticusSnapshots` | S3 bucket for computer packs; IAM role local hosts may assume |
-| `ChatticusComputers` | VPC, ECR, ECS cluster, Fargate ARM64 task definition, service (count 0 by default) |
+| `ChatticusComputers` | VPC, ECR, ECS cluster, Fargate ARM64 host task definition and service (count 0 by default; the own-account host is removed in a later infra PR), and the Pi owner task definition `ChatticusComputerOwner` with a deliberately empty task role |
 | `ChatticusDns` | Route 53 hosted zone for `chattic.us`, ACM certificate (`chattic.us`, `*.chattic.us`, `www.chattic.us`) |
 | `ChatticusGitHubDeploy` | GitHub Actions OIDC IAM roles for CDK deploy workflows (development, staging, production) |
 | `ChatticusAccountDeploy` | In a dedicated environment account only: the GitHub OIDC provider and that account's single deploy role. Not deployed in the legacy account |
@@ -144,6 +144,15 @@ GitHub environment from the matching stack output.
 | **Deploy ThinTurn (production)** | `deploy-thinturn-production.yml` | `deploy-chatticus-thinturn-production.sh` | `ChatticusThinTurnProduction` |
 | **Deploy Web (production)** | `deploy-web-production.yml` | `deploy-chatticus-web-production.sh` | `ChatticusWebProduction` |
 | **Deploy Auth (production)** | `deploy-auth-production.yml` | `deploy-chatticus-auth-production.sh` | `ChatticusAuthProduction` |
+
+For computers in Anthus's own accounts the ComputerStarter runs the owner task
+(`ChatticusComputerOwner`, `node /opt/chatticus/host/owner.mjs`): it mints a
+model gateway token (the signing key is a secret in the ControlPlane stack) and
+assumes `ComputerOwnerScopedRole` with a per-session policy. This is wired in
+development only; staging and production do not run it yet. See
+[Pi session handoff](../docs/PI_SESSION_HANDOFF.md). The host-start context
+below remains for customer-account computers and the host task definition that
+still exists.
 
 ThinTurn deploy scripts optionally apply ECS host-start context
 (`computerHostStart=ecs`, `computerHostCommand=host-worker`) when

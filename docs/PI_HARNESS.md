@@ -932,6 +932,11 @@ Measured with the scripted provider on moto against `@earendil-works/pi-durable`
 
 ## Spike: handoff to a computer owner
 
+Status: the recommendation below was built and rehearsed on development
+(TS-65 to TS-69). This section is the record of the spike's measurements; the
+built design, its proof and its limits are in
+[Pi session handoff](PI_SESSION_HANDOFF.md).
+
 Measured 2026-10-07 against `@earendil-works/pi-durable` and `pi-ai` 1.0.2 on moto 5.2.3. The code is the throwaway spike in
 [`spikes/pi-handoff`](../spikes/pi-handoff/README.md); the raw output of every run quoted here is in its `results/`
 directory. Nothing in `conversation/src` changed. No AWS access, no image push.
