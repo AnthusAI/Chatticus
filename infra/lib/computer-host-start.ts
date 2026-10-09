@@ -1,6 +1,8 @@
 import * as cdk from "aws-cdk-lib";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
 import { ChatticusCloudEnvironment } from "./environments";
 
@@ -14,6 +16,29 @@ export interface ComputerHostStartEcsConfig {
   readonly computerRepositoryName: string;
   readonly computerRepositoryArn: string;
   readonly computerImageUri: string;
+}
+
+/**
+ * The single reviewed line that turns the Pi session owner rehearsal on.
+ *
+ * While false the ComputerStarter leaves ``CHATTICUS_COMPUTER_RUNTIME`` unset
+ * and host-worker stays the default runtime. Setting it to true, or passing
+ * ``-c computerRuntime=owner``, sets ``CHATTICUS_COMPUTER_RUNTIME=owner``.
+ */
+export const COMPUTER_RUNTIME_OWNER_REHEARSAL = false;
+
+/** Longest session the scoped owner role may be assumed for, in seconds. */
+export const OWNER_SCOPED_ROLE_MAX_SESSION_SECONDS = 3600;
+
+/** Container command the starter runs in the owner task definition. */
+export const OWNER_CONTAINER_COMMAND = "node /opt/chatticus/host/owner.mjs";
+
+/** The owner task definition and snapshot bucket read from ChatticusComputers. */
+export interface ComputerOwnerStartConfig {
+  readonly taskDefinition: string;
+  readonly taskRoleArn: string;
+  readonly executionRoleArn: string;
+  readonly snapshotBucketName: string;
 }
 
 function contextString(scope: Construct, key: string): string {
@@ -293,4 +318,164 @@ export function wireComputerStarterEcsRunTask(
     }),
   );
 
+}
+
+function ownerConfigFromContext(
+  scope: Construct,
+): ComputerOwnerStartConfig | undefined {
+  const taskDefinition = contextString(scope, "computerOwnerTaskDefinition");
+  const taskRoleArn = contextString(scope, "computerOwnerTaskRoleArn");
+  const executionRoleArn = contextString(scope, "computerOwnerExecutionRoleArn");
+  const snapshotBucketName = contextString(scope, "computerSnapshotBucketName");
+  if (!taskDefinition || !taskRoleArn || !executionRoleArn || !snapshotBucketName) {
+    return undefined;
+  }
+  return { taskDefinition, taskRoleArn, executionRoleArn, snapshotBucketName };
+}
+
+function lookupComputersOwnerStart(
+  scope: Construct,
+): ComputerOwnerStartConfig | undefined {
+  const region =
+    cdk.Stack.of(scope).region ||
+    process.env.AWS_DEFAULT_REGION ||
+    process.env.AWS_REGION ||
+    "us-east-1";
+  try {
+    const stack = awsJson([
+      "cloudformation",
+      "describe-stacks",
+      "--stack-name",
+      "ChatticusComputers",
+      "--region",
+      region,
+      "--output",
+      "json",
+    ]) as {
+      Stacks?: Array<{
+        Outputs?: Array<{ OutputKey?: string; OutputValue?: string }>;
+      }>;
+    };
+    const outputs: Record<string, string> = {};
+    for (const output of stack.Stacks?.[0]?.Outputs || []) {
+      if (output.OutputKey && output.OutputValue) {
+        outputs[output.OutputKey] = output.OutputValue;
+      }
+    }
+    const taskDefinition = outputs.ComputerOwnerTaskDefinitionArn;
+    const taskRoleArn = outputs.ComputerOwnerTaskRoleArn;
+    const executionRoleArn = outputs.ComputerOwnerExecutionRoleArn;
+    const snapshotBucketName = outputs.ComputerSnapshotBucketName;
+    if (!taskDefinition || !taskRoleArn || !executionRoleArn || !snapshotBucketName) {
+      return undefined;
+    }
+    return { taskDefinition, taskRoleArn, executionRoleArn, snapshotBucketName };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Development-only owner task wiring. Explicit ``-c computerOwner*`` context
+ * values win; otherwise the owner outputs of the live ChatticusComputers stack
+ * are read at synth time. Returns undefined until the Computers stack has been
+ * deployed with the owner task definition, which leaves host-worker wiring as
+ * it was. After any Computers stack change, redeploy the ControlPlane stack so
+ * it re-reads these outputs.
+ */
+export function computerOwnerStartConfig(
+  scope: Construct,
+  environmentName: ChatticusCloudEnvironment,
+): ComputerOwnerStartConfig | undefined {
+  if (environmentName !== "development") {
+    return undefined;
+  }
+  if (contextString(scope, "computerHostStart") === "noop") {
+    return undefined;
+  }
+  return ownerConfigFromContext(scope) || lookupComputersOwnerStart(scope);
+}
+
+/** The control-plane resources the scoped owner role may touch. */
+export interface ComputerOwnerStorage {
+  readonly messagingTable: dynamodb.ITable;
+  readonly conversationsTable: dynamodb.ITable;
+  readonly piSessionsBucket: s3.IBucket;
+}
+
+/**
+ * Wires the starter to the Pi session owner task definition and returns the
+ * scoped role. The role is the permission ceiling: DynamoDB read and write on
+ * the Messaging and Conversations tables and their indexes, S3 read and write
+ * on the Pi sessions bucket and the snapshot bucket, nothing else. Only the
+ * starter's execution role may assume it, for at most one hour, and the starter
+ * narrows each session with a session policy. The owner task role itself stays
+ * empty. Leaves CHATTICUS_COMPUTER_RUNTIME unset unless the rehearsal switch is on.
+ */
+export function wireComputerStarterOwnerRunTask(
+  computerWorkerFunction: lambda.Function,
+  stack: cdk.Stack,
+  hostConfig: ComputerHostStartEcsConfig,
+  ownerConfig: ComputerOwnerStartConfig,
+  storage: ComputerOwnerStorage,
+): iam.Role {
+  const scopedRole = new iam.Role(stack, "ComputerOwnerScopedRole", {
+    assumedBy: computerWorkerFunction.role!,
+    maxSessionDuration: cdk.Duration.seconds(OWNER_SCOPED_ROLE_MAX_SESSION_SECONDS),
+    description:
+      "Ceiling for one Pi session owner: the starter assumes it with a per-session policy.",
+  });
+  storage.messagingTable.grantReadWriteData(scopedRole);
+  storage.conversationsTable.grantReadWriteData(scopedRole);
+  storage.piSessionsBucket.grantReadWrite(scopedRole);
+  s3.Bucket.fromBucketName(
+    stack,
+    "ComputerOwnerSnapshotBucket",
+    ownerConfig.snapshotBucketName,
+  ).grantReadWrite(scopedRole);
+
+  const environment: Record<string, string> = {
+    CHATTICUS_OWNER_TASK_DEFINITION: ownerConfig.taskDefinition,
+    CHATTICUS_OWNER_CONTAINER_NAME: "computer",
+    CHATTICUS_OWNER_COMMAND: OWNER_CONTAINER_COMMAND,
+    CHATTICUS_OWNER_SCOPED_ROLE_ARN: scopedRole.roleArn,
+    CHATTICUS_SNAPSHOT_BUCKET: ownerConfig.snapshotBucketName,
+  };
+  if (
+    COMPUTER_RUNTIME_OWNER_REHEARSAL ||
+    contextString(stack, "computerRuntime") === "owner"
+  ) {
+    environment.CHATTICUS_COMPUTER_RUNTIME = "owner";
+  }
+  for (const [key, value] of Object.entries(environment)) {
+    computerWorkerFunction.addEnvironment(key, value);
+  }
+
+  const ownerFamily = ownerConfig.taskDefinition.includes("/")
+    ? ownerConfig.taskDefinition.split("/").pop()!.split(":")[0]
+    : ownerConfig.taskDefinition.split(":")[0];
+  computerWorkerFunction.addToRolePolicy(
+    new iam.PolicyStatement({
+      actions: ["ecs:RunTask"],
+      resources: [
+        `arn:aws:ecs:${stack.region}:${stack.account}:task-definition/${ownerFamily}:*`,
+      ],
+      conditions: {
+        ArnEquals: {
+          "ecs:cluster": `arn:aws:ecs:${stack.region}:${stack.account}:cluster/${hostConfig.cluster}`,
+        },
+      },
+    }),
+  );
+  computerWorkerFunction.addToRolePolicy(
+    new iam.PolicyStatement({
+      actions: ["iam:PassRole"],
+      resources: [ownerConfig.taskRoleArn, ownerConfig.executionRoleArn],
+      conditions: {
+        StringEquals: { "iam:PassedToService": "ecs-tasks.amazonaws.com" },
+      },
+    }),
+  );
+  scopedRole.grantAssumeRole(computerWorkerFunction.grantPrincipal);
+  return scopedRole;
 }

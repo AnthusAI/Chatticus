@@ -5,6 +5,7 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as path from "path";
@@ -20,7 +21,9 @@ import {
 } from "./environments";
 import {
   computerHostStartEcsConfig,
+  computerOwnerStartConfig,
   wireComputerStarterEcsRunTask,
+  wireComputerStarterOwnerRunTask,
 } from "./computer-host-start";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
@@ -29,6 +32,9 @@ const CREATE_REQUIRE_BANNER =
   "const require = topLevelCreateRequire(import.meta.url);";
 
 const DEAD_LETTER_MAX_RECEIVE_COUNT = 5;
+
+/** Length of the generated model gateway signing key; the token code requires at least 32. */
+export const MODEL_GATEWAY_SIGNING_KEY_LENGTH = 64;
 
 /** Local secondary indexes of the Pi session table; mirrors PI_SESSION_TABLE_KEYS in conversation/src/storage/table-definition.ts. */
 export const CONVERSATIONS_TABLE_LOCAL_SECONDARY_INDEXES = [
@@ -61,6 +67,10 @@ export class ControlPlaneStack extends cdk.Stack {
   readonly turnExecutorFunction: lambdaNodejs.NodejsFunction;
   readonly turnProbeFunction: lambdaNodejs.NodejsFunction;
   readonly computerStarterFunction: lambdaNodejs.NodejsFunction;
+  /** Development only: signs the per-turn model gateway tokens. */
+  readonly modelGatewaySigningKeySecret?: secretsmanager.Secret;
+  /** Development only, and only once ChatticusComputers has the owner task: the assumable ceiling for one Pi session owner. */
+  readonly computerOwnerScopedRole?: iam.Role;
 
   constructor(scope: Construct, id: string, props: ControlPlaneStackProps) {
     super(scope, id, props);
@@ -337,6 +347,41 @@ export class ControlPlaneStack extends cdk.Stack {
         cdk.Stack.of(this),
         computerHostStart,
       );
+      const computerOwnerStart = computerOwnerStartConfig(this, environmentName);
+      if (computerOwnerStart !== undefined) {
+        this.computerOwnerScopedRole = wireComputerStarterOwnerRunTask(
+          computerStarterFunction,
+          cdk.Stack.of(this),
+          computerHostStart,
+          computerOwnerStart,
+          { messagingTable, conversationsTable, piSessionsBucket },
+        );
+      }
+    }
+
+    if (isDevelopment) {
+      const modelGatewaySigningKeySecret = new secretsmanager.Secret(
+        this,
+        "ModelGatewaySigningKey",
+        {
+          description:
+            "Signs the short-lived per-turn tokens the model gateway accepts. Read by the FrontDoor and the ComputerStarter only.",
+          removalPolicy: cdk.RemovalPolicy.DESTROY,
+          generateSecretString: {
+            passwordLength: MODEL_GATEWAY_SIGNING_KEY_LENGTH,
+            excludePunctuation: true,
+          },
+        },
+      );
+      modelGatewaySigningKeySecret.grantRead(frontDoorFunction);
+      modelGatewaySigningKeySecret.grantRead(computerStarterFunction);
+      for (const target of [frontDoorFunction, computerStarterFunction]) {
+        target.addEnvironment(
+          "CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN",
+          modelGatewaySigningKeySecret.secretArn,
+        );
+      }
+      this.modelGatewaySigningKeySecret = modelGatewaySigningKeySecret;
     }
 
     new cdk.CfnOutput(this, "ControlPlaneFunctionUrl", {
