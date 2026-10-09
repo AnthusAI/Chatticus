@@ -21,6 +21,12 @@ Feature: Storage credentials scoped to one conversation session
     Then every resource of the policy belongs to bucket "pi-sessions" or to the table "conversations"
     And the policy grants no wildcard action
 
+  Scenario: Every table statement allows the conditional transactions and batch reads the storage issues
+    Given the owner session of bot "bot-1" in channel "channel-1" of organization "anthus" on computer "computer-1"
+    When the owner policy is built for the session
+    Then every table statement of the owner policy allows the actions "dynamodb:GetItem,dynamodb:PutItem,dynamodb:UpdateItem,dynamodb:DeleteItem,dynamodb:Query,dynamodb:TransactWriteItems,dynamodb:ConditionCheckItem"
+    And the conversation table statement of the owner policy also allows the action "dynamodb:BatchGetItem"
+
   Scenario: Two sessions of the same bot get disjoint policies
     Given the session of bot "bot-1" in channel "channel-1" of organization "anthus"
     And the session of bot "bot-1" in channel "channel-2" of organization "anthus"
