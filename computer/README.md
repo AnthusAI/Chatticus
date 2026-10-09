@@ -58,9 +58,19 @@ v1 contents:
   adds Xvfb and Chromium back reports the browser ready at boot.
 - shell and `/workspace`
 - snapshot pack/hydrate CLI
+- `node /opt/chatticus/host/owner.mjs`: the Pi owner program. For computers in
+  Anthus's own accounts the ComputerStarter runs it in the `ChatticusComputerOwner`
+  task. It claims a parked turn, runs Pi's own tools locally, calls the model
+  through the gateway with a per-turn token, publishes the snapshot when content
+  changed and exits. Model-chosen commands run through `chatticus-shell` as
+  uid 2000 with a scrubbed environment. See
+  [docs/PI_SESSION_HANDOFF.md](../docs/PI_SESSION_HANDOFF.md) for the design,
+  proof and limits (development only; the credentials endpoint cannot be
+  blocked on Fargate; `browse` has no executor on this path).
 - `node /opt/chatticus/host/host-worker.mjs` (bundled from `computer/host/`;
   RunTask may override the container command when `CHATTICUS_ECS_HOST_COMMAND`
-  is set)
+  is set): the HTTP host protocol worker. Computers in a customer's AWS account
+  use it permanently and never get Pi.
 - noVNC (or equivalent) for watch and human takeover (next)
 - `chatticus-worker` / `chatticus-agent` (next)
 

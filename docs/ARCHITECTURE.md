@@ -261,10 +261,13 @@ Provider-hosted tools (if the vendor offers them) may run on the provider.
 Custom tools and computer actions always run on the worker.
 
 On the TypeScript control plane in development, the agent loop runs in a
-Lambda that owns the bot's Pi session, and the computer only executes parked
-computer actions. [Pi session handoff](PI_SESSION_HANDOFF.md) explains that
-with diagrams, and describes a proposal, still under a spike and not built, to
-hand the session to an owner inside the computer container.
+Lambda that owns the bot's Pi session until the first computer tool call. For
+computers in Anthus's own accounts, that call parks the turn and a Pi owner
+inside the computer container takes the same session over, runs Pi's own tools
+locally and calls the model through a gateway that keeps the real key in the
+control plane. Computers in a customer's account never get Pi; they keep the
+HTTP host protocol and the host worker. [Pi session handoff](PI_SESSION_HANDOFF.md)
+explains this with diagrams, what was proven on development, and the limits.
 
 ## Approvals in the loop
 

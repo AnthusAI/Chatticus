@@ -96,7 +96,9 @@ the next host. While `hydrate_required` is set, turns for that
 
 ### 1.5 Summoned Fargate worker lifetime
 
-The Fargate host override (`node /opt/chatticus/host/host-worker.mjs`) polls
+For computers in Anthus's own accounts the Fargate session is now the Pi owner
+task (see [Pi session handoff](PI_SESSION_HANDOFF.md)). For customer-account
+computers, the Fargate host override (`node /opt/chatticus/host/host-worker.mjs`) polls
 for at most **`CHATTICUS_HOST_WORKER_SECONDS` (default 120)** before
 exiting. That is today's practical ceiling on a headless Fargate session
 without changing the worker loop or service model.

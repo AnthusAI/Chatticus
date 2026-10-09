@@ -603,14 +603,24 @@ computer) before any action is recorded or any host is started.
 
 ### 4.2 Why the host does not run Pi
 
+Status: this section describes the **customer-account** path, which is
+unchanged. For computers in Anthus's own accounts, a Pi owner does run in the
+container (built and rehearsed on development; see
+[Pi session handoff](PI_SESSION_HANDOFF.md)). Sections 4.1 and 4.3 to 4.6 below
+were written for the host-worker design; read them as the customer-account path
+and as the history of the own-account path.
+
 An organization's computer can live in the **customer's AWS account**
 (assume-role, `ChatticusOrganizationComputerRole`). That account must not hold
 write access to Chatticus's transcript store. Today the host already reaches
-the control plane only over HTTP plus its own snapshot bucket. This design
-keeps that boundary: the host executes tool actions; the Lambda owner
-(Chatticus account) is always the only Pi writer. It also avoids loading Pi
-and AWS credentials for the conversation tables into a container that runs
-model-chosen shell commands.
+the control plane only over HTTP plus its own snapshot bucket. For customer
+accounts this boundary is kept permanently: the host executes tool actions; the
+Lambda owner (Chatticus account) is the only Pi writer. The own-account owner puts Pi and
+session credentials in a container that runs model-chosen shell commands, so it
+is built to limit the damage: the container holds no model key (calls go through
+a gateway with a per-turn token), its task role is empty, its storage
+credentials are scoped to one session, and the shell runs as an unprivileged
+user with a scrubbed environment.
 
 ### 4.3 Host protocol: 21 routes become 9
 
@@ -676,6 +686,14 @@ record (`disk_dirty`, `hydrate_required`, `live_writer_host_id`).
   before the start request.
 
 ### 4.4 The parked-tool handoff (Lambda owner to computer)
+
+Status: on development, for computers in Anthus's own accounts, the parked call
+is no longer claimed by a host over HTTP. The Lambda still creates the action and
+parks the turn, but the ComputerStarter runs the owner task and the owner claims
+the parked turn (`takeOverTurn`, same session, new fence) and replays the call
+locally with Pi's own tools. The text below remains accurate for customer-account
+computers, which keep the host protocol. See
+[Pi session handoff](PI_SESSION_HANDOFF.md).
 
 The Pi spike parked a tool by closing the owner and relying on crash replay,
 which left "A parked" indistinguishable from "B crashed mid-execution". Here
@@ -757,6 +775,11 @@ computer. There is still no `stop_computer`. Host stop is the existing
 
 ### 4.5 Computer start
 
+Status: for computers in Anthus's own accounts the starter generates an owner id,
+mints the model gateway token bound to it, assumes `ComputerOwnerScopedRole` with
+a per-session policy and runs the `ChatticusComputerOwner` task. The ECS host
+start described below is what customer-account computers still use.
+
 ComputerStarter is the old `ComputerWorker` Lambda without turn logic: it
 deduplicates by `host_start_generation` (the existing lease), assumes the
 cross-account role when the organization is in its own account, and calls ECS
@@ -767,6 +790,10 @@ coupling. Customer-account provisioning, the CloudFormation template asset
 (moved into `infra/`) and the snapshot bucket naming are ported mechanically.
 
 ### 4.6 Host worker internals (Node)
+
+Status: the host worker now serves customer-account computers. The owner program
+for own-account computers lives beside it in `computer/host/src/` (`owner.ts`,
+`owner-main.ts`, `owner-deps.ts`).
 
 `computer/host/src/`: `main.ts` (loop and shutdown: hydrate on boot, run until
 the deadline, publish before exit), `boot.ts` (capability readiness gates),

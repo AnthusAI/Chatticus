@@ -70,7 +70,7 @@ See [Architecture](docs/ARCHITECTURE.md) for routing,
 
 ## What is live today
 
-**Last updated: 2026-10-06.** Git **`develop`** is ahead of **`main`**.
+**Last updated: 2026-10-09.** Git **`develop`** is ahead of **`main`**.
 
 ### The control plane is TypeScript on `develop`
 
@@ -86,6 +86,27 @@ until it runs, do not assume staging or production behave like development.
 The Gherkin features run under cucumber-js with TypeScript steps. The sections
 below that predate this change describe the Python-era stack on the environments
 that still run it.
+
+### The computer runs Pi on development (Pi session handoff)
+
+For computers in Anthus's own AWS accounts, the Lambda runs Pi until the first
+computer tool call, parks the turn, and the ComputerStarter runs a Fargate owner
+task. A Pi owner in that container claims the parked turn (same session, new
+fence), runs Pi's own `read`, `write`, `edit` and `bash` locally, calls the model
+through a gateway route with a per-turn token (the real OpenAI key stays in the
+control plane), publishes the workspace snapshot when content changed, and exits.
+Model-chosen commands run as an unprivileged user (uid 2000) with a scrubbed
+environment. Rehearsed live on **development only**: a smoke turn, a security
+check, a recovery after the owner task was stopped mid-command, and a bug-fix
+task that persisted to a fresh owner. Computers in a customer account never get
+Pi; they keep the HTTP host protocol and the host worker. See
+[Pi session handoff](docs/PI_SESSION_HANDOFF.md) for the design, proof and the
+**limits**: staging and production do not run this path; the container
+credentials endpoint cannot be blocked on Fargate (mitigated by an empty task
+role, not blocked); credentials and the gateway token last one hour with no
+refresh; the gateway has no model allow-list or per-call spend ceiling; `browse`
+has no executor on the owner path; and the old own-account Fargate host task
+definition and service still exist until a later infra PR.
 
 The development environment is **[develop.chattic.us](https://develop.chattic.us)**
 in the `chatticus-development` account. `dev.chattic.us` is the stale legacy
@@ -546,7 +567,7 @@ as a leftover for the implementation agent.
 - [Messages and the cloud API](docs/MESSAGING.md)
 - [Design challenges](docs/DESIGN_CHALLENGES.md)
 - [Computer snapshots](docs/COMPUTER_SNAPSHOTS.md)
-- [Pi session handoff](docs/PI_SESSION_HANDOFF.md) (how a Pi session runs today, with diagrams, and a proposal under spike)
+- [Pi session handoff](docs/PI_SESSION_HANDOFF.md) (how a turn is handed from the Lambda to a Pi owner in the computer container, with diagrams, proof and limits)
 - [Stack](docs/STACK.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Approval spec](docs/APPROVAL.md)
