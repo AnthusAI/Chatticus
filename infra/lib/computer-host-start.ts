@@ -25,7 +25,7 @@ export interface ComputerHostStartEcsConfig {
  * and host-worker stays the default runtime. Setting it to true, or passing
  * ``-c computerRuntime=owner``, sets ``CHATTICUS_COMPUTER_RUNTIME=owner``.
  */
-export const COMPUTER_RUNTIME_OWNER_REHEARSAL = false;
+export const COMPUTER_RUNTIME_OWNER_REHEARSAL = true;
 
 /** Longest session the scoped owner role may be assumed for, in seconds. */
 export const OWNER_SCOPED_ROLE_MAX_SESSION_SECONDS = 3600;
