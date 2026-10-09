@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-7366ffda-84a7-405d-8c68-e5605bc12200",
+  "title": "Refresh TYPESCRIPT_CONTROL_PLANE 4.1 and 4.3 to describe the owner runtime",
+  "description": "Sections 4.1 and 4.3 still read as host-worker design for own-account computers. Rewrite to the built owner path; customer accounts keep the host protocol.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-09T20:57:26.419238Z",
+  "updated_at": "2026-10-09T20:57:26.419283Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Sections 4.1 and 4.3 need updates for the built owner path; customer accounts keep the host protocol.",
+  "right_now_updated_at": "2026-10-09T20:57:28.513834Z",
+  "custom": {}
+}

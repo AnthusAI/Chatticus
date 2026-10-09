@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-35535d53-8fbf-48e3-a09d-ecf7088fe9dc",
+  "title": "Remove the own-account host task definition and service from the Computers stack",
+  "description": "Own-account computers always start the owner now. The Computers stack still has the old ComputerTask definition, ComputerTaskRole and FargateHost service; lookupComputersHostStart reads the cluster, subnets, security groups and roles from them for the owner wiring, so re-source those from explicit stack outputs first. The customer-account path uses its own stack and keeps the host worker. Computers is deployed by hand; never destroy the stack. Redeploy ControlPlane afterwards.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-09T20:57:22.433303Z",
+  "updated_at": "2026-10-09T20:57:22.433359Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The old own-account host resources must be removed after owner setup uses explicit stack outputs.",
+  "right_now_updated_at": "2026-10-09T20:57:24.093978Z",
+  "custom": {}
+}
