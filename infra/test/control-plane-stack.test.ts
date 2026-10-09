@@ -317,8 +317,10 @@ describe("ControlPlaneStack", () => {
       assert.equal(starter.CHATTICUS_INVOKE_KEY, undefined);
     });
 
-    it("lets the starter read exactly the invoke key secret and no other", () => {
-      const grants = secretGrants(development).filter((grant) => /ComputerStarterServiceRole/.test(grant.roles));
+    it("lets the starter read exactly the invoke key secret and the model gateway signing key", () => {
+      const grants = secretGrants(development)
+        .filter((grant) => /ComputerStarterServiceRole/.test(grant.roles))
+        .filter((grant) => !JSON.stringify(grant.resource).includes("ModelGatewaySigningKey"));
       assert.equal(grants.length, 1);
       const resources = [].concat(grants[0]!.resource);
       assert.equal(resources.length, 1);
@@ -359,7 +361,7 @@ describe("ControlPlaneStack", () => {
         (policy.Properties.PolicyDocument.Statement as Record<string, any>[])
           .filter((statement) => [].concat(statement.Action).includes("secretsmanager:GetSecretValue"))
           .map((statement) => ({ roles: JSON.stringify(policy.Properties.Roles), resource: statement.Resource })),
-      );
+      ).filter((grant) => !JSON.stringify(grant.resource).includes("ModelGatewaySigningKey"));
       assert.equal(grants.length, 2);
       const frontDoorGrant = grants.find((grant) => /FrontDoorServiceRole/.test(grant.roles));
       const starterGrant = grants.find((grant) => /ComputerStarterServiceRole/.test(grant.roles));

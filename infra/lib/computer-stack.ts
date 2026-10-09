@@ -8,6 +8,9 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
 import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 
+/** Task definition family of the Pi session owner task. */
+export const OWNER_TASK_DEFINITION_FAMILY = "ChatticusComputerOwner";
+
 export interface ComputerStackProps extends cdk.StackProps {
   snapshotBucket: s3.IBucket;
 }
@@ -19,6 +22,10 @@ export interface ComputerStackProps extends cdk.StackProps {
  * ``-c computerCount=1`` to run a host. v1 AWS computers are Fargate ARM64
  * so the same image runs on Apple Silicon Docker and Fargate. Optional
  * stop/start EC2 is later, for a warm EBS cache.
+ *
+ * A second task definition, the Pi session owner, runs the same image with a
+ * task role that has no policies at all. The control plane starts it with a
+ * per-turn scoped role instead; see ``wireComputerStarterOwnerRunTask``.
  */
 export class ComputerStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ComputerStackProps) {
@@ -90,6 +97,35 @@ export class ComputerStack extends cdk.Stack {
       environment: computerEnvironment,
     });
 
+    const ownerTaskRole = new iam.Role(this, "ComputerOwnerTaskRole", {
+      assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+      description:
+        "Pi session owner task: deliberately empty. The shell in the container can reach the task credentials endpoint, so this role can do nothing.",
+    });
+
+    const ownerTaskDefinition = new ecs.FargateTaskDefinition(
+      this,
+      "ComputerOwnerTask",
+      {
+        family: OWNER_TASK_DEFINITION_FAMILY,
+        cpu: 256,
+        memoryLimitMiB: 512,
+        taskRole: ownerTaskRole,
+        runtimePlatform: {
+          cpuArchitecture: ecs.CpuArchitecture.ARM64,
+          operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+        },
+      },
+    );
+    ownerTaskDefinition.addContainer("computer", {
+      image: ecs.ContainerImage.fromEcrRepository(repository, "dev"),
+      logging: ecs.LogDrivers.awsLogs({
+        logGroup,
+        streamPrefix: "computer-owner",
+      }),
+      environment: computerEnvironment,
+    });
+
     const securityGroup = new ec2.SecurityGroup(this, "ComputerSecurityGroup", {
       vpc,
       description: "Computer hosts: egress only. No inbound ports.",
@@ -120,6 +156,18 @@ export class ComputerStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "ComputerServiceName", {
       value: service.serviceName,
+    });
+    new cdk.CfnOutput(this, "ComputerOwnerTaskDefinitionArn", {
+      value: ownerTaskDefinition.taskDefinitionArn,
+    });
+    new cdk.CfnOutput(this, "ComputerOwnerTaskRoleArn", {
+      value: ownerTaskRole.roleArn,
+    });
+    new cdk.CfnOutput(this, "ComputerOwnerExecutionRoleArn", {
+      value: ownerTaskDefinition.obtainExecutionRole().roleArn,
+    });
+    new cdk.CfnOutput(this, "ComputerSnapshotBucketName", {
+      value: props.snapshotBucket.bucketName,
     });
   }
 }
