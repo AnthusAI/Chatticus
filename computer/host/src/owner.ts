@@ -4,7 +4,11 @@ import { promisify } from "node:util";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { scrubbedShellEnvironment } from "../../../conversation/src/pi/local-computer-tools.ts";
+import type { SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
 import { takeOverTurn, type TurnTakeoverOutcome } from "../../../conversation/src/turn/computer-owner.ts";
+import { ComputerHostBootDriver, type HostBootPlane } from "./boot.ts";
+import { publishBeforeExit } from "./disk-lifecycle.ts";
+import { startHostHeartbeat, type HeartbeatPlane, type HeartbeatTimer } from "./heartbeat.ts";
 import type { ExecutorDeps, TurnExecutionJob } from "../../../conversation/src/turn/types.ts";
 
 const execFileAsync = promisify(execFile);
@@ -152,4 +156,84 @@ export async function runShellProbe(command: string, options: Pick<OwnerEntryPoi
 	);
 	if (!result.ok) return { exitCode: -1, output: `${chunks.join("")}${result.error.message}` };
 	return { exitCode: result.value.exitCode, output: chunks.join("") };
+}
+
+/** What the owner asks of the Front Door around a turn: the host boot and snapshot routes and the heartbeat. */
+export type OwnerSessionPlane = HostBootPlane & HeartbeatPlane;
+
+/** Who the owner is on the Front Door and where its disk lives. */
+export type OwnerSessionOptions = {
+	readonly tenantId: string;
+	/** The owner id; it registered as a worker under this id, and the snapshot metadata is published under it. */
+	readonly workerId: string;
+	readonly liveRoot?: string;
+	readonly store?: SnapshotObjectStore | null;
+	/** Runs after the snapshot is hydrated and before the turn, for example to share the hydrated workspace with the shell. */
+	readonly afterHydrate?: () => Promise<void>;
+	/** Registers what to do when the container is told to stop; the handler persists the disk and marks the computer stopped. */
+	readonly onTerminate?: (handler: () => Promise<void>) => void;
+	readonly heartbeatTimer?: HeartbeatTimer;
+};
+
+/**
+ * Run the owner's turn between a hydrate and a publish of the computer's disk, exactly as the host worker does around its
+ * loop: boot (computer running, model and workspace gates, snapshot hydrate), the turn, then publish the disk when it is
+ * dirty and mark the computer stopped. The disk is persisted once, whether the turn ends, fails, or the container is told
+ * to stop first. The owner heartbeats while it runs so the actions it holds are not taken for lost.
+ *
+ * @param plane The Front Door.
+ * @param options The organization, the owner id and the disk.
+ * @param run The turn.
+ * @returns What the turn returned.
+ */
+export async function runOwnerOnComputerDisk(
+	plane: OwnerSessionPlane,
+	options: OwnerSessionOptions,
+	run: () => Promise<OwnerEntryPointOutcome>,
+): Promise<OwnerEntryPointOutcome> {
+	const heartbeat = startHostHeartbeat({ plane, ...(options.heartbeatTimer === undefined ? {} : { timer: options.heartbeatTimer }) });
+	let closed: Promise<void> | null = null;
+	const close = (): Promise<void> => {
+		closed ??= (async () => {
+			heartbeat.stop();
+			await publishBeforeExit(plane, {
+				tenantId: options.tenantId,
+				workerId: options.workerId,
+				...(options.liveRoot === undefined ? {} : { liveRoot: options.liveRoot }),
+				...(options.store === undefined ? {} : { store: options.store }),
+			});
+			await plane.setComputerStopped(true);
+		})();
+		return closed;
+	};
+	try {
+		await new ComputerHostBootDriver(plane, {
+			tenantId: options.tenantId,
+			workerId: options.workerId,
+			...(options.liveRoot === undefined ? {} : { liveRoot: options.liveRoot }),
+			...(options.store === undefined ? {} : { store: options.store }),
+		}).bootThroughWorkspace();
+		options.onTerminate?.(close);
+		try {
+			await options.afterHydrate?.();
+			const outcome = await run();
+			heartbeat.assertAlive();
+			return outcome;
+		} finally {
+			await close();
+		}
+	} finally {
+		heartbeat.stop();
+	}
+}
+
+/**
+ * The process exit code for how a takeover ended. A turn that reached a terminal state, or was parked or yielded for
+ * another owner to continue, is a clean exit; a lost turn or one left for reconciliation is not.
+ *
+ * @param outcome How the entry point ended.
+ * @returns 0 for a clean end, 1 otherwise.
+ */
+export function ownerExitCodeFor(outcome: OwnerEntryPointOutcome): number {
+	return outcome === "done" || outcome === "failed" || outcome === "parked" || outcome === "yielded" || outcome === "already_finished" ? 0 : 1;
 }

@@ -53,6 +53,7 @@ export function ownerStoresConfigFromEnvironment(environment: NodeJS.ProcessEnv 
 		gateway: {
 			baseUrl: requiredSetting(environment, "CHATTICUS_MODEL_GATEWAY_URL"),
 			token: requiredSetting(environment, "CHATTICUS_MODEL_GATEWAY_TOKEN"),
+			invokeKey: requiredSetting(environment, "CHATTICUS_INVOKE_KEY"),
 		},
 	};
 }
@@ -96,5 +97,32 @@ export function createContainerOwnerDeps(config: OwnerStoresConfig): ExecutorDep
 			environment: config.environment,
 			heartbeatTimeoutSeconds: DEFAULT_HEARTBEAT_TIMEOUT_SECONDS,
 		},
+	};
+}
+
+/** Who the container owner is on the Front Door: the organization and member of the start, the owner id, and the Front Door itself. */
+export type OwnerIdentityConfig = {
+	readonly tenantId: string;
+	readonly userId: string;
+	/** The id the start generated; the gateway token is bound to it, and the owner claims the turn under it. */
+	readonly ownerId: string;
+	readonly frontDoorUrl: string;
+	readonly invokeKey: string;
+};
+
+/**
+ * Read the owner's identity from the environment the computer was started with.
+ *
+ * @param environment The process environment.
+ * @returns The typed identity, with no trailing slash on the Front Door address.
+ * @throws OwnerConfigurationError If a required variable is missing.
+ */
+export function ownerIdentityFromEnvironment(environment: NodeJS.ProcessEnv = process.env): OwnerIdentityConfig {
+	return {
+		tenantId: requiredSetting(environment, "CHATTICUS_TENANT_ID"),
+		userId: requiredSetting(environment, "CHATTICUS_USER_ID"),
+		ownerId: requiredSetting(environment, "CHATTICUS_OWNER_ID"),
+		frontDoorUrl: requiredSetting(environment, "CHATTICUS_FRONT_DOOR_URL").replace(/\/+$/, ""),
+		invokeKey: requiredSetting(environment, "CHATTICUS_INVOKE_KEY"),
 	};
 }

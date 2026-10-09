@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { OwnerConfigurationError, ownerStoresConfigFromEnvironment } from "../../computer/host/src/owner-deps.ts";
+import { OwnerConfigurationError, ownerIdentityFromEnvironment, ownerStoresConfigFromEnvironment } from "../../computer/host/src/owner-deps.ts";
 import { createGatewayModels } from "../../computer/host/src/owner-models.ts";
-import { startJobSourceFromEnvironment } from "../../computer/host/src/owner.ts";
+import { ownerExitCodeFor, startJobSourceFromEnvironment } from "../../computer/host/src/owner.ts";
+import { computerRuntimeFromEnvironment } from "../src/computer/host-starter.ts";
 
 const gateway = { baseUrl: "https://gateway.example.test/v1", token: "session-token-1" };
 
@@ -35,6 +36,7 @@ describe("ownerStoresConfigFromEnvironment", () => {
 		CHATTICUS_ENVIRONMENT: "development",
 		CHATTICUS_MODEL_GATEWAY_URL: gateway.baseUrl,
 		CHATTICUS_MODEL_GATEWAY_TOKEN: gateway.token,
+		CHATTICUS_INVOKE_KEY: "invoke-key-1",
 	};
 
 	it("reads the stores and the gateway", () => {
@@ -43,7 +45,7 @@ describe("ownerStoresConfigFromEnvironment", () => {
 			conversationsTableName: "conversations",
 			piSessionsBucket: "sessions",
 			environment: "development",
-			gateway,
+			gateway: { ...gateway, invokeKey: "invoke-key-1" },
 		});
 	});
 
@@ -63,5 +65,54 @@ describe("startJobSourceFromEnvironment", () => {
 
 	it("yields none when the start named no turn", async () => {
 		expect(await startJobSourceFromEnvironment({ CHATTICUS_TENANT_ID: "t" }).claim()).toBeNull();
+	});
+});
+
+describe("ownerIdentityFromEnvironment", () => {
+	const complete = {
+		CHATTICUS_TENANT_ID: "anthus",
+		CHATTICUS_USER_ID: "ryan",
+		CHATTICUS_OWNER_ID: "owner-1",
+		CHATTICUS_FRONT_DOOR_URL: "https://front-door.test/",
+		CHATTICUS_INVOKE_KEY: "invoke-key-1",
+	};
+
+	it("reads the identity and trims the trailing slash of the Front Door", () => {
+		expect(ownerIdentityFromEnvironment(complete)).toEqual({
+			tenantId: "anthus",
+			userId: "ryan",
+			ownerId: "owner-1",
+			frontDoorUrl: "https://front-door.test",
+			invokeKey: "invoke-key-1",
+		});
+	});
+
+	it("names the missing variable", () => {
+		const { CHATTICUS_OWNER_ID: _omitted, ...incomplete } = complete;
+		expect(() => ownerIdentityFromEnvironment(incomplete)).toThrow("CHATTICUS_OWNER_ID");
+	});
+});
+
+describe("ownerExitCodeFor", () => {
+	it.each(["done", "failed", "parked", "yielded", "already_finished"] as const)("exits 0 when the turn ended %s", (outcome) => {
+		expect(ownerExitCodeFor(outcome)).toBe(0);
+	});
+
+	it.each(["lost", "reconciling", "not_found", "no_job"] as const)("exits 1 when the turn ended %s", (outcome) => {
+		expect(ownerExitCodeFor(outcome)).toBe(1);
+	});
+});
+
+describe("computerRuntimeFromEnvironment", () => {
+	it.each([[undefined], [""], ["host-worker"]])("is host-worker for %j", (value) => {
+		expect(computerRuntimeFromEnvironment({ CHATTICUS_COMPUTER_RUNTIME: value })).toBe("host-worker");
+	});
+
+	it("is owner for owner", () => {
+		expect(computerRuntimeFromEnvironment({ CHATTICUS_COMPUTER_RUNTIME: "owner" })).toBe("owner");
+	});
+
+	it.each(["Owner", "ecs", "host_worker"])("refuses %j", (value) => {
+		expect(() => computerRuntimeFromEnvironment({ CHATTICUS_COMPUTER_RUNTIME: value })).toThrow("must be host-worker or owner");
 	});
 });

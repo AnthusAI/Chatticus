@@ -119,3 +119,5 @@ features/turn_transient_store_faults.feature
 features/computer_without_browser.feature
 features/computer_owner_handoff.feature
 features/computer_owner_entry_point.feature
+features/computer_owner_start.feature
+features/computer_owner_snapshot.feature

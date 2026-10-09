@@ -198,6 +198,7 @@ export async function runFargateTask(
 		securityGroups: string[];
 		claim: HostStartClaim;
 		environment?: StarterEnvironment;
+		containerOverride?: { name: string; command: string[]; environment: Array<{ name: string; value: string }> };
 	},
 ): Promise<void> {
 	const environment = options.environment ?? process.env;
@@ -213,7 +214,9 @@ export async function runFargateTask(
 			},
 		},
 		tags: hostTaskTags(options.claim, environment),
-		...runTaskOverrides(options.claim, environment),
+		...(options.containerOverride === undefined
+			? runTaskOverrides(options.claim, environment)
+			: { overrides: { containerOverrides: [options.containerOverride] } }),
 	});
 	const failures = response?.failures ?? [];
 	const tasks = response?.tasks ?? [];
@@ -350,6 +353,36 @@ export type EnvironmentHostStarterOptions = Omit<
 	OrganizationHostStarterOptions,
 	"getOrganization" | "deploymentAccountId" | "deploymentEcsConfig" | "environment"
 >;
+
+/** What a started computer runs: the HTTP host worker, or the owner that runs the Pi session next to the workspace. */
+export type ComputerRuntime = "host-worker" | "owner";
+
+/** CHATTICUS_COMPUTER_RUNTIME names a runtime that does not exist. */
+export class ComputerRuntimeError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "ComputerRuntimeError";
+	}
+}
+
+/**
+ * The runtime the deployment starts computers with: `host-worker` when CHATTICUS_COMPUTER_RUNTIME is unset or empty,
+ * otherwise exactly `host-worker` or `owner`.
+ *
+ * @param environment The starter's environment.
+ * @returns The runtime.
+ * @throws ComputerRuntimeError If the variable holds any other value.
+ */
+export function computerRuntimeFromEnvironment(environment: StarterEnvironment = process.env): ComputerRuntime {
+	const value = environmentValue(environment, "CHATTICUS_COMPUTER_RUNTIME");
+	if (value === "" || value === "host-worker") {
+		return "host-worker";
+	}
+	if (value === "owner") {
+		return "owner";
+	}
+	throw new ComputerRuntimeError(`CHATTICUS_COMPUTER_RUNTIME must be host-worker or owner, not ${JSON.stringify(value)}.`);
+}
 
 /** Return the configured host starter for this deployment. */
 export function hostStarterFromEnvironment(

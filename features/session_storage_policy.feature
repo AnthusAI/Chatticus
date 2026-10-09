@@ -36,3 +36,26 @@ Feature: Storage credentials scoped to one conversation session
     Given the session of bot "bot#other" in channel "channel-1" of organization "anthus"
     When the storage policy is built for the session
     Then building the policy is refused
+
+  Scenario: The owner's policy adds its computer's snapshot objects and its organization's messaging items
+    Given the owner session of bot "bot-1" in channel "channel-1" of organization "anthus" on computer "computer-1"
+    When the owner policy is built for the session
+    Then the owner policy still allows the conversation session of the plain policy
+    And the owner policy allows snapshot objects only under "tenants/anthus/computers/computer-1/" of bucket "snapshots"
+    And the owner policy allows messaging items only with partition keys starting "anthus#" in the table "messaging"
+
+  Scenario: The owner's policy of one organization and computer shares nothing with another's
+    Given the owner session of bot "bot-1" in channel "channel-1" of organization "anthus" on computer "computer-1"
+    And the owner session of bot "bot-1" in channel "channel-1" of organization "other" on computer "computer-2"
+    When the owner policy is built for each session
+    Then the two owner policies share no snapshot prefix and no messaging partition prefix
+
+  Scenario: The owner's policy fits within the size STS accepts for realistic identifiers
+    Given the owner session with identifiers as long as the platform generates them
+    When the owner policy is built for the session
+    Then the owner policy is within the STS size limit
+
+  Scenario: A computer identifier that could widen the owner's policy is refused
+    Given the owner session of bot "bot-1" in channel "channel-1" of organization "anthus" on computer "computer-*"
+    When the owner policy is built for the session
+    Then building the owner policy is refused

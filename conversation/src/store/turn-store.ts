@@ -178,7 +178,8 @@ export class DynamoTurnControlStore implements TurnControlStore {
 	}
 
 	async claimTurn(request: Parameters<TurnControlStore["claimTurn"]>[0]): Promise<Turn | null> {
-		const setClaimedBy = request.claimedBy === null ? "" : ", claimed_by = :claimedBy";
+		const claimedByClause = request.claimedBy === null ? "" : ", claimed_by = :claimedBy";
+		const removeClaimedBy = request.claimedBy === null ? " REMOVE claimed_by" : "";
 		const values: Record<string, AttributeValue> = {
 			":attemptId": { S: request.attemptId },
 			":lease": { N: epochSeconds(request.leaseExpiresAt) },
@@ -195,7 +196,7 @@ export class DynamoTurnControlStore implements TurnControlStore {
 				new UpdateItemCommand({
 					TableName: this.tableName,
 					Key: this.metaKey(request.tenantId, request.turnId),
-					UpdateExpression: `SET attempt_id = :attemptId, lease_expires_at = :lease, deadline_at = :deadline${setClaimedBy} ADD attempt :one`,
+					UpdateExpression: `SET attempt_id = :attemptId, lease_expires_at = :lease, deadline_at = :deadline${claimedByClause} ADD attempt :one${removeClaimedBy}`,
 					ConditionExpression:
 						"attribute_exists(pk) AND #status = :active AND attribute_not_exists(waiting_for) AND (attribute_not_exists(lease_expires_at) OR lease_expires_at <= :now)",
 					ExpressionAttributeNames: { "#status": "status" },

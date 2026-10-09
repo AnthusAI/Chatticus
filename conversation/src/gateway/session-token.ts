@@ -5,8 +5,8 @@ export type SessionTokenClaims = {
 	readonly tenantId: string;
 	readonly botId: string;
 	readonly turnId: string;
-	/** The attempt that owns the turn; a recovered attempt makes the token of the earlier one useless. */
-	readonly attemptId: string;
+	/** The owner the start generated and the claimed attempt records; another owner taking over makes this token useless. */
+	readonly ownerId: string;
 	/** Expiry in seconds since the Unix epoch. */
 	readonly expiresAtSeconds: number;
 };
@@ -36,11 +36,11 @@ function requireStrongKey(signingKey: string): void {
 }
 
 /**
- * Mint a signed, expiring token for one turn attempt: `ct1.<claims>.<signature>`, claims as base64url JSON and the
+ * Mint a signed, expiring token for one turn owner: `ct1.<claims>.<signature>`, claims as base64url JSON and the
  * signature an HMAC-SHA-256 over the version and claims.
  *
  * @param signingKey Secret of the control plane, at least 32 characters; it never leaves the control plane.
- * @param claims The tenant, bot, turn and attempt the token is bound to, and when it expires.
+ * @param claims The tenant, bot, turn and owner the token is bound to, and when it expires.
  * @returns The token the container sends in place of a model key.
  */
 export function mintSessionToken(signingKey: string, claims: SessionTokenClaims): string {
@@ -57,18 +57,18 @@ function claimsFrom(encoded: string): SessionTokenClaims | null {
 		return null;
 	}
 	if (typeof parsed !== "object" || parsed === null) return null;
-	const { tenantId, botId, turnId, attemptId, expiresAtSeconds } = parsed as Record<string, unknown>;
+	const { tenantId, botId, turnId, ownerId, expiresAtSeconds } = parsed as Record<string, unknown>;
 	if (
 		typeof tenantId !== "string" ||
 		typeof botId !== "string" ||
 		typeof turnId !== "string" ||
-		typeof attemptId !== "string" ||
+		typeof ownerId !== "string" ||
 		typeof expiresAtSeconds !== "number" ||
 		!Number.isFinite(expiresAtSeconds)
 	) {
 		return null;
 	}
-	return { tenantId, botId, turnId, attemptId, expiresAtSeconds };
+	return { tenantId, botId, turnId, ownerId, expiresAtSeconds };
 }
 
 /**

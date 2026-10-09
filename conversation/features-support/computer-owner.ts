@@ -77,12 +77,13 @@ export function activeTurnJob(world: ChatticusWorld): { tenantId: string; turnId
  * @param options `hold` stops the owner after its tool ran and before the answer is recorded, until it is released, and
  * keeps its turn lease renewals from running.
  * @param job The turn to take over; the active turn when absent.
+ * @param options.workerId The worker id the owner claims under; `computer-owner-<label>` when absent.
  * @returns The owner's ended promise, and the hold when there is one.
  */
 export async function startComputerOwner(
 	world: ChatticusWorld,
 	label: string,
-	options: { hold: boolean; job?: { tenantId: string; turnId: string; botId: string } } = { hold: false },
+	options: { hold: boolean; job?: { tenantId: string; turnId: string; botId: string }; workerId?: string } = { hold: false },
 ): Promise<{ ended: Promise<TurnTakeoverOutcome>; held: HeldOwner | null }> {
 	const scenario = computerOwnerScenarioOf(world);
 	let release: () => void = () => undefined;
@@ -96,7 +97,7 @@ export async function startComputerOwner(
 	const deps = await computerOwnerDepsFor(world, options.hold ? gate : undefined);
 	const ended = takeOverTurn(options.job ?? activeTurnJob(world), deps, {
 		workspaceRoot: scenario.workspace,
-		workerId: `computer-owner-${label}`,
+		workerId: options.workerId ?? `computer-owner-${label}`,
 		...(options.hold
 			? {
 					beforeRecording: async () => {
