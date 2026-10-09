@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { WORKSPACE_DIRNAME } from "../../../../conversation/src/browser-profiles.ts";
 import { safeJoin } from "../../../../conversation/src/snapshot/host.ts";
 import { pythonRepr, ValueError, workspaceCwdRelative } from "../workspace-paths.ts";
-import { liveRootFromEnvironment } from "./workspace.ts";
+import { liveRootFromEnvironment } from "../live-root.ts";
 
 const SUPPORTED_TOOLS: ReadonlySet<string> = new Set(["run_terminal"]);
 const DEFAULT_CWD = "/workspace";

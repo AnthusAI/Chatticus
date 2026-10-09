@@ -1,4 +1,4 @@
-Feature: Computer snapshots and host relocate
+Feature: Computer snapshots and host hydration
   As a Chatticus administrator
   I want durable computer state in object storage
   So that any host can hydrate a workplace without live-migrating a container
@@ -31,30 +31,18 @@ Feature: Computer snapshots and host relocate
     When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
     And bot "Researcher" saves a browser session "salesforce" as "signed-in"
     And worker "fargate-1" publishes a snapshot of computer "household-computer"
-    And an administrator relocates computer "household-computer" to worker "garage-mac-1"
+    And computer "household-computer" awaits hydration on worker "garage-mac-1"
     Then bot "Researcher" can read "notes.md" as "weekly account list" from the computer
     And bot "Researcher" sees browser session "salesforce" as "signed-in"
     When worker "garage-mac-1" hydrates computer "household-computer"
     Then bot "Researcher" can read "notes.md" as "weekly account list" from the computer
     And computer "household-computer" does not require hydrate
 
-  Scenario: Relocate without a snapshot is rejected
-    When an administrator relocates computer "household-computer" to worker "garage-mac-1"
-    Then relocate fails because a snapshot is required
-
-  Scenario: Unpublished live-disk writes block relocate
-    Given tenant "anthus" user "ryan" has a bot named "Researcher"
-    When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
-    And worker "fargate-1" publishes a snapshot of computer "household-computer"
-    And bot "Researcher" writes "notes.md" containing "unsynced edits" on the computer
-    And an administrator relocates computer "household-computer" to worker "garage-mac-1"
-    Then relocate fails because the disk is dirty
-
   Scenario: Relocate pins turns to the intended host until it hydrates
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
     When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
     And worker "fargate-1" publishes a snapshot of computer "household-computer"
-    And an administrator relocates computer "household-computer" to worker "fargate-1"
+    And computer "household-computer" awaits hydration on worker "fargate-1"
     And tenant "anthus" enqueues a turn:
       | capabilities | computer |
       | computer_id  | household-computer |
@@ -64,7 +52,7 @@ Feature: Computer snapshots and host relocate
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
     When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
     And worker "fargate-1" publishes a snapshot of computer "household-computer"
-    And an administrator relocates computer "household-computer" to worker "fargate-1"
+    And computer "household-computer" awaits hydration on worker "fargate-1"
     And worker "fargate-1" hydrates computer "household-computer"
     And tenant "anthus" enqueues a turn:
       | capabilities | computer |
@@ -81,7 +69,7 @@ Feature: Computer snapshots and host relocate
     And tenant "anthus" user "ryan" has a bot named "Researcher"
     When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
     And worker "fargate-1" publishes a snapshot of computer "household-computer"
-    And an administrator relocates computer "household-computer" to worker "garage-mac-1"
+    And computer "household-computer" awaits hydration on worker "garage-mac-1"
     And worker "other-mac" hydrates computer "household-computer"
     Then hydrate fails because the worker does not host that computer
 
@@ -89,7 +77,7 @@ Feature: Computer snapshots and host relocate
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
     When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
     And worker "fargate-1" publishes a snapshot of computer "household-computer"
-    And an administrator relocates computer "household-computer" to worker "garage-mac-1"
+    And computer "household-computer" awaits hydration on worker "garage-mac-1"
     And bot "Researcher" writes "scratch.md" containing "too soon" on the computer
     Then writing the computer fails because it is not hydrated
 
@@ -105,6 +93,6 @@ Feature: Computer snapshots and host relocate
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
     When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
     And worker "fargate-1" publishes a snapshot of computer "household-computer"
-    And an administrator relocates computer "household-computer" to worker "garage-mac-1"
+    And computer "household-computer" awaits hydration on worker "garage-mac-1"
     And bot "Researcher" edits "notes.md" replacing "weekly" with "daily" on the computer
     Then writing the computer fails because it is not hydrated

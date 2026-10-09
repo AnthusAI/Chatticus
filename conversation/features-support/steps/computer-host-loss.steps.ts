@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
-import { acquireComputerDiskWrite } from "../../src/domain/computers.ts";
 import type { Computer } from "../../src/store/codecs/computer.ts";
 import { hostNamed, registerHost, STORY_TENANT } from "../computer-scenario.ts";
 import type { ChatticusWorld } from "../world.ts";
@@ -25,7 +24,7 @@ Given(
 		const host = await registerHost(this, STORY_TENANT, workerId, "fargate");
 		await host.heartbeat();
 		const store = this.messagingStore();
-		assert.equal(await acquireComputerDiskWrite(STORY_TENANT, workerId, { store }), true);
+		assert.equal(await store.claimComputerDiskWriter(STORY_TENANT, workerId), true);
 		assert.equal(await store.markComputerDiskDirty(STORY_TENANT), true);
 	},
 );
@@ -38,7 +37,7 @@ Given("host {string} claimed the pending computer action", async function (this:
 Given("the computer record claims unpublished writes although no host is registered", async function (this: ChatticusWorld) {
 	const store = this.messagingStore();
 	assert.equal(await store.markComputerDiskDirty(STORY_TENANT), true);
-	assert.equal(await acquireComputerDiskWrite(STORY_TENANT, "vanished-host", { store }), true);
+	assert.equal(await store.claimComputerDiskWriter(STORY_TENANT, "vanished-host"), true);
 	assert.deepEqual(await store.listWorkers(STORY_TENANT), []);
 });
 
@@ -93,5 +92,5 @@ Then("no host holds the live disk lock", async function (this: ChatticusWorld) {
 });
 
 Then("host {string} can take the live disk lock", async function (this: ChatticusWorld, hostId: string) {
-	assert.equal(await acquireComputerDiskWrite(STORY_TENANT, hostId, { store: this.messagingStore() }), true);
+	assert.equal(await this.messagingStore().claimComputerDiskWriter(STORY_TENANT, hostId), true);
 });

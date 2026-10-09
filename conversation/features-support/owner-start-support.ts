@@ -4,6 +4,7 @@ import type { EcsRunTaskInput } from "../src/computer/aws-ports.ts";
 import type { Organization } from "../src/domain/organizations.ts";
 import { composeComputerStarterDependencies, type ComputerStarterAwsClients } from "../src/lambdas/computer-starter.ts";
 import type { ComputerStarterDependencies } from "../src/domain/computer-start.ts";
+import { FakeCloudFormation, FakeEcr } from "./fakes/fake-customer-aws.ts";
 import { FakeAssumeRole, FakeEcs, FakeStsAssumeRole } from "./fakes/fake-ecs.ts";
 import { SCENARIO_GATEWAY_SIGNING_KEY } from "./model-gateway-support.ts";
 import type { ChatticusWorld } from "./world.ts";
@@ -22,6 +23,8 @@ export const OWNER_START_SIGNING_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:
 export type OwnerStartScenario = {
 	environment: Record<string, string | undefined>;
 	readonly ecs: FakeEcs;
+	/** The ECS of a customer account, reached under the assumed cross-account role. */
+	readonly customerEcs: FakeEcs;
 	readonly sts: FakeStsAssumeRole;
 	composed: ComputerStarterDependencies | null;
 	composeError: Error | null;
@@ -55,6 +58,7 @@ export function ownerStartOf(world: ChatticusWorld): OwnerStartScenario {
 				AWS_REGION: "us-east-1",
 			},
 			ecs: new FakeEcs(),
+			customerEcs: new FakeEcs(),
 			sts: new FakeStsAssumeRole(),
 			composed: null,
 			composeError: null,
@@ -69,7 +73,6 @@ export function ownerStartOf(world: ChatticusWorld): OwnerStartScenario {
 /** The settings the owner runtime adds to the starter's environment. */
 export function ownerRuntimeSettings(): Record<string, string> {
 	return {
-		CHATTICUS_COMPUTER_RUNTIME: "owner",
 		CHATTICUS_OWNER_TASK_DEFINITION: "owner-computer:3",
 		CHATTICUS_OWNER_CONTAINER_NAME: "owner",
 		CHATTICUS_OWNER_COMMAND: "node /opt/chatticus/host/owner.mjs",
@@ -125,7 +128,12 @@ export async function composeStarter(world: ChatticusWorld): Promise<ComputerSta
 			composeComputerStarterDependencies(
 				scenario.environment,
 				{ dynamo: world.messagingTable.client, sqs: new SQSClient({ region: "us-east-1" }), secrets: secretsFor() },
-				{ ecsClientFactory: () => scenario.ecs, assumeRole: scenario.crossAccount.port },
+				{
+					ecsClientFactory: (credentials) => (credentials === null ? scenario.ecs : scenario.customerEcs),
+					cloudformationClientFactory: () => new FakeCloudFormation(),
+					ecrClientFactory: () => new FakeEcr(),
+					assumeRole: scenario.crossAccount.port,
+				},
 				{ ecs: scenario.ecs, assumeRole: scenario.sts.port, clock: world.clock },
 			),
 		);

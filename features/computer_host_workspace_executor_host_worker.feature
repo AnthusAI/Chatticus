@@ -56,7 +56,7 @@ Feature: Workspace file tools on the computer host that wait for the host worker
       | capabilities| computer,browser   |
       | computer_id | household-computer |
     And worker "fargate-1" has published computer "household-computer" with workspace file "research/notes.txt" containing "weekly account list"
-    When an administrator relocates computer "household-computer" to worker "garage-mac-1"
+    When computer "household-computer" awaits hydration on worker "garage-mac-1"
     Given a fenced workspace read handoff with a queued continuation job for "/workspace/research/notes.txt"
     When the customer computer host "garage-mac-1" boots through the Front Door worker plane
     And a computer-capable pull worker with a workspace executor pulls that continuation job

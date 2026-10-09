@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
 import {
-	acquireComputerDiskWrite,
 	HOST_START_LEASE_SECONDS,
 	requestComputerHostStart,
 	type HostStartClaim,
@@ -46,9 +45,9 @@ Given("a turn has requested a host start for that computer", async function (thi
 When("two eligible turns request that computer concurrently", async function (this: ChatticusWorld) {
 	await Promise.all([requestHostStart(this), requestHostStart(this)]);
 	const scenario = ownershipOf(this);
-	const deps = { store: this.messagingStore() };
-	scenario.hostAWrites = await acquireComputerDiskWrite(OWNERSHIP_TENANT, "host-a", deps);
-	scenario.hostBWrites = await acquireComputerDiskWrite(OWNERSHIP_TENANT, "host-b", deps);
+	const store = this.messagingStore();
+	scenario.hostAWrites = await store.claimComputerDiskWriter(OWNERSHIP_TENANT, "host-a");
+	scenario.hostBWrites = await store.claimComputerDiskWriter(OWNERSHIP_TENANT, "host-b");
 });
 
 When("the host start lease expires without a live writer", async function (this: ChatticusWorld) {

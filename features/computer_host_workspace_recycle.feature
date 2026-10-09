@@ -39,7 +39,7 @@ Feature: Agent workspace files survive host recycle
     Then the turn journal records a successful write_workspace tool result
     When the customer computer host "garage-mac-1" shuts down through the Front Door worker plane
     Then the snapshot store has a pack in the organization snapshot bucket for tenant "anthus" computer "household-computer"
-    When an administrator relocates computer "household-computer" to worker "fargate-1"
+    When computer "household-computer" awaits hydration on worker "fargate-1"
     When bot "Researcher" is asked "read workspace file /workspace/research/recycle.txt"
     And bot "Researcher" runs one capability-aware computerless worker turn
     Then the turn is waiting on the workspace capability

@@ -6,7 +6,6 @@ import { HostProtocolError } from "../../../computer/host/src/protocol-client.ts
 import { computerForOrganization, recordHostSnapshotPublished } from "../../src/domain/computers.ts";
 import { S3SnapshotStore } from "../../src/snapshot/s3.ts";
 import { testS3Client } from "../pi-storage.ts";
-import { ComputerDirtyError, SnapshotRequiredError } from "../../src/http/errors.ts";
 import { ComputerHostDisk } from "../../src/snapshot/host.ts";
 import { packChecksum } from "../../src/snapshot/pack.ts";
 import { snapshotUri } from "../../src/snapshot/uri.ts";
@@ -105,18 +104,6 @@ Then(
 		assert.equal(reader.readBrowserProfileFile(browserSessionPath(service)), session);
 	},
 );
-
-Then("relocate fails because a snapshot is required", function (this: ChatticusWorld) {
-	const scenario = snapshotRelocationOf(this);
-	scenario.refusalInspected = true;
-	assert.ok(scenario.relocateError instanceof SnapshotRequiredError, String(scenario.relocateError));
-});
-
-Then("relocate fails because the disk is dirty", function (this: ChatticusWorld) {
-	const scenario = snapshotRelocationOf(this);
-	scenario.refusalInspected = true;
-	assert.ok(scenario.relocateError instanceof ComputerDirtyError, String(scenario.relocateError));
-});
 
 Then("writing the computer fails because it is not hydrated", function (this: ChatticusWorld) {
 	const scenario = snapshotRelocationOf(this);

@@ -4,7 +4,7 @@ import { BROWSER_ACTION_KINDS, BROWSE_ACTION_KIND } from "@chatticus/host-protoc
 import { delimiter, join } from "node:path";
 import { UNTRUSTED_PARTITION, browserProfileDir, ensureBrowserProfilesLayout } from "../browser-profiles.ts";
 import { pythonRepr, ValueError } from "../workspace-paths.ts";
-import { liveRootFromEnvironment } from "./workspace.ts";
+import { liveRootFromEnvironment } from "../live-root.ts";
 
 const SNAP_STUB_MARKERS = ["requires the chromium snap", "snap install chromium"];
 const SNAP_STUB_HEAD_BYTES = 800;

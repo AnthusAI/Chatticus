@@ -4,7 +4,8 @@ import type { GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createMessagingTable } from "../features-support/messaging-table.ts";
-import { FakeEcs } from "../features-support/fakes/fake-ecs.ts";
+import { FakeCloudFormation, FakeEcr } from "../features-support/fakes/fake-customer-aws.ts";
+import { FakeAssumeRole, FakeEcs } from "../features-support/fakes/fake-ecs.ts";
 import { composeComputerStarterDependencies, type ComputerStarterAwsClients } from "../src/lambdas/computer-starter.ts";
 import type { HostStartClaim } from "../src/domain/computers.ts";
 import { DynamoMessagingStore } from "../src/store/dynamo-messaging-store.ts";
@@ -16,6 +17,9 @@ const sqs = new SQSClient({ endpoint, region: "us-east-1", credentials, maxAttem
 
 const ACCOUNT_ID = "123456789012";
 const SECRET_ARN = "arn:aws:secretsmanager:us-east-1:123456789012:secret:invoke-AbCdEf";
+const SIGNING_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:123456789012:secret:gateway-signing-AbCdEf";
+const CUSTOMER_TENANT = "customer-org";
+const CUSTOMER_ACCOUNT_ID = "210987654321";
 const SECRET_VALUE = "super-secret-invoke-key-value";
 const FRONT_DOOR_URL = "https://front-door.example.lambda-url.us-east-1.on.aws/";
 const tableName = `computer-starter-${randomUUID()}`;
@@ -36,6 +40,15 @@ function environment(overrides: Record<string, string | undefined> = {}): Record
 		CHATTICUS_ECS_HOST_COMMAND: "node /opt/chatticus/host/host-worker.mjs",
 		CHATTICUS_FRONT_DOOR_URL: FRONT_DOOR_URL,
 		CHATTICUS_INVOKE_KEY_SECRET_ARN: SECRET_ARN,
+		CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN: SIGNING_SECRET_ARN,
+		CHATTICUS_OWNER_TASK_DEFINITION: "owner-computer:3",
+		CHATTICUS_OWNER_CONTAINER_NAME: "owner",
+		CHATTICUS_OWNER_COMMAND: "node /opt/chatticus/host/owner.mjs",
+		CHATTICUS_OWNER_SCOPED_ROLE_ARN: "arn:aws:iam::123456789012:role/owner-scoped",
+		CHATTICUS_CONVERSATIONS_TABLE: "conversations-table",
+		CHATTICUS_PI_SESSIONS_BUCKET: "pi-sessions-bucket",
+		CHATTICUS_SNAPSHOT_BUCKET: "snapshot-bucket",
+		AWS_REGION: "us-east-1",
 		...overrides,
 	};
 }
@@ -62,7 +75,7 @@ function clientsWith(secrets: ComputerStarterAwsClients["secrets"]): ComputerSta
 }
 
 const claim: HostStartClaim = {
-	tenantId: "anthus",
+	tenantId: CUSTOMER_TENANT,
 	computerId: "household-computer",
 	hostStartGeneration: 1,
 	userId: "ryan",
@@ -72,7 +85,7 @@ const claim: HostStartClaim = {
 
 const job = {
 	jobId: "job-1",
-	tenantId: "anthus",
+	tenantId: CUSTOMER_TENANT,
 	turnId: "turn-1",
 	botId: "bot",
 	userId: "ryan",
@@ -97,20 +110,41 @@ beforeAll(async () => {
 		assistedSetupSession: false,
 		monthlyAwsSpendCeilingUsd: null,
 	});
+	await new DynamoMessagingStore(dynamo, tableName).putOrganization({
+		tenantId: CUSTOMER_TENANT,
+		name: "Customer",
+		status: "enabled",
+		ownerUserId: "ryan",
+		createdAt: new Date("2026-10-01T00:00:00Z"),
+		awsAccountId: CUSTOMER_ACCOUNT_ID,
+		awsCrossAccountRole: `arn:aws:iam::${CUSTOMER_ACCOUNT_ID}:role/ChatticusOrganizationComputerRole`,
+		awsExternalId: "customer-external-id",
+		awsSetupPath: "customer-owned",
+		setupFeeCents: null,
+		assistedSetupSession: false,
+		monthlyAwsSpendCeilingUsd: null,
+	});
 });
+
+function customerAccountOptions(ecs: FakeEcs) {
+	return {
+		ecsClientFactory: () => ecs,
+		assumeRole: new FakeAssumeRole().port,
+		cloudformationClientFactory: () => new FakeCloudFormation(),
+		ecrClientFactory: () => new FakeEcr(),
+	};
+}
 
 afterEach(() => {
 	vi.restoreAllMocks();
 });
 
 describe("ComputerStarter invoke key", () => {
-	it("reads the invoke key secret by ARN at composition and forwards it with the Front Door URL in the RunTask overrides", async () => {
+	it("reads the invoke key secret by ARN at composition and forwards it with the Front Door URL in the RunTask overrides of a customer-account host", async () => {
 		const requested: string[] = [];
 		const ecs = new FakeEcs();
-		const dependencies = await composeComputerStarterDependencies(environment(), clientsWith(secretsReturning(SECRET_VALUE, requested)), {
-			ecsClientFactory: () => ecs,
-		});
-		expect(requested).toEqual([SECRET_ARN]);
+		const dependencies = await composeComputerStarterDependencies(environment(), clientsWith(secretsReturning(SECRET_VALUE, requested)), customerAccountOptions(ecs));
+		expect(requested).toEqual([SECRET_ARN, SIGNING_SECRET_ARN]);
 		await dependencies.driver.start(claim, job);
 		expect(ecs.runTaskCalls).toHaveLength(1);
 		const containerEnvironment = ecs.runTaskCalls[0]!.overrides!.containerOverrides![0]!.environment!;
@@ -121,7 +155,7 @@ describe("ComputerStarter invoke key", () => {
 	it("never writes the key into the process environment", async () => {
 		const processEnvironment = environment();
 		await composeComputerStarterDependencies(processEnvironment, clientsWith(secretsReturning(SECRET_VALUE)), {
-			ecsClientFactory: () => new FakeEcs(),
+			...customerAccountOptions(new FakeEcs()),
 		});
 		expect(processEnvironment.CHATTICUS_INVOKE_KEY).toBeUndefined();
 		expect(Object.values(process.env)).not.toContain(SECRET_VALUE);
@@ -151,9 +185,7 @@ describe("ComputerStarter invoke key", () => {
 			vi.spyOn(console, method).mockImplementation((...parts: unknown[]) => void printed.push(parts.map(String).join(" ")));
 		}
 		const ecs = new FakeEcs();
-		const dependencies = await composeComputerStarterDependencies(environment(), clientsWith(secretsReturning(SECRET_VALUE)), {
-			ecsClientFactory: () => ecs,
-		});
+		const dependencies = await composeComputerStarterDependencies(environment(), clientsWith(secretsReturning(SECRET_VALUE)), customerAccountOptions(ecs));
 		await dependencies.driver.start(claim, job);
 		await expect(composeComputerStarterDependencies(environment(), clientsWith(failingSecrets()))).rejects.toThrow();
 		expect(printed.join("\n")).not.toContain(SECRET_VALUE);

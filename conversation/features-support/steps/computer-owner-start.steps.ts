@@ -56,22 +56,28 @@ Given("the organization is homed in the account {string} with no cross-account r
 	await store.putOrganization(organizationHomedIn(await store.getOrganization(STORY_TENANT), account));
 });
 
-Given("the starter runs the owner runtime", function (this: ChatticusWorld) {
+Given(
+	"the organization is homed in the account {string} with a ChatticusComputers stack and a cross-account role",
+	async function (this: ChatticusWorld, account: string) {
+		const store = this.messagingStore();
+		const homed = organizationHomedIn(await store.getOrganization(STORY_TENANT), account);
+		await store.putOrganization({
+			...homed,
+			awsCrossAccountRole: `arn:aws:iam::${account}:role/ChatticusOrganizationComputerRole`,
+			awsExternalId: "scenario-external-id",
+			awsSetupPath: "customer-owned",
+		});
+	},
+);
+
+Given("the starter has the owner settings", function (this: ChatticusWorld) {
 	Object.assign(ownerStartOf(this).environment, ownerRuntimeSettings());
 });
 
-Given("the starter runs the runtime {string}", function (this: ChatticusWorld, runtime: string) {
-	Object.assign(ownerStartOf(this).environment, ownerRuntimeSettings(), { CHATTICUS_COMPUTER_RUNTIME: runtime });
-});
-
-Given("the starter runs the owner runtime without the setting {string}", function (this: ChatticusWorld, name: string) {
+Given("the starter has the owner settings without the setting {string}", function (this: ChatticusWorld, name: string) {
 	const scenario = ownerStartOf(this);
 	Object.assign(scenario.environment, ownerRuntimeSettings());
 	delete scenario.environment[name];
-});
-
-Given("the starter's runtime is not set", function (this: ChatticusWorld) {
-	delete ownerStartOf(this).environment["CHATTICUS_COMPUTER_RUNTIME"];
 });
 
 When("the starter handles the start job", async function (this: ChatticusWorld) {
@@ -187,6 +193,21 @@ Then("STS was not asked to assume a scoped role", function (this: ChatticusWorld
 	assert.equal(ownerStartOf(this).sts.calls.length, 0);
 });
 
+Then("the cross-account role was assumed exactly {int} time(s)", function (this: ChatticusWorld, count: number) {
+	assert.equal(ownerStartOf(this).crossAccount.calls.length, count);
+});
+
+Then("the customer account ran exactly {int} ECS task(s)", function (this: ChatticusWorld, count: number) {
+	assert.equal(ownerStartOf(this).customerEcs.runTaskCalls.length, count);
+});
+
+Then("the customer task overrode container {string} with the command {string}", function (this: ChatticusWorld, container: string, command: string) {
+	const override = ownerStartOf(this).customerEcs.runTaskCalls[0]?.overrides?.containerOverrides;
+	assert.equal(override?.length, 1);
+	assert.equal(override[0]!.name, container);
+	assert.equal(override[0]!.command.join(" "), command);
+});
+
 Then("no cross-account role was assumed", function (this: ChatticusWorld) {
 	assert.equal(ownerStartOf(this).crossAccount.calls.length, 0);
 });
@@ -230,17 +251,6 @@ Then("the container environment holds the scoped credentials STS returned", func
 	assert.equal(environmentValue(this, "AWS_ACCESS_KEY_ID"), FAKE_SCOPED_CREDENTIALS.AccessKeyId);
 	assert.equal(environmentValue(this, "AWS_SECRET_ACCESS_KEY"), FAKE_SCOPED_CREDENTIALS.SecretAccessKey);
 	assert.equal(environmentValue(this, "AWS_SESSION_TOKEN"), FAKE_SCOPED_CREDENTIALS.SessionToken);
-});
-
-Then("the container environment holds no gateway token and no scoped credentials", function (this: ChatticusWorld) {
-	const environment = containerEnvironmentOf(this);
-	for (const name of ["CHATTICUS_MODEL_GATEWAY_TOKEN", "CHATTICUS_OWNER_ID", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]) {
-		assert.ok(!environment.has(name), name);
-	}
-});
-
-Then("the container environment names exactly {string}", function (this: ChatticusWorld, names: string) {
-	assert.deepEqual([...containerEnvironmentOf(this).keys()].sort(), names.split(",").map((name) => name.trim()).sort());
 });
 
 Then("the starter logged none of the gateway token, the scoped credentials, the invoke key and the signing key", function (this: ChatticusWorld) {

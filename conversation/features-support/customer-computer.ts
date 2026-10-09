@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import { ensureComputer } from "../src/domain/computers.ts";
 import { OrganizationsKernelImpl, type Organization } from "../src/domain/organizations.ts";
-import { OrganizationComputerHostStarter, type DeploymentEcsConfig } from "../src/computer/host-starter.ts";
+import { OrganizationComputerHostStarter } from "../src/computer/host-starter.ts";
 import { OrganizationComputerProvisioningError } from "../src/http/errors.ts";
 import type { CustomerComputersProvisioner } from "../src/computer/customer-stack.ts";
 import type { EcrPort, SessionCredentials } from "../src/computer/aws-ports.ts";
 import {
 	CUSTOMER_ACCOUNT_ID,
-	DEPLOYMENT_ACCOUNT_ID,
 	FakeCloudFormation,
 	FakeEcr,
 	MultiAccountEcsRecorder,
@@ -18,15 +17,7 @@ import type { ChatticusWorld } from "./world.ts";
 
 const kernel = new OrganizationsKernelImpl();
 
-export { CUSTOMER_ACCOUNT_ID, DEPLOYMENT_ACCOUNT_ID };
-
-/** The deployment-account ECS wiring every host start scenario runs the starter with. */
-export const DEPLOYMENT_ECS_CONFIG: DeploymentEcsConfig = {
-	cluster: "deployment-cluster",
-	taskDefinition: "computer:1",
-	subnets: ["subnet-deploy-1"],
-	securityGroups: ["sg-deploy-1"],
-};
+export { CUSTOMER_ACCOUNT_ID };
 
 /** Everything one host start scenario drives and observes: the starter, the fake AWS accounts and the last refusal. */
 export interface CustomerComputeScenario {
@@ -119,8 +110,6 @@ export function wireHostStarter(
 	const cloudformationClientsOpened: Array<SessionCredentials | null> = [];
 	const starter = new OrganizationComputerHostStarter({
 		getOrganization: (tenantId) => kernel.getOrganization(tenantId, { store: world.messagingStore() }),
-		deploymentAccountId: DEPLOYMENT_ACCOUNT_ID,
-		deploymentEcsConfig: DEPLOYMENT_ECS_CONFIG,
 		assumeRole: fakes.unreachableRole ? unreachableAssumeRole : fakes.assumeRole.port,
 		ecsClientFactory: fakes.ecs.factory,
 		cloudformationClientFactory: (credentials) => {

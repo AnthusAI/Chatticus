@@ -41,12 +41,6 @@ export class SnapshotRequiredError extends DomainError {
 	}
 }
 
-export class ComputerDirtyError extends DomainError {
-	constructor(message: string) {
-		super("computer_dirty", message);
-	}
-}
-
 export class WorkerDoesNotHostComputerError extends DomainError {
 	constructor(message: string) {
 		super("worker_does_not_host_computer", message);
