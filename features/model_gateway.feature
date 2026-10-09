@@ -5,20 +5,31 @@ Feature: Model gateway for a container's Pi session
 
   The container's Pi sends its OpenAI Responses requests to the gateway and
   authenticates with a short-lived signed token bound to an organization, a
-  bot, a turn and the attempt that owns it. The gateway checks the token and
+  bot, a turn and the owner id the start generated. The owner passes that id
+  as the worker id of its claim, so the turn's current attempt records it; a
+  second owner that takes the turn over makes the first owner's token useless. The gateway checks the token and
   the turn, forwards the request with the real key, streams the answer back
   as the vendor produces it, and records the spend once from the final usage.
 
   Background:
     Given an empty control plane backed by a durable messaging store with HTTP
     And tenant "anthus" user "ryan" has a channel with a named bot "Helper"
-    And bot "Helper" has an active turn owned by a container attempt
+    And bot "Helper" has an active turn owned by a container owner
     And the vendor answers "Good morning." using 120 input tokens and 30 output tokens
 
   Scenario: Pi's model collection pointed at an address sends its request there with the session token
     When a Pi model collection pointed at the vendor address with the token "session-token-1" asks for an answer
     Then Pi received the answer "Good morning."
     And the vendor saw the authorization "Bearer session-token-1"
+
+  Scenario: Pi's model collection sends the invoke key the Front Door requires
+    When a Pi model collection pointed at the vendor address with the token "session-token-1" and the invoke key "invoke-key-1" asks for an answer
+    Then Pi received the answer "Good morning."
+    And the vendor saw the invoke key header "invoke-key-1"
+
+  Scenario: Pi's model collection sends no invoke key header when it was not given one
+    When a Pi model collection pointed at the vendor address with the token "session-token-1" asks for an answer
+    Then the vendor saw no invoke key header
 
   Scenario: Pi's model collection reaches the real vendor key only through the gateway
     Given the container holds a session token for its turn valid for 300 seconds
@@ -80,8 +91,30 @@ Feature: Model gateway for a container's Pi session
     Then the gateway answers with status 403
     And no request reached the vendor
 
-  Scenario: A token for another attempt of the turn is refused
-    Given the container holds a session token for its turn bound to another attempt
+  Scenario: A token naming another owner of the turn is refused
+    Given the container holds a session token for its turn bound to another owner
+    When the container asks the model gateway for an answer
+    Then the gateway answers with status 403
+    And no request reached the vendor
+
+  Scenario: A second owner taking the turn over makes the first owner's token useless
+    Given the container holds a session token for its turn valid for 300 seconds
+    And the container's lease runs out and the owner "second-owner" takes the turn over
+    When the container asks the model gateway for an answer
+    Then the gateway answers with status 403
+    And no request reached the vendor
+    And the vendor ledger holds no spend for the turn
+
+  Scenario: The owner that took the turn over is served with its own token
+    Given the container's lease runs out and the owner "second-owner" takes the turn over
+    And the owner "second-owner" holds a session token for the turn valid for 300 seconds
+    When the container asks the model gateway for an answer
+    Then the gateway answers with status 200
+    And the container receives the answer text "Good morning."
+
+  Scenario: A token is refused while the turn is parked and no owner holds a claim
+    Given the container holds a session token for its turn valid for 300 seconds
+    And the container's turn is released without an owner
     When the container asks the model gateway for an answer
     Then the gateway answers with status 403
     And no request reached the vendor

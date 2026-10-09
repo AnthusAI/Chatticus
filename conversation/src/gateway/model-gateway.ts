@@ -119,7 +119,7 @@ function meteredStream(upstream: ReadableStream<Uint8Array>, record: (usage: Usa
  * POST /orgs/{tenant_id}/model-gateway/v1/responses: forward one OpenAI Responses request for a container's Pi session.
  *
  * The caller proves itself with a session token, not a key: the token must verify, name the organization in the path,
- * and belong to the attempt that currently owns an active turn of that organization and bot. The request body is sent
+ * and name the owner that claimed the current attempt of a running turn of that organization and bot. The request body is sent
  * to the vendor with the real key, and the answer streams back as it arrives. The spend is recorded once, from the
  * final usage event. The vendor's own error text is never passed on, because a vendor can echo part of a key.
  *
@@ -141,7 +141,7 @@ export async function modelGatewayResponsesHandler(c: Context, deps: ModelGatewa
 		turn === null ||
 		turn.status !== "active" ||
 		turn.botId !== claims.botId ||
-		turn.attemptId !== claims.attemptId
+		turn.claimedBy !== claims.ownerId
 	) {
 		return refusal(c, deps, 403, "token is not valid for a running turn", "turn is not running for this token", scope);
 	}

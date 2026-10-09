@@ -277,6 +277,21 @@ Built and covered by `features/model_gateway.feature` and
   `dynamodb:LeadingKeys` equal to `PI#<storage>`. Identifiers with wildcards,
   `$` or `#` are refused. Nothing calls STS.
 
+What the starter does now (TS-68 code half, built and covered by
+`features/computer_owner_start.feature` and `features/computer_owner_snapshot.feature`;
+nothing is deployed): with `CHATTICUS_COMPUTER_RUNTIME=owner` the ComputerStarter
+generates a fresh owner id per start, binds the gateway token to it (the token
+claims the owner id, not the attempt), obtains scoped credentials from
+`sts:AssumeRole` with `buildOwnerSessionPolicy` (the conversation session, the
+computer's snapshot prefix and the organization's Messaging items, under the
+2048 character limit), and runs the owner task. The container claims the turn
+under the owner id as its worker id, so the gateway accepts the token only
+while the current attempt was claimed by that owner and the turn is running; a
+second owner taking over invalidates the first owner's token. The owner
+hydrates `/workspace` from the computer's snapshot, publishes it when dirty and
+marks the computer stopped when it exits, reusing the host worker's disk code.
+Computers in a customer account keep the host-worker start.
+
 What TS-68 must wire:
 
 1. Expose the route. The front door is behind the invoke key header; the

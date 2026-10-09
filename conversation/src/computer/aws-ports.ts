@@ -107,6 +107,15 @@ export type AssumeRolePort = (input: {
 	ExternalId: string;
 }) => Promise<{ Credentials: AssumedRoleCredentials }>;
 
+/** STS AssumeRole of a role of the deployment's own account, narrowed by an inline session policy and a lifetime. */
+export type ScopedAssumeRolePort = (input: {
+	RoleArn: string;
+	RoleSessionName: string;
+	/** The session policy as JSON text; the credentials get the intersection of it and the role's own permissions. */
+	Policy: string;
+	DurationSeconds: number;
+}) => Promise<{ Credentials: AssumedRoleCredentials }>;
+
 /** Credentials forwarded in process from an AssumeRole response; never stored. */
 export interface SessionCredentials {
 	accessKeyId: string;

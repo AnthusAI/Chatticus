@@ -12,7 +12,11 @@ export type ModelGatewayConfig = {
 	readonly baseUrl: string;
 	/** The token sent in place of the vendor key. It is bound by the gateway to one tenant, bot and turn. */
 	readonly token: string;
+	/** The invoke key the Front Door in front of the gateway requires on every request, sent in `X-Chatticus-Invoke-Key`. */
+	readonly invokeKey?: string;
 };
+
+const INVOKE_KEY_HEADER = "X-Chatticus-Invoke-Key";
 
 /**
  * The model collection of a container owner: the OpenAI chat models the Lambda owner uses, with every request pointed at
@@ -38,7 +42,13 @@ export function createGatewayModels(gateway: ModelGatewayConfig): Models {
 					},
 				},
 			},
-			models: vendor.getModels().map((model) => ({ ...model, baseUrl: gateway.baseUrl })),
+			models: vendor.getModels().map((model) => ({
+				...model,
+				baseUrl: gateway.baseUrl,
+				...(gateway.invokeKey === undefined || gateway.invokeKey === ""
+					? {}
+					: { headers: { ...model.headers, [INVOKE_KEY_HEADER]: gateway.invokeKey } }),
+			})),
 			api: openAIResponsesApi(),
 		}),
 	);

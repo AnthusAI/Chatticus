@@ -23,6 +23,7 @@ import {
 	type EcrPort,
 	type EcsPort,
 	type IamPolicyReaderPort,
+	type ScopedAssumeRolePort,
 	type SessionCredentials,
 } from "./aws-ports.ts";
 
@@ -40,6 +41,37 @@ async function callAws<T>(operation: string, call: () => Promise<T>): Promise<T>
 function clientCredentials(credentials: SessionCredentials | null) {
 	return credentials === null ? {} : { credentials };
 }
+
+/** STS AssumeRole of a role of this account with a session policy, so the returned credentials reach only what the policy names. */
+export const defaultScopedAssumeRole: ScopedAssumeRolePort = async (input) => {
+	const response = await callAws("AssumeRole", () =>
+		new STSClient({}).send(
+			new AssumeRoleCommand({
+				RoleArn: input.RoleArn,
+				RoleSessionName: input.RoleSessionName,
+				Policy: input.Policy,
+				DurationSeconds: input.DurationSeconds,
+			}),
+		),
+	);
+	const credentials = response.Credentials;
+	if (
+		credentials?.AccessKeyId === undefined ||
+		credentials.SecretAccessKey === undefined ||
+		credentials.SessionToken === undefined ||
+		credentials.Expiration === undefined
+	) {
+		throw new AwsApiError("MalformedResponse", "AssumeRole returned no credentials.", "AssumeRole");
+	}
+	return {
+		Credentials: {
+			AccessKeyId: credentials.AccessKeyId,
+			SecretAccessKey: credentials.SecretAccessKey,
+			SessionToken: credentials.SessionToken,
+			Expiration: credentials.Expiration,
+		},
+	};
+};
 
 /** STS AssumeRole with the deployment's own credentials. */
 export const defaultAssumeRole: AssumeRolePort = async (input) => {

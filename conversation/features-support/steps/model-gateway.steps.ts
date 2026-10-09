@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { createGatewayModels } from "../../../computer/host/src/owner-models.ts";
 import { getVendorLedgerEntry } from "../../src/ledger/vendor-ledger.ts";
+import { relinquishTurn } from "../../src/domain/turns.ts";
 import { mintSessionToken } from "../../src/gateway/session-token.ts";
 import { ledgerDependenciesFor } from "../executor-harness.ts";
 import { httpBaseUrl } from "../front-door.ts";
@@ -12,7 +13,9 @@ import { botNamed, claimAs, completeAs, currentTurnId, openChannelOf, postToBot 
 const GATEWAY_MODEL = "gpt-5-nano";
 const CONTAINER_OWNER = "container-owner";
 
-type ContainerTurn = { tenantId: string; botId: string; turnId: string; attemptId: string };
+type ContainerTurn = { tenantId: string; botId: string; turnId: string; ownerId: string };
+
+const CONTAINER_ATTEMPTS = new WeakMap<ChatticusWorld, string>();
 
 const containerTurns = new WeakMap<ChatticusWorld, ContainerTurn>();
 const heldVendors = new WeakMap<ChatticusWorld, () => void>();
@@ -55,7 +58,7 @@ async function askGateway(world: ChatticusWorld, tenantId: string, token: string
 	scenario.lastBody = body;
 }
 
-Given("bot {string} has an active turn owned by a container attempt", async function (this: ChatticusWorld, name: string) {
+Given("bot {string} has an active turn owned by a container owner", async function (this: ChatticusWorld, name: string) {
 	await postToBot(this, name, "hello", true);
 	const channel = openChannelOf(this);
 	const claim = await claimAs(this, channel.tenantId, currentTurnId(this), CONTAINER_OWNER);
@@ -64,8 +67,9 @@ Given("bot {string} has an active turn owned by a container attempt", async func
 		tenantId: channel.tenantId,
 		botId: botNamed(this, name).botId,
 		turnId: currentTurnId(this),
-		attemptId: claim.attemptId,
+		ownerId: CONTAINER_OWNER,
 	});
+	CONTAINER_ATTEMPTS.set(this, claim.attemptId);
 });
 
 Given(
@@ -94,8 +98,28 @@ Given("the container holds a session token for a turn that does not exist", func
 	remember(this, mintFor(this, { turnId: "turn-that-does-not-exist" }, 300));
 });
 
-Given("the container holds a session token for its turn bound to another attempt", function (this: ChatticusWorld) {
-	remember(this, mintFor(this, { attemptId: "attempt-of-someone-else" }, 300));
+Given("the container holds a session token for its turn bound to another owner", function (this: ChatticusWorld) {
+	remember(this, mintFor(this, { ownerId: "owner-of-someone-else" }, 300));
+});
+
+Given(
+	"the container's lease runs out and the owner {string} takes the turn over",
+	async function (this: ChatticusWorld, owner: string) {
+		const turn = turnOf(this);
+		this.clock.advanceSeconds(61);
+		const claim = await claimAs(this, turn.tenantId, turn.turnId, owner);
+		assert.ok(claim, `The owner ${owner} could not take the turn over`);
+		assert.notEqual(claim.attemptId, CONTAINER_ATTEMPTS.get(this));
+	},
+);
+
+Given("the owner {string} holds a session token for the turn valid for {int} seconds", function (this: ChatticusWorld, owner: string, seconds: number) {
+	remember(this, mintFor(this, { ownerId: owner }, seconds));
+});
+
+Given("the container's turn is released without an owner", async function (this: ChatticusWorld) {
+	const turn = turnOf(this);
+	await relinquishTurn(this.turnDependencies(), turn.tenantId, turn.turnId, CONTAINER_ATTEMPTS.get(this)!);
 });
 
 Given("the container holds a session token for its turn naming the bot {string}", function (this: ChatticusWorld, name: string) {
@@ -111,7 +135,7 @@ Given(
 
 Given("the container's turn has completed", async function (this: ChatticusWorld) {
 	const turn = turnOf(this);
-	await completeAs(this, turn.tenantId, turn.turnId, turn.attemptId, "All done.");
+	await completeAs(this, turn.tenantId, turn.turnId, CONTAINER_ATTEMPTS.get(this)!, "All done.");
 });
 
 Given("the vendor holds its answer back after the first text delta", async function (this: ChatticusWorld) {
@@ -179,10 +203,17 @@ When("a Pi model collection pointed at the gateway with the container's token as
 	await askWithPi(this, baseUrl, gatewayScenarioOf(this).lastToken);
 });
 
+When(
+	"a Pi model collection pointed at the vendor address with the token {string} and the invoke key {string} asks for an answer",
+	async function (this: ChatticusWorld, token: string, invokeKey: string) {
+		await askWithPi(this, (await vendorOf(this)).baseUrl, token, invokeKey);
+	},
+);
+
 const piAnswers = new WeakMap<ChatticusWorld, string>();
 
-async function askWithPi(world: ChatticusWorld, baseUrl: string, token: string): Promise<void> {
-	const models = createGatewayModels({ baseUrl, token });
+async function askWithPi(world: ChatticusWorld, baseUrl: string, token: string, invokeKey?: string): Promise<void> {
+	const models = createGatewayModels({ baseUrl, token, ...(invokeKey === undefined ? {} : { invokeKey }) });
 	const model = models.getModel("openai", GATEWAY_MODEL);
 	assert.ok(model, "Pi has no model to ask");
 	const answer = await models.complete(model, { messages: [{ role: "user", content: "Say good morning.", timestamp: Date.now() }] });
@@ -200,6 +231,17 @@ Then("Pi received the answer {string}", function (this: ChatticusWorld, text: st
 Then("the vendor saw the authorization {string}", async function (this: ChatticusWorld, authorization: string) {
 	const requests = (await vendorOf(this)).requests;
 	assert.equal(requests[requests.length - 1]?.headers.authorization, authorization);
+});
+
+Then("the vendor saw the invoke key header {string}", async function (this: ChatticusWorld, invokeKey: string) {
+	const requests = (await vendorOf(this)).requests;
+	assert.equal(requests[requests.length - 1]?.headers["x-chatticus-invoke-key"], invokeKey);
+});
+
+Then("the vendor saw no invoke key header", async function (this: ChatticusWorld) {
+	const requests = (await vendorOf(this)).requests;
+	assert.ok(requests.length > 0, "The vendor received no request");
+	assert.equal(requests[requests.length - 1]?.headers["x-chatticus-invoke-key"], undefined);
 });
 
 Then("the vendor saw the real key and not the session token", async function (this: ChatticusWorld) {

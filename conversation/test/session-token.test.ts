@@ -7,7 +7,7 @@ const claims: SessionTokenClaims = {
 	tenantId: "anthus",
 	botId: "bot-1",
 	turnId: "turn-1",
-	attemptId: "attempt-1",
+	ownerId: "owner-1",
 	expiresAtSeconds: Math.floor(NOW.getTime() / 1000) + 300,
 };
 
