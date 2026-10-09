@@ -1,10 +1,10 @@
 /**
- * Start organization computers in the account recorded as their AWS home. An Anthus-managed organization starts in
- * the deployment account; a customer organization starts in its own account under an ExternalId-guarded
- * AssumeRole. A start that cannot reach the customer account is refused, never run in the Anthus account.
+ * Start customer-account computer hosts under an ExternalId-guarded AssumeRole in the account recorded as the
+ * organization's AWS home. A start that cannot reach the customer account is refused, never run in the Anthus account.
+ * Computers in the deployment account start as the owner (see owner-start-driver.ts), never through this starter.
  * The host protocol (the nine HTTP routes) is the only way a customer-account computer reaches Chatticus data.
  * Ported from python/src/chatticus/organization_computer_host.py lines 1-371 and
- * python/src/chatticus/deployment_aws_account.py lines 1-31, and python/src/chatticus/host_starter.py lines 1-55.
+ * python/src/chatticus/host_starter.py lines 1-55.
  */
 
 import { OrganizationComputerProvisioningError } from "../http/errors.ts";
@@ -34,14 +34,6 @@ import { attemptCrossAccountAssumeRole } from "./provisioning.ts";
 
 export const TENANT_TAG_KEY = "chatticus:tenant";
 
-/** The deployment AWS account id is not configured. */
-export class DeploymentAwsAccountIdError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "DeploymentAwsAccountIdError";
-	}
-}
-
 /** Environment variables the starter reads; defaults to the process environment. */
 export type StarterEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -53,7 +45,7 @@ export interface HostStartClaim {
 	userId: string;
 }
 
-/** Same-account ECS wiring from deployment environment variables. */
+/** Same-account ECS wiring the owner start runs its task with. */
 export interface DeploymentEcsConfig {
 	cluster: string;
 	taskDefinition: string;
@@ -69,37 +61,6 @@ export interface OrganizationHostStartOutcome {
 
 function environmentValue(environment: StarterEnvironment, key: string): string {
 	return (environment[key] ?? "").trim();
-}
-
-/** Return the twelve-digit AWS account id where this deployment runs; there is no default. */
-export function deploymentAwsAccountId(environment: StarterEnvironment = process.env): string {
-	const configured = environmentValue(environment, "CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID");
-	if (configured !== "") {
-		return configured;
-	}
-	throw new DeploymentAwsAccountIdError(
-		"CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID is not set; the deployment AWS account id is required.",
-	);
-}
-
-/** Return deployment ECS wiring when CHATTICUS_HOST_STARTER selects ecs. */
-export function deploymentEcsConfigFromEnvironment(environment: StarterEnvironment = process.env): DeploymentEcsConfig | null {
-	const kind = (environment.CHATTICUS_HOST_STARTER ?? "noop").trim().toLowerCase();
-	if (kind !== "ecs") {
-		return null;
-	}
-	const cluster = environmentValue(environment, "CHATTICUS_ECS_CLUSTER");
-	const taskDefinition = environmentValue(environment, "CHATTICUS_ECS_TASK_DEFINITION");
-	const subnets = environmentValue(environment, "CHATTICUS_ECS_SUBNETS")
-		.split(",")
-		.filter((part) => part !== "");
-	const securityGroups = environmentValue(environment, "CHATTICUS_ECS_SECURITY_GROUPS")
-		.split(",")
-		.filter((part) => part !== "");
-	if (cluster === "" || taskDefinition === "" || subnets.length === 0) {
-		return null;
-	}
-	return { cluster, taskDefinition, subnets, securityGroups };
 }
 
 /** Read one customer-account ChatticusComputers stack for RunTask wiring. */
@@ -228,8 +189,6 @@ export async function runFargateTask(
 /** What the starter reads and calls; every AWS call is a port. */
 export interface OrganizationHostStarterOptions {
 	getOrganization: (tenantId: string) => Promise<Organization>;
-	deploymentAccountId?: string;
-	deploymentEcsConfig?: DeploymentEcsConfig | null;
 	assumeRole?: AssumeRolePort;
 	ecsClientFactory?: (credentials: SessionCredentials | null) => EcsPort;
 	cloudformationClientFactory?: (credentials: SessionCredentials | null) => CloudFormationPort;
@@ -244,8 +203,6 @@ export class OrganizationComputerHostStarter {
 
 	private readonly getOrganization: (tenantId: string) => Promise<Organization>;
 	private readonly environment: StarterEnvironment;
-	private readonly deploymentAccountId: string;
-	private readonly deploymentEcsConfig: DeploymentEcsConfig | null;
 	private readonly assumeRole: AssumeRolePort;
 	private readonly ecsClientFactory: (credentials: SessionCredentials | null) => EcsPort;
 	private readonly cloudformationClientFactory: (credentials: SessionCredentials | null) => CloudFormationPort;
@@ -255,8 +212,6 @@ export class OrganizationComputerHostStarter {
 	constructor(options: OrganizationHostStarterOptions) {
 		this.getOrganization = options.getOrganization;
 		this.environment = options.environment ?? process.env;
-		this.deploymentAccountId = options.deploymentAccountId ?? deploymentAwsAccountId(this.environment);
-		this.deploymentEcsConfig = options.deploymentEcsConfig ?? null;
 		this.assumeRole = options.assumeRole ?? defaultAssumeRole;
 		this.ecsClientFactory = options.ecsClientFactory ?? defaultEcsClient;
 		this.cloudformationClientFactory = options.cloudformationClientFactory ?? defaultCloudFormationClient;
@@ -266,26 +221,11 @@ export class OrganizationComputerHostStarter {
 			new AwsCustomerComputersProvisioner({ templateUrl: customerComputersTemplateUrl(this.environment) });
 	}
 
-	/** Run one ECS task in the organization's AWS home account. */
+	/** Run one ECS task in the organization's customer AWS account. */
 	async startHost(claim: HostStartClaim): Promise<void> {
 		const organization = await this.getOrganization(claim.tenantId);
 		const homeAccountId = requireAwsHome(organization);
-		if (homeAccountId === this.deploymentAccountId) {
-			await this.startInDeploymentAccount(claim, homeAccountId);
-			return;
-		}
 		await this.startInCustomerAccount(organization, claim, homeAccountId);
-	}
-
-	private async startInDeploymentAccount(claim: HostStartClaim, homeAccountId: string): Promise<void> {
-		const config = this.deploymentEcsConfig ?? deploymentEcsConfigFromEnvironment(this.environment);
-		if (config === null) {
-			this.lastOutcome = { launchAccountId: homeAccountId, refused: false };
-			return;
-		}
-		const ecs = this.ecsClientFactory(null);
-		await runFargateTask(ecs, { ...config, claim, environment: this.environment });
-		this.lastOutcome = { launchAccountId: homeAccountId, refused: false };
 	}
 
 	private async startInCustomerAccount(
@@ -351,37 +291,12 @@ export class NoOpHostStarter implements HostStarter {
 /** What the environment-selected ECS starter may be given in place of the real AWS clients. */
 export type EnvironmentHostStarterOptions = Omit<
 	OrganizationHostStarterOptions,
-	"getOrganization" | "deploymentAccountId" | "deploymentEcsConfig" | "environment"
+	"getOrganization" | "environment"
 >;
 
-/** What a started computer runs: the HTTP host worker, or the owner that runs the Pi session next to the workspace. */
-export type ComputerRuntime = "host-worker" | "owner";
-
-/** CHATTICUS_COMPUTER_RUNTIME names a runtime that does not exist. */
-export class ComputerRuntimeError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "ComputerRuntimeError";
-	}
-}
-
-/**
- * The runtime the deployment starts computers with: `host-worker` when CHATTICUS_COMPUTER_RUNTIME is unset or empty,
- * otherwise exactly `host-worker` or `owner`.
- *
- * @param environment The starter's environment.
- * @returns The runtime.
- * @throws ComputerRuntimeError If the variable holds any other value.
- */
-export function computerRuntimeFromEnvironment(environment: StarterEnvironment = process.env): ComputerRuntime {
-	const value = environmentValue(environment, "CHATTICUS_COMPUTER_RUNTIME");
-	if (value === "" || value === "host-worker") {
-		return "host-worker";
-	}
-	if (value === "owner") {
-		return "owner";
-	}
-	throw new ComputerRuntimeError(`CHATTICUS_COMPUTER_RUNTIME must be host-worker or owner, not ${JSON.stringify(value)}.`);
+/** Whether CHATTICUS_HOST_STARTER selects the ECS starter, the one that launches computers. */
+export function isEcsHostStarterSelected(environment: StarterEnvironment = process.env): boolean {
+	return (environment.CHATTICUS_HOST_STARTER ?? "noop").trim().toLowerCase() === "ecs";
 }
 
 /** Return the configured host starter for this deployment. */
@@ -390,15 +305,12 @@ export function hostStarterFromEnvironment(
 	environment: StarterEnvironment = process.env,
 	options: EnvironmentHostStarterOptions = {},
 ): HostStarter {
-	const kind = (environment.CHATTICUS_HOST_STARTER ?? "noop").trim().toLowerCase();
-	if (kind !== "ecs" || getOrganization === null) {
+	if (!isEcsHostStarterSelected(environment) || getOrganization === null) {
 		return new NoOpHostStarter();
 	}
 	return new OrganizationComputerHostStarter({
 		...options,
 		getOrganization,
-		deploymentAccountId: deploymentAwsAccountId(environment),
-		deploymentEcsConfig: deploymentEcsConfigFromEnvironment(environment),
 		environment,
 	});
 }

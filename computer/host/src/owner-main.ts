@@ -1,7 +1,7 @@
 import { createContainerOwnerDeps, ownerIdentityFromEnvironment, ownerStoresConfigFromEnvironment } from "./owner-deps.ts";
 import { snapshotStoreFromEnvironment } from "./disk-lifecycle.ts";
 import { HostProtocolClient, registerHostWorker } from "./protocol-client.ts";
-import { liveRootFromEnvironment } from "./executors/workspace.ts";
+import { liveRootFromEnvironment } from "./live-root.ts";
 import {
 	DEFAULT_SHELL_LAUNCHER_PATH,
 	DEFAULT_WORKSPACE_ROOT,

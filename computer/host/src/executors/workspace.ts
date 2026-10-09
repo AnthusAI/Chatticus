@@ -2,14 +2,8 @@ import { join } from "node:path";
 import { applyExactEdit } from "@chatticus/host-protocol/workspace-edit";
 import { ComputerHostDisk } from "../../../../conversation/src/snapshot/host.ts";
 import { FilesystemSnapshotStore, type SnapshotObjectStore } from "../../../../conversation/src/snapshot/store.ts";
+import { liveRootFromEnvironment } from "../live-root.ts";
 import { pythonRepr, ValueError, workspaceRelativePath } from "../workspace-paths.ts";
-
-const DEFAULT_LIVE_ROOT = "/var/lib/chatticus/computer";
-
-/** The host live-disk root from the environment. */
-export function liveRootFromEnvironment(): string {
-	return (process.env["CHATTICUS_LIVE_ROOT"] ?? DEFAULT_LIVE_ROOT).replace(/\/+$/, "");
-}
 
 /**
  * Return one host disk for workspace tool execution.

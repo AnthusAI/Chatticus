@@ -18,15 +18,6 @@ export interface ComputerHostStartEcsConfig {
   readonly computerImageUri: string;
 }
 
-/**
- * The single reviewed line that turns the Pi session owner rehearsal on.
- *
- * While false the ComputerStarter leaves ``CHATTICUS_COMPUTER_RUNTIME`` unset
- * and host-worker stays the default runtime. Setting it to true, or passing
- * ``-c computerRuntime=owner``, sets ``CHATTICUS_COMPUTER_RUNTIME=owner``.
- */
-export const COMPUTER_RUNTIME_OWNER_REHEARSAL = true;
-
 /** Longest session the scoped owner role may be assumed for, in seconds. */
 export const OWNER_SCOPED_ROLE_MAX_SESSION_SECONDS = 3600;
 
@@ -410,7 +401,7 @@ export interface ComputerOwnerStorage {
  * on the Pi sessions bucket and the snapshot bucket, nothing else. Only the
  * starter's execution role may assume it, for at most one hour, and the starter
  * narrows each session with a session policy. The owner task role itself stays
- * empty. Leaves CHATTICUS_COMPUTER_RUNTIME unset unless the rehearsal switch is on.
+ * empty.
  */
 export function wireComputerStarterOwnerRunTask(
   computerWorkerFunction: lambda.Function,
@@ -441,12 +432,6 @@ export function wireComputerStarterOwnerRunTask(
     CHATTICUS_OWNER_SCOPED_ROLE_ARN: scopedRole.roleArn,
     CHATTICUS_SNAPSHOT_BUCKET: ownerConfig.snapshotBucketName,
   };
-  if (
-    COMPUTER_RUNTIME_OWNER_REHEARSAL ||
-    contextString(stack, "computerRuntime") === "owner"
-  ) {
-    environment.CHATTICUS_COMPUTER_RUNTIME = "owner";
-  }
   for (const [key, value] of Object.entries(environment)) {
     computerWorkerFunction.addEnvironment(key, value);
   }

@@ -3,7 +3,7 @@ import { S3SnapshotStore } from "../../../conversation/src/snapshot/s3.ts";
 import { ComputerHostDisk } from "../../../conversation/src/snapshot/host.ts";
 import { packChecksum, packLiveDisk } from "../../../conversation/src/snapshot/pack.ts";
 import { snapshotUri } from "../../../conversation/src/snapshot/uri.ts";
-import { liveRootFromEnvironment } from "./executors/workspace.ts";
+import { liveRootFromEnvironment } from "./live-root.ts";
 import type { HostProtocolClient } from "./protocol-client.ts";
 
 /** What the disk lifecycle asks of the Front Door. */

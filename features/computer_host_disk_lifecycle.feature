@@ -22,7 +22,7 @@ Feature: Computer host disk hydrate and publish
 
   Scenario: The host hydrates a published snapshot before workspace readiness
     Given worker "fargate-1" has published computer "household-computer" with workspace file "notes.md" containing "weekly account list"
-    When an administrator relocates computer "household-computer" to worker "garage-mac-1"
+    When computer "household-computer" awaits hydration on worker "garage-mac-1"
     When the customer computer host "garage-mac-1" boots through the Front Door worker plane
     Then computer "household-computer" does not require hydrate
     And host "garage-mac-1" has workspace file "notes.md" containing "weekly account list"

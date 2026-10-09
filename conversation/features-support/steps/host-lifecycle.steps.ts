@@ -8,7 +8,7 @@ import { S3SnapshotStore } from "../../src/snapshot/s3.ts";
 import { customerSnapshotBucketName } from "../../src/snapshot/customer-bucket.ts";
 import { type SnapshotObjectStore } from "../../src/snapshot/store.ts";
 import { PACK_FILENAME, snapshotBucketAndPrefix, snapshotUri } from "../../src/snapshot/uri.ts";
-import { computerForOrganization, recordHostSnapshotPublished, relocateComputer } from "../../src/domain/computers.ts";
+import { computerForOrganization, recordHostSnapshotPublished } from "../../src/domain/computers.ts";
 import { wireFrontDoor } from "../front-door.ts";
 import { snapshotRelocationOf } from "../computer-snapshots-support.ts";
 import {
@@ -62,17 +62,12 @@ Given(
 );
 
 When(
-	"an administrator relocates computer {string} to worker {string}",
+	"computer {string} awaits hydration on worker {string}",
 	async function (this: ChatticusWorld, computerId: string, workerId: string) {
-		const scenario = snapshotRelocationOf(this);
-		scenario.relocateError = null;
-		scenario.refusalInspected = false;
-		try {
-			const relocated = await relocateComputer(LIFECYCLE_TENANT, workerId, { store: this.messagingStore() });
-			assert.equal(relocated.computerId, computerId);
-		} catch (error) {
-			scenario.relocateError = error as Error;
-		}
+		const store = this.messagingStore();
+		const computer = await computerForOrganization(LIFECYCLE_TENANT, { store });
+		assert.equal(computer.computerId, computerId);
+		await store.putComputer({ ...computer, intendedHostWorkerId: workerId, hydrateRequired: true });
 	},
 );
 

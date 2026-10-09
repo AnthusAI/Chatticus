@@ -23,7 +23,7 @@ Feature: Computer snapshot metadata survives Dynamo recycle
     Given tenant "anthus" user "ryan" has a bot named "Researcher"
     When bot "Researcher" writes "notes.md" containing "weekly account list" on the computer
     And worker "fargate-1" publishes a snapshot of computer "household-computer"
-    And an administrator relocates computer "household-computer" to worker "garage-mac-1"
+    And computer "household-computer" awaits hydration on worker "garage-mac-1"
     When the control plane is recycled onto the same messaging store
     Then tenant "anthus" computer "household-computer" has snapshot URI "s3://chatticus/tenants/anthus/computers/household-computer/snapshot"
     And tenant "anthus" computer "household-computer" has snapshot generation 1

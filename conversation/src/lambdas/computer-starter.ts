@@ -5,9 +5,9 @@ import { SQSClient } from "@aws-sdk/client-sqs";
 import { DynamoBudgetStore } from "../budget/budget-store.ts";
 import { defaultEcsClient, defaultScopedAssumeRole } from "../computer/aws-clients.ts";
 import {
-	computerRuntimeFromEnvironment,
 	hostStarterFromEnvironment,
 	hostStartDriverFor,
+	isEcsHostStarterSelected,
 	type EnvironmentHostStarterOptions,
 } from "../computer/host-starter.ts";
 import { OwnerRuntimeStartDriver, OwnerStartDriver, ownerStartConfigFromEnvironment, type OwnerStartPorts } from "../computer/owner-start-driver.ts";
@@ -52,7 +52,9 @@ async function readSecretValue(secrets: StarterSecretReader, secretArn: string):
 let cachedDependencies: ComputerStarterDependencies | null = null;
 
 /**
- * Build the starter from the environment: the stores, the queues and the host starter. The invoke key the host presents to
+ * Build the starter from the environment: the stores, the queues and the drivers. A deployment that wires the ECS starter
+ * launches every computer homed in the deployment account as the owner and every customer-account computer as the host
+ * worker, so the owner settings are required there and an incomplete set refuses the composition. The invoke key the host presents to
  * the Front Door is read from Secrets Manager by ARN and handed to the host starter in its own environment copy, so it is
  * forwarded in the RunTask overrides and never lives in the Lambda environment. Runs once per cold start.
  *
@@ -60,8 +62,8 @@ let cachedDependencies: ComputerStarterDependencies | null = null;
  * @param clients The AWS clients; defaults to real ones.
  * @param hostStarterOptions What replaces the real ECS and STS clients in the host starter, for tests.
  * @param ownerPorts What replaces the real ECS, scoped STS, ids and clock of the owner start, for tests.
- * @throws Error If a required environment variable is missing, CHATTICUS_COMPUTER_RUNTIME is neither `host-worker` nor
- * `owner`, or the invoke key or signing key secret cannot be read or is empty.
+ * @throws Error If a required environment variable is missing (the owner settings included, whenever the ECS starter is
+ * selected), or the invoke key or signing key secret cannot be read or is empty.
  */
 export async function composeComputerStarterDependencies(
 	processEnvironment: Record<string, string | undefined> = process.env,
@@ -69,7 +71,6 @@ export async function composeComputerStarterDependencies(
 	hostStarterOptions: EnvironmentHostStarterOptions = {},
 	ownerPorts: Partial<Pick<OwnerStartPorts, "ecs" | "assumeRole" | "newOwnerId" | "clock">> = {},
 ): Promise<ComputerStarterDependencies> {
-	const runtime = computerRuntimeFromEnvironment(processEnvironment);
 	const requiredEnvironment = (name: string): string => {
 		const value = processEnvironment[name];
 		if (value === undefined || value === "") throw new Error(`The environment variable ${name} is required.`);
@@ -107,7 +108,7 @@ export async function composeComputerStarterDependencies(
 	};
 	const hostWorkerDriver = hostStartDriverFor(hostStarterFromEnvironment(organizationOf, hostEnvironment, hostStarterOptions));
 	let driver = hostWorkerDriver;
-	if (runtime === "owner") {
+	if (isEcsHostStarterSelected(processEnvironment)) {
 		const signingKey = await readSecretValue(clients.secrets, requiredEnvironment("CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN"));
 		const config = ownerStartConfigFromEnvironment(processEnvironment, { signingKey, invokeKey });
 		const turns = new DynamoTurnControlStore(client, tableName);

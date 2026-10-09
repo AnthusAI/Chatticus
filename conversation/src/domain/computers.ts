@@ -1,5 +1,4 @@
 import {
-	ComputerDirtyError,
 	ComputerNotFoundError,
 	ComputerNotHydratedError,
 	SnapshotRequiredError,
@@ -347,35 +346,6 @@ async function markWorkerHydrated(computer: Computer, workerId: string, deps: { 
 	}
 }
 
-/**
- * Point the next run at a host. Nothing is copied: turns stay pinned to the target until it hydrates the published
- * snapshot, and prefer-local ranking resumes after that.
- *
- * Ported from python/src/chatticus/control_plane.py `relocate_computer`.
- *
- * @param tenantId Organization.
- * @param targetWorkerId The worker that becomes the intended host; it must advertise this computer.
- * @param deps The store.
- * @throws ComputerNotFoundError If the organization has no computer.
- * @throws SnapshotRequiredError If nothing has been published.
- * @throws ComputerDirtyError If the live disk has unpublished writes.
- * @throws WorkerNotRegisteredError If the target is not registered.
- * @throws WorkerDoesNotHostComputerError If the target is not a host of this computer.
- */
-export async function relocateComputer(tenantId: string, targetWorkerId: string, deps: { store: MessagingStore }): Promise<Computer> {
-	const computer = await computerForOrganization(tenantId, deps);
-	if (computer.snapshotUri === undefined) {
-		throw new SnapshotRequiredError(`Computer ${pythonRepr(computer.computerId)} has no published snapshot.`);
-	}
-	if (computer.diskDirty) {
-		throw new ComputerDirtyError(`Computer ${pythonRepr(computer.computerId)} has unpublished live-disk writes.`);
-	}
-	await requireHost(computer, targetWorkerId, deps);
-	const relocating: Computer = { ...computer, intendedHostWorkerId: targetWorkerId, hydrateRequired: true };
-	await deps.store.putComputer(relocating);
-	return relocating;
-}
-
 /** The computer tools that change the live disk: a workspace write, a workspace edit and a terminal command. */
 export const DISK_WRITING_TOOL_NAMES: ReadonlySet<string> = new Set(["write_workspace", "edit_workspace", "run_terminal"]);
 
@@ -409,14 +379,3 @@ export async function recordComputerToolAnswered(tenantId: string, toolName: str
 	}
 }
 
-/**
- * Grant the live disk write lock to one host. The first host to ask holds it; every other host is refused until a new
- * host start generation clears it.
- *
- * Ported from python/src/chatticus/control_plane.py `acquire_computer_disk_write`.
- *
- * @returns Whether `hostId` now holds the lock.
- */
-export async function acquireComputerDiskWrite(tenantId: string, hostId: string, deps: { store: MessagingStore }): Promise<boolean> {
-	return deps.store.claimComputerDiskWriter(tenantId, hostId);
-}

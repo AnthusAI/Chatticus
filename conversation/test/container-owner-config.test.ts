@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { OwnerConfigurationError, ownerIdentityFromEnvironment, ownerStoresConfigFromEnvironment } from "../../computer/host/src/owner-deps.ts";
 import { createGatewayModels } from "../../computer/host/src/owner-models.ts";
 import { ownerExitCodeFor, startJobSourceFromEnvironment } from "../../computer/host/src/owner.ts";
-import { computerRuntimeFromEnvironment } from "../src/computer/host-starter.ts";
 
 const gateway = { baseUrl: "https://gateway.example.test/v1", token: "session-token-1" };
 
@@ -100,19 +99,5 @@ describe("ownerExitCodeFor", () => {
 
 	it.each(["lost", "reconciling", "not_found", "no_job"] as const)("exits 1 when the turn ended %s", (outcome) => {
 		expect(ownerExitCodeFor(outcome)).toBe(1);
-	});
-});
-
-describe("computerRuntimeFromEnvironment", () => {
-	it.each([[undefined], [""], ["host-worker"]])("is host-worker for %j", (value) => {
-		expect(computerRuntimeFromEnvironment({ CHATTICUS_COMPUTER_RUNTIME: value })).toBe("host-worker");
-	});
-
-	it("is owner for owner", () => {
-		expect(computerRuntimeFromEnvironment({ CHATTICUS_COMPUTER_RUNTIME: "owner" })).toBe("owner");
-	});
-
-	it.each(["Owner", "ecs", "host_worker"])("refuses %j", (value) => {
-		expect(() => computerRuntimeFromEnvironment({ CHATTICUS_COMPUTER_RUNTIME: value })).toThrow("must be host-worker or owner");
 	});
 });

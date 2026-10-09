@@ -279,7 +279,7 @@ Built and covered by `features/model_gateway.feature` and
 
 What the starter does now (TS-68 code half, built and covered by
 `features/computer_owner_start.feature` and `features/computer_owner_snapshot.feature`;
-nothing is deployed): with `CHATTICUS_COMPUTER_RUNTIME=owner` the ComputerStarter
+nothing is deployed): for a computer in the deployment account the ComputerStarter
 generates a fresh owner id per start, binds the gateway token to it (the token
 claims the owner id, not the attempt), obtains scoped credentials from
 `sts:AssumeRole` with `buildOwnerSessionPolicy` (the conversation session, the

@@ -272,7 +272,7 @@ describe("ControlPlane owner scoped role", () => {
     ]);
   });
 
-  it("sets the owner environment on the starter and the runtime to owner while the rehearsal is on", () => {
+  it("sets the owner environment on the starter", () => {
     const variables = functionVariables(template, "ComputerStartJobs consumer");
     assert.equal(variables.CHATTICUS_OWNER_TASK_DEFINITION, OWNER_CONTEXT.computerOwnerTaskDefinition);
     assert.equal(variables.CHATTICUS_OWNER_CONTAINER_NAME, "computer");
@@ -287,14 +287,8 @@ describe("ControlPlane owner scoped role", () => {
     ]) {
       assert.ok(variables[name] !== undefined, `starter sets ${name}`);
     }
-    assert.equal(variables.CHATTICUS_COMPUTER_RUNTIME, "owner");
     assert.equal(variables.CHATTICUS_HOST_STARTER, "ecs");
     assert.equal(variables.CHATTICUS_ECS_TASK_DEFINITION, HOST_CONTEXT.computerEcsTaskDefinition);
-  });
-
-  it("flips the runtime to owner with one context value", () => {
-    const rehearsal = synthControlPlane("development", { ...OWNER_CONTEXT, computerRuntime: "owner" });
-    assert.equal(functionVariables(rehearsal, "ComputerStartJobs consumer").CHATTICUS_COMPUTER_RUNTIME, "owner");
   });
 
   it("wires nothing for the owner until the Computers stack outputs exist, and never outside development", () => {

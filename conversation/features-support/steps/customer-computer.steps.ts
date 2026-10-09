@@ -18,7 +18,6 @@ import { loadCustomerComputersTemplate } from "../../src/computer/customer-templ
 import {
 	type StartConditions,
 	CUSTOMER_ACCOUNT_ID,
-	DEPLOYMENT_ACCOUNT_ID,
 	computeScenario,
 	provisionCrossAccountOrganization,
 	startOrganizationComputer,
@@ -132,16 +131,6 @@ Given(
 	},
 );
 
-Given("an Anthus-managed organization homed in the deployment AWS account", async function (this: ChatticusWorld) {
-	const organization = await kernel.adminSeedOrganization("anthus-managed", "anthus-owner@example.com", "Anthus Managed", {
-		store: this.messagingStore(),
-		clock: this.clock,
-		ids: this.ids,
-		callerAwsAccountId: async () => DEPLOYMENT_ACCOUNT_ID,
-	});
-	wireHostStarter(this, { organization });
-});
-
 Given("an organization whose cross-account role cannot be assumed", async function (this: ChatticusWorld) {
 	const organization = await provisionCrossAccountOrganization(this, {
 		name: "Unreachable Org",
@@ -233,23 +222,6 @@ Then("the organization's cross-account role was assumed", function (this: Chatti
 	assert.equal(scenario.assumeRole.calls.length, 1);
 	assert.equal(scenario.assumeRole.calls[0]?.RoleArn, organization.awsCrossAccountRole);
 	assert.equal(scenario.assumeRole.calls[0]?.ExternalId, organization.awsExternalId);
-});
-
-Then("the instance is launched with deployment credentials", function (this: ChatticusWorld) {
-	const scenario = computeScenario(this);
-	assert.equal(scenario.starter.lastOutcome?.launchAccountId, DEPLOYMENT_ACCOUNT_ID);
-	assert.equal(scenario.ecs.deployment.calls.length, 1);
-	assert.deepEqual(scenario.ecs.deploymentClientsOpened, [null]);
-});
-
-Then("AssumeRole is not called", function (this: ChatticusWorld) {
-	assert.equal(computeScenario(this).assumeRole.calls.length, 0);
-});
-
-Then("no ECS client is opened in a customer account", function (this: ChatticusWorld) {
-	const scenario = computeScenario(this);
-	assert.equal(scenario.ecs.customerClientsOpened.length, 0);
-	assert.equal(scenario.ecs.customer.calls.length, 0);
 });
 
 Then("no compute for that organization runs in the Anthus account", function (this: ChatticusWorld) {

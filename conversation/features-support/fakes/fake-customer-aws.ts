@@ -12,7 +12,6 @@ import {
 } from "../../src/computer/aws-ports.ts";
 
 export const CUSTOMER_ACCOUNT_ID = "123456789012";
-export const DEPLOYMENT_ACCOUNT_ID = "111122223333";
 export const CUSTOMER_COMPUTER_REPOSITORY_URI = `${CUSTOMER_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/chatticuscomputers-computerimage`;
 export const CUSTOMER_ROLE_ARN = `arn:aws:iam::${CUSTOMER_ACCOUNT_ID}:role/ChatticusOrganizationComputerRole`;
 export const ASSUMED_ACCESS_KEY_ID = "AKIATEST";

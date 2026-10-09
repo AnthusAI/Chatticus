@@ -43,13 +43,6 @@ Feature: Cross-account provisioning
     Then the assume is refused
     And no session is issued
 
-  Scenario: An Anthus-managed organization starts in the deployment account
-    Given an Anthus-managed organization homed in the deployment AWS account
-    When its computer starts
-    Then the instance is launched with deployment credentials
-    And AssumeRole is not called
-    And no ECS client is opened in a customer account
-
   Scenario: Compute for an organization runs in the customer account
     Given an organization provisioned into a customer AWS account with a ChatticusComputers stack
     When its computer starts

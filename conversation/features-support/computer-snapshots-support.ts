@@ -12,8 +12,6 @@ const WORKSPACE_PATH_PREFIX = "/workspace/";
 export type SnapshotRelocationScenario = {
 	/** The browser sessions the computer's bots saved, by service; the host holds them in its browser profile. */
 	readonly browserSessions: Map<string, string>;
-	/** How the last relocate ended when it was refused; a scenario that expects a refusal inspects it. */
-	relocateError: Error | null;
 	/** How the last hydrate ended when it was refused. */
 	hydrateError: Error | null;
 	/** How the last bot write on the computer ended when the host was refused; a scenario that expects a refusal inspects it. */
@@ -28,7 +26,7 @@ const scenarios = new WeakMap<ChatticusWorld, SnapshotRelocationScenario>();
 export function snapshotRelocationOf(world: ChatticusWorld): SnapshotRelocationScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
-		scenario = { browserSessions: new Map(), relocateError: null, hydrateError: null, writeError: null, refusalInspected: false };
+		scenario = { browserSessions: new Map(), hydrateError: null, writeError: null, refusalInspected: false };
 		scenarios.set(world, scenario);
 	}
 	return scenario;
@@ -70,7 +68,6 @@ export function writeComputerContentTo(world: ChatticusWorld, tenantId: string, 
 After(function (this: ChatticusWorld) {
 	const scenario = scenarios.get(this);
 	if (scenario === undefined || scenario.refusalInspected) return;
-	assert.equal(scenario.relocateError, null, `An unexpected relocate refusal went unchecked: ${scenario.relocateError?.message}`);
 	assert.equal(scenario.hydrateError, null, `An unexpected hydrate refusal went unchecked: ${scenario.hydrateError?.message}`);
 	assert.equal(scenario.writeError, null, `An unexpected write refusal went unchecked: ${scenario.writeError?.message}`);
 });
