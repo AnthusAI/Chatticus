@@ -124,7 +124,7 @@ function faultableClient(client: DynamoDBClient, fault: ModelScenario["storeFaul
  * Turn dependencies whose lease renewals wait for a gate. A scenario that moves the fake clock past a lease must decide
  * when the owner's renewal happens; a renewal on a real timer could land between the clock move and the next claim.
  */
-function gatedRenewals(turns: TurnDependencies, gate: Promise<void> | undefined): TurnDependencies {
+export function gatedRenewals(turns: TurnDependencies, gate: Promise<void> | undefined): TurnDependencies {
 	if (gate === undefined) return turns;
 	const store = new Proxy(turns.store, {
 		get(target, property, receiver) {
