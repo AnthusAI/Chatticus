@@ -6,6 +6,7 @@ import { runOwnerEntryPoint, runOwnerOnComputerDisk, type OwnerEntryPointOutcome
 import { computerForOrganization } from "../../src/domain/computers.ts";
 import type { SnapshotObjectStore } from "../../src/snapshot/store.ts";
 import { activeTurnJob, computerOwnerDepsFor } from "../computer-owner.ts";
+import { snapshotStoreForOwner } from "../owner-request-recording.ts";
 import { ensureHostWorker, hostClientFor, hostDiskOf, lifecycleOf, LIFECYCLE_TENANT } from "../host-lifecycle-support.ts";
 import type { ChatticusWorld } from "../world.ts";
 
@@ -46,7 +47,7 @@ async function runOwnerOnDisk(
 	world: ChatticusWorld,
 	ownerId: string,
 	run: (workspaceRoot: string) => Promise<OwnerEntryPointOutcome>,
-	store: SnapshotObjectStore = boundStoreOf(world),
+	store: SnapshotObjectStore = snapshotStoreForOwner(world, boundStoreOf(world)),
 ): Promise<void> {
 	const scenario = diskScenarioOf(world);
 	await ensureHostWorker(world, LIFECYCLE_TENANT, ownerId);

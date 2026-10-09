@@ -6,6 +6,7 @@ import { NO_OP_RUN_VISIBILITY, NO_OP_TURN_PROBES, NO_OP_TURN_RUNS } from "../src
 import type { ExecutorDeps, TurnExecutionOutcome } from "../src/turn/types.ts";
 import { STORY_BOT, STORY_TENANT } from "./computer-scenario.ts";
 import { executorDepsFor, modelScenarioOf } from "./executor-harness.ts";
+import { isRecordingOwnerRequests, withRecordedOwnerRequests } from "./owner-request-recording.ts";
 import { activeTurnOf } from "./turn-grant-support.ts";
 import type { ChatticusWorld } from "./world.ts";
 
@@ -59,7 +60,8 @@ export const secretValueOf = (name: string): string => `secret-of-${name.toLower
 export async function computerOwnerDepsFor(world: ChatticusWorld, renewalGate?: Promise<void>): Promise<ExecutorDeps> {
 	const shared = await executorDepsFor(world, modelScenarioOf(world), renewalGate === undefined ? {} : { renewalGate });
 	const { remainingMilliseconds: _lambdaOnly, ...rest } = shared;
-	return { ...rest, turnRuns: NO_OP_TURN_RUNS, turnProbes: NO_OP_TURN_PROBES, runVisibility: NO_OP_RUN_VISIBILITY };
+	const owner = { ...rest, turnRuns: NO_OP_TURN_RUNS, turnProbes: NO_OP_TURN_PROBES, runVisibility: NO_OP_RUN_VISIBILITY };
+	return isRecordingOwnerRequests(world) ? withRecordedOwnerRequests(world, owner, renewalGate) : owner;
 }
 
 /** The job of the scenario's active turn. */

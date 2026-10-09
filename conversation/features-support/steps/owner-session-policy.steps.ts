@@ -93,12 +93,12 @@ Then(
 );
 
 Then(
-	"the owner policy allows messaging items only with partition keys starting {string} in the table {string}",
-	function (this: ChatticusWorld, prefix: string, table: string) {
+	"the owner policy allows messaging items only with partition keys starting {string} or equal to {string} in the table {string}",
+	function (this: ChatticusWorld, prefix: string, mailbox: string, table: string) {
 		const statements = onlyPolicy(this).Statement.filter((statement) => statement.Resource.some((resource) => resource.endsWith(`:table/${table}`)));
 		assert.equal(statements.length, 1, "Exactly one statement names the messaging table");
 		assert.deepEqual(statements[0]!.Resource, [`arn:aws:dynamodb:us-east-1:111122223333:table/${table}`]);
-		assert.deepEqual(statements[0]!.Condition, { "ForAllValues:StringLike": { "dynamodb:LeadingKeys": [`${prefix}*`] } });
+		assert.deepEqual(statements[0]!.Condition, { "ForAllValues:StringLike": { "dynamodb:LeadingKeys": [`${prefix}*`, mailbox] } });
 		for (const action of statements[0]!.Action) assert.ok(!action.includes("*") && action !== "dynamodb:Scan", action);
 	},
 );

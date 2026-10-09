@@ -1,3 +1,4 @@
+import { mailboxPartitionKey } from "../pi/mailbox.ts";
 import { commitPrefix, storageIdFor } from "../storage/storage-support.ts";
 
 /** One statement of an IAM policy document. */
@@ -38,6 +39,10 @@ function requireSafe(pattern: RegExp, value: string, what: string): void {
  * The IAM session policy that confines a container's storage credentials to one conversation session: the S3 objects
  * under that session's `conversations/<storage>/` prefix, and the DynamoDB items whose partition key is that session's
  * `PI#<storage>`. Nothing is granted on any other prefix, key, table or bucket.
+ *
+ * DynamoDB authorizes a transaction by the item actions it contains (`PutItem`, `UpdateItem`, `DeleteItem` and
+ * `ConditionCheckItem`); `TransactWriteItems` is not an IAM action, so it is not listed. The scenarios that record every
+ * request of a computer owner judge a transaction item by item for the same reason.
  *
  * Identifiers that carry IAM wildcards, policy variables or the key separator are refused, because they could widen the
  * match or make one session's key a prefix of another's.
@@ -82,7 +87,6 @@ export function buildSessionPolicy(scope: SessionScope): SessionPolicyDocument {
 					"dynamodb:UpdateItem",
 					"dynamodb:DeleteItem",
 					"dynamodb:Query",
-					"dynamodb:TransactWriteItems",
 					"dynamodb:ConditionCheckItem",
 				],
 				Resource: [scope.conversationsTableArn, `${scope.conversationsTableArn}/index/*`],
@@ -106,9 +110,13 @@ export const SESSION_POLICY_MAXIMUM_CHARACTERS = 2048;
 
 /**
  * The session policy of a computer owner: the conversation session of `buildSessionPolicy`, the snapshot objects of the
- * organization's computer (`tenants/<tenant>/computers/<computer>/`), and the Messaging table items whose partition key
- * starts with `<tenant>#`, which is how every item of a turn, its events, the actions and the ledger of that
- * organization is keyed. Nothing is granted for another organization, computer or conversation.
+ * organization's computer (`tenants/<tenant>/computers/<computer>/`), and the Messaging table items the owner reaches for
+ * the turn: every partition key that starts with `<tenant>#` (the turn and its events, the channel, the roster, the
+ * computer actions, the ledger and the spend rollups of that organization) and the one mailbox of the session,
+ * `MB#<tenant>#<bot>#<channel>`. Nothing is granted for another organization, computer, conversation or mailbox.
+ *
+ * The Messaging statement names only the actions the owner takes on that table: the only condition check there belongs
+ * to turn admission, which the owner never performs, and the owner reads no batch of Messaging items.
  *
  * @param scope The session, the computer and the stores.
  * @returns The policy as data.
@@ -132,16 +140,17 @@ export function buildOwnerSessionPolicy(scope: OwnerSessionScope): SessionPolicy
 				Effect: "Allow",
 				Action: [
 					"dynamodb:GetItem",
-					"dynamodb:BatchGetItem",
 					"dynamodb:PutItem",
 					"dynamodb:UpdateItem",
 					"dynamodb:DeleteItem",
 					"dynamodb:Query",
-					"dynamodb:TransactWriteItems",
-					"dynamodb:ConditionCheckItem",
 				],
 				Resource: [scope.messagingTableArn],
-				Condition: { "ForAllValues:StringLike": { "dynamodb:LeadingKeys": [`${scope.tenantId}#*`] } },
+				Condition: {
+					"ForAllValues:StringLike": {
+						"dynamodb:LeadingKeys": [`${scope.tenantId}#*`, mailboxPartitionKey(scope.tenantId, scope.botId, scope.channelId)],
+					},
+				},
 			},
 		],
 	};

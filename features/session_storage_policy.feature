@@ -21,11 +21,12 @@ Feature: Storage credentials scoped to one conversation session
     Then every resource of the policy belongs to bucket "pi-sessions" or to the table "conversations"
     And the policy grants no wildcard action
 
-  Scenario: Every table statement allows the conditional transactions and batch reads the storage issues
+  Scenario: Every table statement allows the item actions and the conversation table also the conditional checks and batch reads of the storage
     Given the owner session of bot "bot-1" in channel "channel-1" of organization "anthus" on computer "computer-1"
     When the owner policy is built for the session
-    Then every table statement of the owner policy allows the actions "dynamodb:GetItem,dynamodb:PutItem,dynamodb:UpdateItem,dynamodb:DeleteItem,dynamodb:Query,dynamodb:TransactWriteItems,dynamodb:ConditionCheckItem"
+    Then every table statement of the owner policy allows the actions "dynamodb:GetItem,dynamodb:PutItem,dynamodb:UpdateItem,dynamodb:DeleteItem,dynamodb:Query"
     And the conversation table statement of the owner policy also allows the action "dynamodb:BatchGetItem"
+    And the conversation table statement of the owner policy also allows the action "dynamodb:ConditionCheckItem"
 
   Scenario: Two sessions of the same bot get disjoint policies
     Given the session of bot "bot-1" in channel "channel-1" of organization "anthus"
@@ -43,12 +44,12 @@ Feature: Storage credentials scoped to one conversation session
     When the storage policy is built for the session
     Then building the policy is refused
 
-  Scenario: The owner's policy adds its computer's snapshot objects and its organization's messaging items
+  Scenario: The owner's policy adds its computer's snapshot objects, its organization's messaging items and its session's mailbox
     Given the owner session of bot "bot-1" in channel "channel-1" of organization "anthus" on computer "computer-1"
     When the owner policy is built for the session
     Then the owner policy still allows the conversation session of the plain policy
     And the owner policy allows snapshot objects only under "tenants/anthus/computers/computer-1/" of bucket "snapshots"
-    And the owner policy allows messaging items only with partition keys starting "anthus#" in the table "messaging"
+    And the owner policy allows messaging items only with partition keys starting "anthus#" or equal to "MB#anthus#bot-1#channel-1" in the table "messaging"
 
   Scenario: The owner's policy of one organization and computer shares nothing with another's
     Given the owner session of bot "bot-1" in channel "channel-1" of organization "anthus" on computer "computer-1"
