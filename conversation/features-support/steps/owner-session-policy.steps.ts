@@ -123,3 +123,20 @@ Then("the owner policy is within the STS size limit", function (this: ChatticusW
 Then("building the owner policy is refused", function (this: ChatticusWorld) {
 	assert.ok(scenarioOf(this).refusal, "An owner policy was built for an unsafe identifier");
 });
+
+Then(
+	"every table statement of the owner policy allows the actions {string}",
+	function (this: ChatticusWorld, actions: string) {
+		const tableStatements = onlyPolicy(this).Statement.filter((statement) => statement.Resource.some((resource) => resource.includes(":table/")));
+		assert.equal(tableStatements.length, 2, "The conversation table and the messaging table each have one statement");
+		for (const statement of tableStatements) {
+			for (const action of actions.split(",")) assert.ok(statement.Action.includes(action), `${action} missing from ${statement.Resource.join(",")}`);
+		}
+	},
+);
+
+Then("the conversation table statement of the owner policy also allows the action {string}", function (this: ChatticusWorld, action: string) {
+	const statement = onlyPolicy(this).Statement.find((candidate) => candidate.Resource.includes(PI_TABLE_ARN));
+	assert.ok(statement, "The conversation table has a statement");
+	assert.ok(statement.Action.includes(action), `${action} missing`);
+});
