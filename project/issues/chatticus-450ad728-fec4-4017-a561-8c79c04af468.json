@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-450ad728-fec4-4017-a561-8c79c04af468",
+  "title": "Session policy headroom: 30 characters under the 2048 STS limit",
+  "description": "buildOwnerSessionPolicy packs to 2018 characters for the long-id fixture; each extra tenant id character costs about 7. Before more tenants or longer ids, shorten: one LeadingKeys list, fewer repeated statements, or use a role per computer for the static part. Guard: the existing size scenario with a realistic longest tenant id.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-09T17:01:14.338919Z",
+  "updated_at": "2026-10-09T17:01:14.338977Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The session policy is 30 characters under the STS limit and needs trimming before tenant growth.",
+  "right_now_updated_at": "2026-10-09T17:01:16.436810Z",
+  "custom": {}
+}

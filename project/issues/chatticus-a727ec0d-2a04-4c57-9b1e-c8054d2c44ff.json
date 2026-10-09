@@ -32,7 +32,7 @@
     "model": "claude-opus-5-5",
     "name": "orchestrator"
   },
-  "right_now_summary": "The TypeScript port is deployed in development; computer checks and production migration remain.",
-  "right_now_updated_at": "2026-10-08T02:25:47.595653Z",
+  "right_now_summary": "The TypeScript control plane runs in development; computer-path fixes and staging and production promotion remain.",
+  "right_now_updated_at": "2026-10-09T17:01:22.393187Z",
   "custom": {}
 }

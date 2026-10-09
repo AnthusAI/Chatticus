@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-6d905db1-e9d3-4f70-aefb-ec98356b7ccf",
+  "title": "Owner container logs: emit start, claim, gateway, publish and exit lines",
+  "description": "The owner log group shows only owner_outcome lines. Add structured lines for start, turn claimed (owner id), model call via gateway (status, no secrets), snapshot publish or skip with the reason, and exit code. Related to TS-55. Scenarios first.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-09T17:01:09.166429Z",
+  "updated_at": "2026-10-09T17:01:09.166468Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Owner logs still show only outcome lines; new start, claim, gateway, publish, and exit events are needed.",
+  "right_now_updated_at": "2026-10-09T17:01:11.521008Z",
+  "custom": {}
+}

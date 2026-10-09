@@ -3,7 +3,7 @@
   "title": "TS-68 Handoff step 4: infrastructure for the computer owner",
   "description": "Source: the Pi session handoff spike (PR 474: spikes/pi-handoff, docs/PI_HARNESS.md section 'Spike: handoff to a computer owner', GO in steps) and docs/PI_SESSION_HANDOFF.md. Decision (user): the goal is a Pi session running in the computer container, using Pi's own tools (read, write, edit, bash from @earendil-works/pi-durable/tools), with the session portable between owners. Security gate before production: the container must not hold the model key or broad storage credentials.\n\nCDK: the owner task role and the scoped role, the gateway route or Lambda, a take-over job on the start queue (the starter passes tenant, bot, channel and turn to the container), the OpenAI key never in the container, the old host-protocol claim path left in place until the cutover. Deploy through the repo workflows only. Then a live rehearsal on development (the user's go for each image push and task start).",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 0,
   "assignee": null,
   "creator": null,
@@ -19,16 +19,29 @@
       "type": "blocked-by"
     }
   ],
-  "comments": [],
+  "comments": [
+    {
+      "id": "184de7ac-87f7-4d9a-9915-250f7732098f",
+      "author": "home",
+      "text": "Live rehearsal on development, 2026-10-09, owner runtime on. Stage 1 smoke PASS (owner task definition, uid 2000, 32 s post to answer, spend recorded through the gateway, clean exit). Stage 2 security PASS (shell env has no secrets, cannot read the owner environ, no sudo or su, writes limited to /workspace and /tmp, metadata endpoint returns no credentials, credentials path variable absent from the shell env). Stage 3 recovery PASS: second owner took over after the first was stopped; the lost tool is reported, not re-run (designed). Stage 4 git bug fix PASS: 12 of 12, committed, persisted to a fresh owner on a new channel. Two earlier live failures found real policy gaps (ConditionCheckItem, then the MB# mailbox key), fixed in PRs 484 and 485 with a request-recording policy coverage scenario. Used 4 owner starts in stage 4 against a budget of 3. Left behind in the integration-test tenant: test bots, channels and files (ok, pwned, proj). Findings: owner logs only have owner_outcome lines; disk_dirty stays true after a read-only run (no publish when content is unchanged); the session policy has 30 characters of headroom under the 2048 STS limit.",
+      "created_at": "2026-10-09T17:01:00.519948Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-07T19:08:53.789346Z",
-  "updated_at": "2026-10-07T19:09:10.599854Z",
-  "closed_at": null,
+  "updated_at": "2026-10-09T17:01:04.484284Z",
+  "closed_at": "2026-10-09T17:01:04.484243Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The infrastructure plan is defined, but deployment and live rehearsal have not started.",
-  "right_now_updated_at": "2026-10-07T19:09:12.607604Z",
+  "right_now_summary": "The development rehearsal passes smoke, security, recovery, and Git tests; two policy gaps were fixed.",
+  "right_now_updated_at": "2026-10-09T17:01:07.105468Z",
   "custom": {}
 }

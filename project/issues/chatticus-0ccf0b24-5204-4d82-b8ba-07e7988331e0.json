@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-0ccf0b24-5204-4d82-b8ba-07e7988331e0",
+  "title": "Owner leaves disk_dirty true after a clean exit with unchanged content",
+  "description": "After a read-only owner turn the computer record keeps disk_dirty true and no snapshot is published, so the next start re-hydrates the same snapshot. Decide whether a clean exit with unchanged content should clear the flag; if not, document it. Scenario first.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-09T17:01:18.593432Z",
+  "updated_at": "2026-10-09T17:01:18.593466Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is deciding whether a clean, unchanged exit should clear `disk_dirty` or be documented.",
+  "right_now_updated_at": "2026-10-09T17:01:20.225857Z",
+  "custom": {}
+}
