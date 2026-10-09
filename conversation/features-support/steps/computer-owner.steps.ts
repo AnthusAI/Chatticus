@@ -77,6 +77,16 @@ When("the member allows the turn tools {string} under {string}", async function 
 	assert.equal(response.status, 200, response.text);
 });
 
+When("the member allows the turn tools {string} on the origin {string}", async function (this: ChatticusWorld, tools: string, origin: string) {
+	const headers = await memberHeadersFor(this, STORY_TENANT, "ryan");
+	const response = await putActiveTurnGrant(
+		this,
+		headers,
+		grantPayloadOfTable({ tools, origins: origin, recipients: "", file_scopes: "/workspace", egress_classes: "approved_origin_fetch", ingest_classes: "" }),
+	);
+	assert.equal(response.status, 200, response.text);
+});
+
 When("a Lambda-style owner works the turn until it parks", async function (this: ChatticusWorld) {
 	const outcome = await workTurn(this, STORY_BOT);
 	computerOwnerScenarioOf(this).lambdaOutcome = outcome;

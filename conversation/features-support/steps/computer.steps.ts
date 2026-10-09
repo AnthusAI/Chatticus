@@ -48,6 +48,17 @@ When(
 	},
 );
 
+When("every queued start job is delivered to the starter", async function (this: ChatticusWorld) {
+	const state = computerScenarioOf(this);
+	state.driver ??= new FakeHostStartDriver();
+	const jobs = queuedStartJobs(this);
+	assert.ok(jobs.length > 0, "No start job is queued.");
+	for (const job of jobs) {
+		await deliverStartJob(this, job, state.driver);
+		assert.equal(state.startError, null, state.startError?.message);
+	}
+});
+
 Given("the household computer policy is {string}", async function (this: ChatticusWorld, policy: string) {
 	const tenantId = scenarioTenantId(this);
 	const computer = await ensureComputer(tenantId, { store: this.messagingStore(), ids: this.ids });
