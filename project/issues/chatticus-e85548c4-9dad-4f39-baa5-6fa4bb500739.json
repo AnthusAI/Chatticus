@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "78049151-1c6a-465c-ab72-b599d83abf56",
+      "author": "home",
+      "text": "PR 493: the moto image is restored from the Actions cache (key moto-image-5.2.3); on a miss it is pulled with up to five attempts and back-off, then saved. The cache-miss path passed in the PR; the cache-hit path first runs on the next CI run after merge. Leave open until a run shows the cache hit.",
+      "created_at": "2026-10-10T18:45:52.329558Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-10T16:58:33.008857Z",
-  "updated_at": "2026-10-10T16:58:33.008900Z",
+  "updated_at": "2026-10-10T18:45:52.329589Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The conversation job still fails when Docker Hub rate-limits the unauthenticated Moto image pull.",
-  "right_now_updated_at": "2026-10-10T16:58:35.292626Z",
+  "right_now_summary": "The PR cache-miss path passed; the next CI run must confirm the cached moto image.",
+  "right_now_updated_at": "2026-10-10T18:45:54.706346Z",
   "custom": {}
 }
