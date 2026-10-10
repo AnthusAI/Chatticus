@@ -157,7 +157,7 @@ export function computerToolsExtension(handoff: ComputerToolHandoff): Extension 
 			),
 			computerTool(
 				"run_terminal",
-				"Run a shell command on the organization's computer. The default directory is /workspace. Git is installed.",
+				"Run a shell command on the organization's computer. The default directory is /workspace. Git, gcc, g++ and make are installed.",
 				RUN_TERMINAL_PARAMETERS,
 			),
 			computerTool(BROWSE_ACTION_KIND, "Open a web page in an isolated browser.", BROWSE_PARAMETERS),

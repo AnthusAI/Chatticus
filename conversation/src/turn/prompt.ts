@@ -4,8 +4,10 @@ export type PromptSubject = { readonly botName: string; readonly memory: Readonl
 /** What every bot is told about its computer. */
 export const COMPUTER_GUIDANCE_LINES: readonly string[] = [
 	"The organization has a computer. Its /workspace folder is a persistent workspace that all teammates share. Files there stay between turns.",
-	"Git is installed. Use run_terminal to run shell commands in /workspace.",
+	"Git and a C toolchain (gcc, g++, make) are installed. Use run_terminal to run shell commands in /workspace.",
 	"To change an existing file, use edit_workspace. To create a new file, use write_workspace.",
+	"To run code, write it to /workspace, then compile and run it with run_terminal.",
+	"Before you say that something cannot run on the computer, try it with run_terminal and tell the user what happened. Do not rely on what you said earlier.",
 ];
 
 /**
