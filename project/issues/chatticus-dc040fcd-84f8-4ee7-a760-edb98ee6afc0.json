@@ -3,7 +3,7 @@
   "title": "Web build fails intermittently in CI with a webpack TypeError: Cannot read properties of null (reading 1)",
   "description": "Seen on PR 475 and PR 478 first runs, both PRs without web changes; passes on rerun. Find the cause (a webpack plugin or loader reading a null regex match) and fix it, or pin it.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
@@ -22,17 +22,29 @@
         "model": "claude-sonnet-5-5",
         "name": "claude"
       }
+    },
+    {
+      "id": "cdfc1ce8-04ae-4bb6-b9d9-e3fa9717c574",
+      "author": "home",
+      "text": "Fixed in PR 492: the fonts (Newsreader, Manrope, IBM Plex Mono) are self-hosted through @fontsource packages and next/font/local, so the web build no longer fetches Google Fonts. Proved with fonts.googleapis.com blocked: the old code failed, the new code builds. Rendered page not visually compared; weights are now static.",
+      "created_at": "2026-10-10T18:36:33.033180Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
     }
   ],
   "created_at": "2026-10-08T00:47:37.656015Z",
-  "updated_at": "2026-10-08T02:25:41.072704Z",
-  "closed_at": null,
+  "updated_at": "2026-10-10T18:36:36.694578Z",
+  "closed_at": "2026-10-10T18:36:36.694425Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The CI build intermittently fails when next/font fetches Google Fonts over the network.",
-  "right_now_updated_at": "2026-10-08T02:25:42.043186Z",
+  "right_now_summary": "The build now uses self-hosted fonts, avoiding flaky Google Fonts requests in CI.",
+  "right_now_updated_at": "2026-10-10T18:36:37.673497Z",
   "custom": {}
 }

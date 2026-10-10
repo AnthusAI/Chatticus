@@ -3,23 +3,36 @@
   "title": "Owner container logs: emit start, claim, gateway, publish and exit lines",
   "description": "The owner log group shows only owner_outcome lines. Add structured lines for start, turn claimed (owner id), model call via gateway (status, no secrets), snapshot publish or skip with the reason, and exit code. Related to TS-55. Scenarios first.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "81dc8b2d-453d-4cb6-90ed-42d180c5874b",
+      "author": "home",
+      "text": "Merged in PRs 490 and 491: structured owner, starter and gateway log lines; the owner bundle no longer pulls in the starter, with a guard test. The container image with the owner logging is pushed as :dev.",
+      "created_at": "2026-10-10T18:36:39.580081Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-09T17:01:09.166429Z",
-  "updated_at": "2026-10-09T17:01:09.166468Z",
-  "closed_at": null,
+  "updated_at": "2026-10-10T18:36:42.342064Z",
+  "closed_at": "2026-10-10T18:36:42.342022Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "Owner logs still show only outcome lines; new start, claim, gateway, publish, and exit events are needed.",
-  "right_now_updated_at": "2026-10-09T17:01:11.521008Z",
+  "right_now_summary": "Owner logs now include structured start, claim, gateway, publish or skip, and exit lines.",
+  "right_now_updated_at": "2026-10-10T18:36:43.413768Z",
   "custom": {}
 }
