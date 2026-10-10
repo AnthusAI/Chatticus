@@ -13,11 +13,14 @@
 import {
 	ComputerWorkerHostNotReady,
 	ComputerWorkerRequiresComputerCapability,
+	OrganizationComputerNotSetUpError,
 	OrganizationComputerProvisioningError,
 	OrganizationSpendCeilingExceededError,
 } from "../http/errors.ts";
+import { consoleLogEmitter } from "../observability/log-line.ts";
 import { answerComputerActionOnOwnAccount, type ActionDependencies, expireLostComputerActions } from "./actions.ts";
 import { type HostStartClaim, type HostStartDependencies, requestComputerHostStart } from "./computers.ts";
+import { failStaleTurn, type TurnDependencies } from "./turns.ts";
 import type { TurnJob } from "./workers.ts";
 
 export { ComputerWorkerHostNotReady, ComputerWorkerRequiresComputerCapability };
@@ -49,6 +52,8 @@ export interface HostStartDriver {
 export type ComputerStarterDependencies = HostStartDependencies &
 	ActionDependencies & {
 		readonly driver: HostStartDriver;
+		/** Where a turn parked on a computer that can never start is failed. */
+		readonly turns: TurnDependencies;
 		/** Called for each action the starter answered, so the turn parked on it resumes. */
 		readonly resumeTurn: (tenantId: string, turnId: string, actionId: string) => Promise<void>;
 	};
@@ -58,6 +63,10 @@ export type ComputerStartOutcome =
 	| { readonly kind: "started"; readonly hostStartGeneration: number }
 	| { readonly kind: "already_started"; readonly hostStartGeneration: number }
 	| { readonly kind: "refused"; readonly reason: string };
+
+/** What a person reads on a turn whose organization has no computer set up. */
+export const COMPUTER_NOT_SET_UP_REASON =
+	"This organization has no computer set up yet. Ask your Chatticus operator to set one up, then send your message again.";
 
 /** The result a turn reads for an action the spend ceiling stopped after it was parked. */
 export const deniedActionResult = (reason: string): string => `denied: ${reason}`;
@@ -72,7 +81,10 @@ export const deniedActionResult = (reason: string): string => `denied: ${reason}
  * @param job The start job.
  * @returns How it ended.
  * @throws ComputerWorkerRequiresComputerCapability If the job does not need the computer capability.
- * @throws ComputerWorkerHostNotReady If the driver could not start the host; the job should be retried.
+ * A permanent refusal (the organization has no AWS home, or no cross-account role) fails the parked turn with a plain
+ * reason and ends the job without retry; every other driver failure is transient and the job should be retried.
+ *
+ * @throws ComputerWorkerHostNotReady If the driver could not start the host for a transient reason; the job should be retried.
  */
 export async function handleComputerStartJob(
 	deps: ComputerStarterDependencies,
@@ -101,6 +113,14 @@ export async function handleComputerStartJob(
 		await deps.driver.start(claim, job);
 	} catch (error) {
 		await deps.store.releaseHostStartDispatch(job.tenantId, claim.hostStartGeneration);
+		if (error instanceof OrganizationComputerNotSetUpError) {
+			consoleLogEmitter({ tenant_id: job.tenantId, turn_id: job.turnId })("computer_start_refused", { reason_class: error.reasonClass });
+			const turn = await deps.turns.store.getTurn(job.tenantId, job.turnId);
+			if (turn !== null && turn.status === "active" && turn.waitingFor !== null) {
+				await failStaleTurn(deps.turns, turn, "waiting", COMPUTER_NOT_SET_UP_REASON);
+			}
+			return { kind: "refused", reason: error.reasonClass };
+		}
 		if (error instanceof OrganizationComputerProvisioningError) {
 			throw new ComputerWorkerHostNotReady(`Turn ${JSON.stringify(job.turnId)} computer provisioning refused: ${error.message}`);
 		}

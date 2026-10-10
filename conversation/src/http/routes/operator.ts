@@ -16,6 +16,8 @@ export interface OperatorOrganizationResponseBody {
 export interface OperatorRouteDependencies {
 	store: MessagingStore;
 	operatorKey: string;
+	/** The deployment account an enabled organization with no chosen setup path is homed in. */
+	deploymentAwsAccountId?: string;
 }
 
 /** The lifecycle transition one operator route applies. */
@@ -38,11 +40,15 @@ export async function operatorOrganizationHandler(
 ): Promise<Response> {
 	enforceOperatorPrincipal(c.req.raw, deps.operatorKey);
 	const tenantId = pathParameter(c, "tenant_id");
+	const lifecycle = {
+		store: deps.store,
+		...(deps.deploymentAwsAccountId === undefined ? {} : { callerAwsAccountId: async () => deps.deploymentAwsAccountId! }),
+	};
 	const organization =
 		action === "enable"
-			? await kernel.enableOrganization(tenantId, deps)
+			? await kernel.enableOrganization(tenantId, lifecycle)
 			: action === "suspend"
-				? await kernel.suspendOrganization(tenantId, deps)
-				: await kernel.reinstateOrganization(tenantId, deps);
+				? await kernel.suspendOrganization(tenantId, lifecycle)
+				: await kernel.reinstateOrganization(tenantId, lifecycle);
 	return c.json(operatorOrganizationResponse(organization), 200);
 }

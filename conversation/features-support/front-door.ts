@@ -21,6 +21,9 @@ import type { ChatticusWorld } from "./world.ts";
 /** The environment name a scenario's front door runs as, and so the budget environment its spend pause reads. */
 export const DEFAULT_FRONT_DOOR_ENVIRONMENT = "test";
 
+/** The AWS account the scenario's deployment runs in; moto answers the CLI's caller identity with the same account. */
+export const SCENARIO_DEPLOYMENT_AWS_ACCOUNT_ID = "123456789012";
+
 /** How one scenario's HTTP front door is wired. */
 export type FrontDoorOptions = {
 	signupMode: SignupMode;
@@ -89,6 +92,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		invokeKey: options.invokeKey ?? null,
 		writeGate: options.migrationGate === true ? new DynamoWriteGate(world.messagingTable.client, world.messagingTable.tableName) : undefined,
 		operatorKey: options.operatorKey ?? "",
+		deploymentAwsAccountId: SCENARIO_DEPLOYMENT_AWS_ACCOUNT_ID,
 		integrationTest: options.integrationTest ?? null,
 		environment: options.environment ?? DEFAULT_FRONT_DOOR_ENVIRONMENT,
 		verifier: options.cognitoVerifier ? keys.verifier() : null,

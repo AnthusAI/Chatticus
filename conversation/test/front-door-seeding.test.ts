@@ -143,9 +143,11 @@ describe("front door cold start seeding of the integration-test organization", (
 		expect(await itemCount()).toBe(0);
 	});
 
-	it("needs no account id and seeds nothing when integration auth is off", async () => {
+	it("refuses the cold start without the deployment account id, which the operator enable route homes organizations in", async () => {
 		const environment = { ...environmentFor("production"), CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID: undefined };
-		await composeFrontDoorApp(environment, clientsFor(withPrefix("production", WITH_ALLOWED_ROLE)));
+		await expect(composeFrontDoorApp(environment, clientsFor(withPrefix("production", WITH_ALLOWED_ROLE)))).rejects.toThrow(
+			"CHATTICUS_DEPLOYMENT_AWS_ACCOUNT_ID",
+		);
 		expect(await itemCount()).toBe(0);
 	});
 

@@ -259,6 +259,7 @@ export async function deliverStartJob(
 				clock: world.clock,
 				ids: world.ids,
 				heartbeatTimeoutSeconds: world.heartbeatTimeoutSeconds,
+				turns: parkDeps.turns,
 				spend: { store, rollups: world.store, environment: world.budgetEnvironment, clock: world.clock },
 				actions: actionStoreOf(world),
 				driver,

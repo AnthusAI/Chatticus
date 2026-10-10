@@ -7,7 +7,7 @@
  * python/src/chatticus/host_starter.py lines 1-55.
  */
 
-import { OrganizationComputerProvisioningError } from "../http/errors.ts";
+import { OrganizationComputerNotSetUpError, OrganizationComputerProvisioningError } from "../http/errors.ts";
 import type { ComputerStartJob, HostStartDriver } from "../domain/computer-start.ts";
 import type { HostStartClaim as DomainHostStartClaim } from "../domain/computers.ts";
 import type { Organization } from "../domain/organizations.ts";
@@ -82,7 +82,8 @@ export async function lookupCustomerComputerEcsConfig(
 
 function requireAwsHome(organization: Organization): string {
 	if (organization.awsAccountId === null || organization.awsAccountId === "") {
-		throw new OrganizationComputerProvisioningError(
+		throw new OrganizationComputerNotSetUpError(
+			"no_aws_home",
 			`Organization ${JSON.stringify(organization.tenantId)} has no AWS home; computer provisioning is required before start.`,
 		);
 	}
@@ -91,7 +92,8 @@ function requireAwsHome(organization: Organization): string {
 
 function requireCrossAccountFields(organization: Organization): void {
 	if (organization.awsCrossAccountRole === null || organization.awsExternalId === null) {
-		throw new OrganizationComputerProvisioningError(
+		throw new OrganizationComputerNotSetUpError(
+			"no_cross_account_role",
 			`Organization ${JSON.stringify(organization.tenantId)} is homed in another AWS account but has no cross-account role recorded.`,
 		);
 	}

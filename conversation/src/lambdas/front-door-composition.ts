@@ -153,6 +153,7 @@ export async function composeFrontDoorApp(
 	const messagingTableName = requiredIn(environment, "CHATTICUS_MESSAGING_TABLE");
 	const invokeKey = await readSecretString(clients.secrets, requiredIn(environment, "CHATTICUS_INVOKE_KEY_SECRET_ARN"));
 	const operatorKey = await readSecretString(clients.secrets, requiredIn(environment, "CHATTICUS_OPERATOR_KEY_SECRET_ARN"));
+	const deploymentAwsAccountId = deploymentAwsAccountIdFrom(environment);
 	await resolveOpenAiApiKey(environment, clients.parameters);
 	const userPoolId = await requiredParameter(clients.parameters, requiredIn(environment, "CHATTICUS_COGNITO_USER_POOL_ID_PARAMETER"));
 	const clientId = await requiredParameter(clients.parameters, requiredIn(environment, "CHATTICUS_COGNITO_APP_CLIENT_ID_PARAMETER"));
@@ -167,7 +168,6 @@ export async function composeFrontDoorApp(
 	const ids = { next: () => randomUUID() };
 	const store = new DynamoMessagingStore(client, messagingTableName);
 	if (integrationTest !== null) {
-		const deploymentAwsAccountId = deploymentAwsAccountIdFrom(environment);
 		await seedIntegrationTestOrganizationOnce(
 			{ store, clock, ids, callerAwsAccountId: async () => deploymentAwsAccountId },
 			integrationTest.tenantId,
@@ -226,6 +226,7 @@ export async function composeFrontDoorApp(
 		budgetRollups: new DynamoBudgetStore(client, messagingTableName),
 		invokeKey,
 		operatorKey,
+		deploymentAwsAccountId,
 		integrationTest,
 		environment: environmentName,
 		verifier: createIdTokenVerifier({ userPoolId, clientId }),

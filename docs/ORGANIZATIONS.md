@@ -84,8 +84,11 @@ Creating one lands it `pending`. The owner runs the published cross-account
 CloudFormation template in their AWS account, then submits the AWS account id
 and RoleArn at `POST /orgs/{tenant_id}/self-setup/cross-account-role`. A live
 inspector validates ExternalId and required permissions; acceptance enables the
-organization and records AWS home. Operator `enable` remains break-glass: it
-marks an organization enabled without AWS home when self-setup did not run.
+organization and records AWS home. Operator `enable` (and the members CLI
+`enable`, and `reinstate`) is the other way in: an organization enabled with no
+AWS home and no chosen setup path becomes Anthus-managed, so its AWS home is set
+to the deployment account and its setup path to `anthus-managed`, the same values
+`seed` records. An organization that already chose a setup path is never changed.
 Enabling is per **organization**, not per person: the owner then invites their
 own people, and invited members of an enabled organization never see the pending
 welcome screen.

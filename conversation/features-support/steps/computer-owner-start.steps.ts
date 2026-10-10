@@ -70,6 +70,12 @@ Given(
 	},
 );
 
+Given("the organization has no AWS home", async function (this: ChatticusWorld) {
+	const store = this.messagingStore();
+	const organization = organizationHomedIn(await store.getOrganization(STORY_TENANT), OWNER_START_DEPLOYMENT_ACCOUNT);
+	await store.putOrganization({ ...organization, awsAccountId: null, awsSetupPath: null });
+});
+
 Given("the starter has the owner settings", function (this: ChatticusWorld) {
 	Object.assign(ownerStartOf(this).environment, ownerRuntimeSettings());
 });
@@ -302,4 +308,49 @@ Then("the owner that took the turn over claimed it under the owner id of the sta
 	const job = startJobOf(this);
 	const turn = await getTurn(this.turnDependencies(), job.tenantId, job.turnId);
 	assert.equal(turn.claimedBy, environmentValue(this, "CHATTICUS_OWNER_ID"));
+});
+
+Then("the parked turn failed telling the person the organization has no computer set up yet", async function (this: ChatticusWorld) {
+	const job = startJobOf(this);
+	const turn = await getTurn(this.turnDependencies(), job.tenantId, job.turnId);
+	assert.equal(turn.status, "failed");
+	assert.ok(turn.terminalReason?.includes("no computer set up yet"), String(turn.terminalReason));
+	assert.ok(turn.terminalReason?.includes("Ask your Chatticus operator"), String(turn.terminalReason));
+});
+
+Then("the start job is not retried", function (this: ChatticusWorld) {
+	assert.equal(computerScenarioOf(this).startError, null, computerScenarioOf(this).startError?.message);
+	assert.equal(queuedStartJobs(this).length, 0);
+});
+
+Then("no start job is left for the dead-letter queue", function (this: ChatticusWorld) {
+	assert.equal(queuedStartJobs(this).length, 0, "A start job is still on the queue, so it would be redelivered until it dead-letters.");
+});
+
+Then("the starter made exactly {int} start attempt(s)", async function (this: ChatticusWorld, count: number) {
+	const computer = await this.messagingStore().getComputer(STORY_TENANT);
+	assert.equal(computer?.hostStartGeneration, count);
+});
+
+Then("the starter logged one {string} line with the tenant, the turn and the reason class {string}", function (this: ChatticusWorld, event: string, reasonClass: string) {
+	const job = startJobOf(this);
+	const lines = ownerStartOf(this).logs.filter((line) => line.includes(event));
+	assert.equal(lines.length, 1, lines.join("\n"));
+	assert.ok(lines[0]!.includes(job.tenantId) && lines[0]!.includes(job.turnId) && lines[0]!.includes(reasonClass), lines[0]);
+});
+
+Then("the starter logged no {string} line", function (this: ChatticusWorld, event: string) {
+	assert.equal(ownerStartOf(this).logs.filter((line) => line.includes(event)).length, 0);
+});
+
+Then("the start failed and the parked turn is still waiting", async function (this: ChatticusWorld) {
+	assert.ok(computerScenarioOf(this).startError, "The start did not fail.");
+	const job = startJobOf(this);
+	const turn = await getTurn(this.turnDependencies(), job.tenantId, job.turnId);
+	assert.equal(turn.status, "active");
+	assert.notEqual(turn.waitingFor, null);
+});
+
+Then("the start job is queued again", function (this: ChatticusWorld) {
+	assert.equal(queuedStartJobs(this).length, 1);
 });
