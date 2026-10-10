@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { build } from "esbuild";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -19,6 +20,33 @@ describe("computer image structure", () => {
 		expect(bundleConfig).toContain('"host-worker"');
 		expect(bundleConfig).toContain("snapshot:");
 		expect(bundleConfig).toContain('".js": ".mjs"');
+	});
+
+	it("bundles the owner and the host worker from files the image copies, without the starter or the infra assets", async () => {
+		const result = await build({
+			entryPoints: {
+				"host-worker": resolve(repositoryRoot, "computer", "host", "src", "main.ts"),
+				owner: resolve(repositoryRoot, "computer", "host", "src", "owner-main.ts"),
+				snapshot: resolve(repositoryRoot, "conversation", "bin", "snapshot.ts"),
+			},
+			outdir: "unused",
+			absWorkingDir: repositoryRoot,
+			write: false,
+			metafile: true,
+			bundle: true,
+			platform: "node",
+			target: "node22",
+			format: "esm",
+			logLevel: "silent",
+		});
+		const copied = ["host-protocol/", "conversation/", "computer/host/", "node_modules/"];
+		for (const [output, details] of Object.entries(result.metafile.outputs)) {
+			for (const input of Object.keys(details.inputs)) {
+				const relative = input;
+				expect(copied.some((prefix) => relative.startsWith(prefix)), `${output} bundles ${relative}`).toBe(true);
+				expect(relative, `${output} bundles the starter`).not.toMatch(/host-starter|customer-stack|customer-template|owner-start-driver/);
+			}
+		}
 	});
 
 	it("installs git and certificates and no display or browser packages", () => {

@@ -1,4 +1,4 @@
-import { OWNER_START_GENERATION_VARIABLE } from "../../../conversation/src/computer/owner-start-driver.ts";
+import { OWNER_START_GENERATION_VARIABLE } from "../../../conversation/src/computer/owner-environment.ts";
 import { createContainerOwnerDeps, ownerIdentityFromEnvironment, ownerStoresConfigFromEnvironment } from "./owner-deps.ts";
 import { snapshotStoreFromEnvironment } from "./disk-lifecycle.ts";
 import { HostProtocolClient, registerHostWorker } from "./protocol-client.ts";

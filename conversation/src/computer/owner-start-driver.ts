@@ -16,6 +16,7 @@ import type { HostStartClaim } from "../domain/computers.ts";
 import type { Turn } from "../domain/turns.ts";
 import type { EcsPort, ScopedAssumeRolePort } from "./aws-ports.ts";
 import { runFargateTask, type DeploymentEcsConfig, type StarterEnvironment } from "./host-starter.ts";
+import { OWNER_START_GENERATION_VARIABLE } from "./owner-environment.ts";
 
 /** How long the gateway token and the scoped credentials of one owner live, in seconds. */
 export const OWNER_CREDENTIAL_LIFETIME_SECONDS = 3600;
@@ -42,9 +43,6 @@ export type OwnerStartConfig = {
 	/** Process environment values copied unchanged into the task environment for tags. */
 	readonly taskEnvironment: StarterEnvironment;
 };
-
-/** The environment variable that tells the owner which host start generation launched it. */
-export const OWNER_START_GENERATION_VARIABLE = "CHATTICUS_OWNER_START_GENERATION";
 
 /** What the owner start calls out to. */
 export type OwnerStartPorts = {
