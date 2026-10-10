@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-e85548c4-9dad-4f39-baa5-6fa4bb500739",
+  "title": "CI: the moto image pull hits the Docker Hub anonymous rate limit and fails the conversation job",
+  "description": "Develop CI failed on three consecutive runs (2026-10-09, board and docs commits) in the conversation job: 'toomanyrequests: You have reached your unauthenticated pull rate limit' while pulling motoserver/moto:5.2.3. Not a code failure. Options: authenticate the pull (docker login with a Docker Hub token in a repo secret), or mirror the image to GHCR and pull it with GITHUB_TOKEN, or cache the image layer in the workflow. Prefer the GHCR mirror (no new third-party secret). Check the PR workflow too: rerun when it hits.",
+  "type": "bug",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-10T16:58:33.008857Z",
+  "updated_at": "2026-10-10T16:58:33.008900Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The conversation job still fails when Docker Hub rate-limits the unauthenticated Moto image pull.",
+  "right_now_updated_at": "2026-10-10T16:58:35.292626Z",
+  "custom": {}
+}
