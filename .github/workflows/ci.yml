@@ -69,11 +69,8 @@ jobs:
 
   conversation:
     runs-on: ubuntu-latest
-    services:
-      moto:
-        image: motoserver/moto:5.2.3
-        ports:
-          - 5555:5000
+    env:
+      MOTO_IMAGE: motoserver/moto:5.2.3
     steps:
       - uses: actions/checkout@v4
 
@@ -82,6 +79,32 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: package-lock.json
+
+      - name: Restore the moto image from the cache
+        id: moto-image-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/moto-image.tar
+          key: moto-image-5.2.3
+
+      - name: Pull the moto image when it is not cached
+        if: steps.moto-image-cache.outputs.cache-hit != 'true'
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if docker pull "$MOTO_IMAGE"; then
+              docker save "$MOTO_IMAGE" -o "$RUNNER_TEMP/moto-image.tar"
+              exit 0
+            fi
+            sleep $((attempt * 20))
+          done
+          exit 1
+
+      - name: Start moto
+        run: |
+          if [ "${{ steps.moto-image-cache.outputs.cache-hit }}" = "true" ]; then
+            docker load -i "$RUNNER_TEMP/moto-image.tar"
+          fi
+          docker run -d --rm --name moto -p 5555:5000 "$MOTO_IMAGE"
 
       - name: Wait for moto
         run: |
