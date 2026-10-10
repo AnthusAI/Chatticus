@@ -21,7 +21,7 @@ import {
 	selfSetupScenario,
 	storedOrganizationOf,
 } from "../customer-self-setup.ts";
-import { bearerFor, wireFrontDoor } from "../front-door.ts";
+import { bearerFor, SCENARIO_DEPLOYMENT_AWS_ACCOUNT_ID, wireFrontDoor } from "../front-door.ts";
 import { DEFAULT_OPERATOR_KEY } from "./operator.steps.ts";
 import type { ChatticusWorld } from "../world.ts";
 import { Decimal } from "../../src/budget/decimal.ts";
@@ -456,9 +456,10 @@ Then("the self-setup response detail mentions self-setup requires pending", func
 	assert.ok(responseDetail(this).includes("self-setup requires pending"), responseDetail(this));
 });
 
-Then("that pending organization is enabled with no AWS home", async function (this: ChatticusWorld) {
+Then("that pending organization is enabled in the deployment account as Anthus-managed", async function (this: ChatticusWorld) {
 	const stored = await storedOrganizationOf(this, selfSetupOrganization(this).tenantId);
 	assert.equal(stored.status, "enabled");
-	assert.equal(stored.awsAccountId, null);
+	assert.equal(stored.awsAccountId, SCENARIO_DEPLOYMENT_AWS_ACCOUNT_ID);
+	assert.equal(stored.awsSetupPath, "anthus-managed");
 	assert.equal(stored.awsCrossAccountRole, null);
 });

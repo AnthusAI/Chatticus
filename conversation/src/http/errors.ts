@@ -149,6 +149,23 @@ export class OrganizationComputerProvisioningError extends DomainError {
 	}
 }
 
+/** Why an organization can never start a computer until someone sets it up. */
+export type ComputerNotSetUpReason = "no_aws_home" | "no_cross_account_role";
+
+/**
+ * A provisioning refusal that retrying cannot cure: the organization has no AWS home, or a customer-account home without
+ * its cross-account role. Every other provisioning error is transient (a stack still being created, an AWS call that
+ * failed) and stays retryable.
+ */
+export class OrganizationComputerNotSetUpError extends OrganizationComputerProvisioningError {
+	reasonClass: ComputerNotSetUpReason;
+
+	constructor(reasonClass: ComputerNotSetUpReason, message: string) {
+		super(message);
+		this.reasonClass = reasonClass;
+	}
+}
+
 export class ComputerWorkerHostNotReady extends DomainError {
 	constructor(message: string) {
 		super("computer_worker_host_not_ready", message);

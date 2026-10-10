@@ -41,7 +41,7 @@ export interface MembersCliDependencies {
 	ids: IdSource;
 	/** True when stdin is a terminal, which waives the --yes requirement. */
 	stdinIsTerminal: boolean;
-	/** The AWS account id of the operator credentials running the command; seed records it as the organization's home. */
+	/** The AWS account id of the operator credentials running the command; seed, enable and reinstate record it as the home of an organization that chose no setup path. */
 	callerAwsAccountId: () => Promise<string>;
 }
 
@@ -261,10 +261,10 @@ async function runLifecycleCommand(
 	printOrganizationSummary(output, organization);
 	const updated =
 		command === "enable"
-			? await kernel.enableOrganization(tenantId, { store })
+			? await kernel.enableOrganization(tenantId, { store, callerAwsAccountId: dependencies.callerAwsAccountId })
 			: command === "suspend"
 				? await kernel.suspendOrganization(tenantId, { store })
-				: await kernel.reinstateOrganization(tenantId, { store });
+				: await kernel.reinstateOrganization(tenantId, { store, callerAwsAccountId: dependencies.callerAwsAccountId });
 	const pastTense = command === "enable" ? "enabled" : command === "suspend" ? "suspended" : "reinstated";
 	output.printLine(`${pastTense} tenant_id=${updated.tenantId} status=${updated.status}`);
 	return 0;

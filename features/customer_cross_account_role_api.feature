@@ -67,9 +67,9 @@ Feature: Customer self-setup cross-account role HTTP API
     When the operator submits the AWS account id and RoleArn via HTTP
     Then the self-setup response status is 403
 
-  Scenario: Operator enable remains break-glass without AWS home
+  Scenario: Operator enable homes an unchosen organization in the deployment account
     Given a pending organization owned by "owner@example.com"
     And an authenticated operator credential
     When the operator calls the enable endpoint for that pending organization
     Then the operator response status is 200
-    And that pending organization is enabled with no AWS home
+    And that pending organization is enabled in the deployment account as Anthus-managed

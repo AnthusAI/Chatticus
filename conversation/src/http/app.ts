@@ -98,6 +98,8 @@ export interface AppDeps {
 	writeGate?: WriteGate;
 	/** The deployment-wide operator bearer secret; the operator routes refuse every caller when it is empty. */
 	operatorKey?: string;
+	/** The deployment's own AWS account; the operator enable and reinstate routes home an unchosen organization there. */
+	deploymentAwsAccountId?: string;
 	/** Inspects a customer's cross-account role at self-setup; defaults to the live STS and IAM inspector. */
 	roleInspector?: CrossAccountRoleInspector;
 	/** Integration-test session exchange; its route is registered only when this is enabled outside production. */
@@ -373,7 +375,7 @@ export function createApp(deps: AppDeps): Hono {
 
 	for (const action of ["enable", "suspend", "reinstate"] as const) {
 		declareRoute(app, { method: "POST", path: `/operator/orgs/:tenant_id/${action}`, audience: "operator" }, (c) =>
-			operatorOrganizationHandler(c, action, { store, operatorKey }),
+			operatorOrganizationHandler(c, action, { store, operatorKey, deploymentAwsAccountId: deps.deploymentAwsAccountId }),
 		);
 	}
 

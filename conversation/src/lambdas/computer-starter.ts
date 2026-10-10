@@ -129,6 +129,7 @@ export async function composeComputerStarterDependencies(
 		store,
 		clock,
 		ids,
+		turns: park.turns,
 		spend: { store, rollups, environment, clock },
 		heartbeatTimeoutSeconds: DEFAULT_HEARTBEAT_TIMEOUT_SECONDS,
 		actions,

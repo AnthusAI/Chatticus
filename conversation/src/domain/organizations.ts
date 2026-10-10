@@ -122,9 +122,9 @@ export interface OrganizationsKernel {
 		deps: { store: MessagingStore },
 	): Promise<Organization>;
 	getOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization>;
-	enableOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization>;
+	enableOrganization(tenantId: string, deps: LifecycleDependencies): Promise<Organization>;
 	suspendOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization>;
-	reinstateOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization>;
+	reinstateOrganization(tenantId: string, deps: LifecycleDependencies): Promise<Organization>;
 	adminSetMemberRole(
 		tenantId: string,
 		memberUserId: string,
@@ -154,6 +154,15 @@ export interface OrganizationsKernel {
 		status: OrganizationStatus,
 		deps: { store: MessagingStore },
 	): Promise<Organization[]>;
+}
+
+/**
+ * What enabling or reinstating an organization needs. The deployment account is the AWS home an organization that chose
+ * no setup path is given when it becomes enabled.
+ */
+export interface LifecycleDependencies {
+	store: MessagingStore;
+	callerAwsAccountId?: () => Promise<string>;
 }
 
 /** What the seed needs; the caller account id is the home an Anthus-managed organization is recorded with. */
@@ -277,6 +286,16 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 		return organization;
 	}
 
+	private async withAnthusManagedHomeWhenUnchosen(
+		organization: Organization,
+		deps: LifecycleDependencies,
+	): Promise<Organization> {
+		if (organization.awsAccountId !== null || organization.awsSetupPath !== null || deps.callerAwsAccountId === undefined) {
+			return organization;
+		}
+		return { ...organization, awsAccountId: await deps.callerAwsAccountId(), awsSetupPath: "anthus-managed" };
+	}
+
 	private async applySeedAwsHome(organization: Organization, deps: SeedDependencies): Promise<Organization> {
 		if (organization.awsAccountId !== null || deps.callerAwsAccountId === undefined) {
 			return organization;
@@ -326,7 +345,12 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 		return organization;
 	}
 
-	async enableOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization> {
+	/**
+	 * Enable a pending organization. An organization with no AWS home and no chosen setup path becomes Anthus-managed:
+	 * its home is the deployment account, exactly as the seed records it. An organization that chose a setup path
+	 * (customer account or assisted) keeps its home as it is.
+	 */
+	async enableOrganization(tenantId: string, deps: LifecycleDependencies): Promise<Organization> {
 		const organization = await deps.store.getOrganization(tenantId);
 		if (organization === null) {
 			throw new OrganizationNotFoundError(`Organization ${JSON.stringify(tenantId)} is unknown.`);
@@ -337,7 +361,7 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 			);
 		}
 		const enabled: Organization = {
-			...organization,
+			...(await this.withAnthusManagedHomeWhenUnchosen(organization, deps)),
 			status: "enabled",
 		};
 		await deps.store.putOrganization(enabled);
@@ -386,7 +410,8 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 		return suspended;
 	}
 
-	async reinstateOrganization(tenantId: string, deps: { store: MessagingStore }): Promise<Organization> {
+	/** Return a suspended organization to enabled, with the same Anthus-managed home rule as enabling it. */
+	async reinstateOrganization(tenantId: string, deps: LifecycleDependencies): Promise<Organization> {
 		const organization = await deps.store.getOrganization(tenantId);
 		if (organization === null) {
 			throw new OrganizationNotFoundError(`Organization ${JSON.stringify(tenantId)} is unknown.`);
@@ -397,7 +422,7 @@ export class OrganizationsKernelImpl implements OrganizationsKernel {
 			);
 		}
 		const reinstated: Organization = {
-			...organization,
+			...(await this.withAnthusManagedHomeWhenUnchosen(organization, deps)),
 			status: "enabled",
 		};
 		await deps.store.putOrganization(reinstated);

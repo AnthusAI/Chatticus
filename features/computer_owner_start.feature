@@ -116,7 +116,29 @@ Feature: The starter launches the computer as a container owner
     Given the organization is homed in the account "210987654321" with no cross-account role
     And the starter has the owner settings
     When the starter handles the start job
-    Then the start was refused mentioning "no cross-account role"
+    Then the start ended "refused"
+    And the parked turn failed telling the person the organization has no computer set up yet
+    And the start job is not retried
     And the starter ran exactly 0 ECS tasks
     And STS was not asked to assume a scoped role
     And no cross-account role was assumed
+
+  Scenario: An organization with no AWS home fails the parked turn at once and the start job is never retried
+    Given the organization has no AWS home
+    And the starter has the owner settings
+    When the starter handles the start job
+    Then the start ended "refused"
+    And the parked turn failed telling the person the organization has no computer set up yet
+    And the start job is not retried
+    And no start job is left for the dead-letter queue
+    And the starter made exactly 1 start attempt
+    And the starter ran exactly 0 ECS tasks
+    And the starter logged one "computer_start_refused" line with the tenant, the turn and the reason class "no_aws_home"
+
+  Scenario: A transient AWS error still leaves the parked turn waiting and the start job to be retried
+    Given the starter has the owner settings
+    And ECS answers the run task with no task
+    When the starter handles the start job
+    Then the start failed and the parked turn is still waiting
+    And the start job is queued again
+    And the starter logged no "computer_start_refused" line

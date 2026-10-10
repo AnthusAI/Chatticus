@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { Then, When } from "@cucumber/cucumber";
+import { Given, Then, When } from "@cucumber/cucumber";
+import { SCENARIO_DEPLOYMENT_AWS_ACCOUNT_ID } from "../front-door.ts";
 import {
 	createOrganizationThroughCli,
 	parseConfirmationLine,
@@ -74,3 +75,44 @@ Then("the members CLI output includes tenant {string}", function (this: Chatticu
 		`tenant ${tenantId} is not in the CLI output: ${JSON.stringify(result.stdout)}`,
 	);
 });
+
+Given(
+	"organization {string} already chose the customer-account setup path",
+	async function (this: ChatticusWorld, name: string) {
+		const organization = organizationNamed(this, name);
+		await this.messagingStore().putOrganization({ ...organization, awsSetupPath: "customer-owned" });
+	},
+);
+
+Given(
+	"organization {string} is suspended with no AWS home and no setup path",
+	async function (this: ChatticusWorld, name: string) {
+		const organization = organizationNamed(this, name);
+		await this.messagingStore().putOrganization({ ...organization, status: "suspended", awsAccountId: null, awsSetupPath: null });
+	},
+);
+
+When("the members CLI enables organization {string} without checking the outcome", async function (this: ChatticusWorld, name: string) {
+	await runMembersCliProcess(this, ["enable", organizationNamed(this, name).tenantId, "--yes"]);
+});
+
+Then("the members CLI refused the command", function (this: ChatticusWorld) {
+	assert.ok(this.membersCliResult, "the members CLI has not run in this scenario");
+	assert.notEqual(this.membersCliResult.exitCode, 0);
+});
+
+Then("organization {string} is homed in the deployment account as Anthus-managed", async function (this: ChatticusWorld, name: string) {
+	const stored = await this.messagingStore().getOrganization(organizationNamed(this, name).tenantId);
+	assert.equal(stored?.awsAccountId, SCENARIO_DEPLOYMENT_AWS_ACCOUNT_ID);
+	assert.equal(stored?.awsSetupPath, "anthus-managed");
+});
+
+Then(
+	"organization {string} keeps the setup path {string} and has no AWS account",
+	async function (this: ChatticusWorld, name: string, setupPath: string) {
+		const stored = await this.messagingStore().getOrganization(organizationNamed(this, name).tenantId);
+		assert.equal(stored?.status, "enabled");
+		assert.equal(stored?.awsSetupPath, setupPath);
+		assert.equal(stored?.awsAccountId, null);
+	},
+);
