@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-afc03429-99a1-4019-b5dd-70bfa11573ec",
+  "title": "A refused computer start retries until the dead-letter queue and the user sees no clear reason",
+  "description": "Real use on development 2026-10-10: the user's organization (Anthus AI Solutions) had no AWS home, so the ComputerStarter logged computer_start_failed 'computer provisioning refused: Organization has no AWS home' about 20 times for one turn (SQS redelivery) and the user only saw a turn that could not get a computer. A provisioning refusal is permanent, not transient. Required: the start job handler must treat it as final: fail or answer the parked turn right away with a plain message that this organization has no computer set up (and what to do), mark the start job done so it does not redeliver, and keep the message out of the DLQ. Scenario: a parked turn on an organization with no AWS home ends with that message within one probe tick and exactly one start attempt. Mutation check.",
+  "type": "bug",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-10T19:06:24.979332Z",
+  "updated_at": "2026-10-10T19:06:24.979547Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "A permanent refusal keeps retrying instead of telling the user that the organization has no computer.",
+  "right_now_updated_at": "2026-10-10T19:06:26.951485Z",
+  "custom": {}
+}
