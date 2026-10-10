@@ -137,10 +137,12 @@ describe("buildSystemPrompt", () => {
 		);
 	});
 
-	it("tells the model that /workspace persists and is shared, that git is installed and which edit tool to prefer", () => {
+	it("tells the model that /workspace persists and is shared, what is installed, which edit tool to prefer and to try a command before refusing", () => {
 		const prompt = buildSystemPrompt({ botName: "Ada", memory: {} });
 		expect(prompt).toContain("/workspace folder is a persistent workspace that all teammates share");
-		expect(prompt).toContain("Git is installed");
+		expect(prompt).toContain("Git and a C toolchain (gcc, g++, make) are installed");
+		expect(prompt).toContain("compile and run it with run_terminal");
+		expect(prompt).toContain("try it with run_terminal and tell the user what happened");
 		expect(prompt).toContain("To change an existing file, use edit_workspace. To create a new file, use write_workspace.");
 	});
 });
