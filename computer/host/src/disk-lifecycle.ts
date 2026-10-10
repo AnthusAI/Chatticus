@@ -1,3 +1,4 @@
+import { consoleLogEmitter, errorNameOf, type LogEmitter } from "../../../conversation/src/observability/log-line.ts";
 import { FilesystemSnapshotStore, type SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
 import { S3SnapshotStore } from "../../../conversation/src/snapshot/s3.ts";
 import { ComputerHostDisk } from "../../../conversation/src/snapshot/host.ts";
@@ -15,7 +16,11 @@ export type HostDiskOptions = {
 	readonly workerId: string;
 	readonly liveRoot?: string;
 	readonly store?: SnapshotObjectStore | null;
+	/** Receives `workspace_hydrated`, `snapshot_published` and `snapshot_skipped`; absent, each is one console line naming the tenant and the worker. */
+	readonly log?: LogEmitter;
 };
+
+const logOf = (options: HostDiskOptions): LogEmitter => options.log ?? consoleLogEmitter({ tenant_id: options.tenantId, worker_id: options.workerId });
 
 /**
  * Return the snapshot store configured on this host, or null.
@@ -78,12 +83,16 @@ export async function hostDiskNeedsPublish(liveRoot: string, publishedChecksum: 
  * @returns True when a snapshot was hydrated.
  */
 export async function hydrateOnBoot(plane: HostDiskPlane, options: HostDiskOptions): Promise<boolean> {
+	const log = logOf(options);
+	const startedAt = Date.now();
 	const resolvedStore = storeOf(options);
 	if (resolvedStore === null) {
+		log("workspace_hydrated", { generation: null, reason: "no_store", duration_ms: Date.now() - startedAt });
 		return false;
 	}
 	const computer = await plane.getComputer();
 	if (computer.snapshot_uri === undefined) {
+		log("workspace_hydrated", { generation: null, reason: "no_snapshot", duration_ms: Date.now() - startedAt });
 		return false;
 	}
 	const root = options.liveRoot ?? liveRootFromEnvironment();
@@ -96,14 +105,16 @@ export async function hydrateOnBoot(plane: HostDiskPlane, options: HostDiskOptio
 			console.warn(
 				`computer_host_hydrate_skipped_missing_bucket tenant_id=${options.tenantId} computer_id=${computer.computer_id} bucket=${resolvedStore.bucket}`,
 			);
+			log("workspace_hydrated", { generation: null, reason: "missing_bucket", duration_ms: Date.now() - startedAt });
 			return false;
 		}
-		console.error(`computer_host_hydrate_failed tenant_id=${options.tenantId} computer_id=${computer.computer_id}`, error);
+		log("workspace_hydrate_failed", { generation: computer.snapshot_generation, error_name: errorNameOf(error), duration_ms: Date.now() - startedAt });
 		throw error;
 	}
 	if (needsHydrateRecord) {
 		await plane.recordComputerHydrated(options.workerId);
 	}
+	log("workspace_hydrated", { generation: computer.snapshot_generation, duration_ms: Date.now() - startedAt });
 	return true;
 }
 
@@ -115,13 +126,17 @@ export async function hydrateOnBoot(plane: HostDiskPlane, options: HostDiskOptio
  * @returns True when a pack was published.
  */
 export async function publishBeforeExit(plane: HostDiskPlane, options: HostDiskOptions): Promise<boolean> {
+	const log = logOf(options);
+	const startedAt = Date.now();
 	const resolvedStore = storeOf(options);
 	if (resolvedStore === null) {
+		log("snapshot_skipped", { reason: "no_store" });
 		return false;
 	}
 	const computer = await plane.getComputer();
 	const root = options.liveRoot ?? liveRootFromEnvironment();
 	if (!(await hostDiskNeedsPublish(root, computer.snapshot_checksum ?? null))) {
+		log("snapshot_skipped", { reason: "unchanged", generation: computer.snapshot_generation });
 		return false;
 	}
 	const disk = new ComputerHostDisk(root, resolvedStore);
@@ -133,11 +148,15 @@ export async function publishBeforeExit(plane: HostDiskPlane, options: HostDiskO
 			console.warn(
 				`computer_host_publish_skipped_missing_bucket tenant_id=${options.tenantId} computer_id=${computer.computer_id} bucket=${resolvedStore.bucket}`,
 			);
+			log("snapshot_skipped", { reason: "missing_bucket", generation: computer.snapshot_generation });
 			return false;
 		}
+		log("snapshot_publish_failed", { generation: computer.snapshot_generation, error_name: errorNameOf(error), duration_ms: Date.now() - startedAt });
 		throw error;
 	}
 	const uri = snapshotUri(options.tenantId, computer.computer_id, { bucket: resolvedStore.bucket });
 	await plane.publishComputerSnapshot(options.workerId, manifest.checksum, uri);
+	const published = await plane.getComputer();
+	log("snapshot_published", { generation: published.snapshot_generation, duration_ms: Date.now() - startedAt });
 	return true;
 }

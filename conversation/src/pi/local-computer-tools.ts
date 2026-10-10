@@ -33,6 +33,7 @@ import {
 import { BROWSER_UNAVAILABLE_TEXT, ensureComputer, recordComputerToolAnswered } from "../domain/computers.ts";
 import { BROWSE_ACTION_KIND, REQUEST_COMPUTER_CAPABILITY_ACTION_KIND } from "@chatticus/host-protocol";
 import type { Turn } from "../domain/turns.ts";
+import type { LogEmitter } from "../observability/log-line.ts";
 import type { Clock, IdSource } from "../http/app.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { Extension, ToolExecutionApi, ToolExecutionResult, ToolRegistration } from "@earendil-works/pi-durable";
@@ -157,6 +158,8 @@ export type LocalComputerToolsOptions = {
 	readonly ids: IdSource;
 	/** Called after a tool ran and before its answer is recorded; a scenario holds the owner here to stand for a crash. */
 	readonly beforeRecording?: (call: ComputerToolCall) => Promise<void>;
+	/** Receives `tool_started` and `tool_finished` for each tool that runs here: the tool's name, how it ended and how long it took, never its arguments or output. */
+	readonly log?: LogEmitter;
 };
 
 type Outcome = { readonly text: string; readonly isError: boolean; readonly result: ToolExecutionResult | null };
@@ -339,6 +342,8 @@ export function localComputerToolsExtension(handoff: ComputerToolHandoff, option
 					(ACTION_LEASE_SECONDS * 1000) / 3,
 				);
 				let outcome: Outcome;
+				const startedAt = Date.now();
+				options.log?.("tool_started", { tool: call.toolName, action_id: action.actionId });
 				try {
 					try {
 						outcome = await runner(args as Record<string, unknown>, api, toolContext);
@@ -349,6 +354,12 @@ export function localComputerToolsExtension(handoff: ComputerToolHandoff, option
 				} finally {
 					clearInterval(renewal);
 				}
+				options.log?.("tool_finished", {
+					tool: call.toolName,
+					action_id: action.actionId,
+					status: outcome.isError ? "error" : "ok",
+					duration_ms: Date.now() - startedAt,
+				});
 				await options.beforeRecording?.(call);
 				const { action: stored, recorded } = await completeComputerAction(
 					{ actions: options.actions, clock: options.clock },

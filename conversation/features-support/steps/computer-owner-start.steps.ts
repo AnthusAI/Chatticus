@@ -255,7 +255,7 @@ Then("the container environment holds the scoped credentials STS returned", func
 
 Then("the starter logged none of the gateway token, the scoped credentials, the invoke key and the signing key", function (this: ChatticusWorld) {
 	const output = ownerStartOf(this).logs.join("\n");
-	assert.ok(output.includes("owner_start"), "The starter logged nothing about the start");
+	assert.ok(output.includes("owner_task_started"), "The starter logged nothing about the start");
 	const secrets = [
 		environmentValue(this, "CHATTICUS_MODEL_GATEWAY_TOKEN"),
 		FAKE_SCOPED_CREDENTIALS.AccessKeyId,

@@ -52,6 +52,14 @@ export type ExecutorTuning = {
 	readonly retry: { readonly maxRetries: number; readonly baseDelayMilliseconds: number };
 };
 
+/** What an executor tells an observer about the turn's claim; it never carries a secret or any of the turn's content. */
+export type TurnAttemptObserver = {
+	/** The attempt that now owns the turn, with its attempt number. */
+	readonly claimed?: (attemptId: string, attempt: number) => void;
+	/** The turn is not this owner's: another owner won the claim (`claim`), or took the turn while this one ran (`running`). */
+	readonly lost?: (phase: "claim" | "running") => void;
+};
+
 /** Everything an execution reads and writes. */
 export type ExecutorDeps = {
 	readonly turns: TurnDependencies;
@@ -87,4 +95,6 @@ export type ExecutorDeps = {
 	readonly env?: OwnerSessionDependencies["env"];
 	/** Crash injection for tests; never set in production. */
 	readonly faults?: FaultPlan;
+	/** Told when the turn is claimed or lost; absent for an owner nobody observes. */
+	readonly observer?: TurnAttemptObserver;
 };

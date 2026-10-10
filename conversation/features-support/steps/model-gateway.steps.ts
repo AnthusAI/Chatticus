@@ -4,6 +4,7 @@ import { createGatewayModels } from "../../../computer/host/src/owner-models.ts"
 import { getVendorLedgerEntry } from "../../src/ledger/vendor-ledger.ts";
 import { relinquishTurn } from "../../src/domain/turns.ts";
 import { mintSessionToken } from "../../src/gateway/session-token.ts";
+import { consoleLogEmitter } from "../../src/observability/log-line.ts";
 import { ledgerDependenciesFor } from "../executor-harness.ts";
 import { httpBaseUrl } from "../front-door.ts";
 import { gatewayScenarioOf, SCENARIO_GATEWAY_SIGNING_KEY, SCENARIO_VENDOR_KEY, vendorOf } from "../model-gateway-support.ts";
@@ -13,7 +14,7 @@ import { botNamed, claimAs, completeAs, currentTurnId, openChannelOf, postToBot 
 const GATEWAY_MODEL = "gpt-5-nano";
 const CONTAINER_OWNER = "container-owner";
 
-type ContainerTurn = { tenantId: string; botId: string; turnId: string; ownerId: string };
+export type ContainerTurn = { tenantId: string; botId: string; turnId: string; ownerId: string };
 
 const CONTAINER_ATTEMPTS = new WeakMap<ChatticusWorld, string>();
 
@@ -22,7 +23,7 @@ const heldVendors = new WeakMap<ChatticusWorld, () => void>();
 const openReaders = new WeakMap<ChatticusWorld, { reader: ReadableStreamDefaultReader<Uint8Array>; text: string }>();
 const exchanges = new WeakMap<ChatticusWorld, string[]>();
 
-function turnOf(world: ChatticusWorld): ContainerTurn {
+export function turnOf(world: ChatticusWorld): ContainerTurn {
 	const turn = containerTurns.get(world);
 	assert.ok(turn, "No container owns a turn in this scenario");
 	return turn;
@@ -211,6 +212,25 @@ When(
 );
 
 const piAnswers = new WeakMap<ChatticusWorld, string>();
+
+When(
+	"a Pi model collection pointed at the gateway with the container's token asks for an answer and logs as its owner",
+	async function (this: ChatticusWorld) {
+		const turn = turnOf(this);
+		const baseUrl = `${await httpBaseUrl(this)}/orgs/${turn.tenantId}/model-gateway/v1`;
+		const models = createGatewayModels(
+			{ baseUrl, token: gatewayScenarioOf(this).lastToken },
+			consoleLogEmitter({ tenant_id: turn.tenantId, turn_id: turn.turnId, owner_id: turn.ownerId }),
+		);
+		const model = models.getModel("openai", GATEWAY_MODEL);
+		assert.ok(model, "Pi has no model to ask");
+		const answer = await models.complete(model, { messages: [{ role: "user", content: "Say good morning.", timestamp: Date.now() }] });
+		piAnswers.set(
+			this,
+			answer.content.map((part) => (part.type === "text" ? part.text : "")).join(""),
+		);
+	},
+);
 
 async function askWithPi(world: ChatticusWorld, baseUrl: string, token: string, invokeKey?: string): Promise<void> {
 	const models = createGatewayModels({ baseUrl, token, ...(invokeKey === undefined ? {} : { invokeKey }) });

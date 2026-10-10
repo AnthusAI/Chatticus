@@ -11,6 +11,7 @@ import { DynamoTurnControlStore } from "../../../conversation/src/store/turn-sto
 import { DEFAULT_TURN_MODEL } from "../../../conversation/src/turn/openai-models.ts";
 import { NO_OP_RUN_VISIBILITY, NO_OP_TURN_PROBES, NO_OP_TURN_RUNS } from "../../../conversation/src/turn/in-process-queues.ts";
 import type { ExecutorDeps } from "../../../conversation/src/turn/types.ts";
+import type { LogEmitter } from "../../../conversation/src/observability/log-line.ts";
 import { createGatewayModels, type ModelGatewayConfig } from "./owner-models.ts";
 
 /** A required setting of the container owner is missing. */
@@ -71,9 +72,10 @@ export const NO_OP_COMPUTER_STARTS: ComputerStartQueue = {
  * given, the model gateway in place of the vendor, and queue pieces that publish nothing.
  *
  * @param config Stores and gateway.
+ * @param log Receives one `model_call` line for each request to the gateway; absent, none is written.
  * @returns The dependencies `takeOverTurn` runs with.
  */
-export function createContainerOwnerDeps(config: OwnerStoresConfig): ExecutorDeps {
+export function createContainerOwnerDeps(config: OwnerStoresConfig, log?: LogEmitter): ExecutorDeps {
 	const client = new DynamoDBClient({});
 	return {
 		turns: { store: new DynamoTurnControlStore(client, config.messagingTableName), clock: { now: () => new Date() }, ids: { next: () => randomUUID() } },
@@ -83,7 +85,7 @@ export function createContainerOwnerDeps(config: OwnerStoresConfig): ExecutorDep
 		messagingTableName: config.messagingTableName,
 		conversationsTableName: config.conversationsTableName,
 		piSessionsBucket: config.piSessionsBucket,
-		models: createGatewayModels(config.gateway),
+		models: createGatewayModels(config.gateway, log),
 		model: DEFAULT_TURN_MODEL,
 		ledger: { client, tableName: config.messagingTableName, prices: new VendorPriceBook(), now: () => new Date() },
 		workerLabel: "computer-host-owner",

@@ -2,18 +2,26 @@ import type { Context } from "hono";
 import { BILLED_VIA_VENDOR } from "../budget/models.ts";
 import type { TurnControlStore } from "../domain/turns.ts";
 import { recordVendorSpend, type VendorLedgerDependencies } from "../ledger/vendor-ledger.ts";
+import { errorNameOf } from "../observability/log-line.ts";
 import { verifySessionToken } from "./session-token.ts";
 
 /** The vendor name spend is recorded under, matching the turn executor's ledger rows. */
 export const GATEWAY_VENDOR = "openai";
 
-/** A fact the gateway reports for operators. It names the refusal or failure and never carries a secret. */
+/**
+ * A fact the gateway reports for operators. It names the refusal or failure and never carries a secret. The tenant, turn
+ * and owner are present only when the token's signature verified; the claims of a token that did not verify are not
+ * trusted enough to log.
+ */
 export type GatewayLogEvent = {
 	readonly event: "refused" | "upstream_failed" | "spend_recorded" | "spend_unavailable";
 	readonly reason: string;
 	readonly tenantId?: string;
 	readonly turnId?: string;
+	readonly ownerId?: string;
 	readonly status?: number;
+	/** The name of the error that ended an upstream request, never its message. */
+	readonly errorName?: string;
 };
 
 /** The vendor the gateway forwards to, and the real key it holds. */
@@ -128,23 +136,22 @@ function meteredStream(upstream: ReadableStream<Uint8Array>, record: (usage: Usa
  */
 export async function modelGatewayResponsesHandler(c: Context, deps: ModelGatewayDependencies): Promise<Response> {
 	const token = bearerTokenOf(c);
-	if (token === null) return refusal(c, deps, 401, "model gateway token required", "no bearer token");
+	if (token === null) return refusal(c, deps, 401, "model gateway token required", "missing_header");
 	const verification = verifySessionToken(deps.signingKey, token, deps.clock.now());
-	if (!verification.valid) return refusal(c, deps, 401, "invalid model gateway token", verification.reason);
+	if (!verification.valid) {
+		const reason = verification.reason === "signature" ? "tampered" : verification.reason;
+		return refusal(c, deps, 401, "invalid model gateway token", reason);
+	}
 	const { claims } = verification;
-	const scope = { tenantId: claims.tenantId, turnId: claims.turnId };
+	const scope = { tenantId: claims.tenantId, turnId: claims.turnId, ownerId: claims.ownerId };
 	if (c.req.param("tenant_id") !== claims.tenantId) {
-		return refusal(c, deps, 403, "token is not valid for this organization", "organization mismatch", scope);
+		return refusal(c, deps, 403, "token is not valid for this organization", "organization_mismatch", scope);
 	}
 	const turn = await deps.turns.getTurn(claims.tenantId, claims.turnId);
-	if (
-		turn === null ||
-		turn.status !== "active" ||
-		turn.botId !== claims.botId ||
-		turn.claimedBy !== claims.ownerId
-	) {
-		return refusal(c, deps, 403, "token is not valid for a running turn", "turn is not running for this token", scope);
-	}
+	const notRunning = (reason: string): Response => refusal(c, deps, 403, "token is not valid for a running turn", reason, scope);
+	if (turn === null || turn.botId !== claims.botId) return notRunning("wrong_turn");
+	if (turn.status !== "active") return notRunning("finished_turn");
+	if (turn.claimedBy !== claims.ownerId) return notRunning("wrong_owner");
 	const bodyText = await c.req.text();
 	let model = "";
 	try {
@@ -153,7 +160,7 @@ export async function modelGatewayResponsesHandler(c: Context, deps: ModelGatewa
 	} catch {
 		model = "";
 	}
-	if (model === "") return refusal(c, deps, 422, "body must be a JSON object naming a model", "bad body", scope);
+	if (model === "") return refusal(c, deps, 422, "body must be a JSON object naming a model", "bad_body", scope);
 
 	let upstreamResponse: Response;
 	try {
@@ -167,12 +174,12 @@ export async function modelGatewayResponsesHandler(c: Context, deps: ModelGatewa
 			body: bodyText,
 			signal: c.req.raw.signal,
 		});
-	} catch {
-		deps.log({ event: "upstream_failed", reason: "request did not complete", ...scope });
+	} catch (error) {
+		deps.log({ event: "upstream_failed", reason: "request_did_not_complete", errorName: errorNameOf(error), ...scope });
 		return c.json({ detail: "model provider request failed" }, 502);
 	}
 	if (!upstreamResponse.ok || upstreamResponse.body === null) {
-		deps.log({ event: "upstream_failed", reason: "provider refused", status: upstreamResponse.status, ...scope });
+		deps.log({ event: "upstream_failed", reason: "provider_refused", status: upstreamResponse.status, ...scope });
 		return c.json({ detail: "model provider request failed", upstream_status: upstreamResponse.status }, 502);
 	}
 

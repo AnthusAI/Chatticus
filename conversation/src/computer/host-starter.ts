@@ -149,7 +149,12 @@ function runTaskOverrides(claim: HostStartClaim, environment: StarterEnvironment
 	};
 }
 
-/** Run one Fargate task for a host-start claim. */
+/**
+ * Run one Fargate task for a host-start claim.
+ *
+ * @returns The ARN of the task ECS started, or null when the answer named none.
+ * @throws Error If ECS reported failures or started no task.
+ */
 export async function runFargateTask(
 	ecs: EcsPort,
 	options: {
@@ -161,7 +166,7 @@ export async function runFargateTask(
 		environment?: StarterEnvironment;
 		containerOverride?: { name: string; command: string[]; environment: Array<{ name: string; value: string }> };
 	},
-): Promise<void> {
+): Promise<string | null> {
 	const environment = options.environment ?? process.env;
 	const response = await ecs.runTask({
 		cluster: options.cluster,
@@ -184,6 +189,8 @@ export async function runFargateTask(
 	if (failures.length > 0 || tasks.length === 0) {
 		throw new Error(`ecs.run_task returned no tasks failures=${JSON.stringify(failures)}`);
 	}
+	const taskArn = (tasks[0] as { taskArn?: unknown }).taskArn;
+	return typeof taskArn === "string" ? taskArn : null;
 }
 
 /** What the starter reads and calls; every AWS call is a port. */

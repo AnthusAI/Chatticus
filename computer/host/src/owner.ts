@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import { consoleLogEmitter, errorNameOf, type LogEmitter } from "../../../conversation/src/observability/log-line.ts";
 import { scrubbedShellEnvironment } from "../../../conversation/src/pi/local-computer-tools.ts";
 import type { SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
 import { takeOverTurn, type TurnTakeoverOutcome } from "../../../conversation/src/turn/computer-owner.ts";
@@ -173,7 +174,57 @@ export type OwnerSessionOptions = {
 	/** Registers what to do when the container is told to stop; the handler persists the disk and marks the computer stopped. */
 	readonly onTerminate?: (handler: () => Promise<void>) => void;
 	readonly heartbeatTimer?: HeartbeatTimer;
+	/** The turn this owner runs; named on every line the session writes. */
+	readonly turnId?: string;
+	/** Where the session reports hydrate, publish and skip events; absent, each is one console line carrying the tenant, turn and owner id. */
+	readonly log?: LogEmitter;
 };
+
+/** Who an owner is on its log lines: the tenant, the turn and the owner id. None of them is a secret. */
+export type OwnerLogScope = {
+	readonly tenantId: string;
+	readonly turnId: string;
+	readonly ownerId: string;
+};
+
+/**
+ * The emitter that writes the owner's structured log lines, each carrying the tenant, turn and owner id.
+ *
+ * @param scope Who the lines are about.
+ * @returns The emitter.
+ */
+export function ownerLogEmitter(scope: OwnerLogScope): LogEmitter {
+	return consoleLogEmitter({ tenant_id: scope.tenantId, turn_id: scope.turnId, owner_id: scope.ownerId });
+}
+
+/** What the owner knows about its own start, for the `owner_started` line. */
+export type OwnerStartFacts = {
+	/** The host start generation that launched this owner, when the start said. */
+	readonly generation?: number;
+};
+
+/**
+ * Run an owner's whole program between an `owner_started` line and an `owner_exit` line. The exit line carries the
+ * process exit code the outcome maps to and the outcome itself; a program that throws writes `outcome=error` with the
+ * error's name (never its message) and exit code 1, and the error goes on.
+ *
+ * @param log Where the lines go.
+ * @param facts What the start said about this owner.
+ * @param run The owner's program.
+ * @returns What the program returned.
+ */
+export async function observeOwnerRun(log: LogEmitter, facts: OwnerStartFacts, run: () => Promise<OwnerEntryPointOutcome>): Promise<OwnerEntryPointOutcome> {
+	const startedAt = Date.now();
+	log("owner_started", { generation: facts.generation ?? null, pid: process.pid });
+	try {
+		const outcome = await run();
+		log("owner_exit", { code: ownerExitCodeFor(outcome), outcome, duration_ms: Date.now() - startedAt });
+		return outcome;
+	} catch (error) {
+		log("owner_exit", { code: 1, outcome: "error", error_name: errorNameOf(error), duration_ms: Date.now() - startedAt });
+		throw error;
+	}
+}
 
 /**
  * Run the owner's turn between a hydrate and a publish of the computer's disk, exactly as the host worker does around its
@@ -195,16 +246,21 @@ export async function runOwnerOnComputerDisk(
 	options: OwnerSessionOptions,
 	run: () => Promise<OwnerEntryPointOutcome>,
 ): Promise<OwnerEntryPointOutcome> {
+	const log = options.log ?? consoleLogEmitter({ tenant_id: options.tenantId, ...(options.turnId === undefined ? {} : { turn_id: options.turnId }), owner_id: options.workerId });
 	const heartbeat = startHostHeartbeat({ plane, ...(options.heartbeatTimer === undefined ? {} : { timer: options.heartbeatTimer }) });
 	let closed: Promise<void> | null = null;
 	let lostTurn = false;
 	const close = (): Promise<void> => {
 		closed ??= (async () => {
 			heartbeat.stop();
-			if (lostTurn) return;
+			if (lostTurn) {
+				log("snapshot_skipped", { reason: "lost" });
+				return;
+			}
 			await publishBeforeExit(plane, {
 				tenantId: options.tenantId,
 				workerId: options.workerId,
+				log,
 				...(options.liveRoot === undefined ? {} : { liveRoot: options.liveRoot }),
 				...(options.store === undefined ? {} : { store: options.store }),
 			});
@@ -213,12 +269,18 @@ export async function runOwnerOnComputerDisk(
 		return closed;
 	};
 	try {
-		await new ComputerHostBootDriver(plane, {
-			tenantId: options.tenantId,
-			workerId: options.workerId,
-			...(options.liveRoot === undefined ? {} : { liveRoot: options.liveRoot }),
-			...(options.store === undefined ? {} : { store: options.store }),
-		}).bootThroughWorkspace();
+		try {
+			await new ComputerHostBootDriver(plane, {
+				tenantId: options.tenantId,
+				workerId: options.workerId,
+				log,
+				...(options.liveRoot === undefined ? {} : { liveRoot: options.liveRoot }),
+				...(options.store === undefined ? {} : { store: options.store }),
+			}).bootThroughWorkspace();
+		} catch (error) {
+			log("snapshot_skipped", { reason: "boot_failed", error_name: errorNameOf(error) });
+			throw error;
+		}
 		options.onTerminate?.(close);
 		try {
 			await options.afterHydrate?.();
