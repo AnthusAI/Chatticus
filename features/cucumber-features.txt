@@ -123,3 +123,6 @@ features/computer_owner_snapshot.feature
 features/computer_owner_policy_coverage.feature
 features/computer_owner_lost_claim.feature
 features/computer_owner_single_writer.feature
+features/owner_observability.feature
+features/model_gateway_observability.feature
+features/owner_start_observability.feature

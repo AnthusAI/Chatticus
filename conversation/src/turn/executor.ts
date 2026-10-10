@@ -389,7 +389,10 @@ class TurnAttempt {
 			try {
 				await reconcileTurn(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId, UNCERTAIN_COMMIT_REASON);
 			} catch (inner) {
-				if (inner instanceof StaleAttemptError || inner instanceof TurnTerminalError) return "lost";
+				if (inner instanceof StaleAttemptError || inner instanceof TurnTerminalError) {
+					this.deps.observer?.lost?.("running");
+					return "lost";
+				}
 				throw inner;
 			}
 			return "reconciling";
@@ -400,6 +403,7 @@ class TurnAttempt {
 			error instanceof StaleAttemptError ||
 			error instanceof TurnTerminalError
 		) {
+			this.deps.observer?.lost?.("running");
 			return "lost";
 		}
 		throw error;
@@ -563,7 +567,11 @@ export async function claimTurnAttempt(
 export async function executeTurn(job: TurnExecutionJob, deps: ExecutorDeps): Promise<TurnExecutionOutcome> {
 	const tuning: ExecutorTuning = { ...DEFAULT_EXECUTOR_TUNING, ...deps.tuning };
 	const claim = await claimTurnAttempt(deps, job);
-	if (claim === null) return "lost";
+	if (claim === null) {
+		deps.observer?.lost?.("claim");
+		return "lost";
+	}
+	deps.observer?.claimed?.(claim.attemptId, claim.turn.attempt);
 	return new TurnAttempt(job, deps, tuning, claim.attemptId, claim.turn).run();
 }
 

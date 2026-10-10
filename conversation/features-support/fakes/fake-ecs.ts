@@ -3,9 +3,12 @@ import type { AssumeRolePort, EcsPort, EcsRunTaskInput, ScopedAssumeRolePort } f
 /** ECS, faked at the SDK boundary: it records every RunTask it is asked for and starts one task for each. */
 export class FakeEcs implements EcsPort {
 	readonly runTaskCalls: EcsRunTaskInput[] = [];
+	/** When true, RunTask answers with a failure and no task. */
+	startsNoTask = false;
 
 	async runTask(input: EcsRunTaskInput): Promise<{ tasks?: unknown[]; failures?: unknown[] }> {
 		this.runTaskCalls.push(input);
+		if (this.startsNoTask) return { tasks: [], failures: [{ reason: "RESOURCE:FARGATE" }] };
 		return { tasks: [{ taskArn: `arn:aws:ecs:task/${this.runTaskCalls.length}` }], failures: [] };
 	}
 }
@@ -37,9 +40,12 @@ export const FAKE_SCOPED_CREDENTIALS = {
 /** STS AssumeRole with a session policy, faked: it records every call and answers with fixed scoped credentials. */
 export class FakeStsAssumeRole {
 	readonly calls: Array<Parameters<ScopedAssumeRolePort>[0]> = [];
+	/** When set, AssumeRole is refused with an error of this name. */
+	refusalName: string | null = null;
 
 	readonly port: ScopedAssumeRolePort = async (input) => {
 		this.calls.push(input);
+		if (this.refusalName !== null) throw Object.assign(new Error("denied by the fake"), { name: this.refusalName });
 		return { Credentials: { ...FAKE_SCOPED_CREDENTIALS, Expiration: new Date("2026-08-31T08:00:00Z") } };
 	};
 }

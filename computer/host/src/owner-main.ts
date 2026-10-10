@@ -1,3 +1,4 @@
+import { OWNER_START_GENERATION_VARIABLE } from "../../../conversation/src/computer/owner-start-driver.ts";
 import { createContainerOwnerDeps, ownerIdentityFromEnvironment, ownerStoresConfigFromEnvironment } from "./owner-deps.ts";
 import { snapshotStoreFromEnvironment } from "./disk-lifecycle.ts";
 import { HostProtocolClient, registerHostWorker } from "./protocol-client.ts";
@@ -5,7 +6,9 @@ import { liveRootFromEnvironment } from "./live-root.ts";
 import {
 	DEFAULT_SHELL_LAUNCHER_PATH,
 	DEFAULT_WORKSPACE_ROOT,
+	observeOwnerRun,
 	ownerExitCodeFor,
+	ownerLogEmitter,
 	runOwnerEntryPoint,
 	runOwnerOnComputerDisk,
 	runShellProbe,
@@ -26,6 +29,10 @@ const shellLauncherPath = (process.env["CHATTICUS_SHELL_LAUNCHER"] ?? "").trim()
  * marks the computer stopped, then ends with `owner_outcome=<outcome>`; the exit code is 0 when the turn reached a
  * terminal state or was parked or yielded for another owner.
  *
+ * Every step writes one structured line carrying the tenant, turn and owner id: `owner_started`, `workspace_hydrated`,
+ * `turn_claimed` or `turn_claim_lost`, `tool_started` and `tool_finished`, `model_call`, `snapshot_published` or
+ * `snapshot_skipped`, and `owner_exit`. None of them carries a token, a credential, a key, a tool's arguments or its output.
+ *
  * @param argv The arguments after the program name.
  * @returns The process exit code.
  */
@@ -43,37 +50,46 @@ export async function ownerMain(argv: readonly string[]): Promise<number> {
 	}
 	const stores = ownerStoresConfigFromEnvironment();
 	const identity = ownerIdentityFromEnvironment();
+	const log = ownerLogEmitter({ tenantId: identity.tenantId, turnId: job.turnId, ownerId: identity.ownerId });
+	const generation = Number.parseInt(process.env[OWNER_START_GENERATION_VARIABLE] ?? "", 10);
 	process.umask(0o002);
-	const workerToken = await registerHostWorker({
-		baseUrl: identity.frontDoorUrl,
-		tenantId: identity.tenantId,
-		workerId: identity.ownerId,
-		invokeKey: identity.invokeKey,
-	});
-	const plane = new HostProtocolClient({
-		baseUrl: identity.frontDoorUrl,
-		tenantId: identity.tenantId,
-		workerToken,
-		userId: identity.userId,
-		invokeKey: identity.invokeKey,
-	});
-	const deps = createContainerOwnerDeps(stores);
-	const outcome = await runOwnerOnComputerDisk(
-		plane,
-		{
+	const outcome = await observeOwnerRun(log, Number.isNaN(generation) ? {} : { generation }, async () => {
+		const workerToken = await registerHostWorker({
+			baseUrl: identity.frontDoorUrl,
 			tenantId: identity.tenantId,
 			workerId: identity.ownerId,
-			liveRoot: liveRootFromEnvironment(),
-			store: snapshotStoreFromEnvironment(),
-			afterHydrate: () => shareWorkspaceWithShell(workspaceRoot),
-			onTerminate: (handler) => {
-				process.once("SIGTERM", () => {
-					void handler().finally(() => process.exit(143));
-				});
+			invokeKey: identity.invokeKey,
+		});
+		const plane = new HostProtocolClient({
+			baseUrl: identity.frontDoorUrl,
+			tenantId: identity.tenantId,
+			workerToken,
+			userId: identity.userId,
+			invokeKey: identity.invokeKey,
+		});
+		const deps = createContainerOwnerDeps(stores, log);
+		return runOwnerOnComputerDisk(
+			plane,
+			{
+				tenantId: identity.tenantId,
+				workerId: identity.ownerId,
+				turnId: job.turnId,
+				log,
+				liveRoot: liveRootFromEnvironment(),
+				store: snapshotStoreFromEnvironment(),
+				afterHydrate: () => shareWorkspaceWithShell(workspaceRoot),
+				onTerminate: (handler) => {
+					process.once("SIGTERM", () => {
+						void handler().finally(() => {
+							log("owner_exit", { code: 143, outcome: "terminated" });
+							process.exit(143);
+						});
+					});
+				},
 			},
-		},
-		() => runOwnerEntryPoint({ claim: async () => job }, deps, { workspaceRoot, shellLauncherPath, workerId: identity.ownerId }),
-	);
+			() => runOwnerEntryPoint({ claim: async () => job }, deps, { workspaceRoot, shellLauncherPath, workerId: identity.ownerId }),
+		);
+	});
 	console.info(`owner_outcome=${outcome} tenant_id=${job.tenantId} turn_id=${job.turnId}`);
 	return ownerExitCodeFor(outcome);
 }

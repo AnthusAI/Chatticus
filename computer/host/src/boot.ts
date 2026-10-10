@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import type { SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
+import type { LogEmitter } from "../../../conversation/src/observability/log-line.ts";
 import { hydrateOnBoot, type HostDiskPlane } from "./disk-lifecycle.ts";
 import { RuntimeError, runProcessOnHost, verifyChromiumAvailable } from "./executors/chromium.ts";
 import type { HostProtocolClient } from "./protocol-client.ts";
@@ -109,6 +110,8 @@ export type ComputerHostBootDriverOptions = {
 	readonly chromiumProbe?: ChromiumProbe;
 	readonly liveRoot?: string;
 	readonly store?: SnapshotObjectStore | null;
+	/** Receives the hydrate event; absent, it is one console line naming the tenant and the worker. */
+	readonly log?: LogEmitter;
 };
 
 /** Bring one computer host through model, workspace, and browser gates. */
@@ -123,6 +126,7 @@ export class ComputerHostBootDriver {
 	private readonly chromiumProbe: ChromiumProbe;
 	private readonly liveRoot: string | undefined;
 	private readonly store: SnapshotObjectStore | null | undefined;
+	private readonly log: LogEmitter | undefined;
 
 	constructor(plane: HostBootPlane, options: ComputerHostBootDriverOptions = {}) {
 		this.plane = plane;
@@ -133,6 +137,7 @@ export class ComputerHostBootDriver {
 		this.chromiumProbe = options.chromiumProbe ?? ((display) => verifyChromiumAvailable({ display }));
 		this.liveRoot = options.liveRoot;
 		this.store = options.store;
+		this.log = options.log;
 	}
 
 	/** Clear the model gate, hydrate the disk, and clear the workspace gate. Neither waits on the browser. */
@@ -145,6 +150,7 @@ export class ComputerHostBootDriver {
 			workerId: this.workerId,
 			...(this.liveRoot === undefined ? {} : { liveRoot: this.liveRoot }),
 			...(this.store === undefined ? {} : { store: this.store }),
+			...(this.log === undefined ? {} : { log: this.log }),
 		});
 		await this.plane.recordComputerCapabilityReady(WORKSPACE_CAPABILITY);
 		this.readinessOrder.push(WORKSPACE_CAPABILITY);

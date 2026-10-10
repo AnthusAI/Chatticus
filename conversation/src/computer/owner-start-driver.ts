@@ -10,6 +10,7 @@
 
 import { buildOwnerSessionPolicy } from "../gateway/session-policy.ts";
 import { mintSessionToken } from "../gateway/session-token.ts";
+import { consoleLogEmitter, errorNameOf } from "../observability/log-line.ts";
 import type { ComputerStartJob, HostStartDriver } from "../domain/computer-start.ts";
 import type { HostStartClaim } from "../domain/computers.ts";
 import type { Turn } from "../domain/turns.ts";
@@ -41,6 +42,9 @@ export type OwnerStartConfig = {
 	/** Process environment values copied unchanged into the task environment for tags. */
 	readonly taskEnvironment: StarterEnvironment;
 };
+
+/** The environment variable that tells the owner which host start generation launched it. */
+export const OWNER_START_GENERATION_VARIABLE = "CHATTICUS_OWNER_START_GENERATION";
 
 /** What the owner start calls out to. */
 export type OwnerStartPorts = {
@@ -128,9 +132,11 @@ export class OwnerStartDriver implements HostStartDriver {
 		const { config, ports } = this;
 		const turn = await ports.getTurn(job.tenantId, job.turnId);
 		if (turn === null || turn.botId !== job.botId) {
+			consoleLogEmitter({ tenant_id: job.tenantId, turn_id: job.turnId })("owner_start_refused", { reason: "turn_not_found" });
 			throw new Error(`Turn ${JSON.stringify(job.turnId)} of bot ${JSON.stringify(job.botId)} does not exist, so no owner was started.`);
 		}
 		const ownerId = ports.newOwnerId();
+		const log = consoleLogEmitter({ tenant_id: job.tenantId, turn_id: job.turnId, owner_id: ownerId });
 		const expiresAtSeconds = Math.floor(ports.clock.now().getTime() / 1000) + OWNER_CREDENTIAL_LIFETIME_SECONDS;
 		const token = mintSessionToken(config.signingKey, {
 			tenantId: job.tenantId,
@@ -139,6 +145,7 @@ export class OwnerStartDriver implements HostStartDriver {
 			ownerId,
 			expiresAtSeconds,
 		});
+		log("owner_token_minted", { lifetime_seconds: OWNER_CREDENTIAL_LIFETIME_SECONDS, expires_at_seconds: expiresAtSeconds });
 		const policy = buildOwnerSessionPolicy({
 			tenantId: job.tenantId,
 			botId: job.botId,
@@ -149,18 +156,27 @@ export class OwnerStartDriver implements HostStartDriver {
 			snapshotBucketName: config.snapshotBucket,
 			messagingTableArn: tableArnOf(config, config.messagingTable),
 		});
-		const assumed = await ports.assumeRole({
-			RoleArn: config.scopedRoleArn,
-			RoleSessionName: ownerId.slice(0, 64),
-			Policy: JSON.stringify(policy),
-			DurationSeconds: OWNER_CREDENTIAL_LIFETIME_SECONDS,
-		});
+		const sessionName = ownerId.slice(0, 64);
+		let assumed: Awaited<ReturnType<OwnerStartPorts["assumeRole"]>>;
+		try {
+			assumed = await ports.assumeRole({
+				RoleArn: config.scopedRoleArn,
+				RoleSessionName: sessionName,
+				Policy: JSON.stringify(policy),
+				DurationSeconds: OWNER_CREDENTIAL_LIFETIME_SECONDS,
+			});
+		} catch (error) {
+			log("scoped_credentials_failed", { session_name: sessionName, error_name: errorNameOf(error) });
+			throw error;
+		}
+		log("scoped_credentials_assumed", { session_name: sessionName, expires_at: assumed.Credentials.Expiration.toISOString() });
 		const environment = [
 			{ name: "CHATTICUS_TENANT_ID", value: job.tenantId },
 			{ name: "CHATTICUS_USER_ID", value: claim.userId },
 			{ name: "CHATTICUS_TAKEOVER_TURN_ID", value: job.turnId },
 			{ name: "CHATTICUS_TAKEOVER_BOT_ID", value: job.botId },
 			{ name: "CHATTICUS_OWNER_ID", value: ownerId },
+			{ name: OWNER_START_GENERATION_VARIABLE, value: String(claim.hostStartGeneration) },
 			{ name: "CHATTICUS_MODEL_GATEWAY_URL", value: `${config.frontDoorUrl}/orgs/${job.tenantId}/model-gateway/v1` },
 			{ name: "CHATTICUS_MODEL_GATEWAY_TOKEN", value: token },
 			{ name: "CHATTICUS_FRONT_DOOR_URL", value: config.frontDoorUrl },
@@ -176,14 +192,20 @@ export class OwnerStartDriver implements HostStartDriver {
 			{ name: "AWS_SECRET_ACCESS_KEY", value: assumed.Credentials.SecretAccessKey },
 			{ name: "AWS_SESSION_TOKEN", value: assumed.Credentials.SessionToken },
 		];
-		await runFargateTask(ports.ecs, {
-			...config.ecs,
-			taskDefinition: config.ownerTaskDefinition,
-			claim: { tenantId: claim.tenantId, computerId: claim.computerId, hostStartCount: claim.hostStartGeneration, userId: claim.userId },
-			environment: config.taskEnvironment,
-			containerOverride: { name: config.containerName, command: [...config.command], environment },
-		});
-		console.info(`owner_start tenant_id=${job.tenantId} turn_id=${job.turnId} owner_id=${ownerId} generation=${claim.hostStartGeneration}`);
+		let taskArn: string | null;
+		try {
+			taskArn = await runFargateTask(ports.ecs, {
+				...config.ecs,
+				taskDefinition: config.ownerTaskDefinition,
+				claim: { tenantId: claim.tenantId, computerId: claim.computerId, hostStartCount: claim.hostStartGeneration, userId: claim.userId },
+				environment: config.taskEnvironment,
+				containerOverride: { name: config.containerName, command: [...config.command], environment },
+			});
+		} catch (error) {
+			log("owner_task_failed", { generation: claim.hostStartGeneration, error_name: errorNameOf(error) });
+			throw error;
+		}
+		log("owner_task_started", { task_arn: taskArn, generation: claim.hostStartGeneration });
 	}
 }
 

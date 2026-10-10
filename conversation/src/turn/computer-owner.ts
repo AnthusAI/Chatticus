@@ -14,6 +14,7 @@
  */
 
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
+import { consoleLogEmitter, type LogEmitter } from "../observability/log-line.ts";
 import { localComputerToolsExtension } from "../pi/local-computer-tools.ts";
 import { executeTurn } from "./executor.ts";
 import { resumeTurnForAction } from "./park.ts";
@@ -32,6 +33,11 @@ export type ComputerOwnerOptions = {
 	readonly shellPath?: string;
 	/** Called after a local tool ran and before its answer is recorded; a scenario holds the owner here to stand for a crash. */
 	readonly beforeRecording?: (call: ComputerToolCall) => Promise<void>;
+	/**
+	 * Where the takeover reports its steps (`turn_claimed`, `turn_claim_lost`, `turn_skipped`, `tool_started`,
+	 * `tool_finished`). Absent, each step is one `console.info` line carrying the tenant, turn and owner id.
+	 */
+	readonly log?: LogEmitter;
 };
 
 /**
@@ -60,9 +66,16 @@ export type TurnTakeoverOutcome = TurnExecutionOutcome | "not_found" | "already_
  * @returns How the takeover ended.
  */
 export async function takeOverTurn(job: TurnExecutionJob, deps: ExecutorDeps, options: ComputerOwnerOptions): Promise<TurnTakeoverOutcome> {
+	const log = options.log ?? consoleLogEmitter({ tenant_id: job.tenantId, turn_id: job.turnId, owner_id: options.workerId });
 	const turn = await deps.turns.store.getTurn(job.tenantId, job.turnId);
-	if (turn === null || turn.botId !== job.botId) return "not_found";
-	if (turn.status !== "active") return "already_finished";
+	if (turn === null || turn.botId !== job.botId) {
+		log("turn_skipped", { reason: "not_found" });
+		return "not_found";
+	}
+	if (turn.status !== "active") {
+		log("turn_skipped", { reason: "already_finished" });
+		return "already_finished";
+	}
 	if (turn.waitingFor !== null) {
 		await resumeTurnForAction(
 			{ turns: deps.turns, messaging: deps.messaging, turnRuns: deps.turnRuns, turnProbes: deps.turnProbes, computer: deps.computer, faults: deps.faults },
@@ -74,6 +87,10 @@ export async function takeOverTurn(job: TurnExecutionJob, deps: ExecutorDeps, op
 	return executeTurn(job, {
 		...deps,
 		workerLabel: options.workerId,
+		observer: {
+			claimed: (attemptId, attempt) => log("turn_claimed", { attempt_id: attemptId, attempt }),
+			lost: (phase) => log("turn_claim_lost", { phase }),
+		},
 		env: () => new NodeExecutionEnv({ cwd: options.workspaceRoot, ...(options.shellPath === undefined ? {} : { shellPath: options.shellPath }) }),
 		computerTools: (handoff) =>
 			localComputerToolsExtension(handoff, {
@@ -87,6 +104,7 @@ export async function takeOverTurn(job: TurnExecutionJob, deps: ExecutorDeps, op
 				clock: deps.turns.clock,
 				ids: deps.turns.ids,
 				beforeRecording: options.beforeRecording,
+				log,
 			}),
 	});
 }

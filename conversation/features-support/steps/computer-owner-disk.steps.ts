@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { chmodSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Then, When } from "@cucumber/cucumber";
-import { runOwnerEntryPoint, runOwnerOnComputerDisk, type OwnerEntryPointOutcome } from "../../../computer/host/src/owner.ts";
+import { observeOwnerRun, runOwnerEntryPoint, runOwnerOnComputerDisk, type OwnerEntryPointOutcome } from "../../../computer/host/src/owner.ts";
+import { consoleLogEmitter } from "../../src/observability/log-line.ts";
 import { computerForOrganization } from "../../src/domain/computers.ts";
 import type { SnapshotObjectStore } from "../../src/snapshot/store.ts";
 import { activeTurnJob, computerOwnerDepsFor } from "../computer-owner.ts";
@@ -48,29 +49,35 @@ async function runOwnerOnDisk(
 	ownerId: string,
 	run: (workspaceRoot: string) => Promise<OwnerEntryPointOutcome>,
 	store: SnapshotObjectStore = snapshotStoreForOwner(world, boundStoreOf(world)),
+	turnId?: string,
 ): Promise<void> {
 	const scenario = diskScenarioOf(world);
 	await ensureHostWorker(world, LIFECYCLE_TENANT, ownerId);
 	const disk = hostDiskOf(world, ownerId);
 	const plane = hostClientFor(world, ownerId);
 	scenario.failure = null;
+	const log = consoleLogEmitter({ tenant_id: LIFECYCLE_TENANT, ...(turnId === undefined ? {} : { turn_id: turnId }), owner_id: ownerId });
 	try {
-		scenario.outcome = await runOwnerOnComputerDisk(
-			plane,
-			{
-				tenantId: LIFECYCLE_TENANT,
-				workerId: ownerId,
-				liveRoot: disk.liveRoot,
-				store,
-				heartbeatTimer: NO_TIMER,
-				onTerminate: (handler) => {
-					scenario.terminate = handler;
+		scenario.outcome = await observeOwnerRun(log, {}, () =>
+			runOwnerOnComputerDisk(
+				plane,
+				{
+					tenantId: LIFECYCLE_TENANT,
+					workerId: ownerId,
+					log,
+					...(turnId === undefined ? {} : { turnId }),
+					liveRoot: disk.liveRoot,
+					store,
+					heartbeatTimer: NO_TIMER,
+					onTerminate: (handler) => {
+						scenario.terminate = handler;
+					},
 				},
-			},
-			async () => {
-				scenario.stoppedDuringTurn = (await computerForOrganization(LIFECYCLE_TENANT, { store: world.messagingStore() })).stopped;
-				return run(join(disk.liveRoot, "workspace"));
-			},
+				async () => {
+					scenario.stoppedDuringTurn = (await computerForOrganization(LIFECYCLE_TENANT, { store: world.messagingStore() })).stopped;
+					return run(join(disk.liveRoot, "workspace"));
+				},
+			),
 		);
 	} catch (error) {
 		scenario.failure = error as Error;
@@ -80,8 +87,13 @@ async function runOwnerOnDisk(
 When("the owner {string} runs the parked turn on its computer disk", async function (this: ChatticusWorld, ownerId: string) {
 	const job = activeTurnJob(this);
 	const deps = await computerOwnerDepsFor(this);
-	await runOwnerOnDisk(this, ownerId, (workspaceRoot) =>
-		runOwnerEntryPoint({ claim: async () => job }, deps, { workspaceRoot, shellLauncherPath: passThroughLauncher(this), workerId: ownerId }),
+	await runOwnerOnDisk(
+		this,
+		ownerId,
+		(workspaceRoot) =>
+			runOwnerEntryPoint({ claim: async () => job }, deps, { workspaceRoot, shellLauncherPath: passThroughLauncher(this), workerId: ownerId }),
+		undefined,
+		job.turnId,
 	);
 });
 
