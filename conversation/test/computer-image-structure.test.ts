@@ -49,8 +49,8 @@ describe("computer image structure", () => {
 		}
 	});
 
-	it("installs git and certificates and no display or browser packages", () => {
-		for (const packageName of ["git", "ca-certificates"]) {
+	it("installs git, certificates and a C toolchain and no display or browser packages", () => {
+		for (const packageName of ["git", "ca-certificates", "build-essential"]) {
 			expect(dockerfile).toMatch(new RegExp(`^\\s+${packageName} \\\\$`, "m"));
 		}
 		for (const packageName of ["xvfb", "x11-utils", "chromium", "fonts-liberation"]) {

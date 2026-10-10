@@ -50,7 +50,7 @@ container, then the reverse. Stale files on the target host are dropped.
 
 v1 contents:
 
-- Debian slim with Node, git and CA certificates
+- Debian slim with Node, git, CA certificates and a C toolchain (build-essential: gcc, g++, make)
 - no display and no browser: the browser is an optional capability. A host
   that finds no Chromium or no Xvfb boots anyway, reports `browser_ready`
   false and `browser_unavailable` true, and the `browse` tool answers that the
