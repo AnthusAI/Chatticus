@@ -587,10 +587,22 @@ computer action is created (4.4), as in Python's `prepare_computer_tool`.
 
 ### 4.1 What moves, what stays
 
+Status: the table below is the computer image and the host worker. The host
+worker now serves **customer-account** computers only (section 9, decision 3).
+Computers in Anthus's own accounts run a Pi owner in the same image instead:
+the Lambda TurnExecutor runs Pi until the first computer tool call, which
+creates a ledger action, parks the turn and publishes a start job; the
+ComputerStarter runs the `ChatticusComputerOwner` Fargate task; the owner
+claims the parked turn, runs Pi's own tools locally, calls the model through the
+control plane gateway, publishes the workspace snapshot when content changed and
+exits. One owner runs per computer at a time. This is built and rehearsed on
+development only; staging and production do not run it yet. See
+[Pi session handoff](PI_SESSION_HANDOFF.md).
+
 | Item | Decision |
 |---|---|
 | Container base | `node:22-bookworm-slim` plus `git ca-certificates`: files, git and a shell, no display and no browser (the browser is an optional capability a larger image adds back; see the readiness rule below). Same image runs on Fargate, EC2 and local Docker. No Python in the image. |
-| Host worker | A bundled Node program, `node /opt/chatticus/host/host-worker.mjs`, from `computer/host/` (new workspace package). Replaces `python -m chatticus.computer_host_worker`; `CHATTICUS_ECS_HOST_COMMAND` changes with it. |
+| Host worker | Serves customer-account computers. A bundled Node program, `node /opt/chatticus/host/host-worker.mjs`, from `computer/host/` (new workspace package). Replaces `python -m chatticus.computer_host_worker`; `CHATTICUS_ECS_HOST_COMMAND` changes with it. |
 | Snapshots | `python -m chatticus.snapshot pack|hydrate` becomes `node /opt/chatticus/host/snapshot.mjs pack|hydrate` (entrypoint smoke, `test_fargate.sh`, `test_relocate.sh`). Pack, store, S3 adapter, host cache and URI rules ported from `python/src/chatticus/snapshot/`. The host talks to S3 directly, as today. |
 | Executors | Workspace files, terminal (`/bin/sh`), Chromium (kept in the repo, absent from the default image); browser profiles; workspace path mapping: ported 1:1. |
 | Image push scripts | Unchanged. |
@@ -606,9 +618,9 @@ computer) before any action is recorded or any host is started.
 Status: this section describes the **customer-account** path, which is
 unchanged. For computers in Anthus's own accounts, a Pi owner does run in the
 container (built and rehearsed on development; see
-[Pi session handoff](PI_SESSION_HANDOFF.md)). Sections 4.1 and 4.3 to 4.6 below
-were written for the host-worker design; read them as the customer-account path
-and as the history of the own-account path.
+[Pi session handoff](PI_SESSION_HANDOFF.md)). The host-worker design in sections
+4.3 to 4.6 below is the customer-account path; each of those sections opens with
+a status note saying what the own-account owner does instead.
 
 An organization's computer can live in the **customer's AWS account**
 (assume-role, `ChatticusOrganizationComputerRole`). That account must not hold
@@ -623,6 +635,11 @@ credentials are scoped to one session, and the shell runs as an unprivileged
 user with a scrubbed environment.
 
 ### 4.3 Host protocol: 21 routes become 9
+
+Status: these nine routes are the **customer-account** boundary and stay
+permanently (section 9, decision 3). Own-account computers do not use them: the
+owner claims the parked turn directly and runs the tools locally (section 4.4;
+[Pi session handoff](PI_SESSION_HANDOFF.md)).
 
 All under `/orgs/{tenant}/host/...`, bearer worker token (from
 `POST /orgs/{tenant}/workers/register`, invoke-key bootstrap, as today),
