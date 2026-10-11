@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-12ba7f8f-dfd9-44ec-9973-eddec2591798",
+  "title": "Model costs: cached-input discount and the long-context tier are not modelled",
+  "description": "vendor-prices.ts prices luna 0.10/0.50, nano 0.05/0.40, mini 0.25/2.00 USD per million from LiteLLM's public catalog (2026-10-11). The ledger has no cached-token field, so cached input (luna 0.01 per million) is charged at full price, a slight overestimate; pi-ai also lists a pricier long-context tier for luna above 272000 input tokens (input 0.20, output 0.75) that is not modelled. Add cached tokens to the usage record if costs matter; verify prices against OpenAI's own page.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-11T14:22:52.253428Z",
+  "updated_at": "2026-10-11T14:22:52.253468Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "Model pricing omits cached-token discounts and Luna’s long-context rates, causing slight cost overestimates.",
+  "right_now_updated_at": "2026-10-11T14:22:53.190120Z",
+  "custom": {}
+}
