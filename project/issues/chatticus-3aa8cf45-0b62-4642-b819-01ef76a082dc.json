@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-3aa8cf45-0b62-4642-b819-01ef76a082dc",
+  "title": "Narrow the owner's storage scope with session tags (security review finding 4)",
+  "description": "The owner's DynamoDB scope is <tenant>#* on the Messaging table, which includes the organization record (awsExternalId, cross-account role, memberships), the roster (bots, workers with token hashes), channels, computers and tasks. Narrowing the session policy does not fit the 2048-character STS limit (2018 today; three statements need 2877). Fix: session tags (tenant, bot, channel, turn) plus a static policy on the scoped role using ${aws:PrincipalTag/...}, which also removes the policy-size headroom problem. Needs sts:TagSession in the role trust, starter change and the computer record moved out of the roster key (the owner updates it there and IAM cannot restrict by sort key). Read-only org and budget_rollup families, write families for turn, channel, computer actions, vendor ledger and the mailbox.",
+  "type": "task",
+  "status": "open",
+  "priority": 1,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-11T17:37:25.887237Z",
+  "updated_at": "2026-10-11T17:37:25.887276Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is designing session-tagged IAM policies to narrow owner access and move computer records out of the roster.",
+  "right_now_updated_at": "2026-10-11T17:37:28.409786Z",
+  "custom": {}
+}

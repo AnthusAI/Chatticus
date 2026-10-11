@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-f34796a1-0a6c-4cf0-92c5-64014e4580ca",
+  "title": "Model gateway: per-call organization ceiling check",
+  "description": "PR 502 added the allow-list, size cap, output clamp, forbidden tools and estimated spend on interruption. Not done: refusing a call when the organization is over its ceiling. The only ceiling is monthlyAwsSpendCeilingUsd (meters AWS spend); the gateway has no organization store or rollup reader. Decide whether model spend gets its own ceiling.",
+  "type": "task",
+  "status": "open",
+  "priority": 3,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-11T17:37:36.754465Z",
+  "updated_at": "2026-10-11T17:37:36.754500Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The gateway still lacks an organization ceiling check and a decision on a separate model-spend limit.",
+  "right_now_updated_at": "2026-10-11T17:37:38.193053Z",
+  "custom": {}
+}

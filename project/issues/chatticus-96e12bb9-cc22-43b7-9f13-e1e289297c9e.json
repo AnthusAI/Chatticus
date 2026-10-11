@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-96e12bb9-cc22-43b7-9f13-e1e289297c9e",
+  "title": "The image build and the Lambda deploys must not displace each other in the shared queue group",
+  "description": "2026-10-11: dispatching the image build while the deploy workflows were queued cancelled the pending ControlPlane and ThinTurn deploys (GitHub keeps one pending run per concurrency group), so the new image went live against the old starter and every owner crashed at startup (CHATTICUS_OWNER_HOST_TOKEN required) in a retry loop of about 10 starts. Fix: give the image build its own concurrency group, make the deploy workflows wait for the image of the same commit (or the other way round), or publish the image under the sha tag first and flip dev after the Lambdas deploy. Also: the starter should stop retrying an owner that exits with a configuration error.",
+  "type": "bug",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-11T17:37:40.103261Z",
+  "updated_at": "2026-10-11T17:37:40.103303Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The shared queue cancels Lambda deploys when image builds run, leaving Lambdas on an incompatible image.",
+  "right_now_updated_at": "2026-10-11T17:37:42.149819Z",
+  "custom": {}
+}
