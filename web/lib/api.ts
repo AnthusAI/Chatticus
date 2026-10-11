@@ -68,6 +68,23 @@ export type TurnEvent = {
   turn_id: string;
   token?: string;
   body?: string;
+  /** Reasoning summary on turn.thinking; older writers may send it as body. */
+  text?: string;
+  /** Tool name on tool.call and tool.result; older tool.call events carry it as body. */
+  tool?: string;
+  /** Pairs a tool.call with its tool.result; older events carry it as actionId. */
+  call_id?: string;
+  actionId?: string;
+  summary?: string;
+  arguments?: Record<string, unknown>;
+  arguments_truncated?: boolean;
+  ok?: boolean;
+  output?: string;
+  output_truncated?: boolean;
+  duration_ms?: number;
+  /** Readiness gate named by turn.waiting; older events carry it as body. */
+  gate?: string;
+  detail?: string;
 };
 
 export type Task = {

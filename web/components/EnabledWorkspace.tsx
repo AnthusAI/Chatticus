@@ -293,6 +293,9 @@ export function EnabledWorkspace({
           setTurnEvents([]);
         }
         setStreamError(null);
+        if (retryCount === 0) {
+          clearStoredTurnProgress(storageKey, progressStorageKey);
+        }
         const storedProgress = window.sessionStorage.getItem(progressStorageKey);
         const lastEventId = storedProgress === null
           ? 0
@@ -875,6 +878,7 @@ export function EnabledWorkspace({
             onSendMessage={handleSendMessage}
             failedTurn={failedTurn}
             turnIsSlow={turnIsSlow}
+            turnEvents={turnEvents}
             onRetryFailedTurn={handleRetryFailedTurn}
             threadProps={{
               composerPlaceholder: `Message ${selectedItem.label}`,

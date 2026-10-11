@@ -11,6 +11,9 @@ import { AlertTriangle, Clock3, RotateCcw, Send } from "lucide-react";
 import { createContext, useContext, type FC, type ReactNode } from "react";
 
 import { Button } from "../ui/button";
+import { TurnActivityBody, WorkingIndicator } from "./TurnActivityView";
+import { EMPTY_TURN_ACTIVITY, type TurnActivity } from "@/lib/turn-activity";
+import { SLOW_TURN_TEXT } from "@/lib/assistant-ui-bridge";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +93,12 @@ const ChatticusAssistantMessage: FC = () => {
     (state) => (state.message.metadata?.custom?.createdAt as string | undefined) ?? state.message.createdAt,
   );
   const failed = useAuiState((state) => Boolean(state.message.metadata?.custom?.failed));
+  const activity = useAuiState(
+    (state) =>
+      (state.message.metadata?.custom?.activity as TurnActivity | undefined) ?? EMPTY_TURN_ACTIVITY,
+  );
+  const slow = useAuiState((state) => Boolean(state.message.metadata?.custom?.slow));
+  const showWorkingIndicator = isStreamingShell && isRunning && activity.showWorkingIndicator;
 
   if (failed) {
     return <ChatticusFailedReply authorBotName={authorBotName} />;
@@ -99,7 +108,15 @@ const ChatticusAssistantMessage: FC = () => {
     <MessagePrimitive.Root className="flex justify-start px-1" data-role="assistant">
       <article className="max-w-[86%] rounded-3xl bg-surface-raised px-4 py-3 text-sm leading-6 sm:max-w-[76%]">
         {authorBotName ? <p className="mb-1 text-xs font-bold">{authorBotName}</p> : null}
-        {isStreamingShell && isRunning ? (
+        {isStreaming ? <TurnActivityBody activity={activity} /> : null}
+        {showWorkingIndicator ? (
+          <>
+            <WorkingIndicator phaseText={activity.phaseText} />
+            {slow ? (
+              <p className="mt-1 text-xs text-surface-foreground/55">{SLOW_TURN_TEXT}</p>
+            ) : null}
+          </>
+        ) : isStreamingShell && isRunning ? (
           <p className="flex items-center gap-2 text-surface-foreground/55">
             <Clock3 size={15} aria-hidden="true" />
             <MessagePrimitive.Parts components={{ Text: ChatticusTextPart }} />
