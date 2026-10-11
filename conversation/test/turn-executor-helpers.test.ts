@@ -164,7 +164,12 @@ describe("costUsdFromTokens", () => {
 describe("createOpenAiModels", () => {
 	it("serves the model the bots run on", () => {
 		const models = createOpenAiModels();
-		expect(models.getModel(DEFAULT_TURN_MODEL.provider, DEFAULT_TURN_MODEL.modelId)).toBeDefined();
-		expect(DEFAULT_TURN_MODEL).toEqual({ provider: "openai", modelId: "gpt-5-nano", thinkingLevel: "low" });
+		const model = models.getModel(DEFAULT_TURN_MODEL.provider, DEFAULT_TURN_MODEL.modelId);
+		expect(model).toBeDefined();
+		expect(model?.api).toBe("openai-responses");
+		expect(model?.reasoning).toBe(true);
+		expect(model?.thinkingLevelMap?.low).toBe("low");
+		expect(model?.thinkingLevelMap?.minimal).toBeNull();
+		expect(DEFAULT_TURN_MODEL).toEqual({ provider: "openai", modelId: "gpt-6-luna", thinkingLevel: "low" });
 	});
 });

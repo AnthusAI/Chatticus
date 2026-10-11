@@ -3,11 +3,11 @@ import { openaiProvider } from "@earendil-works/pi-ai/providers/openai";
 import type { TurnModel } from "./types.ts";
 
 /**
- * The model every bot turn runs on in v1: OpenAI gpt-5-nano with low reasoning. Minimal reasoning skipped the
- * computer tools about one time in five on a clean conversation and four times in five once the conversation held the
- * bot's own earlier claims that it could not run code; low reasoning used them every time in both cases (five runs each).
+ * The model every bot turn runs on in v1: OpenAI gpt-6-luna with low reasoning. pi-ai 1.0.2 already lists the model
+ * (api openai-responses, text and image input, reasoning levels none through max with no minimal), so no custom model
+ * is defined. On the real channel Luna answered plain text to a greeting and used the computer tool in six of six trials.
  */
-export const DEFAULT_TURN_MODEL: TurnModel = { provider: "openai", modelId: "gpt-5-nano", thinkingLevel: "low" };
+export const DEFAULT_TURN_MODEL: TurnModel = { provider: "openai", modelId: "gpt-6-luna", thinkingLevel: "low" };
 
 /**
  * The model collection a deployed executor uses: the OpenAI provider, whose API key pi-ai reads from the

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { type DynamoDBClient, GetItemCommand, TransactWriteItemsCommand } from "@aws-sdk/client-dynamodb";
 import { createModels } from "@earendil-works/pi-ai/models";
 import { VendorPriceBook, type VendorLedgerDependencies } from "../src/ledger/vendor-ledger.ts";
+import { defaultVendorPriceBook } from "../src/ledger/vendor-prices.ts";
 import type { TurnControlStore, TurnDependencies } from "../src/domain/turns.ts";
 import type { TurnRunJob } from "../src/domain/turn-admission.ts";
 import { executeTurn } from "../src/turn/executor.ts";
@@ -56,6 +57,11 @@ export function priceBookOf(world: ChatticusWorld): VendorPriceBook {
 		priceBooks.set(world, book);
 	}
 	return book;
+}
+
+/** Replace the scenario's price book with the one the production compositions use. */
+export function useDefaultPriceBook(world: ChatticusWorld): void {
+	priceBooks.set(world, defaultVendorPriceBook());
 }
 
 /**

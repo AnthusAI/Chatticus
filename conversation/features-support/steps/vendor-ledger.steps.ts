@@ -4,7 +4,7 @@ import { Decimal } from "../../src/budget/decimal.ts";
 import { getVendorLedgerEntry, recordVendorSpend, type VendorLedgerEntry } from "../../src/ledger/vendor-ledger.ts";
 import { SimulatedCrash } from "../../src/turn/fault-plan.ts";
 import { recordResponse } from "../api.ts";
-import { ledgerDependenciesFor, modelScenarioOf, priceBookOf, runBotTurn } from "../executor-harness.ts";
+import { ledgerDependenciesFor, modelScenarioOf, priceBookOf, runBotTurn, useDefaultPriceBook } from "../executor-harness.ts";
 import { memberPost } from "../org-user-client.ts";
 import { passTimeUntilSettled } from "../turn-recovery.ts";
 import type { ChatticusWorld } from "../world.ts";
@@ -37,6 +37,10 @@ Given(
 		});
 	},
 );
+
+Given("the default vendor prices of the production compositions are in force", function (this: ChatticusWorld) {
+	useDefaultPriceBook(this);
+});
 
 When(
 	"bot {string} runs one vendor-ledger computerless worker turn with model {string}",

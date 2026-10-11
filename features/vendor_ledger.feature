@@ -18,6 +18,30 @@ Feature: Vendor spend ledger
     And the vendor ledger row for the turn has frozen output price 4.00 per million
     And the vendor ledger row for the turn has cost_usd 0.00004
 
+  Scenario: A gpt-6-luna call is costed at the default list price
+    Given the default vendor prices of the production compositions are in force
+    When vendor spend is recorded for turn "luna-turn" with model "gpt-6-luna" and tokens 4700 in 220 out
+    Then the vendor ledger row for turn "luna-turn" has frozen input price 0.10 per million
+    And the vendor ledger row for turn "luna-turn" has frozen output price 0.50 per million
+    And the vendor ledger row for turn "luna-turn" has cost_usd 0.00058
+
+  Scenario: A gpt-5-nano call is costed at the default list price
+    Given the default vendor prices of the production compositions are in force
+    When vendor spend is recorded for turn "nano-turn" with model "gpt-5-nano" and tokens 4700 in 220 out
+    Then the vendor ledger row for turn "nano-turn" has cost_usd 0.000323
+
+  Scenario: A gpt-5-mini call is costed at the default list price
+    Given the default vendor prices of the production compositions are in force
+    When vendor spend is recorded for turn "mini-turn" with model "gpt-5-mini" and tokens 1000000 in 1000000 out
+    Then the vendor ledger row for turn "mini-turn" has cost_usd 2.25
+
+  Scenario: A model outside the default prices still records tokens with null dollars
+    Given the default vendor prices of the production compositions are in force
+    When vendor spend is recorded for turn "other-turn" with model "gpt-9-unpriced" and tokens 100 in 50 out
+    Then the vendor ledger row for turn "other-turn" has input tokens 100
+    And the vendor ledger row for turn "other-turn" has null cost_usd
+    And the vendor ledger row for turn "other-turn" has null frozen prices
+
   Scenario: An unknown model records tokens with null dollars
     When bot "Helper" is asked "hello unknown model"
     And bot "Helper" runs one vendor-ledger computerless worker turn with model "unknown-model-id"

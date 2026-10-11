@@ -4,7 +4,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { DynamoBudgetStore } from "../budget/budget-store.ts";
 import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS } from "../domain/workers.ts";
-import { VendorPriceBook } from "../ledger/vendor-ledger.ts";
+import { defaultVendorPriceBook } from "../ledger/vendor-prices.ts";
 import { DynamoComputerActionStore } from "../store/action-store.ts";
 import { DynamoMessagingStore } from "../store/dynamo-messaging-store.ts";
 import { DynamoTurnControlStore } from "../store/turn-store.ts";
@@ -56,7 +56,7 @@ async function executorDeps(): Promise<SharedDeps> {
 		piSessionsBucket: requiredEnvironment("CHATTICUS_PI_SESSIONS_BUCKET"),
 		models: createOpenAiModels(),
 		model: DEFAULT_TURN_MODEL,
-		ledger: { client, tableName: messagingTableName, prices: new VendorPriceBook(), now: () => new Date() },
+		ledger: { client, tableName: messagingTableName, prices: defaultVendorPriceBook(), now: () => new Date() },
 		workerLabel: "turn-executor-lambda",
 		turnRuns: new SqsTurnRunQueue(sqs, cachedRunsQueueUrl),
 		turnProbes: new SqsTurnProbeQueue(sqs, requiredEnvironment("CHATTICUS_TURN_PROBES_QUEUE_URL")),

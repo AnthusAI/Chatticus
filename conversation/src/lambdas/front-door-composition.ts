@@ -14,7 +14,7 @@ import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS } from "../domain/workers.ts";
 import { parseSignupMode } from "../domain/signup-mode.ts";
 import { createApp } from "../http/app.ts";
 import type { ModelGatewayDependencies } from "../gateway/model-gateway.ts";
-import { VendorPriceBook } from "../ledger/vendor-ledger.ts";
+import { defaultVendorPriceBook } from "../ledger/vendor-prices.ts";
 import { MessageBodyCache } from "../pi/message-cache.ts";
 import type { CommitObject } from "../storage/indexed-storage.ts";
 import { DynamoComputerActionStore } from "../store/action-store.ts";
@@ -164,7 +164,7 @@ export async function composeFrontDoorApp(
 		readParameter: (name) => optionalParameter(clients.parameters, name),
 	});
 	const client = clients.dynamo;
-	const prices = new VendorPriceBook();
+	const prices = defaultVendorPriceBook();
 	const ids = { next: () => randomUUID() };
 	const store = new DynamoMessagingStore(client, messagingTableName);
 	if (integrationTest !== null) {
