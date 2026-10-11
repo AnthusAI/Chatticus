@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import * as cdk from "aws-cdk-lib";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as s3 from "aws-cdk-lib/aws-s3";
@@ -7,6 +8,7 @@ import { describe, it } from "node:test";
 import { ComputerStack, OWNER_TASK_DEFINITION_FAMILY } from "../lib/computer-stack";
 import { ControlPlaneStack } from "../lib/control-plane-stack";
 import { ChatticusCloudEnvironment } from "../lib/environments";
+import { OWNER_ROLE_POLICY_FILE } from "../lib/owner-role-policy";
 
 const ENV = { account: "111111111111", region: "us-east-1" };
 
@@ -208,24 +210,41 @@ describe("ControlPlane owner scoped role", () => {
   const starterRoleId = roleLogicalId(template, /^ComputerStarterServiceRole/);
   const scopedStatements = statementsOf(policiesAttachedTo(template, /^ComputerOwnerScopedRole/));
   const starterStatements = statementsOf(policiesAttachedTo(template, /^ComputerStarterServiceRole/));
+  const trustStatements: Record<string, any>[] = scopedRole.Properties.AssumeRolePolicyDocument.Statement;
 
-  it("trusts only the ComputerStarter execution role for at most one hour", () => {
+  it("trusts only the ComputerStarter execution role, for at most one hour", () => {
     assert.equal(scopedRole.Properties.MaxSessionDuration, 3600);
-    assert.deepEqual(scopedRole.Properties.AssumeRolePolicyDocument.Statement, [
-      {
-        Action: "sts:AssumeRole",
-        Effect: "Allow",
-        Principal: { AWS: { "Fn::GetAtt": [starterRoleId, "Arn"] } },
-      },
-    ]);
+    for (const statement of trustStatements) {
+      assert.equal(statement.Effect, "Allow");
+      assert.deepEqual(statement.Principal, { AWS: { "Fn::GetAtt": [starterRoleId, "Arn"] } });
+    }
   });
 
-  it("grants only DynamoDB and S3 on named tables and buckets, never a wildcard resource", () => {
+  it("lets the starter assume the role and tag the session, and only with all five tags and no other", () => {
+    const actions = trustStatements.flatMap((statement) => [].concat(statement.Action));
+    assert.deepEqual([...new Set(actions)].sort(), ["sts:AssumeRole", "sts:TagSession"]);
+    for (const action of ["sts:AssumeRole", "sts:TagSession"]) {
+      const statement = trustStatements.find((candidate) => [].concat(candidate.Action).includes(action));
+      assert.ok(statement, `a trust statement allows ${action}`);
+      assert.deepEqual(statement.Condition.Null, {
+        "aws:RequestTag/tenant": "false",
+        "aws:RequestTag/bot": "false",
+        "aws:RequestTag/channel": "false",
+        "aws:RequestTag/computer": "false",
+        "aws:RequestTag/turn": "false",
+      });
+      assert.deepEqual(statement.Condition["ForAllValues:StringEquals"], {
+        "aws:TagKeys": ["tenant", "bot", "channel", "computer", "turn"],
+      });
+    }
+  });
+
+  it("carries one static policy of DynamoDB and S3 statements written with the session tag variables", () => {
     assert.ok(scopedStatements.length > 0);
     for (const statement of scopedStatements) {
       assert.equal(statement.Effect, "Allow");
       for (const action of [].concat(statement.Action)) {
-        assert.match(String(action), /^(dynamodb|s3):/, `unexpected action ${action}`);
+        assert.match(String(action), /^(dynamodb|s3):[A-Za-z]+$/, `unexpected action ${action}`);
       }
       for (const resource of [].concat(statement.Resource)) {
         assert.notEqual(resource, "*");
@@ -233,23 +252,56 @@ describe("ControlPlane owner scoped role", () => {
       }
     }
     const document = JSON.stringify(scopedStatements);
+    for (const variable of ["tenant", "bot", "channel", "computer"]) {
+      assert.ok(document.includes("${aws:PrincipalTag/" + variable + "}"), `the policy uses the ${variable} tag`);
+    }
+    assert.ok(!document.includes("Fn::Sub"), "the policy variables are literal text, not a CloudFormation substitution");
     assert.match(document, /Conversations/);
     assert.match(document, /PiSessions/);
     assert.match(document, /Messaging|ImportValue/);
     assert.match(document, /chatticus-snapshots-bucket/);
     assert.match(document, /\/index\/\*/);
-    for (const forbidden of ["secretsmanager", "ssm:", "kms:", "sts:", "iam:", "sqs:"]) {
+    for (const forbidden of ["secretsmanager", "ssm:", "kms:", "sts:", "iam:", "sqs:", "dynamodb:Scan", "dynamodb:BatchWriteItem"]) {
       assert.ok(!document.includes(forbidden), `scoped role must not hold ${forbidden}`);
     }
   });
 
-  it("lets the starter assume the scoped role, run the owner task and pass only the owner roles", () => {
+  it("names no tenant-wide key pattern on the Messaging table and lets the roster be read one item at a time only", () => {
+    const keyPatterns = scopedStatements.flatMap((statement) =>
+      Object.values(statement.Condition ?? {}).flatMap((condition: any) => condition["dynamodb:LeadingKeys"] ?? []),
+    );
+    assert.ok(keyPatterns.length > 0);
+    for (const pattern of keyPatterns) {
+      assert.notEqual(pattern, "${aws:PrincipalTag/tenant}#*");
+    }
+    const rosterStatements = scopedStatements.filter((statement) =>
+      Object.values(statement.Condition ?? {}).some((condition: any) =>
+        (condition["dynamodb:LeadingKeys"] ?? []).some((pattern: string) => pattern.endsWith("#roster")),
+      ),
+    );
+    assert.equal(rosterStatements.length, 1);
+    assert.deepEqual([].concat(rosterStatements[0]!.Action), ["dynamodb:GetItem"]);
+  });
+
+  it("deploys exactly the statements of the policy file the scenarios evaluate", () => {
+    const fileStatements = JSON.parse(readFileSync(OWNER_ROLE_POLICY_FILE, "utf8")).statements as Record<string, any>[];
+    assert.equal(scopedStatements.length, fileStatements.length);
+    for (const fileStatement of fileStatements) {
+      const deployed = scopedStatements.find((statement) => statement.Sid === fileStatement.Sid);
+      assert.ok(deployed, `${fileStatement.Sid} is deployed`);
+      assert.deepEqual([].concat(deployed.Action), fileStatement.Action);
+      assert.deepEqual(deployed.Condition, fileStatement.Condition);
+    }
+  });
+
+  it("lets the starter assume the scoped role with tags, run the owner task and pass only the owner roles", () => {
     const assume = starterStatements.filter(
       (statement) =>
         [].concat(statement.Action).includes("sts:AssumeRole") &&
         JSON.stringify(statement.Resource).includes(scopedId),
     );
     assert.equal(assume.length, 1);
+    assert.deepEqual([...[].concat(assume[0]!.Action)].sort(), ["sts:AssumeRole", "sts:TagSession"]);
     const run = starterStatements.filter(
       (statement) =>
         [].concat(statement.Action).includes("ecs:RunTask") &&

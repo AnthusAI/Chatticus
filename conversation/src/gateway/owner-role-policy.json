@@ -1,0 +1,86 @@
+{
+	"statements": [
+		{
+			"Sid": "SessionObjects",
+			"Effect": "Allow",
+			"Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+			"Resource": ["{{piSessionsBucketArn}}/conversations/${aws:PrincipalTag/tenant}%23${aws:PrincipalTag/bot}%23${aws:PrincipalTag/channel}/*"]
+		},
+		{
+			"Sid": "SessionListing",
+			"Effect": "Allow",
+			"Action": ["s3:ListBucket"],
+			"Resource": ["{{piSessionsBucketArn}}"],
+			"Condition": {
+				"StringLike": {
+					"s3:prefix": ["conversations/${aws:PrincipalTag/tenant}%23${aws:PrincipalTag/bot}%23${aws:PrincipalTag/channel}/*"]
+				}
+			}
+		},
+		{
+			"Sid": "ComputerSnapshotObjects",
+			"Effect": "Allow",
+			"Action": ["s3:GetObject", "s3:PutObject"],
+			"Resource": ["{{snapshotBucketArn}}/tenants/${aws:PrincipalTag/tenant}/computers/${aws:PrincipalTag/computer}/*"]
+		},
+		{
+			"Sid": "SessionItems",
+			"Effect": "Allow",
+			"Action": [
+				"dynamodb:GetItem",
+				"dynamodb:BatchGetItem",
+				"dynamodb:PutItem",
+				"dynamodb:UpdateItem",
+				"dynamodb:DeleteItem",
+				"dynamodb:Query",
+				"dynamodb:ConditionCheckItem"
+			],
+			"Resource": ["{{conversationsTableArn}}", "{{conversationsTableArn}}/index/*"],
+			"Condition": {
+				"ForAllValues:StringEquals": {
+					"dynamodb:LeadingKeys": ["PI#${aws:PrincipalTag/tenant}#${aws:PrincipalTag/bot}#${aws:PrincipalTag/channel}"]
+				}
+			}
+		},
+		{
+			"Sid": "MessagingWritable",
+			"Effect": "Allow",
+			"Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query"],
+			"Resource": ["{{messagingTableArn}}"],
+			"Condition": {
+				"ForAllValues:StringLike": {
+					"dynamodb:LeadingKeys": [
+						"${aws:PrincipalTag/tenant}#turn#*",
+						"${aws:PrincipalTag/tenant}#channel#*",
+						"${aws:PrincipalTag/tenant}#computer#actions",
+						"${aws:PrincipalTag/tenant}#computer#record",
+						"${aws:PrincipalTag/tenant}#vendor_ledger",
+						"MB#${aws:PrincipalTag/tenant}#${aws:PrincipalTag/bot}#${aws:PrincipalTag/channel}"
+					]
+				}
+			}
+		},
+		{
+			"Sid": "MessagingReadOnly",
+			"Effect": "Allow",
+			"Action": ["dynamodb:GetItem", "dynamodb:Query"],
+			"Resource": ["{{messagingTableArn}}"],
+			"Condition": {
+				"ForAllValues:StringEquals": {
+					"dynamodb:LeadingKeys": ["${aws:PrincipalTag/tenant}#org", "${aws:PrincipalTag/tenant}#budget_rollup"]
+				}
+			}
+		},
+		{
+			"Sid": "RosterBotLookup",
+			"Effect": "Allow",
+			"Action": ["dynamodb:GetItem"],
+			"Resource": ["{{messagingTableArn}}"],
+			"Condition": {
+				"ForAllValues:StringEquals": {
+					"dynamodb:LeadingKeys": ["${aws:PrincipalTag/tenant}#roster"]
+				}
+			}
+		}
+	]
+}

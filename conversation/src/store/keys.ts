@@ -67,14 +67,14 @@ export function workerKey(tenantId: string, workerId: string): { pk: string; sk:
 }
 
 /**
- * Build partition and sort keys for computer items.
+ * Build partition and sort keys for the one computer record of an organization. The record has its own partition, apart from
+ * the roster, because the container owner may update it and IAM cannot narrow a grant by sort key.
  * @param tenantId Organization tenant ID.
- * @param computerId Computer ID.
  * @returns Partition and sort keys.
  */
-export function computerKey(tenantId: string, computerId: string): { pk: string; sk: string } {
+export function computerRecordKey(tenantId: string): { pk: string; sk: string } {
 	return {
-		pk: `${tenantId}#computer#${computerId}`,
+		pk: `${tenantId}#computer#record`,
 		sk: "meta",
 	};
 }

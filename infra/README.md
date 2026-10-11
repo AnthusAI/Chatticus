@@ -148,7 +148,7 @@ GitHub environment from the matching stack output.
 For computers in Anthus's own accounts the ComputerStarter runs the owner task
 (`ChatticusComputerOwner`, `node /opt/chatticus/host/owner.mjs`): it mints a
 model gateway token (the signing key is a secret in the ControlPlane stack) and
-assumes `ComputerOwnerScopedRole` with a per-session policy. This is wired in
+assumes `ComputerOwnerScopedRole` with session tags that its static policy reads. This is wired in
 development only; staging and production do not run it yet. See
 [Pi session handoff](../docs/PI_SESSION_HANDOFF.md). The host-start context
 below remains for customer-account computers and the host task definition that

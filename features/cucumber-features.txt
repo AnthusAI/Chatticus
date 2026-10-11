@@ -35,7 +35,8 @@ features/integration_test_auth.feature
 features/channel_turns.feature
 features/bot_roster_durability.feature
 features/model_gateway.feature
-features/session_storage_policy.feature
+features/owner_role_policy.feature
+features/computer_record_move.feature
 features/model_provider_failures.feature
 features/vendor_ledger.feature
 features/turn_execution.feature

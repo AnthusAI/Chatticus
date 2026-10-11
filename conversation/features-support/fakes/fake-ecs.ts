@@ -37,7 +37,7 @@ export const FAKE_SCOPED_CREDENTIALS = {
 	SessionToken: "scoped-owner-session-token-4b9d",
 } as const;
 
-/** STS AssumeRole with a session policy, faked: it records every call and answers with fixed scoped credentials. */
+/** STS AssumeRole with session tags, faked: it records every call and answers with fixed scoped credentials. */
 export class FakeStsAssumeRole {
 	readonly calls: Array<Parameters<ScopedAssumeRolePort>[0]> = [];
 	/** When set, AssumeRole is refused with an error of this name. */

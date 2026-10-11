@@ -794,7 +794,7 @@ computer. There is still no `stop_computer`. Host stop is the existing
 
 Status: for computers in Anthus's own accounts the starter generates an owner id,
 mints the model gateway token bound to it, assumes `ComputerOwnerScopedRole` with
-a per-session policy and runs the `ChatticusComputerOwner` task. The ECS host
+session tags (its static policy reads them) and runs the `ChatticusComputerOwner` task. The ECS host
 start described below is what customer-account computers still use.
 
 ComputerStarter is the old `ComputerWorker` Lambda without turn logic: it

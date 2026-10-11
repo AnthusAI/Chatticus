@@ -4,7 +4,7 @@
  *
  * Each start generates a fresh owner id and binds four things to it: the model gateway token, the host token, the claim of
  * the turn the container makes (the container passes the id as the worker id of its claim), and the scoped storage
- * credentials. The container holds the two tokens and credentials narrowed by the session policy for this organization,
+ * credentials. The container holds the two tokens and credentials whose session tags bind the role's static policy to this organization,
  * computer and conversation, and never the model vendor's key and never the deployment's invoke key.
  *
  * The two tokens are the same claims signed for two audiences, so neither can be replayed on the other's surface. The
@@ -14,7 +14,7 @@
  * reader of ECS task descriptions to find.
  */
 
-import { buildOwnerSessionPolicy } from "../gateway/session-policy.ts";
+import { ownerSessionTags, type SessionTag } from "../gateway/session-tags.ts";
 import { mintSessionToken, type SessionTokenAudience } from "../gateway/session-token.ts";
 import { consoleLogEmitter, errorNameOf } from "../observability/log-line.ts";
 import type { ComputerStartJob, HostStartDriver } from "../domain/computer-start.ts";
@@ -34,7 +34,7 @@ export type OwnerStartConfig = {
 	readonly ownerTaskDefinition: string;
 	readonly containerName: string;
 	readonly command: readonly string[];
-	/** The role the session policy narrows. */
+	/** The role whose static policy the session tags resolve. */
 	readonly scopedRoleArn: string;
 	readonly signingKey: string;
 	readonly frontDoorUrl: string;
@@ -119,9 +119,6 @@ export function ownerStartConfigFromEnvironment(
 	};
 }
 
-const tableArnOf = (config: OwnerStartConfig, tableName: string): string =>
-	`arn:aws:dynamodb:${config.region}:${config.deploymentAccountId}:table/${tableName}`;
-
 /** Starts one owner container for a parked turn: owner id, gateway token, scoped credentials, then the ECS task. */
 export class OwnerStartDriver implements HostStartDriver {
 	private readonly config: OwnerStartConfig;
@@ -155,23 +152,26 @@ export class OwnerStartDriver implements HostStartDriver {
 		const gatewayToken = mintFor("model-gateway");
 		const hostToken = mintFor("owner-host");
 		log("owner_token_minted", { lifetime_seconds: OWNER_CREDENTIAL_LIFETIME_SECONDS, expires_at_seconds: expiresAtSeconds });
-		const policy = buildOwnerSessionPolicy({
-			tenantId: job.tenantId,
-			botId: job.botId,
-			channelId: turn.channelId,
-			bucketName: config.piSessionsBucket,
-			conversationsTableArn: tableArnOf(config, config.conversationsTable),
-			computerId: claim.computerId,
-			snapshotBucketName: config.snapshotBucket,
-			messagingTableArn: tableArnOf(config, config.messagingTable),
-		});
+		let tags: SessionTag[];
+		try {
+			tags = ownerSessionTags({
+				tenantId: job.tenantId,
+				botId: job.botId,
+				channelId: turn.channelId,
+				computerId: claim.computerId,
+				turnId: job.turnId,
+			});
+		} catch (error) {
+			log("owner_start_refused", { reason: "unsafe_session_tag", error_name: errorNameOf(error) });
+			throw error;
+		}
 		const sessionName = ownerId.slice(0, 64);
 		let assumed: Awaited<ReturnType<OwnerStartPorts["assumeRole"]>>;
 		try {
 			assumed = await ports.assumeRole({
 				RoleArn: config.scopedRoleArn,
 				RoleSessionName: sessionName,
-				Policy: JSON.stringify(policy),
+				Tags: tags,
 				DurationSeconds: OWNER_CREDENTIAL_LIFETIME_SECONDS,
 			});
 		} catch (error) {

@@ -1,13 +1,14 @@
-Feature: The owner session policy covers every request the computer owner makes
+Feature: The owner role policy covers every request the computer owner makes
   As the operator of an organization computer
   I want the scoped credentials of a computer owner to allow exactly the requests a turn needs
   So that a live run never ends in a denial that only one run at a time could reveal
 
-  The container owner runs with credentials narrowed by a session policy. These
-  scenarios run the real owner against the real stores with a recording around
-  the DynamoDB and S3 clients, then ask the policy that the control plane would
-  hand to STS whether it allows each recorded request: its action, its table or
-  bucket, and its partition key or object key. A request the policy would deny
+  The container owner runs with credentials of a role whose static policy reads
+  the session tags the starter sets. These scenarios run the real owner against
+  the real stores with a recording around the DynamoDB and S3 clients, then ask
+  the role's policy, the file the stack deploys, with the tags of the turn's
+  session substituted, whether it allows each recorded request: its action, its
+  table or bucket, and its partition key or object key. A request the policy would deny
   fails the scenario and is listed with its key. Each scenario covers one way a
   turn reaches the stores: finishing a parked turn, failing, recovering a turn
   from an owner that vanished, and taking in a steered message.
@@ -39,14 +40,14 @@ Feature: The owner session policy covers every request the computer owner makes
     And the computer owners made a "dynamodb:Query" request on a key starting "MB#"
     And the computer owners made a "dynamodb:GetItem" request on a key starting "PI#"
     And the computer owners made a "s3:GetObject" request on a key starting "tenants/"
-    And every request the computer owners made is allowed by the owner session policy
+    And every request the computer owners made is allowed by the owner role policy
 
   Scenario: An owner whose turn fails stays inside its policy
     Given the model provider answers every request with status 401 and error code "invalid_api_key"
     When the member asks "say hello"
     And the owner "owner-1" runs the parked turn on its computer disk
     Then the owner's turn ended "failed"
-    And every request the computer owners made is allowed by the owner session policy
+    And every request the computer owners made is allowed by the owner role policy
 
   Scenario: An owner that recovers a turn from a vanished owner stays inside its policy
     Given the model is scripted to call "run_terminal" with:
@@ -63,7 +64,7 @@ Feature: The owner session policy covers every request the computer owner makes
     And held computer owner "first" is released
     Then the takeover of "second" ended "done"
     And the takeover of "first" ended "lost"
-    And every request the computer owners made is allowed by the owner session policy
+    And every request the computer owners made is allowed by the owner role policy
 
   Scenario: An owner that answers the browser tool at once and checks the spend ceiling stays inside its policy
     Given the model is scripted to call "browse" with:
@@ -76,7 +77,7 @@ Feature: The owner session policy covers every request the computer owner makes
     And the member allows the turn tool "browse" to reach the origin "https://household.example.com"
     And computer owner "container" takes over the turn
     Then the takeover of "container" ended "done"
-    And every request the computer owners made is allowed by the owner session policy
+    And every request the computer owners made is allowed by the owner role policy
 
   Scenario: An owner that takes in a steered message stays inside its policy
     Given the model is scripted to answer "Working in metric units."
@@ -86,4 +87,4 @@ Feature: The owner session policy covers every request the computer owner makes
     And computer owner "container" takes over the turn
     Then the takeover of "container" ended "done"
     And the computer owners made a "dynamodb:Query" request on a key starting "MB#"
-    And every request the computer owners made is allowed by the owner session policy
+    And every request the computer owners made is allowed by the owner role policy

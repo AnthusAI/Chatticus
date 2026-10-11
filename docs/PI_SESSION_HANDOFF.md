@@ -107,7 +107,8 @@ owner reads the commits that are already there.
    publishes a start job on the `ComputerStartJobs` queue.
 4. The ComputerStarter Lambda generates an **owner id**, mints the gateway
    token bound to tenant, bot, turn and that owner id, assumes the scoped role
-   with a per-session policy, and runs the owner task with that environment.
+   with five session tags (tenant, bot, channel, computer, turn), and runs the
+   owner task with that environment.
 5. The owner program claims the parked turn under that owner id
    (`takeOverTurn`: the same Pi session, a new, higher fence). It hydrates
    `/workspace` from the computer's snapshot.
@@ -160,7 +161,7 @@ design.
 | Pi's own `read`, `write`, `edit`, `bash` replace our copies and run locally | Live bug-fix task: 3 planted bugs, 12 of 12 tests passing, committed, and persisted to a fresh owner on a new channel |
 | The container holds no model key; a per-turn token carries model calls | Live security run: the shell environment has no secrets, and the gateway records spend per call |
 | The shell cannot reach the owner's credentials | Live security run: the shell cannot read the owner's environ, has no sudo or su, and writes only to `/workspace` and `/tmp`; the metadata endpoint returned no credentials, the credentials path variable is absent from the shell environment and the task role is empty |
-| Storage credentials are scoped to one session | The STS session policy covers the conversation prefix and index keys, the computer's snapshot prefix and the organization's Messaging items. Two live failures were policy gaps (`ConditionCheckItem`, then the `MB#` mailbox key); both were fixed and covered by a scenario that records every request the owner makes |
+| Storage credentials are scoped to one session | The role's static policy, read with the session tags, covers the conversation prefix and index keys, the computer's snapshot prefix and a short list of the organization's Messaging key families. Two live failures were policy gaps (`ConditionCheckItem`, then the `MB#` mailbox key); both were fixed and covered by a scenario that records every request the owner makes against the deployed policy file |
 | A dead owner is recovered and its token stops working | Live recovery: the owner task was stopped mid-command and a second owner took over about 125 s later; the lost tool was reported, not re-run |
 | Own-account computers always start the owner | The runtime switch and the own-account host-worker start were removed |
 | Customer accounts keep the host protocol | Design decision 3; the host worker code path is unchanged |
@@ -191,11 +192,78 @@ in the control plane.
 turn and owner until it expires or the attempt changes. It is not the OpenAI
 key, cannot be used for another tenant, bot or turn, and does not open storage.
 
-**Scoped storage credentials.** `buildOwnerSessionPolicy` builds an IAM session
-policy for one session: object access under `conversations/<storage>/`, item
-access with `dynamodb:LeadingKeys` restricted to the session, the computer's
-snapshot prefix, and the organization's Messaging items. The starter obtains
-credentials from `sts:AssumeRole` on `ComputerOwnerScopedRole` with that policy.
+**Scoped storage credentials.** There is no session policy. The starter calls
+`sts:AssumeRole` on `ComputerOwnerScopedRole` with five session tags and nothing
+else: `tenant`, `bot`, `channel`, `computer` and `turn`, whose values are the
+ids. `ownerSessionTags` builds them and refuses, with a clear error and before
+any credential is minted, an id outside letters, digits, `_`, `.`, `:` and `-`
+(AWS also allows space, `/`, `=`, `+` and `@`; no id contains them, and refusing
+them keeps a value from ever acting as a wildcard, the `#` key separator or the
+`%` escape) or longer than 256 characters. Nothing is dropped or rewritten.
+
+The role's trust policy allows only the starter's execution role, with both
+`sts:AssumeRole` and `sts:TagSession`, and only if `aws:RequestTag/<key>` exists
+for all five keys and `aws:TagKeys` holds no other key, so a session can never
+exist without them. Its one static permission policy is the file
+`conversation/src/gateway/owner-role-policy.json`. It is written with the IAM
+variables `${aws:PrincipalTag/tenant}`, `.../bot`, `.../channel` and
+`.../computer`, which are literal text in the deployed JSON. The CDK stack reads
+that file (`infra/lib/owner-role-policy.ts`) and so do the scenarios, whose
+evaluator substitutes the tag values the way IAM does. infra and conversation
+are separate TypeScript projects, so the shared source is a data file, not a
+module. Because the policy is static, the 2048 character session policy limit
+no longer applies and the owner's reach can be as narrow as it needs to be.
+
+What the owner can touch (the Messaging table is keyed `<tenant>#...`; `T` is the
+tenant tag, `B` the bot tag, `C` the channel tag, `K` the computer tag):
+
+| Store and key family | Read | Write |
+| --- | --- | --- |
+| S3 Pi sessions: `conversations/T%23B%23C/*` (and `ListBucket` with that prefix) | yes | yes (including delete) |
+| S3 snapshots: `tenants/T/computers/K/*` | yes | yes (no delete) |
+| Conversations table (and indexes): partition key `PI#T#B#C` only | yes (including batch get and condition checks) | yes |
+| Messaging `T#turn#*` (the turn and its events) | yes | yes |
+| Messaging `T#channel#*` (the channel and its messages) | yes | yes |
+| Messaging `T#computer#actions` (computer actions) | yes | yes |
+| Messaging `T#computer#record` (the one computer record) | yes | yes |
+| Messaging `T#vendor_ledger` | yes | yes |
+| Messaging `MB#T#B#C` (this bot's mailbox in this channel) | yes | yes |
+| Messaging `T#org` (organization record: external id, cross-account role, memberships, invitations) | yes | no |
+| Messaging `T#budget_rollup` | yes | no |
+| Messaging `T#roster` (bots, workers) | one item at a time (`GetItem`, for the bot record) | no |
+| Anything else: other tenants, other bots' mailboxes, other channels' `PI#` keys, approvals, rules, connections, tasks, identities | no | no |
+
+No statement grants `Scan`, `BatchWriteItem`, a transaction action or any
+action that can omit the key condition. The owner can no longer make itself an
+organization admin, rewrite the roster or read or write another organization.
+It can still read a worker's token hash through `GetItem` on the roster, which
+is a hash and not a credential.
+
+**The computer record moved.** The singleton computer record used to share the
+roster partition (`<tenant>#roster`, sort key `computer`), and IAM cannot
+restrict by sort key, so the owner needed write access to the roster. The record
+now has its own partition, `<tenant>#computer#record` (`computerRecordKey`), and
+the code reads only that key. Existing records are moved once:
+
+```
+cd conversation
+CHATTICUS_MESSAGING_TABLE=<messaging table name> node bin/migrate-computer-record.ts --environment development
+CHATTICUS_MESSAGING_TABLE=<messaging table name> node bin/migrate-computer-record.ts --environment development --execute
+```
+
+The first command is a dry run. The move is idempotent and never overwrites a
+record already at the new key. Run it **before** the ControlPlane deploy that
+ships the code reading the new key, then run it once more after the deploy.
+Deploying first would lose data: the new code finds no record at the new key,
+creates a fresh one (new computer id, generation 0, no snapshot pointer), and the
+move would then keep that fresh record and delete the real one. Moving first has
+a short window instead: until the deploy finishes, the old code finds no record at
+the old key, so a host report or computer lookup fails with "has no computer" and
+a turn start creates a fresh record at the old key. Keep that window short by
+deploying right after the move. The second run deletes any record the old code
+created in the window (it reports `already_moved`) because the migrated record at
+the new key wins.
+
 The owner task definition has an empty task role, so the container holds
 nothing beyond those credentials and the token.
 
@@ -264,8 +332,6 @@ What is not built or not proven:
   tools, `store` and `background`, and records an estimated spend when a client
   disconnects early. It has no per-call organization ceiling: the one ceiling
   the product has is the AWS spend ceiling, which does not meter model spend.
-- **Policy headroom.** The session policy has about 30 characters of headroom
-  under the 2048 character STS limit.
 - **Lost tools.** A tool lost when an owner dies is reported, not re-run.
 - **Browse.** `browse` is not in the default grant and has no executor on the
   owner path.

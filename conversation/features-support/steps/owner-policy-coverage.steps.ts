@@ -2,18 +2,15 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { Decimal } from "../../src/budget/decimal.ts";
-import { computerForOrganization } from "../../src/domain/computers.ts";
-import { getTurn } from "../../src/domain/turns.ts";
-import { buildOwnerSessionPolicy, type OwnerSessionScope, type SessionPolicyDocument } from "../../src/gateway/session-policy.ts";
 import { S3SnapshotStore } from "../../src/snapshot/s3.ts";
-import { type RecordedAwsRequest, tableArnOf } from "../aws-request-recorder.ts";
+import { type RecordedAwsRequest } from "../aws-request-recorder.ts";
 import { grantPayloadOfTable, memberHeadersFor, putActiveTurnGrant } from "../turn-grant-support.ts";
-import { computerOwnerScenarioOf } from "../computer-owner.ts";
 import { STORY_TENANT } from "../computer-scenario.ts";
+import { testS3Client } from "../pi-storage.ts";
 import { createOrganizationBucket } from "../host-lifecycle-support.ts";
 import { policyAllows } from "../iam-policy-evaluator.ts";
+import { ownerRoleOfScenario } from "../owner-role-support.ts";
 import { recordedOwnerRequestsOf, startRecordingOwnerRequests } from "../owner-request-recording.ts";
-import { ensurePiStorage, testS3Client } from "../pi-storage.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 Given("the requests of the computer owners are recorded", function (this: ChatticusWorld) {
@@ -43,27 +40,6 @@ When("the member allows the turn tool {string} to reach the origin {string}", as
 	assert.equal(response.status, 200, response.text);
 });
 
-async function ownerPolicyOfScenario(world: ChatticusWorld): Promise<SessionPolicyDocument> {
-	const scenario = computerOwnerScenarioOf(world);
-	const turnId = scenario.turnIds[0] ?? world.lastTurnId;
-	assert.ok(turnId, "The scenario started no turn.");
-	const turn = await getTurn(world.turnDependencies(), STORY_TENANT, turnId);
-	const storage = await ensurePiStorage(world);
-	const computer = await computerForOrganization(STORY_TENANT, { store: world.messagingStore() });
-	const snapshotBucket = (world.snapshotStore as S3SnapshotStore | null)?.bucket ?? "owner-snapshots-unbound";
-	const scope: OwnerSessionScope = {
-		tenantId: STORY_TENANT,
-		botId: turn.botId,
-		channelId: turn.channelId,
-		bucketName: storage.bucket,
-		conversationsTableArn: tableArnOf(storage.tableName),
-		computerId: computer.computerId,
-		snapshotBucketName: snapshotBucket,
-		messagingTableArn: tableArnOf(world.messagingTable.tableName),
-	};
-	return buildOwnerSessionPolicy(scope);
-}
-
 const describeRequest = (request: RecordedAwsRequest): string =>
 	`${request.action} ${request.resourceArn} key=${request.keys.length === 0 ? "(none)" : request.keys.join(",")}`;
 
@@ -73,14 +49,14 @@ function printRecordedShapes(requests: readonly RecordedAwsRequest[]): void {
 	for (const shape of [...shapes].sort()) console.info(`owner_request ${shape}`);
 }
 
-Then("every request the computer owners made is allowed by the owner session policy", async function (this: ChatticusWorld) {
+Then("every request the computer owners made is allowed by the owner role policy", async function (this: ChatticusWorld) {
 	const requests = recordedOwnerRequestsOf(this);
 	assert.ok(requests.length > 0, "The scenario recorded no owner request.");
 	printRecordedShapes(requests);
-	const policy = await ownerPolicyOfScenario(this);
-	const denied = requests.filter((request) => !policyAllows(policy, request));
+	const role = await ownerRoleOfScenario(this);
+	const denied = requests.filter((request) => !policyAllows(role.statements, role.tags, request));
 	const distinct = [...new Set(denied.map(describeRequest))];
-	assert.equal(distinct.length, 0, `The owner session policy would deny ${distinct.length} request(s):\n${distinct.join("\n")}`);
+	assert.equal(distinct.length, 0, `The owner role policy would deny ${distinct.length} request(s):\n${distinct.join("\n")}`);
 });
 
 Then(

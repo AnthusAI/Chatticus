@@ -42,14 +42,14 @@ function clientCredentials(credentials: SessionCredentials | null) {
 	return credentials === null ? {} : { credentials };
 }
 
-/** STS AssumeRole of a role of this account with a session policy, so the returned credentials reach only what the policy names. */
+/** STS AssumeRole of a role of this account with session tags, so the role's static policy resolves to one session. */
 export const defaultScopedAssumeRole: ScopedAssumeRolePort = async (input) => {
 	const response = await callAws("AssumeRole", () =>
 		new STSClient({}).send(
 			new AssumeRoleCommand({
 				RoleArn: input.RoleArn,
 				RoleSessionName: input.RoleSessionName,
-				Policy: input.Policy,
+				Tags: input.Tags.map((tag) => ({ Key: tag.Key, Value: tag.Value })),
 				DurationSeconds: input.DurationSeconds,
 			}),
 		),

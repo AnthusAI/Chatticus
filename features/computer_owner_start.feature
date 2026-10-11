@@ -10,8 +10,10 @@ Feature: The starter launches the computer as a container owner
   generates a fresh owner id. The id is bound
   into the model gateway token, passed to the container as the worker id of
   its claim on the turn, and used to name the scoped storage credentials the
-  starter obtains from STS with a session policy for this organization,
-  computer and conversation. The vendor key never leaves the control plane.
+  starter obtains from STS by assuming a role with session tags that name this
+  organization, bot, channel, computer and turn. The role's static policy reads
+  those tags, so the credentials reach only this conversation and computer.
+  The vendor key never leaves the control plane.
 
   Background:
     Given an empty control plane
@@ -59,18 +61,28 @@ Feature: The starter launches the computer as a container owner
     When the starter handles the start job
     Then the starter registered the owner of the container as a worker of the organization
 
-  Scenario: The scoped credentials come from STS with a session policy for this conversation and computer
+  Scenario: The scoped credentials come from STS with session tags for this conversation and computer and no session policy
     Given the starter has the owner settings
     When the starter handles the start job
     Then STS was asked exactly 1 time to assume the role "arn:aws:iam::123456789012:role/owner-scoped"
     And the session name is derived from the owner id and the session lasts 3600 seconds
-    And the session policy is the owner policy for the turn's conversation and the computer
+    And the session tags are the organization, bot, channel, computer and turn of the start
+    And the assume-role call carries no session policy
     And the container environment holds the scoped credentials STS returned
 
-  Scenario: The session policy fits within what STS accepts
+  Scenario Outline: An identifier that cannot be a session tag value stops the start before any credentials are minted
     Given the starter has the owner settings
+    And the computer of the organization has the identifier "<computer>"
     When the starter handles the start job
-    Then the session policy is within the STS size limit
+    Then the start was refused mentioning "<tag>"
+    And STS was not asked to assume a scoped role
+    And the starter ran exactly 0 ECS tasks
+
+    Examples:
+      | computer     | tag      |
+      | computer*one | computer |
+      | computer#one | computer |
+      | computer%23x | computer |
 
   Scenario: Every start generation gets its own owner id and tokens
     Given the starter has the owner settings
