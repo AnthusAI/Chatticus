@@ -3,23 +3,36 @@
   "title": "A follow-up message sent just after an answer waits about 85 s for a computer",
   "description": "Live check 2026-10-10: turn 2 of a conversation was posted while owner 1 was still alive (owner exits about 12 s after the answer). By design one owner runs per computer, so no start job is published; the waiting turn only got its owner when a probe tick noticed owner 1 had stopped: owner running 84 s after the post. Required: when an owner exits and marks the computer stopped, publish start jobs for turns parked on that computer at once (in the same step that marks it stopped, or from the stopped-report route), so the wait is the owner exit time plus a start, not the probe interval. Keep one owner per computer. Scenario: a turn parked behind a live owner gets its start job within one step of the owner stopping. Mutation check. Related: TS-70 (start after a clean exit), computer_owner_single_writer.feature.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "d777ad1a-e698-4aec-ad5e-5d01599a58d8",
+      "author": "home",
+      "text": "Fixed in PRs 497 and 498. PR 497 (start the waiting turn from the stopped report) was correct but not the main gate: the owner exits at the answer, and the 60 s host start lease stayed held after it, so the next start job answered already_started and was dropped until the probe republished it. PR 498: the owner's stopped report carries start_generation and the server releases that generation's lease at once. Live on development: post 2 to answer 2 is 26 s with no gap and 30 s with a 20 s gap, down from 85 s. About 16 to 20 s of each start is Fargate task creation to running (image pull about 6 s).",
+      "created_at": "2026-10-11T02:50:40.613817Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-10T21:40:06.742478Z",
-  "updated_at": "2026-10-10T21:40:06.742521Z",
-  "closed_at": null,
+  "updated_at": "2026-10-11T02:50:43.660594Z",
+  "closed_at": "2026-10-11T02:50:43.660316Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "A waiting turn starts only after a probe detects that its computer owner has stopped.",
-  "right_now_updated_at": "2026-10-10T21:40:08.134800Z",
+  "right_now_summary": "Waiting turns now start promptly after the current owner exits, cutting the delay from 85 seconds to about 26–30",
+  "right_now_updated_at": "2026-10-11T02:50:44.715856Z",
   "custom": {}
 }
