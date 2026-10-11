@@ -11,6 +11,15 @@ import { CHATTICUS_LOG_RETENTION } from "./log-retention";
 /** Task definition family of the Pi session owner task. */
 export const OWNER_TASK_DEFINITION_FAMILY = "ChatticusComputerOwner";
 
+/**
+ * CloudFormation names the computer ECR repository
+ * `<stack name>-<logical id><hash>-<suffix>` in lower case. The deploy role
+ * that pushes the image cannot know the full name before the stack exists, so
+ * it is scoped to this prefix inside its own account. A test pins the prefix to
+ * the synthesized logical id.
+ */
+export const COMPUTER_REPOSITORY_NAME_PREFIX = "chatticuscomputers-computerimage";
+
 export interface ComputerStackProps extends cdk.StackProps {
   snapshotBucket: s3.IBucket;
 }

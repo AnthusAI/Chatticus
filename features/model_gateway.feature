@@ -161,3 +161,98 @@ Feature: Model gateway for a container's Pi session
     Then the gateway answers with status 502
     And the error says the model provider request failed
     And the vendor ledger holds no spend for the turn
+
+  Scenario: A model that is not on the price list is refused and the body is not echoed
+    Given the container holds a session token for its turn valid for 300 seconds
+    When the container asks the model gateway for an answer with the body:
+      """
+      {"model": "gpt-9-unpriced", "stream": true, "input": [{"role": "user", "content": "CANARY-TEXT-FROM-THE-CALLER"}]}
+      """
+    Then the gateway answers with status 400
+    And the gateway response does not contain "CANARY-TEXT-FROM-THE-CALLER"
+    And no request reached the vendor
+    And the vendor ledger holds no spend for the turn
+
+  Scenario: A body larger than the gateway accepts is refused
+    Given the container holds a session token for its turn valid for 300 seconds
+    When the container asks the model gateway for an answer with a body of 2200000 bytes
+    Then the gateway answers with status 413
+    And no request reached the vendor
+
+  Scenario: A request that sets no output limit is given the gateway's ceiling
+    Given the container holds a session token for its turn valid for 300 seconds
+    When the container asks the model gateway for an answer
+    Then the gateway answers with status 200
+    And the vendor was asked for at most 32768 output tokens
+
+  Scenario: A request that asks for more output than the ceiling is clamped down, not refused
+    Given the container holds a session token for its turn valid for 300 seconds
+    When the container asks the model gateway for an answer with the body:
+      """
+      {"model": "gpt-5-nano", "stream": true, "max_output_tokens": 128000, "input": []}
+      """
+    Then the gateway answers with status 200
+    And the vendor was asked for at most 32768 output tokens
+
+  Scenario: A request for less output than the ceiling keeps its own limit
+    Given the container holds a session token for its turn valid for 300 seconds
+    When the container asks the model gateway for an answer with the body:
+      """
+      {"model": "gpt-5-nano", "stream": true, "max_output_tokens": 2000, "input": []}
+      """
+    Then the gateway answers with status 200
+    And the vendor was asked for at most 2000 output tokens
+
+  Scenario Outline: A tool that reaches beyond the container's own functions is refused
+    Given the container holds a session token for its turn valid for 300 seconds
+    When the container asks the model gateway for an answer with the body:
+      """
+      {"model": "gpt-5-nano", "stream": true, "input": [], "tools": [{"type": "<tool_type>"}]}
+      """
+    Then the gateway answers with status 400
+    And no request reached the vendor
+
+    Examples:
+      | tool_type          |
+      | web_search         |
+      | web_search_preview |
+      | mcp                |
+      | file_search        |
+      | code_interpreter   |
+      | computer_use       |
+
+  Scenario: The container's own function tools pass through to the vendor unchanged
+    Given the container holds a session token for its turn valid for 300 seconds
+    When the container asks the model gateway for an answer with the body:
+      """
+      {"model": "gpt-5-nano", "stream": true, "input": [], "tools": [{"type": "function", "name": "read_workspace", "parameters": {"type": "object"}}]}
+      """
+    Then the gateway answers with status 200
+    And the vendor received the function tool "read_workspace"
+
+  Scenario Outline: A request that asks the vendor to keep or continue work on its own is refused
+    Given the container holds a session token for its turn valid for 300 seconds
+    When the container asks the model gateway for an answer with the body:
+      """
+      {"model": "gpt-5-nano", "input": [], "<field>": true}
+      """
+    Then the gateway answers with status 400
+    And no request reached the vendor
+
+    Examples:
+      | field      |
+      | store      |
+      | background |
+
+  Scenario: The gateway never lets the vendor store the conversation
+    Given the container holds a session token for its turn valid for 300 seconds
+    When the container asks the model gateway for an answer
+    Then the vendor was told not to store the response
+
+  Scenario: An answer the container abandons midway still records the spend seen so far
+    Given the container holds a session token for its turn valid for 300 seconds
+    And the vendor holds its answer back after the first text delta
+    When the container asks the model gateway for an answer and reads only the start
+    And the container drops the connection
+    Then the vendor ledger comes to hold an estimated spend for the turn
+    And the gateway recorded spend 1 time
