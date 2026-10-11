@@ -1,18 +1,31 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+/**
+ * What a token may be presented to. The starter mints one token per audience for each owner, so the token that reaches
+ * the model gateway cannot be replayed on the host routes and the host token cannot be replayed on the gateway: a stolen
+ * token is useful for one surface only, and each surface checks the audience itself.
+ */
+export type SessionTokenAudience = "model-gateway" | "owner-host";
+
+const AUDIENCES: ReadonlySet<string> = new Set<SessionTokenAudience>(["model-gateway", "owner-host"]);
+
 /** What a session token says about the one turn attempt it was minted for. */
 export type SessionTokenClaims = {
+	/** The only surface that accepts this token. */
+	readonly audience: SessionTokenAudience;
 	readonly tenantId: string;
 	readonly botId: string;
 	readonly turnId: string;
 	/** The owner the start generated and the claimed attempt records; another owner taking over makes this token useless. */
 	readonly ownerId: string;
+	/** The host start generation the starter launched this owner for; the owner's stopped report may release only this generation's lease. */
+	readonly startGeneration: number;
 	/** Expiry in seconds since the Unix epoch. */
 	readonly expiresAtSeconds: number;
 };
 
 /** Why a token was not accepted. The reason is for logs and tests; callers never learn it. */
-export type SessionTokenRefusal = "malformed" | "signature" | "expired";
+export type SessionTokenRefusal = "malformed" | "signature" | "expired" | "audience";
 
 /** The outcome of verifying a token. */
 export type SessionTokenVerification =
@@ -40,7 +53,7 @@ function requireStrongKey(signingKey: string): void {
  * signature an HMAC-SHA-256 over the version and claims.
  *
  * @param signingKey Secret of the control plane, at least 32 characters; it never leaves the control plane.
- * @param claims The tenant, bot, turn and owner the token is bound to, and when it expires.
+ * @param claims The audience, tenant, bot, turn, owner and start generation the token is bound to, and when it expires.
  * @returns The token the container sends in place of a model key.
  */
 export function mintSessionToken(signingKey: string, claims: SessionTokenClaims): string {
@@ -57,8 +70,12 @@ function claimsFrom(encoded: string): SessionTokenClaims | null {
 		return null;
 	}
 	if (typeof parsed !== "object" || parsed === null) return null;
-	const { tenantId, botId, turnId, ownerId, expiresAtSeconds } = parsed as Record<string, unknown>;
+	const { audience, tenantId, botId, turnId, ownerId, startGeneration, expiresAtSeconds } = parsed as Record<string, unknown>;
 	if (
+		typeof audience !== "string" ||
+		!AUDIENCES.has(audience) ||
+		typeof startGeneration !== "number" ||
+		!Number.isInteger(startGeneration) ||
 		typeof tenantId !== "string" ||
 		typeof botId !== "string" ||
 		typeof turnId !== "string" ||
@@ -68,18 +85,19 @@ function claimsFrom(encoded: string): SessionTokenClaims | null {
 	) {
 		return null;
 	}
-	return { tenantId, botId, turnId, ownerId, expiresAtSeconds };
+	return { audience: audience as SessionTokenAudience, tenantId, botId, turnId, ownerId, startGeneration, expiresAtSeconds };
 }
 
 /**
- * Verify a token: well formed, signed with `signingKey`, and not past its expiry.
+ * Verify a token: well formed, signed with `signingKey`, minted for `audience`, and not past its expiry.
  *
  * @param signingKey Secret the token was minted with.
  * @param token The token a caller presented.
  * @param now The current time.
+ * @param audience The surface verifying; a validly signed token minted for another audience is refused.
  * @returns The claims when valid, otherwise the reason the token was refused.
  */
-export function verifySessionToken(signingKey: string, token: string, now: Date): SessionTokenVerification {
+export function verifySessionToken(signingKey: string, token: string, now: Date, audience: SessionTokenAudience): SessionTokenVerification {
 	requireStrongKey(signingKey);
 	const parts = token.split(SEPARATOR);
 	if (parts.length !== 3 || parts[0] !== TOKEN_VERSION) return { valid: false, reason: "malformed" };
@@ -91,6 +109,7 @@ export function verifySessionToken(signingKey: string, token: string, now: Date)
 	}
 	const claims = claimsFrom(encodedClaims);
 	if (claims === null) return { valid: false, reason: "malformed" };
+	if (claims.audience !== audience) return { valid: false, reason: "audience" };
 	if (claims.expiresAtSeconds * 1000 <= now.getTime()) return { valid: false, reason: "expired" };
 	return { valid: true, claims };
 }

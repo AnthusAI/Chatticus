@@ -35,7 +35,6 @@ describe("ownerStoresConfigFromEnvironment", () => {
 		CHATTICUS_ENVIRONMENT: "development",
 		CHATTICUS_MODEL_GATEWAY_URL: gateway.baseUrl,
 		CHATTICUS_MODEL_GATEWAY_TOKEN: gateway.token,
-		CHATTICUS_INVOKE_KEY: "invoke-key-1",
 	};
 
 	it("reads the stores and the gateway", () => {
@@ -44,7 +43,7 @@ describe("ownerStoresConfigFromEnvironment", () => {
 			conversationsTableName: "conversations",
 			piSessionsBucket: "sessions",
 			environment: "development",
-			gateway: { ...gateway, invokeKey: "invoke-key-1" },
+			gateway,
 		});
 	});
 
@@ -73,7 +72,7 @@ describe("ownerIdentityFromEnvironment", () => {
 		CHATTICUS_USER_ID: "ryan",
 		CHATTICUS_OWNER_ID: "owner-1",
 		CHATTICUS_FRONT_DOOR_URL: "https://front-door.test/",
-		CHATTICUS_INVOKE_KEY: "invoke-key-1",
+		CHATTICUS_OWNER_HOST_TOKEN: "host-token-1",
 	};
 
 	it("reads the identity and trims the trailing slash of the Front Door", () => {
@@ -82,7 +81,7 @@ describe("ownerIdentityFromEnvironment", () => {
 			userId: "ryan",
 			ownerId: "owner-1",
 			frontDoorUrl: "https://front-door.test",
-			invokeKey: "invoke-key-1",
+			hostToken: "host-token-1",
 		});
 	});
 

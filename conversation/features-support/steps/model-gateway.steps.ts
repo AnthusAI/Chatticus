@@ -3,7 +3,7 @@ import { Given, Then, When } from "@cucumber/cucumber";
 import { createGatewayModels } from "../../../computer/host/src/owner-models.ts";
 import { getVendorLedgerEntry } from "../../src/ledger/vendor-ledger.ts";
 import { relinquishTurn } from "../../src/domain/turns.ts";
-import { mintSessionToken } from "../../src/gateway/session-token.ts";
+import { mintSessionToken, type SessionTokenClaims } from "../../src/gateway/session-token.ts";
 import { consoleLogEmitter } from "../../src/observability/log-line.ts";
 import { ledgerDependenciesFor } from "../executor-harness.ts";
 import { httpBaseUrl } from "../front-door.ts";
@@ -40,8 +40,14 @@ function remember(world: ChatticusWorld, token: string): void {
 	gatewayScenarioOf(world).lastToken = token;
 }
 
-function mintFor(world: ChatticusWorld, overrides: Partial<ContainerTurn>, secondsValid: number, key = SCENARIO_GATEWAY_SIGNING_KEY): string {
-	return mintSessionToken(key, { ...turnOf(world), ...overrides, expiresAtSeconds: nowSeconds(world) + secondsValid });
+function mintFor(world: ChatticusWorld, overrides: Partial<SessionTokenClaims>, secondsValid: number, key = SCENARIO_GATEWAY_SIGNING_KEY): string {
+	return mintSessionToken(key, {
+		audience: "model-gateway",
+		startGeneration: 1,
+		...turnOf(world),
+		...overrides,
+		expiresAtSeconds: nowSeconds(world) + secondsValid,
+	});
 }
 
 async function askGateway(world: ChatticusWorld, tenantId: string, token: string | null): Promise<void> {
@@ -93,6 +99,10 @@ Given("the container changes the turn named in its token without re-signing", fu
 
 Given("the container holds a session token for its turn signed with another key", function (this: ChatticusWorld) {
 	remember(this, mintFor(this, {}, 300, "a-different-signing-key-0123456789abcdef"));
+});
+
+Given("the container holds a session token minted for the host routes", function (this: ChatticusWorld) {
+	remember(this, mintFor(this, { audience: "owner-host" }, 300));
 });
 
 Given("the container holds a session token for a turn that does not exist", function (this: ChatticusWorld) {
@@ -204,13 +214,6 @@ When("a Pi model collection pointed at the gateway with the container's token as
 	await askWithPi(this, baseUrl, gatewayScenarioOf(this).lastToken);
 });
 
-When(
-	"a Pi model collection pointed at the vendor address with the token {string} and the invoke key {string} asks for an answer",
-	async function (this: ChatticusWorld, token: string, invokeKey: string) {
-		await askWithPi(this, (await vendorOf(this)).baseUrl, token, invokeKey);
-	},
-);
-
 const piAnswers = new WeakMap<ChatticusWorld, string>();
 
 When(
@@ -232,8 +235,8 @@ When(
 	},
 );
 
-async function askWithPi(world: ChatticusWorld, baseUrl: string, token: string, invokeKey?: string): Promise<void> {
-	const models = createGatewayModels({ baseUrl, token, ...(invokeKey === undefined ? {} : { invokeKey }) });
+async function askWithPi(world: ChatticusWorld, baseUrl: string, token: string): Promise<void> {
+	const models = createGatewayModels({ baseUrl, token });
 	const model = models.getModel("openai", GATEWAY_MODEL);
 	assert.ok(model, "Pi has no model to ask");
 	const answer = await models.complete(model, { messages: [{ role: "user", content: "Say good morning.", timestamp: Date.now() }] });
@@ -251,11 +254,6 @@ Then("Pi received the answer {string}", function (this: ChatticusWorld, text: st
 Then("the vendor saw the authorization {string}", async function (this: ChatticusWorld, authorization: string) {
 	const requests = (await vendorOf(this)).requests;
 	assert.equal(requests[requests.length - 1]?.headers.authorization, authorization);
-});
-
-Then("the vendor saw the invoke key header {string}", async function (this: ChatticusWorld, invokeKey: string) {
-	const requests = (await vendorOf(this)).requests;
-	assert.equal(requests[requests.length - 1]?.headers["x-chatticus-invoke-key"], invokeKey);
 });
 
 Then("the vendor saw no invoke key header", async function (this: ChatticusWorld) {

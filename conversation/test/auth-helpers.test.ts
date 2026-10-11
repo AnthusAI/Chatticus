@@ -8,7 +8,7 @@ import {
 	parseIntegrationTestToken,
 } from "../src/auth/integration-test.ts";
 import { operatorKeyConfigured, parseOperatorBearer, verifyOperatorBearer } from "../src/auth/operator.ts";
-import { hashWorkerToken, mintWorkerToken, verifyWorkerTokenHash } from "../src/auth/worker-credentials.ts";
+import { hashWorkerToken, mintWorkerToken, verifyWorkerTokenHash, workerIdOfToken } from "../src/auth/worker-credentials.ts";
 
 describe("operator credentials", () => {
 	it("treats a blank key as unconfigured and refuses every token", () => {
@@ -32,11 +32,18 @@ describe("operator credentials", () => {
 
 describe("worker credentials", () => {
 	it("hashes to SHA-256 hex and verifies the minted token", () => {
-		const token = mintWorkerToken();
+		const token = mintWorkerToken("worker-1");
 		expect(token.length).toBeGreaterThanOrEqual(32);
 		expect(hashWorkerToken("abc")).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 		expect(verifyWorkerTokenHash(token, hashWorkerToken(token))).toBe(true);
 		expect(verifyWorkerTokenHash(token, hashWorkerToken("other"))).toBe(false);
+	});
+
+	it("carries the worker id in front of the secret, whatever characters the id holds", () => {
+		expect(workerIdOfToken(mintWorkerToken("worker-1"))).toBe("worker-1");
+		expect(workerIdOfToken(mintWorkerToken("host.local.1"))).toBe("host.local.1");
+		expect(workerIdOfToken("no-separator")).toBeNull();
+		expect(workerIdOfToken(".secret-only")).toBeNull();
 	});
 });
 

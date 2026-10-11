@@ -1,4 +1,4 @@
-import { hashWorkerToken, mintWorkerToken, verifyWorkerTokenHash } from "../auth/worker-credentials.ts";
+import { hashWorkerToken, mintWorkerToken, verifyWorkerTokenHash, workerIdOfToken } from "../auth/worker-credentials.ts";
 import { WorkerNotRegisteredError, WorkerTenantMismatchError } from "../http/errors.ts";
 import type { Clock, IdSource } from "../http/app.ts";
 import type { Computer } from "../store/codecs/computer.ts";
@@ -67,7 +67,7 @@ export async function registerWorker(
 			computerId = organizationComputer.computerId;
 		}
 	}
-	const token = mintWorkerToken();
+	const token = mintWorkerToken(registration.workerId);
 	await deps.store.putWorker({
 		workerId: registration.workerId,
 		tenantId: registration.tenantId,
@@ -83,18 +83,25 @@ export async function registerWorker(
 	return token;
 }
 
-/** Return the worker id for a valid bearer token in `tenantId`, or null when no registered worker holds it. */
+/** Longest worker id a credential may claim; a user's identity token is longer and is not looked up as a worker. */
+const MAX_CLAIMED_WORKER_ID_LENGTH = 200;
+
+/**
+ * Return the worker id for a valid bearer token in `tenantId`, or null when no registered worker holds it. The worker id
+ * in front of the token selects the one record to compare, so a request costs one read however many workers the
+ * organization has accumulated.
+ */
 export async function verifyWorkerToken(
 	tenantId: string,
 	token: string,
 	deps: { store: MessagingStore },
 ): Promise<string | null> {
-	for (const worker of await deps.store.listWorkers(tenantId)) {
-		if (verifyWorkerTokenHash(token, worker.tokenHash)) {
-			return worker.workerId;
-		}
+	const claimedWorkerId = workerIdOfToken(token);
+	if (claimedWorkerId === null || claimedWorkerId.length > MAX_CLAIMED_WORKER_ID_LENGTH) {
+		return null;
 	}
-	return null;
+	const worker = await deps.store.getWorker(tenantId, claimedWorkerId);
+	return worker !== null && verifyWorkerTokenHash(token, worker.tokenHash) ? worker.workerId : null;
 }
 
 /**

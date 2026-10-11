@@ -22,12 +22,7 @@ Feature: Model gateway for a container's Pi session
     Then Pi received the answer "Good morning."
     And the vendor saw the authorization "Bearer session-token-1"
 
-  Scenario: Pi's model collection sends the invoke key the Front Door requires
-    When a Pi model collection pointed at the vendor address with the token "session-token-1" and the invoke key "invoke-key-1" asks for an answer
-    Then Pi received the answer "Good morning."
-    And the vendor saw the invoke key header "invoke-key-1"
-
-  Scenario: Pi's model collection sends no invoke key header when it was not given one
+  Scenario: Pi's model collection sends no invoke key header, because the container never holds the invoke key
     When a Pi model collection pointed at the vendor address with the token "session-token-1" asks for an answer
     Then the vendor saw no invoke key header
 
@@ -66,6 +61,12 @@ Feature: Model gateway for a container's Pi session
     Then the gateway answers with status 401
     And no request reached the vendor
     And the vendor ledger holds no spend for the turn
+
+  Scenario: A token minted for the host routes is refused by the gateway
+    Given the container holds a session token minted for the host routes
+    When the container asks the model gateway for an answer
+    Then the gateway answers with status 401
+    And no request reached the vendor
 
   Scenario: A request with no token is refused
     When the container asks the model gateway for an answer without a token

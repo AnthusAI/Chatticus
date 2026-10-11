@@ -40,12 +40,24 @@ Feature: The starter launches the computer as a container owner
       | CHATTICUS_ENVIRONMENT          | development                                          |
       | AWS_REGION                     | us-east-1                                            |
     And the container environment holds the table of the messaging store
-    And the container environment holds the invoke key read from its secret
+    And the container environment holds no invoke key and no copy of the invoke key's value
+    And the container environment holds nothing secret except the two tokens and the scoped credentials
 
   Scenario: The gateway token is bound to the owner id the container receives
     Given the starter has the owner settings
     When the starter handles the start job
     Then the gateway token binds the turn, the bot and the owner id of the container for 3600 seconds
+
+  Scenario: The host token is bound to the owner id and the start generation, and is not the gateway token
+    Given the starter has the owner settings
+    When the starter handles the start job
+    Then the host token binds the turn, the bot, the owner id and the start generation of the container for 3600 seconds
+    And the host token is not valid as a gateway token and the gateway token is not valid as a host token
+
+  Scenario: The starter, not the container, registers the owner as a worker of the organization
+    Given the starter has the owner settings
+    When the starter handles the start job
+    Then the starter registered the owner of the container as a worker of the organization
 
   Scenario: The scoped credentials come from STS with a session policy for this conversation and computer
     Given the starter has the owner settings
@@ -60,11 +72,11 @@ Feature: The starter launches the computer as a container owner
     When the starter handles the start job
     Then the session policy is within the STS size limit
 
-  Scenario: Every start generation gets its own owner id and gateway token
+  Scenario: Every start generation gets its own owner id and tokens
     Given the starter has the owner settings
     When the starter handles the start job
     And the host start lease expires and the starter handles the start job
-    Then the second task has a different owner id and a different gateway token from the first
+    Then the second task has a different owner id and different tokens from the first
     And STS was asked exactly 2 times to assume the role "arn:aws:iam::123456789012:role/owner-scoped"
 
   Scenario: One start generation starts one owner however many jobs arrive
@@ -78,7 +90,7 @@ Feature: The starter launches the computer as a container owner
   Scenario: No log of the starter carries a token, a credential or a key
     Given the starter has the owner settings
     When the starter handles the start job
-    Then the starter logged none of the gateway token, the scoped credentials, the invoke key and the signing key
+    Then the starter logged none of the two tokens, the scoped credentials, the invoke key and the signing key
 
   Scenario: The container that takes the turn over under its owner id is served by the gateway with its token
     Given the starter has the owner settings
@@ -90,6 +102,14 @@ Feature: The starter launches the computer as a container owner
     And the owner that took the turn over claimed it under the owner id of the start
     When held computer owner "started" is released
     Then the takeover of "started" ended "done"
+
+  Scenario: The container runs its whole turn through the Front Door holding only its own tokens
+    Given the starter has the owner settings
+    And the front door requires the invoke key "deployment-invoke-key"
+    When the starter handles the start job
+    And the container runs its parked turn on its computer disk through the Front Door with only its task environment
+    Then the container's run on its computer disk ended "done"
+    And the computer published its snapshot and is stopped and its start lease of generation 1 has ended
 
   Scenario: The starter refuses to start without the role the owner credentials come from
     Given the starter has the owner settings without the setting "CHATTICUS_OWNER_SCOPED_ROLE_ARN"

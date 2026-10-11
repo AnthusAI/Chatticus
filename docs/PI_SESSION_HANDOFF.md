@@ -217,8 +217,37 @@ What is not built or not proven:
   cannot be blocked on Fargate (no `NET_ADMIN`). It is mitigated by the empty
   task role and the absent credentials path variable. It is not blocked.
 - **Owner code is readable.** The shell can read the owner bundle code.
-- **No refresh.** Scoped credentials and the gateway token last one hour, with
-  no refresh for longer turns.
+- **No refresh.** Scoped credentials and the two owner tokens last one hour,
+  with no refresh for longer turns.
+- **The owner holds no deployment-wide secret.** The container gets a gateway
+  token and a host token (the same claims signed for two audiences, so neither
+  replays on the other's surface) and never the invoke key. The Front Door
+  accepts the host token on five host routes only (computer, computer state,
+  snapshot hydrated, snapshot published, heartbeat), for the organization it
+  names, while no other owner holds the turn, and a stopped report must name
+  the owner's own start generation. The starter registers the owner as a
+  worker, so the container cannot register workers. A compromised owner is
+  therefore a breach of its own organization's running turn, not of others.
+- **Secrets in ECS task descriptions.** RunTask container overrides carry the
+  two owner tokens and the scoped AWS credentials, and anyone with
+  `ecs:DescribeTasks` can read them while the task is listed (about an hour
+  after it stops). All of them expire one hour after the start and are bound
+  to one organization, turn and owner; nothing long-lived is in the overrides
+  any more. Task definition `secrets` cannot carry them, because those are
+  fixed when the definition is registered and these differ for every run.
+  Restrict `ecs:DescribeTasks` on the owner cluster to the operators who need
+  it.
+- **Invoke key in the CloudFront origin header (open).** The invoke key is
+  stored in plain text as a custom origin header in the CloudFront
+  distribution configuration, readable with `cloudfront:GetDistributionConfig`,
+  and it has never been rotated. Ticket: rotate it, then replace the shared
+  header with an origin credential CloudFront resolves at the edge (origin
+  access control with an IAM-authenticated Function URL).
+- **Worker tokens do not expire.** The opaque bearer token of a customer-account
+  host worker lasts until the worker registers again. It now starts with the
+  worker id, so a request reads one worker record instead of every worker of
+  the organization; expiry would need the customer host worker to re-register
+  on a schedule and is not built.
 - **Gateway controls.** The gateway has no model allow-list and no per-call
   spend ceiling. It records spend at the end of the stream, so a client that
   disconnects early leaves that call unrecorded.

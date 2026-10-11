@@ -56,6 +56,12 @@ import {
 } from "./host.ts";
 import type { ComputerHandoffDependencies } from "../turn/park.ts";
 import { createUserMembershipCache } from "./user-principal.ts";
+import {
+	authenticateOwnerHostRequest,
+	isModelGatewayRequest,
+	ownerHostPrincipalOf,
+	rememberOwnerHostPrincipal,
+} from "./owner-host-auth.ts";
 import { WRITE_GATE_MESSAGE, WRITE_GATE_RETRY_AFTER_SECONDS, type WriteGate } from "../migration/migration-state.ts";
 
 export interface Clock {
@@ -143,8 +149,29 @@ export function createApp(deps: AppDeps): Hono {
 		return next();
 	});
 
+	const modelGatewayDeps = deps.modelGateway;
+	app.use(async (c, next) => {
+		if (c.req.path === "/health" || modelGatewayDeps === undefined) {
+			return next();
+		}
+		const decision = await authenticateOwnerHostRequest(
+			{ signingKey: modelGatewayDeps.signingKey, clock: modelGatewayDeps.clock, turns: modelGatewayDeps.turns },
+			{ method: c.req.method, path: c.req.path, authorization: c.req.header("Authorization") ?? null },
+		);
+		if (decision.kind === "refused") {
+			return c.json({ detail: decision.detail }, decision.status as any);
+		}
+		if (decision.kind === "authenticated") {
+			rememberOwnerHostPrincipal(c.req.raw, decision.principal);
+		}
+		return next();
+	});
+
 	app.use(async (c, next) => {
 		if (c.req.path === "/health") {
+			return next();
+		}
+		if (ownerHostPrincipalOf(c.req.raw) !== null || isModelGatewayRequest(c.req.method, c.req.path)) {
 			return next();
 		}
 		if (deps.invokeKey) {

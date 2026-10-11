@@ -209,6 +209,7 @@ Then("the combined log text of the starter, the owner and the gateway contains n
 		["the scoped secret access key", [FAKE_SCOPED_CREDENTIALS.SecretAccessKey]],
 		["the scoped session token", [FAKE_SCOPED_CREDENTIALS.SessionToken]],
 		["the invoke key", [OWNER_START_INVOKE_KEY]],
+		["the host token", [containerEnvironmentOf(this).get("CHATTICUS_OWNER_HOST_TOKEN") ?? ""]],
 		["the signing key", [SCENARIO_GATEWAY_SIGNING_KEY]],
 		["the vendor key", [SCENARIO_VENDOR_KEY]],
 		["the tool arguments", actions.flatMap((action) => Object.values(action.arguments))],
@@ -233,7 +234,6 @@ When("the container asks the model gateway for an answer through Pi and logs as 
 		{
 			baseUrl: `${await httpBaseUrl(this)}/orgs/${tenantId}/model-gateway/v1`,
 			token: environment.get("CHATTICUS_MODEL_GATEWAY_TOKEN")!,
-			invokeKey: environment.get("CHATTICUS_INVOKE_KEY")!,
 		},
 		consoleLogEmitter({ tenant_id: tenantId, turn_id: environment.get("CHATTICUS_TAKEOVER_TURN_ID")!, owner_id: startedOwnerId(this) }),
 	);

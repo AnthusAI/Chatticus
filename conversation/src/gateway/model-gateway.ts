@@ -137,9 +137,9 @@ function meteredStream(upstream: ReadableStream<Uint8Array>, record: (usage: Usa
 export async function modelGatewayResponsesHandler(c: Context, deps: ModelGatewayDependencies): Promise<Response> {
 	const token = bearerTokenOf(c);
 	if (token === null) return refusal(c, deps, 401, "model gateway token required", "missing_header");
-	const verification = verifySessionToken(deps.signingKey, token, deps.clock.now());
+	const verification = verifySessionToken(deps.signingKey, token, deps.clock.now(), "model-gateway");
 	if (!verification.valid) {
-		const reason = verification.reason === "signature" ? "tampered" : verification.reason;
+		const reason = verification.reason === "signature" ? "tampered" : verification.reason === "audience" ? "wrong_audience" : verification.reason;
 		return refusal(c, deps, 401, "invalid model gateway token", reason);
 	}
 	const { claims } = verification;
