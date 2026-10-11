@@ -619,6 +619,26 @@ export class DynamoMessagingStore implements MessagingStore {
 		}
 	}
 
+	async releaseHostStartLease(tenantId: string, generation: number): Promise<boolean> {
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					UpdateExpression: "REMOVE host_start_lease_expires_at",
+					ConditionExpression: "attribute_exists(pk) AND host_start_generation = :generation",
+					ExpressionAttributeValues: { ":generation": { N: String(generation) } },
+				}),
+			);
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return false;
+			}
+			throw error;
+		}
+	}
+
 	async markHostStartDispatched(tenantId: string, generation: number): Promise<boolean> {
 		try {
 			await this.client.send(

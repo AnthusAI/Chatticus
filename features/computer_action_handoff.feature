@@ -59,6 +59,62 @@ Feature: Computer action handoff
     And the queued start job is delivered to the starter together with a second start job for the same computer
     Then the host start driver was invoked once
 
+  Scenario: An owner that reports the computer stopped hands the next start to the very next start job
+    Given a recording host start driver
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And every queued start job is delivered to the starter
+    And host worker "owner-host" serves the household computer
+    When host worker "owner-host" reports the computer stopped as the owner of start generation 1
+    And every queued start job is delivered to the starter
+    Then the host start driver was invoked twice
+    And the latest host start claimed generation 2
+
+  Scenario: A duplicate start job for the generation that is starting does not start a second owner
+    Given a recording host start driver
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And every queued start job is delivered to the starter
+    And host worker "owner-host" serves the household computer
+    And host worker "owner-host" reports the computer stopped as the owner of start generation 1
+    When the queued start job is delivered to the starter together with a second start job for the same computer
+    Then the host start driver was invoked twice
+    And the latest host start claimed generation 2
+
+  Scenario: The report of an owner of an older generation does not end the lease of the newer generation
+    Given a recording host start driver
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And every queued start job is delivered to the starter
+    And host worker "owner-host" serves the household computer
+    And host worker "owner-host" reports the computer stopped as the owner of start generation 1
+    And every queued start job is delivered to the starter
+    When host worker "owner-host" reports the computer stopped as the owner of start generation 1
+    And every queued start job is delivered to the starter
+    Then the host start driver was invoked twice
+    And the latest host start claimed generation 2
+
+  Scenario: The report of an owner that names a generation the computer has not reached ends no lease
+    Given a recording host start driver
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And every queued start job is delivered to the starter
+    And host worker "owner-host" serves the household computer
+    When host worker "owner-host" reports the computer stopped as the owner of start generation 7
+    And every queued start job is delivered to the starter
+    Then the host start driver was invoked once
+    And the latest host start claimed generation 1
+
+  Scenario: A host that reports the computer stopped without a start generation leaves the start lease alone
+    Given a recording host start driver
+    And bot "Researcher" is asked "write workspace file /workspace/notes.md containing draft-one"
+    And bot "Researcher" works its turn until it waits for the computer
+    And every queued start job is delivered to the starter
+    And host worker "booting-host" serves the household computer
+    When host worker "booting-host" reports the computer stopped as it exits
+    And every queued start job is delivered to the starter
+    Then the host start driver was invoked once
+
   Scenario: An organization that allows only AWS hosts is not served by a live local host
     Given the household computer policy is "aws_only"
     And host worker "garage-mac-1" serves the household computer

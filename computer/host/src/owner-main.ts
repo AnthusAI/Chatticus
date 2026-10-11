@@ -74,6 +74,7 @@ export async function ownerMain(argv: readonly string[]): Promise<number> {
 				tenantId: identity.tenantId,
 				workerId: identity.ownerId,
 				turnId: job.turnId,
+				...(Number.isNaN(generation) ? {} : { startGeneration: generation }),
 				log,
 				liveRoot: liveRootFromEnvironment(),
 				store: snapshotStoreFromEnvironment(),

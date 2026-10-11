@@ -171,6 +171,11 @@ Then("the host start driver was invoked twice", function (this: ChatticusWorld) 
 	assert.equal(driverOf(this).invocations.length, 2);
 });
 
+Then("the latest host start claimed generation {int}", function (this: ChatticusWorld, generation: number) {
+	const invocations = driverOf(this).invocations;
+	assert.equal(invocations.at(-1)?.claim.hostStartGeneration, generation);
+});
+
 Then("the host start claim carries user {string}", function (this: ChatticusWorld, userId: string) {
 	const [invocation] = driverOf(this).invocations;
 	assert.equal(invocation?.claim.userId, userId);

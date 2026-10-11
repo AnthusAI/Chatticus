@@ -77,6 +77,13 @@ export interface MessagingStore {
 	 */
 	claimHostStartGeneration(tenantId: string, expectedGeneration: number, leaseExpiresAt: Date): Promise<Computer | null>;
 	/**
+	 * End the start lease of `generation`, only while it is still the stored generation, so the next start request claims
+	 * a new generation at once instead of waiting for the lease to run out.
+	 *
+	 * @returns false when the stored generation is not `generation` (a newer owner holds the lease) or there is no computer.
+	 */
+	releaseHostStartLease(tenantId: string, generation: number): Promise<boolean>;
+	/**
 	 * Settle the record of a computer whose host is gone, only while the stored generation is still `expectedGeneration`
 	 * and the record still claims a host (unpublished disk writes or a live-writer lock): mark it stopped with every
 	 * readiness gate cleared, clear the dirty flag and the lock, set `hydrateRequired`, and record `hostLostAt` and

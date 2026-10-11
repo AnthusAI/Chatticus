@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { chmodSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Then, When } from "@cucumber/cucumber";
+import { Given, Then, When } from "@cucumber/cucumber";
 import { observeOwnerRun, runOwnerEntryPoint, runOwnerOnComputerDisk, type OwnerEntryPointOutcome } from "../../../computer/host/src/owner.ts";
 import { consoleLogEmitter } from "../../src/observability/log-line.ts";
-import { computerForOrganization } from "../../src/domain/computers.ts";
+import { computerForOrganization, requestComputerHostStart } from "../../src/domain/computers.ts";
 import type { SnapshotObjectStore } from "../../src/snapshot/store.ts";
 import { activeTurnJob, computerOwnerDepsFor } from "../computer-owner.ts";
 import { snapshotStoreForOwner } from "../owner-request-recording.ts";
@@ -16,6 +16,7 @@ type OwnerDiskScenario = {
 	failure: Error | null;
 	stoppedDuringTurn: boolean | null;
 	terminate: (() => Promise<void>) | null;
+	startGeneration: number | null;
 };
 
 const scenarios = new WeakMap<ChatticusWorld, OwnerDiskScenario>();
@@ -23,7 +24,7 @@ const scenarios = new WeakMap<ChatticusWorld, OwnerDiskScenario>();
 function diskScenarioOf(world: ChatticusWorld): OwnerDiskScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
-		scenario = { outcome: null, failure: null, stoppedDuringTurn: null, terminate: null };
+		scenario = { outcome: null, failure: null, stoppedDuringTurn: null, terminate: null, startGeneration: null };
 		scenarios.set(world, scenario);
 	}
 	return scenario;
@@ -66,6 +67,7 @@ async function runOwnerOnDisk(
 					workerId: ownerId,
 					log,
 					...(turnId === undefined ? {} : { turnId }),
+					...(scenario.startGeneration === null ? {} : { startGeneration: scenario.startGeneration }),
 					liveRoot: disk.liveRoot,
 					store,
 					heartbeatTimer: NO_TIMER,
@@ -83,6 +85,36 @@ async function runOwnerOnDisk(
 		scenario.failure = error as Error;
 	}
 }
+
+Given("the starter claimed host start generation {int} for the computer", async function (this: ChatticusWorld, generation: number) {
+	const store = this.messagingStore();
+	const deps = {
+		store,
+		clock: this.clock,
+		ids: this.ids,
+		heartbeatTimeoutSeconds: this.heartbeatTimeoutSeconds,
+		spend: { store, rollups: this.store, environment: this.budgetEnvironment, clock: this.clock },
+	};
+	const claim = await requestComputerHostStart(deps, LIFECYCLE_TENANT, "ryan");
+	assert.equal(claim.hostStartGeneration, generation);
+	assert.equal(claim.newlyClaimed, true);
+});
+
+Given("the owner was started for host start generation {int}", function (this: ChatticusWorld, generation: number) {
+	diskScenarioOf(this).startGeneration = generation;
+});
+
+Then("the host start lease of generation {int} has ended", async function (this: ChatticusWorld, generation: number) {
+	const computer = await computerForOrganization(LIFECYCLE_TENANT, { store: this.messagingStore() });
+	assert.equal(computer.hostStartGeneration, generation);
+	assert.equal(computer.hostStartLeaseExpiresAt, undefined);
+});
+
+Then("the host start lease of generation {int} is still held", async function (this: ChatticusWorld, generation: number) {
+	const computer = await computerForOrganization(LIFECYCLE_TENANT, { store: this.messagingStore() });
+	assert.equal(computer.hostStartGeneration, generation);
+	assert.ok(computer.hostStartLeaseExpiresAt !== undefined && computer.hostStartLeaseExpiresAt.getTime() > this.clock.now().getTime());
+});
 
 When("the owner {string} runs the parked turn on its computer disk", async function (this: ChatticusWorld, ownerId: string) {
 	const job = activeTurnJob(this);

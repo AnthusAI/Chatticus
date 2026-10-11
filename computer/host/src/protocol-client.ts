@@ -101,9 +101,17 @@ export class HostProtocolClient {
 		return this.request("GET", "/computer", hostComputerSchema);
 	}
 
-	/** POST /computer/state with `stopped`: the host says the computer is stopped or running. */
-	async setComputerStopped(stopped: boolean): Promise<HostComputer> {
-		return this.request("POST", "/computer/state", hostComputerSchema, computerStateRequestSchema.parse({ stopped }));
+	/**
+	 * POST /computer/state with `stopped`: the host says the computer is stopped or running. An owner that reports the
+	 * computer stopped passes the start generation it was started for, so the Front Door ends that generation's start lease.
+	 */
+	async setComputerStopped(stopped: boolean, startGeneration?: number): Promise<HostComputer> {
+		return this.request(
+			"POST",
+			"/computer/state",
+			hostComputerSchema,
+			computerStateRequestSchema.parse({ stopped, ...(startGeneration === undefined ? {} : { start_generation: startGeneration }) }),
+		);
 	}
 
 	/** POST /computer/state with `capability_ready`: the host says one capability gate cleared. */

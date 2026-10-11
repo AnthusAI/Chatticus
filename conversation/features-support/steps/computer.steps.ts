@@ -35,6 +35,14 @@ Given("host worker {string} reports the computer stopped as it exits", async fun
 	assert.equal(response.status, 200, response.text);
 });
 
+Given(
+	"host worker {string} reports the computer stopped as the owner of start generation {int}",
+	async function (this: ChatticusWorld, workerId: string, generation: number) {
+		const response = await hostNamed(this, workerId).request("POST", "/computer/state", { body: { stopped: true, start_generation: generation } });
+		assert.equal(response.status, 200, response.text);
+	},
+);
+
 When(
 	"the queued start job is delivered to the starter together with a second start job for the same computer",
 	async function (this: ChatticusWorld) {

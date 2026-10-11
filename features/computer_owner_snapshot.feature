@@ -36,6 +36,37 @@ Feature: The container owner keeps the computer's disk
     And the computer was running while the owner's turn ran
     And the model saw "first draft" in its next request
 
+  Scenario: An owner that stops the computer ends the start lease of the generation it was started for
+    Given the starter claimed host start generation 1 for the computer
+    And the owner was started for host start generation 1
+    And the model is scripted to call "write_workspace" with:
+      """
+      {"path": "/workspace/notes.md", "content": "second draft"}
+      """
+    And the model is scripted to answer "Notes saved."
+    When the member asks "save the notes"
+    And a Lambda-style owner works the turn until it parks
+    And the owner "owner-1" runs the parked turn on its computer disk
+    Then the owner's turn ended "done"
+    And the organization's computer is stopped
+    And the host start lease of generation 1 has ended
+
+  Scenario: An owner that was started for an older generation leaves the newer generation's lease alone
+    Given the starter claimed host start generation 1 for the computer
+    And the owner was started for host start generation 1
+    And 61 seconds pass
+    And the starter claimed host start generation 2 for the computer
+    And the model is scripted to call "write_workspace" with:
+      """
+      {"path": "/workspace/notes.md", "content": "second draft"}
+      """
+    And the model is scripted to answer "Notes saved."
+    When the member asks "save the notes"
+    And a Lambda-style owner works the turn until it parks
+    And the owner "owner-1" runs the parked turn on its computer disk
+    Then the owner's turn ended "done"
+    And the host start lease of generation 2 is still held
+
   Scenario: The owner publishes the workspace it changed so the next host finds it
     Given the model is scripted to call "write_workspace" with:
       """
