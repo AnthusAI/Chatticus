@@ -37,7 +37,7 @@ import { evaluateModelToolRequest } from "../pi/gate.ts";
 import { PolicyControl } from "../policy/policy-control.ts";
 import type { PolicyStore } from "../store/policy-store.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
-import { type ParkDependencies, actionDependenciesOf, resumeTurnForAction } from "../turn/park.ts";
+import { type ParkDependencies, actionDependenciesOf, resumeTurnForAction, startOwnerForParkedTurns } from "../turn/park.ts";
 import { MemberStandingRequiredError } from "./errors.ts";
 import type { Clock, IdSource } from "./app.ts";
 import { computerPayload, actionPayload } from "./routes/computers.ts";
@@ -101,6 +101,7 @@ export async function hostComputerStateHandler(c: Context, deps: HostRouteDepend
 	let computer = await computerForOrganization(tenantId, deps);
 	if (body.value.stopped !== undefined) {
 		computer = await setComputerStopped(tenantId, body.value.stopped, deps);
+		if (body.value.stopped) await startOwnerForParkedTurns(deps.park, tenantId);
 	}
 	if (body.value.capability_ready !== undefined) {
 		computer = await recordComputerCapabilityReady(tenantId, body.value.capability_ready, deps);

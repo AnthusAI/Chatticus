@@ -140,6 +140,29 @@ export async function ensureHostForParkedTurn(deps: ParkDependencies, turn: Turn
 }
 
 /**
+ * Start the next owner for every turn parked on the organization computer's unclaimed actions. Called by the control plane
+ * right after an owner reports the computer stopped, in the same request, so the turns that waited behind that owner do
+ * not wait for a probe tick. The turns are found through the organization's open actions: a turn counts only when it is
+ * still active, still waiting, and parked on that very action. Each start goes through `ensureHostForParkedTurn`, so it is
+ * routed like a park-time start and the starter shares one start between the jobs.
+ *
+ * @param deps The handoff dependencies.
+ * @param tenantId Organization.
+ * @returns The ids of the turns a start job was published for.
+ */
+export async function startOwnerForParkedTurns(deps: ParkDependencies, tenantId: string): Promise<string[]> {
+	const started: string[] = [];
+	for (const action of await deps.computer.actions.listOpen(tenantId)) {
+		if (action.status !== "requested") continue;
+		const turn = await deps.turns.store.getTurn(tenantId, action.turnId);
+		if (turn === null || turn.status !== "active" || turn.waitingFor === null) continue;
+		if (turn.pendingComputerTool?.actionId !== action.actionId) continue;
+		if (await ensureHostForParkedTurn(deps, turn)) started.push(turn.turnId);
+	}
+	return started;
+}
+
+/**
  * End the waiting of a turn and publish the run that resumes it. Safe to repeat: only the call that clears the waiting
  * publishes, and the run is deduplicated by the action that ended the waiting.
  *
