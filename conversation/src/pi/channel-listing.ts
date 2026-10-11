@@ -32,9 +32,9 @@ const authoritative = (candidate: { line: ChannelLogLine; botId: string }, curre
 
 /**
  * Serve a channel's messages by merging, for every participating bot session, its channel log and its mailbox. Sessions
- * are read without owning them. A message in several sessions appears once, a bot's reply is taken from its author's
- * session, and a mailbox item counts only until it is drained into a session. Bodies are fetched only for sequences
- * after `afterSeq`.
+ * are read without owning or creating them: a bot with no session yet contributes only its mailbox. A message in
+ * several sessions appears once, a bot's reply is taken from its author's session, and a mailbox item counts only
+ * until it is drained into a session. Bodies are fetched only for sequences after `afterSeq`.
  *
  * @param dependencies Clients, tables and bucket.
  * @param tenantId Organization.
@@ -53,7 +53,7 @@ export async function listChannelMessages(
 	const mailboxStore: MailboxStore = { client: dependencies.client, tableName: dependencies.messagingTableName };
 	const bySeq = new Map<number, { listed: Omit<ListedMessage, "body">; body: Promise<string>; line?: ChannelLogLine; botId: string }>();
 	for (const botId of botIds) {
-		const storage = await IndexedStorage.open({
+		const storage = await IndexedStorage.openExisting({
 			client: dependencies.client,
 			s3: dependencies.s3,
 			tableName: dependencies.conversationsTableName,
@@ -61,8 +61,13 @@ export async function listChannelMessages(
 			storageId: storageIdFor(tenantId, botId, channelId),
 			commitCache: dependencies.commitCache,
 		});
-		const lines = (await readLog(storage)).filter((line) => line.seq > afterSeq);
-		for (const line of lines) {
+		const logged =
+			storage === undefined
+				? []
+				: (await readLog(storage))
+						.filter((line) => line.seq > afterSeq)
+						.map((line) => ({ line, body: () => readEntryBody(storage, line.entryId) }));
+		for (const { line, body } of logged) {
 			const current = bySeq.get(line.seq);
 			if (current?.line !== undefined && !authoritative({ line, botId }, { line: current.line, botId: current.botId })) continue;
 			bySeq.set(line.seq, {
@@ -78,7 +83,7 @@ export async function listChannelMessages(
 					addressed_to_bot_id: line.addressedToBotId,
 					created_at: line.createdAt,
 				},
-				body: readEntryBody(storage, line.entryId).then((body) => body ?? ""),
+				body: body().then((text) => text ?? ""),
 			});
 		}
 		for (const item of await listMailbox(mailboxStore, tenantId, botId, channelId, afterSeq)) {

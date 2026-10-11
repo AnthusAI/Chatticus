@@ -118,3 +118,33 @@ Feature: Message admission and listing
     Then tenant "anthus" can list channels for user "ryan":
       | 1 |
       | 2 |
+
+  Scenario: Listing the messages of a channel that has no session yet returns an empty list and writes nothing
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has opened a channel with bots:
+      | Researcher |
+    When the human opens the message list of the channel
+    Then the message list answers with 0 messages
+    And the message list sent at least one read request
+    And the message list wrote nothing to the session store or its bucket
+
+  Scenario: Listing the messages of a channel whose bot holds a session reads it without writing
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has opened a channel with bots:
+      | Researcher |
+    And bot "Researcher" already holds a session on the channel with message 1 from human "ryan" saying "hello team"
+    When the human opens the message list of the channel
+    Then the message list answers with 1 messages
+    And the message list includes the body "hello team"
+    And the message list wrote nothing to the session store or its bucket
+
+  Scenario: A real storage error while listing a channel's messages is a failure, not an empty list
+    Given an empty control plane
+    And tenant "anthus" user "ryan" has a bot named "Researcher"
+    And tenant "anthus" user "ryan" has opened a channel with bots:
+      | Researcher |
+    And every session store request of the Front Door's message listing is refused as unauthorized
+    When the human opens the message list of the channel
+    Then the message list fails with "AccessDeniedException"

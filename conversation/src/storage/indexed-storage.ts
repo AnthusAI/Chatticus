@@ -233,29 +233,44 @@ export class IndexedStorage implements Storage {
 		return Number(allocated);
 	}
 
-	private async load(): Promise<void> {
+	/**
+	 * Open a storage that must already exist, without writing anything. A reader that holds no write permission uses
+	 * this: a session nobody has created yet is simply absent, which is not an error and must not create it.
+	 *
+	 * @param options Storage options.
+	 * @returns The open storage, or `undefined` when no session exists for the storage identity.
+	 */
+	static async openExisting(options: IndexedStorageOptions): Promise<IndexedStorage | undefined> {
+		const storage = new IndexedStorage(options);
+		return (await storage.loadExisting()) ? storage : undefined;
+	}
+
+	private async loadExisting(): Promise<boolean> {
 		const [meta, snapshotReference] = await Promise.all([
 			this.getItem("META"),
 			readSnapshotReference(this.client, this.tableName, this.storageId),
 		]);
+		if (meta === undefined) return false;
 		this.snapshotReference = snapshotReference;
-		if (meta === undefined) {
-			try {
-				await this.client.send(
-					new PutItemCommand({
-						TableName: this.tableName,
-						Item: { pk: { S: this.pk }, sk: { S: "META" }, seq: { N: "0" }, nextId: { N: "2" } },
-						ConditionExpression: "attribute_not_exists(pk)",
-					}),
-				);
-			} catch (error) {
-				if ((error as Error).name !== "ConditionalCheckFailedException") throw error;
-				await this.load();
-			}
-			return;
-		}
 		this.seq = number(meta, "seq")!;
 		this.nextId = number(meta, "nextId")!;
+		return true;
+	}
+
+	private async load(): Promise<void> {
+		if (await this.loadExisting()) return;
+		try {
+			await this.client.send(
+				new PutItemCommand({
+					TableName: this.tableName,
+					Item: { pk: { S: this.pk }, sk: { S: "META" }, seq: { N: "0" }, nextId: { N: "2" } },
+					ConditionExpression: "attribute_not_exists(pk)",
+				}),
+			);
+		} catch (error) {
+			if ((error as Error).name !== "ConditionalCheckFailedException") throw error;
+			await this.load();
+		}
 	}
 
 	async commit(writes: readonly StorageWrite[], _context: Context): Promise<Seq> {
