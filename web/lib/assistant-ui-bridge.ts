@@ -1,6 +1,7 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 
-import type { Message, Turn } from "./api";
+import type { Message, Turn, TurnEvent } from "./api";
+import { reduceTurnActivity, type TurnActivity } from "./turn-activity";
 import type { TurnUiStatus } from "./workspace-state";
 
 export const STREAMING_MESSAGE_ID_PREFIX = "chatticus:streaming:";
@@ -15,6 +16,7 @@ export type ChatticusThreadMessage =
       waitingFor: string | null;
       turnStatus: TurnUiStatus;
       slow: boolean;
+      activity: TurnActivity;
     }
   | { kind: "failed"; failure: FailedTurn };
 
@@ -75,6 +77,7 @@ export function buildChatticusThreadMessages(
   turnStatus: TurnUiStatus,
   failedTurn: FailedTurn | null = null,
   slow = false,
+  turnEvents: readonly TurnEvent[] = [],
 ): ChatticusThreadMessage[] {
   const committed: ChatticusThreadMessage[] = messages.map((message) => ({
     kind: "committed" as const,
@@ -105,6 +108,7 @@ export function buildChatticusThreadMessages(
       waitingFor: turn.waiting_for,
       turnStatus,
       slow,
+      activity: reduceTurnActivity(turnEvents),
     },
   ];
 }
@@ -184,6 +188,8 @@ export function convertChatticusThreadMessage(
       custom: {
         authorBotName,
         isStreamingShell: !item.body,
+        activity: item.activity,
+        slow: item.slow,
         isStreaming: true,
       },
     },

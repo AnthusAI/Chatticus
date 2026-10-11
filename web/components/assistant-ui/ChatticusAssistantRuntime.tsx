@@ -7,7 +7,7 @@ import {
 } from "@assistant-ui/react";
 import { useCallback, useMemo, type ReactNode } from "react";
 
-import type { Message, Turn } from "@/lib/api";
+import type { Message, Turn, TurnEvent } from "@/lib/api";
 import {
   buildChatticusThreadMessages,
   convertChatticusThreadMessage,
@@ -33,6 +33,7 @@ export type ChatticusAssistantRuntimeProps = {
   onSendMessage: (text: string) => Promise<void>;
   failedTurn?: FailedTurn | null;
   turnIsSlow?: boolean;
+  turnEvents?: readonly TurnEvent[];
   onRetryFailedTurn?: (failure: FailedTurn) => Promise<void>;
   threadProps?: Omit<ChatticusAssistantThreadProps, "className">;
   className?: string;
@@ -48,14 +49,15 @@ function ChatticusAssistantRuntimeInner({
   onSendMessage,
   failedTurn = null,
   turnIsSlow = false,
+  turnEvents = [],
   onRetryFailedTurn,
   threadProps,
   className,
 }: ChatticusAssistantRuntimeProps) {
   const threadMessages = useMemo(
     () =>
-      buildChatticusThreadMessages(messages, turn, progress, turnStatus, failedTurn, turnIsSlow),
-    [failedTurn, messages, progress, turn, turnIsSlow, turnStatus],
+      buildChatticusThreadMessages(messages, turn, progress, turnStatus, failedTurn, turnIsSlow, turnEvents),
+    [failedTurn, messages, progress, turn, turnEvents, turnIsSlow, turnStatus],
   );
   const retryFailedTurn = useMemo(
     () =>

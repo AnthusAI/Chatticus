@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { Message } from "./api";
+import { EMPTY_TURN_ACTIVITY } from "./turn-activity";
 import {
   buildChatticusThreadMessages,
   convertChatticusThreadMessage,
@@ -159,6 +160,7 @@ describe("convertChatticusThreadMessage", () => {
         waitingFor: null,
         turnStatus: "active",
         slow: false,
+        activity: EMPTY_TURN_ACTIVITY,
       },
       botNames,
     );
@@ -179,6 +181,7 @@ describe("convertChatticusThreadMessage", () => {
         waitingFor: "approval",
         turnStatus: "active",
         slow: false,
+        activity: EMPTY_TURN_ACTIVITY,
       },
       botNames,
     );
@@ -198,5 +201,25 @@ describe("textFromAppendMessageContent", () => {
       ]),
       "Hello world",
     );
+  });
+});
+
+describe("streaming rows carry the turn activity", () => {
+  it("derives the activity from the turn events", () => {
+    const turn = {
+      turn_id: "turn-1",
+      bot_id: "b1",
+      channel_id: "c1",
+      status: "active",
+      waiting_for: null,
+    } as unknown as Parameters<typeof buildChatticusThreadMessages>[1];
+    const rows = buildChatticusThreadMessages([], turn, "", "active", null, false, [
+      { kind: "turn.started", seq: 1, turn_id: "turn-1" },
+      { kind: "model.request", seq: 2, turn_id: "turn-1" },
+    ]);
+    const converted = convertChatticusThreadMessage(rows[0], new Map());
+    const activity = converted.metadata?.custom?.activity as { phaseText: string; showWorkingIndicator: boolean };
+    assert.equal(activity.phaseText, "Thinking");
+    assert.equal(activity.showWorkingIndicator, true);
   });
 });

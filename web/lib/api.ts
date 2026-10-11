@@ -68,6 +68,22 @@ export type TurnEvent = {
   turn_id: string;
   token?: string;
   body?: string;
+  /** Reasoning summary on turn.thinking. */
+  text?: string;
+  /** Tool name on tool.call and tool.result. */
+  tool?: string;
+  /** Pairs a tool.call with its tool.result. */
+  call_id?: string;
+  summary?: string;
+  arguments?: Record<string, unknown>;
+  arguments_truncated?: boolean;
+  ok?: boolean;
+  output?: string;
+  output_truncated?: boolean;
+  /** Null when the call began under an earlier attempt. */
+  duration_ms?: number | null;
+  /** Phase text on computer.starting and computer.ready. */
+  detail?: string;
 };
 
 export type Task = {
