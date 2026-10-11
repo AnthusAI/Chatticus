@@ -129,7 +129,7 @@ On `develop` and deployed to development only; not on `main`.
   the turn at once with a readable reason; the failed reply stays visible with
   that reason and a Retry; `GET /channels/{id}/turns/latest` recovers it; a
   slow turn shows a notice.
-- **Model**: the worker uses OpenAI `gpt-5-nano`.
+- **Model**: bot turns run on OpenAI `gpt-6-luna` at low reasoning; voice understanding uses `gpt-5-nano`.
 
 Still open on voice (epic chatticus-628234): a 60-minute live-mic and battery
 run, an iOS device test, and COOP/COEP against sign-in before staging and
@@ -322,7 +322,7 @@ flowchart LR
   DDB[("DynamoDB: messages, chunks, roster")]
   SQS["SQS turn jobs"]
   W["Computerless worker Lambda"]
-  OA["OpenAI<br/>gpt-5-nano"]
+  OA["OpenAI<br/>gpt-6-luna"]
 
   Caller --> CF --> FD
   FD --> DDB

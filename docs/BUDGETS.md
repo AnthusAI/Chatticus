@@ -57,6 +57,33 @@ that cannot be attributed to either.
 parameter the human seeds before live turns. Each deployment gets its own
 OpenAI vendor project and key so vendor spend is attributable.
 
+## Vendor model prices
+
+The ledger prices a call at write time from a `VendorPriceBook`. Both
+production compositions (the turn executor and the front door, whose model
+gateway and voice understanding also write the ledger) use
+`defaultVendorPriceBook()` from `conversation/src/ledger/vendor-prices.ts`,
+a single table of OpenAI list prices in USD per million tokens:
+
+| Model | Input | Output |
+| --- | --- | --- |
+| `gpt-6-luna` (bot turns, low reasoning) | 0.10 | 0.50 |
+| `gpt-5-nano` (voice understanding) | 0.05 | 0.40 |
+| `gpt-5-mini` | 0.25 | 2.00 |
+
+The figures come from LiteLLM's public `model_prices_and_context_window.json`
+as fetched on 2026-10-11. That is a third-party catalog, not OpenAI's price
+page; re-check it when a price matters. The cached-input discount is not
+modelled (the ledger has one input counter), so cost is a slight overestimate,
+and the long-context tier of `gpt-6-luna` (input above 272000 tokens) is not
+modelled. A model with no entry still records tokens, with null dollars. A
+typical turn (about 4,700 input and 220 output tokens on `gpt-6-luna`) costs
+about $0.00058.
+
+Dollars in the ledger feed the daily rollup's `vendor_cost_usd` and
+`combined_report_usd`, and so the month-to-date meter that the per-organization
+computer-work ceiling reads.
+
 ## Configurable limits
 
 Limits are deployment configuration, not constants. A `ChatticusBudgets`
