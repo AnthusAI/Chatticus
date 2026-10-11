@@ -217,7 +217,7 @@ Then("the storage fence of the second turn is higher than that of the first turn
 });
 
 async function toolResultsOf(world: ChatticusWorld, turnId: string): Promise<string[]> {
-	return (await readTurnEvents(world, STORY_TENANT, turnId)).filter((event) => event.kind === "tool.result").map((event) => String(event.body));
+	return (await readTurnEvents(world, STORY_TENANT, turnId)).filter((event) => event.kind === "tool.result").map((event) => String(event.output));
 }
 
 Then("the tool results of the first and second turn are identical", async function (this: ChatticusWorld) {

@@ -132,3 +132,4 @@ features/owner_start_observability.feature
 features/organization_aws_home_on_enable.feature
 features/owner_host_token.feature
 features/invoke_key_rotation.feature
+features/rich_turn_events.feature

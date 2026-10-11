@@ -160,8 +160,8 @@ Then(
 		const result = kinds.indexOf("tool.result");
 		assert.ok(call >= 0 && result > call && kinds.indexOf("turn.completed") > result, kinds.join(","));
 		const events = await readTurnEvents(this, channel.tenantId, currentTurnOf(this));
-		assert.equal(events[call]!.body, tool);
-		assert.equal(events[call]!.action_id, events[result]!.action_id);
+		assert.equal(events[call]!.tool, tool);
+		assert.equal(events[call]!.call_id, events[result]!.call_id);
 	},
 );
 

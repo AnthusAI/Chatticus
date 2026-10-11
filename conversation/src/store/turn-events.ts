@@ -1,5 +1,5 @@
 import { type AttributeValue, type DynamoDBClient, QueryCommand } from "@aws-sdk/client-dynamodb";
-import type { PendingComputerTool, TurnEvent, TurnEventKind } from "../domain/turns.ts";
+import type { PendingComputerTool, ToolEventArguments, TurnEvent, TurnEventKind } from "../domain/turns.ts";
 
 /**
  * Partition key of a turn's items, shared by the control record and its events.
@@ -48,12 +48,20 @@ export function turnEventItem(event: TurnEvent, expiresAt: Date): Record<string,
 	if (event.body !== undefined) {
 		item.body = { S: event.body };
 	}
-	if (event.actionId !== undefined) {
-		item.action_id = { S: event.actionId };
-	}
 	if (event.attemptId !== undefined) {
 		item.attempt_id = { S: event.attemptId };
 	}
+	if (event.tool !== undefined) item.tool = { S: event.tool };
+	if (event.callId !== undefined) item.call_id = { S: event.callId };
+	if (event.summary !== undefined) item.summary = { S: event.summary };
+	if (event.toolArguments !== undefined) item.tool_arguments = { S: JSON.stringify(event.toolArguments) };
+	if (event.argumentsTruncated !== undefined) item.arguments_truncated = { BOOL: event.argumentsTruncated };
+	if (event.ok !== undefined) item.ok = { BOOL: event.ok };
+	if (event.output !== undefined) item.output = { S: event.output };
+	if (event.outputTruncated !== undefined) item.output_truncated = { BOOL: event.outputTruncated };
+	if (event.durationMs !== undefined && event.durationMs !== null) item.duration_ms = { N: String(event.durationMs) };
+	if (event.text !== undefined) item.text = { S: event.text };
+	if (event.detail !== undefined) item.detail = { S: event.detail };
 	if (event.pendingComputerTool !== undefined) {
 		item.pending_computer_tool = { S: encodePendingComputerTool(event.pendingComputerTool) };
 	}
@@ -94,12 +102,20 @@ export function turnEventFromItem(item: Record<string, AttributeValue>): TurnEve
 	if (item.body?.S !== undefined) {
 		event.body = item.body.S;
 	}
-	if (item.action_id?.S !== undefined) {
-		event.actionId = item.action_id.S;
-	}
 	if (item.attempt_id?.S !== undefined) {
 		event.attemptId = item.attempt_id.S;
 	}
+	if (item.tool?.S !== undefined) event.tool = item.tool.S;
+	if (item.call_id?.S !== undefined) event.callId = item.call_id.S;
+	if (item.summary?.S !== undefined) event.summary = item.summary.S;
+	if (item.tool_arguments?.S !== undefined) event.toolArguments = JSON.parse(item.tool_arguments.S) as ToolEventArguments;
+	if (item.arguments_truncated?.BOOL !== undefined) event.argumentsTruncated = item.arguments_truncated.BOOL;
+	if (item.ok?.BOOL !== undefined) event.ok = item.ok.BOOL;
+	if (item.output?.S !== undefined) event.output = item.output.S;
+	if (item.output_truncated?.BOOL !== undefined) event.outputTruncated = item.output_truncated.BOOL;
+	if (item.duration_ms?.N !== undefined) event.durationMs = Number(item.duration_ms.N);
+	if (item.text?.S !== undefined) event.text = item.text.S;
+	if (item.detail?.S !== undefined) event.detail = item.detail.S;
 	if (item.pending_computer_tool?.S !== undefined) {
 		event.pendingComputerTool = decodePendingComputerTool(item.pending_computer_tool.S);
 	}

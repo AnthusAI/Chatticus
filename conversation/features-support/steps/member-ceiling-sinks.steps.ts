@@ -77,5 +77,5 @@ Then("the member authority ceiling denial is recorded for the turn", async funct
 	const { tenantId, turnId } = activeTurnOf(this);
 	const results = (await readTurnEvents(this, tenantId, turnId)).filter((event) => event.kind === "tool.result");
 	assert.ok(results.length > 0, "The journal has no tool result.");
-	assert.ok(String(results.at(-1)!.body).includes(`${BLOCKED_PREFIX} ${MEMBER_STANDING_DENIAL}`), String(results.at(-1)!.body));
+	assert.ok(String(results.at(-1)!.output).includes(`${BLOCKED_PREFIX} ${MEMBER_STANDING_DENIAL}`), String(results.at(-1)!.output));
 });

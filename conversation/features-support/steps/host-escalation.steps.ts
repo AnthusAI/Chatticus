@@ -66,8 +66,8 @@ Given(
 Then("the turn journal contains the command output from the host", async function (this: ChatticusWorld) {
 	const { tenantId, turnId } = activeTurnOf(this);
 	const results = (await readTurnEvents(this, tenantId, turnId))
-		.filter((event) => event.kind === "tool.result" && String(event.body).startsWith("run_terminal:exit="))
-		.map((event) => String(event.body));
+		.filter((event) => event.kind === "tool.result" && String(event.output).startsWith("run_terminal:exit="))
+		.map((event) => String(event.output));
 	assert.ok(results.length > 0, "The journal has no run_terminal result from the host.");
 	assert.ok(results.at(-1)!.includes("host-marker"), results.at(-1));
 });

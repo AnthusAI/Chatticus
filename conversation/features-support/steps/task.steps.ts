@@ -91,11 +91,11 @@ async function callTaskToolInTurn(world: ChatticusWorld, botName: string, args: 
 	assert.equal(await runBotTurn(world, botName), "done");
 	const events = await readTurnEvents(world, bot.tenantId, currentTurnOf(world));
 	const call = events.find((event) => event.kind === "tool.call");
-	assert.equal(call?.body, TASK_TOOL_NAME, "The turn did not call the task tool");
-	const result = events.find((event) => event.kind === "tool.result" && event.action_id === call?.action_id);
+	assert.equal(call?.tool, TASK_TOOL_NAME, "The turn did not call the task tool");
+	const result = events.find((event) => event.kind === "tool.result" && event.call_id === call?.call_id);
 	assert.ok(result, "The task tool call has no result in the turn");
-	scenarioOf(world).toolResultBody = String(result.body);
-	return String(result.body);
+	scenarioOf(world).toolResultBody = String(result.output);
+	return String(result.output);
 }
 
 function lastTaskOf(world: ChatticusWorld): TaskPayload {

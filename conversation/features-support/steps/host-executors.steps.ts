@@ -73,9 +73,9 @@ async function resultsOf(world: ChatticusWorld, toolName: string): Promise<Journ
 	const { tenantId, turnId } = activeTurnOf(world);
 	const events = await readTurnEvents(world, tenantId, turnId);
 	const results: JournaledResult[] = [];
-	for (const call of events.filter((event) => event.kind === "tool.call" && event.body === toolName)) {
-		const result = events.find((event) => event.kind === "tool.result" && event.action_id === call.action_id);
-		if (result !== undefined) results.push({ call, body: String(result.body) });
+	for (const call of events.filter((event) => event.kind === "tool.call" && event.tool === toolName)) {
+		const result = events.find((event) => event.kind === "tool.result" && event.call_id === call.call_id);
+		if (result !== undefined) results.push({ call, body: String(result.output) });
 	}
 	return results;
 }

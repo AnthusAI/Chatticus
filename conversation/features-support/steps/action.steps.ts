@@ -40,7 +40,7 @@ Then("the turn journal shows the tool call before the waiting event", async func
 	const pending = events[waiting]!.pending_computer_tool;
 	assert.ok(pending, "turn.waiting names no pending computer tool");
 	const actions = await actionStoreOf(this).listForTurn(...Object.values(activeTurnOf(this)) as [string, string]);
-	assert.equal(actions[0]!.callId, events[call]!.action_id, "The action is not keyed by the journaled call id");
+	assert.equal(actions[0]!.callId, events[call]!.call_id, "The action is not keyed by the journaled call id");
 	assert.equal(pending.action_id, actions[0]!.actionId);
 });
 
@@ -52,7 +52,7 @@ Then("the turn is completed", async function (this: ChatticusWorld) {
 Then("the turn journal records one tool result containing {string}", async function (this: ChatticusWorld, text: string) {
 	const results = (await journalNow(this)).filter((event) => event.kind === "tool.result");
 	assert.equal(results.length, 1, JSON.stringify(results));
-	assert.ok(String(results[0]!.body).includes(text), String(results[0]!.body));
+	assert.ok(String(results[0]!.output).includes(text), String(results[0]!.output));
 });
 
 Then("the model saw {string} in its next request", function (this: ChatticusWorld, text: string) {

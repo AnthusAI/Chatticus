@@ -9,13 +9,13 @@ const BLOCKED_PREFIX = "Tool call blocked:";
 Then("the turn is not denied for lack of run_terminal on the grant", async function (this: ChatticusWorld) {
 	const { tenantId, turnId } = activeTurnOf(this);
 	const events = await readTurnEvents(this, tenantId, turnId);
-	const calls = events.filter((event) => event.kind === "tool.call" && event.body === "run_terminal");
+	const calls = events.filter((event) => event.kind === "tool.call" && event.tool === "run_terminal");
 	assert.ok(calls.length > 0, "The model's run_terminal call never reached the gate.");
 	const denials = events.filter(
 		(event) =>
 			event.kind === "tool.result" &&
-			calls.some((call) => call.action_id === event.action_id) &&
-			String(event.body).includes(BLOCKED_PREFIX),
+			calls.some((call) => call.call_id === event.call_id) &&
+			String(event.output).includes(BLOCKED_PREFIX),
 	);
 	assert.deepEqual(denials, [], "The run_terminal call was denied.");
 });
