@@ -56,6 +56,7 @@ import {
 } from "./host.ts";
 import type { ComputerHandoffDependencies } from "../turn/park.ts";
 import { createUserMembershipCache } from "./user-principal.ts";
+import { acceptsInvokeKey, type InvokeKeySource } from "../auth/invoke-key-source.ts";
 import {
 	authenticateOwnerHostRequest,
 	isModelGatewayRequest,
@@ -99,7 +100,8 @@ export interface AppDeps {
 	computer: ComputerHandoffDependencies;
 	/** The month-to-date rollup rows the spend ceiling pause reads; the budget environment is `environment`. */
 	budgetRollups: BudgetRollupReader;
-	invokeKey: string | null;
+	/** The invoke keys CloudFront may present, read on every request from a source that caches; null turns the gate off. */
+	invokeKeys: InvokeKeySource | null;
 	/** While the transcript migration holds the gate closed, every write route answers 503; reads are unaffected. */
 	writeGate?: WriteGate;
 	/** The deployment-wide operator bearer secret; the operator routes refuse every caller when it is empty. */
@@ -174,9 +176,9 @@ export function createApp(deps: AppDeps): Hono {
 		if (ownerHostPrincipalOf(c.req.raw) !== null || isModelGatewayRequest(c.req.method, c.req.path)) {
 			return next();
 		}
-		if (deps.invokeKey) {
+		if (deps.invokeKeys) {
 			const provided = c.req.header(INVOKE_HEADER);
-			if (!provided || !invokeKeysMatch(provided, deps.invokeKey)) {
+			if (!provided || !acceptsInvokeKey(provided, await deps.invokeKeys(), invokeKeysMatch)) {
 				return c.json(
 					{
 						detail: "invoke key required",

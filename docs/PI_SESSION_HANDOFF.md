@@ -247,10 +247,13 @@ What is not built or not proven:
   it.
 - **Invoke key in the CloudFront origin header (open).** The invoke key is
   stored in plain text as a custom origin header in the CloudFront
-  distribution configuration, readable with `cloudfront:GetDistributionConfig`,
-  and it has never been rotated. Ticket: rotate it, then replace the shared
+  distribution configuration, readable with `cloudfront:GetDistributionConfig`.
+  It is now rotatable without downtime (`infra/rotate-invoke-key.sh`; runbook,
+  consumers and cache behavior in [AWS authentication](AWS_AUTH.md)), but it
+  stays in the distribution configuration. Still open: replace the shared
   header with an origin credential CloudFront resolves at the edge (origin
-  access control with an IAM-authenticated Function URL).
+  access control with an IAM-authenticated Function URL; obstacles listed
+  there).
 - **Worker tokens do not expire.** The opaque bearer token of a customer-account
   host worker lasts until the worker registers again. It now starts with the
   worker id, so a request reads one worker record instead of every worker of

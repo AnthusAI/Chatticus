@@ -1,3 +1,4 @@
+import { INVOKE_KEY_CACHE_SECONDS } from "../auth/invoke-key-source.ts";
 import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
@@ -50,6 +51,7 @@ async function readSecretValue(secrets: StarterSecretReader, secretArn: string):
 }
 
 let cachedDependencies: ComputerStarterDependencies | null = null;
+let cachedDependenciesComposedAtMilliseconds = 0;
 
 /**
  * Build the starter from the environment: the stores, the queues and the drivers. A deployment that wires the ECS starter
@@ -149,7 +151,11 @@ export async function composeComputerStarterDependencies(
 }
 
 async function starterDependencies(): Promise<ComputerStarterDependencies> {
-	if (cachedDependencies === null) cachedDependencies = await composeComputerStarterDependencies();
+	const now = Date.now();
+	if (cachedDependencies === null || now - cachedDependenciesComposedAtMilliseconds >= INVOKE_KEY_CACHE_SECONDS * 1000) {
+		cachedDependencies = await composeComputerStarterDependencies();
+		cachedDependenciesComposedAtMilliseconds = now;
+	}
 	return cachedDependencies;
 }
 

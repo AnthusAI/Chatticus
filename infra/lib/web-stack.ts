@@ -72,6 +72,11 @@ export class WebStack extends cdk.Stack {
     }
 
     const invokeSecret = props.invokeSecret;
+    const invokeKeyVersionId = this.node.tryGetContext("invokeKeyVersionId");
+    const invokeKeyForOrigin =
+      typeof invokeKeyVersionId === "string" && invokeKeyVersionId !== ""
+        ? cdk.SecretValue.secretsManager(invokeSecret.secretArn, { versionId: invokeKeyVersionId })
+        : invokeSecret.secretValue;
     const frontDoorFunctionUrl = props.frontDoorFunctionUrl;
 
     const siteBucket = new s3.Bucket(this, "SiteBucket", {
@@ -137,7 +142,7 @@ export class WebStack extends cdk.Stack {
             readTimeout: cdk.Duration.seconds(originReadTimeoutSeconds),
             responseCompletionTimeout: cdk.Duration.seconds(900),
             customHeaders: {
-              "X-Chatticus-Invoke-Key": invokeSecret.secretValue.unsafeUnwrap(),
+              "X-Chatticus-Invoke-Key": invokeKeyForOrigin.unsafeUnwrap(),
             },
           }),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,

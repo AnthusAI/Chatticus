@@ -59,8 +59,32 @@ if aws cloudformation describe-stacks --stack-name ChatticusDns >/dev/null 2>&1;
   exit 1
 fi
 
+# CloudFront carries the invoke key as an origin header resolved by CloudFormation at deploy time. An unchanged
+# template is not redeployed, so the web stack is pinned to the secret's current version id: a rotation then changes
+# the template and CloudFormation resolves the new value. Only metadata is read, never the key.
+INVOKE_KEY_CDK_CONTEXT=""
+if [ "$2" = "web" ]; then
+  INVOKE_KEY_SECRET_ARN="$(
+    aws ssm get-parameter \
+      --name "/chatticus/${ENVIRONMENT}/thin-turn/invoke-key-secret-arn" \
+      --query 'Parameter.Value' \
+      --output text
+  )"
+  INVOKE_KEY_VERSION_ID="$(
+    aws secretsmanager list-secret-version-ids \
+      --secret-id "${INVOKE_KEY_SECRET_ARN}" \
+      --query "Versions[?contains(VersionStages, 'AWSCURRENT')].VersionId | [0]" \
+      --output text
+  )"
+  if ! printf '%s' "${INVOKE_KEY_VERSION_ID}" | grep -Eq '^[0-9a-fA-F-]{32,64}$'; then
+    echo "Could not read the current version id of the ${ENVIRONMENT} invoke key secret; refusing to deploy a stale origin header." >&2
+    exit 1
+  fi
+  INVOKE_KEY_CDK_CONTEXT="-c invokeKeyVersionId=${INVOKE_KEY_VERSION_ID}"
+fi
+
 # shellcheck source=budgets-deploy-context.sh
 . ./budgets-deploy-context.sh
 
 # shellcheck disable=SC2086
-npx cdk deploy "${STACK}" --exclusively --require-approval never -c "chatticusAccountEnvironment=${ENVIRONMENT}" ${BUDGETS_CDK_CONTEXT} ${INTEGRATION_TEST_CDK_CONTEXT}
+npx cdk deploy "${STACK}" --exclusively --require-approval never -c "chatticusAccountEnvironment=${ENVIRONMENT}" ${BUDGETS_CDK_CONTEXT} ${INTEGRATION_TEST_CDK_CONTEXT} ${INVOKE_KEY_CDK_CONTEXT}

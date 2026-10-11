@@ -18,7 +18,11 @@ import {
   listAssetRelativeFiles,
   type AssetManifest,
 } from "./deploy-website-assets";
-import { synthWebStack, synthWebStackWithAssets } from "./web-stack-harness";
+import {
+  synthWebStack,
+  synthWebStackWithAssets,
+  synthWebStackWithInvokeKeyVersion,
+} from "./web-stack-harness";
 
 describe("WebStack CloudFront enabled flag", () => {
   for (const environmentName of ["development", "staging", "production"] as const) {
@@ -176,4 +180,29 @@ describe("WebStack cross-origin isolation for on-device voice", () => {
       assert.ok(distribution.Properties.DistributionConfig.DefaultCacheBehavior.ResponseHeadersPolicyId);
     });
   }
+});
+
+describe("WebStack invoke key origin header", () => {
+  const VERSION_ID = "11111111-2222-3333-4444-555555555555";
+
+  function originHeaderValue(template: ReturnType<typeof synthWebStack>): string {
+    const [distribution] = Object.values(template.findResources("AWS::CloudFront::Distribution"));
+    const origins = (distribution.Properties as { DistributionConfig: { Origins: { OriginCustomHeaders?: { HeaderName: string; HeaderValue: unknown }[] }[] } })
+      .DistributionConfig.Origins;
+    const header = origins
+      .flatMap((origin) => origin.OriginCustomHeaders ?? [])
+      .find((candidate) => candidate.HeaderName === "X-Chatticus-Invoke-Key");
+    assert.ok(header, "no X-Chatticus-Invoke-Key origin header");
+    return JSON.stringify(header.HeaderValue);
+  }
+
+  it("pins the secret version named in the invokeKeyVersionId context, so a rotation changes the template and CloudFormation resolves the new value", () => {
+    const pinned = originHeaderValue(synthWebStackWithInvokeKeyVersion("development", VERSION_ID));
+    assert.match(pinned, new RegExp(`SecretString:::${VERSION_ID}`));
+    assert.notEqual(pinned, originHeaderValue(synthWebStackWithInvokeKeyVersion("development", "99999999-2222-3333-4444-555555555555")));
+  });
+
+  it("follows the current version of the secret when no version is named", () => {
+    assert.doesNotMatch(originHeaderValue(synthWebStack("development")), /SecretString:::[0-9a-f]/);
+  });
 });
