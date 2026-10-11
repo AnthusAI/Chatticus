@@ -36,7 +36,17 @@ user and cannot read the owner's credentials:
 sh computer/test_owner_container.sh
 ```
 
-Push a rebuilt image to ECR without changing the Computers service:
+CI builds, checks and pushes the image. On every push to `develop` that touches
+`computer/`, `conversation/`, `host-protocol/` or the root package files,
+`.github/workflows/build-computer-image-development.yml` builds the linux/arm64
+image on a native arm64 runner, runs the toolchain check and
+`computer/test_owner_container.sh` against that exact image, and only then
+pushes it to the ChatticusComputers ECR repository as the immutable
+`sha-<full git sha>` tag and the moving `dev` tag that the task definitions pin.
+The pushed digest is in the job summary. Nobody pushes the image by hand.
+
+`computer/push-computer-image.sh` remains for local break-glass use only, when
+CI cannot run. It pushes `:dev` without changing the Computers service:
 
 ```bash
 sh computer/push-computer-image.sh
