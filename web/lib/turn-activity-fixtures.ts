@@ -11,21 +11,21 @@ export const terminalCallTurn: TurnEvent[] = sequence([
   { kind: "turn.started" },
   { kind: "attempt.claimed" },
   { kind: "model.request" },
-  { kind: "turn.waiting", gate: "workspace" },
   { kind: "computer.starting", detail: "Starting your computer" },
+  { kind: "turn.waiting", body: "workspace" },
   { kind: "computer.ready", detail: "Computer ready" },
   { kind: "model.request" },
   {
     kind: "tool.call",
-    tool: "terminal",
+    tool: "run_terminal",
     call_id: "call-1",
-    summary: "List the project files",
+    summary: "Running: ls -la /workspace",
     arguments: { command: "ls -la /workspace" },
     arguments_truncated: false,
   },
   {
     kind: "tool.result",
-    tool: "terminal",
+    tool: "run_terminal",
     call_id: "call-1",
     ok: true,
     summary: "Exit 0",
@@ -45,14 +45,14 @@ export const failedCallTurn: TurnEvent[] = sequence([
   { kind: "model.request" },
   {
     kind: "tool.call",
-    tool: "terminal",
+    tool: "run_terminal",
     call_id: "call-bad",
-    summary: "Run the test suite",
+    summary: "Running: npm test",
     arguments: { command: "npm test" },
   },
   {
     kind: "tool.result",
-    tool: "terminal",
+    tool: "run_terminal",
     call_id: "call-bad",
     ok: false,
     summary: "Exit 1: 2 tests failed",
@@ -68,12 +68,12 @@ export const editCallTurn: TurnEvent[] = sequence([
   { kind: "model.request" },
   {
     kind: "tool.call",
-    tool: "edit_file",
+    tool: "edit_workspace",
     call_id: "call-edit",
-    summary: "Fix the greeting",
-    arguments: { path: "src/greeting.ts", old: "return \"helo\";", new: "return \"hello\";" },
+    summary: "Editing src/greeting.ts",
+    arguments: { path: "src/greeting.ts", old_text: "return \"helo\";", new_text: "return \"hello\";" },
   },
-  { kind: "tool.result", tool: "edit_file", call_id: "call-edit", ok: true, summary: "Edited 1 line", duration_ms: 35 },
+  { kind: "tool.result", tool: "edit_workspace", call_id: "call-edit", ok: true, summary: "Edited 1 block", duration_ms: 35 },
   { kind: "model.request" },
 ]);
 
@@ -83,14 +83,14 @@ export const longOutputTurn: TurnEvent[] = sequence([
   { kind: "model.request" },
   {
     kind: "tool.call",
-    tool: "terminal",
+    tool: "run_terminal",
     call_id: "call-long",
-    summary: "Print the log",
+    summary: "Running: cat build.log",
     arguments: { command: "cat build.log" },
   },
   {
     kind: "tool.result",
-    tool: "terminal",
+    tool: "run_terminal",
     call_id: "call-long",
     ok: true,
     summary: "Exit 0",
@@ -105,16 +105,16 @@ export const longOutputTurn: TurnEvent[] = sequence([
 export const manyCallsTurn: TurnEvent[] = sequence([
   { kind: "turn.started" },
   ...Array.from({ length: 12 }, (_, index) => [
-    { kind: "tool.call", tool: "read_file", call_id: `call-${index}`, summary: `Read file ${index + 1}`, arguments: { path: `src/file-${index + 1}.ts` } },
-    { kind: "tool.result", tool: "read_file", call_id: `call-${index}`, ok: true, summary: "Read", output: "contents", duration_ms: 12 },
+    { kind: "tool.call", tool: "read_workspace", call_id: `call-${index}`, summary: `Reading src/file-${index + 1}.ts`, arguments: { path: `src/file-${index + 1}.ts` } },
+    { kind: "tool.result", tool: "read_workspace", call_id: `call-${index}`, ok: true, summary: "Done", output: "contents", duration_ms: 12 },
   ]).flat(),
 ]);
 
-/** A turn from an older server: no call ids, arguments or outputs. */
-export const olderServerTurn: TurnEvent[] = sequence([
+/** A turn whose tool events lack every optional field, with a null duration (a call begun under an earlier attempt). */
+export const missingOptionalFieldsTurn: TurnEvent[] = sequence([
   { kind: "turn.started" },
-  { kind: "tool.call", body: "terminal" },
-  { kind: "tool.result", body: "terminal" },
+  { kind: "tool.call", tool: "run_terminal", call_id: "call-bare" },
+  { kind: "tool.result", tool: "run_terminal", call_id: "call-bare", ok: true, duration_ms: null },
   { kind: "turn.token", token: "Done." },
   { kind: "turn.completed" },
 ]);

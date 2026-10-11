@@ -12,7 +12,7 @@ import {
   failedCallTurn,
   longOutputTurn,
   manyCallsTurn,
-  olderServerTurn,
+  missingOptionalFieldsTurn,
   terminalCallTurn,
 } from "./turn-activity-fixtures";
 
@@ -34,22 +34,19 @@ describe("reduceTurnActivity phases", () => {
   });
 
   it("walks the computer phases and returns to Thinking", () => {
-    const base = [event("turn.started", 1), event("turn.waiting", 2, { gate: "workspace" })];
-    assert.equal(reduceTurnActivity(base).phaseText, "Starting your computer");
-    const starting = [...base, event("computer.starting", 3)];
+    const starting = [
+      event("turn.started", 1),
+      event("computer.starting", 2, { detail: "Starting your computer" }),
+      event("turn.waiting", 3, { body: "workspace" }),
+    ];
     assert.equal(reduceTurnActivity(starting).phaseText, "Starting your computer");
     const ready = [...starting, event("computer.ready", 4)];
     assert.equal(reduceTurnActivity(ready).phaseText, "Computer ready");
     assert.equal(reduceTurnActivity([...ready, event("model.request", 5)]).phaseText, "Thinking");
   });
 
-  it("reads the gate from body on older turn.waiting events", () => {
-    const activity = reduceTurnActivity([event("turn.started", 1), event("turn.waiting", 2, { body: "workspace" })]);
-    assert.equal(activity.phaseText, "Starting your computer");
-  });
-
   it("names other gates", () => {
-    const activity = reduceTurnActivity([event("turn.waiting", 1, { gate: "approval" })]);
+    const activity = reduceTurnActivity([event("turn.waiting", 1, { body: "approval" })]);
     assert.equal(activity.phase, "waiting");
     assert.equal(activity.phaseText, "Waiting for approval");
   });
@@ -91,7 +88,7 @@ describe("reduceTurnActivity tool cards", () => {
     assert.equal(card.label, "Terminal");
     assert.equal(card.kind, "command");
     assert.equal(card.status, "ok");
-    assert.equal(card.summary, "List the project files");
+    assert.equal(card.summary, "Running: ls -la /workspace");
     assert.equal(card.durationMs, 420);
     assert.deepEqual(card.arguments, { command: "ls -la /workspace" });
     assert.match(card.output ?? "", /notes\.txt/);
@@ -139,8 +136,8 @@ describe("reduceTurnActivity tool cards", () => {
     assert.ok(activity.tools.every((card) => card.status === "ok"));
   });
 
-  it("degrades to the tool name on events from an older server", () => {
-    const activity = reduceTurnActivity(olderServerTurn);
+  it("degrades to the tool name when optional fields are missing", () => {
+    const activity = reduceTurnActivity(missingOptionalFieldsTurn);
     assert.equal(activity.tools.length, 1);
     const [card] = activity.tools;
     assert.equal(card.label, "Terminal");
@@ -148,22 +145,23 @@ describe("reduceTurnActivity tool cards", () => {
     assert.equal(card.arguments, null);
     assert.equal(card.output, null);
     assert.equal(card.status, "ok");
+    assert.equal(card.durationMs, null);
   });
 
-  it("pairs an older call and result by actionId", () => {
+  it("pairs results with calls by call_id", () => {
     const activity = reduceTurnActivity([
-      event("tool.call", 1, { body: "terminal", actionId: "a1" }),
-      event("tool.call", 2, { body: "terminal", actionId: "a2" }),
-      event("tool.result", 3, { body: "terminal", actionId: "a2", ok: false }),
+      event("tool.call", 1, { tool: "run_terminal", call_id: "a1" }),
+      event("tool.call", 2, { tool: "run_terminal", call_id: "a2" }),
+      event("tool.result", 3, { tool: "run_terminal", call_id: "a2", ok: false }),
     ]);
     assert.deepEqual(activity.tools.map((card) => card.status), ["running", "failed"]);
   });
 
   it("merges a duplicate call_id into one card in its first position", () => {
     const activity = reduceTurnActivity([
-      event("tool.call", 1, { tool: "terminal", call_id: "x" }),
-      event("tool.call", 2, { tool: "read_file", call_id: "y" }),
-      event("tool.call", 3, { tool: "terminal", call_id: "x", summary: "later summary", arguments: { command: "ls" } }),
+      event("tool.call", 1, { tool: "run_terminal", call_id: "x" }),
+      event("tool.call", 2, { tool: "read_workspace", call_id: "y" }),
+      event("tool.call", 3, { tool: "run_terminal", call_id: "x", summary: "later summary", arguments: { command: "ls" } }),
     ]);
     assert.equal(activity.tools.length, 2);
     assert.equal(activity.tools[0].callId, "x");
@@ -172,15 +170,17 @@ describe("reduceTurnActivity tool cards", () => {
   });
 
   it("builds a card from a result that has no call", () => {
-    const activity = reduceTurnActivity([event("tool.result", 1, { tool: "terminal", call_id: "z", ok: true })]);
+    const activity = reduceTurnActivity([event("tool.result", 1, { tool: "run_terminal", call_id: "z", ok: true })]);
     assert.equal(activity.tools.length, 1);
     assert.equal(activity.tools[0].status, "ok");
   });
 
   it("falls back to the tool name for an unknown tool", () => {
     assert.deepEqual(describeTool("custom_thing"), { label: "custom_thing", kind: "generic" });
-    assert.equal(describeTool("Read File").label, "Read file");
-    assert.equal(describeTool("write_file").label, "Write file");
+    assert.equal(describeTool("run_terminal").label, "Terminal");
+    assert.equal(describeTool("read_workspace").label, "Read file");
+    assert.equal(describeTool("write_workspace").label, "Write file");
+    assert.equal(describeTool("edit_workspace").label, "Edit file");
     assert.equal(describeTool("browse").label, "Browse");
   });
 });
@@ -235,8 +235,9 @@ describe("formatToolDuration and presentToolArguments", () => {
   });
 
   it("shows a write as path and preview", () => {
-    const shown = presentToolArguments("write", { path: "a.txt", preview: "hello" });
+    const shown = presentToolArguments("write", { path: "a.txt", bytes: 5, preview: "hello" });
     assert.equal(shown?.path, "a.txt");
     assert.equal(shown?.preview, "hello");
+    assert.deepEqual(shown?.other, [["bytes", "5"]]);
   });
 });

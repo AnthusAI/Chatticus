@@ -10,7 +10,7 @@ import {
   failedCallTurn,
   longOutputTurn,
   manyCallsTurn,
-  olderServerTurn,
+  missingOptionalFieldsTurn,
   terminalCallTurn,
 } from "./turn-activity-fixtures";
 
@@ -50,7 +50,7 @@ describe("TurnActivityBody", () => {
   it("collapses a successful call and shows its label, summary, status and duration", () => {
     const html = render(terminalCallTurn);
     assert.match(html, /Terminal/);
-    assert.match(html, /List the project files/);
+    assert.match(html, /Running: ls -la \/workspace/);
     assert.match(html, /Done/);
     assert.match(html, /420 ms/);
     assert.doesNotMatch(html, /<details[^>]* open/);
@@ -86,8 +86,8 @@ describe("TurnActivityBody", () => {
     assert.equal(html.match(/data-testid="tool-card"/g)?.length, 12);
   });
 
-  it("shows only the tool name for events from an older server", () => {
-    const html = render(olderServerTurn);
+  it("shows only the tool name for events from an missing optional fields", () => {
+    const html = render(missingOptionalFieldsTurn);
     assert.match(html, /Terminal/);
     assert.match(html, /No further details were reported\./);
   });

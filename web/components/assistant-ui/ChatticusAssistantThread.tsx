@@ -52,7 +52,7 @@ const ChatticusFailedReply: FC<{ authorBotName?: string }> = ({ authorBotName })
     <MessagePrimitive.Root className="flex justify-start px-1" data-role="assistant" data-failed="true">
       <article
         role="status"
-        className="max-w-[86%] rounded-3xl bg-clay/15 px-4 py-3 text-sm leading-6 sm:max-w-[76%]"
+        className="max-w-[86%] rounded-3xl bg-surface-high px-4 py-3 text-sm leading-6 sm:max-w-[76%]"
       >
         {authorBotName ? <p className="mb-1 text-xs font-bold">{authorBotName}</p> : null}
         <p className="flex items-start gap-2 text-clay">

@@ -51,22 +51,17 @@ export const EMPTY_TURN_ACTIVITY: TurnActivity = {
 };
 
 const TOOL_LABELS: ReadonlyArray<readonly [ReadonlySet<string>, string, ToolCardKind]> = [
-  [new Set(["terminal", "bash", "shell", "exec", "run_command", "run_terminal", "command"]), "Terminal", "command"],
-  [new Set(["read_file", "read", "view_file", "cat"]), "Read file", "generic"],
-  [new Set(["write_file", "write", "create_file"]), "Write file", "write"],
-  [new Set(["edit_file", "edit", "str_replace", "replace_in_file", "apply_patch"]), "Edit file", "edit"],
-  [new Set(["browse", "browser", "browse_web", "web_browse", "open_url"]), "Browse", "generic"],
+  [new Set(["run_terminal"]), "Terminal", "command"],
+  [new Set(["read_workspace"]), "Read file", "generic"],
+  [new Set(["write_workspace"]), "Write file", "write"],
+  [new Set(["edit_workspace"]), "Edit file", "edit"],
+  [new Set(["browse"]), "Browse", "generic"],
 ];
-
-function normalizedToolName(tool: string): string {
-  return tool.trim().toLowerCase().replace(/[\s-]+/g, "_");
-}
 
 /** Plain label and card kind for a tool name; unknown tools keep their own name. */
 export function describeTool(tool: string): { label: string; kind: ToolCardKind } {
-  const normalized = normalizedToolName(tool);
   for (const [names, label, kind] of TOOL_LABELS) {
-    if (names.has(normalized)) {
+    if (names.has(tool)) {
       return { label, kind };
     }
   }
@@ -78,18 +73,8 @@ function nonEmpty(value: string | undefined): string | null {
 }
 
 function toolNameOf(event: TurnEvent): string {
-  return nonEmpty(event.tool) ?? nonEmpty(event.body) ?? "";
+  return nonEmpty(event.tool) ?? "";
 }
-
-function callIdOf(event: TurnEvent): string | null {
-  return nonEmpty(event.call_id) ?? nonEmpty(event.actionId);
-}
-
-function gateOf(event: TurnEvent): string | null {
-  return nonEmpty(event.gate) ?? nonEmpty(event.body);
-}
-
-const WORKSPACE_GATES = new Set(["workspace", "computer"]);
 
 type MutableCard = Omit<ToolCardModel, "openByDefault" | "label" | "kind"> & { resultSeen: boolean };
 
@@ -166,13 +151,13 @@ export function reduceTurnActivity(events: readonly TurnEvent[]): TurnActivity {
         }
         break;
       case "turn.token":
-        if (nonEmpty(event.token) !== null || nonEmpty(event.text) !== null) {
+        if (nonEmpty(event.token) !== null) {
           answerStarted = true;
           phase = "answering";
         }
         break;
       case "turn.thinking": {
-        const text = nonEmpty(event.text) ?? nonEmpty(event.body);
+        const text = nonEmpty(event.text);
         if (text !== null) {
           thinkingParts.push(text);
         }
@@ -180,7 +165,7 @@ export function reduceTurnActivity(events: readonly TurnEvent[]): TurnActivity {
       }
       case "tool.call": {
         const tool = toolNameOf(event);
-        const callId = callIdOf(event) ?? `seq:${event.seq}`;
+        const callId = nonEmpty(event.call_id) ?? `seq:${event.seq}`;
         const card = cards.get(callId) ?? newCard(callId, tool);
         card.tool = card.tool || tool;
         card.summary = nonEmpty(event.summary) ?? card.summary;
@@ -197,7 +182,7 @@ export function reduceTurnActivity(events: readonly TurnEvent[]): TurnActivity {
       }
       case "tool.result": {
         const tool = toolNameOf(event);
-        let callId = callIdOf(event);
+        let callId = nonEmpty(event.call_id);
         if (callId === null) {
           const running = [...cards.values()]
             .reverse()
@@ -221,14 +206,9 @@ export function reduceTurnActivity(events: readonly TurnEvent[]): TurnActivity {
         break;
       }
       case "turn.waiting": {
-        const gate = gateOf(event);
-        if (live) {
-          if (gate !== null && WORKSPACE_GATES.has(gate)) {
-            phase = "starting-computer";
-          } else {
-            phase = "waiting";
-            waitingGate = gate;
-          }
+        if (live && phase !== "starting-computer") {
+          phase = "waiting";
+          waitingGate = nonEmpty(event.body);
         }
         break;
       }
@@ -332,11 +312,11 @@ export function presentToolArguments(
     }
     return null;
   };
-  const command = kind === "command" ? pick(["command", "cmd", "script"]) : null;
-  const path = kind === "command" ? null : pick(["path", "file_path", "file", "url"]);
-  const oldText = kind === "edit" ? pick(["old", "old_text", "old_string"]) : null;
-  const newText = kind === "edit" ? pick(["new", "new_text", "new_string"]) : null;
-  const preview = kind === "write" ? pick(["preview", "content", "text"]) : null;
+  const command = kind === "command" ? pick(["command"]) : null;
+  const path = kind === "command" ? null : pick(["path", "url"]);
+  const oldText = kind === "edit" ? pick(["old_text"]) : null;
+  const newText = kind === "edit" ? pick(["new_text"]) : null;
+  const preview = kind === "write" ? pick(["preview"]) : null;
   const other: Array<[string, string]> = [];
   for (const [key, value] of Object.entries(args)) {
     if (used.has(key)) continue;
