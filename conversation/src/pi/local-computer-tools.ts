@@ -17,6 +17,12 @@
  * The tools are registered `replay: "safe"`: pi-durable reruns a pending call only when both its stored and its current
  * policy are safe, so a call the previous owner left pending runs here, and this module decides what rerunning means.
  *
+ * The three file tools never open a path in the owner process. The owner runs as root with the organization's scoped
+ * credentials, and the model's shell may plant symbolic links in the workspace, so the tools run on an
+ * `UnprivilegedExecutionEnv`: each file operation is carried out by a helper started through the shell launcher, as the
+ * shell's own user, and can reach only what the shell can reach. `run_terminal` does not open its working directory either:
+ * the shell, as its user, changes into it. The lexical check of `resolveWorkspacePath` stays as the first line.
+ *
  * `edit_workspace` maps onto Pi's `edit` with one replacement; it needs the file to exist and the text to occur once, so
  * running it a second time after it was applied is refused by the tool and changes nothing.
  */
@@ -37,8 +43,8 @@ import type { LogEmitter } from "../observability/log-line.ts";
 import type { Clock, IdSource } from "../http/app.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import type { Extension, ToolExecutionApi, ToolExecutionResult, ToolRegistration } from "@earendil-works/pi-durable";
-import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { createBashTool, createEditTool, createReadTool, createWriteTool } from "@earendil-works/pi-durable/tools";
+import { SOURCE_FILE_HELPER_COMMAND, UnprivilegedExecutionEnv } from "./unprivileged-execution-env.ts";
 import { type ComputerToolCall, type ComputerToolHandoff, computerToolsExtension, computerWorkPausedText, stringArguments } from "./computer-tools.ts";
 
 /** The path the model sees as the root of the workspace; the gate's default grant covers it. */
@@ -93,6 +99,24 @@ export function resolveWorkspacePath(root: string, virtualRoot: string, path: st
 }
 
 /**
+ * The execution environment of an owner: file operations carried out by the helper through the launcher, commands started
+ * through the launcher.
+ *
+ * @param workspaceRoot The real workspace directory.
+ * @param shellPath The unprivileged launcher; the default shell when absent.
+ * @param fileHelperCommand The program and arguments that run the file helper; the helper source next to this module when absent.
+ * @returns The environment.
+ */
+export function createOwnerExecutionEnv(workspaceRoot: string, shellPath?: string, fileHelperCommand?: readonly string[]): UnprivilegedExecutionEnv {
+	return new UnprivilegedExecutionEnv({
+		cwd: workspaceRoot,
+		launcherPath: shellPath ?? "/bin/bash",
+		helperCommand: fileHelperCommand ?? SOURCE_FILE_HELPER_COMMAND,
+		helperEnvironment: scrubbedShellEnvironment(workspaceRoot),
+	});
+}
+
+/**
  * The last characters of a command's output, with a note when the start was dropped.
  *
  * @param text The whole output.
@@ -120,6 +144,8 @@ export function createScrubbedBashTool(workspaceRoot: string, cwd: string): Tool
 		},
 	}) as unknown as ToolRegistration;
 }
+
+const shellQuoted = (text: string): string => `'${text.replaceAll("'", "'\\''")}'`;
 
 class OutputTail {
 	private kept = "";
@@ -150,6 +176,11 @@ export type LocalComputerToolsOptions = {
 	 * switches to an unprivileged user before it runs the command.
 	 */
 	readonly shellPath?: string;
+	/**
+	 * The program and arguments, by absolute path, that run the file helper through the launcher. The helper source file
+	 * next to this module when absent; the image's owner passes its bundled helper.
+	 */
+	readonly fileHelperCommand?: readonly string[];
 	/** The turn the tools run for; its actions belong to it. */
 	readonly turn: Pick<Turn, "tenantId" | "turnId" | "channelId" | "botId" | "promptAuthorId">;
 	readonly actions: ComputerActionStore;
@@ -162,8 +193,6 @@ export type LocalComputerToolsOptions = {
 	readonly log?: LogEmitter;
 };
 
-type Outcome = { readonly text: string; readonly isError: boolean; readonly result: ToolExecutionResult | null };
-
 const textOf = (result: ToolExecutionResult): string =>
 	(result.content ?? []).map((part) => (part.type === "text" ? part.text : "")).join("");
 
@@ -172,6 +201,51 @@ const requiredString = (args: Record<string, unknown>, name: string): string => 
 	if (typeof value !== "string") throw new Error(`The argument ${JSON.stringify(name)} must be a string.`);
 	return value;
 };
+
+/** What a tool answered: the text for the model, whether it is an error, and the result to return when the call is recorded. */
+export type WorkspaceToolOutcome = { readonly text: string; readonly isError: boolean; readonly result: ToolExecutionResult | null };
+
+/** A tool of the owner, run with its arguments, the call's api and its context. */
+export type WorkspaceToolRunner = (args: Record<string, unknown>, api: ToolExecutionApi, context: Context) => Promise<WorkspaceToolOutcome>;
+
+/**
+ * The `read_workspace`, `write_workspace` and `edit_workspace` runners: Pi's `read`, `write` and `edit` on the given
+ * environment, with the model's path mapped into the real workspace and the real workspace path hidden in what they answer.
+ * The environment decides who touches the files; the owner passes the unprivileged one.
+ *
+ * @param env The environment the file operations run on.
+ * @param workspaceRoot The real workspace directory.
+ * @param virtualRoot The path the model sees it at.
+ * @returns The three runners by tool name.
+ */
+export function workspaceFileToolRunners(env: ToolExecutionApi["env"], workspaceRoot: string, virtualRoot: string): Record<"read_workspace" | "write_workspace" | "edit_workspace", WorkspaceToolRunner> {
+	const readTool = createReadTool() as unknown as ToolRegistration;
+	const writeTool = createWriteTool() as unknown as ToolRegistration;
+	const editTool = createEditTool() as unknown as ToolRegistration;
+	const virtualize = (text: string): string => (workspaceRoot === virtualRoot ? text : text.replaceAll(workspaceRoot, virtualRoot));
+	const realPath = (path: string): string => resolveWorkspacePath(workspaceRoot, virtualRoot, path);
+	const runBuiltin = async (tool: ToolRegistration, args: Record<string, unknown>, api: ToolExecutionApi, context: Context): Promise<WorkspaceToolOutcome> => {
+		const result = await tool.execute(args as never, { ...api, env }, context);
+		const text = virtualize(textOf(result));
+		if (result.isError === true) {
+			const diagnostics = (result.diagnostics ?? []).map((diagnostic) => diagnostic.message).join("\n");
+			return { text: text !== "" ? text : diagnostics, isError: true, result: null };
+		}
+		return { text, isError: false, result: { ...result, content: [{ type: "text", text }] } };
+	};
+	return {
+		read_workspace: (args, api, context) => runBuiltin(readTool, { path: realPath(requiredString(args, "path")) }, api, context),
+		write_workspace: (args, api, context) =>
+			runBuiltin(writeTool, { path: realPath(requiredString(args, "path")), content: requiredString(args, "content") }, api, context),
+		edit_workspace: (args, api, context) =>
+			runBuiltin(
+				editTool,
+				{ path: realPath(requiredString(args, "path")), edits: [{ oldText: requiredString(args, "old_text"), newText: requiredString(args, "new_text") }] },
+				api,
+				context,
+			),
+	};
+}
 
 /**
  * The computer tools of the session with every tool but send and purchase answered on this computer.
@@ -183,28 +257,18 @@ const requiredString = (args: Record<string, unknown>, name: string): string => 
  */
 export function localComputerToolsExtension(handoff: ComputerToolHandoff, options: LocalComputerToolsOptions): Extension {
 	const virtualRoot = options.workspacePath ?? WORKSPACE_VIRTUAL_ROOT;
-	const env = new NodeExecutionEnv({ cwd: options.workspaceRoot, ...(options.shellPath === undefined ? {} : { shellPath: options.shellPath }) });
-	const readTool = createReadTool() as unknown as ToolRegistration;
-	const writeTool = createWriteTool() as unknown as ToolRegistration;
-	const editTool = createEditTool() as unknown as ToolRegistration;
+	const env = createOwnerExecutionEnv(options.workspaceRoot, options.shellPath, options.fileHelperCommand);
 	const virtualize = (text: string): string => (options.workspaceRoot === virtualRoot ? text : text.replaceAll(options.workspaceRoot, virtualRoot));
 	const realPath = (path: string): string => resolveWorkspacePath(options.workspaceRoot, virtualRoot, path);
+	const fileRunners = workspaceFileToolRunners(env, options.workspaceRoot, virtualRoot);
 
-	const runBuiltin = async (tool: ToolRegistration, args: Record<string, unknown>, api: ToolExecutionApi, context: Context): Promise<Outcome> => {
-		const result = await tool.execute(args as never, { ...api, env }, context);
-		const text = virtualize(textOf(result));
-		if (result.isError === true) {
-			const diagnostics = (result.diagnostics ?? []).map((diagnostic) => diagnostic.message).join("\n");
-			return { text: text !== "" ? text : diagnostics, isError: true, result: null };
-		}
-		return { text, isError: false, result: { ...result, content: [{ type: "text", text }] } };
-	};
-
-	const runTerminal = async (args: Record<string, unknown>, api: ToolExecutionApi, context: Context): Promise<Outcome> => {
+	const runTerminal = async (args: Record<string, unknown>, api: ToolExecutionApi, context: Context): Promise<WorkspaceToolOutcome> => {
 		const cwdArgument = typeof args["cwd"] === "string" && args["cwd"].trim() !== "" ? args["cwd"] : virtualRoot;
 		const cwd = realPath(cwdArgument);
 		const tail = new OutputTail();
-		const bash = createScrubbedBashTool(options.workspaceRoot, cwd);
+		const bash = createScrubbedBashTool(options.workspaceRoot, options.workspaceRoot);
+		const command = requiredString(args, "command");
+		const startedIn = cwd === options.workspaceRoot ? command : `cd -- ${shellQuoted(cwd)} || exit 1\n${command}`;
 		const capturing: ToolExecutionApi = {
 			...api,
 			env,
@@ -214,7 +278,7 @@ export function localComputerToolsExtension(handoff: ComputerToolHandoff, option
 			},
 		};
 		try {
-			await bash.execute({ command: requiredString(args, "command"), timeout: TERMINAL_TIMEOUT_SECONDS } as never, capturing, context);
+			await bash.execute({ command: startedIn, timeout: TERMINAL_TIMEOUT_SECONDS } as never, capturing, context);
 		} catch (error) {
 			if (context.abortSignal?.aborted) throw error;
 			const output = virtualize(tail.text());
@@ -226,24 +290,10 @@ export function localComputerToolsExtension(handoff: ComputerToolHandoff, option
 		return { text, isError: false, result: { content: [{ type: "text", text }] } };
 	};
 
-	const runWithoutBrowser = async (): Promise<Outcome> => ({ text: BROWSER_UNAVAILABLE_TEXT, isError: false, result: null });
+	const runWithoutBrowser = async (): Promise<WorkspaceToolOutcome> => ({ text: BROWSER_UNAVAILABLE_TEXT, isError: false, result: null });
 
-	const runners: Record<string, (args: Record<string, unknown>, api: ToolExecutionApi, context: Context) => Promise<Outcome>> = {
-		read_workspace: (args, api, context) => {
-			const next: Record<string, unknown> = { path: realPath(requiredString(args, "path")) };
-			return runBuiltin(readTool, next, api, context);
-		},
-		write_workspace: (args, api, context) => {
-			const next: Record<string, unknown> = { path: realPath(requiredString(args, "path")), content: requiredString(args, "content") };
-			return runBuiltin(writeTool, next, api, context);
-		},
-		edit_workspace: (args, api, context) => {
-			const next: Record<string, unknown> = {
-				path: realPath(requiredString(args, "path")),
-				edits: [{ oldText: requiredString(args, "old_text"), newText: requiredString(args, "new_text") }],
-			};
-			return runBuiltin(editTool, next, api, context);
-		},
+	const runners: Record<string, (args: Record<string, unknown>, api: ToolExecutionApi, context: Context) => Promise<WorkspaceToolOutcome>> = {
+		...fileRunners,
 		run_terminal: runTerminal,
 		[BROWSE_ACTION_KIND]: runWithoutBrowser,
 		[REQUEST_COMPUTER_CAPABILITY_ACTION_KIND]: runWithoutBrowser,
@@ -341,7 +391,7 @@ export function localComputerToolsExtension(handoff: ComputerToolHandoff, option
 							.catch(() => undefined),
 					(ACTION_LEASE_SECONDS * 1000) / 3,
 				);
-				let outcome: Outcome;
+				let outcome: WorkspaceToolOutcome;
 				const startedAt = Date.now();
 				options.log?.("tool_started", { tool: call.toolName, action_id: action.actionId });
 				try {

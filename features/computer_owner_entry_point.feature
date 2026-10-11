@@ -68,20 +68,6 @@ Feature: Computer owner entry point
     And the shell launcher started exactly 1 command
     And the model saw "launched-ok" in its next request
 
-  Scenario: Files are read and written by the owner itself and never through the shell launcher
-    Given an unprivileged shell launcher that records every command it starts
-    And the model is scripted to call "write_workspace" with:
-      """
-      {"path": "/workspace/notes.md", "content": "draft-one"}
-      """
-    And the model is scripted to answer "Notes saved."
-    When the member asks "save the notes"
-    And a takeover job names the turn
-    And the computer entry point runs
-    Then the entry point ended "done"
-    And the workspace file "notes.md" contains "draft-one"
-    And the shell launcher started exactly 0 commands
-
   Scenario: An entry point whose shell launcher is missing refuses to take the turn
     Given the entry point is configured with a shell launcher that does not exist
     And the model is scripted to answer "Hello."

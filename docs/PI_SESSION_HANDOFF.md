@@ -115,7 +115,14 @@ owner reads the commits that are already there.
    registered under our tool names, wrapped in the action ledger and safe to
    replay. Commands the model chose run through the `chatticus-shell` launcher
    as an unprivileged user (uid 2000) with a scrubbed environment, in the
-   workspace group.
+   workspace group. `read_workspace`, `write_workspace` and `edit_workspace` are
+   carried out the same way: each file operation is a short helper process
+   (`/opt/chatticus/host/file-helper.mjs`) started through that launcher, so a
+   symbolic link planted in the workspace can lead them only where the shell
+   itself could go. The owner process (root, holding the scoped credentials)
+   never opens a path the model named, which also closes the race of a link
+   swapped between a check and the open. The helper additionally refuses a path
+   whose final location is outside the workspace.
 7. Model calls go to the gateway route
    `POST /orgs/:tenant/model-gateway/v1/responses`, with the token in place of
    a key. The gateway checks the token, checks that its owner id matches the
