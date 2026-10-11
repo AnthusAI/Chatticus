@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { consoleLogEmitter, errorNameOf, type LogEmitter } from "../../../conversation/src/observability/log-line.ts";
-import { scrubbedShellEnvironment } from "../../../conversation/src/pi/local-computer-tools.ts";
+import { createOwnerExecutionEnv, scrubbedShellEnvironment, WORKSPACE_VIRTUAL_ROOT, workspaceFileToolRunners } from "../../../conversation/src/pi/local-computer-tools.ts";
 import type { SnapshotObjectStore } from "../../../conversation/src/snapshot/store.ts";
 import { takeOverTurn, type TurnTakeoverOutcome } from "../../../conversation/src/turn/computer-owner.ts";
 import { ComputerHostBootDriver, type HostBootPlane } from "./boot.ts";
@@ -78,6 +78,8 @@ export type OwnerEntryPointOptions = {
 	 * would run the model's commands with the owner's credentials in reach, so it refuses instead.
 	 */
 	readonly shellLauncherPath: string;
+	/** The program and arguments, by absolute path, that run the file helper through the launcher; the image's bundled helper. */
+	readonly fileHelperCommand?: readonly string[];
 };
 
 /**
@@ -114,6 +116,7 @@ export async function runOwnerEntryPoint(source: OwnerJobSource, deps: ExecutorD
 		workspacePath: options.workspacePath,
 		workerId: options.workerId ?? CONTAINER_OWNER_WORKER_ID,
 		shellPath: options.shellLauncherPath,
+		...(options.fileHelperCommand === undefined ? {} : { fileHelperCommand: options.fileHelperCommand }),
 	});
 }
 
@@ -157,6 +160,36 @@ export async function runShellProbe(command: string, options: Pick<OwnerEntryPoi
 	);
 	if (!result.ok) return { exitCode: -1, output: `${chunks.join("")}${result.error.message}` };
 	return { exitCode: result.value.exitCode, output: chunks.join("") };
+}
+
+/** The file tools the probe can run. */
+export type FileProbeTool = "read_workspace" | "write_workspace" | "edit_workspace";
+
+/**
+ * Run one file tool exactly as the owner runs it for the model: the same runners over the same environment, so the file is
+ * touched by the helper through the shell launcher and not by this process. It exists so an image can show what the file
+ * tools reach when a link in the workspace leads somewhere only the owner could go.
+ *
+ * @param tool The tool.
+ * @param args The tool's arguments (`path`; `content`; `old_text` and `new_text`).
+ * @param options Workspace, launcher and the helper command.
+ * @returns Whether the tool answered with an error, and the text it answered.
+ */
+export async function runFileProbe(
+	tool: FileProbeTool,
+	args: Record<string, string>,
+	options: Pick<OwnerEntryPointOptions, "workspaceRoot" | "shellLauncherPath" | "fileHelperCommand">,
+): Promise<{ readonly isError: boolean; readonly text: string }> {
+	assertShellLauncherUsable(options.shellLauncherPath);
+	const env = createOwnerExecutionEnv(options.workspaceRoot, options.shellLauncherPath, options.fileHelperCommand);
+	const runner = workspaceFileToolRunners(env, options.workspaceRoot, WORKSPACE_VIRTUAL_ROOT)[tool];
+	const api = { env, callId: "file-probe", output: () => undefined } as unknown as Parameters<typeof runner>[1];
+	try {
+		const outcome = await runner(args, api, BACKGROUND_CONTEXT);
+		return { isError: outcome.isError, text: outcome.text };
+	} catch (error) {
+		return { isError: true, text: error instanceof Error ? error.message : String(error) };
+	}
 }
 
 /** What the owner asks of the Front Door around a turn: the host boot and snapshot routes and the heartbeat. */

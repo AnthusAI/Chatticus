@@ -114,6 +114,13 @@ Then("the shell launcher started exactly {int} command(s)", function (this: Chat
 	assert.equal(lines.length, count, JSON.stringify(lines));
 });
 
+Then("the shell launcher started at least {int} command(s)", function (this: ChatticusWorld, count: number) {
+	const log = entryPointScenarioOf(this).launcherLog;
+	assert.ok(log, "No recording shell launcher was configured.");
+	const lines = existsSync(log) ? readFileSync(log, "utf8").split("\n").filter((line) => line !== "") : [];
+	assert.ok(lines.length >= count, JSON.stringify(lines));
+});
+
 Then("the refusal mentions {string}", function (this: ChatticusWorld, text: string) {
 	const refusal = entryPointScenarioOf(this).refusal;
 	assert.ok(refusal?.includes(text), String(refusal));

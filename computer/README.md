@@ -63,7 +63,8 @@ v1 contents:
   task. It claims a parked turn, runs Pi's own tools locally, calls the model
   through the gateway with a per-turn token, publishes the snapshot when content
   changed and exits. Model-chosen commands run through `chatticus-shell` as
-  uid 2000 with a scrubbed environment. See
+  uid 2000 with a scrubbed environment; the file tools run as that user too, through a
+  helper started by the same launcher. See
   [docs/PI_SESSION_HANDOFF.md](../docs/PI_SESSION_HANDOFF.md) for the design,
   proof and limits (development only; the credentials endpoint cannot be
   blocked on Fargate; `browse` has no executor on this path).

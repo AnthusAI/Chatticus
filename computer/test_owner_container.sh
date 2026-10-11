@@ -74,6 +74,66 @@ if [ "${out}" = "from-shell" ]; then pass "the shell can write the workspace"; e
 out="$(probe 'sudo -n true 2>&1; su -c true 2>&1; setpriv --reuid=0 true 2>&1; echo escalation-end')"
 if ! echo "${out}" | grep -q 'escalation-end' || echo "${out}" | grep -qi 'not permitted\|not found\|denied\|must be run\|Authentication'; then pass "the shell cannot become root"; else fail "the shell may have become root: ${out}"; fi
 
+# The file tools run in the owner process, which is root. A symbolic link the unprivileged shell plants in the
+# workspace must not let them read or overwrite what only root can reach. Each check runs in one container: as root it
+# plants a root-only secret, then as the shell user it plants links, then the owner's own file tool runs on a link.
+FILE_SECRET="owner-test-root-only-secret-6a1f"
+file_tool() {
+  docker run --rm -i -e FILE_SECRET="${FILE_SECRET}" -e OWNER="${OWNER}" "${IMAGE}" sh -s -- "$@" 2>&1 <<'CONTAINER_SCRIPT' || true
+echo "${FILE_SECRET}" > /root/secret
+chmod 600 /root/secret
+cp /usr/local/bin/chatticus-shell /tmp/launcher.before
+chatticus-shell -c 'ln -s /root/secret /workspace/link-secret
+ln -s /proc/1/environ /workspace/link-environ
+ln -s /usr/local/bin/chatticus-shell /workspace/link-launcher
+ln -s /root /workspace/link-root
+ln -s /root/not-yet /workspace/link-dangling
+echo plain-content > /workspace/plain.txt
+echo alpha-beta > /workspace/edit.txt'
+node "${OWNER}" file-probe "$@"
+echo "secret-after=$(cat /root/secret)"
+echo "launcher-same=$(cmp -s /tmp/launcher.before /usr/local/bin/chatticus-shell && echo yes || echo no)"
+echo "dangling-created=$(test -e /root/not-yet && echo yes || echo no)"
+echo "root-entries=$(ls /root | tr '\n' ' ')"
+echo "owner-of-new=$(stat -c %u /workspace/new/dir/file.txt 2>/dev/null || echo none)"
+CONTAINER_SCRIPT
+}
+
+out="$(file_tool read_workspace /workspace/link-secret)"
+if echo "${out}" | grep -q '^file_probe_error' && ! echo "${out}" | grep -q "^file_probe_ok"; then pass "read_workspace through a link to a root-only file is refused"; else fail "read_workspace through a link to a root-only file: ${out}"; fi
+echo "INFO  $(echo "${out}" | grep '^file_probe_')"
+
+out="$(file_tool read_workspace /workspace/link-environ)"
+if echo "${out}" | grep -q '^file_probe_error'; then pass "read_workspace through a link to /proc/1/environ is refused"; else fail "read_workspace through a link to /proc/1/environ: ${out}"; fi
+echo "INFO  $(echo "${out}" | grep '^file_probe_')"
+
+out="$(file_tool write_workspace /workspace/link-secret overwritten)"
+if echo "${out}" | grep -q '^file_probe_error' && echo "${out}" | grep -q "^secret-after=${FILE_SECRET}"; then pass "write_workspace through a link to a root-only file is refused and the file is unchanged"; else fail "write_workspace through a link to a root-only file: ${out}"; fi
+
+out="$(file_tool write_workspace /workspace/link-launcher '#!/bin/sh')"
+if echo "${out}" | grep -q '^file_probe_error' && echo "${out}" | grep -q '^launcher-same=yes'; then pass "write_workspace through a link to the shell launcher is refused and the launcher is unchanged"; else fail "write_workspace through a link to the shell launcher: ${out}"; fi
+
+out="$(file_tool edit_workspace /workspace/link-secret "${FILE_SECRET}" changed)"
+if echo "${out}" | grep -q '^file_probe_error' && echo "${out}" | grep -q "^secret-after=${FILE_SECRET}"; then pass "edit_workspace through a link to a root-only file is refused and the file is unchanged"; else fail "edit_workspace through a link to a root-only file: ${out}"; fi
+
+out="$(file_tool write_workspace /workspace/link-root/planted.txt planted)"
+if echo "${out}" | grep -q '^file_probe_error' && echo "${out}" | grep -q '^root-entries=secret $'; then pass "write_workspace under a link to /root is refused and plants nothing there"; else fail "write_workspace under a link to /root: ${out}"; fi
+
+out="$(file_tool write_workspace /workspace/link-dangling planted)"
+if echo "${out}" | grep -q '^file_probe_error' && echo "${out}" | grep -q '^dangling-created=no'; then pass "write_workspace through a dangling link into /root creates nothing there"; else fail "write_workspace through a dangling link: ${out}"; fi
+
+out="$(file_tool read_workspace /workspace/plain.txt)"
+if echo "${out}" | grep -q '^file_probe_ok: plain-content'; then pass "read_workspace still reads a normal workspace file"; else fail "read_workspace of a normal file: ${out}"; fi
+
+out="$(file_tool write_workspace /workspace/new/dir/file.txt fresh)"
+if echo "${out}" | grep -q '^file_probe_ok' && echo "${out}" | grep -q '^owner-of-new=2000$'; then pass "write_workspace still writes a normal file, creating directories, and the file belongs to the unprivileged user"; else fail "write_workspace of a normal file: ${out}"; fi
+
+out="$(file_tool edit_workspace /workspace/edit.txt beta gamma)"
+if echo "${out}" | grep -q '^file_probe_ok'; then pass "edit_workspace still edits a normal workspace file"; else fail "edit_workspace of a normal file: ${out}"; fi
+
+out="$(file_tool edit_workspace /workspace/edit.txt omega gamma)"
+if echo "${out}" | grep -q '^file_probe_error: Could not find the exact text'; then pass "edit_workspace keeps its exact-match refusal"; else fail "edit_workspace exact-match refusal: ${out}"; fi
+
 if [ "${failures}" -ne 0 ]; then
   echo "${failures} check(s) failed"
   exit 1
