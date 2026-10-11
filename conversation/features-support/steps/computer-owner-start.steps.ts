@@ -7,7 +7,7 @@ import { HostProtocolClient } from "../../../computer/host/src/protocol-client.t
 import { OWNER_START_GENERATION_VARIABLE } from "../../src/computer/owner-environment.ts";
 import { ComputerHostDisk } from "../../src/snapshot/host.ts";
 import { FilesystemSnapshotStore } from "../../src/snapshot/store.ts";
-import { SESSION_POLICY_MAXIMUM_CHARACTERS, buildOwnerSessionPolicy } from "../../src/gateway/session-policy.ts";
+
 import { verifySessionToken, type SessionTokenAudience } from "../../src/gateway/session-token.ts";
 import { ensureComputer } from "../../src/domain/computers.ts";
 import { getTurn } from "../../src/domain/turns.ts";
@@ -270,34 +270,32 @@ Then("the session name is derived from the owner id and the session lasts {int} 
 	assert.equal(call.DurationSeconds, seconds);
 });
 
-async function expectedOwnerPolicy(world: ChatticusWorld) {
-	const job = startJobOf(world);
-	const turn = await getTurn(world.turnDependencies(), job.tenantId, job.turnId);
-	const computer = await ensureComputer(job.tenantId, { store: world.messagingStore(), ids: world.ids });
-	return buildOwnerSessionPolicy({
-		tenantId: job.tenantId,
-		botId: job.botId,
-		channelId: turn.channelId,
-		bucketName: "pi-sessions-bucket",
-		conversationsTableArn: "arn:aws:dynamodb:us-east-1:123456789012:table/conversations-table",
-		computerId: computer.computerId,
-		snapshotBucketName: "snapshot-bucket",
-		messagingTableArn: `arn:aws:dynamodb:us-east-1:123456789012:table/${world.messagingTable.tableName}`,
-	});
-}
-
-Then("the session policy is the owner policy for the turn's conversation and the computer", async function (this: ChatticusWorld) {
-	const call = ownerStartOf(this).sts.calls[0]!;
-	assert.deepEqual(JSON.parse(call.Policy), await expectedOwnerPolicy(this));
+Then("the session tags are the organization, bot, channel, computer and turn of the start", async function (this: ChatticusWorld) {
+	const job = startJobOf(this);
+	const turn = await getTurn(this.turnDependencies(), job.tenantId, job.turnId);
+	const computer = await ensureComputer(job.tenantId, { store: this.messagingStore(), ids: this.ids });
+	assert.deepEqual(ownerStartOf(this).sts.calls[0]!.Tags, [
+		{ Key: "tenant", Value: job.tenantId },
+		{ Key: "bot", Value: job.botId },
+		{ Key: "channel", Value: turn.channelId },
+		{ Key: "computer", Value: computer.computerId },
+		{ Key: "turn", Value: job.turnId },
+	]);
 });
 
-Then("the session policy is within the STS size limit", function (this: ChatticusWorld) {
+Then("the assume-role call carries no session policy", function (this: ChatticusWorld) {
 	const call = ownerStartOf(this).sts.calls[0]!;
-	assert.ok(call.Policy.length <= SESSION_POLICY_MAXIMUM_CHARACTERS, `${call.Policy.length} characters`);
-	assert.equal(call.Policy, JSON.stringify(JSON.parse(call.Policy)), "The policy carries whitespace that counts against the limit");
+	assert.equal("Policy" in call, false);
+	assert.equal("PolicyArns" in call, false);
 });
 
-Then("the container environment holds the scoped credentials STS returned", function (this: ChatticusWorld) {
+Given("the computer of the organization has the identifier {string}", async function (this: ChatticusWorld, computerId: string) {
+	const store = this.messagingStore();
+	const computer = await ensureComputer(STORY_TENANT, { store, ids: this.ids });
+	await store.putComputer({ ...computer, computerId });
+});
+
+Then("the container environment holds the scoped credentials STS returned",function (this: ChatticusWorld) {
 	assert.equal(environmentValue(this, "AWS_ACCESS_KEY_ID"), FAKE_SCOPED_CREDENTIALS.AccessKeyId);
 	assert.equal(environmentValue(this, "AWS_SECRET_ACCESS_KEY"), FAKE_SCOPED_CREDENTIALS.SecretAccessKey);
 	assert.equal(environmentValue(this, "AWS_SESSION_TOKEN"), FAKE_SCOPED_CREDENTIALS.SessionToken);

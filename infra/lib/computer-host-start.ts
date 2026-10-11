@@ -5,6 +5,7 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
 import { ChatticusCloudEnvironment } from "./environments";
+import { ownerRolePolicyStatements, ownerSessionTagConditions } from "./owner-role-policy";
 
 export interface ComputerHostStartEcsConfig {
   readonly cluster: string;
@@ -396,12 +397,14 @@ export interface ComputerOwnerStorage {
 
 /**
  * Wires the starter to the Pi session owner task definition and returns the
- * scoped role. The role is the permission ceiling: DynamoDB read and write on
- * the Messaging and Conversations tables and their indexes, S3 read and write
- * on the Pi sessions bucket and the snapshot bucket, nothing else. Only the
- * starter's execution role may assume it, for at most one hour, and the starter
- * narrows each session with a session policy. The owner task role itself stays
- * empty.
+ * scoped role. The role carries one static permission policy written with
+ * aws:PrincipalTag policy variables (see owner-role-policy.ts and the file it
+ * reads): DynamoDB and S3 access narrowed to the session named by five session
+ * tags, plus a short list of key families of the organization. Its trust policy
+ * lets only the starter's execution role assume it, with sts:AssumeRole and
+ * sts:TagSession, only when all five tags are set and no other tag is, for at
+ * most one hour. The starter passes the tags and no session policy. The owner
+ * task role itself stays empty.
  */
 export function wireComputerStarterOwnerRunTask(
   computerWorkerFunction: lambda.Function,
@@ -410,20 +413,33 @@ export function wireComputerStarterOwnerRunTask(
   ownerConfig: ComputerOwnerStartConfig,
   storage: ComputerOwnerStorage,
 ): iam.Role {
+  const starterRole = computerWorkerFunction.role!;
   const scopedRole = new iam.Role(stack, "ComputerOwnerScopedRole", {
-    assumedBy: computerWorkerFunction.role!,
+    assumedBy: new iam.PrincipalWithConditions(starterRole, ownerSessionTagConditions()),
     maxSessionDuration: cdk.Duration.seconds(OWNER_SCOPED_ROLE_MAX_SESSION_SECONDS),
     description:
-      "Ceiling for one Pi session owner: the starter assumes it with a per-session policy.",
+      "One Pi session owner: the starter assumes it with session tags that its static policy reads.",
   });
-  storage.messagingTable.grantReadWriteData(scopedRole);
-  storage.conversationsTable.grantReadWriteData(scopedRole);
-  storage.piSessionsBucket.grantReadWrite(scopedRole);
-  s3.Bucket.fromBucketName(
+  scopedRole.assumeRolePolicy!.addStatements(
+    new iam.PolicyStatement({
+      principals: [starterRole],
+      actions: ["sts:TagSession"],
+      conditions: ownerSessionTagConditions(),
+    }),
+  );
+  const snapshotBucket = s3.Bucket.fromBucketName(
     stack,
     "ComputerOwnerSnapshotBucket",
     ownerConfig.snapshotBucketName,
-  ).grantReadWrite(scopedRole);
+  );
+  for (const statement of ownerRolePolicyStatements({
+    piSessionsBucketArn: storage.piSessionsBucket.bucketArn,
+    snapshotBucketArn: snapshotBucket.bucketArn,
+    conversationsTableArn: storage.conversationsTable.tableArn,
+    messagingTableArn: storage.messagingTable.tableArn,
+  })) {
+    scopedRole.addToPolicy(statement);
+  }
 
   const environment: Record<string, string> = {
     CHATTICUS_OWNER_TASK_DEFINITION: ownerConfig.taskDefinition,
@@ -461,6 +477,11 @@ export function wireComputerStarterOwnerRunTask(
       },
     }),
   );
-  scopedRole.grantAssumeRole(computerWorkerFunction.grantPrincipal);
+  computerWorkerFunction.addToRolePolicy(
+    new iam.PolicyStatement({
+      actions: ["sts:AssumeRole", "sts:TagSession"],
+      resources: [scopedRole.roleArn],
+    }),
+  );
   return scopedRole;
 }

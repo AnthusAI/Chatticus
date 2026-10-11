@@ -40,7 +40,7 @@ import type { Task } from "./codecs/task.ts";
 import { formatIsoDateTime } from "./codecs/util.ts";
 import * as workerCodec from "./codecs/worker.ts";
 import type { Worker } from "./codecs/worker.ts";
-import { postIdempotencyKey } from "./keys.ts";
+import { computerRecordKey, postIdempotencyKey } from "./keys.ts";
 import type { MessagingStore } from "./messaging-store.ts";
 import { retryTransient } from "./transient-retry.ts";
 
@@ -50,6 +50,11 @@ const ONE_HOUR_SECONDS = 3600;
 
 function rosterPartition(tenantId: string): string {
 	return `${tenantId}#roster`;
+}
+
+function computerRecordItemKey(tenantId: string): { pk: AttributeValue; sk: AttributeValue } {
+	const key = computerRecordKey(tenantId);
+	return { pk: { S: key.pk }, sk: { S: key.sk } };
 }
 
 function organizationPartition(tenantId: string): string {
@@ -512,16 +517,14 @@ export class DynamoMessagingStore implements MessagingStore {
 	}
 
 	async getComputer(tenantId: string): Promise<Computer | null> {
-		const item = await this.get(rosterPartition(tenantId), "computer");
+		const key = computerRecordKey(tenantId);
+		const item = await this.get(key.pk, key.sk);
 		return item === null ? null : computerCodec.decode(item);
 	}
 
 	async putComputer(computer: Computer): Promise<void> {
-		await this.put({
-			...computerCodec.encode(computer),
-			pk: { S: rosterPartition(computer.tenantId) },
-			sk: { S: "computer" },
-		});
+		const key = computerRecordItemKey(computer.tenantId);
+		await this.put({ ...computerCodec.encode(computer), pk: key.pk, sk: key.sk });
 	}
 
 	async claimHostStartGeneration(tenantId: string, expectedGeneration: number, leaseExpiresAt: Date): Promise<Computer | null> {
@@ -529,7 +532,7 @@ export class DynamoMessagingStore implements MessagingStore {
 			const response = await this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
-					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					Key: computerRecordItemKey(tenantId),
 					UpdateExpression: "SET host_start_generation = :next, host_start_lease_expires_at = :lease REMOVE live_writer_host_id",
 					ConditionExpression: "attribute_exists(pk) AND host_start_generation = :expected",
 					ExpressionAttributeValues: {
@@ -554,7 +557,7 @@ export class DynamoMessagingStore implements MessagingStore {
 			const response = await this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
-					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					Key: computerRecordItemKey(tenantId),
 					UpdateExpression:
 						"SET stopped = :stopped, model_ready = :off, workspace_ready = :off, browser_ready = :off, disk_dirty = :off, hydrate_required = :hydrate, host_lost_at = :lostAt, host_lost_generation = :generation REMOVE live_writer_host_id",
 					ConditionExpression:
@@ -584,7 +587,7 @@ export class DynamoMessagingStore implements MessagingStore {
 			await this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
-					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					Key: computerRecordItemKey(tenantId),
 					UpdateExpression: "SET disk_dirty = :dirty",
 					ConditionExpression: "attribute_exists(pk)",
 					ExpressionAttributeValues: { ":dirty": { BOOL: true } },
@@ -604,7 +607,7 @@ export class DynamoMessagingStore implements MessagingStore {
 			await this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
-					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					Key: computerRecordItemKey(tenantId),
 					UpdateExpression: "SET live_writer_host_id = :host",
 					ConditionExpression: "attribute_exists(pk) AND (attribute_not_exists(live_writer_host_id) OR live_writer_host_id = :host)",
 					ExpressionAttributeValues: { ":host": { S: hostId } },
@@ -624,7 +627,7 @@ export class DynamoMessagingStore implements MessagingStore {
 			await this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
-					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					Key: computerRecordItemKey(tenantId),
 					UpdateExpression: "REMOVE host_start_lease_expires_at",
 					ConditionExpression: "attribute_exists(pk) AND host_start_generation = :generation",
 					ExpressionAttributeValues: { ":generation": { N: String(generation) } },
@@ -644,7 +647,7 @@ export class DynamoMessagingStore implements MessagingStore {
 			await this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
-					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					Key: computerRecordItemKey(tenantId),
 					UpdateExpression: "SET host_start_dispatched_generation = :generation",
 					ConditionExpression:
 						"attribute_exists(pk) AND host_start_generation = :generation AND host_start_dispatched_generation < :generation",
@@ -665,7 +668,7 @@ export class DynamoMessagingStore implements MessagingStore {
 			await this.client.send(
 				new UpdateItemCommand({
 					TableName: this.tableName,
-					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: "computer" } },
+					Key: computerRecordItemKey(tenantId),
 					UpdateExpression: "SET host_start_dispatched_generation = :previous",
 					ConditionExpression: "attribute_exists(pk) AND host_start_dispatched_generation = :generation",
 					ExpressionAttributeValues: { ":generation": { N: String(generation) }, ":previous": { N: String(generation - 1) } },

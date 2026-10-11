@@ -107,12 +107,12 @@ export type AssumeRolePort = (input: {
 	ExternalId: string;
 }) => Promise<{ Credentials: AssumedRoleCredentials }>;
 
-/** STS AssumeRole of a role of the deployment's own account, narrowed by an inline session policy and a lifetime. */
+/** STS AssumeRole of a role of the deployment's own account, bound to one session by session tags and limited in lifetime. */
 export type ScopedAssumeRolePort = (input: {
 	RoleArn: string;
 	RoleSessionName: string;
-	/** The session policy as JSON text; the credentials get the intersection of it and the role's own permissions. */
-	Policy: string;
+	/** The role's static policy reads these as `${aws:PrincipalTag/<key>}`; there is no session policy. */
+	Tags: ReadonlyArray<{ readonly Key: string; readonly Value: string }>;
 	DurationSeconds: number;
 }) => Promise<{ Credentials: AssumedRoleCredentials }>;
 

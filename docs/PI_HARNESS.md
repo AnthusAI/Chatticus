@@ -1045,8 +1045,8 @@ Smallest design that keeps the keys away from model-chosen commands (not built):
    bearer token (tenant, bot, turn, expiry of at most 15 minutes, signed by the control plane), forwards to OpenAI and writes
    the vendor ledger. B is configured with the proxy base URL and the token. B never holds the model key. This needs the pi-ai
    OpenAI provider to accept a base URL override. I did not test a real override.
-2. **Storage credentials scoped to the conversation.** At start the control plane calls `sts:AssumeRole` with a session policy
-   and passes the temporary credentials (15 to 60 minutes) to B: S3 `Get` and `Put` on `conversations/<encoded storageId>/*`
+2. **Storage credentials scoped to the conversation.** At start the control plane calls `sts:AssumeRole` with session tags
+   (the role's static policy reads them; see PI_SESSION_HANDOFF.md) and passes the temporary credentials (15 to 60 minutes) to B: S3 `Get` and `Put` on `conversations/<encoded storageId>/*`
    only, and DynamoDB on the Conversations table with `dynamodb:LeadingKeys` equal to the conversation's partition key. The
    Messaging table is the weak point: the executor uses its Dynamo stores directly, so B needs the tenant's turn, mailbox and
    action rows. Scope it with `LeadingKeys` on the tenant prefix. That is tenant isolation, not least privilege. The better end
