@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
-import { ensureComputer } from "../../src/domain/computers.ts";
+import { ensureComputer, setComputerStopped } from "../../src/domain/computers.ts";
 import { healthyWorkers, type ComputerPolicy } from "../../src/domain/workers.ts";
 import { recordResponse } from "../api.ts";
 import {
@@ -17,6 +17,7 @@ import {
 import { actionStoreOf, COMPUTER_START_QUEUE } from "../computer-support.ts";
 import { FakeHostStartDriver } from "../fakes/fake-host-start-driver.ts";
 import { memberPost } from "../org-user-client.ts";
+import { failStaleTurn } from "../../src/domain/turns.ts";
 import { SimulatedCrash } from "../../src/turn/fault-plan.ts";
 import { deliverDueProbes, queuedRunsFor, runQueuedJobs, turnNow } from "../turn-recovery.ts";
 import { TURN_RUN_QUEUE } from "../turn-queues.ts";
@@ -218,4 +219,27 @@ Then("the turn is waiting on the workspace capability", async function (this: Ch
 	const turn = await turnPayloadNow(this);
 	assert.equal(turn.status, "active");
 	assert.equal(turn.waiting_for, "workspace");
+});
+
+Given(
+	"host worker {string} serves the computer of tenant {string}",
+	async function (this: ChatticusWorld, workerId: string, tenantId: string) {
+		await registerHost(this, tenantId, workerId, "local");
+	},
+);
+
+Given("the computer is marked stopped without the control plane hearing a report", async function (this: ChatticusWorld) {
+	const stopped = await setComputerStopped(scenarioTenantId(this), true, { store: this.messagingStore(), ids: this.ids });
+	assert.equal(stopped.stopped, true);
+});
+
+When("the waiting turn is failed with the reason {string}", async function (this: ChatticusWorld, reason: string) {
+	const { tenantId, turnId } = activeTurnOf(this);
+	const turn = await this.turnDependencies().store.getTurn(tenantId, turnId);
+	assert.ok(turn, "The turn does not exist.");
+	assert.ok(await failStaleTurn(this.turnDependencies(), turn, "waiting", reason), "The waiting turn was not failed.");
+});
+
+Then("{int} computer start jobs are queued", function (this: ChatticusWorld, count: number) {
+	assert.equal(queuedStartJobs(this).length, count, `Start jobs queued: ${JSON.stringify(queuedStartJobs(this))}`);
 });
