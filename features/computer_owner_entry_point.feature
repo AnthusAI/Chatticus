@@ -35,7 +35,7 @@ Feature: Computer owner entry point
     Then the entry point ended "not_found"
 
   Scenario: A command run through the entry point does not see the secrets the owner holds
-    Given the owner process holds the secret environment variables "OPENAI_API_KEY, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN, CHATTICUS_MODEL_GATEWAY_TOKEN, CHATTICUS_INVOKE_KEY"
+    Given the owner process holds the secret environment variables "OPENAI_API_KEY, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN, CHATTICUS_MODEL_GATEWAY_TOKEN, CHATTICUS_OWNER_HOST_TOKEN"
     And the model is scripted to call "run_terminal" with:
       """
       {"command": "env", "cwd": "/workspace"}
@@ -51,7 +51,7 @@ Feature: Computer owner entry point
     And the model's next request does not contain the value of "AWS_SECRET_ACCESS_KEY"
     And the model's next request does not contain the value of "AWS_SESSION_TOKEN"
     And the model's next request does not contain the value of "CHATTICUS_MODEL_GATEWAY_TOKEN"
-    And the model's next request does not contain the value of "CHATTICUS_INVOKE_KEY"
+    And the model's next request does not contain the value of "CHATTICUS_OWNER_HOST_TOKEN"
 
   Scenario: Commands run through the configured unprivileged shell launcher
     Given an unprivileged shell launcher that records every command it starts

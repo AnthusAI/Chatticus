@@ -13,7 +13,7 @@ import {
 	snapshotPublishedRequestSchema,
 } from "@chatticus/host-protocol";
 import { StorePrincipalDirectory } from "../auth/store-principal-directory.ts";
-import { enforceWorkerPrincipal } from "../auth/worker-principal.ts";
+import { enforceOwnerPrincipal, enforceWorkerPrincipal } from "../auth/worker-principal.ts";
 import { pythonRepr } from "../domain/bots.ts";
 import {
 	claimNextComputerAction,
@@ -40,6 +40,7 @@ import type { PolicyStore } from "../store/policy-store.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { type ParkDependencies, actionDependenciesOf, resumeTurnForAction, startOwnerForParkedTurns } from "../turn/park.ts";
 import { MemberStandingRequiredError } from "./errors.ts";
+import { ownerHostPrincipalOf, type OwnerHostPrincipal } from "./owner-host-auth.ts";
 import type { Clock, IdSource } from "./app.ts";
 import { computerPayload, actionPayload } from "./routes/computers.ts";
 import { pathParameter } from "./user-principal.ts";
@@ -72,10 +73,16 @@ async function parseHostBody<T>(c: Context, schema: ZodType<T>): Promise<Parsed<
 	return { value: parsed.data };
 }
 
-async function workerOf(c: Context, deps: HostRouteDependencies): Promise<{ tenantId: string; workerId: string }> {
+async function workerOf(c: Context, deps: HostRouteDependencies): Promise<{ tenantId: string; workerId: string; owner: OwnerHostPrincipal | null }> {
 	const tenantId = pathParameter(c, "tenant_id");
-	const principal = await enforceWorkerPrincipal(c.req.raw, tenantId, new StorePrincipalDirectory(deps.store));
-	return { tenantId, workerId: principal.workerId as string };
+	const directory = new StorePrincipalDirectory(deps.store);
+	const owner = ownerHostPrincipalOf(c.req.raw);
+	if (owner !== null) {
+		const principal = await enforceOwnerPrincipal(tenantId, owner.ownerId, directory);
+		return { tenantId, workerId: principal.workerId as string, owner };
+	}
+	const principal = await enforceWorkerPrincipal(c.req.raw, tenantId, directory);
+	return { tenantId, workerId: principal.workerId as string, owner: null };
 }
 
 function workerIdMismatch(c: Context): Response {
@@ -90,12 +97,21 @@ export async function hostGetComputerHandler(c: Context, deps: HostRouteDependen
 
 /**
  * POST /orgs/{tenant_id}/host/computer/state: the host reports the computer running or stopped and which capability
- * cleared. A readiness report names the member the host serves in the host user header.
+ * cleared. A readiness report names the member the host serves in the host user header. A container owner may change the
+ * stopped flag only for the host start generation its token names, and must name that generation when it reports stopped.
  */
 export async function hostComputerStateHandler(c: Context, deps: HostRouteDependencies): Promise<Response> {
-	const { tenantId } = await workerOf(c, deps);
+	const { tenantId, owner } = await workerOf(c, deps);
 	const body = await parseHostBody(c, computerStateRequestSchema);
 	if ("refusal" in body) return body.refusal;
+	if (owner !== null && body.value.stopped !== undefined) {
+		const current = await computerForOrganization(tenantId, deps);
+		const ownsGeneration = current.hostStartGeneration === owner.startGeneration;
+		const reportsOwnGeneration = body.value.stopped === false || body.value.start_generation === owner.startGeneration;
+		if (!ownsGeneration || !reportsOwnGeneration) {
+			return c.json({ detail: "owner credential is not valid for this host start generation" }, 403);
+		}
+	}
 	if ((body.value.capability_ready !== undefined || body.value.capability_unavailable !== undefined) && (c.req.header(HOST_USER_HEADER) ?? "").trim() === "") {
 		return c.json({ detail: "host user scope required" }, 403);
 	}

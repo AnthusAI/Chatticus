@@ -38,6 +38,11 @@ export async function enforceWorkerPrincipal(
 		throw new PrincipalHttpError(403, "worker credential required");
 	}
 	const principal = await resolveWorkerPrincipalFromToken(directory, tenantId, token);
+	await requireEnabledOrganization(principal, tenantId, directory);
+	return principal;
+}
+
+async function requireEnabledOrganization(principal: Principal, tenantId: string, directory: PrincipalDirectory): Promise<void> {
 	try {
 		await verifyOrgAccess(principal, tenantId, { directory, requireEnabledMember: true });
 	} catch (error) {
@@ -46,5 +51,19 @@ export async function enforceWorkerPrincipal(
 		}
 		throw error;
 	}
+}
+
+/**
+ * The worker principal of a container owner whose signed token the front door already verified: the owner id is the
+ * worker id, and the organization must still be enabled exactly as for a worker bearer credential.
+ *
+ * @param tenantId The organization of the path.
+ * @param ownerId The owner id the token names.
+ * @param directory Reads the organization's standing.
+ * @returns The worker principal.
+ */
+export async function enforceOwnerPrincipal(tenantId: string, ownerId: string, directory: PrincipalDirectory): Promise<Principal> {
+	const principal: Principal = { kind: "worker", tenantId, userId: null, workerId: ownerId, organizationStatus: null, role: null };
+	await requireEnabledOrganization(principal, tenantId, directory);
 	return principal;
 }

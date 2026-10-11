@@ -13,11 +13,7 @@ export type ModelGatewayConfig = {
 	readonly baseUrl: string;
 	/** The token sent in place of the vendor key. It is bound by the gateway to one tenant, bot and turn. */
 	readonly token: string;
-	/** The invoke key the Front Door in front of the gateway requires on every request, sent in `X-Chatticus-Invoke-Key`. */
-	readonly invokeKey?: string;
 };
-
-const INVOKE_KEY_HEADER = "X-Chatticus-Invoke-Key";
 
 type GatewayStreams = ReturnType<typeof openAIResponsesApi>;
 type GatewaySender = typeof globalThis.fetch;
@@ -44,7 +40,8 @@ const loggedStreams = (streams: GatewayStreams, log: LogEmitter): GatewayStreams
 
 /**
  * The model collection of a container owner: the OpenAI chat models the Lambda owner uses, with every request pointed at
- * the gateway and authenticated by the injected token.
+ * the gateway and authenticated by the injected token alone: the Front Door accepts the gateway's session token without the
+ * deployment's invoke key, so the container never holds that key.
  *
  * @param gateway The gateway address and token.
  * @param log Receives one `model_call` line for each HTTP request to the gateway, with the status the gateway answered and
@@ -72,9 +69,6 @@ export function createGatewayModels(gateway: ModelGatewayConfig, log?: LogEmitte
 			models: vendor.getModels().map((model) => ({
 				...model,
 				baseUrl: gateway.baseUrl,
-				...(gateway.invokeKey === undefined || gateway.invokeKey === ""
-					? {}
-					: { headers: { ...model.headers, [INVOKE_KEY_HEADER]: gateway.invokeKey } }),
 			})),
 			api: log === undefined ? openAIResponsesApi() : loggedStreams(openAIResponsesApi(), log),
 		}),

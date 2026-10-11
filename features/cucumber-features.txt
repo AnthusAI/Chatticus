@@ -129,3 +129,4 @@ features/owner_observability.feature
 features/model_gateway_observability.feature
 features/owner_start_observability.feature
 features/organization_aws_home_on_enable.feature
+features/owner_host_token.feature

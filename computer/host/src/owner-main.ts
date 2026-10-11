@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { OWNER_START_GENERATION_VARIABLE } from "../../../conversation/src/computer/owner-environment.ts";
 import { createContainerOwnerDeps, ownerIdentityFromEnvironment, ownerStoresConfigFromEnvironment } from "./owner-deps.ts";
 import { snapshotStoreFromEnvironment } from "./disk-lifecycle.ts";
-import { HostProtocolClient, registerHostWorker } from "./protocol-client.ts";
+import { HostProtocolClient } from "./protocol-client.ts";
 import { liveRootFromEnvironment } from "./live-root.ts";
 import {
 	DEFAULT_SHELL_LAUNCHER_PATH,
@@ -28,8 +28,10 @@ const shellLauncherPath = (process.env["CHATTICUS_SHELL_LAUNCHER"] ?? "").trim()
  *
  * `shell-probe <command>` runs one command through the shell launcher and prints what it left, so an image can show what
  * the unprivileged shell reaches. `file-probe <read_workspace|write_workspace|edit_workspace> <path> [text [new text]]` runs
- * one file tool as the owner runs it and prints `file_probe_ok` or `file_probe_error` and the tool's answer. With no argument the program takes over the turn the start named: no named turn ends
- * with `owner_no_job` and success. For a named turn the owner registers with the Front Door under its owner id, hydrates
+ * one file tool as the owner runs it and prints `file_probe_ok` or `file_probe_error` and the tool's answer. With no argument
+ * the program takes over the turn the start named: no named turn ends with `owner_no_job` and success. For a named turn the
+ * owner, already registered by the starter under its owner id and holding only its own signed host token (never the
+ * deployment's invoke key), hydrates
  * the computer's snapshot into the workspace, runs the turn under that owner id, publishes the disk when it is dirty and
  * marks the computer stopped, then ends with `owner_outcome=<outcome>`; the exit code is 0 when the turn reached a
  * terminal state or was parked or yielded for another owner.
@@ -66,18 +68,11 @@ export async function ownerMain(argv: readonly string[]): Promise<number> {
 	const generation = Number.parseInt(process.env[OWNER_START_GENERATION_VARIABLE] ?? "", 10);
 	process.umask(0o002);
 	const outcome = await observeOwnerRun(log, Number.isNaN(generation) ? {} : { generation }, async () => {
-		const workerToken = await registerHostWorker({
-			baseUrl: identity.frontDoorUrl,
-			tenantId: identity.tenantId,
-			workerId: identity.ownerId,
-			invokeKey: identity.invokeKey,
-		});
 		const plane = new HostProtocolClient({
 			baseUrl: identity.frontDoorUrl,
 			tenantId: identity.tenantId,
-			workerToken,
+			workerToken: identity.hostToken,
 			userId: identity.userId,
-			invokeKey: identity.invokeKey,
 		});
 		const deps = createContainerOwnerDeps(stores, log);
 		return runOwnerOnComputerDisk(

@@ -12,7 +12,7 @@ import {
 } from "../computer/host-starter.ts";
 import { OwnerRuntimeStartDriver, OwnerStartDriver, ownerStartConfigFromEnvironment, type OwnerStartPorts } from "../computer/owner-start-driver.ts";
 import { type ComputerStarterDependencies, type ComputerStartJob, handleComputerStartJob } from "../domain/computer-start.ts";
-import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS } from "../domain/workers.ts";
+import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS, registerWorker } from "../domain/workers.ts";
 import { DynamoComputerActionStore } from "../store/action-store.ts";
 import { DynamoMessagingStore } from "../store/dynamo-messaging-store.ts";
 import { DynamoTurnControlStore } from "../store/turn-store.ts";
@@ -69,7 +69,7 @@ export async function composeComputerStarterDependencies(
 	processEnvironment: Record<string, string | undefined> = process.env,
 	clients: ComputerStarterAwsClients = defaultComputerStarterAwsClients(),
 	hostStarterOptions: EnvironmentHostStarterOptions = {},
-	ownerPorts: Partial<Pick<OwnerStartPorts, "ecs" | "assumeRole" | "newOwnerId" | "clock">> = {},
+	ownerPorts: Partial<Pick<OwnerStartPorts, "ecs" | "assumeRole" | "newOwnerId" | "clock" | "registerOwnerWorker">> = {},
 ): Promise<ComputerStarterDependencies> {
 	const requiredEnvironment = (name: string): string => {
 		const value = processEnvironment[name];
@@ -110,7 +110,7 @@ export async function composeComputerStarterDependencies(
 	let driver = hostWorkerDriver;
 	if (isEcsHostStarterSelected(processEnvironment)) {
 		const signingKey = await readSecretValue(clients.secrets, requiredEnvironment("CHATTICUS_MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN"));
-		const config = ownerStartConfigFromEnvironment(processEnvironment, { signingKey, invokeKey });
+		const config = ownerStartConfigFromEnvironment(processEnvironment, { signingKey });
 		const turns = new DynamoTurnControlStore(client, tableName);
 		const ownerDriver = new OwnerStartDriver(config, {
 			ecs: ownerPorts.ecs ?? defaultEcsClient(null),
@@ -118,6 +118,14 @@ export async function composeComputerStarterDependencies(
 			getTurn: (tenantId, turnId) => turns.getTurn(tenantId, turnId),
 			clock: ownerPorts.clock ?? clock,
 			newOwnerId: ownerPorts.newOwnerId ?? (() => `owner-${randomUUID()}`),
+			registerOwnerWorker:
+				ownerPorts.registerOwnerWorker ??
+				(async ({ tenantId, ownerId, computerId }) => {
+					await registerWorker(
+						{ workerId: ownerId, tenantId, costClass: "local", capabilities: ["cpu", "computer"], computerId },
+						{ store, clock, ids },
+					);
+				}),
 		});
 		driver = new OwnerRuntimeStartDriver(
 			ownerDriver,

@@ -54,7 +54,6 @@ export function ownerStoresConfigFromEnvironment(environment: NodeJS.ProcessEnv 
 		gateway: {
 			baseUrl: requiredSetting(environment, "CHATTICUS_MODEL_GATEWAY_URL"),
 			token: requiredSetting(environment, "CHATTICUS_MODEL_GATEWAY_TOKEN"),
-			invokeKey: requiredSetting(environment, "CHATTICUS_INVOKE_KEY"),
 		},
 	};
 }
@@ -109,7 +108,8 @@ export type OwnerIdentityConfig = {
 	/** The id the start generated; the gateway token is bound to it, and the owner claims the turn under it. */
 	readonly ownerId: string;
 	readonly frontDoorUrl: string;
-	readonly invokeKey: string;
+	/** The token the starter signed for the host routes of this one owner; it replaces the deployment's invoke key, which the owner never holds. */
+	readonly hostToken: string;
 };
 
 /**
@@ -125,6 +125,6 @@ export function ownerIdentityFromEnvironment(environment: NodeJS.ProcessEnv = pr
 		userId: requiredSetting(environment, "CHATTICUS_USER_ID"),
 		ownerId: requiredSetting(environment, "CHATTICUS_OWNER_ID"),
 		frontDoorUrl: requiredSetting(environment, "CHATTICUS_FRONT_DOOR_URL").replace(/\/+$/, ""),
-		invokeKey: requiredSetting(environment, "CHATTICUS_INVOKE_KEY"),
+		hostToken: requiredSetting(environment, "CHATTICUS_OWNER_HOST_TOKEN"),
 	};
 }

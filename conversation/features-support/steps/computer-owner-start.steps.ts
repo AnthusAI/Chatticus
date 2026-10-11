@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
+import { chmodSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { Given, Then, When, type DataTable } from "@cucumber/cucumber";
+import { runOwnerEntryPoint, runOwnerOnComputerDisk, type OwnerEntryPointOutcome } from "../../../computer/host/src/owner.ts";
+import { HostProtocolClient } from "../../../computer/host/src/protocol-client.ts";
+import { OWNER_START_GENERATION_VARIABLE } from "../../src/computer/owner-environment.ts";
+import { ComputerHostDisk } from "../../src/snapshot/host.ts";
+import { FilesystemSnapshotStore } from "../../src/snapshot/store.ts";
 import { SESSION_POLICY_MAXIMUM_CHARACTERS, buildOwnerSessionPolicy } from "../../src/gateway/session-policy.ts";
-import { verifySessionToken } from "../../src/gateway/session-token.ts";
+import { verifySessionToken, type SessionTokenAudience } from "../../src/gateway/session-token.ts";
 import { ensureComputer } from "../../src/domain/computers.ts";
 import { getTurn } from "../../src/domain/turns.ts";
 import { deliverStartJob, computerScenarioOf, queuedStartJobs, startStoryTurn, STORY_BOT, STORY_TENANT, workTurn } from "../computer-scenario.ts";
-import { computerOwnerScenarioOf, startComputerOwner } from "../computer-owner.ts";
+import { computerOwnerDepsFor, computerOwnerScenarioOf, startComputerOwner } from "../computer-owner.ts";
 import { httpBaseUrl } from "../front-door.ts";
 import { modelScenarioOf } from "../executor-harness.ts";
 import { FAKE_SCOPED_CREDENTIALS } from "../fakes/fake-ecs.ts";
@@ -162,31 +169,68 @@ Then("the container environment names the turn, the bot and the member of the st
 	assert.equal(environmentValue(this, "CHATTICUS_USER_ID"), job.userId);
 });
 
-Then("the container environment holds the invoke key read from its secret", function (this: ChatticusWorld) {
-	assert.equal(environmentValue(this, "CHATTICUS_INVOKE_KEY"), OWNER_START_INVOKE_KEY);
+Then("the container environment holds no invoke key and no copy of the invoke key's value", function (this: ChatticusWorld) {
+	const environment = containerEnvironmentOf(this);
+	assert.equal(environment.has("CHATTICUS_INVOKE_KEY"), false);
+	for (const [name, value] of environment) {
+		assert.ok(!value.includes(OWNER_START_INVOKE_KEY), `${name} carries the invoke key`);
+	}
+});
+
+Then("the container environment holds nothing secret except the two tokens and the scoped credentials", function (this: ChatticusWorld) {
+	const secretNames = ["CHATTICUS_MODEL_GATEWAY_TOKEN", "CHATTICUS_OWNER_HOST_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"];
+	const names = [...containerEnvironmentOf(this).keys()].filter((name) => /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL/i.test(name));
+	assert.deepEqual(names.sort(), secretNames.sort());
+});
+
+Then("the starter registered the owner of the container as a worker of the organization", async function (this: ChatticusWorld) {
+	const ownerId = environmentValue(this, "CHATTICUS_OWNER_ID");
+	const worker = await this.messagingStore().getWorker(STORY_TENANT, ownerId);
+	assert.ok(worker, "The starter registered no worker for the owner.");
+	assert.deepEqual([...worker.capabilities].sort(), ["computer", "cpu"]);
+	assert.equal(worker.computerId, (await ensureComputer(STORY_TENANT, { store: this.messagingStore(), ids: this.ids })).computerId);
 });
 
 Then("the container environment holds a fresh owner id", function (this: ChatticusWorld) {
 	assert.match(environmentValue(this, "CHATTICUS_OWNER_ID"), /^owner-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 });
 
-Then("the second task has a different owner id and a different gateway token from the first", function (this: ChatticusWorld) {
+Then("the second task has a different owner id and different tokens from the first", function (this: ChatticusWorld) {
 	assert.equal(ownerStartOf(this).ecs.runTaskCalls.length, 2);
 	assert.notEqual(environmentValue(this, "CHATTICUS_OWNER_ID", 0), environmentValue(this, "CHATTICUS_OWNER_ID", 1));
 	assert.notEqual(environmentValue(this, "CHATTICUS_MODEL_GATEWAY_TOKEN", 0), environmentValue(this, "CHATTICUS_MODEL_GATEWAY_TOKEN", 1));
+	assert.notEqual(environmentValue(this, "CHATTICUS_OWNER_HOST_TOKEN", 0), environmentValue(this, "CHATTICUS_OWNER_HOST_TOKEN", 1));
 });
 
 Then("the gateway token binds the turn, the bot and the owner id of the container for 3600 seconds", function (this: ChatticusWorld) {
-	const job = startJobOf(this);
-	const verification = verifySessionToken(SCENARIO_GATEWAY_SIGNING_KEY, environmentValue(this, "CHATTICUS_MODEL_GATEWAY_TOKEN"), this.clock.now());
+	assertTokenBinding(this, "CHATTICUS_MODEL_GATEWAY_TOKEN", "model-gateway");
+});
+
+Then("the host token binds the turn, the bot, the owner id and the start generation of the container for 3600 seconds", function (this: ChatticusWorld) {
+	assertTokenBinding(this, "CHATTICUS_OWNER_HOST_TOKEN", "owner-host");
+});
+
+function assertTokenBinding(world: ChatticusWorld, variable: string, audience: SessionTokenAudience): void {
+	const job = startJobOf(world);
+	const verification = verifySessionToken(SCENARIO_GATEWAY_SIGNING_KEY, environmentValue(world, variable), world.clock.now(), audience);
 	assert.ok(verification.valid, JSON.stringify(verification));
 	assert.deepEqual(verification.claims, {
+		audience,
+		startGeneration: 1,
 		tenantId: job.tenantId,
 		botId: job.botId,
 		turnId: job.turnId,
-		ownerId: environmentValue(this, "CHATTICUS_OWNER_ID"),
-		expiresAtSeconds: Math.floor(this.clock.now().getTime() / 1000) + 3600,
+		ownerId: environmentValue(world, "CHATTICUS_OWNER_ID"),
+		expiresAtSeconds: Math.floor(world.clock.now().getTime() / 1000) + 3600,
 	});
+}
+
+Then("the host token is not valid as a gateway token and the gateway token is not valid as a host token", function (this: ChatticusWorld) {
+	const gateway = environmentValue(this, "CHATTICUS_MODEL_GATEWAY_TOKEN");
+	const host = environmentValue(this, "CHATTICUS_OWNER_HOST_TOKEN");
+	assert.notEqual(gateway, host);
+	assert.deepEqual(verifySessionToken(SCENARIO_GATEWAY_SIGNING_KEY, host, this.clock.now(), "model-gateway"), { valid: false, reason: "audience" });
+	assert.deepEqual(verifySessionToken(SCENARIO_GATEWAY_SIGNING_KEY, gateway, this.clock.now(), "owner-host"), { valid: false, reason: "audience" });
 });
 
 Then("STS was asked exactly {int} time(s) to assume the role {string}", function (this: ChatticusWorld, count: number, role: string) {
@@ -259,11 +303,12 @@ Then("the container environment holds the scoped credentials STS returned", func
 	assert.equal(environmentValue(this, "AWS_SESSION_TOKEN"), FAKE_SCOPED_CREDENTIALS.SessionToken);
 });
 
-Then("the starter logged none of the gateway token, the scoped credentials, the invoke key and the signing key", function (this: ChatticusWorld) {
+Then("the starter logged none of the two tokens, the scoped credentials, the invoke key and the signing key", function (this: ChatticusWorld) {
 	const output = ownerStartOf(this).logs.join("\n");
 	assert.ok(output.includes("owner_task_started"), "The starter logged nothing about the start");
 	const secrets = [
 		environmentValue(this, "CHATTICUS_MODEL_GATEWAY_TOKEN"),
+		environmentValue(this, "CHATTICUS_OWNER_HOST_TOKEN"),
 		FAKE_SCOPED_CREDENTIALS.AccessKeyId,
 		FAKE_SCOPED_CREDENTIALS.SecretAccessKey,
 		FAKE_SCOPED_CREDENTIALS.SessionToken,
@@ -282,6 +327,60 @@ When("the container takes over the turn with its task environment and is held af
 		throw new Error(`The container ended ${outcome} before its tool ran.`);
 	});
 	await Promise.race([held.reached, early]);
+});
+
+const diskRuns = new WeakMap<ChatticusWorld, OwnerEntryPointOutcome>();
+
+When(
+	"the container runs its parked turn on its computer disk through the Front Door with only its task environment",
+	async function (this: ChatticusWorld) {
+		assert.ok(this.app, "The scenario has no HTTP front door.");
+		assert.ok(this.snapshotTmpdir, "The scenario has no temporary directory.");
+		const app = this.app;
+		const ownerId = environmentValue(this, "CHATTICUS_OWNER_ID");
+		const tenantId = environmentValue(this, "CHATTICUS_TENANT_ID");
+		const generation = Number.parseInt(environmentValue(this, OWNER_START_GENERATION_VARIABLE), 10);
+		const plane = new HostProtocolClient({
+			baseUrl: "http://front-door.test",
+			tenantId,
+			workerToken: environmentValue(this, "CHATTICUS_OWNER_HOST_TOKEN"),
+			userId: environmentValue(this, "CHATTICUS_USER_ID"),
+			fetchFunction: (async (input: Request | URL | string, init?: RequestInit) => app.request(String(input), init)) as typeof fetch,
+		});
+		const disk = new ComputerHostDisk(join(this.snapshotTmpdir, "hosts", ownerId), new FilesystemSnapshotStore(join(this.snapshotTmpdir, "store")));
+		const launcher = join(this.snapshotTmpdir, "owner-start-shell");
+		writeFileSync(launcher, '#!/bin/sh\nexec /bin/bash "$@"\n');
+		chmodSync(launcher, 0o755);
+		const job = activeTurnJobOf(this);
+		const deps = await computerOwnerDepsFor(this);
+		const outcome = await runOwnerOnComputerDisk(
+			plane,
+			{
+				tenantId,
+				workerId: ownerId,
+				turnId: job.turnId,
+				startGeneration: generation,
+				liveRoot: disk.liveRoot,
+				store: disk.store,
+				heartbeatTimer: { start: () => 0, stop: () => undefined },
+			},
+			() => runOwnerEntryPoint({ claim: async () => job }, deps, { workspaceRoot: join(disk.liveRoot, "workspace"), shellLauncherPath: launcher, workerId: ownerId }),
+		);
+		diskRuns.set(this, outcome);
+	},
+);
+
+Then("the container's run on its computer disk ended {string}", function (this: ChatticusWorld, outcome: string) {
+	assert.equal(diskRuns.get(this), outcome);
+});
+
+Then("the computer published its snapshot and is stopped and its start lease of generation 1 has ended", async function (this: ChatticusWorld) {
+	const computer = await this.messagingStore().getComputer(STORY_TENANT);
+	assert.ok(computer, "The organization has no computer.");
+	assert.equal(computer.snapshotGeneration, 1);
+	assert.equal(computer.stopped, true);
+	assert.equal(computer.hostStartGeneration, 1);
+	assert.equal(computer.hostStartLeaseExpiresAt, undefined);
 });
 
 function activeTurnJobOf(world: ChatticusWorld) {
