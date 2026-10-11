@@ -4,6 +4,8 @@
 # the command's user cannot reach the credentials the owner process holds.
 # Needs Docker and no AWS. Run from anywhere:
 #   sh computer/test_owner_container.sh
+# CI builds the image once and passes it in: set CHATTICUS_OWNER_TEST_IMAGE and
+# CHATTICUS_OWNER_TEST_SKIP_BUILD=1 to test that image without rebuilding.
 set -eu
 
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
@@ -20,8 +22,12 @@ failures=0
 pass() { echo "PASS  $1"; }
 fail() { echo "FAIL  $1"; failures=$((failures + 1)); }
 
-echo "Building ${IMAGE}"
-docker build -q -f computer/Dockerfile -t "${IMAGE}" .
+if [ "${CHATTICUS_OWNER_TEST_SKIP_BUILD:-}" = "1" ]; then
+  echo "Using the already built ${IMAGE}"
+else
+  echo "Building ${IMAGE}"
+  docker build -q -f computer/Dockerfile -t "${IMAGE}" .
+fi
 
 owner() {
   docker run --rm \

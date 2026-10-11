@@ -211,8 +211,9 @@ What is not built or not proven:
 - **Environments.** Only development runs this. Staging and production do not
   run the TypeScript control plane or the computer path yet. Promotion is a
   separate project: it needs the migration runbook, per-environment Computers
-  stacks and signing-key secrets, an image pipeline instead of the hand-pushed
-  `:dev` tag, and a rehearsal in each environment.
+  stacks and signing-key secrets, a staging and production image pipeline
+  (development already builds and pushes the image in CI,
+  `build-computer-image-development.yml`), and a rehearsal in each environment.
 - **Credentials endpoint.** The container credentials endpoint `169.254.170.2`
   cannot be blocked on Fargate (no `NET_ADMIN`). It is mitigated by the empty
   task role and the absent credentials path variable. It is not blocked.

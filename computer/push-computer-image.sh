@@ -1,4 +1,7 @@
 #!/bin/sh
+# BREAK-GLASS ONLY. CI builds, checks and pushes the computer image on every
+# change to develop (.github/workflows/build-computer-image-development.yml).
+# Use this script by hand only when CI cannot run.
 # Build the computer image and push :dev to the ChatticusComputers ECR
 # repository. Does not deploy ChatticusComputers and does not change
 # desiredCount.
