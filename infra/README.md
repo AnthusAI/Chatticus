@@ -354,6 +354,28 @@ npx cdk synth ChatticusWebStaging
 `ChatticusSnapshots` and `ChatticusComputers` are shared account stacks;
 synth them only when those definitions change. Never `cdk deploy --all`.
 
+## Computer image pipeline
+
+`.github/workflows/build-computer-image-development.yml` builds, checks and
+pushes the computer image to the `ChatticusComputers` ECR repository (tags
+`sha-<git sha>` and `dev`); the image is no longer pushed by hand.
+`computer/push-computer-image.sh` is break-glass only. The workflow assumes the
+development deploy role (`AWS_DEPLOY_ROLE_ARN`). The `ChatticusAccountDeploy`
+stack grants that role `ecr:GetAuthorizationToken`, the ECR push actions on the
+Computers repository of that account only, and `cloudformation:DescribeStacks`
+on `ChatticusComputers`.
+
+Deploy order: the role change reaches the account only when `ChatticusAccountDeploy`
+is deployed by hand once, with the development account's credentials:
+
+```bash
+cd infra && sh deploy-chatticus-account-deploy.sh development
+```
+
+Until then the workflow cannot push. Deploying the `ChatticusComputers` stack
+itself (`sh deploy-chatticus-dedicated-account.sh development computers`) is a
+separate manual step and is not part of the image pipeline.
+
 ## Dedicated environment accounts (chatticus-development, -staging, -production)
 
 The move out of the legacy account (epic chatticus-2e4d79) gives each

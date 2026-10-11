@@ -21,7 +21,7 @@ is forbidden.
 | Web CDK bundle (docker) | Forwards the runner's OIDC session into SAM docker | `infra/lib/web-build-env.ts` (`webDockerBundlingEnvironment`) |
 | Customer cross-account provisioning | Anthus principal `sts:AssumeRole` into `ChatticusOrganizationComputerRole` | `conversation/src/computer/provisioning.ts`, `infra/customer-role.yml` |
 | Customer computer image publish | Operator `aws login` → `sts assume-role` with `ExternalId` | `computer/push-customer-computer-image.sh` |
-| Anthus computer image publish | Operator `aws login` (same session, no key minting) | `computer/push-computer-image.sh` |
+| Anthus computer image publish | CI: the GitHub OIDC deploy role pushes the image; `computer/push-computer-image.sh` is break-glass only (operator `aws login`) | `.github/workflows/build-computer-image-development.yml`, `computer/push-computer-image.sh` |
 | Integration test session exchange | SigV4 caller proves an allowed IAM **role**; control plane returns a bearer token | `features/integration_test_auth.feature`, `infra/lib/integration-test-stack.ts` |
 | Operator HTTP routes | Bearer secret in Secrets Manager (not an AWS access key) | `conversation/src/auth/operator.ts` |
 | Worker routes | Per-worker minted bearer credential (not an AWS access key) | `features/worker_credentials.feature` |
