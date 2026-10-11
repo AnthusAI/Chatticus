@@ -219,9 +219,11 @@ What is not built or not proven:
 - **Owner code is readable.** The shell can read the owner bundle code.
 - **No refresh.** Scoped credentials and the gateway token last one hour, with
   no refresh for longer turns.
-- **Gateway controls.** The gateway has no model allow-list and no per-call
-  spend ceiling. It records spend at the end of the stream, so a client that
-  disconnects early leaves that call unrecorded.
+- **Gateway controls.** The gateway allows only the models on the vendor price
+  book, caps the body at 2 MiB and the output at 32768 tokens, refuses non-function
+  tools, `store` and `background`, and records an estimated spend when a client
+  disconnects early. It has no per-call organization ceiling: the one ceiling
+  the product has is the AWS spend ceiling, which does not meter model spend.
 - **Policy headroom.** The session policy has about 30 characters of headroom
   under the 2048 character STS limit.
 - **Lost tools.** A tool lost when an owner dies is reported, not re-run.
