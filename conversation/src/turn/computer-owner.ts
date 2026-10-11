@@ -13,9 +13,8 @@
  * it yet; the remote-tool path (park, host claim, result) is unchanged and is what a Lambda owner still does.
  */
 
-import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { consoleLogEmitter, type LogEmitter } from "../observability/log-line.ts";
-import { localComputerToolsExtension } from "../pi/local-computer-tools.ts";
+import { createOwnerExecutionEnv, localComputerToolsExtension } from "../pi/local-computer-tools.ts";
 import { executeTurn } from "./executor.ts";
 import { resumeTurnForAction } from "./park.ts";
 import type { ComputerToolCall } from "../pi/computer-tools.ts";
@@ -31,6 +30,8 @@ export type ComputerOwnerOptions = {
 	readonly workerId: string;
 	/** The program the model's commands are started through (see `LocalComputerToolsOptions.shellPath`); the default shell when absent. */
 	readonly shellPath?: string;
+	/** The program and arguments that run the file helper through the launcher (see `LocalComputerToolsOptions.fileHelperCommand`). */
+	readonly fileHelperCommand?: readonly string[];
 	/** Called after a local tool ran and before its answer is recorded; a scenario holds the owner here to stand for a crash. */
 	readonly beforeRecording?: (call: ComputerToolCall) => Promise<void>;
 	/**
@@ -91,13 +92,14 @@ export async function takeOverTurn(job: TurnExecutionJob, deps: ExecutorDeps, op
 			claimed: (attemptId, attempt) => log("turn_claimed", { attempt_id: attemptId, attempt }),
 			lost: (phase) => log("turn_claim_lost", { phase }),
 		},
-		env: () => new NodeExecutionEnv({ cwd: options.workspaceRoot, ...(options.shellPath === undefined ? {} : { shellPath: options.shellPath }) }),
+		env: () => createOwnerExecutionEnv(options.workspaceRoot, options.shellPath, options.fileHelperCommand),
 		computerTools: (handoff) =>
 			localComputerToolsExtension(handoff, {
 				workspaceRoot: options.workspaceRoot,
 				workspacePath: options.workspacePath,
 				workerId: options.workerId,
 				shellPath: options.shellPath,
+				fileHelperCommand: options.fileHelperCommand,
 				turn,
 				actions: deps.computer.actions,
 				messaging: deps.messaging,

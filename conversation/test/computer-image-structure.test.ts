@@ -19,6 +19,7 @@ describe("computer image structure", () => {
 		expect(dockerfile).toContain("COPY --from=host-bundle /opt/chatticus/host /opt/chatticus/host");
 		expect(bundleConfig).toContain('"host-worker"');
 		expect(bundleConfig).toContain("snapshot:");
+		expect(bundleConfig).toContain('"file-helper"');
 		expect(bundleConfig).toContain('".js": ".mjs"');
 	});
 
@@ -28,6 +29,7 @@ describe("computer image structure", () => {
 				"host-worker": resolve(repositoryRoot, "computer", "host", "src", "main.ts"),
 				owner: resolve(repositoryRoot, "computer", "host", "src", "owner-main.ts"),
 				snapshot: resolve(repositoryRoot, "conversation", "bin", "snapshot.ts"),
+				"file-helper": resolve(repositoryRoot, "conversation", "src", "pi", "owner-file-helper-main.ts"),
 			},
 			outdir: "unused",
 			absWorkingDir: repositoryRoot,

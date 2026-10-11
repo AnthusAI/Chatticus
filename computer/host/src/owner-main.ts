@@ -1,3 +1,5 @@
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { OWNER_START_GENERATION_VARIABLE } from "../../../conversation/src/computer/owner-environment.ts";
 import { createContainerOwnerDeps, ownerIdentityFromEnvironment, ownerStoresConfigFromEnvironment } from "./owner-deps.ts";
 import { snapshotStoreFromEnvironment } from "./disk-lifecycle.ts";
@@ -9,6 +11,7 @@ import {
 	observeOwnerRun,
 	ownerExitCodeFor,
 	ownerLogEmitter,
+	runFileProbe,
 	runOwnerEntryPoint,
 	runOwnerOnComputerDisk,
 	runShellProbe,
@@ -17,15 +20,18 @@ import {
 } from "./owner.ts";
 
 const workspaceRoot = (process.env["CHATTICUS_WORKSPACE_ROOT"] ?? "").trim() || DEFAULT_WORKSPACE_ROOT;
+const fileHelperCommand = [process.execPath, join(dirname(fileURLToPath(import.meta.url)), "file-helper.mjs")];
 const shellLauncherPath = (process.env["CHATTICUS_SHELL_LAUNCHER"] ?? "").trim() || DEFAULT_SHELL_LAUNCHER_PATH;
 
 /**
  * Entry point of the container owner program.
  *
  * `shell-probe <command>` runs one command through the shell launcher and prints what it left, so an image can show what
- * the unprivileged shell reaches. With no argument the program takes over the turn the start named: no named turn ends
- * with `owner_no_job` and success. For a named turn the owner, already registered by the starter under its owner id and
- * holding only its own signed host token (never the deployment's invoke key), hydrates
+ * the unprivileged shell reaches. `file-probe <read_workspace|write_workspace|edit_workspace> <path> [text [new text]]` runs
+ * one file tool as the owner runs it and prints `file_probe_ok` or `file_probe_error` and the tool's answer. With no argument
+ * the program takes over the turn the start named: no named turn ends with `owner_no_job` and success. For a named turn the
+ * owner, already registered by the starter under its owner id and holding only its own signed host token (never the
+ * deployment's invoke key), hydrates
  * the computer's snapshot into the workspace, runs the turn under that owner id, publishes the disk when it is dirty and
  * marks the computer stopped, then ends with `owner_outcome=<outcome>`; the exit code is 0 when the turn reached a
  * terminal state or was parked or yielded for another owner.
@@ -42,6 +48,13 @@ export async function ownerMain(argv: readonly string[]): Promise<number> {
 		const result = await runShellProbe(argv[1] ?? "true", { workspaceRoot, shellLauncherPath });
 		process.stdout.write(result.output);
 		return result.exitCode;
+	}
+	if (argv[0] === "file-probe") {
+		const [, tool, path = "", first = "", second = ""] = argv;
+		const args: Record<string, string> = tool === "write_workspace" ? { path, content: first } : tool === "edit_workspace" ? { path, old_text: first, new_text: second } : { path };
+		const result = await runFileProbe(tool as "read_workspace" | "write_workspace" | "edit_workspace", args, { workspaceRoot, shellLauncherPath, fileHelperCommand });
+		process.stdout.write(`${result.isError ? "file_probe_error" : "file_probe_ok"}: ${result.text}\n`);
+		return result.isError ? 1 : 0;
 	}
 	const source = startJobSourceFromEnvironment();
 	const job = await source.claim();
@@ -82,7 +95,7 @@ export async function ownerMain(argv: readonly string[]): Promise<number> {
 					});
 				},
 			},
-			() => runOwnerEntryPoint({ claim: async () => job }, deps, { workspaceRoot, shellLauncherPath, workerId: identity.ownerId }),
+			() => runOwnerEntryPoint({ claim: async () => job }, deps, { workspaceRoot, shellLauncherPath, fileHelperCommand, workerId: identity.ownerId }),
 		);
 	});
 	console.info(`owner_outcome=${outcome} tenant_id=${job.tenantId} turn_id=${job.turnId}`);
