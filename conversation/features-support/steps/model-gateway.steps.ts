@@ -335,3 +335,75 @@ Then("the real key appears in no response body, response header or log event of 
 	assert.ok(logged.length > 0, "The gateway logged nothing");
 	assert.ok(!logged.includes(SCENARIO_VENDOR_KEY), `A log event carried the key:\n${logged}`);
 });
+
+async function askGatewayWithBody(world: ChatticusWorld, body: string): Promise<void> {
+	const scenario = gatewayScenarioOf(world);
+	const response = await fetch(`${await httpBaseUrl(world)}/orgs/${turnOf(world).tenantId}/model-gateway/v1/responses`, {
+		method: "POST",
+		headers: { "content-type": "application/json", accept: "text/event-stream", authorization: `Bearer ${scenario.lastToken}` },
+		body,
+	});
+	const text = await response.text();
+	recordExchange(world, response, text);
+	scenario.lastResponse = response;
+	scenario.lastBody = text;
+}
+
+When("the container asks the model gateway for an answer with the body:", async function (this: ChatticusWorld, body: string) {
+	await askGatewayWithBody(this, body);
+});
+
+When("the container asks the model gateway for an answer with a body of {int} bytes", async function (this: ChatticusWorld, bytes: number) {
+	const filler = "x".repeat(bytes);
+	await askGatewayWithBody(this, JSON.stringify({ model: GATEWAY_MODEL, stream: true, input: [{ role: "user", content: filler }] }));
+});
+
+When("the container drops the connection", async function (this: ChatticusWorld) {
+	const state = openReaders.get(this);
+	assert.ok(state, "No answer is being read");
+	await state.reader.cancel();
+});
+
+async function lastVendorBody(world: ChatticusWorld): Promise<Record<string, unknown>> {
+	const requests = (await vendorOf(world)).requests;
+	const last = requests[requests.length - 1];
+	assert.ok(last, "The vendor received no request");
+	return JSON.parse(last.body) as Record<string, unknown>;
+}
+
+Then("the vendor was asked for at most {int} output tokens", async function (this: ChatticusWorld, limit: number) {
+	const asked = (await lastVendorBody(this)).max_output_tokens;
+	assert.equal(typeof asked, "number", "The vendor was given no output limit");
+	assert.ok((asked as number) <= limit, `The vendor was asked for ${String(asked)} output tokens`);
+});
+
+Then("the vendor received the function tool {string}", async function (this: ChatticusWorld, name: string) {
+	const tools = (await lastVendorBody(this)).tools as { type: string; name: string }[];
+	assert.deepEqual(
+		tools.map((tool) => [tool.type, tool.name]),
+		[["function", name]],
+	);
+});
+
+Then("the vendor was told not to store the response", async function (this: ChatticusWorld) {
+	assert.equal((await lastVendorBody(this)).store, false);
+});
+
+Then("the gateway response does not contain {string}", function (this: ChatticusWorld, text: string) {
+	assert.ok(!gatewayScenarioOf(this).lastBody.includes(text), gatewayScenarioOf(this).lastBody);
+});
+
+Then("the vendor ledger comes to hold an estimated spend for the turn", async function (this: ChatticusWorld) {
+	const turn = turnOf(this);
+	for (let attempt = 0; attempt < 100; attempt += 1) {
+		const row = await getVendorLedgerEntry(ledgerDependenciesFor(this), turn.tenantId, turn.turnId);
+		if (row !== null) {
+			assert.ok(row.inputTokens > 0, "The estimate counted no input");
+			assert.ok(row.outputTokens > 0, "The estimate counted none of the output already sent");
+			assert.equal(row.model, GATEWAY_MODEL);
+			return;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 50));
+	}
+	assert.fail("The abandoned answer left no spend in the ledger");
+});
