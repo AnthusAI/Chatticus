@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-3b5dda6d-cc5b-4576-9e26-236bac982eaf",
+  "title": "CI builds, checks and pushes the computer image on every merge to develop",
+  "description": "Done in PR 501. The image had been pushed by hand five times; twice it was stale or broken. build-computer-image-development.yml builds arm64 on a native runner, checks gcc, node, git, the chatticus-shell user and the owner container test, then pushes sha-<commit> and dev through the OIDC deploy role and verifies the digests match. First run 2026-10-11 succeeded in about 2 minutes. Open: deploy the account deploy stack once so the role stack matches the code (the role is already admin, so no effect); the deploy role itself being AdministratorAccess should be tightened later; GitHub keeps one pending run per concurrency group so a run can be cancelled by a queued deploy (dispatch it again).",
+  "type": "task",
+  "status": "closed",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-11T15:28:45.660699Z",
+  "updated_at": "2026-10-11T15:28:49.470862Z",
+  "closed_at": "2026-10-11T15:28:49.470500Z",
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The CI image workflow works; the account deploy stack still needs one deployment.",
+  "right_now_updated_at": "2026-10-11T15:28:51.261699Z",
+  "custom": {}
+}
