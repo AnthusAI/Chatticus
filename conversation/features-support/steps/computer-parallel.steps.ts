@@ -50,7 +50,7 @@ Then("the last request to the model contains {string}", function (this: Chatticu
 Then("the turn journal records a tool result containing {string}", async function (this: ChatticusWorld, text: string) {
 	const results = (await journalNow(this)).filter((event) => event.kind === "tool.result");
 	assert.ok(
-		results.some((event) => String(event.body).includes(text)),
+		results.some((event) => String(event.output).includes(text)),
 		`No tool result contains ${JSON.stringify(text)}: ${JSON.stringify(results)}`,
 	);
 });

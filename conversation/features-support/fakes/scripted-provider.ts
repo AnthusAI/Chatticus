@@ -12,12 +12,13 @@ export const DEFAULT_SCRIPTED_USAGE: ScriptedUsage = { input: 10, output: 5 };
 export type ScriptedToolCall = { readonly name: string; readonly args: Record<string, unknown> };
 
 type ScriptedStep =
-	| { readonly kind: "reply"; readonly text: string; readonly usage: ScriptedUsage }
+	| { readonly kind: "reply"; readonly text: string; readonly usage: ScriptedUsage; readonly thinking?: readonly string[] }
 	| {
 			readonly kind: "toolCall";
 			readonly calls: ReadonlyArray<ScriptedToolCall>;
 			readonly leadingText: string;
 			readonly usage: ScriptedUsage;
+			readonly thinking?: readonly string[];
 	  }
 	| { readonly kind: "providerError"; readonly status: number; readonly code: string | null }
 	| { readonly kind: "networkError" };
@@ -97,6 +98,20 @@ export class ScriptedProvider {
 	/** Queue one assistant message that calls several tools at once, the way a model issues parallel tool calls. */
 	toolCalls(calls: ReadonlyArray<ScriptedToolCall>, leadingText = "", usage: ScriptedUsage = DEFAULT_SCRIPTED_USAGE): this {
 		this.steps.push({ kind: "toolCall", calls, leadingText, usage });
+		return this;
+	}
+
+	/**
+	 * Make the most recently queued reply or tool call message stream a reasoning summary first, one `thinking_delta` per
+	 * piece, the way the Responses API streams a reasoning summary.
+	 */
+	thinking(...pieces: string[]): this {
+		const last = this.steps.length - 1;
+		const step = this.steps[last];
+		if (step === undefined || (step.kind !== "reply" && step.kind !== "toolCall")) {
+			throw new Error("thinking() follows a queued reply or tool call.");
+		}
+		this.steps[last] = { ...step, thinking: pieces };
 		return this;
 	}
 
@@ -218,22 +233,51 @@ export class ScriptedProvider {
 					cost: ZERO_COST,
 				};
 				outer.push({ type: "start", partial: { ...blank } });
+				const thinkingPieces = step.thinking ?? [];
+				const thinkingBlocks: AssistantMessage["content"] =
+					thinkingPieces.length === 0 ? [] : [{ type: "thinking", thinking: thinkingPieces.join("") }];
+				const thinkingShift = thinkingBlocks.length;
+				if (thinkingShift > 0) {
+					let streamed = "";
+					outer.push({
+						type: "thinking_start",
+						contentIndex: 0,
+						partial: { ...blank, content: [{ type: "thinking", thinking: "" }] },
+					});
+					for (const piece of thinkingPieces) {
+						await pause(DELTA_PAUSE_MILLISECONDS);
+						streamed += piece;
+						outer.push({
+							type: "thinking_delta",
+							contentIndex: 0,
+							delta: piece,
+							partial: { ...blank, content: [{ type: "thinking", thinking: streamed }] },
+						});
+					}
+					outer.push({
+						type: "thinking_end",
+						contentIndex: 0,
+						content: streamed,
+						partial: { ...blank, content: [{ type: "thinking", thinking: streamed }] },
+					});
+				}
 				if (step.kind === "reply") {
-					const partial = { ...blank, content: [{ type: "text" as const, text: "" }] };
-					outer.push({ type: "text_start", contentIndex: 0, partial: { ...partial } });
+					const partial = { ...blank, content: [...thinkingBlocks, { type: "text" as const, text: "" }] };
+					outer.push({ type: "text_start", contentIndex: thinkingShift, partial: { ...partial } });
 					let held = midStreamHold === undefined;
 					for (const delta of chunksOf(step.text, 12)) {
 						await pause(DELTA_PAUSE_MILLISECONDS);
-						partial.content = [{ type: "text", text: `${partial.content[0]!.text}${delta}` }];
-						outer.push({ type: "text_delta", contentIndex: 0, delta, partial: { ...partial } });
-						if (!held && midStreamHold !== undefined && partial.content[0]!.text.length >= midStreamHold.afterCharacters) {
+						const streamedText = `${(partial.content[thinkingShift] as { text: string }).text}${delta}`;
+						partial.content = [...thinkingBlocks, { type: "text", text: streamedText }];
+						outer.push({ type: "text_delta", contentIndex: thinkingShift, delta, partial: { ...partial } });
+						if (!held && midStreamHold !== undefined && streamedText.length >= midStreamHold.afterCharacters) {
 							held = true;
 							midStreamHold.reached();
 							await midStreamHold.gate;
 						}
 					}
-					outer.push({ type: "text_end", contentIndex: 0, content: step.text, partial: { ...partial } });
-					const message = { ...blank, content: [{ type: "text" as const, text: step.text }], usage };
+					outer.push({ type: "text_end", contentIndex: thinkingShift, content: step.text, partial: { ...partial } });
+					const message = { ...blank, content: [...thinkingBlocks, { type: "text" as const, text: step.text }], usage };
 					outer.push({ type: "done", reason: "stop", message });
 					outer.end(message);
 					return;
@@ -244,17 +288,18 @@ export class ScriptedProvider {
 					name: call.name,
 					arguments: call.args as never,
 				}));
-				const firstToolIndex = step.leadingText === "" ? 0 : 1;
-				const content: AssistantMessage["content"] = [];
+				const firstToolIndex = thinkingShift + (step.leadingText === "" ? 0 : 1);
+				const content: AssistantMessage["content"] = [...thinkingBlocks];
 				if (step.leadingText !== "") {
-					const partial = { ...blank, content: [{ type: "text" as const, text: "" }] };
-					outer.push({ type: "text_start", contentIndex: 0, partial: { ...partial } });
+					const partial = { ...blank, content: [...thinkingBlocks, { type: "text" as const, text: "" }] };
+					outer.push({ type: "text_start", contentIndex: thinkingShift, partial: { ...partial } });
 					for (const delta of chunksOf(step.leadingText, 12)) {
 						await pause(DELTA_PAUSE_MILLISECONDS);
-						partial.content = [{ type: "text", text: `${partial.content[0]!.text}${delta}` }];
-						outer.push({ type: "text_delta", contentIndex: 0, delta, partial: { ...partial } });
+						const streamedText = `${(partial.content[thinkingShift] as { text: string }).text}${delta}`;
+						partial.content = [...thinkingBlocks, { type: "text", text: streamedText }];
+						outer.push({ type: "text_delta", contentIndex: thinkingShift, delta, partial: { ...partial } });
 					}
-					outer.push({ type: "text_end", contentIndex: 0, content: step.leadingText, partial: { ...partial } });
+					outer.push({ type: "text_end", contentIndex: thinkingShift, content: step.leadingText, partial: { ...partial } });
 					content.push({ type: "text", text: step.leadingText });
 				}
 				const withCalls = (calls: AssistantMessage["content"]) => ({ ...blank, content: [...content, ...calls] });

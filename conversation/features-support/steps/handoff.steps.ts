@@ -113,7 +113,7 @@ Then("those events are not stored only as token chunks", async function (this: C
 	const events = await journalNow(this);
 	const typed = events.filter((event) => event.kind === "tool.call" || event.kind === "tool.result");
 	assert.ok(typed.length >= 2);
-	assert.ok(typed.every((event) => typeof event.action_id === "string" && event.action_id !== ""));
+	assert.ok(typed.every((event) => typeof event.call_id === "string" && event.call_id !== ""));
 	assert.ok(events.some((event) => event.kind !== "turn.token"));
 });
 
@@ -124,15 +124,15 @@ Then("the executed tool action id matches the committed call", async function (t
 	const action = await actionStoreOf(this).get(tenantId, runs[0]!.actionId);
 	assert.equal(action?.turnId, turnId);
 	const call = (await journalNow(this)).find((event) => event.kind === "tool.call");
-	assert.equal(action?.callId, call?.action_id);
-	assert.equal(call?.body, runs[0]!.toolName);
+	assert.equal(action?.callId, call?.call_id);
+	assert.equal(call?.tool, runs[0]!.toolName);
 });
 
 Then("no unresolved tool calls remain", async function (this: ChatticusWorld) {
 	const events = await journalNow(this);
-	const resolved = new Set(events.filter((event) => event.kind === "tool.result").map((event) => event.action_id));
+	const resolved = new Set(events.filter((event) => event.kind === "tool.result").map((event) => event.call_id));
 	for (const call of events.filter((event) => event.kind === "tool.call")) {
-		assert.ok(resolved.has(call.action_id), `Call ${call.action_id} has no result`);
+		assert.ok(resolved.has(call.call_id), `Call ${call.call_id} has no result`);
 	}
 	const { tenantId, turnId } = activeTurnOf(this);
 	const actions = await actionStoreOf(this).listForTurn(tenantId, turnId);

@@ -36,7 +36,8 @@ import type { Bot } from "../store/codecs/bot.ts";
 import type { Channel } from "../domain/channels.ts";
 import { classifyModelFailure } from "./classify-errors.ts";
 import { DEFAULT_TOKEN_FLUSH_BYTES, DEFAULT_TOKEN_FLUSH_MILLISECONDS, TokenCoalescer } from "./coalescer.ts";
-import { AgentEventDelivery, createAgentEventListener, TurnEventWriter } from "./event-stream.ts";
+import { AgentEventDelivery, createAgentEventListener, TurnEventWriter, writeToolCallOnce } from "./event-stream.ts";
+import { redactSecrets } from "./tool-event-fields.ts";
 import { commitFinalAnswer, type FinalizeInputs, recordTurnSpend } from "./finalize.ts";
 import { armProbe } from "./probes.ts";
 import { computerToolUnavailableText, computerWorkRefusal, type ParkDependencies, parkOnComputerAction } from "./park.ts";
@@ -114,6 +115,7 @@ class TurnAttempt {
 	private readonly mailbox: MailboxStore;
 	private readonly writer: TurnEventWriter;
 	private readonly coalescer: TokenCoalescer;
+	private readonly thinkingCoalescer: TokenCoalescer;
 	private readonly delivery = new AgentEventDelivery();
 	private readonly inputs: TrackedInput[] = [];
 	private readonly lost: Promise<never>;
@@ -146,6 +148,13 @@ class TurnAttempt {
 				deps.faults?.maybeCrash("progress_append", "before");
 				await this.writer.write({ kind: "turn.token", token: text });
 				deps.faults?.maybeCrash("progress_append", "after");
+			},
+		});
+		this.thinkingCoalescer = new TokenCoalescer({
+			flushBytes: tuning.tokenFlushBytes,
+			flushMilliseconds: tuning.tokenFlushMilliseconds,
+			write: async (text) => {
+				await this.writer.write({ kind: "turn.thinking", text: redactSecrets(text) });
 			},
 		});
 		this.lost = new Promise<never>((_resolve, reject) => {
@@ -199,7 +208,12 @@ class TurnAttempt {
 		});
 		this.session = session;
 		await recordStorageFence(this.deps.turns, this.job.tenantId, this.job.turnId, this.attemptId, session.fence);
+		await this.readJournal();
 		await this.writer.write({ kind: "attempt.claimed", attemptId: this.attemptId });
+		if (this.delivery.computerStarting) {
+			this.delivery.setComputerStartingOutstanding(false);
+			await this.writer.write({ kind: "computer.ready", detail: "Computer ready" });
+		}
 		this.writer.throwIfFailed();
 		const agent = {
 			model: { provider: this.deps.model.provider, modelId: this.deps.model.modelId },
@@ -208,9 +222,8 @@ class TurnAttempt {
 		const root = await session.harness.root(this.context, { agent });
 		this.root = root;
 		await root.configure(agent, this.context);
-		await this.rememberJournaledCalls();
 		this.stream = await watchEvents(session.harness, root.id, this.context);
-		this.stream.start(createAgentEventListener(this.writer, this.coalescer, this.attemptId, this.delivery));
+		this.stream.start(createAgentEventListener(this.writer, this.coalescer, this.thinkingCoalescer, this.attemptId, this.delivery));
 		this.renewTimer = setInterval(() => void this.renew(), this.tuning.renewIntervalMilliseconds);
 		return this.drive(session, root);
 	}
@@ -244,7 +257,7 @@ class TurnAttempt {
 	private async conclude(session: OwnerSession, root: Conversation): Promise<TurnExecutionOutcome> {
 		await this.delivery.untilSettled(this.inputs[this.inputs.length - 1]!.submission.id as number, EVENT_DELIVERY_WAIT_MILLISECONDS);
 		this.deps.faults?.maybeCrash("model_acceptance", "after");
-		await this.coalescer.flush();
+		await this.flushStreams();
 		await this.guard(session);
 		if (!(await renewAttempt(this.deps, this.job.tenantId, this.job.turnId, this.attemptId))) {
 			throw new AttemptLost();
@@ -317,13 +330,26 @@ class TurnAttempt {
 
 	/**
 	 * A resumed owner rereads the journal so the tool calls its predecessor already wrote are not written again when Pi
-	 * reports them once more.
+	 * reports them once more, the reasoning summary already written counts against the turn's cap, and a
+	 * `computer.starting` that no `computer.ready` has answered is answered by this owner's claim.
 	 */
-	private async rememberJournaledCalls(): Promise<void> {
+	private async readJournal(): Promise<void> {
 		if (this.turn.attempt <= 1) return;
+		let starting = false;
 		for (const event of await this.deps.turns.store.listEvents(this.job.tenantId, this.job.turnId, 0)) {
-			if (event.kind === "tool.call" && event.actionId !== undefined) this.delivery.claimCallJournal(event.actionId);
+			if (event.kind === "tool.call" && event.callId !== undefined) {
+				this.delivery.claimCallJournal(event.callId);
+				const bytes = event.toolArguments?.["bytes"];
+				this.delivery.rememberCall(event.callId, { toolName: event.tool ?? "", writtenBytes: typeof bytes === "number" ? bytes : null });
+			} else if (event.kind === "turn.thinking") {
+				this.delivery.addThinkingCharacters((event.text ?? "").length);
+			} else if (event.kind === "computer.starting") {
+				starting = true;
+			} else if (event.kind === "computer.ready") {
+				starting = false;
+			}
 		}
+		this.delivery.setComputerStartingOutstanding(starting);
 	}
 
 	/**
@@ -331,14 +357,21 @@ class TurnAttempt {
 	 * harness is closed without aborting (the session's close), so the tool call stays pending for the next owner.
 	 */
 	private async parkOnComputer(call: ComputerToolCall): Promise<TurnExecutionOutcome> {
-		await this.coalescer.flush();
-		if (this.delivery.claimCallJournal(call.callId)) {
-			await this.writer.write({ kind: "tool.call", body: call.toolName, actionId: call.callId });
+		await this.flushStreams();
+		await writeToolCallOnce(this.writer, this.delivery, call.callId, call.toolName, call.arguments);
+		if (!this.delivery.computerStarting) {
+			this.delivery.setComputerStartingOutstanding(true);
+			await this.writer.write({ kind: "computer.starting", detail: "Starting your computer" });
 		}
 		await this.writer.idle();
 		this.writer.throwIfFailed();
 		await parkOnComputerAction(this.parkDependencies(), this.turn, this.attemptId, call);
 		return "parked";
+	}
+
+	private async flushStreams(): Promise<void> {
+		await this.thinkingCoalescer.flush();
+		await this.coalescer.flush();
 	}
 
 	private mustYield(): boolean {
@@ -348,14 +381,14 @@ class TurnAttempt {
 	}
 
 	private async yieldTurn(): Promise<TurnExecutionOutcome> {
-		await this.coalescer.flush();
+		await this.flushStreams();
 		this.writer.throwIfFailed();
 		await yieldAttempt(this.deps, this.job.tenantId, this.job.turnId, this.attemptId);
 		return "yielded";
 	}
 
 	private async fail(reason: string): Promise<TurnExecutionOutcome> {
-		await this.coalescer.flush();
+		await this.flushStreams();
 		this.writer.throwIfFailed();
 		if (this.session !== null && this.root !== null) {
 			await recordTurnSpend(this.finalizeInputs(this.session, this.root), this.promptEntryId());

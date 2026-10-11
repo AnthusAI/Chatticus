@@ -21,6 +21,9 @@ export type TurnEventKind =
 	| "attempt.claimed"
 	| "model.request"
 	| "turn.token"
+	| "turn.thinking"
+	| "computer.starting"
+	| "computer.ready"
 	| "tool.call"
 	| "tool.result"
 	| "turn.waiting"
@@ -65,6 +68,9 @@ export type Turn = {
 	ledgerOutputRecorded: number;
 };
 
+/** The sanitized arguments of a `tool.call` event: short strings and numbers only. */
+export type ToolEventArguments = Record<string, string | number | boolean>;
+
 /** One durable turn event with its integer sequence within the turn. */
 export type TurnEvent = {
 	eventId: string;
@@ -77,8 +83,18 @@ export type TurnEvent = {
 	messageSeq?: number;
 	body?: string;
 	pendingComputerTool?: PendingComputerTool;
-	actionId?: string;
 	attemptId?: string;
+	tool?: string;
+	callId?: string;
+	summary?: string;
+	toolArguments?: ToolEventArguments;
+	argumentsTruncated?: boolean;
+	ok?: boolean;
+	output?: string;
+	outputTruncated?: boolean;
+	durationMs?: number | null;
+	text?: string;
+	detail?: string;
 };
 
 /** What a caller says about an event; the store assigns the sequence and the domain assigns the identifier. */
@@ -88,8 +104,18 @@ export type TurnEventDraft = {
 	messageSeq?: number;
 	body?: string;
 	pendingComputerTool?: PendingComputerTool;
-	actionId?: string;
 	attemptId?: string;
+	tool?: string;
+	callId?: string;
+	summary?: string;
+	toolArguments?: ToolEventArguments;
+	argumentsTruncated?: boolean;
+	ok?: boolean;
+	output?: string;
+	outputTruncated?: boolean;
+	durationMs?: number | null;
+	text?: string;
+	detail?: string;
 };
 
 /** What a successful claim hands the owner. */

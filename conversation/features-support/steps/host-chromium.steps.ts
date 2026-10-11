@@ -165,9 +165,9 @@ Then("the turn journal records exactly one tool.result for the pending action id
 	const state = computerScenarioOf(this);
 	const { tenantId } = activeTurnOf(this);
 	const action = await actionStoreOf(this).get(tenantId, state.pendingActionId!);
-	const results = (await journalNow(this)).filter((event) => event.kind === "tool.result" && event.action_id === action?.callId);
+	const results = (await journalNow(this)).filter((event) => event.kind === "tool.result" && event.call_id === action?.callId);
 	assert.equal(results.length, 1);
-	assert.equal(results[0]!.body, OPENED_RESULT);
+	assert.equal(results[0]!.output, OPENED_RESULT);
 });
 
 Then("the host executor ran the pending action once", function (this: ChatticusWorld) {
@@ -231,9 +231,9 @@ Then("the turn journal records the opened page for the browse action", async fun
 	const action = await actionStoreOf(this).get(tenantId, computerScenarioOf(this).pendingActionId!);
 	assert.equal(action?.toolName, BROWSE_ACTION_KIND);
 	const events = await journalNow(this);
-	const results = events.filter((event) => event.kind === "tool.result" && event.action_id === action?.callId);
+	const results = events.filter((event) => event.kind === "tool.result" && event.call_id === action?.callId);
 	assert.equal(results.length, 1);
-	assert.equal(results[0]!.body, `opened:${BROWSER_ORIGIN}/inbox`);
+	assert.equal(results[0]!.output, `opened:${BROWSER_ORIGIN}/inbox`);
 	assert.equal(events.at(-1)!.kind, "turn.completed");
 });
 

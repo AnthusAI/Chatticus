@@ -271,9 +271,9 @@ Then("the turn journal records a tool result containing {string} for the pending
 	const state = computerScenarioOf(this);
 	const { tenantId } = activeTurnOf(this);
 	const action = await actionStoreOf(this).get(tenantId, state.pendingActionId!);
-	const results = (await journalNow(this)).filter((event) => event.kind === "tool.result" && event.action_id === action?.callId);
+	const results = (await journalNow(this)).filter((event) => event.kind === "tool.result" && event.call_id === action?.callId);
 	assert.equal(results.length, 1);
-	assert.ok(String(results[0]!.body).includes(body), String(results[0]!.body));
+	assert.ok(String(results[0]!.output).includes(body), String(results[0]!.output));
 });
 
 When("the customer computer host boots through the Front Door worker plane", async function (this: ChatticusWorld) {

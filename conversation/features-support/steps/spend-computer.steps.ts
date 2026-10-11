@@ -113,7 +113,7 @@ async function refusalText(world: ChatticusWorld): Promise<string> {
 	}
 	const results = (await journalNow(world)).filter((event) => event.kind === "tool.result");
 	assert.equal(results.length, 1, JSON.stringify(results));
-	return String(results[0]!.body);
+	return String(results[0]!.output);
 }
 
 Then("the request is refused with a spend ceiling reason", async function (this: ChatticusWorld) {

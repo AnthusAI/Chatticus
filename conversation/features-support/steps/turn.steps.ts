@@ -226,8 +226,8 @@ When("the expired attempt tries to append output or execute an action", async fu
 		await rejection(() =>
 			appendTurnEvent(this.turnDependencies(), channel.tenantId, turnId, stale, {
 				kind: "tool.call",
-				body: "late tool",
-				actionId: "late-action",
+				tool: "late tool",
+				callId: "late-action",
 			}),
 		),
 	];

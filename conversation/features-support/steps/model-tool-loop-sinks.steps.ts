@@ -154,26 +154,26 @@ async function journaledCalls(world: ChatticusWorld, toolName: string): Promise<
 	const { tenantId, turnId } = activeTurnOf(world);
 	const events = await readTurnEvents(world, tenantId, turnId);
 	return events
-		.filter((event) => event.kind === "tool.call" && event.body === toolName)
+		.filter((event) => event.kind === "tool.call" && event.tool === toolName)
 		.map((call) => ({
 			call,
-			result: events.find((event) => event.kind === "tool.result" && event.action_id === call.action_id),
+			result: events.find((event) => event.kind === "tool.result" && event.call_id === call.call_id),
 		}));
 }
 
 Then("the turn journal records a denied {word} tool result", async function (this: ChatticusWorld, toolName: string) {
 	const calls = await journaledCalls(this, toolName);
-	assert.ok(calls.length > 0, `The journal has no ${toolName} tool call: ${JSON.stringify((await readTurnEvents(this, activeTurnOf(this).tenantId, activeTurnOf(this).turnId)).map((event) => [event.kind, event.body]))}`);
+	assert.ok(calls.length > 0, `The journal has no ${toolName} tool call: ${JSON.stringify((await readTurnEvents(this, activeTurnOf(this).tenantId, activeTurnOf(this).turnId)).map((event) => [event.kind, event.tool]))}`);
 	const last = calls.at(-1)!;
 	assert.ok(last.result, `The ${toolName} call has no result`);
-	const body = String(last.result.body);
+	const body = String(last.result.output);
 	assert.ok(body.includes(BLOCKED_PREFIX) || body.includes(HOST_DENIAL_MARKER), `The ${toolName} result is not a denial: ${body}`);
 });
 
 Then("the denied tool result does not leak session secrets", async function (this: ChatticusWorld) {
 	const { tenantId, turnId } = activeTurnOf(this);
 	const denials = (await readTurnEvents(this, tenantId, turnId)).filter(
-		(event) => event.kind === "tool.result" && String(event.body).includes(BLOCKED_PREFIX),
+		(event) => event.kind === "tool.result" && String(event.output).includes(BLOCKED_PREFIX),
 	);
 	assert.ok(denials.length > 0, "The journal has no denied tool result");
 	const lowered = String(denials.at(-1)!.body).toLowerCase();

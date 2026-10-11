@@ -87,7 +87,7 @@ Then(
 	"bot {string} can read {string} as {string} from the computer",
 	async function (this: ChatticusWorld, botName: string, file: string, content: string) {
 		const result = await useComputer(this, botName, `read workspace file /workspace/${file}`);
-		assert.equal(result.body, content);
+		assert.equal(result.output, content);
 	},
 );
 
@@ -125,7 +125,7 @@ Then(
 		assert.equal(await workTurn(this, botName), "done");
 		const results = (await readTurnEvents(this, bot.tenantId, this.lastTurnId!)).filter((event) => event.kind === "tool.result");
 		assert.equal(results.length, 1);
-		assert.ok(String(results[0]!.body).includes("no such file"), String(results[0]!.body));
+		assert.ok(String(results[0]!.output).includes("no such file"), String(results[0]!.output));
 	},
 );
 

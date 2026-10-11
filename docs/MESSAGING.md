@@ -160,14 +160,62 @@ server-sent events are sufficient and a WebSocket is not needed.
 | `turn.waiting` | The turn is blocked on a readiness gate, naming which (for example a computer still booting) | no |
 | `turn.token` | One coalesced chunk | no |
 | `model.request` | A fenced attempt issued a model call | no |
-| `tool.call` | A tool request was committed, keyed by action id | no |
-| `tool.result` | A tool result was committed for that action id | no |
+| `turn.thinking` | One coalesced piece of the model's reasoning summary, when the model streams one | no |
+| `tool.call` | A tool request was committed, keyed by the Pi call id, with sanitized arguments | no |
+| `tool.result` | A tool result was committed for that call id, with a bounded output | no |
+| `computer.starting` | The turn parked for the organization's computer | no |
+| `computer.ready` | An owner claimed the turn after that park | no |
 | `attempt.claimed` | A worker became the fenced owner of the turn | no |
 | `attempt.relinquished` | The previous owner dropped the fence before continuation | no |
 | `turn.completed` | Chunks are joined into one row | yes, one row |
 | `turn.failed` | The turn ended without an answer. `body` is a reason the member can read, for example that the model provider is out of quota | no |
 | `turn.reconciling` | The outcome is uncertain; the client reloads committed state | no |
 | `approval.required` | A proposed action is blocked | the proposal, not the action |
+
+### What the activity events carry
+
+Every event carries `kind`, `seq`, `event_id`, `turn_id` and `channel_id`. The events that describe what a bot is doing
+add the fields below. Fields not listed for a kind are absent. An event stored before a field existed simply lacks it;
+readers treat a missing field as absent.
+
+| Kind | Fields |
+| --- | --- |
+| `tool.call` | `tool` (name), `call_id` (the Pi tool call id), `summary`, `arguments` (object), `arguments_truncated` (boolean) |
+| `tool.result` | `tool`, `call_id`, `ok` (boolean), `summary`, `output` (text), `output_truncated` (boolean), `duration_ms` (number or null) |
+| `turn.thinking` | `text` |
+| `computer.starting`, `computer.ready` | `detail` |
+
+`tool.call.arguments` is a sanitized copy, never the raw arguments:
+
+| Tool | `arguments` | `summary` |
+| --- | --- | --- |
+| `run_terminal` | `command` (first 1000 characters) | `Running: <command, first 80 characters>` |
+| `read_workspace` | `path` | `Reading <path>` |
+| `write_workspace` | `path`, `bytes` (bytes of content), `preview` (first 200 characters) | `Writing <path> (<n> bytes)` |
+| `edit_workspace` | `path`, `old_text` and `new_text` (first 300 characters each) | `Editing <path>` |
+| `browse` | `url` | `Browsing <url>` |
+| anything else | first-level strings cut to 300 characters, numbers and booleans as they are, at most 10 of them, nested values dropped | `Calling <tool>` |
+
+Paths and URLs are cut at 500 characters. `arguments_truncated` is true when anything was cut or dropped.
+
+`tool.result.summary` is `Exit <n>` for `run_terminal` (`ok` is true only for exit 0), `Edited <n> block` for a
+successful `edit_workspace`, `Wrote <n> bytes` for a successful `write_workspace`, `Done` for any other success, and
+`Error: <first 80 characters>` for a failure. `output` is the result text whole up to 3000 characters; a longer one keeps
+its first 1500 and its last 1500 characters joined by `\n...[N characters omitted]...\n` and sets `output_truncated`.
+`duration_ms` is measured by the attempt that saw the call start, so it is null when a call began under an earlier
+attempt. `call_id` links a result to its call, and a call is journaled once however many attempts replay it.
+
+`turn.thinking` is emitted only when the model streams a reasoning summary; nothing is invented when it does not. The
+pieces are coalesced like `turn.token` and the turn carries at most 2000 characters of them in all.
+
+`computer.starting` (`detail`: `Starting your computer`) is written when the turn parks for the computer, just before
+`turn.waiting`. `computer.ready` (`detail`: `Computer ready`) is written by the first attempt that claims the turn after
+that, right after its `attempt.claimed`.
+
+Before any argument or output is placed in an event, every value in the process environment whose name is
+`CHATTICUS_MODEL_GATEWAY_TOKEN`, `CHATTICUS_OWNER_HOST_TOKEN`, `AWS_SECRET_ACCESS_KEY` or `AWS_SESSION_TOKEN`, or contains
+`KEY`, `TOKEN` or `SECRET` (values of at least 8 characters), is replaced with `[redacted]`. Each event stays well under
+20 KB, far below the 400 KB item limit.
 
 ### A failed model call fails the turn at once
 

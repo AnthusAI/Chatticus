@@ -129,16 +129,16 @@ Then("the turn journal records tool.result for the pending action id", async fun
 	const state = computerScenarioOf(this);
 	const { tenantId } = activeTurnOf(this);
 	const action = await actionStoreOf(this).get(tenantId, state.pendingActionId!);
-	const results = (await journalNow(this)).filter((event) => event.kind === "tool.result" && event.action_id === action?.callId);
+	const results = (await journalNow(this)).filter((event) => event.kind === "tool.result" && event.call_id === action?.callId);
 	assert.equal(results.length, 1);
-	assert.equal(results[0]!.body, CONTINUATION_RESULT);
+	assert.equal(results[0]!.output, CONTINUATION_RESULT);
 });
 
 Then("the pull worker leaves no unresolved tool calls", async function (this: ChatticusWorld) {
 	const events = await journalNow(this);
-	const resolved = new Set(events.filter((event) => event.kind === "tool.result").map((event) => event.action_id));
+	const resolved = new Set(events.filter((event) => event.kind === "tool.result").map((event) => event.call_id));
 	for (const call of events.filter((event) => event.kind === "tool.call")) {
-		assert.ok(resolved.has(call.action_id), `Call ${call.action_id} has no result`);
+		assert.ok(resolved.has(call.call_id), `Call ${call.call_id} has no result`);
 	}
 	const { tenantId, turnId } = activeTurnOf(this);
 	assert.ok((await actionStoreOf(this).listForTurn(tenantId, turnId)).every((action) => action.status === "done"));
@@ -194,5 +194,5 @@ Then("the computer was reclaimed by the pull worker", async function (this: Chat
 Then("the tool result is committed once", async function (this: ChatticusWorld) {
 	const results = (await journalNow(this)).filter((event) => event.kind === "tool.result");
 	assert.equal(results.length, 1);
-	assert.equal(results[0]!.body, CONTINUATION_RESULT);
+	assert.equal(results[0]!.output, CONTINUATION_RESULT);
 });

@@ -57,11 +57,11 @@ Then("the computer reports the browser capability ready", async function (this: 
 Then("the browse tool result says the browser capability is not available on this computer", async function (this: ChatticusWorld) {
 	const { tenantId, turnId } = activeTurnOf(this);
 	const events = await readTurnEvents(this, tenantId, turnId);
-	const call = events.find((event) => event.kind === "tool.call" && event.body === "browse");
-	assert.ok(call, `The journal has no browse tool call: ${JSON.stringify(events.map((event) => [event.kind, event.body]))}`);
-	const result = events.find((event) => event.kind === "tool.result" && event.action_id === call.action_id);
+	const call = events.find((event) => event.kind === "tool.call" && event.tool === "browse");
+	assert.ok(call, `The journal has no browse tool call: ${JSON.stringify(events.map((event) => [event.kind, event.tool]))}`);
+	const result = events.find((event) => event.kind === "tool.result" && event.call_id === call.call_id);
 	assert.ok(result, "The browse call has no result");
-	assert.equal(String(result.body), BROWSER_UNAVAILABLE_TEXT);
+	assert.equal(String(result.output), BROWSER_UNAVAILABLE_TEXT);
 });
 
 Then("no computer action was recorded for the turn", async function (this: ChatticusWorld) {
