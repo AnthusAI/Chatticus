@@ -12,6 +12,7 @@ import { ApiClient } from "./api.ts";
 import { computerHandoffDependenciesFor } from "./computer-support.ts";
 import { ledgerDependenciesFor } from "./executor-harness.ts";
 import { modelGatewayFor } from "./model-gateway-support.ts";
+import { probedListingClients } from "./front-door-listing-probe.ts";
 import { ensurePiStorage, type ScenarioPiStorage } from "./pi-storage.ts";
 import { startAppServer } from "./http-server.ts";
 import { probeQueueOf, runQueueOf, TURN_RUN_QUEUE } from "./turn-queues.ts";
@@ -54,6 +55,7 @@ export async function cognitoKeys(world: ChatticusWorld): Promise<CognitoTestKey
 export { TURN_RUN_QUEUE };
 
 function messageDependencies(world: ChatticusWorld, piStorage: ScenarioPiStorage) {
+	const listingClients = probedListingClients(world, { client: world.messagingTable.client, s3: piStorage.s3 }, piStorage.tableName);
 	return {
 		mailbox: { client: world.messagingTable.client, tableName: world.messagingTable.tableName },
 		turns: new DynamoTurnAdmission(world.messagingTable.client, world.messagingTable.tableName),
@@ -61,8 +63,8 @@ function messageDependencies(world: ChatticusWorld, piStorage: ScenarioPiStorage
 		turnProbes: probeQueueOf(world),
 		faults: world.faultPlan,
 		listing: {
-			client: world.messagingTable.client,
-			s3: piStorage.s3,
+			client: listingClients.client,
+			s3: listingClients.s3,
 			messagingTableName: world.messagingTable.tableName,
 			conversationsTableName: piStorage.tableName,
 			bucket: piStorage.bucket,

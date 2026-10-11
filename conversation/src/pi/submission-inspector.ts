@@ -46,10 +46,11 @@ export class PiSubmissionInspector implements SubmissionInspector {
 	}
 
 	async turnAnswered(turn: Turn): Promise<boolean> {
-		const storage = await IndexedStorage.open({
+		const storage = await IndexedStorage.openExisting({
 			...this.options,
 			storageId: storageIdFor(turn.tenantId, turn.botId, turn.channelId),
 		});
+		if (storage === undefined) return false;
 		const record = await readTurnSubmission(storage, turn.turnId);
 		return record?.type === "input" && record.status === "done";
 	}
