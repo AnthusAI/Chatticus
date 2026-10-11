@@ -7,6 +7,7 @@ import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import type { Hono } from "hono";
 import { createIdTokenVerifier } from "../auth/cognito.ts";
+import { secretsManagerInvokeKeySource } from "../auth/invoke-key-source.ts";
 import { loadIntegrationTestAuthConfig, seedIntegrationTestOrganization } from "../auth/integration-test.ts";
 import { OrganizationSeedConflictError } from "../domain/organizations.ts";
 import { DynamoBudgetStore } from "../budget/budget-store.ts";
@@ -151,7 +152,12 @@ export async function composeFrontDoorApp(
 	for (const name of REQUIRED_FRONT_DOOR_ENVIRONMENT) requiredIn(environment, name);
 	const environmentName = requiredIn(environment, "CHATTICUS_ENVIRONMENT");
 	const messagingTableName = requiredIn(environment, "CHATTICUS_MESSAGING_TABLE");
-	const invokeKey = await readSecretString(clients.secrets, requiredIn(environment, "CHATTICUS_INVOKE_KEY_SECRET_ARN"));
+	const invokeKeys = await secretsManagerInvokeKeySource(
+		clients.secrets,
+		requiredIn(environment, "CHATTICUS_INVOKE_KEY_SECRET_ARN"),
+		clock,
+	);
+	const [invokeKey = ""] = await invokeKeys();
 	const operatorKey = await readSecretString(clients.secrets, requiredIn(environment, "CHATTICUS_OPERATOR_KEY_SECRET_ARN"));
 	const deploymentAwsAccountId = deploymentAwsAccountIdFrom(environment);
 	await resolveOpenAiApiKey(environment, clients.parameters);
@@ -224,7 +230,7 @@ export async function composeFrontDoorApp(
 			heartbeatTimeoutSeconds: DEFAULT_HEARTBEAT_TIMEOUT_SECONDS,
 		},
 		budgetRollups: new DynamoBudgetStore(client, messagingTableName),
-		invokeKey,
+		invokeKeys,
 		operatorKey,
 		deploymentAwsAccountId,
 		integrationTest,

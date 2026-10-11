@@ -31,6 +31,17 @@ export function synthWebStack(
   return synthWebStackWithDeploySource(environmentName, testWebsiteDeploySource);
 }
 
+/** Synth with the invoke key secret version the deploy script passes as context. */
+export function synthWebStackWithInvokeKeyVersion(
+  environmentName: ChatticusCloudEnvironment,
+  invokeKeyVersionId: string,
+): Template {
+  const { stack } = createWebStackApp(environmentName, testWebsiteDeploySource, undefined, {
+    invokeKeyVersionId,
+  });
+  return Template.fromStack(stack);
+}
+
 /** Synth with assets on disk for DeployWebsite source inspection. */
 export function synthWebStackWithAssets(
   environmentName: ChatticusCloudEnvironment,
@@ -68,8 +79,9 @@ function createWebStackApp(
   environmentName: ChatticusCloudEnvironment,
   websiteDeploySource: s3deploy.ISource | undefined,
   outdir?: string,
+  context?: Record<string, string>,
 ): { app: cdk.App; stack: WebStack } {
-  const app = new cdk.App(outdir ? { outdir } : undefined);
+  const app = new cdk.App({ ...(outdir ? { outdir } : {}), ...(context ? { context } : {}) });
   const deps = new cdk.Stack(app, "Deps", { env: testEnv });
   const hostedZone = route53.HostedZone.fromHostedZoneAttributes(deps, "Zone", {
     hostedZoneId: "Z1234567890ABC",

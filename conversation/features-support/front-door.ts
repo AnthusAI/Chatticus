@@ -16,6 +16,7 @@ import { ensurePiStorage, type ScenarioPiStorage } from "./pi-storage.ts";
 import { startAppServer } from "./http-server.ts";
 import { probeQueueOf, runQueueOf, TURN_RUN_QUEUE } from "./turn-queues.ts";
 import { CognitoTestKeys } from "./test-jwt.ts";
+import { staticInvokeKeySource, type InvokeKeySource } from "../src/auth/invoke-key-source.ts";
 import type { ChatticusWorld } from "./world.ts";
 
 /** The environment name a scenario's front door runs as, and so the budget environment its spend pause reads. */
@@ -32,6 +33,8 @@ export type FrontDoorOptions = {
 	serveOverHttp?: boolean;
 	environment?: string;
 	invokeKey?: string | null;
+	/** A rotating invoke key source; it replaces invokeKey. */
+	invokeKeys?: InvokeKeySource;
 	operatorKey?: string;
 	integrationTest?: IntegrationTestAuthConfig | null;
 	/** Serve write routes through the transcript migration write gate kept in the scenario's Messaging table. */
@@ -89,7 +92,7 @@ export async function wireFrontDoor(world: ChatticusWorld, options: FrontDoorOpt
 		streamTiming: { ...DEFAULT_STREAM_TIMING, minimumPollMilliseconds: 5, maximumPollMilliseconds: 25 },
 		streamClock: world.streamClock,
 		openStreams: world.openStreams,
-		invokeKey: options.invokeKey ?? null,
+		invokeKeys: options.invokeKeys ?? (options.invokeKey ? staticInvokeKeySource(options.invokeKey) : null),
 		writeGate: options.migrationGate === true ? new DynamoWriteGate(world.messagingTable.client, world.messagingTable.tableName) : undefined,
 		operatorKey: options.operatorKey ?? "",
 		deploymentAwsAccountId: SCENARIO_DEPLOYMENT_AWS_ACCOUNT_ID,

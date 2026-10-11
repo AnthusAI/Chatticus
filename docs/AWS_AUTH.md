@@ -60,6 +60,104 @@ Legitimate `AccessKeyId` / `AWS_ACCESS_KEY_ID` references are limited to:
 - Forwarding an existing OIDC session into docker (`web-build-env.ts`)
 - Test fixtures and mocks (`conversation/features-support/`, `conversation/test/`)
 
+## Rotating the invoke key
+
+The invoke key is one shared value: CloudFront presents it as the
+`X-Chatticus-Invoke-Key` origin header and the Front Door refuses every route
+but `/health` without it (the owner host token and the model gateway excepted).
+It is a Secrets Manager secret, not an AWS access key, and it is rotated by
+`infra/rotate-invoke-key.sh`.
+
+### Who holds the key and how they get it
+
+| Consumer | How it obtains the key | Staleness after a rotation |
+| --- | --- | --- |
+| CloudFront (Web stack) | Origin custom header, a CloudFormation dynamic reference resolved at **deploy** time (`web-stack.ts`). The Web deploy scripts pin the secret's current version id (`-c invokeKeyVersionId=`) so a rotation changes the template; without that CloudFormation does not re-resolve an unchanged resource. | Until the Web stack is redeployed. |
+| FrontDoor Lambda | Reads the secret by ARN at cold start and then at most every 60 seconds (`INVOKE_KEY_CACHE_SECONDS`, `conversation/src/auth/invoke-key-source.ts`). It accepts the `AWSCURRENT` and the `AWSPREVIOUS` value. Before this change it read the secret once per cold start and never again, so a warm container (hours) kept the old key. | 60 seconds. |
+| ComputerStarter Lambda | Reads it when it composes its dependencies, now at most every 60 seconds; it is used only to start a customer-account host worker (the key goes into that worker's task environment). | 60 seconds, but see customer workers. |
+| Acceptance runner and demo CLI | `conversation/bin/acceptance.ts` reads the secret by ARN from SSM at every run. `chat.ts` holds no key. | None. |
+| Browser and static web export | Never. The browser calls `/api/*` on CloudFront, which adds the header. | None. |
+| Owner containers | Never; they use a signed host token and a gateway token. | None. |
+| Customer-account host workers | `CHATTICUS_INVOKE_KEY` in the task environment the ComputerStarter sets when it starts the worker (`host-starter.ts`), sent on every host-protocol call and at worker registration. | Until the worker is restarted. |
+| Integration-test sessions | The HMAC of the integration bearer is derived from the key when a Front Door instance composes. | Bearers minted by an instance on the old key fail on an instance on the new key: only integration test and acceptance sessions, only in the minutes around a rotation. |
+
+Development has no customer-account host workers. In staging and production
+every running customer host worker is refused after the previous value is
+retired and must be restarted (end the computer and let the next turn start it,
+or re-provision); rotate during a quiet period and expect an interrupted
+computer turn for those organizations.
+
+### Runbook
+
+Precondition: the Front Door and ComputerStarter that read `AWSPREVIOUS` are
+deployed (the `Deploy Web (development)` workflow deploys the control plane
+first), and `aws login` / `aws sso login` for the environment is current.
+
+```sh
+cd infra
+sh rotate-invoke-key.sh development --dry-run      # read-only: steps and checks
+sh rotate-invoke-key.sh development --yes          # rotate
+```
+
+What it does, in this order:
+
+1. Refuses without an explicit environment and `--yes`; uses the profile
+   `chatticus-<environment>` (`CHATTICUS_AWS_PROFILE` overrides); refuses a
+   secret that is not in the session's account.
+2. Read-only checks: CloudFront and Function URL `/health` answer 200, the
+   Function URL refuses a keyless request with the invoke key gate, CloudFront
+   passes the gate.
+3. `get-random-password` (40 characters, no punctuation) held in memory, then
+   `put-secret-value` through stdin. The old value becomes `AWSPREVIOUS`. The
+   Front Door accepts both values from here on.
+4. Waits 65 seconds so every warm Front Door has read the pair.
+5. Redeploys the Web stack (development: `gh workflow run "Deploy Web
+   (development)" --ref develop` and watches it; staging and production:
+   `deploy-chatticus-dedicated-account.sh <environment> web` from the
+   operator session), then waits for the distribution to be `Deployed`.
+6. Compares the distribution's origin header with the `AWSCURRENT` value in
+   memory (never printed). Only if equal does it go on.
+7. Retires `AWSPREVIOUS` (`update-secret-version-stage`), waits 65 seconds and
+   re-verifies the open and the protected routes.
+
+If any step fails the script exits non-zero with the reason. Before step 7
+nothing is down, because both values are still accepted. Fix the cause and run
+`--resume --yes`, which finishes steps 4 to 7 without a new value; a normal run
+refuses while a previous value is staged. If `gh` is missing or not logged in
+the script prints the exact `gh workflow run` command and exits 3; run it, wait,
+then `--resume --yes`. Afterwards run the acceptance runner
+(`cd conversation && npx tsx bin/acceptance.ts --environment development`).
+
+### The window
+
+There is no refusal window for web users: for the whole time CloudFront still
+carries the old key the Front Door accepts it as `AWSPREVIOUS`, and the first
+wait keeps the deploy from beating the Lambda cache. The only exposure is the
+old key staying valid until step 7; if it is suspected leaked, do not stop
+between steps 3 and 7. If the Web deploy is done by hand with a CloudFront that
+takes long to propagate, nothing is lost: both values work. After retirement
+the old key is dead everywhere within 60 seconds.
+
+### Cadence
+
+Rotate every 90 days, after anyone with `cloudfront:GetDistributionConfig`,
+`secretsmanager:GetSecretValue` on the secret or `ecs:DescribeTasks` on the
+host cluster leaves the operator set, and at once on any suspected exposure.
+
+### Proposed, not built: take the key out of the CloudFront configuration
+
+Today the key is plain text in the distribution configuration. The fix is an
+origin access control for the Function URL: set the Function URL `authType` to
+`AWS_IAM` and let CloudFront sign the origin request (SigV4) with an OAC, so no
+shared header exists. Known obstacles from this repo: the STS authorization
+relay (integration-test and caller-identity proof, `buildStsGetCallerIdentityHeaders`)
+and the worker bearer travel in the `Authorization` header, which the OAC
+SigV4 signature would overwrite; direct Function URL callers (customer-account
+host workers, the acceptance runner) would need to sign requests themselves or
+use a second, separately protected URL; and the Function URL would need a
+resource policy for `cloudfront.amazonaws.com` scoped to the distribution ARN.
+Until then the rotation above is the control.
+
 ## Ops cleanup after cutover
 
 This repository does not mint keys, but historical operator practice and

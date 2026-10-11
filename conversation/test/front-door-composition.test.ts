@@ -127,7 +127,7 @@ describe("front door composition", () => {
 		const requested: string[] = [];
 		const environment = environmentFor({ CHATTICUS_INVOKE_KEY: "ignored", CHATTICUS_OPERATOR_KEY: "ignored" });
 		const app = await composeFrontDoorApp(environment, clientsWith(fakeParameters(PARAMETER_VALUES), fakeSecrets(SECRET_VALUES, requested)));
-		expect(requested).toEqual([INVOKE_SECRET_ARN, OPERATOR_SECRET_ARN]);
+		expect(requested).toEqual([INVOKE_SECRET_ARN, INVOKE_SECRET_ARN, OPERATOR_SECRET_ARN]);
 		const response = await app.request("http://front-door.test/operator/orgs/nobody/enable", {
 			method: "POST",
 			headers: { "X-Chatticus-Invoke-Key": "invoke-key-value", Authorization: "Bearer operator-key-value" },
