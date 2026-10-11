@@ -10,16 +10,29 @@
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "2b8749b6-15dc-498f-a59c-53604558611e",
+      "author": "home",
+      "text": "Rotation done 2026-10-11 with infra/rotate-invoke-key.sh (PR 505): new value, both keys accepted until the retire step, CloudFront header verified equal to the secret, previous value retired, health and refusal checks passed. The FrontDoor and ComputerStarter now re-read the secret every 60 s (they cached it forever, so a rotation would have locked the web app out). Still open: the key is stored in plaintext in the CloudFront origin header; the Origin Access Control replacement is proposed in docs/AWS_AUTH.md but obstructed by the STS Authorization relay and direct Function URL callers. Rotate every 90 days.",
+      "created_at": "2026-10-11T18:50:57.262482Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-11T17:37:29.966564Z",
-  "updated_at": "2026-10-11T17:37:29.966605Z",
+  "updated_at": "2026-10-11T18:50:57.262506Z",
   "closed_at": null,
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The invoke key needs rotation, then CloudFront should switch to a safer authentication scheme.",
-  "right_now_updated_at": "2026-10-11T17:37:31.741183Z",
+  "right_now_summary": "The key was rotated, but it remains stored in plaintext in the CloudFront origin header.",
+  "right_now_updated_at": "2026-10-11T18:50:58.165862Z",
   "custom": {}
 }

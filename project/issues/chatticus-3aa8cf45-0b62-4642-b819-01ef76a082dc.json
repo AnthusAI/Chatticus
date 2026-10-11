@@ -3,23 +3,36 @@
   "title": "Narrow the owner's storage scope with session tags (security review finding 4)",
   "description": "The owner's DynamoDB scope is <tenant>#* on the Messaging table, which includes the organization record (awsExternalId, cross-account role, memberships), the roster (bots, workers with token hashes), channels, computers and tasks. Narrowing the session policy does not fit the 2048-character STS limit (2018 today; three statements need 2877). Fix: session tags (tenant, bot, channel, turn) plus a static policy on the scoped role using ${aws:PrincipalTag/...}, which also removes the policy-size headroom problem. Needs sts:TagSession in the role trust, starter change and the computer record moved out of the roster key (the owner updates it there and IAM cannot restrict by sort key). Read-only org and budget_rollup families, write families for turn, channel, computer actions, vendor ledger and the mailbox.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cb55b5f1-05be-4681-964e-3b9e9994deae",
+      "author": "home",
+      "text": "Done in PR 506 and deployed 2026-10-11. The starter assumes the scoped role with session tags tenant, bot, channel, computer, turn and no session policy; the role policy is static with PrincipalTag variables (conversation/src/gateway/owner-role-policy.json, shared with infra); trust requires the five tags. The owner can write only its own turn, channel, computer actions, computer record, vendor ledger, mailbox and PI session keys; read org and budget_rollup; GetItem on the roster only (executor reads the bot record). The computer record moved to <tenant>#computer#record (migrated in development, 2 records). Live check: no AccessDenied. Residual: a leaked owner credential can read a worker token hash via the roster GetItem.",
+      "created_at": "2026-10-11T18:50:49.630860Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-11T17:37:25.887237Z",
-  "updated_at": "2026-10-11T17:37:25.887276Z",
-  "closed_at": null,
+  "updated_at": "2026-10-11T18:50:53.445445Z",
+  "closed_at": "2026-10-11T18:50:53.445357Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",
     "name": "claude"
   },
-  "right_now_summary": "The team is designing session-tagged IAM policies to narrow owner access and move computer records out of the roster.",
-  "right_now_updated_at": "2026-10-11T17:37:28.409786Z",
+  "right_now_summary": "The owner now uses tagged, narrow storage access, but leaked credentials can still read worker token hashes.",
+  "right_now_updated_at": "2026-10-11T18:50:55.328894Z",
   "custom": {}
 }
