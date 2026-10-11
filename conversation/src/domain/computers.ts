@@ -262,6 +262,20 @@ export async function requestComputerHostStart(
 	}
 }
 
+/**
+ * End the start lease of the generation whose owner has just reported the computer stopped, so the next start request
+ * claims a new generation at once. Only the owner of the current generation releases: a report that names an older or
+ * unknown generation changes nothing, because a newer generation's lease belongs to a newer owner.
+ *
+ * @param tenantId Organization.
+ * @param generation The host start generation the reporting owner was started for.
+ * @param deps The store.
+ * @returns Whether the lease of that generation was released.
+ */
+export async function releaseHostStartLease(tenantId: string, generation: number, deps: { store: MessagingStore }): Promise<boolean> {
+	return deps.store.releaseHostStartLease(tenantId, generation);
+}
+
 async function requireHost(computer: Computer, workerId: string, deps: { store: MessagingStore }): Promise<void> {
 	const worker = await deps.store.getWorker(computer.tenantId, workerId);
 	if (worker === null) {

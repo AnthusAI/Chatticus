@@ -176,6 +176,8 @@ export type OwnerSessionOptions = {
 	readonly heartbeatTimer?: HeartbeatTimer;
 	/** The turn this owner runs; named on every line the session writes. */
 	readonly turnId?: string;
+	/** The host start generation that launched this owner; reported with the stopped report so that generation's start lease ends. */
+	readonly startGeneration?: number;
 	/** Where the session reports hydrate, publish and skip events; absent, each is one console line carrying the tenant, turn and owner id. */
 	readonly log?: LogEmitter;
 };
@@ -264,7 +266,7 @@ export async function runOwnerOnComputerDisk(
 				...(options.liveRoot === undefined ? {} : { liveRoot: options.liveRoot }),
 				...(options.store === undefined ? {} : { store: options.store }),
 			});
-			await plane.setComputerStopped(true);
+			await plane.setComputerStopped(true, options.startGeneration);
 		})();
 		return closed;
 	};

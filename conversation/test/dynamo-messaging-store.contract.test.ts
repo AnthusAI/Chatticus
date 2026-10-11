@@ -434,6 +434,12 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 			expect(await store.markHostStartDispatched("tenant-a", 1)).toBe(true);
 			expect((await store.getComputer("tenant-a"))?.hostStartDispatchedGeneration).toBe(1);
 			expect(await store.claimHostStartGeneration("tenant-none", 0, lease)).toBeNull();
+			expect(await store.releaseHostStartLease("tenant-a", 2)).toBe(false);
+			expect((await store.getComputer("tenant-a"))?.hostStartLeaseExpiresAt?.getTime()).toBe(lease.getTime());
+			expect(await store.releaseHostStartLease("tenant-a", 1)).toBe(true);
+			expect((await store.getComputer("tenant-a"))?.hostStartLeaseExpiresAt).toBeUndefined();
+			expect((await store.getComputer("tenant-a"))?.hostStartGeneration).toBe(1);
+			expect(await store.releaseHostStartLease("tenant-none", 1)).toBe(false);
 		});
 
 		it("grants the disk write lock to one host, marks the disk dirty in place, and clears the lock on a new generation", async () => {

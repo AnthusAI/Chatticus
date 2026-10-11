@@ -273,6 +273,16 @@ export class InMemoryMessagingStore implements MessagingStore {
 		return structuredClone(next);
 	}
 
+	async releaseHostStartLease(tenantId: string, generation: number): Promise<boolean> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined || computer.hostStartGeneration !== generation) {
+			return false;
+		}
+		const { hostStartLeaseExpiresAt: _released, ...kept } = computer;
+		this.computers.set(tenantId, kept);
+		return true;
+	}
+
 	async settleLostComputerHost(tenantId: string, expectedGeneration: number, lostAt: Date, hydrateRequired: boolean): Promise<Computer | null> {
 		const computer = this.computers.get(tenantId);
 		if (computer === undefined || computer.hostStartGeneration !== expectedGeneration) {

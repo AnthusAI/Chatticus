@@ -30,6 +30,7 @@ import {
 	refuseDiskWriteBeforeHydrate,
 	recordHostHydrated,
 	recordHostSnapshotPublished,
+	releaseHostStartLease,
 	setComputerStopped,
 } from "../domain/computers.ts";
 import { heartbeatWorker } from "../domain/workers.ts";
@@ -101,6 +102,9 @@ export async function hostComputerStateHandler(c: Context, deps: HostRouteDepend
 	let computer = await computerForOrganization(tenantId, deps);
 	if (body.value.stopped !== undefined) {
 		computer = await setComputerStopped(tenantId, body.value.stopped, deps);
+		if (body.value.stopped && body.value.start_generation !== undefined) {
+			await releaseHostStartLease(tenantId, body.value.start_generation, deps);
+		}
 		if (body.value.stopped) await startOwnerForParkedTurns(deps.park, tenantId);
 	}
 	if (body.value.capability_ready !== undefined) {
