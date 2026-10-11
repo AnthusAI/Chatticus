@@ -99,8 +99,8 @@ Then("the tool result is appended to the same turn", async function (this: Chatt
 	const results = (await journalNow(this)).filter((event) => event.kind === "tool.result");
 	assert.equal(results.length, 1, JSON.stringify(results));
 	assert.equal(results[0]!.turn_id, turnId);
-	assert.equal(results[0]!.action_id, action?.callId);
-	assert.ok(String(results[0]!.body).includes(MAIL_TEXT), String(results[0]!.body));
+	assert.equal(results[0]!.call_id, action?.callId);
+	assert.ok(String(results[0]!.output).includes(MAIL_TEXT), String(results[0]!.output));
 });
 
 Then("the model continues after the result", async function (this: ChatticusWorld) {

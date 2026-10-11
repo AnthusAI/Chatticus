@@ -40,12 +40,22 @@ describe("turn event items", () => {
 			kind: "turn.waiting",
 			body: "browser",
 			attemptId: "attempt-1",
-			actionId: "action-1",
+			tool: "run_terminal",
+			callId: "call-1",
+			summary: "Running: ls",
+			toolArguments: { command: "ls", bytes: 3 },
+			argumentsTruncated: false,
+			ok: true,
+			output: "a",
+			outputTruncated: false,
+			durationMs: 12,
+			text: "t",
+			detail: "d",
 			messageSeq: 9,
 			pendingComputerTool: { actionId: "a", toolName: "request_computer_capability", arguments: { gate: "browser" } },
 		};
 		expect(turnEventFromItem(turnEventItem(event, new Date(0)))).toEqual(event);
-		const bare = turnEventItem({ ...event, body: undefined, attemptId: undefined, actionId: undefined, messageSeq: undefined, pendingComputerTool: undefined }, new Date(0));
+		const bare = turnEventItem({ ...event, body: undefined, attemptId: undefined, tool: undefined, callId: undefined, summary: undefined, toolArguments: undefined, argumentsTruncated: undefined, ok: undefined, output: undefined, outputTruncated: undefined, durationMs: undefined, text: undefined, detail: undefined, messageSeq: undefined, pendingComputerTool: undefined }, new Date(0));
 		expect(Object.keys(bare).sort()).toEqual(
 			["channel_id", "event_id", "expires_at", "kind", "pk", "seq", "sk", "tenant_id", "turn_id"].sort(),
 		);

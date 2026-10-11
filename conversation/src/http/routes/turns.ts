@@ -78,12 +78,20 @@ export function turnEventPayload(event: TurnEvent): Record<string, unknown> {
 			arguments: { ...event.pendingComputerTool.arguments },
 		};
 	}
-	if (event.actionId !== undefined) {
-		payload.action_id = event.actionId;
-	}
 	if (event.attemptId !== undefined) {
 		payload.attempt_id = event.attemptId;
 	}
+	if (event.tool !== undefined) payload.tool = event.tool;
+	if (event.callId !== undefined) payload.call_id = event.callId;
+	if (event.summary !== undefined) payload.summary = event.summary;
+	if (event.toolArguments !== undefined) payload.arguments = { ...event.toolArguments };
+	if (event.argumentsTruncated !== undefined) payload.arguments_truncated = event.argumentsTruncated;
+	if (event.ok !== undefined) payload.ok = event.ok;
+	if (event.output !== undefined) payload.output = event.output;
+	if (event.outputTruncated !== undefined) payload.output_truncated = event.outputTruncated;
+	if (event.kind === "tool.result") payload.duration_ms = event.durationMs ?? null;
+	if (event.text !== undefined) payload.text = event.text;
+	if (event.detail !== undefined) payload.detail = event.detail;
 	return payload;
 }
 

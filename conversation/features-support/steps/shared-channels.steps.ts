@@ -212,7 +212,7 @@ Then(
 	"organization bot {string} can read {string} as {string} from the organization computer",
 	async function (this: ChatticusWorld, botName: string, file: string, content: string) {
 		const result = await useComputer(this, botName, `read workspace file /workspace/${file}`);
-		assert.equal(result.body, content);
+		assert.equal(result.output, content);
 	},
 );
 
@@ -233,7 +233,7 @@ Then(
 		const result = await asMemberOnFirstBot(this, email, (botName) =>
 			useComputer(this, botName, `read workspace file /workspace/${file}`),
 		);
-		assert.equal(result.body, content);
+		assert.equal(result.output, content);
 	},
 );
 
