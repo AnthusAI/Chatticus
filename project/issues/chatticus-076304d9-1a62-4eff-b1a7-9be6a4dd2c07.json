@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-076304d9-1a62-4eff-b1a7-9be6a4dd2c07",
+  "title": "Chat messages do not render markdown code fences",
+  "description": "Live check 2026-10-11: a bot reply containing a fenced block shows the literal three backticks and the language word (```text) as plain text and the lines unformatted. Render markdown (at least fenced code blocks with monospace and a copy button, inline code, lists) in bot messages, following docs/BRAND_GUIDELINES.md.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-11T21:16:53.904782Z",
+  "updated_at": "2026-10-11T21:16:53.904822Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
