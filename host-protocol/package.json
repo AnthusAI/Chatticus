@@ -6,7 +6,10 @@
   "exports": {
     ".": "./src/schemas.ts",
     "./workspace-edit": "./src/workspace-edit.ts",
-    "./supervisor": "./src/supervisor.ts"
+    "./supervisor": "./src/supervisor.ts",
+    "./live-files": "./src/live-files.ts",
+    "./live-file-rules": "./src/live-file-rules.ts",
+    "./edit-overlay": "./src/edit-overlay.ts"
   },
   "dependencies": {
     "zod": "4.6.5"

@@ -45,7 +45,7 @@ export function ownerRouteRefusal(status: number, code: OwnerErrorCode): HostPro
 
 /** The answer of a poll that offers nothing and asks again in a second. */
 export function emptyPollAnswer(nextPollMilliseconds: number = 1000): OwnerPollResponse {
-	return { dispatches: [], drain: false, next_poll_ms: nextPollMilliseconds };
+	return { dispatches: [], file_requests: [], drain: false, next_poll_ms: nextPollMilliseconds };
 }
 
 /**
@@ -222,5 +222,5 @@ export function dispatchPollAnswer(spec: FakeDispatchSpec, clock: SupervisorCloc
 		},
 		expires_at: new Date(now + 3600_000).toISOString(),
 	};
-	return { dispatches: [dispatch], drain: false, next_poll_ms: 1000 };
+	return { dispatches: [dispatch], file_requests: [], drain: false, next_poll_ms: 1000 };
 }

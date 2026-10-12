@@ -212,7 +212,7 @@ When("the workspace changes again", function (this: ChatticusWorld) {
 
 When("the control plane answers a poll with drain and reason {string}", async function (this: ChatticusWorld, reason: string) {
 	const scenario = supervisorScenarioOf(this);
-	const answer: OwnerPollResponse = { dispatches: [], drain: true, drain_reason: reason, next_poll_ms: 1000 };
+	const answer: OwnerPollResponse = { dispatches: [], file_requests: [], drain: true, drain_reason: reason, next_poll_ms: 1000 };
 	scenario.plane.pollScript.push(answer);
 	await scenario.clock.advance(1000);
 });

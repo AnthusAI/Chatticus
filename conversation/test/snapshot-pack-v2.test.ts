@@ -10,8 +10,6 @@ import {
 	followSymlinks,
 	indexPathOf,
 	loadedIndexOf,
-	looksBinary,
-	looksLikeSecretFile,
 } from "../src/snapshot/files.ts";
 import type { SnapshotIndexEntry } from "../src/snapshot/index-format.ts";
 import { packLiveDiskWithIndex, unpackLiveDisk } from "../src/snapshot/pack.ts";
@@ -119,35 +117,6 @@ describe("snapshot file path rules", () => {
 		},
 	);
 
-	it.each([
-		"workspace/.env",
-		"workspace/app/.env.local",
-		"workspace/key.pem",
-		"workspace/server.key",
-		"workspace/id_rsa",
-		"workspace/id_rsa.pub",
-		"workspace/id_ed25519",
-		"workspace/credentials",
-		"workspace/.netrc",
-		"workspace/.npmrc",
-		"workspace/a.p12",
-		"workspace/a.pfx",
-		"workspace/home/.ssh/config",
-		"workspace/home/.aws/anything",
-	])("treats %s as secret-looking", (path) => {
-		expect(looksLikeSecretFile(path)).toBe(true);
-	});
-
-	it.each(["workspace/environment.ts", "workspace/README.md", "workspace/keys.md", "workspace/ssh/config"])("lists %s as ordinary", (path) => {
-		expect(looksLikeSecretFile(path)).toBe(false);
-	});
-
-	it("calls a NUL byte or invalid UTF-8 binary and accepts multi-byte text cut at the sniff limit", () => {
-		expect(looksBinary(Buffer.from([0x61, 0x00, 0x62]))).toBe(true);
-		expect(looksBinary(Buffer.from([0xff, 0xfe, 0x41]))).toBe(true);
-		expect(looksBinary(Buffer.from("plain text"))).toBe(false);
-		expect(looksBinary(Buffer.from("é".repeat(5000)))).toBe(false);
-	});
 });
 
 describe("symbolic links inside the index", () => {
