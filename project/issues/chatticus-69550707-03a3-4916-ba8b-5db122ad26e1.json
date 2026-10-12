@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-69550707-03a3-4916-ba8b-5db122ad26e1",
+  "title": "Provider failures: out-of-credits OpenAI account stops every bot; alert before it happens task 2",
+  "description": "",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-12T10:49:56.478830Z",
+  "updated_at": "2026-10-12T10:49:56.478859Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}

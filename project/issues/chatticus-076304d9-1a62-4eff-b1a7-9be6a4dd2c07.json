@@ -3,17 +3,30 @@
   "title": "Chat messages do not render markdown code fences",
   "description": "Live check 2026-10-11: a bot reply containing a fenced block shows the literal three backticks and the language word (```text) as plain text and the lines unformatted. Render markdown (at least fenced code blocks with monospace and a copy button, inline code, lists) in bot messages, following docs/BRAND_GUIDELINES.md.",
   "type": "task",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "e6166d89-3f46-4e9e-92c0-67c251f353f6",
+      "author": "home",
+      "text": "Done in PR 510: react-markdown 9.1.0 and remark-gfm 4.0.1 render fenced code (language label and a Copy button), inline code, lists, links (http, https, mailto), headings, quotes and tables; raw HTML escaped. Verified live: the UICheck reply shows a code block with a text label and Copy. Not verified: the copy button writing to the clipboard.",
+      "created_at": "2026-10-12T10:49:52.503369Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-11T21:16:53.904782Z",
-  "updated_at": "2026-10-11T21:16:53.904822Z",
-  "closed_at": null,
+  "updated_at": "2026-10-12T10:49:53.391730Z",
+  "closed_at": "2026-10-12T10:49:53.391692Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",

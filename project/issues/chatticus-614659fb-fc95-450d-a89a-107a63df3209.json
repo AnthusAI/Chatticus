@@ -3,17 +3,30 @@
   "title": "A brand-new channel shows HTTP 500 until its first message (the FrontDoor tried to write the Pi session on read)",
   "description": "Found 2026-10-11 by opening a new bot: GET /channels/:id/messages for a channel with no Pi session returns 500 because opening the session writes (dynamodb:PutItem on Conversations) and the FrontDoor role is read-only by design. Fix in progress on branch ts/list-messages-no-write: listing a channel with no session returns an empty list with zero writes; every other error still surfaces.",
   "type": "bug",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "assignee": null,
   "creator": null,
   "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
   "labels": [],
   "dependencies": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "69c8bb69-33cb-4ca7-8b0e-3c264cc21d9d",
+      "author": "home",
+      "text": "Fixed in PR 509 (deployed): listing a channel with no Pi session no longer writes; the TurnProbe had the same bug. Verified live: opening the UICheck conversation shows no banner.",
+      "created_at": "2026-10-12T10:49:53.839522Z",
+      "comment_type": "default",
+      "agent": {
+        "platform": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "name": "claude"
+      }
+    }
+  ],
   "created_at": "2026-10-11T21:16:54.506327Z",
-  "updated_at": "2026-10-11T21:16:54.506352Z",
-  "closed_at": null,
+  "updated_at": "2026-10-12T10:49:54.553466Z",
+  "closed_at": "2026-10-12T10:49:54.553435Z",
   "agent": {
     "platform": "claude-code",
     "model": "claude-sonnet-5-5",

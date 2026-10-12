@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-625c337c-86ae-47b9-8687-7ec0a8e519d9",
+  "title": "Alert before the OpenAI account runs out of credits",
+  "description": "2026-10-12: every bot turn on development failed because the OpenAI account behind /chatticus/development/thin-turn/openai-api-key had no credits (HTTP 429 insufficient_quota, credit_balance_exhausted). PR 512 logs provider_failed lines and shows a specific reason. Still needed: an alert (or a daily check against the billing or usage API) so the account is topped up before bots stop; consider an auto-recharge setting on the account.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-12T10:49:56.690575Z",
+  "updated_at": "2026-10-12T10:49:56.690606Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": null,
+  "right_now_updated_at": null,
+  "custom": {}
+}
