@@ -3,6 +3,7 @@ import { Given, Then, When } from "@cucumber/cucumber";
 import { failTurn } from "../../src/domain/turns.ts";
 import { StaleAttemptError } from "../../src/http/errors.ts";
 import { claimTurnAttempt } from "../../src/turn/executor.ts";
+import { capturedConsoleLines, parsedLogLines } from "../log-capture-support.ts";
 import { probeQueueOf, TURN_RUN_QUEUE } from "../turn-queues.ts";
 import type { ChatticusWorld } from "../world.ts";
 import { post } from "./message.steps.ts";
@@ -55,4 +56,29 @@ Then("the turn is still active", async function (this: ChatticusWorld) {
 	assert.equal(response.status, 200, response.text);
 	assert.equal(response.json.status, "active");
 	assert.equal(response.json.terminal_reason, null);
+});
+
+Then(
+	"exactly one provider_failed log line names the turn with status {string}, code {string} and message {string}",
+	function (this: ChatticusWorld, status: string, code: string, message: string) {
+		const lines = parsedLogLines(capturedConsoleLines(this)).filter((line) => line.event === "provider_failed");
+		assert.equal(lines.length, 1, `Expected one provider_failed line, found ${lines.length}`);
+		const fields = lines[0]!.fields;
+		assert.equal(fields.get("turn_id"), currentTurnOf(this));
+		assert.equal(fields.get("status"), status);
+		assert.equal(fields.get("code"), code);
+		assert.equal(fields.get("message"), message);
+	},
+);
+
+Then("no provider_failed log line contains {string}", function (this: ChatticusWorld, text: string) {
+	const lines = capturedConsoleLines(this).filter((line) => line.startsWith("provider_failed"));
+	assert.ok(lines.length > 0, "No provider_failed line was logged");
+	for (const line of lines) assert.ok(!line.includes(text), `A provider_failed line contains ${text}`);
+});
+
+Then("every provider_failed log message is at most {int} characters", function (this: ChatticusWorld, limit: number) {
+	const lines = parsedLogLines(capturedConsoleLines(this)).filter((line) => line.event === "provider_failed");
+	assert.ok(lines.length > 0, "No provider_failed line was logged");
+	for (const line of lines) assert.ok((line.fields.get("message") ?? "").length <= limit, "A provider_failed message is too long");
 });

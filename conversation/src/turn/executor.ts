@@ -34,7 +34,8 @@ import { type OwnerSession, openOwnerSession } from "../pi/session.ts";
 import { storageIdFor } from "../storage/storage-support.ts";
 import type { Bot } from "../store/codecs/bot.ts";
 import type { Channel } from "../domain/channels.ts";
-import { classifyModelFailure } from "./classify-errors.ts";
+import { classifyModelFailure, summarizeProviderFailure } from "./classify-errors.ts";
+import { formatLogLine } from "../observability/log-line.ts";
 import { DEFAULT_TOKEN_FLUSH_BYTES, DEFAULT_TOKEN_FLUSH_MILLISECONDS, TokenCoalescer } from "./coalescer.ts";
 import { AgentEventDelivery, createAgentEventListener, TurnEventWriter, writeToolCallOnce } from "./event-stream.ts";
 import { redactSecrets } from "./tool-event-fields.ts";
@@ -264,11 +265,12 @@ class TurnAttempt {
 		}
 		const last = this.inputs[this.inputs.length - 1]!.settled!;
 		if (last.type !== "input" || last.status !== "done") {
-			const reason =
-				last.status === "unanswered" && last.reason === "model_error"
-					? classifyModelFailure(last.detail)
-					: `The turn was not answered (${last.status === "unanswered" ? last.reason : last.status}).`;
-			return this.fail(reason);
+			if (last.status === "unanswered" && last.reason === "model_error") {
+				const { status, code, message } = summarizeProviderFailure(last.detail);
+				console.info(formatLogLine("provider_failed", { turn_id: this.job.turnId, status, code, message }));
+				return this.fail(classifyModelFailure(last.detail));
+			}
+			return this.fail(`The turn was not answered (${last.status === "unanswered" ? last.reason : last.status}).`);
 		}
 		const inputs = this.finalizeInputs(session, root);
 		this.deps.faults?.maybeCrash("completion_append", "before");

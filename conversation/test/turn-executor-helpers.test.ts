@@ -8,7 +8,9 @@ import {
 	GENERIC_FAILURE_REASON,
 	INVALID_REQUEST_REASON,
 	OUT_OF_QUOTA_REASON,
+	PROVIDER_MESSAGE_LOG_LIMIT,
 	REJECTED_KEY_REASON,
+	summarizeProviderFailure,
 } from "../src/turn/classify-errors.ts";
 import { TokenCoalescer } from "../src/turn/coalescer.ts";
 import { createOpenAiModels, DEFAULT_TURN_MODEL } from "../src/turn/openai-models.ts";
@@ -38,6 +40,27 @@ describe("classifyModelFailure", () => {
 		expect(classifyModelFailure("Connection error.")).toBe(GENERIC_FAILURE_REASON);
 		expect(classifyModelFailure(undefined)).toBe(GENERIC_FAILURE_REASON);
 		expect(classifyModelFailure({ message: "odd" })).toBe(GENERIC_FAILURE_REASON);
+	});
+});
+
+describe("summarizeProviderFailure", () => {
+	it("reads the status, code and message of an HTTP error", () => {
+		const text = `OpenAI API error (429): ${JSON.stringify({ message: "You have no credits remaining.", type: "insufficient_quota", code: "credit_balance_exhausted" })}`;
+		expect(summarizeProviderFailure(text)).toEqual({ status: 429, code: "credit_balance_exhausted", message: "You have no credits remaining." });
+		expect(classifyModelFailure(text)).toBe(OUT_OF_QUOTA_REASON);
+	});
+
+	it("keeps a streamed bare message and leaves the status and code empty", () => {
+		expect(summarizeProviderFailure("Connection error.")).toEqual({ status: null, code: null, message: "Connection error." });
+	});
+
+	it("removes anything shaped like a key and cuts the message to the limit", () => {
+		const shapedLikeKey = ["sk", "proj", "abcdefgh12345678"].join("-");
+		const text = `OpenAI API error (401): ${JSON.stringify({ message: `Incorrect API key provided: ${shapedLikeKey}. ${"x".repeat(500)}`, code: "invalid_api_key" })}`;
+		const { message } = summarizeProviderFailure(text);
+		expect(message).not.toContain(shapedLikeKey);
+		expect(message).toContain("[redacted]");
+		expect(message.length).toBe(PROVIDER_MESSAGE_LOG_LIMIT);
 	});
 });
 

@@ -54,6 +54,22 @@ Feature: A failed model call ends the turn honestly
     Then the turn has failed with reason "The model provider failed to produce an answer."
     And no job for bot "Assistant" is left to retry
 
+  @owner-log
+  Scenario: A failed model call is logged with the provider's status, code and message
+    Given the model provider answers every request with status 400, error code "invalid_request_error" and message "Unsupported parameter: reasoning.effort"
+    When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel
+    And bot "Assistant" runs one computerless worker turn against that provider
+    Then the turn has failed with reason "The model provider rejected the request as invalid."
+    And exactly one provider_failed log line names the turn with status "400", code "invalid_request_error" and message "Unsupported parameter: reasoning.effort"
+
+  @owner-log
+  Scenario: An account that is out of credits fails the turn with that reason even when the provider streams the error
+    Given the model provider streams the error "You have no credits remaining. Add credits to continue using the API." after an accepted request
+    When user "ryan" of tenant "anthus" posts "hello" addressed to bot "Assistant" on the channel
+    And bot "Assistant" runs one computerless worker turn against that provider
+    Then the turn has failed with reason "The model provider refused the request: the account is out of credits or over its quota."
+    And exactly one provider_failed log line names the turn with status "none", code "none" and message "You have no credits remaining. Add credits to continue using the API."
+
   Scenario: A worker without the current fence cannot fail the turn
     Given a worker owns an active turn
     When a worker reports the turn failed with a fence it does not hold
