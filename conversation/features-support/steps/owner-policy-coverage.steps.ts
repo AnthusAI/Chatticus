@@ -9,8 +9,8 @@ import { STORY_TENANT } from "../computer-scenario.ts";
 import { testS3Client } from "../pi-storage.ts";
 import { createOrganizationBucket } from "../host-lifecycle-support.ts";
 import { policyAllows } from "../iam-policy-evaluator.ts";
-import { ownerRoleOfScenario } from "../owner-role-support.ts";
-import { recordedOwnerRequestsOf, startRecordingOwnerRequests } from "../owner-request-recording.ts";
+import { ownerRoleOfScenario, supervisorRoleOfScenario } from "../owner-role-support.ts";
+import { recordedOwnerRequestsOf, recordedSupervisorRequestsOf, startRecordingOwnerRequests } from "../owner-request-recording.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 Given("the requests of the computer owners are recorded", function (this: ChatticusWorld) {
@@ -57,6 +57,25 @@ Then("every request the computer owners made is allowed by the owner role policy
 	const denied = requests.filter((request) => !policyAllows(role.statements, role.tags, request));
 	const distinct = [...new Set(denied.map(describeRequest))];
 	assert.equal(distinct.length, 0, `The owner role policy would deny ${distinct.length} request(s):\n${distinct.join("\n")}`);
+});
+
+Then("every snapshot request the supervisor made is allowed by the supervisor role policy", async function (this: ChatticusWorld) {
+	const requests = recordedSupervisorRequestsOf(this);
+	assert.ok(requests.length > 0, "The scenario recorded no supervisor request.");
+	const role = await supervisorRoleOfScenario(this);
+	const denied = requests.filter((request) => !policyAllows(role.statements, role.tags, request));
+	const distinct = [...new Set(denied.map(describeRequest))];
+	assert.equal(distinct.length, 0, `The supervisor role policy would deny ${distinct.length} request(s):\n${distinct.join("\n")}`);
+});
+
+Then("the supervisor made a {string} request on a key starting {string}", function (this: ChatticusWorld, action: string, keyPrefix: string) {
+	const keys = recordedSupervisorRequestsOf(this).filter((request) => request.action === action).flatMap((request) => request.keys);
+	assert.ok(keys.some((key) => key.startsWith(keyPrefix)), `No ${action} request on a key starting ${keyPrefix}; saw ${[...new Set(keys)].join(" | ")}`);
+});
+
+Then("the computer owners made no request on the snapshot bucket", function (this: ChatticusWorld) {
+	const found = recordedOwnerRequestsOf(this).filter((request) => request.service === "s3" && request.keys.some((key) => key.startsWith("tenants/")));
+	assert.deepEqual(found.map(describeRequest), []);
 });
 
 Then(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mintSessionToken, verifySessionToken, type SessionTokenClaims } from "../src/gateway/session-token.ts";
+import { mintComputerOwnerToken, mintSessionToken, verifySessionToken, type SessionTokenClaims } from "../src/gateway/session-token.ts";
 
 const KEY = "unit-test-signing-key-0123456789abcdef";
 const NOW = new Date("2026-10-07T12:00:00Z");
@@ -46,12 +46,22 @@ describe("session token", () => {
 		expect(verifySessionToken(KEY, forged, NOW, "model-gateway").valid).toBe(false);
 	});
 
-	it("refuses a validly signed token minted for the other audience", () => {
-		const token = mintSessionToken(KEY, claims);
-		expect(verifySessionToken(KEY, token, NOW, "owner-host")).toEqual({ valid: false, reason: "audience" });
-		const hostToken = mintSessionToken(KEY, { ...claims, audience: "owner-host" });
-		expect(verifySessionToken(KEY, hostToken, NOW, "owner-host")).toEqual({ valid: true, claims: { ...claims, audience: "owner-host" } });
-		expect(verifySessionToken(KEY, hostToken, NOW, "model-gateway")).toEqual({ valid: false, reason: "audience" });
+	it("refuses a validly signed supervisor protocol token as a gateway token and names the audience", () => {
+		const supervisorToken = mintComputerOwnerToken(KEY, {
+			audience: "computer-owner",
+			tenantId: "anthus",
+			computerId: "computer-1",
+			ownerId: "owner-1",
+			startGeneration: 3,
+			issuedAtSeconds: claims.expiresAtSeconds - 300,
+			expiresAtSeconds: claims.expiresAtSeconds,
+		});
+		expect(verifySessionToken(KEY, supervisorToken, NOW, "model-gateway")).toEqual({ valid: false, reason: "audience" });
+	});
+
+	it("no longer knows the owner-host audience, so a token minted for it is not a gateway token", () => {
+		const retired = mintSessionToken(KEY, { ...claims, audience: "owner-host" as never });
+		expect(verifySessionToken(KEY, retired, NOW, "model-gateway")).toEqual({ valid: false, reason: "malformed" });
 	});
 
 	it("rejects a token with an unknown audience or a fractional start generation", () => {

@@ -18,12 +18,6 @@
 			}
 		},
 		{
-			"Sid": "ComputerSnapshotObjects",
-			"Effect": "Allow",
-			"Action": ["s3:GetObject", "s3:PutObject"],
-			"Resource": ["{{snapshotBucketArn}}/tenants/${aws:PrincipalTag/tenant}/computers/${aws:PrincipalTag/computer}/*"]
-		},
-		{
 			"Sid": "SessionItems",
 			"Effect": "Allow",
 			"Action": [

@@ -4,6 +4,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
+import { LambdaClient } from "@aws-sdk/client-lambda";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import type { Hono } from "hono";
 import { createIdTokenVerifier } from "../auth/cognito.ts";
@@ -14,6 +15,7 @@ import { DynamoBudgetStore } from "../budget/budget-store.ts";
 import { DEFAULT_HEARTBEAT_TIMEOUT_SECONDS } from "../domain/workers.ts";
 import { parseSignupMode } from "../domain/signup-mode.ts";
 import { createApp } from "../http/app.ts";
+import { LambdaOwnerCredentialBroker, OWNER_CREDENTIAL_BROKER_FUNCTION_NAME_VARIABLE } from "../computer/lambda-owner-credential-broker.ts";
 import type { ModelGatewayDependencies } from "../gateway/model-gateway.ts";
 import { defaultVendorPriceBook } from "../ledger/vendor-prices.ts";
 import { MessageBodyCache } from "../pi/message-cache.ts";
@@ -37,6 +39,8 @@ export type FrontDoorAwsClients = {
 	readonly sqs: SQSClient;
 	readonly parameters: ParameterReader;
 	readonly secrets: SecretReader;
+	/** Invokes the credential broker; built from the Lambda's own role when absent. */
+	readonly lambda?: Pick<LambdaClient, "send">;
 };
 
 /** The one Secrets Manager operation the front door uses; a real client or a fake satisfies it. */
@@ -186,11 +190,17 @@ export async function composeFrontDoorApp(
 		);
 	}
 	const gatewaySecretArn = environment[MODEL_GATEWAY_SIGNING_KEY_SECRET_ARN_VARIABLE] ?? "";
+	const gatewaySigningKey = gatewaySecretArn === "" ? "" : await readSecretString(clients.secrets, gatewaySecretArn);
+	const brokerFunctionName = environment[OWNER_CREDENTIAL_BROKER_FUNCTION_NAME_VARIABLE] ?? "";
+	const ownerSupervisor =
+		gatewaySigningKey === "" || brokerFunctionName === ""
+			? undefined
+			: { signingKey: gatewaySigningKey, broker: new LambdaOwnerCredentialBroker(clients.lambda ?? new LambdaClient({}), brokerFunctionName) };
 	const modelGateway: ModelGatewayDependencies | undefined =
 		gatewaySecretArn === ""
 			? undefined
 			: {
-					signingKey: await readSecretString(clients.secrets, gatewaySecretArn),
+					signingKey: gatewaySigningKey,
 					clock,
 					turns: new DynamoTurnControlStore(client, messagingTableName),
 					ledger: { client, tableName: messagingTableName, prices, now: () => new Date() },
@@ -205,6 +215,7 @@ export async function composeFrontDoorApp(
 	return createApp({
 		snapshotFiles: snapshotBucket === "" ? null : new SnapshotFileService(new S3SnapshotStore(snapshotBucket, clients.s3)),
 		modelGateway,
+		ownerSupervisor,
 		writeGate: new CachedFailClosedWriteGate(new DynamoWriteGate(client, messagingTableName), clock),
 		clock,
 		ids,

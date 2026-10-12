@@ -40,7 +40,8 @@ import type { PolicyStore } from "../store/policy-store.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { type ParkDependencies, actionDependenciesOf, resumeTurnForAction, startOwnerForParkedTurns } from "../turn/park.ts";
 import { MemberStandingRequiredError } from "./errors.ts";
-import { ownerHostPrincipalOf, type OwnerHostPrincipal } from "./owner-host-auth.ts";
+import { ownerHostPrincipalOf, type ComputerOwnerPrincipal } from "./owner-host-auth.ts";
+import { ownerErrorResponse } from "./owner-supervisor.ts";
 import type { Clock, IdSource } from "./app.ts";
 import { computerPayload, actionPayload } from "./routes/computers.ts";
 import { pathParameter } from "./user-principal.ts";
@@ -56,6 +57,10 @@ export interface HostRouteDependencies {
 
 type Parsed<T> = { readonly value: T } | { readonly refusal: Response };
 
+function hostBodyRefusal(c: Context, detail: string): Response {
+	return ownerHostPrincipalOf(c.req.raw) === null ? c.json({ detail }, 422) : ownerErrorResponse(c, "invalid_request", detail);
+}
+
 async function parseHostBody<T>(c: Context, schema: ZodType<T>): Promise<Parsed<T>> {
 	const text = await c.req.text();
 	let raw: unknown = {};
@@ -63,17 +68,17 @@ async function parseHostBody<T>(c: Context, schema: ZodType<T>): Promise<Parsed<
 		try {
 			raw = JSON.parse(text);
 		} catch {
-			return { refusal: c.json({ detail: "body must be JSON" }, 422) };
+			return { refusal: hostBodyRefusal(c, "body must be JSON") };
 		}
 	}
 	const parsed = schema.safeParse(raw);
 	if (!parsed.success) {
-		return { refusal: c.json({ detail: parsed.error.issues.map((issue) => issue.message).join("; ") }, 422) };
+		return { refusal: hostBodyRefusal(c, parsed.error.issues.map((issue) => issue.message).join("; ")) };
 	}
 	return { value: parsed.data };
 }
 
-async function workerOf(c: Context, deps: HostRouteDependencies): Promise<{ tenantId: string; workerId: string; owner: OwnerHostPrincipal | null }> {
+async function workerOf(c: Context, deps: HostRouteDependencies): Promise<{ tenantId: string; workerId: string; owner: ComputerOwnerPrincipal | null }> {
 	const tenantId = pathParameter(c, "tenant_id");
 	const directory = new StorePrincipalDirectory(deps.store);
 	const owner = ownerHostPrincipalOf(c.req.raw);
@@ -86,6 +91,7 @@ async function workerOf(c: Context, deps: HostRouteDependencies): Promise<{ tena
 }
 
 function workerIdMismatch(c: Context): Response {
+	if (ownerHostPrincipalOf(c.req.raw) !== null) return ownerErrorResponse(c, "credential_mismatch", "owner credential does not match worker_id");
 	return c.json({ detail: "worker credential does not match worker_id" }, 403);
 }
 
@@ -109,7 +115,18 @@ export async function hostComputerStateHandler(c: Context, deps: HostRouteDepend
 		const ownsGeneration = current.hostStartGeneration === owner.startGeneration;
 		const reportsOwnGeneration = body.value.stopped === false || body.value.start_generation === owner.startGeneration;
 		if (!ownsGeneration || !reportsOwnGeneration) {
-			return c.json({ detail: "owner credential is not valid for this host start generation" }, 403);
+			return ownerErrorResponse(c, "stale_generation", "owner credential is not valid for this host start generation");
+		}
+	}
+	if (owner !== null) {
+		const current = await computerForOrganization(tenantId, deps);
+		if (current.ownerId === undefined) {
+			const isStoppedReport = body.value.stopped === true && body.value.start_generation === owner.startGeneration;
+			const reportsOnlyStopped = body.value.capability_ready === undefined && body.value.capability_unavailable === undefined;
+			if (!isStoppedReport || !reportsOnlyStopped) {
+				return ownerErrorResponse(c, "not_current_owner", "owner credential is not valid for the current owner of this computer");
+			}
+			return c.json(computerPayload(current), 200);
 		}
 	}
 	if ((body.value.capability_ready !== undefined || body.value.capability_unavailable !== undefined) && (c.req.header(HOST_USER_HEADER) ?? "").trim() === "") {

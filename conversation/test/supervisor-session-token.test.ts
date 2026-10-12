@@ -57,20 +57,16 @@ describe("supervisor protocol tokens", () => {
 		expect(verifyOwnerBootstrapToken(KEY, supervisor, NOW)).toEqual({ valid: false, reason: "audience" });
 	});
 
-	it("refuses a gateway token and an owner-host token on the supervisor surfaces", () => {
+	it("refuses a gateway token on the supervisor surfaces", () => {
 		const turnClaims = { tenantId: "anthus", botId: "bot-1", turnId: "turn-1", ownerId: "owner-1", startGeneration: 3, expiresAtSeconds: nowSeconds + 300 };
 		const gateway = mintSessionToken(KEY, { ...turnClaims, audience: "model-gateway" });
-		const host = mintSessionToken(KEY, { ...turnClaims, audience: "owner-host" });
-		for (const token of [gateway, host]) {
-			expect(verifyComputerOwnerToken(KEY, token, NOW)).toEqual({ valid: false, reason: "audience" });
-			expect(verifyOwnerBootstrapToken(KEY, token, NOW)).toEqual({ valid: false, reason: "audience" });
-		}
+		expect(verifyComputerOwnerToken(KEY, gateway, NOW)).toEqual({ valid: false, reason: "audience" });
+		expect(verifyOwnerBootstrapToken(KEY, gateway, NOW)).toEqual({ valid: false, reason: "audience" });
 	});
 
-	it("is refused by the existing turn token verification for every audience", () => {
+	it("is refused by the gateway token verification for every supervisor audience", () => {
 		for (const token of [mintOwnerBootstrapToken(KEY, bootstrapClaims), mintComputerOwnerToken(KEY, supervisorClaims)]) {
-			expect(verifySessionToken(KEY, token, NOW, "model-gateway").valid).toBe(false);
-			expect(verifySessionToken(KEY, token, NOW, "owner-host").valid).toBe(false);
+			expect(verifySessionToken(KEY, token, NOW, "model-gateway")).toEqual({ valid: false, reason: "audience" });
 		}
 	});
 

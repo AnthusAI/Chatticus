@@ -22,7 +22,7 @@ import {
 import { BROWSER_ACTION_KINDS } from "@chatticus/host-protocol";
 import type { BudgetRollupReader } from "../domain/organization-spend.ts";
 import { computerWorkPauseReason } from "../domain/organization-spend.ts";
-import { BROWSER_UNAVAILABLE_TEXT, computerIsStopped, ensureComputer } from "../domain/computers.ts";
+import { BROWSER_UNAVAILABLE_TEXT, computerIsStopped, ensureComputer, liveOwnerOfOrganization } from "../domain/computers.ts";
 import type { ComputerStartQueue } from "../domain/computer-start.ts";
 import { clearWaiting, getTurn, releaseForWaiting, TURN_DEADLINE_SECONDS, type Turn, type TurnDependencies } from "../domain/turns.ts";
 import type { TurnProbeQueue, TurnRunQueue } from "../domain/turn-admission.ts";
@@ -114,6 +114,12 @@ export async function ensureHostForParkedTurn(deps: ParkDependencies, turn: Turn
 	if (turn.promptAuthorId === null) {
 		throw new Error(`Turn ${JSON.stringify(turn.turnId)} has no prompt author to start a computer for.`);
 	}
+	const liveOwner = await liveOwnerOfOrganization(turn.tenantId, {
+		store: deps.messaging,
+		clock: deps.turns.clock,
+		heartbeatTimeoutSeconds: deps.computer.heartbeatTimeoutSeconds,
+	});
+	if (liveOwner !== null) return false;
 	const job = await createTurnJob(
 		{ tenantId: turn.tenantId, requiredCapabilities: new Set(["computer"]), botId: turn.botId, userId: turn.promptAuthorId },
 		{ store: deps.messaging, ids: deps.turns.ids },
@@ -152,14 +158,35 @@ export async function ensureHostForParkedTurn(deps: ParkDependencies, turn: Turn
  */
 export async function startOwnerForParkedTurns(deps: ParkDependencies, tenantId: string): Promise<string[]> {
 	const started: string[] = [];
+	for (const { turn } of await parkedWork(deps, tenantId)) {
+		if (await ensureHostForParkedTurn(deps, turn)) started.push(turn.turnId);
+	}
+	return started;
+}
+
+/** One requested computer action and the turn that is parked on it. */
+export type ParkedWork = { readonly action: ComputerAction; readonly turn: Turn };
+
+/**
+ * The work waiting for the organization computer, oldest first: the open actions with status `requested` whose turn is
+ * still active, still waiting, and parked on that very action. A requested action of a turn that ended or moved on does
+ * not count, otherwise one orphan would veto every idle stop forever. The poll chooses its dispatches from this list, the
+ * stop predicate judges "no pending work" on it, and the start after a stop is made for each of its turns.
+ *
+ * @param deps The handoff dependencies.
+ * @param tenantId Organization.
+ * @returns The parked work.
+ */
+export async function parkedWork(deps: ParkDependencies, tenantId: string): Promise<ParkedWork[]> {
+	const work: ParkedWork[] = [];
 	for (const action of await deps.computer.actions.listOpen(tenantId)) {
 		if (action.status !== "requested") continue;
 		const turn = await deps.turns.store.getTurn(tenantId, action.turnId);
 		if (turn === null || turn.status !== "active" || turn.waitingFor === null) continue;
 		if (turn.pendingComputerTool?.actionId !== action.actionId) continue;
-		if (await ensureHostForParkedTurn(deps, turn)) started.push(turn.turnId);
+		work.push({ action, turn });
 	}
-	return started;
+	return work;
 }
 
 /**

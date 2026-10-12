@@ -41,7 +41,7 @@ import { formatIsoDateTime } from "./codecs/util.ts";
 import * as workerCodec from "./codecs/worker.ts";
 import type { Worker } from "./codecs/worker.ts";
 import { computerRecordKey, postIdempotencyKey } from "./keys.ts";
-import type { MessagingStore } from "./messaging-store.ts";
+import type { MessagingStore, OwnerBootstrapRecord, OwnerDispatchRecord } from "./messaging-store.ts";
 import { retryTransient } from "./transient-retry.ts";
 
 type Item = Record<string, AttributeValue>;
@@ -533,7 +533,7 @@ export class DynamoMessagingStore implements MessagingStore {
 				new UpdateItemCommand({
 					TableName: this.tableName,
 					Key: computerRecordItemKey(tenantId),
-					UpdateExpression: "SET host_start_generation = :next, host_start_lease_expires_at = :lease REMOVE live_writer_host_id",
+					UpdateExpression: "SET host_start_generation = :next, host_start_lease_expires_at = :lease REMOVE live_writer_host_id, " + computerCodec.OWNER_ATTRIBUTE_NAMES.join(", "),
 					ConditionExpression: "attribute_exists(pk) AND host_start_generation = :expected",
 					ExpressionAttributeValues: {
 						":expected": { N: String(expectedGeneration) },
@@ -559,7 +559,7 @@ export class DynamoMessagingStore implements MessagingStore {
 					TableName: this.tableName,
 					Key: computerRecordItemKey(tenantId),
 					UpdateExpression:
-						"SET stopped = :stopped, model_ready = :off, workspace_ready = :off, browser_ready = :off, disk_dirty = :off, hydrate_required = :hydrate, host_lost_at = :lostAt, host_lost_generation = :generation REMOVE live_writer_host_id",
+						"SET stopped = :stopped, model_ready = :off, workspace_ready = :off, browser_ready = :off, disk_dirty = :off, hydrate_required = :hydrate, host_lost_at = :lostAt, host_lost_generation = :generation REMOVE live_writer_host_id, " + computerCodec.OWNER_ATTRIBUTE_NAMES.join(", "),
 					ConditionExpression:
 						"attribute_exists(pk) AND host_start_generation = :generation AND (disk_dirty = :on OR attribute_exists(live_writer_host_id))",
 					ExpressionAttributeValues: {
@@ -678,6 +678,116 @@ export class DynamoMessagingStore implements MessagingStore {
 			if (!(error instanceof ConditionalCheckFailedException)) {
 				throw error;
 			}
+		}
+	}
+
+	async consumeOwnerBootstrap(tenantId: string, bootstrap: OwnerBootstrapRecord): Promise<Computer | null> {
+		const removed = computerCodec.OWNER_ATTRIBUTE_NAMES.filter((name) => !["owner_id", "owner_protocol_version", "owner_started_at"].includes(name));
+		return this.updateComputerWhere(tenantId, {
+			update: `SET owner_id = :owner, owner_generation = :generation, owner_protocol_version = :version, owner_started_at = :startedAt REMOVE ${removed.join(", ")}`,
+			condition: "attribute_exists(pk) AND host_start_generation = :generation AND (attribute_not_exists(owner_generation) OR owner_generation < :generation)",
+			values: {
+				":owner": { S: bootstrap.ownerId },
+				":generation": { N: String(bootstrap.generation) },
+				":version": { N: String(bootstrap.protocolVersion) },
+				":startedAt": { N: String(Math.floor(bootstrap.startedAt.getTime() / 1000)) },
+			},
+		});
+	}
+
+	async recordOwnerPoll(tenantId: string, workerId: string, poll: { sequence: number; state: string; at: Date }): Promise<boolean> {
+		try {
+			await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: { pk: { S: rosterPartition(tenantId) }, sk: { S: `worker#${workerId}` } },
+					UpdateExpression: "SET last_heartbeat_at = :at, poll_sequence = :sequence, poll_state = :state",
+					ConditionExpression: "attribute_exists(pk) AND (attribute_not_exists(poll_sequence) OR poll_sequence <= :sequence)",
+					ExpressionAttributeValues: {
+						":at": { S: formatIsoDateTime(poll.at) },
+						":sequence": { N: String(poll.sequence) },
+						":state": { S: poll.state },
+					},
+				}),
+			);
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) return false;
+			throw error;
+		}
+	}
+
+	async updateOwnerPresence(tenantId: string, ownerId: string, change: { protocolVersion?: number; idleSinceAt?: Date | null }): Promise<boolean> {
+		const sets: string[] = [];
+		const removes: string[] = [];
+		const values: Item = { ":owner": { S: ownerId } };
+		if (change.protocolVersion !== undefined) {
+			sets.push("owner_protocol_version = :version");
+			values[":version"] = { N: String(change.protocolVersion) };
+		}
+		if (change.idleSinceAt instanceof Date) {
+			sets.push("idle_since_at = :idleSince");
+			values[":idleSince"] = { N: String(Math.floor(change.idleSinceAt.getTime() / 1000)) };
+		} else if (change.idleSinceAt === null) {
+			removes.push("idle_since_at");
+		}
+		if (sets.length === 0 && removes.length === 0) return true;
+		const update = [sets.length === 0 ? "" : `SET ${sets.join(", ")}`, removes.length === 0 ? "" : `REMOVE ${removes.join(", ")}`].filter((part) => part !== "").join(" ");
+		return (await this.updateComputerWhere(tenantId, { update, condition: "attribute_exists(pk) AND owner_id = :owner", values })) !== null;
+	}
+
+	async offerOwnerDispatch(tenantId: string, ownerId: string, expectedDispatchId: string | null, dispatch: OwnerDispatchRecord): Promise<boolean> {
+		const dispatchCondition = expectedDispatchId === null ? "attribute_not_exists(dispatch_id)" : "dispatch_id = :expectedDispatch";
+		const values: Item = {
+			":owner": { S: ownerId },
+			":dispatchId": { S: dispatch.dispatchId },
+			":turnId": { S: dispatch.turnId },
+			":actionId": { S: dispatch.actionId },
+			":attempt": { N: String(dispatch.attempt) },
+			":lease": { N: String(Math.floor(dispatch.leaseExpiresAt.getTime() / 1000)) },
+		};
+		if (expectedDispatchId !== null) values[":expectedDispatch"] = { S: expectedDispatchId };
+		return (
+			(await this.updateComputerWhere(tenantId, {
+				update: "SET dispatch_id = :dispatchId, dispatch_turn_id = :turnId, dispatch_action_id = :actionId, dispatch_attempt = :attempt, dispatch_lease_expires_at = :lease",
+				condition: `attribute_exists(pk) AND owner_id = :owner AND attribute_not_exists(owner_stop_approved_at) AND ${dispatchCondition}`,
+				values,
+			})) !== null
+		);
+	}
+
+	async approveOwnerStop(tenantId: string, ownerId: string, expectedDispatchId: string | null, approvedAt: Date): Promise<boolean> {
+		const dispatchCondition = expectedDispatchId === null ? "attribute_not_exists(dispatch_id)" : "dispatch_id = :expectedDispatch";
+		const values: Item = { ":owner": { S: ownerId }, ":approvedAt": { N: String(Math.floor(approvedAt.getTime() / 1000)) } };
+		if (expectedDispatchId !== null) values[":expectedDispatch"] = { S: expectedDispatchId };
+		return (
+			(await this.updateComputerWhere(tenantId, {
+				update: "SET owner_stop_approved_at = :approvedAt",
+				condition: `attribute_exists(pk) AND owner_id = :owner AND ${dispatchCondition}`,
+				values,
+			})) !== null
+		);
+	}
+
+	private async updateComputerWhere(
+		tenantId: string,
+		change: { update: string; condition: string; values: Item },
+	): Promise<Computer | null> {
+		try {
+			const response = await this.client.send(
+				new UpdateItemCommand({
+					TableName: this.tableName,
+					Key: computerRecordItemKey(tenantId),
+					UpdateExpression: change.update,
+					ConditionExpression: change.condition,
+					ExpressionAttributeValues: change.values,
+					ReturnValues: "ALL_NEW",
+				}),
+			);
+			return computerCodec.decode(response.Attributes!);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) return null;
+			throw error;
 		}
 	}
 

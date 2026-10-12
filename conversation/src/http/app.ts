@@ -61,10 +61,14 @@ import { createUserMembershipCache } from "./user-principal.ts";
 import { acceptsInvokeKey, type InvokeKeySource } from "../auth/invoke-key-source.ts";
 import {
 	authenticateOwnerHostRequest,
+	isBootstrapRequest,
 	isModelGatewayRequest,
 	ownerHostPrincipalOf,
+	rememberBootstrapRequest,
 	rememberOwnerHostPrincipal,
 } from "./owner-host-auth.ts";
+import type { OwnerCredentialBrokerPort } from "../computer/owner-credential-broker.ts";
+import { ownerBootstrapHandler, ownerErrorResponse, ownerPollHandler, ownerStopRequestHandler } from "./owner-supervisor.ts";
 import { WRITE_GATE_MESSAGE, WRITE_GATE_RETRY_AFTER_SECONDS, type WriteGate } from "../migration/migration-state.ts";
 
 export interface Clock {
@@ -128,6 +132,11 @@ export interface AppDeps {
 	openStreams?: OpenStreamCounter;
 	/** The model gateway a container reaches with a session token; its route is registered only when this is given. */
 	modelGateway?: ModelGatewayDependencies;
+	/**
+	 * The long-lived computer owner's routes (bootstrap, poll, stop request) and the supervisor token that opens them. They
+	 * are registered only when this is given: the secret the tokens are signed with and the credential broker.
+	 */
+	ownerSupervisor?: { readonly signingKey: string; readonly broker: OwnerCredentialBrokerPort };
 }
 
 /**
@@ -155,20 +164,23 @@ export function createApp(deps: AppDeps): Hono {
 		return next();
 	});
 
-	const modelGatewayDeps = deps.modelGateway;
+	const ownerSupervisorDeps = deps.ownerSupervisor;
 	app.use(async (c, next) => {
-		if (c.req.path === "/health" || modelGatewayDeps === undefined) {
+		if (c.req.path === "/health" || ownerSupervisorDeps === undefined) {
 			return next();
 		}
 		const decision = await authenticateOwnerHostRequest(
-			{ signingKey: modelGatewayDeps.signingKey, clock: modelGatewayDeps.clock, turns: modelGatewayDeps.turns },
+			{ signingKey: ownerSupervisorDeps.signingKey, clock: deps.clock, store: deps.store as MessagingStore },
 			{ method: c.req.method, path: c.req.path, authorization: c.req.header("Authorization") ?? null },
 		);
 		if (decision.kind === "refused") {
-			return c.json({ detail: decision.detail }, decision.status as any);
+			return ownerErrorResponse(c, decision.code, decision.detail);
 		}
 		if (decision.kind === "authenticated") {
 			rememberOwnerHostPrincipal(c.req.raw, decision.principal);
+		}
+		if (decision.kind === "bootstrap_request") {
+			rememberBootstrapRequest(c.req.raw);
 		}
 		return next();
 	});
@@ -177,7 +189,7 @@ export function createApp(deps: AppDeps): Hono {
 		if (c.req.path === "/health") {
 			return next();
 		}
-		if (ownerHostPrincipalOf(c.req.raw) !== null || isModelGatewayRequest(c.req.method, c.req.path)) {
+		if (ownerHostPrincipalOf(c.req.raw) !== null || isBootstrapRequest(c.req.raw) || isModelGatewayRequest(c.req.method, c.req.path)) {
 			return next();
 		}
 		if (deps.invokeKeys) {
@@ -408,6 +420,19 @@ export function createApp(deps: AppDeps): Hono {
 	] as const;
 	for (const [method, path, handler] of hostPaths) {
 		declareRoute(app, { method, path: `/orgs/:tenant_id/host${path}`, audience: "worker" }, (c) => handler(c, hostRoutes));
+	}
+
+	if (ownerSupervisorDeps !== undefined) {
+		const ownerRoutes = { ...ownerSupervisorDeps, store, clock: deps.clock, park: computerRoutes.park };
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/bootstrap", audience: "owner-bootstrap" }, (c) =>
+			ownerBootstrapHandler(c, ownerRoutes),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/poll", audience: "computer-owner" }, (c) =>
+			ownerPollHandler(c, ownerRoutes),
+		);
+		declareRoute(app, { method: "POST", path: "/orgs/:tenant_id/host/owner/stop-request", audience: "computer-owner" }, (c) =>
+			ownerStopRequestHandler(c, ownerRoutes),
+		);
 	}
 
 	const modelGateway = deps.modelGateway;

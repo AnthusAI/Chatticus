@@ -3,9 +3,9 @@ import type { Channel, ChannelMessageRecord } from "../src/domain/channels.ts";
 import type { Bot } from "../src/store/codecs/bot.ts";
 import type { Task } from "../src/store/codecs/task.ts";
 import type { Worker } from "../src/store/codecs/worker.ts";
-import type { Computer } from "../src/store/codecs/computer.ts";
+import { withoutOwner, type Computer } from "../src/store/codecs/computer.ts";
 import { DuplicateBotNameError } from "../src/http/errors.ts";
-import type { MessagingStore } from "../src/store/messaging-store.ts";
+import type { MessagingStore, OwnerBootstrapRecord, OwnerDispatchRecord } from "../src/store/messaging-store.ts";
 
 /** In-memory messaging store for scenarios that do not need DynamoDB. */
 export class InMemoryMessagingStore implements MessagingStore {
@@ -267,7 +267,7 @@ export class InMemoryMessagingStore implements MessagingStore {
 		if (computer === undefined || computer.hostStartGeneration !== expectedGeneration) {
 			return null;
 		}
-		const { liveWriterHostId: _cleared, ...kept } = computer;
+		const { liveWriterHostId: _cleared, ...kept } = withoutOwner(computer);
 		const next = { ...kept, hostStartGeneration: expectedGeneration + 1, hostStartLeaseExpiresAt: leaseExpiresAt };
 		this.computers.set(tenantId, next);
 		return structuredClone(next);
@@ -291,7 +291,7 @@ export class InMemoryMessagingStore implements MessagingStore {
 		if (!computer.diskDirty && computer.liveWriterHostId === undefined) {
 			return null;
 		}
-		const { liveWriterHostId: _cleared, ...kept } = computer;
+		const { liveWriterHostId: _cleared, ...kept } = withoutOwner(computer);
 		const settled: Computer = {
 			...kept,
 			stopped: true,
@@ -343,6 +343,62 @@ export class InMemoryMessagingStore implements MessagingStore {
 		if (computer !== undefined && computer.hostStartDispatchedGeneration === generation) {
 			this.computers.set(tenantId, { ...computer, hostStartDispatchedGeneration: generation - 1 });
 		}
+	}
+
+	async consumeOwnerBootstrap(tenantId: string, bootstrap: OwnerBootstrapRecord): Promise<Computer | null> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined || computer.hostStartGeneration !== bootstrap.generation) return null;
+		if (computer.ownerGeneration !== undefined && computer.ownerGeneration >= bootstrap.generation) return null;
+		const consumed: Computer = {
+			...withoutOwner(computer),
+			ownerId: bootstrap.ownerId,
+			ownerGeneration: bootstrap.generation,
+			ownerProtocolVersion: bootstrap.protocolVersion,
+			ownerStartedAt: new Date(Math.floor(bootstrap.startedAt.getTime() / 1000) * 1000),
+		};
+		this.computers.set(tenantId, consumed);
+		return structuredClone(consumed);
+	}
+
+	async recordOwnerPoll(tenantId: string, workerId: string, poll: { sequence: number; state: string; at: Date }): Promise<boolean> {
+		const key = `${tenantId}\u0000${workerId}`;
+		const worker = this.workers.get(key);
+		if (worker === undefined || (worker.pollSequence !== undefined && worker.pollSequence > poll.sequence)) return false;
+		this.workers.set(key, { ...worker, lastHeartbeatAt: poll.at, pollSequence: poll.sequence, pollState: poll.state });
+		return true;
+	}
+
+	async updateOwnerPresence(tenantId: string, ownerId: string, change: { protocolVersion?: number; idleSinceAt?: Date | null }): Promise<boolean> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined || computer.ownerId !== ownerId) return false;
+		const next: Computer = { ...computer };
+		if (change.protocolVersion !== undefined) next.ownerProtocolVersion = change.protocolVersion;
+		if (change.idleSinceAt instanceof Date) next.idleSinceAt = new Date(Math.floor(change.idleSinceAt.getTime() / 1000) * 1000);
+		if (change.idleSinceAt === null) delete next.idleSinceAt;
+		this.computers.set(tenantId, next);
+		return true;
+	}
+
+	async offerOwnerDispatch(tenantId: string, ownerId: string, expectedDispatchId: string | null, dispatch: OwnerDispatchRecord): Promise<boolean> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined || computer.ownerId !== ownerId || computer.ownerStopApprovedAt !== undefined) return false;
+		if ((computer.dispatchId ?? null) !== expectedDispatchId) return false;
+		this.computers.set(tenantId, {
+			...computer,
+			dispatchId: dispatch.dispatchId,
+			dispatchTurnId: dispatch.turnId,
+			dispatchActionId: dispatch.actionId,
+			dispatchAttempt: dispatch.attempt,
+			dispatchLeaseExpiresAt: new Date(Math.floor(dispatch.leaseExpiresAt.getTime() / 1000) * 1000),
+		});
+		return true;
+	}
+
+	async approveOwnerStop(tenantId: string, ownerId: string, expectedDispatchId: string | null, approvedAt: Date): Promise<boolean> {
+		const computer = this.computers.get(tenantId);
+		if (computer === undefined || computer.ownerId !== ownerId || (computer.dispatchId ?? null) !== expectedDispatchId) return false;
+		this.computers.set(tenantId, { ...computer, ownerStopApprovedAt: new Date(Math.floor(approvedAt.getTime() / 1000) * 1000) });
+		return true;
 	}
 }
 

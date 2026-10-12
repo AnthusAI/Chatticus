@@ -473,6 +473,95 @@ function contractSuite(name: string, makeStore: () => Promise<MessagingStore>): 
 			expect(await store.claimComputerDiskWriter("tenant-a", "host-b")).toBe(true);
 		});
 
+		describe("the owner fields of the computer", () => {
+			const computerOnGeneration = (generation: number): Computer => ({
+				computerId: "c-1",
+				tenantId: "tenant-a",
+				policy: "prefer_local",
+				stopped: false,
+				modelReady: true,
+				workspaceReady: false,
+				browserReady: false,
+				hostStartGeneration: generation,
+				hostStartDispatchedGeneration: generation,
+				snapshotGeneration: 0,
+				diskDirty: false,
+				hydrateRequired: false,
+			});
+			const bootstrap = (ownerId: string, generation: number) => ({ ownerId, generation, protocolVersion: 1, startedAt: new Date("2026-01-01T00:10:00.700Z") });
+			const dispatch = (dispatchId: string, attempt = 1) => ({
+				dispatchId,
+				turnId: "turn-1",
+				actionId: "action-1",
+				attempt,
+				leaseExpiresAt: new Date("2026-01-01T00:11:00Z"),
+			});
+
+			it("consumes a bootstrap once and never again for a finished generation", async () => {
+				const store = await makeStore();
+				await store.putComputer(computerOnGeneration(2));
+				expect(await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-wrong-generation", 1))).toBeNull();
+				const consumed = await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 2));
+				expect(consumed).toMatchObject({ ownerId: "owner-a", ownerGeneration: 2, ownerProtocolVersion: 1 });
+				expect(consumed?.ownerStartedAt?.getTime()).toBe(new Date("2026-01-01T00:10:00Z").getTime());
+				expect(await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 2))).toBeNull();
+				expect(await store.consumeOwnerBootstrap("tenant-none", bootstrap("owner-a", 2))).toBeNull();
+			});
+
+			it("clears the owner fields when a new generation is claimed and keeps the last owner generation", async () => {
+				const store = await makeStore();
+				await store.putComputer(computerOnGeneration(1));
+				await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 1));
+				await store.updateOwnerPresence("tenant-a", "owner-a", { idleSinceAt: new Date("2026-01-01T00:10:30Z") });
+				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", null, dispatch("d-1"))).toBe(true);
+				const claimed = await store.claimHostStartGeneration("tenant-a", 1, new Date("2026-01-01T00:12:00Z"));
+				expect(claimed?.hostStartGeneration).toBe(2);
+				expect(claimed?.ownerId).toBeUndefined();
+				expect(claimed?.idleSinceAt).toBeUndefined();
+				expect(claimed?.dispatchId).toBeUndefined();
+				expect(claimed?.ownerGeneration).toBe(1);
+				expect(await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-b", 1))).toBeNull();
+			});
+
+			it("changes the presence of the live owner only", async () => {
+				const store = await makeStore();
+				await store.putComputer(computerOnGeneration(1));
+				expect(await store.updateOwnerPresence("tenant-a", "owner-a", { protocolVersion: 2 })).toBe(false);
+				await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 1));
+				expect(await store.updateOwnerPresence("tenant-a", "owner-someone-else", { idleSinceAt: T0 })).toBe(false);
+				expect(await store.updateOwnerPresence("tenant-a", "owner-a", { protocolVersion: 2, idleSinceAt: T0 })).toBe(true);
+				expect(await store.getComputer("tenant-a")).toMatchObject({ ownerProtocolVersion: 2, idleSinceAt: T0 });
+				expect(await store.updateOwnerPresence("tenant-a", "owner-a", { idleSinceAt: null })).toBe(true);
+				expect((await store.getComputer("tenant-a"))?.idleSinceAt).toBeUndefined();
+			});
+
+			it("offers a dispatch only over the dispatch it was judged against, and an approved stop and an offer cannot both stand", async () => {
+				const store = await makeStore();
+				await store.putComputer(computerOnGeneration(1));
+				await store.consumeOwnerBootstrap("tenant-a", bootstrap("owner-a", 1));
+				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", "d-ghost", dispatch("d-1"))).toBe(false);
+				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", null, dispatch("d-1"))).toBe(true);
+				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", null, dispatch("d-2"))).toBe(false);
+				expect(await store.approveOwnerStop("tenant-a", "owner-a", null, T0)).toBe(false);
+				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", "d-1", dispatch("d-2", 2))).toBe(true);
+				expect(await store.approveOwnerStop("tenant-a", "owner-a", "d-2", T0)).toBe(true);
+				expect(await store.offerOwnerDispatch("tenant-a", "owner-a", "d-2", dispatch("d-3", 3))).toBe(false);
+				expect(await store.getComputer("tenant-a")).toMatchObject({ dispatchId: "d-2", dispatchAttempt: 2, ownerStopApprovedAt: T0 });
+			});
+
+			it("records a poll only when its sequence is not older than the recorded one", async () => {
+				const store = await makeStore();
+				const worker: Worker = { workerId: "owner-a", tenantId: "tenant-a", costClass: "local", capabilities: ["computer", "cpu"], tokenHash: "hash", lastHeartbeatAt: T0 };
+				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 1, state: "idle", at: T0 })).toBe(false);
+				await store.putWorker(worker);
+				const later = new Date(T0.getTime() + 5000);
+				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 4, state: "idle", at: later })).toBe(true);
+				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 4, state: "idle", at: later })).toBe(true);
+				expect(await store.recordOwnerPoll("tenant-a", "owner-a", { sequence: 3, state: "serving", at: later })).toBe(false);
+				expect(await store.getWorker("tenant-a", "owner-a")).toMatchObject({ pollSequence: 4, pollState: "idle", lastHeartbeatAt: later });
+			});
+		});
+
 		it("round-trips tasks and lists one user's tasks sorted, across several pages", async () => {
 			const store = await makeStore();
 			for (const taskId of ["k-3", "k-1", "k-5", "k-2", "k-4"]) {

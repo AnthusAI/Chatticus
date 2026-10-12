@@ -1,16 +1,9 @@
 import assert from "node:assert/strict";
 import { Given, Then, When, type DataTable } from "@cucumber/cucumber";
-import { getTurn } from "../../src/domain/turns.ts";
-import { actionStoreOf } from "../computer-support.ts";
 import { computerScenarioOf } from "../computer-scenario.ts";
-import { httpBaseUrl } from "../front-door.ts";
-import { createGatewayModels } from "../../../computer/host/src/owner-models.ts";
-import { consoleLogEmitter } from "../../src/observability/log-line.ts";
 import { assertEventsInOrder, capturedConsoleLines, parsedLogLines, type ParsedLogLine } from "../log-capture-support.ts";
 import { gatewayScenarioOf, SCENARIO_VENDOR_KEY } from "../model-gateway-support.ts";
-import { containerEnvironmentOf, OWNER_START_INVOKE_KEY, ownerStartOf } from "../owner-start-support.ts";
-import { SCENARIO_GATEWAY_SIGNING_KEY } from "../model-gateway-support.ts";
-import { FAKE_SCOPED_CREDENTIALS } from "../fakes/fake-ecs.ts";
+import { containerEnvironmentOf, ownerStartOf } from "../owner-start-support.ts";
 import type { ChatticusWorld } from "../world.ts";
 import { turnOf } from "./model-gateway.steps.ts";
 
@@ -30,8 +23,6 @@ const OWNER_EVENTS: ReadonlySet<string> = new Set([
 
 const STARTER_EVENTS: ReadonlySet<string> = new Set([
 	"owner_token_minted",
-	"scoped_credentials_assumed",
-	"scoped_credentials_failed",
 	"owner_task_started",
 	"owner_task_failed",
 ]);
@@ -157,10 +148,6 @@ Then("no gateway log line contains the container's token", function (this: Chatt
 	assert.ok(!gatewayScenarioOf(this).consoleLines.join("\n").includes(gatewayScenarioOf(this).lastToken));
 });
 
-Given("STS refuses the assume role with the error {string}", function (this: ChatticusWorld, name: string) {
-	ownerStartOf(this).sts.refusalName = name;
-});
-
 Given("ECS answers the run task with no task", function (this: ChatticusWorld) {
 	ownerStartOf(this).ecs.startsNoTask = true;
 });
@@ -185,9 +172,6 @@ Then("the starter log line {string} has {string} {string}", function (this: Chat
 	assert.equal(lineOf(starterLinesOf(this), event).fields.get(field), value);
 });
 
-Then("the starter log line {string} has the session name of the owner id", function (this: ChatticusWorld, event: string) {
-	assert.equal(lineOf(starterLinesOf(this), event).fields.get("session_name"), startedOwnerId(this).slice(0, 64));
-});
 
 Then("the starter log has no {string} line", function (this: ChatticusWorld, event: string) {
 	assert.equal(starterLinesOf(this).filter((line) => line.event === event).length, 0);
@@ -198,47 +182,3 @@ Then("the starter log does not contain {string}", function (this: ChatticusWorld
 	assert.ok(!ownerStartOf(this).logs.join("\n").includes(text));
 });
 
-Then("the combined log text of the starter, the owner and the gateway contains none of:", async function (this: ChatticusWorld, table: DataTable) {
-	const job = startJobOf(this);
-	const turn = await getTurn(this.turnDependencies(), job.tenantId, job.turnId);
-	const actions = await actionStoreOf(this).listForTurn(job.tenantId, turn.turnId);
-	assert.ok(actions.length > 0, "The turn has no computer action to take the tool's arguments and output from.");
-	const secrets = new Map<string, string[]>([
-		["the gateway token", [containerEnvironmentOf(this).get("CHATTICUS_MODEL_GATEWAY_TOKEN") ?? ""]],
-		["the scoped access key id", [FAKE_SCOPED_CREDENTIALS.AccessKeyId]],
-		["the scoped secret access key", [FAKE_SCOPED_CREDENTIALS.SecretAccessKey]],
-		["the scoped session token", [FAKE_SCOPED_CREDENTIALS.SessionToken]],
-		["the invoke key", [OWNER_START_INVOKE_KEY]],
-		["the host token", [containerEnvironmentOf(this).get("CHATTICUS_OWNER_HOST_TOKEN") ?? ""]],
-		["the signing key", [SCENARIO_GATEWAY_SIGNING_KEY]],
-		["the vendor key", [SCENARIO_VENDOR_KEY]],
-		["the tool arguments", actions.flatMap((action) => Object.values(action.arguments))],
-		["the tool output", actions.map((action) => action.result ?? "")],
-	]);
-	const text = [...capturedConsoleLines(this), ...ownerStartOf(this).logs, ...gatewayScenarioOf(this).consoleLines].join("\n");
-	assert.ok(text.includes("tool_finished") && text.includes("owner_task_started"), "The combined log is missing the lines under test.");
-	for (const [description] of table.raw().map((row) => row as [string])) {
-		const values = secrets.get(description);
-		assert.ok(values, `Unknown secret description ${description}`);
-		for (const value of values) {
-			assert.ok(value !== "", `${description} is empty, so the check proves nothing.`);
-			assert.ok(!text.includes(value), `The log text contains ${description}.`);
-		}
-	}
-});
-
-When("the container asks the model gateway for an answer through Pi and logs as its owner", async function (this: ChatticusWorld) {
-	const environment = containerEnvironmentOf(this);
-	const tenantId = environment.get("CHATTICUS_TENANT_ID")!;
-	const models = createGatewayModels(
-		{
-			baseUrl: `${await httpBaseUrl(this)}/orgs/${tenantId}/model-gateway/v1`,
-			token: environment.get("CHATTICUS_MODEL_GATEWAY_TOKEN")!,
-		},
-		consoleLogEmitter({ tenant_id: tenantId, turn_id: environment.get("CHATTICUS_TAKEOVER_TURN_ID")!, owner_id: startedOwnerId(this) }),
-	);
-	const model = models.getModel("openai", "gpt-5-nano");
-	assert.ok(model, "Pi has no model to ask");
-	const answer = await models.complete(model, { messages: [{ role: "user", content: "Say good morning.", timestamp: Date.now() }] });
-	assert.equal(answer.stopReason, "stop", JSON.stringify(answer));
-});

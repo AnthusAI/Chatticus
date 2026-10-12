@@ -15,6 +15,10 @@ export interface Worker {
 	lastHeartbeatAt: Date;
 	computerId?: string;
 	hydratedSnapshotGeneration?: number;
+	/** The sequence of the last owner poll that was accepted; absent before the first poll of an owner. */
+	pollSequence?: number;
+	/** The state the owner reported in its last accepted poll. */
+	pollState?: string;
 }
 
 export type Item = Record<string, AttributeValue>;
@@ -38,6 +42,12 @@ export function encode(value: Worker): Item {
 
 	if (value.computerId !== undefined) {
 		item.computer_id = { S: value.computerId };
+	}
+	if (value.pollSequence !== undefined) {
+		item.poll_sequence = { N: String(value.pollSequence) };
+	}
+	if (value.pollState !== undefined) {
+		item.poll_state = { S: value.pollState };
 	}
 	if (value.hydratedSnapshotGeneration !== undefined) {
 		item.hydrated_snapshot_generation = { N: String(value.hydratedSnapshotGeneration) };
@@ -100,5 +110,7 @@ export function decode(item: Item): Worker {
 		lastHeartbeatAt: new Date(lastHeartbeatAtStr),
 		computerId: item.computer_id?.S,
 		hydratedSnapshotGeneration: hydratedStr ? Number(hydratedStr) : undefined,
+		...(item.poll_sequence?.N === undefined ? {} : { pollSequence: Number(item.poll_sequence.N) }),
+		...(item.poll_state?.S === undefined ? {} : { pollState: item.poll_state.S }),
 	};
 }

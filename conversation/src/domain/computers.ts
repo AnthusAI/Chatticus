@@ -8,7 +8,8 @@ import {
 import { snapshotUri } from "../snapshot/uri.ts";
 import { pythonRepr } from "./bots.ts";
 import type { Clock, IdSource } from "../http/app.ts";
-import type { Computer } from "../store/codecs/computer.ts";
+import { withoutOwner, type Computer } from "../store/codecs/computer.ts";
+import type { Worker } from "../store/codecs/worker.ts";
 import type { MessagingStore } from "../store/messaging-store.ts";
 import { refuseIfComputerWorkPaused, type SpendPauseDependencies } from "./organization-spend.ts";
 
@@ -97,10 +98,50 @@ export async function setComputerStopped(
 	const computer = await ensureComputer(tenantId, deps);
 	const { browserUnavailable: _kept, ...withoutUnavailable } = computer;
 	const updated: Computer = stopped
-		? { ...computer, stopped, modelReady: false, workspaceReady: false, browserReady: false }
+		? { ...withoutOwner(computer), stopped, modelReady: false, workspaceReady: false, browserReady: false }
 		: { ...withoutUnavailable, stopped };
 	await deps.store.putComputer(updated);
 	return updated;
+}
+
+/**
+ * Whether a live owner serves the computer: an owner that exchanged its bootstrap token for the current host start
+ * generation and whose worker item has a heartbeat inside the window. It does not look at the stopped flag, the hydration
+ * or what the owner reports doing: a booting, hydrating, serving, draining or stopping owner of the current generation is
+ * live. A host worker of a customer account never sets an owner id, so this is false for it.
+ *
+ * @param computer The organization computer.
+ * @param worker The worker item named by the computer's owner id, or null when there is none.
+ * @param now The current time.
+ * @param timeoutSeconds Seconds without a heartbeat after which an owner is taken to be gone.
+ * @returns Whether the owner is live.
+ */
+export function liveOwnerOf(computer: Computer, worker: Worker | null, now: Date, timeoutSeconds: number): boolean {
+	return (
+		computer.ownerId !== undefined &&
+		computer.ownerGeneration === computer.hostStartGeneration &&
+		worker !== null &&
+		worker.workerId === computer.ownerId &&
+		worker.computerId === computer.computerId &&
+		now.getTime() - worker.lastHeartbeatAt.getTime() <= timeoutSeconds * 1000
+	);
+}
+
+/**
+ * The live owner of the organization's computer, or null when there is none ({@link liveOwnerOf}).
+ *
+ * @param tenantId Organization.
+ * @param deps The store, clock and the heartbeat window.
+ * @returns The computer and the id of its live owner, or null.
+ */
+export async function liveOwnerOfOrganization(
+	tenantId: string,
+	deps: { store: MessagingStore; clock: Clock; heartbeatTimeoutSeconds: number },
+): Promise<{ computer: Computer; ownerId: string } | null> {
+	const computer = await deps.store.getComputer(tenantId);
+	if (computer === null || computer.ownerId === undefined) return null;
+	const worker = await deps.store.getWorker(tenantId, computer.ownerId);
+	return liveOwnerOf(computer, worker, deps.clock.now(), deps.heartbeatTimeoutSeconds) ? { computer, ownerId: computer.ownerId } : null;
 }
 
 /**
