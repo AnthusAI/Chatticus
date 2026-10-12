@@ -59,8 +59,21 @@ export function withRecordedOwnerRequests(world: ChatticusWorld, deps: ExecutorD
 	};
 }
 
-/** The snapshot store an owner hydrates from and publishes to: over a recording client when the scenario records. */
-export function snapshotStoreForOwner(world: ChatticusWorld, store: SnapshotObjectStore): SnapshotObjectStore {
+const supervisorRecordings = new WeakMap<ChatticusWorld, RecordedAwsRequest[]>();
+
+/** The requests the scenario's owner supervisors made, in order; they are judged against the supervisor role, apart from the per-turn owners'. */
+export const recordedSupervisorRequestsOf = (world: ChatticusWorld): readonly RecordedAwsRequest[] => supervisorRecordings.get(world) ?? [];
+
+/**
+ * The snapshot store an owner supervisor hydrates from and publishes to: over a recording client when the scenario records
+ * its owners' requests, noted in the supervisor's own list so they are judged against the supervisor's role.
+ */
+export function snapshotStoreForSupervisor(world: ChatticusWorld, store: SnapshotObjectStore): SnapshotObjectStore {
 	if (!isRecordingOwnerRequests(world) || !(store instanceof S3SnapshotStore)) return store;
-	return new S3SnapshotStore(store.bucket, recordingS3Client(testS3Client(), startRecordingOwnerRequests(world)));
+	let sink = supervisorRecordings.get(world);
+	if (sink === undefined) {
+		sink = [];
+		supervisorRecordings.set(world, sink);
+	}
+	return new S3SnapshotStore(store.bucket, recordingS3Client(testS3Client(), sink));
 }

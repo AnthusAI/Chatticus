@@ -18,19 +18,49 @@ import {
 	type HostComputer,
 	type RegateActionRequest,
 } from "@chatticus/host-protocol";
+import {
+	ownerBootstrapRequestSchema,
+	ownerBootstrapResponseSchema,
+	ownerErrorSchema,
+	ownerPollRequestSchema,
+	ownerPollResponseSchema,
+	ownerStopRequestSchema,
+	ownerStopResponseSchema,
+	type OwnerBootstrapRequest,
+	type OwnerBootstrapResponse,
+	type OwnerErrorCode,
+	type OwnerPollRequest,
+	type OwnerPollResponse,
+	type OwnerStopRequest,
+	type OwnerStopResponse,
+} from "@chatticus/host-protocol/supervisor";
 
 const INVOKE_HEADER = "X-Chatticus-Invoke-Key";
 const DEFAULT_REGISTRATION_COST_CLASS = "local";
 const DEFAULT_REGISTRATION_CAPABILITIES = ["cpu", "computer"];
 
-/** The Front Door refused a host request. Python raised the built-in `RuntimeError`; the host keeps a named class. */
+/**
+ * The Front Door refused a host request. `code` is present when the refusal came from an owner route and carried the
+ * `{ detail, code }` body of the supervisor protocol.
+ */
 export class HostProtocolError extends Error {
 	readonly status: number;
+	readonly code: OwnerErrorCode | undefined;
 
-	constructor(message: string, status: number) {
+	constructor(message: string, status: number, code?: OwnerErrorCode) {
 		super(message);
 		this.name = "HostProtocolError";
 		this.status = status;
+		this.code = code;
+	}
+}
+
+function ownerErrorCodeOf(text: string): OwnerErrorCode | undefined {
+	try {
+		const parsed = ownerErrorSchema.safeParse(JSON.parse(text));
+		return parsed.success ? parsed.data.code : undefined;
+	} catch {
+		return undefined;
 	}
 }
 
@@ -48,6 +78,8 @@ export type HostProtocolClientOptions = {
 	readonly userId: string;
 	readonly invokeKey?: string;
 	readonly fetchFunction?: typeof fetch;
+	/** Abort a request that has not been answered after this many milliseconds; absent, a request waits as long as the runtime lets it. */
+	readonly requestTimeoutMilliseconds?: number;
 };
 
 type ZodLike<T> = { parse(value: unknown): T };
@@ -58,7 +90,7 @@ function messageOf(method: string, suffix: string, status: number, text: string)
 
 /** The nine host routes of one organization's Front Door, called with one worker's bearer token. */
 export class HostProtocolClient {
-	private readonly options: HostProtocolClientOptions;
+	protected readonly options: HostProtocolClientOptions;
 	private readonly fetchFunction: typeof fetch;
 
 	constructor(options: HostProtocolClientOptions) {
@@ -66,9 +98,14 @@ export class HostProtocolClient {
 		this.fetchFunction = options.fetchFunction ?? fetch;
 	}
 
+	/** The bearer token of the next request. */
+	protected bearerToken(): string {
+		return this.options.workerToken;
+	}
+
 	private headers(): Record<string, string> {
 		const headers: Record<string, string> = {
-			Authorization: `Bearer ${this.options.workerToken}`,
+			Authorization: `Bearer ${this.bearerToken()}`,
 			[HOST_USER_HEADER]: this.options.userId,
 			"Content-Type": "application/json",
 		};
@@ -84,14 +121,16 @@ export class HostProtocolClient {
 			method,
 			headers: this.headers(),
 			...(body === undefined ? {} : { body: JSON.stringify(body) }),
+			...(this.options.requestTimeoutMilliseconds === undefined ? {} : { signal: AbortSignal.timeout(this.options.requestTimeoutMilliseconds) }),
 		});
 	}
 
-	private async request<T>(method: "GET" | "POST", suffix: string, schema: ZodLike<T>, body?: unknown): Promise<T> {
+	/** Send one request and parse the answer; a status of 400 or more is thrown as a {@link HostProtocolError} carrying the owner error code when the body has one. */
+	protected async request<T>(method: "GET" | "POST", suffix: string, schema: ZodLike<T>, body?: unknown): Promise<T> {
 		const response = await this.send(method, suffix, body);
 		const text = await response.text();
 		if (response.status >= 400) {
-			throw new HostProtocolError(messageOf(method, suffix, response.status, text), response.status);
+			throw new HostProtocolError(messageOf(method, suffix, response.status, text), response.status, ownerErrorCodeOf(text));
 		}
 		return schema.parse(JSON.parse(text));
 	}
@@ -181,6 +220,54 @@ export class HostProtocolClient {
 	/** POST /heartbeat: the host is alive. */
 	async heartbeat(): Promise<void> {
 		await this.request("POST", "/heartbeat", hostStatusResponseSchema, heartbeatRequestSchema.parse({}));
+	}
+}
+
+/** What one owner supervisor talks to the Front Door with. */
+export type OwnerSupervisorClientOptions = Omit<HostProtocolClientOptions, "workerToken"> & {
+	/** The one-time token the starter put in the task; replaced in memory by the supervisor token once the exchange succeeds. */
+	readonly bootstrapToken: string;
+};
+
+/**
+ * The Front Door as the owner supervisor sees it: the bootstrap exchange, the poll and the stop request, and, after the
+ * exchange, the four computer routes the supervisor calls, all with the supervisor token. Every request carries the host
+ * user header. A refusal is a {@link HostProtocolError} with the status and, when the body has one, the owner error code.
+ */
+export class OwnerSupervisorClient extends HostProtocolClient {
+	private token: string;
+
+	constructor(options: OwnerSupervisorClientOptions) {
+		const { bootstrapToken, ...rest } = options;
+		super({ ...rest, workerToken: "" });
+		this.token = bootstrapToken;
+	}
+
+	protected override bearerToken(): string {
+		return this.token;
+	}
+
+	/**
+	 * POST /owner/bootstrap: exchange the bootstrap token once. On success the client holds the supervisor token and the
+	 * bootstrap token is gone.
+	 *
+	 * @param request The owner id, the generation and the protocol version.
+	 * @returns The supervisor token and the supervisor's AWS credentials.
+	 */
+	async bootstrap(request: OwnerBootstrapRequest): Promise<OwnerBootstrapResponse> {
+		const response = await this.request("POST", "/owner/bootstrap", ownerBootstrapResponseSchema, ownerBootstrapRequestSchema.parse(request));
+		this.token = response.supervisor_token;
+		return response;
+	}
+
+	/** POST /owner/poll: say what the owner is doing and ask for work. */
+	async poll(request: OwnerPollRequest): Promise<OwnerPollResponse> {
+		return this.request("POST", "/owner/poll", ownerPollResponseSchema, ownerPollRequestSchema.parse(request));
+	}
+
+	/** POST /owner/stop-request: ask whether the owner may stop. A veto is an answer, not an error. */
+	async stopRequest(request: OwnerStopRequest): Promise<OwnerStopResponse> {
+		return this.request("POST", "/owner/stop-request", ownerStopResponseSchema, ownerStopRequestSchema.parse(request));
 	}
 }
 

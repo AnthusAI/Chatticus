@@ -1,18 +1,12 @@
 import assert from "node:assert/strict";
-import { chmodSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Given, Then, When, type DataTable } from "@cucumber/cucumber";
-import { runOwnerEntryPoint, runOwnerOnComputerDisk, type OwnerEntryPointOutcome } from "../../../computer/host/src/owner.ts";
-import { HostProtocolClient } from "../../../computer/host/src/protocol-client.ts";
-import { OWNER_START_GENERATION_VARIABLE } from "../../src/computer/owner-environment.ts";
-import { ComputerHostDisk } from "../../src/snapshot/host.ts";
-import { FilesystemSnapshotStore } from "../../src/snapshot/store.ts";
 
 import { verifySessionToken, type SessionTokenAudience } from "../../src/gateway/session-token.ts";
 import { ensureComputer } from "../../src/domain/computers.ts";
 import { getTurn } from "../../src/domain/turns.ts";
 import { deliverStartJob, computerScenarioOf, queuedStartJobs, startStoryTurn, STORY_BOT, STORY_TENANT, workTurn } from "../computer-scenario.ts";
-import { computerOwnerDepsFor, computerOwnerScenarioOf, startComputerOwner } from "../computer-owner.ts";
+import { computerOwnerScenarioOf, startComputerOwner } from "../computer-owner.ts";
 import { httpBaseUrl } from "../front-door.ts";
 import { modelScenarioOf } from "../executor-harness.ts";
 import { FAKE_SCOPED_CREDENTIALS } from "../fakes/fake-ecs.ts";
@@ -325,60 +319,6 @@ When("the container takes over the turn with its task environment and is held af
 		throw new Error(`The container ended ${outcome} before its tool ran.`);
 	});
 	await Promise.race([held.reached, early]);
-});
-
-const diskRuns = new WeakMap<ChatticusWorld, OwnerEntryPointOutcome>();
-
-When(
-	"the container runs its parked turn on its computer disk through the Front Door with only its task environment",
-	async function (this: ChatticusWorld) {
-		assert.ok(this.app, "The scenario has no HTTP front door.");
-		assert.ok(this.snapshotTmpdir, "The scenario has no temporary directory.");
-		const app = this.app;
-		const ownerId = environmentValue(this, "CHATTICUS_OWNER_ID");
-		const tenantId = environmentValue(this, "CHATTICUS_TENANT_ID");
-		const generation = Number.parseInt(environmentValue(this, OWNER_START_GENERATION_VARIABLE), 10);
-		const plane = new HostProtocolClient({
-			baseUrl: "http://front-door.test",
-			tenantId,
-			workerToken: environmentValue(this, "CHATTICUS_OWNER_HOST_TOKEN"),
-			userId: environmentValue(this, "CHATTICUS_USER_ID"),
-			fetchFunction: (async (input: Request | URL | string, init?: RequestInit) => app.request(String(input), init)) as typeof fetch,
-		});
-		const disk = new ComputerHostDisk(join(this.snapshotTmpdir, "hosts", ownerId), new FilesystemSnapshotStore(join(this.snapshotTmpdir, "store")));
-		const launcher = join(this.snapshotTmpdir, "owner-start-shell");
-		writeFileSync(launcher, '#!/bin/sh\nexec /bin/bash "$@"\n');
-		chmodSync(launcher, 0o755);
-		const job = activeTurnJobOf(this);
-		const deps = await computerOwnerDepsFor(this);
-		const outcome = await runOwnerOnComputerDisk(
-			plane,
-			{
-				tenantId,
-				workerId: ownerId,
-				turnId: job.turnId,
-				startGeneration: generation,
-				liveRoot: disk.liveRoot,
-				store: disk.store,
-				heartbeatTimer: { start: () => 0, stop: () => undefined },
-			},
-			() => runOwnerEntryPoint({ claim: async () => job }, deps, { workspaceRoot: join(disk.liveRoot, "workspace"), shellLauncherPath: launcher, workerId: ownerId }),
-		);
-		diskRuns.set(this, outcome);
-	},
-);
-
-Then("the container's run on its computer disk ended {string}", function (this: ChatticusWorld, outcome: string) {
-	assert.equal(diskRuns.get(this), outcome);
-});
-
-Then("the computer published its snapshot and is stopped and its start lease of generation 1 has ended", async function (this: ChatticusWorld) {
-	const computer = await this.messagingStore().getComputer(STORY_TENANT);
-	assert.ok(computer, "The organization has no computer.");
-	assert.equal(computer.snapshotGeneration, 1);
-	assert.equal(computer.stopped, true);
-	assert.equal(computer.hostStartGeneration, 1);
-	assert.equal(computer.hostStartLeaseExpiresAt, undefined);
 });
 
 function activeTurnJobOf(world: ChatticusWorld) {

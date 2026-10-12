@@ -115,14 +115,6 @@ Feature: The starter launches the computer as a container owner
     When held computer owner "started" is released
     Then the takeover of "started" ended "done"
 
-  Scenario: The container runs its whole turn through the Front Door holding only its own tokens
-    Given the starter has the owner settings
-    And the front door requires the invoke key "deployment-invoke-key"
-    When the starter handles the start job
-    And the container runs its parked turn on its computer disk through the Front Door with only its task environment
-    Then the container's run on its computer disk ended "done"
-    And the computer published its snapshot and is stopped and its start lease of generation 1 has ended
-
   Scenario: The starter refuses to start without the role the owner credentials come from
     Given the starter has the owner settings without the setting "CHATTICUS_OWNER_SCOPED_ROLE_ARN"
     When the starter is composed

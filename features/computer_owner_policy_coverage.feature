@@ -39,7 +39,9 @@ Feature: The owner role policy covers every request the computer owner makes
     Then the owner's turn ended "done"
     And the computer owners made a "dynamodb:Query" request on a key starting "MB#"
     And the computer owners made a "dynamodb:GetItem" request on a key starting "PI#"
-    And the computer owners made a "s3:GetObject" request on a key starting "tenants/"
+    And the supervisor made a "s3:GetObject" request on a key starting "tenants/"
+    And the computer owners made no request on a key starting "tenants/"
+    And every request the supervisor made is allowed by the supervisor role policy
     And every request the computer owners made is allowed by the owner role policy
 
   Scenario: An owner whose turn fails stays inside its policy

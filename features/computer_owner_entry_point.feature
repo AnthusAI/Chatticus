@@ -20,14 +20,8 @@ Feature: Computer owner entry point
     Then the entry point ended "done"
     And the workspace file "notes.md" contains "draft-one"
     And the turn is completed
-    And the computer action was claimed by "computer-host-owner"
+    And the computer action was claimed by "owner-1"
     And no run job is queued for the turn
-
-  Scenario: The computer entry point with no takeover job does nothing
-    When no takeover job is waiting
-    And the computer entry point runs
-    Then the entry point ended "no_job"
-    And the model was asked 0 times
 
   Scenario: The entry point reports a takeover job for a turn that does not exist and changes nothing
     When a takeover job names a turn that does not exist
@@ -35,7 +29,7 @@ Feature: Computer owner entry point
     Then the entry point ended "not_found"
 
   Scenario: A command run through the entry point does not see the secrets the owner holds
-    Given the owner process holds the secret environment variables "OPENAI_API_KEY, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN, CHATTICUS_MODEL_GATEWAY_TOKEN, CHATTICUS_OWNER_HOST_TOKEN"
+    Given the owner process holds the secret environment variables "OPENAI_API_KEY, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN, CHATTICUS_MODEL_GATEWAY_TOKEN, CHATTICUS_INVOKE_KEY"
     And the model is scripted to call "run_terminal" with:
       """
       {"command": "env", "cwd": "/workspace"}
@@ -51,7 +45,7 @@ Feature: Computer owner entry point
     And the model's next request does not contain the value of "AWS_SECRET_ACCESS_KEY"
     And the model's next request does not contain the value of "AWS_SESSION_TOKEN"
     And the model's next request does not contain the value of "CHATTICUS_MODEL_GATEWAY_TOKEN"
-    And the model's next request does not contain the value of "CHATTICUS_OWNER_HOST_TOKEN"
+    And the model's next request does not contain the value of "CHATTICUS_INVOKE_KEY"
 
   Scenario: Commands run through the configured unprivileged shell launcher
     Given an unprivileged shell launcher that records every command it starts

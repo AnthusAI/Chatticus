@@ -3,14 +3,17 @@ import { randomUUID } from "node:crypto";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { Decimal } from "../../src/budget/decimal.ts";
 import { S3SnapshotStore } from "../../src/snapshot/s3.ts";
+import type { SnapshotObjectStore } from "../../src/snapshot/store.ts";
 import { type RecordedAwsRequest } from "../aws-request-recorder.ts";
 import { grantPayloadOfTable, memberHeadersFor, putActiveTurnGrant } from "../turn-grant-support.ts";
 import { STORY_TENANT } from "../computer-scenario.ts";
 import { testS3Client } from "../pi-storage.ts";
 import { createOrganizationBucket } from "../host-lifecycle-support.ts";
-import { policyAllows } from "../iam-policy-evaluator.ts";
+import { policyAllows, supervisorRolePolicyStatements } from "../iam-policy-evaluator.ts";
+import { computerForOrganization } from "../../src/domain/computers.ts";
+import { supervisorSessionTags } from "../../src/gateway/session-tags.ts";
 import { ownerRoleOfScenario } from "../owner-role-support.ts";
-import { recordedOwnerRequestsOf, startRecordingOwnerRequests } from "../owner-request-recording.ts";
+import { recordedOwnerRequestsOf, recordedSupervisorRequestsOf, startRecordingOwnerRequests } from "../owner-request-recording.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 Given("the requests of the computer owners are recorded", function (this: ChatticusWorld) {
@@ -66,6 +69,27 @@ Then(
 		assert.ok(keys.some((key) => key.startsWith(keyPrefix)), `No ${action} request on a key starting ${keyPrefix}; saw ${[...new Set(keys)].join(" | ")}`);
 	},
 );
+
+Then("the supervisor made a {string} request on a key starting {string}", function (this: ChatticusWorld, action: string, keyPrefix: string) {
+	const keys = recordedSupervisorRequestsOf(this).filter((request) => request.action === action).flatMap((request) => request.keys);
+	assert.ok(keys.some((key) => key.startsWith(keyPrefix)), `No ${action} request on a key starting ${keyPrefix}; saw ${[...new Set(keys)].join(" | ")}`);
+});
+
+Then("the computer owners made no request on a key starting {string}", function (this: ChatticusWorld, keyPrefix: string) {
+	const found = recordedOwnerRequestsOf(this).filter((request) => request.keys.some((key) => key.startsWith(keyPrefix))).map(describeRequest);
+	assert.deepEqual([...new Set(found)], []);
+});
+
+Then("every request the supervisor made is allowed by the supervisor role policy", async function (this: ChatticusWorld) {
+	const requests = recordedSupervisorRequestsOf(this);
+	assert.ok(requests.length > 0, "The scenario recorded no supervisor request.");
+	assert.ok(this.snapshotStore, "The scenario has no snapshot store.");
+	const computer = await computerForOrganization(STORY_TENANT, { store: this.messagingStore() });
+	const statements = supervisorRolePolicyStatements({ snapshotBucketArn: `arn:aws:s3:::${(this.snapshotStore as SnapshotObjectStore).bucket}` });
+	const tags = Object.fromEntries(supervisorSessionTags({ tenantId: STORY_TENANT, computerId: computer.computerId }).map((tag) => [tag.Key, tag.Value]));
+	const denied = [...new Set(requests.filter((request) => !policyAllows(statements, tags, request)).map(describeRequest))];
+	assert.equal(denied.length, 0, `The supervisor role policy would deny ${denied.length} request(s):\n${denied.join("\n")}`);
+});
 
 Then("the computer owners made no {string} request", function (this: ChatticusWorld, action: string) {
 	const found = recordedOwnerRequestsOf(this).filter((request) => request.action === action).map(describeRequest);

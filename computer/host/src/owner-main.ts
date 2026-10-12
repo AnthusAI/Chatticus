@@ -1,22 +1,22 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { OWNER_START_GENERATION_VARIABLE } from "../../../conversation/src/computer/owner-environment.ts";
-import { createContainerOwnerDeps, ownerIdentityFromEnvironment, ownerStoresConfigFromEnvironment } from "./owner-deps.ts";
-import { snapshotStoreFromEnvironment } from "./disk-lifecycle.ts";
-import { HostProtocolClient } from "./protocol-client.ts";
-import { liveRootFromEnvironment } from "./live-root.ts";
 import {
+	createContainerOwnerDeps,
+	ownerIdentityFromEnvironment,
+	ownerStoresConfigFromEnvironment,
+	ownerTurnJobFromEnvironment,
+} from "./owner-deps.ts";
+import {
+	CHILD_EXIT_CONFIGURATION,
 	DEFAULT_SHELL_LAUNCHER_PATH,
 	DEFAULT_WORKSPACE_ROOT,
-	observeOwnerRun,
+	observeOwnerTurn,
+	ownerChildExitCodeForError,
 	ownerExitCodeFor,
 	ownerLogEmitter,
 	runFileProbe,
 	runOwnerEntryPoint,
-	runOwnerOnComputerDisk,
 	runShellProbe,
-	shareWorkspaceWithShell,
-	startJobSourceFromEnvironment,
 } from "./owner.ts";
 
 const workspaceRoot = (process.env["CHATTICUS_WORKSPACE_ROOT"] ?? "").trim() || DEFAULT_WORKSPACE_ROOT;
@@ -24,21 +24,22 @@ const fileHelperCommand = [process.execPath, join(dirname(fileURLToPath(import.m
 const shellLauncherPath = (process.env["CHATTICUS_SHELL_LAUNCHER"] ?? "").trim() || DEFAULT_SHELL_LAUNCHER_PATH;
 
 /**
- * Entry point of the container owner program.
+ * Entry point of the per-turn container owner program, started by the supervisor with a subcommand.
  *
- * `shell-probe <command>` runs one command through the shell launcher and prints what it left, so an image can show what
- * the unprivileged shell reaches. `file-probe <read_workspace|write_workspace|edit_workspace> <path> [text [new text]]` runs
- * one file tool as the owner runs it and prints `file_probe_ok` or `file_probe_error` and the tool's answer. With no argument
- * the program takes over the turn the start named: no named turn ends with `owner_no_job` and success. For a named turn the
- * owner, already registered by the starter under its owner id and holding only its own signed host token (never the
- * deployment's invoke key), hydrates
- * the computer's snapshot into the workspace, runs the turn under that owner id, publishes the disk when it is dirty and
- * marks the computer stopped, then ends with `owner_outcome=<outcome>`; the exit code is 0 when the turn reached a
- * terminal state or was parked or yielded for another owner.
+ * `turn` takes over the one turn the supervisor dispatched, named in the environment the supervisor built (tenant, turn, bot,
+ * dispatch, owner id, the member, the gateway token and the AWS credentials of that one conversation): it runs the turn under
+ * the supervisor's owner id with model-chosen commands started through the shell launcher, writes the turn's lines and one
+ * `owner_exit` line, and exits 0 for a turn that reached a terminal state or was parked or yielded for another owner, 1 for a
+ * lost claim race or a turn left for reconciliation, 2 for wrong settings, 3 for an unusable shell launcher and 70 for an
+ * uncaught exception. The disk is not this program's: the supervisor hydrated it and publishes it.
  *
- * Every step writes one structured line carrying the tenant, turn and owner id: `owner_started`, `workspace_hydrated`,
- * `turn_claimed` or `turn_claim_lost`, `tool_started` and `tool_finished`, `model_call`, `snapshot_published` or
- * `snapshot_skipped`, and `owner_exit`. None of them carries a token, a credential, a key, a tool's arguments or its output.
+ * `shell-probe <command>` runs one command through the shell launcher and prints what it left, so an image can show what the
+ * unprivileged shell reaches. `file-probe <read_workspace|write_workspace|edit_workspace> <path> [text [new text]]` runs one
+ * file tool as the owner runs it and prints `file_probe_ok` or `file_probe_error` and the tool's answer. Any other argument
+ * exits 2.
+ *
+ * Every line names the event and carries the tenant, turn and owner id and none carries a token, a credential, a key, a tool's
+ * arguments or its output.
  *
  * @param argv The arguments after the program name.
  * @returns The process exit code.
@@ -56,50 +57,26 @@ export async function ownerMain(argv: readonly string[]): Promise<number> {
 		process.stdout.write(`${result.isError ? "file_probe_error" : "file_probe_ok"}: ${result.text}\n`);
 		return result.isError ? 1 : 0;
 	}
-	const source = startJobSourceFromEnvironment();
-	const job = await source.claim();
-	if (job === null) {
-		console.info("owner_no_job");
-		return 0;
+	if (argv[0] !== "turn") {
+		console.error("owner_unknown_subcommand");
+		return CHILD_EXIT_CONFIGURATION;
 	}
-	const stores = ownerStoresConfigFromEnvironment();
-	const identity = ownerIdentityFromEnvironment();
-	const log = ownerLogEmitter({ tenantId: identity.tenantId, turnId: job.turnId, ownerId: identity.ownerId });
-	const generation = Number.parseInt(process.env[OWNER_START_GENERATION_VARIABLE] ?? "", 10);
-	process.umask(0o002);
-	const outcome = await observeOwnerRun(log, Number.isNaN(generation) ? {} : { generation }, async () => {
-		const plane = new HostProtocolClient({
-			baseUrl: identity.frontDoorUrl,
-			tenantId: identity.tenantId,
-			workerToken: identity.hostToken,
-			userId: identity.userId,
-		});
-		const deps = createContainerOwnerDeps(stores, log);
-		return runOwnerOnComputerDisk(
-			plane,
-			{
-				tenantId: identity.tenantId,
-				workerId: identity.ownerId,
-				turnId: job.turnId,
-				...(Number.isNaN(generation) ? {} : { startGeneration: generation }),
-				log,
-				liveRoot: liveRootFromEnvironment(),
-				store: snapshotStoreFromEnvironment(),
-				afterHydrate: () => shareWorkspaceWithShell(workspaceRoot),
-				onTerminate: (handler) => {
-					process.once("SIGTERM", () => {
-						void handler().finally(() => {
-							log("owner_exit", { code: 143, outcome: "terminated" });
-							process.exit(143);
-						});
-					});
-				},
-			},
-			() => runOwnerEntryPoint({ claim: async () => job }, deps, { workspaceRoot, shellLauncherPath, fileHelperCommand, workerId: identity.ownerId }),
+	try {
+		const identity = ownerIdentityFromEnvironment();
+		const { job } = ownerTurnJobFromEnvironment();
+		const stores = ownerStoresConfigFromEnvironment();
+		const log = ownerLogEmitter({ tenantId: identity.tenantId, turnId: job.turnId, ownerId: identity.ownerId });
+		process.umask(0o002);
+		const outcome = await observeOwnerTurn(log, () =>
+			runOwnerEntryPoint(job, createContainerOwnerDeps(stores, log), { workspaceRoot, shellLauncherPath, fileHelperCommand, workerId: identity.ownerId }),
 		);
-	});
-	console.info(`owner_outcome=${outcome} tenant_id=${job.tenantId} turn_id=${job.turnId}`);
-	return ownerExitCodeFor(outcome);
+		console.info(`owner_outcome=${outcome} tenant_id=${job.tenantId} turn_id=${job.turnId}`);
+		return ownerExitCodeFor(outcome);
+	} catch (error) {
+		const code = ownerChildExitCodeForError(error);
+		console.error(`owner_turn_failed code=${code} error_name=${error instanceof Error ? error.name : "unknown"}`);
+		return code;
+	}
 }
 
 if (import.meta.main) {

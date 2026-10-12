@@ -913,7 +913,10 @@ that nothing the supervisor bundles matches `owner-start-driver` or the starter 
 ## 13. Traceability
 
 Scenario names are those of `features/computer_owner_long_lived.feature`. Tags: `@server` (A), `@broker` (B),
-`@supervisor` (C), `@end-to-end` (the integration, written last).
+`@supervisor` (C), `@end-to-end` (the integration, written last). The `@supervisor` scenarios are written and live in
+`features/computer_owner_supervisor.feature` (steps in `owner-supervisor-process.steps.ts` and `owner-watchdog.steps.ts`);
+they replaced the draft's `@supervisor` entries, with a few more (bootstrap window, disk that cannot be restored, stale poll,
+credential expiry, stopped report retries) and the wording of time as "seconds go by".
 
 | Scenario | Routes, states and sections | Tag |
 | --- | --- | --- |

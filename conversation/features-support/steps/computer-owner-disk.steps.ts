@@ -2,21 +2,22 @@ import assert from "node:assert/strict";
 import { chmodSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Given, Then, When } from "@cucumber/cucumber";
-import { observeOwnerRun, runOwnerEntryPoint, runOwnerOnComputerDisk, type OwnerEntryPointOutcome } from "../../../computer/host/src/owner.ts";
-import { consoleLogEmitter } from "../../src/observability/log-line.ts";
+import { observeOwnerTurn, ownerExitCodeFor, ownerLogEmitter, runOwnerEntryPoint } from "../../../computer/host/src/owner.ts";
+import type { TurnTakeoverOutcome } from "../../src/turn/computer-owner.ts";
 import { computerForOrganization, requestComputerHostStart } from "../../src/domain/computers.ts";
 import type { SnapshotObjectStore } from "../../src/snapshot/store.ts";
 import { activeTurnJob, computerOwnerDepsFor } from "../computer-owner.ts";
-import { snapshotStoreForOwner } from "../owner-request-recording.ts";
-import { ensureHostWorker, hostClientFor, hostDiskOf, lifecycleOf, LIFECYCLE_TENANT } from "../host-lifecycle-support.ts";
+import { snapshotStoreForSupervisor } from "../owner-request-recording.ts";
+import { hostDiskOf, lifecycleOf, LIFECYCLE_TENANT } from "../host-lifecycle-support.ts";
+import { startSupervisedOwner, type SupervisedTurn } from "../supervised-owner-support.ts";
 import type { ChatticusWorld } from "../world.ts";
 
 type OwnerDiskScenario = {
-	outcome: OwnerEntryPointOutcome | null;
+	outcome: TurnTakeoverOutcome | null;
 	failure: Error | null;
 	stoppedDuringTurn: boolean | null;
-	terminate: (() => Promise<void>) | null;
-	startGeneration: number | null;
+	startGeneration: number;
+	exitCode: number | null;
 };
 
 const scenarios = new WeakMap<ChatticusWorld, OwnerDiskScenario>();
@@ -24,13 +25,11 @@ const scenarios = new WeakMap<ChatticusWorld, OwnerDiskScenario>();
 function diskScenarioOf(world: ChatticusWorld): OwnerDiskScenario {
 	let scenario = scenarios.get(world);
 	if (scenario === undefined) {
-		scenario = { outcome: null, failure: null, stoppedDuringTurn: null, terminate: null, startGeneration: null };
+		scenario = { outcome: null, failure: null, stoppedDuringTurn: null, startGeneration: 1, exitCode: null };
 		scenarios.set(world, scenario);
 	}
 	return scenario;
 }
-
-const NO_TIMER = { start: () => 0, stop: () => undefined };
 
 function boundStoreOf(world: ChatticusWorld): SnapshotObjectStore {
 	assert.ok(world.snapshotStore, "The scenario has no snapshot store bound to the host worker.");
@@ -45,45 +44,34 @@ function passThroughLauncher(world: ChatticusWorld): string {
 	return path;
 }
 
-async function runOwnerOnDisk(
+async function superviseOwner(world: ChatticusWorld, ownerId: string, turn: SupervisedTurn | null, store: SnapshotObjectStore = boundStoreOf(world)): Promise<void> {
+	const scenario = diskScenarioOf(world);
+	scenario.failure = null;
+	const running = await startSupervisedOwner(world, ownerId, scenario.startGeneration, snapshotStoreForSupervisor(world, store), turn);
+	scenario.exitCode = (await running.ended).exitCode;
+}
+
+function recordedTurn(
 	world: ChatticusWorld,
 	ownerId: string,
-	run: (workspaceRoot: string) => Promise<OwnerEntryPointOutcome>,
-	store: SnapshotObjectStore = snapshotStoreForOwner(world, boundStoreOf(world)),
-	turnId?: string,
-): Promise<void> {
+	work: (workspaceRoot: string) => Promise<TurnTakeoverOutcome>,
+	ids: { turnId: string; botId?: string },
+): SupervisedTurn {
 	const scenario = diskScenarioOf(world);
-	await ensureHostWorker(world, LIFECYCLE_TENANT, ownerId);
-	const disk = hostDiskOf(world, ownerId);
-	const plane = hostClientFor(world, ownerId);
-	scenario.failure = null;
-	const log = consoleLogEmitter({ tenant_id: LIFECYCLE_TENANT, ...(turnId === undefined ? {} : { turn_id: turnId }), owner_id: ownerId });
-	try {
-		scenario.outcome = await observeOwnerRun(log, {}, () =>
-			runOwnerOnComputerDisk(
-				plane,
-				{
-					tenantId: LIFECYCLE_TENANT,
-					workerId: ownerId,
-					log,
-					...(turnId === undefined ? {} : { turnId }),
-					...(scenario.startGeneration === null ? {} : { startGeneration: scenario.startGeneration }),
-					liveRoot: disk.liveRoot,
-					store,
-					heartbeatTimer: NO_TIMER,
-					onTerminate: (handler) => {
-						scenario.terminate = handler;
-					},
-				},
-				async () => {
-					scenario.stoppedDuringTurn = (await computerForOrganization(LIFECYCLE_TENANT, { store: world.messagingStore() })).stopped;
-					return run(join(disk.liveRoot, "workspace"));
-				},
-			),
-		);
-	} catch (error) {
-		scenario.failure = error as Error;
-	}
+	const log = ownerLogEmitter({ tenantId: LIFECYCLE_TENANT, turnId: ids.turnId, ownerId });
+	return {
+		...ids,
+		work: async (workspaceRoot) => {
+			scenario.stoppedDuringTurn = (await computerForOrganization(LIFECYCLE_TENANT, { store: world.messagingStore() })).stopped;
+			try {
+				scenario.outcome = await observeOwnerTurn(log, () => work(workspaceRoot));
+				return ownerExitCodeFor(scenario.outcome);
+			} catch (error) {
+				scenario.failure = error as Error;
+				return 70;
+			}
+		},
+	};
 }
 
 Given("the starter claimed host start generation {int} for the computer", async function (this: ChatticusWorld, generation: number) {
@@ -119,23 +107,32 @@ Then("the host start lease of generation {int} is still held", async function (t
 When("the owner {string} runs the parked turn on its computer disk", async function (this: ChatticusWorld, ownerId: string) {
 	const job = activeTurnJob(this);
 	const deps = await computerOwnerDepsFor(this);
-	await runOwnerOnDisk(
+	await superviseOwner(
 		this,
 		ownerId,
-		(workspaceRoot) =>
-			runOwnerEntryPoint({ claim: async () => job }, deps, { workspaceRoot, shellLauncherPath: passThroughLauncher(this), workerId: ownerId }),
-		undefined,
-		job.turnId,
+		recordedTurn(this, ownerId, (workspaceRoot) => runOwnerEntryPoint(job, deps, { workspaceRoot, shellLauncherPath: passThroughLauncher(this), workerId: ownerId }), {
+			turnId: job.turnId,
+			botId: job.botId,
+		}),
 	);
 });
 
 When(
 	"the owner {string} runs a turn that writes {string} containing {string} and then crashes",
 	async function (this: ChatticusWorld, ownerId: string, path: string, content: string) {
-		await runOwnerOnDisk(this, ownerId, async () => {
-			hostDiskOf(this, ownerId).writeWorkspaceFile(path, content);
-			throw new Error("the turn crashed");
-		});
+		await superviseOwner(
+			this,
+			ownerId,
+			recordedTurn(
+				this,
+				ownerId,
+				async () => {
+					hostDiskOf(this, ownerId).writeWorkspaceFile(path, content);
+					throw new Error("the turn crashed");
+				},
+				{ turnId: "turn-that-crashes" },
+			),
+		);
 	},
 );
 
@@ -153,21 +150,13 @@ When("the owner {string} runs a turn while the snapshot downloads fail", async f
 			throw new Error("the download failed");
 		},
 	};
-	await runOwnerOnDisk(
-		this,
-		ownerId,
-		async () => {
-			assert.fail("The turn must not run when the disk could not be hydrated.");
-		},
-		failing,
-	);
+	await superviseOwner(this, ownerId, null, failing);
 });
 
 When(
 	"the owner {string} is told to stop while its turn has written {string} containing {string}",
 	async function (this: ChatticusWorld, ownerId: string, path: string, content: string) {
 		const scenario = diskScenarioOf(this);
-		scenario.terminate = null;
 		let release: () => void = () => undefined;
 		const gate = new Promise<void>((resolve) => {
 			release = resolve;
@@ -176,18 +165,27 @@ When(
 		const turnReached = new Promise<void>((resolve) => {
 			reached = resolve;
 		});
-		const running = runOwnerOnDisk(this, ownerId, async () => {
-			hostDiskOf(this, ownerId).writeWorkspaceFile(path, content);
-			reached();
-			await gate;
-			return "done";
-		});
+		const running = await startSupervisedOwner(
+			this,
+			ownerId,
+			scenario.startGeneration,
+			snapshotStoreForSupervisor(this, boundStoreOf(this)),
+			recordedTurn(
+				this,
+				ownerId,
+				async () => {
+					hostDiskOf(this, ownerId).writeWorkspaceFile(path, content);
+					reached();
+					await gate;
+					return "done";
+				},
+				{ turnId: "turn-that-is-stopped" },
+			),
+		);
 		await turnReached;
-		const terminate = scenario.terminate as (() => Promise<void>) | null;
-		assert.ok(terminate, "The owner registered nothing to run when it is told to stop.");
-		await terminate();
+		running.supervisor.requestTermination();
+		scenario.exitCode = (await running.ended).exitCode;
 		release();
-		await running;
 	},
 );
 
@@ -201,6 +199,16 @@ Then("the owner's run failed with {string}", function (this: ChatticusWorld, mes
 	const failure = diskScenarioOf(this).failure;
 	assert.ok(failure, "The owner's run did not fail.");
 	assert.ok(failure.message.includes(message), failure.message);
+});
+
+Then("the owner stopped with exit code {int}", function (this: ChatticusWorld, code: number) {
+	assert.equal(diskScenarioOf(this).exitCode, code);
+});
+
+Then("the owner ran no turn", function (this: ChatticusWorld) {
+	const scenario = diskScenarioOf(this);
+	assert.equal(scenario.outcome, null);
+	assert.equal(scenario.failure, null);
 });
 
 Then("the computer was running while the owner's turn ran", function (this: ChatticusWorld) {
