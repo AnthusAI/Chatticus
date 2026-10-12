@@ -1,0 +1,25 @@
+{
+  "id": "chatticus-3a31bbc6-0f1d-4b8a-b9b4-697c0ba67720",
+  "title": "Long-lived computer Phase 2b: credential renewal and 8-hour lifetime",
+  "description": "Refresh route, credential providers in the child, bootstrap exchange, protocol-version drain, lifetime raised to 8 hours. Depends on 2a.",
+  "type": "task",
+  "status": "open",
+  "priority": 2,
+  "assignee": null,
+  "creator": null,
+  "parent": "chatticus-a727ec0d-2a04-4c57-9b1e-c8054d2c44ff",
+  "labels": [],
+  "dependencies": [],
+  "comments": [],
+  "created_at": "2026-10-12T13:18:55.826042Z",
+  "updated_at": "2026-10-12T13:18:55.826074Z",
+  "closed_at": null,
+  "agent": {
+    "platform": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "name": "claude"
+  },
+  "right_now_summary": "The team is building credential renewal and raising the computer lifetime to eight hours.",
+  "right_now_updated_at": "2026-10-12T13:18:57.484417Z",
+  "custom": {}
+}
